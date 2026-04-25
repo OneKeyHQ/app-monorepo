@@ -13,6 +13,7 @@ import {
 } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import { type TextInput } from 'react-native';
 
 import {
@@ -20,19 +21,23 @@ import {
   HeightTransition,
   Input,
   Keyboard,
-  Page,
   SizableText,
   Skeleton,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { KeylessOnboardingDebugPanel } from '../pages/KeylessOnboardingDebugPanel';
 
-import { OnboardingLayout } from './OnboardingLayout';
+import {
+  OnboardingIconBadge,
+  OnboardingPage,
+  OnboardingSidebar,
+} from './Layout';
 
 interface IPinInputLayoutProps {
   title: string;
@@ -89,6 +94,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
     },
     ref,
   ) => {
+    const intl = useIntl();
     const inputRef = useRef<TextInput>(null);
     const { gtMd } = useMedia();
     const prevShowInputSkeletonRef = useRef(showInputSkeleton);
@@ -152,125 +158,131 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
     );
 
     return (
-      <Page
+      <OnboardingPage
         onUnmounted={onUnmounted}
         onClose={() => {
           void onClose?.();
         }}
+        contentContainerProps={{
+          $gtMd: { minHeight: 600, flexDirection: 'row' },
+        }}
       >
-        <OnboardingLayout>
-          <OnboardingLayout.Header />
-          <OnboardingLayout.Body constrained={false} scrollable={false}>
-            <OnboardingLayout.ConstrainedContent gap="$10">
-              <YStack gap="$2">
-                <MultipleClickStack onPress={onTitleMultipleClick}>
-                  <SizableText size="$heading2xl">{title}</SizableText>
-                </MultipleClickStack>
-                <MultipleClickStack onPress={onEnableInput}>
-                  <SizableText size="$bodyLg" color={descriptionColor}>
-                    {description}
-                  </SizableText>
-                </MultipleClickStack>
-              </YStack>
+        <YStack
+          w="100%"
+          $md={{
+            flex: 1,
+          }}
+          $gtMd={{
+            flexDirection: 'row',
+            alignSelf: 'flex-start',
+          }}
+        >
+          <YStack flex={1}>
+            <YStack gap="$2" mb="$5" $gtMd={{ mb: '$12' }}>
+              <MultipleClickStack onPress={onTitleMultipleClick}>
+                <SizableText size="$heading4xl">{title}</SizableText>
+              </MultipleClickStack>
+              <MultipleClickStack onPress={onEnableInput}>
+                <SizableText size="$bodyLg" color={descriptionColor}>
+                  {description}
+                </SizableText>
+              </MultipleClickStack>
+            </YStack>
 
-              <YStack gap="$6">
-                {/* Input Form */}
-                <HeightTransition initialHeight={50}>
-                  <YStack gap="$2">
-                    {showInputSkeleton ? (
-                      <Skeleton h={50} w="100%" radius={12} />
-                    ) : (
-                      <Input
-                        ref={inputRef}
-                        size="large"
-                        placeholder={placeholder}
-                        textAlign="center"
-                        fontSize={platformEnv.isNative ? 20 : 24}
-                        h={50}
-                        maxLength={4}
-                        keyboardType="number-pad"
-                        secureTextEntry
-                        value={value}
-                        error={!!errorMessage}
-                        disabled={isInputDisabled}
-                        onChangeText={handleChangeText}
-                        onSubmitEditing={handleSubmitEditing}
-                      />
-                    )}
-                    {errorMessage ? (
-                      <SizableText size="$bodySm" color="$textCritical">
-                        {errorMessage}
-                      </SizableText>
-                    ) : null}
-                  </YStack>
-                </HeightTransition>
-
-                {/* Submit Button */}
-                {gtMd ? (
-                  <XStack gap="$2">
-                    {secondaryButtonText && onSecondaryButtonPress ? (
-                      <Button
-                        size="large"
-                        variant="secondary"
-                        flexGrow={1}
-                        flexBasis={0}
-                        onPress={onSecondaryButtonPress}
-                      >
-                        {secondaryButtonText}
-                      </Button>
-                    ) : null}
-                    <Button
+            <YStack
+              mb="$6"
+              $md={{
+                flex: 1,
+              }}
+            >
+              {/* Input Form */}
+              <HeightTransition initialHeight={50}>
+                <YStack gap="$2">
+                  {showInputSkeleton ? (
+                    <Skeleton h={50} w="100%" radius={12} />
+                  ) : (
+                    <Input
+                      ref={inputRef}
                       size="large"
-                      variant={isSubmitDisabled ? 'secondary' : 'primary'}
-                      flexGrow={1}
-                      flexBasis={0}
-                      {...submitButtonProps}
-                    >
-                      {buttonText}
-                    </Button>
-                  </XStack>
-                ) : null}
-
-                <KeylessOnboardingDebugPanel
-                  isVerifyPinPage={isVerifyPinPage}
-                  onAutoInputPin={onAutoInputPin}
-                  onForceEnableInput={onEnableInput}
-                />
-              </YStack>
-            </OnboardingLayout.ConstrainedContent>
-          </OnboardingLayout.Body>
-          {!gtMd ? (
-            <Keyboard.StickyView>
-              <OnboardingLayout.Footer>
-                <YStack
-                  gap="$2"
-                  w="100%"
-                  y={platformEnv.isNativeIOS ? '$5' : '$0'}
-                >
-                  <Button
-                    size="large"
-                    variant={isSubmitDisabled ? 'secondary' : 'primary'}
-                    {...submitButtonProps}
-                  >
-                    {buttonText}
-                  </Button>
-                  {secondaryButtonText && onSecondaryButtonPress ? (
-                    <Button
-                      m="$0"
-                      py="$3"
-                      size="large"
-                      variant="tertiary"
-                      onPress={onSecondaryButtonPress}
-                    >
-                      {secondaryButtonText}
-                    </Button>
+                      placeholder={placeholder}
+                      textAlign="center"
+                      fontSize={platformEnv.isNative ? 20 : 24}
+                      h={50}
+                      maxLength={4}
+                      keyboardType="number-pad"
+                      secureTextEntry
+                      value={value}
+                      error={!!errorMessage}
+                      disabled={isInputDisabled}
+                      onChangeText={handleChangeText}
+                      onSubmitEditing={handleSubmitEditing}
+                    />
+                  )}
+                  {errorMessage ? (
+                    <SizableText size="$bodySm" color="$textCritical">
+                      {errorMessage}
+                    </SizableText>
                   ) : null}
                 </YStack>
-              </OnboardingLayout.Footer>
+              </HeightTransition>
+
+              <KeylessOnboardingDebugPanel
+                isVerifyPinPage={isVerifyPinPage}
+                onAutoInputPin={onAutoInputPin}
+                onForceEnableInput={onEnableInput}
+              />
+            </YStack>
+
+            {/* Submit Button */}
+            <Keyboard.StickyView>
+              <XStack gap="$2">
+                {secondaryButtonText && onSecondaryButtonPress ? (
+                  <Button
+                    size="large"
+                    variant="secondary"
+                    flexGrow={1}
+                    flexBasis={0}
+                    onPress={onSecondaryButtonPress}
+                  >
+                    {secondaryButtonText}
+                  </Button>
+                ) : null}
+                <Button
+                  size="large"
+                  variant={isSubmitDisabled ? 'secondary' : 'primary'}
+                  flexGrow={1}
+                  flexBasis={0}
+                  {...submitButtonProps}
+                >
+                  {buttonText}
+                </Button>
+              </XStack>
             </Keyboard.StickyView>
+          </YStack>
+          {gtMd ? (
+            <OnboardingSidebar>
+              <OnboardingIconBadge icon="InfoSimpleSolid" />
+              <YStack gap="$4">
+                <SizableText size="$bodyLg">
+                  {intl.formatMessage({
+                    id: ETranslations.create_pin_recovery_role__desc,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyLg">
+                  {intl.formatMessage({
+                    id: ETranslations.create_pin_dual_factor__desc,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyLg">
+                  {intl.formatMessage({
+                    id: ETranslations.create_pin_keep_safe__desc,
+                  })}
+                </SizableText>
+              </YStack>
+            </OnboardingSidebar>
           ) : null}
-        </OnboardingLayout>
-      </Page>
+        </YStack>
+      </OnboardingPage>
     );
   },
 );

@@ -5,8 +5,8 @@ import '@onekeyhq/shared/src/web/index.css';
 // Initialize desktopApiProxy singleton and assign to globalThis.desktopApiProxy.
 // Must run before any consumer reads globalThis.desktopApiProxy (e.g. Bootstrap, DesktopWebView).
 import '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
+import { Suspense, lazy, useEffect, useState } from 'react';
 
-import { useEffect, useState } from 'react';
 import { KitProvider } from '@onekeyhq/kit';
 import {
   initSentry,
@@ -40,6 +40,12 @@ const SentryKitProvider = withSentryHOC(
   KitProvider,
   SentryErrorBoundaryFallback,
 );
+
+// cspell:ignore Agentation
+const AgentationDev =
+  process.env.NODE_ENV !== 'production'
+    ? lazy(() => import('agentation').then((m) => ({ default: m.Agentation })))
+    : () => null;
 
 // Runs at module load so splash is gone before React mounts.
 if (
@@ -108,6 +114,15 @@ export default function App(props: any) {
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('App render');
   }
-  return <SentryKitProvider {...props} />;
+  return (
+    <>
+      <SentryKitProvider {...props} />
+      {process.env.NODE_ENV !== 'production' ? (
+        <Suspense>
+          <AgentationDev endpoint="http://localhost:4747" />
+        </Suspense>
+      ) : null}
+    </>
+  );
 }
 // export default KitProvider;
