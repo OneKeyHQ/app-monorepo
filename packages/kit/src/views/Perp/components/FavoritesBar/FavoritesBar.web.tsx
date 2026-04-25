@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -11,10 +12,7 @@ import { noop } from 'lodash';
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
-import {
-  useActiveTradeInstrumentAtom,
-  useHyperliquidActions,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   type IPerpFavoritesDisplayMode,
   usePerpTokenFavoritesPersistAtom,
@@ -153,8 +151,15 @@ const ScrollButton = memo(
 ScrollButton.displayName = 'ScrollButton';
 
 function FavoritesBar() {
-  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const { favoriteItems } = usePerpsFavorites({ mode: 'current' });
+  // Show both perp and spot favorites side by side regardless of current mode.
+  // Spot items render their pair name (PURR/USDC, /USDH, etc.) via displayName
+  // computed in usePerpsFavorites, so users can tell quote currency at a glance.
+  const { favoriteItems: perpItems } = usePerpsFavorites({ mode: 'perp' });
+  const { favoriteItems: spotItems } = usePerpsFavorites({ mode: 'spot' });
+  const favoriteItems = useMemo(
+    () => [...perpItems, ...spotItems],
+    [perpItems, spotItems],
+  );
   const actions = useHyperliquidActions();
   const hasFavorites = favoriteItems.length > 0;
 
@@ -162,8 +167,7 @@ function FavoritesBar() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [perpFavorites, setPerpFavorites] = usePerpTokenFavoritesPersistAtom();
-  const [spotFavorites, setSpotFavorites] = useSpotTokenFavoritesPersistAtom();
-  const isSpotMode = activeTradeInstrument.mode === 'spot';
+  const [, setSpotFavorites] = useSpotTokenFavoritesPersistAtom();
   // displayMode is a UI preference shared by perps and spot favorites bars,
   // so it always lives on the perp atom (spot atom has no displayMode field).
   const displayMode = perpFavorites.displayMode ?? 'price';
@@ -179,23 +183,24 @@ function FavoritesBar() {
       if (!result.destination) return;
       if (result.source.index === result.destination.index) return;
 
-      // Use coinName to locate items in persisted array (rendered list may be a filtered subset).
-      const reorder = (
-        prevFavorites: string[],
-      ): string[] | undefined => {
-        const sourceCoin = favoriteItems[result.source.index]?.coinName;
-        const destCoin = favoriteItems[result.destination!.index]?.coinName;
-        if (!sourceCoin || !destCoin) return undefined;
+      const sourceItem = favoriteItems[result.source.index];
+      const destItem = favoriteItems[result.destination.index];
+      if (!sourceItem || !destItem) return;
+      // Cross-mode drag is a no-op — perp and spot favorites live in separate
+      // atoms; reorder only persists when source and destination share a mode.
+      if (sourceItem.mode !== destItem.mode) return;
+
+      const reorder = (prevFavorites: string[]): string[] | undefined => {
         const next = [...prevFavorites];
-        const sourceIdx = next.indexOf(sourceCoin);
-        const destIdx = next.indexOf(destCoin);
+        const sourceIdx = next.indexOf(sourceItem.coinName);
+        const destIdx = next.indexOf(destItem.coinName);
         if (sourceIdx === -1 || destIdx === -1) return undefined;
         const [moved] = next.splice(sourceIdx, 1);
         next.splice(destIdx, 0, moved);
         return next;
       };
 
-      if (isSpotMode) {
+      if (sourceItem.mode === 'spot') {
         setSpotFavorites((prev) => {
           const next = reorder(prev.favorites);
           return next ? { ...prev, favorites: next } : prev;
@@ -207,7 +212,7 @@ function FavoritesBar() {
         });
       }
     },
-    [isSpotMode, setPerpFavorites, setSpotFavorites, favoriteItems],
+    [setPerpFavorites, setSpotFavorites, favoriteItems],
   );
 
   const renderClone = useCallback(
@@ -290,15 +295,19 @@ function FavoritesBar() {
     scrollRef.current?.scrollBy({ left: SCROLL_DISTANCE, behavior: 'smooth' });
   }, []);
 
+  // Subscribe to perp asset ctxs whenever any perp favorite is rendered,
+  // independent of current trading mode — perp items now appear in the bar
+  // even while user is browsing spot.
+  const hasPerpFavorites = perpItems.length > 0;
   useEffect(() => {
-    if (hasFavorites && activeTradeInstrument.mode === 'perp') {
+    if (hasPerpFavorites) {
       const currentActions = actions.current;
       currentActions.markAllAssetCtxsRequired();
       return () => {
         currentActions.markAllAssetCtxsNotRequired();
       };
     }
-  }, [actions, activeTradeInstrument.mode, hasFavorites]);
+  }, [actions, hasPerpFavorites]);
 
   if (!hasFavorites) {
     return null;
