@@ -1755,9 +1755,10 @@ export default class ServiceSwap extends ServiceBase {
         await this.updateSwapHistoryItem(currentSwapTxHistory, {
           shouldShowToast,
         });
+        const finalStatus = currentSwapTxHistory.status;
         if (
-          txStatusRes?.state === ESwapTxHistoryStatus.FAILED ||
-          txStatusRes?.state === ESwapTxHistoryStatus.CANCELED
+          finalStatus === ESwapTxHistoryStatus.FAILED ||
+          finalStatus === ESwapTxHistoryStatus.CANCELED
         ) {
           await this.clearLocalPendingTxForTerminalSwap(currentSwapTxHistory);
         }
@@ -1769,13 +1770,13 @@ export default class ServiceSwap extends ServiceBase {
           currentSwapTxHistory.crossChainStatus ===
             ESwapCrossChainStatus.REFUNDED ||
           (!currentSwapTxHistory.crossChainStatus &&
-            (txStatusRes?.state === ESwapTxHistoryStatus.SUCCESS ||
-              txStatusRes?.state === ESwapTxHistoryStatus.PARTIALLY_FILLED))
+            (finalStatus === ESwapTxHistoryStatus.SUCCESS ||
+              finalStatus === ESwapTxHistoryStatus.PARTIALLY_FILLED))
         ) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
             fromToken: currentSwapTxHistory.baseInfo.fromToken,
             toToken: currentSwapTxHistory.baseInfo.toToken,
-            status: txStatusRes.state,
+            status: finalStatus,
             crossChainStatus: txStatusRes.crossChainStatus,
           });
           appEventBus.emit(EAppEventBusNames.SwapSpeedBalanceUpdate, {
@@ -1783,7 +1784,7 @@ export default class ServiceSwap extends ServiceBase {
             orderToToken: currentSwapTxHistory.baseInfo.toToken,
           });
         }
-        if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
+        if (finalStatus !== ESwapTxHistoryStatus.PENDING) {
           enableInterval = false;
           const deleteHistoryId = currentSwapTxHistory.txInfo.useOrderId
             ? (currentSwapTxHistory.txInfo.orderId ?? '')
