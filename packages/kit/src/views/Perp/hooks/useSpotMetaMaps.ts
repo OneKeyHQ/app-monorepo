@@ -12,27 +12,48 @@ export function useSpotMetaMaps() {
 
   useEffect(() => {
     let isCancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 10;
+    const BASE_DELAY = 500;
+    const MAX_DELAY = 5000;
 
-    void backgroundApiProxy.serviceHyperliquid.getSpotMeta().then((meta) => {
-      if (isCancelled) {
-        return;
-      }
+    const fetchAndSet = () => {
+      void backgroundApiProxy.serviceHyperliquid.getSpotMeta().then((meta) => {
+        if (isCancelled) return;
+        const universes = meta.universes ?? [];
+        const tokens = meta.tokens ?? [];
 
-      setSpotUniverses(meta.universes ?? []);
-
-      const contractMap: Record<string, string> = {};
-      for (const token of meta.tokens ?? []) {
-        if (token.evmContract?.address) {
-          contractMap[token.name] = token.evmContract.address;
-          contractMap[getSpotTokenDisplayName(token.name)] =
-            token.evmContract.address;
+        // simpleDb may still be empty if `refreshSpotMeta()` (fired in
+        // `useHyperliquidSymbolSelect` on Perp tab focus) hasn't completed
+        // yet. Retry with exponential backoff so the contract column and
+        // universeByBaseName lookup recover instead of staying empty
+        // forever (OK-53586).
+        if (universes.length === 0 && attempts < MAX_ATTEMPTS) {
+          attempts += 1;
+          const delay = Math.min(BASE_DELAY * 2 ** (attempts - 1), MAX_DELAY);
+          timer = setTimeout(fetchAndSet, delay);
+          return;
         }
-      }
-      setTokenContractMap(contractMap);
-    });
+
+        setSpotUniverses(universes);
+        const contractMap: Record<string, string> = {};
+        for (const token of tokens) {
+          if (token.evmContract?.address) {
+            contractMap[token.name] = token.evmContract.address;
+            contractMap[getSpotTokenDisplayName(token.name)] =
+              token.evmContract.address;
+          }
+        }
+        setTokenContractMap(contractMap);
+      });
+    };
+
+    fetchAndSet();
 
     return () => {
       isCancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
