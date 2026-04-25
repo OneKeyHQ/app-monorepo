@@ -240,6 +240,7 @@ function BasicPhaseInput(
   const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFocusable] = useState(false);
+  const { gtMd } = useMedia();
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -358,7 +359,7 @@ function BasicPhaseInput(
     autoCorrect: false,
     spellCheck: false,
     autoComplete: 'off',
-    size: 'large',
+    size: gtMd ? 'medium' : 'large',
     leftAddOnProps: {
       label: `${index + 1}`,
       pr: '$0',
@@ -621,7 +622,12 @@ export function PhaseInputArea({
       <Form form={form}>
         <XStack flexWrap="wrap" m="$-1">
           {Array.from({ length: phraseLengthNumber }).map((_, index) => (
-            <Stack key={index} flexBasis="50%" p="$1">
+            <Stack
+              key={index}
+              flexBasis="50%"
+              $gtMd={{ flexBasis: '33.3333%' }}
+              p="$1"
+            >
               <Form.Field name={`phrase${index + 1}`}>
                 <PhaseInput
                   index={index}

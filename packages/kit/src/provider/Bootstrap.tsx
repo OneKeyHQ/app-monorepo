@@ -763,7 +763,6 @@ export function Bootstrap() {
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
-            // screen: EOnboardingPagesV2.AddExistingWallet,
             screen: EOnboardingPagesV2.CreateOrImportWallet,
           },
         });
