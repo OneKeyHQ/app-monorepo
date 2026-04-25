@@ -9836,6 +9836,7 @@ __metadata:
     "@rozenite/react-navigation-plugin": "npm:1.0.0-alpha.16"
     "@sentry/react-native": "npm:6.22.0"
     "@shopify/flash-list": "npm:2.2.0"
+    "@shopify/react-native-skia": "npm:2.6.2"
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/react-native-compat": "npm:2.21.9"
     burnt: "npm:0.12.2"
@@ -15285,6 +15286,32 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@shopify/react-native-skia@npm:2.6.2":
+  version: 2.6.2
+  resolution: "@shopify/react-native-skia@npm:2.6.2"
+  dependencies:
+    canvaskit-wasm: "npm:0.41.0"
+    react-native-skia-android: "npm:147.1.0"
+    react-native-skia-apple-ios: "npm:147.1.0"
+    react-native-skia-apple-macos: "npm:147.1.0"
+    react-native-skia-apple-tvos: "npm:147.1.0"
+    react-reconciler: "npm:0.31.0"
+  peerDependencies:
+    react: ">=19.0"
+    react-native: ">=0.78"
+    react-native-reanimated: ">=3.19.1"
+  peerDependenciesMeta:
+    react-native:
+      optional: true
+    react-native-reanimated:
+      optional: true
+  bin:
+    install-skia: scripts/install-libs.js
+    setup-skia-web: scripts/setup-canvaskit.js
+  checksum: 10/cdcdb6058ec21d836f874a0a37b385448d06d4faadc8b5b134c1f37826bba04cf6aedbc9dea2d42cb79f0b1bfe7a692571f374c378614dfb84ae120366d1887b
+  languageName: node
+  linkType: hard
+
 "@sideway/address@npm:^4.1.5":
   version: 4.1.5
   resolution: "@sideway/address@npm:4.1.5"
@@ -20479,6 +20506,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@webgpu/types@npm:0.1.21":
+  version: 0.1.21
+  resolution: "@webgpu/types@npm:0.1.21"
+  checksum: 10/73fc5f2bebb1abf084b146c26c237c6450747b8119cdf3733643ff90968f6e7790d0ae0ad6aa6dc7b0783a502571d348a76d22c8e8466b3b7f7c9ee956da7e5b
+  languageName: node
+  linkType: hard
+
 "@webpack-cli/configtest@npm:^2.1.1":
   version: 2.1.1
   resolution: "@webpack-cli/configtest@npm:2.1.1"
@@ -23923,6 +23957,15 @@ __metadata:
   version: 1.0.30001769
   resolution: "caniuse-lite@npm:1.0.30001769"
   checksum: 10/4b7d087832d4330a8b1fa02cd9455bdb068ea67f1735f2aa6324d5b64b24f5079cf6349b13d209f268ffa59644b9f4f784266b780bafd877ceb83c9797ca80ba
+  languageName: node
+  linkType: hard
+
+"canvaskit-wasm@npm:0.41.0":
+  version: 0.41.0
+  resolution: "canvaskit-wasm@npm:0.41.0"
+  dependencies:
+    "@webgpu/types": "npm:0.1.21"
+  checksum: 10/3c24e892da8046aa17ba5f47aae8d855c9277aba849ee983e0562c70e9f50178d9dcd16f9420a8b6278adf9dd815f5c4dac09346e88fbcf4d968f959c93eb560
   languageName: node
   linkType: hard
 
@@ -41493,6 +41536,34 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-skia-android@npm:147.1.0":
+  version: 147.1.0
+  resolution: "react-native-skia-android@npm:147.1.0"
+  checksum: 10/4e653ff0530fe19cd49e95ebc8906e5336894e529a1bb2c3aac4de2bd2c0f56403a76dbf598f4e3c59dc1a0841f6eae1d7506886bf14b2fdb9182b2de767fb0e
+  languageName: node
+  linkType: hard
+
+"react-native-skia-apple-ios@npm:147.1.0":
+  version: 147.1.0
+  resolution: "react-native-skia-apple-ios@npm:147.1.0"
+  checksum: 10/642e505a211af3bef79ace6cb95298b0addff05ef8ffb53dd66615026cee3ded14283cef40ae4c823c7d072eb4d6c30730d725901286c77c738703fb050448b7
+  languageName: node
+  linkType: hard
+
+"react-native-skia-apple-macos@npm:147.1.0":
+  version: 147.1.0
+  resolution: "react-native-skia-apple-macos@npm:147.1.0"
+  checksum: 10/a341b2c82a9a38d11e1dfb492a287989d7f9bd59be77af84b2fbbe86f06592ad31df7e4bddf21a04db34e9313a7bc472e263c0bc5a0539e0eaf56fce99d3ece5
+  languageName: node
+  linkType: hard
+
+"react-native-skia-apple-tvos@npm:147.1.0":
+  version: 147.1.0
+  resolution: "react-native-skia-apple-tvos@npm:147.1.0"
+  checksum: 10/ce0a58089bcef3ba0faa786db64be39bd8e397c7c5565a3631dd8a21eb913994e9adc7d9c4e47027aa47ce3b1e6d9e3e351e82a7d20c6d1258ddae7ba9ea6d27
+  languageName: node
+  linkType: hard
+
 "react-native-svg-transformer@npm:^1.5.3":
   version: 1.5.3
   resolution: "react-native-svg-transformer@npm:1.5.3"
@@ -41767,6 +41838,17 @@ __metadata:
   bin:
     react-native: cli.js
   checksum: 10/ee472f6cb3a86d9e154e3ac43830424403c8b5d23c6f613f0ac39953b7123352bdb6056270078d98ebbf77ac26fb00d86e50a9c4521a2db93072281937a8d9b0
+  languageName: node
+  linkType: hard
+
+"react-reconciler@npm:0.31.0":
+  version: 0.31.0
+  resolution: "react-reconciler@npm:0.31.0"
+  dependencies:
+    scheduler: "npm:^0.25.0"
+  peerDependencies:
+    react: ^19.0.0
+  checksum: 10/e7235fa08947296c2084a89dc264651fd7cb9dc3a26c3b132b84ecf2a30c46b9b98cd004c30adfe2a24741cd1e49a618858a48080008ce2b4e964a2c4233041e
   languageName: node
   linkType: hard
 
