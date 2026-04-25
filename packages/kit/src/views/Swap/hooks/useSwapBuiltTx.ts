@@ -2258,6 +2258,13 @@ export function useSwapBuildTx() {
       ) {
         const selectQuoteRes = cloneDeep(data);
         if (selectQuoteRes.swapShouldSignedData && fromAccountId) {
+          const checkLatestBalanceRes = await checkLatestFromTokenBalance(
+            selectQuoteRes.fromTokenInfo,
+            data.fromAmount,
+          );
+          if (!checkLatestBalanceRes) {
+            throw new OneKeyError('checkLatestFromTokenBalance failed');
+          }
           const {
             unSignedInfo,
             unSignedMessage,
@@ -2440,6 +2447,7 @@ export function useSwapBuildTx() {
     },
     [
       buildTxNew,
+      checkLatestFromTokenBalance,
       slippageItem,
       fromAccountId,
       fromUserAddress,

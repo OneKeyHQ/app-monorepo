@@ -2041,19 +2041,20 @@ export function useSpeedSwapActions(props: {
         const signingQuoteResult = await refreshMarketSigningQuoteResult({
           snapshot,
         });
+        const signingFromAmount =
+          signingQuoteResult.fromAmount ?? snapshot.swapInfo.sender.amount;
+        await assertLatestFromTokenBalanceSufficient({
+          token: snapshot.swapInfo.sender.token,
+          amount: signingFromAmount,
+          accountAddress: snapshot.accountAddress,
+          accountId: snapshot.accountId,
+        });
         const signedQuoteResult = await signMarketReviewQuoteResult({
           quoteResult: signingQuoteResult,
           accountId: snapshot.accountId,
           networkId: snapshot.networkId,
           accountAddress: snapshot.accountAddress,
           receivingAddress: snapshot.swapInfo.receivingAddress,
-        });
-        await assertLatestFromTokenBalanceSufficient({
-          token: snapshot.swapInfo.sender.token,
-          amount:
-            signedQuoteResult.fromAmount ?? snapshot.swapInfo.sender.amount,
-          accountAddress: snapshot.accountAddress,
-          accountId: snapshot.accountId,
         });
         const buildRes =
           await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx({
