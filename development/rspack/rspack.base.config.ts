@@ -19,6 +19,9 @@ import type {
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
+const CANVASKIT_WASM_TEST =
+  /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
+
 class BuildDoneNotifyPlugin implements RspackPluginInstance {
   apply(compiler: Compiler) {
     compiler.hooks.done.tap('BuildDoneNotifyPlugin', (stats: Stats) => {
@@ -254,8 +257,20 @@ export function createBaseConfig({
     ],
     module: {
       rules: [
+        // cspell:ignore emscripten Skia skia's
+        // Canvaskit ships a prebuilt wasm loaded at runtime by emscripten;
+        // emit it as a URL asset so react-native-skia's LoadSkiaWeb can fetch
+        // it via locateFile (see OrbShader.tsx). Must come before the generic
+        // .wasm rule and must be excluded there — otherwise both rules match
+        // and rspack tries to parse the wasm as a module.
+        {
+          test: CANVASKIT_WASM_TEST,
+          type: 'asset/resource',
+          generator: { filename: 'static/canvaskit/[name][ext]' },
+        },
         {
           test: /\.wasm$/,
+          exclude: CANVASKIT_WASM_TEST,
           type: 'webassembly/async',
         },
         {

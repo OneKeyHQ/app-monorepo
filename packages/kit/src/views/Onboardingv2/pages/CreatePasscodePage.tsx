@@ -2,12 +2,11 @@ import { Suspense, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, SizableText, Spinner, YStack } from '@onekeyhq/components';
+import { SizableText, Spinner, YStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EOnboardingPagesV2,
-  IOnboardingParamListV2,
-} from '@onekeyhq/shared/src/routes/onboardingv2';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -15,12 +14,19 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import PasswordSetupContainer from '../../../components/Password/container/PasswordSetupContainer';
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  OnboardingHeading,
+  OnboardingIconBadge,
+  OnboardingPage,
+  OnboardingSidebar,
+} from '../components/Layout';
 
 function PasscodeFormView() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { result: isPasswordSet } = usePromiseResult(async () => {
     return backgroundApiProxy.servicePassword.checkPasswordSet();
   }, []);
@@ -32,9 +38,24 @@ function PasscodeFormView() {
 
   const handlePasscodeConfirm = useCallback(
     async (_passcode: string) => {
+      const mnemonic = route?.params?.mnemonic;
+      if (mnemonic) {
+        navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+          mnemonic,
+          isWalletBackedUp: route?.params?.isWalletBackedUp ?? false,
+        });
+        defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
+        return;
+      }
       await finalizeKeylessWalletV2({ action: route?.params?.action });
     },
-    [finalizeKeylessWalletV2, route.params.action],
+    [
+      finalizeKeylessWalletV2,
+      navigation,
+      route?.params?.action,
+      route?.params?.mnemonic,
+      route?.params?.isWalletBackedUp,
+    ],
   );
 
   if (isPasswordSet === undefined) {
@@ -57,7 +78,7 @@ function PasscodeFormView() {
   return (
     <>
       <YStack gap="$2">
-        <SizableText size="$heading2xl">
+        <OnboardingHeading>
           {!isPasswordSet
             ? intl.formatMessage({
                 id: ETranslations.global_set_passcode,
@@ -65,7 +86,7 @@ function PasscodeFormView() {
             : intl.formatMessage({
                 id: ETranslations.auth_confirm_passcode_form_label,
               })}
-        </SizableText>
+        </OnboardingHeading>
         {!isPasswordSet ? (
           <SizableText size="$bodyLg" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.create_passcode_desc })}
@@ -78,17 +99,36 @@ function PasscodeFormView() {
 }
 
 function CreatePasscodePage() {
+  const { gtMd } = useMedia();
+  const intl = useIntl();
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header />
-        <OnboardingLayout.Body constrained={false} scrollable={false}>
-          <OnboardingLayout.ConstrainedContent gap="$10">
-            <PasscodeFormView />
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
-      </OnboardingLayout>
-    </Page>
+    <OnboardingPage
+      contentContainerProps={{
+        $gtMd: { minHeight: 600, flexDirection: 'row' },
+      }}
+    >
+      <YStack
+        w="100%"
+        $md={{ flex: 1 }}
+        $gtMd={{ flexDirection: 'row', alignSelf: 'flex-start' }}
+      >
+        <YStack flex={1} gap="$10">
+          <PasscodeFormView />
+        </YStack>
+        {gtMd ? (
+          <OnboardingSidebar>
+            <OnboardingIconBadge icon="LockSolid" />
+            <YStack gap="$4">
+              <SizableText size="$bodyLg">
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_passcode_tip,
+                })}
+              </SizableText>
+            </YStack>
+          </OnboardingSidebar>
+        ) : null}
+      </YStack>
+    </OnboardingPage>
   );
 }
 
