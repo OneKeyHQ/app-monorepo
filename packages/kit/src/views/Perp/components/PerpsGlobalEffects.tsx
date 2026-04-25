@@ -757,9 +757,14 @@ function useHyperliquidInstrumentSwitchRequest() {
       payload: IAppEventBusPayload[EAppEventBusNames.PerpSwitchActiveInstrument],
     ) => {
       if (!payload?.coin) return;
+      // Context-less callers (tray, notifications) update bg
+      // perpsActiveAssetAtom before emitting. Without `force: true`,
+      // changeActiveAsset hits its `activeAsset?.coin === coin` early-exit
+      // and skips clearActiveAssetData / form reset / limit price update.
       void actions.current.switchTradeInstrument({
         mode: payload.mode,
         coin: payload.coin,
+        force: true,
       });
     };
     appEventBus.on(EAppEventBusNames.PerpSwitchActiveInstrument, handler);

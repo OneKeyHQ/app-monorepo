@@ -35,7 +35,6 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
-import { getNativeTokenInfo } from '../views/Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
@@ -260,37 +259,19 @@ export function useTrayDataProvider() {
                   { tokenAddressList },
                 );
               if (response?.list?.length) {
-                const buildKey = (
-                  networkId: string,
-                  address: string | undefined,
-                  isNativeField: boolean | undefined,
-                ) => {
-                  const { normalizedAddress } = getNativeTokenInfo(
-                    isNativeField,
-                    address,
-                  );
-                  return `${networkId}:${normalizedAddress}`;
-                };
-                const responseByKey = new Map<string, any>();
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                response.list.forEach((coin: any) => {
+                // fetchMarketTokenListBatch preserves request-order via
+                // positional index. Matching on API-returned networkId/
+                // isNative is fragile: networkId may be a shortcode,
+                // isNative may be missing, and address casing can shift.
+                // Align by spotItems index and keep watchlist's canonical
+                // chainId/contractAddress/isNative for the navigation
+                // payload — the API row is display data only.
+                spotItems.forEach((spotItem: any, index: number) => {
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+                  const coin = response.list[index] as any;
                   if (!coin?.symbol) return;
-                  const key = buildKey(
-                    coin.networkId || coin.chainId || '',
-                    coin.address,
-                    coin.isNative,
-                  );
-                  responseByKey.set(key, coin);
-                });
-                spotItems.forEach((spotItem: any) => {
-                  const spotIsNative = spotItem.isNative ?? false;
-                  const key = buildKey(
-                    spotItem.chainId,
-                    spotItem.contractAddress,
-                    spotIsNative,
-                  );
-                  const coin = responseByKey.get(key);
-                  if (!coin?.symbol) return;
+                  const spotIsNative =
+                    (spotItem.isNative as boolean | undefined) ?? false;
                   watchlistResults.push({
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                     symbol: (coin.symbol || '').toUpperCase(),
@@ -299,8 +280,6 @@ export function useTrayDataProvider() {
                     price: formatPriceInTarget(coin.price),
                     change24h: Number(coin.priceChange24hPercent || 0),
                     type: 'spot',
-                    // Watchlist's chainId/contractAddress are canonical;
-                    // API responses can shift casing or return a shortcode.
                     tokenAddress: spotIsNative
                       ? ''
                       : spotItem.contractAddress || '',
