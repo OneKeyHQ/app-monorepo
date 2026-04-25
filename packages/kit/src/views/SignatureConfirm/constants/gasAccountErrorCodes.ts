@@ -5,6 +5,8 @@
 // but not yet in the public spec — keep them here as a living contract and
 // update once the doc is published.
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 export enum EGasAccountErrorStrategy {
   // Quote/nonce invalidated server-side — silently re-estimate.
   Refresh = 'refresh',
@@ -20,8 +22,7 @@ type IGasAccountErrorEntry = {
   strategy: EGasAccountErrorStrategy;
   // Alias from tech-spec §7.1 when available; otherwise a descriptive tag.
   alias: string;
-  // English copy shown in the toast. i18n deferred to a later P2 follow-up.
-  message: string;
+  messageKey: ETranslations;
 };
 
 export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
@@ -29,22 +30,26 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
   40_201: {
     strategy: EGasAccountErrorStrategy.Refresh,
     alias: 'GAS_ACCOUNT_QUOTE_NOT_FOUND',
-    message: 'Gas sponsor quote expired. Refreshing fee estimate.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_quote_expired_refreshing_estimate__msg,
   },
   40_202: {
     strategy: EGasAccountErrorStrategy.Refresh,
     alias: 'GAS_ACCOUNT_QUOTE_EXPIRED',
-    message: 'Gas sponsor quote expired. Refreshing fee estimate.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_quote_expired_refreshing_estimate__msg,
   },
   40_209: {
     strategy: EGasAccountErrorStrategy.Refresh,
     alias: 'GAS_ACCOUNT_NONCE_CHANGED',
-    message: 'Gas sponsor nonce changed. Refreshing fee estimate.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_nonce_changed_refreshing_estimate__msg,
   },
   90_201: {
     strategy: EGasAccountErrorStrategy.Refresh,
     alias: 'UPSTREAM_QUOTE_EXPIRED',
-    message: 'Gas sponsor quote expired. Refreshing fee estimate.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_quote_expired_refreshing_estimate__msg,
   },
   // Reached only after the client has already exhausted its deep-retry window
   // (see MAX_GAS_ACCOUNT_RETRY_ATTEMPTS in ServiceSend). Treat the final 90212
@@ -52,68 +57,76 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
   90_212: {
     strategy: EGasAccountErrorStrategy.Refresh,
     alias: 'GAS_ACCOUNT_ADMISSION_OVERLOADED',
-    message: 'Gas sponsor is temporarily busy. Refreshing fee estimate.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_temporarily_busy_refreshing_estimate__msg,
   },
 
   // --- Fallback: disable gas account for this flow and re-estimate as user-paid ---
   40_212: {
     strategy: EGasAccountErrorStrategy.Fallback,
     alias: 'GAS_ACCOUNT_NETWORK_UNSUPPORTED',
-    message:
-      'Gas sponsor not available on this network. Switched to network fee.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_network_unsupported_switched_to_network_fee__msg,
   },
   40_213: {
     strategy: EGasAccountErrorStrategy.Fallback,
     alias: 'GAS_ACCOUNT_POOL_EXHAUSTED',
-    message: 'Gas sponsor unavailable. Switched to network fee.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
   },
   40_218: {
     strategy: EGasAccountErrorStrategy.Fallback,
     alias: 'GAS_ACCOUNT_SPONSOR_UNAVAILABLE',
-    message: 'Gas sponsor unavailable. Switched to network fee.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
   },
   40_219: {
     strategy: EGasAccountErrorStrategy.Fallback,
     alias: 'GAS_ACCOUNT_SPONSOR_UNAVAILABLE',
-    message: 'Gas sponsor unavailable. Switched to network fee.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
   },
   90_200: {
     strategy: EGasAccountErrorStrategy.Fallback,
     alias: 'UPSTREAM_UNAVAILABLE',
-    message: 'Gas sponsor unavailable. Switched to network fee.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
   },
   90_205: {
     strategy: EGasAccountErrorStrategy.Fallback,
     alias: 'UPSTREAM_UNAVAILABLE',
-    message: 'Gas sponsor unavailable. Switched to network fee.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
   },
 
   // --- Hint only: terminal for this attempt, surface to user and dApp ---
   40_203: {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'GAS_ACCOUNT_QUOTE_ALREADY_USED',
-    message: 'Transaction may already have been submitted. Check activity.',
+    messageKey:
+      ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
   },
   40_214: {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'GAS_ACCOUNT_REQUEST_IN_FLIGHT',
-    message:
-      'A gas sponsor request is already in progress. Please try again shortly.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_request_in_progress_try_again_shortly__msg,
   },
   40_215: {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'GAS_ACCOUNT_RATE_LIMITED',
-    message: 'Too many gas sponsor requests. Please try again shortly.',
+    messageKey:
+      ETranslations.wallet_too_many_gas_sponsor_requests_try_again_shortly__msg,
   },
   40_216: {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'GAS_ACCOUNT_DAILY_LIMIT_REACHED',
-    message: 'Gas sponsor limit reached for today.',
+    messageKey: ETranslations.wallet_gas_sponsor_daily_limit_reached__msg,
   },
   40_217: {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'GAS_ACCOUNT_SPONSOR_BUSY',
-    message: 'Gas sponsor is busy right now. Please try again later.',
+    messageKey: ETranslations.wallet_gas_sponsor_busy_try_again_later__msg,
   },
   // TOCTOU between estimate and execute — scenario gate was open at quote
   // time but revoked by ops before submit. Not equivalent to quote expiry
@@ -122,23 +135,24 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
   40_227: {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'GAS_ACCOUNT_SCENARIO_DISABLED',
-    message:
-      'Gas sponsor is temporarily disabled for this transaction type. Please pay the network fee yourself or try again later.',
+    messageKey:
+      ETranslations.wallet_gas_sponsor_temporarily_disabled_for_transaction_type__msg,
   },
   90_207: {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'UPSTREAM_RATE_LIMITED',
-    message: 'Too many gas sponsor requests. Please try again shortly.',
+    messageKey:
+      ETranslations.wallet_too_many_gas_sponsor_requests_try_again_shortly__msg,
   },
   90_208: {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'UPSTREAM_DAILY_LIMIT_REACHED',
-    message: 'Gas sponsor limit reached for today.',
+    messageKey: ETranslations.wallet_gas_sponsor_daily_limit_reached__msg,
   },
   90_209: {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'UPSTREAM_SPONSOR_BUSY',
-    message: 'Gas sponsor is busy right now. Please try again later.',
+    messageKey: ETranslations.wallet_gas_sponsor_busy_try_again_later__msg,
   },
 };
 
