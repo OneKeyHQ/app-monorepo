@@ -9,7 +9,6 @@ import {
   Anchor,
   AnimatePresence,
   Icon,
-  Page,
   SizableText,
   Spinner,
   Toast,
@@ -33,7 +32,7 @@ import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWa
 import { ListItem } from '../../../components/ListItem';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import { useAppRoute } from '../../../hooks/useAppRoute';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingPage } from '../components/Layout';
 
 import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
 
@@ -218,91 +217,78 @@ function OneKeyIDLoginPage() {
     await handleSocialLogin(EOAuthSocialLoginProvider.Apple);
   }, [handleSocialLogin]);
 
+  const title = isVerifyMode
+    ? intl.formatMessage({ id: ETranslations.keyless_verify_identity_title })
+    : intl.formatMessage({ id: ETranslations.select_your_email });
+  const desc = isVerifyMode
+    ? intl.formatMessage(
+        { id: ETranslations.keyless_verify_identity_desc },
+        {
+          provider:
+            requiredProvider === EOAuthSocialLoginProvider.Apple
+              ? 'Apple'
+              : 'Google',
+        },
+      )
+    : intl.formatMessage({ id: ETranslations.select_your_email_desc });
+
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header />
-        <OnboardingLayout.Body
-          constrained={false}
-          scrollable={!platformEnv.isNative}
-        >
-          <OnboardingLayout.ConstrainedContent gap="$10">
-            <YStack gap="$2">
-              <SizableText size="$heading3xl">
-                {isVerifyMode
-                  ? intl.formatMessage({
-                      id: ETranslations.keyless_verify_identity_title,
-                    })
-                  : intl.formatMessage({ id: ETranslations.select_your_email })}
-              </SizableText>
-              <SizableText size="$bodyLg" color="$textSubdued">
-                {isVerifyMode
-                  ? intl.formatMessage(
-                      { id: ETranslations.keyless_verify_identity_desc },
-                      {
-                        provider:
-                          requiredProvider === EOAuthSocialLoginProvider.Apple
-                            ? 'Apple'
-                            : 'Google',
-                      },
-                    )
-                  : intl.formatMessage({
-                      id: ETranslations.select_your_email_desc,
-                    })}
-              </SizableText>
-            </YStack>
-            <YStack gap="$3">
-              {!requiredProvider ||
-              requiredProvider === EOAuthSocialLoginProvider.Google ? (
-                <OptionItem
-                  icon="GoogleIllus"
-                  title="Google"
-                  onPress={loggingInProvider ? undefined : handleGoogleLogin}
-                  isLoading={
-                    loggingInProvider === EOAuthSocialLoginProvider.Google
-                  }
-                />
-              ) : null}
-              {!requiredProvider ||
-              requiredProvider === EOAuthSocialLoginProvider.Apple ? (
-                <OptionItem
-                  icon="AppleBrand"
-                  title="Apple"
-                  mt={!requiredProvider ? '$3' : undefined}
-                  iconProps={{
-                    color: '$iconActive',
-                    y: -1,
-                  }}
-                  onPress={loggingInProvider ? undefined : handleAppleLogin}
-                  isLoading={
-                    loggingInProvider === EOAuthSocialLoginProvider.Apple
-                  }
-                />
-              ) : null}
-            </YStack>
-            <KeylessOnboardingDebugPanel
-              isResetMode={isResetMode}
-              onResetModeChange={setIsResetMode}
-            />
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
-        {isVerifyMode ? null : (
-          <OnboardingLayout.Footer>
-            <Anchor
-              href="https://help.onekey.so/articles/13348049"
-              target="_blank"
-              size="$bodySm"
-              color="$textSubdued"
-              textAlign="center"
-            >
-              {intl.formatMessage({
-                id: ETranslations.keyless_wallet_help_center_link_label,
-              })}
-            </Anchor>
-          </OnboardingLayout.Footer>
-        )}
-      </OnboardingLayout>
-    </Page>
+    <OnboardingPage
+      scrollable={!platformEnv.isNative}
+      narrow
+      contentContainerProps={{ gap: '$10' }}
+    >
+      <YStack gap="$2">
+        <SizableText size="$heading3xl">{title}</SizableText>
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {desc}
+        </SizableText>
+      </YStack>
+      <YStack gap="$3">
+        {!requiredProvider ||
+        requiredProvider === EOAuthSocialLoginProvider.Google ? (
+          <OptionItem
+            icon="GoogleIllus"
+            title="Google"
+            onPress={loggingInProvider ? undefined : handleGoogleLogin}
+            isLoading={loggingInProvider === EOAuthSocialLoginProvider.Google}
+          />
+        ) : null}
+        {!requiredProvider ||
+        requiredProvider === EOAuthSocialLoginProvider.Apple ? (
+          <OptionItem
+            icon="AppleBrand"
+            title="Apple"
+            mt={!requiredProvider ? '$3' : undefined}
+            iconProps={{
+              color: '$iconActive',
+              y: -1,
+            }}
+            onPress={loggingInProvider ? undefined : handleAppleLogin}
+            isLoading={loggingInProvider === EOAuthSocialLoginProvider.Apple}
+          />
+        ) : null}
+      </YStack>
+      <KeylessOnboardingDebugPanel
+        isResetMode={isResetMode}
+        onResetModeChange={setIsResetMode}
+      />
+      {isVerifyMode ? null : (
+        <YStack mt="auto" pt="$8" alignItems="center">
+          <Anchor
+            href="https://help.onekey.so/articles/13348049"
+            target="_blank"
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign="center"
+          >
+            {intl.formatMessage({
+              id: ETranslations.keyless_wallet_help_center_link_label,
+            })}
+          </Anchor>
+        </YStack>
+      )}
+    </OnboardingPage>
   );
 }
 
