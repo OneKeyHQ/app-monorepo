@@ -219,7 +219,7 @@ describe('getAccountTotalDeFiNetWorth', () => {
       networkId: 'onekeyall--0',
       targetCurrency: 'usd',
       enabledNetworkIds: ['evm--1', 'btc--0'],
-    } as any);
+    });
 
     expect(result).toEqual({ netWorth: '800', hasCache: true });
   });
