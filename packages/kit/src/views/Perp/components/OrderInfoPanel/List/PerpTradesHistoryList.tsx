@@ -12,10 +12,13 @@ import {
   useAppIsLockedAtom,
   usePerpsActiveAssetAtom,
   usePerpsLastUsedLeverageAtom,
+  useSpotPairDisplayMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  getSpotTokenDisplayName,
   getValidPriceDecimals,
+  isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -46,6 +49,7 @@ function PerpTradesHistoryList({
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
+  const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
   const { showPositionShare } = useShowPositionShare();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
 
@@ -105,10 +109,14 @@ function PerpTradesHistoryList({
       if (closedPnlBN.isZero()) {
         return;
       }
-      const leverage = await getLeverage(fill.coin);
+      const isSpot = isSpotInstrument(fill.coin);
+      // Spot has no leverage concept; skip the perp meta lookup and fix at 1.
+      const leverage = isSpot ? 1 : await getLeverage(fill.coin);
       const entryPriceBN = calculateEntryPrice(fill);
 
-      const isLong = fill.side === 'A';
+      // Spot fill.side: 'B' = buy (~long), 'A' = sell (~short).
+      // Perp fill.side: 'A' encodes long via existing convention.
+      const isLong = isSpot ? fill.side === 'B' : fill.side === 'A';
       let pnlPercent = '0';
       let entryPrice = '0';
 
@@ -128,25 +136,49 @@ function PerpTradesHistoryList({
             .toFixed(2);
         }
       }
-      const parsed = parseDexCoin(fill.coin);
+      // Spot pair display: try the WS-supplied display map (e.g. @149→HYPE),
+      // then fall back to splitting the canonical "BASE/QUOTE" form, then
+      // raw coin. parseDexCoin only handles perps and would return '@149'
+      // verbatim for spot pairs — wrong for the share image.
+      let tokenDisplayName: string;
+      if (isSpot) {
+        const mapped = spotPairDisplayMap[fill.coin];
+        if (mapped) {
+          tokenDisplayName = mapped;
+        } else if (fill.coin.includes('/')) {
+          const [baseName] = fill.coin.split('/');
+          tokenDisplayName = getSpotTokenDisplayName(baseName);
+        } else {
+          tokenDisplayName = fill.coin;
+        }
+      } else {
+        tokenDisplayName = parseDexCoin(fill.coin).displayName;
+      }
       const exitPriceBN = new BigNumber(fill.px);
       const exitPriceDecimals = getValidPriceDecimals(fill.px);
       const exitPrice = exitPriceBN.isFinite()
         ? exitPriceBN.toFixed(exitPriceDecimals)
         : '0';
+      // Spot fills have no separate entry/exit — the same `fill.px` is both
+      // the executed trade price and the visible share price. Showing
+      // entryPrice='0' alongside the trade price reads as broken; mirror
+      // the trade price into both fields so the share image is internally
+      // consistent until we add a spot-specific share layout.
+      const shareEntryPrice = isSpot && entryPrice === '0' ? exitPrice : entryPrice;
       showPositionShare({
+        mode: isSpot ? 'spot' : 'perp',
         side: isLong ? 'long' : 'short',
         token: fill.coin,
-        tokenDisplayName: parsed.displayName,
+        tokenDisplayName,
         pnl: String(closedPnlBN),
         pnlPercent,
         leverage,
-        entryPrice,
+        entryPrice: shareEntryPrice,
         markPrice: exitPrice,
         priceType: 'exit',
       });
     },
-    [calculateEntryPrice, getLeverage, showPositionShare],
+    [calculateEntryPrice, getLeverage, showPositionShare, spotPairDisplayMap],
   );
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [

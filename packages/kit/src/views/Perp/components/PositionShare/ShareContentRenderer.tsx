@@ -47,6 +47,7 @@ export function ShareContentRenderer({
 }: IShareContentRendererProps) {
   const {
     side,
+    mode,
     tokenDisplayName,
     tokenImageUrl,
     pnl,
@@ -194,12 +195,20 @@ export function ShareContentRenderer({
                   fontWeight="600"
                   color={sideColor}
                 >
-                  {`${appLocale.intl.formatMessage({
-                    id:
-                      side === 'long'
-                        ? ETranslations.perp_long
-                        : ETranslations.perp_short,
-                  })} ${leverage}X`}
+                  {(() => {
+                    // OK-53588: spot trades render as "Buy"/"Sell" without
+                    // the leverage suffix; perp keeps "Long 5X"/"Short 5X".
+                    const isSpot = mode === 'spot';
+                    const labelId = isSpot
+                      ? side === 'long'
+                        ? ETranslations.global_buy
+                        : ETranslations.global_sell
+                      : side === 'long'
+                      ? ETranslations.perp_long
+                      : ETranslations.perp_short;
+                    const label = appLocale.intl.formatMessage({ id: labelId });
+                    return isSpot ? label : `${label} ${leverage}X`;
+                  })()}
                 </SizableText>
               </XStack>
             ) : null}

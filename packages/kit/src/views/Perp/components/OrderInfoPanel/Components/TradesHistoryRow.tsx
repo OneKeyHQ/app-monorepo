@@ -65,14 +65,15 @@ const TradesHistoryRow = memo(
     builderFeeRate,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
+      // OK-53588: spot trades can be shared too (no leverage badge in the
+      // share image — handled mode-aware in PositionShare renderers).
       return (
-        !isSpotInstrument(fill.coin) &&
         fill.closedPnl &&
         !new BigNumber(fill.closedPnl).isZero() &&
         !fill.liquidation &&
         onShare
       );
-    }, [fill.closedPnl, fill.coin, fill.liquidation, onShare]);
+    }, [fill.closedPnl, fill.liquidation, onShare]);
     const actions = useHyperliquidActions();
     const intl = useIntl();
     const [spotDisplayMap] = useSpotPairDisplayMapAtom();
