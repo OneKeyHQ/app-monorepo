@@ -286,12 +286,21 @@ export function useTrayDataProvider() {
 
           if (perpsItems.length > 0) {
             try {
-              const [perpsData, tokenSearchAliases] = await Promise.all([
-                backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
-                  category: 'all',
-                }),
-                backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
-              ]);
+              const [perpsDataResult, tokenSearchAliasesResult] =
+                await Promise.allSettled([
+                  backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+                    category: 'all',
+                  }),
+                  backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+                ]);
+              const perpsData =
+                perpsDataResult.status === 'fulfilled'
+                  ? perpsDataResult.value
+                  : undefined;
+              const tokenSearchAliases =
+                tokenSearchAliasesResult.status === 'fulfilled'
+                  ? tokenSearchAliasesResult.value
+                  : undefined;
               if (perpsData?.tokens?.length) {
                 for (const item of perpsItems) {
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
