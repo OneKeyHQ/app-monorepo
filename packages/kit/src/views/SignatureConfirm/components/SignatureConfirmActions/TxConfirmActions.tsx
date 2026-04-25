@@ -212,10 +212,7 @@ function TxConfirmActions(props: IProps) {
         return undefined;
       }
 
-      const message =
-        entry.message ??
-        (error as Error | undefined)?.message ??
-        'Failed to submit transaction.';
+      const message = intl.formatMessage({ id: entry.messageKey });
 
       if (entry.strategy === EGasAccountErrorStrategy.Refresh) {
         muteHandledErrorToast(error);
@@ -266,6 +263,7 @@ function TxConfirmActions(props: IProps) {
       updateGasAccountUiState,
       updateSendFeeStatus,
       updateTxFeeInfoInit,
+      intl,
     ],
   );
 
@@ -542,7 +540,9 @@ function TxConfirmActions(props: IProps) {
 
       Toast.success({
         title: isFeeSponsored
-          ? 'Gas-sponsored transaction submitted'
+          ? intl.formatMessage({
+              id: ETranslations.wallet_gas_sponsored_transaction_submitted__msg,
+            })
           : intl.formatMessage({
               id: ETranslations.feedback_transaction_submitted,
             }),
@@ -944,10 +944,14 @@ function TxConfirmActions(props: IProps) {
 
   const confirmText = useMemo(() => {
     if (gasAccountRetryState && gasAccountRetryRemainingSec > 0) {
-      // Lokalise key `error__gas_account_admission_overloaded` not yet
-      // published (PM handoff §8 item 3) — mirror the hardcoded English
-      // pattern used in GAS_ACCOUNT_ERROR_TABLE until i18n lands.
-      return `Retrying in ${gasAccountRetryRemainingSec}s...`;
+      return intl.formatMessage(
+        {
+          id: ETranslations.wallet_gas_sponsor_retrying_in_seconds__desc,
+        },
+        {
+          seconds: gasAccountRetryRemainingSec,
+        },
+      );
     }
 
     if (signOnly) {
