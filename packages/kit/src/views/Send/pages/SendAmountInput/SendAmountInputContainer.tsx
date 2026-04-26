@@ -352,6 +352,18 @@ function SendAmountInputContainer() {
             chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
           );
         }
+      } else {
+        const decimals = tokenDetails?.info.decimals;
+        if (
+          typeof decimals === 'number' &&
+          Number.isInteger(decimals) &&
+          decimals >= 0
+        ) {
+          originalAmt = originalAmt.decimalPlaces(
+            decimals,
+            BigNumber.ROUND_FLOOR,
+          );
+        }
       }
       return {
         originalAmount: originalAmt.toFixed(),
@@ -364,7 +376,14 @@ function SendAmountInputContainer() {
       originalAmount: amountBN.toFixed(),
       linkedAmount: linkedAmountValue.toFixed(),
     };
-  }, [amount, isLightningNetwork, isUseFiat, lnUnit, tokenDetails?.price]);
+  }, [
+    amount,
+    isLightningNetwork,
+    isUseFiat,
+    lnUnit,
+    tokenDetails?.info.decimals,
+    tokenDetails?.price,
+  ]);
 
   const handleToggleFiatMode = useCallback(() => {
     // When currently in fiat mode (isUseFiat=true), switching to token mode -> use originalAmount
