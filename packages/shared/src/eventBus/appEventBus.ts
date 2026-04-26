@@ -399,6 +399,10 @@ export interface IAppEventBusPayload {
     data: unknown;
   };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
+  [EAppEventBusNames.PerpSwitchActiveInstrument]: {
+    mode: 'perp' | 'spot';
+    coin: string;
+  };
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';
