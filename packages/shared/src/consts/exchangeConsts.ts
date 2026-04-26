@@ -60,7 +60,3 @@ export const ALL_EXCHANGE_IDS = [
   EExchangeId.OKX,
   EExchangeId.Coinbase,
 ] as const;
-
-// cspell:ignore GMMJXDW BBCJBM FTBJXP
-export const OTHER_EXCHANGES_HELP_PATH =
-  'articles/11461136#h_01J28GMMJXDW7BBCJBM5FTBJXP';
