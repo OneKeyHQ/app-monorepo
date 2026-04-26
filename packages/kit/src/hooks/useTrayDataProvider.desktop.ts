@@ -37,6 +37,7 @@ import {
   formatTrayPendingTxAmount,
 } from '@onekeyhq/shared/src/utils/trayDataUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
@@ -361,30 +362,34 @@ export function useTrayDataProvider() {
                   { tokenAddressList },
                 );
               if (response?.list?.length) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                response.list.forEach((coin: any) => {
+                // fetchMarketTokenListBatch preserves request-order via
+                // positional index. Matching on API-returned networkId/
+                // isNative is fragile: networkId may be a shortcode,
+                // isNative may be missing, and address casing can shift.
+                // Align by spotItems index and keep watchlist's canonical
+                // chainId/contractAddress/isNative for the navigation
+                // payload — the API row is display data only.
+                spotItems.forEach((spotItem: any, index: number) => {
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+                  const coin = response.list[index] as any;
                   if (!coin?.symbol) return;
-                  // Match by networkId + address — API may reorder results.
-                  const spotItem = spotItems.find(
-                    (s: any) =>
-                      s.chainId === coin.networkId &&
-                      (s.contractAddress || '') === (coin.address || ''),
-                  );
-                  const networkId = coin.networkId || spotItem?.chainId || '';
+                  const spotIsNative =
+                    (spotItem.isNative as boolean | undefined) ?? false;
                   watchlistResults.push({
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                     symbol: (coin.symbol || '').toUpperCase(),
                     name: coin.name || '',
                     icon: coin.logoUrl || coin.logoUrls?.[0] || '',
                     iconUrls: coin.logoUrls,
-                    networkIcon: getNetworkLogoUri(networkId),
+                    networkIcon: getNetworkLogoUri(spotItem.chainId),
                     price: formatPriceInTarget(coin.price),
                     change24h: Number(coin.priceChange24hPercent || 0),
                     type: 'spot',
-                    tokenAddress:
-                      coin.address || spotItem?.contractAddress || '',
-                    networkId,
-                    isNative: spotItem?.isNative ?? false,
+                    tokenAddress: spotIsNative
+                      ? ''
+                      : spotItem.contractAddress || '',
+                    networkId: spotItem.chainId,
+                    isNative: spotIsNative,
                     communityRecognized: coin.communityRecognized,
                     stock: coin.stock,
                   });
@@ -636,23 +641,29 @@ export function useTrayDataProvider() {
       }
 
       if (action?.type === 'view-all-transactions') {
-        // No public route param to select the history sub-tab directly;
-        // fall back to Home so the user at least lands on the right context.
         nav.navigate(ERootRoutes.Main, {
           screen: ETabRoutes.Home,
         });
+        // Delay lets HomePageView mount its SwitchWalletHomeTab listener
+        // before we emit.
+        setTimeout(() => {
+          appEventBus.emit(EAppEventBusNames.SwitchWalletHomeTab, {
+            id: EHomeWalletTab.History,
+          });
+        }, 80);
         return;
       }
 
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
+          const coin = action.perpsCoin as string;
           setTimeout(async () => {
             nav.navigate(ERootRoutes.Main, {
               screen: ETabRoutes.Perp,
             });
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-                coin: action.perpsCoin as string,
+                coin,
               });
             } catch (e) {
               defaultLogger.app.error.log(
@@ -661,11 +672,16 @@ export function useTrayDataProvider() {
                 }`,
               );
             }
+            appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
+              mode: 'perp',
+              coin,
+            });
           }, 80);
           return;
         }
 
-        if (action.tokenAddress && action.networkId) {
+        const isNative = (action.isNative as boolean) || false;
+        if (action.networkId && (isNative || action.tokenAddress)) {
           const networkId = action.networkId as string;
           const shortCode = networkUtils.getNetworkShortCode({ networkId });
           nav.navigate(ERootRoutes.Main, {
@@ -673,9 +689,9 @@ export function useTrayDataProvider() {
             params: {
               screen: ETabMarketRoutes.MarketDetailV2,
               params: {
-                tokenAddress: action.tokenAddress as string,
+                tokenAddress: (action.tokenAddress as string) || '',
                 network: shortCode || networkId,
-                isNative: (action.isNative as boolean) || false,
+                isNative,
               },
             },
           });
