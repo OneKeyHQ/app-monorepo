@@ -508,7 +508,7 @@ describe('SignerHardware', () => {
               },
             ]),
           ),
-        } as Partial<CoreApi>,
+        } as unknown as Partial<CoreApi>,
       });
 
       const signer = new SignerHardware({
@@ -534,7 +534,7 @@ describe('SignerHardware', () => {
             success: false,
             payload: { error: 'USB transport error' },
           })),
-        } as Partial<CoreApi>,
+        } as unknown as Partial<CoreApi>,
       });
 
       const signer = new SignerHardware({
@@ -562,7 +562,7 @@ describe('SignerHardware', () => {
               },
             ]),
           ),
-        } as Partial<CoreApi>,
+        } as unknown as Partial<CoreApi>,
       });
 
       const signer = new SignerHardware({
