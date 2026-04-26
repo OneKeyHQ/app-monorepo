@@ -8,9 +8,9 @@
  */
 
 import type {
+  ILoadSegmentParams,
+  IRuntimeBundleContext,
   ISplitBundleNativeLoader,
-  LoadSegmentParams,
-  RuntimeBundleContext,
 } from './types';
 
 let cachedLoader: ISplitBundleNativeLoader | null = null;
@@ -28,10 +28,10 @@ export function getBackgroundNativeSplitBundleLoader(): ISplitBundleNativeLoader
     require('@onekeyfe/react-native-background-thread') as typeof import('@onekeyfe/react-native-background-thread');
 
   cachedLoader = {
-    getRuntimeBundleContext(): Promise<RuntimeBundleContext> {
-      return SplitBundleLoader.getRuntimeBundleContext() as Promise<RuntimeBundleContext>;
+    getRuntimeBundleContext(): Promise<IRuntimeBundleContext> {
+      return SplitBundleLoader.getRuntimeBundleContext() as Promise<IRuntimeBundleContext>;
     },
-    async loadSegment(params: LoadSegmentParams): Promise<void> {
+    async loadSegment(params: ILoadSegmentParams): Promise<void> {
       // Resolve absolute path (handles OTA, builtin, Android asset extraction)
       const absolutePath = await SplitBundleLoader.resolveSegmentPath(
         params.relativePath,
