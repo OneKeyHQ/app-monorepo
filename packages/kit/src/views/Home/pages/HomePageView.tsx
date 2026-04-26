@@ -538,6 +538,19 @@ export function HomePageView({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         tabBarProps.onTabPress?.(name);
       };
+
+      if (platformEnv.isNative) {
+        return (
+          <Tabs.TabBar
+            {...tabBarProps}
+            onTabPress={handleTabPress}
+            variant="pill"
+            renderItem={handleRenderItem}
+            renderToolbar={renderToolbar}
+          />
+        );
+      }
+
       return (
         <YStack
           ref={stickyHostRefCallback as any}
@@ -554,18 +567,16 @@ export function HomePageView({
             renderToolbar={renderToolbar}
             containerStyle={{ position: 'relative' as any }}
           />
-          {platformEnv.isNative ? null : (
-            <div
-              ref={portalRefCallback}
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                zIndex: 1,
-              }}
-            />
-          )}
+          <div
+            ref={portalRefCallback}
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              zIndex: 1,
+            }}
+          />
         </YStack>
       );
     },
