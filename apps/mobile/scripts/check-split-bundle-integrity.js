@@ -229,6 +229,11 @@ function scanRuntime({
   manifest,
   idMap,
   runtimeBucketNames,
+  // Optional predicate (segKey, idMapEntry) => boolean. When provided,
+  // restricts the scan to segments the filter accepts. Used by main() to run
+  // a bg-scoped pass over shared segments (which live on disk under
+  // SEGMENTS_MAIN even though bg needs to verify its own ownership).
+  segmentKeyFilter,
 }) {
   const violations = [];
   if (!fs.existsSync(segmentsDir)) {
@@ -263,6 +268,12 @@ function scanRuntime({
     if (!fname.endsWith('.seg.js')) continue;
     const segKey = filenameToSegKey.get(fname);
     if (!segKey || !manifest.segments[segKey]) {
+      if (segmentKeyFilter) {
+        // Filtered passes are intentionally partial (e.g. a bg-scoped pass
+        // over main's segments directory). Non-matching files belong to
+        // other passes and are not structural bugs for this one.
+        continue;
+      }
       // Manifest entry missing for an emitted segment — itself a structural bug.
       violations.push({
         kind: 'missing_manifest_entry',
@@ -272,13 +283,37 @@ function scanRuntime({
       });
       continue;
     }
+    if (
+      segmentKeyFilter &&
+      !segmentKeyFilter(segKey, idMap.segments?.[segKey])
+    ) {
+      continue;
+    }
 
     scannedSegments += 1;
     const closure = transitiveClosure(manifest, segKey);
     const segJs = fs.readFileSync(path.join(segmentsDir, fname), 'utf8');
     const moduleDefs = parseModuleDefs(segJs);
 
+    // For shared segments, the emitted .seg.js ships __d(...) for every
+    // module EITHER runtime reaches, but only one runtime actually calls
+    // into each module at runtime (the other side just carries the inert
+    // definition). Scope the sync-dep check to this runtime's ownership
+    // so we don't false-positive on transitive deps of modules the current
+    // runtime never invokes (e.g. main scanning DMK's require("rxjs")
+    // where rxjs lives only in a bg-specific segment).
+    const idMapEntry = idMap.segments?.[segKey];
+    let ownedIds = null;
+    if (idMapEntry?.runtime === 'shared') {
+      ownedIds =
+        runtimeLabel === 'main' ? idMapEntry.mainOwned : idMapEntry.bgOwned;
+    }
+    const ownedIdSet = ownedIds
+      ? new Set(Object.keys(ownedIds).map(Number))
+      : null;
+
     for (const { moduleId, deps } of moduleDefs) {
+      if (ownedIdSet && !ownedIdSet.has(moduleId)) continue;
       for (const depId of deps) {
         if (eager.has(depId)) continue; // eager — always available
         const depSeg = moduleToSegment.get(depId);
@@ -426,10 +461,27 @@ function main() {
     idMap,
     runtimeBucketNames: ['common', 'background'],
   });
+  // Shared-segment files live only under SEGMENTS_MAIN even though both
+  // runtimes load them. The main pass above checks main-owned modules; the
+  // bg pass above can't see these files. Run a third bg-scoped pass on
+  // SEGMENTS_MAIN restricted to shared segments so bg-owned modules inside
+  // them get their sync deps verified.
+  const bgShared = scanRuntime({
+    runtimeLabel: 'background',
+    segmentsDir: SEGMENTS_MAIN,
+    manifest: manifestBg,
+    idMap,
+    runtimeBucketNames: ['common', 'background'],
+    segmentKeyFilter: (_segKey, idMapEntry) => idMapEntry?.runtime === 'shared',
+  });
 
-  const allViolations = [...mainRuntime.violations, ...bg.violations];
+  const allViolations = [
+    ...mainRuntime.violations,
+    ...bg.violations,
+    ...bgShared.violations,
+  ];
   console.log(
-    `[check-split-bundle-integrity] scanned ${mainRuntime.scannedSegments} main + ${bg.scannedSegments} bg segments`,
+    `[check-split-bundle-integrity] scanned ${mainRuntime.scannedSegments} main + ${bg.scannedSegments} bg + ${bgShared.scannedSegments} bg-shared segments`,
   );
   console.log(
     `[check-split-bundle-integrity] main violations: ${mainRuntime.violations.length}`,

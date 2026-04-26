@@ -11,25 +11,25 @@
 import { getRuntimeKind } from './runtimeInfo';
 
 import type {
-  RuntimeKind,
-  SegmentManifest,
-  SegmentManifestEntry,
-  SegmentManifestRecord,
-  SegmentManifestVariantRecord,
-  SegmentRuntime,
+  IRuntimeKind,
+  ISegmentManifest,
+  ISegmentManifestEntry,
+  ISegmentManifestRecord,
+  ISegmentManifestVariantRecord,
+  ISegmentRuntime,
 } from './types';
 
-type ManifestGlobal = typeof globalThis & {
-  __SEGMENT_MANIFEST__?: SegmentManifest;
+type IManifestGlobal = typeof globalThis & {
+  __SEGMENT_MANIFEST__?: ISegmentManifest;
 };
 
-let cachedManifest: SegmentManifest | undefined;
+let cachedManifest: ISegmentManifest | undefined;
 
-export function getSegmentManifest(): SegmentManifest {
+export function getSegmentManifest(): ISegmentManifest {
   if (cachedManifest) {
     return cachedManifest;
   }
-  const manifest = (globalThis as ManifestGlobal).__SEGMENT_MANIFEST__;
+  const manifest = (globalThis as IManifestGlobal).__SEGMENT_MANIFEST__;
   if (!manifest) {
     // No manifest = no segments (e.g. dev mode or non-split build)
     cachedManifest = { segments: {} };
@@ -40,15 +40,15 @@ export function getSegmentManifest(): SegmentManifest {
 }
 
 function isSegmentManifestVariantRecord(
-  record: SegmentManifestRecord,
-): record is SegmentManifestVariantRecord {
+  record: ISegmentManifestRecord,
+): record is ISegmentManifestVariantRecord {
   return typeof record === 'object' && record !== null && 'variants' in record;
 }
 
 export function getSegmentEntry(
   segmentKey: string,
-  runtimeKind: RuntimeKind = getRuntimeKind(),
-): SegmentManifestEntry | undefined {
+  runtimeKind: IRuntimeKind = getRuntimeKind(),
+): ISegmentManifestEntry | undefined {
   const record = getSegmentManifest().segments[segmentKey];
   if (!record) {
     return undefined;
@@ -71,7 +71,7 @@ export function getSegmentCount(): number {
  * - 'background' segments can only load in the background runtime
  */
 export function isSegmentAllowedInRuntime(
-  segmentRuntime: SegmentRuntime,
+  segmentRuntime: ISegmentRuntime,
   currentRuntime: 'main' | 'background',
 ): boolean {
   if (segmentRuntime === 'shared') return true;
