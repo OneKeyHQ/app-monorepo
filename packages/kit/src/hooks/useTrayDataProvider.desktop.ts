@@ -25,6 +25,10 @@ import {
   TRAY_IPC,
 } from '@onekeyhq/shared/src/types/desktop/tray';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  composeTrayAccountChange24h,
+  formatTrayPendingTxAmount,
+} from '@onekeyhq/shared/src/utils/trayDataUtils';
 import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   composeTrayAccountChange24h,
