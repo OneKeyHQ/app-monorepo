@@ -108,8 +108,8 @@ function SpotBalanceList({
     let spotUsdcBalance: (typeof balances)[number] | undefined;
 
     balances.forEach((b) => {
-      // OK-53644: defer USDC so we can merge it with the perps-side USDC into
-      // a single row representing the user's total USDC across spot + perps.
+      // USDC is merged with the perps-side USDC after the loop into a single
+      // total-across-spot+perps row; defer collection until then.
       if (b.coin === 'USDC') {
         spotUsdcBalance = b;
         return;
@@ -162,10 +162,8 @@ function SpotBalanceList({
       });
     });
 
-    // Merge spot USDC + perps USDC into one row (OK-53644). HL doesn't expose
-    // a unified total — sum on the client. type='spot' keeps existing sort
-    // priority (USDC always first); needsSuffix=false drops the legacy
-    // "USDC (Perp)" label.
+    // HL doesn't expose a cross-account USDC total — sum on the client and
+    // tag as 'spot' so it inherits the existing USDC-first sort priority.
     const spotUsdcTotalBN = spotUsdcBalance
       ? new BigNumber(spotUsdcBalance.total)
       : new BigNumber(0);

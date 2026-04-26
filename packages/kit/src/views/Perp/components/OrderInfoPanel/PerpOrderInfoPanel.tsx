@@ -56,8 +56,8 @@ function TabBarItem({
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
 
   const holdingsCount = useMemo(() => {
-    // OK-53644: spot USDC + perps USDC render as a single merged row, so
-    // count non-USDC spot balances and add 1 if either side has any USDC.
+    // Mirrors the spot+perps USDC merge in SpotBalanceList — count non-USDC
+    // spot rows once and add 1 if either side has any USDC.
     const nonUsdcSpotCount = balances.filter(
       (item) =>
         item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
