@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -82,6 +83,7 @@ export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   hwRootFingerprintInfo?: {
     rootFingerprint: number | undefined;
   };
+  applyRestoreSyncPolicy?: boolean;
 };
 
 export type IBatchBuildAccountsNormalFlowParams =
@@ -102,11 +104,13 @@ type IAdvancedModeFlowParamsBase = {
   };
   saveToDb: boolean;
   progressTotalCount?: number;
+  applyRestoreSyncPolicy?: boolean;
 };
 export type IBatchBuildAccountsAdvancedFlowParams =
   IBatchBuildAccountsBaseParams & IAdvancedModeFlowParamsBase;
 export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
   includingDefaultNetworks?: boolean;
+  isCreateWallet?: boolean;
   walletId: string;
   customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
   autoHandleExitError?: boolean;
@@ -421,14 +425,20 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   async buildDefaultNetworksForBatchCreate({
     walletId,
+    isCreateWallet,
+    customNetworks,
   }: {
     walletId: string;
+    isCreateWallet?: boolean;
+    customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
   }): Promise<IBatchBuildAccountsBaseParams[]> {
     const networks = await buildDefaultAddAccountNetworks({
       backgroundApi: this.backgroundApi,
       walletId,
       includingNetworkWithGlobalDeriveType: true,
       firmwareType: undefined,
+      isCreateWallet,
+      customNetworks,
     });
     return networks.map((item) => ({
       ...item,
@@ -495,6 +505,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     hideCheckingDeviceLoading,
     skipCloseHardwareUiStateDialog,
     customNetworks,
+    isCreateWallet,
     autoHandleExitError = true,
   }: {
     autoHandleExitError?: boolean;
@@ -502,6 +513,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     indexedAccountId: string | undefined;
     indexes?: number[];
     customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
+    isCreateWallet?: boolean;
   } & IWithHardwareProcessingControlParams): Promise<{
     addedAccounts: {
       networkId: string;
@@ -554,6 +566,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         excludedIndexes: {},
         saveToDb: true,
         customNetworks: customNetworks || [],
+        isCreateWallet,
         autoHandleExitError: autoHandleExitError ?? true,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
@@ -566,6 +579,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
   async buildBatchCreateAccountsNetworksParams(params: {
     walletId: string;
     includingDefaultNetworks?: boolean;
+    isCreateWallet?: boolean;
     customNetworks:
       | { networkId: string; deriveType: IAccountDeriveTypes }[]
       | undefined;
@@ -576,6 +590,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
       networksParams = networksParams.concat(
         await this.buildDefaultNetworksForBatchCreate({
           walletId: params.walletId,
+          isCreateWallet: params.isCreateWallet,
+          customNetworks: params.customNetworks,
         }),
       );
 
@@ -658,6 +674,16 @@ class ServiceBatchCreateAccount extends ServiceBase {
           walletId: params.walletId,
           hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         });
+
+      // Ledger doesn't support OneKey SDK's allNetworkGetAddress batch API.
+      // Skip the batch call — individual keyring.prepareAccounts() will handle it.
+      if (
+        deviceParams?.dbDevice?.vendor &&
+        getVendorProfile(deviceParams.dbDevice.vendor).isThirdParty
+      ) {
+        return hwAllNetworkPrepareAccountsResponse;
+      }
+
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
           const bundleParams: AllNetworkAddressParams[] = [];
@@ -912,6 +938,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             walletId: params.walletId,
             customNetworks: params.customNetworks,
             includingDefaultNetworks: params.includingDefaultNetworks ?? true,
+            isCreateWallet: params.isCreateWallet,
           });
 
         console.log(
@@ -958,6 +985,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             this.checkIfCancelled({
               saveToDb,
             });
+
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { accountsForCreate } = await this.batchBuildAccounts({
               ...params,
@@ -1222,6 +1250,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     errorMessage,
     indexedAccountNames,
     hwRootFingerprintInfo,
+    applyRestoreSyncPolicy,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -1320,6 +1349,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             account: accountForCreate,
             indexedAccountNames,
             skipEventEmit: !shouldEmitEvent,
+            applyRestoreSyncPolicy,
           });
           if (this.progressInfo) {
             this.progressInfo.createdCount += 1;

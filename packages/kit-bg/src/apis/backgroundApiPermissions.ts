@@ -60,21 +60,6 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'wallet_closeCurrentBrowserTab',
   'wallet_addBrowserUrlToRiskWhiteList',
   'wallet_requestClipboardPermission',
-  'tradingview_getKLineData',
-  'tradingview_layoutUpdate',
-  'tradingview_getMarks',
-  'tradingview_chartReady',
-  'tradingview_getHyperliquidPriceScale',
-  'tradingview_analytics_interval',
-  'tradingview_analytics_timeframe',
-  'tradingview_analytics_priceMC',
-  'tradingview_analytics_line',
-  'tradingview_analytics_studyCreated',
-  'tradingview_analytics_studyRemoved',
-  // Perps chart lines methods
-  'tradingview_perpsReady',
-  'tradingview_perpsOrderCancel',
-  'tradingview_lineDragCommit',
 ];
 
 export const PROVIDER_API_PRIVATE_KEYLESS_METHOD = [
@@ -94,6 +79,10 @@ export function isProviderApiPrivateAllowedMethod(method?: string) {
 
 export function isProviderApiPrivateKeylessMethod(method?: string) {
   return method && PROVIDER_API_PRIVATE_KEYLESS_METHOD.includes(method || '');
+}
+
+export function isProviderApiPrivateAllowedKeylessOrigin(origin?: string) {
+  return !!origin && KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN.includes(origin);
 }
 
 export function isProviderApiPrivateAllowedOrigin(origin?: string) {

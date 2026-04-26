@@ -46,6 +46,8 @@ export interface IDevSettings {
   allowDeleteKeylessKey?: boolean;
   // show Keyless-related debug dialogs/logs in UI (dev only)
   enableKeylessDebugInfo?: boolean;
+  // enable BotWallet management entry for Keyless wallet
+  enableBotWalletFeature?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
@@ -80,6 +82,10 @@ export interface IDevSettings {
   testAccounts?: ITestAccount[];
   // Ignore server bundle update info (prevents rollback when dev-switching bundles)
   ignoreServerBundleUpdate?: boolean;
+  // Allow watching accounts to pass through bulk-send pre-flight validation.
+  // Submission remains blocked; this only lets QA walk through the UI flow
+  // (e.g. BTC 200+ split cases that need high balances) without a signer.
+  allowBulkSendWatchingAccount?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -106,6 +112,7 @@ export const {
       strictSignatureAlert: false,
       enableAnalyticsRequest: false,
       enableKeylessDebugInfo: false,
+      enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
       showPerformanceMonitor: true,

@@ -4,6 +4,7 @@ export enum ERookieTaskType {
   SWAP = 'swap',
   PERPS = 'perps',
   DAPP = 'dapp',
+  HYPERLIQUID_REFERRAL = 'hyperliquid_referral',
 }
 
 // Task progress: key existence indicates completion, value is timestamp
@@ -13,6 +14,7 @@ export interface IRookieGuideProgress {
   [ERookieTaskType.SWAP]?: number;
   [ERookieTaskType.PERPS]?: number;
   [ERookieTaskType.DAPP]?: number;
+  [ERookieTaskType.HYPERLIQUID_REFERRAL]?: number;
 }
 
 // Data stored in SimpleDB
@@ -33,11 +35,19 @@ export interface IRookieGuideInfo {
   oneKeyId: IRookieGuideOneKeyIdInfo;
   instanceId: string;
   taskProgress: IRookieGuideProgress;
+  hyperliquidReferral?: {
+    eligible: boolean;
+    reason: string;
+    address?: string;
+  };
 }
 
 // ============ Rookie Share Types ============
 
-// Data passed from H5 WebView for sharing
+// Data passed from H5 WebView for sharing.
+// Note: referralCode / referralUrl are injected by the App from the
+// logged-in user's primary referral code in wallet_showRookieShare; any
+// values passed from H5 are ignored.
 export interface IRookieShareData {
   // Content card
   imageUrl: string; // Badge/avatar image URL (required)
@@ -46,8 +56,8 @@ export interface IRookieShareData {
 
   // Footer area
   footerText?: string; // Footer text, defaults to "Open source and easy to use from day one."
-  referralCode?: string; // Referral code (displayed in Footer)
-  referralUrl?: string; // Referral URL (used for QR code generation)
+  referralCode?: string; // Referral code (displayed in footer). Injected by App.
+  referralUrl?: string; // Referral URL (QR code / copy / X share target). Injected by App.
 }
 
 export interface IRookieShareImageGeneratorRef {

@@ -1,15 +1,13 @@
 import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil, isUndefined, map } from 'lodash';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 function AccountValue(accountValue: {
@@ -66,101 +64,55 @@ function AccountValue(accountValue: {
   }, [accountValue, activeAccountValue, isActiveAccount]);
 
   const accountValueString = useMemo(() => {
+    // Branch 1: "others" account — value is already a scalar string.
     if (typeof value === 'string') {
-      return new BigNumber(value ?? '0')
-        .plus(
-          accountDeFiOverview?.overview?.[linkedNetworkId ?? '']?.netWorth ??
-            '0',
-        )
-        .toFixed();
+      const deFi =
+        accountDeFiOverview?.overview?.[linkedNetworkId ?? '']?.netWorth ?? '0';
+      return calculateAccountTotalValue({
+        tokensValue: value,
+        deFiNetWorth: deFi,
+      });
     }
 
+    // Branch 2: merge-derive chain — BTC/LTC/etc. Intentionally no DeFi
+    // (these chains have no DeFi positions; matches prior behavior).
     if (linkedNetworkId && mergeDeriveAssetsEnabled && !isSingleAddress) {
-      let mergedValue = new BigNumber(0);
-      let accountValueExist = false;
-
-      const matchedAccountValues = map(value, (v, k) => {
-        const keyArray = k.split('_');
-        const networkId = keyArray[keyArray.length - 1];
-        if (networkId === linkedNetworkId) {
-          return v;
-        }
-      }).filter((v) => !isNil(v));
-
-      if (matchedAccountValues.length > 0) {
-        accountValueExist = true;
-        mergedValue = matchedAccountValues.reduce(
-          (acc: BigNumber, v: string) => {
-            return acc.plus(v);
-          },
-          mergedValue,
-        );
-      } else {
-        accountValueExist = false;
-      }
-
-      return accountValueExist ? mergedValue.toFixed() : undefined;
+      return calculateAccountTotalValue({
+        tokensValue: value,
+        deFiNetWorth: 0,
+        mergeDeriveAssetsEnabled: true,
+        networkId: linkedNetworkId,
+      });
     }
 
+    // Branch 3: single network, specific account
     if (
       linkedAccountId &&
       linkedNetworkId &&
       !networkUtils.isAllNetwork({ networkId: linkedNetworkId })
     ) {
-      const tokensValue =
-        value[
-          accountUtils.buildAccountValueKey({
-            accountId: linkedAccountId,
-            networkId: linkedNetworkId,
-          })
-        ];
-      const accountDeFiValue =
-        accountDeFiOverview?.overview?.[linkedNetworkId]?.netWorth;
-      if (isUndefined(tokensValue) && isUndefined(accountDeFiValue)) {
-        return undefined;
-      }
-      return new BigNumber(tokensValue ?? '0')
-        .plus(accountDeFiValue ?? '0')
-        .toFixed();
+      return calculateAccountTotalValue({
+        tokensValue: value,
+        deFiNetWorth:
+          accountDeFiOverview?.overview?.[linkedNetworkId]?.netWorth,
+        accountId: linkedAccountId,
+        networkId: linkedNetworkId,
+      });
     }
 
-    const tokensValue = Object.entries(value).reduce((acc, [k, v]) => {
-      const keyArray = k.split('_');
-      const networkId = keyArray.pop() as string;
-      const accountId = keyArray.join('_');
-      const [_walletId, _path, _deriveType] = accountId.split(SEPERATOR) as [
-        string,
-        string,
-        string,
-      ];
-
-      const deriveType: IAccountDeriveTypes =
-        accountUtils.normalizeDeriveType(_deriveType) ?? 'default';
-      if (
-        _walletId === walletId &&
-        enabledNetworksCompatibleWithWalletId.some((n) => n.id === networkId) &&
-        networkInfoMap[networkId] &&
-        (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
-          networkInfoMap[networkId].deriveType.toLowerCase() ===
-            deriveType.toLowerCase())
-      ) {
-        return new BigNumber(acc ?? '0').plus(v ?? '0').toFixed();
-      }
-      return acc;
-    }, '0');
-
-    // plus all netWorth in accountDeFiOverview
-    const accountDeFiValue = Object.values(
-      accountDeFiOverview?.overview ?? {},
-    ).reduce((acc, curr) => {
-      return new BigNumber(acc ?? '0').plus(curr?.netWorth ?? '0').toFixed();
-    }, '0');
-    if (isUndefined(tokensValue) && isUndefined(accountDeFiValue)) {
-      return undefined;
-    }
-    return new BigNumber(tokensValue ?? '0')
-      .plus(accountDeFiValue ?? '0')
-      .toFixed();
+    // Branch 4: All Networks / wallet-scoped derive matching
+    const deFiAll = Object.values(accountDeFiOverview?.overview ?? {}).reduce(
+      (acc, curr) =>
+        new BigNumber(acc ?? '0').plus(curr?.netWorth ?? '0').toFixed(),
+      '0',
+    );
+    return calculateAccountTotalValue({
+      tokensValue: value,
+      deFiNetWorth: deFiAll,
+      walletId,
+      enabledNetworksCompatibleWithWalletId,
+      networkInfoMap,
+    });
   }, [
     value,
     linkedNetworkId,

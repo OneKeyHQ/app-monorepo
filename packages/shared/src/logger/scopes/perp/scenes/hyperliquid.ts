@@ -3,6 +3,7 @@ import type {
   IApiRequestError,
   IApiRequestResult,
   ICancelResponse,
+  IModifyResponse,
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
@@ -185,6 +186,16 @@ export class HyperLiquidScene extends BaseScene {
   }
 
   @LogToServer()
+  public modifyOrder(
+    params: IHyperLiquidLogParams<
+      { oid: number; order: IOrderParams },
+      IModifyResponse | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
   public withdraw(
     params: IHyperLiquidLogParams<
       IWithdrawParams,
@@ -261,6 +272,7 @@ export class HyperLiquidScene extends BaseScene {
 
 export type IHyperLiquidOrderAction =
   | 'placeOrder'
+  | 'placeSpotOrder'
   | 'orderOpen'
   | 'orderTrigger'
   | 'ordersClose'

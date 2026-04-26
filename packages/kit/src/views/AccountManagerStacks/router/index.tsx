@@ -27,6 +27,10 @@ const PageResolveSameWallets = LazyLoadPage(
   () => import('../pages/PageResolveSameWallets'),
 );
 
+const BotWalletManager = LazyLoadPage(
+  () => import('../pages/BotWalletManager'),
+);
+
 export const AccountManagerStacks: IModalFlowNavigatorConfig<
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList
@@ -54,5 +58,9 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   {
     name: EAccountManagerStacksRoutes.PageResolveSameWallets,
     component: PageResolveSameWallets,
+  },
+  {
+    name: EAccountManagerStacksRoutes.BotWalletManager,
+    component: BotWalletManager,
   },
 ];

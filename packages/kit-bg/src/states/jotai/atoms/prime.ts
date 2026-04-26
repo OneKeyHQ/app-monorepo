@@ -40,6 +40,7 @@ export const {
 export type IPrimeCloudSyncPersistAtomData = {
   isCloudSyncEnabled: boolean;
   hasEverEnabledOneKeyIdSync?: boolean;
+  hasEverEnabledKeylessSync?: boolean;
   lastSyncTime?: number; // lastSyncTimeLegacy
   lastSyncTimeOneKeyId?: number;
   lastSyncTimeKeyless?: number;
@@ -56,6 +57,7 @@ export const {
   initialValue: {
     isCloudSyncEnabled: false,
     hasEverEnabledOneKeyIdSync: false,
+    hasEverEnabledKeylessSync: false,
     isCloudSyncEnabledKeyless: false,
   },
 });

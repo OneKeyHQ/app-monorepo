@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Markdown, Page, ScrollView } from '@onekeyhq/components';
+import { Page, ScrollView } from '@onekeyhq/components';
+import { Markdown } from '@onekeyhq/components/src/content/Markdown';
 import { displayWhatsNewVersion } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';

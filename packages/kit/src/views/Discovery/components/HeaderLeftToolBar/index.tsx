@@ -36,6 +36,8 @@ function HeaderLeftToolBar({
   onPinnedPress,
   isTranslated,
   onTranslate,
+  onRetranslate,
+  onTestAITranslateError,
 }: {
   url: string;
   canGoBack?: boolean;
@@ -52,6 +54,8 @@ function HeaderLeftToolBar({
   onPinnedPress?: (pinned: boolean) => void;
   isTranslated?: boolean;
   onTranslate?: () => void;
+  onRetranslate?: () => void;
+  onTestAITranslateError?: (testFlag: string) => void;
 }) {
   const { hostSecurity, iconConfig } = useUrlRiskConfig(url);
   const intl = useIntl();
@@ -138,6 +142,8 @@ function HeaderLeftToolBar({
         onPinnedPress={onPinnedPress}
         isTranslated={isTranslated}
         onTranslate={onTranslate}
+        onRetranslate={onRetranslate}
+        onTestAITranslateError={onTestAITranslateError}
       />
     </XStack>
   );

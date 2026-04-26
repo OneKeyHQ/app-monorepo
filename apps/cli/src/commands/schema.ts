@@ -1,5 +1,7 @@
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
+import { AppError, ERROR_CODES } from '../errors';
+import { OutputFormatter } from '../output';
 import { getSchemaRegistry } from '../schemas/registry';
 
 import type { Command } from 'commander';
@@ -45,6 +47,13 @@ export function getAllSchemas(): Record<string, IFormattedSchema> {
   return result;
 }
 
+function writeSchemaOutput(
+  output: OutputFormatter,
+  value: Record<string, unknown> | string[] | IFormattedSchema,
+): void {
+  output.raw(JSON.stringify(value, null, 2));
+}
+
 export function registerSchemaCommand(program: Command): void {
   program
     .command('schema [command-name]')
@@ -52,30 +61,50 @@ export function registerSchemaCommand(program: Command): void {
     .option('--all', 'Output schemas for all commands')
     .option('--list', 'List available command names')
     .action(
-      (commandName?: string, options?: { all?: boolean; list?: boolean }) => {
+      (
+        commandName?: string,
+        options?: { all?: boolean; list?: boolean },
+        command?: Command,
+      ) => {
+        const globalOpts = command?.optsWithGlobals?.() ?? {};
+        const output =
+          (globalOpts._outputFormatter as OutputFormatter | undefined) ??
+          new OutputFormatter('human');
+
         if (options?.list) {
-          console.log(JSON.stringify(listCommandNames(), null, 2));
+          writeSchemaOutput(output, listCommandNames());
           return;
         }
 
         if (options?.all) {
-          console.log(JSON.stringify(getAllSchemas(), null, 2));
+          writeSchemaOutput(output, getAllSchemas());
           return;
         }
 
         if (!commandName) {
-          console.error('Usage: onekey schema <command-name> | --all | --list');
-          process.exit(1);
+          const appError = new AppError(
+            ERROR_CODES.PARAM_MISSING_REQUIRED.code,
+            'Schema target command is required',
+            'Use "onekey schema <command-name>", "onekey schema --list", or "onekey schema --all".',
+          );
+          output.error(appError.toErrorDetail());
+          process.exitCode = appError.exitCode;
+          return;
         }
 
         const schema = formatSchemaEntry(commandName);
         if (!schema) {
-          console.error(`Unknown command: ${commandName}`);
-          console.error(`Available: ${listCommandNames().join(', ')}`);
-          process.exit(1);
+          const appError = new AppError(
+            ERROR_CODES.PARAM_INVALID_COMMAND.code,
+            `Unknown command: ${commandName}`,
+            `Available: ${listCommandNames().join(', ')}`,
+          );
+          output.error(appError.toErrorDetail());
+          process.exitCode = appError.exitCode;
+          return;
         }
 
-        console.log(JSON.stringify(schema, null, 2));
+        writeSchemaOutput(output, schema);
       },
     );
 }

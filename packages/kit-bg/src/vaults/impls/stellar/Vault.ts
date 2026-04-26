@@ -466,7 +466,12 @@ export default class Vault extends VaultBase {
       // Parse token address to determine if it's classic or contract
       const tokenAddressParsed = parseTokenAddress(tokenInfo.address);
 
-      if (tokenAddressParsed.type === 'contract') {
+      if (tokenAddressParsed.type === EStellarAssetType.ContractToken) {
+        if (memoField) {
+          throw new OneKeyInternalError({
+            key: ETranslations.send_stellar_contract_token_no_memo_hint,
+          });
+        }
         // Contract Token (Soroban Token) transfer
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const contractId = tokenAddressParsed.contractId!;
@@ -1120,12 +1125,27 @@ export default class Vault extends VaultBase {
     return result;
   }
 
-  override async validateMemo(memo: string): Promise<{
+  override async validateMemo(
+    memo: string,
+    tokenAddress?: string,
+  ): Promise<{
     isValid: boolean;
     errorMessage?: string;
   }> {
     if (!memo || !memo.trim()) {
       return { isValid: true }; // Empty memo is valid
+    }
+
+    if (tokenAddress) {
+      const parsed = parseTokenAddress(tokenAddress);
+      if (parsed.type === EStellarAssetType.ContractToken) {
+        return {
+          isValid: false,
+          errorMessage: appLocale.intl.formatMessage({
+            id: ETranslations.send_stellar_contract_token_no_memo_hint,
+          }),
+        };
+      }
     }
 
     const trimmed = memo.trim();

@@ -96,6 +96,12 @@ const isLinux = process.platform === 'linux';
 const isSnapStore = isLinux && process.env.SNAP;
 const isFlatpakStore = isLinux && process.env.FLATPAK;
 const isWindowsMsStore = isWin && process.env.DESK_CHANNEL === 'ms-store';
+// `DESK_CHANNEL=appImage` is set by the AppImage CI job (see
+// release-desktop-all.yml) and baked into the bundle via esbuild `define` in
+// scripts/build.js. Using the dedicated channel flag avoids the ambiguity of
+// reading the runtime `APPIMAGE` env var, which is both a define target and a
+// runtime value set by the AppImage launcher.
+const isAppImage = isLinux && process.env.DESK_CHANNEL === 'appImage';
 
 const isStoreVersion =
   isMas || isSnapStore || isWindowsMsStore || isFlatpakStore;
@@ -581,6 +587,37 @@ class DesktopApiAppUpdate {
     return verified;
   }
 
+  // electron-updater's AppImageUpdater.doInstall calls unlinkSync on the path
+  // stored in the runtime env, but only guards with `== null`, so an empty
+  // string slips through and crashes with `ENOENT: ... unlink ''`. The env can
+  // end up empty when the app is launched via a wrapper, via
+  // `--appimage-extract-and-run`, or through AppImageLauncher's FUSE overlay
+  // (where it points to a read-only mount).
+  //
+  // APPIMAGE is a runtime env var set by the AppImage launcher — unlike
+  // DESK_CHANNEL it is never injected via esbuild `define`.
+  private canAutoInstallAppImage(): boolean {
+    const appImagePath = process.env.APPIMAGE;
+    if (!appImagePath || appImagePath.trim().length === 0) {
+      logger.warn(
+        'auto-updater',
+        'AppImage runtime env missing; falling back to manual install',
+      );
+      return false;
+    }
+    try {
+      fs.accessSync(appImagePath, fs.constants.W_OK);
+    } catch (error) {
+      logger.warn(
+        'auto-updater',
+        `AppImage path not writable (${appImagePath}); falling back to manual install`,
+        error,
+      );
+      return false;
+    }
+    return true;
+  }
+
   async installPackage(verifyParams: IInstallUpdateParams): Promise<void> {
     const verified = await this.verifyFile(verifyParams);
     if (!verified) {
@@ -626,6 +663,13 @@ class DesktopApiAppUpdate {
       }
       if (!isMac) {
         logger.info('auto-update', 'button[0] was clicked', buildNumber);
+        // On Linux AppImage, bail out early if APPIMAGE env is unusable —
+        // quitAndInstall would otherwise crash inside electron-updater with
+        // `ENOENT: ... unlink ''` and leave the user stuck.
+        if (isLinux && isAppImage && !this.canAutoInstallAppImage()) {
+          await this.manualInstallPackage(verifyParams);
+          return;
+        }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const isExist = autoUpdater?.isExistInstallerPath();
         const downloadedFilePath = verifyParams.downloadedFile;

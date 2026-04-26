@@ -14,11 +14,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import {
-  CONTEXTUAL_ARTICLE_IDS,
-  buildHelpUrl,
-  openGuideUrl,
-} from '../../Guide/perpGuideData';
 import { showMarginModeDialog } from '../modals/MarginModeModal';
 
 interface IMarginModeSelectorProps {
@@ -68,22 +63,7 @@ const MarginModeSelector = ({
     >
       <SizableText size="$bodyMdMedium">{currentModeLabel}</SizableText>
 
-      <XStack alignItems="center" gap="$1">
-        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
-        <Icon
-          name="QuestionmarkOutline"
-          size="$3.5"
-          color="$iconSubdued"
-          hitSlop={8}
-          cursor="default"
-          onPress={(e) => {
-            e.stopPropagation();
-            openGuideUrl(
-              buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.marginMode}`),
-            );
-          }}
-        />
-      </XStack>
+      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
     </XStack>
   );
 };

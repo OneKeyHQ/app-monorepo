@@ -17,6 +17,7 @@ import {
   useIsSplitView,
   useSplitViewType,
   useTheme,
+  useThemeName,
 } from '../../../hooks';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
@@ -82,7 +83,13 @@ const extraScreenOptions = {
 };
 
 const nativeTabScreenOptions = {
-  freezeOnBlur: true,
+  // iOS: disable freezeOnBlur to prevent react-freeze from suspending tab
+  // content when a modal is on top. When frozen, Jotai/React state updates
+  // (e.g. network switch) don't commit until the tab regains focus — but
+  // the unfreeze path on iOS can fail to flush pending commits, leaving
+  // the UI visually stale until a touch forces re-layout.
+  // Android keeps freeze enabled (no observed issue).
+  freezeOnBlur: !platformEnv.isNativeIOS,
   preventsDefault: false,
   lazy: false,
 };
@@ -93,6 +100,9 @@ export function TabStackNavigator<RouteName extends string>({
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
+  // Subscribe to theme name so OS dark/light switch triggers re-render —
+  // `theme.*.val` reads are non-reactive on native.
+  useThemeName();
   const [tabBarHidden, setTabBarHidden] = useState(false);
 
   // Listen for HideTabBar events to show/hide the tab bar
@@ -195,10 +205,7 @@ export function TabStackNavigator<RouteName extends string>({
     }
   }, [tabBarHidden, splitViewType, isLandscape]);
   const tabBarStyle = useMemo(
-    () =>
-      platformEnv.isNativeAndroid
-        ? { backgroundColor: theme.bg.val }
-        : undefined,
+    () => ({ backgroundColor: theme.bg.val }),
     [theme.bg.val],
   );
 

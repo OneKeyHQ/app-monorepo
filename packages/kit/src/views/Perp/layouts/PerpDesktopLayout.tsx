@@ -27,8 +27,6 @@ import {
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
-import { calculateMaxLevelsPerSide } from './perpLayoutUtils';
-
 function PerpDesktopLayout() {
   const intl = useIntl();
   const { gtXl } = useMedia();
@@ -47,14 +45,6 @@ function PerpDesktopLayout() {
   const showOrderBook =
     gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
   const tradingWidth = layout.widths.trading;
-  const orderBookMaxLevelsPerSide = useMemo(
-    () =>
-      calculateMaxLevelsPerSide(
-        layout.marketContentHeight - layout.panelHeaderHeight,
-      ),
-    [layout.marketContentHeight, layout.panelHeaderHeight],
-  );
-
   const toggleOrderBook = useCallback(() => {
     setLayoutState((prev) => ({
       ...prev,
@@ -82,7 +72,8 @@ function PerpDesktopLayout() {
   const accountPanel = useMemo(() => {
     return (
       <YStack
-        h={layout.bottomPanelHeight}
+        minHeight={layout.bottomPanelHeight}
+        alignSelf="stretch"
         minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
         maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
         w={tradingWidth}
@@ -124,7 +115,7 @@ function PerpDesktopLayout() {
     >
       <YStack flex={chartExpanded ? 1 : undefined}>
         <PerpTips />
-        {!chartExpanded && <FavoritesBar />}
+        {chartExpanded ? null : <FavoritesBar />}
 
         <YStack
           flex={chartExpanded ? 1 : undefined}
@@ -200,9 +191,7 @@ function PerpDesktopLayout() {
                       </SizableText>
                     </XStack>
                     <YStack flex={1} overflow="hidden">
-                      <PerpOrderBook
-                        maxLevelsPerSide={orderBookMaxLevelsPerSide}
-                      />
+                      <PerpOrderBook />
                     </YStack>
                   </YStack>
                 ) : null}
@@ -220,6 +209,7 @@ function PerpDesktopLayout() {
             borderTopWidth="$px"
             borderTopColor="$borderSubdued"
             overflow="hidden"
+            alignItems="stretch"
           >
             <YStack flex={1} h="100%">
               <PerpOrderInfoPanel />

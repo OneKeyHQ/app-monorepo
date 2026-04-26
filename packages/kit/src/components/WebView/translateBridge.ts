@@ -13,13 +13,13 @@ export type ITranslateRequest = {
   targetLang: string;
 };
 
-type TranslateHandler = (data: ITranslateRequest) => void;
+type ITranslateHandler = (data: ITranslateRequest) => void;
 
-const handlers: Record<string, TranslateHandler> = {};
+const handlers: Record<string, ITranslateHandler> = {};
 
 export function registerTranslateHandler(
   tabId: string,
-  handler: TranslateHandler,
+  handler: ITranslateHandler,
 ) {
   handlers[tabId] = handler;
 }
@@ -32,20 +32,32 @@ function dispatchTranslateMessage(tabId: string, data: ITranslateRequest) {
   handlers[tabId]?.(data);
 }
 
-type NavigationCallback = () => void;
-const navigationCallbacks: Record<string, NavigationCallback> = {};
+type INavigationCallback = () => void;
 
-export function onTabNavigation(tabId: string, cb: NavigationCallback) {
-  navigationCallbacks[tabId] = cb;
+function createTabCallbackRegistry() {
+  const registry: Record<string, INavigationCallback> = {};
+  return {
+    on: (tabId: string, cb: INavigationCallback) => {
+      registry[tabId] = cb;
+    },
+    off: (tabId: string) => {
+      delete registry[tabId];
+    },
+    notify: (tabId: string) => {
+      registry[tabId]?.();
+    },
+  };
 }
 
-export function offTabNavigation(tabId: string) {
-  delete navigationCallbacks[tabId];
-}
+const navRegistry = createTabCallbackRegistry();
+export const onTabNavigation = navRegistry.on;
+export const offTabNavigation = navRegistry.off;
+export const notifyTabNavigation = navRegistry.notify;
 
-export function notifyTabNavigation(tabId: string) {
-  navigationCallbacks[tabId]?.();
-}
+const navEndRegistry = createTabCallbackRegistry();
+export const onTabNavigationEnd = navEndRegistry.on;
+export const offTabNavigationEnd = navEndRegistry.off;
+export const notifyTabNavigationEnd = navEndRegistry.notify;
 
 export function tryDispatchTranslateMessage(
   tabId: string,

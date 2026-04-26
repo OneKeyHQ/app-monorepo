@@ -21,8 +21,9 @@ export default {
     '**/*.test.{ts,tsx}',
   ],
   testPathIgnorePatterns: [
-    // Detox E2E tests have their own Jest config under apps/mobile/e2e
-    'apps/mobile/e2e',
+    // Keep harness tests in apps/mobile/e2e discoverable; only ignore the
+    // perf guard that runs under its own Jest setup.
+    'apps/mobile/e2e/perf-regression-guard\\.test\\.js',
     // Same chain ignores as root jest.config.js
     'packages/core/src/chains/ada',
     'packages/core/src/chains/algo',
@@ -54,5 +55,7 @@ export default {
     'packages/kit-bg/src/services/servicePendingInstallTask\\.test',
     // Reason: uses jest.isolateModules + jest.useFakeTimers — both unsupported in harness
     'packages/kit/src/provider/SplashProvider\\.test',
+    // Reason: uses jest.useFakeTimers + setSystemTime to pin frecency "now" — harness incompatible
+    'packages/kit/src/views/Discovery/utils/searchResultRanking\\.test',
   ],
 };

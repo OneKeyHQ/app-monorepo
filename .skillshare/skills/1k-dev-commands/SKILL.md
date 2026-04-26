@@ -9,17 +9,17 @@ allowed-tools: Bash, Read
 ## Application Development Commands
 
 **PLATFORM-SPECIFIC DEVELOPMENT**:
-- `yarn app:desktop` - Start desktop Electron app development
+- `yarn app:desktop:rspack` - Start desktop Electron app development
   - **Runtime**: 30-60 seconds to start
   - **Common issues**: Node version conflicts, missing native dependencies
   - **Troubleshooting**: Run `yarn clean && yarn reinstall` if startup fails
 
-- `yarn app:web` - Start web development server (port 3000)
+- `yarn app:web:rspack` - Start web development server (port 3000)
   - **Runtime**: 15-30 seconds to start
-  - **Common issues**: Port 3000 already in use, webpack compilation errors
+  - **Common issues**: Port 3000 already in use, rspack compilation errors
   - **Troubleshooting**: Kill existing processes on port 3000, check console for specific errors
 
-- `yarn app:ext` - Start browser extension development
+- `yarn app:ext:rspack` - Start browser extension development
   - **Runtime**: 20-40 seconds to start
   - **Common issues**: Manifest v3 validation errors, permission issues
   - **Troubleshooting**: Check extension manifest validity, verify content security policy

@@ -1252,3 +1252,105 @@ export function validateTokenAmount({
     error: undefined,
   };
 }
+
+export function calculateAccountTotalValue(params: {
+  tokensValue: string | Record<string, string> | undefined;
+  deFiNetWorth: string | number | undefined;
+  accountId?: string;
+  networkId?: string;
+  mergeDeriveAssetsEnabled?: boolean;
+  walletId?: string;
+  enabledNetworksCompatibleWithWalletId?: Array<{ id: string }>;
+  networkInfoMap?: Record<
+    string,
+    {
+      deriveType: string;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
+}): string | undefined {
+  const {
+    tokensValue,
+    deFiNetWorth,
+    accountId,
+    networkId,
+    mergeDeriveAssetsEnabled,
+    walletId,
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
+  } = params;
+
+  const hasDeFi = deFiNetWorth !== undefined && deFiNetWorth !== null;
+  const deFi = new BigNumber(deFiNetWorth ?? 0);
+
+  if (typeof tokensValue === 'string') {
+    return new BigNumber(tokensValue || '0').plus(deFi).toFixed();
+  }
+
+  if (!tokensValue || typeof tokensValue !== 'object') {
+    if (!hasDeFi) return undefined;
+    return deFi.toFixed();
+  }
+
+  // Wallet-scoped branch takes priority over the single-network branch
+  // below when all wallet-scope params are provided — callers wanting
+  // single-account semantics must not pass them together.
+  if (walletId && enabledNetworksCompatibleWithWalletId && networkInfoMap) {
+    const SEPARATOR = '--';
+    const compatibleIds = new Set(
+      enabledNetworksCompatibleWithWalletId.map((n) => n.id),
+    );
+    const sum = Object.entries(tokensValue).reduce((acc, [k, v]) => {
+      const keyArray = k.split('_');
+      const netId = keyArray.pop() as string;
+      const restAccountId = keyArray.join('_');
+      const parts = restAccountId.split(SEPARATOR);
+      const keyWalletId = parts[0];
+      const keyDeriveType = (
+        accountUtils.normalizeDeriveType(parts[2] || '') ?? 'default'
+      ).toLowerCase();
+      const infoEntry = networkInfoMap[netId];
+      if (
+        keyWalletId === walletId &&
+        compatibleIds.has(netId) &&
+        infoEntry &&
+        (infoEntry.mergeDeriveAssetsEnabled ||
+          infoEntry.deriveType.toLowerCase() === keyDeriveType)
+      ) {
+        return acc.plus(new BigNumber(v || '0'));
+      }
+      return acc;
+    }, new BigNumber(0));
+    return sum.plus(deFi).toFixed();
+  }
+
+  // Intentional: merge-derive chains (BTC/LTC/etc.) have no DeFi, so deFi
+  // is excluded from this branch.
+  if (mergeDeriveAssetsEnabled && networkId) {
+    let matched = false;
+    const sum = Object.entries(tokensValue).reduce((acc, [k, v]) => {
+      const keyArray = k.split('_');
+      const keyNetworkId = keyArray[keyArray.length - 1];
+      if (keyNetworkId === networkId) {
+        matched = true;
+        return acc.plus(new BigNumber(v || '0'));
+      }
+      return acc;
+    }, new BigNumber(0));
+    if (!matched) return undefined;
+    return sum.toFixed();
+  }
+
+  if (accountId && networkId) {
+    const key = accountUtils.buildAccountValueKey({ accountId, networkId });
+    const entry = tokensValue[key];
+    if (entry === undefined && !hasDeFi) return undefined;
+    return new BigNumber(entry ?? '0').plus(deFi).toFixed();
+  }
+
+  const sumAll = Object.values(tokensValue).reduce(
+    (acc: BigNumber, v) => acc.plus(new BigNumber(v || '0')),
+    new BigNumber(0),
+  );
+  return sumAll.plus(deFi).toFixed();
+}

@@ -97,7 +97,7 @@ function WebWalletOptions({
   const intl = useIntl();
 
   const handleOpenDesktop = useCallback(() => {
-    defaultLogger.referral.page.acceptReferralInvitation({
+    defaultLogger.referral.page.clickAcceptInviteButton({
       referralCode,
       acceptMethod: 'web_no_extension',
     });
@@ -109,7 +109,7 @@ function WebWalletOptions({
   }, [referralCode, page]);
 
   const handleGetExtension = useCallback(() => {
-    defaultLogger.referral.page.acceptReferralInvitation({
+    defaultLogger.referral.page.clickAcceptInviteButton({
       referralCode,
       acceptMethod: 'web_no_extension',
     });
@@ -212,6 +212,11 @@ function InvitedByFriendActions({
       );
 
       await backgroundApiProxy.serviceReferralCode.setCachedInviteCode('');
+      defaultLogger.referral.page.referralBindingCompleted({
+        referralCode,
+        address,
+        networkId,
+      });
       success = true;
     } catch (error) {
       // EIP-1193: code 4001 = user rejected — silently ignore
@@ -247,7 +252,7 @@ function InvitedByFriendActions({
     if (platformEnv.isWeb) {
       // Extension installed → bind directly
       if (getOneKeyExtensionProvider()) {
-        defaultLogger.referral.page.acceptReferralInvitation({
+        defaultLogger.referral.page.clickAcceptInviteButton({
           referralCode,
           acceptMethod: 'web_extension',
         });
@@ -259,7 +264,7 @@ function InvitedByFriendActions({
       return;
     }
 
-    defaultLogger.referral.page.acceptReferralInvitation({
+    defaultLogger.referral.page.clickAcceptInviteButton({
       referralCode,
       acceptMethod: 'local_app',
     });

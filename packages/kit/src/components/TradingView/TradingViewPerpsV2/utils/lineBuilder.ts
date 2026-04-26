@@ -129,11 +129,11 @@ export function buildOrderLine(
   }
 
   const side: ITVLineSide = order.side === 'B' ? 'long' : 'short';
-  const triggerCondition = order.triggerCondition || 'N/A';
   const orderTypeLabel = order.orderType || 'Limit';
-  const labelText = `${orderTypeLabel} ${formatPriceForLabel(
-    order.limitPx,
-  )} ${triggerCondition}`;
+  const priceLabel = formatPriceForLabel(order.limitPx);
+  const labelText = order.isTrigger
+    ? `${orderTypeLabel} ${priceLabel} ${order.triggerCondition ?? ''}`.trimEnd()
+    : `${orderTypeLabel} ${priceLabel}`;
 
   return {
     id: `order:${order.oid}`,
@@ -164,6 +164,48 @@ function formatTriggerCondition(triggerCondition: string | undefined): string {
   return triggerCondition.replace(/\babove\b/i, '>').replace(/\bbelow\b/i, '<');
 }
 
+function inferTpSlKindFromTriggerOrder(
+  order: IPerpsFrontendOrder,
+): ITVLineKind | null {
+  if (!order.isPositionTpsl || !order.orderType.startsWith('Trigger')) {
+    return null;
+  }
+
+  const normalizedCondition = (order.triggerCondition || '').toLowerCase();
+  const isAbove = normalizedCondition.includes('above');
+  const isBelow = normalizedCondition.includes('below');
+
+  if (!isAbove && !isBelow) {
+    return null;
+  }
+
+  if (order.side === 'A') {
+    return isAbove ? 'tp' : 'sl';
+  }
+
+  if (order.side === 'B') {
+    return isBelow ? 'tp' : 'sl';
+  }
+
+  return null;
+}
+
+function getTpSlKind(order: IPerpsFrontendOrder): ITVLineKind | null {
+  if (order.orderType.startsWith('Take Profit')) {
+    return 'tp';
+  }
+
+  if (order.orderType.startsWith('Stop')) {
+    return 'sl';
+  }
+
+  return inferTpSlKindFromTriggerOrder(order);
+}
+
+function isTriggerTpSlOrder(orderType: string): boolean {
+  return orderType.startsWith('Trigger');
+}
+
 /**
  * Build a TP (Take Profit) or SL (Stop Loss) line from a trigger order.
  * Uses triggerPx as the line price.
@@ -171,24 +213,33 @@ function formatTriggerCondition(triggerCondition: string | undefined): string {
 export function buildTpSlLine(
   order: IPerpsFrontendOrder,
   szDecimals: number,
+  positionSize?: string,
 ): ITVLine | null {
-  const sz = parseSize(order.sz);
+  const orderSize = parseSize(order.sz);
+  const resolvedSize =
+    order.isPositionTpsl && orderSize === 0
+      ? parseSize(positionSize)
+      : orderSize;
   // TP/SL orders use triggerPx as the line price
-  if (sz === 0 || !parseValidPrice(order.triggerPx)) {
+  if (resolvedSize === 0 || !parseValidPrice(order.triggerPx)) {
     return null;
   }
 
   const side: ITVLineSide = order.side === 'B' ? 'long' : 'short';
-  const isTp = order.orderType.startsWith('Take Profit');
-  const kind: ITVLineKind = isTp ? 'tp' : 'sl';
+  const kind = getTpSlKind(order);
+  if (!kind) {
+    return null;
+  }
+  const isTp = kind === 'tp';
   const isMarket = order.orderType.includes('Market');
+  const isTriggerOrder = isTriggerTpSlOrder(order.orderType);
   const formattedCondition = formatTriggerCondition(order.triggerCondition);
 
   // Build label text
   // Market: "TP Price > 93723" or "SL Price > 95000"
   // Limit: "Take Profit Limit 92,206 Price < 89000" or "Stop Limit 92,206 Price > 96502"
   let labelText: string;
-  if (isMarket) {
+  if (isMarket || isTriggerOrder) {
     const prefix = isTp ? 'TP' : 'SL';
     labelText = `${prefix} ${formattedCondition}`;
   } else {
@@ -203,7 +254,7 @@ export function buildTpSlLine(
     symbol: order.coin,
     kind,
     price: toChartPriceString(order.triggerPx),
-    qty: formatWithPrecision(sz, szDecimals),
+    qty: formatWithPrecision(resolvedSize, szDecimals),
     side,
     label: { left: labelText },
     editable: false, // TP/SL orders are not draggable
@@ -213,7 +264,11 @@ export function buildTpSlLine(
 }
 
 function isTpSlOrder(orderType: string): boolean {
-  return orderType.startsWith('Take Profit') || orderType.startsWith('Stop');
+  return (
+    orderType.startsWith('Take Profit') ||
+    orderType.startsWith('Stop') ||
+    orderType.startsWith('Trigger')
+  );
 }
 
 export function buildAllLinesForSymbol(
@@ -235,12 +290,17 @@ export function buildAllLinesForSymbol(
   }
 
   // Build order lines (Limit, TP, SL)
+  const currentPosition = positions.find((p) => p.position.coin === symbol);
+  const currentPositionSize = currentPosition
+    ? new BigNumber(currentPosition.position.szi || '0').abs().toFixed()
+    : undefined;
+
   for (const order of orders.filter((o) => o.coin === symbol)) {
     let line: ITVLine | null = null;
     if (order.orderType === 'Limit') {
       line = buildOrderLine(order, szDecimals);
     } else if (isTpSlOrder(order.orderType)) {
-      line = buildTpSlLine(order, szDecimals);
+      line = buildTpSlLine(order, szDecimals, currentPositionSize);
     }
     if (line) lines.push(line);
   }

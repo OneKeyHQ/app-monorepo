@@ -78,61 +78,52 @@ export function useMarketWSSubscriptionRecovery({
     };
   }, [canRestore, subscriptionIdentity]);
 
-  const markSubscriptionActivity = useCallback(
-    function markSubscriptionActivity(): void {
-      lastActivityAtRef.current = Date.now();
-    },
-    [],
-  );
+  const markSubscriptionActivity = useCallback((): void => {
+    lastActivityAtRef.current = Date.now();
+  }, []);
 
-  const restoreSubscription = useCallback(
-    async function restoreSubscription(): Promise<void> {
-      const restoreState = restoreStateRef.current;
+  const restoreSubscription = useCallback(async (): Promise<void> => {
+    const restoreState = restoreStateRef.current;
+    if (
+      !restoreState.canRestore ||
+      restoreState.identity !== subscriptionIdentity ||
+      !isVisibleRef.current
+    ) {
+      return;
+    }
+
+    try {
+      await backgroundApiProxy.serviceMarketWS.connect();
+
+      const latestRestoreState = restoreStateRef.current;
       if (
-        !restoreState.canRestore ||
-        restoreState.identity !== subscriptionIdentity ||
+        !latestRestoreState.canRestore ||
+        latestRestoreState.identity !== subscriptionIdentity ||
+        latestRestoreState.revision !== restoreState.revision ||
         !isVisibleRef.current
       ) {
         return;
       }
 
-      try {
-        await backgroundApiProxy.serviceMarketWS.connect();
-
-        const latestRestoreState = restoreStateRef.current;
-        if (
-          !latestRestoreState.canRestore ||
-          latestRestoreState.identity !== subscriptionIdentity ||
-          latestRestoreState.revision !== restoreState.revision ||
-          !isVisibleRef.current
-        ) {
-          return;
-        }
-
-        await backgroundApiProxy.serviceMarketWS.ensureSubscription({
-          networkId,
-          tokenAddress,
-          currency,
-          chartType,
-          channel,
-        });
-        lastActivityAtRef.current = Date.now();
-      } catch (error) {
-        console.error(
-          `Failed to restore market ${channel} subscription:`,
-          error,
-        );
-      }
-    },
-    [
-      networkId,
-      tokenAddress,
-      currency,
-      chartType,
-      channel,
-      subscriptionIdentity,
-    ],
-  );
+      await backgroundApiProxy.serviceMarketWS.ensureSubscription({
+        networkId,
+        tokenAddress,
+        currency,
+        chartType,
+        channel,
+      });
+      lastActivityAtRef.current = Date.now();
+    } catch (error) {
+      console.error(`Failed to restore market ${channel} subscription:`, error);
+    }
+  }, [
+    networkId,
+    tokenAddress,
+    currency,
+    chartType,
+    channel,
+    subscriptionIdentity,
+  ]);
 
   useEffect(() => {
     const currentVisibility = getCurrentVisibilityState();

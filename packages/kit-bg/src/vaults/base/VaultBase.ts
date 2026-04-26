@@ -146,6 +146,13 @@ export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
 };
 export type IKeyringMapKey = IDBWalletType;
+export type IKeyringMap = Record<
+  IKeyringMapKey,
+  typeof KeyringBase | undefined
+> & {
+  hwLedger?: typeof KeyringBase | undefined;
+  hwTrezor?: typeof KeyringBase | undefined;
+};
 
 if (platformEnv.isExtensionUi) {
   throw new OneKeyLocalError(
@@ -205,9 +212,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   /**
    * Validate memo/tag field (optional, chain-specific implementation)
    * @param memo - The memo string to validate
-   * @returns Validation result with error message if invalid
+   * @param tokenAddress - Optional token address for token-aware validation
+   *   (e.g. Stellar contract tokens disallow memo). Undefined when called
+   *   outside of a token-send context (like AddressBook).
    */
-  async validateMemo(memo: string): Promise<{
+  async validateMemo(
+    memo: string,
+    tokenAddress?: string,
+  ): Promise<{
     isValid: boolean;
     errorMessage?: string;
   }> {
@@ -404,7 +416,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   keyring!: KeyringBase;
 
-  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase | undefined>;
+  abstract keyringMap: IKeyringMap;
 
   async init(config: IVaultInitConfig) {
     await this.initKeyring(config);

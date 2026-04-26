@@ -58,6 +58,7 @@ function PerpBodyContent() {
 }
 
 function PerpContent() {
+  const { gtMd } = useMedia();
   const firedRef = useRef(false);
 
   useFocusEffect(
@@ -109,8 +110,11 @@ function PerpContent() {
       customToolbarItems={
         <>
           <PerpsActivityCenterAction size="small" copyAsUrl />
-          <PerpGuidePopover />
-          <PerpSettingsButton testID="perp-header-settings-button" />
+          {gtMd ? <PerpGuidePopover /> : null}
+          <PerpSettingsButton
+            testID="perp-header-settings-button"
+            showGuideEntry={!gtMd}
+          />
           <HeaderIconButton
             icon="DownloadOutline"
             size="small"

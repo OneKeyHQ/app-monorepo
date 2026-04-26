@@ -19,7 +19,6 @@ import {
   XStack,
   useFormContext,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type {
@@ -53,6 +52,11 @@ import { useIsEnableTransferAllowList } from './hooks';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
+import {
+  getAddressQueryResolvedAddress,
+  getAddressValidateTranslationId,
+  queryAddressWithFallback,
+} from './utils';
 
 import type { IScanPluginProps } from './plugins/scan';
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
@@ -283,6 +287,13 @@ export const createValidateAddressRule =
     if (value.pending) {
       return;
     }
+    // Empty input is the pristine / cleared state — don't surface an
+    // "invalid address" message here. Callers must gate their submit
+    // button on `value.resolved` (or equivalent) since the form will
+    // now report isValid=true for empty input.
+    if (!value.raw?.trim()) {
+      return;
+    }
     if (!value.resolved) {
       return value.validateError?.message ?? defaultErrorMessage;
     }
@@ -505,15 +516,9 @@ export function AddressInput(props: IAddressInputProps) {
           inputTypeRef.current = undefined;
         }
 
-        const result =
-          await backgroundApiProxy.serviceAccountProfile.queryAddress(params);
+        const result = await queryAddressWithFallback(params);
         if (result.input === textRef.current) {
           setQueryResult(result);
-        }
-      } catch {
-        // Treat unexpected validation errors as an unknown address state.
-        if (params.address === textRef.current) {
-          setQueryResult({ input: params.address, validStatus: 'unknown' });
         }
       } finally {
         setLoading(false);
@@ -596,39 +601,21 @@ export function AddressInput(props: IAddressInputProps) {
     ignoreSimilarAddressInAddressBook,
   ]);
 
-  const getValidateMessage = useCallback(
-    (status?: Exclude<IAddressValidateStatus, 'valid'>) => {
-      if (!status) return;
-      const message: Record<
-        Exclude<IAddressValidateStatus, 'valid'>,
-        ETranslations
-      > = {
-        'unknown': ETranslations.send_check_request_error,
-        'prohibit-send-to-self': ETranslations.send_cannot_send_to_self,
-        'invalid': ETranslations.send_address_invalid,
-        'address-not-allowlist': ETranslations.send_address_not_allowlist_error,
-      } as const;
-      return message[status];
-    },
-    [],
-  );
-
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
     if (queryResult.validStatus === 'valid') {
       clearErrors(name);
       onChange?.({
         raw: queryResult.input,
-        resolved:
-          queryResult.resolveAddress ??
-          queryResult.validAddress ??
-          queryResult.input?.trim(),
+        resolved: getAddressQueryResolvedAddress(queryResult),
         pending: false,
         isContract: queryResult.isContract,
         similarAddress: queryResult.similarAddress,
       });
     } else {
-      const translationId = getValidateMessage(queryResult.validStatus);
+      const translationId = getAddressValidateTranslationId(
+        queryResult.validStatus,
+      );
       onChange?.({
         raw: queryResult.input,
         pending: false,
@@ -643,15 +630,7 @@ export function AddressInput(props: IAddressInputProps) {
         similarAddress: queryResult.similarAddress,
       });
     }
-  }, [
-    queryResult,
-    intl,
-    clearErrors,
-    setError,
-    name,
-    onChange,
-    getValidateMessage,
-  ]);
+  }, [queryResult, intl, clearErrors, setError, name, onChange]);
 
   const handleClear = useCallback(() => {
     onChangeText({ text: '', inputType: EInputAddressChangeType.Manual });
@@ -679,7 +658,7 @@ export function AddressInput(props: IAddressInputProps) {
       ) : (
         <IconButton
           title={intl.formatMessage({ id: ETranslations.global_clear })}
-          variant="secondary"
+          variant="tertiary"
           icon="BroomOutline"
           disabled={disabled}
           onPress={disabled ? undefined : handleClear}
@@ -731,32 +710,34 @@ export function AddressInput(props: IAddressInputProps) {
                 </>
               );
             }
+            // Default layout: empty state shows the action cluster
+            // (clipboard / scan / account selector). Non-empty state collapses
+            // to the clear button alone — the selector is hidden so it
+            // doesn't float next to committed address content (OK-53255,
+            // matching the recipient layout used by the Send flow).
+            if (hasContent) {
+              return clearButton;
+            }
             return (
               <>
-                {hasContent ? (
-                  clearButton
-                ) : (
-                  <>
-                    {clipboard ? (
-                      <ClipboardPlugin
-                        display={actionDisplay}
-                        onChange={onChangeText}
-                        disabled={disabled}
-                        testID={testID ? `${testID}-clip` : undefined}
-                      />
-                    ) : null}
-                    {scan ? (
-                      <ScanPlugin
-                        display={actionDisplay}
-                        networkId={networkId}
-                        onScanResult={onScanResult}
-                        onChange={onChangeText}
-                        disabled={disabled}
-                        testID={testID ? `${testID}-scan` : undefined}
-                      />
-                    ) : null}
-                  </>
-                )}
+                {clipboard ? (
+                  <ClipboardPlugin
+                    display={actionDisplay}
+                    onChange={onChangeText}
+                    disabled={disabled}
+                    testID={testID ? `${testID}-clip` : undefined}
+                  />
+                ) : null}
+                {scan ? (
+                  <ScanPlugin
+                    display={actionDisplay}
+                    networkId={networkId}
+                    onScanResult={onScanResult}
+                    onChange={onChangeText}
+                    disabled={disabled}
+                    testID={testID ? `${testID}-scan` : undefined}
+                  />
+                ) : null}
                 {showSelector ? (
                   <SelectorPlugin
                     disabled={disabled}

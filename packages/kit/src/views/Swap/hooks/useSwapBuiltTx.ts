@@ -7,7 +7,6 @@ import {
   timestamp,
 } from '@cowprotocol/contracts';
 import BigNumber from 'bignumber.js';
-import { ethers } from 'ethers';
 import { cloneDeep, isEqual, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -47,6 +46,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
+import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   numberFormat,
@@ -128,6 +128,8 @@ import {
   useSwapSlippagePercentageModeInfo,
 } from './useSwapState';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
+
+const getEthers = createLazySdkLoader(() => import('ethers'));
 
 const formatter: INumberFormatProps = {
   formatter: 'balance',
@@ -475,14 +477,15 @@ export function useSwapBuildTx() {
     async (item: IFetchLimitOrderRes, source: ESwapCancelLimitOrderSource) => {
       if (item.cancelInfo) {
         const { domain, types, data, signedType } = item.cancelInfo;
-        const populated = await ethers.utils._TypedDataEncoder.resolveNames(
+        const { ethers: ethersLib } = await getEthers();
+        const populated = await ethersLib.utils._TypedDataEncoder.resolveNames(
           domain,
           types,
           data,
           async (value: string) => value,
         );
         const dataMessage = JSON.stringify(
-          ethers.utils._TypedDataEncoder.getPayload(
+          ethersLib.utils._TypedDataEncoder.getPayload(
             populated.domain,
             types,
             populated.value,
@@ -1390,6 +1393,7 @@ export function useSwapBuildTx() {
                 accountAddress: fromUserAddress,
                 networkId,
                 accountId,
+                scenario: 'swap',
               });
               if (i === unsignedTxArr.length - 2) {
                 lastTxUseGasInfo = {
@@ -1457,6 +1461,7 @@ export function useSwapBuildTx() {
             accountAddress: fromUserAddress,
             networkId,
             accountId,
+            scenario: 'swap',
           });
           if (!isApprove) {
             void swapEstimateFeeEvent(
@@ -2295,15 +2300,16 @@ export function useSwapBuildTx() {
                 validTo: timestamp(validTo),
                 appData: hashify(unSignedOrder.appData),
               };
+              const { ethers: ethersLib } = await getEthers();
               const populated =
-                await ethers.utils._TypedDataEncoder.resolveNames(
+                await ethersLib.utils._TypedDataEncoder.resolveNames(
                   unSignedData.domain,
                   unSignedData.types,
                   normalizeData,
                   async (value: string) => value,
                 );
               dataMessage = JSON.stringify(
-                ethers.utils._TypedDataEncoder.getPayload(
+                ethersLib.utils._TypedDataEncoder.getPayload(
                   populated.domain,
                   unSignedData.types,
                   populated.value,
@@ -2787,6 +2793,7 @@ export function useSwapBuildTx() {
                 accountAddress: fromUserAddress ?? '',
                 networkId,
                 accountId,
+                scenario: 'swap',
               });
               if (i === unsignedTxArr.length - 2) {
                 lastTxUseGasInfo = {
@@ -2815,6 +2822,7 @@ export function useSwapBuildTx() {
               accountAddress: fromUserAddress ?? '',
               networkId,
               accountId,
+              scenario: 'swap',
             });
             void swapEstimateFeeEvent(
               ESwapEventAPIStatus.SUCCESS,

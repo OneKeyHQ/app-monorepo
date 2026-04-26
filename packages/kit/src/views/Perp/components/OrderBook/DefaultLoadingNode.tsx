@@ -14,6 +14,7 @@ import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IOrderBookVariant } from './types';
 
 const MOBILE_ROW_HEIGHT = 12;
+const WEB_ORDER_BOOK_HEADER_SIDE_PADDING = 8;
 
 const MOBILE_HORIZONTAL_WIDTHS = [
   '6.4%',
@@ -136,7 +137,7 @@ export function DefaultLoadingNode({
   return (
     <YStack flex={1} w="100%" gap="$2">
       <XStack>
-        <Stack w="33%" ai="flex-start">
+        <Stack w="33%" ai="flex-start" pl={WEB_ORDER_BOOK_HEADER_SIDE_PADDING}>
           <SizableText
             fontSize={12}
             lineHeight={24}
@@ -164,7 +165,7 @@ export function DefaultLoadingNode({
             {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
           </SizableText>
         </Stack>
-        <Stack w="37%" ai="flex-end">
+        <Stack w="37%" ai="flex-end" pr={WEB_ORDER_BOOK_HEADER_SIDE_PADDING}>
           <SizableText
             fontSize={12}
             lineHeight={24}

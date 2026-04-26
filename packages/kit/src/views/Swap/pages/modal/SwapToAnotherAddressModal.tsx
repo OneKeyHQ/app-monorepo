@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -33,6 +34,7 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQuickSelect';
 import { shouldSkipResolvedRecipientUpdate } from '../../../Send/pages/SendDataInput/recipientSelectionUtils';
+import { useWebDappRecipientOptions } from '../../../Send/pages/SendDataInput/useWebDappRecipientOptions';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -40,7 +42,7 @@ import type { IRecipientQuickSelectTab } from '../../../Send/pages/SendDataInput
 import type { RouteProp } from '@react-navigation/core';
 import type { SubmitHandler } from 'react-hook-form';
 
-const SWAP_HIDDEN_TABS: IRecipientQuickSelectTab[] = ['recent'];
+const BASE_HIDDEN_TABS: IRecipientQuickSelectTab[] = ['recent'];
 
 interface IFormType {
   address: IAddressInputValue;
@@ -50,23 +52,19 @@ const SwapToAnotherAddressPage = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
-  const route =
-    useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
-    >();
-  const paramAddress = route.params?.address;
-  const {
-    accountInfo,
-    address: _address,
-    activeAccount,
-    networkId,
-  } = useSwapAddressInfo(ESwapDirectionType.TO);
+  const { accountInfo, activeAccount, networkId } = useSwapAddressInfo(
+    ESwapDirectionType.TO,
+  );
 
-  const [{ swapToAnotherAccountSwitchOn }, setSettings] = useSettingsAtom();
+  const [, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const [selectedQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapManualSelectQuote] = useSwapManualSelectQuoteProvidersAtom();
   const intl = useIntl();
+
+  const { hiddenTabs, keylessWalletsOnly } = useWebDappRecipientOptions({
+    baseHiddenTabs: BASE_HIDDEN_TABS,
+  });
   const form = useForm({
     defaultValues: {
       address: {
@@ -76,30 +74,44 @@ const SwapToAnotherAddressPage = () => {
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
-  // Only prefill when editing an existing custom address.
-  // When swapToAnotherAccountSwitchOn is true and paramAddress differs from
-  // the user's own address, the user previously set a custom address — prefill it.
-  useEffect(() => {
-    if (paramAddress && swapToAnotherAccountSwitchOn) {
-      form.setValue('address', { raw: paramAddress });
-    }
-  }, [paramAddress, swapToAnotherAccountSwitchOn, form]);
-
   const toAddressRaw = form.watch('address')?.raw ?? '';
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
 
   const handleQuickSelectRecipient = useCallback(
-    ({ address: selectedAddress }: { address: string }) => {
+    ({
+      address: selectedAddress,
+      quickSelectTab,
+      isSearchMode: selectIsSearchMode,
+      searchKeyLength: selectSearchKeyLength,
+      matchCount: selectMatchCount,
+    }: {
+      address: string;
+      quickSelectTab?: 'recent' | 'account' | 'addressBook';
+      isSearchMode?: boolean;
+      searchKeyLength?: number;
+      matchCount?: number;
+    }) => {
       if (!selectedAddress) return;
       const currentTo = form.getValues('address');
       if (shouldSkipResolvedRecipientUpdate({ currentTo, selectedAddress })) {
         return;
       }
+      if (quickSelectTab) {
+        defaultLogger.transaction.send.quickSelectTap({
+          network: networkId,
+          tab: quickSelectTab,
+          recipientType:
+            quickSelectTab === 'account' ? 'walletAccount' : 'addressBook',
+          isSearchMode: selectIsSearchMode ?? false,
+          searchKeyLength: selectSearchKeyLength ?? 0,
+          matchCount: selectMatchCount ?? 0,
+        });
+      }
       form.setValue('address', {
         raw: selectedAddress,
       } as IAddressInputValue);
     },
-    [form],
+    [form, networkId],
   );
 
   const handleOnConfirm: SubmitHandler<IFormType> = useCallback(
@@ -152,6 +164,9 @@ const SwapToAnotherAddressPage = () => {
             name="address"
             networkId={networkId}
             actionsLayout="recipient"
+            placeholder={intl.formatMessage({
+              id: ETranslations.search_or_paste_address__desc,
+            })}
             enableAddressBook
             enableWalletName
             enableAddressInteractionStatus
@@ -174,7 +189,8 @@ const SwapToAnotherAddressPage = () => {
             senderDeriveType={activeAccount?.deriveType}
             searchKey={toAddressRaw}
             isSearchMode={!!toAddressRaw?.trim()}
-            hideTabs={SWAP_HIDDEN_TABS}
+            hideTabs={hiddenTabs}
+            keylessWalletsOnly={keylessWalletsOnly}
             onMatchStatusChange={setHasQuickSelectMatches}
             onSelect={handleQuickSelectRecipient}
           />
@@ -182,7 +198,7 @@ const SwapToAnotherAddressPage = () => {
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{
-          disabled: !form.formState.isValid,
+          disabled: !form.formState.isValid || !toAddressRaw.trim(),
         }}
         onConfirm={() => form.handleSubmit(handleOnConfirm)()}
         onConfirmText={intl.formatMessage({

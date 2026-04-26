@@ -37,6 +37,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
+import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
 
 export function useSwapTokenList(
   selectTokenModalType: ESwapDirectionType,
@@ -81,17 +82,19 @@ export function useSwapTokenList(
   ]);
 
   const tokenFetchParams = useMemo(() => {
+    const targetNetworkId = currentSelectNetwork?.networkId ?? currentNetworkId;
     const findNetInfo = swapSupportAllAccountsRef.current.find(
-      (net) =>
-        net.networkId === currentNetworkId ||
-        net.networkId === currentSelectNetwork?.networkId,
+      (net) => net.networkId === targetNetworkId,
     );
-    if (
-      swapAddressInfo.networkId === currentNetworkId ||
-      swapAddressInfo.networkId === currentSelectNetwork?.networkId
-    ) {
+    const shouldUseCurrentAccountAddress = shouldUseSwapAddressForTokenFetch({
+      address: swapAddressInfo?.address,
+      activeNetworkId: swapAddressInfo?.activeAccount?.network?.id,
+      resolvedAddressNetworkId: swapAddressInfo.networkId,
+      targetNetworkId,
+    });
+    if (shouldUseCurrentAccountAddress) {
       return {
-        networkId: currentSelectNetwork?.networkId ?? currentNetworkId,
+        networkId: targetNetworkId,
         keywords,
         accountAddress: swapAddressInfo?.address,
         accountNetworkId: swapAddressInfo?.networkId,
@@ -99,7 +102,7 @@ export function useSwapTokenList(
       };
     }
     return {
-      networkId: currentSelectNetwork?.networkId ?? currentNetworkId,
+      networkId: targetNetworkId,
       keywords,
       accountAddress: findNetInfo?.apiAddress,
       accountNetworkId: findNetInfo?.networkId,
@@ -109,6 +112,7 @@ export function useSwapTokenList(
     currentNetworkId,
     swapAddressInfo.networkId,
     swapAddressInfo?.address,
+    swapAddressInfo?.activeAccount?.network?.id,
     swapAddressInfo?.accountInfo?.account?.id,
     keywords,
     currentSelectNetwork?.networkId,

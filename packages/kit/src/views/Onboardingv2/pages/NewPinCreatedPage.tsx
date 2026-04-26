@@ -2,11 +2,11 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, Page, SizableText, YStack } from '@onekeyhq/components';
+import { Button, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingIconBadge, OnboardingPage } from '../components/Layout';
 
 function NewPinCreatedPage() {
   const navigation = useAppNavigation();
@@ -27,37 +27,28 @@ function NewPinCreatedPage() {
   }, [handleClose]);
 
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header showBackButton={false} />
-        <OnboardingLayout.Body constrained={false} scrollable={false}>
-          <OnboardingLayout.ConstrainedContent gap="$10">
-            <YStack gap="$2">
-              <YStack
-                p="$5"
-                bg="$bgSuccessStrong"
-                borderRadius="$full"
-                alignSelf="flex-start"
-                mb="$5"
-              >
-                <Icon name="CheckmarkSolid" color="$iconOnColor" />
-              </YStack>
-              <SizableText size="$heading2xl">
-                {intl.formatMessage({ id: ETranslations.new_pin_created })}
-              </SizableText>
-              <SizableText size="$bodyLg" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.new_pin_created_desc,
-                })}
-              </SizableText>
-            </YStack>
-            <Button size="large" onPress={handleClose}>
-              {intl.formatMessage({ id: ETranslations.global_close })}
-            </Button>
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
-      </OnboardingLayout>
-    </Page>
+    <OnboardingPage headerBack={false} contentContainerProps={{ gap: '$10' }}>
+      <YStack gap="$2">
+        <OnboardingIconBadge
+          icon="CheckmarkSolid"
+          iconColor="$iconOnColor"
+          bg="$bgSuccessStrong"
+          p="$5"
+          mb="$5"
+        />
+        <SizableText size="$heading2xl">
+          {intl.formatMessage({ id: ETranslations.new_pin_created })}
+        </SizableText>
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.new_pin_created_desc,
+          })}
+        </SizableText>
+      </YStack>
+      <Button size="large" onPress={handleClose} maxWidth={320}>
+        {intl.formatMessage({ id: ETranslations.global_close })}
+      </Button>
+    </OnboardingPage>
   );
 }
 

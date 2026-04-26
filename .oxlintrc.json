@@ -480,7 +480,7 @@
       }
     },
     {
-      // packages/shared - cannot import from kit, kit-bg, or components
+      // packages/shared - cannot import from kit, kit-bg, components, or core
       "files": ["packages/shared/src/**/*.ts", "packages/shared/src/**/*.tsx"],
       "rules": {
         "no-restricted-imports": [
@@ -494,6 +494,11 @@
                   "@onekeyhq/components"
                 ],
                 "message": "Please avoid using @onekeyhq/kit, @onekeyhq/kit-bg, and @onekeyhq/components in this folder",
+                "allowTypeImports": true
+              },
+              {
+                "group": ["@onekeyhq/core", "@onekeyhq/core/**"],
+                "message": "shared layer must not value-import from core — only kit-bg may import core. Use import type for types.",
                 "allowTypeImports": true
               }
             ]
@@ -525,7 +530,7 @@
       }
     },
     {
-      // packages/kit - cannot import from tamagui or kit-bg internal paths
+      // packages/kit - cannot import from tamagui, kit-bg internal paths, or core
       "files": ["packages/kit/src/**/*.ts", "packages/kit/src/**/*.tsx"],
       "rules": {
         "no-restricted-imports": [
@@ -550,6 +555,11 @@
                   "@onekeyhq/kit-bg/src/webembeds"
                 ],
                 "message": "Please avoid using @onekeyhq/kit-bg internal paths in this folder",
+                "allowTypeImports": true
+              },
+              {
+                "group": ["@onekeyhq/core", "@onekeyhq/core/**"],
+                "message": "kit layer must not value-import from core — use shared re-exports or kit-bg service RPC. Use import type for types.",
                 "allowTypeImports": true
               }
             ]
