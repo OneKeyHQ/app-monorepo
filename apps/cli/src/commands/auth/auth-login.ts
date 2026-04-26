@@ -16,12 +16,17 @@ export function registerAuthLoginCommand(program: Command): void {
       '--device-id <id>',
       'Target device UUID (from `onekey device search`). Required when multiple devices are connected.',
     )
+    .option(
+      '--passphrase-mode <mode>',
+      'Hardware wallet passphrase mode: none | on-host | on-device',
+    )
     .action(
       async (
         options: {
           appTransfer?: boolean;
           hardware?: boolean;
           deviceId?: string;
+          passphraseMode?: string;
         },
         command: Command,
       ) => {
@@ -33,6 +38,7 @@ export function registerAuthLoginCommand(program: Command): void {
           appTransferFlag: options.appTransfer,
           hardwareFlag: options.hardware,
           deviceIdHint: options.deviceId,
+          passphraseMode: options.passphraseMode,
           isHumanMode: output.getMode() === 'human',
           isTTY: Boolean(process.stdin.isTTY && process.stdout.isTTY),
           env: (globalOpts.env as 'test' | 'prod' | undefined) ?? 'prod',

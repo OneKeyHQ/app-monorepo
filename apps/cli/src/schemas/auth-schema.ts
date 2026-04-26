@@ -50,6 +50,16 @@ export const authLoginInputSchema = z.object({
     .describe(
       'Target hardware device UUID (from `onekey device search`). Required when multiple devices are connected. Only valid with --hardware.',
     ),
+  passphraseMode: z
+    .enum([
+      PASSPHRASE_MODE_NONE,
+      PASSPHRASE_MODE_ON_HOST,
+      PASSPHRASE_MODE_ON_DEVICE,
+    ])
+    .optional()
+    .describe(
+      'Hardware passphrase mode. Required in non-interactive mode when device passphrase protection is enabled.',
+    ),
 });
 
 export const authLoginOutputSchema = z.object({

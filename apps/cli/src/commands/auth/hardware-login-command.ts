@@ -34,7 +34,36 @@ interface IHardwareLoginDeps {
   isTTY?: boolean;
   isHumanMode?: boolean;
   deviceIdHint?: string;
+  passphraseMode?: string;
   getStatus: () => Promise<ResolvedAuthSession>;
+}
+
+function normalizeExplicitPassphraseMode(
+  mode: string | undefined,
+): PassphraseMode | string | undefined {
+  if (!mode) return undefined;
+  if (mode === 'on-host') return PASSPHRASE_MODE_ON_HOST;
+  if (mode === 'on-device') return PASSPHRASE_MODE_ON_DEVICE;
+  return mode;
+}
+
+function assertValidExplicitPassphraseMode(
+  mode: PassphraseMode | string | undefined,
+): PassphraseMode | undefined {
+  if (
+    mode === undefined ||
+    mode === PASSPHRASE_MODE_NONE ||
+    mode === PASSPHRASE_MODE_ON_HOST ||
+    mode === PASSPHRASE_MODE_ON_DEVICE
+  ) {
+    return mode;
+  }
+
+  throw new AppError(
+    ERROR_CODES.PARAM_INVALID_CONFIG.code,
+    `Invalid --passphrase-mode value: "${mode}"`,
+    'Use one of: none, on-host, on-device.',
+  );
 }
 
 /**
@@ -135,6 +164,7 @@ export async function executeHardwareLoginCommand({
   isTTY = process.stdin.isTTY ?? false,
   isHumanMode = false,
   deviceIdHint,
+  passphraseMode: explicitPassphraseMode,
   getStatus,
 }: IHardwareLoginDeps): Promise<void> {
   // Guard: no existing session
@@ -184,12 +214,35 @@ export async function executeHardwareLoginCommand({
   let passphraseMode: PassphraseMode = PASSPHRASE_MODE_NONE;
   let passphraseState: string | undefined;
   const passphraseEnabled = Boolean(features.passphrase_protection);
+  const requestedPassphraseMode = assertValidExplicitPassphraseMode(
+    normalizeExplicitPassphraseMode(explicitPassphraseMode),
+  );
 
-  if (isTTY && isHumanMode && passphraseEnabled) {
+  if (
+    requestedPassphraseMode &&
+    requestedPassphraseMode !== PASSPHRASE_MODE_NONE &&
+    !passphraseEnabled
+  ) {
+    throw new AppError(
+      ERROR_CODES.PARAM_INVALID_CONFIG.code,
+      'Device passphrase protection is disabled, so hidden-wallet passphrase mode is unavailable.',
+      'Enable passphrase protection on the device, or pass --passphrase-mode none.',
+    );
+  }
+
+  if (requestedPassphraseMode) {
+    passphraseMode = requestedPassphraseMode;
+  } else if (isTTY && isHumanMode && passphraseEnabled) {
     passphraseMode = await promptPassphraseMode(output);
   } else if (isTTY && isHumanMode && !passphraseEnabled) {
     output.info(
       'Passphrase protection is disabled on device — using standard wallet. Enable it in device settings to use a hidden wallet.',
+    );
+  } else if (passphraseEnabled) {
+    throw new AppError(
+      ERROR_CODES.PARAM_REQUIRES_TTY.code,
+      'Hardware passphrase protection is enabled, but this command cannot prompt for wallet type.',
+      'Run in an interactive terminal, or pass --passphrase-mode none|on-host|on-device explicitly.',
     );
   }
 

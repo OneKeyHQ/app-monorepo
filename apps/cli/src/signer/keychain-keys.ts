@@ -51,7 +51,10 @@ export async function persistKeychainSessionPair(
       KEYCHAIN_PASSPHRASE_STATE_KEY,
       Buffer.from(passphraseState, 'utf-8'),
     );
-    await keychain.set(KEYCHAIN_SESSION_ID_KEY, Buffer.from(sessionId, 'utf-8'));
+    await keychain.set(
+      KEYCHAIN_SESSION_ID_KEY,
+      Buffer.from(sessionId, 'utf-8'),
+    );
   } catch (error) {
     await Promise.allSettled([
       keychain.delete(KEYCHAIN_PASSPHRASE_STATE_KEY),

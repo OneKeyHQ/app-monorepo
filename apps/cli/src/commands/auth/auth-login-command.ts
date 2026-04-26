@@ -40,6 +40,7 @@ interface IExecuteAuthLoginCommandParams {
   appTransferFlag?: boolean;
   hardwareFlag?: boolean;
   deviceIdHint?: string;
+  passphraseMode?: string;
   isHumanMode?: boolean;
   isTTY?: boolean;
   env?: IEndpointEnv;
@@ -59,6 +60,7 @@ interface IExecuteAuthLoginCommandParams {
     isTTY: boolean;
     isHumanMode: boolean;
     deviceIdHint?: string;
+    passphraseMode?: string;
     getStatus: () => Promise<ResolvedAuthSession>;
   }) => Promise<void>;
   exit?: (code: number) => void;
@@ -269,6 +271,7 @@ export async function executeAuthLoginCommand({
   appTransferFlag,
   hardwareFlag,
   deviceIdHint,
+  passphraseMode,
   isHumanMode = false,
   isTTY = false,
   env = 'prod',
@@ -336,6 +339,17 @@ export async function executeAuthLoginCommand({
       return;
     }
 
+    if (passphraseMode && !hardwareFlag) {
+      output.error({
+        code: ERROR_CODES.PARAM_INVALID_CONFIG.code,
+        message: '--passphrase-mode is only valid with --hardware.',
+        suggestion:
+          'Add --hardware, or drop --passphrase-mode for App Transfer login.',
+      });
+      process.exitCode = ERROR_CODES.PARAM_INVALID_CONFIG.exitCode;
+      return;
+    }
+
     if (hardwareFlag) {
       try {
         await runHardwareLogin({
@@ -343,6 +357,7 @@ export async function executeAuthLoginCommand({
           isTTY,
           isHumanMode,
           deviceIdHint,
+          passphraseMode,
           getStatus: () => authManager.getStatus(),
         });
       } catch (error) {

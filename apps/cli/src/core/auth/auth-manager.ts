@@ -4,9 +4,7 @@ import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 import { AppError } from '../../errors';
 import { AuthSessionStore } from '../../infra/auth-session-store';
-import {
-  createSecureStorage,
-} from '../../infra/keychain-storage';
+import { createSecureStorage } from '../../infra/keychain-storage';
 import {
   KEYCHAIN_ENCRYPTION_KEY,
   KEYCHAIN_MNEMONIC_KEY,

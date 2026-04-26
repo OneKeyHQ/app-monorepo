@@ -345,7 +345,6 @@ describe('AuthManager', () => {
   });
 
   it('keeps session metadata when hardware key cleanup fails', async () => {
-    const storage = new InMemorySecureStorage();
     const sessionStore = new AuthSessionStore(sessionPath);
     const manager = new AuthManager(
       createHardwareCleanupFailingSecureStorage(),

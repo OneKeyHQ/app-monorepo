@@ -2,7 +2,7 @@
 // @generated — do not edit manually
 // Generated from zod schemas in src/schemas/
 // Run: yarn generate:cli-types
-// Generated at: 2026-04-26T14:57:49.964Z
+// Generated at: 2026-04-26T15:20:41.808Z
 
 /** Print CLI version and environment */
 export interface VersionInput {}
@@ -78,7 +78,7 @@ export interface TransferOutput {
   chain: string;
 }
 
-/** Authenticate with a OneKey App Bot Wallet */
+/** Authenticate with a OneKey App Bot Wallet or hardware wallet */
 export interface AuthLoginInput {
   /** Authenticate with a OneKey App Bot Wallet */
   appTransfer?: boolean;
@@ -86,6 +86,8 @@ export interface AuthLoginInput {
   hardware?: boolean;
   /** Target hardware device UUID (from `onekey device search`). Required when multiple devices are connected. Only valid with --hardware. */
   deviceId?: string;
+  /** Hardware passphrase mode. Required in non-interactive mode when device passphrase protection is enabled. */
+  passphraseMode?: "none" | "on_host" | "on_device";
 }
 
 export interface AuthLoginOutput {

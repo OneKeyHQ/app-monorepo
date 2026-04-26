@@ -13,6 +13,8 @@
  *   - signMessage throws when path missing
  */
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { SignerHardware } from '../signer/impls/evm/SignerHardware';
 import {
   KEYCHAIN_PASSPHRASE_STATE_KEY,
@@ -165,7 +167,7 @@ describe('SignerHardware', () => {
         set: jest.fn(async (key: string) => {
           calls.push({ op: 'set', key });
           if (key === KEYCHAIN_SESSION_ID_KEY) {
-            throw new Error('session_id write failed');
+            throw new OneKeyLocalError('session_id write failed');
           }
         }),
         delete: jest.fn(async (key: string) => {
@@ -193,7 +195,7 @@ describe('SignerHardware', () => {
       const keychain = {
         set: jest.fn(async (key: string) => {
           if (key === KEYCHAIN_PASSPHRASE_STATE_KEY) {
-            throw new Error('passphraseState write failed');
+            throw new OneKeyLocalError('passphraseState write failed');
           }
         }),
         delete: jest.fn(async () => undefined),

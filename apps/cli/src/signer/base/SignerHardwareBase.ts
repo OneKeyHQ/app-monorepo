@@ -230,7 +230,7 @@ export abstract class SignerHardwareBase implements ISigner {
   /**
    * Refresh `this.device.connectId` by searching for the device via stable
    * `deviceId`. USB connectId is a per-session transport handle that changes
-   * when the device is replugged or the process restarts. The value stored
+   * when the device is reconnected or the process restarts. The value stored
    * in session.json is from login time and may be stale. This method
    * resolves the current connectId so all subsequent SDK calls target the
    * correct transport.
