@@ -515,8 +515,8 @@ function SendAmountInputContainer() {
       const priceBN = new BigNumber(tokenDetails?.price ?? 0);
       // Mirror the flooring applied in `linkedAmount` so the value validated
       // here matches the value submitted to the vault. Without this, fiat
-      // mode could pass min/balance checks against an unfloored amount while
-      // the user actually sends a smaller, floored value.
+      // mode could pass min/balance checks against the raw fiat/price result
+      // while the user actually sends a smaller, floored value.
       const tokenAmountBN =
         isUseFiat && priceBN.isGreaterThan(0)
           ? floorFiatDerivedTokenAmount({
@@ -591,6 +591,21 @@ function SendAmountInputContainer() {
           { id: ETranslations.send_error_minimum_amount },
           { amount: displayMinAmount, token: tokenSymbol },
         );
+      }
+
+      // A positive fiat input that floors to 0 token (sub-sat on Lightning,
+      // or sub-decimal on other chains) would otherwise slip past the min
+      // check above (which excludes isZero) and the native-only zero guard
+      // below, letting the user submit a 0-amount transfer.
+      if (
+        isUseFiat &&
+        priceBN.isGreaterThan(0) &&
+        tokenAmountBN.isZero() &&
+        !amountBN.isZero()
+      ) {
+        return intl.formatMessage({
+          id: ETranslations.send_amount_too_small,
+        });
       }
 
       // Zero native token transfer prevention
