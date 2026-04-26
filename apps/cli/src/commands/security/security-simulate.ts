@@ -10,11 +10,23 @@ import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
 interface IParseTransactionResponse {
-  type?: string;
+  type?: string | null;
   display?: unknown;
   parsedTx?: unknown;
   accountAddress?: string;
   isConfirmationRequired?: boolean;
+}
+
+function isParseTransactionLike(
+  value: unknown,
+): value is IParseTransactionResponse {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const result = value as Record<string, unknown>;
+  return (
+    'parsedTx' in result || 'accountAddress' in result || 'display' in result
+  );
 }
 
 export function registerSecuritySimulateCommand(parent: Command): void {
@@ -105,13 +117,7 @@ export function registerSecuritySimulateCommand(parent: Command): void {
             },
           );
 
-          if (
-            typeof result !== 'object' ||
-            result === null ||
-            !('display' in result) ||
-            typeof result.type !== 'string' ||
-            !('parsedTx' in result)
-          ) {
+          if (!isParseTransactionLike(result)) {
             throw new AppError(
               ERROR_CODES.NET_HTTP_ERROR.code,
               'Malformed parse-transaction response: missing required fields',
@@ -122,7 +128,7 @@ export function registerSecuritySimulateCommand(parent: Command): void {
           output.success(
             {
               type: result.type ?? null,
-              display: result.display,
+              display: result.display ?? null,
               parsedTx: result.parsedTx ?? null,
               accountAddress: result.accountAddress ?? accountAddress,
               isConfirmationRequired: result.isConfirmationRequired ?? false,
