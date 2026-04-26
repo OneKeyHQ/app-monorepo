@@ -17,6 +17,7 @@ import { SignerHardware } from '../signer/impls/evm/SignerHardware';
 import {
   KEYCHAIN_PASSPHRASE_STATE_KEY,
   KEYCHAIN_SESSION_ID_KEY,
+  persistKeychainSessionPair,
 } from '../signer/keychain-keys';
 
 import type { DeviceInfo } from '../core/auth/auth-types';
@@ -82,6 +83,9 @@ function makeDeps(
   const keychainSet = jest.fn(async (key: string, value: Buffer) => {
     keychainStore[key] = Buffer.from(value);
   });
+  const keychainDelete = jest.fn(async (key: string) => {
+    delete keychainStore[key];
+  });
 
   const sdk = {
     getFeatures: jest.fn(async () =>
@@ -130,7 +134,11 @@ function makeDeps(
     installPassphraseProvider,
     resolvePassphraseStateByMode:
       resolvePassphraseStateByMode as unknown as ISignerHardwareDeps['resolvePassphraseStateByMode'],
-    keychainFactory: () => ({ get: keychainGet, set: keychainSet }),
+    keychainFactory: () => ({
+      get: keychainGet,
+      set: keychainSet,
+      delete: keychainDelete,
+    }),
     preloadSessionCache,
     stderr: { write: stderrWrite },
   };
@@ -150,6 +158,62 @@ function makeDeps(
 }
 
 describe('SignerHardware', () => {
+  describe('persistKeychainSessionPair', () => {
+    it('clears both keys when session_id write fails', async () => {
+      const calls: Array<{ op: 'set' | 'delete'; key: string }> = [];
+      const keychain = {
+        set: jest.fn(async (key: string) => {
+          calls.push({ op: 'set', key });
+          if (key === KEYCHAIN_SESSION_ID_KEY) {
+            throw new Error('session_id write failed');
+          }
+        }),
+        delete: jest.fn(async (key: string) => {
+          calls.push({ op: 'delete', key });
+        }),
+      };
+
+      await expect(
+        persistKeychainSessionPair(
+          keychain,
+          MOCK_RESOLVED_PS,
+          MOCK_SID_FROM_KEYCHAIN,
+        ),
+      ).rejects.toThrow('session_id write failed');
+
+      expect(calls).toEqual([
+        { op: 'set', key: KEYCHAIN_PASSPHRASE_STATE_KEY },
+        { op: 'set', key: KEYCHAIN_SESSION_ID_KEY },
+        { op: 'delete', key: KEYCHAIN_PASSPHRASE_STATE_KEY },
+        { op: 'delete', key: KEYCHAIN_SESSION_ID_KEY },
+      ]);
+    });
+
+    it('clears both keys when passphraseState write fails', async () => {
+      const keychain = {
+        set: jest.fn(async (key: string) => {
+          if (key === KEYCHAIN_PASSPHRASE_STATE_KEY) {
+            throw new Error('passphraseState write failed');
+          }
+        }),
+        delete: jest.fn(async () => undefined),
+      };
+
+      await expect(
+        persistKeychainSessionPair(
+          keychain,
+          MOCK_RESOLVED_PS,
+          MOCK_SID_FROM_KEYCHAIN,
+        ),
+      ).rejects.toThrow('passphraseState write failed');
+
+      expect(keychain.delete).toHaveBeenCalledWith(
+        KEYCHAIN_PASSPHRASE_STATE_KEY,
+      );
+      expect(keychain.delete).toHaveBeenCalledWith(KEYCHAIN_SESSION_ID_KEY);
+    });
+  });
+
   describe('passphraseMode = none', () => {
     it('uses useEmptyPassphrase, never reads keychain', async () => {
       const { deps, mocks } = makeDeps();
@@ -308,8 +372,8 @@ describe('SignerHardware', () => {
       );
     });
 
-    it('falls back to useEmptyPassphrase when resolve returns undefined', async () => {
-      const { deps, mocks } = makeDeps({
+    it('throws when hidden wallet resolve returns undefined instead of silently using standard wallet', async () => {
+      const { deps } = makeDeps({
         resolveByMode: jest.fn(async () => undefined),
       });
       const signer = new SignerHardware({
@@ -318,13 +382,9 @@ describe('SignerHardware', () => {
         deps,
       });
 
-      await signer.getAddress('evm--1');
-
-      expect(mocks.keychainSet).not.toHaveBeenCalled();
-      expect(mocks.sdk.evmGetAddress.mock.calls[0][2]).toMatchObject({
-        useEmptyPassphrase: true,
-        skipPassphraseCheck: true,
-      });
+      await expect(signer.getAddress('evm--1')).rejects.toThrow(
+        /Failed to resolve passphrase state/,
+      );
     });
   });
 

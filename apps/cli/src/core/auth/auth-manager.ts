@@ -5,7 +5,6 @@ import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { AppError } from '../../errors';
 import { AuthSessionStore } from '../../infra/auth-session-store';
 import {
-  KeychainStorage,
   createSecureStorage,
 } from '../../infra/keychain-storage';
 import {
@@ -147,27 +146,34 @@ export class AuthManager {
   private async rollbackSession(): Promise<AppError | null> {
     secureCache.clearAll();
 
-    // Hardware hidden-wallet session state lives in a separate KeychainStorage
-    // instance (not this.storage, which is the HD wallet's secret storage).
-    // Best-effort — the keys may not exist for HD/Bot wallets.
-    const hardwareKeychain = new KeychainStorage();
-
-    const results = await Promise.allSettled([
+    const keyResults = await Promise.allSettled([
       this.storage.delete(KEYCHAIN_MNEMONIC_KEY),
       this.storage.delete(KEYCHAIN_ENCRYPTION_KEY),
-      hardwareKeychain.delete(KEYCHAIN_PASSPHRASE_STATE_KEY),
-      hardwareKeychain.delete(KEYCHAIN_SESSION_ID_KEY),
-      this.sessionStore.clear(),
+      this.storage.delete(KEYCHAIN_PASSPHRASE_STATE_KEY),
+      this.storage.delete(KEYCHAIN_SESSION_ID_KEY),
     ]);
 
-    // Report HD-wallet cleanup failures as errors; tolerate hardware-key
-    // deletion failures (those keys often don't exist).
-    const criticalFailures = results.slice(0, 2).concat(results.slice(4));
-    const rejected = criticalFailures.find(
+    // All secret-bearing keys (HD mnemonic/encryption AND hardware
+    // passphrase/session) must be deleted before we clear the session file.
+    // delete() already treats "not found" as success, so a rejection here
+    // means the OS keychain genuinely refused — leaving secrets behind.
+    // Keep the session file so the user stays in a recoverable state and can
+    // retry logout after unlocking/granting access to the OS keychain.
+    const rejected = keyResults.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
+    if (rejected) {
+      return AppError.from(rejected.reason);
+    }
 
-    return rejected ? AppError.from(rejected.reason) : null;
+    // Keys are gone — safe to remove the session file.
+    try {
+      await this.sessionStore.clear();
+    } catch (error) {
+      return AppError.from(error);
+    }
+
+    return null;
   }
 
   private async persistHdWalletSession({

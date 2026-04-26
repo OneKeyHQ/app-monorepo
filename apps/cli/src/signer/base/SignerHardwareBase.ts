@@ -11,6 +11,7 @@ import {
   resolvePassphraseStateByMode,
 } from '../../commands/device/hardware-sdk';
 import { PASSPHRASE_MODE_NONE } from '../../core/auth/auth-types';
+import { AppError, ERROR_CODES } from '../../errors';
 import { KeychainStorage } from '../../infra/keychain-storage';
 import {
   KEYCHAIN_PASSPHRASE_STATE_KEY,
@@ -30,6 +31,7 @@ export interface ISignerHardwareDeps {
   keychainFactory: () => {
     get(key: string): Promise<Buffer | null>;
     set(key: string, value: Buffer): Promise<void>;
+    delete(key: string): Promise<void>;
   };
   preloadSessionCache: (
     deviceId: string,
@@ -140,10 +142,11 @@ export abstract class SignerHardwareBase implements ISigner {
     if (state) {
       return { skipPassphraseCheck: true as const, passphraseState: state };
     }
-    return {
-      useEmptyPassphrase: true as const,
-      skipPassphraseCheck: true as const,
-    };
+    throw new AppError(
+      ERROR_CODES.AUTH_SESSION_INVALID.code,
+      `Failed to resolve passphrase state for mode "${this.passphraseMode}".`,
+      'Run: onekey auth logout && onekey auth login --hardware',
+    );
   }
 
   /** Fallback chain: cache → keychain → fresh SDK resolve. */

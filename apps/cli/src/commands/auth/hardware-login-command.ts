@@ -210,6 +210,14 @@ export async function executeHardwareLoginCommand({
   }
   // passphraseMode === PASSPHRASE_MODE_NONE → no passphrase needed
 
+  if (passphraseMode !== PASSPHRASE_MODE_NONE && !passphraseState) {
+    throw new AppError(
+      ERROR_CODES.AUTH_SESSION_INVALID.code,
+      `Failed to resolve passphrase state for mode "${passphraseMode}".`,
+      'Retry hardware login and confirm passphrase entry.',
+    );
+  }
+
   // Step 4: Preload session cache in memory so evmGetAddress below can
   // reuse the device session without re-prompting for passphrase.
   // Keychain persistence is deferred to Step 7 (after session.json is
@@ -251,9 +259,10 @@ export async function executeHardwareLoginCommand({
 
   // Step 5: Get address from device (no passphrase prompt — session preloaded)
   output.info('Fetching address from device...');
-  const commonParams = passphraseState
-    ? { passphraseState }
-    : { useEmptyPassphrase: true as const };
+  const commonParams =
+    passphraseMode === PASSPHRASE_MODE_NONE
+      ? { useEmptyPassphrase: true as const }
+      : { passphraseState };
 
   const addressResult = await sdk.evmGetAddress(connectId, deviceId, {
     path: "m/44'/60'/0'/0/0",
