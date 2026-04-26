@@ -448,8 +448,12 @@ class ServiceDeFi extends ServiceBase {
     accountId: string;
     networkId: string;
     targetCurrency: string;
+    enabledNetworkIds?: string[];
   }): Promise<{ netWorth: string; hasCache: boolean }> {
-    const { accountId, networkId, targetCurrency } = params;
+    const { accountId, networkId, targetCurrency, enabledNetworkIds } = params;
+    const enabledNetworkIdSet = enabledNetworkIds?.length
+      ? new Set(enabledNetworkIds)
+      : undefined;
 
     const indexedAccountId = accountUtils.isOthersAccount({ accountId })
       ? undefined
@@ -470,8 +474,12 @@ class ServiceDeFi extends ServiceBase {
     let hasCache = false;
     for (const entry of entries) {
       if (entry?.overview) {
-        for (const overview of Object.values(entry.overview)) {
-          if (overview) {
+        for (const [entryNetworkId, overview] of Object.entries(
+          entry.overview,
+        )) {
+          const shouldIncludeNetwork =
+            !enabledNetworkIdSet || enabledNetworkIdSet.has(entryNetworkId);
+          if (overview && shouldIncludeNetwork) {
             hasCache = true;
             const sourceInfo =
               currencyMap[overview.currency] ?? currencyMap.usd;
