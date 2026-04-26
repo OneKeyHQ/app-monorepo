@@ -14,6 +14,17 @@ if (typeof globalThis.self === 'undefined') {
   });
 }
 
+if (typeof globalThis.navigator === 'undefined') {
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    writable: true,
+    value: {
+      maxTouchPoints: 0,
+      userAgent: 'jest',
+    },
+  });
+}
+
 const storage = {
   _d: {} as Record<string, string>,
   getItem(key: string) {
