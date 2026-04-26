@@ -5,12 +5,12 @@ import {
   isMainRuntime,
 } from '../runtimeInfo';
 
-type RuntimeGlobal = typeof globalThis & {
+type IRuntimeGlobal = typeof globalThis & {
   __ONEKEY_RUNTIME_KIND__?: 'main' | 'background';
 };
 
 afterEach(() => {
-  delete (globalThis as RuntimeGlobal).__ONEKEY_RUNTIME_KIND__;
+  delete (globalThis as IRuntimeGlobal).__ONEKEY_RUNTIME_KIND__;
 });
 
 describe('runtimeInfo', () => {
@@ -19,12 +19,12 @@ describe('runtimeInfo', () => {
   });
 
   it('returns "main" when explicitly set', () => {
-    (globalThis as RuntimeGlobal).__ONEKEY_RUNTIME_KIND__ = 'main';
+    (globalThis as IRuntimeGlobal).__ONEKEY_RUNTIME_KIND__ = 'main';
     expect(getRuntimeKind()).toBe('main');
   });
 
   it('returns "background" when set', () => {
-    (globalThis as RuntimeGlobal).__ONEKEY_RUNTIME_KIND__ = 'background';
+    (globalThis as IRuntimeGlobal).__ONEKEY_RUNTIME_KIND__ = 'background';
     expect(getRuntimeKind()).toBe('background');
   });
 
@@ -33,12 +33,12 @@ describe('runtimeInfo', () => {
   });
 
   it('isBackgroundRuntime returns true for background', () => {
-    (globalThis as RuntimeGlobal).__ONEKEY_RUNTIME_KIND__ = 'background';
+    (globalThis as IRuntimeGlobal).__ONEKEY_RUNTIME_KIND__ = 'background';
     expect(isBackgroundRuntime()).toBe(true);
   });
 
   it('isMainRuntime returns false for background', () => {
-    (globalThis as RuntimeGlobal).__ONEKEY_RUNTIME_KIND__ = 'background';
+    (globalThis as IRuntimeGlobal).__ONEKEY_RUNTIME_KIND__ = 'background';
     expect(isMainRuntime()).toBe(false);
   });
 });
