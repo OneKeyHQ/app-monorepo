@@ -55,5 +55,7 @@ export default {
     'packages/kit-bg/src/services/servicePendingInstallTask\\.test',
     // Reason: uses jest.isolateModules + jest.useFakeTimers — both unsupported in harness
     'packages/kit/src/provider/SplashProvider\\.test',
+    // Reason: uses jest.useFakeTimers + setSystemTime to pin frecency "now" — harness incompatible
+    'packages/kit/src/views/Discovery/utils/searchResultRanking\\.test',
   ],
 };
