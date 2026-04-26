@@ -615,4 +615,175 @@ describe('integration: cross-segment sync edge detection', () => {
     });
     expect(bgRun.violations[0]).not.toHaveProperty('depSegment');
   });
+
+  // Regression guard for the shared-segment @ledgerhq orphan incident:
+  // when the same seg:nm.@foo is forced shared but carries DIFFERENT
+  // module sets per runtime (main reaches 23 modules, bg reaches 300+),
+  // the emitted .seg.js file must ship __d(...) for every module either
+  // runtime needs. scanRuntime must then scope its walk to this-runtime's
+  // ownership — otherwise main's scan traverses bg-only __d(...) whose
+  // sync deps live only in bg's segment graph and falsely reports them.
+  it("scopes shared-segment scan to this runtime's ownership (mainOwned / bgOwned)", () => {
+    const segmentsMainDir = path.join(tmpDir, 'segments');
+    const segmentsBgDir = path.join(tmpDir, 'segments-background');
+    // Shared segment carries two main-owned modules (100, 101) and one
+    // bg-only module (200). Module 200's sync dep 999 lives only in a
+    // bg-runtime segment — main must NOT follow that edge.
+    writeSegJs(segmentsMainDir, 'nm._shared', [
+      { moduleId: 100, deps: [101] },
+      { moduleId: 101, deps: [] },
+      { moduleId: 200, deps: [999] },
+    ]);
+    writeSegJs(segmentsBgDir, 'bg-only', [{ moduleId: 999, deps: [] }]);
+
+    // Shared segments only ever live on disk under SEGMENTS_MAIN. manifestBg
+    // references that same path so the bg-scoped pass reads the real file.
+    const sharedRelativePath = 'segments/nm._shared.seg.hbc';
+    const manifestMain = {
+      segments: {
+        'seg:nm.@shared': {
+          relativePath: sharedRelativePath,
+          dependsOn: [],
+        },
+      },
+    };
+    const manifestBg = {
+      segments: {
+        'seg:nm.@shared': {
+          relativePath: sharedRelativePath,
+          dependsOn: ['seg:bg-only'],
+        },
+        'seg:bg-only': {
+          relativePath: 'segments-background/bg-only.seg.hbc',
+          dependsOn: [],
+        },
+      },
+    };
+    const idMap = {
+      common: {},
+      main: {},
+      background: {},
+      segments: {
+        'seg:nm.@shared': {
+          runtime: 'shared',
+          modules: {
+            100: 'main/a.ts',
+            101: 'main/b.ts',
+            200: 'bg/dmk.ts',
+          },
+          mainOwned: { 100: 'main/a.ts', 101: 'main/b.ts' },
+          bgOwned: { 200: 'bg/dmk.ts' },
+        },
+        'seg:bg-only': {
+          runtime: 'background',
+          modules: { 999: 'bg/rxjs.js' },
+        },
+      },
+    };
+
+    const mainRun = scanRuntime({
+      runtimeLabel: 'main',
+      segmentsDir: segmentsMainDir,
+      manifest: manifestMain,
+      idMap,
+      runtimeBucketNames: ['common', 'main'],
+    });
+    const bgOwnRun = scanRuntime({
+      runtimeLabel: 'background',
+      segmentsDir: segmentsBgDir,
+      manifest: manifestBg,
+      idMap,
+      runtimeBucketNames: ['common', 'background'],
+    });
+    // Third pass: bg-scoped scan over SEGMENTS_MAIN, restricted to shared
+    // segments. Mirrors main()'s production wiring so bg-owned modules
+    // inside shared segments actually get their sync deps verified.
+    const bgSharedRun = scanRuntime({
+      runtimeLabel: 'background',
+      segmentsDir: segmentsMainDir,
+      manifest: manifestBg,
+      idMap,
+      runtimeBucketNames: ['common', 'background'],
+      segmentKeyFilter: (_segKey, idMapEntry) =>
+        idMapEntry?.runtime === 'shared',
+    });
+
+    // Main must not traverse module 200 (bg-owned), so its sync dep 999
+    // is never checked — 0 violations. (Without the ownership scope the
+    // old behavior reported 999 as orphan_dep from main's view.)
+    expect(mainRun.violations).toHaveLength(0);
+    // Bg's own (non-shared) segments pass have nothing to flag here.
+    expect(bgOwnRun.violations).toHaveLength(0);
+    // Crucially: the bg-shared pass actually read nm._shared.seg.js and
+    // verified bg-owned module 200's sync dep 999 resolves via
+    // seg:bg-only (covered by manifestBg's dependsOn). The pass actually
+    // scanned the shared segment — not a vacuous zero.
+    expect(bgSharedRun.scannedSegments).toBe(1);
+    expect(bgSharedRun.violations).toHaveLength(0);
+  });
+
+  // Negative counterpart to the ownership-scoping test: when a bg-owned
+  // module inside a shared segment sync-requires a module that lives in
+  // another bg segment NOT listed in dependsOn, the bg-shared pass must
+  // flag it as cross_segment_sync. Guards against dependsOn losing bg's
+  // cross-segment edges after mergeSharedSegmentOutputs unions bg-only
+  // modules into a force-shared segment.
+  it('bg-shared pass flags cross_segment_sync when dependsOn misses a bg-only prerequisite', () => {
+    const segmentsMainDir = path.join(tmpDir, 'segments');
+    const segmentsBgDir = path.join(tmpDir, 'segments-background');
+    writeSegJs(segmentsMainDir, 'nm._shared', [{ moduleId: 200, deps: [999] }]);
+    writeSegJs(segmentsBgDir, 'bg-only', [{ moduleId: 999, deps: [] }]);
+
+    const sharedRelativePath = 'segments/nm._shared.seg.hbc';
+    const manifestBg = {
+      segments: {
+        'seg:nm.@shared': {
+          relativePath: sharedRelativePath,
+          // Intentionally missing 'seg:bg-only' — reproduces the bug.
+          dependsOn: [],
+        },
+        'seg:bg-only': {
+          relativePath: 'segments-background/bg-only.seg.hbc',
+          dependsOn: [],
+        },
+      },
+    };
+    const idMap = {
+      common: {},
+      main: {},
+      background: {},
+      segments: {
+        'seg:nm.@shared': {
+          runtime: 'shared',
+          modules: { 200: 'bg/dmk.ts' },
+          mainOwned: {},
+          bgOwned: { 200: 'bg/dmk.ts' },
+        },
+        'seg:bg-only': {
+          runtime: 'background',
+          modules: { 999: 'bg/rxjs.js' },
+        },
+      },
+    };
+
+    const bgSharedRun = scanRuntime({
+      runtimeLabel: 'background',
+      segmentsDir: segmentsMainDir,
+      manifest: manifestBg,
+      idMap,
+      runtimeBucketNames: ['common', 'background'],
+      segmentKeyFilter: (_segKey, idMapEntry) =>
+        idMapEntry?.runtime === 'shared',
+    });
+
+    expect(bgSharedRun.violations).toHaveLength(1);
+    expect(bgSharedRun.violations[0]).toMatchObject({
+      kind: 'cross_segment_sync',
+      runtime: 'background',
+      srcSegment: 'seg:nm.@shared',
+      srcModuleId: 200,
+      depSegment: 'seg:bg-only',
+      depModuleId: 999,
+    });
+  });
 });

@@ -562,16 +562,32 @@ const buildSegments = async ({
     const segHbcPath = path.join(segmentsOutputDir, `${baseName}.seg.hbc`);
     const segFinalPath = path.join(segmentsOutputDir, `${baseName}.seg.hbc`);
     const segMapPath = path.join(segmentsOutputDir, `${baseName}.seg.map`);
+    // unionBuild.js now compiles each segment's .seg.hbc right after
+    // emission (so manifest sha256 can hash the real compiled bytes before
+    // it gets baked into common.bundle). Re-running hermesc here on the
+    // same .seg.js would waste ~1-2× total build time for a byte-identical
+    // output — copy the pre-built .seg.hbc (and its paired sourcemap)
+    // into segmentsOutputDir instead, then fall through to the normal
+    // sourcemap compose + Sentry upload pipeline.
+    const preBuiltHbcPath = path.join(segmentsInputDir, `${baseName}.seg.hbc`);
+    const preBuiltHbcMapPath = `${preBuiltHbcPath}.map`;
 
     log(`  segment: ${baseName}`);
 
-    // Compile to HBC via spawn so concurrent segment compiles actually run
-    // in parallel. execSync here would block the event loop and serialize
-    // all segments regardless of the CONCURRENCY setting.
-    await runHermescAsync({
-      outPath: segHbcPath,
-      inputPath: segJsPath,
-    });
+    if (fs.existsSync(preBuiltHbcPath)) {
+      fs.copyFileSync(preBuiltHbcPath, segHbcPath);
+      if (fs.existsSync(preBuiltHbcMapPath)) {
+        fs.copyFileSync(preBuiltHbcMapPath, `${segHbcPath}.map`);
+      }
+    } else {
+      // Compile to HBC via spawn so concurrent segment compiles actually run
+      // in parallel. execSync here would block the event loop and serialize
+      // all segments regardless of the CONCURRENCY setting.
+      await runHermescAsync({
+        outPath: segHbcPath,
+        inputPath: segJsPath,
+      });
+    }
 
     // Compose sourcemaps (if packager map exists)
     const packagerMapPath = segJsPath.replace('.seg.js', '.seg.packager.map');

@@ -586,6 +586,7 @@ function expandSegmentsWithSyncDeps({
   serializedEntries,
   eagerAbsPaths,
   moduleIdToAbsPath,
+  segmentAbsPathsByKey,
 }) {
   const entryByAbsPath = new Map(
     serializedEntries.map((e) => [e.absolutePath, e]),
@@ -607,7 +608,7 @@ function expandSegmentsWithSyncDeps({
 
   let totalAdded = 0;
 
-  for (const [, modules] of segmentOutputs) {
+  for (const [segKey, modules] of segmentOutputs) {
     const segAbsPaths = new Set();
     for (const [moduleId] of modules) {
       const absPath = moduleIdToAbsPath.get(moduleId);
@@ -636,6 +637,25 @@ function expandSegmentsWithSyncDeps({
           if (depModuleEntry) {
             modules.push(depModuleEntry);
             coveredBySegment.add(depPath); // mark so other segments won't duplicate
+            // Mirror the injection into the abs-path and id-to-path bookkeeping
+            // that downstream consumers (manifest writer, module-id-map emitter,
+            // integrity check) read from. Skipping this leaves the .seg.js file
+            // carrying __d(... id ...) for the added module but idMap.segments
+            // not listing it, causing false-positive orphan_dep reports at
+            // runtime validation. Parameter is optional so existing callers
+            // and unit-test fixtures that don't pass it behave as before.
+            if (segmentAbsPathsByKey) {
+              if (!segmentAbsPathsByKey.has(segKey)) {
+                segmentAbsPathsByKey.set(segKey, new Set());
+              }
+              segmentAbsPathsByKey.get(segKey).add(depPath);
+            }
+            if (
+              moduleIdToAbsPath &&
+              !moduleIdToAbsPath.has(depModuleEntry[0])
+            ) {
+              moduleIdToAbsPath.set(depModuleEntry[0], depPath);
+            }
             totalAdded += 1;
           }
         }
@@ -699,6 +719,232 @@ function collectCommonReferencedSegmentKeys({
   return result;
 }
 
+/**
+ * Second-pass sync-closure expansion that allows pulling module definitions
+ * from the OTHER runtime's serialized entries.
+ *
+ * Background: the per-runtime allocator walks `graph.dependencies` of each
+ * runtime. It has been observed (see OK-bg-ledger-orphans) that a module
+ * inside `node_modules` can appear as a dep edge in a segment module's
+ * `__d(fn, id, [deps])` call while never having a defining `__d(...)` in
+ * either the eager bundle or any segment for that runtime. The root cause
+ * is upstream of this helper (the module is absent from this runtime's
+ * `graph.dependencies` even though it's sync-required from a segment
+ * module), but fixing the upstream resolver is risky and out of scope.
+ *
+ * Instead, we patch the outputs: every dep that isn't covered by this
+ * runtime's eager set or any segment is searched for in the OTHER runtime's
+ * serialized entries. Because `fileToIdMap` is a monorepo-wide singleton
+ * (apps/mobile/plugins/map.js), module IDs are stable across runtimes and
+ * the serialized `__d(...)` block from main can be spliced into a bg
+ * segment (and vice versa) without ID translation.
+ *
+ * Returns a summary so the caller can print a one-line build log and/or
+ * throw on `missingAbsPaths.length > 0`.
+ */
+function expandSegmentsWithCrossRuntimeDeps({
+  segmentOutputs,
+  localSerializedEntries,
+  remoteSerializedEntries,
+  eagerAbsPaths,
+  moduleIdToAbsPath,
+  segmentAbsPathsByKey,
+}) {
+  const localEntryByAbsPath = new Map(
+    localSerializedEntries.map((e) => [e.absolutePath, e]),
+  );
+  const remoteEntryByAbsPath = new Map(
+    remoteSerializedEntries.map((e) => [e.absolutePath, e]),
+  );
+
+  const coveredBySegment = new Set();
+  for (const [, modules] of segmentOutputs) {
+    for (const [moduleId] of modules) {
+      const absPath = moduleIdToAbsPath.get(moduleId);
+      if (absPath) coveredBySegment.add(absPath);
+    }
+  }
+
+  let pulledFromRemote = 0;
+  let pulledFromLocal = 0;
+  const missingAbsPaths = new Set();
+
+  for (const [segKey, modules] of segmentOutputs) {
+    const segAbsPaths = new Set();
+    for (const [moduleId] of modules) {
+      const absPath = moduleIdToAbsPath.get(moduleId);
+      if (absPath) segAbsPaths.add(absPath);
+    }
+
+    const pending = [...segAbsPaths];
+    const visited = new Set(segAbsPaths);
+
+    while (pending.length > 0) {
+      const absPath = pending.pop();
+      // Use whichever runtime happens to know the module's dep structure —
+      // they should agree, but either is fine to walk with.
+      const entry =
+        localEntryByAbsPath.get(absPath) || remoteEntryByAbsPath.get(absPath);
+      // oxlint-disable-next-line eslint/no-continue
+      if (!entry?.moduleData) continue;
+
+      for (const [, dep] of entry.moduleData.dependencies) {
+        const depPath = dep.absolutePath;
+        const asyncType = dep.data?.data?.asyncType;
+        // Skip async edges (separate chunk) and deps without a resolvable
+        // filesystem path — the latter show up for a handful of Metro edge
+        // cases (e.g. virtual polyfill shims that produce no serialized
+        // output); they're not real sync crash risks because Metro would
+        // have failed at bundle time if anything actually required them.
+        // oxlint-disable-next-line eslint/no-continue
+        if (asyncType === 'async' || !depPath || visited.has(depPath)) continue;
+        visited.add(depPath);
+
+        if (!eagerAbsPaths.has(depPath) && !coveredBySegment.has(depPath)) {
+          const localEntry = localEntryByAbsPath.get(depPath);
+          const remoteEntry = remoteEntryByAbsPath.get(depPath);
+          const source = localEntry || remoteEntry;
+          if (source) {
+            modules.push([source.moduleId, source.moduleCode]);
+            coveredBySegment.add(depPath);
+            // Also mirror the injection into the abs-path and id-to-path
+            // bookkeeping that downstream consumers (manifest writer,
+            // module-id-map emitter, integrity check) read from — without
+            // this, the .seg.js file would carry __d(... id ...) for the
+            // rescued module but idMap.segments[seg].modules wouldn't, and
+            // the integrity check would still flag it as an orphan.
+            if (segmentAbsPathsByKey) {
+              if (!segmentAbsPathsByKey.has(segKey)) {
+                segmentAbsPathsByKey.set(segKey, new Set());
+              }
+              segmentAbsPathsByKey.get(segKey).add(depPath);
+            }
+            if (moduleIdToAbsPath && !moduleIdToAbsPath.has(source.moduleId)) {
+              moduleIdToAbsPath.set(source.moduleId, depPath);
+            }
+            if (localEntry) {
+              pulledFromLocal += 1;
+            } else {
+              pulledFromRemote += 1;
+            }
+          } else {
+            // Neither runtime has this module. It's a genuine orphan — the
+            // caller should hard-fail the build rather than ship an IPA
+            // that will crash on require() at runtime.
+            missingAbsPaths.add(depPath);
+          }
+        }
+
+        pending.push(depPath);
+      }
+    }
+  }
+
+  return {
+    pulledFromLocal,
+    pulledFromRemote,
+    missingAbsPaths: [...missingAbsPaths],
+  };
+}
+
+/**
+ * Merge the two runtimes' views of a single shared segment before emission.
+ *
+ * When the same segment key is forced shared but the two runtimes' graphs
+ * reach DIFFERENT module sets under it (e.g. `seg:nm.@onekeyfe` — main
+ * collects ~23 @onekeyfe modules, bg collects 300+ modules dragged in by
+ * await import('@onekeyfe/hwk-ledger-adapter') → @ledgerhq/* → inversify /
+ * xstate / crypto-js / etc.), emitting only one side drops the other's
+ * modules from the shipped .seg.js and turns __d(... id ...) refs from
+ * sibling segments into runtime "Requiring unknown module" crashes.
+ *
+ * `fileToIdMap` is a monorepo-wide singleton so module IDs are stable
+ * across runtimes — concatenating the two `[moduleId, moduleCode]` arrays
+ * with a moduleId-level dedup is safe and produces a single .seg.js that
+ * both runtimes can load correctly.
+ *
+ * Returns:
+ *   mergedSegModules          - deduped Array<[moduleId, moduleCode]>,
+ *                                main's entries first (kept as the canonical
+ *                                version when IDs collide because main is
+ *                                typically smaller and loaded first).
+ *   mergedAbsPaths            - Set<absolutePath> union of the two sides.
+ *   mergedModuleIdToAbsPath   - Map<moduleId, absPath> covering IDs from
+ *                                either runtime; used as the shared
+ *                                emitSegment lookup table.
+ */
+function mergeSharedSegmentOutputs({
+  mainSegModules,
+  backgroundSegModules,
+  mainAbsPaths,
+  backgroundAbsPaths,
+  mainModuleIdToAbsPath,
+  backgroundModuleIdToAbsPath,
+}) {
+  const mergedSegModules = [];
+  const seenIds = new Set();
+  for (const entry of mainSegModules || []) {
+    const [mid] = entry;
+    if (!seenIds.has(mid)) {
+      seenIds.add(mid);
+      mergedSegModules.push(entry);
+    }
+  }
+  for (const entry of backgroundSegModules || []) {
+    const [mid] = entry;
+    if (!seenIds.has(mid)) {
+      seenIds.add(mid);
+      mergedSegModules.push(entry);
+    }
+  }
+  const mergedAbsPaths = new Set([
+    ...(mainAbsPaths || []),
+    ...(backgroundAbsPaths || []),
+  ]);
+  const mergedModuleIdToAbsPath = new Map();
+  for (const [id, p] of mainModuleIdToAbsPath || []) {
+    mergedModuleIdToAbsPath.set(id, p);
+  }
+  for (const [id, p] of backgroundModuleIdToAbsPath || []) {
+    if (!mergedModuleIdToAbsPath.has(id)) {
+      mergedModuleIdToAbsPath.set(id, p);
+    }
+  }
+  return { mergedSegModules, mergedAbsPaths, mergedModuleIdToAbsPath };
+}
+
+/**
+ * Decide whether a forced-shared segment needs per-runtime dependsOn overrides.
+ *
+ * The shared entry's `dependsOn` ships as the union of the two runtimes' deps
+ * so generateSegmentSourceMap and the integrity checker still see every
+ * sync-edge target. But the runtime loader walks `dependsOn` to preload
+ * prerequisites, and a main-only dep is `runtime: 'main'` (rejected by the bg
+ * runtime's access check) and vice versa — so when the two sides diverge the
+ * loader needs per-runtime override lists, picked up via
+ * `entry.mainDependsOn` / `entry.backgroundDependsOn` in installProdBundleLoader.
+ *
+ * Returns `null` when no override is needed (deps identical, or not
+ * forceShared — the canShare path requires identical deps anyway, but the
+ * caller passes the flag so the intent is explicit).
+ */
+function computeSharedPerRuntimeDeps({
+  mainDeps,
+  backgroundDeps,
+  forceShared,
+}) {
+  if (!forceShared) {
+    return null;
+  }
+  if (setEquals(mainDeps, backgroundDeps)) {
+    return null;
+  }
+  return {
+    mainDependsOn: [...mainDeps].toSorted(),
+    backgroundDependsOn: [...backgroundDeps].toSorted(),
+  };
+}
+
 module.exports = {
   assertBundleCompleteness,
   buildPostSection,
@@ -707,11 +953,14 @@ module.exports = {
   buildModuleSignature,
   buildRuntimeOwnership,
   collectCommonReferencedSegmentKeys,
+  computeSharedPerRuntimeDeps,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
+  expandSegmentsWithCrossRuntimeDeps,
   expandSegmentsWithSyncDeps,
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
+  mergeSharedSegmentOutputs,
   rewriteAsyncRequirePaths,
   seedSegmentAssignments,
   setEquals,
