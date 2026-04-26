@@ -101,16 +101,16 @@ if ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__) {
 if (!__DEV__) {
   const { NativeLogger, LogLevel } =
     require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-  // oxlint-disable-next-line typescript-eslint/no-unsafe-call
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const origHandler = (globalThis as any).ErrorUtils?.getGlobalHandler?.();
-  // oxlint-disable-next-line typescript-eslint/no-unsafe-call
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   (globalThis as any).ErrorUtils?.setGlobalHandler?.(
     (error: Error, isFatal: boolean) => {
       NativeLogger.write(
         LogLevel.Error,
         `[JSError] ${isFatal ? 'FATAL' : 'ERROR'}: ${error?.message || error}\n${error?.stack?.slice(0, 500) || ''}`,
       );
-      // oxlint-disable-next-line typescript-eslint/no-unsafe-call
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       origHandler?.(error, isFatal);
     },
   );
