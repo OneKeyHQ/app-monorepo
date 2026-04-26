@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { openHyperLiquidExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -104,7 +104,7 @@ function ContractAddressCell({
         iconProps={{ size: '$3', color: '$iconSubdued' }}
         onPress={(e) => {
           e?.stopPropagation?.();
-          void openHyperLiquidExplorerUrl({ address: contract });
+          void openHyperLiquidTokenExplorerUrl({ tokenId: contract });
         }}
       />
     </XStack>

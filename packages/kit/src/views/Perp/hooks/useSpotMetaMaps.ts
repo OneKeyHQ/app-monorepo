@@ -37,12 +37,15 @@ export function useSpotMetaMaps() {
         }
 
         setSpotUniverses(universes);
+        // HL UI shows the canonical 32-char `tokenId` (e.g. "0x54e0...7f4b"),
+        // not the 40-char `evmContract.address` (which is often a placeholder
+        // like 0x111111...111111). Match HL so the displayed contract and the
+        // explorer jump line up with what users see on hyperliquid.xyz.
         const contractMap: Record<string, string> = {};
         for (const token of tokens) {
-          if (token.evmContract?.address) {
-            contractMap[token.name] = token.evmContract.address;
-            contractMap[getSpotTokenDisplayName(token.name)] =
-              token.evmContract.address;
+          if (token.tokenId) {
+            contractMap[token.name] = token.tokenId;
+            contractMap[getSpotTokenDisplayName(token.name)] = token.tokenId;
           }
         }
         setTokenContractMap(contractMap);
