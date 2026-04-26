@@ -47,7 +47,7 @@ function ProtocolHeaderRow({
 }: IProtocolHeaderRowProps) {
   const progress = Math.max(0, Math.min(1, compactProgress));
   const topRadius = 12 * (1 - progress);
-  const contentOpacity = overlay ? 1 : 1 - progress;
+  const shellOpacity = overlay ? 1 : 1 - progress;
   const isInteractive = Boolean(onPress);
   const [settingsValue] = useSettingsValuePersistAtom();
   const formattedNetWorth = formatPortfolioTotal(
@@ -73,6 +73,8 @@ function ProtocolHeaderRow({
       cursor={isInteractive ? 'pointer' : undefined}
       animation={reducedMotion ? undefined : 'quick'}
       animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+      opacity={shellOpacity}
+      pointerEvents={!overlay && progress >= 0.999 ? 'none' : undefined}
       hoverStyle={isInteractive ? { bg: '$bgSubdued' } : undefined}
       pressStyle={
         isInteractive ? { bg: '$bgSubdued', scale: 0.995 } : undefined
@@ -94,7 +96,6 @@ function ProtocolHeaderRow({
         alignItems="center"
         flex={1}
         minWidth={0}
-        opacity={contentOpacity}
         animation={reducedMotion ? undefined : 'quick'}
         animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
       >
@@ -139,7 +140,6 @@ function ProtocolHeaderRow({
         fontVariant={TABULAR_NUMS}
         animation={reducedMotion ? undefined : 'quick'}
         animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-        opacity={contentOpacity}
       >
         {formattedNetWorth}
       </SizableText>
@@ -148,7 +148,6 @@ function ProtocolHeaderRow({
         animation={reducedMotion ? undefined : 'quick'}
         animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
         rotate={open ? '180deg' : '0deg'}
-        opacity={contentOpacity}
         transformOrigin="center"
       >
         <Icon name="ChevronDownSmallSolid" color="$iconSubdued" size="$6" />

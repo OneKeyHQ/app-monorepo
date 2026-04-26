@@ -107,6 +107,19 @@ describe('defiDesktopStickyDom', () => {
     ).toBeUndefined();
   });
 
+  it('does not pin a protocol that cannot fit the pinned header before its bottom edge', () => {
+    expect(
+      findPinnedProtocolKey({
+        stickyLine: 100,
+        pinnedHeaderHeight: 64,
+        candidates: [
+          { key: 'too-short', top: 80, bottom: 150, width: 120 },
+          { key: 'winner', top: 60, bottom: 190, width: 120 },
+        ],
+      }),
+    ).toBe('winner');
+  });
+
   it('computes sticky sidebar max height from viewport height, sticky line, and bottom gap', () => {
     expect(
       getStickySidebarMaxHeight({

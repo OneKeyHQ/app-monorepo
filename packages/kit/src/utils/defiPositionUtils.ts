@@ -11,7 +11,6 @@ import {
 import { getCategoryConfig } from './defiCategoryConfig';
 
 type IPositionLabel = { title: string; titleId?: ETranslations };
-type IProtocolPositionActionKey = 'withdraw' | 'claim';
 type IProtocolPositionSourceAsset =
   IDeFiProtocol['positions'][number]['assets'][number];
 type ICategoryConfig = ReturnType<typeof getCategoryConfig>;
@@ -125,20 +124,6 @@ const POSITION_SECTION_LABELS: Record<
   },
 };
 
-const POSITION_ACTION_LABELS: Record<
-  IProtocolPositionActionKey,
-  IPositionLabel
-> = {
-  withdraw: {
-    title: 'Withdraw',
-    titleId: ETranslations.global_withdraw,
-  },
-  claim: {
-    title: 'Claim',
-    titleId: ETranslations.earn_claim,
-  },
-};
-
 const DEFI_ASSET_TYPE_ALIAS_MAP: Record<
   string,
   IProtocolPositionSectionAssetType
@@ -186,12 +171,6 @@ export type IProtocolPositionSection = {
   assets: IDeFiAsset[];
 };
 
-export type IProtocolPositionAction = {
-  key: IProtocolPositionActionKey;
-  label: string;
-  labelId?: ETranslations;
-};
-
 export type IProtocolPositionItem = {
   positionKey: string;
   groupId: string;
@@ -203,7 +182,6 @@ export type IProtocolPositionItem = {
   poolFullName?: string;
   value: string;
   sections: IProtocolPositionSection[];
-  action?: IProtocolPositionAction;
 };
 
 export type ILocalizedProtocolPositionSection = Omit<
@@ -213,19 +191,11 @@ export type ILocalizedProtocolPositionSection = Omit<
   title: string;
 };
 
-export type ILocalizedProtocolPositionAction = Omit<
-  IProtocolPositionAction,
-  'label'
-> & {
-  label: string;
-};
-
 export type ILocalizedProtocolPositionItem = Omit<
   IProtocolPositionItem,
-  'sections' | 'action'
+  'sections'
 > & {
   sections: ILocalizedProtocolPositionSection[];
-  action?: ILocalizedProtocolPositionAction;
 };
 
 export type IDeFiProtocolDisplayInfo = {
@@ -274,34 +244,6 @@ function getProtocolPositionSectionKey(
   return getNormalizedDeFiAssetTypeFromCategory(asset.category);
 }
 
-function buildProtocolPositionAction(
-  sections: IProtocolPositionSection[],
-): IProtocolPositionAction | undefined {
-  const assetTypeSet = new Set(sections.map((section) => section.assetType));
-
-  if (assetTypeSet.has('borrowed')) {
-    return undefined;
-  }
-
-  if (assetTypeSet.has('supplied')) {
-    return {
-      key: 'withdraw',
-      label: POSITION_ACTION_LABELS.withdraw.title,
-      labelId: POSITION_ACTION_LABELS.withdraw.titleId,
-    };
-  }
-
-  if (assetTypeSet.has('rewards')) {
-    return {
-      key: 'claim',
-      label: POSITION_ACTION_LABELS.claim.title,
-      labelId: POSITION_ACTION_LABELS.claim.titleId,
-    };
-  }
-
-  return undefined;
-}
-
 function buildPositionSections(position: IDeFiProtocol['positions'][number]) {
   const groupedAssets: Record<IProtocolPositionSectionAssetType, IDeFiAsset[]> =
     {
@@ -346,7 +288,6 @@ function buildProtocolPositionItems(protocol: IDeFiProtocol) {
       poolFullName: position.poolFullName,
       value: position.value,
       sections,
-      action: buildProtocolPositionAction(sections),
     };
   });
 }
@@ -364,14 +305,6 @@ function buildLocalizedProtocolPositionItems({
       categoryLabel: position.categoryLabelId
         ? translate(position.categoryLabelId)
         : position.categoryLabel,
-      action: position.action
-        ? {
-            ...position.action,
-            label: position.action.labelId
-              ? translate(position.action.labelId)
-              : position.action.label,
-          }
-        : undefined,
       sections: position.sections.map((section) => ({
         ...section,
         title: section.titleId ? translate(section.titleId) : section.title,

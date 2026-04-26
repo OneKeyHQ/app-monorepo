@@ -13,7 +13,6 @@ import {
   ScrollView,
   Spinner,
   Stack,
-  TABS_CONTAINER_CLASSNAME,
   Tabs,
   XStack,
   YStack,
@@ -67,7 +66,6 @@ import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
-import { findScrollableAncestorFromLocalNode } from './defiDesktopStickyDom';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -200,7 +198,6 @@ export function HomePageView({
   );
 
   const hasRiskApprovalsRef = useRef(hasRiskApprovals);
-  const homeWheelScopeRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     hasRiskApprovalsRef.current = hasRiskApprovals;
   }, [hasRiskApprovals]);
@@ -682,66 +679,6 @@ export function HomePageView({
     );
   }, []);
 
-  // Wheel fired over page-shell gutters (BasicPage right margin / border) lands
-  // on the document, not on the tabs scroller — forward it so those empty
-  // regions still scroll the page.
-  useEffect(() => {
-    if (platformEnv.isNative) return;
-    const scrollerSelector = `.${TABS_CONTAINER_CLASSNAME}`;
-    let scroller: HTMLElement | null = null;
-    const resolveScroller = () => {
-      if (
-        !scroller ||
-        !scroller.isConnected ||
-        homeWheelScopeRef.current?.contains(scroller) === false
-      ) {
-        scroller =
-          homeWheelScopeRef.current?.querySelector(scrollerSelector) ?? null;
-      }
-      return scroller;
-    };
-    const isDocumentSurfaceTarget = (target: EventTarget | null) =>
-      target === document ||
-      target === document.body ||
-      target === document.documentElement;
-    const isInsideWheelScope = (e: WheelEvent) => {
-      const scope = homeWheelScopeRef.current;
-      if (!scope) return false;
-      const rect = scope.getBoundingClientRect();
-      return (
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom
-      );
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (!isInsideWheelScope(e)) return;
-      const s = resolveScroller();
-      if (!s) return;
-      const target = e.target;
-      if (target instanceof Node && s.contains(target)) return;
-      if (
-        target instanceof Node &&
-        homeWheelScopeRef.current?.contains(target) === false &&
-        !isDocumentSurfaceTarget(target)
-      ) {
-        return;
-      }
-      if (
-        target instanceof HTMLElement &&
-        findScrollableAncestorFromLocalNode(target)
-      ) {
-        return;
-      }
-      s.scrollBy({ top: e.deltaY, left: e.deltaX });
-    };
-    globalThis.addEventListener('wheel', onWheel, { passive: true });
-    return () => {
-      globalThis.removeEventListener('wheel', onWheel);
-    };
-  }, []);
-
   useEffect(() => {
     const clearCache = async () => {
       await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
@@ -897,41 +834,31 @@ export function HomePageView({
       <>
         <Page.Body>
           <Page.Container flex={1} padded={false}>
-            <Stack
-              ref={(node: unknown) => {
-                homeWheelScopeRef.current = node as HTMLElement | null;
-              }}
-              flex={1}
-            >
-              {platformEnv.isNative ? (
-                <Stack h={tabPageHeight} />
-              ) : (
+            {platformEnv.isNative ? (
+              <Stack h={tabPageHeight} />
+            ) : (
+              <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
+            )}
+            <RiskApprovalAlert />
+            <WatchOnlyAlert />
+            <NetworkAlert />
+            {content}
+            {platformEnv.isNative ? (
+              <YStack
+                position="absolute"
+                top={-20}
+                left={0}
+                bg="$bgApp"
+                pt="$5"
+                width="100%"
+                onLayout={handleTabPageLayout}
+              >
                 <TabPageHeader
                   sceneName={sceneName}
                   tabRoute={ETabRoutes.Home}
                 />
-              )}
-              <RiskApprovalAlert />
-              <WatchOnlyAlert />
-              <NetworkAlert />
-              {content}
-              {platformEnv.isNative ? (
-                <YStack
-                  position="absolute"
-                  top={-20}
-                  left={0}
-                  bg="$bgApp"
-                  pt="$5"
-                  width="100%"
-                  onLayout={handleTabPageLayout}
-                >
-                  <TabPageHeader
-                    sceneName={sceneName}
-                    tabRoute={ETabRoutes.Home}
-                  />
-                </YStack>
-              ) : null}
-            </Stack>
+              </YStack>
+            ) : null}
           </Page.Container>
         </Page.Body>
       </>

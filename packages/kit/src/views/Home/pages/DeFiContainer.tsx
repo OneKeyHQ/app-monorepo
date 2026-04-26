@@ -74,6 +74,8 @@ import {
 // Scroll depth beyond which back-to-top may reveal; deep enough to be past
 // the initial fold, shallow enough to not require a full viewport of scroll.
 const BACK_TO_TOP_NEAR_TOP_PX = 200;
+const PROTOCOL_PINNED_HEADER_EXIT_GAP = 64;
+const SIDEBAR_STICKY_UNPIN_GAP = 8;
 
 // Industry pattern: reveal on any upward scroll past the initial fold; hide
 // on downward scroll or when back near the top. rAF / animated-reaction
@@ -139,17 +141,8 @@ function DeFiContainer() {
   const [{ protocols }] = useDeFiListProtocolsAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
   const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
-  // All Networks path flips `initialized` immediately but throttles the
-  // `protocols` update up to 1s (via `updateAllNetworkData` in
-  // DeFiListBlock). `protocolMap` updates immediately, so its presence is a
-  // reliable "data is still landing" signal — keep the skeleton until
-  // protocols catch up.
-  const hasPendingProtocolsHydration =
-    (protocols?.length ?? 0) === 0 && Object.keys(protocolMap).length > 0;
   const isOverviewLoading =
-    !initialized ||
-    (isRefreshing && (protocols?.length ?? 0) === 0) ||
-    hasPendingProtocolsHydration;
+    !initialized || (isRefreshing && (protocols?.length ?? 0) === 0);
 
   const triggerPinCheckRef = useRef<() => void>(() => {});
   const scrollContainerRef = useRef<HTMLElement | null>(null);
@@ -165,7 +158,7 @@ function DeFiContainer() {
         protocolRefs.current.delete(key);
       }
 
-      if (changed && platformEnv.isWeb && tableLayout) {
+      if (changed && !platformEnv.isNative && tableLayout) {
         triggerPinCheckRef.current();
       }
     },
@@ -383,10 +376,12 @@ function DeFiContainer() {
           prev === sidebarRect.left ? prev : sidebarRect.left,
         );
 
-        const nextIsSidebarPinned = sidebarRect.top <= nextSidebarStickyTop;
-        setIsSidebarPinned((prev) =>
-          prev === nextIsSidebarPinned ? prev : nextIsSidebarPinned,
-        );
+        setIsSidebarPinned((prev) => {
+          const nextIsSidebarPinned = prev
+            ? sidebarRect.top <= nextSidebarStickyTop + SIDEBAR_STICKY_UNPIN_GAP
+            : sidebarRect.top <= nextSidebarStickyTop;
+          return prev === nextIsSidebarPinned ? prev : nextIsSidebarPinned;
+        });
       }
 
       if (suppressPinRef.current) return;
@@ -395,6 +390,7 @@ function DeFiContainer() {
         (isTabFocused
           ? findPinnedProtocolKey({
               stickyLine: nextStickyLine,
+              pinnedHeaderHeight: PROTOCOL_PINNED_HEADER_EXIT_GAP,
               candidates,
             })
           : null) ?? null;
@@ -469,17 +465,10 @@ function DeFiContainer() {
     );
   }, [pinnedKey, protocols]);
 
-  const stickyProtocolSnapshotRef = useRef<IDeFiProtocol | null>(null);
-  if (pinnedProtocol) {
-    stickyProtocolSnapshotRef.current = pinnedProtocol;
-  }
-  const renderedStickyProtocol =
-    pinnedProtocol ?? stickyProtocolSnapshotRef.current;
-
   const pinnedNetWorth = useMemo(() => {
-    if (!renderedStickyProtocol) return 0;
-    return getNetWorth(renderedStickyProtocol);
-  }, [renderedStickyProtocol, getNetWorth]);
+    if (!pinnedProtocol) return 0;
+    return getNetWorth(pinnedProtocol);
+  }, [pinnedProtocol, getNetWorth]);
 
   const stickySidebarMaxHeight = getStickySidebarMaxHeight({
     viewportHeight: globalThis.window?.innerHeight ?? 0,
@@ -487,7 +476,7 @@ function DeFiContainer() {
     bottomGap: 16,
   });
 
-  const hasStickyOverlay = Boolean(renderedStickyProtocol);
+  const hasStickyOverlay = Boolean(pinnedProtocol);
 
   const handlePinnedToggle = useCallback(() => {
     if (!pinnedKey) return;
@@ -596,14 +585,14 @@ function DeFiContainer() {
                 scale={1}
                 y={0}
               >
-                {renderedStickyProtocol ? (
+                {pinnedProtocol ? (
                   <PinnedProtocolHeader
-                    protocol={renderedStickyProtocol}
+                    protocol={pinnedProtocol}
                     protocolInfo={
                       protocolMap[
                         defiUtils.buildProtocolMapKey({
-                          protocol: renderedStickyProtocol.protocol,
-                          networkId: renderedStickyProtocol.networkId,
+                          protocol: pinnedProtocol.protocol,
+                          networkId: pinnedProtocol.networkId,
                         })
                       ]
                     }

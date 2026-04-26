@@ -21,7 +21,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ProtocolPositionActionShell } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionShell';
 import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -266,13 +265,6 @@ const ProtocolDesktopLayout = memo(
                           />
                         ))}
                       </YStack>
-                      {position.action ? (
-                        <Stack px="$5" pt="$3">
-                          <ProtocolPositionActionShell
-                            action={position.action}
-                          />
-                        </Stack>
-                      ) : null}
                       {index !== positions.length - 1 ? (
                         <Stack px="$5" py="$3">
                           <Divider />

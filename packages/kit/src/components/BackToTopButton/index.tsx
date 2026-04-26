@@ -5,6 +5,7 @@ import {
   useSafeAreaInsets,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export type IBackToTopButtonProps = {
   visible: boolean;
@@ -37,7 +38,7 @@ export function BackToTopButton({
       variant="secondary"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      position="absolute"
+      position={platformEnv.isNative ? 'absolute' : ('fixed' as any)}
       {...horizontalPosition}
       bottom={bottomOffset}
       zIndex={20}

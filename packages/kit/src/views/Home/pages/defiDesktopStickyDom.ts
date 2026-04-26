@@ -28,16 +28,18 @@ export type IStickyProtocolCandidate = {
 
 export function findPinnedProtocolKey({
   stickyLine,
+  pinnedHeaderHeight = 0,
   candidates,
 }: {
   stickyLine: number;
+  pinnedHeaderHeight?: number;
   candidates: IStickyProtocolCandidate[];
 }): string | undefined {
   return candidates
     .filter(
       (candidate) =>
         candidate.top < stickyLine &&
-        candidate.bottom > stickyLine &&
+        candidate.bottom > stickyLine + pinnedHeaderHeight &&
         candidate.width > 0,
     )
     .toSorted((a, b) => b.top - a.top)[0]?.key;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -79,6 +79,44 @@ export type IDeFiListBlockProps = {
   hideInternalTitle?: boolean;
   registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
 };
+
+const ProtocolListItem = memo(
+  ({
+    isAllNetworks,
+    isLast,
+    protocol,
+    protocolKey,
+    registerProtocol,
+    tableLayout,
+  }: {
+    isAllNetworks?: boolean;
+    isLast: boolean;
+    protocol: IDeFiProtocol;
+    protocolKey: string;
+    registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
+    tableLayout?: boolean;
+  }) => {
+    const handleProtocolRef = useCallback(
+      (handle: IProtocolHandle | null) => {
+        registerProtocol?.(protocolKey, handle);
+      },
+      [protocolKey, registerProtocol],
+    );
+
+    return (
+      <YStack key={`${protocol.networkId}-${protocol.protocol}`}>
+        <Protocol
+          ref={registerProtocol ? handleProtocolRef : undefined}
+          protocol={protocol}
+          tableLayout={tableLayout}
+          isAllNetworks={isAllNetworks}
+        />
+        {!tableLayout && !isLast ? <Divider mx="$5" /> : null}
+      </YStack>
+    );
+  },
+);
+ProtocolListItem.displayName = 'ProtocolListItem';
 
 function DeFiListBlock({
   refreshCacheOnly = false,
@@ -329,6 +367,7 @@ function DeFiListBlock({
       merge: true,
     });
     deFiDataRef.current = defiUtils.getEmptyDeFiData();
+    updateDeFiListState(deFiListLoadingReducer({ type: 'settled' }));
   }, 1000);
 
   const handleAllNetworkRequests = useCallback(
@@ -393,16 +432,11 @@ function DeFiListBlock({
           merge: true,
         });
         updateAllNetworkData();
-        updateDeFiListState({
-          initialized: true,
-          isRefreshing: false,
-        });
       }
 
       return r;
     },
     [
-      updateDeFiListState,
       account?.id,
       network?.id,
       updateAllNetworkData,
@@ -606,12 +640,14 @@ function DeFiListBlock({
         networkId: networkId ?? '',
       });
 
+      updateAllNetworkData.flush();
+
       // `useAllNetworkRequests` fires `onFinished` even when `resp` is
       // null (no positions), where the downstream `allNetworksResult`
       // effect would otherwise skip clearing the loading flag pair.
       updateDeFiListState(deFiListLoadingReducer({ type: 'settled' }));
     },
-    [refreshCacheOnly, updateDeFiListState],
+    [refreshCacheOnly, updateAllNetworkData, updateDeFiListState],
   );
 
   const handleAllNetworkCacheChecked = useCallback(
@@ -991,21 +1027,15 @@ function DeFiListBlock({
               networkId: protocol.networkId,
             });
             return (
-              <YStack key={`${protocol.networkId}-${protocol.protocol}`}>
-                <Protocol
-                  ref={
-                    registerProtocol
-                      ? (handle) => registerProtocol(protocolKey, handle)
-                      : undefined
-                  }
-                  protocol={protocol}
-                  tableLayout={tableLayout}
-                  isAllNetworks={network?.isAllNetworks}
-                />
-                {!tableLayout && index !== filteredProtocols.length - 1 ? (
-                  <Divider mx="$5" />
-                ) : null}
-              </YStack>
+              <ProtocolListItem
+                key={`${protocol.networkId}-${protocol.protocol}`}
+                isAllNetworks={network?.isAllNetworks}
+                isLast={index === filteredProtocols.length - 1}
+                protocol={protocol}
+                protocolKey={protocolKey}
+                registerProtocol={registerProtocol}
+                tableLayout={tableLayout}
+              />
             );
           })}
         </YStack>
@@ -1070,12 +1100,7 @@ function DeFiListBlock({
         headerContainerProps={{ px: '$pagePadding' }}
         plainContentContainer
         content={
-          // Hide the empty state during the All-Networks throttle gap: once
-          // protocolMap has entries, protocols are pending a 1s-throttled
-          // update (see `updateAllNetworkData`) — show loading, not empty.
-          !initialized ||
-          isRefreshing ||
-          Object.keys(protocolMap).length > 0 ? (
+          !initialized || isRefreshing ? (
             <ListLoading isTokenSelectorView={false} />
           ) : (
             <EmptyDeFi tableLayout={tableLayout} />

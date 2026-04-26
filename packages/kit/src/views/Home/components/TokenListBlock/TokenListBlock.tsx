@@ -2064,23 +2064,27 @@ function TokenListBlock({
   }, [allNetworksState.visibleCount, network?.isAllNetworks]);
 
   const renderSubTitle = useCallback(() => {
-    if (!tokenListState.initialized && tokenListState.isRefreshing) {
-      return <Skeleton.HeadingLg />;
+    if (tableLayout) {
+      if (!tokenListState.initialized && tokenListState.isRefreshing) {
+        return <Skeleton.HeadingLg />;
+      }
+
+      return (
+        <NumberSizeableTextWrapper
+          hideValue
+          size="$headingXl"
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{
+            currency: settings.currencyInfo.symbol,
+          }}
+        >
+          {accountTokensValue}
+        </NumberSizeableTextWrapper>
+      );
     }
 
-    return (
-      <NumberSizeableTextWrapper
-        hideValue
-        size="$headingXl"
-        color={tableLayout ? '$textSubdued' : '$text'}
-        formatter="value"
-        formatterOptions={{
-          currency: settings.currencyInfo.symbol,
-        }}
-      >
-        {accountTokensValue}
-      </NumberSizeableTextWrapper>
-    );
+    return null;
   }, [
     tableLayout,
     settings.currencyInfo.symbol,
@@ -2185,7 +2189,6 @@ function TokenListBlock({
         id: ETranslations.global_universal_search_tabs_tokens,
       })}
       subTitle={renderSubTitle()}
-      subTitleProps={tableLayout ? undefined : { color: '$text' }}
       headerActions={renderHeaderActions()}
       headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
