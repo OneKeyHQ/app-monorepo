@@ -6,9 +6,9 @@
  */
 
 import type {
+  ILoadSegmentParams,
+  IRuntimeBundleContext,
   ISplitBundleNativeLoader,
-  LoadSegmentParams,
-  RuntimeBundleContext,
 } from './types';
 
 let cachedLoader: ISplitBundleNativeLoader | null = null;
@@ -23,10 +23,10 @@ export function getNativeSplitBundleLoader(): ISplitBundleNativeLoader {
     require('@onekeyfe/react-native-split-bundle-loader') as typeof import('@onekeyfe/react-native-split-bundle-loader');
 
   cachedLoader = {
-    getRuntimeBundleContext(): Promise<RuntimeBundleContext> {
-      return SplitBundleLoader.getRuntimeBundleContext() as Promise<RuntimeBundleContext>;
+    getRuntimeBundleContext(): Promise<IRuntimeBundleContext> {
+      return SplitBundleLoader.getRuntimeBundleContext() as Promise<IRuntimeBundleContext>;
     },
-    loadSegment(params: LoadSegmentParams): Promise<void> {
+    loadSegment(params: ILoadSegmentParams): Promise<void> {
       return SplitBundleLoader.loadSegment(
         params.segmentId,
         params.segmentKey,
