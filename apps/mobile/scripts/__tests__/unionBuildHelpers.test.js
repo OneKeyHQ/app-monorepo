@@ -5,6 +5,7 @@ const {
   buildModuleSignature,
   buildRuntimeOwnership,
   collectCommonReferencedSegmentKeys,
+  computeSharedPerRuntimeDeps,
   createSerializedModuleToSegmentMap,
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
@@ -992,6 +993,328 @@ it('does not expand segments with deps already in eager bundle', () => {
   expect(segmentOutputs.get('seg:feature')).toHaveLength(1);
 });
 
+it('mirrors added sync deps into segmentAbsPathsByKey and moduleIdToAbsPath', () => {
+  // Guards against the root cause of the @ledgerhq bg-segment orphan
+  // incident: expandSegmentsWithSyncDeps used to push [id, code] into
+  // segmentOutputs without updating the segmentAbsPathsByKey /
+  // moduleIdToAbsPath maps that downstream (manifest writer, integrity
+  // check) reads from. That left the emitted .seg.js file carrying
+  // __d(... id ...) for the rescued module while idMap.segments didn't
+  // list it, triggering false orphan_dep reports.
+  const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
+
+  const serializedEntries = [
+    {
+      absolutePath: '/seg-root.js',
+      moduleId: 100,
+      moduleCode: 'root',
+      moduleData: createModuleData({
+        dependencies: [{ key: 'dep', absolutePath: '/missing-dep.js' }],
+      }),
+    },
+    {
+      absolutePath: '/missing-dep.js',
+      moduleId: 101,
+      moduleCode: 'dep',
+      moduleData: createModuleData({}),
+    },
+  ];
+  const segmentOutputs = new Map([['seg:feature', [[100, 'root']]]]);
+  const segmentAbsPathsByKey = new Map([
+    ['seg:feature', new Set(['/seg-root.js'])],
+  ]);
+  const moduleIdToAbsPath = new Map([[100, '/seg-root.js']]);
+
+  const added = expandSegmentsWithSyncDeps({
+    segmentOutputs,
+    serializedEntries,
+    eagerAbsPaths: new Set(),
+    moduleIdToAbsPath,
+    segmentAbsPathsByKey,
+  });
+
+  expect(added).toBe(1);
+  expect(segmentAbsPathsByKey.get('seg:feature').has('/missing-dep.js')).toBe(
+    true,
+  );
+  expect(moduleIdToAbsPath.get(101)).toBe('/missing-dep.js');
+});
+
+// ---------------------------------------------------------------------------
+// expandSegmentsWithCrossRuntimeDeps
+// ---------------------------------------------------------------------------
+
+describe('expandSegmentsWithCrossRuntimeDeps', () => {
+  const {
+    expandSegmentsWithCrossRuntimeDeps,
+  } = require('../unionBuildHelpers');
+
+  function buildEntries(specs) {
+    return specs.map((spec) => ({
+      absolutePath: spec.absolutePath,
+      moduleId: spec.moduleId,
+      moduleCode: spec.moduleCode ?? `code:${spec.moduleId}`,
+      moduleData: createModuleData({ dependencies: spec.dependencies || [] }),
+    }));
+  }
+
+  it('pulls a sync dep that exists only in the local runtime into the segment', () => {
+    const local = buildEntries([
+      {
+        absolutePath: '/root.js',
+        moduleId: 10,
+        dependencies: [{ key: 'dep', absolutePath: '/dep.js' }],
+      },
+      { absolutePath: '/dep.js', moduleId: 11 },
+    ]);
+    const remote = [];
+    const segmentOutputs = new Map([['seg:a', [[10, 'code:10']]]]);
+    const segmentAbsPathsByKey = new Map([['seg:a', new Set(['/root.js'])]]);
+    const moduleIdToAbsPath = new Map([[10, '/root.js']]);
+
+    const { pulledFromLocal, pulledFromRemote, missingAbsPaths } =
+      expandSegmentsWithCrossRuntimeDeps({
+        segmentOutputs,
+        localSerializedEntries: local,
+        remoteSerializedEntries: remote,
+        eagerAbsPaths: new Set(),
+        moduleIdToAbsPath,
+        segmentAbsPathsByKey,
+      });
+
+    expect(pulledFromLocal).toBe(1);
+    expect(pulledFromRemote).toBe(0);
+    expect(missingAbsPaths).toEqual([]);
+    expect(segmentOutputs.get('seg:a').map(([id]) => id)).toContain(11);
+    expect(segmentAbsPathsByKey.get('seg:a').has('/dep.js')).toBe(true);
+    expect(moduleIdToAbsPath.get(11)).toBe('/dep.js');
+  });
+
+  it('falls back to the remote runtime when local lacks the dep', () => {
+    // Mirrors the @ledgerhq shared-segment case: the root module lives in
+    // the local runtime's segmentOutputs but its sync target (e.g. @ledgerhq/
+    // device-management-kit) was only serialized by the other runtime's
+    // Metro graph.
+    const local = buildEntries([
+      {
+        absolutePath: '/root.js',
+        moduleId: 10,
+        dependencies: [{ key: 'dep', absolutePath: '/dep.js' }],
+      },
+    ]);
+    const remote = buildEntries([{ absolutePath: '/dep.js', moduleId: 11 }]);
+    const segmentOutputs = new Map([['seg:a', [[10, 'code:10']]]]);
+    const segmentAbsPathsByKey = new Map([['seg:a', new Set(['/root.js'])]]);
+    const moduleIdToAbsPath = new Map([[10, '/root.js']]);
+
+    const { pulledFromLocal, pulledFromRemote, missingAbsPaths } =
+      expandSegmentsWithCrossRuntimeDeps({
+        segmentOutputs,
+        localSerializedEntries: local,
+        remoteSerializedEntries: remote,
+        eagerAbsPaths: new Set(),
+        moduleIdToAbsPath,
+        segmentAbsPathsByKey,
+      });
+
+    expect(pulledFromLocal).toBe(0);
+    expect(pulledFromRemote).toBe(1);
+    expect(missingAbsPaths).toEqual([]);
+    expect(segmentOutputs.get('seg:a').map(([id]) => id)).toContain(11);
+  });
+
+  it('reports a genuine orphan when neither runtime has the dep', () => {
+    const local = buildEntries([
+      {
+        absolutePath: '/root.js',
+        moduleId: 10,
+        dependencies: [{ key: 'dep', absolutePath: '/nobody.js' }],
+      },
+    ]);
+    const { missingAbsPaths, pulledFromLocal, pulledFromRemote } =
+      expandSegmentsWithCrossRuntimeDeps({
+        segmentOutputs: new Map([['seg:a', [[10, 'code:10']]]]),
+        localSerializedEntries: local,
+        remoteSerializedEntries: [],
+        eagerAbsPaths: new Set(),
+        moduleIdToAbsPath: new Map([[10, '/root.js']]),
+      });
+
+    expect(pulledFromLocal).toBe(0);
+    expect(pulledFromRemote).toBe(0);
+    expect(missingAbsPaths).toEqual(['/nobody.js']);
+  });
+
+  it('ignores deps whose absolutePath is falsy (virtual polyfill shims)', () => {
+    // Metro emits a handful of edges with no resolvable absolutePath (virtual
+    // shims, sentinel nulls). They must not be reported as orphans because
+    // Metro would have failed at bundle time if anything actually required
+    // them — counting them as crash risks would be noise.
+    const serializedRoot = {
+      absolutePath: '/root.js',
+      moduleId: 10,
+      moduleCode: 'code:10',
+      moduleData: {
+        output: [{ type: 'js/module', data: { code: '' } }],
+        dependencies: new Map([
+          ['virtual', { absolutePath: undefined, data: { data: {} } }],
+        ]),
+      },
+    };
+
+    const { missingAbsPaths } = expandSegmentsWithCrossRuntimeDeps({
+      segmentOutputs: new Map([['seg:a', [[10, 'code:10']]]]),
+      localSerializedEntries: [serializedRoot],
+      remoteSerializedEntries: [],
+      eagerAbsPaths: new Set(),
+      moduleIdToAbsPath: new Map([[10, '/root.js']]),
+    });
+
+    expect(missingAbsPaths).toEqual([]);
+  });
+
+  it('skips deps reachable via async edges', () => {
+    const local = buildEntries([
+      {
+        absolutePath: '/root.js',
+        moduleId: 10,
+        dependencies: [
+          { key: 'lazy', absolutePath: '/lazy.js', asyncType: 'async' },
+        ],
+      },
+      { absolutePath: '/lazy.js', moduleId: 11 },
+    ]);
+
+    const { pulledFromLocal, pulledFromRemote, missingAbsPaths } =
+      expandSegmentsWithCrossRuntimeDeps({
+        segmentOutputs: new Map([['seg:a', [[10, 'code:10']]]]),
+        localSerializedEntries: local,
+        remoteSerializedEntries: [],
+        eagerAbsPaths: new Set(),
+        moduleIdToAbsPath: new Map([
+          [10, '/root.js'],
+          [11, '/lazy.js'],
+        ]),
+      });
+
+    expect(pulledFromLocal).toBe(0);
+    expect(pulledFromRemote).toBe(0);
+    expect(missingAbsPaths).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mergeSharedSegmentOutputs
+// ---------------------------------------------------------------------------
+
+describe('mergeSharedSegmentOutputs', () => {
+  const { mergeSharedSegmentOutputs } = require('../unionBuildHelpers');
+
+  it('unions disjoint main/bg module sets for a shared segment', () => {
+    // The @ledgerhq / @onekeyfe shape: main reaches a small subset
+    // (100, 101), bg drags in the whole transitive chain (200, 201, 202).
+    // Emitting only main's view would drop the bg-side modules from the
+    // shipped .seg.js and crash bg at runtime.
+    const main = [
+      [100, 'code:100'],
+      [101, 'code:101'],
+    ];
+    const bg = [
+      [200, 'code:200'],
+      [201, 'code:201'],
+      [202, 'code:202'],
+    ];
+    const { mergedSegModules, mergedAbsPaths, mergedModuleIdToAbsPath } =
+      mergeSharedSegmentOutputs({
+        mainSegModules: main,
+        backgroundSegModules: bg,
+        mainAbsPaths: new Set(['/a.js', '/b.js']),
+        backgroundAbsPaths: new Set(['/c.js', '/d.js', '/e.js']),
+        mainModuleIdToAbsPath: new Map([
+          [100, '/a.js'],
+          [101, '/b.js'],
+        ]),
+        backgroundModuleIdToAbsPath: new Map([
+          [200, '/c.js'],
+          [201, '/d.js'],
+          [202, '/e.js'],
+        ]),
+      });
+
+    expect(mergedSegModules.map(([id]) => id).toSorted()).toEqual([
+      100, 101, 200, 201, 202,
+    ]);
+    expect([...mergedAbsPaths].toSorted()).toEqual([
+      '/a.js',
+      '/b.js',
+      '/c.js',
+      '/d.js',
+      '/e.js',
+    ]);
+    expect(mergedModuleIdToAbsPath.get(100)).toBe('/a.js');
+    expect(mergedModuleIdToAbsPath.get(200)).toBe('/c.js');
+  });
+
+  it('dedupes by moduleId when both sides carry the same module', () => {
+    // If the same absPath is in both graphs, Metro assigns the same
+    // moduleId (fileToIdMap is a singleton). The emitted seg must contain
+    // the module once, not twice; main's version wins since it's iterated
+    // first.
+    const shared = [42, '/* main version */'];
+    const main = [[41, 'code:41'], shared];
+    const bg = [
+      [42, '/* bg version */'], // different code, same id → should be skipped
+      [43, 'code:43'],
+    ];
+
+    const { mergedSegModules } = mergeSharedSegmentOutputs({
+      mainSegModules: main,
+      backgroundSegModules: bg,
+      mainAbsPaths: new Set(),
+      backgroundAbsPaths: new Set(),
+      mainModuleIdToAbsPath: new Map(),
+      backgroundModuleIdToAbsPath: new Map(),
+    });
+
+    expect(mergedSegModules.map(([id]) => id)).toEqual([41, 42, 43]);
+    // main's 42 entry is preserved, bg's duplicate is dropped.
+    const entryForId42 = mergedSegModules.find(([id]) => id === 42);
+    expect(entryForId42[1]).toBe('/* main version */');
+  });
+
+  it('handles one side being empty or undefined', () => {
+    const { mergedSegModules, mergedAbsPaths, mergedModuleIdToAbsPath } =
+      mergeSharedSegmentOutputs({
+        mainSegModules: undefined,
+        backgroundSegModules: [[5, 'c']],
+        mainAbsPaths: undefined,
+        backgroundAbsPaths: new Set(['/only-bg.js']),
+        mainModuleIdToAbsPath: undefined,
+        backgroundModuleIdToAbsPath: new Map([[5, '/only-bg.js']]),
+      });
+
+    expect(mergedSegModules).toEqual([[5, 'c']]);
+    expect([...mergedAbsPaths]).toEqual(['/only-bg.js']);
+    expect(mergedModuleIdToAbsPath.get(5)).toBe('/only-bg.js');
+  });
+
+  it('prefers main when both runtimes know the same id→path mapping', () => {
+    // The two runtimes should agree on fileToIdMap output, but defend
+    // against accidental divergence — main is the canonical source since
+    // its segment.hbc is deterministic and iterated first downstream.
+    const { mergedModuleIdToAbsPath } = mergeSharedSegmentOutputs({
+      mainSegModules: [[10, '']],
+      backgroundSegModules: [[10, '']],
+      mainAbsPaths: new Set(['/main-version.js']),
+      backgroundAbsPaths: new Set(['/bg-version.js']),
+      mainModuleIdToAbsPath: new Map([[10, '/main-version.js']]),
+      backgroundModuleIdToAbsPath: new Map([[10, '/bg-version.js']]),
+    });
+
+    expect(mergedModuleIdToAbsPath.get(10)).toBe('/main-version.js');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // collectCommonReferencedSegmentKeys
 // ---------------------------------------------------------------------------
@@ -1123,5 +1446,76 @@ describe('collectCommonReferencedSegmentKeys', () => {
     });
 
     expect(result.size).toBe(0);
+  });
+});
+
+describe('computeSharedPerRuntimeDeps', () => {
+  it('returns null when not forceShared (the canShare path requires identical deps)', () => {
+    expect(
+      computeSharedPerRuntimeDeps({
+        mainDeps: new Set(['seg:a']),
+        backgroundDeps: new Set(['seg:b']),
+        forceShared: false,
+      }),
+    ).toBeNull();
+  });
+
+  it('returns null when forceShared but deps already match (no override needed)', () => {
+    expect(
+      computeSharedPerRuntimeDeps({
+        mainDeps: new Set(['seg:a', 'seg:b']),
+        backgroundDeps: new Set(['seg:b', 'seg:a']),
+        forceShared: true,
+      }),
+    ).toBeNull();
+  });
+
+  it('emits sorted per-runtime override lists when forceShared deps diverge', () => {
+    const result = computeSharedPerRuntimeDeps({
+      mainDeps: new Set(['seg:hid', 'seg:common']),
+      backgroundDeps: new Set(['seg:rxjs-bg', 'seg:common']),
+      forceShared: true,
+    });
+
+    expect(result).toEqual({
+      mainDependsOn: ['seg:common', 'seg:hid'],
+      backgroundDependsOn: ['seg:common', 'seg:rxjs-bg'],
+    });
+  });
+
+  it('handles one runtime having extra deps the other lacks', () => {
+    const result = computeSharedPerRuntimeDeps({
+      mainDeps: new Set(['seg:a']),
+      backgroundDeps: new Set(['seg:a', 'seg:bg-only']),
+      forceShared: true,
+    });
+
+    expect(result).toEqual({
+      mainDependsOn: ['seg:a'],
+      backgroundDependsOn: ['seg:a', 'seg:bg-only'],
+    });
+  });
+
+  it('handles empty dep sets on either side', () => {
+    const result = computeSharedPerRuntimeDeps({
+      mainDeps: new Set(),
+      backgroundDeps: new Set(['seg:bg-only']),
+      forceShared: true,
+    });
+
+    expect(result).toEqual({
+      mainDependsOn: [],
+      backgroundDependsOn: ['seg:bg-only'],
+    });
+  });
+
+  it('returns null when both sides are empty (still equal)', () => {
+    expect(
+      computeSharedPerRuntimeDeps({
+        mainDeps: new Set(),
+        backgroundDeps: new Set(),
+        forceShared: true,
+      }),
+    ).toBeNull();
   });
 });

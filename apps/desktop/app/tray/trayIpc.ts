@@ -14,10 +14,10 @@ let onResponseReceived: (() => void) | null = null;
 
 // Handler refs so unregister removes only this module's listeners instead
 // of clobbering unrelated subscribers on these channels.
-type IpcOn = Parameters<typeof ipcMain.on>[1];
-let onTrayDataResponse: IpcOn | null = null;
-let onTrayAction: IpcOn | null = null;
-let onTrayReady: IpcOn | null = null;
+type IIpcListener = Parameters<typeof ipcMain.on>[1];
+let onTrayDataResponse: IIpcListener | null = null;
+let onTrayAction: IIpcListener | null = null;
+let onTrayReady: IIpcListener | null = null;
 
 const ALLOWED_TRAY_ACTION_TYPES = new Set([
   'open-page',
@@ -168,6 +168,7 @@ export function registerTrayIpcHandlers(
     }
     // Cold start: main renderer hasn't pushed data yet. Trigger a gather
     // instead of waiting for the next 30s poll tick.
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     requestDataFromMainWindow(getMainWindow);
   };
   ipcMain.on(ipcMessageKeys.TRAY_READY, onTrayReady);

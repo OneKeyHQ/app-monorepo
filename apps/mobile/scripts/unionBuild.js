@@ -23,6 +23,7 @@
  *     --assets-dest out-dir-bundle/ios/assets
  */
 
+const { spawn } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
@@ -62,11 +63,14 @@ const {
   buildGraphModuleIndex,
   buildRuntimeOwnership,
   collectCommonReferencedSegmentKeys,
+  computeSharedPerRuntimeDeps,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
+  expandSegmentsWithCrossRuntimeDeps,
   expandSegmentsWithSyncDeps,
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
+  mergeSharedSegmentOutputs,
   rewriteAsyncRequirePaths,
   seedSegmentAssignments,
   setEquals,
@@ -111,6 +115,148 @@ const { sourceMapStringNonBlocking } = require(
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
 const bgEntry = path.resolve(mobileDirPath, 'background.ts');
+const projectRootPath = path.resolve(mobileDirPath, '../..');
+
+// Hermesc binary — same resolution as build-bundle.js keeps behavior
+// identical across the two entry points. We need it here so segment sha256
+// hashes can be computed from the actual .seg.hbc bytes before the manifest
+// gets baked into common.bundle, instead of from the .seg.js text which no
+// longer matches what the native split-bundle-loader verifies at load time
+// (3.0.23+ enforces per-segment hash check; before then the mismatch was
+// tolerated and went unnoticed).
+const HERMES_PLATFORM_DIR =
+  process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
+const HERMES_COMMAND = path.join(
+  projectRootPath,
+  `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+);
+
+function runHermescAsync({ outPath, inputPath }) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      HERMES_COMMAND,
+      [
+        '-O',
+        '-emit-binary',
+        '-output-source-map',
+        `-out=${outPath}`,
+        inputPath,
+      ],
+      { stdio: 'inherit' },
+    );
+    child.on('error', reject);
+    child.on('exit', (code, signal) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(
+          new Error(
+            `hermesc failed for ${inputPath} (code=${code}, signal=${signal})`,
+          ),
+        );
+      }
+    });
+  });
+}
+
+async function runWithConcurrencyLocal(tasks, concurrency) {
+  const results = [];
+  let index = 0;
+  const runOne = async () => {
+    while (index < tasks.length) {
+      const i = index;
+      index += 1;
+      results[i] = await tasks[i]();
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, tasks.length) }, runOne),
+  );
+  return results;
+}
+
+/**
+ * Resolve a manifest entry's `relativePath` (e.g. `segments/foo.seg.hbc`)
+ * to the absolute on-disk path of the matching `.seg.js` source file and
+ * the target `.seg.hbc` output path — both live next to each other inside
+ * apps/mobile/dist/.
+ */
+function resolveSegmentIoPaths(segRelativePath) {
+  const baseName = path.basename(segRelativePath, '.seg.hbc');
+  const segDir = path.join(
+    mobileDirPath,
+    'dist',
+    path.dirname(segRelativePath),
+  );
+  return {
+    jsPath: path.join(segDir, `${baseName}.seg.js`),
+    hbcPath: path.join(segDir, `${baseName}.seg.hbc`),
+  };
+}
+
+/**
+ * Compile every emitted `.seg.js` to `.seg.hbc` via hermesc, then rewrite
+ * each manifest entry's `sha256` and `size` to reflect the compiled bytes.
+ * Shared entries (same object reference in both manifests, or in the
+ * merged manifest's variant map) are updated in place so all three views
+ * stay consistent.
+ *
+ * Concurrency mirrors build-bundle.js's buildSegments to avoid regressing
+ * overall build time — buildSegments subsequently detects pre-compiled
+ * .seg.hbc on disk and skips its own hermesc call.
+ */
+async function compileEmittedSegmentsAndRewriteSha256({
+  mainManifest,
+  backgroundManifest,
+}) {
+  // relativePath -> array of manifest entries whose sha256 must be refreshed
+  // after this path's .seg.hbc is written. Shared entries show up in both
+  // manifests; collect without dedupe so every live reference gets the
+  // update (mutating one may not reach the other in every case).
+  const entriesByRelativePath = new Map();
+  const collect = (manifest) => {
+    for (const [, record] of Object.entries(manifest.segments)) {
+      for (const entry of getManifestRecordEntries(record)) {
+        const rel = entry.relativePath;
+        if (!rel) continue;
+        if (!entriesByRelativePath.has(rel)) {
+          entriesByRelativePath.set(rel, []);
+        }
+        entriesByRelativePath.get(rel).push(entry);
+      }
+    }
+  };
+  collect(mainManifest);
+  collect(backgroundManifest);
+
+  const relativePaths = [...entriesByRelativePath.keys()];
+  if (relativePaths.length === 0) return;
+
+  const concurrency = parseInt(
+    process.env.SEGMENT_BUILD_CONCURRENCY || '4',
+    10,
+  );
+  const tasks = relativePaths.map((segRelativePath) => async () => {
+    const { jsPath, hbcPath } = resolveSegmentIoPaths(segRelativePath);
+    await runHermescAsync({ inputPath: jsPath, outPath: hbcPath });
+    const hbcBytes = fs.readFileSync(hbcPath);
+    const hbcSha = sha256(hbcBytes);
+    const hbcSize = hbcBytes.length;
+    for (const entry of entriesByRelativePath.get(segRelativePath)) {
+      entry.sha256 = hbcSha;
+      entry.size = hbcSize;
+    }
+  });
+
+  console.log(
+    `[unionBuild] Compiling ${relativePaths.length} segment(s) to .seg.hbc and rewriting manifest sha256 (concurrency=${concurrency})`,
+  );
+  const hermescStart = Date.now();
+  await runWithConcurrencyLocal(tasks, concurrency);
+  console.log(
+    `[unionBuild] Segment hermesc done in ${((Date.now() - hermescStart) / 1000).toFixed(1)}s`,
+  );
+}
 
 function ensureProductionBuildEnv() {
   process.env.NODE_ENV = 'production';
@@ -577,6 +723,8 @@ function buildManifestEntrySignature(entry) {
     relativePath: entry.relativePath,
     sha256: entry.sha256,
     dependsOn: entry.dependsOn || [],
+    mainDependsOn: entry.mainDependsOn || null,
+    backgroundDependsOn: entry.backgroundDependsOn || null,
     critical: entry.critical || false,
     size: entry.size ?? null,
   });
@@ -1047,16 +1195,85 @@ async function writeSegments({
     serializedEntries: mainRuntime.serializedEntries,
     eagerAbsPaths: mainEagerAbsPaths,
     moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+    segmentAbsPathsByKey: mainRuntime.segmentAbsPathsByKey,
   });
   const bgSyncDepsAdded = expandSegmentsWithSyncDeps({
     segmentOutputs: backgroundSegmentOutputs,
     serializedEntries: backgroundRuntime.serializedEntries,
     eagerAbsPaths: bgEagerAbsPaths,
     moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
+    segmentAbsPathsByKey: backgroundRuntime.segmentAbsPathsByKey,
   });
   if (mainSyncDepsAdded > 0 || bgSyncDepsAdded > 0) {
     console.log(
       `[unionBuild] Expanded segments with sync deps: main +${mainSyncDepsAdded}, background +${bgSyncDepsAdded}`,
+    );
+  }
+
+  // Cross-runtime sync-dep rescue. The per-runtime allocator has been
+  // observed to miss modules that are sync-required from a segment but
+  // whose definition only landed in the OTHER runtime's serialized
+  // output (root cause: their absolute path is absent from this runtime's
+  // graph.dependencies). Without this pass, those modules become orphan
+  // __d-refs that crash as "Requiring unknown module <N>" on first use
+  // (see the @ledgerhq bg-segment orphan incident). Because fileToIdMap is
+  // a monorepo-wide singleton, it's safe to splice the remote runtime's
+  // __d(fn, id, [deps]) code into a local segment without ID translation.
+  const mainCrossRuntimeRescue = expandSegmentsWithCrossRuntimeDeps({
+    segmentOutputs: mainSegmentOutputs,
+    localSerializedEntries: mainRuntime.serializedEntries,
+    remoteSerializedEntries: backgroundRuntime.serializedEntries,
+    eagerAbsPaths: mainEagerAbsPaths,
+    moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+    segmentAbsPathsByKey: mainRuntime.segmentAbsPathsByKey,
+  });
+  const bgCrossRuntimeRescue = expandSegmentsWithCrossRuntimeDeps({
+    segmentOutputs: backgroundSegmentOutputs,
+    localSerializedEntries: backgroundRuntime.serializedEntries,
+    remoteSerializedEntries: mainRuntime.serializedEntries,
+    eagerAbsPaths: bgEagerAbsPaths,
+    moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
+    segmentAbsPathsByKey: backgroundRuntime.segmentAbsPathsByKey,
+  });
+  if (
+    mainCrossRuntimeRescue.pulledFromRemote > 0 ||
+    bgCrossRuntimeRescue.pulledFromRemote > 0 ||
+    mainCrossRuntimeRescue.pulledFromLocal > 0 ||
+    bgCrossRuntimeRescue.pulledFromLocal > 0
+  ) {
+    console.log(
+      `[unionBuild] Cross-runtime sync-dep rescue: main +${mainCrossRuntimeRescue.pulledFromLocal}(local)+${mainCrossRuntimeRescue.pulledFromRemote}(remote), background +${bgCrossRuntimeRescue.pulledFromLocal}(local)+${bgCrossRuntimeRescue.pulledFromRemote}(remote)`,
+    );
+  }
+  const crossRuntimeMissing = [
+    ...mainCrossRuntimeRescue.missingAbsPaths.map((p) => ({
+      runtime: 'main',
+      absolutePath: p,
+    })),
+    ...bgCrossRuntimeRescue.missingAbsPaths.map((p) => ({
+      runtime: 'background',
+      absolutePath: p,
+    })),
+  ];
+  if (crossRuntimeMissing.length > 0) {
+    const sample = crossRuntimeMissing
+      .slice(0, 20)
+      .map(({ runtime, absolutePath }) => `  [${runtime}] ${absolutePath}`)
+      .join('\n');
+    const extra =
+      crossRuntimeMissing.length > 20
+        ? `\n  ... and ${crossRuntimeMissing.length - 20} more`
+        : '';
+    throw new Error(
+      [
+        `[unionBuild] ${crossRuntimeMissing.length} sync-required module(s) are orphaned:`,
+        'referenced by a segment but not serialized by either runtime.',
+        'This would crash as "Requiring unknown module <N>" at runtime.',
+        'Either add the module to apps/mobile/bundle-groups.config.js, promote',
+        'the offending segment, or fix the upstream graph to include the dep.',
+        '',
+        sample + extra,
+      ].join('\n'),
     );
   }
 
@@ -1130,21 +1347,73 @@ async function writeSegments({
           ));
 
       if (canShare) {
+        const { mergedSegModules, mergedAbsPaths, mergedModuleIdToAbsPath } =
+          mergeSharedSegmentOutputs({
+            mainSegModules: mainSegmentOutputs.get(segmentKey),
+            backgroundSegModules: backgroundSegmentOutputs.get(segmentKey),
+            mainAbsPaths,
+            backgroundAbsPaths,
+            mainModuleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+            backgroundModuleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
+          });
+        // Union both runtimes' segmentDeps and graphs for this shared entry.
+        // After mergeSharedSegmentOutputs pulls bg-only modules in, dependsOn
+        // must reflect bg's cross-segment sync edges (otherwise the bg loader
+        // won't preload the prerequisite segment and crashes with
+        // "Requiring unknown module"); and generateSegmentSourceMap needs
+        // graph.dependencies entries for bg-only absolute paths so their
+        // source maps aren't silently dropped.
+        const mergedSharedDeps = new Map([
+          [segmentKey, new Set([...mainDeps, ...backgroundDeps])],
+        ]);
+        const mergedGraphDependencies = new Map(mainRuntime.graph.dependencies);
+        for (const [absPath, moduleData] of backgroundRuntime.graph
+          .dependencies) {
+          if (!mergedGraphDependencies.has(absPath)) {
+            mergedGraphDependencies.set(absPath, moduleData);
+          }
+        }
         const sharedEntry = await emitSegment({
           segmentKey,
           runtime: 'shared',
-          segModules: mainSegmentOutputs.get(segmentKey),
-          graph: mainRuntime.graph,
-          segmentDeps: mainRuntime.segmentDeps,
-          moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+          segModules: mergedSegModules,
+          graph: {
+            ...mainRuntime.graph,
+            dependencies: mergedGraphDependencies,
+          },
+          segmentDeps: mergedSharedDeps,
+          moduleIdToAbsPath: mergedModuleIdToAbsPath,
           outputDir: getSegmentsDir('main'),
           relativeDir: 'segments',
         });
+        // When the two runtimes' segment-level deps diverge (only possible
+        // for forceShared segments — the canShare path above requires
+        // setEquals), attach per-runtime override lists so each runtime's
+        // loader only preloads deps that are reachable from its own
+        // segment graph. Without this, the merged manifest's union
+        // dependsOn would reference segments labelled `runtime: 'main'` or
+        // `'background'`, and the loader's runtime access check
+        // (installProdBundleLoader.ts:184) throws when consulted from the
+        // other runtime.
+        const perRuntimeDeps = computeSharedPerRuntimeDeps({
+          mainDeps,
+          backgroundDeps,
+          forceShared,
+        });
+        if (perRuntimeDeps) {
+          sharedEntry.mainDependsOn = perRuntimeDeps.mainDependsOn;
+          sharedEntry.backgroundDependsOn = perRuntimeDeps.backgroundDependsOn;
+        }
         mainManifest.segments[segmentKey] = sharedEntry;
         backgroundManifest.segments[segmentKey] = sharedEntry;
+        // Keep the per-runtime report views honest: each reflects exactly
+        // the modules that runtime's graph actually reaches. The idMap
+        // builder in collectSegmentModules unions both when emitting a
+        // shared segment, so readers get the full picture without this
+        // bookkeeping having to double-count.
         mainReportSegments.set(segmentKey, mainAbsPaths);
         backgroundReportSegments.set(segmentKey, backgroundAbsPaths);
-        setMergedReportSegmentModules(segmentKey, 'shared', mainAbsPaths);
+        setMergedReportSegmentModules(segmentKey, 'shared', mergedAbsPaths);
         continue;
       }
 
@@ -1238,6 +1507,24 @@ async function writeSegments({
       backgroundRuntime.segmentAbsPathsByKey.get(segmentKey) || new Set(),
     );
   }
+
+  // Compile each emitted .seg.js to .seg.hbc via hermesc NOW — before
+  // the manifest is finalized / baked into common.bundle — so the sha256
+  // field on every manifest entry can be the hash of the actual .seg.hbc
+  // bytes that ship to the device. Without this step the sha256 would be
+  // the hash of the .seg.js text (what `emitSegment` defaults to), which
+  // the native split-bundle-loader (3.0.23+) rejects at load time with
+  // "Segment SHA-256 mismatch" because it hashes .seg.hbc at runtime.
+  //
+  // Hermesc is deterministic given same input + same version, so running
+  // it here and again later in build-bundle.js's buildSegments would
+  // produce byte-identical .seg.hbc — but we make buildSegments detect
+  // the already-compiled file and skip the redundant work to keep total
+  // build time the same.
+  await compileEmittedSegmentsAndRewriteSha256({
+    mainManifest,
+    backgroundManifest,
+  });
 
   const mergedManifest = mergeSegmentManifests(
     mainManifest,
@@ -1818,44 +2105,80 @@ async function main() {
     const collectSegmentModules = (segKey, entry) => {
       const runtime = segmentRuntimeOf(entry);
       const out = {};
-      const addFrom = (absPaths, absToId, idToAbs) => {
+      const mainOwned = {};
+      const bgOwned = {};
+      const addFrom = (absPaths, absToId, idToAbs, ownTarget) => {
         if (!absPaths) return;
         for (const absPath of absPaths) {
           const id = absToId.get(absPath);
           if (id !== undefined && idToAbs.get(id)) {
             out[id] = toRelPath(absPath);
+            if (ownTarget) ownTarget[id] = toRelPath(absPath);
           }
         }
       };
-      // For shared segments take main's view as canonical (matches the IDs
-      // baked into common.bundle); fall back to background where needed.
+      // For shared segments we need the UNION of both runtimes' module sets:
+      // when a segment like `seg:nm.@onekeyfe` is forced shared but main only
+      // reaches 23 of its modules while bg reaches 300+ (transitive deps of
+      // @onekeyfe/hwk-ledger-adapter → @ledgerhq/* → inversify / xstate /
+      // crypto-js / etc.), the emitted .seg.js carries all 300+ but only
+      // main's 23 show up in idMap. That leaves 280+ module IDs referenced
+      // by sibling segment __d(... id ...) calls with no idMap entry, which
+      // the integrity check flags as orphan_dep. Walk both runtimes'
+      // abs-to-id maps so idMap.segments[segKey].modules reflects every
+      // module shipped inside the file.
       if (runtime === 'background') {
         addFrom(
           reportSegmentModules.background.get(segKey),
           bgAbsToId,
           backgroundModuleIndex.moduleIdToAbsPath,
+          bgOwned,
         );
       } else {
         addFrom(
           reportSegmentModules.main.get(segKey),
           mainAbsToId,
           mainModuleIndex.moduleIdToAbsPath,
+          mainOwned,
         );
-        if (Object.keys(out).length === 0) {
-          addFrom(
-            reportSegmentModules.background.get(segKey),
-            bgAbsToId,
-            backgroundModuleIndex.moduleIdToAbsPath,
-          );
-        }
+        // Always also pull bg-only entries for shared segments. Their
+        // __d(...) definitions must ship in the shared .seg.js so the bg
+        // runtime can execute them, but main runtime will never actually
+        // call into them — bg-owned bookkeeping is written alongside so the
+        // integrity check can scope its scan to this-runtime-owned modules.
+        addFrom(
+          reportSegmentModules.background.get(segKey),
+          bgAbsToId,
+          backgroundModuleIndex.moduleIdToAbsPath,
+          bgOwned,
+        );
       }
-      return out;
+      return { modules: out, mainOwned, bgOwned };
     };
     for (const [segKey, entry] of segmentEntries) {
+      const runtime = segmentRuntimeOf(entry);
+      const { modules, mainOwned, bgOwned } = collectSegmentModules(
+        segKey,
+        entry,
+      );
       moduleIdMap.segments[segKey] = {
         id: segmentIdOf(entry),
-        runtime: segmentRuntimeOf(entry),
-        modules: collectSegmentModules(segKey, entry),
+        runtime,
+        modules,
+        // For shared segments the same .seg.js file carries __d(...) for
+        // modules each runtime reaches, but only one side actually calls
+        // into them at runtime. Record per-runtime ownership so the
+        // integrity check can scope its sync-dep walk to this-runtime's
+        // reachable modules — without this, main runtime's scan would
+        // traverse bg-only __d(...) (e.g. @ledgerhq/device-management-kit's
+        // RxJS requires) and report false orphan_dep for transitive deps
+        // that exist only in bg's graph view.
+        ...(runtime === 'shared'
+          ? {
+              mainOwned,
+              bgOwned,
+            }
+          : {}),
       };
     }
     const mergedMapPath = getMergedModuleIdMapPath();
