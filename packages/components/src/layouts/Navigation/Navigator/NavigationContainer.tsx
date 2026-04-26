@@ -94,11 +94,11 @@ const useNativeDevTools =
         } = require('@rozenite/network-activity-plugin');
         const { useMMKVDevTools } = require('@rozenite/mmkv-plugin');
 
-        // oxlint-disable-next-line typescript-eslint/no-unsafe-call
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         useReactNavigationDevTools({ ref });
-        // oxlint-disable-next-line typescript-eslint/no-unsafe-call
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         useNetworkActivityDevTools();
-        // oxlint-disable-next-line typescript-eslint/no-unsafe-call
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         useMMKVDevTools({
           storages: [mmkvStorageInstance],
         });
@@ -250,6 +250,7 @@ export const switchTabAsync = async (route: ETabRoutes): Promise<void> => {
   });
 
   if (rootHasOverlay) {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     resetAboveMainRoute();
     await timerUtils.wait(100);
   }

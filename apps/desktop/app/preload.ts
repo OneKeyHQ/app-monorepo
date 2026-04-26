@@ -79,9 +79,12 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
 
 // Preload runs per-window; detect tray so tray-only surfaces can be scoped
-// away from the main renderer.
+// away from the main renderer. Renderer's `location` is the legitimate API
+// here — not the global `window.location` shadowing case the rule guards.
 const isTrayWindow =
+  // eslint-disable-next-line no-restricted-globals
   typeof location !== 'undefined' &&
+  // eslint-disable-next-line no-restricted-globals
   new URLSearchParams(location.search).get('render') === 'tray';
 
 // --- desktopApi: legacy API surface (plain object, contextBridge-compatible) ---
