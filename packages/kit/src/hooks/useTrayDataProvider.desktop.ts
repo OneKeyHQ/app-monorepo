@@ -23,7 +23,9 @@ import {
   type ITrayWatchlistItem,
   TRAY_IPC,
 } from '@onekeyhq/shared/src/types/desktop/tray';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   getHyperliquidTokenImageUrl,
   getTokenSubtitle,
@@ -39,6 +41,11 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
 
+import {
+  TRAY_DATA_REFRESH_EVENT_NAMES,
+  getTrayTokenValueInTargetCurrency,
+} from './trayDataProviderUtils';
+
 const USD_CURRENCY_ID = 'usd';
 const USD_CURRENCY_SYMBOL = '$';
 
@@ -48,12 +55,100 @@ function getNetworkLogoUri(networkId?: string): string {
   return network?.logoURI || '';
 }
 
+type ITrayEnabledNetworkScope = {
+  enabledNetworkIds: string[];
+  enabledNetworksCompatibleWithWalletId: Array<{ id: string }>;
+  networkInfoMap: Record<
+    string,
+    {
+      deriveType: string;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
+};
+
+async function getTrayEnabledNetworkScope({
+  walletId,
+  accountId,
+}: {
+  walletId: string;
+  accountId?: string;
+}): Promise<ITrayEnabledNetworkScope> {
+  const [{ enabledNetworks, disabledNetworks }, { networks }] =
+    await Promise.all([
+      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+      backgroundApiProxy.serviceNetwork.getAllNetworks({
+        excludeTestNetwork: true,
+        excludeAllNetworkItem: true,
+      }),
+    ]);
+
+  const enabledNetworkIds = networks
+    .filter((network) =>
+      isEnabledNetworksInAllNetworks({
+        networkId: network.id,
+        enabledNetworks,
+        disabledNetworks,
+        isTestnet: !!network.isTestnet,
+      }),
+    )
+    .map((network) => network.id);
+
+  if (enabledNetworkIds.length === 0) {
+    return {
+      enabledNetworkIds: [],
+      enabledNetworksCompatibleWithWalletId: [],
+      networkInfoMap: {},
+    };
+  }
+
+  const compatibleNetworks =
+    await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+      {
+        accountId,
+        walletId,
+        networkIds: enabledNetworkIds,
+      },
+    );
+
+  const enabledNetworksCompatibleWithWalletId =
+    compatibleNetworks.mainnetItems ?? [];
+
+  const networkInfoEntries = await Promise.all(
+    enabledNetworksCompatibleWithWalletId.map(async (network) => {
+      const [deriveType, vaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: network.id,
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: network.id,
+        }),
+      ]);
+      return [
+        network.id,
+        {
+          deriveType,
+          mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+        },
+      ] as const;
+    }),
+  );
+
+  return {
+    enabledNetworkIds: enabledNetworksCompatibleWithWalletId.map(
+      (network) => network.id,
+    ),
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap: Object.fromEntries(networkInfoEntries),
+  };
+}
+
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [appIsLocked] = useAppIsLockedAtom();
   const [{ enableMenuBarTray }] = useSettingsPersistAtom();
   const {
-    activeAccount: { wallet, accountName },
+    activeAccount: { wallet, accountName, account },
   } = useActiveAccount({ num: 0 });
   // Guard every effect on this predicate so flipping the setting tears
   // down IPC/event subscriptions and re-subscribes without remounting.
@@ -64,6 +159,8 @@ export function useTrayDataProvider() {
   appIsLockedRef.current = appIsLocked;
   const walletRef = useRef(wallet);
   walletRef.current = wallet;
+  const accountRef = useRef(account);
+  accountRef.current = account;
   const accountNameRef = useRef<string>('');
   accountNameRef.current = accountName || '';
   // Seed with the current accountId so the first mount isn't mis-detected as
@@ -170,16 +267,29 @@ export function useTrayDataProvider() {
         try {
           // `value` is either a string (others account) or Record<key, string> (own).
           const val = accountValue.value;
-          let tokensUsd = new BigNumber(0);
-          if (typeof val === 'string') {
-            tokensUsd = new BigNumber(val || '0');
-          } else if (val && typeof val === 'object') {
-            tokensUsd = Object.values(val).reduce(
-              (sum, v) => sum.plus(new BigNumber(v || '0')),
-              new BigNumber(0),
-            );
+          let enabledNetworkScope: ITrayEnabledNetworkScope | undefined;
+          if (val && typeof val === 'object' && currentWallet.id) {
+            try {
+              enabledNetworkScope = await getTrayEnabledNetworkScope({
+                walletId: currentWallet.id,
+                accountId: accountRef.current?.id,
+              });
+            } catch (e) {
+              defaultLogger.app.error.log(
+                `[TrayDataProvider] enabled networks fetch error: ${
+                  (e as Error)?.message || String(e)
+                }`,
+              );
+            }
           }
-          const tokensInTarget = tokensUsd.times(usdToTargetFactor).toFixed();
+          const tokensInTarget = getTrayTokenValueInTargetCurrency({
+            tokensValue: val,
+            usdToTargetFactor,
+            walletId: currentWallet.id,
+            enabledNetworksCompatibleWithWalletId:
+              enabledNetworkScope?.enabledNetworksCompatibleWithWalletId,
+            networkInfoMap: enabledNetworkScope?.networkInfoMap,
+          });
 
           // DeFi via simpleDb.deFi cache only — no network call.
           let deFiNetWorth = '0';
@@ -189,6 +299,7 @@ export function useTrayDataProvider() {
                 accountId: accountValue.accountId,
                 networkId: getNetworkIdsMap().onekeyall,
                 targetCurrency: displayCurrency,
+                enabledNetworkIds: enabledNetworkScope?.enabledNetworkIds,
               });
             deFiNetWorth = deFiResp.netWorth;
           } catch (e) {
@@ -676,9 +787,9 @@ export function useTrayDataProvider() {
       debouncedRefresh();
     };
 
-    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, debouncedRefresh);
-    appEventBus.on(EAppEventBusNames.RefreshHistoryList, debouncedRefresh);
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, debouncedRefresh);
+    TRAY_DATA_REFRESH_EVENT_NAMES.forEach((eventName) => {
+      appEventBus.on(eventName, debouncedRefresh);
+    });
     appEventBus.on(
       EAppEventBusNames.ClearLocalHistoryPendingTxs,
       handlePendingTxsCleared,
@@ -686,12 +797,9 @@ export function useTrayDataProvider() {
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      appEventBus.off(
-        EAppEventBusNames.HistoryTxStatusChanged,
-        debouncedRefresh,
-      );
-      appEventBus.off(EAppEventBusNames.RefreshHistoryList, debouncedRefresh);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, debouncedRefresh);
+      TRAY_DATA_REFRESH_EVENT_NAMES.forEach((eventName) => {
+        appEventBus.off(eventName, debouncedRefresh);
+      });
       appEventBus.off(
         EAppEventBusNames.ClearLocalHistoryPendingTxs,
         handlePendingTxsCleared,
