@@ -775,6 +775,7 @@ function AccountRecipients({
               displayAddress: itemAddress,
               walletId,
               wallet,
+              // eslint-disable-next-line react/no-unstable-nested-components -- render prop, not a nested component
               customRenderAvatar: () => (
                 <AccountAvatar
                   size="default"
