@@ -5,14 +5,14 @@
  * set in index.ts / background.ts entry points.
  */
 
-import type { RuntimeKind } from './types';
+import type { IRuntimeKind } from './types';
 
-type RuntimeGlobal = typeof globalThis & {
-  __ONEKEY_RUNTIME_KIND__?: RuntimeKind;
+type IRuntimeGlobal = typeof globalThis & {
+  __ONEKEY_RUNTIME_KIND__?: IRuntimeKind;
 };
 
-export function getRuntimeKind(): RuntimeKind {
-  return (globalThis as RuntimeGlobal).__ONEKEY_RUNTIME_KIND__ || 'main';
+export function getRuntimeKind(): IRuntimeKind {
+  return (globalThis as IRuntimeGlobal).__ONEKEY_RUNTIME_KIND__ || 'main';
 }
 
 export function isMainRuntime(): boolean {
