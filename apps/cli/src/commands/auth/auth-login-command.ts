@@ -329,7 +329,8 @@ export async function executeAuthLoginCommand({
       output.error({
         code: ERROR_CODES.PARAM_INVALID_CONFIG.code,
         message: '--device-id is only valid with --hardware.',
-        suggestion: 'Add --hardware, or drop --device-id for App Transfer login.',
+        suggestion:
+          'Add --hardware, or drop --device-id for App Transfer login.',
       });
       process.exitCode = ERROR_CODES.PARAM_INVALID_CONFIG.exitCode;
       return;

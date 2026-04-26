@@ -59,5 +59,5 @@ export function requireSignerBuilder<K extends keyof ISignerBuilders>(
       `Log out and log in with a supported wallet type.`,
     );
   }
-  return builder as NonNullable<ISignerBuilders[K]>;
+  return builder;
 }

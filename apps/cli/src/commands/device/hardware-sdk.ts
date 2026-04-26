@@ -214,9 +214,7 @@ export function unwrapSDKResult<T>(
   return result.payload as T;
 }
 
-export async function searchDevice(opts?: {
-  deviceIdHint?: string;
-}): Promise<{
+export async function searchDevice(opts?: { deviceIdHint?: string }): Promise<{
   connectId: string;
   deviceId: string;
 }> {
@@ -256,9 +254,7 @@ export async function searchDevice(opts?: {
   // enumeration order — not stable across reconnects — and silently operate
   // on the wrong device when multiple OneKeys are plugged in.
   if (devices.length > 1) {
-    const available = devices
-      .map((d) => d.deviceId ?? '<unknown>')
-      .join(', ');
+    const available = devices.map((d) => d.deviceId ?? '<unknown>').join(', ');
     throw new AppError(
       ERROR_CODES.PARAM_INVALID_CONFIG.code,
       `Multiple OneKey devices detected (${devices.length}): ${available}`,
