@@ -24,7 +24,7 @@ export async function jotaiUpdateFromUiByBgBroadcast(
   // Try registry first (no barrel import needed)
   const registeredAtom = globalAtomRegistry.get(params.name);
   if (registeredAtom) {
-    // oxlint-disable-next-line typescript-eslint/no-unsafe-call
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const atomObj = registeredAtom.atom() as IJotaiWritableAtomPro<
       any,
       any,

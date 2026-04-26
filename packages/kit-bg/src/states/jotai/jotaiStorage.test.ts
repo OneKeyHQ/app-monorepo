@@ -5,6 +5,8 @@
 
 import { createMMKV } from 'react-native-mmkv';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 // Shared MMKV instance — must be created before jest.mock factories run
 const mmkvInstance = createMMKV({ id: 'onekey-jotai-states-test' });
 
@@ -234,7 +236,8 @@ describe('JotaiStorageNativeMMKV', () => {
       asyncStorageData.set(PROBE_KEY, '"exists"');
       asyncStorageData.set('g_states_v5:okAtom', JSON.stringify('ok'));
       asyncStorageMock.getItem.mockImplementation(async (key: string) => {
-        if (key === 'g_states_v5:badAtom') throw new Error('disk error');
+        if (key === 'g_states_v5:badAtom')
+          throw new OneKeyLocalError('disk error');
         return asyncStorageData.get(key) ?? null;
       });
 
@@ -273,7 +276,7 @@ describe('JotaiStorageNativeMMKV', () => {
       asyncStorageData.set('g_states_v5:aAtom', JSON.stringify('a'));
       // Probe throws, but atom reads work
       asyncStorageMock.getItem.mockImplementation(async (key: string) => {
-        if (key === PROBE_KEY) throw new Error('probe error');
+        if (key === PROBE_KEY) throw new OneKeyLocalError('probe error');
         return asyncStorageData.get(key) ?? null;
       });
 
@@ -294,7 +297,7 @@ describe('JotaiStorageNativeMMKV', () => {
 
       // First attempt: bAtom fails
       asyncStorageMock.getItem.mockImplementation(async (key: string) => {
-        if (key === 'g_states_v5:bAtom') throw new Error('fail');
+        if (key === 'g_states_v5:bAtom') throw new OneKeyLocalError('fail');
         return asyncStorageData.get(key) ?? null;
       });
 
@@ -338,7 +341,7 @@ describe('JotaiStorageNativeMMKV', () => {
 
     it('getItem: AsyncStorage throws before migration → returns initialValue', async () => {
       asyncStorageMock.getItem.mockImplementation(async () => {
-        throw new Error('db locked');
+        throw new OneKeyLocalError('db locked');
       });
 
       const s = createStorage();
@@ -349,7 +352,7 @@ describe('JotaiStorageNativeMMKV', () => {
 
     it('setItem: AsyncStorage dual-write failure is swallowed', async () => {
       asyncStorageMock.setItem.mockImplementation(async () => {
-        throw new Error('write error');
+        throw new OneKeyLocalError('write error');
       });
 
       const s = createStorage();
