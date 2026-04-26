@@ -1,21 +1,201 @@
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Image, SizableText, Stack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ITrayWatchlistItem } from '@onekeyhq/shared/src/types/desktop/tray';
+
+function TickerTag({
+  children,
+  bg,
+  color,
+}: {
+  children: ReactNode;
+  bg: string;
+  color: string;
+}) {
+  return (
+    <XStack
+      borderRadius="$1"
+      bg={bg}
+      justifyContent="center"
+      alignItems="center"
+      px="$1.5"
+      minWidth={0}
+      maxWidth="$24"
+      overflow="hidden"
+      flexShrink={1}
+    >
+      <SizableText
+        fontSize={10}
+        color={color}
+        lineHeight={16}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {children}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function TickerLogo({ ticker }: { ticker: ITrayWatchlistItem }) {
+  const imageSources = [
+    ticker.icon,
+    ...(ticker.iconUrls ?? []).filter((uri) => uri && uri !== ticker.icon),
+  ].filter(Boolean);
+
+  const fallback = (
+    <Stack
+      width={28}
+      height={28}
+      borderRadius={14}
+      backgroundColor="$bgStrong"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <SizableText fontSize="$bodySm" color="$textSubdued">
+        {ticker.symbol?.charAt(0) || '?'}
+      </SizableText>
+    </Stack>
+  );
+
+  let tokenImage = fallback;
+  if (imageSources.length > 1) {
+    tokenImage = (
+      <Image.WithFallbackSources
+        sources={imageSources}
+        width={28}
+        height={28}
+        borderRadius={14}
+        fallback={fallback}
+      />
+    );
+  } else if (imageSources[0]) {
+    tokenImage = (
+      <Image
+        source={{ uri: imageSources[0] }}
+        width={28}
+        height={28}
+        borderRadius={14}
+        fallback={fallback}
+      />
+    );
+  }
+
+  return (
+    <Stack width={28} height={28} marginRight="$2.5" position="relative">
+      {tokenImage}
+      {ticker.networkIcon ? (
+        <Stack
+          position="absolute"
+          right="$-1"
+          bottom="$-1"
+          padding="$0.5"
+          backgroundColor="$bgApp"
+          borderRadius="$full"
+        >
+          <Image
+            source={{ uri: ticker.networkIcon }}
+            width={12}
+            height={12}
+            borderRadius={6}
+          />
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+}
+
+function TickerTags({
+  ticker,
+  perpsBadgeText,
+  stockOpenText,
+  stockClosedText,
+}: {
+  ticker: ITrayWatchlistItem;
+  perpsBadgeText: string;
+  stockOpenText: string;
+  stockClosedText: string;
+}) {
+  const hasTags =
+    ticker.type === 'perps' ||
+    ticker.maxLeverage ||
+    ticker.subtitle ||
+    ticker.stock?.sourceLogoUri ||
+    ticker.stock?.isOpen !== undefined ||
+    ticker.stock?.subtitle ||
+    ticker.communityRecognized;
+
+  if (!hasTags) return null;
+
+  return (
+    <XStack alignItems="center" gap="$1" minWidth={0} flexShrink={1}>
+      {ticker.type === 'perps' ? (
+        <TickerTag bg="$bgInfoSubdued" color="$textInfo">
+          {perpsBadgeText}
+        </TickerTag>
+      ) : null}
+      {ticker.maxLeverage ? (
+        <TickerTag bg="$bgInfo" color="$textInfo">
+          {ticker.maxLeverage}x
+        </TickerTag>
+      ) : null}
+      {ticker.subtitle ? (
+        <TickerTag bg="$bgStrong" color="$textSubdued">
+          {ticker.subtitle}
+        </TickerTag>
+      ) : null}
+      {ticker.stock?.sourceLogoUri ? (
+        <Image
+          width={14}
+          height={14}
+          borderRadius="$full"
+          source={{ uri: ticker.stock.sourceLogoUri }}
+        />
+      ) : null}
+      {ticker.stock && ticker.stock.isOpen !== undefined ? (
+        <TickerTag
+          bg={ticker.stock.isOpen ? '$bgSuccess' : '$bgCaution'}
+          color={ticker.stock.isOpen ? '$textSuccess' : '$textCaution'}
+        >
+          {ticker.stock.isOpen ? stockOpenText : stockClosedText}
+        </TickerTag>
+      ) : null}
+      {ticker.stock?.subtitle ? (
+        <TickerTag bg="$bgStrong" color="$textSubdued">
+          {ticker.stock.subtitle}
+        </TickerTag>
+      ) : null}
+      {ticker.communityRecognized ? (
+        <Icon name="BadgeRecognizedSolid" size="$4" color="$iconSuccess" />
+      ) : null}
+    </XStack>
+  );
+}
 
 function TickerRow({
   ticker,
   perpsBadgeText,
+  stockOpenText,
+  stockClosedText,
   onPress,
 }: {
   ticker: ITrayWatchlistItem;
   perpsBadgeText: string;
+  stockOpenText: string;
+  stockClosedText: string;
   onPress: () => void;
 }) {
   const isPositive = ticker.change24h >= 0;
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
+  const secondaryName =
+    ticker.name &&
+    ticker.name.trim().toLowerCase() !== ticker.symbol.trim().toLowerCase()
+      ? ticker.name
+      : '';
 
   return (
     <Stack
@@ -27,50 +207,35 @@ function TickerRow({
       cursor="pointer"
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
-      {ticker.icon ? (
-        <Image
-          source={{ uri: ticker.icon }}
-          width={28}
-          height={28}
-          borderRadius={14}
-          marginRight="$2.5"
-        />
-      ) : (
-        <Stack
-          width={28}
-          height={28}
-          borderRadius={14}
-          backgroundColor="$bgStrong"
-          marginRight="$2.5"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <SizableText fontSize="$bodySm" color="$textSubdued">
-            {ticker.symbol?.charAt(0) || '?'}
-          </SizableText>
-        </Stack>
-      )}
-      <Stack flex={1}>
-        <Stack flexDirection="row" alignItems="center">
-          <SizableText fontSize="$bodyMd" color="$text">
+      <TickerLogo ticker={ticker} />
+      <Stack flex={1} minWidth={0}>
+        <XStack alignItems="center" gap="$1" minWidth={0}>
+          <SizableText
+            fontSize="$bodyMd"
+            color="$text"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            flexShrink={1}
+          >
             {ticker.symbol}
           </SizableText>
-          {ticker.type === 'perps' ? (
-            <Stack
-              backgroundColor="$bgInfoSubdued"
-              paddingHorizontal="$1"
-              borderRadius="$1"
-              marginLeft="$1"
-            >
-              <SizableText fontSize={10} color="$textInfo">
-                {perpsBadgeText}
-              </SizableText>
-            </Stack>
-          ) : null}
-        </Stack>
-        <SizableText fontSize="$bodySm" color="$textSubdued">
-          {ticker.name}
-        </SizableText>
+          <TickerTags
+            ticker={ticker}
+            perpsBadgeText={perpsBadgeText}
+            stockOpenText={stockOpenText}
+            stockClosedText={stockClosedText}
+          />
+        </XStack>
+        {secondaryName ? (
+          <SizableText
+            fontSize="$bodySm"
+            color="$textSubdued"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {secondaryName}
+          </SizableText>
+        ) : null}
       </Stack>
       <Stack alignItems="flex-end">
         <SizableText fontSize="$bodyMd" color="$text">
@@ -95,6 +260,12 @@ export function WatchlistTickers({
   const intl = useIntl();
   const perpsBadgeText = intl.formatMessage({
     id: ETranslations.tray_perps_badge,
+  });
+  const stockOpenText = intl.formatMessage({
+    id: ETranslations.dexmarket_stock_status_open,
+  });
+  const stockClosedText = intl.formatMessage({
+    id: ETranslations.dexmarket_stock_status_closed,
   });
 
   if (!tickers || tickers.length === 0) {
@@ -123,6 +294,8 @@ export function WatchlistTickers({
           key={`${ticker.type}-${ticker.symbol}-${idx}`}
           ticker={ticker}
           perpsBadgeText={perpsBadgeText}
+          stockOpenText={stockOpenText}
+          stockClosedText={stockClosedText}
           onPress={() => onTickerPress(ticker)}
         />
       ))}
