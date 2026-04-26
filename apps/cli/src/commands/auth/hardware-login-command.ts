@@ -13,10 +13,7 @@ import {
 } from '../../infra/auth-session-store';
 import { KeychainStorage } from '../../infra/keychain-storage';
 import { presentAuthLoginResult } from '../../output/auth-presenters';
-import {
-  KEYCHAIN_PASSPHRASE_STATE_KEY,
-  KEYCHAIN_SESSION_ID_KEY,
-} from '../../signer/keychain-keys';
+import { persistKeychainSessionPair } from '../../signer/keychain-keys';
 import { promptPassphraseViaPinentry } from '../../utils/pinentry';
 import {
   CoreSDKLoader,
@@ -213,16 +210,13 @@ export async function executeHardwareLoginCommand({
   }
   // passphraseMode === PASSPHRASE_MODE_NONE → no passphrase needed
 
-  // Step 4: Persist passphraseState + sessionId to keychain BEFORE
-  // evmGetAddress, and preload session cache. This ensures evmGetAddress
-  // can use the session_id and skip the second passphrase prompt.
+  // Step 4: Preload session cache in memory so evmGetAddress below can
+  // reuse the device session without re-prompting for passphrase.
+  // Keychain persistence is deferred to Step 7 (after session.json is
+  // saved) so a failure in getAddress or session write doesn't leave
+  // orphaned keychain entries.
+  let resolvedSessionId: string | undefined;
   if (passphraseState) {
-    const keychain = new KeychainStorage();
-    await keychain.set(
-      KEYCHAIN_PASSPHRASE_STATE_KEY,
-      Buffer.from(passphraseState, 'utf-8'),
-    );
-
     // Get session_id from device features (set by resolvePassphraseState).
     // Match by the `connectId` captured in Step 1 — never `refreshedDevices[0]`,
     // which would write another device's session into this login's keychain
@@ -238,18 +232,17 @@ export async function executeHardwareLoginCommand({
     const targetDevice = refreshedDevices.find(
       (d) => d.connectId === connectId,
     );
-    const sessionId = targetDevice?.features?.session_id;
+    resolvedSessionId = targetDevice?.features?.session_id;
     const resolvedDeviceId = targetDevice?.features?.device_id || deviceId;
-    if (sessionId) {
-      await keychain.set(
-        KEYCHAIN_SESSION_ID_KEY,
-        Buffer.from(sessionId, 'utf-8'),
-      );
-
-      // Preload session cache so evmGetAddress below doesn't re-prompt
+    if (resolvedSessionId) {
+      // In-memory only — no keychain write yet
       try {
         const { preloadSessionCache } = await CoreSDKLoader();
-        preloadSessionCache(resolvedDeviceId, passphraseState, sessionId);
+        preloadSessionCache(
+          resolvedDeviceId,
+          passphraseState,
+          resolvedSessionId,
+        );
       } catch {
         // non-fatal
       }
@@ -293,7 +286,24 @@ export async function executeHardwareLoginCommand({
     passphraseMode,
   });
 
-  // Step 7: Show result
+  // Step 7: Persist passphraseState + sessionId to OS keychain.
+  // This runs AFTER session.json is confirmed — if getAddress or session
+  // write failed above, no keychain entries are left behind.
+  if (passphraseState && resolvedSessionId) {
+    try {
+      const keychain = new KeychainStorage();
+      await persistKeychainSessionPair(
+        keychain,
+        passphraseState,
+        resolvedSessionId,
+      );
+    } catch {
+      // non-fatal — next command will pop pinentry once to rebuild the
+      // session; no security or data-loss consequence.
+    }
+  }
+
+  // Step 8: Show result
   const finalSession = await getStatus();
   output.success(presentAuthLoginResult(finalSession));
 }

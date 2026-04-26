@@ -15,6 +15,7 @@ import { KeychainStorage } from '../../infra/keychain-storage';
 import {
   KEYCHAIN_PASSPHRASE_STATE_KEY,
   KEYCHAIN_SESSION_ID_KEY,
+  persistKeychainSessionPair,
 } from '../keychain-keys';
 
 import type { DeviceInfo, PassphraseMode } from '../../core/auth/auth-types';
@@ -86,12 +87,18 @@ export abstract class SignerHardwareBase implements ISigner {
     // Fallback for SDK REQUEST_PASSPHRASE events (fires on session-cache miss).
     this.deps.installPassphraseProvider(this.passphraseMode);
 
-    // Unlock first — locked devices reject cached sessions.
-    this.hwInitPromise = this.ensureDeviceUnlocked().then(() => {
-      if (this.passphraseMode !== PASSPHRASE_MODE_NONE) {
-        return this.preloadSessionFromKeychain();
-      }
-    });
+    // Refresh connectId first — the value from session.json is a USB transport
+    // handle captured at login time. After a replug or process restart it may
+    // be stale. searchDevices() returns the current handle for the same stable
+    // deviceId, so all subsequent SDK calls hit the right transport.
+    // Then unlock — locked devices reject cached sessions.
+    this.hwInitPromise = this.refreshConnectId()
+      .then(() => this.ensureDeviceUnlocked())
+      .then(() => {
+        if (this.passphraseMode !== PASSPHRASE_MODE_NONE) {
+          return this.preloadSessionFromKeychain();
+        }
+      });
   }
 
   abstract getAddress(networkId: string): Promise<ICoreApiGetAddressItem>;
@@ -179,22 +186,9 @@ export abstract class SignerHardwareBase implements ISigner {
   //
   // After a lock/unlock cycle the keychain still holds the previous login's
   // session-id, which is now invalid on the device. We must refresh BOTH
-  // keys atomically — a fresh passphrase-state paired with a stale
-  // session-id makes the next process feed the SDK a rejected combo, and
-  // every command keeps re-prompting through pinentry.
+  // keys atomically — persistKeychainSessionPair enforces this invariant.
   // Mirrors hardware-login-command.ts' post-resolve persistence step.
   private async persistPassphraseState(state: string): Promise<void> {
-    const keychain = this.deps.keychainFactory();
-    try {
-      await keychain.set(
-        KEYCHAIN_PASSPHRASE_STATE_KEY,
-        Buffer.from(state, 'utf-8'),
-      );
-    } catch {
-      // non-fatal — in-memory state still works this run.
-      return;
-    }
-
     try {
       const sdk = await this.deps.ensureSDKReady();
       const search = await sdk.searchDevices();
@@ -212,10 +206,10 @@ export abstract class SignerHardwareBase implements ISigner {
       const sessionId = match?.features?.session_id;
       if (!sessionId) return;
 
-      await keychain.set(
-        KEYCHAIN_SESSION_ID_KEY,
-        Buffer.from(sessionId, 'utf-8'),
-      );
+      // Write both keys as a pair — never one without the other.
+      const keychain = this.deps.keychainFactory();
+      await persistKeychainSessionPair(keychain, state, sessionId);
+
       // Warm the in-process SDK cache too. Idempotent — getPassphraseState
       // already populated it for this run, but doing it here keeps the path
       // consistent with how hardware-login-command primes the cache.
@@ -225,8 +219,44 @@ export abstract class SignerHardwareBase implements ISigner {
         sessionId,
       );
     } catch {
-      // non-fatal — next run will pop pinentry once until the session is
-      // rebuilt; no security or data-loss consequence.
+      // non-fatal — in-memory state still works this run; next run will
+      // pop pinentry once until the session is rebuilt.
+    }
+  }
+
+  /**
+   * Refresh `this.device.connectId` by searching for the device via stable
+   * `deviceId`. USB connectId is a per-session transport handle that changes
+   * when the device is replugged or the process restarts. The value stored
+   * in session.json is from login time and may be stale. This method
+   * resolves the current connectId so all subsequent SDK calls target the
+   * correct transport.
+   *
+   * Non-fatal: if searchDevices fails, we keep the original connectId as a
+   * best-effort hint — the SDK will surface real errors on the next call.
+   */
+  private async refreshConnectId(): Promise<void> {
+    try {
+      const sdk = await this.deps.ensureSDKReady();
+      const result = await sdk.searchDevices();
+      if (!result?.success) return;
+      const devices = result.payload as Array<{
+        connectId?: string | null;
+        deviceId?: string | null;
+        features?: { device_id?: string };
+      }>;
+      if (!Array.isArray(devices)) return;
+      // Match on stable deviceId (device UUID), not connectId.
+      const match = devices.find(
+        (d) =>
+          d.deviceId === this.device.deviceId ||
+          d.features?.device_id === this.device.deviceId,
+      );
+      if (match?.connectId) {
+        this.device.connectId = match.connectId;
+      }
+    } catch {
+      // non-fatal — keep original connectId; SDK will surface real errors.
     }
   }
 

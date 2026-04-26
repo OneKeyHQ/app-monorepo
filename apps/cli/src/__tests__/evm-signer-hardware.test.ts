@@ -485,6 +485,100 @@ describe('SignerHardware', () => {
     });
   });
 
+  describe('connectId refresh on init', () => {
+    it('refreshes stale connectId from searchDevices before SDK calls', async () => {
+      const STALE_CONNECT_ID = 'stale-connect-old';
+      const FRESH_CONNECT_ID = 'fresh-connect-new';
+      const staleDevice: DeviceInfo = {
+        ...DEVICE,
+        connectId: STALE_CONNECT_ID,
+      };
+
+      const { deps, mocks } = makeDeps({
+        sdk: {
+          searchDevices: jest.fn(async () =>
+            makeSuccess([
+              {
+                connectId: FRESH_CONNECT_ID,
+                deviceId: DEVICE.deviceId,
+                features: {
+                  device_id: DEVICE.deviceId,
+                  session_id: MOCK_FRESH_SID_AFTER_RESOLVE,
+                },
+              },
+            ]),
+          ),
+        } as Partial<CoreApi>,
+      });
+
+      const signer = new SignerHardware({
+        device: staleDevice,
+        passphraseMode: 'none',
+        deps,
+      });
+
+      await signer.getAddress('evm--1');
+
+      // searchDevices should have been called during init to refresh connectId
+      expect(mocks.sdk.searchDevices).toHaveBeenCalled();
+      // The SDK call should use the FRESH connectId, not the stale one
+      const [connectId] = mocks.sdk.evmGetAddress.mock.calls[0];
+      expect(connectId).toBe(FRESH_CONNECT_ID);
+      expect(connectId).not.toBe(STALE_CONNECT_ID);
+    });
+
+    it('keeps original connectId when searchDevices fails', async () => {
+      const { deps, mocks } = makeDeps({
+        sdk: {
+          searchDevices: jest.fn(async () => ({
+            success: false,
+            payload: { error: 'USB transport error' },
+          })),
+        } as Partial<CoreApi>,
+      });
+
+      const signer = new SignerHardware({
+        device: DEVICE,
+        passphraseMode: 'none',
+        deps,
+      });
+
+      await signer.getAddress('evm--1');
+
+      // Should fall back to original connectId
+      const [connectId] = mocks.sdk.evmGetAddress.mock.calls[0];
+      expect(connectId).toBe(DEVICE.connectId);
+    });
+
+    it('keeps original connectId when device not found in search results', async () => {
+      const { deps, mocks } = makeDeps({
+        sdk: {
+          searchDevices: jest.fn(async () =>
+            makeSuccess([
+              {
+                connectId: 'other-device-connect',
+                deviceId: 'other-device-id',
+                features: { device_id: 'other-device-id' },
+              },
+            ]),
+          ),
+        } as Partial<CoreApi>,
+      });
+
+      const signer = new SignerHardware({
+        device: DEVICE,
+        passphraseMode: 'none',
+        deps,
+      });
+
+      await signer.getAddress('evm--1');
+
+      // Should fall back to original connectId since our device wasn't found
+      const [connectId] = mocks.sdk.evmGetAddress.mock.calls[0];
+      expect(connectId).toBe(DEVICE.connectId);
+    });
+  });
+
   describe('SDK failure propagation', () => {
     it('wraps evmGetAddress failures in AppError with "Hardware getAddress failed"', async () => {
       const { deps, mocks } = makeDeps();
