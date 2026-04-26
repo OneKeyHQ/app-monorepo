@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
-type LoadBundleAsyncGlobal = typeof globalThis & {
+type ILoadBundleAsyncGlobal = typeof globalThis & {
   __METRO_GLOBAL_PREFIX__?: string;
   __loadBundleAsync?: (
     bundlePath:
@@ -214,6 +214,125 @@ describe('installProdBundleLoader', () => {
     expect(mock.loadSegment.mock.calls[1][0].segmentKey).toBe('seg:test.b');
   });
 
+  describe('per-runtime dependsOn overrides', () => {
+    function setupPerRuntimeManifest() {
+      (globalThis as any).__SEGMENT_MANIFEST__ = {
+        segments: {
+          'seg:main.only.dep': {
+            id: 10,
+            key: 'seg:main.only.dep',
+            runtime: 'main',
+            relativePath: 'segments/main-only.seg.hbc',
+            sha256: 'main-only',
+            dependsOn: [],
+          },
+          'seg:bg.only.dep': {
+            id: 11,
+            key: 'seg:bg.only.dep',
+            runtime: 'background',
+            relativePath: 'segments-background/bg-only.seg.hbc',
+            sha256: 'bg-only',
+            dependsOn: [],
+          },
+          'seg:shared.divergent': {
+            id: 12,
+            key: 'seg:shared.divergent',
+            runtime: 'shared',
+            relativePath: 'segments/divergent.seg.hbc',
+            sha256: 'divergent',
+            dependsOn: ['seg:main.only.dep', 'seg:bg.only.dep'],
+            mainDependsOn: ['seg:main.only.dep'],
+            backgroundDependsOn: ['seg:bg.only.dep'],
+          },
+        },
+      };
+    }
+
+    it('main runtime preloads only mainDependsOn (skips bg-only deps)', async () => {
+      (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'main';
+      setupPerRuntimeManifest();
+
+      const mock = createMockNativeLoader();
+      const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+        getLoader();
+      installProdBundleLoader(mock);
+
+      await loadSegment('seg:shared.divergent');
+
+      const loadedKeys = mock.loadSegment.mock.calls.map(
+        (args: any[]) => args[0].segmentKey,
+      );
+      expect(loadedKeys).toEqual(['seg:main.only.dep', 'seg:shared.divergent']);
+      expect(isSegmentLoaded('seg:bg.only.dep')).toBe(false);
+    });
+
+    it('background runtime preloads only backgroundDependsOn (skips main-only deps)', async () => {
+      (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'background';
+      setupPerRuntimeManifest();
+
+      const mock = createMockNativeLoader();
+      const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+        getLoader();
+      installProdBundleLoader(mock);
+
+      await loadSegment('seg:shared.divergent');
+
+      const loadedKeys = mock.loadSegment.mock.calls.map(
+        (args: any[]) => args[0].segmentKey,
+      );
+      expect(loadedKeys).toEqual(['seg:bg.only.dep', 'seg:shared.divergent']);
+      expect(isSegmentLoaded('seg:main.only.dep')).toBe(false);
+    });
+
+    it('falls back to dependsOn when per-runtime overrides are absent', async () => {
+      (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'main';
+      // Default manifest from beforeEach: seg:test.b has dependsOn=['seg:test.a']
+      // but no mainDependsOn / backgroundDependsOn fields.
+      const mock = createMockNativeLoader();
+      const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+        getLoader();
+      installProdBundleLoader(mock);
+
+      await loadSegment('seg:test.b');
+
+      expect(isSegmentLoaded('seg:test.a')).toBe(true);
+      expect(isSegmentLoaded('seg:test.b')).toBe(true);
+    });
+
+    it('reproduces the pre-fix crash when a shared entry only has the union dependsOn', async () => {
+      // Without mainDependsOn override, the main runtime would walk into
+      // seg:bg.only.dep and the runtime access check would reject.
+      (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'main';
+      (globalThis as any).__SEGMENT_MANIFEST__ = {
+        segments: {
+          'seg:bg.only.dep': {
+            id: 11,
+            key: 'seg:bg.only.dep',
+            runtime: 'background',
+            relativePath: 'segments-background/bg-only.seg.hbc',
+            sha256: 'bg-only',
+            dependsOn: [],
+          },
+          'seg:shared.divergent': {
+            id: 12,
+            key: 'seg:shared.divergent',
+            runtime: 'shared',
+            relativePath: 'segments/divergent.seg.hbc',
+            sha256: 'divergent',
+            dependsOn: ['seg:bg.only.dep'],
+          },
+        },
+      };
+
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(createMockNativeLoader());
+
+      await expect(loadSegment('seg:shared.divergent')).rejects.toThrow(
+        /not allowed in 'main' runtime/,
+      );
+    });
+  });
+
   it('caches failures and rejects subsequent calls', async () => {
     const mock = createMockNativeLoader();
     mock.loadSegment.mockRejectedValueOnce(new Error('I/O error'));
@@ -247,7 +366,7 @@ describe('installProdBundleLoader', () => {
     installProdBundleLoader(mock);
 
     await expect(
-      (globalThis as LoadBundleAsyncGlobal).__loadBundleAsync?.('seg:test.a'),
+      (globalThis as ILoadBundleAsyncGlobal).__loadBundleAsync?.('seg:test.a'),
     ).resolves.toBe(undefined);
     expect(isSegmentLoaded('seg:test.a')).toBe(true);
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
@@ -262,7 +381,7 @@ describe('installProdBundleLoader', () => {
     installProdBundleLoader(mock);
 
     await expect(
-      (globalThis as LoadBundleAsyncGlobal).__loadBundleAsync?.({
+      (globalThis as ILoadBundleAsyncGlobal).__loadBundleAsync?.({
         main: 'seg:test.a',
         background: null,
       }),
@@ -282,7 +401,7 @@ describe('installProdBundleLoader', () => {
 
     await expect(
       (
-        globalThis as LoadBundleAsyncGlobal & {
+        globalThis as ILoadBundleAsyncGlobal & {
           test__loadBundleAsync?: (bundlePath: string) => Promise<void>;
         }
       ).test__loadBundleAsync?.('seg:test.a'),
@@ -307,7 +426,7 @@ describe('installProdBundleLoader', () => {
 
     await expect(
       (
-        globalThis as LoadBundleAsyncGlobal & {
+        globalThis as ILoadBundleAsyncGlobal & {
           test__loadBundleAsync?: (bundlePath: string) => Promise<void>;
         }
       ).test__loadBundleAsync?.('seg:test.a'),

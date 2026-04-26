@@ -15,11 +15,11 @@ import {
   HeightTransition,
   Icon,
   Image,
-  Page,
   SizableText,
   Spinner,
   XStack,
   YStack,
+  useThemeName,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -41,9 +41,8 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingPage } from '../components/Layout';
 import {
   useConnectDeviceError,
   useDeviceConnect,
@@ -77,7 +76,7 @@ function CheckAndUpdatePage({
   const intl = useIntl();
   const { deviceData, tabValue } = routeParams?.params || {};
   console.log('deviceData', deviceData);
-  const themeVariant = useThemeVariant();
+  const themeVariant = useThemeName();
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
@@ -820,406 +819,390 @@ function CheckAndUpdatePage({
   }, [checkFirmwareUpdate, handleDeviceSetupDone, handleVerifyHardware]);
 
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header
-          title={intl.formatMessage({
-            id: ETranslations.check_and_update,
-          })}
-        />
-        <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent gap="$10">
-            {steps.map((step, index) => {
-              // Don't show setup-on-device until firmware-check is completed
-              if (
-                step.id === ECheckAndUpdateStepId.SetupOnDevice &&
-                steps[1].state !== ECheckAndUpdateStepState.Success
-              ) {
-                return null;
-              }
+    <OnboardingPage
+      headerTitle={intl.formatMessage({
+        id: ETranslations.check_and_update,
+      })}
+      scrollable
+      alignTop
+      narrow
+      contentContainerProps={{ gap: '$10' }}
+    >
+      {steps.map((step, index) => {
+        // Don't show setup-on-device until firmware-check is completed
+        if (
+          step.id === ECheckAndUpdateStepId.SetupOnDevice &&
+          steps[1].state !== ECheckAndUpdateStepState.Success
+        ) {
+          return null;
+        }
 
-              return (
-                <YStack key={step.title}>
-                  {/* highlight background */}
-                  <AnimatePresence>
-                    {step.state &&
-                    step.state !== ECheckAndUpdateStepState.Success &&
-                    step.state !== ECheckAndUpdateStepState.Idle ? (
-                      <YStack
-                        animation="quick"
-                        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                        enterStyle={{
-                          opacity: 0,
-                          scale: 0.97,
-                          filter: 'blur(4px)',
-                        }}
-                        exitStyle={{
-                          opacity: 0,
-                          scale: 0.97,
-                          filter: 'blur(4px)',
-                        }}
-                        position="absolute"
-                        left={-10}
-                        top={-10}
-                        right={-10}
-                        bottom={-10}
-                        $gtMd={{
-                          left: -16,
-                          top: -16,
-                          right: -16,
-                          bottom: -16,
-                        }}
-                        bg="$bgSubdued"
-                        borderRadius="$4"
-                        borderCurve="continuous"
-                        $platform-web={{
-                          boxShadow:
-                            '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-                        }}
-                        $theme-dark={{
-                          borderWidth: StyleSheet.hairlineWidth,
-                          borderColor: '$neutral2',
-                        }}
-                        zIndex={0}
-                      />
-                    ) : null}
-                  </AnimatePresence>
-                  {/* connected line */}
-                  {index !== steps.length - 1 &&
-                  !(
-                    steps[index + 1]?.id ===
-                      ECheckAndUpdateStepId.SetupOnDevice &&
-                    steps[1].state !== ECheckAndUpdateStepState.Success
-                  ) ? (
-                    <YStack
-                      w={2}
-                      position="absolute"
-                      left={31}
-                      top={64}
-                      bottom={-40}
-                      gap="$1"
-                      overflow="hidden"
-                    >
-                      {Array.from({ length: 20 }).map((_, i) => (
-                        <YStack
-                          key={i}
-                          w="100%"
-                          h="$1"
-                          bg="$neutral3"
-                          borderRadius="$full"
-                        />
-                      ))}
-                    </YStack>
-                  ) : null}
-                  <XStack alignItems="center" gap="$5">
-                    <YStack
-                      w="$16"
-                      h="$16"
-                      borderRadius="$2"
-                      bg="$bg"
-                      borderCurve="continuous"
-                      $platform-web={{
-                        boxShadow:
-                          '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-                      }}
-                      $theme-dark={{
-                        bg: '$whiteA1',
-                        borderWidth: 1,
-                        borderColor: '$neutral3',
-                      }}
-                      $platform-native={{
-                        borderWidth: StyleSheet.hairlineWidth,
-                        borderColor: '$neutral3',
-                      }}
-                      $platform-ios={{
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 0.5 },
-                        shadowOpacity: 0.2,
-                        shadowRadius: 0.5,
-                      }}
-                      $platform-android={{ elevation: 0.5 }}
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      <Image
-                        source={step.image}
-                        width={
-                          step.id === ECheckAndUpdateStepId.SetupOnDevice
-                            ? 48
-                            : 64
-                        }
-                        height={
-                          step.id === ECheckAndUpdateStepId.SetupOnDevice
-                            ? 48
-                            : 64
-                        }
-                      />
-                      {step.state !== ECheckAndUpdateStepState.Idle ? (
-                        <YStack
-                          position="absolute"
-                          right={-9}
-                          bottom={-9}
-                          w={26}
-                          h={26}
-                          borderWidth={1}
-                          bg="$bg"
-                          borderRadius="$full"
-                          borderColor="$borderSubdued"
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                          <AnimatePresence exitBeforeEnter initial={false}>
-                            {step.state ===
-                            ECheckAndUpdateStepState.InProgress ? (
-                              <Spinner
-                                key="spinner"
-                                size="small"
-                                animation="quick"
-                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                                enterStyle={{ scale: 0.7, opacity: 0 }}
-                                exitStyle={{ scale: 0.7, opacity: 0 }}
-                                scale={0.8}
-                              />
-                            ) : null}
-                            {step.state === ECheckAndUpdateStepState.Error ? (
-                              <YStack
-                                animation="quick"
-                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                                enterStyle={{ scale: 0.8, opacity: 0 }}
-                                exitStyle={{ scale: 0.8, opacity: 0 }}
-                                key="error"
-                              >
-                                <Icon
-                                  name="CrossedSmallOutline"
-                                  color="$iconCritical"
-                                  size="$5"
-                                />
-                              </YStack>
-                            ) : null}
-                            {step.state === ECheckAndUpdateStepState.Warning ||
-                            step.state === ECheckAndUpdateStepState.Skipped ? (
-                              <YStack
-                                animation="quick"
-                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                                enterStyle={{ scale: 0.8, opacity: 0 }}
-                                exitStyle={{ scale: 0.8, opacity: 0 }}
-                                key="warning"
-                              >
-                                <Icon
-                                  name="InfoCircleOutline"
-                                  color="$iconInfo"
-                                  size="$5"
-                                />
-                              </YStack>
-                            ) : null}
-                            {step.state === ECheckAndUpdateStepState.Success ? (
-                              <YStack
-                                animation="quick"
-                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                                enterStyle={{ scale: 0.8, opacity: 0 }}
-                                exitStyle={{ scale: 0.8, opacity: 0 }}
-                                key="checkmark"
-                              >
-                                <Icon
-                                  name="Checkmark2SmallOutline"
-                                  color="$iconSuccess"
-                                  size="$5"
-                                />
-                              </YStack>
-                            ) : null}
-                          </AnimatePresence>
-                        </YStack>
-                      ) : null}
-                    </YStack>
-                    <YStack gap="$1" flex={1}>
-                      <SizableText size="$headingSm">{step.title}</SizableText>
-                      {step.description ? (
-                        <SizableText color="$textSubdued">
-                          {step.description}
-                        </SizableText>
-                      ) : null}
-                    </YStack>
-                  </XStack>
-                  <HeightTransition initialHeight={0}>
-                    {step.id === ECheckAndUpdateStepId.SetupOnDevice &&
-                    step.state === ECheckAndUpdateStepState.Warning ? (
-                      <YStack pt="$8" gap="$5">
-                        <SizableText size="$bodyMdMedium" color="$textInfo">
-                          {intl.formatMessage({
-                            id: ETranslations.setup_device_prompt,
-                          })}
-                        </SizableText>
-                        {DEVICE_SETUP_INSTRUCTIONS.map((instruction, idx) => (
-                          <YStack key={instruction.title} gap="$5">
-                            <Divider />
-                            <YStack
-                              gap={instruction.details ? '$2' : undefined}
-                            >
-                              <XStack gap="$2">
-                                <YStack
-                                  w="$5"
-                                  h="$5"
-                                  borderRadius="$1"
-                                  borderCurve="continuous"
-                                  bg="$bgStrong"
-                                  alignItems="center"
-                                  justifyContent="center"
-                                >
-                                  <SizableText textAlign="center">
-                                    {idx + 1}
-                                  </SizableText>
-                                </YStack>
-                                <SizableText size="$bodyMdMedium" flex={1}>
-                                  {instruction.title}
-                                </SizableText>
-                              </XStack>
-                              {instruction.details?.map((detail) => (
-                                <XStack key={detail} gap="$2">
-                                  <YStack
-                                    w="$5"
-                                    h="$5"
-                                    alignItems="center"
-                                    justifyContent="center"
-                                  >
-                                    <YStack
-                                      w={5}
-                                      h={5}
-                                      borderRadius="$full"
-                                      bg="$iconDisabled"
-                                    />
-                                  </YStack>
-                                  <SizableText color="$textSubdued" flex={1}>
-                                    {detail}
-                                  </SizableText>
-                                </XStack>
-                              ))}
-                            </YStack>
-                          </YStack>
-                        ))}
-                        <Button
-                          variant="primary"
-                          $platform-native={{
-                            size: 'large',
-                          }}
-                          onPress={handleDeviceSetupDone}
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.global_done,
-                          })}
-                        </Button>
-                      </YStack>
-                    ) : null}
-                    {/* update */}
-                    {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
-                    step.state === ECheckAndUpdateStepState.Warning ? (
-                      <XStack
-                        gap="$2"
-                        mt="$4"
-                        pt="$4"
-                        borderWidth={0}
-                        borderTopWidth={StyleSheet.hairlineWidth}
-                        borderTopColor="$borderSubdued"
-                        alignItems="center"
-                      >
-                        <SizableText
-                          size="$bodyMdMedium"
-                          color="$textInfo"
-                          flex={1}
-                          textAlign="left"
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.hardware_status_update_available,
-                          })}
-                        </SizableText>
-                        <XStack gap="$2">
-                          <Button
-                            variant="primary"
-                            onPress={toFirmwareUpgradePage}
-                          >
-                            {intl.formatMessage({
-                              id: ETranslations.update_update_now,
-                            })}
-                          </Button>
-                          {!hasUpgradeForceRef.current ? (
-                            <Button onPress={handleSkipUpdate}>
-                              {intl.formatMessage({
-                                id: ETranslations.global_skip,
-                              })}
-                            </Button>
-                          ) : null}
-                        </XStack>
-                      </XStack>
-                    ) : null}
-                    {/* fallback */}
-                    {step.state === ECheckAndUpdateStepState.Error ? (
-                      <XStack
-                        gap="$2"
-                        mt="$4"
-                        pt="$4"
-                        borderWidth={0}
-                        borderTopWidth={StyleSheet.hairlineWidth}
-                        borderTopColor="$borderSubdued"
-                        alignItems="center"
-                      >
-                        <SizableText
-                          size="$bodyMdMedium"
-                          color="$textCritical"
-                          flex={1}
-                          textAlign="left"
-                        >
-                          {step.errorMessage ??
-                            intl.formatMessage({
-                              id: ETranslations.genuine_check_interrupt,
-                            })}
-                        </SizableText>
-                        <XStack gap="$2">
-                          <Button variant="primary" onPress={handleRetry}>
-                            {intl.formatMessage({
-                              id: ETranslations.global_retry,
-                            })}
-                          </Button>
-                          {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
-                            <Button onPress={handleSkipCurrentStep}>
-                              {intl.formatMessage({
-                                id: ETranslations.global_skip,
-                              })}
-                            </Button>
-                          ) : null}
-                        </XStack>
-                      </XStack>
-                    ) : null}
-                  </HeightTransition>
-                </YStack>
-              );
-            })}
-            <AnimatePresence initial={false}>
-              {!steps.some(
-                (step) => step.state !== ECheckAndUpdateStepState.Idle,
-              ) ? (
-                <Button
+        return (
+          <YStack key={step.title}>
+            {/* highlight background */}
+            <AnimatePresence>
+              {step.state &&
+              step.state !== ECheckAndUpdateStepState.Success &&
+              step.state !== ECheckAndUpdateStepState.Idle ? (
+                <YStack
                   animation="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                  variant="primary"
-                  size="large"
-                  onPress={handleVerifyHardware}
+                  enterStyle={{
+                    opacity: 0,
+                    scale: 0.97,
+                    filter: 'blur(4px)',
+                  }}
                   exitStyle={{
                     opacity: 0,
                     scale: 0.97,
+                    filter: 'blur(4px)',
                   }}
-                >
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.check_my_deviceLabel,
-                    },
-                    { deviceLabel },
-                  )}
-                </Button>
+                  position="absolute"
+                  left={-10}
+                  top={-10}
+                  right={-10}
+                  bottom={-10}
+                  $gtMd={{
+                    left: -16,
+                    top: -16,
+                    right: -16,
+                    bottom: -16,
+                  }}
+                  bg="$bgSubdued"
+                  borderRadius="$4"
+                  borderCurve="continuous"
+                  $platform-web={{
+                    boxShadow:
+                      '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                  }}
+                  $theme-dark={{
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: '$neutral2',
+                  }}
+                  zIndex={0}
+                />
               ) : null}
             </AnimatePresence>
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
-      </OnboardingLayout>
-    </Page>
+            {/* connected line */}
+            {index !== steps.length - 1 &&
+            !(
+              steps[index + 1]?.id === ECheckAndUpdateStepId.SetupOnDevice &&
+              steps[1].state !== ECheckAndUpdateStepState.Success
+            ) ? (
+              <YStack
+                w={2}
+                position="absolute"
+                left={31}
+                top={64}
+                bottom={-40}
+                gap="$1"
+                overflow="hidden"
+              >
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <YStack
+                    key={i}
+                    w="100%"
+                    h="$1"
+                    bg="$neutral3"
+                    borderRadius="$full"
+                  />
+                ))}
+              </YStack>
+            ) : null}
+            <XStack alignItems="center" gap="$5">
+              <YStack
+                w="$16"
+                h="$16"
+                borderRadius="$2"
+                bg="$bg"
+                borderCurve="continuous"
+                $platform-web={{
+                  boxShadow:
+                    '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+                }}
+                $theme-dark={{
+                  bg: '$whiteA1',
+                  borderWidth: 1,
+                  borderColor: '$neutral3',
+                }}
+                $platform-native={{
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: '$neutral3',
+                }}
+                $platform-ios={{
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 0.5 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 0.5,
+                }}
+                $platform-android={{ elevation: 0.5 }}
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Image
+                  source={step.image}
+                  width={
+                    step.id === ECheckAndUpdateStepId.SetupOnDevice ? 48 : 64
+                  }
+                  height={
+                    step.id === ECheckAndUpdateStepId.SetupOnDevice ? 48 : 64
+                  }
+                />
+                {step.state !== ECheckAndUpdateStepState.Idle ? (
+                  <YStack
+                    position="absolute"
+                    right={-9}
+                    bottom={-9}
+                    w={26}
+                    h={26}
+                    borderWidth={1}
+                    bg="$bg"
+                    borderRadius="$full"
+                    borderColor="$borderSubdued"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    <AnimatePresence exitBeforeEnter initial={false}>
+                      {step.state === ECheckAndUpdateStepState.InProgress ? (
+                        <Spinner
+                          key="spinner"
+                          size="small"
+                          animation="quick"
+                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                          enterStyle={{ scale: 0.7, opacity: 0 }}
+                          exitStyle={{ scale: 0.7, opacity: 0 }}
+                          scale={0.8}
+                        />
+                      ) : null}
+                      {step.state === ECheckAndUpdateStepState.Error ? (
+                        <YStack
+                          animation="quick"
+                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                          enterStyle={{ scale: 0.8, opacity: 0 }}
+                          exitStyle={{ scale: 0.8, opacity: 0 }}
+                          key="error"
+                        >
+                          <Icon
+                            name="CrossedSmallOutline"
+                            color="$iconCritical"
+                            size="$5"
+                          />
+                        </YStack>
+                      ) : null}
+                      {step.state === ECheckAndUpdateStepState.Warning ||
+                      step.state === ECheckAndUpdateStepState.Skipped ? (
+                        <YStack
+                          animation="quick"
+                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                          enterStyle={{ scale: 0.8, opacity: 0 }}
+                          exitStyle={{ scale: 0.8, opacity: 0 }}
+                          key="warning"
+                        >
+                          <Icon
+                            name="InfoCircleOutline"
+                            color="$iconInfo"
+                            size="$5"
+                          />
+                        </YStack>
+                      ) : null}
+                      {step.state === ECheckAndUpdateStepState.Success ? (
+                        <YStack
+                          animation="quick"
+                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                          enterStyle={{ scale: 0.8, opacity: 0 }}
+                          exitStyle={{ scale: 0.8, opacity: 0 }}
+                          key="checkmark"
+                        >
+                          <Icon
+                            name="Checkmark2SmallOutline"
+                            color="$iconSuccess"
+                            size="$5"
+                          />
+                        </YStack>
+                      ) : null}
+                    </AnimatePresence>
+                  </YStack>
+                ) : null}
+              </YStack>
+              <YStack gap="$1" flex={1}>
+                <SizableText size="$headingSm">{step.title}</SizableText>
+                {step.description ? (
+                  <SizableText color="$textSubdued">
+                    {step.description}
+                  </SizableText>
+                ) : null}
+              </YStack>
+            </XStack>
+            <HeightTransition initialHeight={0}>
+              {step.id === ECheckAndUpdateStepId.SetupOnDevice &&
+              step.state === ECheckAndUpdateStepState.Warning ? (
+                <YStack pt="$8" gap="$5">
+                  <SizableText size="$bodyMdMedium" color="$textInfo">
+                    {intl.formatMessage({
+                      id: ETranslations.setup_device_prompt,
+                    })}
+                  </SizableText>
+                  {DEVICE_SETUP_INSTRUCTIONS.map((instruction, idx) => (
+                    <YStack key={instruction.title} gap="$5">
+                      <Divider />
+                      <YStack gap={instruction.details ? '$2' : undefined}>
+                        <XStack gap="$2">
+                          <YStack
+                            w="$5"
+                            h="$5"
+                            borderRadius="$1"
+                            borderCurve="continuous"
+                            bg="$bgStrong"
+                            alignItems="center"
+                            justifyContent="center"
+                          >
+                            <SizableText textAlign="center">
+                              {idx + 1}
+                            </SizableText>
+                          </YStack>
+                          <SizableText size="$bodyMdMedium" flex={1}>
+                            {instruction.title}
+                          </SizableText>
+                        </XStack>
+                        {instruction.details?.map((detail) => (
+                          <XStack key={detail} gap="$2">
+                            <YStack
+                              w="$5"
+                              h="$5"
+                              alignItems="center"
+                              justifyContent="center"
+                            >
+                              <YStack
+                                w={5}
+                                h={5}
+                                borderRadius="$full"
+                                bg="$iconDisabled"
+                              />
+                            </YStack>
+                            <SizableText color="$textSubdued" flex={1}>
+                              {detail}
+                            </SizableText>
+                          </XStack>
+                        ))}
+                      </YStack>
+                    </YStack>
+                  ))}
+                  <Button
+                    variant="primary"
+                    $platform-native={{
+                      size: 'large',
+                    }}
+                    onPress={handleDeviceSetupDone}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.global_done,
+                    })}
+                  </Button>
+                </YStack>
+              ) : null}
+              {/* update */}
+              {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
+              step.state === ECheckAndUpdateStepState.Warning ? (
+                <XStack
+                  gap="$2"
+                  mt="$4"
+                  pt="$4"
+                  borderWidth={0}
+                  borderTopWidth={StyleSheet.hairlineWidth}
+                  borderTopColor="$borderSubdued"
+                  alignItems="center"
+                >
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color="$textInfo"
+                    flex={1}
+                    textAlign="left"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.hardware_status_update_available,
+                    })}
+                  </SizableText>
+                  <XStack gap="$2">
+                    <Button variant="primary" onPress={toFirmwareUpgradePage}>
+                      {intl.formatMessage({
+                        id: ETranslations.update_update_now,
+                      })}
+                    </Button>
+                    {!hasUpgradeForceRef.current ? (
+                      <Button onPress={handleSkipUpdate}>
+                        {intl.formatMessage({
+                          id: ETranslations.global_skip,
+                        })}
+                      </Button>
+                    ) : null}
+                  </XStack>
+                </XStack>
+              ) : null}
+              {/* fallback */}
+              {step.state === ECheckAndUpdateStepState.Error ? (
+                <XStack
+                  gap="$2"
+                  mt="$4"
+                  pt="$4"
+                  borderWidth={0}
+                  borderTopWidth={StyleSheet.hairlineWidth}
+                  borderTopColor="$borderSubdued"
+                  alignItems="center"
+                >
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color="$textCritical"
+                    flex={1}
+                    textAlign="left"
+                  >
+                    {step.errorMessage ??
+                      intl.formatMessage({
+                        id: ETranslations.genuine_check_interrupt,
+                      })}
+                  </SizableText>
+                  <XStack gap="$2">
+                    <Button variant="primary" onPress={handleRetry}>
+                      {intl.formatMessage({
+                        id: ETranslations.global_retry,
+                      })}
+                    </Button>
+                    {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
+                      <Button onPress={handleSkipCurrentStep}>
+                        {intl.formatMessage({
+                          id: ETranslations.global_skip,
+                        })}
+                      </Button>
+                    ) : null}
+                  </XStack>
+                </XStack>
+              ) : null}
+            </HeightTransition>
+          </YStack>
+        );
+      })}
+      <AnimatePresence initial={false}>
+        {!steps.some((step) => step.state !== ECheckAndUpdateStepState.Idle) ? (
+          <Button
+            animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+            variant="primary"
+            size="large"
+            onPress={handleVerifyHardware}
+            exitStyle={{
+              opacity: 0,
+              scale: 0.97,
+            }}
+          >
+            {intl.formatMessage(
+              {
+                id: ETranslations.check_my_deviceLabel,
+              },
+              { deviceLabel },
+            )}
+          </Button>
+        ) : null}
+      </AnimatePresence>
+    </OnboardingPage>
   );
 }
 
