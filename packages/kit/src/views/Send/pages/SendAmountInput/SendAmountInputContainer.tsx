@@ -88,6 +88,34 @@ interface IAmountFormValues {
   txMessage: string;
 }
 
+// Floor a fiat-derived token amount to the precision the chain can actually
+// send. Lightning amounts are in sats (smallest unit, 0 decimals) — fractional
+// sats cause OK-53396. Other chains floor to `tokenDetails.info.decimals` so
+// the value stays representable. Keeping this in one place ensures the value
+// shown in the input, the value used by validation, and the value submitted
+// to the vault stay strictly equal.
+function floorFiatDerivedTokenAmount({
+  amount,
+  isLightningNetwork,
+  decimals,
+}: {
+  amount: BigNumber;
+  isLightningNetwork: boolean;
+  decimals: number | undefined;
+}): BigNumber {
+  if (isLightningNetwork) {
+    return amount.integerValue(BigNumber.ROUND_FLOOR);
+  }
+  if (
+    typeof decimals === 'number' &&
+    Number.isInteger(decimals) &&
+    decimals >= 0
+  ) {
+    return amount.decimalPlaces(decimals, BigNumber.ROUND_FLOOR);
+  }
+  return amount;
+}
+
 function SendAmountInputContainer() {
   const intl = useIntl();
   const _media = useMedia();
@@ -341,29 +369,15 @@ function SendAmountInputContainer() {
         return { originalAmount: '0', linkedAmount: '0' };
       }
       // fiat / pricePerSat = sats. Convert to BTC if lnUnit is BTC.
-      let originalAmt = amountBN.dividedBy(price);
-      if (isLightningNetwork) {
-        // Sats are the smallest Lightning unit (0 decimals) — floor the
-        // fiat→sats result so the display never shows fractional sats,
-        // which would cause a send error (OK-53396).
-        originalAmt = originalAmt.integerValue(BigNumber.ROUND_FLOOR);
-        if (lnUnit === ELightningUnit.BTC) {
-          originalAmt = new BigNumber(
-            chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
-          );
-        }
-      } else {
-        const decimals = tokenDetails?.info.decimals;
-        if (
-          typeof decimals === 'number' &&
-          Number.isInteger(decimals) &&
-          decimals >= 0
-        ) {
-          originalAmt = originalAmt.decimalPlaces(
-            decimals,
-            BigNumber.ROUND_FLOOR,
-          );
-        }
+      let originalAmt = floorFiatDerivedTokenAmount({
+        amount: amountBN.dividedBy(price),
+        isLightningNetwork,
+        decimals: tokenDetails?.info.decimals,
+      });
+      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        originalAmt = new BigNumber(
+          chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
+        );
       }
       return {
         originalAmount: originalAmt.toFixed(),
@@ -499,9 +513,17 @@ function SendAmountInputContainer() {
       }
 
       const priceBN = new BigNumber(tokenDetails?.price ?? 0);
+      // Mirror the flooring applied in `linkedAmount` so the value validated
+      // here matches the value submitted to the vault. Without this, fiat
+      // mode could pass min/balance checks against an unfloored amount while
+      // the user actually sends a smaller, floored value.
       const tokenAmountBN =
         isUseFiat && priceBN.isGreaterThan(0)
-          ? amountBN.dividedBy(priceBN)
+          ? floorFiatDerivedTokenAmount({
+              amount: amountBN.dividedBy(priceBN),
+              isLightningNetwork,
+              decimals: tokenDetails?.info.decimals,
+            })
           : amountBN;
 
       // For Lightning, normalize amount to sats for validation
@@ -610,6 +632,7 @@ function SendAmountInputContainer() {
       isLightningNetwork,
       lnUnit,
       tokenDetails?.balanceParsed,
+      tokenDetails?.info.decimals,
       tokenDetails?.info.isNative,
       tokenDetails?.price,
       tokenMinAmount,
