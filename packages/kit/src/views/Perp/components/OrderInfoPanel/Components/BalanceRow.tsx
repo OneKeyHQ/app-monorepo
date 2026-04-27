@@ -76,8 +76,13 @@ function ContractAddressCell({
   if (!contract) return null;
   const shortened = `${contract.slice(0, 6)}...${contract.slice(-4)}`;
   return (
-    <XStack gap="$1" alignItems="center">
-      <SizableText size={size} color="$textSubdued" fontFamily="$monoRegular">
+    <XStack minWidth={0} gap="$1" alignItems="center">
+      <SizableText
+        size={size}
+        color="$textSubdued"
+        fontFamily="$monoRegular"
+        numberOfLines={1}
+      >
         {shortened}
       </SizableText>
       <IconButton
@@ -254,7 +259,8 @@ function BalanceRowDesktop({
     <XStack
       width="100%"
       py="$1.5"
-      px="$5"
+      pl="$5"
+      pr="$3"
       minHeight={48}
       bg={index % 2 === 0 ? '$bgApp' : '$bgSubdued'}
       hoverStyle={{ bg: '$bgHover' }}
@@ -266,7 +272,14 @@ function BalanceRowDesktop({
           alignItems="center"
           justifyContent={calcCellAlign(cell.align)}
         >
-          {renderCellContent(cell)}
+          <XStack
+            width="100%"
+            minWidth={0}
+            alignItems="center"
+            justifyContent={calcCellAlign(cell.align)}
+          >
+            {renderCellContent(cell)}
+          </XStack>
         </XStack>
       ))}
     </XStack>
