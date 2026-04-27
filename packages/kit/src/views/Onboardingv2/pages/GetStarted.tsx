@@ -147,7 +147,7 @@ function HeroCharLayer({
               {
                 opacity: visible ? 1 : 0,
                 transform: `translateY(${yOffset}px)`,
-                filter: visible ? 'blur(0px)' : 'blur(6px)',
+                filter: visible ? 'blur(0px)' : 'blur(2px)',
                 transition: `opacity ${HERO_CHAR_ANIMATION_MS}ms, transform ${HERO_CHAR_ANIMATION_MS}ms, filter ${HERO_CHAR_ANIMATION_MS}ms`,
                 transitionDelay: `${delay}ms`,
               } as any
@@ -163,11 +163,21 @@ function HeroCharLayer({
   );
 }
 
-function HeroRotatingWord({ words }: { words: string[] }) {
+function HeroRotatingWord({
+  words,
+  onWordChange,
+}: {
+  words: string[];
+  onWordChange?: (index: number) => void;
+}) {
   const [wordIndex, setWordIndex] = useState(0);
   const [exitingIndex, setExitingIndex] = useState<number | null>(null);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wordsLength = words.length;
+
+  useEffect(() => {
+    onWordChange?.(wordIndex);
+  }, [wordIndex, onWordChange]);
 
   useEffect(() => {
     if (wordsLength === 0) {
