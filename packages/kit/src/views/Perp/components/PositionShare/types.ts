@@ -8,10 +8,10 @@ export interface IShareConfig {
 }
 
 export interface IShareData {
-  // For spot: 'long' = buy, 'short' = sell. Display label flips based on mode.
+  // Spot reuses long/short to mean buy/sell so callers can stay mode-agnostic;
+  // the rendered label flips based on `mode`.
   side: 'long' | 'short';
-  // Trade mode — 'spot' suppresses the leverage suffix and renames the side
-  // badge to "Buy"/"Sell" (OK-53588). Defaults to 'perp' if undefined.
+  // 'spot' drops the leverage suffix and renames the side badge to Buy/Sell.
   mode?: 'perp' | 'spot';
   token: string; // original coin (e.g., xyz:NVDA)
   tokenDisplayName: string; // formatted name (e.g., NVDA)

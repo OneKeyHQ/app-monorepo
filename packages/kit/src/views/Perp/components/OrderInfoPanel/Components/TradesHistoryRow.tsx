@@ -65,8 +65,6 @@ const TradesHistoryRow = memo(
     builderFeeRate,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
-      // OK-53588: spot trades can be shared too (no leverage badge in the
-      // share image — handled mode-aware in PositionShare renderers).
       return (
         fill.closedPnl &&
         !new BigNumber(fill.closedPnl).isZero() &&

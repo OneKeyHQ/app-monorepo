@@ -95,14 +95,11 @@ async function resolveSpotInstrumentFromUrl(urlToken: string): Promise<{
   return null;
 }
 
-async function getInstrumentFromUrl(): Promise<
-  | {
-      coin: string;
-      mode: 'perp' | 'spot';
-      spotUniverse?: ISpotUniverse;
-    }
-  | null
-> {
+async function getInstrumentFromUrl(): Promise<{
+  coin: string;
+  mode: 'perp' | 'spot';
+  spotUniverse?: ISpotUniverse;
+} | null> {
   try {
     const searchParams = new URLSearchParams(globalThis.location.search);
     const urlToken = searchParams.get('token')?.trim();

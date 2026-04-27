@@ -66,8 +66,8 @@ interface IPerpTokenSelectorRowProps {
 
 interface ITokenSelectorRowContextValue {
   isSpot?: boolean;
-  // For spot, the unique HL pair identifier (e.g. PURR/USDC, @149) used as the
-  // favorite key. token.name remains the base name for image / display lookups.
+  // Spot favorite key — the HL pair id ("PURR/USDC", "@149"), distinct from
+  // token.name (base name used for image/display lookups).
   pairCoin?: string;
   token: {
     name: string;
@@ -171,9 +171,8 @@ export const FavoriteButton = memo(
           };
         });
       }
-      // Mirror into unified order so the FavoritesBar shows new entries at
-      // the end and remove takes effect immediately. FavoritesBar also has
-      // a passive sync effect that backfills if this atom drifts.
+      // FavoritesBar's passive sync would eventually backfill, but writing
+      // directly here avoids a one-frame flicker on add/remove.
       setFavoritesOrder((prev) => {
         if (wasFavorited) {
           return {
@@ -182,11 +181,7 @@ export const FavoriteButton = memo(
             ),
           };
         }
-        if (
-          prev.sequence.some(
-            (e) => e.mode === mode && e.coinName === coin,
-          )
-        ) {
+        if (prev.sequence.some((e) => e.mode === mode && e.coinName === coin)) {
           return prev;
         }
         return {
@@ -678,7 +673,6 @@ const TokenSelectorRowDesktop = memo(() => {
           hoverStyle={{ bg: '$bgHover' }}
           px="$4"
           py="$3"
-          minHeight={48}
           flex={1}
           cursor="default"
         >
@@ -951,12 +945,10 @@ TokenSelectorRowMobile.displayName = 'TokenSelectorRowMobile';
 const SpotTokenSelectorRowInner = memo(
   ({
     spotUniverse,
-    tokenSubtitle,
     onPress,
     isOnModal,
   }: {
     spotUniverse: ISpotUniverse;
-    tokenSubtitle?: string;
     onPress: (name: string) => void;
     isOnModal?: boolean;
   }) => {
@@ -1012,7 +1004,6 @@ const SpotTokenSelectorRowInner = memo(
             spotUniverse.baseName,
             spotUniverse.quoteName,
           ),
-          subtitle: tokenSubtitle,
           maxLeverage: 0,
           assetId: spotUniverse.assetId,
         },
@@ -1033,7 +1024,6 @@ const SpotTokenSelectorRowInner = memo(
         localizedDisplayMarkPrice,
         change24h,
         change24hPercent,
-        tokenSubtitle,
         ctx,
         marketCapDisplay,
         handlePress,
@@ -1136,7 +1126,6 @@ const PerpTokenSelectorRow = memo(
       return (
         <SpotTokenSelectorRowInner
           spotUniverse={mockedToken.spotUniverse}
-          tokenSubtitle={mockedToken.tokenSubtitle}
           onPress={onPress}
           isOnModal={isOnModal}
         />

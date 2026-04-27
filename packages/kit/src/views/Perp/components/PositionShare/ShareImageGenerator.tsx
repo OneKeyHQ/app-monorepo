@@ -178,17 +178,14 @@ export const ShareImageGenerator = forwardRef<
 
           // Measure text
           ctx.font = toCanvasFont(fonts.side, 600);
-          // OK-53588: spot trades render as "Buy"/"Sell" without leverage
-          // suffix; perp keeps "Long 5X"/"Short 5X" (badge auto-resizes via
-          // measureText so removing the suffix is layout-safe).
           const isSpot = mode === 'spot';
           const sideLabelId = isSpot
             ? side === 'long'
               ? ETranslations.global_buy
               : ETranslations.global_sell
             : side === 'long'
-            ? ETranslations.perp_long
-            : ETranslations.perp_short;
+              ? ETranslations.perp_long
+              : ETranslations.perp_short;
           const sideTranslation = appLocale.intl.formatMessage({
             id: sideLabelId,
           });

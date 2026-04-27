@@ -152,17 +152,15 @@ const ScrollButton = memo(
 ScrollButton.displayName = 'ScrollButton';
 
 function FavoritesBar() {
-  // Show both perp and spot favorites side by side regardless of current mode.
-  // Spot items render their pair name (PURR/USDC, /USDH, etc.) via displayName
-  // computed in usePerpsFavorites, so users can tell quote currency at a glance.
+  // Bar always shows both modes regardless of which the user is currently
+  // trading, so the perp/spot pulls happen unconditionally.
   const { favoriteItems: perpItems } = usePerpsFavorites({ mode: 'perp' });
   const { favoriteItems: spotItems } = usePerpsFavorites({ mode: 'spot' });
   const [favoritesOrder, setFavoritesOrder] =
     usePerpsFavoritesOrderPersistAtom();
 
-  // Build keyed lookup of resolved items, then walk the persisted order to
-  // produce the display sequence. Anything in membership but missing from
-  // the order is appended (legacy data, out-of-band toggles).
+  // Membership entries missing from the persisted order are appended at the
+  // end, covering legacy data and toggles done outside the FavoriteButton.
   const favoriteItems = useMemo(() => {
     const merged = [...perpItems, ...spotItems];
     const lookup = new Map<string, (typeof merged)[number]>();
@@ -186,10 +184,9 @@ function FavoritesBar() {
     return ordered;
   }, [perpItems, spotItems, favoritesOrder]);
 
-  // Passive sync: prune sequence entries whose backing membership is gone
-  // and append any membership entries not yet in the sequence. Idempotent —
-  // only writes when something actually changed. Covers legacy data and
-  // toggles that bypass FavoriteButton (e.g. external watchlist sync).
+  // Idempotent reconciliation — only writes when sequence drifts from
+  // membership, so callers that toggle favorites without touching this atom
+  // (initial migration, external watchlist sync) self-heal on next render.
   useEffect(() => {
     setFavoritesOrder((prev) => {
       const allKeys = new Set<string>();
@@ -198,9 +195,7 @@ function FavoritesBar() {
       const filtered = prev.sequence.filter((e) =>
         allKeys.has(`${e.mode}:${e.coinName}`),
       );
-      const seqKeys = new Set(
-        filtered.map((e) => `${e.mode}:${e.coinName}`),
-      );
+      const seqKeys = new Set(filtered.map((e) => `${e.mode}:${e.coinName}`));
       const additions: IPerpsFavoritesOrderEntry[] = [];
       for (const it of [...perpItems, ...spotItems]) {
         const key = `${it.mode}:${it.coinName}`;
@@ -228,8 +223,7 @@ function FavoritesBar() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [perpFavorites, setPerpFavorites] = usePerpTokenFavoritesPersistAtom();
-  // displayMode is a UI preference shared by perps and spot favorites bars,
-  // so it always lives on the perp atom (spot atom has no displayMode field).
+  // displayMode is shared across both modes; only the perp atom carries it.
   const displayMode = perpFavorites.displayMode ?? 'price';
   const [isDragging, setIsDragging] = useState(false);
 
@@ -237,9 +231,8 @@ function FavoritesBar() {
     setIsDragging(true);
   }, []);
 
-  // Cross-mode drag is allowed: the unified `perpsFavoritesOrderPersistAtom`
-  // is the single source of truth for display order. Membership in the
-  // mode-specific atoms is unaffected by reorder.
+  // Reorder writes only the unified order atom; mode-specific membership
+  // atoms are untouched, so cross-mode drag is safe.
   const handleDragEnd = useCallback(
     (result: DropResult) => {
       setIsDragging(false);
@@ -257,8 +250,7 @@ function FavoritesBar() {
             e.mode === sourceItem.mode && e.coinName === sourceItem.coinName,
         );
         const destIdx = next.findIndex(
-          (e) =>
-            e.mode === destItem.mode && e.coinName === destItem.coinName,
+          (e) => e.mode === destItem.mode && e.coinName === destItem.coinName,
         );
         if (sourceIdx === -1 || destIdx === -1) return prev;
         const [moved] = next.splice(sourceIdx, 1);
@@ -349,9 +341,8 @@ function FavoritesBar() {
     scrollRef.current?.scrollBy({ left: SCROLL_DISTANCE, behavior: 'smooth' });
   }, []);
 
-  // Subscribe to perp asset ctxs whenever any perp favorite is rendered,
-  // independent of current trading mode — perp items now appear in the bar
-  // even while user is browsing spot.
+  // Perp price subscription is gated on bar membership rather than on the
+  // active trading mode, since perp favorites stay visible while browsing spot.
   const hasPerpFavorites = perpItems.length > 0;
   useEffect(() => {
     if (hasPerpFavorites) {
@@ -403,45 +394,45 @@ function FavoritesBar() {
                 }}
               >
                 {favoriteItems.map((item, index) => {
-                  // Combined key — perp/spot coin names should not collide
-                  // (perp = "BTC", spot = "PURR/USDC"), but tag with mode
-                  // for safety against any future symbol overlap.
+                  // Mode-tagged so a future symbol overlap between perp and
+                  // spot can't collapse two rows onto one draggable id.
                   const draggableKey = `${item.mode}:${item.coinName}`;
                   return (
-                  <Draggable
-                    key={draggableKey}
-                    draggableId={draggableKey}
-                    index={index}
-                  >
-                    {(draggableProvided) => (
-                      <div
-                        ref={draggableProvided.innerRef}
-                        {...draggableProvided.draggableProps}
-                        {...draggableProvided.dragHandleProps}
-                        style={{
-                          ...draggableProvided.draggableProps.style,
-                          flexShrink: 0,
-                          marginRight: index < favoriteItems.length - 1 ? 4 : 0,
-                        }}
-                      >
-                        <FavoriteTokenItem
-                          displayName={item.displayName}
-                          coinName={item.coinName}
-                          dexIndex={item.dexIndex}
-                          assetId={item.assetId}
-                          imageTokenName={item.imageTokenName}
-                          mode={item.mode}
-                          displayMode={displayMode}
-                          onPress={() =>
-                            void actions.current.switchTradeInstrument({
-                              coin: item.coinName,
-                              mode: item.mode,
-                            })
-                          }
-                        />
-                      </div>
-                    )}
-                  </Draggable>
+                    <Draggable
+                      key={draggableKey}
+                      draggableId={draggableKey}
+                      index={index}
+                    >
+                      {(draggableProvided) => (
+                        <div
+                          ref={draggableProvided.innerRef}
+                          {...draggableProvided.draggableProps}
+                          {...draggableProvided.dragHandleProps}
+                          style={{
+                            ...draggableProvided.draggableProps.style,
+                            flexShrink: 0,
+                            marginRight:
+                              index < favoriteItems.length - 1 ? 4 : 0,
+                          }}
+                        >
+                          <FavoriteTokenItem
+                            displayName={item.displayName}
+                            coinName={item.coinName}
+                            dexIndex={item.dexIndex}
+                            assetId={item.assetId}
+                            imageTokenName={item.imageTokenName}
+                            mode={item.mode}
+                            displayMode={displayMode}
+                            onPress={() =>
+                              void actions.current.switchTradeInstrument({
+                                coin: item.coinName,
+                                mode: item.mode,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+                    </Draggable>
                   );
                 })}
                 {droppableProvided.placeholder}

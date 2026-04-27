@@ -117,11 +117,9 @@ export const { target: spotAssetCtxsMapAtom, use: useSpotAssetCtxsMapAtom } =
     initialValue: {},
   });
 
-// Unified ordering for the FavoritesBar — single sequence interleaving spot
-// and perp favorites so users can drag-reorder across modes. Membership still
-// lives in {perp,spot}TokenFavoritesPersistAtom; this atom only stores the
-// display order. Auto-syncs in FavoritesBar so legacy / out-of-band toggles
-// don't get stranded outside the sequence.
+// Display-order only — membership still lives in
+// {perp,spot}TokenFavoritesPersistAtom. Held separately so a single sequence
+// can interleave both modes for cross-mode drag-reorder.
 export interface IPerpsFavoritesOrderEntry {
   mode: 'perp' | 'spot';
   coinName: string;

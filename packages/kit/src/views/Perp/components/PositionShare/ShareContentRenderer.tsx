@@ -196,16 +196,14 @@ export function ShareContentRenderer({
                   color={sideColor}
                 >
                   {(() => {
-                    // OK-53588: spot trades render as "Buy"/"Sell" without
-                    // the leverage suffix; perp keeps "Long 5X"/"Short 5X".
                     const isSpot = mode === 'spot';
                     const labelId = isSpot
                       ? side === 'long'
                         ? ETranslations.global_buy
                         : ETranslations.global_sell
                       : side === 'long'
-                      ? ETranslations.perp_long
-                      : ETranslations.perp_short;
+                        ? ETranslations.perp_long
+                        : ETranslations.perp_short;
                     const label = appLocale.intl.formatMessage({ id: labelId });
                     return isSpot ? label : `${label} ${leverage}X`;
                   })()}

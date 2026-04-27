@@ -18,6 +18,7 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
@@ -35,7 +36,6 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
 import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';

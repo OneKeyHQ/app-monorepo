@@ -105,9 +105,8 @@ export function usePerpsFavorites(options?: {
           items.push({
             mode: 'spot',
             coinName: asset.name,
-            // Spot favorites must show the full pair (e.g. HYPE/USDC) so the
-            // quote currency is visible at a glance — the universe.displayName
-            // we set is base-only ("HYPE") which would mislead users.
+            // universe.displayName is base-only ("HYPE"), which hides the
+            // quote currency — favorites need the full pair to disambiguate.
             displayName: formatSpotPairDisplayName(
               asset.baseName,
               asset.quoteName,

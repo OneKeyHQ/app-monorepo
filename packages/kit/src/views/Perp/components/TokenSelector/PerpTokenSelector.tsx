@@ -380,11 +380,8 @@ function BasePerpTokenSelectorContent({
     }
   }, [selectorConfig?.direction, selectorConfig?.field, assetCtxsByDex]);
 
-  // Same freeze pattern for spot — sort uses a snapshot of spotPriceMap so
-  // every WS price update doesn't trigger an O(n log n) re-sort of a long
-  // spot list. Snapshot is held in state (not a ref) so the sort memo
-  // re-runs only when we explicitly bump it: on sort config change or on
-  // first price arrival after mount.
+  // Snapshot held in state (not ref) so the sort memo only re-runs when we
+  // explicitly bump it — sort-config change or first non-empty data arrival.
   const [spotPriceSnapshot, setSpotPriceSnapshot] =
     useState<ISpotAssetCtxsMap>(spotPriceMap);
   const spotLastSortRef = useRef<{
@@ -550,11 +547,10 @@ function BasePerpTokenSelectorContent({
     tokenSearchAliases,
   ]);
 
-  // Layer 1b: spot sort — isolated from perp. Uses a frozen price snapshot
-  // (refreshed only on sort change or first data arrival) so live WS price
-  // updates don't trigger O(n log n) resorts on every frame for what can be
-  // a 100+ item spot list. Live cell values still come from spotPriceMap at
-  // render time via per-row hooks; only the row order is frozen.
+  // Sort against the frozen snapshot so live WS price updates don't trigger
+  // an O(n log n) resort on every frame for a 100+ item spot list. Per-row
+  // hooks still read live values from spotPriceMap at render time; only the
+  // row order is frozen.
   const spotSortedList = useMemo((): ITokenSelectorListItem[] => {
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
@@ -575,11 +571,6 @@ function BasePerpTokenSelectorContent({
             dexIndex: SPOT_DEX_INDEX,
             index,
             assetId: u.assetId,
-            tokenSubtitle:
-              getTokenSubtitle(
-                getSpotTokenDisplayName(u.baseName),
-                tokenSearchAliases,
-              ) ?? getTokenSubtitle(u.baseName, tokenSearchAliases),
             spotUniverse: u,
           } as ITokenSelectorListItem,
           name: u.baseName,
@@ -809,10 +800,12 @@ function BasePerpTokenSelectorContent({
               <FavoritesEmptyState />
             ) : (
               <ListView
+                useFlashList
                 ref={listRef}
                 keyExtractor={keyExtractor}
+                estimatedItemSize={40}
                 windowSize={3}
-                initialNumToRender={12}
+                initialNumToRender={5}
                 data={activeTabData}
                 renderItem={renderItem}
                 ListEmptyComponent={listEmptyComponent}

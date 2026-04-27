@@ -98,13 +98,9 @@ function PerpTradesHistoryList({
       return exitPriceBN.plus(pnlPerUnit);
     }
 
-    // Spot Sell realizes PnL against the avg cost basis acquired through
-    // prior Buy fills — same math as a perp Close Long. closedPnl from HL
-    // is gross (before fee), so this returns the true avg entry price.
-    if (
-      normalizedDir === 'sell' &&
-      !new BigNumber(fill.closedPnl).isZero()
-    ) {
+    // Spot Sell realizes PnL against the running cost basis — same math as a
+    // perp Close Long, since HL's closedPnl is pre-fee on both sides.
+    if (normalizedDir === 'sell' && !new BigNumber(fill.closedPnl).isZero()) {
       return exitPriceBN.minus(pnlPerUnit);
     }
 
@@ -120,7 +116,6 @@ function PerpTradesHistoryList({
         return;
       }
       const isSpot = isSpotInstrument(fill.coin);
-      // Spot has no leverage concept; skip the perp meta lookup and fix at 1.
       const leverage = isSpot ? 1 : await getLeverage(fill.coin);
       const entryPriceBN = calculateEntryPrice(fill);
 
@@ -146,10 +141,8 @@ function PerpTradesHistoryList({
             .toFixed(2);
         }
       }
-      // Spot pair display: try the WS-supplied display map (e.g. @149→HYPE),
-      // then fall back to splitting the canonical "BASE/QUOTE" form, then
-      // raw coin. parseDexCoin only handles perps and would return '@149'
-      // verbatim for spot pairs — wrong for the share image.
+      // parseDexCoin only handles perp coins, so spot needs its own cascade:
+      // WS-supplied display map → split "BASE/QUOTE" → raw coin.
       let tokenDisplayName: string;
       if (isSpot) {
         const mapped = spotPairDisplayMap[fill.coin];
@@ -169,12 +162,10 @@ function PerpTradesHistoryList({
       const exitPrice = exitPriceBN.isFinite()
         ? exitPriceBN.toFixed(exitPriceDecimals)
         : '0';
-      // Spot fills have no separate entry/exit — the same `fill.px` is both
-      // the executed trade price and the visible share price. Showing
-      // entryPrice='0' alongside the trade price reads as broken; mirror
-      // the trade price into both fields so the share image is internally
-      // consistent until we add a spot-specific share layout.
-      const shareEntryPrice = isSpot && entryPrice === '0' ? exitPrice : entryPrice;
+      // Spot has no separate entry vs exit — mirror the trade price so the
+      // share image doesn't show a misleading "$0" entry next to a real exit.
+      const shareEntryPrice =
+        isSpot && entryPrice === '0' ? exitPrice : entryPrice;
       showPositionShare({
         mode: isSpot ? 'spot' : 'perp',
         side: isLong ? 'long' : 'short',
