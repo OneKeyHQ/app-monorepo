@@ -78,7 +78,10 @@ class ServiceUniversalSearch extends ServiceBase {
     if (!searchTypes.length) {
       return [] as IUniversalSearchBatchResult;
     }
-    if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
+    if (
+      searchTypes.includes(EUniversalSearchType.MarketToken) ||
+      searchTypes.includes(EUniversalSearchType.V2MarketToken)
+    ) {
       try {
         // Prefer V2 trending endpoint (has network badge, dynamic data)
         const trendingItems =

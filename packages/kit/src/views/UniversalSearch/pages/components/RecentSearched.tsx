@@ -100,8 +100,10 @@ export function RecentSearched({
     actions.current.clearAllRecentSearch();
   }, [actions]);
 
-  return recentSearch.length &&
-    filterTypes?.includes(EUniversalSearchType.MarketToken) ? (
+  const shouldShowRecentSearch =
+    recentSearch.length > 0 && !!filterTypes?.length;
+
+  return shouldShowRecentSearch ? (
     <YStack px="$5" pb="$5">
       <XStack jc="space-between" pt="$5">
         <SizableText size="$headingSm" color="$textSubdued">
