@@ -48,7 +48,12 @@ export function PortfolioOverview({
       cursor="pointer"
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
-      <Stack flexDirection="row" alignItems="center" marginBottom="$1">
+      <Stack
+        flexDirection="row"
+        alignItems="center"
+        marginBottom="$1"
+        minWidth={0}
+      >
         {(() => {
           if (avatarSource) {
             return (
@@ -58,24 +63,39 @@ export function PortfolioOverview({
                 height={20}
                 borderRadius={4}
                 marginRight="$1.5"
+                flexShrink={0}
               />
             );
           }
           if (wallet.emoji) {
             return (
-              <SizableText fontSize="$bodyMd" marginRight="$1.5">
+              <SizableText fontSize="$bodyMd" marginRight="$1.5" flexShrink={0}>
                 {wallet.emoji}
               </SizableText>
             );
           }
           return null;
         })()}
-        <SizableText fontSize="$bodySm" color="$textSubdued">
+        <SizableText
+          fontSize="$bodySm"
+          color="$textSubdued"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          flexShrink={1}
+          minWidth={0}
+        >
           {wallet.name}
         </SizableText>
       </Stack>
       {account.name ? (
-        <SizableText fontSize="$bodySm" color="$textSubdued" marginBottom="$1">
+        <SizableText
+          fontSize="$bodySm"
+          color="$textSubdued"
+          marginBottom="$1"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          minWidth={0}
+        >
           {account.name}
         </SizableText>
       ) : null}
