@@ -2,7 +2,7 @@
 /* cspell:ignore debugid */
 require('../../development/env');
 
-const { execSync, spawn } = require('child_process');
+const { execSync, spawn, spawnSync } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
@@ -426,10 +426,38 @@ const copyDebugIdToSourceMap = ({ packagerMapPath, sourceMapPath, label }) => {
   log(`${label} copy debugid done`);
 };
 
-// Single source of truth for sentry-cli sourcemaps upload. Always passes
-// `--release` so the upload satisfies sentry-cli's "either debug-id OR
-// release" requirement even when @sentry/react-native's metro debugId
-// injection silently produces no `debugId` in the packager source map.
+const SENTRY_UPLOAD_MAX_ATTEMPTS = parseInt(
+  process.env.ONEKEY_SENTRY_UPLOAD_MAX_ATTEMPTS || '4',
+  10,
+);
+// Backoff after attempts 1, 2, 3 (no sleep after the final attempt). Tuned for
+// transient hosted-runner DNS/network blips, which usually clear within a few
+// seconds.
+const SENTRY_UPLOAD_BACKOFF_SECONDS = [2, 5, 10];
+
+// Use shell `sleep N` so we don't busy-loop the JS event loop while waiting.
+const sleepSeconds = (seconds) => {
+  if (!seconds || seconds <= 0) return;
+  try {
+    execSync(`sleep ${seconds}`, { stdio: 'ignore' });
+  } catch {
+    // ignore
+  }
+};
+
+// Single source of truth for sentry-cli sourcemaps upload.
+//
+// Always passes `--release` so the upload satisfies sentry-cli's "either
+// debug-id OR release" requirement even when @sentry/react-native's metro
+// debugId injection silently produces no `debugId` in the packager source
+// map.
+//
+// Retries on transient failures (DNS/network/5xx — hosted runners are flaky)
+// and SOFT-FAILS after retries are exhausted: prints a `::warning::`
+// annotation and returns normally so a single sourcemap upload glitch never
+// kills the entire JS bundle build. The bundle itself is valid and shippable
+// without the sourcemap; missing sourcemaps just degrade Sentry stack traces
+// for the affected file.
 const uploadSourceMapsToSentry = ({ bundlePath, sourceMapPath, label }) => {
   if (!(SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT)) {
     return;
@@ -439,15 +467,58 @@ const uploadSourceMapsToSentry = ({ bundlePath, sourceMapPath, label }) => {
     projectRootPath,
     'node_modules/@sentry/cli/bin/sentry-cli',
   );
-  const releaseFlag = SENTRY_RELEASE ? `--release "${SENTRY_RELEASE}"` : '';
-  execSync(
-    `${cli} sourcemaps upload --debug-id-reference ${releaseFlag} --strip-prefix ${projectRootPath} ${bundlePath} ${sourceMapPath} --org=${SENTRY_ORG} --project=${SENTRY_PROJECT} --auth-token=${SENTRY_AUTH_TOKEN}`,
-    {
+  const args = [
+    'sourcemaps',
+    'upload',
+    '--debug-id-reference',
+    ...(SENTRY_RELEASE ? ['--release', SENTRY_RELEASE] : []),
+    '--strip-prefix',
+    projectRootPath,
+    bundlePath,
+    sourceMapPath,
+    `--org=${SENTRY_ORG}`,
+    `--project=${SENTRY_PROJECT}`,
+    `--auth-token=${SENTRY_AUTH_TOKEN}`,
+  ];
+  for (let attempt = 1; attempt <= SENTRY_UPLOAD_MAX_ATTEMPTS; attempt += 1) {
+    const result = spawnSync(cli, args, {
       stdio: 'inherit',
       cwd: projectRootPath,
-    },
-  );
-  log(`${label} upload source maps done`);
+    });
+    if (result.error) {
+      // spawnSync itself failed (binary not found, permission denied, …).
+      // Not retryable — sentry-cli infra is broken on this runner. Soft-fail.
+      console.warn(
+        `::warning::[sentry-upload][${label}] sentry-cli could not be spawned (${result.error.message}); skipping upload — bundle will ship without this sourcemap.`,
+      );
+      return;
+    }
+    if (result.status === 0) {
+      log(
+        `${label} upload source maps done${
+          attempt > 1
+            ? ` (attempt ${attempt}/${SENTRY_UPLOAD_MAX_ATTEMPTS})`
+            : ''
+        }`,
+      );
+      return;
+    }
+    if (attempt < SENTRY_UPLOAD_MAX_ATTEMPTS) {
+      const backoff =
+        SENTRY_UPLOAD_BACKOFF_SECONDS[attempt - 1] ||
+        SENTRY_UPLOAD_BACKOFF_SECONDS[SENTRY_UPLOAD_BACKOFF_SECONDS.length - 1];
+      console.warn(
+        `[sentry-upload][${label}] sentry-cli exited ${result.status} (attempt ${attempt}/${SENTRY_UPLOAD_MAX_ATTEMPTS}); retrying in ${backoff}s …`,
+      );
+      sleepSeconds(backoff);
+    } else {
+      console.warn(
+        `::warning::[sentry-upload][${label}] sentry-cli exited ${result.status} after ${SENTRY_UPLOAD_MAX_ATTEMPTS} attempts; giving up. Bundle build CONTINUES — sourcemap WILL be missing in Sentry for ${path.basename(
+          sourceMapPath,
+        )} (release ${SENTRY_RELEASE || '<unset>'}).`,
+      );
+    }
+  }
 };
 
 const buildBackgroundBundle = async ({
