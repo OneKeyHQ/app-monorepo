@@ -277,9 +277,9 @@ function TxRow({
     : '';
   const description =
     historyInfo?.description || accountUtils.shortenAddress({ address: tx.to });
-  const primaryValue = historyInfo?.primaryValue ?? tx.amount;
+  const primaryValue = historyInfo?.primaryValue || tx.amount;
   const secondaryValue =
-    historyInfo?.secondaryValue ?? tx.confirmations ?? pendingLabel;
+    historyInfo?.secondaryValue || tx.confirmations || pendingLabel;
 
   return (
     <Stack
