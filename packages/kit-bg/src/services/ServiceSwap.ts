@@ -1390,18 +1390,48 @@ export default class ServiceSwap extends ServiceBase {
     return histories.toSorted((a, b) => b.date.created - a.date.created);
   }
 
+  private isSwapHistoryPendingStatus(history: ISwapTxHistory) {
+    return (
+      history.status === ESwapTxHistoryStatus.PENDING ||
+      history.status === ESwapTxHistoryStatus.CANCELING
+    );
+  }
+
   @backgroundMethod()
   async syncSwapHistoryPendingList() {
     const histories = await this.fetchSwapHistoryListFromSimple();
-    const pendingHistories = histories.filter(
-      (history) =>
-        history.status === ESwapTxHistoryStatus.PENDING ||
-        history.status === ESwapTxHistoryStatus.CANCELING,
+    const pendingHistories = histories.filter((history) =>
+      this.isSwapHistoryPendingStatus(history),
     );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapHistoryPendingList: filterSwapHistoryPendingList(pendingHistories),
     }));
+  }
+
+  @backgroundMethod()
+  async refreshSwapHistoryPendingStatusOnce() {
+    const histories = await this.fetchSwapHistoryListFromSimple();
+    const pendingHistories = histories.filter((history) =>
+      this.isSwapHistoryPendingStatus(history),
+    );
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: filterSwapHistoryPendingList(pendingHistories),
+    }));
+
+    if (!pendingHistories.length) {
+      return;
+    }
+
+    await Promise.all(
+      pendingHistories.map((swapTxHistory) =>
+        this.swapHistoryStatusRunFetch(swapTxHistory, {
+          shouldScheduleNextFetch: false,
+          shouldShowToast: false,
+        }),
+      ),
+    );
   }
 
   @backgroundMethod()
@@ -1488,8 +1518,12 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateSwapHistoryItem(item: ISwapTxHistory) {
+  async updateSwapHistoryItem(
+    item: ISwapTxHistory,
+    options?: { shouldShowToast?: boolean },
+  ) {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
+    const shouldShowToast = options?.shouldShowToast ?? true;
     const filteredList = filterSwapHistoryPendingList(swapHistoryPendingList);
     const matchFn = (i: ISwapTxHistory) =>
       item.txInfo.useOrderId
@@ -1529,7 +1563,7 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: newPendingList,
         };
       });
-      if (item.status !== ESwapTxHistoryStatus.PENDING) {
+      if (shouldShowToast && item.status !== ESwapTxHistoryStatus.PENDING) {
         let fromAmountFinal = item.baseInfo.fromAmount;
         if (item.swapInfo.otherFeeInfos?.length) {
           item.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
@@ -1637,8 +1671,36 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  async swapHistoryStatusRunFetch(swapTxHistory: ISwapTxHistory) {
+  private async clearLocalPendingTxForTerminalSwap(
+    swapTxHistory: ISwapTxHistory,
+  ) {
+    const txId = swapTxHistory.txInfo.txId;
+    if (!txId) {
+      return;
+    }
+
+    try {
+      await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId({
+        accountId: swapTxHistory.accountInfo.sender.accountId,
+        networkId: swapTxHistory.baseInfo.fromToken.networkId,
+        txid: txId,
+        accountAddress: swapTxHistory.txInfo.sender,
+      });
+    } catch (error) {
+      console.error('Clear swap local pending tx error', error);
+    }
+  }
+
+  async swapHistoryStatusRunFetch(
+    swapTxHistory: ISwapTxHistory,
+    options?: {
+      shouldScheduleNextFetch?: boolean;
+      shouldShowToast?: boolean;
+    },
+  ) {
     let enableInterval = true;
+    const shouldScheduleNextFetch = options?.shouldScheduleNextFetch ?? true;
+    const shouldShowToast = options?.shouldShowToast ?? true;
     let currentSwapTxHistory = cloneDeep(swapTxHistory);
     try {
       const txStatusRes = await this.fetchTxState({
@@ -1660,10 +1722,11 @@ export default class ServiceSwap extends ServiceBase {
           txStatusRes,
         })
       ) {
+        const rawStatus = txStatusRes.state;
         const previousStateDetail = currentSwapTxHistory.stateDetail;
         currentSwapTxHistory = {
           ...currentSwapTxHistory,
-          status: txStatusRes.state,
+          status: rawStatus,
           extraStatus: txStatusRes.extraStatus,
           stateDetail:
             txStatusRes.stateDetail ?? currentSwapTxHistory.stateDetail,
@@ -1698,7 +1761,16 @@ export default class ServiceSwap extends ServiceBase {
               : currentSwapTxHistory.baseInfo.toAmount,
           },
         };
-        await this.updateSwapHistoryItem(currentSwapTxHistory);
+        await this.updateSwapHistoryItem(currentSwapTxHistory, {
+          shouldShowToast,
+        });
+        const finalStatus = currentSwapTxHistory.status;
+        if (
+          finalStatus === ESwapTxHistoryStatus.FAILED ||
+          finalStatus === ESwapTxHistoryStatus.CANCELED
+        ) {
+          await this.clearLocalPendingTxForTerminalSwap(currentSwapTxHistory);
+        }
         if (
           shouldEmitSwapHistoryBalanceUpdate({
             swapTxHistory: currentSwapTxHistory,
@@ -1709,7 +1781,7 @@ export default class ServiceSwap extends ServiceBase {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
             fromToken: currentSwapTxHistory.baseInfo.fromToken,
             toToken: currentSwapTxHistory.baseInfo.toToken,
-            status: txStatusRes.state,
+            status: rawStatus,
             crossChainStatus: txStatusRes.crossChainStatus,
           });
           appEventBus.emit(EAppEventBusNames.SwapSpeedBalanceUpdate, {
@@ -1717,7 +1789,7 @@ export default class ServiceSwap extends ServiceBase {
             orderToToken: currentSwapTxHistory.baseInfo.toToken,
           });
         }
-        if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
+        if (finalStatus !== ESwapTxHistoryStatus.PENDING) {
           enableInterval = false;
           const deleteHistoryId = currentSwapTxHistory.txInfo.useOrderId
             ? (currentSwapTxHistory.txInfo.orderId ?? '')
@@ -1734,6 +1806,7 @@ export default class ServiceSwap extends ServiceBase {
         : (currentSwapTxHistory.txInfo.txId ?? '');
       if (
         enableInterval &&
+        shouldScheduleNextFetch &&
         this.historyCurrentStateIntervalIds.includes(keyId)
       ) {
         this.historyStateIntervalCountMap[keyId] =
@@ -1758,11 +1831,7 @@ export default class ServiceSwap extends ServiceBase {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const statusPendingList = filterSwapHistoryPendingList(
       swapHistoryPendingList,
-    ).filter(
-      (item) =>
-        item.status === ESwapTxHistoryStatus.PENDING ||
-        item.status === ESwapTxHistoryStatus.CANCELING,
-    );
+    ).filter((item) => this.isSwapHistoryPendingStatus(item));
     const newHistoryStatePendingList = statusPendingList.filter(
       (item) =>
         !this.historyCurrentStateIntervalIds.includes(
