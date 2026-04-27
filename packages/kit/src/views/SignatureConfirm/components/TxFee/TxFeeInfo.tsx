@@ -753,14 +753,15 @@ function TxFeeInfo(props: IProps) {
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
-          // Source-specific fields first so JSON-RPC errors keep their inner
-          // `execution reverted: ...` message instead of being shadowed by
-          // the wrapper Error's generic text.
+          // Inner JSON-RPC error first so `execution reverted: ...` from the
+          // upstream node survives the OneKey API response wrapper — the outer
+          // `translatedMessage/message` is generic server-side packaging text
+          // and would otherwise hide the real RPC failure reason from the user.
           errMessage:
-            apiError?.data?.translatedMessage ??
-            apiError?.data?.message ??
             (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
               ?.message ??
+            apiError?.data?.translatedMessage ??
+            apiError?.data?.message ??
             apiError?.message ??
             (e as Error).message ??
             e,
