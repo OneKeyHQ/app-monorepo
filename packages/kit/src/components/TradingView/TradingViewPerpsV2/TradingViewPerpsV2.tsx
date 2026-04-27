@@ -39,6 +39,9 @@ import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewPerpsV2Props {
   symbol: string;
+  // Spot-only normalized labels; perp omits and the TV side falls back to symbol.
+  displayPair?: string;
+  displayCoin?: string;
   userAddress: IHex | undefined | null;
   webviewKey?: string;
   onLoadEnd?: () => void;
@@ -53,10 +56,14 @@ export type ITradingViewPerpsV2Props = IBaseTradingViewPerpsV2Props &
 const useSymbolSync = ({
   webRef,
   symbol,
+  displayPair,
+  displayCoin,
   isChartReady,
 }: {
   webRef: React.RefObject<IWebViewRef | null>;
   symbol: string;
+  displayPair: string | undefined;
+  displayCoin: string | undefined;
   isChartReady: boolean;
 }) => {
   const prevSymbolRef = useRef<string>(symbol);
@@ -71,13 +78,15 @@ const useSymbolSync = ({
         type: 'SYMBOL_CHANGE',
         payload: {
           symbol,
+          displayPair,
+          displayCoin,
           force: true,
         },
       });
 
       prevSymbolRef.current = symbol;
     }
-  }, [symbol, webRef]);
+  }, [symbol, displayPair, displayCoin, webRef]);
 
   // Re-sync symbol when chart becomes ready to catch messages lost during iframe load
   useEffect(() => {
@@ -86,11 +95,13 @@ const useSymbolSync = ({
         type: 'SYMBOL_CHANGE',
         payload: {
           symbol,
+          displayPair,
+          displayCoin,
           force: false,
         },
       });
     }
-  }, [isChartReady, symbol, webRef]);
+  }, [isChartReady, symbol, displayPair, displayCoin, webRef]);
 };
 
 // WebView Memoized component to prevent unnecessary re-renders
@@ -134,6 +145,8 @@ export function TradingViewPerpsV2(
 ) {
   const {
     symbol,
+    displayPair,
+    displayCoin,
     userAddress,
     onLoadEnd,
     onTradeUpdate,
@@ -200,6 +213,8 @@ export function TradingViewPerpsV2(
   useSymbolSync({
     webRef,
     symbol,
+    displayPair,
+    displayCoin,
     isChartReady: isChartLinesReady,
   });
 
