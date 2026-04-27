@@ -191,20 +191,39 @@ export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
   });
 
 /**
- * Cached snapshot of the final rendered token list (after filtering
- * hideZeroBalance, hideDeFiMarked, etc.). Used for cold start cache
- * so the exact UI-visible list is restored on next launch.
+ * Per-owner cache of the final rendered token list (after filtering
+ * hideZeroBalance, hideDeFiMarked, etc.). Keyed by `${accountId}__${networkId}`.
+ *
+ * Stores both the rendered token list AND its `$key`→ITokenFiat balance/price
+ * map so a network/account switch can hydrate `tokenListAtom` and
+ * `tokenListMapAtom` together — otherwise the new owner's tokens render with
+ * the previous owner's map (no balance, no price) until the async
+ * `getAccountLocalTokens` fetch returns.
+ *
+ * Used for:
+ *  1. Cold start: the last UI-visible list and its map are restored on next
+ *     launch.
+ *  2. Network/account switching within a session: `TokenListBlock` looks the
+ *     entry up by current `${accountId}__${networkId}` and eagerly hydrates
+ *     the singleton atoms before `initTokenListData`'s async fetch runs.
  */
 export const {
   atom: renderedTokenListCacheAtom,
   use: useRenderedTokenListCacheAtom,
 } = contextAtom<{
-  tokens: IAccountToken[];
-  initialized: boolean;
-  accountId?: string;
-  networkId?: string;
+  byOwner: Record<
+    string,
+    {
+      tokens: IAccountToken[];
+      // Optional in the read type because entries persisted by an earlier
+      // build don't carry it. Fresh writes always include it.
+      tokenListMap?: Record<string, ITokenFiat>;
+      accountId: string;
+      networkId: string;
+    }
+  >;
 }>(
-  { tokens: [], initialized: false },
+  { byOwner: {} },
   {
     coldStartCache: true,
     coldStartCacheKey:

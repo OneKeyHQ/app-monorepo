@@ -42,6 +42,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
+  useAllTokenListAtom,
   useFlattenAggregateTokensMapAtom,
   useRenderedTokenListCacheAtom,
   useSearchKeyAtom,
@@ -178,6 +179,7 @@ function TokenListViewCmp(props: IProps) {
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
+  const [allTokenList] = useAllTokenListAtom();
   const [tokenListMap] = useTokenListMapAtom();
   const [aggregateTokenMap] = useFlattenAggregateTokensMapAtom();
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
@@ -199,7 +201,38 @@ function TokenListViewCmp(props: IProps) {
     enabled: tokenManagementEnabled,
   });
 
+  // The token list atoms are scoped to a singleton store, so they survive the
+  // PortfolioContainer remount that fires on every account/network switch and
+  // briefly carry the previous owner's data. When the loaded data does not
+  // belong to the current accountId/networkId, prefer the per-owner rendered
+  // cache for the current owner if it exists (instant swap, no skeleton);
+  // otherwise return an empty list so the skeleton (gated below) covers the
+  // gap until `initTokenListData` completes.
+  const ownerMismatch =
+    !!accountId &&
+    !!networkId &&
+    !!allTokenList.accountId &&
+    !!allTokenList.networkId &&
+    (allTokenList.accountId !== accountId ||
+      allTokenList.networkId !== networkId);
+
+  const ownerCacheKey =
+    accountId && networkId ? `${accountId}__${networkId}` : '';
+
   const tokens = useMemo(() => {
+    if (ownerMismatch) {
+      const cached =
+        ownerCacheKey &&
+        renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
+      // Require a paired `tokenListMap` — otherwise we'd render tokens
+      // against the previous owner's map (no balance/price). Legacy cache
+      // entries from an earlier build don't carry it; treat them as misses.
+      if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
+        return cached.tokens;
+      }
+      return [];
+    }
+
     let resultTokens: IAccountToken[] = [];
     if (showActiveAccountTokenList) {
       resultTokens = activeAccountTokenList.tokens;
@@ -281,23 +314,22 @@ function TokenListViewCmp(props: IProps) {
       });
     }
 
-    // Use cached rendered list on cold start when real data hasn't loaded yet.
-    // Only use cache if it matches the current account+network.
-    // Read from ref to avoid dependency cycle (useMemo→useEffect→setState→useMemo).
-    const cache = renderedTokenListCacheRef.current;
-    if (
-      resultTokens.length === 0 &&
-      !tokenListState.initialized &&
-      cache.initialized &&
-      cache.tokens.length > 0 &&
-      cache.accountId === accountId &&
-      cache.networkId === networkId
-    ) {
-      return cache.tokens;
+    // Cold-start fallback: when atoms haven't loaded yet for the current
+    // owner, reuse the per-owner cache so the user sees their last known list
+    // immediately. Read from ref to avoid useMemo→useEffect→setState cycle.
+    if (resultTokens.length === 0 && !tokenListState.initialized) {
+      const cached =
+        ownerCacheKey &&
+        renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
+      if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
+        return cached.tokens;
+      }
     }
 
     return resultTokens;
   }, [
+    ownerMismatch,
+    ownerCacheKey,
     showActiveAccountTokenList,
     isTokenSelector,
     searchKey,
@@ -313,27 +345,46 @@ function TokenListViewCmp(props: IProps) {
     customTokens,
     exchangeFilter,
     tokenListState.initialized,
-    accountId,
-    networkId,
   ]);
 
-  // Save rendered token list cache for cold start (in useEffect, not useMemo)
+  // Persist the rendered token list (and its balance/price map) per owner.
+  // Skip when the loaded atoms are still showing a previous owner's data
+  // (ownerMismatch) — otherwise we'd overwrite the target owner's cache with
+  // stale tokens.
   useEffect(() => {
     if (
+      !ownerMismatch &&
+      ownerCacheKey &&
       tokens.length > 0 &&
       tokenListState.initialized &&
       !tokenListState.isRefreshing &&
-      accountId
+      accountId &&
+      networkId
     ) {
-      setRenderedTokenListCache({
-        tokens,
-        initialized: true,
-        accountId,
-        networkId,
+      setRenderedTokenListCache((prev) => {
+        // `prev.byOwner` may be undefined at runtime if a previous build
+        // persisted the old single-entry shape; coerce defensively before
+        // spreading so the upgrade path doesn't throw.
+        const prevByOwner =
+          (prev as { byOwner?: typeof prev.byOwner }).byOwner ?? {};
+        return {
+          byOwner: {
+            ...prevByOwner,
+            [ownerCacheKey]: {
+              tokens,
+              tokenListMap,
+              accountId,
+              networkId,
+            },
+          },
+        };
       });
     }
   }, [
+    ownerMismatch,
+    ownerCacheKey,
     tokens,
+    tokenListMap,
     tokenListState.initialized,
     tokenListState.isRefreshing,
     setRenderedTokenListCache,
@@ -431,15 +482,23 @@ function TokenListViewCmp(props: IProps) {
   }, []);
 
   const showSkeleton = useMemo(() => {
-    // If we have a cached rendered token list matching current account, skip skeleton
-    const cache = renderedTokenListCacheRef.current;
-    if (
-      cache.initialized &&
-      cache.tokens.length > 0 &&
-      cache.accountId === accountId &&
-      cache.networkId === networkId
-    ) {
+    // Per-owner cache hit → instant display, never skeleton. This covers
+    // both cold-start (atom hydrating from disk) and in-session switches
+    // back to a previously-rendered network/account. Require a paired
+    // `tokenListMap` so we don't suppress the skeleton over a legacy entry
+    // that would render tokens against the previous owner's map.
+    const cached =
+      ownerCacheKey &&
+      renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
+    if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
       return false;
+    }
+    // Loaded atoms belong to a previous owner and we have no cache for the
+    // current owner — show skeleton until `initTokenListData` refreshes the
+    // atoms. Without this `tokenListState.initialized` is still true from
+    // the prior network so the existing checks below would not fire.
+    if (ownerMismatch) {
+      return true;
     }
     return (
       (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
@@ -450,6 +509,8 @@ function TokenListViewCmp(props: IProps) {
         activeAccountTokenListState.isRefreshing)
     );
   }, [
+    ownerMismatch,
+    ownerCacheKey,
     isTokenSelector,
     tokenSelectorSearchTokenState.isSearching,
     searchTokenState.isSearching,
@@ -458,8 +519,6 @@ function TokenListViewCmp(props: IProps) {
     activeAccountTokenListState.initialized,
     activeAccountTokenListState.isRefreshing,
     showActiveAccountTokenList,
-    accountId,
-    networkId,
   ]);
 
   useEffect(() => {
