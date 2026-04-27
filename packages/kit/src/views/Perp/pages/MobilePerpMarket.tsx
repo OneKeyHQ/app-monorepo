@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import {
-  Badge,
   Icon,
   NavBackButton,
   Page,
@@ -19,7 +16,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -33,7 +29,10 @@ import { PerpCandles } from '../components/PerpCandles';
 import PerpMarketFooter from '../components/PerpMarketFooter';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
-import { FavoriteButton } from '../components/TokenSelector/PerpTokenSelectorRow';
+import {
+  FavoriteButton,
+  TradingModeBadge,
+} from '../components/TokenSelector/PerpTokenSelectorRow';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
@@ -52,7 +51,6 @@ function MobilePerpCandlesTouchBridge() {
 }
 
 function MobilePerpMarket() {
-  const intl = useIntl();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { baseName, displayName, mode } = useActiveTradeDisplay();
   const themeVariant = useThemeVariant();
@@ -102,17 +100,7 @@ function MobilePerpMarket() {
             fallbackIcon="CryptoCoinOutline"
           />
           <SizableText size="$headingLg">{pairLabel}</SizableText>
-          <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
-            <SizableText color="$textSubdued" fontSize={11}>
-              {mode === 'spot'
-                ? intl.formatMessage({
-                    id: ETranslations.dexmarket_spot,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.perp_label_perp,
-                  })}
-            </SizableText>
-          </Badge>
+          <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
       </XStack>
@@ -124,7 +112,6 @@ function MobilePerpMarket() {
     onPageGoBack,
     onPressTokenSelector,
     themeVariant,
-    intl,
   ]);
 
   const isTablet = isNativeTablet();
