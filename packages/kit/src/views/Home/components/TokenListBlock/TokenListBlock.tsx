@@ -1608,8 +1608,18 @@ function TokenListBlock({
     });
     const currentNetworkId = network?.id;
     if (!currentAccountId || !currentNetworkId) return;
+    // Every `refreshAllTokenList` writer in this file (the `run` polling
+    // fn, `initTokenListData`, `updateAllNetworksTokenList`) stamps
+    // `account?.id` into `allTokenList.accountId`. In merge mode
+    // `currentAccountId` is `indexedAccountId`, which never equals
+    // `account?.id`, so a guard keyed on `currentAccountId` would fail
+    // after every normal write and re-fire the hydrate on every poll —
+    // repeatedly resetting the small-balance/risky atoms below. Compare
+    // and stamp on the writer axis (`account?.id`) to converge.
+    const writerAccountId = account?.id;
     if (
-      allTokenListAtomValue.accountId === currentAccountId &&
+      !!writerAccountId &&
+      allTokenListAtomValue.accountId === writerAccountId &&
       allTokenListAtomValue.networkId === currentNetworkId
     ) {
       return;
@@ -1637,7 +1647,11 @@ function TokenListBlock({
     refreshAllTokenList({
       keys: cacheKeys,
       tokens: cached.tokens,
-      accountId: currentAccountId,
+      // Stamp `account?.id` to match the other writers; the cache lookup
+      // above is owner-aware (indexedAccountId in merge mode) but
+      // `allTokenList.accountId` is always written as `account?.id`, so
+      // the guard above can detect "already loaded" on later renders.
+      accountId: writerAccountId ?? currentAccountId,
       networkId: currentNetworkId,
     });
     refreshAllTokenListMap({ tokens: cached.tokenListMap });
