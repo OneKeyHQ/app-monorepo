@@ -553,6 +553,43 @@ export interface IBatchCheckWalletParams {
 // Response is a map where key is "networkId:address" and value is boolean
 export type IBatchCheckWalletResponse = Record<string, boolean>;
 
+// V2 batch check - includes bind window status
+export interface IBatchCheckWalletV2Item {
+  bound: boolean;
+  bindable: boolean;
+  reason?: string; // 'already_bound' | 'exceeded_bind_window'
+}
+export type IBatchCheckWalletV2Response = Record<
+  string,
+  IBatchCheckWalletV2Item
+>;
+
+// Check single wallet - extended response
+export interface ICheckWalletBindStatusResponse {
+  data: boolean;
+  bindable: boolean;
+  reason?: string;
+}
+
+// Creation records
+export interface IWalletCreationRecordItem {
+  address: string;
+  networkId: string;
+  walletCreatedAt?: string;
+}
+
+export interface IWalletDevUnbindParams {
+  address: string;
+  walletCreatedAt?: string;
+}
+
+export interface IWalletDevUnbindResponse {
+  deletedBundles: number;
+  creationRecord?: {
+    updated: boolean;
+  };
+}
+
 // Hardware records types
 export interface IHardwareRecordHistoryItem {
   type: string;

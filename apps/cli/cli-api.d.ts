@@ -2,7 +2,7 @@
 // @generated — do not edit manually
 // Generated from zod schemas in src/schemas/
 // Run: yarn generate:cli-types
-// Generated at: 2026-04-17T08:26:05.253Z
+// Generated at: 2026-04-22T06:16:40.986Z
 
 /** Print CLI version and environment */
 export interface VersionInput {}
@@ -125,17 +125,36 @@ export interface HistoryInput {
   detail?: boolean;
 }
 
-export type HistoryOutput = {
-  hash: string;
+export type HistoryOutput = ({
+  txHash: string;
+  type: string;
+  status: string;
   from: string;
   to: string;
-  value: string;
-  block?: string;
+  sends: {
+    token: string;
+    amount: string;
+    fiatValue: string;
+    contractAddress?: string;
+    isNative?: boolean;
+  }[];
+  receives: {
+    token: string;
+    amount: string;
+    fiatValue: string;
+    contractAddress?: string;
+    isNative?: boolean;
+  }[];
+  gasFee: string;
+  gasFeeFiatValue: string;
+  timestamp: string;
+  block?: number | null;
   nonce?: number;
-  confirmations?: number;
+  confirmations?: number | null;
   networkName?: string;
-  tokenSymbol?: string;
-}[]
+  label?: string;
+  contractAddress?: string | null;
+})[]
 
 /** Search tokens by keyword, symbol, or address */
 export interface TokenSearchInput {
@@ -401,10 +420,12 @@ export interface SwapQuoteOutput {
     toAmount: string | null;
     fromAmount: string | null;
     minToAmount: string | null;
-    estimatedTime: string | null;
+    estimatedTime: string | number | null;
     instantRate: string | null;
     isBest: boolean;
-    fee: string | null;
+    fee: {
+      estimatedFeeFiatValue?: number;
+    } | null;
     errorMessage?: string;
     allowanceResult?: {
       allowanceTarget: string;
@@ -596,7 +617,7 @@ export interface SecuritySimulateInput {
 
 export interface SecuritySimulateOutput {
   type: string | null;
-  display?: unknown;
+  display?: unknown | null;
   parsedTx?: unknown | null;
   accountAddress: string;
   isConfirmationRequired: boolean;

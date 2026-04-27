@@ -102,6 +102,7 @@ import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
+import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
@@ -1617,6 +1618,24 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      <SectionPressItem
+                        icon="GiftOutline"
+                        title="Referral Bind Debug"
+                        subtitle="Reset the selected wallet referral bind status"
+                        searchKeywords="referral rebate bind wallet dev unbind creation record"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'Referral Bind Debug',
+                            renderContent: (
+                              <ReferralCodeDebugPanel
+                                activeWalletId={activeAccount.wallet?.id}
+                                activeWalletName={activeAccount.wallet?.name}
+                              />
+                            ),
+                          });
+                        }}
+                      />
 
                       <SectionPressItem
                         icon="ServerOutline"
