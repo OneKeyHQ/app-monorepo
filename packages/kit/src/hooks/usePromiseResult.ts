@@ -174,15 +174,12 @@ export function usePromiseResult<T>(
   const isDepsChangedOnBlur = useRef(false);
   const nonceRef = useRef(0);
 
-  // stopPollingRef is the synchronous truth read inside the polling
-  // finally-block. stopPollingState exists only to trigger a re-render so
-  // closures (e.g. overrideIsFocused) recompute when the flag flips.
+  // The polling continuation in the finally-block reads this synchronously,
+  // so a ref is enough — no consumer reacts to the flag via React state, and
+  // adding a state would only churn renders without changing behavior.
   const stopPollingRef = useRef(false);
-  const [, setStopPollingState] = useState(false);
   const setStopPolling = useCallback((stop: boolean) => {
-    if (stopPollingRef.current === stop) return;
     stopPollingRef.current = stop;
-    setStopPollingState(stop);
   }, []);
 
   const isEffectValid = useRef(true);
@@ -354,10 +351,7 @@ export function usePromiseResult<T>(
       // Deps changed (or polling interval changed) means the input is no
       // longer the one the server-side stop applied to — auto-resume so the
       // next attempt actually fires.
-      if (stopPollingRef.current) {
-        stopPollingRef.current = false;
-        setStopPollingState(false);
-      }
+      stopPollingRef.current = false;
       runAtRef.current = Date.now();
       pollingNonceRef.current += 1;
       void runRef.current({

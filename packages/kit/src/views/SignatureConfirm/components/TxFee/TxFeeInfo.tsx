@@ -741,6 +741,11 @@ function TxFeeInfo(props: IProps) {
         // so the message stays visible without spamming the endpoint. Polling
         // auto-resumes when deps (unsignedTxs/accountId/...) change.
         if (apiError?.data?.stopPolling === true) {
+          // Suppress the global error toast — the inline fee error already
+          // carries the same message and stays visible after polling stops,
+          // so a transient toast on top would be redundant. Mirrors the
+          // sponsor-fallback branches above.
+          apiError.autoToast = false;
           setStopPolling(true);
         }
 
@@ -748,12 +753,15 @@ function TxFeeInfo(props: IProps) {
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
+          // Source-specific fields first so JSON-RPC errors keep their inner
+          // `execution reverted: ...` message instead of being shadowed by
+          // the wrapper Error's generic text.
           errMessage:
-            apiError?.message ??
             apiError?.data?.translatedMessage ??
             apiError?.data?.message ??
             (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
               ?.message ??
+            apiError?.message ??
             (e as Error).message ??
             e,
         });
@@ -1765,12 +1773,18 @@ function TxFeeInfo(props: IProps) {
   }, [feeSelectorItems]);
 
   useEffect(() => {
-    const callback = () => run();
+    const callback = () => {
+      // Manual retry must override any prior server-driven pause; otherwise a
+      // user-initiated refresh would fire a single request and then stall in
+      // the finally-block guard, never resuming the polling loop.
+      setStopPolling(false);
+      void run();
+    };
     appEventBus.on(EAppEventBusNames.EstimateTxFeeRetry, callback);
     return () => {
       appEventBus.off(EAppEventBusNames.EstimateTxFeeRetry, callback);
     };
-  }, [run]);
+  }, [run, setStopPolling]);
 
   useEffect(() => {
     if (currentTxUuid) {
