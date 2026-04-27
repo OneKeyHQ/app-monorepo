@@ -46,6 +46,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { headerPlatform } from '@onekeyhq/shared/src/request/InterceptorConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -159,8 +161,13 @@ class ServicePrimeTransfer extends ServiceBase {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10_000); // 5 second timeout
 
-          const response = await fetch(`${url}/health`, {
+          const healthUrl = `${url}/health`;
+          const baseHeaders = await getRequestHeaders();
+          const headers = await withCustomUAHeaders(healthUrl, baseHeaders);
+
+          const response = await fetch(healthUrl, {
             method: 'GET',
+            headers,
             signal: controller.signal,
           });
 
