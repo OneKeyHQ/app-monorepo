@@ -1242,6 +1242,71 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async clearLocalHistoryPendingTxByTxId(params: {
+    accountId?: string;
+    networkId: string;
+    txid?: string;
+    accountAddress?: string;
+  }) {
+    const { accountId, networkId, txid } = params;
+    if (!networkId || !txid) {
+      return false;
+    }
+
+    let accountAddress = params.accountAddress;
+    let xpub: string | undefined;
+    if (accountId) {
+      try {
+        [accountAddress, xpub] = await Promise.all([
+          this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          }),
+          this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          }),
+        ]);
+      } catch (_e) {
+        // fall back to the caller-provided account address
+      }
+    }
+
+    if (!accountAddress && !xpub) {
+      return false;
+    }
+
+    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
+      networkId,
+      accountAddress: accountAddress ?? '',
+      xpub,
+    });
+    const shouldIgnoreTxIdCase = networkUtils.isEvmNetwork({ networkId });
+    const txidForCompare = shouldIgnoreTxIdCase ? txid.toLowerCase() : txid;
+    const pendingTxsToClear = localHistoryPendingTxs.filter((tx) => {
+      const pendingTxId = tx.decodedTx.txid;
+      return (
+        (shouldIgnoreTxIdCase ? pendingTxId?.toLowerCase() : pendingTxId) ===
+        txidForCompare
+      );
+    });
+    if (!pendingTxsToClear.length) {
+      return false;
+    }
+
+    await simpleDb.localHistory.batchUpdateLocalHistoryTxs([
+      {
+        networkId,
+        accountAddress: accountAddress ?? '',
+        xpub,
+        confirmedTxs: pendingTxsToClear,
+      },
+    ]);
+    appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    return true;
+  }
+
+  @backgroundMethod()
   public async clearLocalHistory() {
     return this.backgroundApi.simpleDb.localHistory.clearLocalHistory();
   }
