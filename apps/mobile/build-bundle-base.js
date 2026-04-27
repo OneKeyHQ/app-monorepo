@@ -90,7 +90,13 @@ const buildAndroidOutputAssetPath = (assetName) => {
 };
 
 const cleanBundleOutput = async ({ platform } = {}) => {
-  fs.rmSync(webEmbedOutputPath, { recursive: true, force: true });
+  // Only wipe web-embed in legacy "build both platforms" mode. In per-platform
+  // CI mode the web-embed bundle is built once by an upstream job and
+  // downloaded into webEmbedOutputPath as an artifact — wiping it here would
+  // force every platform to rebuild webpack and defeat the optimization.
+  if (!platform) {
+    fs.rmSync(webEmbedOutputPath, { recursive: true, force: true });
+  }
   if (!platform) {
     fs.rmSync(bundleOutputPath, { recursive: true, force: true });
     fs.rmSync(zipOutputPath, { recursive: true, force: true });
@@ -865,6 +871,19 @@ const runUnionBuild = ({
 };
 
 const buildWebEmbed = async () => {
+  // Skip the (~2 min) webpack build if web-build/ is already populated.
+  // In CI we run web-embed-build as an upstream job and let each platform
+  // job download its `web-build/` as an artifact, so this skip path lets
+  // both iOS and Android jobs share one webpack run instead of duplicating
+  // it. Locally (and in legacy "build both" mode) the directory does not
+  // pre-exist and webpack runs as before.
+  if (
+    fs.existsSync(webEmbedOutputPath) &&
+    fs.readdirSync(webEmbedOutputPath).length > 0
+  ) {
+    log(`web embed already present at ${webEmbedOutputPath}, skipping build`);
+    return;
+  }
   log('build web embed');
   execSync(`npx webpack build`, {
     stdio: 'inherit',
