@@ -6,6 +6,11 @@ import {
   rootNavigationRef,
   switchTabAsync,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   useActiveAccountValueAtom,
   useAppIsLockedAtom,
@@ -28,8 +33,10 @@ import {
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import {
   type IPendingTx,
+  type ITrayAccountAvatarInfo,
   type ITrayAction,
   type ITrayData,
+  type ITrayWalletAvatarInfo,
   type ITrayWatchlistItem,
   TRAY_IPC,
 } from '@onekeyhq/shared/src/types/desktop/tray';
@@ -173,6 +180,105 @@ function getNetworkLogoUri(networkId?: string): string {
   return network?.logoURI || '';
 }
 
+function getTrayWalletAvatarInfo(
+  wallet: IDBWallet | undefined,
+): ITrayWalletAvatarInfo | undefined {
+  if (wallet?.avatarInfo) {
+    return wallet.avatarInfo;
+  }
+
+  if (!wallet?.avatar) return undefined;
+  try {
+    return JSON.parse(wallet.avatar) as ITrayWalletAvatarInfo;
+  } catch {
+    return undefined;
+  }
+}
+
+function buildTrayWalletInfo(
+  wallet: IDBWallet | undefined,
+  fallbackName = '',
+): ITrayData['wallet'] {
+  const walletInfo: ITrayData['wallet'] = {
+    id: wallet?.id,
+    name: wallet?.name || fallbackName,
+    emoji: '',
+    avatarImg: '',
+    type: wallet?.type,
+    passphraseState: wallet?.passphraseState,
+    firmwareTypeAtCreated: wallet?.firmwareTypeAtCreated,
+  };
+
+  const avatarInfo = getTrayWalletAvatarInfo(wallet);
+  if (avatarInfo) {
+    walletInfo.avatarInfo = avatarInfo;
+    if (avatarInfo.emoji && avatarInfo.emoji !== 'img') {
+      walletInfo.emoji = avatarInfo.emoji;
+    }
+    if (avatarInfo.img) {
+      walletInfo.avatarImg = avatarInfo.img;
+    }
+  }
+
+  if (wallet && !walletInfo.emoji && !walletInfo.avatarImg) {
+    if (wallet.type === 'watching') {
+      walletInfo.emoji = '👁';
+    } else if (wallet.type === 'hw') {
+      walletInfo.emoji = '🔑';
+    } else {
+      walletInfo.emoji = '💰';
+    }
+  }
+
+  return walletInfo;
+}
+
+function buildTrayAccountInfo({
+  accountName,
+  account,
+  indexedAccount,
+  dbAccount,
+}: {
+  accountName: string;
+  account: { id?: string; address?: string } | undefined;
+  indexedAccount: IDBIndexedAccount | undefined;
+  dbAccount: IDBAccount | undefined;
+}): ITrayData['account'] {
+  const avatar: ITrayAccountAvatarInfo = {};
+  if (indexedAccount) {
+    avatar.indexedAccount = {
+      id: indexedAccount.id,
+      idHash: indexedAccount.idHash,
+    };
+  }
+  if (account) {
+    avatar.account = {
+      id: account.id,
+      address: account.address,
+    };
+  }
+  if (dbAccount) {
+    const dbAccountWithConnection = dbAccount as IDBAccount & {
+      connectionInfo?: unknown;
+    };
+    avatar.dbAccount = {
+      id: dbAccountWithConnection.id,
+      address: dbAccountWithConnection.address,
+      connectionInfo: dbAccountWithConnection.connectionInfo,
+    };
+  }
+  if (!avatar.indexedAccount && !avatar.account && !avatar.dbAccount) {
+    const address = account?.address || dbAccount?.address;
+    if (address) {
+      avatar.address = address;
+    }
+  }
+
+  return Object.keys(avatar).length
+    ? { name: accountName, avatar }
+    : { name: accountName };
+}
+
 type ITrayEnabledNetworkScope = {
   enabledNetworkIds: string[];
   enabledNetworksCompatibleWithWalletId: Array<{ id: string }>;
@@ -266,7 +372,7 @@ export function useTrayDataProvider() {
   const [appIsLocked] = useAppIsLockedAtom();
   const [{ enableMenuBarTray }] = useSettingsPersistAtom();
   const {
-    activeAccount: { wallet, accountName, account },
+    activeAccount: { wallet, accountName, account, indexedAccount, dbAccount },
   } = useActiveAccount({ num: 0 });
   // Guard every effect on this predicate so flipping the setting tears
   // down IPC/event subscriptions and re-subscribes without remounting.
@@ -279,6 +385,10 @@ export function useTrayDataProvider() {
   walletRef.current = wallet;
   const accountRef = useRef(account);
   accountRef.current = account;
+  const indexedAccountRef = useRef(indexedAccount);
+  indexedAccountRef.current = indexedAccount;
+  const dbAccountRef = useRef(dbAccount);
+  dbAccountRef.current = dbAccount;
   const accountNameRef = useRef<string>('');
   accountNameRef.current = accountName || '';
   // Seed with the current accountId so the first mount isn't mis-detected as
@@ -315,8 +425,13 @@ export function useTrayDataProvider() {
       locale,
       accountId: activeAccountId,
       pendingTxsCleared: pendingTxsClearedRef.current,
-      wallet: { name: '', emoji: '', avatarImg: '' },
-      account: { name: accountNameRef.current },
+      wallet: buildTrayWalletInfo(undefined),
+      account: buildTrayAccountInfo({
+        accountName: accountNameRef.current,
+        account: accountRef.current,
+        indexedAccount: indexedAccountRef.current,
+        dbAccount: dbAccountRef.current,
+      }),
       totalBalance: {
         amount: '0.00',
         currency: 'USD',
@@ -340,8 +455,13 @@ export function useTrayDataProvider() {
         locale,
         accountId: activeAccountId,
         pendingTxsCleared: pendingTxsClearedRef.current,
-        wallet: { name: '', emoji: '', avatarImg: '' },
-        account: { name: accountNameRef.current },
+        wallet: buildTrayWalletInfo(undefined),
+        account: buildTrayAccountInfo({
+          accountName: accountNameRef.current,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        }),
         totalBalance: {
           amount: '0.00',
           currency: displayCurrency,
@@ -353,29 +473,7 @@ export function useTrayDataProvider() {
 
       const currentWallet = walletRef.current;
       if (currentWallet) {
-        trayData.wallet.name = currentWallet.name || 'Wallet';
-        if (currentWallet.avatar) {
-          try {
-            const avatarInfo = JSON.parse(currentWallet.avatar);
-            if (avatarInfo?.emoji && avatarInfo.emoji !== 'img') {
-              trayData.wallet.emoji = avatarInfo.emoji;
-            }
-            if (avatarInfo?.img) {
-              trayData.wallet.avatarImg = avatarInfo.img;
-            }
-          } catch {
-            // avatar is not JSON
-          }
-        }
-        if (!trayData.wallet.emoji && !trayData.wallet.avatarImg) {
-          if (currentWallet.type === 'watching') {
-            trayData.wallet.emoji = '👁';
-          } else if (currentWallet.type === 'hw') {
-            trayData.wallet.emoji = '🔑';
-          } else {
-            trayData.wallet.emoji = '💰';
-          }
-        }
+        trayData.wallet = buildTrayWalletInfo(currentWallet, 'Wallet');
       }
 
       // Tray is always cross-network (spec non-goal #1) — pass the
@@ -703,8 +801,13 @@ export function useTrayDataProvider() {
         locale,
         accountId: activeAccountId,
         pendingTxsCleared: pendingTxsClearedRef.current,
-        wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
-        account: { name: accountNameRef.current },
+        wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
+        account: buildTrayAccountInfo({
+          accountName: accountNameRef.current,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        }),
         totalBalance: {
           amount: '0.00',
           currency: 'USD',
@@ -918,12 +1021,13 @@ export function useTrayDataProvider() {
         // Fall back to 'Wallet' — an empty name falls through to the
         // `noWallet` empty-state branch in TrayPanel, which would replace
         // the optimistic zeros with a full-panel "no wallet" screen.
-        wallet: {
-          name: walletRef.current?.name || 'Wallet',
-          emoji: '',
-          avatarImg: '',
-        },
-        account: { name: accountNameRef.current },
+        wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
+        account: buildTrayAccountInfo({
+          accountName: accountNameRef.current,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        }),
         totalBalance: {
           amount: '0.00',
           currency: 'USD',

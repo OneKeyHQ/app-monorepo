@@ -37,6 +37,29 @@ export interface ITrayWatchlistItem {
   stock?: IMarketStockInfo;
 }
 
+export interface ITrayWalletAvatarInfo {
+  img?: string;
+  emoji?: string;
+  bgColor?: string;
+}
+
+export interface ITrayAccountAvatarInfo {
+  address?: string;
+  indexedAccount?: {
+    id?: string;
+    idHash?: string;
+  };
+  account?: {
+    id?: string;
+    address?: string;
+  };
+  dbAccount?: {
+    id?: string;
+    address?: string;
+    connectionInfo?: unknown;
+  };
+}
+
 export interface ITrayData {
   isLocked?: boolean;
   // When true, main keeps previous cachedTrayData so the panel still shows
@@ -52,14 +75,20 @@ export interface ITrayData {
   // wallet switch; without it, old-account txs would look "confirmed".
   accountId?: string;
   wallet: {
+    id?: string;
     name: string;
     emoji: string;
     avatarImg: string;
+    avatarInfo?: ITrayWalletAvatarInfo;
+    type?: string;
+    passphraseState?: string;
+    firmwareTypeAtCreated?: unknown;
   };
   // Active account's display name (e.g. "Account 1"); wallet.name covers
   // the wallet/HD identity only. Empty string when unavailable (cold start).
   account: {
     name: string;
+    avatar?: ITrayAccountAvatarInfo;
   };
   totalBalance: {
     amount: string;
