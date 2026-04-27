@@ -471,6 +471,9 @@ function useAllNetworkRequests<T>(params: {
       runCountRef.current += 1;
       isFetching.current = true;
 
+      let onStartedError: unknown;
+      let onStartedTask: Promise<void> | undefined;
+
       try {
         if (!allNetworkDataInit.current) {
           clearAllNetworkData();
@@ -484,8 +487,6 @@ function useAllNetworkRequests<T>(params: {
           allNetworkDataInit: !!allNetworkDataInit.current,
         });
 
-        let onStartedError: unknown;
-        let onStartedTask: Promise<void> | undefined;
         if (onStarted) {
           onStartedTask = onStarted({
             accountId: currentAccountId,
@@ -780,6 +781,18 @@ function useAllNetworkRequests<T>(params: {
         return resp;
       } finally {
         isFetching.current = false;
+        // Wait for onStarted to settle before firing onFinished, so
+        // the started/finished events for this run land in monotonic
+        // order (true -> false). Without this, an early throw above
+        // can fire onFinished while onStarted is still in flight,
+        // letting a stale "isRefreshing: true" arrive after "false".
+        if (onStartedTask) {
+          try {
+            await onStartedTask;
+          } catch (e) {
+            console.error(e);
+          }
+        }
         // Fire onFinished from finally so the "isRefreshing: false" signal
         // (consumed by DeFi tab's runAfterTokensDone) is always emitted —
         // even when the work above threw before reaching the prior call site.
