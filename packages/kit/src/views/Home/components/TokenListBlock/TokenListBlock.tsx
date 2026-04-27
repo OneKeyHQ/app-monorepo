@@ -26,6 +26,7 @@ import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
+import { getTokenListOwnerCacheAccountId } from '@onekeyhq/kit/src/components/TokenListView/utils';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
@@ -1600,9 +1601,11 @@ function TokenListBlock({
   // The async `initTokenListData` below still fetches the latest local cache
   // and overwrites these atoms with fresh data once it returns.
   useLayoutEffect(() => {
-    const currentAccountId = mergeDeriveAddressData
-      ? indexedAccount?.id
-      : account?.id;
+    const currentAccountId = getTokenListOwnerCacheAccountId({
+      accountId: account?.id,
+      indexedAccountId: indexedAccount?.id,
+      mergeDeriveAddressData: !!mergeDeriveAddressData,
+    });
     const currentNetworkId = network?.id;
     if (!currentAccountId || !currentNetworkId) return;
     if (
@@ -1618,6 +1621,7 @@ function TokenListBlock({
       | {
           tokens: IAccountToken[];
           tokenListMap?: Record<string, ITokenFiat>;
+          aggregateTokensMap?: Record<string, Record<string, ITokenFiat>>;
           accountId: string;
           networkId: string;
         }
@@ -1637,6 +1641,22 @@ function TokenListBlock({
       networkId: currentNetworkId,
     });
     refreshAllTokenListMap({ tokens: cached.tokenListMap });
+    // Restore the aggregate-token source map so cached aggregate tokens
+    // render against their own balances/prices instead of the previous
+    // owner's map. Older entries without it leave the atom alone — the
+    // async fetch below will refill it.
+    if (cached.aggregateTokensMap) {
+      refreshAggregateTokensMap({ tokens: cached.aggregateTokensMap });
+    }
+    // The cache only stores the high-value `tokens` and `tokenListMap`.
+    // Reset small-balance and risky atoms here so the footer counts/value
+    // and risky list don't briefly mirror the previous owner until the
+    // async fetch (initTokenListData) repopulates them.
+    refreshSmallBalanceTokenList({ smallBalanceTokens: [], keys: cacheKeys });
+    refreshSmallBalanceTokenListMap({ tokens: {} });
+    refreshSmallBalanceTokensFiatValue({ value: '0' });
+    refreshRiskyTokenList({ riskyTokens: [], keys: cacheKeys });
+    refreshRiskyTokenListMap({ tokens: {} });
   }, [
     account?.id,
     indexedAccount?.id,
@@ -1649,6 +1669,12 @@ function TokenListBlock({
     refreshTokenListMap,
     refreshAllTokenList,
     refreshAllTokenListMap,
+    refreshAggregateTokensMap,
+    refreshSmallBalanceTokenList,
+    refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
+    refreshRiskyTokenList,
+    refreshRiskyTokenListMap,
   ]);
 
   useEffect(() => {
@@ -2240,6 +2266,7 @@ function TokenListBlock({
         accountId={account?.id ?? ''}
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}
+        mergeDeriveAddressData={!!mergeDeriveAddressData}
         allAggregateTokenMap={allAggregateTokenMap}
         showNetworkIcon={!!network?.isAllNetworks}
         hideZeroBalanceTokens={!!network?.isAllNetworks}
@@ -2291,6 +2318,7 @@ function TokenListBlock({
     intl,
     isAllNetworkEmptyAccount,
     manageTokenEnabled,
+    mergeDeriveAddressData,
     network?.id,
     network?.isAllNetworks,
     network?.name,

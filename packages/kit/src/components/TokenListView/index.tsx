@@ -44,6 +44,7 @@ import {
   RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS,
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
+  useAggregateTokensMapAtom,
   useAllTokenListAtom,
   useFlattenAggregateTokensMapAtom,
   useRenderedTokenListCacheAtom,
@@ -68,11 +69,17 @@ import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
 import { TokenListViewContext } from './TokenListViewContext';
+import { getTokenListOwnerCacheAccountId } from './utils';
 
 type IProps = {
   accountId: string;
   networkId: string;
   indexedAccountId: string | undefined;
+  // When true, the per-owner rendered cache is keyed by `indexedAccountId`
+  // instead of `accountId` so the same logical owner survives derive-type
+  // switches in merge mode. Mirrors the read-side rule in TokenListBlock's
+  // useLayoutEffect cache hydrator.
+  mergeDeriveAddressData?: boolean;
   tableLayout?: boolean;
   onPressToken?: (token: IAccountToken) => void;
   withHeader?: boolean;
@@ -162,6 +169,7 @@ function TokenListViewCmp(props: IProps) {
     accountId,
     networkId,
     indexedAccountId,
+    mergeDeriveAddressData,
     searchKeyLengthThreshold,
     plainMode,
     limit,
@@ -184,6 +192,10 @@ function TokenListViewCmp(props: IProps) {
   const [allTokenList] = useAllTokenListAtom();
   const [tokenListMap] = useTokenListMapAtom();
   const [aggregateTokenMap] = useFlattenAggregateTokensMapAtom();
+  // Raw nested aggregate-token map — persisted alongside `tokenListMap` so
+  // a paint-time hydrate can restore aggregate-token balance/value together
+  // with the regular token map.
+  const [rawAggregateTokensMap] = useAggregateTokensMapAtom();
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
@@ -218,8 +230,18 @@ function TokenListViewCmp(props: IProps) {
     (allTokenList.accountId !== accountId ||
       allTokenList.networkId !== networkId);
 
+  // Owner-aware cache key: in merge mode, keyed by indexedAccountId so the
+  // logical owner survives derive-type switches that change accountId.
+  // Read in TokenListBlock's pre-paint hydrate uses the same rule.
+  const ownerCacheAccountId = getTokenListOwnerCacheAccountId({
+    accountId,
+    indexedAccountId,
+    mergeDeriveAddressData,
+  });
   const ownerCacheKey =
-    accountId && networkId ? `${accountId}__${networkId}` : '';
+    ownerCacheAccountId && networkId
+      ? `${ownerCacheAccountId}__${networkId}`
+      : '';
 
   const tokens = useMemo(() => {
     if (ownerMismatch) {
@@ -375,6 +397,7 @@ function TokenListViewCmp(props: IProps) {
             {
               tokens: IAccountToken[];
               tokenListMap?: Record<string, ITokenFiat>;
+              aggregateTokensMap?: Record<string, Record<string, ITokenFiat>>;
               accountId: string;
               networkId: string;
             }
@@ -415,6 +438,11 @@ function TokenListViewCmp(props: IProps) {
         nextByOwner[ownerCacheKey] = {
           tokens,
           tokenListMap,
+          // Persist the raw aggregate-token map alongside `tokenListMap`
+          // so the read-side hydrate can refresh `aggregateTokensMapAtom`
+          // atomically — without it, cached tokens render with the
+          // previous owner's aggregate balance/value briefly.
+          aggregateTokensMap: rawAggregateTokensMap,
           accountId,
           networkId,
         };
@@ -439,6 +467,7 @@ function TokenListViewCmp(props: IProps) {
     ownerCacheKey,
     tokens,
     tokenListMap,
+    rawAggregateTokensMap,
     tokenListState.initialized,
     tokenListState.isRefreshing,
     setRenderedTokenListCache,

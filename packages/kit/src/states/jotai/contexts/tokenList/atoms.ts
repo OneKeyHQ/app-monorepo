@@ -229,6 +229,14 @@ export const {
       // Optional in the read type because entries persisted by an earlier
       // build don't carry it. Fresh writes always include it.
       tokenListMap?: Record<string, ITokenFiat>;
+      // Raw nested aggregate-token map (the source for
+      // `flattenAggregateTokensMapAtom`). Cached so a paint-time hydrate can
+      // restore aggregate-token balance/value alongside `tokenListMap` —
+      // without this, rendering cached tokens against stale aggregate data
+      // briefly mis-attributes balances after a network/account switch.
+      // Optional because legacy entries persisted by an earlier build don't
+      // carry it; legacy entries are skipped on the read side.
+      aggregateTokensMap?: Record<string, Record<string, ITokenFiat>>;
       accountId: string;
       networkId: string;
     }
