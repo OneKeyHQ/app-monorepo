@@ -11,7 +11,6 @@ import { getProtocolConfig } from './swap-protocol-config';
 
 import type { IEndpointEnv } from '../../config';
 import type { OutputFormatter } from '../../output';
-import type { EvmSigner } from '../../signer/impls/evm/EvmSigner';
 import type { Command } from 'commander';
 
 // --- API response types (aligned with transfer.ts) ---
@@ -476,7 +475,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
           }
 
           // Get wallet address early — needed for allowance check and address validation
-          const signer = (await getSignerByImpl(chainConfig.impl)) as EvmSigner;
+          const signer = await getSignerByImpl(chainConfig.impl);
           const addressInfo = await signer.getAddress(chainConfig.networkId);
           const fromAddress = addressInfo.address;
 
@@ -607,10 +606,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
             skipConfirmation,
           });
 
-          // Prepare sign credentials once for both approve + swap
-          const hdCredential = await signer.getHdCredential();
-          const encodedPassword = await signer.getEncodedPassword();
-          const networkInfo = signer.buildNetworkInfo(chainConfig.networkId);
+          // Common account info for all sign calls
           const accountForSign = {
             address: fromAddress,
             path: addressInfo.path ?? "m/44'/60'/0'/0/0",
@@ -658,9 +654,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
                   chainConfig.feeDecimals,
                 );
                 const resetSigned = await signer.signTransaction({
-                  networkInfo,
-                  password: encodedPassword,
-                  credentials: { hd: hdCredential },
+                  networkId: chainConfig.networkId,
                   account: accountForSign,
                   unsignedTx: { encodedTx: resetBuilt.encodedTx },
                 });
@@ -727,9 +721,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
                   : undefined,
               );
               const approveSigned = await signer.signTransaction({
-                networkInfo,
-                password: encodedPassword,
-                credentials: { hd: hdCredential },
+                networkId: chainConfig.networkId,
                 account: accountForSign,
                 unsignedTx: { encodedTx: approveBuilt.encodedTx },
               });
@@ -839,9 +831,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
             }
 
             const swapSignedTx = await signer.signTransaction({
-              networkInfo,
-              password: encodedPassword,
-              credentials: { hd: hdCredential },
+              networkId: chainConfig.networkId,
               account: accountForSign,
               unsignedTx: { encodedTx: swapBuilt.encodedTx },
             });
@@ -883,13 +873,13 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 status: 'executed',
                 txHash: swapResult.result,
                 ...(approveTxHash ? { approveTxHash } : {}),
-                chain: options.chain,
+                chain: order.chain,
                 from: order.fromToken.symbol,
                 to: order.toToken.symbol,
                 amount: order.amount,
                 message: successMsg,
               },
-              { chain: options.chain },
+              { chain: order.chain },
             );
           } catch (swapError) {
             // Approve succeeded but swap failed — mark as approve_only
