@@ -85,5 +85,8 @@ export default {
     'apps/mobile/src/splitBundle/__tests__/healthCheck\\.test',
     // Reason: same global-state isolation issue as healthCheck
     'apps/mobile/src/splitBundle/__tests__/segmentManifest\\.test',
+    // Reason: renders full app shell (ReadyScreen) — exhausts the long-running
+    // shared Android process and crash-monitor kills the runner
+    'packages/kit/src/views/Earn/hooks/useRecommendedRefreshTrigger/useRecommendedRefreshScope\\.test',
   ],
 };
