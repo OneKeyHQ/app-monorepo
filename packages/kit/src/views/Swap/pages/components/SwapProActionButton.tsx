@@ -34,7 +34,7 @@ import {
   useSwapProInputToken,
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
-import { useSwapQuoteLoading } from '../../hooks/useSwapState';
+import { useSwapQuoteProgressState } from '../../hooks/useSwapState';
 
 const MAX_BUTTON_CHARS = 25;
 
@@ -157,7 +157,7 @@ const SwapProActionButton = ({
   const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProAccount = useSwapProAccount();
-  const quoteLoading = useSwapQuoteLoading();
+  const { isWaitingActionableQuote } = useSwapQuoteProgressState();
   const currencyInfo = useCurrency();
   const [quoteFetching] = useSwapSpeedQuoteFetchingAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
@@ -351,8 +351,8 @@ const SwapProActionButton = ({
     if (swapProTradeType === ESwapProTradeType.MARKET) {
       return quoteFetching;
     }
-    return quoteLoading;
-  }, [swapProTradeType, quoteLoading, quoteFetching]);
+    return isWaitingActionableQuote;
+  }, [swapProTradeType, isWaitingActionableQuote, quoteFetching]);
   const actionButtonDisabled = useMemo(() => {
     let originalDisabled =
       !hasEnoughBalance ||
