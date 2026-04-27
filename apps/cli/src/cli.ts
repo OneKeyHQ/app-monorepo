@@ -7,6 +7,7 @@ import {
   handleAuthCommandDiscoveryFallback,
   registerAuthCommands,
   registerBalanceCommand,
+  registerDeviceCommands,
   registerLogoutCommand,
   registerMarketCommands,
   registerSchemaCommand,
@@ -18,6 +19,7 @@ import {
   registerVersionCommand,
   registerWalletHistoryCommand,
 } from './commands';
+import { disposeSDK } from './commands/device/hardware-sdk';
 import { secureCache } from './core';
 import { createSignalCleanupHandler } from './core/auth/auth-flow-interruption';
 import { ERROR_CODES } from './errors';
@@ -84,13 +86,17 @@ registerSwapCommands(program);
 registerSecurityCommands(program);
 registerWalletHistoryCommand(program);
 registerSchemaCommand(program);
+registerDeviceCommands(program);
 
-// Signal handlers: use Unix-conventional exit codes (128 + signal number)
+// Signal handlers: use Unix-conventional exit codes (128 + signal number).
+// disposeHardwareSdk releases the USB transport — otherwise Node hangs ~26s
+// waiting on open handles (poll timers, event listeners).
 process.on(
   'SIGINT',
   createSignalCleanupHandler({
     exitCode: 130,
     clearSecureCache: () => secureCache.clearAll(),
+    disposeHardwareSdk: () => disposeSDK(),
   }),
 );
 process.on(
@@ -98,6 +104,7 @@ process.on(
   createSignalCleanupHandler({
     exitCode: 143,
     clearSecureCache: () => secureCache.clearAll(),
+    disposeHardwareSdk: () => disposeSDK(),
   }),
 );
 process.on(
@@ -105,9 +112,34 @@ process.on(
   createSignalCleanupHandler({
     exitCode: 129,
     clearSecureCache: () => secureCache.clearAll(),
+    disposeHardwareSdk: () => disposeSDK(),
   }),
 );
 
-if (!handleAuthCommandDiscoveryFallback(process.argv.slice(2))) {
-  program.parse();
+// Normal exit path: Commander actions set process.exitCode and return.
+// The USB transport keeps the event loop alive (poll timers + libusb
+// native handles), so Node never idles and `beforeExit` never fires.
+// We have to dispose explicitly — Commander's `postAction` runs right
+// after the command's action promise resolves, then we force-exit to
+// cover any other lingering handles.
+program.hook('postAction', async () => {
+  try {
+    await disposeSDK();
+  } catch {
+    // Best-effort — dispose errors shouldn't block exit.
+  }
+});
+
+async function main(): Promise<void> {
+  if (handleAuthCommandDiscoveryFallback(process.argv.slice(2))) {
+    return;
+  }
+  await program.parseAsync();
 }
+
+void main().finally(() => {
+  // Force exit: `postAction` disposed the SDK, but some third-party
+  // handles (e.g. fake-indexeddb, axios keep-alive sockets) may still
+  // delay idle detection. An explicit exit keeps command turnaround snappy.
+  process.exit(process.exitCode ?? 0);
+});
