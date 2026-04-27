@@ -14,15 +14,13 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import {
-  usePerpsActiveAssetAtom,
-  useTradingModeAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useTradingModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
@@ -54,17 +52,24 @@ function PerpBadgesRow() {
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
-  const [asset] = usePerpsActiveAssetAtom();
+  const { baseName, rawBaseName, coin } = useActiveTradeDisplay();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const [fetchedTokenSearchAliases, setFetchedTokenSearchAliases] = useState<
     ITokenSearchAliases | undefined
   >(undefined);
   const effectiveTokenSearchAliases =
     tokenSearchAliases ?? fetchedTokenSearchAliases;
-  const subtitle = useMemo(
-    () => getTokenSubtitle(asset?.coin ?? '', effectiveTokenSearchAliases),
-    [asset?.coin, effectiveTokenSearchAliases],
-  );
+  const subtitle = useMemo(() => {
+    if (isSpot) {
+      // Match the dual-lookup pattern in token selectors: server aliases may
+      // be keyed by display name or raw baseName.
+      return (
+        getTokenSubtitle(baseName, effectiveTokenSearchAliases) ??
+        getTokenSubtitle(rawBaseName, effectiveTokenSearchAliases)
+      );
+    }
+    return getTokenSubtitle(coin, effectiveTokenSearchAliases);
+  }, [isSpot, baseName, rawBaseName, coin, effectiveTokenSearchAliases]);
 
   // Fetch builder fee once on mount (independent of alias state)
   useEffect(() => {

@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -73,7 +74,13 @@ function ContractAddressCell({
   size?: '$bodyXs' | '$bodySmMedium';
 }) {
   const { copyText } = useClipboard();
-  if (!contract) return null;
+  if (!contract) {
+    return (
+      <SizableText size={size} color="$textSubdued">
+        --
+      </SizableText>
+    );
+  }
   const shortened = `${contract.slice(0, 6)}...${contract.slice(-4)}`;
   return (
     <XStack gap="$1" alignItems="center">
@@ -88,6 +95,16 @@ function ContractAddressCell({
         onPress={(e) => {
           e?.stopPropagation?.();
           copyText(contract);
+        }}
+      />
+      <IconButton
+        size="small"
+        variant="tertiary"
+        icon="OpenOutline"
+        iconProps={{ size: '$3', color: '$iconSubdued' }}
+        onPress={(e) => {
+          e?.stopPropagation?.();
+          void openHyperLiquidTokenExplorerUrl({ tokenId: contract });
         }}
       />
     </XStack>
@@ -218,17 +235,25 @@ function BalanceRowDesktop({
 
     if (cell.key === 'coin') {
       return (
-        <SizableText
-          size="$bodySmMedium"
-          fontWeight={600}
-          color={isAssetClickable ? '$green11' : undefined}
-          onPress={onChangeAsset}
+        <XStack
+          minWidth={0}
+          alignItems="center"
+          gap="$2"
+          onPress={isAssetClickable ? onChangeAsset : undefined}
           cursor={isAssetClickable ? 'pointer' : 'default'}
-          hoverStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
-          pressStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
         >
-          {cell.cellValue}
-        </SizableText>
+          <Token size="xs" tokenImageUri={item.logoURI} />
+          <SizableText
+            size="$bodySmMedium"
+            fontWeight={600}
+            color={isAssetClickable ? '$green11' : undefined}
+            numberOfLines={1}
+            hoverStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
+            pressStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
+          >
+            {cell.cellValue}
+          </SizableText>
+        </XStack>
       );
     }
 

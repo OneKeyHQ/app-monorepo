@@ -7,18 +7,29 @@ jest.mock('@onekeyhq/core/src/secret', () => ({
 jest.mock(
   '../../packages/core/src/chains/evm',
   () => {
-    // noop — the EvmSigner lazy-loads this, we don't exercise it here
+    // noop — SignerHd lazy-loads this, we don't exercise it here
   },
   { virtual: true },
 );
 
+// getSignerByImpl auto-auths via requireAuthenticatedSession; stub it so
+// tests don't need a real session on disk.
+jest.mock('../core/auth/auth-gate', () => ({
+  requireAuthenticatedSession: jest.fn(async () => ({
+    authStatus: 'authenticated',
+    hasSecrets: true,
+    storageBackend: 'macos-keychain',
+    walletKind: 'hd',
+  })),
+}));
+
 import { getSignerByImpl } from '../signer/factory';
-import { EvmSigner } from '../signer/impls/evm/EvmSigner';
+import { SignerHd } from '../signer/impls/evm/SignerHd';
 
 describe('signer factory', () => {
-  it('returns EvmSigner for evm impl', async () => {
+  it('returns SignerHd for evm impl', async () => {
     const signer = await getSignerByImpl('evm');
-    expect(signer).toBeInstanceOf(EvmSigner);
+    expect(signer).toBeInstanceOf(SignerHd);
   });
 
   it('throws for unsupported impl', async () => {

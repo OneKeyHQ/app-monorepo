@@ -31,7 +31,10 @@ import {
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getSpotTokenDisplayName,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
@@ -151,7 +154,8 @@ function SideButtonInternal({
       .toFixed(szDecimals);
     const displayName = (() => {
       if (isSpot && activeTradeInstrument.mode === 'spot') {
-        return activeTradeInstrument.universe?.displayName ?? '';
+        const u = activeTradeInstrument.universe;
+        return u ? getSpotTokenDisplayName(u.displayName || u.baseName) : '';
       }
       const symbol = activeAsset?.coin || '';
       return symbol ? parseDexCoin(symbol).displayName : '';
@@ -171,11 +175,9 @@ function SideButtonInternal({
     if (!isSpot || activeTradeInstrument.mode !== 'spot') {
       return '';
     }
-    return (
-      activeTradeInstrument.universe?.displayName ||
-      activeTradeInstrument.universe?.baseName ||
-      ''
-    );
+    const u = activeTradeInstrument.universe;
+    if (!u) return '';
+    return getSpotTokenDisplayName(u.displayName || u.baseName);
   }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
@@ -360,7 +362,10 @@ function SideButtonInternal({
           if (tradingPreferences.sizeInputUnit === 'token') {
             const coinSymbol = (() => {
               if (isSpot && activeTradeInstrument.mode === 'spot') {
-                return activeTradeInstrument.universe?.displayName ?? '';
+                const u = activeTradeInstrument.universe;
+                return u
+                  ? getSpotTokenDisplayName(u.displayName || u.baseName)
+                  : '';
               }
               return activeAsset?.coin
                 ? parseDexCoin(activeAsset.coin).displayName

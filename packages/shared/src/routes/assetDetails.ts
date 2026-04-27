@@ -58,6 +58,6 @@ export type IModalAssetDetailsParamList = {
   };
   [EModalAssetDetailRoutes.DeFiProtocolDetails]: {
     protocol: IDeFiProtocol;
-    protocolInfo: IProtocolSummary;
+    protocolInfo?: IProtocolSummary;
   };
 };

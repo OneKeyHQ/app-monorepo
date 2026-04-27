@@ -13,6 +13,12 @@ export type IDependencies = {
 };
 
 let bridgeInstance: BridgeProcess;
+
+export const restartBridge = async () => {
+  logger.debug('bridge: ', 'Restarting');
+  await bridgeInstance?.restart();
+};
+
 export const launchBridge = async () => {
   const bridge = new BridgeProcess();
 
@@ -20,7 +26,6 @@ export const launchBridge = async () => {
     logger.info('bridge: Staring');
     await bridge.start();
     bridgeInstance = bridge;
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     BridgeHeart.start(() => restartBridge());
   } catch (err) {
     logger.error(`bridge: Start failed: ${(err as Error).message}`);
@@ -31,11 +36,6 @@ export const launchBridge = async () => {
     logger.info('bridge', 'Stopping when app quit');
     void bridge.stop();
   });
-};
-
-export const restartBridge = async () => {
-  logger.debug('bridge: ', 'Restarting');
-  await bridgeInstance?.restart();
 };
 
 const init = async () => {

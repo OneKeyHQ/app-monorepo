@@ -9,13 +9,17 @@ export interface IWalletReferralCode {
   pubkey: string;
   isBound: boolean;
   createdAt?: number;
+  bindable?: boolean;
+  bindWindowReason?: string;
 }
 
 export interface IReferralCodeData {
   myReferralCode: string;
   postConfig?: IInvitePostConfig;
   walletReferralCode?: Record<string, IWalletReferralCode>;
+  walletCreationRecordTimestamps?: Record<string, string>;
   cachedInviteCode?: string;
+  creationRecordsMigrationDone?: boolean;
 }
 
 export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCodeData> {
@@ -82,8 +86,53 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
               pubkey: referralCodeInfo.pubkey,
               isBound: referralCodeInfo.isBound,
               createdAt: Date.now(),
+              bindable: referralCodeInfo.bindable,
+              bindWindowReason: referralCodeInfo.bindWindowReason,
             },
           },
+        }) as IReferralCodeData,
+    );
+  }
+
+  async getWalletCreationRecordTimestamp({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<string | undefined> {
+    const rawData = await this.getRawData();
+    return rawData?.walletCreationRecordTimestamps?.[walletId];
+  }
+
+  async setWalletCreationRecordTimestamp({
+    walletId,
+    walletCreatedAt,
+  }: {
+    walletId: string;
+    walletCreatedAt: string;
+  }) {
+    return this.setRawData(
+      (rawData) =>
+        ({
+          ...rawData,
+          walletCreationRecordTimestamps: {
+            ...rawData?.walletCreationRecordTimestamps,
+            [walletId]: walletCreatedAt,
+          },
+        }) as IReferralCodeData,
+    );
+  }
+
+  async isCreationRecordsMigrationDone(): Promise<boolean> {
+    const rawData = await this.getRawData();
+    return rawData?.creationRecordsMigrationDone ?? false;
+  }
+
+  async setCreationRecordsMigrationDone() {
+    return this.setRawData(
+      (rawData) =>
+        ({
+          ...rawData,
+          creationRecordsMigrationDone: true,
         }) as IReferralCodeData,
     );
   }
@@ -103,6 +152,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
       myReferralCode: '',
       postConfig: undefined,
       walletReferralCode: {},
+      walletCreationRecordTimestamps: {},
     });
   }
 
