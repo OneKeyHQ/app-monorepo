@@ -20,6 +20,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
+import { HeroAtmosphere } from '../components/HeroAtmosphere';
 import { OnboardingPage } from '../components/Layout';
 
 // English fallbacks kept for dev/unsynced-locale resilience.
@@ -380,6 +381,7 @@ function GetStarted() {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
 
   const handleCreateNewWallet = () => {
     navigation.push(EOnboardingPagesV2.CreateNewWallet);
@@ -450,6 +452,7 @@ function GetStarted() {
       }
     >
       <YStack
+        position="relative"
         $md={{
           flex: 1,
           px: '$5',
@@ -457,12 +460,18 @@ function GetStarted() {
         }}
         gap="$8"
       >
+        <HeroAtmosphere wordIndex={currentWordIndex} />
         <Icon name="OnekeyTextIllus" color="$text" h={48} w={174} />
         {platformEnv.isNative ? (
           <HeroSentenceNative
             prefix={heroPrefix}
             suffix={heroSuffix}
-            rotating={<HeroRotatingWord words={heroActionWords} />}
+            rotating={
+              <HeroRotatingWord
+                words={heroActionWords}
+                onWordChange={setCurrentWordIndex}
+              />
+            }
           />
         ) : (
           <XStack flexWrap="wrap" alignItems="baseline">
@@ -471,7 +480,10 @@ function GetStarted() {
                 {heroPrefix}
               </SizableText>
             ) : null}
-            <HeroRotatingWord words={heroActionWords} />
+            <HeroRotatingWord
+              words={heroActionWords}
+              onWordChange={setCurrentWordIndex}
+            />
             {heroSuffix ? (
               <SizableText size="$heading5xl" fontWeight={400}>
                 {heroSuffix}
