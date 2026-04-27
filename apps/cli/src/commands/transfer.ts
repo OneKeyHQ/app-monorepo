@@ -1,4 +1,3 @@
-import { requireAuthenticatedSession } from '../core/auth/auth-gate';
 import { resolveChain } from '../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
@@ -14,7 +13,6 @@ import {
 } from '../utils/tx-utils';
 
 import type { OutputFormatter } from '../output';
-import type { EvmSigner } from '../signer/impls/evm/EvmSigner';
 import type { Command } from 'commander';
 
 // --- API response types aligned with real contracts ---
@@ -108,8 +106,7 @@ export function registerTransferCommand(program: Command): void {
 
           const { feeDecimals, nativeDecimals, nativeSymbol } = chainConfig;
 
-          await requireAuthenticatedSession();
-          const signer = (await getSignerByImpl(chainConfig.impl)) as EvmSigner;
+          const signer = await getSignerByImpl(chainConfig.impl);
           const addressInfo = await signer.getAddress(chainConfig.networkId);
           const fromAddress = addressInfo.address;
 
@@ -326,10 +323,6 @@ export function registerTransferCommand(program: Command): void {
             skipConfirmation,
           });
 
-          // Build sign payload
-          const hdCredential = await signer.getHdCredential();
-          const encodedPassword = await signer.getEncodedPassword();
-          const networkInfo = signer.buildNetworkInfo(chainConfig.networkId);
           const chainId = chainConfig.networkId.split('--')[1];
 
           // Fetch nonce
@@ -388,21 +381,15 @@ export function registerTransferCommand(program: Command): void {
             };
           }
 
-          const signPayload = {
-            networkInfo,
-            password: encodedPassword,
-            credentials: { hd: hdCredential },
+          const signedTx = await signer.signTransaction({
+            networkId: chainConfig.networkId,
             account: {
               address: fromAddress,
               path: addressInfo.path ?? "m/44'/60'/0'/0/0",
               pub: addressInfo.publicKey,
             },
-            unsignedTx: {
-              encodedTx: encodedTxWithGas,
-            },
-          };
-
-          const signedTx = await signer.signTransaction(signPayload);
+            unsignedTx: { encodedTx: encodedTxWithGas },
+          });
 
           // #4 fix: broadcast response has { result: txHashString }
           const broadcastResult = await apiClient.post<ISendTransactionResult>(
