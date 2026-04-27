@@ -68,7 +68,11 @@ function mergeAssets(assets: (IDeFiAsset & { type: EDeFiAssetType })[]) {
   return assets.reduce(
     (acc, asset) => {
       const existingAsset = acc.find(
-        (a) => a.symbol === asset.symbol && a.address === asset.address,
+        (a) =>
+          a.symbol === asset.symbol &&
+          a.address === asset.address &&
+          a.category === asset.category &&
+          a.type === asset.type,
       );
       if (existingAsset) {
         existingAsset.value = new BigNumber(existingAsset.value)
@@ -94,6 +98,28 @@ function buildProtocolMapKey({
   networkId: string;
 }) {
   return `${networkId}-${protocol}`;
+}
+
+function buildGroupedPositionKey({ groupId }: { groupId: string }) {
+  return groupId;
+}
+
+function getSafeGroupedPositionId({
+  position,
+  positionIndex,
+}: {
+  position: IDeFiPosition;
+  positionIndex: number;
+}) {
+  const normalizedGroupId = position.groupId?.trim();
+
+  if (normalizedGroupId) {
+    return normalizedGroupId;
+  }
+
+  // Fail closed when upstream group_id is missing so unrelated positions
+  // never collapse into one UI group.
+  return `__ungrouped__${position.protocol}-${position.category}-${positionIndex}`;
 }
 
 function transferPositionMap(
@@ -160,7 +186,7 @@ function transformDeFiData({
           rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
           value: BigNumber;
         }
-      >; // key: category
+      >; // key: groupId
       categorySet: Set<string>;
     }
   >();
@@ -175,7 +201,7 @@ function transformDeFiData({
   });
 
   Object.values(positions).forEach((networkPositions) => {
-    networkPositions.forEach((position) => {
+    networkPositions.forEach((position, positionIndex) => {
       const protocolPositionsMapKey = `${position.networkId}-${position.protocol}`;
 
       if (!protocolPositionsMap.has(protocolPositionsMapKey)) {
@@ -206,18 +232,25 @@ function transformDeFiData({
             rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
             value: BigNumber;
           }
-        >; // key: category
+        >; // key: groupId
         categorySet: Set<string>;
       };
 
-      const positionKey = position.groupId;
+      const safeGroupId = getSafeGroupedPositionId({
+        position,
+        positionIndex,
+      });
+
+      const positionKey = buildGroupedPositionKey({
+        groupId: safeGroupId,
+      });
 
       if (!protocolPositionsMapValue.positionMap.has(positionKey)) {
         const { targetString, originalString } = extractParenthesizedContent(
           position.name,
         );
         protocolPositionsMapValue.positionMap.set(positionKey, {
-          groupId: position.groupId,
+          groupId: safeGroupId,
           poolName: targetString,
           poolFullName: originalString,
           category: position.category,

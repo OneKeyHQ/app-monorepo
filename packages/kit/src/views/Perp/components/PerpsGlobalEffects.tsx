@@ -746,12 +746,41 @@ function AutoPauseSubscriptions() {
   return null;
 }
 
+// Bridge for context-less callers (tray, notifications): the bg
+// `changeActiveAsset` alone leaves this context's
+// activeTradeInstrumentAtom / tradingModeAtom stale, so the UI keeps
+// rendering the previous coin.
+function useHyperliquidInstrumentSwitchRequest() {
+  const actions = useHyperliquidActions();
+  useEffect(() => {
+    const handler = (
+      payload: IAppEventBusPayload[EAppEventBusNames.PerpSwitchActiveInstrument],
+    ) => {
+      if (!payload?.coin) return;
+      // Context-less callers (tray, notifications) update bg
+      // perpsActiveAssetAtom before emitting. Without `force: true`,
+      // changeActiveAsset hits its `activeAsset?.coin === coin` early-exit
+      // and skips clearActiveAssetData / form reset / limit price update.
+      void actions.current.switchTradeInstrument({
+        mode: payload.mode,
+        coin: payload.coin,
+        force: true,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.PerpSwitchActiveInstrument, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpSwitchActiveInstrument, handler);
+    };
+  }, [actions]);
+}
+
 function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();
   usePerpTokenUrlSync();
   useHyperliquidSymbolSelect();
+  useHyperliquidInstrumentSwitchRequest();
   useHyperliquidScreenLockHandler();
   useSyncContextOrderBookOptionsToGlobal();
   useTradeRouteViewStateSync();
