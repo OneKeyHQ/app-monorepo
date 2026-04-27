@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Buffer } from 'buffer';
+import crypto from 'crypto';
 
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -47,25 +48,27 @@ import type { IBip39RevealableSeed } from '../bip39';
 yarn test packages/core/src/secret/__tests__/secret.test.ts
 */
 
+function getDeterministicRandomBytes(size: number) {
+  // Return specific bytes for deterministic encryption outputs
+  if (size === 32) {
+    return Buffer.from(
+      '94b51c8f77aa44bdf1a6071872cd89aae44fba848cf8a50c28280a9b79a56b24',
+      'hex',
+    );
+  }
+  if (size === 16) {
+    return Buffer.from('d3ebac3b568ef4e5369441a40eee4a24', 'hex');
+  }
+  if (size === 4) {
+    return Buffer.from('0efcb8ef', 'hex');
+  }
+  return Buffer.alloc(size, 0xde);
+}
+
 // Mock crypto for deterministic encryption outputs
 jest.mock('crypto', () => ({
   ...jest.requireActual('crypto'),
-  randomBytes: jest.fn().mockImplementation((size: number) => {
-    // Return specific bytes for deterministic encryption outputs
-    if (size === 32) {
-      return Buffer.from(
-        '94b51c8f77aa44bdf1a6071872cd89aae44fba848cf8a50c28280a9b79a56b24',
-        'hex',
-      );
-    }
-    if (size === 16) {
-      return Buffer.from('d3ebac3b568ef4e5369441a40eee4a24', 'hex');
-    }
-    if (size === 4) {
-      return Buffer.from('0efcb8ef', 'hex');
-    }
-    return Buffer.alloc(size, 0xde);
-  }),
+  randomBytes: jest.fn().mockImplementation(getDeterministicRandomBytes),
 }));
 
 const GET_PUB_TIMEOUT = 5118;
@@ -79,6 +82,20 @@ describe('Secret Module Tests', () => {
     'outside autumn laundry state body little sauce urge pelican hospital divide tired liberty fresh atom kidney flower travel second share arrive chicken member rice';
   const TEST_TON_MNEMONIC2 =
     'mushroom run point midnight gallery access soldier captain spring ship ready awesome exhaust resource boy blur promote immune text bean seek solar route volume';
+
+  beforeAll(() => {
+    (crypto as any).randomBytes = jest
+      .fn()
+      .mockImplementation(getDeterministicRandomBytes);
+    if (globalThis.crypto) {
+      (globalThis.crypto as any).randomBytes = (crypto as any).randomBytes;
+      (globalThis.crypto as any).getRandomValues = (array: Uint8Array) => {
+        const bytes = getDeterministicRandomBytes(array.length);
+        array.set(bytes.subarray(0, array.length));
+        return array;
+      };
+    }
+  });
 
   describe('CKDPriv', () => {
     const testPassword = 'password123';
