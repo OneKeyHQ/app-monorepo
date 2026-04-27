@@ -20,6 +20,7 @@ export function useActiveTradeDisplay() {
         coin: tradeInstrument.coin,
         displayName: formatSpotPairDisplayName(u.baseName, u.quoteName),
         baseName: getSpotTokenDisplayName(u.baseName),
+        rawBaseName: u.baseName,
         assetId: tradeInstrument.assetId,
       };
     }
@@ -32,6 +33,7 @@ export function useActiveTradeDisplay() {
       coin,
       displayName: parsed.displayName,
       baseName: parsed.displayName,
+      rawBaseName: parsed.displayName,
       assetId: tradeInstrument.assetId ?? perpsAsset.assetId,
     };
   }, [tradeInstrument, perpsAsset.coin, perpsAsset.assetId]);
