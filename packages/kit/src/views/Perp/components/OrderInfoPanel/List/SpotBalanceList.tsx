@@ -175,9 +175,7 @@ function SpotBalanceList({
       0,
     );
     const perpsUsdcTotalBN = new BigNumber(accountSummary?.totalRawUsd || '0');
-    const perpsUsdcAvailBN = new BigNumber(
-      accountSummary?.withdrawable || '0',
-    );
+    const perpsUsdcAvailBN = new BigNumber(accountSummary?.withdrawable || '0');
     const mergedUsdcTotalBN = spotUsdcTotalBN.plus(perpsUsdcTotalBN);
 
     if (mergedUsdcTotalBN.isGreaterThan(0)) {

@@ -142,8 +142,7 @@ export function PerpMobileLayout() {
     // Mirrors the spot+perps USDC merge in SpotBalanceList — count non-USDC
     // spot rows once and add 1 if either side has any USDC.
     const nonUsdcSpotCount = balances.filter(
-      (item) =>
-        item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
+      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
     ).length;
     const hasSpotUsdc = balances.some(
       (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
