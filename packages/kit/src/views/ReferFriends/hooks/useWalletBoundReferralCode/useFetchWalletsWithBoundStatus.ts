@@ -3,9 +3,11 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IBatchCheckWalletV2Item } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 
+import { resolveBatchWalletBindStatus } from './referralBindStatusUtils';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
 import type { IReferralCodeWalletInfo } from './types';
@@ -80,22 +82,35 @@ export function useFetchWalletsWithBoundStatus() {
       };
     });
 
-    // Batch check all wallets' bound status via API
-    let batchResult: Record<string, boolean> = {};
+    // Try V2 batch check first, fall back to V1
+    let batchV2Result: Record<string, IBatchCheckWalletV2Item> = {};
+    let isV1Fallback = false;
+    let didFetchStatus = false;
     try {
-      batchResult =
-        await backgroundApiProxy.serviceReferralCode.batchCheckWalletsBoundReferralCode(
+      batchV2Result =
+        await backgroundApiProxy.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2(
           batchCheckItems,
         );
-      console.log(
-        '===>>> batchCheckWalletsBoundReferralCode result:',
-        batchResult,
-      );
-    } catch (error) {
-      console.log(
-        '===>>> batchCheckWalletsBoundReferralCode error, treating all as not bound:',
-        error,
-      );
+      didFetchStatus = true;
+    } catch {
+      // V2 not available, fall back to V1
+      try {
+        const v1Result =
+          await backgroundApiProxy.serviceReferralCode.batchCheckWalletsBoundReferralCode(
+            batchCheckItems,
+          );
+        for (const [key, isBound] of Object.entries(v1Result)) {
+          batchV2Result[key] = {
+            bound: isBound,
+            bindable: !isBound,
+            reason: isBound ? 'already_bound' : undefined,
+          };
+        }
+        isV1Fallback = true;
+        didFetchStatus = true;
+      } catch {
+        // Keep local status unchanged when both status APIs are unavailable.
+      }
     }
 
     // Build result and update local database
@@ -105,7 +120,31 @@ export function useFetchWalletsWithBoundStatus() {
           item.walletInfo.networkId,
           item.walletInfo.address,
         );
-        const isBound = batchResult[key] ?? false;
+        const v2Item = batchV2Result[key];
+
+        const existing =
+          isV1Fallback || !didFetchStatus
+            ? await backgroundApiProxy.serviceReferralCode.getWalletReferralCode(
+                {
+                  walletId: item.wallet.id,
+                },
+              )
+            : undefined;
+
+        if (!didFetchStatus) {
+          return {
+            wallet: item.wallet,
+            isBound: existing?.isBound ?? false,
+            bindable: existing?.bindable ?? !existing?.isBound,
+            reason: existing?.bindWindowReason,
+          };
+        }
+
+        const resolvedStatus = resolveBatchWalletBindStatus({
+          batchStatus: v2Item,
+          isV1Fallback,
+          cachedBindable: existing?.bindable,
+        });
 
         // Update local database
         await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
@@ -115,13 +154,17 @@ export function useFetchWalletsWithBoundStatus() {
             address: item.walletInfo.address,
             networkId: item.walletInfo.networkId,
             pubkey: item.walletInfo.pubkey ?? '',
-            isBound,
+            isBound: resolvedStatus.isBound,
+            bindable: resolvedStatus.bindable,
+            bindWindowReason: resolvedStatus.bindWindowReason,
           },
         });
 
         return {
           wallet: item.wallet,
-          isBound,
+          isBound: resolvedStatus.isBound,
+          bindable: resolvedStatus.bindable,
+          reason: resolvedStatus.bindWindowReason,
         };
       }),
     );
