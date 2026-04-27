@@ -78,6 +78,18 @@ function isFromTrayWindow(event: IpcMainEvent, channel: string): boolean {
   return true;
 }
 
+export function requestDataFromMainWindow(
+  getMainWindow: () => BrowserWindow | undefined,
+): void {
+  if (isLocked) return;
+
+  const mainWindow = getMainWindow();
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.webContents.isCrashed()) return;
+
+  mainWindow.webContents.send(ipcMessageKeys.TRAY_DATA_REQUEST);
+}
+
 export function registerTrayIpcHandlers(
   getMainWindow: () => BrowserWindow | undefined,
   showMainWindow: () => void,
@@ -168,7 +180,6 @@ export function registerTrayIpcHandlers(
     }
     // Cold start: main renderer hasn't pushed data yet. Trigger a gather
     // instead of waiting for the next 30s poll tick.
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     requestDataFromMainWindow(getMainWindow);
   };
   ipcMain.on(ipcMessageKeys.TRAY_READY, onTrayReady);
@@ -180,18 +191,6 @@ export function sendCachedDataToTrayWindow(): void {
   if (trayWindow && !trayWindow.isDestroyed()) {
     trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, cachedTrayData);
   }
-}
-
-export function requestDataFromMainWindow(
-  getMainWindow: () => BrowserWindow | undefined,
-): void {
-  if (isLocked) return;
-
-  const mainWindow = getMainWindow();
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.webContents.isCrashed()) return;
-
-  mainWindow.webContents.send(ipcMessageKeys.TRAY_DATA_REQUEST);
 }
 
 export function unregisterTrayIpcHandlers(): void {

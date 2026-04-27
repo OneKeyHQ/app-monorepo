@@ -22,7 +22,7 @@ const loadSkiaOpts = {
 // degradation lives in OrbShader.native (static brand circle when the shader
 // fails to compile); there's no load phase on native so no flash there.
 export function OrbShader(props: IOrbShaderProps) {
-  const size = props.size ?? 240;
+  const { size = 240 } = props;
   return (
     <WithSkiaWeb
       getComponent={() => import('./OrbShader.native')}

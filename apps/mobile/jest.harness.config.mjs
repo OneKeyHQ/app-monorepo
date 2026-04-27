@@ -57,5 +57,36 @@ export default {
     'packages/kit/src/provider/SplashProvider\\.test',
     // Reason: uses jest.useFakeTimers + setSystemTime to pin frecency "now" — harness incompatible
     'packages/kit/src/views/Discovery/utils/searchResultRanking\\.test',
+    // Reason: indirect access to DOM `document` via ESwapStepType wiring — unavailable in RN
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapReviewActions\\.test',
+    // Reason: same DOM/timer dependency tree as useMarketSwapReviewActions
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapActions\\.test',
+    // Reason: uses jest.useFakeTimers — unsupported in harness
+    'packages/kit/src/views/Swap/hooks/useSwapIncognitoRecipientInput\\.test',
+    // Reason: Metro `require.importAll` helper missing in harness runtime
+    'packages/shared/src/utils/ipTableUtils\\.test',
+    // Reason: Metro/jest-mock helpers unavailable in harness runtime
+    'packages/shared/src/keylessWallet/keylessWalletUtils\\.test',
+    // Reason: Metro/jest-mock helpers unavailable in harness runtime
+    'packages/kit-bg/src/states/jotai/jotaiStorage\\.test',
+    // Reason: harness cannot mock read-only `NativeLogger` export the test expects
+    'apps/mobile/src/splitBundle/__tests__/installProdBundleLoader\\.test',
+    // Reason: jest.mocked() helper not available in harness runtime
+    'packages/kit/src/views/Discovery/hooks/useSearchModalData\\.test',
+    // Reason: jest.mocked() helper not available in harness runtime
+    'packages/core/src/secret/__tests__/botWallet\\.test',
+    // Reason: indirect DOM access (`document`) via React Testing Library — unavailable in RN
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/SwapPanelContent\\.test',
+    // Reason: same DOM dependency as SwapPanelContent
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/MarketSwapReviewInitializer\\.test',
+    // Reason: same DOM dependency
+    'packages/kit/src/views/Swap/pages/components/SwapReviewDialog\\.test',
+    // Reason: relies on globalThis.__SEGMENT_MANIFEST__ isolation that the harness shared runtime breaks
+    'apps/mobile/src/splitBundle/__tests__/healthCheck\\.test',
+    // Reason: same global-state isolation issue as healthCheck
+    'apps/mobile/src/splitBundle/__tests__/segmentManifest\\.test',
+    // Reason: renders full app shell (ReadyScreen) — exhausts the long-running
+    // shared Android process and crash-monitor kills the runner
+    'packages/kit/src/views/Earn/hooks/useRecommendedRefreshTrigger/useRecommendedRefreshScope\\.test',
   ],
 };
