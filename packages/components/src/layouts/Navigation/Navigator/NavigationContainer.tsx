@@ -208,6 +208,35 @@ export const switchTab = (route: ETabRoutes) => {
 };
 
 /**
+ * Atomically remove all routes above the Main route (Modal, FullScreenPush, etc.)
+ * using CommonActions.reset. No transition animation, but avoids the native
+ * UITabBarController window-nil race condition where RNSScreenStack retries
+ * exhaust when goBack() is called on a stack inside a detached tab view.
+ *
+ * Prefer this over sequential goBack() calls when you need to dismiss multiple
+ * overlay routes and the intermediate animation is not important.
+ */
+export function resetAboveMainRoute() {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) {
+    return;
+  }
+  const mainRoutes = state.routes.filter(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
+    return;
+  }
+  rootNavigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: mainRoutes,
+      index: mainRoutes.length - 1,
+    }),
+  );
+}
+
+/**
  * Async version of switchTab that serializes overlay dismiss and tab switch.
  *
  * When an overlay (Modal/FullScreenPush) is above Main, this function:
@@ -250,7 +279,6 @@ export const switchTabAsync = async (route: ETabRoutes): Promise<void> => {
   });
 
   if (rootHasOverlay) {
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     resetAboveMainRoute();
     await timerUtils.wait(100);
   }
@@ -306,35 +334,6 @@ export const popModalPagesOnNative = (maxRetryTimes = 10) => {
     popModalPagesOnNative(maxRetryTimes - 1);
   }
 };
-
-/**
- * Atomically remove all routes above the Main route (Modal, FullScreenPush, etc.)
- * using CommonActions.reset. No transition animation, but avoids the native
- * UITabBarController window-nil race condition where RNSScreenStack retries
- * exhaust when goBack() is called on a stack inside a detached tab view.
- *
- * Prefer this over sequential goBack() calls when you need to dismiss multiple
- * overlay routes and the intermediate animation is not important.
- */
-export function resetAboveMainRoute() {
-  const state = rootNavigationRef.current?.getRootState();
-  if (!state) {
-    return;
-  }
-  const mainRoutes = state.routes.filter(
-    (route) => route.name === ERootRoutes.Main,
-  );
-  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
-    return;
-  }
-  rootNavigationRef.current?.dispatch(
-    CommonActions.reset({
-      ...state,
-      routes: mainRoutes,
-      index: mainRoutes.length - 1,
-    }),
-  );
-}
 
 /**
  * Atomically remove ScanQrCodeModal and ActionCenter (FullScreenPush) routes
