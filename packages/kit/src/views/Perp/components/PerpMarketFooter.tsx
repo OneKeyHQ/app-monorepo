@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
 
@@ -12,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { GetTradingButtonStyleProps } from '../utils/styleUtils';
@@ -30,7 +30,7 @@ function PerpMarketFooter() {
   const actionsRef = useHyperliquidActions();
   const { mode } = useActiveTradeDisplay();
   const { bottom } = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useAppNavigation();
   const longButtonStyle = GetTradingButtonStyleProps('long');
   const shortButtonStyle = GetTradingButtonStyleProps('short');
 
@@ -49,16 +49,12 @@ function PerpMarketFooter() {
 
   const handleCancel = useCallback(() => {
     actionsRef.current.updateTradingForm({ side: 'long' });
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
+    navigation.pop();
   }, [actionsRef, navigation]);
 
   const handleConfirm = useCallback(() => {
     actionsRef.current.updateTradingForm({ side: 'short' });
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
+    navigation.pop();
   }, [actionsRef, navigation]);
 
   const buyButton = useMemo(
