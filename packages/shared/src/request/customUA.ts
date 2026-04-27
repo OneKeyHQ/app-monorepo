@@ -4,20 +4,20 @@ import { checkIsOneKeyDomain } from './checkIsOneKeyDomain';
 
 import platformEnv from '../platformEnv';
 
-export type ECustomUARuntime =
+export type ICustomUARuntime =
   | 'desktop-electron'
   | 'cli-node'
   | 'ios-native'
   | 'android-native';
 
-let runtimeOverride: ECustomUARuntime | null = null;
+let runtimeOverride: ICustomUARuntime | null = null;
 
-export function setCustomUARuntime(runtime: ECustomUARuntime): void {
+export function setCustomUARuntime(runtime: ICustomUARuntime): void {
   runtimeOverride = runtime;
 }
 
 export function __setCustomUARuntimeForTest(
-  runtime: ECustomUARuntime | null,
+  runtime: ICustomUARuntime | null,
 ): void {
   runtimeOverride = runtime;
 }
@@ -26,7 +26,7 @@ export function __resetCustomUARuntimeForTest(): void {
   runtimeOverride = null;
 }
 
-function detectRuntime(): ECustomUARuntime | null {
+function detectRuntime(): ICustomUARuntime | null {
   if (runtimeOverride) return runtimeOverride;
   if (platformEnv.isDesktop) return 'desktop-electron';
   if (platformEnv.isNative) {

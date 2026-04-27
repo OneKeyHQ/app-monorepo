@@ -4,7 +4,11 @@ import {
   __resetCustomUARuntimeForTest,
   __setCustomUARuntimeForTest,
   buildCustomUA,
+  shouldInjectUAForUrl,
+  withCustomUAHeaders,
 } from './customUA';
+
+import { checkIsOneKeyDomain } from './checkIsOneKeyDomain';
 
 jest.mock('../platformEnv', () => ({
   __esModule: true,
@@ -47,9 +51,7 @@ describe('buildCustomUA', () => {
   it('returns desktop-electron UA when platformEnv.isDesktop is true', async () => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
-    expect(await buildCustomUA()).toBe(
-      'OneKeyWallet/6.3.0 (desktop-electron)',
-    );
+    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0 (desktop-electron)');
   });
 
   it('returns ios-native UA when iOS native', async () => {
@@ -90,9 +92,6 @@ describe('buildCustomUA', () => {
     );
   });
 });
-
-import { checkIsOneKeyDomain } from './checkIsOneKeyDomain';
-import { shouldInjectUAForUrl, withCustomUAHeaders } from './customUA';
 
 jest.mock('./checkIsOneKeyDomain', () => ({
   __esModule: true,
@@ -148,10 +147,9 @@ describe('withCustomUAHeaders', () => {
 
   it('writes UA when host is whitelisted', async () => {
     mockedCheck.mockResolvedValueOnce(true);
-    const out = await withCustomUAHeaders(
-      'https://wallet.onekeycn.com/x',
-      { 'X-Onekey-Request-ID': 'abc' },
-    );
+    const out = await withCustomUAHeaders('https://wallet.onekeycn.com/x', {
+      'X-Onekey-Request-ID': 'abc',
+    });
     expect(out).toEqual({
       'X-Onekey-Request-ID': 'abc',
       'User-Agent': 'OneKeyWallet/6.3.0 (desktop-electron)',

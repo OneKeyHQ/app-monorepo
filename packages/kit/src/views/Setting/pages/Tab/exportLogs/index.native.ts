@@ -173,8 +173,7 @@ export const uploadLogBundle = async ({
     try {
       const mainPathHeaders = await withCustomUAHeaders(uploadUrl, {
         ...headers,
-        'content-type':
-          digest.bundle.mimeType ?? 'application/octet-stream',
+        'content-type': digest.bundle.mimeType ?? 'application/octet-stream',
       });
       const uploadTask = fileSystemModule.createUploadTask(
         uploadUrl,
