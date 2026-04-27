@@ -799,11 +799,11 @@ class ServiceReferralCode extends ServiceBase {
       params: { address, networkId },
     });
     const serverData = response.data.data;
-    const result = {
+    const result: ICheckWalletBindStatusResponse = {
       data: serverData.data,
-      bindable: serverData.bindable,
+      bindable: serverData.bindable ?? !serverData.data,
       reason: serverData.reason,
-    } as ICheckWalletBindStatusResponse;
+    };
     return result;
   }
 

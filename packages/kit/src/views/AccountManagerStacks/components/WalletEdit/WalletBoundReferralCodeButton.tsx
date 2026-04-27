@@ -53,7 +53,14 @@ function WalletBoundReferralCodeButtonView({
         const shouldBound = await getReferralCodeBondStatus({
           walletId: wallet?.id,
         });
-        return { shouldBound, isNotBindable: false };
+        const latestReferralCodeInfo =
+          await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
+            walletId: wallet?.id || '',
+          });
+        return {
+          shouldBound,
+          isNotBindable: latestReferralCodeInfo?.bindable === false,
+        };
       }
       if (shouldRevalidateReferralBindStatusCache(referralCodeInfo)) {
         const shouldBound = await getReferralCodeBondStatus({

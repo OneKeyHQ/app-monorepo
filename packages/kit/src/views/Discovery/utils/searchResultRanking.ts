@@ -992,6 +992,7 @@ function appendDappSearchResults({
   reserveLocalUrlKey?: boolean;
 }) {
   items.forEach((item) => {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     appendDappSearchResult({
       item,
       source,

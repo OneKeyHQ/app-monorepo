@@ -37,6 +37,7 @@ import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContain
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { RookieShareContainer } from './RookieShareContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
+import { ThirdPartyHardwareUiStateContainer } from './ThirdPartyHardwareUiStateContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
@@ -65,6 +66,7 @@ function DetailRouter() {
       <WalletBackupPreCheckContainer />
       <VerifyTxContainer />
       <HardwareUiStateContainer />
+      <ThirdPartyHardwareUiStateContainer />
       <PrimeLoginContainerLazy />
       <KeylessWalletContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />

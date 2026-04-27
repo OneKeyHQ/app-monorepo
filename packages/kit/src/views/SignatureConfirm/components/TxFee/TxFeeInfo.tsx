@@ -21,6 +21,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   useTheme,
   useThemeName,
@@ -66,7 +67,11 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
-import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyRpcError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -91,9 +96,15 @@ import {
 import type {
   IFeeInfoUnit,
   IFeeSelectorItem,
+  IGasAccountScenario,
   IGasPayer,
   IMultiTxsFeeSelectorItem,
 } from '@onekeyhq/shared/types/fee';
+
+import {
+  EGasAccountErrorStrategy,
+  getGasAccountErrorEntry,
+} from '../../constants/gasAccountErrorCodes';
 
 import { TxFeeEditor } from './TxFeeEditor';
 import { TxFeeSelectorTrigger } from './TxFeeSelectorTrigger';
@@ -106,6 +117,7 @@ type IProps = {
   tableLayout?: boolean;
   feeInfoWrapperProps?: React.ComponentProps<typeof Stack>;
   transferPayload?: ITransferPayload;
+  gasAccountScenario?: IGasAccountScenario;
 };
 
 const SPONSORED_COUPON_INFO_WIDTH = 56;
@@ -127,6 +139,7 @@ function TxFeeInfo(props: IProps) {
     feeInfoEditable = true,
     feeInfoWrapperProps,
     transferPayload,
+    gasAccountScenario,
   } = props;
   const intl = useIntl();
   const theme = useTheme();
@@ -183,6 +196,7 @@ function TxFeeInfo(props: IProps) {
     resetMegafuelEligible,
     updateEffectiveFeePayer,
     resetGasAccountTemporarilyDisabled,
+    updateGasAccountTemporarilyDisabled,
     updateGasAccountUiState,
     resetGasAccountUiState,
     updateTxFeeInfoInit,
@@ -438,7 +452,24 @@ function TxFeeInfo(props: IProps) {
           transfersInfo: unsignedTxs[0].transfersInfo,
           lockedUserNonce,
           gasAccountEnabled: !gasAccountTemporarilyDisabled,
+          scenario: gasAccountScenario,
         });
+        // L3 scenario gate telemetry: surface frontend contract bugs. Both
+        // reasons indicate a client-side mismatch with the backend enum; log
+        // to console so it shows up in dev/staging. Backend already records
+        // `admission_*` events for this, so we don't double-report here.
+        // `scenario_disabled_*` is a policy outcome and stays silent per
+        // product decision.
+        if (
+          r.gasAccountScenarioReason === 'scenario_missing' ||
+          r.gasAccountScenarioReason === 'scenario_unknown'
+        ) {
+          console.error(
+            '[GasAccount] scenario gate rejected request',
+            r.gasAccountScenarioReason,
+            { scenario: gasAccountScenario, networkId },
+          );
+        }
         if (getStaleResult()) {
           return staleResult;
         }
@@ -535,9 +566,21 @@ function TxFeeInfo(props: IProps) {
               nextSelectedPayer === 'gasAccount'
                 ? buildGasAccountIdempotencyKey(r.gasAccountQuote.quoteId)
                 : '',
+            gasAccountScenarioReason: r.gasAccountScenarioReason,
           });
         } else {
           resetGasAccountUiState();
+          // L3 reason is observational: record it so downstream consumers
+          // (and Grafana-equivalent telemetry) can distinguish policy gate
+          // from transient chain failure. Do NOT set
+          // `gasAccountTemporarilyDisabled` — scenario gate is not a
+          // fallback-worthy condition, retrying won't flip it.
+          if (r.gasAccountScenarioReason) {
+            updateGasAccountUiState({
+              payer: 'user',
+              gasAccountScenarioReason: r.gasAccountScenarioReason,
+            });
+          }
         }
 
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
@@ -632,6 +675,65 @@ function TxFeeInfo(props: IProps) {
         if (getStaleResult()) {
           return staleResult;
         }
+
+        // Mirror the submit-flow strategy table (see
+        // `handleGasAccountSubmitError` in TxConfirmActions). Estimate polls on
+        // an interval with `gasAccountEnabled: !gasAccountTemporarilyDisabled`,
+        // so a sponsor-side failure (e.g. 40_218 SPONSOR_UNAVAILABLE) that
+        // isn't classified here would loop: every tick re-asks for a sponsor
+        // and gets the same error. Classifying the error and flipping
+        // `gasAccountTemporarilyDisabled` forces the next tick onto the
+        // user-paid path.
+        const gasAccountCode = getGasAccountErrorCode(e);
+        const gasAccountEntry = getGasAccountErrorEntry(gasAccountCode);
+        if (
+          gasAccountEntry &&
+          !gasAccountTemporarilyDisabled &&
+          (gasAccountEntry.strategy === EGasAccountErrorStrategy.Fallback ||
+            gasAccountEntry.strategy === EGasAccountErrorStrategy.Hint)
+        ) {
+          if (e) {
+            (e as IOneKeyError).autoToast = false;
+          }
+          updateEffectiveFeePayer('user');
+          updateGasAccountTemporarilyDisabled(true);
+          resetGasAccountUiState();
+          updateGasAccountUiState({ payer: 'user' });
+          resetMegafuelEligible();
+          updateTxFeeInfoInit(false);
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Loading,
+            errMessage: '',
+            discountPercent: 0,
+          });
+          Toast.warning({
+            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+          });
+          appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+          return staleResult;
+        }
+        if (
+          gasAccountEntry &&
+          gasAccountEntry.strategy === EGasAccountErrorStrategy.Refresh
+        ) {
+          if (e) {
+            (e as IOneKeyError).autoToast = false;
+          }
+          resetGasAccountUiState();
+          resetMegafuelEligible();
+          updateTxFeeInfoInit(false);
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Loading,
+            errMessage: '',
+            discountPercent: 0,
+          });
+          Toast.warning({
+            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+          });
+          appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+          return staleResult;
+        }
+
         updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
@@ -662,6 +764,7 @@ function TxFeeInfo(props: IProps) {
       unsignedTxs,
       gasAccountTemporarilyDisabled,
       resetGasAccountTemporarilyDisabled,
+      updateGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
       resetMegafuelEligible,
       resetPayWithTokenInfo,
@@ -676,6 +779,8 @@ function TxFeeInfo(props: IProps) {
       updateTxFeeInfoInit,
       txAdvancedSettings.nonce,
       vaultSettings?.nonceRequired,
+      gasAccountScenario,
+      intl,
     ],
     {
       watchLoading: true,
@@ -1706,8 +1811,27 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const shouldShowFreeBadge = isMegafuelSponsored || isGasAccountSponsored;
-  const sponsoredInfoTitle = 'Fee Sponsorship';
-  const sponsoredCouponSubtitle = 'Sponsored by OneKey';
+  const sponsoredInfoTitle = intl.formatMessage({
+    id: ETranslations.wallet_fee_sponsorship__title,
+  });
+  const sponsoredCouponSubtitle = intl.formatMessage({
+    id: ETranslations.wallet_sponsored_by_onekey__title,
+  });
+  const sponsoredCouponTitle = intl.formatMessage({
+    id: ETranslations.wallet_zero_network_fee__title,
+  });
+  const sponsoredInfoDescription = intl.formatMessage({
+    id: ETranslations.wallet_sponsorship_availability_rules__desc,
+  });
+  const sponsoredLearnMoreText = intl.formatMessage({
+    id: ETranslations.wallet_learn_about_sponsored_fees__action,
+  });
+  const sponsoredSummaryTitle = intl.formatMessage({
+    id: ETranslations.wallet_onekey_sponsored__title,
+  });
+  const sponsoredSummaryDescription = intl.formatMessage({
+    id: ETranslations.wallet_you_pay_zero_network_fee__desc,
+  });
   const handleOpenSponsoredFeesHelpCenter = useCallback(() => {
     openUrlExternal(SPONSORED_FEES_HELP_CENTER_URL);
   }, []);
@@ -1741,7 +1865,7 @@ function TxFeeInfo(props: IProps) {
                 color={sponsoredCouponTextColor}
                 numberOfLines={1}
               >
-                0 Network Fee
+                {sponsoredCouponTitle}
               </SizableText>
               <SizableText
                 size="$bodySmMedium"
@@ -1811,6 +1935,7 @@ function TxFeeInfo(props: IProps) {
       sponsoredCouponIconBgColor,
       sponsoredCouponSeparatorColor,
       sponsoredCouponSubTextColor,
+      sponsoredCouponTitle,
       sponsoredCouponSubtitle,
       sponsoredCouponTextColor,
     ],
@@ -1826,9 +1951,7 @@ function TxFeeInfo(props: IProps) {
           {renderSponsoredCoupon()}
           <Stack px="$1" gap="$3">
             <SizableText size="$bodySm" color="$textSubdued">
-              Sponsorship depends on eligibility, availability, and fair use
-              checks. If it becomes unavailable, the standard network fee will
-              be shown before you send.
+              {sponsoredInfoDescription}
             </SizableText>
             <SizableText
               size="$bodySmMedium"
@@ -1840,7 +1963,7 @@ function TxFeeInfo(props: IProps) {
               pressStyle={{ opacity: 0.7 }}
               onPress={handleOpenSponsoredFeesHelpCenter}
             >
-              Learn about sponsored fees
+              {sponsoredLearnMoreText}
             </SizableText>
           </Stack>
           <Button
@@ -1849,13 +1972,20 @@ function TxFeeInfo(props: IProps) {
               void dialogInstance?.close?.();
             }}
           >
-            Got it
+            {intl.formatMessage({ id: ETranslations.global_got_it })}
           </Button>
         </Stack>
       ),
     });
     return dialogInstance;
-  }, [handleOpenSponsoredFeesHelpCenter, renderSponsoredCoupon]);
+  }, [
+    handleOpenSponsoredFeesHelpCenter,
+    intl,
+    renderSponsoredCoupon,
+    sponsoredInfoDescription,
+    sponsoredInfoTitle,
+    sponsoredLearnMoreText,
+  ]);
 
   const renderSponsoredSummary = useCallback(
     () => (
@@ -1875,15 +2005,19 @@ function TxFeeInfo(props: IProps) {
             dashThickness={0.5}
             cursor="pointer"
           >
-            OneKey Sponsored
+            {sponsoredSummaryTitle}
           </DashText>
           <SizableText size="$bodyMd" color="$text">
-            You pay 0 network fee
+            {sponsoredSummaryDescription}
           </SizableText>
         </Stack>
       </XStack>
     ),
-    [handleShowSponsoredInfo],
+    [
+      handleShowSponsoredInfo,
+      sponsoredSummaryDescription,
+      sponsoredSummaryTitle,
+    ],
   );
 
   const handlePress = useCallback(() => {

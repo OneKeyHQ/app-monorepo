@@ -64,8 +64,15 @@ export function usePerpTradesHistory() {
 
   // Spot and perps fills both come from the same USER_FILLS WS subscription
   const tradesData = perpsTradesData;
-  const fills: IFill[] = tradesData?.fills ?? [];
-  const isLoaded: boolean = tradesData?.isLoaded ?? false;
+  const isCurrentAccountHistory =
+    !!currentAccount?.accountAddress &&
+    tradesData?.accountAddress?.toLowerCase() ===
+      currentAccount.accountAddress.toLowerCase();
+  const fills: IFill[] = isCurrentAccountHistory
+    ? (tradesData?.fills ?? [])
+    : [];
+  const isLoaded: boolean =
+    (tradesData?.isLoaded ?? false) && isCurrentAccountHistory;
   const hasAccountAddress = Boolean(currentAccount?.accountAddress);
 
   return {

@@ -202,7 +202,22 @@ const compileAndCopySegments = (runtimeTarget, outputSubdir) => {
     const baseName = segFile.replace('.seg.js', '');
     const segJsPath = path.join(segmentsInputDir, segFile);
     const segHbcPath = path.join(segmentsOutputDir, `${baseName}.seg.hbc`);
-
+    // unionBuild.js now compiles every segment to .seg.hbc right after
+    // emission so the manifest's per-segment sha256 can hash the real
+    // compiled bytes before the manifest gets baked into common.bundle
+    // (required by @onekeyfe/react-native-split-bundle-loader 3.0.23+ which
+    // verifies sha256 at segment-load time). Re-running hermesc here would
+    // spend minutes re-producing byte-identical output — and any flag drift
+    // between this call and unionBuild.js would silently cause a sha256
+    // mismatch at runtime. Prefer the pre-built .seg.hbc next to the .seg.js.
+    const preBuiltHbcPath = path.join(segmentsInputDir, `${baseName}.seg.hbc`);
+    if (fs.existsSync(preBuiltHbcPath)) {
+      fs.copyFileSync(preBuiltHbcPath, segHbcPath);
+      log(
+        `  ${baseName} → ${outputSubdir}/${baseName}.seg.hbc (reused pre-built .seg.hbc)`,
+      );
+      continue;
+    }
     runCommand(
       HERMES_COMMAND,
       ['-O', '-emit-binary', '-out', segHbcPath, segJsPath],

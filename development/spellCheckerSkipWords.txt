@@ -1449,3 +1449,8 @@ maximizable
 fullscreenable
 frecency
 reactnativeappupdate
+TOCTOU
+ledgerhq
+keyrings
+APDU
+webhid

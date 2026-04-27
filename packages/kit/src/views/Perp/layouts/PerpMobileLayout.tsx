@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import {
   usePerpsActiveAccountSummaryAtom,
+  useSpotActiveOpenOrdersAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -130,7 +131,9 @@ export function PerpMobileLayout() {
     }
   }, [actions]);
 
-  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [perpOpenOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
+  const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
   const [positionsLength] = usePerpsActivePositionLengthAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -161,7 +164,12 @@ export function PerpMobileLayout() {
     return '';
   }, [openOrdersLength]);
 
-  const holdingsTabCount = useMemo(() => `(${holdingsCount})`, [holdingsCount]);
+  const holdingsTabCount = useMemo(() => {
+    if (holdingsCount > 0) {
+      return `(${holdingsCount})`;
+    }
+    return '';
+  }, [holdingsCount]);
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}

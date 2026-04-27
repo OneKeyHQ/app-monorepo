@@ -42,24 +42,60 @@ export function toastSuccessWhenImportAddressOrPrivateKey({
   }
 }
 
-export const toastExistingWalletSwitch = (createResult: {
+type IWalletSwitchCreateResult = {
   wallet: IDBWallet;
   indexedAccount: IDBIndexedAccount | undefined;
   isOverrideWallet: boolean | undefined;
   isAttachPinMode?: boolean;
-}) => {
-  if (createResult.wallet && createResult.isOverrideWallet) {
-    setTimeout(() => {
-      Toast.success({
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.feedback_wallet_exists_title,
-        }),
-        message: appLocale.intl.formatMessage({
-          id: createResult.isAttachPinMode
-            ? ETranslations.feedback_wallet_exsited_due_to_same_pin_desc
-            : ETranslations.feedback_wallet_exists_desc,
-        }),
-      });
-    }, 1000);
+};
+
+// Module-level defer lets FinalizeWalletSetup hold the toast until the user
+// confirms (Enter wallet), instead of popping during the creating-wallet animation.
+let isExistingWalletSwitchToastDeferred = false;
+let pendingExistingWalletSwitchCreateResult: IWalletSwitchCreateResult | null =
+  null;
+
+const showExistingWalletSwitchToast = (
+  createResult: IWalletSwitchCreateResult,
+) => {
+  Toast.success({
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.feedback_wallet_exists_title,
+    }),
+    message: appLocale.intl.formatMessage({
+      id: createResult.isAttachPinMode
+        ? ETranslations.feedback_wallet_exsited_due_to_same_pin_desc
+        : ETranslations.feedback_wallet_exists_desc,
+    }),
+  });
+};
+
+export const setExistingWalletSwitchToastDeferred = (deferred: boolean) => {
+  isExistingWalletSwitchToastDeferred = deferred;
+  if (!deferred) {
+    pendingExistingWalletSwitchCreateResult = null;
   }
+};
+
+export const flushPendingExistingWalletSwitchToast = () => {
+  const pending = pendingExistingWalletSwitchCreateResult;
+  pendingExistingWalletSwitchCreateResult = null;
+  if (pending) {
+    showExistingWalletSwitchToast(pending);
+  }
+};
+
+export const toastExistingWalletSwitch = (
+  createResult: IWalletSwitchCreateResult,
+) => {
+  if (!createResult.wallet || !createResult.isOverrideWallet) {
+    return;
+  }
+  if (isExistingWalletSwitchToastDeferred) {
+    pendingExistingWalletSwitchCreateResult = createResult;
+    return;
+  }
+  setTimeout(() => {
+    showExistingWalletSwitchToast(createResult);
+  }, 1000);
 };

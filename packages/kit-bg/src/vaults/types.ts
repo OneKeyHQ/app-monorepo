@@ -21,7 +21,10 @@ import type {
 } from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type {
+  EHardwareVendor,
+  IDeviceSharedCallParams,
+} from '@onekeyhq/shared/types/device';
 import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
 import type {
   IFeeInfoUnit,
@@ -166,6 +169,17 @@ export type IVaultSettings = {
 
   supportedDeviceTypes?: IDeviceType[];
 
+  /**
+   * Third-party hardware vendors (e.g. Ledger) this network supports.
+   * Consumed by `ServiceNetwork.getNetworkIdsCompatibleWithWalletId` to
+   * hide networks from the chain selector when the current hw wallet
+   * is a third-party vendor whose SDK doesn't sign this chain.
+   *
+   * Omit / leave undefined to mean "no third-party vendor supports this
+   * network" — OneKey's own hardware wallets ignore this field.
+   */
+  supportedThirdPartyVendors?: EHardwareVendor[];
+
   addressBookDisabled?: boolean;
   copyAddressDisabled?: boolean;
 
@@ -305,6 +319,7 @@ export type IVaultFactoryOptions = {
   walletId?: IDBWalletId;
   isChainOnly?: boolean;
   isWalletOnly?: boolean;
+  hardwareVendor?: EHardwareVendor;
 };
 export type IVaultOptions = IVaultFactoryOptions & {
   backgroundApi: IBackgroundApi;
@@ -689,6 +704,10 @@ export interface IBatchSignTransactionParamsBase {
   successfullySentTxs?: string[];
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   gasAccountUiState?: IGasAccountUiState;
+  // UI-generated token that identifies a single submit attempt. The background
+  // retry loop registers an AbortController against this id so the UI can
+  // cancel an in-flight 90212 retry via ServiceSend.abortGasAccountSubmit.
+  gasAccountSubmitId?: string;
   useDefaultRpc?: boolean;
 }
 

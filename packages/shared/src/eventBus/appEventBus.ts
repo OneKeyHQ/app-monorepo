@@ -70,6 +70,8 @@ export enum EFinalizeWalletSetupSteps {
   GeneratingAccounts = 'GeneratingAccounts',
   EncryptingData = 'EncryptingData',
   Ready = 'Ready',
+  // Hardware-only pre-step (UI-driven, not emitted from actions layer)
+  ConnectingDevice = 'ConnectingDevice',
 }
 
 export type IEventBusPayloadShowToast = {
@@ -234,6 +236,13 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardCloseHardwareUiStateDialog]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
+  [EAppEventBusNames.GasAccountSubmitRetryScheduled]: {
+    attempt: number;
+    maxAttempts: number;
+    retryAfterSec: number;
+    scheduledAt: number;
+  };
+  [EAppEventBusNames.GasAccountSubmitRetryCleared]: undefined;
   [EAppEventBusNames.TokenListUpdate]: {
     tokens: IAccountToken[];
     keys: string;
@@ -390,6 +399,10 @@ export interface IAppEventBusPayload {
     data: unknown;
   };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
+  [EAppEventBusNames.PerpSwitchActiveInstrument]: {
+    mode: 'perp' | 'spot';
+    coin: string;
+  };
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';

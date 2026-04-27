@@ -25,7 +25,10 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { AllWalletsBoundEmpty } from './AllWalletsBoundEmpty';
+import {
+  AllWalletsBoundEmpty,
+  AllWalletsUnavailableEmpty,
+} from './AllWalletsBoundEmpty';
 import { NoWalletEmpty } from './NoWalletEmpty';
 import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
@@ -135,6 +138,12 @@ export function InviteCodeDialog({
   // Check if there are no available wallets (only when data is ready)
   const hasNoWallets = isDataReady && walletsWithStatus.length === 0;
 
+  // Check if all wallets are already bound
+  const allWalletsBound = useMemo(() => {
+    if (!walletsWithStatus || walletsWithStatus.length === 0) return false;
+    return walletsWithStatus.every((w) => w.isBound);
+  }, [walletsWithStatus]);
+
   // Check if all wallets are unavailable (bound or window expired)
   const allWalletsUnavailable = useMemo(() => {
     if (!walletsWithStatus || walletsWithStatus.length === 0) return false;
@@ -188,12 +197,24 @@ export function InviteCodeDialog({
           onSuccess,
         });
       } catch (e) {
-        if (
-          (e as OneKeyError).className === 'OneKeyServerApiError' &&
-          (e as OneKeyError).message
-        ) {
+        const err = e as OneKeyError<
+          unknown,
+          {
+            message?: string;
+            messageId?: string;
+          }
+        >;
+        if (err.className === 'OneKeyServerApiError' && err.message) {
+          const isBindWindowExpired =
+            err.data?.messageId === 'exceeded_bind_window' ||
+            err.data?.message === 'exceeded_bind_window' ||
+            err.message === 'exceeded_bind_window';
           form.setError('referralCode', {
-            message: (e as OneKeyError).message,
+            message: isBindWindowExpired
+              ? intl.formatMessage({
+                  id: ETranslations.referral_not_applicable_desc,
+                })
+              : err.message,
           });
         }
         throw e;
@@ -205,6 +226,7 @@ export function InviteCodeDialog({
       confirmBindReferralCode,
       navigationToMessageConfirmAsync,
       onSuccess,
+      intl,
     ],
   );
 
@@ -226,8 +248,13 @@ export function InviteCodeDialog({
   }
 
   // All wallets bound state
-  if (allWalletsUnavailable) {
+  if (allWalletsBound) {
     return <AllWalletsBoundEmpty />;
+  }
+
+  // All wallets unavailable state
+  if (allWalletsUnavailable) {
+    return <AllWalletsUnavailableEmpty />;
   }
 
   // Normal state with wallet selector and form
