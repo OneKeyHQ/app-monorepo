@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import 'fake-indexeddb/auto';
+import './runtime/customUA';
 
 import { version as PKG_VERSION } from '../package.json';
 
