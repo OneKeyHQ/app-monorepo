@@ -32,6 +32,16 @@ on:
         type: string
         required: false
         default: ''
+      web_embed_artifact:
+        # Name of an upstream actions/upload-artifact entry containing a
+        # pre-built apps/web-embed/web-build/. When set, the platform job
+        # downloads it and skips its local webpack run. Used by
+        # release-app-bundles.yml to share ONE web-embed build across the
+        # iOS and Android slots. Empty for direct workflow_dispatch — each
+        # platform falls back to running webpack locally.
+        type: string
+        required: false
+        default: ''
     secrets:
       COVALENT_KEY:
         required: false
@@ -71,86 +81,17 @@ env:
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
-  # Build the web-embed webpack bundle ONCE in a shared upstream job. iOS and
-  # Android both rsync apps/web-embed/web-build/ into their dist/, so without
-  # this prebuild each platform job duplicates the same ~2 min webpack run AND
-  # each issues its own Sentry sourcemap upload. With this prebuild:
-  #  - One webpack build, one Sentry upload — saves runner-minutes and
-  #    guarantees both platforms ship a byte-identical web-embed.
-  #  - Per-platform jobs download the artifact and skip buildWebEmbed() when
-  #    the directory is already populated (handled in build-bundle-base.js).
-  web-embed-build:
-    name: web-embed-build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Show executed time
-        run: echo "Executed at $(date '+%Y-%m-%d %H:%M:%S')"
-
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-        with:
-          lfs: true
-          ref: ${{ inputs.checkout_ref || '' }}
-
-      - name: Run Shared Env Setup
-        uses: ./.github/actions/shared-env
-        with:
-          checkout_ref: ${{ inputs.checkout_ref || '' }}
-          env_file_name: '.env'
-          sentry_project: 'react-native'
-          covalent_key: ${{ secrets.COVALENT_KEY }}
-          sentry_token: ${{ secrets.SENTRY_TOKEN }}
-          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
-          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
-          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
-          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
-          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
-          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
-          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
-
-      - name: Override params from caller
-        if: ${{ inputs.build_number }}
-        run: |
-          echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
-          echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
-          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
-          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24.x
-          cache: 'yarn'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@onekeyhq'
-
-      - name: Install Dep
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
-
-      - name: Build web-embed bundle
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-          NODE_ENV: production
-        # Run webpack directly (skip postbuild.sh which only syncs to native
-        # asset dirs that the OTA bundle does not need).
-        run: cd apps/web-embed && npx webpack build
-
-      - name: Upload web-embed artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-embed-build-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            apps/web-embed/web-build
-            !**/.DS_Store
-          if-no-files-found: error
-          retention-days: 1
-
+  # web-embed prebuild lives in the orchestrator (release-app-bundles.yml) so
+  # iOS and Android — which here are sibling workflow_call invocations of this
+  # workflow — can share ONE web-embed artifact. Without that lift, each
+  # workflow_call would internally re-run webpack (the symptom: two
+  # web-embed-build nodes in the orchestrator UI).
+  #
+  # Direct workflow_dispatch on this workflow has no upstream artifact:
+  # buildWebEmbed() in build-bundle-base.js falls back to running webpack
+  # locally per-platform. Acceptable for ad-hoc testing.
   release-native-bundle:
     name: release-native-bundle (${{ matrix.platform }})
-    needs: web-embed-build
     runs-on: ubuntu-latest
     # Run iOS and Android JS bundles in parallel. Each platform's build is
     # independent (separate out-dir-bundle/<platform> + own zip artifact +
@@ -277,12 +218,15 @@ jobs:
           yarn install --immutable
 
       - name: Download pre-built web-embed bundle
-        # Restores apps/web-embed/web-build/ from the upstream web-embed-build
-        # job. build-bundle-base.js detects the populated directory and skips
-        # the local webpack rebuild (see buildWebEmbed).
+        # Restores apps/web-embed/web-build/ from an upstream web-embed-build
+        # job in the orchestrator (release-app-bundles.yml). When running via
+        # direct workflow_dispatch with no upstream artifact, this step is
+        # skipped and buildWebEmbed() in build-bundle-base.js falls back to
+        # running webpack locally.
+        if: ${{ inputs.web_embed_artifact != '' }}
         uses: actions/download-artifact@v4
         with:
-          name: web-embed-build-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ inputs.web_embed_artifact }}
           path: apps/web-embed/web-build
 
       - name: Build Bundle
