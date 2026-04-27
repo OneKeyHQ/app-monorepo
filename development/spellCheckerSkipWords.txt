@@ -1461,3 +1461,6 @@ ledgerhq
 keyrings
 APDU
 webhid
+favorited
+UETH
+FUSDC

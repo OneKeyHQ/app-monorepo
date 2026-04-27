@@ -197,13 +197,17 @@ export function ShareContentRenderer({
                 >
                   {(() => {
                     const isSpot = mode === 'spot';
-                    const labelId = isSpot
-                      ? side === 'long'
+                    const isLong = side === 'long';
+                    let labelId: ETranslations;
+                    if (isSpot) {
+                      labelId = isLong
                         ? ETranslations.global_buy
-                        : ETranslations.global_sell
-                      : side === 'long'
+                        : ETranslations.global_sell;
+                    } else {
+                      labelId = isLong
                         ? ETranslations.perp_long
                         : ETranslations.perp_short;
+                    }
                     const label = appLocale.intl.formatMessage({ id: labelId });
                     return isSpot ? label : `${label} ${leverage}X`;
                   })()}

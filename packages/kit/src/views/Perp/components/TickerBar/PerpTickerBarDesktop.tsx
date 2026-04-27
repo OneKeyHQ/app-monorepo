@@ -20,7 +20,6 @@ import {
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -35,7 +34,6 @@ import {
   formatLocalizedNumberString,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
 import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
@@ -781,7 +779,6 @@ function TickerBarFundingRate() {
 }
 
 function PerpTickerBarDesktop() {
-  const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';

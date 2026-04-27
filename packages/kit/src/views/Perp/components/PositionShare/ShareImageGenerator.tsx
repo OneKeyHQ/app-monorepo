@@ -179,13 +179,17 @@ export const ShareImageGenerator = forwardRef<
           // Measure text
           ctx.font = toCanvasFont(fonts.side, 600);
           const isSpot = mode === 'spot';
-          const sideLabelId = isSpot
-            ? side === 'long'
+          const isLong = side === 'long';
+          let sideLabelId: ETranslations;
+          if (isSpot) {
+            sideLabelId = isLong
               ? ETranslations.global_buy
-              : ETranslations.global_sell
-            : side === 'long'
+              : ETranslations.global_sell;
+          } else {
+            sideLabelId = isLong
               ? ETranslations.perp_long
               : ETranslations.perp_short;
+          }
           const sideTranslation = appLocale.intl.formatMessage({
             id: sideLabelId,
           });

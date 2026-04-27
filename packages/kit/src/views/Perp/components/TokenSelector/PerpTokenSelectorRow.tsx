@@ -401,6 +401,7 @@ const TokenInfoCellDesktop = memo(() => {
       token.name,
       gtLg,
       isSpot,
+      pairCoin,
     ],
   );
   return content;
