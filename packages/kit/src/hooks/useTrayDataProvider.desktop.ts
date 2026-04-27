@@ -14,6 +14,7 @@ import type {
 import {
   useActiveAccountValueAtom,
   useAppIsLockedAtom,
+  useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -65,11 +66,9 @@ import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
 
 import {
   TRAY_DATA_REFRESH_EVENT_NAMES,
+  getTrayCurrencyDisplayInfo,
   getTrayTokenValueInTargetCurrency,
 } from './trayDataProviderUtils';
-
-const USD_CURRENCY_ID = 'usd';
-const USD_CURRENCY_SYMBOL = '$';
 
 function collectTrayTrackedTxs(
   rawData: { pendingTxs?: Record<string, unknown> } | undefined | null,
@@ -370,7 +369,8 @@ async function getTrayEnabledNetworkScope({
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [appIsLocked] = useAppIsLockedAtom();
-  const [{ enableMenuBarTray }] = useSettingsPersistAtom();
+  const [{ enableMenuBarTray, currencyInfo }] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const {
     activeAccount: { wallet, accountName, account, indexedAccount, dbAccount },
   } = useActiveAccount({ num: 0 });
@@ -381,6 +381,10 @@ export function useTrayDataProvider() {
   activeAccountValueRef.current = activeAccountValue;
   const appIsLockedRef = useRef(appIsLocked);
   appIsLockedRef.current = appIsLocked;
+  const currencyInfoRef = useRef(currencyInfo);
+  currencyInfoRef.current = currencyInfo;
+  const currencyMapRef = useRef(currencyMap);
+  currencyMapRef.current = currencyMap;
   const walletRef = useRef(wallet);
   walletRef.current = wallet;
   const accountRef = useRef(account);
@@ -419,6 +423,28 @@ export function useTrayDataProvider() {
     // Capture accountId up-front so every outbound payload (main/locked/error)
     // carries the identity the notification diff uses to reset its baseline.
     const activeAccountId = activeAccountValueRef.current?.accountId;
+    let trayCurrencyMap = currencyMapRef.current;
+    const selectedCurrencyId = currencyInfoRef.current?.id || 'usd';
+    if (
+      selectedCurrencyId !== 'usd' &&
+      !trayCurrencyMap?.[selectedCurrencyId]
+    ) {
+      try {
+        trayCurrencyMap =
+          await backgroundApiProxy.serviceSetting.getCurrencyMap();
+      } catch (e) {
+        defaultLogger.app.error.log(
+          `[TrayDataProvider] currency map fetch error: ${
+            (e as Error)?.message || String(e)
+          }`,
+        );
+      }
+    }
+    const { displayCurrency, displaySymbol, usdToTargetFactor } =
+      getTrayCurrencyDisplayInfo({
+        currencyInfo: currencyInfoRef.current,
+        currencyMap: trayCurrencyMap,
+      });
 
     const buildLockedPayload = (): ITrayData => ({
       isLocked: true,
@@ -434,8 +460,8 @@ export function useTrayDataProvider() {
       }),
       totalBalance: {
         amount: '0.00',
-        currency: 'USD',
-        symbol: '$',
+        currency: displayCurrency,
+        symbol: displaySymbol,
       },
       watchlist: [],
       pendingTxs: [],
@@ -445,10 +471,6 @@ export function useTrayDataProvider() {
       globalThis.desktopApi?.sendTrayData(buildLockedPayload());
       return;
     }
-
-    const displayCurrency = USD_CURRENCY_ID;
-    const displaySymbol = USD_CURRENCY_SYMBOL;
-    const usdToTargetFactor = new BigNumber(1);
 
     try {
       const trayData: ITrayData = {
@@ -810,8 +832,8 @@ export function useTrayDataProvider() {
         }),
         totalBalance: {
           amount: '0.00',
-          currency: 'USD',
-          symbol: '$',
+          currency: displayCurrency,
+          symbol: displaySymbol,
         },
         watchlist: [],
         pendingTxs: [],
@@ -1015,6 +1037,10 @@ export function useTrayDataProvider() {
     const accountJustChanged = currentAccountId !== prevAccountIdRef.current;
     if (accountJustChanged) {
       prevAccountIdRef.current = currentAccountId;
+      const { displayCurrency, displaySymbol } = getTrayCurrencyDisplayInfo({
+        currencyInfo,
+        currencyMap,
+      });
       globalThis.desktopApi?.sendTrayData({
         accountId: currentAccountId,
         pendingTxsCleared: false,
@@ -1030,8 +1056,8 @@ export function useTrayDataProvider() {
         }),
         totalBalance: {
           amount: '0.00',
-          currency: 'USD',
-          symbol: '$',
+          currency: displayCurrency,
+          symbol: displaySymbol,
         },
         watchlist: [],
         pendingTxs: [],
@@ -1043,7 +1069,7 @@ export function useTrayDataProvider() {
       handleTrayDataRequestRef.current?.();
     }, 300);
     return () => clearTimeout(timer);
-  }, [isTrayActive, activeAccountValue]);
+  }, [isTrayActive, activeAccountValue, currencyInfo, currencyMap]);
 
   useEffect(() => {
     if (!isTrayActive) return;

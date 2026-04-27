@@ -2,6 +2,7 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import {
   TRAY_DATA_REFRESH_EVENT_NAMES,
+  getTrayCurrencyDisplayInfo,
   getTrayTokenValueInTargetCurrency,
 } from './trayDataProviderUtils';
 
@@ -58,5 +59,35 @@ describe('trayDataProviderUtils', () => {
     });
 
     expect(result).toBe('300');
+  });
+
+  test('getTrayCurrencyDisplayInfo follows selected non-USD fiat currency', () => {
+    const result = getTrayCurrencyDisplayInfo({
+      currencyInfo: { id: 'cny', symbol: '¥' },
+      currencyMap: {
+        cny: {
+          id: 'cny',
+          unit: '¥',
+          name: 'Chinese Yuan',
+          type: ['fiat'],
+          value: '7.2',
+        },
+      },
+    });
+
+    expect(result.displayCurrency).toBe('cny');
+    expect(result.displaySymbol).toBe('¥');
+    expect(result.usdToTargetFactor.toFixed()).toBe('7.2');
+  });
+
+  test('getTrayCurrencyDisplayInfo keeps USD as the fallback currency', () => {
+    const result = getTrayCurrencyDisplayInfo({
+      currencyInfo: undefined,
+      currencyMap: undefined,
+    });
+
+    expect(result.displayCurrency).toBe('usd');
+    expect(result.displaySymbol).toBe('$');
+    expect(result.usdToTargetFactor.toFixed()).toBe('1');
   });
 });
