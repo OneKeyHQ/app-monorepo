@@ -734,14 +734,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     async (get, set, { coin, force }: { coin: string; force?: boolean }) => {
       const activeAsset = await perpsActiveAssetAtom.get();
       if (activeAsset?.coin === coin && !force) {
-        const next = await this._buildActiveTradeInstrument('perp');
-        const prev = get(activeTradeInstrumentAtom());
-        if (
-          !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
-        ) {
-          set(activeTradeInstrumentAtom(), next);
+        // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
+        // mode already matches, otherwise the trading panel keeps the
+        // previous mode's layout when switching back with an unchanged coin.
+        const currentMode = await tradingModeAtom.get();
+        if (currentMode === 'perp') {
+          const next = await this._buildActiveTradeInstrument('perp');
+          const prev = get(activeTradeInstrumentAtom());
+          if (
+            !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
+          ) {
+            set(activeTradeInstrumentAtom(), next);
+          }
+          return;
         }
-        return;
       }
 
       const form = get(tradingFormAtom());
