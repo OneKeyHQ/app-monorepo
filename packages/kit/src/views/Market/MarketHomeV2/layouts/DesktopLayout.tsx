@@ -183,6 +183,7 @@ export function DesktopLayout({
     <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
       <YStack flex={1}>
         <Tabs.Container
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ref={tabsRef as any}
           renderTabBar={renderTabBar}
           initialTabName={selectedTabName}
