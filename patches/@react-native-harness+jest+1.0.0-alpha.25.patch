@@ -1,6 +1,6 @@
 diff --git a/node_modules/@react-native-harness/jest/dist/index.js b/node_modules/@react-native-harness/jest/dist/index.js
---- a/node_modules/@react-native-harness/jest/dist/index.js	1984-06-22 21:50:00
-+++ b/node_modules/@react-native-harness/jest/dist/index.js	2026-04-27 17:28:30
+--- a/node_modules/@react-native-harness/jest/dist/index.js
++++ b/node_modules/@react-native-harness/jest/dist/index.js
 @@ -6,12 +6,55 @@
  import { getErrorMessage } from './logs.js';
  import { DeviceNotRespondingError } from '@react-native-harness/bridge/server';
@@ -123,8 +123,8 @@ diff --git a/node_modules/@react-native-harness/jest/dist/index.js b/node_module
                      message: err.message,
                      stack: '',
 diff --git a/node_modules/@react-native-harness/jest/dist/run.js b/node_modules/@react-native-harness/jest/dist/run.js
---- a/node_modules/@react-native-harness/jest/dist/run.js	1984-06-22 21:50:00
-+++ b/node_modules/@react-native-harness/jest/dist/run.js	2026-03-02 18:22:47
+--- a/node_modules/@react-native-harness/jest/dist/run.js
++++ b/node_modules/@react-native-harness/jest/dist/run.js
 @@ -1,4 +1,5 @@
  import path from 'node:path';
 +import fs from 'node:fs';
@@ -292,8 +292,8 @@ diff --git a/node_modules/@react-native-harness/jest/dist/run.js b/node_modules/
      totalResults.failureMessage = formatResultsErrors(totalResults.testResults, projectConfig, globalConfig, testPath);
      return totalResults;
 diff --git a/node_modules/@react-native-harness/jest/dist/toTestResult.js b/node_modules/@react-native-harness/jest/dist/toTestResult.js
---- a/node_modules/@react-native-harness/jest/dist/toTestResult.js	1984-06-22 21:50:00
-+++ b/node_modules/@react-native-harness/jest/dist/toTestResult.js	2026-03-02 18:22:47
+--- a/node_modules/@react-native-harness/jest/dist/toTestResult.js
++++ b/node_modules/@react-native-harness/jest/dist/toTestResult.js
 @@ -17,14 +17,14 @@
          setupFilesEnd: 0,
      };
