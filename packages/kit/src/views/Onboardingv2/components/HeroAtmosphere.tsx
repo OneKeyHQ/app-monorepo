@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { MotiView } from 'moti';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-import { YStack, useTheme, useThemeName } from '@onekeyhq/components';
+import { YStack, useMedia, useTheme, useThemeName } from '@onekeyhq/components';
 
 import { getAtmosphereToken } from './heroAtmosphereTokens';
 
@@ -16,14 +16,25 @@ const BREATHE_DURATION_MS = 8000;
 const BREATHE_OPACITY_LOW = 0.85;
 const BREATHE_OPACITY_HIGH = 1;
 
+// Gradient extent depends on viewport aspect ratio. Narrow/tall (mobile)
+// already extends visibly with a small gradient because rx/ry % map to a
+// taller container. Wide/short (desktop) needs a larger gradient or it
+// becomes a small spot at the top.
+const GRADIENT_NARROW = { rx: '80%', ry: '120%' };
+const GRADIENT_WIDE = { rx: '100%', ry: '200%' };
+
 function RadialGlow({
   index,
   isCurrent,
   peakAlpha,
+  rx,
+  ry,
 }: {
   index: number;
   isCurrent: boolean;
   peakAlpha: number;
+  rx: string;
+  ry: string;
 }) {
   const theme = useTheme();
   const token = getAtmosphereToken(index);
@@ -54,8 +65,8 @@ function RadialGlow({
             id={gradientId}
             cx="50%"
             cy="0%"
-            rx="100%"
-            ry="200%"
+            rx={rx}
+            ry={ry}
             fx="50%"
             fy="0%"
           >
@@ -71,7 +82,9 @@ function RadialGlow({
 
 export function HeroAtmosphere({ wordIndex }: { wordIndex: number }) {
   const themeName = useThemeName();
+  const { gtMd } = useMedia();
   const peakAlpha = themeName === 'dark' ? PEAK_ALPHA_DARK : PEAK_ALPHA_LIGHT;
+  const { rx, ry } = gtMd ? GRADIENT_WIDE : GRADIENT_NARROW;
 
   const [currentIndex, setCurrentIndex] = useState(wordIndex);
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
@@ -116,6 +129,8 @@ export function HeroAtmosphere({ wordIndex }: { wordIndex: number }) {
             index={previousIndex}
             isCurrent={false}
             peakAlpha={peakAlpha}
+            rx={rx}
+            ry={ry}
           />
         ) : null}
         <RadialGlow
@@ -123,6 +138,8 @@ export function HeroAtmosphere({ wordIndex }: { wordIndex: number }) {
           index={currentIndex}
           isCurrent
           peakAlpha={peakAlpha}
+          rx={rx}
+          ry={ry}
         />
       </MotiView>
     </YStack>
