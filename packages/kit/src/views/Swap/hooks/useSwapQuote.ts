@@ -48,6 +48,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -576,26 +577,14 @@ export function useSwapQuote() {
       if (swapShouldRefreshRef.current) {
         return;
       }
-      setSwapManualSelectQuoteProviders({
-        protocol: data.approvedSwapInfo.protocol,
-        quoteId: data.approvedSwapInfo?.quoteId,
-        info: {
-          provider: data.approvedSwapInfo.provider,
-          providerName: data.approvedSwapInfo.providerName,
-        },
-        fromTokenInfo: {
-          networkId: data.approvedSwapInfo.fromToken.networkId,
-          contractAddress: data.approvedSwapInfo.fromToken.contractAddress,
-          symbol: data.approvedSwapInfo.fromToken.symbol,
-          decimals: data.approvedSwapInfo.fromToken.decimals,
-        },
-        toTokenInfo: {
-          networkId: data.approvedSwapInfo.toToken.networkId,
-          contractAddress: data.approvedSwapInfo.toToken.contractAddress,
-          symbol: data.approvedSwapInfo.toToken.symbol,
-          decimals: data.approvedSwapInfo.toToken.decimals,
-        },
-      });
+      setSwapManualSelectQuoteProviders(
+        buildSwapManualProviderSelectionIntent({
+          info: {
+            provider: data.approvedSwapInfo.provider,
+            providerName: data.approvedSwapInfo.providerName,
+          },
+        }),
+      );
       const { approvedSwapInfo, enableFilled } = data;
       const {
         fromToken: fromTokenInfo,
