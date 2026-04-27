@@ -17,6 +17,12 @@ const allowanceResult = z
   })
   .nullable();
 
+const swapQuoteFee = z
+  .object({
+    estimatedFeeFiatValue: z.number().optional(),
+  })
+  .passthrough();
+
 // ---- swap quote ----
 export const swapQuoteInputSchema = z.object({
   chain: chainId,
@@ -44,10 +50,10 @@ export const swapQuoteOutputSchema = z.object({
       toAmount: z.string().nullable(),
       fromAmount: z.string().nullable(),
       minToAmount: z.string().nullable(),
-      estimatedTime: z.string().nullable(),
+      estimatedTime: z.union([z.string(), z.number()]).nullable(),
       instantRate: z.string().nullable(),
       isBest: z.boolean(),
-      fee: z.string().nullable(),
+      fee: swapQuoteFee.nullable(),
       errorMessage: z.string().optional(),
       allowanceResult: allowanceResult.optional(),
     }),
