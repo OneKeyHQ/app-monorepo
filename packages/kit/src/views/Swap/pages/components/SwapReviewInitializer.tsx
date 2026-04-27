@@ -21,11 +21,13 @@ import type { ISwapReviewState } from '../../utils/swapReviewState';
 
 type ISwapReviewInitializerProps = {
   children?: ReactNode;
+  defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   reviewState: ISwapReviewState;
 };
 
 export function SwapReviewInitializer({
   children,
+  defaultNetworkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
   reviewState,
 }: ISwapReviewInitializerProps) {
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -63,7 +65,7 @@ export function SwapReviewInitializer({
     });
     setSwapBuildTxFetching(false);
     setSwapStepNetFeeLevel({
-      networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+      networkFeeLevel: defaultNetworkFeeLevel,
     });
 
     return () => {
@@ -90,6 +92,7 @@ export function SwapReviewInitializer({
       });
     };
   }, [
+    defaultNetworkFeeLevel,
     reviewState.preSwapData,
     reviewState.quoteResult,
     reviewState.steps,

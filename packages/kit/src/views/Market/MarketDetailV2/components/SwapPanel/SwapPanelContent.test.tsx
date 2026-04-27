@@ -88,6 +88,10 @@ jest.mock('./components/SlippageSetting', () => ({
   SlippageSetting: () => <div data-testid="slippage" />,
 }));
 
+jest.mock('./components/MarketPresetSelector', () => ({
+  MarketPresetSelector: () => <div data-testid="market-preset-selector" />,
+}));
+
 jest.mock('./components/ActionButton', () => ({
   ActionButton: (props: { onPress: () => void; disabled?: boolean }) => {
     const { disabled, onPress } = props;
@@ -257,5 +261,24 @@ describe('SwapPanelContent', () => {
     expect(renderedInputs).toHaveLength(2);
     expect(renderedInputs[0].setValue).toHaveBeenCalledWith('');
     expect(renderedInputs[1].setValue).toHaveBeenCalledWith('');
+  });
+
+  it('uses Market preset settings instead of the standalone slippage setting', () => {
+    const props = createProps();
+    props.marketPresetSettings = {
+      enabled: true,
+      isLoading: false,
+      presets: [],
+      selectedPresetKey: 'auto',
+      selectedPreset: undefined,
+      selectedNetworkFeeLevel: 'medium',
+      selectedSlippageValue: 0.5,
+      onPresetChange: jest.fn(),
+    } as never;
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(screen.getByTestId('market-preset-selector')).toBeTruthy();
+    expect(screen.queryByTestId('slippage')).toBeNull();
   });
 });

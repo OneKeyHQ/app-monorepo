@@ -6,23 +6,27 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
 type IMarketSwapReviewDialogProps = {
   onDone: () => void;
   adapter: ISwapReviewAdapter;
   reviewState: ISwapReviewState;
+  defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
 };
 
 export function MarketSwapReviewDialog({
   onDone,
   adapter,
   reviewState,
+  defaultNetworkFeeLevel,
 }: IMarketSwapReviewDialogProps) {
   return (
     <SwapReviewDialog
       onDone={onDone}
       adapter={adapter}
       reviewState={reviewState}
+      defaultNetworkFeeLevel={defaultNetworkFeeLevel}
       storeName={EJotaiContextStoreNames.marketSwapReview}
       disableGlobalApproveSync
       approveTransactionSource={ESwapReviewApproveTransactionSource.SpeedSwap}

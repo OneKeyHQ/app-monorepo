@@ -26,6 +26,7 @@ import {
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
+import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
@@ -83,6 +84,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     provider,
     swapMevNetConfig,
   } = useSpeedSwapInit(networkId || '', true);
+  const marketPresetSettings = useMarketPresetSettings({
+    networkId: networkId || '',
+    defaultSlippage: speedConfig?.slippage,
+  });
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
@@ -406,10 +411,20 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   ]);
 
   useEffect(() => {
+    if (marketPresetSettings.enabled) {
+      setSlippage(marketPresetSettings.selectedSlippageValue);
+      return;
+    }
+
     if (speedConfig?.slippage) {
       setSlippage(speedConfig.slippage);
     }
-  }, [speedConfig?.slippage, setSlippage]);
+  }, [
+    marketPresetSettings.enabled,
+    marketPresetSettings.selectedSlippageValue,
+    speedConfig?.slippage,
+    setSlippage,
+  ]);
 
   const reviewAdapter = useMemo<ISwapReviewAdapter>(
     () => ({
@@ -457,7 +472,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       try {
         const nextReviewState = await prepareMarketSwapReview({
           isWrap,
-          networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+          networkFeeLevel: marketPresetSettings.enabled
+            ? marketPresetSettings.selectedNetworkFeeLevel
+            : ESwapNetworkFeeLevel.MEDIUM,
         });
         if (reviewDialogRequestIdRef.current !== requestId) {
           return;
@@ -486,6 +503,11 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           renderContent: (
             <MarketSwapReviewDialog
               adapter={reviewAdapter}
+              defaultNetworkFeeLevel={
+                marketPresetSettings.enabled
+                  ? marketPresetSettings.selectedNetworkFeeLevel
+                  : ESwapNetworkFeeLevel.MEDIUM
+              }
               reviewState={nextReviewState}
               onDone={() => void dialog?.close()}
             />
@@ -520,6 +542,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       intl,
       isActionLoading,
       isReviewOpening,
+      marketPresetSettings.enabled,
+      marketPresetSettings.selectedNetworkFeeLevel,
       prepareMarketSwapReview,
       reviewAdapter,
     ],
@@ -596,6 +620,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       isWrapped={isWrapped}
       speedCheckError={speedCheckError}
       disableNativeToken={disableNativeToken}
+      marketPresetSettings={marketPresetSettings}
     />
   );
 }

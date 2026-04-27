@@ -4,6 +4,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { jotaiContextStore } from '@onekeyhq/kit/src/states/jotai/utils/jotaiContextStore';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapReviewActions } from '../../hooks/useSwapReviewActions';
 import {
@@ -21,6 +22,7 @@ type ISwapReviewDialogProps = {
   adapter: ISwapReviewAdapter;
   reviewState: ISwapReviewState;
   storeName: EJotaiContextStoreNames;
+  defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   disableGlobalApproveSync?: boolean;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
   accountSelectorConfig?: {
@@ -65,6 +67,7 @@ export function SwapReviewDialog({
   adapter,
   reviewState,
   storeName,
+  defaultNetworkFeeLevel,
   disableGlobalApproveSync,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
   accountSelectorConfig = {
@@ -89,7 +92,10 @@ export function SwapReviewDialog({
       enabledNum={accountSelectorConfig.enabledNum}
     >
       <SwapProviderMirror storeName={storeName}>
-        <SwapReviewInitializer reviewState={reviewState}>
+        <SwapReviewInitializer
+          defaultNetworkFeeLevel={defaultNetworkFeeLevel}
+          reviewState={reviewState}
+        >
           <SwapReviewDialogContent
             adapter={adapter}
             approveTransactionSource={approveTransactionSource}
