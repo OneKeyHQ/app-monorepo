@@ -1777,12 +1777,17 @@ function TxFeeInfo(props: IProps) {
     const callback = () => {
       // setStopPolling(false) clears any prior server-driven stop AND
       // resurrects the polling chain (the finally-block guard kills it once
-      // stopPollingRef flips true). The explicit run() covers gas-account
-      // fallback paths that emit the same event without ever stopping the
-      // chain, so the user still gets an immediate retry instead of waiting
-      // out the next tick.
-      setStopPolling(false);
-      void run();
+      // stopPollingRef flips true). It returns true in that case, meaning a
+      // fresh run already fired — so we must NOT call run() again or we'd
+      // race two concurrent estimateFee requests against the backend
+      // (vault.estimateFee doesn't accept the AbortController signal, so
+      // cancellation isn't reliable). When no stop was active, the explicit
+      // run() still covers gas-account fallback paths that emit the same
+      // event without ever stopping the chain.
+      const resumed = setStopPolling(false);
+      if (!resumed) {
+        void run();
+      }
     };
     appEventBus.on(EAppEventBusNames.EstimateTxFeeRetry, callback);
     return () => {

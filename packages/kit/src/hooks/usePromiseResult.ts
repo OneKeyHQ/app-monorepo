@@ -57,7 +57,10 @@ export type IUsePromiseResultReturn<T> = {
   run: (config?: IRunnerConfig) => Promise<void>;
   // Pause future polling ticks until deps change (or set back to false). The
   // current run still completes; only the scheduled next tick is skipped.
-  setStopPolling: (stop: boolean) => void;
+  // Returns true when calling setStopPolling(false) resurrected a paused
+  // polling chain and triggered a fresh run, so callers can avoid issuing a
+  // duplicate run().
+  setStopPolling: (stop: boolean) => boolean;
 };
 
 export type IUsePromiseResultReturnWithInitValue<T> =
@@ -349,7 +352,9 @@ export function usePromiseResult<T>(
         triggerByDeps: true,
         pollingNonce: pollingNonceRef.current,
       });
+      return true;
     }
+    return false;
   }, []);
 
   const runnerDeps = useMemo(
