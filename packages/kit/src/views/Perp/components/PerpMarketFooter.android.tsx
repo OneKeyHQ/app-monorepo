@@ -10,6 +10,7 @@ import { Button, Page } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
+import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
 const MARKET_FOOTER_BUTTON_WIDTH = '44%';
@@ -31,9 +32,23 @@ const styles = StyleSheet.create({
 function PerpMarketFooter() {
   const intl = useIntl();
   const actionsRef = useHyperliquidActions();
+  const { mode } = useActiveTradeDisplay();
   const longButtonStyle = GetTradingButtonStyleProps('long');
   const shortButtonStyle = GetTradingButtonStyleProps('short');
   const navigation = useNavigation();
+
+  const buyText = intl.formatMessage({
+    id:
+      mode === 'spot'
+        ? ETranslations.dexmarket_details_transactions_buy
+        : ETranslations.perp_trade_long,
+  });
+  const sellText = intl.formatMessage({
+    id:
+      mode === 'spot'
+        ? ETranslations.dexmarket_details_transactions_sell
+        : ETranslations.perp_trade_short,
+  });
 
   const handleBuy = useCallback(() => {
     actionsRef.current.updateTradingForm({ side: 'long' });
@@ -84,12 +99,12 @@ function PerpMarketFooter() {
             alignItems="center"
             testID="page-footer-cancel"
           >
-            {intl.formatMessage({ id: ETranslations.perp_trade_long })}
+            {buyText}
           </Button>
         </View>
       </GestureDetector>
     ),
-    [buyGesture, longButtonStyle, intl],
+    [buyGesture, longButtonStyle, buyText],
   );
 
   const sellButton = useMemo(
@@ -108,12 +123,12 @@ function PerpMarketFooter() {
             alignItems="center"
             testID="page-footer-confirm"
           >
-            {intl.formatMessage({ id: ETranslations.perp_trade_short })}
+            {sellText}
           </Button>
         </View>
       </GestureDetector>
     ),
-    [sellGesture, shortButtonStyle, intl],
+    [sellGesture, shortButtonStyle, sellText],
   );
 
   return (
