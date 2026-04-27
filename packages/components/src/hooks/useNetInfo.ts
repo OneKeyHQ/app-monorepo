@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { healthCheckRequest } from '@onekeyhq/shared/src/request/helpers/healthCheckRequest';
 
 import { buildDeferredPromise } from './useDeferredPromise';
@@ -105,10 +107,13 @@ class NetInfo {
     } = this.configuration;
 
     try {
+      const baseHeaders = await getRequestHeaders();
+      const headers = await withCustomUAHeaders(reachabilityUrl, baseHeaders);
       const response = await healthCheckRequest({
         url: reachabilityUrl,
         method: reachabilityMethod as 'GET' | 'POST',
         timeout: reachabilityRequestTimeout,
+        headers,
       });
 
       this.updateState({
