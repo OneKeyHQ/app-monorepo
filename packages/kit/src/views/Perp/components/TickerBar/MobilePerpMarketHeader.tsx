@@ -65,8 +65,15 @@ function MobilePerpMarketHeader() {
   }, []);
 
   // Common fields exist on both IPerpsFormattedAssetCtx and ISpotFormattedAssetCtx
-  const midPrice = currentCtx?.midPrice ?? '0';
+  // Spot WS may push cached markPx before midPx arrives; fall back to markPrice
+  // so the header doesn't get fully hidden by skeleton when partial data is up.
   const markPrice = currentCtx?.markPrice ?? '0';
+  const midPrice = useMemo(() => {
+    const mid = currentCtx?.midPrice;
+    if (mid && Number.parseFloat(mid) > 0) return mid;
+    if (markPrice && Number.parseFloat(markPrice) > 0) return markPrice;
+    return '0';
+  }, [currentCtx?.midPrice, markPrice]);
   const volume24h = currentCtx?.volume24h ?? '0';
   const change24hPercent = currentCtx?.change24hPercent ?? 0;
   // Perp-only fields

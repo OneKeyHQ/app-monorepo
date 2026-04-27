@@ -52,18 +52,24 @@ function PerpBadgesRow() {
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
-  const { baseName, coin } = useActiveTradeDisplay();
+  const { baseName, rawBaseName, coin } = useActiveTradeDisplay();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const [fetchedTokenSearchAliases, setFetchedTokenSearchAliases] = useState<
     ITokenSearchAliases | undefined
   >(undefined);
   const effectiveTokenSearchAliases =
     tokenSearchAliases ?? fetchedTokenSearchAliases;
-  const subtitleTarget = isSpot ? baseName : coin;
-  const subtitle = useMemo(
-    () => getTokenSubtitle(subtitleTarget, effectiveTokenSearchAliases),
-    [subtitleTarget, effectiveTokenSearchAliases],
-  );
+  const subtitle = useMemo(() => {
+    if (isSpot) {
+      // Match the dual-lookup pattern in token selectors: server aliases may
+      // be keyed by display name or raw baseName.
+      return (
+        getTokenSubtitle(baseName, effectiveTokenSearchAliases) ??
+        getTokenSubtitle(rawBaseName, effectiveTokenSearchAliases)
+      );
+    }
+    return getTokenSubtitle(coin, effectiveTokenSearchAliases);
+  }, [isSpot, baseName, rawBaseName, coin, effectiveTokenSearchAliases]);
 
   // Fetch builder fee once on mount (independent of alias state)
   useEffect(() => {
