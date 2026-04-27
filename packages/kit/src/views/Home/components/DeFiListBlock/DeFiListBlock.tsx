@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,8 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
+  Divider,
+  SizableText,
   Skeleton,
   XStack,
   YStack,
@@ -14,7 +16,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { runAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
@@ -25,13 +26,17 @@ import {
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useDeFiListActions,
+  useDeFiListProtocolMapAtom,
   useDeFiListProtocolsAtom,
+  useDeFiListSlicedAtom,
   useDeFiListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
+import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import type { IDeFiDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityDeFi';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -50,19 +55,75 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
+import { OVERVIEW_TOP_N } from '../../types';
 import { RichBlock } from '../RichBlock/RichBlock';
 
-import { Protocol } from './Protocol';
+import { deFiListLoadingReducer } from './deFiListLoadingReducer';
+import { formatPortfolioTotal } from './formatPortfolioTotal';
+import { buildDeFiOverviewCells } from './hooks/useDeFiOverviewTopN';
+import { type IProtocolHandle, Protocol } from './Protocol';
+
+const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
+const MAX_PROTOCOLS_ON_LARGE_SCREEN = OVERVIEW_TOP_N;
+
+export type IDeFiListBlockProps = {
+  refreshCacheOnly?: boolean;
+  tableLayout?: boolean;
+  /**
+   * Desktop: when `true`, the internal "DeFi · $total" header row is not
+   * rendered — the parent mounts DeFiPortfolioCard (which carries the total)
+   * alongside the overview grid instead.
+   */
+  hideInternalTitle?: boolean;
+  registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
+};
+
+const ProtocolListItem = memo(
+  ({
+    isAllNetworks,
+    isLast,
+    protocol,
+    protocolKey,
+    registerProtocol,
+    tableLayout,
+  }: {
+    isAllNetworks?: boolean;
+    isLast: boolean;
+    protocol: IDeFiProtocol;
+    protocolKey: string;
+    registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
+    tableLayout?: boolean;
+  }) => {
+    const handleProtocolRef = useCallback(
+      (handle: IProtocolHandle | null) => {
+        registerProtocol?.(protocolKey, handle);
+      },
+      [protocolKey, registerProtocol],
+    );
+
+    return (
+      <YStack key={`${protocol.networkId}-${protocol.protocol}`}>
+        <Protocol
+          ref={registerProtocol ? handleProtocolRef : undefined}
+          protocol={protocol}
+          tableLayout={tableLayout}
+          isAllNetworks={isAllNetworks}
+        />
+        {!tableLayout && !isLast ? <Divider mx="$5" /> : null}
+      </YStack>
+    );
+  },
+);
+ProtocolListItem.displayName = 'ProtocolListItem';
 
 function DeFiListBlock({
   refreshCacheOnly = false,
   tableLayout,
-}: {
-  refreshCacheOnly?: boolean;
-  tableLayout?: boolean;
-}) {
+  hideInternalTitle = false,
+  registerProtocol,
+}: IDeFiListBlockProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -87,6 +148,8 @@ function DeFiListBlock({
   const [overview] = useAccountDeFiOverviewAtom();
   const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
   const [{ protocols }] = useDeFiListProtocolsAtom();
+  const [{ protocolMap }] = useDeFiListProtocolMapAtom();
+  const [settingsValue] = useSettingsValuePersistAtom();
 
   const deFiRawDataRef = useRef<IDeFiDBStruct | undefined>(undefined);
   const initializedRef = useRef(initialized);
@@ -95,13 +158,11 @@ function DeFiListBlock({
   isRefreshingRef.current = isRefreshing;
   const pendingRefreshRef = useRef(false);
 
-  const [overflowState, setOverflowState] = useState<{
-    isOverflow: boolean;
-    isSliced: boolean;
-  }>({
-    isOverflow: false,
-    isSliced: true,
-  });
+  const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
+  const overflowThreshold = tableLayout
+    ? MAX_PROTOCOLS_ON_LARGE_SCREEN
+    : MAX_PROTOCOLS_ON_SMALL_SCREEN;
+  const isOverflow = protocols.length > overflowThreshold;
 
   const {
     activeAccount: { account, network, wallet },
@@ -133,7 +194,9 @@ function DeFiListBlock({
   }, [checkDeFiEnabled]);
 
   useEffect(() => {
-    const isAllNetworks = networkUtils.isAllNetwork({ networkId: network?.id });
+    const isAllNetworks = networkUtils.isAllNetwork({
+      networkId: network?.id,
+    });
     if (!isAllNetworks) {
       setIsAllNetRequestsEnabled(true);
       return;
@@ -249,10 +312,7 @@ function DeFiListBlock({
         console.error(e);
       } finally {
         isForceRefreshRef.current = false;
-        updateDeFiListState({
-          isRefreshing: false,
-          initialized: true,
-        });
+        updateDeFiListState(deFiListLoadingReducer({ type: 'settled' }));
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: false,
           type: EHomeTab.DEFI,
@@ -307,6 +367,7 @@ function DeFiListBlock({
       merge: true,
     });
     deFiDataRef.current = defiUtils.getEmptyDeFiData();
+    updateDeFiListState(deFiListLoadingReducer({ type: 'settled' }));
   }, 1000);
 
   const handleAllNetworkRequests = useCallback(
@@ -371,16 +432,11 @@ function DeFiListBlock({
           merge: true,
         });
         updateAllNetworkData();
-        updateDeFiListState({
-          initialized: true,
-          isRefreshing: false,
-        });
       }
 
       return r;
     },
     [
-      updateDeFiListState,
       account?.id,
       network?.id,
       updateAllNetworkData,
@@ -583,8 +639,15 @@ function DeFiListBlock({
         accountId: accountId ?? '',
         networkId: networkId ?? '',
       });
+
+      updateAllNetworkData.flush();
+
+      // `useAllNetworkRequests` fires `onFinished` even when `resp` is
+      // null (no positions), where the downstream `allNetworksResult`
+      // effect would otherwise skip clearing the loading flag pair.
+      updateDeFiListState(deFiListLoadingReducer({ type: 'settled' }));
     },
-    [refreshCacheOnly],
+    [refreshCacheOnly, updateAllNetworkData, updateDeFiListState],
   );
 
   const handleAllNetworkCacheChecked = useCallback(
@@ -675,15 +738,6 @@ function DeFiListBlock({
     updateDeFiListProtocolMap,
     settings.currencyInfo.id,
   ]);
-
-  useEffect(() => {
-    if (!tableLayout) {
-      setOverflowState((prev) => ({
-        ...prev,
-        isOverflow: protocols.length > MAX_PROTOCOLS_ON_SMALL_SCREEN,
-      }));
-    }
-  }, [protocols, tableLayout]);
 
   useEffect(() => {
     const initDeFiData = async ({
@@ -913,36 +967,51 @@ function DeFiListBlock({
   ]);
 
   const filteredProtocols = useMemo(() => {
-    if (overflowState.isOverflow && overflowState.isSliced) {
-      return protocols.slice(0, MAX_PROTOCOLS_ON_SMALL_SCREEN);
+    // Keep the mounted list in the same exposure order as the overview tiles,
+    // so every collapsed overview tile can scroll to an existing protocol row.
+    const sorted = buildDeFiOverviewCells(protocols, (protocol) => {
+      const key = defiUtils.buildProtocolMapKey({
+        protocol: protocol.protocol,
+        networkId: protocol.networkId,
+      });
+      const info = buildProtocolDisplayInfo({
+        protocol,
+        protocolInfo: protocolMap[key],
+      });
+      const nw = new BigNumber(info.netWorth);
+      return nw.isFinite() ? nw.toNumber() : 0;
+    }).map((e) => e.protocol);
+
+    if (isOverflow && isSliced) {
+      const limit = tableLayout
+        ? MAX_PROTOCOLS_ON_LARGE_SCREEN
+        : MAX_PROTOCOLS_ON_SMALL_SCREEN;
+      return sorted.slice(0, limit);
     }
-    return protocols;
-  }, [protocols, overflowState.isOverflow, overflowState.isSliced]);
+    return sorted;
+  }, [protocols, protocolMap, isOverflow, isSliced, tableLayout]);
 
   const renderSubTitle = useCallback(() => {
-    if (tableLayout) {
-      if (!initialized && isRefreshing) {
-        return <Skeleton.HeadingXl />;
-      }
-
-      return (
-        <NumberSizeableTextWrapper
-          hideValue
-          size="$headingXl"
-          color="$textSubdued"
-          formatter="value"
-          formatterOptions={{
-            currency: settings.currencyInfo.symbol,
-          }}
-        >
-          {overview.netWorth}
-        </NumberSizeableTextWrapper>
-      );
+    if (!initialized && isRefreshing) {
+      return <Skeleton.HeadingXl />;
     }
 
-    return null;
+    return (
+      <SizableText
+        size="$headingXl"
+        color={tableLayout ? '$textSubdued' : '$text'}
+        fontVariant={TABULAR_NUMS}
+      >
+        {formatPortfolioTotal(
+          Number(overview.netWorth) || 0,
+          settings.currencyInfo.symbol,
+          settingsValue.hideValue,
+        )}
+      </SizableText>
+    );
   }, [
     settings.currencyInfo.symbol,
+    settingsValue.hideValue,
     overview.netWorth,
     initialized,
     isRefreshing,
@@ -951,17 +1020,26 @@ function DeFiListBlock({
   const renderContent = useCallback(() => {
     return (
       <>
-        <YStack gap={tableLayout ? '$8' : '$0'} flex={1}>
-          {filteredProtocols.map((protocol) => (
-            <Protocol
-              key={`${protocol.networkId}-${protocol.protocol}`}
-              protocol={protocol}
-              tableLayout={tableLayout}
-              isAllNetworks={network?.isAllNetworks}
-            />
-          ))}
+        <YStack gap={tableLayout ? '$5' : '$0'} flex={1}>
+          {filteredProtocols.map((protocol, index) => {
+            const protocolKey = defiUtils.buildProtocolMapKey({
+              protocol: protocol.protocol,
+              networkId: protocol.networkId,
+            });
+            return (
+              <ProtocolListItem
+                key={`${protocol.networkId}-${protocol.protocol}`}
+                isAllNetworks={network?.isAllNetworks}
+                isLast={index === filteredProtocols.length - 1}
+                protocol={protocol}
+                protocolKey={protocolKey}
+                registerProtocol={registerProtocol}
+                tableLayout={tableLayout}
+              />
+            );
+          })}
         </YStack>
-        {overflowState.isOverflow ? (
+        {isOverflow ? (
           <XStack
             alignItems="center"
             justifyContent="center"
@@ -971,12 +1049,7 @@ function DeFiListBlock({
             <Button
               size="small"
               variant="secondary"
-              onPress={() =>
-                setOverflowState((prev) => ({
-                  ...prev,
-                  isSliced: !prev.isSliced,
-                }))
-              }
+              onPress={() => setIsSliced(!isSliced)}
               $md={
                 {
                   flexGrow: 1,
@@ -986,7 +1059,7 @@ function DeFiListBlock({
                 } as any
               }
             >
-              {overflowState.isSliced
+              {isSliced
                 ? intl.formatMessage({ id: ETranslations.global_show_more })
                 : intl.formatMessage({ id: ETranslations.global_show_less })}
             </Button>
@@ -999,8 +1072,10 @@ function DeFiListBlock({
     tableLayout,
     network?.isAllNetworks,
     intl,
-    overflowState.isOverflow,
-    overflowState.isSliced,
+    isOverflow,
+    isSliced,
+    setIsSliced,
+    registerProtocol,
   ]);
 
   if (refreshCacheOnly) {
@@ -1015,12 +1090,17 @@ function DeFiListBlock({
     return (
       <RichBlock
         withTitleSeparator
-        title={intl.formatMessage({ id: ETranslations.global_earn })}
-        subTitle={renderSubTitle()}
+        title={
+          hideInternalTitle
+            ? undefined
+            : intl.formatMessage({ id: ETranslations.global_earn })
+        }
+        subTitle={hideInternalTitle ? undefined : renderSubTitle()}
+        subTitleProps={tableLayout ? undefined : { color: '$text' }}
         headerContainerProps={{ px: '$pagePadding' }}
         plainContentContainer
         content={
-          !initialized && isRefreshing ? (
+          !initialized || isRefreshing ? (
             <ListLoading isTokenSelectorView={false} />
           ) : (
             <EmptyDeFi tableLayout={tableLayout} />
@@ -1033,9 +1113,15 @@ function DeFiListBlock({
   return (
     <RichBlock
       withTitleSeparator
-      title={intl.formatMessage({ id: ETranslations.global_earn })}
-      subTitle={renderSubTitle()}
+      title={
+        hideInternalTitle
+          ? undefined
+          : intl.formatMessage({ id: ETranslations.global_earn })
+      }
+      subTitle={hideInternalTitle ? undefined : renderSubTitle()}
+      subTitleProps={tableLayout ? undefined : { color: '$text' }}
       headerContainerProps={{ px: '$pagePadding' }}
+      contentContainerProps={tableLayout ? { px: '$pagePadding' } : undefined}
       content={renderContent()}
       plainContentContainer
     />
