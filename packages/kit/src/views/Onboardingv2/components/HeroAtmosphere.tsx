@@ -48,6 +48,11 @@ function Orb({
   const scale = useSharedValue(scaleKeyframes[0]);
   const opacity = useSharedValue(opacityKeyframes?.[0] ?? 1);
 
+  // Empty deps: animations are set up once on mount. Including the
+  // `*Keyframes` array props in deps would re-run on every render (parent
+  // passes new array literals each time) and reset the animation before it
+  // ever completes a cycle.
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     const segments = xKeyframes.length - 1;
     const segDur = durationMs / segments;
@@ -70,17 +75,8 @@ function Orb({
     if (opacityKeyframes) {
       opacity.value = seq(opacityKeyframes);
     }
-  }, [
-    durationMs,
-    opacity,
-    opacityKeyframes,
-    scale,
-    scaleKeyframes,
-    x,
-    xKeyframes,
-    y,
-    yKeyframes,
-  ]);
+  }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [
@@ -162,10 +158,10 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         color={accent}
         peakAlpha={0.22}
         gradientEdgePct={65}
-        xKeyframes={[0, -40, 30, 0]}
-        yKeyframes={[0, 60, 30, 0]}
-        scaleKeyframes={[1, 1.08, 0.95, 1]}
-        durationMs={18_000}
+        xKeyframes={[0, -100, 80, 0]}
+        yKeyframes={[0, 140, 70, 0]}
+        scaleKeyframes={[1, 1.18, 0.88, 1]}
+        durationMs={12_000}
       />
       <Orb
         size={300}
@@ -174,10 +170,10 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         color={blue}
         peakAlpha={0.09}
         gradientEdgePct={70}
-        xKeyframes={[0, 50, 20, 0]}
-        yKeyframes={[0, -40, 50, 0]}
-        scaleKeyframes={[1, 1.1, 0.92, 1]}
-        durationMs={24_000}
+        xKeyframes={[0, 130, 50, 0]}
+        yKeyframes={[0, -100, 130, 0]}
+        scaleKeyframes={[1, 1.22, 0.82, 1]}
+        durationMs={16_000}
       />
       <Orb
         size={240}
@@ -186,11 +182,11 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         color={accent}
         peakAlpha={0.08}
         gradientEdgePct={70}
-        xKeyframes={[0, -60, 0]}
-        yKeyframes={[0, -30, 0]}
-        scaleKeyframes={[0.9, 1.05, 0.9]}
-        opacityKeyframes={[0.7, 1, 0.7]}
-        durationMs={30_000}
+        xKeyframes={[0, -160, 0]}
+        yKeyframes={[0, -80, 0]}
+        scaleKeyframes={[0.85, 1.12, 0.85]}
+        opacityKeyframes={[0.6, 1, 0.6]}
+        durationMs={20_000}
       />
     </Animated.View>
   );
