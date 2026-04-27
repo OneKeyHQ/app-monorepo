@@ -378,6 +378,28 @@ function buildDeviceBleName({
   return features.ble_name;
 }
 
+async function getFirmwareType({
+  features,
+}: {
+  features:
+    | (IOneKeyDeviceFeatures & { $app_firmware_type?: EFirmwareType })
+    | undefined;
+}) {
+  if (!features) {
+    return EFirmwareType.Universal;
+  }
+
+  if (
+    features.$app_firmware_type &&
+    features.$app_firmware_type === EFirmwareType.BitcoinOnly
+  ) {
+    return EFirmwareType.BitcoinOnly;
+  }
+
+  const { getFirmwareType: sdkGetFirmwareType } = await CoreSDKLoader();
+  return sdkGetFirmwareType(features);
+}
+
 async function getDeviceVerifyVersionsFromFeatures({
   deviceType,
   features,
@@ -395,7 +417,6 @@ async function getDeviceVerifyVersionsFromFeatures({
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-use-before-define
   const firmwareType = await getFirmwareType({
     features: features as IOneKeyDeviceFeatures,
   });
@@ -615,28 +636,6 @@ function getFirmwareTypeByCachedFeatures({
   }
 
   return features.$app_firmware_type;
-}
-
-async function getFirmwareType({
-  features,
-}: {
-  features:
-    | (IOneKeyDeviceFeatures & { $app_firmware_type?: EFirmwareType })
-    | undefined;
-}) {
-  if (!features) {
-    return EFirmwareType.Universal;
-  }
-
-  if (
-    features.$app_firmware_type &&
-    features.$app_firmware_type === EFirmwareType.BitcoinOnly
-  ) {
-    return EFirmwareType.BitcoinOnly;
-  }
-
-  const { getFirmwareType: sdkGetFirmwareType } = await CoreSDKLoader();
-  return sdkGetFirmwareType(features);
 }
 
 function getFirmwareTypeLabelByFirmwareType({
