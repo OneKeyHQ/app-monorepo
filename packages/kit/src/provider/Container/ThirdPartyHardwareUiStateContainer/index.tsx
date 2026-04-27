@@ -50,7 +50,7 @@ function getToastLabel(action: string | undefined, _vendor: string): string {
   switch (action) {
     case EThirdPartyHardwareUiAction.openApp:
       return appLocale.intl.formatMessage({
-        id: ETranslations.hardware_third_party_app_not_installed,
+        id: ETranslations.hardware_third_party_app_not_open,
       });
     case EThirdPartyHardwareUiAction.unlockDevice:
       return appLocale.intl.formatMessage({

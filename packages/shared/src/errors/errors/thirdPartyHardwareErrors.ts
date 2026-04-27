@@ -31,15 +31,7 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
 // Do NOT pass `defaultMessage` — the locale key's translation already holds
 // the human-readable text.
 
-/**
- * App not installed on device (Ledger 0x6807 "Unknown application name").
- *
- * TODO: when the real `ETranslations.hardware_third_party_app_not_installed`
- * key ships, make the locale value use an `{appName}` ICU placeholder and
- * pass `info: { appName }` here so the toast can interpolate. Mock lookup
- * doesn't do ICU substitution on the id, so the mock phase shows the
- * static fallback text without the app name.
- */
+/** App not installed on device */
 export class ThirdPartyAppNotInstalled extends ThirdPartyHardwareError {
   constructor(
     props?: IOneKeyErrorHardwareProps & {
@@ -49,9 +41,12 @@ export class ThirdPartyAppNotInstalled extends ThirdPartyHardwareError {
     },
   ) {
     super(
-      normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_app_not_installed,
-      }),
+      normalizeErrorProps(
+        { ...props, info: { ...props?.info, appName: props?.appName } },
+        {
+          defaultKey: ETranslations.hardware_third_party_app_not_installed,
+        },
+      ),
     );
     this.vendor = props?.vendor;
     this.chain = props?.chain;
