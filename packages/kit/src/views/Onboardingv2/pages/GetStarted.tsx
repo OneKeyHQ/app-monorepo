@@ -124,10 +124,8 @@ function HeroCharLayer({
               }}
               transition={
                 {
-                  type: 'spring',
-                  damping: 18,
-                  stiffness: 200,
-                  mass: 1,
+                  type: 'timing',
+                  duration: HERO_CHAR_ANIMATION_MS,
                   delay,
                 } as any
               }
@@ -166,21 +164,11 @@ function HeroCharLayer({
   );
 }
 
-function HeroRotatingWord({
-  words,
-  onWordChange,
-}: {
-  words: string[];
-  onWordChange?: (index: number) => void;
-}) {
+function HeroRotatingWord({ words }: { words: string[] }) {
   const [wordIndex, setWordIndex] = useState(0);
   const [exitingIndex, setExitingIndex] = useState<number | null>(null);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wordsLength = words.length;
-
-  useEffect(() => {
-    onWordChange?.(wordIndex);
-  }, [wordIndex, onWordChange]);
 
   useEffect(() => {
     if (wordsLength === 0) {
@@ -223,6 +211,7 @@ function HeroRotatingWord({
 
   return (
     <YStack position="relative" accessible accessibilityLabel={currentWord}>
+      <HeroAtmosphere wordIndex={wordIndex} />
       <SizableText
         size="$heading5xl"
         fontWeight={600}
@@ -383,7 +372,6 @@ function GetStarted() {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
 
   const handleCreateNewWallet = () => {
     navigation.push(EOnboardingPagesV2.CreateNewWallet);
@@ -447,7 +435,6 @@ function GetStarted() {
   return (
     <OnboardingPage
       headerBack="exit"
-      backgroundLayer={<HeroAtmosphere wordIndex={currentWordIndex} />}
       contentContainerProps={
         platformEnv.isNative
           ? undefined
@@ -467,12 +454,7 @@ function GetStarted() {
           <HeroSentenceNative
             prefix={heroPrefix}
             suffix={heroSuffix}
-            rotating={
-              <HeroRotatingWord
-                words={heroActionWords}
-                onWordChange={setCurrentWordIndex}
-              />
-            }
+            rotating={<HeroRotatingWord words={heroActionWords} />}
           />
         ) : (
           <XStack flexWrap="wrap" alignItems="baseline">
@@ -481,10 +463,7 @@ function GetStarted() {
                 {heroPrefix}
               </SizableText>
             ) : null}
-            <HeroRotatingWord
-              words={heroActionWords}
-              onWordChange={setCurrentWordIndex}
-            />
+            <HeroRotatingWord words={heroActionWords} />
             {heroSuffix ? (
               <SizableText size="$heading5xl" fontWeight={400}>
                 {heroSuffix}
