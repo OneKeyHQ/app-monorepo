@@ -35,11 +35,13 @@ import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 import type {
   IAccountToken,
   IHomeDefaultToken,
+  ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
+  RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS,
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
   useAllTokenListAtom,
@@ -362,22 +364,74 @@ function TokenListViewCmp(props: IProps) {
       networkId
     ) {
       setRenderedTokenListCache((prev) => {
-        // `prev.byOwner` may be undefined at runtime if a previous build
-        // persisted the old single-entry shape; coerce defensively before
-        // spreading so the upgrade path doesn't throw.
-        const prevByOwner =
-          (prev as { byOwner?: typeof prev.byOwner }).byOwner ?? {};
-        return {
-          byOwner: {
-            ...prevByOwner,
-            [ownerCacheKey]: {
-              tokens,
-              tokenListMap,
-              accountId,
-              networkId,
-            },
-          },
+        // `prev` may be in the legacy single-entry shape persisted by an
+        // earlier build (`{ tokens, initialized, accountId, networkId }`).
+        // Tolerate it defensively and lift it into `byOwner` so the user's
+        // cold-start cache survives the upgrade. Without this migration,
+        // first launch on the new build silently discards the old entry.
+        const legacy = prev as unknown as {
+          byOwner?: Record<
+            string,
+            {
+              tokens: IAccountToken[];
+              tokenListMap?: Record<string, ITokenFiat>;
+              accountId: string;
+              networkId: string;
+            }
+          >;
+          tokens?: IAccountToken[];
+          initialized?: boolean;
+          accountId?: string;
+          networkId?: string;
         };
+        // Object spread tolerates `undefined` (treats it as no-op) — no
+        // explicit `?? {}` needed.
+        const nextByOwner: NonNullable<typeof legacy.byOwner> = {
+          ...legacy.byOwner,
+        };
+        if (
+          !legacy.byOwner &&
+          legacy.initialized &&
+          legacy.tokens?.length &&
+          legacy.accountId &&
+          legacy.networkId
+        ) {
+          const legacyKey = `${legacy.accountId}__${legacy.networkId}`;
+          if (!nextByOwner[legacyKey]) {
+            // No `tokenListMap` in legacy entries; downstream guards skip
+            // such entries until a fresh write replaces them.
+            nextByOwner[legacyKey] = {
+              tokens: legacy.tokens,
+              accountId: legacy.accountId,
+              networkId: legacy.networkId,
+            };
+          }
+        }
+
+        // MRU re-insertion: delete first so the spread below puts the
+        // current owner at the end of the key order. Combined with the
+        // size cap below, this keeps the most recently used entries.
+        delete nextByOwner[ownerCacheKey];
+        nextByOwner[ownerCacheKey] = {
+          tokens,
+          tokenListMap,
+          accountId,
+          networkId,
+        };
+
+        const keys = Object.keys(nextByOwner);
+        if (keys.length > RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS) {
+          // `Object.keys` preserves insertion order for string keys that
+          // aren't integer indices. `accountId__networkId` always contains
+          // non-digit chars (the `__` separator and id prefixes like
+          // `hd-`), so dropping from the front evicts the oldest entries.
+          const dropCount = keys.length - RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS;
+          for (let i = 0; i < dropCount; i += 1) {
+            delete nextByOwner[keys[i]];
+          }
+        }
+
+        return { byOwner: nextByOwner };
       });
     }
   }, [

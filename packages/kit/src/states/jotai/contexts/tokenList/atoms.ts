@@ -190,6 +190,14 @@ export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
     sortDirection: 'desc',
   });
 
+// Hard cap on how many `${accountId}__${networkId}` entries the per-owner
+// cache may hold at once. Each entry persists into MMKV via `coldStartCache`,
+// so an unbounded `byOwner` would steadily grow with the user's session
+// history and slow down every cold-start hydration. 50 covers a typical HD
+// wallet with ~5 active accounts × ~10 networks comfortably; older entries
+// are dropped in MRU order on write (see TokenListView's setter).
+export const RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS = 50;
+
 /**
  * Per-owner cache of the final rendered token list (after filtering
  * hideZeroBalance, hideDeFiMarked, etc.). Keyed by `${accountId}__${networkId}`.
@@ -206,6 +214,9 @@ export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
  *  2. Network/account switching within a session: `TokenListBlock` looks the
  *     entry up by current `${accountId}__${networkId}` and eagerly hydrates
  *     the singleton atoms before `initTokenListData`'s async fetch runs.
+ *
+ * Capacity is bounded — see `RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS`. Writers
+ * are responsible for MRU-evicting older entries before persisting.
  */
 export const {
   atom: renderedTokenListCacheAtom,

@@ -644,6 +644,14 @@ export function HomePageView({
     // mounted across pure network switches — the singleton token-list atoms
     // are then driven by account/network changes via the per-owner cache
     // hydration in TokenListBlock.
+    //
+    // Caveat: Others wallets (imported / watching / external) have no
+    // `indexedAccountId`, so they fall back to `account.id`, which IS
+    // network-scoped for those wallet types. Switching networks on an
+    // Others wallet therefore still remounts Tabs.Container — the
+    // optimization here is intentionally HD-only because Others wallets
+    // typically stay pinned to a single network and the cost of the
+    // occasional remount is not worth special-casing.
     const key = `${wallet?.id ?? ''}-${
       account?.indexedAccountId ?? account?.id ?? ''
     }`;

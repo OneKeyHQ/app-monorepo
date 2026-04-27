@@ -1652,6 +1652,14 @@ function TokenListBlock({
   ]);
 
   useEffect(() => {
+    // Flips to true on cleanup (next owner change or unmount). Any write
+    // back to the singleton token-list atoms after the first `await` must
+    // be gated on this — otherwise a slow response from a previous owner
+    // can stomp on the freshly hydrated state of the new owner. The
+    // `useLayoutEffect` above eagerly hydrates from the per-owner cache,
+    // so dropping the late response simply leaves that hydration in place
+    // until the new owner's own `initTokenListData` resolves.
+    let cancelled = false;
     const initTokenListData = async ({
       accountId,
       networkId,
@@ -1786,6 +1794,11 @@ function TokenListBlock({
         };
       }
 
+      // Owner-change or unmount happened while we were awaiting the local
+      // token cache — drop the result so we don't overwrite the new owner's
+      // freshly hydrated atoms with this stale response.
+      if (cancelled) return;
+
       if (
         isEmpty(tokenList) &&
         isEmpty(smallBalanceTokenList) &&
@@ -1819,11 +1832,15 @@ function TokenListBlock({
           refreshSmallBalanceTokenListMap({ tokens: {} });
           refreshRiskyTokenList({ riskyTokens: [], keys: emptyKeys });
           refreshRiskyTokenListMap({ tokens: {} });
+          // Use the request-time `accountId`/`networkId` (the owner this
+          // response belongs to) — not closure-captured React state which
+          // can read like "current owner" but is actually frozen at the
+          // useEffect run that fired this request.
           refreshAllTokenList({
             keys: emptyKeys,
             tokens: [],
-            accountId: account?.id,
-            networkId: network?.id,
+            accountId,
+            networkId,
           });
           refreshAllTokenListMap({ tokens: {} });
           handleClearAllNetworkData();
@@ -1893,11 +1910,14 @@ function TokenListBlock({
           tokens: tokenListMap,
         });
 
+        // Same rationale as the empty-cache branch above: write the
+        // request-time owner IDs so a late response stamps `allTokenList`
+        // with the owner it actually belongs to.
         refreshAllTokenList({
           keys: `${accountId}_${networkId}_local`,
           tokens: [...tokenList, ...smallBalanceTokenList, ...riskyTokenList],
-          accountId: account?.id,
-          networkId: network?.id,
+          accountId,
+          networkId,
         });
         refreshAllTokenListMap({
           tokens: tokenListMap,
@@ -1932,6 +1952,9 @@ function TokenListBlock({
         xpub: account?.xpubSegwit || account?.xpub,
       });
     }
+    return () => {
+      cancelled = true;
+    };
   }, [
     account?.address,
     account?.id,
