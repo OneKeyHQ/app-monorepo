@@ -55,7 +55,7 @@ function RadialGlow({
             cx="50%"
             cy="0%"
             rx="80%"
-            ry="100%"
+            ry="120%"
             fx="50%"
             fy="0%"
           >
