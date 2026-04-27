@@ -248,8 +248,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }
 
   const quoteResultRef = useRef<IFetchQuoteResult | undefined>(undefined);
-  if (quoteResultRef.current !== currentQuoteRes) {
-    quoteResultRef.current = currentQuoteRes;
+  if (quoteResultRef.current !== swapStepData.quoteResult) {
+    quoteResultRef.current = swapStepData.quoteResult;
   }
 
   const preSwapDataRef = useRef<ISwapPreSwapData | undefined>(undefined);
@@ -516,6 +516,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     if (isWrapped) {
       return false;
     }
+    if (quoteEventFetching) {
+      return false;
+    }
     if (currentQuoteRes && !currentQuoteRes?.allowanceResult) {
       return true;
     }
@@ -525,7 +528,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         fromSelectToken?.networkId ?? '',
       )
     );
-  }, [currentQuoteRes, fromSelectToken?.networkId, isWrapped]);
+  }, [
+    currentQuoteRes,
+    fromSelectToken?.networkId,
+    isWrapped,
+    quoteEventFetching,
+  ]);
 
   const reviewStepTexts = useMemo(
     () => ({
