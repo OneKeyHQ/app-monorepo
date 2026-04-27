@@ -12,6 +12,9 @@ const PEAK_ALPHA_DARK = 0.2;
 // Match HERO_CHAR_ANIMATION_MS in GetStarted.tsx so the glow fade aligns with
 // the hero word's character entry/exit animation.
 const FADE_DURATION_MS = 550;
+const BREATHE_DURATION_MS = 8000;
+const BREATHE_OPACITY_LOW = 0.85;
+const BREATHE_OPACITY_HIGH = 1;
 
 function RadialGlow({
   index,
@@ -94,20 +97,34 @@ export function HeroAtmosphere({ wordIndex }: { wordIndex: number }) {
       bottom={0}
       pointerEvents="none"
     >
-      {previousIndex !== null ? (
+      <MotiView
+        from={{ opacity: BREATHE_OPACITY_HIGH }}
+        animate={{ opacity: BREATHE_OPACITY_LOW }}
+        transition={
+          {
+            type: 'timing',
+            duration: BREATHE_DURATION_MS,
+            loop: true,
+            repeatReverse: true,
+          } as any
+        }
+        style={{ flex: 1 }}
+      >
+        {previousIndex !== null ? (
+          <RadialGlow
+            key={`prev-${previousIndex}`}
+            index={previousIndex}
+            isCurrent={false}
+            peakAlpha={peakAlpha}
+          />
+        ) : null}
         <RadialGlow
-          key={`prev-${previousIndex}`}
-          index={previousIndex}
-          isCurrent={false}
+          key={`curr-${currentIndex}`}
+          index={currentIndex}
+          isCurrent
           peakAlpha={peakAlpha}
         />
-      ) : null}
-      <RadialGlow
-        key={`curr-${currentIndex}`}
-        index={currentIndex}
-        isCurrent
-        peakAlpha={peakAlpha}
-      />
+      </MotiView>
     </YStack>
   );
 }
