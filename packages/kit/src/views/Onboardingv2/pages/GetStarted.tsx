@@ -211,7 +211,6 @@ function HeroRotatingWord({ words }: { words: string[] }) {
 
   return (
     <YStack position="relative" accessible accessibilityLabel={currentWord}>
-      <HeroAtmosphere wordIndex={wordIndex} />
       <SizableText
         size="$heading5xl"
         fontWeight={600}
@@ -435,6 +434,7 @@ function GetStarted() {
   return (
     <OnboardingPage
       headerBack="exit"
+      backgroundLayer={<HeroAtmosphere />}
       contentContainerProps={
         platformEnv.isNative
           ? undefined

@@ -1,69 +1,197 @@
-import { MotiView } from 'moti';
+import { useEffect } from 'react';
+
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-import { YStack, useTheme, useThemeName } from '@onekeyhq/components';
+import { useTheme } from '@onekeyhq/components';
 
-const PEAK_ALPHA_LIGHT = 0.3;
-const PEAK_ALPHA_DARK = 0.2;
-const BREATHE_DURATION_MS = 8000;
-const BREATHE_OPACITY_LOW = 0.85;
-const BREATHE_OPACITY_HIGH = 1;
+type IOrbProps = {
+  size: number;
+  top?: number | `${number}%`;
+  bottom?: number;
+  left?: number | `${number}%`;
+  right?: number;
+  color: string;
+  peakAlpha: number;
+  gradientEdgePct: number;
+  xKeyframes: number[];
+  yKeyframes: number[];
+  scaleKeyframes: number[];
+  opacityKeyframes?: number[];
+  durationMs: number;
+};
 
-// Vertical-only extension past the rotating word's bounding box. Horizontal
-// extension is avoided so the halo doesn't bleed into the prefix/suffix
-// text on either side.
-const HALO_VERTICAL_EXTENSION = 24;
+function Orb({
+  size,
+  top,
+  bottom,
+  left,
+  right,
+  color,
+  peakAlpha,
+  gradientEdgePct,
+  xKeyframes,
+  yKeyframes,
+  scaleKeyframes,
+  opacityKeyframes,
+  durationMs,
+}: IOrbProps) {
+  const x = useSharedValue(xKeyframes[0]);
+  const y = useSharedValue(yKeyframes[0]);
+  const scale = useSharedValue(scaleKeyframes[0]);
+  const opacity = useSharedValue(opacityKeyframes?.[0] ?? 1);
 
-// `wordIndex` is accepted for forward compat (e.g., a per-word pulse) but
-// currently unused — the halo color stays fixed across words. Keeping the
-// prop preserves the integration point.
-export function HeroAtmosphere(_props: { wordIndex?: number }) {
-  const theme = useTheme();
-  const themeName = useThemeName();
-  const peakAlpha = themeName === 'dark' ? PEAK_ALPHA_DARK : PEAK_ALPHA_LIGHT;
-  const color = theme.brand9?.val ?? '#32B826';
-  const gradientId = 'hero-halo';
+  useEffect(() => {
+    const segments = xKeyframes.length - 1;
+    const segDur = durationMs / segments;
+    const easing = Easing.inOut(Easing.ease);
+
+    const seq = (vals: number[]) =>
+      withRepeat(
+        withSequence(
+          ...vals
+            .slice(1)
+            .map((v) => withTiming(v, { duration: segDur, easing })),
+        ),
+        -1,
+        false,
+      );
+
+    x.value = seq(xKeyframes);
+    y.value = seq(yKeyframes);
+    scale.value = seq(scaleKeyframes);
+    if (opacityKeyframes) {
+      opacity.value = seq(opacityKeyframes);
+    }
+  }, [
+    durationMs,
+    opacity,
+    opacityKeyframes,
+    scale,
+    scaleKeyframes,
+    x,
+    xKeyframes,
+    y,
+    yKeyframes,
+  ]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: x.value },
+      { translateY: y.value },
+      { scale: scale.value },
+    ],
+    opacity: opacity.value,
+  }));
+
+  const gradientId = `hero-orb-${size}-${color.replace('#', '')}`;
 
   return (
-    <YStack
-      position="absolute"
-      top={-HALO_VERTICAL_EXTENSION}
-      left={0}
-      right={0}
-      bottom={-HALO_VERTICAL_EXTENSION}
+    <Animated.View
       pointerEvents="none"
+      style={[
+        {
+          position: 'absolute',
+          width: size,
+          height: size,
+          top,
+          bottom,
+          left,
+          right,
+        } as never,
+        animStyle,
+      ]}
     >
-      <MotiView
-        from={{ opacity: BREATHE_OPACITY_HIGH }}
-        animate={{ opacity: BREATHE_OPACITY_LOW }}
-        transition={
-          {
-            type: 'timing',
-            duration: BREATHE_DURATION_MS,
-            loop: true,
-            repeatReverse: true,
-          } as any
-        }
-        style={{ flex: 1 }}
-      >
-        <Svg width="100%" height="100%" preserveAspectRatio="none">
-          <Defs>
-            <RadialGradient
-              id={gradientId}
-              cx="50%"
-              cy="50%"
-              rx="50%"
-              ry="50%"
-              fx="50%"
-              fy="50%"
-            >
-              <Stop offset="0%" stopColor={color} stopOpacity={peakAlpha} />
-              <Stop offset="100%" stopColor={color} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
-        </Svg>
-      </MotiView>
-    </YStack>
+      <Svg width="100%" height="100%">
+        <Defs>
+          <RadialGradient
+            id={gradientId}
+            cx="50%"
+            cy="50%"
+            rx="50%"
+            ry="50%"
+            fx="50%"
+            fy="50%"
+          >
+            <Stop offset="0%" stopColor={color} stopOpacity={peakAlpha} />
+            <Stop
+              offset={`${gradientEdgePct}%`}
+              stopColor={color}
+              stopOpacity={0}
+            />
+          </RadialGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
+      </Svg>
+    </Animated.View>
+  );
+}
+
+// Three large blurred orbs slowly drifting across the page — based on
+// `BgOrbDrift` from the Onboarding Background Explorations design handoff.
+// `wordIndex` is kept as an optional forward-compat prop in case future
+// iterations want to couple per-word visual response.
+export function HeroAtmosphere(_props: { wordIndex?: number }) {
+  const theme = useTheme();
+  const accent = theme.brand9?.val ?? '#32B826';
+  const blue = theme.blue9?.val ?? '#0090FF';
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: 'hidden',
+      }}
+    >
+      <Orb
+        size={360}
+        top={120}
+        right={-120}
+        color={accent}
+        peakAlpha={0.22}
+        gradientEdgePct={65}
+        xKeyframes={[0, -40, 30, 0]}
+        yKeyframes={[0, 60, 30, 0]}
+        scaleKeyframes={[1, 1.08, 0.95, 1]}
+        durationMs={18_000}
+      />
+      <Orb
+        size={300}
+        bottom={200}
+        left={-140}
+        color={blue}
+        peakAlpha={0.09}
+        gradientEdgePct={70}
+        xKeyframes={[0, 50, 20, 0]}
+        yKeyframes={[0, -40, 50, 0]}
+        scaleKeyframes={[1, 1.1, 0.92, 1]}
+        durationMs={24_000}
+      />
+      <Orb
+        size={240}
+        top="45%"
+        left="40%"
+        color={accent}
+        peakAlpha={0.08}
+        gradientEdgePct={70}
+        xKeyframes={[0, -60, 0]}
+        yKeyframes={[0, -30, 0]}
+        scaleKeyframes={[0.9, 1.05, 0.9]}
+        opacityKeyframes={[0.7, 1, 0.7]}
+        durationMs={30_000}
+      />
+    </Animated.View>
   );
 }
