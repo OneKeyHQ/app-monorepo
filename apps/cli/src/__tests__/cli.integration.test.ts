@@ -84,10 +84,12 @@ describe('onekey CLI (integration)', () => {
     expect(helpOutput).toContain('status');
   });
 
-  it('shows only --app-transfer as login method in auth login --help', () => {
+  it('shows supported auth login methods in auth login --help', () => {
     const output = run('auth', 'login', '--help');
     expect(output).toContain('Authenticate with a OneKey App Bot Wallet');
     expect(output).toContain('--app-transfer');
+    expect(output).toContain('--hardware');
+    expect(output).toContain('--passphrase-mode');
     expect(output).not.toContain('--mnemonic');
     expect(output).not.toContain('BIP39 mnemonic phrase');
   });
@@ -238,6 +240,8 @@ describe('onekey CLI (integration)', () => {
 
     expect(parsed.name).toBe('auth-login');
     expect(parsed.input.properties.appTransfer).toBeDefined();
+    expect(parsed.input.properties.hardware).toBeDefined();
+    expect(parsed.input.properties.passphraseMode).toBeDefined();
     expect(parsed.input.properties.mnemonic).toBeUndefined();
     expect(parsed.output.properties).toBeDefined();
   });
