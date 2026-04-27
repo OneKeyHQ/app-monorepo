@@ -105,17 +105,22 @@ function SpotBalanceList({
   const allBalances: IBalanceDisplayItem[] = useMemo(() => {
     const items: IBalanceDisplayItem[] = [];
 
-    const spotCoinNames = new Set(balances.map((b) => b.coin));
-    const hasPerpsUsdc = !!accountSummary?.totalRawUsd;
+    let spotUsdcBalance: (typeof balances)[number] | undefined;
 
     balances.forEach((b) => {
+      // USDC is merged with the perps-side USDC after the loop into a single
+      // total-across-spot+perps row; defer collection until then.
+      if (b.coin === 'USDC') {
+        spotUsdcBalance = b;
+        return;
+      }
+
       const totalBN = new BigNumber(b.total);
       const holdBN = new BigNumber(b.hold);
       const availableBN = BigNumber.max(totalBN.minus(holdBN), 0);
       const entryNtlBN = new BigNumber(b.entryNtl || '0');
 
-      const isStable =
-        b.coin === 'USDC' || b.coin === 'USDT' || b.coin === 'USDB';
+      const isStable = b.coin === 'USDT' || b.coin === 'USDB';
 
       const midPrice = tokenPriceLookup[b.coin];
       let usdcValueBN: BigNumber;
@@ -136,9 +141,8 @@ function SpotBalanceList({
       }
 
       const displayCoin = getSpotTokenDisplayName(b.coin);
-      const needsSuffix = displayCoin === 'USDC' && hasPerpsUsdc;
       const spotUniverse = universeByBaseName[b.coin];
-      const isAssetClickable = b.coin !== 'USDC' && !!spotUniverse;
+      const isAssetClickable = !!spotUniverse;
 
       items.push({
         coin: displayCoin,
@@ -153,27 +157,40 @@ function SpotBalanceList({
         logoURI: getHyperliquidTokenImageUrl(b.coin),
         spotUniverse,
         isAssetClickable,
-        needsSuffix,
+        needsSuffix: false,
         usdcValueNum: usdcValueBN.toNumber(),
       });
     });
 
-    if (accountSummary?.totalRawUsd) {
-      const perpsUsdcBN = new BigNumber(accountSummary.totalRawUsd);
-      if (perpsUsdcBN.isGreaterThan(0)) {
-        items.push({
-          coin: 'USDC',
-          rawCoin: 'USDC',
-          type: 'perps',
-          total: perpsUsdcBN.toFixed(),
-          available: accountSummary.withdrawable || '0',
-          usdcValue: perpsUsdcBN.toFixed(2),
-          logoURI: getHyperliquidTokenImageUrl('USDC'),
-          isAssetClickable: false,
-          needsSuffix: spotCoinNames.has('USDC'),
-          usdcValueNum: perpsUsdcBN.toNumber(),
-        });
-      }
+    // HL doesn't expose a cross-account USDC total — sum on the client and
+    // tag as 'spot' so it inherits the existing USDC-first sort priority.
+    const spotUsdcTotalBN = spotUsdcBalance
+      ? new BigNumber(spotUsdcBalance.total)
+      : new BigNumber(0);
+    const spotUsdcHoldBN = spotUsdcBalance
+      ? new BigNumber(spotUsdcBalance.hold)
+      : new BigNumber(0);
+    const spotUsdcAvailBN = BigNumber.max(
+      spotUsdcTotalBN.minus(spotUsdcHoldBN),
+      0,
+    );
+    const perpsUsdcTotalBN = new BigNumber(accountSummary?.totalRawUsd || '0');
+    const perpsUsdcAvailBN = new BigNumber(accountSummary?.withdrawable || '0');
+    const mergedUsdcTotalBN = spotUsdcTotalBN.plus(perpsUsdcTotalBN);
+
+    if (mergedUsdcTotalBN.isGreaterThan(0)) {
+      items.push({
+        coin: 'USDC',
+        rawCoin: 'USDC',
+        type: 'spot',
+        total: mergedUsdcTotalBN.toFixed(),
+        available: spotUsdcAvailBN.plus(perpsUsdcAvailBN).toFixed(),
+        usdcValue: mergedUsdcTotalBN.toFixed(2),
+        logoURI: getHyperliquidTokenImageUrl('USDC'),
+        isAssetClickable: false,
+        needsSuffix: false,
+        usdcValueNum: mergedUsdcTotalBN.toNumber(),
+      });
     }
 
     return items.toSorted((a, b) => {
