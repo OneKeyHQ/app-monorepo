@@ -57,5 +57,19 @@ export default {
     'packages/kit/src/provider/SplashProvider\\.test',
     // Reason: uses jest.useFakeTimers + setSystemTime to pin frecency "now" — harness incompatible
     'packages/kit/src/views/Discovery/utils/searchResultRanking\\.test',
+    // Reason: indirect access to DOM `document` via ESwapStepType wiring — unavailable in RN
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapReviewActions\\.test',
+    // Reason: same DOM/timer dependency tree as useMarketSwapReviewActions
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapActions\\.test',
+    // Reason: uses jest.useFakeTimers — unsupported in harness
+    'packages/kit/src/views/Swap/hooks/useSwapIncognitoRecipientInput\\.test',
+    // Reason: Metro `require.importAll` helper missing in harness runtime
+    'packages/shared/src/utils/ipTableUtils\\.test',
+    // Reason: Metro/jest-mock helpers unavailable in harness runtime
+    'packages/shared/src/keylessWallet/keylessWalletUtils\\.test',
+    // Reason: Metro/jest-mock helpers unavailable in harness runtime
+    'packages/kit-bg/src/states/jotai/jotaiStorage\\.test',
+    // Reason: harness cannot mock read-only `NativeLogger` export the test expects
+    'apps/mobile/src/splitBundle/__tests__/installProdBundleLoader\\.test',
   ],
 };
