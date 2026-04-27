@@ -1,13 +1,20 @@
 import { randomBytes } from 'node:crypto';
 
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+
 import { AppError } from '../../errors';
 import { AuthSessionStore } from '../../infra/auth-session-store';
 import { createSecureStorage } from '../../infra/keychain-storage';
 import {
   KEYCHAIN_ENCRYPTION_KEY,
   KEYCHAIN_MNEMONIC_KEY,
-  getSignerByImpl,
-} from '../../signer';
+  KEYCHAIN_PASSPHRASE_STATE_KEY,
+  KEYCHAIN_SESSION_ID_KEY,
+} from '../../signer/keychain-keys';
+import {
+  loadSignerBuilders,
+  requireSignerBuilder,
+} from '../../signer/registry';
 import { encrypt, secureWipe } from '../crypto-utils';
 import { secureCache } from '../secure-cache';
 
@@ -46,9 +53,15 @@ export class AuthManager {
   constructor(
     private readonly storage: ISecureStorage = createSecureStorage(),
     private readonly sessionStore: AuthSessionStore = new AuthSessionStore(),
-    private readonly signerFactory: (
-      impl: string,
-    ) => Promise<ISigner> = getSignerByImpl,
+    // Login-time HD signer builder. Skips the auth gate that
+    // `getSignerByImpl` enforces (the session isn't persisted yet).
+    // Overridden in tests to inject a stub with a fixed address.
+    private readonly signerFactory: (impl: string) => Promise<ISigner> = async (
+      impl,
+    ) => {
+      const builders = await loadSignerBuilders(impl);
+      return requireSignerBuilder(impl, builders, WALLET_TYPE_HD)();
+    },
     private readonly appTransferLogin: IAppTransferLoginExecutor = startAppTransferLogin,
   ) {
     this.resolver = new AuthSessionResolver(this.storage, this.sessionStore);
@@ -131,17 +144,34 @@ export class AuthManager {
   private async rollbackSession(): Promise<AppError | null> {
     secureCache.clearAll();
 
-    const results = await Promise.allSettled([
+    const keyResults = await Promise.allSettled([
       this.storage.delete(KEYCHAIN_MNEMONIC_KEY),
       this.storage.delete(KEYCHAIN_ENCRYPTION_KEY),
-      this.sessionStore.clear(),
+      this.storage.delete(KEYCHAIN_PASSPHRASE_STATE_KEY),
+      this.storage.delete(KEYCHAIN_SESSION_ID_KEY),
     ]);
 
-    const rejected = results.find(
+    // All secret-bearing keys (HD mnemonic/encryption AND hardware
+    // passphrase/session) must be deleted before we clear the session file.
+    // delete() already treats "not found" as success, so a rejection here
+    // means the OS keychain genuinely refused — leaving secrets behind.
+    // Keep the session file so the user stays in a recoverable state and can
+    // retry logout after unlocking/granting access to the OS keychain.
+    const rejected = keyResults.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
+    if (rejected) {
+      return AppError.from(rejected.reason);
+    }
 
-    return rejected ? AppError.from(rejected.reason) : null;
+    // Keys are gone — safe to remove the session file.
+    try {
+      await this.sessionStore.clear();
+    } catch (error) {
+      return AppError.from(error);
+    }
+
+    return null;
   }
 
   private async persistHdWalletSession({
