@@ -234,6 +234,7 @@ export interface ISwapAutoSlippageSuggestedValue {
   value: number;
   from: string;
   to: string;
+  eventId: string;
 }
 
 // quote
@@ -681,6 +682,7 @@ export interface ISwapState {
   noConnectWallet?: boolean;
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
+  isWaitingAutoSlippage?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
