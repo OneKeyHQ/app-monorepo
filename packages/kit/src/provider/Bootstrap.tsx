@@ -27,6 +27,7 @@ import {
 import {
   EAppUpdateStatus,
   EUpdateFileType,
+  EUpdateStrategy,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -69,7 +70,10 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
+import {
+  isAutoUpdateStrategy,
+  useAppUpdateInfo,
+} from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
@@ -107,7 +111,19 @@ const useDesktopEvents = platformEnv.isDesktop
         }
         isCheckingUpdate.current = true;
         const { isNeedUpdate, response } = await checkForUpdates();
-        if (isNeedUpdate || response === undefined) {
+        // OTA (silent/seamless) updates download/install transparently in
+        // the background. The desktop menu "Check for updates" must not open
+        // the download/verify UI for these strategies — that breaks the
+        // silent/seamless contract. The auto useEffect in useAppUpdateInfo
+        // drives any legitimate user-visible UI (silent install dialog when
+        // status === ready). Show "up to date" so the menu click still gives
+        // the user feedback.
+        const isOtaStrategy =
+          response &&
+          isAutoUpdateStrategy(
+            response.updateStrategy ?? EUpdateStrategy.manual,
+          );
+        if ((isNeedUpdate && !isOtaStrategy) || response === undefined) {
           onUpdateAction();
           isCheckingUpdate.current = false;
         } else {
