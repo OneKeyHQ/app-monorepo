@@ -44,7 +44,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
@@ -844,20 +843,18 @@ function DeFiListBlock({
       if (!account?.id || !network?.id) return;
 
       // Prefer indexedAccountId equality (robust for All Networks mode);
-      // fall back to walletId match for accounts without an indexed id
-      // (e.g. imported / watching-only).
+      // fall back to a strict accountId match for accounts without an
+      // indexed id (imported / watching-only / external). A walletId-only
+      // compare is unsafe for those types because they all share a single
+      // wallet bucket (`imported`, `watching`, `external`) — distinct
+      // accounts inside the same bucket would otherwise leak each other's
+      // refreshed positions into the current view.
       const currentIndexedId = account.indexedAccountId;
       const payloadIndexedId = payload.indexedAccountId;
       if (currentIndexedId && payloadIndexedId) {
         if (currentIndexedId !== payloadIndexedId) return;
-      } else {
-        const { walletId: payloadWalletId } = accountUtils.parseAccountId({
-          accountId: payload.accountId,
-        });
-        const { walletId: currentWalletId } = accountUtils.parseAccountId({
-          accountId: account.id,
-        });
-        if (!payloadWalletId || payloadWalletId !== currentWalletId) return;
+      } else if (payload.accountId !== account.id) {
+        return;
       }
 
       if (!network.isAllNetworks) {

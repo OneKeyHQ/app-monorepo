@@ -352,9 +352,17 @@ class ServiceDeFi extends ServiceBase {
   }) {
     const { accountId, indexedAccountId, networkId } = params;
     try {
-      const [settings, currencyMap] = await Promise.all([
+      const [settings, currencyMap, accountAddress, xpub] = await Promise.all([
         settingsPersistAtom.get(),
         this.backgroundApi.serviceSetting.getCurrencyMap(),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
       ]);
       const sourceCurrencyInfo = currencyMap[settings.currencyInfo.id];
       const targetCurrencyInfo = currencyMap.usd;
@@ -362,16 +370,58 @@ class ServiceDeFi extends ServiceBase {
       const resp = await this.fetchAccountDeFiPositions({
         accountId,
         networkId,
+        accountAddress,
+        xpub,
         excludeLowValueProtocols: true,
         sourceCurrencyInfo,
         targetCurrencyInfo,
-        saveToLocal: true,
+        // Do NOT use saveToLocal here. The shared `_localDeFiOverviewCache`
+        // is keyed only by networkId and the debounced flush writes against
+        // the last `accountAddress/xpub` it sees, so concurrent background
+        // refreshes for different accounts on the same network — or a
+        // background refresh racing with a foreground UI fetch — would
+        // overwrite each other's per-account local overview. Write this
+        // single account's overview directly below instead.
+        saveToLocal: false,
         isForceRefresh: true,
         // Do not share the abort pool: a UI-initiated
         // abortFetchAccountDeFiPositions() must not cancel the scheduled
         // force refresh, which is what delivers the post-tx freshness.
         abortable: false,
       });
+
+      if (accountAddress || xpub) {
+        await this.updateAccountsLocalDeFiOverview({
+          accountAddress,
+          xpub,
+          overview: {
+            [networkId]: {
+              totalValue: this._fixCurrencyValue({
+                sourceCurrencyInfo,
+                targetCurrencyInfo,
+                value: resp.overview.totalValue,
+              }).toNumber(),
+              totalDebt: this._fixCurrencyValue({
+                sourceCurrencyInfo,
+                targetCurrencyInfo,
+                value: resp.overview.totalDebt,
+              }).toNumber(),
+              totalReward: this._fixCurrencyValue({
+                sourceCurrencyInfo,
+                targetCurrencyInfo,
+                value: resp.overview.totalReward,
+              }).toNumber(),
+              netWorth: this._fixCurrencyValue({
+                sourceCurrencyInfo,
+                targetCurrencyInfo,
+                value: resp.overview.netWorth,
+              }).toNumber(),
+              currency: targetCurrencyInfo?.id ?? '',
+            },
+          },
+          merge: true,
+        });
+      }
 
       appEventBus.emit(EAppEventBusNames.DeFiPositionRefreshed, {
         accountId,
