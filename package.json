@@ -40,6 +40,8 @@
     "app:native-bundle:bg": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn workspace @onekeyhq/mobile native-bundle:bg",
     "app:split-bundle": "yarn workspace @onekeyhq/mobile split-bundle",
     "app:build-bundle": "yarn workspace @onekeyhq/mobile build-bundle",
+    "app:build-bundle:ios": "yarn workspace @onekeyhq/mobile build-bundle:ios",
+    "app:build-bundle:android": "yarn workspace @onekeyhq/mobile build-bundle:android",
     "app:ios": "yarn workspace @onekeyhq/mobile ios",
     "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
     "app:ios:pod-install": "yarn workspace @onekeyhq/mobile ios:pod-install",

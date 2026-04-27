@@ -68,9 +68,16 @@ env:
 
 jobs:
   release-native-bundle:
+    name: release-native-bundle (${{ matrix.platform }})
     runs-on: ubuntu-latest
+    # Run iOS and Android JS bundles in parallel. Each platform's build is
+    # independent (separate out-dir-bundle/<platform> + own zip artifact +
+    # own Slack/QA notification), so a failure on one no longer blocks the
+    # other. fail-fast=false avoids canceling iOS just because Android failed.
     strategy:
+      fail-fast: false
       matrix:
+        platform: [ios, android]
         node-version: [24.x]
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
@@ -78,6 +85,7 @@ jobs:
       - name: Show executed time
         run: |
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "Building platform: ${{ matrix.platform }}"
 
       - name: Validate workflow_run source
         if: github.event_name == 'workflow_run'
@@ -204,24 +212,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UNION_BUILD: 'true'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
-        run: 'yarn app:build-bundle'
-      
+        run: 'yarn app:build-bundle:${{ matrix.platform }}'
+
       - name: upload zips
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: release-native-bundle-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: release-native-bundle-${{ matrix.platform }}-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/mobile/out-dir-bundle-zip
             !**/.DS_Store
-      
+
       - name: upload bundles
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: release-native-bundle-sources-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: release-native-bundle-${{ matrix.platform }}-sources-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
-            ./apps/mobile/out-dir-bundle
+            ./apps/mobile/out-dir-bundle/${{ matrix.platform }}
             !**/.DS_Store
 
       - name: Upload QA Bundles
@@ -240,8 +248,8 @@ jobs:
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-          artifact-type: React-Native-Bundle
-          artifact-name: OneKey-Native-Bundle
+          artifact-type: React-Native-Bundle-${{ matrix.platform }}
+          artifact-name: OneKey-Native-Bundle-${{ matrix.platform }}
           artifact-bundle-id: 'so.onekey.wallet'
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
