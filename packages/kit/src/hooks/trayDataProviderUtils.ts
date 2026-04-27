@@ -3,6 +3,8 @@ import BigNumber from 'bignumber.js';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 type ITrayNetworkInfoMap = Record<
   string,
@@ -77,4 +79,58 @@ export function getTrayTokenValueInTargetCurrency({
   return new BigNumber(tokensUsd ?? '0')
     .times(new BigNumber(usdToTargetFactor || 1))
     .toFixed();
+}
+
+export function collectTrayTrackedTxs(
+  rawData: { pendingTxs?: Record<string, unknown> } | undefined | null,
+): IAccountHistoryTx[] {
+  const txs: IAccountHistoryTx[] = [];
+  if (!rawData?.pendingTxs) return txs;
+
+  for (const value of Object.values(rawData.pendingTxs)) {
+    if (Array.isArray(value)) {
+      for (const tx of value) {
+        const historyTx = tx as IAccountHistoryTx | undefined;
+        const status = historyTx?.decodedTx?.status;
+        if (
+          historyTx &&
+          (status === EDecodedTxStatus.Pending ||
+            status === EDecodedTxStatus.Failed)
+        ) {
+          txs.push(historyTx);
+        }
+      }
+    }
+  }
+
+  return txs;
+}
+
+export function recoverFailedTrackedTxs(
+  rawData: { confirmedTxs?: Record<string, unknown> } | undefined | null,
+  trackedPendingIds: Set<string>,
+): IAccountHistoryTx[] {
+  const recovered: IAccountHistoryTx[] = [];
+  if (!rawData?.confirmedTxs || trackedPendingIds.size === 0) return recovered;
+
+  for (const value of Object.values(rawData.confirmedTxs)) {
+    if (Array.isArray(value)) {
+      for (const tx of value) {
+        const historyTx = tx as IAccountHistoryTx | undefined;
+        if (
+          historyTx &&
+          historyTx.decodedTx?.status === EDecodedTxStatus.Failed
+        ) {
+          const originalId = historyTx.originalId;
+          const matched =
+            trackedPendingIds.has(historyTx.id) ||
+            (typeof originalId === 'string' &&
+              trackedPendingIds.has(originalId));
+          if (matched) recovered.push(historyTx);
+        }
+      }
+    }
+  }
+
+  return recovered;
 }

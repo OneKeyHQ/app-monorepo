@@ -66,34 +66,11 @@ import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
 
 import {
   TRAY_DATA_REFRESH_EVENT_NAMES,
+  collectTrayTrackedTxs,
   getTrayCurrencyDisplayInfo,
   getTrayTokenValueInTargetCurrency,
+  recoverFailedTrackedTxs,
 } from './trayDataProviderUtils';
-
-function collectTrayTrackedTxs(
-  rawData: { pendingTxs?: Record<string, unknown> } | undefined | null,
-): IAccountHistoryTx[] {
-  const txs: IAccountHistoryTx[] = [];
-  if (!rawData?.pendingTxs) return txs;
-
-  for (const value of Object.values(rawData.pendingTxs)) {
-    if (Array.isArray(value)) {
-      for (const tx of value) {
-        const historyTx = tx as IAccountHistoryTx | undefined;
-        const status = historyTx?.decodedTx?.status;
-        if (
-          historyTx &&
-          (status === EDecodedTxStatus.Pending ||
-            status === EDecodedTxStatus.Failed)
-        ) {
-          txs.push(historyTx);
-        }
-      }
-    }
-  }
-
-  return txs;
-}
 
 async function refreshTrayPendingTxStatuses(
   txs: IAccountHistoryTx[],
@@ -709,14 +686,26 @@ export function useTrayDataProvider() {
         let rawData =
           await backgroundApiProxy.simpleDb.localHistory.getRawData();
         let allTrackedTxs = collectTrayTrackedTxs(rawData);
-        if (
-          allTrackedTxs.some(
-            (tx) => tx.decodedTx?.status === EDecodedTxStatus.Pending,
-          )
-        ) {
+        const trackedPendingIds = new Set(
+          allTrackedTxs
+            .filter((tx) => tx.decodedTx?.status === EDecodedTxStatus.Pending)
+            .map((tx) => tx.id),
+        );
+        if (trackedPendingIds.size > 0) {
           await refreshTrayPendingTxStatuses(allTrackedTxs);
           rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
           allTrackedTxs = collectTrayTrackedTxs(rawData);
+          // Refresh moves failed txs out of the pendingTxs bucket
+          // (SimpleDbEntityLocalHistory's save filters that bucket to
+          // Pending-only), so re-attach them from confirmedTxs by id /
+          // originalId — otherwise diffAndNotify mis-fires "Confirmed".
+          const recovered = recoverFailedTrackedTxs(rawData, trackedPendingIds);
+          if (recovered.length > 0) {
+            const stillTrackedIds = new Set(allTrackedTxs.map((tx) => tx.id));
+            for (const tx of recovered) {
+              if (!stillTrackedIds.has(tx.id)) allTrackedTxs.push(tx);
+            }
+          }
         }
 
         allTrackedTxs.sort(
