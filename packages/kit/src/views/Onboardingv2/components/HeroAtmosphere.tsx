@@ -54,8 +54,8 @@ function RadialGlow({
             id={gradientId}
             cx="50%"
             cy="0%"
-            rx="80%"
-            ry="120%"
+            rx="100%"
+            ry="200%"
             fx="50%"
             fy="0%"
           >
