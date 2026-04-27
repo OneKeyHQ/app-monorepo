@@ -397,6 +397,11 @@ function MobileTokenSelectorModal({
             dexIndex: SPOT_DEX_INDEX,
             index,
             assetId: u.assetId,
+            tokenSubtitle:
+              getTokenSubtitle(
+                getSpotTokenDisplayName(u.baseName),
+                tokenSearchAliases,
+              ) ?? getTokenSubtitle(u.baseName, tokenSearchAliases),
             spotUniverse: u,
           } as ITokenSelectorListItem,
           name: u.baseName,
@@ -440,6 +445,7 @@ function MobileTokenSelectorModal({
   }, [
     spotUniverses,
     spotPriceMap,
+    tokenSearchAliases,
     selectorConfig?.field,
     selectorConfig?.direction,
   ]);
