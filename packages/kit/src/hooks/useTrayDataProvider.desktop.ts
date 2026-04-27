@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { rootNavigationRef } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
+import {
+  rootNavigationRef,
+  switchTabAsync,
+} from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
 import {
   useActiveAccountValueAtom,
   useAppIsLockedAtom,
@@ -684,16 +687,35 @@ export function useTrayDataProvider() {
         if (action.networkId && (isNative || action.tokenAddress)) {
           const networkId = action.networkId as string;
           const shortCode = networkUtils.getNetworkShortCode({ networkId });
-          nav.navigate(ERootRoutes.Main, {
-            screen: ETabRoutes.Market,
-            params: {
-              screen: ETabMarketRoutes.MarketDetailV2,
-              params: {
-                tokenAddress: (action.tokenAddress as string) || '',
-                network: shortCode || networkId,
-                isNative,
+          const params = {
+            tokenAddress: (action.tokenAddress as string) || '',
+            network: shortCode || networkId,
+            isNative,
+          };
+
+          void switchTabAsync(ETabRoutes.Market).then(() => {
+            rootNavigationRef.current?.navigate(
+              ERootRoutes.Main,
+              {
+                screen: ETabRoutes.Market,
+                params: {
+                  screen: ETabMarketRoutes.TabMarket,
+                },
               },
-            },
+              {
+                pop: true,
+              },
+            );
+
+            setTimeout(() => {
+              rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+                screen: ETabRoutes.Market,
+                params: {
+                  screen: ETabMarketRoutes.MarketDetailV2,
+                  params,
+                },
+              });
+            }, 100);
           });
         }
       }
