@@ -31,6 +31,7 @@ export function HeaderScrollGestureWrapper({
   horizontalSwipeVelocityThreshold = 0,
   simultaneousWithNativeGesture = false,
   cancelChildTouches = true,
+  onGestureActiveChange,
 }: PropsWithChildren<IHeaderScrollGestureWrapperProps>) {
   const tabsContext = useContext(CollapsibleTabContext);
   const refMap = tabsContext?.refMap;
@@ -112,6 +113,9 @@ export function HeaderScrollGestureWrapper({
         }
         cancelAnimation(targetScrollY);
         startScrollY.value = scrollYCurrent?.value ?? 0;
+        if (onGestureActiveChange) {
+          runOnJS(onGestureActiveChange)(true);
+        }
       })
       .onUpdate((e) => {
         'worklet';
@@ -140,6 +144,9 @@ export function HeaderScrollGestureWrapper({
       .onFinalize(() => {
         'worklet';
 
+        if (isGestureEnabled.value && onGestureActiveChange) {
+          runOnJS(onGestureActiveChange)(false);
+        }
         isGestureEnabled.value = true;
       });
 
@@ -211,6 +218,7 @@ export function HeaderScrollGestureWrapper({
     horizontalSwipeVelocityThreshold,
     simultaneousWithNativeGesture,
     cancelChildTouches,
+    onGestureActiveChange,
     containerWidth,
     measuredWidth,
     isGestureEnabled,
