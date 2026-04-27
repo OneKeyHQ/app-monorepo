@@ -439,5 +439,39 @@ describe('usePromiseResult', () => {
       await tick(POLLING_MS);
       expect(method.mock.calls.length).toBeGreaterThan(callsAfterRerender);
     });
+
+    it('resumes polling immediately when setStopPolling(false) clears a prior stop', async () => {
+      const method = jest.fn(async () => 'ok');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [], { pollingInterval: POLLING_MS }),
+      );
+
+      await tick(0);
+      const callsAfterMount = method.mock.calls.length;
+      expect(callsAfterMount).toBeGreaterThanOrEqual(1);
+
+      act(() => {
+        result.current.setStopPolling(true);
+      });
+
+      // Polling paused: ticks pass without new calls.
+      await tick(POLLING_MS * 3);
+      expect(method.mock.calls.length).toBe(callsAfterMount);
+
+      // Manual clear must resurrect the dead chain — fire one request now,
+      // and continue polling on subsequent ticks. Without the resume path
+      // the finally-block guard would never schedule another tick.
+      act(() => {
+        result.current.setStopPolling(false);
+      });
+
+      await tick(0);
+      const callsAfterResume = method.mock.calls.length;
+      expect(callsAfterResume).toBeGreaterThan(callsAfterMount);
+
+      await tick(POLLING_MS);
+      expect(method.mock.calls.length).toBeGreaterThan(callsAfterResume);
+    });
   });
 });

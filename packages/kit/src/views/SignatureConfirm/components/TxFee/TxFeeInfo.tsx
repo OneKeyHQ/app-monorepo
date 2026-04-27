@@ -1774,9 +1774,12 @@ function TxFeeInfo(props: IProps) {
 
   useEffect(() => {
     const callback = () => {
-      // Manual retry must override any prior server-driven pause; otherwise a
-      // user-initiated refresh would fire a single request and then stall in
-      // the finally-block guard, never resuming the polling loop.
+      // setStopPolling(false) clears any prior server-driven stop AND
+      // resurrects the polling chain (the finally-block guard kills it once
+      // stopPollingRef flips true). The explicit run() covers gas-account
+      // fallback paths that emit the same event without ever stopping the
+      // chain, so the user still gets an immediate retry instead of waiting
+      // out the next tick.
       setStopPolling(false);
       void run();
     };

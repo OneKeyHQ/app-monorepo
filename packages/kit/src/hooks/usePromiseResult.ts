@@ -178,9 +178,6 @@ export function usePromiseResult<T>(
   // so a ref is enough — no consumer reacts to the flag via React state, and
   // adding a state would only churn renders without changing behavior.
   const stopPollingRef = useRef(false);
-  const setStopPolling = useCallback((stop: boolean) => {
-    stopPollingRef.current = stop;
-  }, []);
 
   const isEffectValid = useRef(true);
 
@@ -337,6 +334,23 @@ export function usePromiseResult<T>(
 
   const runRef = useRef(run);
   runRef.current = run;
+
+  const setStopPolling = useCallback((stop: boolean) => {
+    const wasStopped = stopPollingRef.current;
+    stopPollingRef.current = stop;
+    // Stopped → not stopped: the previous polling chain already exited via
+    // the finally-block guard once stopPollingRef flipped true, so clearing
+    // the flag alone won't bring it back. Bump the nonce and run with it —
+    // mirrors the runnerDeps effect — so the loop actually resumes; the
+    // bump also invalidates any stale queued tick that might still race.
+    if (wasStopped && !stop && optionsRef.current.pollingInterval) {
+      pollingNonceRef.current += 1;
+      void runRef.current({
+        triggerByDeps: true,
+        pollingNonce: pollingNonceRef.current,
+      });
+    }
+  }, []);
 
   const runnerDeps = useMemo(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
