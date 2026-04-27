@@ -47,6 +47,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
+  getSpotTokenDisplayName,
   getTriggerEffectivePrice,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -454,7 +455,11 @@ function PerpTradingForm({
     if (formData.side === 'long') {
       return `${spotAvailableQuoteBN.toFixed(2, BigNumber.ROUND_DOWN)} ${spotUniverse?.quoteName ?? ''}`;
     }
-    return `${spotAvailableBaseBN.toFixed(sizeSzDecimals, BigNumber.ROUND_DOWN)} ${spotUniverse?.baseName ?? ''}`;
+    return `${spotAvailableBaseBN.toFixed(sizeSzDecimals, BigNumber.ROUND_DOWN)} ${
+      spotUniverse?.baseName
+        ? getSpotTokenDisplayName(spotUniverse.baseName)
+        : ''
+    }`;
   }, [
     isSpot,
     formData.side,
@@ -487,7 +492,11 @@ function PerpTradingForm({
     if (!isSpot) return '';
     const maxSize =
       formData.side === 'long' ? spotMaxTradeSzs?.[0] : spotMaxTradeSzs?.[1];
-    return `${maxSize ?? '0'} ${spotUniverse?.baseName ?? ''}`;
+    return `${maxSize ?? '0'} ${
+      spotUniverse?.baseName
+        ? getSpotTokenDisplayName(spotUniverse.baseName)
+        : ''
+    }`;
   }, [formData.side, isSpot, spotMaxTradeSzs, spotUniverse?.baseName]);
 
   const handleSideChange = useCallback(
