@@ -932,6 +932,7 @@ export interface IFetchSwapTxHistoryStatusResponse {
   state: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
+  stateDetail?: string;
   crossChainReceiveTxHash?: string;
   gasFee?: string;
   gasFeeFiatValue?: string;
@@ -955,6 +956,7 @@ export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
+  stateDetail?: string;
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;
