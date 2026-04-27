@@ -1,0 +1,1219 @@
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import type { IKeyOfIcons } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Divider,
+  Icon,
+  Image,
+  ScrollView,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type {
+  IEarnProtocolIntroAudit,
+  IEarnProtocolIntroAudits,
+  IEarnProtocolIntroInfo,
+  IEarnProtocolIntroInvestorRound,
+  IEarnProtocolIntroInvestors,
+  IEarnProtocolIntroItem,
+  IEarnProtocolIntroLooseIcon,
+  IEarnProtocolIntroMetric,
+  IEarnProtocolIntroSocialLink,
+  IEarnProtocolIntroTag,
+  IEarnProtocolIntroTeam,
+  IEarnProtocolIntroTeamMember,
+  IEarnProtocolIntroText,
+  IEarnText,
+} from '@onekeyhq/shared/types/staking';
+
+function toEarnText(text?: IEarnProtocolIntroText): IEarnText | undefined {
+  if (!text) {
+    return undefined;
+  }
+  return typeof text === 'string' ? { text } : text;
+}
+
+function getText(text?: IEarnProtocolIntroText): string | undefined {
+  return typeof text === 'string' ? text : text?.text;
+}
+
+function hasText(text?: IEarnProtocolIntroText) {
+  return Boolean(getText(text)?.trim());
+}
+
+function getItemTitle(item?: IEarnProtocolIntroItem) {
+  return item?.title || item?.displayName || item?.name;
+}
+
+const protocolTypeLabelMap: Record<string, string> = {
+  complex_earn: 'Yield strategy',
+  complex_protocol: 'Yield strategy',
+  nested_earn: 'Yield strategy',
+  pendle: 'Yield strategy',
+  simple_earn: 'Underlying asset',
+  simple_protocol: 'Underlying asset',
+  strategy: 'Yield strategy',
+  underlying: 'Underlying asset',
+  underlying_asset: 'Underlying asset',
+  yield_strategy: 'Yield strategy',
+};
+
+const protocolProviderLabelMap: Record<string, string> = {
+  ethena: 'Underlying asset',
+  pendle: 'Yield strategy',
+};
+
+const protocolLogoFallbackMap: Record<string, string> = {
+  ethena: 'https://uni.onekey-asset.com/static/logo/ethena.png',
+  everstake: 'https://uni.onekey-asset.com/static/logo/everstake.png',
+  morpho: 'https://uni.onekey-asset.com/static/logo/morpho.png',
+  pendle: 'https://uni.onekey-asset.com/static/logo/pendle.png',
+  stakefish: 'https://uni.onekey-asset.com/static/logo/stakefish.png',
+};
+
+function getItemSubtitle(item?: IEarnProtocolIntroItem) {
+  return (
+    item?.role ||
+    (item?.type ? protocolTypeLabelMap[item.type] : undefined) ||
+    (item?.provider ? protocolProviderLabelMap[item.provider] : undefined) ||
+    (item?.slug ? protocolProviderLabelMap[item.slug] : undefined)
+  );
+}
+
+function getProtocolLogoURI(
+  item: Pick<
+    IEarnProtocolIntroItem,
+    | 'logoURI'
+    | 'logoUrl'
+    | 'logoUri'
+    | 'provider'
+    | 'slug'
+    | 'title'
+    | 'displayName'
+    | 'name'
+  >,
+) {
+  if (item.logoURI || item.logoUrl || item.logoUri) {
+    return item.logoURI || item.logoUrl || item.logoUri;
+  }
+
+  const fallbackKey = [item.provider, item.slug, getText(getItemTitle(item))]
+    .filter(Boolean)
+    .map((key) => key?.trim().toLowerCase())
+    .find((key) => (key ? protocolLogoFallbackMap[key] : undefined));
+
+  return fallbackKey ? protocolLogoFallbackMap[fallbackKey] : undefined;
+}
+
+function getTagText(tag?: IEarnProtocolIntroTag) {
+  if (!tag || typeof tag === 'string' || 'text' in tag) {
+    return tag as IEarnProtocolIntroText | undefined;
+  }
+  return tag.tag || tag.title;
+}
+
+function getMetricValue(metric?: IEarnProtocolIntroMetric) {
+  return metric?.value || metric?.description;
+}
+
+function getLinkUrl(link?: IEarnProtocolIntroSocialLink) {
+  return link?.url || link?.data?.link;
+}
+
+function getHostname(url?: string) {
+  if (!url) {
+    return undefined;
+  }
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return undefined;
+  }
+}
+
+const iconNameMap: Record<string, IKeyOfIcons> = {
+  DiscordBrand: 'DiscordBrand',
+  DiscordBrandOutline: 'DiscordBrand',
+  'GlobusOutline': 'GlobusOutline',
+  LinkedinBrand: 'LinkedinBrand',
+  LinkedinOutline: 'LinkedinBrand',
+  OpenOutline: 'OpenOutline',
+  TelegramBrand: 'TelegramBrand',
+  XBrandOutline: 'Xbrand',
+  'Xbrand': 'Xbrand',
+};
+
+function normalizeIconName(icon?: IEarnProtocolIntroLooseIcon) {
+  const iconName = icon?.icon;
+  return iconName ? iconNameMap[iconName] : undefined;
+}
+
+function getLinkIcon(link: IEarnProtocolIntroSocialLink): IKeyOfIcons {
+  const iconName = normalizeIconName(link.data?.icon || link.icon);
+  if (iconName) {
+    return iconName;
+  }
+
+  const type = link.type?.toLowerCase();
+  if (type === 'website') {
+    return 'GlobusOutline';
+  }
+  if (type === 'twitter' || type === 'x') {
+    return 'Xbrand';
+  }
+  if (type === 'discord') {
+    return 'DiscordBrand';
+  }
+  if (type === 'linkedin') {
+    return 'LinkedinBrand';
+  }
+  if (type === 'telegram') {
+    return 'TelegramBrand';
+  }
+
+  const hostname = getHostname(getLinkUrl(link));
+  if (hostname?.includes('discord')) {
+    return 'DiscordBrand';
+  }
+  if (hostname === 'x.com' || hostname === 'twitter.com') {
+    return 'Xbrand';
+  }
+  if (hostname?.includes('linkedin')) {
+    return 'LinkedinBrand';
+  }
+  if (hostname === 't.me' || hostname?.includes('telegram')) {
+    return 'TelegramBrand';
+  }
+
+  return 'GlobusOutline';
+}
+
+function getLinkTitle({
+  link,
+  intl,
+}: {
+  link: IEarnProtocolIntroSocialLink;
+  intl: ReturnType<typeof useIntl>;
+}) {
+  if (hasText(link.title)) {
+    return getText(link.title);
+  }
+
+  const type = link.type?.toLowerCase();
+  const iconName = getLinkIcon(link);
+  if (type === 'website') {
+    return intl.formatMessage({ id: ETranslations.global_website });
+  }
+  if (type === 'discord') {
+    return intl.formatMessage({ id: ETranslations.global_discord });
+  }
+  if (type === 'twitter' || type === 'x') {
+    return 'X';
+  }
+  if (type === 'linkedin') {
+    return 'LinkedIn';
+  }
+  if (type === 'telegram') {
+    return 'Telegram';
+  }
+
+  if (type === 'link') {
+    if (iconName === 'GlobusOutline') {
+      return intl.formatMessage({ id: ETranslations.global_website });
+    }
+    if (iconName === 'DiscordBrand') {
+      return `${intl.formatMessage({
+        id: ETranslations.global_discord,
+      })} link`;
+    }
+    if (iconName === 'Xbrand') {
+      return 'X link';
+    }
+    if (iconName === 'LinkedinBrand') {
+      return 'LinkedIn link';
+    }
+    if (iconName === 'TelegramBrand') {
+      return 'Telegram link';
+    }
+  }
+
+  return getHostname(getLinkUrl(link));
+}
+
+function hasProtocolIntroItemContent(item: IEarnProtocolIntroItem) {
+  return Boolean(
+    hasText(getItemTitle(item)) ||
+    hasText(item.name) ||
+    hasText(item.description) ||
+    item.tags?.some((tag) => hasText(getTagText(tag))) ||
+    item.metrics?.some((metric) => hasText(getMetricValue(metric))) ||
+    item.stats?.some((metric) => hasText(getMetricValue(metric))) ||
+    hasText(item.tvl) ||
+    hasText(item.fdv) ||
+    hasText(item.establishment) ||
+    hasText(item.establishmentDate) ||
+    item.socialLinks?.some((link) => Boolean(getLinkUrl(link))) ||
+    item.links?.some((link) => Boolean(getLinkUrl(link))) ||
+    item.team?.items?.length ||
+    item.teamMembers?.items?.length ||
+    item.teamMembers?.button?.data?.members?.length ||
+    item.investors?.items?.length ||
+    item.investors?.button?.data?.fundingRounds?.length ||
+    item.audits?.items?.length ||
+    item.audits?.button?.data?.auditItems?.length,
+  );
+}
+
+function DialogContent({ children }: { children: React.ReactNode }) {
+  return (
+    <ScrollView maxHeight="$96" nestedScrollEnabled>
+      <YStack px="$5" pb="$5">
+        {children}
+      </YStack>
+    </ScrollView>
+  );
+}
+
+function ProtocolLogo({
+  item,
+  size = 40,
+  borderRadius = '$2',
+}: {
+  item: Pick<
+    IEarnProtocolIntroItem,
+    | 'logoURI'
+    | 'logoUrl'
+    | 'logoUri'
+    | 'icon'
+    | 'type'
+    | 'provider'
+    | 'slug'
+    | 'title'
+    | 'displayName'
+    | 'name'
+  >;
+  size?: number;
+  borderRadius?: '$1' | '$2' | '$full';
+}) {
+  const logoURI = getProtocolLogoURI(item);
+  if (logoURI) {
+    return (
+      <Image w={size} h={size} borderRadius={borderRadius} src={logoURI} />
+    );
+  }
+
+  return item.icon ? (
+    <XStack w={size} h={size} ai="center" jc="center">
+      <EarnIcon icon={item.icon} size={size} />
+    </XStack>
+  ) : (
+    <XStack
+      w={size}
+      h={size}
+      borderRadius={borderRadius}
+      bg="$bgStrong"
+      ai="center"
+      jc="center"
+      flexShrink={0}
+    >
+      <Icon
+        name={
+          item.type === 'complex_earn' ||
+          item.type === 'nested_earn' ||
+          item.provider === 'pendle' ||
+          item.slug === 'pendle'
+            ? 'ChartTrendingUpOutline'
+            : 'CubeOutline'
+        }
+        size="$4"
+        color="$iconSubdued"
+      />
+    </XStack>
+  );
+}
+
+const DESCRIPTION_LINE_HEIGHT = 20;
+const DESCRIPTION_MAX_LINES = 2;
+
+function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
+  const intl = useIntl();
+  const [expanded, setExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+
+  const description = getText(text);
+
+  useEffect(() => {
+    setExpanded(false);
+    setHasOverflow(false);
+  }, [description]);
+
+  const handleMeasureLayout = useCallback(
+    (event: { nativeEvent: { layout: { height: number } } }) => {
+      const nextHasOverflow =
+        event.nativeEvent.layout.height >
+        DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES + 1;
+      setHasOverflow((prev) =>
+        prev === nextHasOverflow ? prev : nextHasOverflow,
+      );
+    },
+    [],
+  );
+
+  const handleExpand = useCallback(() => {
+    setExpanded(true);
+  }, []);
+
+  if (!description) {
+    return null;
+  }
+
+  return (
+    <YStack position="relative">
+      <SizableText
+        size="$bodyMd"
+        lineHeight={DESCRIPTION_LINE_HEIGHT}
+        color={toEarnText(text)?.color || '$textSubdued'}
+        numberOfLines={expanded ? undefined : DESCRIPTION_MAX_LINES}
+        pr={!expanded && hasOverflow ? '$12' : undefined}
+      >
+        {description}
+      </SizableText>
+      <YStack
+        position="absolute"
+        opacity={0}
+        pointerEvents="none"
+        aria-hidden
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        left={0}
+        right={0}
+        top={0}
+        onLayout={handleMeasureLayout}
+      >
+        <SizableText
+          size="$bodyMd"
+          lineHeight={DESCRIPTION_LINE_HEIGHT}
+          color="$textSubdued"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          {description}
+        </SizableText>
+      </YStack>
+      {!expanded && hasOverflow ? (
+        <XStack position="absolute" right={0} bottom={0} bg="$bg" pl="$1">
+          <SizableText
+            size="$bodyMd"
+            lineHeight={DESCRIPTION_LINE_HEIGHT}
+            color="$textSubdued"
+          >
+            ...
+          </SizableText>
+          <SizableText
+            size="$bodyMd"
+            lineHeight={DESCRIPTION_LINE_HEIGHT}
+            color="$textSubdued"
+            textDecorationLine="underline"
+            cursor="pointer"
+            onPress={handleExpand}
+          >
+            {intl.formatMessage({ id: ETranslations.global_more })}
+          </SizableText>
+        </XStack>
+      ) : null}
+    </YStack>
+  );
+}
+
+function SocialLinkButton({ link }: { link: IEarnProtocolIntroSocialLink }) {
+  const intl = useIntl();
+  const title = getLinkTitle({ link, intl });
+  const url = getLinkUrl(link);
+
+  const handlePress = useCallback(() => {
+    if (url) {
+      openUrlExternal(url);
+    }
+  }, [url]);
+
+  if (!url || !title || link.disabled) {
+    return null;
+  }
+
+  return (
+    <Button
+      size="small"
+      variant="secondary"
+      borderRadius="$full"
+      icon={getLinkIcon(link)}
+      onPress={handlePress}
+    >
+      {title}
+    </Button>
+  );
+}
+
+function ProtocolTabs({
+  items,
+  selectedIndex,
+  onChange,
+}: {
+  items: IEarnProtocolIntroItem[];
+  selectedIndex: number;
+  onChange: (index: number) => void;
+}) {
+  if (items.length <= 1) {
+    const item = items[0];
+    return item ? <ProtocolTitle item={item} /> : null;
+  }
+
+  return (
+    <XStack gap="$2" flexWrap="wrap">
+      {items.map((item, index) => {
+        const selected = selectedIndex === index;
+        const title = getItemTitle(item);
+        return (
+          <ProtocolTabItem
+            key={`${getText(title) || item.provider || item.slug || 'provider'}-${index}`}
+            item={item}
+            selected={selected}
+            onPress={() => onChange(index)}
+          />
+        );
+      })}
+    </XStack>
+  );
+}
+
+function ProtocolTitle({ item }: { item: IEarnProtocolIntroItem }) {
+  const title = getItemTitle(item);
+
+  return (
+    <XStack gap="$2.5" ai="center" w="100%" minWidth={0}>
+      <ProtocolLogo item={item} size={24} borderRadius="$1" />
+      <EarnText
+        text={toEarnText(title)}
+        size="$headingLg"
+        color="$text"
+        numberOfLines={1}
+      />
+    </XStack>
+  );
+}
+
+function ProtocolTabItem({
+  item,
+  selected,
+  onPress,
+}: {
+  item: IEarnProtocolIntroItem;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const title = getItemTitle(item);
+  const subtitle = getItemSubtitle(item);
+
+  return (
+    <XStack
+      h={50}
+      gap="$3"
+      ai="center"
+      py="$1.5"
+      pl="$3"
+      pr="$5"
+      borderRadius="$3"
+      bg={selected ? '$bgActive' : '$bgSubdued'}
+      cursor="pointer"
+      flexShrink={0}
+      onPress={onPress}
+    >
+      <ProtocolLogo item={item} size={28} borderRadius="$1" />
+      <YStack gap="$0.5" minWidth={0}>
+        <EarnText
+          text={toEarnText(title)}
+          size="$bodyMdMedium"
+          color={selected ? '$text' : '$textSubdued'}
+          numberOfLines={1}
+        />
+        {hasText(subtitle) ? (
+          <EarnText
+            text={toEarnText(subtitle)}
+            size="$bodySm"
+            color="$textSubdued"
+            numberOfLines={1}
+          />
+        ) : null}
+      </YStack>
+    </XStack>
+  );
+}
+
+function DescriptionBlock({ item }: { item: IEarnProtocolIntroItem }) {
+  const tags = useMemo(
+    () => (item.tags ?? []).map(getTagText).filter(hasText),
+    [item.tags],
+  );
+
+  if (!hasText(item.description) && !tags.length) {
+    return null;
+  }
+
+  return (
+    <YStack gap="$3">
+      {hasText(item.description) ? (
+        <ExpandableDescription
+          text={item.description as IEarnProtocolIntroText}
+        />
+      ) : null}
+      {tags.length ? (
+        <XStack gap="$2" flexWrap="wrap">
+          {tags.map((tag, index) => (
+            <XStack
+              key={`${getText(tag) || 'tag'}-${index}`}
+              minWidth="$9"
+              px="$2"
+              py="$0.5"
+              borderRadius="$1"
+              bg="$bgStrong"
+              jc="center"
+            >
+              <EarnText
+                text={toEarnText(tag)}
+                size="$bodySmMedium"
+                color="$textSubdued"
+              />
+            </XStack>
+          ))}
+        </XStack>
+      ) : null}
+    </YStack>
+  );
+}
+
+function MetricGrid({ item }: { item: IEarnProtocolIntroItem }) {
+  const intl = useIntl();
+  const metrics = useMemo(() => {
+    if (item.metrics?.length) {
+      return item.metrics;
+    }
+
+    if (item.stats?.length) {
+      return item.stats.map((stat) => ({
+        ...stat,
+        value: getMetricValue(stat),
+      }));
+    }
+
+    return [
+      hasText(item.tvl)
+        ? {
+            title: intl.formatMessage({ id: ETranslations.earn_tvl }),
+            value: item.tvl,
+          }
+        : undefined,
+      hasText(item.fdv)
+        ? {
+            title: intl.formatMessage({ id: ETranslations.global_fdv }),
+            value: item.fdv,
+          }
+        : undefined,
+      hasText(item.establishment) || hasText(item.establishmentDate)
+        ? {
+            title: 'Establishment',
+            value: item.establishment || item.establishmentDate,
+          }
+        : undefined,
+    ].filter(Boolean) as IEarnProtocolIntroMetric[];
+  }, [intl, item]);
+
+  const visibleMetrics = metrics.filter((metric) =>
+    hasText(getMetricValue(metric)),
+  );
+
+  if (!visibleMetrics.length) {
+    return null;
+  }
+
+  return (
+    <XStack flexWrap="wrap" py="$3" rowGap="$6">
+      {visibleMetrics.map((metric, index) => (
+        <YStack
+          key={`${getText(metric.title) || getText(metric.value)}-${index}`}
+          flex={1}
+          minWidth={176}
+          pr="$2"
+          gap="$1.5"
+        >
+          <EarnText
+            text={toEarnText(metric.title)}
+            size="$bodyMd"
+            color="$textSubdued"
+          />
+          <EarnText
+            text={toEarnText(getMetricValue(metric))}
+            size="$bodyLgMedium"
+            color="$text"
+          />
+        </YStack>
+      ))}
+    </XStack>
+  );
+}
+
+function getMemberName(member: IEarnProtocolIntroTeamMember) {
+  return member.name || member.title;
+}
+
+function getMemberPosition(member: IEarnProtocolIntroTeamMember) {
+  return member.position || member.role || member.description;
+}
+
+function getMemberAvatar(member: IEarnProtocolIntroTeamMember) {
+  return member.avatarUrl || member.avatar || member.logoURI;
+}
+
+function getMemberLinks(member: IEarnProtocolIntroTeamMember) {
+  return member.socialLinks || member.links || [];
+}
+
+function getTeamMembers(team?: IEarnProtocolIntroTeam) {
+  return team?.button?.data?.members?.length
+    ? team.button.data.members
+    : team?.items || [];
+}
+
+function getInvestorRounds(investors?: IEarnProtocolIntroInvestors) {
+  return investors?.button?.data?.fundingRounds?.length
+    ? investors.button.data.fundingRounds
+    : investors?.items || [];
+}
+
+function getAudits(audits?: IEarnProtocolIntroAudits) {
+  return audits?.button?.data?.auditItems?.length
+    ? audits.button.data.auditItems
+    : audits?.items || [];
+}
+
+function getInvestorTitle(round?: IEarnProtocolIntroInvestorRound) {
+  return round?.title || round?.investors || round?.round;
+}
+
+function getAuditTitle(audit?: IEarnProtocolIntroAudit) {
+  return audit?.title || audit?.name || audit?.auditor;
+}
+
+function MemberAvatar({ member }: { member: IEarnProtocolIntroTeamMember }) {
+  const avatar = getMemberAvatar(member);
+  if (avatar) {
+    return (
+      <Image w={30} h={30} borderRadius="$full" src={avatar} flexShrink={0} />
+    );
+  }
+  return (
+    <XStack
+      w={30}
+      h={30}
+      borderRadius="$full"
+      bg="$bgStrong"
+      ai="center"
+      jc="center"
+      flexShrink={0}
+    >
+      <Icon name="PeopleOutline" size="$4" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
+function MemberSocialIcon({ link }: { link: IEarnProtocolIntroSocialLink }) {
+  const url = getLinkUrl(link);
+  const handlePress = useCallback(() => {
+    if (url) {
+      openUrlExternal(url);
+    }
+  }, [url]);
+
+  if (!url || link.disabled) {
+    return null;
+  }
+
+  return (
+    <XStack
+      w="$5"
+      h="$5"
+      ai="center"
+      jc="center"
+      borderRadius="$full"
+      cursor="pointer"
+      onPress={handlePress}
+    >
+      <Icon name={getLinkIcon(link)} size="$4" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
+function TeamMemberRow({ member }: { member: IEarnProtocolIntroTeamMember }) {
+  return (
+    <XStack gap="$4" ai="center" flex={1} minWidth={176}>
+      <MemberAvatar member={member} />
+      <YStack gap="$0.5" flex={1} minWidth={0}>
+        <EarnText
+          text={toEarnText(getMemberName(member))}
+          size="$bodyLgMedium"
+          color="$text"
+          numberOfLines={1}
+        />
+        <XStack gap="$1" ai="center" flexWrap="wrap">
+          <EarnText
+            text={toEarnText(getMemberPosition(member))}
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+          />
+          {getMemberLinks(member).map((link, index) => (
+            <MemberSocialIcon
+              key={`${getLinkUrl(link) || link.type || 'link'}-${index}`}
+              link={link}
+            />
+          ))}
+        </XStack>
+      </YStack>
+    </XStack>
+  );
+}
+
+function PreviewCountBadge({ count }: { count: number }) {
+  if (count <= 1) {
+    return null;
+  }
+  return (
+    <XStack
+      px="$2"
+      py="$0.5"
+      borderRadius="$full"
+      bg="$bgStrong"
+      ai="center"
+      jc="center"
+    >
+      <SizableText size="$bodySmMedium" color="$textSubdued">
+        +{count - 1}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function PreviewCell({
+  title,
+  value,
+  count,
+  imageUrl,
+  onPress,
+}: {
+  title?: IEarnProtocolIntroText;
+  value?: IEarnProtocolIntroText;
+  count: number;
+  imageUrl?: string | null;
+  onPress: () => void;
+}) {
+  if (!hasText(title) || !hasText(value)) {
+    return null;
+  }
+
+  return (
+    <YStack flex={1} minWidth={176} pr="$2" gap="$2">
+      <EarnText text={toEarnText(title)} size="$bodyMd" color="$textSubdued" />
+      <XStack ai="center" gap="$2" cursor="pointer" onPress={onPress}>
+        {imageUrl ? (
+          <Image
+            w={30}
+            h={30}
+            borderRadius="$full"
+            src={imageUrl}
+            flexShrink={0}
+          />
+        ) : null}
+        <EarnText
+          text={toEarnText(value)}
+          size="$bodyLgMedium"
+          color="$text"
+          numberOfLines={1}
+        />
+        <PreviewCountBadge count={count} />
+      </XStack>
+    </YStack>
+  );
+}
+
+function PreviewGrid({
+  team,
+  investors,
+  audits,
+  onShowTeam,
+  onShowInvestors,
+  onShowAudits,
+}: {
+  team?: IEarnProtocolIntroTeam;
+  investors?: IEarnProtocolIntroInvestors;
+  audits?: IEarnProtocolIntroAudits;
+  onShowTeam: () => void;
+  onShowInvestors: () => void;
+  onShowAudits: () => void;
+}) {
+  const teamMembers = getTeamMembers(team).filter((member) =>
+    hasText(getMemberName(member)),
+  );
+  const teamPreview = team?.items?.find((member) =>
+    hasText(getMemberName(member)),
+  );
+  const investorsRounds = getInvestorRounds(investors).filter((round) =>
+    hasText(getInvestorTitle(round)),
+  );
+  const investorPreview = investors?.items?.find((round) =>
+    hasText(getInvestorTitle(round)),
+  );
+  const auditItems = getAudits(audits).filter((audit) =>
+    hasText(getAuditTitle(audit)),
+  );
+  const auditPreview = audits?.items?.find((audit) =>
+    hasText(getAuditTitle(audit)),
+  );
+
+  if (!teamMembers.length && !investorsRounds.length && !auditItems.length) {
+    return null;
+  }
+
+  return (
+    <XStack flexWrap="wrap" py="$3" rowGap="$6">
+      <PreviewCell
+        title={team?.title || team?.button?.data?.title}
+        value={getMemberName(teamPreview || teamMembers[0])}
+        imageUrl={getMemberAvatar(teamMembers[0] || teamPreview || {})}
+        count={teamMembers.length || (team?.items?.length ?? 0)}
+        onPress={onShowTeam}
+      />
+      <PreviewCell
+        title={investors?.title || investors?.button?.data?.title}
+        value={getInvestorTitle(investorPreview || investorsRounds[0])}
+        count={investorsRounds.length || (investors?.items?.length ?? 0)}
+        onPress={onShowInvestors}
+      />
+      <PreviewCell
+        title={audits?.title || audits?.button?.data?.title}
+        value={getAuditTitle(auditPreview || auditItems[0])}
+        imageUrl={
+          auditItems[0]?.auditorLogoUrl ||
+          auditItems[0]?.logoURI ||
+          auditPreview?.auditorLogoUrl ||
+          auditPreview?.logoURI
+        }
+        count={auditItems.length || (audits?.items?.length ?? 0)}
+        onPress={onShowAudits}
+      />
+    </XStack>
+  );
+}
+
+function InvestorsDialogContent({
+  investors,
+}: {
+  investors: IEarnProtocolIntroInvestors;
+}) {
+  const rounds = getInvestorRounds(investors);
+  return (
+    <YStack gap="$4">
+      {rounds.map((round, index) => (
+        <YStack
+          key={`${getText(getInvestorTitle(round)) || 'round'}-${index}`}
+          gap="$3"
+        >
+          {hasText(round.title || round.round) ? (
+            <EarnText
+              text={toEarnText(round.title || round.round)}
+              size="$bodyLgMedium"
+            />
+          ) : null}
+          <YStack gap="$2">
+            {(round.items ?? []).map((metric, metricIndex) => (
+              <XStack
+                key={`${getText(metric.title) || 'metric'}-${metricIndex}`}
+                jc="space-between"
+                gap="$4"
+              >
+                <EarnText
+                  text={toEarnText(metric.title)}
+                  size="$bodyMd"
+                  color="$textSubdued"
+                />
+                <EarnText
+                  text={toEarnText(getMetricValue(metric))}
+                  size="$bodyMdMedium"
+                  textAlign="right"
+                />
+              </XStack>
+            ))}
+            {hasText(round.date) ? (
+              <EarnText
+                text={toEarnText(round.date)}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+            ) : null}
+            {hasText(round.amount) ? (
+              <EarnText text={toEarnText(round.amount)} size="$bodyMdMedium" />
+            ) : null}
+            {hasText(round.valuation) ? (
+              <EarnText
+                text={toEarnText(round.valuation)}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+            ) : null}
+            {hasText(round.investors) ? (
+              <EarnText
+                text={toEarnText(round.investors)}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+            ) : null}
+          </YStack>
+          {index !== rounds.length - 1 ? <Divider /> : null}
+        </YStack>
+      ))}
+    </YStack>
+  );
+}
+
+function AuditRow({ audit }: { audit: IEarnProtocolIntroAudit }) {
+  const intl = useIntl();
+  const url = getLinkUrl(audit.button) || audit.url;
+  const logoURI = audit.auditorLogoUrl || audit.logoURI;
+  const handleOpen = useCallback(() => {
+    if (url) {
+      openUrlExternal(url);
+    }
+  }, [url]);
+
+  return (
+    <XStack ai="center" gap="$3">
+      {logoURI ? (
+        <Image w="$8" h="$8" borderRadius="$2" src={logoURI} />
+      ) : (
+        <XStack
+          w="$8"
+          h="$8"
+          borderRadius="$2"
+          bg="$bgStrong"
+          ai="center"
+          jc="center"
+        >
+          <Icon name="ShieldCheckDoneOutline" size="$5" color="$iconSubdued" />
+        </XStack>
+      )}
+      <YStack flex={1} minWidth={0}>
+        <EarnText
+          text={toEarnText(getAuditTitle(audit))}
+          size="$bodyLgMedium"
+          numberOfLines={1}
+        />
+        <EarnText
+          text={toEarnText(audit.date)}
+          size="$bodySm"
+          color="$textSubdued"
+        />
+      </YStack>
+      {url ? (
+        <Button
+          size="small"
+          variant="tertiary"
+          iconAfter="OpenOutline"
+          onPress={handleOpen}
+        >
+          {getText(audit.button?.title) ||
+            intl.formatMessage({ id: ETranslations.global_view })}
+        </Button>
+      ) : null}
+    </XStack>
+  );
+}
+
+function AuditsDialogContent({ audits }: { audits: IEarnProtocolIntroAudits }) {
+  const intl = useIntl();
+  const auditItems = getAudits(audits);
+  const descriptions = audits.button?.data?.description;
+  return (
+    <YStack gap="$4">
+      {auditItems.map((audit, index) => (
+        <YStack
+          key={`${getText(getAuditTitle(audit)) || 'audit'}-${index}`}
+          gap="$4"
+        >
+          <AuditRow audit={audit} />
+          {index !== auditItems.length - 1 ? <Divider /> : null}
+        </YStack>
+      ))}
+      {descriptions?.map((description, index) => (
+        <EarnText
+          key={`${getText(description) || 'description'}-${index}`}
+          text={toEarnText(description)}
+          size="$bodySm"
+          color="$textSubdued"
+        />
+      ))}
+      {hasText(audits.updatedAt) ? (
+        <EarnText
+          text={{
+            text: `${intl.formatMessage({
+              id: ETranslations.market_last_updated,
+            })} ${getText(audits.updatedAt) || ''}`.trim(),
+          }}
+          size="$bodySm"
+          color="$textSubdued"
+        />
+      ) : null}
+    </YStack>
+  );
+}
+
+function ProtocolIntroSectionComponent({
+  protocolInfo,
+}: {
+  protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
+}) {
+  const intl = useIntl();
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const protocolItems = useMemo(() => {
+    const items = Array.isArray(protocolInfo)
+      ? protocolInfo
+      : protocolInfo?.items;
+    return (items ?? []).filter(hasProtocolIntroItemContent);
+  }, [protocolInfo]);
+
+  const selectedItem = protocolItems[selectedIndex] ?? protocolItems[0];
+  const team = selectedItem?.teamMembers || selectedItem?.team;
+  const investors = selectedItem?.investors;
+  const audits = selectedItem?.audits;
+  const socialLinks = selectedItem?.socialLinks || selectedItem?.links || [];
+  const visibleSocialLinks = socialLinks.filter(
+    (link) => !link.disabled && getLinkUrl(link),
+  );
+
+  const showDialog = useCallback(
+    ({
+      title,
+      renderContent,
+    }: {
+      title?: IEarnProtocolIntroText;
+      renderContent: React.ReactNode;
+    }) => {
+      Dialog.show({
+        title: getText(title),
+        floatingPanelProps: {
+          width: 400,
+        },
+        renderContent: <DialogContent>{renderContent}</DialogContent>,
+        onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
+        showCancelButton: false,
+      });
+    },
+    [intl],
+  );
+
+  const handleShowTeam = useCallback(() => {
+    const members = getTeamMembers(team);
+    if (!members.length) {
+      return;
+    }
+    showDialog({
+      title: team?.button?.data?.title || team?.title,
+      renderContent: (
+        <YStack gap="$4">
+          {members.map((member, index) => (
+            <TeamMemberRow
+              key={`${getText(getMemberName(member)) || 'member'}-${index}`}
+              member={member}
+            />
+          ))}
+        </YStack>
+      ),
+    });
+  }, [showDialog, team]);
+
+  const handleShowInvestors = useCallback(() => {
+    if (!getInvestorRounds(investors).length || !investors) {
+      return;
+    }
+    showDialog({
+      title: investors.button?.data?.title || investors.title,
+      renderContent: <InvestorsDialogContent investors={investors} />,
+    });
+  }, [investors, showDialog]);
+
+  const handleShowAudits = useCallback(() => {
+    if (!getAudits(audits).length || !audits) {
+      return;
+    }
+    showDialog({
+      title: audits.button?.data?.title || audits.title,
+      renderContent: <AuditsDialogContent audits={audits} />,
+    });
+  }, [audits, showDialog]);
+
+  if (!selectedItem || !protocolItems.length) {
+    return null;
+  }
+
+  return (
+    <>
+      <YStack gap="$6" pt="$0" pb="$8">
+        <ProtocolTabs
+          items={protocolItems}
+          selectedIndex={selectedIndex}
+          onChange={setSelectedIndex}
+        />
+        <DescriptionBlock item={selectedItem} />
+        <MetricGrid item={selectedItem} />
+        <PreviewGrid
+          team={team}
+          investors={investors}
+          audits={audits}
+          onShowTeam={handleShowTeam}
+          onShowInvestors={handleShowInvestors}
+          onShowAudits={handleShowAudits}
+        />
+        {visibleSocialLinks.length ? (
+          <XStack gap="$2.5" flexWrap="wrap" py="$3">
+            {visibleSocialLinks.map((link, index) => (
+              <SocialLinkButton
+                key={`${getLinkUrl(link) || link.type || 'social'}-${index}`}
+                link={link}
+              />
+            ))}
+          </XStack>
+        ) : null}
+        {hasText(
+          Array.isArray(protocolInfo) ? undefined : protocolInfo?.notice,
+        ) ? (
+          <EarnText
+            text={toEarnText(
+              Array.isArray(protocolInfo) ? undefined : protocolInfo?.notice,
+            )}
+            size="$bodyMd"
+            color="$textSubdued"
+          />
+        ) : null}
+      </YStack>
+      <Divider />
+    </>
+  );
+}
+
+export const ProtocolIntroSection = memo(ProtocolIntroSectionComponent);
