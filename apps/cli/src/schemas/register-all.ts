@@ -112,10 +112,15 @@ defineCommand({
 
 defineCommand({
   name: 'auth-login',
-  description: 'Authenticate with a OneKey App Bot Wallet',
+  description: 'Authenticate with a OneKey App Bot Wallet or hardware wallet',
   input: authLoginInputSchema,
   output: authLoginOutputSchema,
-  examples: ['onekey auth login --app-transfer'],
+  examples: [
+    'onekey auth login --app-transfer',
+    'onekey auth login --hardware',
+    'onekey auth login --hardware --device-id <uuid>',
+    'onekey auth login --hardware --passphrase-mode on-device',
+  ],
 });
 
 defineCommand({

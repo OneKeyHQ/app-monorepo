@@ -100,3 +100,17 @@ For detailed guidance, use these skills (invoke with `/skill-name`):
 - **1k-cross-platform** - Platform-specific development
 - **1k-adding-chains** - Adding new blockchain support
 - **1k-bundle-release** - Bundle hot update release management (cherry-pick, diff-check, publish)
+
+## CLI Skills (external plugin)
+
+The `onekey` CLI (`apps/cli/`) supports App Bot Wallet login (`onekey auth
+login --app-transfer`) and hardware wallet login (`onekey auth login
+--hardware`). Skill packs live in the external repo
+<https://github.com/OneKeyHQ/onekey-wallet-skills> and are installed via
+`/plugin install onekey-wallet-skills`; do not re-add them to this monorepo.
+
+After `onekey auth login --hardware`, the active session is hardware-backed,
+so normal `onekey balance`, `onekey transfer`, `onekey swap …` run against the
+device automatically — no `--hardware` flag on those commands. Device
+lifecycle commands live under `onekey device <subcommand>` (search, verify,
+change-pin, toggle-passphrase, settings).
