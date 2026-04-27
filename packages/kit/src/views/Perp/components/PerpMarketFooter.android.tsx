@@ -13,7 +13,7 @@ import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliqui
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
-const MARKET_FOOTER_BUTTON_WIDTH = '44%';
+const MARKET_FOOTER_BUTTON_WIDTH = '47%';
 const MARKET_FOOTER_BUTTON_HEIGHT = 36;
 
 // On Android, the native bottom tab navigator (react-native-bottom-tabs)
@@ -133,13 +133,15 @@ function PerpMarketFooter() {
 
   return (
     <Page.Footer
+      px="$2"
       pt="$3"
       pb="$8"
       cancelButton={buyButton}
       confirmButton={sellButton}
       buttonContainerProps={{
         width: '100%',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
+        gap: '$2',
       }}
     />
   );
