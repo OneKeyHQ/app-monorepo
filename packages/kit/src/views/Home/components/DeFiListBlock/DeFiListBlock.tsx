@@ -633,7 +633,10 @@ function DeFiListBlock({
   });
 
   const handleRefreshAllNetworkData = useCallback(() => {
-    void runAllNetworkRequests({ alwaysSetState: true });
+    void runAllNetworkRequests({
+      alwaysSetState: true,
+      skipAccountsCache: true,
+    });
   }, [runAllNetworkRequests]);
 
   useEffect(() => {
