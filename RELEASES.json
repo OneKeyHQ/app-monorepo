@@ -10,5 +10,21 @@
       "#11307"
     ],
     "notes": "fix: pass origin to parse transaction request(OK-53490), fix: pass origin to parse transaction request - bundle, feat(perp): simplify positions empty state(OK-53506), fix: sync swap history badge count with limit orders (OK-53226 OK-53243 OK-53291 OK-53430 OK-53500)"
+  },
+  {
+    "seq": 2,
+    "commit": "829dfebcbd5767e8d8ebe15d1781b0b88455916d",
+    "date": "2026-04-27T15:39:35Z",
+    "prs": [
+      "#11310",
+      "#11312",
+      "#11316",
+      "#11317",
+      "#11326",
+      "#11338",
+      "#11352",
+      "#11368"
+    ],
+    "notes": "feat(browser): add sidebar preference to place new tab at top (#11310, OK-53560), fix(swap): unblock swap on first actionable quote (#11312, OK-52655), fix(logs): use RNFS.hash to compute log bundle sha256 (#11316, OK-53527), fix: send flow and signature confirm regressions (#11317, OK-53537/OK-53449/OK-53370), fix: refresh Houdini swap balance on state detail updates (#11338, OK-53652), fix: prevent stale swap balance orders (#11352, OK-53762/OK-53841), fix: normalize fiat send amount precision (#11368, OK-53784)"
   }
 ]
