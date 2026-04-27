@@ -22,13 +22,20 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSortAtom,
+  useSwapQuoteCurrentEventProviderKeysAtom,
+  useSwapQuoteCurrentEventReceivedCountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSortedQuoteListAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  buildSwapManualProviderSelectionIntent,
+  buildSwapQuoteProviderKey,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -128,31 +135,55 @@ const SwapProviderListPanel = ({
   const intl = useIntl();
   const [swapSortedList] = useSwapSortedQuoteListAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [, setSwapManualSelect] = useSwapManualSelectQuoteProvidersAtom();
+  const [manualSelectQuoteProvider, setSwapManualSelect] =
+    useSwapManualSelectQuoteProvidersAtom();
   const [providerSort, setProviderSort] = useSwapProviderSortAtom();
   const [settingsPersist] = useSettingsPersistAtom();
   const [currentSelectQuote] = useSwapQuoteCurrentSelectAtom();
+  const selectedProviderInfo =
+    currentSelectQuote?.info ?? manualSelectQuoteProvider?.info;
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [currentEventReceivedCount] =
+    useSwapQuoteCurrentEventReceivedCountAtom();
+  const [currentEventProviderKeys] = useSwapQuoteCurrentEventProviderKeysAtom();
+  const currentEventProviderKeySet = useMemo(
+    () => new Set(currentEventProviderKeys),
+    [currentEventProviderKeys],
+  );
+  const quoteListForDisplay = useMemo(
+    () =>
+      quoteEventTotalCount.count > 0
+        ? swapSortedList.filter((item) =>
+            currentEventProviderKeySet.has(buildSwapQuoteProviderKey(item)),
+          )
+        : swapSortedList,
+    [currentEventProviderKeySet, quoteEventTotalCount.count, swapSortedList],
+  );
 
   // Cache the previous list to show during refresh (prevents flash to empty)
   const cachedListRef = useRef<IFetchQuoteResult[]>([]);
   // Track if this is first load vs refresh
   const hadPreviousQuotesRef = useRef(false);
-  // Track token changes to reset cache
-  const prevTokenKeyRef = useRef('');
-  const currentTokenKey = `${fromToken?.contractAddress ?? ''}-${
+  // Track quote context changes to reset cache
+  const quoteInputAmount =
+    fromTokenAmount.isInput || !toTokenAmount.isInput
+      ? fromTokenAmount.value
+      : toTokenAmount.value;
+  const prevQuoteContextKeyRef = useRef('');
+  const currentQuoteContextKey = `${swapTypeSwitch}-${
+    fromToken?.networkId ?? ''
+  }-${fromToken?.contractAddress ?? ''}-${toToken?.networkId ?? ''}-${
     toToken?.contractAddress ?? ''
-  }`;
+  }-${quoteInputAmount}`;
   // Track if we're in a refresh cycle (list was cleared but we had data)
   const isRefreshingRef = useRef(false);
-  // Track swap type switch changes to reset cache (OK-49718)
-  const prevSwapTypeSwitchRef = useRef(swapTypeSwitch);
-  // Track quote event id changes to reset cache when new quote starts (OK-49718)
+  // Track quote event id changes to detect new quote cycles (OK-49718)
   const prevQuoteEventIdRef = useRef(quoteEventTotalCount.eventId);
   // Track if waiting for new quote to prevent flash to empty state (OK-49718)
   const isWaitingForNewQuoteRef = useRef(false);
@@ -164,42 +195,34 @@ const SwapProviderListPanel = ({
   // Track previous loading state for detecting when loading completes
   const prevIsLoadingRef = useRef(false);
 
-  // Reset cache when tokens change
-  if (prevTokenKeyRef.current !== currentTokenKey) {
-    prevTokenKeyRef.current = currentTokenKey;
+  // Reset cache when tokens, swap type, or the user-entered amount changes.
+  if (prevQuoteContextKeyRef.current !== currentQuoteContextKey) {
+    prevQuoteContextKeyRef.current = currentQuoteContextKey;
     cachedListRef.current = [];
     hadPreviousQuotesRef.current = false;
     isRefreshingRef.current = false;
     isWaitingForNewQuoteRef.current = true;
   }
 
-  // Reset cache when swap type switch changes (Swap/Limit/Bridge) (OK-49718)
-  if (prevSwapTypeSwitchRef.current !== swapTypeSwitch) {
-    prevSwapTypeSwitchRef.current = swapTypeSwitch;
-    cachedListRef.current = [];
-    hadPreviousQuotesRef.current = false;
-    isRefreshingRef.current = false;
-    isWaitingForNewQuoteRef.current = true;
-  }
-
-  // Reset cache when a new quote event starts (different eventId means new quote request) (OK-49718)
-  // Also reset when quote is cleared (eventId becomes undefined or count becomes 0)
-  if (
-    prevQuoteEventIdRef.current !== quoteEventTotalCount.eventId ||
-    (quoteEventTotalCount.count === 0 && prevQuoteEventIdRef.current)
-  ) {
+  // A new event for the same quote context is usually an auto-refresh; keep the
+  // previous list until the new event returns its first provider.
+  if (prevQuoteEventIdRef.current !== quoteEventTotalCount.eventId) {
     prevQuoteEventIdRef.current = quoteEventTotalCount.eventId;
-    cachedListRef.current = [];
-    hadPreviousQuotesRef.current = false;
-    isRefreshingRef.current = false;
     isWaitingForNewQuoteRef.current = true;
   }
 
   const isLoading = quoteLoading || quoteEventFetching;
 
+  if (!isLoading && quoteEventTotalCount.count === 0) {
+    cachedListRef.current = [];
+    hadPreviousQuotesRef.current = false;
+    isRefreshingRef.current = false;
+    isWaitingForNewQuoteRef.current = false;
+  }
+
   // Detect refresh: list becomes empty while we had previous data
   if (
-    swapSortedList.length === 0 &&
+    quoteListForDisplay.length === 0 &&
     hadPreviousQuotesRef.current &&
     cachedListRef.current.length > 0
   ) {
@@ -210,8 +233,8 @@ const SwapProviderListPanel = ({
   const wasWaitingForNewQuote = isWaitingForNewQuoteRef.current;
 
   // Update cache when we have new data
-  if (swapSortedList.length > 0) {
-    cachedListRef.current = swapSortedList;
+  if (quoteListForDisplay.length > 0) {
+    cachedListRef.current = quoteListForDisplay;
     hadPreviousQuotesRef.current = true;
     isRefreshingRef.current = false;
     isWaitingForNewQuoteRef.current = false;
@@ -221,10 +244,10 @@ const SwapProviderListPanel = ({
   // Show cached data when: loading with empty list but had previous data, OR during refresh
   const displayList =
     (isLoading || isRefreshingRef.current) &&
-    swapSortedList.length === 0 &&
+    quoteListForDisplay.length === 0 &&
     cachedListRef.current.length > 0
       ? cachedListRef.current
-      : swapSortedList;
+      : quoteListForDisplay;
 
   // Track previous provider keys to determine which items are new
   const prevProviderKeysRef = useRef<Set<string>>(new Set());
@@ -315,13 +338,13 @@ const SwapProviderListPanel = ({
     if (
       wasLoading &&
       !isLoading &&
-      currentSelectQuote &&
+      selectedProviderInfo &&
       availableList.length > 0
     ) {
       const selectedIndex = availableList.findIndex(
         (item) =>
-          item.info.provider === currentSelectQuote.info.provider &&
-          item.info.providerName === currentSelectQuote.info.providerName,
+          item.info.provider === selectedProviderInfo.provider &&
+          item.info.providerName === selectedProviderInfo.providerName,
       );
 
       if (selectedIndex > 0 && scrollViewRef.current) {
@@ -334,17 +357,17 @@ const SwapProviderListPanel = ({
         }, 100);
       }
     }
-  }, [isLoading, currentSelectQuote, availableList]);
+  }, [isLoading, selectedProviderInfo, availableList]);
 
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
-      setSwapManualSelect(item);
+      setSwapManualSelect(buildSwapManualProviderSelectionIntent(item));
       defaultLogger.swap.providerChange.providerChange({
-        changeFrom: currentSelectQuote?.info.provider ?? '-',
+        changeFrom: selectedProviderInfo?.provider ?? '-',
         changeTo: item.info.provider,
       });
     },
-    [setSwapManualSelect, currentSelectQuote?.info.provider],
+    [setSwapManualSelect, selectedProviderInfo?.provider],
   );
 
   const renderItem = useCallback(
@@ -382,8 +405,8 @@ const SwapProviderListPanel = ({
                 : undefined
             }
             selected={Boolean(
-              item.info.provider === currentSelectQuote?.info.provider &&
-              item.info.providerName === currentSelectQuote?.info.providerName,
+              item.info.provider === selectedProviderInfo?.provider &&
+              item.info.providerName === selectedProviderInfo?.providerName,
             )}
             fromTokenAmount={fromTokenAmount.value}
             fromToken={fromToken}
@@ -396,11 +419,11 @@ const SwapProviderListPanel = ({
       );
     },
     [
-      currentSelectQuote?.info.provider,
-      currentSelectQuote?.info.providerName,
       fromToken,
       fromTokenAmount,
       onSelectQuote,
+      selectedProviderInfo?.provider,
+      selectedProviderInfo?.providerName,
       settingsPersist.currencyInfo.symbol,
       toToken,
     ],
@@ -666,7 +689,7 @@ const SwapProviderListPanel = ({
   // Number of skeleton placeholders for providers not yet received
   const remainingSkeletonCount =
     hasReceivedTotal && quoteEventFetching
-      ? Math.max(0, quoteEventTotalCount.count - displayList.length)
+      ? Math.max(0, quoteEventTotalCount.count - currentEventReceivedCount)
       : 0;
 
   const contentArea = (
