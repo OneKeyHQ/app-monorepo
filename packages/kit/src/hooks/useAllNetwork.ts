@@ -404,7 +404,14 @@ function useAllNetworkRequests<T>(params: {
           allNetworkAccountsBaseCache.delete(key);
         }
       }
-      void runWithQueueRef.current?.({ skipAccountsCache: true });
+      // alwaysSetState forces the runner past usePromiseResult's focus
+      // check, otherwise the refresh is dropped when the consuming tab
+      // (e.g. DeFi) is mounted but not the active tab during the HW connect
+      // batch — the cache would be cleared but no fetch would actually run.
+      void runWithQueueRef.current?.({
+        skipAccountsCache: true,
+        alwaysSetState: true,
+      });
     };
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, onAddDBAccounts);
     return () => {
