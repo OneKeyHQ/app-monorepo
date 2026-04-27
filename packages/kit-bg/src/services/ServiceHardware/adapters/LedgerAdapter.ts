@@ -13,7 +13,6 @@ import { BaseAdapter } from './BaseAdapter';
 
 import type {
   DeviceInfo,
-  IConnector,
   IHardwareWallet,
   IThirdPartyHardwareAdapter,
   Response,
@@ -27,15 +26,12 @@ export class LedgerAdapter
 
   readonly hw: IHardwareWallet;
 
-  private _connector: IConnector;
-
-  constructor(hw: IHardwareWallet, connector: IConnector) {
+  constructor(hw: IHardwareWallet) {
     super();
     this.hw = hw;
-    this._connector = connector;
 
     // Whitelist known ui-event types; unknown ones log-only.
-    this._connector.on('ui-event', (event) => {
+    this.hw.on('ui-event', (event) => {
       switch (event.type) {
         case EConnectorInteraction.ConfirmOpenApp:
           void thirdPartyHardwareUiStateAtom.set({
@@ -66,13 +62,6 @@ export class LedgerAdapter
           break;
         }
       }
-    });
-
-    this.hw.on('ui-request-button', () => {
-      void thirdPartyHardwareUiStateAtom.set({
-        action: EThirdPartyHardwareUiAction.confirmOnDevice,
-        vendor: EHardwareVendor.ledger,
-      });
     });
 
     this.hw.on(UI_REQUEST.REQUEST_DEVICE_CONNECT, () => {

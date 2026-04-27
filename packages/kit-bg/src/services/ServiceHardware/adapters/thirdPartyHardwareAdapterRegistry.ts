@@ -48,7 +48,7 @@ export const thirdPartyHardwareAdapterRegistry = {
         payload: { granted },
       });
     });
-    return new LedgerAdapter(hw, connector);
+    return new LedgerAdapter(hw);
   },
 } satisfies Partial<Record<EHardwareVendor, IThirdPartyHardwareAdapterFactory>>;
 

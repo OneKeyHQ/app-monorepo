@@ -92,7 +92,6 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
     };
     connector.on('device-connect', forward('device-connect'));
     connector.on('device-disconnect', forward('device-disconnect'));
-    connector.on('ui-request', forward('ui-request'));
     connector.on('ui-event', forward('ui-event'));
   }
 
