@@ -1,3 +1,5 @@
+import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
+
 export interface IPendingTx {
   id: string;
   type: 'send' | 'swap' | 'contract' | 'approve';
@@ -13,6 +15,8 @@ export interface ITrayWatchlistItem {
   symbol: string;
   name: string;
   icon: string;
+  iconUrls?: string[];
+  networkIcon?: string;
   price: string;
   change24h: number;
   type: 'spot' | 'perps';
@@ -20,6 +24,10 @@ export interface ITrayWatchlistItem {
   networkId?: string;
   isNative?: boolean;
   perpsCoin?: string;
+  maxLeverage?: number;
+  subtitle?: string;
+  communityRecognized?: boolean;
+  stock?: IMarketStockInfo;
 }
 
 export interface ITrayData {
