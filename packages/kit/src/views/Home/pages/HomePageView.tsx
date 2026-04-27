@@ -14,6 +14,7 @@ import {
   Spinner,
   Stack,
   Tabs,
+  XStack,
   YStack,
   useFocusedTab,
   useScrollContentTabBarOffset,
@@ -59,6 +60,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
+import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
@@ -410,14 +412,12 @@ export function HomePageView({
     [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
   );
 
+  // Alerts sit outside Tabs.Container (rendered next to TabPageHeader below).
+  // Keeping them inside renderHeader made them scroll through the sticky
+  // TabBar area — a partially-scrolled alert would leave a visible band
+  // between TabPageHeader and the tabs.
   const renderHeader = useCallback(() => {
-    return (
-      <Stack>
-        <RiskApprovalAlert />
-        <WatchOnlyAlert />
-        <HomeHeaderContainer />
-      </Stack>
-    );
+    return <HomeHeaderContainer />;
   }, []);
 
   // Rendered on web only. On native the equivalent lives inside the history
@@ -468,23 +468,151 @@ export function HomePageView({
     return <TabBarItem {...props} />;
   }, []);
 
-  const renderToolbar = useCallback(
-    ({ focusedTab }: { focusedTab: string }) => (
-      <TabHeaderSettings focusedTab={focusedTab} />
-    ),
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const portalRefCallback = useCallback((el: HTMLDivElement | null) => {
+    setPortalTarget((prev) => (prev === el ? prev : el));
+  }, []);
+
+  const [tabBarRightPortalTarget, setTabBarRightPortalTarget] =
+    useState<HTMLElement | null>(null);
+  const tabBarRightPortalRefCallback = useCallback(
+    (el: HTMLDivElement | null) => {
+      setTabBarRightPortalTarget((prev) => (prev === el ? prev : el));
+    },
     [],
   );
 
-  const renderTabBar = useCallback(
-    (props: any) => (
-      <Tabs.TabBar
-        {...props}
-        variant="pill"
-        renderItem={handleRenderItem}
-        renderToolbar={renderToolbar}
-      />
+  const [stickyHost, setStickyHost] = useState<HTMLElement | null>(null);
+  const stickyHostRefCallback = useCallback((el: unknown) => {
+    const next =
+      typeof HTMLElement !== 'undefined' && el instanceof HTMLElement
+        ? el
+        : null;
+    setStickyHost((prev) => (prev === next ? prev : next));
+  }, []);
+
+  const initialTabName = tabConfigs[0]?.name ?? '';
+  const [activeTabName, setActiveTabName] = useState(initialTabName);
+  const initialTabId = tabConfigs[0]?.id;
+  const [activeTabId, setActiveTabId] = useState<EHomeWalletTab | undefined>(
+    initialTabId,
+  );
+
+  useEffect(() => {
+    setActiveTabName((prev) =>
+      tabConfigs.some((tab) => tab.name === prev)
+        ? prev
+        : (tabConfigs[0]?.name ?? ''),
+    );
+    setActiveTabId((prev) =>
+      tabConfigs.some((tab) => tab.id === prev) ? prev : tabConfigs[0]?.id,
+    );
+  }, [tabConfigs]);
+
+  const renderToolbar = useCallback(
+    ({ focusedTab }: { focusedTab: string }) => (
+      <XStack alignItems="center" gap="$3" flexShrink={0}>
+        {platformEnv.isNative ? null : (
+          <div
+            ref={tabBarRightPortalRefCallback}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+              minWidth: 0,
+            }}
+          />
+        )}
+        <TabHeaderSettings focusedTab={focusedTab} />
+      </XStack>
     ),
-    [handleRenderItem, renderToolbar],
+    [tabBarRightPortalRefCallback],
+  );
+
+  const renderTabBar = useCallback(
+    (tabBarProps: any) => {
+      const handleTabPress = (name: string) => {
+        const nextTab = tabConfigs.find((tab) => tab.name === name);
+        setActiveTabName(nextTab?.name ?? name);
+        setActiveTabId(nextTab?.id);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        tabBarProps.onTabPress?.(name);
+      };
+
+      if (platformEnv.isNative) {
+        return (
+          <Tabs.TabBar
+            {...tabBarProps}
+            onTabPress={handleTabPress}
+            variant="pill"
+            renderItem={handleRenderItem}
+            renderToolbar={renderToolbar}
+          />
+        );
+      }
+
+      return (
+        <YStack
+          ref={stickyHostRefCallback as any}
+          bg="$bgApp"
+          position={'sticky' as any}
+          top={0}
+          zIndex={10}
+        >
+          <Tabs.TabBar
+            {...tabBarProps}
+            onTabPress={handleTabPress}
+            variant="pill"
+            renderItem={handleRenderItem}
+            renderToolbar={renderToolbar}
+            containerStyle={{ position: 'relative' as any }}
+          />
+          <div
+            ref={portalRefCallback}
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              zIndex: 1,
+            }}
+          />
+        </YStack>
+      );
+    },
+    [
+      portalRefCallback,
+      stickyHostRefCallback,
+      handleRenderItem,
+      renderToolbar,
+      tabConfigs,
+    ],
+  );
+
+  const handleTabChange = useCallback(
+    (data: { tabName: string }) => {
+      const nextTab = tabConfigs.find((tab) => tab.name === data.tabName);
+      setActiveTabName(nextTab?.name ?? data.tabName);
+      setActiveTabId(nextTab?.id);
+    },
+    [tabConfigs],
+  );
+
+  const stickyHeaderCtx = useMemo(
+    () => ({
+      portalTarget,
+      tabBarRightPortalTarget,
+      stickyHost,
+      activeTabName,
+      activeTabId,
+    }),
+    [
+      portalTarget,
+      tabBarRightPortalTarget,
+      stickyHost,
+      activeTabName,
+      activeTabId,
+    ],
   );
 
   const tabs = useMemo(() => {
@@ -517,6 +645,7 @@ export function HomePageView({
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
+        onTabChange={handleTabChange}
         renderSubHeader={renderSubHeader}
       >
         {tabConfigs.map((tab) => (
@@ -535,6 +664,7 @@ export function HomePageView({
     network?.id,
     renderHeader,
     renderTabBar,
+    handleTabChange,
     renderSubHeader,
     tabConfigs,
   ]);
@@ -720,6 +850,8 @@ export function HomePageView({
             ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
+            <RiskApprovalAlert />
+            <WatchOnlyAlert />
             <NetworkAlert />
             {content}
             {platformEnv.isNative ? (
@@ -753,6 +885,10 @@ export function HomePageView({
   ]);
 
   return useMemo(() => {
-    return <Page fullPage>{homePage}</Page>;
-  }, [homePage]);
+    return (
+      <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
+        <Page fullPage>{homePage}</Page>
+      </HomeStickyHeaderContext.Provider>
+    );
+  }, [homePage, stickyHeaderCtx]);
 }
