@@ -63,7 +63,7 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-jest.mock('@onekeyhq/core/src/chains/evm/sdkEvm/signMessage', () => ({
+jest.mock('@onekeyhq/shared/src/utils/messageUtils', () => ({
   autoFixPersonalSignMessage: ({ message }: { message: string }) => message,
 }));
 

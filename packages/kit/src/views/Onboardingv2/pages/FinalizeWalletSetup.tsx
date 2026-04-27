@@ -132,6 +132,10 @@ function FinalizeWalletSetupPage({
   const [isReferralReadyChecked, setIsReferralReadyChecked] = useState(false);
   const [shouldShowReferralBindAction, setShouldShowReferralBindAction] =
     useState(false);
+  const [
+    isWalletCreationReadyForReferralCheck,
+    setIsWalletCreationReadyForReferralCheck,
+  ] = useState(false);
 
   const created = useRef(false);
   const createdWalletRef = useRef<IDBWallet | undefined>(undefined);
@@ -377,6 +381,7 @@ function FinalizeWalletSetupPage({
       } else if (keylessPackSetId && !created.current) {
         created.current = true;
       }
+      setIsWalletCreationReadyForReferralCheck(true);
     } catch (error) {
       console.error('createWallet error:', error);
       const hardwareError = error as {
@@ -443,6 +448,7 @@ function FinalizeWalletSetupPage({
     createdWalletRef.current = undefined;
     readyReferralCheckHandledRef.current = false;
     keylessAutoConnectScheduledRef.current = false;
+    setIsWalletCreationReadyForReferralCheck(false);
     setIsReferralReadyChecked(false);
     setShouldShowReferralBindAction(false);
     // Reset the dedup guard so a retry triggered after a late, post-success
@@ -499,12 +505,24 @@ function FinalizeWalletSetupPage({
   }, [getReferralCodeBondStatus]);
 
   useEffect(() => {
-    if (!isReady || setupError || readyReferralCheckHandledRef.current) {
+    // Hardware wallet creation may emit Ready before the post-create wallet
+    // lookup has stored createdWalletRef.
+    if (
+      !isReady ||
+      setupError ||
+      !isWalletCreationReadyForReferralCheck ||
+      readyReferralCheckHandledRef.current
+    ) {
       return;
     }
     readyReferralCheckHandledRef.current = true;
     void handleWalletSetupReady();
-  }, [handleWalletSetupReady, isReady, setupError]);
+  }, [
+    handleWalletSetupReady,
+    isReady,
+    isWalletCreationReadyForReferralCheck,
+    setupError,
+  ]);
 
   // Breathe up to 0.8 during active steps; on Ready fade to a faint hold
   // (0.15) so the orb visibly "settles" before the user taps Enter wallet.
