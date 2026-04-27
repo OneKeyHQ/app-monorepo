@@ -974,37 +974,6 @@ function appendMatchKeys({
   keys.forEach((key) => dedupeKeySet.add(key));
 }
 
-function appendDappSearchResults({
-  items,
-  source,
-  keyword,
-  mergedItems,
-  originDedupeKeySet,
-  urlDedupeKeySet,
-  reserveLocalUrlKey = false,
-}: {
-  items: IDApp[];
-  source: 'remote' | 'trending';
-  keyword: string;
-  mergedItems: IDiscoverySearchListItem[];
-  originDedupeKeySet: Set<string>;
-  urlDedupeKeySet: Set<string>;
-  reserveLocalUrlKey?: boolean;
-}) {
-  items.forEach((item) => {
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    appendDappSearchResult({
-      item,
-      source,
-      keyword,
-      mergedItems,
-      originDedupeKeySet,
-      urlDedupeKeySet,
-      reserveLocalUrlKey,
-    });
-  });
-}
-
 function appendDappSearchResult({
   item,
   source,
@@ -1044,6 +1013,36 @@ function appendDappSearchResult({
     isExactUrl: item.isExactUrl,
     keyword: keyword || item.keyword,
     dapp: item,
+  });
+}
+
+function appendDappSearchResults({
+  items,
+  source,
+  keyword,
+  mergedItems,
+  originDedupeKeySet,
+  urlDedupeKeySet,
+  reserveLocalUrlKey = false,
+}: {
+  items: IDApp[];
+  source: 'remote' | 'trending';
+  keyword: string;
+  mergedItems: IDiscoverySearchListItem[];
+  originDedupeKeySet: Set<string>;
+  urlDedupeKeySet: Set<string>;
+  reserveLocalUrlKey?: boolean;
+}) {
+  items.forEach((item) => {
+    appendDappSearchResult({
+      item,
+      source,
+      keyword,
+      mergedItems,
+      originDedupeKeySet,
+      urlDedupeKeySet,
+      reserveLocalUrlKey,
+    });
   });
 }
 

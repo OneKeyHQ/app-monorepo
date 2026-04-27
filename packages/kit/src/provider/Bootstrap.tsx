@@ -717,6 +717,25 @@ export const useTabletDetailView = () => {
   }, [appNavigation, isTabletDetailView]);
 };
 
+function TrayDataProviderInner() {
+  useTrayDataProvider();
+  return null;
+}
+
+function DesktopTrayDataProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <TrayDataProviderInner />
+    </AccountSelectorProviderMirror>
+  );
+}
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -832,26 +851,5 @@ export function Bootstrap() {
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
-  // eslint-disable-next-line @typescript-eslint/no-use-before-define
   return platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null;
-}
-
-function DesktopTrayDataProvider() {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
-      <TrayDataProviderInner />
-    </AccountSelectorProviderMirror>
-  );
-}
-
-function TrayDataProviderInner() {
-  useTrayDataProvider();
-  return null;
 }
