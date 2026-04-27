@@ -1,4 +1,4 @@
-name: 04-nightly-eslint
+name: 06-nightly-eslint
 
 on:
   schedule:
