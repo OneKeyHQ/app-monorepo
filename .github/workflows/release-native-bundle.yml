@@ -28,6 +28,15 @@ on:
       checkout_ref:
         type: string
         required: false
+      platform:
+        # Optional: when set to "ios" or "android", only that platform is
+        # built. When unset/empty (workflow_dispatch / workflow_run), both
+        # platforms are built in parallel via the matrix below.
+        # release-app-bundles.yml uses this to expose iOS and Android as
+        # sibling top-level slots alongside desktop-bundle / web-bundle.
+        type: string
+        required: false
+        default: ''
     secrets:
       COVALENT_KEY:
         required: false
@@ -74,10 +83,15 @@ jobs:
     # independent (separate out-dir-bundle/<platform> + own zip artifact +
     # own Slack/QA notification), so a failure on one no longer blocks the
     # other. fail-fast=false avoids canceling iOS just because Android failed.
+    #
+    # When called via workflow_call with `inputs.platform` set, the matrix is
+    # narrowed to that single platform — release-app-bundles.yml uses this to
+    # call this workflow twice (once for ios, once for android) so iOS and
+    # Android show up as sibling top-level slots in the orchestrator UI.
     strategy:
       fail-fast: false
       matrix:
-        platform: [ios, android]
+        platform: ${{ inputs.platform != '' && fromJSON(format('["{0}"]', inputs.platform)) || fromJSON('["ios","android"]') }}
         node-version: [24.x]
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
