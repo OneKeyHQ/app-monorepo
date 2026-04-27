@@ -395,9 +395,9 @@ function useAllNetworkRequests<T>(params: {
     if (!isAllNetworks) return;
     if (!currentWalletId) return;
     const walletIdAtSubscribe = currentWalletId;
-    const onAddDBAccounts = (params?: { walletId: string }) => {
-      if (!params?.walletId) return;
-      if (params.walletId !== walletIdAtSubscribe) return;
+    const onAddDBAccounts = (payload?: { walletId: string }) => {
+      if (!payload?.walletId) return;
+      if (payload.walletId !== walletIdAtSubscribe) return;
       const prefix = `${walletIdAtSubscribe}::`;
       for (const key of Array.from(allNetworkAccountsBaseCache.keys())) {
         if (key.startsWith(prefix)) {
