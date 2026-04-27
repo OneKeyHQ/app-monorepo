@@ -1,188 +1,45 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
-import { OnboardingPageFallback } from '../components/Layout';
-import { OnboardingLayoutFallback } from '../components/OnboardingLayout';
-
-// Keep the Suspense fallback aligned with the page shell so lazy-loaded pages
-// do not briefly flash the legacy onboarding frame during navigation.
-const pageFallback = <OnboardingPageFallback />;
-const legacyLayoutFallback = <OnboardingLayoutFallback />;
-
-const GetStarted = LazyLoadPage(
-  () => import('../pages/GetStarted'),
-  undefined,
-  false,
-  pageFallback,
-);
-const CreateNewWallet = LazyLoadPage(
-  () => import('../pages/CreateNewWallet'),
-  undefined,
-  false,
-  pageFallback,
-);
-const CreateOrImportWallet = LazyLoadPage(
-  () => import('../pages/CreateOrImportWallet'),
-  undefined,
-  false,
-  pageFallback,
-);
-const FinalizeWalletSetup = LazyLoadPage(
-  () => import('../pages/FinalizeWalletSetup'),
-  undefined,
-  false,
-  pageFallback,
-);
-const PickYourDevice = LazyLoadPage(
-  () => import('../pages/PickYourDevice'),
-  undefined,
-  false,
-  pageFallback,
-);
-const ImportPhraseOrPrivateKey = LazyLoadPage(
-  () => import('../pages/ImportPhraseOrPrivateKey'),
-  undefined,
-  false,
-  pageFallback,
-);
-const ImportWatchedAccount = LazyLoadPage(
-  () => import('../pages/ImportWatchedAccountV2'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
-const BackupWalletReminder = LazyLoadPage(
-  () => import('../pages/BackupWalletReminder'),
-  undefined,
-  false,
-  pageFallback,
-);
-const ShowRecoveryPhrase = LazyLoadPage(
-  () => import('../pages/ShowRecoveryPhrase'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
-const VerifyRecoveryPhrase = LazyLoadPage(
-  () => import('../pages/VerifyRecoveryPhrase'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
-const SelectPrivateKeyNetwork = LazyLoadPage(
-  () => import('../pages/SelectPrivateKeyNetwork'),
-  undefined,
-  false,
-  pageFallback,
-);
-const ConnectYourDevice = LazyLoadPage(
-  () => import('../pages/ConnectYourDevice'),
-  undefined,
-  false,
-  pageFallback,
-);
-const ConnectQRCode = LazyLoadPage(
-  () => import('../pages/ConnectQRCode'),
-  undefined,
-  false,
-  pageFallback,
-);
-const CheckAndUpdate = LazyLoadPage(
-  () => import('../pages/CheckAndUpdate'),
-  undefined,
-  false,
-  pageFallback,
-);
-const ICloudBackup = LazyLoadPage(
-  () => import('../pages/ICloudBackup'),
-  undefined,
-  false,
-  pageFallback,
-);
-const ICloudBackupDetails = LazyLoadPage(
-  () => import('../pages/ICloudBackupDetails'),
-  undefined,
-  false,
-  pageFallback,
-);
-const ConnectWalletSelectNetworks = LazyLoadPage(
-  () => import('../pages/ConnectWalletSelectNetworks'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
-const ConnectExternalWallet = LazyLoadPage(
-  () => import('../pages/ConnectExternalWallet'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
-const ImportKeyTag = LazyLoadPage(
-  () => import('../pages/ImportKeyTag'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
-const KeylessWalletRecovery = LazyLoadPage(
-  () => import('../pages/KeylessWalletRecovery'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
-const KeylessWalletCreation = LazyLoadPage(
-  () => import('../pages/KeylessWalletCreation'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
-const OneKeyIDLogin = LazyLoadPage(
-  () => import('../pages/OneKeyIDLoginPage'),
-  undefined,
-  false,
-  pageFallback,
-);
-const CreatePin = LazyLoadPage(
-  () => import('../pages/CreatePinPage'),
-  undefined,
-  false,
-  pageFallback,
-);
-const ConfirmPin = LazyLoadPage(
-  () => import('../pages/ConfirmPinPage'),
-  undefined,
-  false,
-  pageFallback,
-);
-const CreatePasscode = LazyLoadPage(
-  () => import('../pages/CreatePasscodePage'),
-  undefined,
-  false,
-  pageFallback,
-);
-const VerifyPin = LazyLoadPage(
-  () => import('../pages/VerifyPinPage'),
-  undefined,
-  false,
-  pageFallback,
-);
-const ResetPinGuidePage = LazyLoadPage(
-  () => import('../pages/ResetPinGuidePage'),
-  undefined,
-  false,
-  pageFallback,
-);
-const NewPinCreated = LazyLoadPage(
-  () => import('../pages/NewPinCreatedPage'),
-  undefined,
-  false,
-  pageFallback,
-);
+import BackupWalletReminder from '../pages/BackupWalletReminder';
+import CheckAndUpdate from '../pages/CheckAndUpdate';
+import ConfirmPin from '../pages/ConfirmPinPage';
+import ConnectExternalWallet from '../pages/ConnectExternalWallet';
+import ConnectQRCode from '../pages/ConnectQRCode';
+import ConnectWalletSelectNetworks from '../pages/ConnectWalletSelectNetworks';
+import ConnectYourDevice from '../pages/ConnectYourDevice';
+import CreateNewWallet from '../pages/CreateNewWallet';
+import CreateOrImportWallet from '../pages/CreateOrImportWallet';
+import CreatePasscode from '../pages/CreatePasscodePage';
+import CreatePin from '../pages/CreatePinPage';
+import FinalizeWalletSetup from '../pages/FinalizeWalletSetup';
+import GetStarted from '../pages/GetStarted';
+import ICloudBackup from '../pages/ICloudBackup';
+import ICloudBackupDetails from '../pages/ICloudBackupDetails';
+import ImportKeyTag from '../pages/ImportKeyTag';
+import ImportPhraseOrPrivateKey from '../pages/ImportPhraseOrPrivateKey';
+import ImportWatchedAccount from '../pages/ImportWatchedAccountV2';
+import KeylessWalletCreation from '../pages/KeylessWalletCreation';
+import KeylessWalletRecovery from '../pages/KeylessWalletRecovery';
+import NewPinCreated from '../pages/NewPinCreatedPage';
+import OneKeyIDLogin from '../pages/OneKeyIDLoginPage';
+import PickYourDevice from '../pages/PickYourDevice';
+import ResetPinGuidePage from '../pages/ResetPinGuidePage';
+import SelectPrivateKeyNetwork from '../pages/SelectPrivateKeyNetwork';
+import ShowRecoveryPhrase from '../pages/ShowRecoveryPhrase';
+import VerifyPin from '../pages/VerifyPinPage';
+import VerifyRecoveryPhrase from '../pages/VerifyRecoveryPhrase';
 
 const hiddenHeaderOptions = {
   headerShown: false,
 };
+
+// Pages are imported eagerly (not via React.lazy / LazyLoadPage) so every
+// navigation inside the onboarding flow renders without a Suspense fallback
+// flash. The 28 page modules join the chunk that loads when the onboarding
+// modal opens — the one-time cost is hidden by the modal's opening transition,
+// and every subsequent in-flow navigation is instant.
 export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   EOnboardingPagesV2,
   IOnboardingParamListV2
