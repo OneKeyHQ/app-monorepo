@@ -37,6 +37,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({
   },
 }));
 
+jest.mock('../logger/logger', () => ({
+  __esModule: true,
+  defaultLogger: {
+    app: { customUA: { decision: jest.fn() } },
+  },
+}));
+
 describe('buildCustomUA', () => {
   beforeEach(() => {
     __resetCustomUARuntimeForTest();

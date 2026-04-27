@@ -2,6 +2,7 @@
 import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { checkIsOneKeyDomain } from './checkIsOneKeyDomain';
 
+import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 export type ICustomUARuntime =
@@ -73,14 +74,52 @@ function hasUserAgent(headers: Record<string, string>): boolean {
   );
 }
 
+function logUADecision(record: {
+  url: string;
+  decision:
+    | 'inject'
+    | 'skip-non-whitelist'
+    | 'skip-caller-already-set'
+    | 'skip-runtime-or-disabled';
+  injected: string | null;
+  existing?: string;
+}): void {
+  try {
+    defaultLogger.app.customUA.decision(record);
+  } catch {
+    // never let logging failures affect the request
+  }
+}
+
 export async function withCustomUAHeaders(
   url: string,
   headers: Record<string, string> = {},
 ): Promise<Record<string, string>> {
   const next = { ...headers };
-  if (!(await shouldInjectUAForUrl(url))) return next;
-  if (hasUserAgent(next)) return next;
+  if (!(await shouldInjectUAForUrl(url))) {
+    logUADecision({ url, decision: 'skip-non-whitelist', injected: null });
+    return next;
+  }
+  if (hasUserAgent(next)) {
+    const existing = next[USER_AGENT_HEADER] ?? next['user-agent'] ?? 'unknown';
+    logUADecision({
+      url,
+      decision: 'skip-caller-already-set',
+      injected: null,
+      existing,
+    });
+    return next;
+  }
   const ua = await buildCustomUA();
-  if (ua) next[USER_AGENT_HEADER] = ua;
+  if (ua) {
+    next[USER_AGENT_HEADER] = ua;
+    logUADecision({ url, decision: 'inject', injected: ua });
+  } else {
+    logUADecision({
+      url,
+      decision: 'skip-runtime-or-disabled',
+      injected: null,
+    });
+  }
   return next;
 }
