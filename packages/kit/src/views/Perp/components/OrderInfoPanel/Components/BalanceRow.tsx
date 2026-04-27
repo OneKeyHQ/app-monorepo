@@ -218,17 +218,25 @@ function BalanceRowDesktop({
 
     if (cell.key === 'coin') {
       return (
-        <SizableText
-          size="$bodySmMedium"
-          fontWeight={600}
-          color={isAssetClickable ? '$green11' : undefined}
-          onPress={onChangeAsset}
+        <XStack
+          minWidth={0}
+          alignItems="center"
+          gap="$2"
+          onPress={isAssetClickable ? onChangeAsset : undefined}
           cursor={isAssetClickable ? 'pointer' : 'default'}
-          hoverStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
-          pressStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
         >
-          {cell.cellValue}
-        </SizableText>
+          <Token size="xs" tokenImageUri={item.logoURI} />
+          <SizableText
+            size="$bodySmMedium"
+            fontWeight={600}
+            color={isAssetClickable ? '$green11' : undefined}
+            numberOfLines={1}
+            hoverStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
+            pressStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
+          >
+            {cell.cellValue}
+          </SizableText>
+        </XStack>
       );
     }
 
