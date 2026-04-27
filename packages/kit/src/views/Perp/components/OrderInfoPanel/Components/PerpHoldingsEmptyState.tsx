@@ -63,7 +63,7 @@ export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
   const hasAccountAddress = Boolean(activeAccount?.accountAddress);
   const useGuidePopover = gtMd;
   const helpCenterLabel = intl.formatMessage({
-    id: ETranslations.perp_guide_help_center,
+    id: ETranslations.perp_guide_title,
   });
   const helpCenterButton = (
     <ActionButton

@@ -2695,6 +2695,8 @@ export enum ETranslations {
   passphrase_character_limit = 'passphrase_character_limit',
   passphrase_disabled_dialog_desc = 'passphrase_disabled_dialog_desc',
   passphrase_disabled_dialog_title = 'passphrase_disabled_dialog_title',
+  perp_guide_article_spot_trading = 'perp.guide_article_spot_trading',
+  perp_guide_desc_spot_trading = 'perp.guide_desc_spot_trading',
   perp_0_fee = 'perp.0_fee',
   perp_account_action = 'perp.account_action',
   perp_account_action_rewards = 'perp.account_action_rewards',
