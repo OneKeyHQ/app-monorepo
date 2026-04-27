@@ -14,7 +14,7 @@ diff --git a/node_modules/@react-native-harness/runtime/dist/mocker/registry.js 
 index f430780..f31e6a8 100644
 --- a/node_modules/@react-native-harness/runtime/dist/mocker/registry.js
 +++ b/node_modules/@react-native-harness/runtime/dist/mocker/registry.js
-@@ -40,6 +40,28 @@ const mockRequire = (moduleId) => {
+@@ -40,6 +40,30 @@ const mockRequire = (moduleId) => {
      modulesCache.set(moduleIdNumber, originalModule);
      return originalModule;
  };
