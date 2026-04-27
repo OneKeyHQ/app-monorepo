@@ -15,6 +15,7 @@ const {
   buildWebEmbed,
   buildZipOutputAssetPath,
   cleanBundleOutput,
+  cleanupSourceMapsUnder,
   composeSourceMaps,
   copyDebugIdToSourceMap,
   copyModuleIdMapToPlatformDist,
@@ -28,7 +29,7 @@ const {
   log,
   runReactNativeBundle,
   runUnionBuild,
-  uploadSourceMapsToSentry,
+  uploadDirectoryToSentry,
   useUnionBuild,
   webEmbedOutputPath,
 } = require('./build-bundle-base');
@@ -95,12 +96,9 @@ const buildIOSBundle = async () => {
     label: 'build ios main bundle',
   });
   fs.rmSync(buildIOSOutputAssetPath('main.jsbundle.packager.map'));
-
-  uploadSourceMapsToSentry({
-    bundlePath: buildIOSOutputAssetPath('main.jsbundle'),
-    sourceMapPath: buildIOSOutputAssetPath('main.jsbundle.map'),
-    label: 'build ios main bundle',
-  });
+  // main.jsbundle sourcemap upload is deferred to the batch upload below
+  // (uploadDirectoryToSentry) so all bundles + segments ship in ONE HTTP
+  // round-trip instead of N per-file uploads.
 
   // --- Common bundle hermesc compilation (union build only) ---
   if (useUnionBuild) {
@@ -133,12 +131,7 @@ const buildIOSBundle = async () => {
       sourceMapPath: commonBundleMapPath,
       label: 'build ios common bundle',
     });
-
-    uploadSourceMapsToSentry({
-      bundlePath: commonBundleHbcPath,
-      sourceMapPath: commonBundleMapPath,
-      label: 'build ios common bundle',
-    });
+    // common bundle sourcemap upload is deferred to the batch upload below.
 
     // Keep raw JS for debugging module ID issues
     // fs.rmSync(commonBundleJsPath, { force: true });
@@ -194,11 +187,7 @@ const buildIOSBundle = async () => {
     fs.moveSync(backgroundBundleHbcPath, backgroundBundlePath, {
       overwrite: true,
     });
-    uploadSourceMapsToSentry({
-      bundlePath: backgroundBundlePath,
-      sourceMapPath: backgroundBundleMapPath,
-      label: 'build ios background bundle',
-    });
+    // background bundle sourcemap upload is deferred to the batch upload below.
 
     // Keep raw JS for debugging module ID issues
     // fs.rmSync(backgroundBundleJsPath, { force: true });
@@ -218,6 +207,19 @@ const buildIOSBundle = async () => {
     inputDir: getSegmentsDir('background'),
     outputSubdir: 'segments-background',
   });
+
+  // Single batch upload of every .hbc/.bundle/.jsbundle + sibling .map under
+  // the platform output dir. Replaces what was previously O(N) per-segment
+  // sentry-cli calls (~1.6s each × 2200 segments). Sentry CLI walks the tree,
+  // pairs scripts with their maps, and ships everything as one artifact bundle.
+  uploadDirectoryToSentry({
+    directory: buildIOSOutputAssetPath(''),
+    label: 'build ios bundle batch',
+  });
+  // Sourcemaps already uploaded — sweep them off disk so they don't get
+  // moved into dist/segments / dist/segments-background and shipped inside
+  // the OTA zip.
+  cleanupSourceMapsUnder(buildIOSOutputAssetPath(''));
 
   const distPath = buildIOSOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {

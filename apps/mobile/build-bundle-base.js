@@ -445,41 +445,25 @@ const sleepSeconds = (seconds) => {
   }
 };
 
-// Single source of truth for sentry-cli sourcemaps upload.
+// Run a sentry-cli invocation with retry + soft-degrade. Used by both
+// per-file and directory upload paths.
 //
-// Always passes `--release` so the upload satisfies sentry-cli's "either
-// debug-id OR release" requirement even when @sentry/react-native's metro
-// debugId injection silently produces no `debugId` in the packager source
-// map.
-//
-// Retries on transient failures (DNS/network/5xx — hosted runners are flaky)
-// and SOFT-FAILS after retries are exhausted: prints a `::warning::`
-// annotation and returns normally so a single sourcemap upload glitch never
-// kills the entire JS bundle build. The bundle itself is valid and shippable
-// without the sourcemap; missing sourcemaps just degrade Sentry stack traces
-// for the affected file.
-const uploadSourceMapsToSentry = ({ bundlePath, sourceMapPath, label }) => {
-  if (!(SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT)) {
-    return;
-  }
-  log(`${label} upload source maps`);
+// - Always passes `--release` so the upload satisfies sentry-cli's "either
+//   debug-id OR release" requirement even when @sentry/react-native's metro
+//   debugId injection silently produces no `debugId` in the packager source
+//   map.
+// - Retries on transient failures (DNS/network/5xx — hosted runners are
+//   flaky) per SENTRY_UPLOAD_MAX_ATTEMPTS / SENTRY_UPLOAD_BACKOFF_SECONDS.
+// - SOFT-FAILS after retries are exhausted: prints a `::warning::` GH
+//   Actions annotation and returns normally so a single sourcemap upload
+//   glitch never kills the entire JS bundle build. The bundle itself is
+//   valid and shippable without sourcemaps; missing sourcemaps just degrade
+//   Sentry stack traces for the affected files.
+const runSentryCliWithRetry = ({ args, label, missingDescription }) => {
   const cli = path.join(
     projectRootPath,
     'node_modules/@sentry/cli/bin/sentry-cli',
   );
-  const args = [
-    'sourcemaps',
-    'upload',
-    '--debug-id-reference',
-    ...(SENTRY_RELEASE ? ['--release', SENTRY_RELEASE] : []),
-    '--strip-prefix',
-    projectRootPath,
-    bundlePath,
-    sourceMapPath,
-    `--org=${SENTRY_ORG}`,
-    `--project=${SENTRY_PROJECT}`,
-    `--auth-token=${SENTRY_AUTH_TOKEN}`,
-  ];
   for (let attempt = 1; attempt <= SENTRY_UPLOAD_MAX_ATTEMPTS; attempt += 1) {
     const result = spawnSync(cli, args, {
       stdio: 'inherit',
@@ -489,13 +473,13 @@ const uploadSourceMapsToSentry = ({ bundlePath, sourceMapPath, label }) => {
       // spawnSync itself failed (binary not found, permission denied, …).
       // Not retryable — sentry-cli infra is broken on this runner. Soft-fail.
       console.warn(
-        `::warning::[sentry-upload][${label}] sentry-cli could not be spawned (${result.error.message}); skipping upload — bundle will ship without this sourcemap.`,
+        `::warning::[sentry-upload][${label}] sentry-cli could not be spawned (${result.error.message}); skipping upload — bundle will ship without ${missingDescription}.`,
       );
       return;
     }
     if (result.status === 0) {
       log(
-        `${label} upload source maps done${
+        `${label} upload done${
           attempt > 1
             ? ` (attempt ${attempt}/${SENTRY_UPLOAD_MAX_ATTEMPTS})`
             : ''
@@ -513,12 +497,103 @@ const uploadSourceMapsToSentry = ({ bundlePath, sourceMapPath, label }) => {
       sleepSeconds(backoff);
     } else {
       console.warn(
-        `::warning::[sentry-upload][${label}] sentry-cli exited ${result.status} after ${SENTRY_UPLOAD_MAX_ATTEMPTS} attempts; giving up. Bundle build CONTINUES — sourcemap WILL be missing in Sentry for ${path.basename(
-          sourceMapPath,
-        )} (release ${SENTRY_RELEASE || '<unset>'}).`,
+        `::warning::[sentry-upload][${label}] sentry-cli exited ${result.status} after ${SENTRY_UPLOAD_MAX_ATTEMPTS} attempts; giving up. Bundle build CONTINUES — ${missingDescription} WILL be missing in Sentry (release ${SENTRY_RELEASE || '<unset>'}).`,
       );
     }
   }
+};
+
+// Single-file (or paired hbc+map) upload. Kept for callers that want to
+// upload one specific file pair; most platform builds prefer the directory
+// batch path below for vastly fewer HTTP round-trips.
+const uploadSourceMapsToSentry = ({ bundlePath, sourceMapPath, label }) => {
+  if (!(SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT)) {
+    return;
+  }
+  log(`${label} upload source maps`);
+  const args = [
+    'sourcemaps',
+    'upload',
+    '--debug-id-reference',
+    ...(SENTRY_RELEASE ? ['--release', SENTRY_RELEASE] : []),
+    '--strip-prefix',
+    projectRootPath,
+    bundlePath,
+    sourceMapPath,
+    `--org=${SENTRY_ORG}`,
+    `--project=${SENTRY_PROJECT}`,
+    `--auth-token=${SENTRY_AUTH_TOKEN}`,
+  ];
+  runSentryCliWithRetry({
+    args,
+    label,
+    missingDescription: `sourcemap for ${path.basename(sourceMapPath)}`,
+  });
+};
+
+// Bulk-upload all bundles + segments under a single directory in ONE
+// sentry-cli invocation. Sentry CLI walks the tree, pairs each
+// .hbc/.bundle/.jsbundle script with its sibling .map, and ships everything
+// as one artifact bundle. Replaces O(N) per-segment HTTP round-trips
+// (which dominated bundle build time at ~1.6s each × 2200 segments).
+const uploadDirectoryToSentry = ({ directory, label }) => {
+  if (!(SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT)) {
+    return;
+  }
+  if (!fs.existsSync(directory)) {
+    log(`${label} skip batch upload: directory missing ${directory}`);
+    return;
+  }
+  log(`${label} batch upload directory ${directory}`);
+  const args = [
+    'sourcemaps',
+    'upload',
+    '--debug-id-reference',
+    ...(SENTRY_RELEASE ? ['--release', SENTRY_RELEASE] : []),
+    '--strip-prefix',
+    projectRootPath,
+    // Default --ext set is js,cjs,mjs,map. Add the React Native bytecode
+    // and bundle extensions so .hbc/.bundle/.jsbundle files are picked up
+    // and paired with their sibling .map.
+    '--ext',
+    'hbc',
+    '--ext',
+    'bundle',
+    '--ext',
+    'jsbundle',
+    '--ext',
+    'js',
+    '--ext',
+    'map',
+    directory,
+    `--org=${SENTRY_ORG}`,
+    `--project=${SENTRY_PROJECT}`,
+    `--auth-token=${SENTRY_AUTH_TOKEN}`,
+  ];
+  runSentryCliWithRetry({
+    args,
+    label,
+    missingDescription: `sourcemaps under ${path.relative(
+      projectRootPath,
+      directory,
+    )}`,
+  });
+};
+
+// Recursively delete .map files under a directory so they don't ship inside
+// the OTA zip. Run AFTER uploadDirectoryToSentry so the maps are still on
+// disk during the upload pass.
+const cleanupSourceMapsUnder = (directory) => {
+  if (!fs.existsSync(directory)) return;
+  const entries = fs.readdirSync(directory, { withFileTypes: true });
+  entries.forEach((entry) => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      cleanupSourceMapsUnder(entryPath);
+    } else if (entry.name.endsWith('.map')) {
+      fs.rmSync(entryPath, { force: true });
+    }
+  });
 };
 
 const buildBackgroundBundle = async ({
@@ -567,11 +642,8 @@ const buildBackgroundBundle = async ({
   fs.moveSync(backgroundBundleHbcPath, backgroundBundlePath, {
     overwrite: true,
   });
-  uploadSourceMapsToSentry({
-    bundlePath: backgroundBundlePath,
-    sourceMapPath: backgroundBundleMapPath,
-    label: `build ${platform} background bundle`,
-  });
+  // Sourcemap upload is deferred to the batch upload at the end of the
+  // platform build (uploadDirectoryToSentry on the whole out-dir-bundle/<plat>).
 
   fs.rmSync(backgroundBundleJsPath, { force: true });
   fs.rmSync(backgroundBundlePackagerMapPath, { force: true });
@@ -675,7 +747,6 @@ const buildSegments = async ({
     const baseName = segFile.replace('.seg.js', '');
     const segJsPath = path.join(segmentsInputDir, segFile);
     const segHbcPath = path.join(segmentsOutputDir, `${baseName}.seg.hbc`);
-    const segFinalPath = path.join(segmentsOutputDir, `${baseName}.seg.hbc`);
     const segMapPath = path.join(segmentsOutputDir, `${baseName}.seg.map`);
     // unionBuild.js now compiles each segment's .seg.hbc right after
     // emission (so manifest sha256 can hash the real compiled bytes before
@@ -723,22 +794,18 @@ const buildSegments = async ({
       fs.moveSync(`${segHbcPath}.map`, segMapPath, { overwrite: true });
     }
 
-    // Upload to Sentry
-    uploadSourceMapsToSentry({
-      bundlePath: segFinalPath,
-      sourceMapPath: segMapPath,
-      label: `segment ${baseName}`,
-    });
+    // Sourcemap upload is deferred to a single batch upload of the whole
+    // platform output dir at the end of the build (see uploadDirectoryToSentry
+    // in the platform wrapper). Per-segment uploads previously dominated the
+    // build (1.6s × 2200 segments ≈ 60+ minutes); the batch upload finishes
+    // in 1-3 HTTP round-trips. Keep `${segMapPath}` on disk for now — the
+    // wrapper sweeps `.map` files after the batch upload (cleanupSourceMapsUnder)
+    // so they don't ship inside the OTA zip.
 
-    // Clean up intermediate HBC map
+    // Clean up intermediate HBC map (NOT the composed .seg.map — that one is
+    // what we'll upload). compose-source-maps already merged it into segMapPath.
     if (fs.existsSync(`${segHbcPath}.map`)) {
       fs.rmSync(`${segHbcPath}.map`, { force: true });
-    }
-    // Sourcemap has been uploaded to Sentry above — don't ship it in the APK
-    // assets (saves ~15MB compressed; each segment emits an adjacent .seg.map
-    // that would otherwise be picked up by Gradle's copy { from segmentsDir }).
-    if (fs.existsSync(segMapPath)) {
-      fs.rmSync(segMapPath, { force: true });
     }
   });
 
@@ -849,6 +916,8 @@ module.exports = {
   composeSourceMaps,
   copyDebugIdToSourceMap,
   uploadSourceMapsToSentry,
+  uploadDirectoryToSentry,
+  cleanupSourceMapsUnder,
   buildBackgroundBundle,
   runHermescAsync,
   runWithConcurrency,

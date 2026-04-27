@@ -15,6 +15,7 @@ const {
   buildWebEmbed,
   buildZipOutputAssetPath,
   cleanBundleOutput,
+  cleanupSourceMapsUnder,
   composeSourceMaps,
   copyDebugIdToSourceMap,
   copyModuleIdMapToPlatformDist,
@@ -28,7 +29,7 @@ const {
   log,
   runReactNativeBundle,
   runUnionBuild,
-  uploadSourceMapsToSentry,
+  uploadDirectoryToSentry,
   useUnionBuild,
   webEmbedOutputPath,
 } = require('./build-bundle-base');
@@ -99,12 +100,9 @@ const buildAndroidBundle = async () => {
     label: 'build android main bundle',
   });
   fs.rmSync(buildAndroidOutputAssetPath('main.jsbundle.packager.map'));
-
-  uploadSourceMapsToSentry({
-    bundlePath: buildAndroidOutputAssetPath('main.jsbundle.hbc'),
-    sourceMapPath: buildAndroidOutputAssetPath('main.jsbundle.map'),
-    label: 'build android main bundle',
-  });
+  // main.jsbundle sourcemap upload is deferred to the batch upload below
+  // (uploadDirectoryToSentry) so all bundles + segments ship in ONE HTTP
+  // round-trip instead of N per-file uploads.
 
   // --- Common bundle hermesc compilation (union build only) ---
   if (useUnionBuild) {
@@ -141,12 +139,7 @@ const buildAndroidBundle = async () => {
       sourceMapPath: commonBundleMapPath,
       label: 'build android common bundle',
     });
-
-    uploadSourceMapsToSentry({
-      bundlePath: commonBundleHbcPath,
-      sourceMapPath: commonBundleMapPath,
-      label: 'build android common bundle',
-    });
+    // common bundle sourcemap upload is deferred to the batch upload below.
 
     fs.rmSync(commonBundleJsPath, { force: true });
     fs.rmSync(commonBundlePackagerMapPath, { force: true });
@@ -202,11 +195,7 @@ const buildAndroidBundle = async () => {
     fs.moveSync(backgroundBundleHbcPath, backgroundBundlePath, {
       overwrite: true,
     });
-    uploadSourceMapsToSentry({
-      bundlePath: backgroundBundlePath,
-      sourceMapPath: backgroundBundleMapPath,
-      label: 'build android background bundle',
-    });
+    // background bundle sourcemap upload is deferred to the batch upload below.
 
     fs.rmSync(backgroundBundleJsPath, { force: true });
     fs.rmSync(backgroundBundlePackagerMapPath, { force: true });
@@ -225,6 +214,19 @@ const buildAndroidBundle = async () => {
     inputDir: getSegmentsDir('background'),
     outputSubdir: 'segments-background',
   });
+
+  // Single batch upload of every .hbc/.bundle/.jsbundle + sibling .map under
+  // the platform output dir. Replaces what was previously O(N) per-segment
+  // sentry-cli calls (~1.6s each × 2200 segments). Sentry CLI walks the tree,
+  // pairs scripts with their maps, and ships everything as one artifact bundle.
+  uploadDirectoryToSentry({
+    directory: buildAndroidOutputAssetPath(''),
+    label: 'build android bundle batch',
+  });
+  // Sourcemaps already uploaded — sweep them off disk so they don't get
+  // moved into dist/segments / dist/segments-background and shipped inside
+  // the OTA zip.
+  cleanupSourceMapsUnder(buildAndroidOutputAssetPath(''));
 
   const distPath = buildAndroidOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
