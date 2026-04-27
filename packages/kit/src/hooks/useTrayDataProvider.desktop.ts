@@ -19,9 +19,16 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalAssetDetailRoutes,
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import {
+  type IPendingTx,
+  type ITrayAction,
   type ITrayData,
   type ITrayWatchlistItem,
   TRAY_IPC,
@@ -38,7 +45,11 @@ import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtil
 import {
   composeTrayAccountChange24h,
   formatTrayPendingTxAmount,
+  getTrayPendingTxAmountInfo,
+  getTrayPendingTxType,
 } from '@onekeyhq/shared/src/utils/trayDataUtils';
+import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
@@ -52,6 +63,109 @@ import {
 
 const USD_CURRENCY_ID = 'usd';
 const USD_CURRENCY_SYMBOL = '$';
+
+function collectTrayTrackedTxs(
+  rawData: { pendingTxs?: Record<string, unknown> } | undefined | null,
+): IAccountHistoryTx[] {
+  const txs: IAccountHistoryTx[] = [];
+  if (!rawData?.pendingTxs) return txs;
+
+  for (const value of Object.values(rawData.pendingTxs)) {
+    if (Array.isArray(value)) {
+      for (const tx of value) {
+        const historyTx = tx as IAccountHistoryTx | undefined;
+        const status = historyTx?.decodedTx?.status;
+        if (
+          historyTx &&
+          (status === EDecodedTxStatus.Pending ||
+            status === EDecodedTxStatus.Failed)
+        ) {
+          txs.push(historyTx);
+        }
+      }
+    }
+  }
+
+  return txs;
+}
+
+async function refreshTrayPendingTxStatuses(
+  txs: IAccountHistoryTx[],
+): Promise<void> {
+  const requestKeys = new Set<string>();
+  const requests: Array<{ accountId: string; networkId: string }> = [];
+
+  for (const tx of txs) {
+    if (tx.decodedTx?.status === EDecodedTxStatus.Pending) {
+      const { accountId, networkId } = tx.decodedTx;
+      if (accountId && networkId) {
+        const key = `${accountId}__${networkId}`;
+        if (!requestKeys.has(key)) {
+          requestKeys.add(key);
+          requests.push({ accountId, networkId });
+        }
+      }
+    }
+  }
+
+  if (!requests.length) return;
+
+  const results = await Promise.allSettled(
+    requests.map(({ accountId, networkId }) =>
+      backgroundApiProxy.serviceHistory.fetchAccountHistory({
+        accountId,
+        networkId,
+        isManualRefresh: true,
+        excludeTestNetwork: true,
+        limit: 10,
+      }),
+    ),
+  );
+
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      const request = requests[index];
+      defaultLogger.app.error.log(
+        `[TrayDataProvider] pending tx refresh error: ${
+          (result.reason as Error)?.message || String(result.reason)
+        } (${request.accountId}, ${request.networkId})`,
+      );
+    }
+  });
+}
+
+async function findTrayHistoryTxByAction(
+  action: ITrayAction,
+): Promise<IAccountHistoryTx | undefined> {
+  if (action.accountId && action.networkId && action.historyId) {
+    const localTx =
+      await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
+        accountId: action.accountId,
+        networkId: action.networkId,
+        historyId: action.historyId,
+      });
+    if (localTx) return localTx;
+  }
+
+  const txid = action.txid || action.historyId;
+  if (!txid) return undefined;
+
+  const rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
+  const txGroups: IAccountHistoryTx[][] = [
+    ...Object.values(rawData?.pendingTxs ?? {}),
+    ...Object.values(rawData?.confirmedTxs ?? {}),
+  ];
+  for (const group of txGroups) {
+    if (Array.isArray(group)) {
+      const found = group.find(
+        (tx) => tx.id === txid || tx.decodedTx?.txid === txid,
+      );
+      if (found) return found;
+    }
+  }
+
+  return undefined;
+}
 
 function getNetworkLogoUri(networkId?: string): string {
   if (!networkId) return '';
@@ -484,56 +598,49 @@ export function useTrayDataProvider() {
       // tracking only Pending would mis-fire "Confirmed" on failed txs.
       let pendingTxReadFailed = false;
       try {
-        const rawData =
+        let rawData =
           await backgroundApiProxy.simpleDb.localHistory.getRawData();
-        const allTrackedTxs: any[] = [];
-        if (rawData?.pendingTxs) {
-          for (const txs of Object.values(rawData.pendingTxs)) {
-            if (Array.isArray(txs)) {
-              for (const tx of txs) {
-                const s = tx?.decodedTx?.status;
-                if (
-                  s === EDecodedTxStatus.Pending ||
-                  s === EDecodedTxStatus.Failed
-                ) {
-                  allTrackedTxs.push(tx);
-                }
-              }
-            }
-          }
+        let allTrackedTxs = collectTrayTrackedTxs(rawData);
+        if (
+          allTrackedTxs.some(
+            (tx) => tx.decodedTx?.status === EDecodedTxStatus.Pending,
+          )
+        ) {
+          await refreshTrayPendingTxStatuses(allTrackedTxs);
+          rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
+          allTrackedTxs = collectTrayTrackedTxs(rawData);
         }
+
         allTrackedTxs.sort(
           (a, b) =>
             (b.decodedTx?.createdAt || 0) - (a.decodedTx?.createdAt || 0),
         );
         const history = allTrackedTxs;
         if (history?.length) {
-          trayData.pendingTxs = history.map((tx: any) => {
+          trayData.pendingTxs = history.map((tx): IPendingTx => {
             const decodedTx = tx.decodedTx;
-            const action = decodedTx?.actions?.[0];
+            const action = decodedTx
+              ? (getDisplayedActions({ decodedTx })[0] ??
+                decodedTx.actions?.[0])
+              : undefined;
             const transfer = action?.assetTransfer;
+            const txType = getTrayPendingTxType({ decodedTx, action });
 
-            let txType: 'send' | 'swap' | 'contract' | 'approve' = 'send';
-            if (action?.type === 'INTERNAL_SWAP' || transfer?.isInternalSwap) {
-              txType = 'swap';
-            } else if (action?.type === 'TOKEN_APPROVE') {
-              txType = 'approve';
-            } else if (action?.type === 'ASSET_TRANSFER') {
-              txType = 'send';
-            }
-
-            const firstSend = transfer?.sends?.[0];
             // NEVER fall back to totalFeeFiatValue here (OK-53607): gas fee is
             // not the tx amount and displaying it misleads users into thinking
             // they transferred cents when they actually approved or called a
             // contract.
             const amount = formatTrayPendingTxAmount({
-              firstSend: firstSend
-                ? { amount: firstSend.amount, symbol: firstSend.symbol }
-                : undefined,
+              amountInfo: getTrayPendingTxAmountInfo(action),
             });
 
-            const to = firstSend?.to || decodedTx?.to || '';
+            const to =
+              action?.tokenApprove?.spender ||
+              transfer?.sends?.[0]?.to ||
+              action?.functionCall?.to ||
+              action?.unknownAction?.to ||
+              decodedTx?.to ||
+              '';
 
             const status: 'pending' | 'failed' =
               decodedTx?.status === EDecodedTxStatus.Failed
@@ -542,9 +649,15 @@ export function useTrayDataProvider() {
 
             return {
               id: decodedTx?.txid || tx.id || '',
+              historyId: tx.id,
+              accountId: decodedTx?.accountId,
+              networkId: decodedTx?.networkId,
+              historyTx: tx,
               type: txType,
               to,
               amount,
+              createdAt: decodedTx?.createdAt,
+              updatedAt: decodedTx?.updatedAt,
               status,
             };
           });
@@ -625,10 +738,43 @@ export function useTrayDataProvider() {
     }
   }, [handleTrayDataRequestInner]);
 
+  const handleOpenTransactionDetail = useCallback(
+    async (action: ITrayAction) => {
+      try {
+        const historyTx = await findTrayHistoryTxByAction(action);
+        const decodedTx = historyTx?.decodedTx;
+        if (!historyTx || !decodedTx?.accountId || !decodedTx.networkId) return;
+
+        const nav = rootNavigationRef.current;
+        if (!nav) return;
+
+        nav.navigate(ERootRoutes.Modal, {
+          screen: EModalRoutes.MainModal,
+          params: {
+            screen: EModalAssetDetailRoutes.HistoryDetails,
+            params: {
+              accountId: decodedTx.accountId,
+              networkId: decodedTx.networkId,
+              historyTx,
+              checkIsFocused: false,
+            },
+          },
+        });
+      } catch (e) {
+        defaultLogger.app.error.log(
+          `[TrayDataProvider] transaction navigation error: ${
+            (e as Error)?.message || String(e)
+          }`,
+        );
+      }
+    },
+    [],
+  );
+
   // addIpcEventListener strips the IpcRendererEvent, so the action payload
   // is the first (and only) argument to this handler.
   const handleTrayNavigation = useCallback(
-    (action: { type: string; [key: string]: unknown }) => {
+    (action: ITrayAction) => {
       const nav = rootNavigationRef.current;
       if (!nav) return;
 
@@ -638,8 +784,11 @@ export function useTrayDataProvider() {
             screen: ETabRoutes.Home,
           });
         }
-        // Transaction-detail routes go through the EVENT_OPEN_URL
-        // deep-link pipeline in trayIpc.ts and never reach here.
+        return;
+      }
+
+      if (action?.type === 'transaction-detail') {
+        void handleOpenTransactionDetail(action);
         return;
       }
 
@@ -659,7 +808,7 @@ export function useTrayDataProvider() {
 
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
-          const coin = action.perpsCoin as string;
+          const coin = action.perpsCoin;
           setTimeout(async () => {
             nav.navigate(ERootRoutes.Main, {
               screen: ETabRoutes.Perp,
@@ -683,12 +832,12 @@ export function useTrayDataProvider() {
           return;
         }
 
-        const isNative = (action.isNative as boolean) || false;
+        const isNative = action.isNative || false;
         if (action.networkId && (isNative || action.tokenAddress)) {
-          const networkId = action.networkId as string;
+          const networkId = action.networkId;
           const shortCode = networkUtils.getNetworkShortCode({ networkId });
           const params = {
-            tokenAddress: (action.tokenAddress as string) || '',
+            tokenAddress: action.tokenAddress || '',
             network: shortCode || networkId,
             isNative,
           };
@@ -720,7 +869,7 @@ export function useTrayDataProvider() {
         }
       }
     },
-    [],
+    [handleOpenTransactionDetail],
   );
 
   useEffect(() => {

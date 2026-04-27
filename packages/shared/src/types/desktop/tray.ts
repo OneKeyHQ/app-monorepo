@@ -1,10 +1,17 @@
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 export interface IPendingTx {
   id: string;
+  historyId?: string;
+  accountId?: string;
+  networkId?: string;
+  historyTx?: IAccountHistoryTx;
   type: 'send' | 'swap' | 'contract' | 'approve';
   to: string;
   amount: string;
+  createdAt?: number;
+  updatedAt?: number;
   // Failed is kept briefly so diffAndNotify can emit the "failed"
   // notification; the panel filters it out from display.
   status: 'pending' | 'failed';
@@ -70,10 +77,17 @@ export interface ITrayData {
 
 // Must stay in sync with ALLOWED_TRAY_ACTION_TYPES in trayIpc.ts.
 export interface ITrayAction {
-  type: 'open-page' | 'market-detail-v2' | 'view-all-transactions';
+  type:
+    | 'open-page'
+    | 'market-detail-v2'
+    | 'view-all-transactions'
+    | 'transaction-detail';
   route?: string;
-  tokenAddress?: string;
+  txid?: string;
+  historyId?: string;
+  accountId?: string;
   networkId?: string;
+  tokenAddress?: string;
   isNative?: boolean;
   perpsCoin?: string;
 }
