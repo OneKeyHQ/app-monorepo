@@ -266,7 +266,7 @@ function TxFeeInfo(props: IProps) {
       ]);
     }, [accountId, networkId]);
 
-  const { result, run, setResult } = usePromiseResult(
+  const { result, run, setResult, setStopPolling } = usePromiseResult(
     async () => {
       const staleResult = {
         r: undefined,
@@ -734,11 +734,24 @@ function TxFeeInfo(props: IProps) {
           return staleResult;
         }
 
+        const apiError = e as IOneKeyError;
+        // Server-driven stop: when the backend marks an error with
+        // `stopPolling: true` (e.g. allowance shortage, expired swap quote),
+        // retrying with the same input will keep failing. Pause future ticks
+        // so the message stays visible without spamming the endpoint. Polling
+        // auto-resumes when deps (unsignedTxs/accountId/...) change.
+        if (apiError?.data?.stopPolling === true) {
+          setStopPolling(true);
+        }
+
         updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
           errMessage:
+            apiError?.message ??
+            apiError?.data?.translatedMessage ??
+            apiError?.data?.message ??
             (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
               ?.message ??
             (e as Error).message ??

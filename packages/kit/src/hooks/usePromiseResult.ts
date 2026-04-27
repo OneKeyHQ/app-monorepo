@@ -55,6 +55,9 @@ export type IUsePromiseResultReturn<T> = {
   setResult: React.Dispatch<React.SetStateAction<T | undefined>>;
   isLoading: boolean | undefined;
   run: (config?: IRunnerConfig) => Promise<void>;
+  // Pause future polling ticks until deps change (or set back to false). The
+  // current run still completes; only the scheduled next tick is skipped.
+  setStopPolling: (stop: boolean) => void;
 };
 
 export type IUsePromiseResultReturnWithInitValue<T> =
@@ -171,6 +174,17 @@ export function usePromiseResult<T>(
   const isDepsChangedOnBlur = useRef(false);
   const nonceRef = useRef(0);
 
+  // stopPollingRef is the synchronous truth read inside the polling
+  // finally-block. stopPollingState exists only to trigger a re-render so
+  // closures (e.g. overrideIsFocused) recompute when the flag flips.
+  const stopPollingRef = useRef(false);
+  const [, setStopPollingState] = useState(false);
+  const setStopPolling = useCallback((stop: boolean) => {
+    if (stopPollingRef.current === stop) return;
+    stopPollingRef.current = stop;
+    setStopPollingState(stop);
+  }, []);
+
   const isEffectValid = useRef(true);
 
   const run = useMemo(
@@ -283,11 +297,15 @@ export function usePromiseResult<T>(
           }
           if (
             pollingInterval &&
-            pollingNonceRef.current === config?.pollingNonce
+            pollingNonceRef.current === config?.pollingNonce &&
+            !stopPollingRef.current
           ) {
             await timerUtils.wait(pollingInterval);
             await defer.promise;
-            if (pollingNonceRef.current === config?.pollingNonce) {
+            if (
+              pollingNonceRef.current === config?.pollingNonce &&
+              !stopPollingRef.current
+            ) {
               if (shouldSetState(config)) {
                 void run({
                   triggerByDeps: true,
@@ -333,6 +351,13 @@ export function usePromiseResult<T>(
   const prevPollingInterval = usePrevious(optionsRef.current.pollingInterval);
   useEffect(() => {
     const callback = () => {
+      // Deps changed (or polling interval changed) means the input is no
+      // longer the one the server-side stop applied to — auto-resume so the
+      // next attempt actually fires.
+      if (stopPollingRef.current) {
+        stopPollingRef.current = false;
+        setStopPollingState(false);
+      }
       runAtRef.current = Date.now();
       pollingNonceRef.current += 1;
       void runRef.current({
@@ -435,7 +460,7 @@ export function usePromiseResult<T>(
     };
   }, []);
 
-  return { result, isLoading, run, setResult };
+  return { result, isLoading, run, setResult, setStopPolling };
 }
 
 export const useAsyncCall = usePromiseResult;
