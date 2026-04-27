@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/desktop/app/windowProgressBar';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -349,12 +350,13 @@ class DesktopApiAppUpdate {
     const updateSettings = store.getUpdateSettings();
 
     const feedUrl = buildFeedUrl(updateSettings.useTestFeedUrl, latestVersion);
+    const finalHeaders = await withCustomUAHeaders(feedUrl, requestHeaders);
     autoUpdater.setFeedURL({
       url: feedUrl,
-      requestHeaders,
+      requestHeaders: finalHeaders,
       provider: 'generic',
     });
-    autoUpdater.requestHeaders = requestHeaders;
+    autoUpdater.requestHeaders = finalHeaders;
     logger.info('auto-updater', 'request headers: ', requestHeaders);
     logger.info('current feed url: ', feedUrl);
     try {
