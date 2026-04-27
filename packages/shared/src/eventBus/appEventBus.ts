@@ -538,6 +538,29 @@ function generateNodeId(): string {
 }
 
 /**
+ * Tags a payload that is about to cross a process boundary with
+ * `$$isRemoteEvent: true`. Listeners may inspect this metadata flag to detect
+ * remote-origin events (see e.g. AccountSelectorEffects). The flag is *not*
+ * used for routing — echo prevention is handled by `originNodeId` in the
+ * transport layer.
+ */
+function convertToRemoteEventPayload(payloadValue: unknown): unknown {
+  const payloadCloned = cloneDeep(payloadValue);
+  try {
+    if (payloadCloned && typeof payloadCloned === 'object') {
+      (
+        payloadCloned as {
+          $$isRemoteEvent?: boolean;
+        }
+      ).$$isRemoteEvent = true;
+    }
+  } catch (_e) {
+    // ignore
+  }
+  return payloadCloned;
+}
+
+/**
  * AppEventBus
  * -----------
  * Cross-process event bus. The two responsibilities — fire local listeners
@@ -607,6 +630,8 @@ class AppEventBusClass extends CrossEventEmitter {
         });
         break;
       case ERuntimeRole.Standalone:
+        break;
+      default:
         break;
     }
     return true;
@@ -707,28 +732,6 @@ class AppEventBusClass extends CrossEventEmitter {
   }
 }
 
-/**
- * Tags a payload that is about to cross a process boundary with
- * `$$isRemoteEvent: true`. Listeners may inspect this metadata flag to detect
- * remote-origin events (see e.g. AccountSelectorEffects). The flag is *not*
- * used for routing — echo prevention is handled by `originNodeId` in the
- * transport layer.
- */
-function convertToRemoteEventPayload(payloadValue: unknown): unknown {
-  const payloadCloned = cloneDeep(payloadValue);
-  try {
-    if (payloadCloned && typeof payloadCloned === 'object') {
-      (
-        payloadCloned as {
-          $$isRemoteEvent?: boolean;
-        }
-      ).$$isRemoteEvent = true;
-    }
-  } catch (_e) {
-    // ignore
-  }
-  return payloadCloned;
-}
 const appEventBus = new AppEventBusClass();
 
 appGlobals.$appEventBus = appEventBus;
