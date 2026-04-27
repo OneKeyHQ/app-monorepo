@@ -374,8 +374,6 @@ export function useTrayDataProvider() {
   const {
     activeAccount: { wallet, accountName, account, indexedAccount, dbAccount },
   } = useActiveAccount({ num: 0 });
-  // Guard every effect on this predicate so flipping the setting tears
-  // down IPC/event subscriptions and re-subscribes without remounting.
   const isTrayActive = platformEnv.isDesktopMac && (enableMenuBarTray ?? true);
   const activeAccountValueRef = useRef(activeAccountValue);
   activeAccountValueRef.current = activeAccountValue;
@@ -395,17 +393,13 @@ export function useTrayDataProvider() {
   dbAccountRef.current = dbAccount;
   const accountNameRef = useRef<string>('');
   accountNameRef.current = accountName || '';
-  // Seed with the current accountId so the first mount isn't mis-detected as
-  // an account switch, which would clobber cache primed by main-process
-  // guardedRequest() with an optimistic $0.00 placeholder.
+  // Seed with current accountId so first mount isn't mis-detected as a switch.
   const prevAccountIdRef = useRef<string | undefined>(
     activeAccountValue?.accountId,
   );
   const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
   const pendingTxsClearedRef = useRef(false);
-  // Renderer-side inflight guard — main-process `guardedRequest` only
-  // covers poll-driven runs; renderer-triggered paths (account change,
-  // appEventBus refresh) coalesce extra calls into a single trailing re-run.
+  // Renderer-side inflight guard for non-poll paths (account change, refresh).
   const inFlightRef = useRef(false);
   const trailingRefreshRef = useRef(false);
 
@@ -420,8 +414,7 @@ export function useTrayDataProvider() {
       // ignore
     }
 
-    // Capture accountId up-front so every outbound payload (main/locked/error)
-    // carries the identity the notification diff uses to reset its baseline.
+    // Capture accountId up-front so every outbound payload carries the same identity.
     const activeAccountId = activeAccountValueRef.current?.accountId;
     let trayCurrencyMap = currencyMapRef.current;
     const selectedCurrencyId = currencyInfoRef.current?.id || 'usd';
@@ -599,13 +592,8 @@ export function useTrayDataProvider() {
                   { tokenAddressList },
                 );
               if (response?.list?.length) {
-                // fetchMarketTokenListBatch preserves request-order via
-                // positional index. Matching on API-returned networkId/
-                // isNative is fragile: networkId may be a shortcode,
-                // isNative may be missing, and address casing can shift.
-                // Align by spotItems index and keep watchlist's canonical
-                // chainId/contractAddress/isNative for the navigation
-                // payload — the API row is display data only.
+                // Align by spotItems index — API row is display-only; networkId
+                // shortcodes and address casing make field matching fragile.
                 spotItems.forEach((spotItem: any, index: number) => {
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
                   const coin = response.list[index] as any;
@@ -746,10 +734,7 @@ export function useTrayDataProvider() {
             const transfer = action?.assetTransfer;
             const txType = getTrayPendingTxType({ decodedTx, action });
 
-            // NEVER fall back to totalFeeFiatValue here (OK-53607): gas fee is
-            // not the tx amount and displaying it misleads users into thinking
-            // they transferred cents when they actually approved or called a
-            // contract.
+            // Don't fall back to totalFeeFiatValue: gas fee is not the tx amount (OK-53607).
             const amount = formatTrayPendingTxAmount({
               amountInfo: getTrayPendingTxAmountInfo(action),
             });
@@ -1027,10 +1012,8 @@ export function useTrayDataProvider() {
     };
   }, [isTrayActive, handleTrayDataRequest, handleTrayNavigation]);
 
-  // Account switch: push an optimistic placeholder + gather immediately so the
-  // panel clears stale numbers within one frame (OK-53623). Non-switch identity
-  // changes (per-network profile refresh) keep the 300ms debounce so the
-  // cascade in OK-53610 is absorbed.
+  // Account switch: optimistic placeholder + immediate gather (OK-53623).
+  // Non-switch identity changes stay debounced to absorb OK-53610 cascade.
   useEffect(() => {
     if (!isTrayActive) return;
     const currentAccountId = activeAccountValue?.accountId;
@@ -1044,9 +1027,7 @@ export function useTrayDataProvider() {
       globalThis.desktopApi?.sendTrayData({
         accountId: currentAccountId,
         pendingTxsCleared: false,
-        // Fall back to 'Wallet' — an empty name falls through to the
-        // `noWallet` empty-state branch in TrayPanel, which would replace
-        // the optimistic zeros with a full-panel "no wallet" screen.
+        // Empty name triggers TrayPanel's `noWallet` branch, hiding the optimistic zeros.
         wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
         account: buildTrayAccountInfo({
           accountName: accountNameRef.current,

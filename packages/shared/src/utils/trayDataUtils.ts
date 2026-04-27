@@ -36,8 +36,7 @@ export function formatTrayPendingTxAmount(
     }
     return `${formatted} ${amountInfo.symbol}`;
   }
-  // Don't put an English label here — PendingTransactions already renders an
-  // i18n'd typeLabel (tray_tx_type_approve / ..._contract_call) on the row.
+  // No English label — PendingTransactions renders the i18n'd typeLabel on the row.
   return '—';
 }
 
@@ -102,9 +101,7 @@ export function getTrayPendingTxType({
   return 'contract';
 }
 
-// Placeholder for the account-level 24h change calculator. Returns undefined
-// so callers (and the UI) handle the "no data" branch uniformly. Replace the
-// body when a backend source becomes available. See OK-53612.
+// Placeholder until backend wires an account-level 24h feed (OK-53612).
 export function composeTrayAccountChange24h(): number | undefined {
   return undefined;
 }

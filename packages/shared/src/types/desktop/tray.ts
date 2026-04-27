@@ -84,8 +84,6 @@ export interface ITrayData {
     passphraseState?: string;
     firmwareTypeAtCreated?: unknown;
   };
-  // Active account's display name (e.g. "Account 1"); wallet.name covers
-  // the wallet/HD identity only. Empty string when unavailable (cold start).
   account: {
     name: string;
     avatar?: ITrayAccountAvatarInfo;
@@ -95,9 +93,7 @@ export interface ITrayData {
     currency: string;
     // Resolved from currencyMap so unknown currencies don't collapse to '$'.
     symbol: string;
-    // Undefined when no 24h source is wired — UI hides the badge instead of
-    // rendering a misleading 0.00% (OK-53612 partial: full fix waits on a
-    // backend account-level 24h change feed).
+    // Undefined when no 24h feed; UI hides the badge instead of showing 0.00% (OK-53612).
     change24h?: number;
   };
   watchlist: ITrayWatchlistItem[];
