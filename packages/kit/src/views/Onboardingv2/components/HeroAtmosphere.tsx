@@ -53,11 +53,11 @@ function RadialGlow({
           <RadialGradient
             id={gradientId}
             cx="50%"
-            cy="40%"
-            rx="60%"
-            ry="50%"
+            cy="0%"
+            rx="80%"
+            ry="100%"
             fx="50%"
-            fy="40%"
+            fy="0%"
           >
             <Stop offset="0%" stopColor={color} stopOpacity={peakAlpha} />
             <Stop offset="100%" stopColor={color} stopOpacity={0} />

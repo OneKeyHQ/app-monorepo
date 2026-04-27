@@ -48,9 +48,9 @@ const HERO_ACTIONS = [
 const HERO_ACTION_MARKER = '\u0000ACTION\u0000';
 
 const HERO_CHAR_STAGGER_MS = 45;
-const HERO_CHAR_ANIMATION_MS = 550;
+const HERO_CHAR_ANIMATION_MS = 400;
 const HERO_WORD_DISPLAY_MS = 2600;
-// Long enough for the last char's staggered exit to finish (550ms animation +
+// Long enough for the last char's staggered exit to finish (400ms animation +
 // 20 × 45ms stagger covers words up to 20 graphemes).
 const HERO_EXIT_CLEANUP_MS = HERO_CHAR_ANIMATION_MS + 20 * HERO_CHAR_STAGGER_MS;
 
@@ -104,7 +104,7 @@ function HeroCharLayer({
   // enter mode: activated=false → hidden above; activated=true → visible
   // exit mode:  activated=false → visible;       activated=true → hidden below
   const visible = isEnter ? activated : !activated;
-  const hiddenYOffset = isEnter ? -24 : 24;
+  const hiddenYOffset = isEnter ? -8 : 8;
   const yOffset = visible ? 0 : hiddenYOffset;
 
   return (
@@ -124,8 +124,10 @@ function HeroCharLayer({
               }}
               transition={
                 {
-                  type: 'timing',
-                  duration: HERO_CHAR_ANIMATION_MS,
+                  type: 'spring',
+                  damping: 18,
+                  stiffness: 200,
+                  mass: 1,
                   delay,
                 } as any
               }
@@ -148,7 +150,7 @@ function HeroCharLayer({
               {
                 opacity: visible ? 1 : 0,
                 transform: `translateY(${yOffset}px)`,
-                filter: visible ? 'blur(0px)' : 'blur(2px)',
+                filter: visible ? 'blur(0px)' : 'blur(3px)',
                 transition: `opacity ${HERO_CHAR_ANIMATION_MS}ms, transform ${HERO_CHAR_ANIMATION_MS}ms, filter ${HERO_CHAR_ANIMATION_MS}ms`,
                 transitionDelay: `${delay}ms`,
               } as any
@@ -445,6 +447,7 @@ function GetStarted() {
   return (
     <OnboardingPage
       headerBack="exit"
+      backgroundLayer={<HeroAtmosphere wordIndex={currentWordIndex} />}
       contentContainerProps={
         platformEnv.isNative
           ? undefined
@@ -452,7 +455,6 @@ function GetStarted() {
       }
     >
       <YStack
-        position="relative"
         $md={{
           flex: 1,
           px: '$5',
@@ -460,7 +462,6 @@ function GetStarted() {
         }}
         gap="$8"
       >
-        <HeroAtmosphere wordIndex={currentWordIndex} />
         <Icon name="OnekeyTextIllus" color="$text" h={48} w={174} />
         {platformEnv.isNative ? (
           <HeroSentenceNative
