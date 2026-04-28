@@ -83,17 +83,49 @@ describe('Secret Module Tests', () => {
   const TEST_TON_MNEMONIC2 =
     'mushroom run point midnight gallery access soldier captain spring ship ready awesome exhaust resource boy blur promote immune text bean seek solar route volume';
 
+  // Hold the originals so we can restore in afterAll. Without this restore,
+  // the deterministic getRandomValues / randomBytes leak into the next test
+  // file in the same Jest worker (Jest does not isolate globalThis between
+  // files), making any downstream test that asserts independent entropy —
+  // e.g. keylessWalletUtils.test "should work with multiple independent
+  // mnemonic generations" — fail because both generateKeylessMnemonic()
+  // calls return the same fixed mnemonic.
+  let originalCryptoRandomBytes: typeof crypto.randomBytes | undefined;
+  let originalGlobalRandomBytes: unknown;
+  let originalGlobalGetRandomValues:
+    | typeof globalThis.crypto.getRandomValues
+    | undefined;
+
   beforeAll(() => {
+    originalCryptoRandomBytes = (crypto as any).randomBytes;
     (crypto as any).randomBytes = jest
       .fn()
       .mockImplementation(getDeterministicRandomBytes);
     if (globalThis.crypto) {
+      originalGlobalRandomBytes = (globalThis.crypto as any).randomBytes;
+      originalGlobalGetRandomValues = globalThis.crypto.getRandomValues;
       (globalThis.crypto as any).randomBytes = (crypto as any).randomBytes;
       (globalThis.crypto as any).getRandomValues = (array: Uint8Array) => {
         const bytes = getDeterministicRandomBytes(array.length);
         array.set(bytes.subarray(0, array.length));
         return array;
       };
+    }
+  });
+
+  afterAll(() => {
+    if (originalCryptoRandomBytes !== undefined) {
+      (crypto as any).randomBytes = originalCryptoRandomBytes;
+    }
+    if (globalThis.crypto) {
+      if (originalGlobalRandomBytes === undefined) {
+        delete (globalThis.crypto as any).randomBytes;
+      } else {
+        (globalThis.crypto as any).randomBytes = originalGlobalRandomBytes;
+      }
+      if (originalGlobalGetRandomValues) {
+        globalThis.crypto.getRandomValues = originalGlobalGetRandomValues;
+      }
     }
   });
 
