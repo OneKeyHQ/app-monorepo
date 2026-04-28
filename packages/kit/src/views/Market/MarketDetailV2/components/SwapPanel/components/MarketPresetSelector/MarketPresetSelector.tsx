@@ -168,6 +168,12 @@ function isInvalidDirectionSettings(settings?: IMarketPresetDirectionSettings) {
   return customPriorityFeeInvalid || customSlippageInvalid;
 }
 
+function getTradeSideActiveBackgroundColor(tradeSide: EMarketPresetTradeSide) {
+  return tradeSide === EMarketPresetTradeSide.BUY
+    ? '$bgSuccessStrong'
+    : '$bgCriticalStrong';
+}
+
 function MarketPresetDialogHeader({ networkId }: { networkId?: string }) {
   const intl = useIntl();
 
@@ -478,6 +484,10 @@ function MarketPresetSettingsDialog({
             fullWidth
             value={activeTradeSide}
             options={sideOptions}
+            activeBackgroundColor={getTradeSideActiveBackgroundColor(
+              activeTradeSide,
+            )}
+            activeTextColor="$textOnColor"
             onChange={(value) =>
               setActiveTradeSide(value as EMarketPresetTradeSide)
             }
