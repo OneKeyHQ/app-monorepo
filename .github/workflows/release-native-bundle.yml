@@ -1,6 +1,9 @@
 name: release-native-bundle
 
 on:
+  # Auto-fire after `daily-build` succeeds so cron-triggered builds still
+  # produce iOS/Android OTA bundles + QA artifacts. Mirrors release-web and
+  # release-desktop-bundle, which also chain off daily-build.
   workflow_run:
     workflows:
       - daily-build
@@ -28,6 +31,25 @@ on:
       checkout_ref:
         type: string
         required: false
+      platform:
+        # Optional: when set to "ios" or "android", only that platform is
+        # built. When unset/empty (workflow_dispatch only), both platforms
+        # are built in parallel via the matrix below.
+        # release-app-bundles.yml uses this to expose iOS and Android as
+        # sibling top-level slots alongside desktop-bundle / web-bundle.
+        type: string
+        required: false
+        default: ''
+      web_embed_artifact:
+        # Name of an upstream actions/upload-artifact entry containing a
+        # pre-built apps/web-embed/web-build/. When set, the platform job
+        # downloads it and skips its local webpack run. Used by
+        # release-app-bundles.yml to share ONE web-embed build across the
+        # iOS and Android slots. Empty for direct workflow_dispatch — each
+        # platform falls back to running webpack locally.
+        type: string
+        required: false
+        default: ''
     secrets:
       COVALENT_KEY:
         required: false
@@ -66,19 +88,32 @@ env:
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
 
+# Restrict GITHUB_TOKEN to the minimum scopes this workflow actually uses.
+# Prevents CodeQL from flagging the `workflow_run` trigger as a privileged
+# context with implicit write access (the `permissions:` block downgrades the
+# token from the default contents:write to contents:read).
+#   - contents: read   → actions/checkout, downloading source.
+#   - packages: read   → yarn install from npm.pkg.github.com (NODE_AUTH_TOKEN).
+#   - actions: read    → reading github.event.workflow_run metadata.
+permissions:
+  contents: read
+  packages: read
+  actions: read
+
 jobs:
-  release-native-bundle:
+  # Compute BUILD_BUNDLE_VERSION ONCE for the run so the iOS and Android
+  # matrix arms below produce identical bundleVersion / Sentry release / QA
+  # metadata. Without this, each matrix arm's `Setup ENV` step falls back to
+  # `date -u +%s` independently, drifting the two platforms apart whenever
+  # the matrix arms boot at different seconds. workflow_call still wins via
+  # `inputs.build_bundle_version` (the prepare-params output passed by
+  # release-app-bundles.yml).
+  prepare-bundle-version:
+    if: ${{ !github.event.workflow_run || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [24.x]
-
-    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
+    outputs:
+      build_bundle_version: ${{ steps.compute.outputs.value }}
     steps:
-      - name: Show executed time
-        run: |
-          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
-
       - name: Validate workflow_run source
         if: github.event_name == 'workflow_run'
         run: |
@@ -87,11 +122,72 @@ jobs:
             exit 1
           fi
 
+      - name: Compute BUILD_BUNDLE_VERSION
+        id: compute
+        run: |
+          if [ -n "${{ inputs.build_bundle_version }}" ]; then
+            echo "value=${{ inputs.build_bundle_version }}" >> "$GITHUB_OUTPUT"
+          else
+            EPOCH_2026=$(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null \
+              || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s)
+            NOW=$(date -u +%s)
+            echo "value=$(( NOW - EPOCH_2026 ))" >> "$GITHUB_OUTPUT"
+          fi
+
+  # web-embed prebuild lives in the orchestrator (release-app-bundles.yml) so
+  # iOS and Android — which here are sibling workflow_call invocations of this
+  # workflow — can share ONE web-embed artifact. Without that lift, each
+  # workflow_call would internally re-run webpack (the symptom: two
+  # web-embed-build nodes in the orchestrator UI).
+  #
+  # Direct workflow_dispatch on this workflow has no upstream artifact:
+  # buildWebEmbed() in build-bundle-base.js falls back to running webpack
+  # locally per-platform. Acceptable for ad-hoc testing.
+  release-native-bundle:
+    # `needs:` alone gives us the right gating: if prepare-bundle-version
+    # skips (workflow_run from a fork) or fails, the matrix arms also skip.
+    # No explicit `if:` here — adding `!cancelled() && !failure()` would
+    # silently bypass the fork-source rejection.
+    needs: prepare-bundle-version
+    name: release-native-bundle (${{ matrix.platform }})
+    runs-on: ubuntu-latest
+    # Run iOS and Android JS bundles in parallel. Each platform's build is
+    # independent (separate out-dir-bundle/<platform> + own zip artifact +
+    # own Slack/QA notification), so a failure on one no longer blocks the
+    # other. fail-fast=false avoids canceling iOS just because Android failed.
+    #
+    # When called via workflow_call with `inputs.platform` set, the matrix is
+    # narrowed to that single platform — release-app-bundles.yml uses this to
+    # call this workflow twice (once for ios, once for android) so iOS and
+    # Android show up as sibling top-level slots in the orchestrator UI.
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ inputs.platform != '' && fromJSON(format('["{0}"]', inputs.platform)) || fromJSON('["ios","android"]') }}
+        node-version: [24.x]
+
+    steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "Building platform: ${{ matrix.platform }}"
+
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
           lfs: true
           ref: ${{ inputs.checkout_ref || '' }}
+
+      - name: Pin WORKFLOW_BUNDLE_VERSION from prepare job
+        # shared-env/action.yml reads WORKFLOW_BUNDLE_VERSION first (line ~117)
+        # before falling back to its own `date - epoch` computation. Seeding
+        # it here makes shared-env emit the unified value into BOTH the
+        # process env (BUILD_BUNDLE_VERSION) AND the on-disk `.env` file
+        # (BUNDLE_VERSION=…). Without this, .env would still receive a
+        # per-arm timestamp and the JS bundle's runtime `bundleVersion` would
+        # disagree with the artifact / Sentry release metadata.
+        run: |
+          echo "WORKFLOW_BUNDLE_VERSION=${{ needs.prepare-bundle-version.outputs.build_bundle_version }}" >> $GITHUB_ENV
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
@@ -116,9 +212,10 @@ jobs:
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
-          if [ -z "${{ env.BUILD_BUNDLE_VERSION }}" ]; then
-            echo "BUILD_BUNDLE_VERSION=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s) ))" >> $GITHUB_ENV
-          fi
+          # Pull from the precursor `prepare-bundle-version` job so iOS and
+          # Android matrix arms share one value. The `Override params from
+          # caller` step below still wins for workflow_call invocations.
+          echo "BUILD_BUNDLE_VERSION=${{ needs.prepare-bundle-version.outputs.build_bundle_version }}" >> $GITHUB_ENV
 
       - name: Override params from caller
         if: ${{ inputs.build_number }}
@@ -133,15 +230,10 @@ jobs:
         env:
           INPUT_BRANCH: ${{ inputs.branch }}
           INPUT_COMMIT: ${{ inputs.commit }}
-          WR_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          WR_COMMIT: ${{ github.event.workflow_run.head_sha }}
         run: |
           if [ -n "$INPUT_BRANCH" ]; then
             BRANCH="$INPUT_BRANCH"
             COMMIT="$INPUT_COMMIT"
-          elif [ -n "$WR_COMMIT" ]; then
-            BRANCH="$WR_BRANCH"
-            COMMIT="$WR_COMMIT"
           else
             BRANCH="${{ github.ref_name }}"
             COMMIT="${{ github.sha }}"
@@ -195,6 +287,18 @@ jobs:
         run: |
           yarn install --immutable
 
+      - name: Download pre-built web-embed bundle
+        # Restores apps/web-embed/web-build/ from an upstream web-embed-build
+        # job in the orchestrator (release-app-bundles.yml). When running via
+        # direct workflow_dispatch with no upstream artifact, this step is
+        # skipped and buildWebEmbed() in build-bundle-base.js falls back to
+        # running webpack locally.
+        if: ${{ inputs.web_embed_artifact != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.web_embed_artifact }}
+          path: apps/web-embed/web-build
+
       - name: Build Bundle
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -204,24 +308,31 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UNION_BUILD: 'true'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
-        run: 'yarn app:build-bundle'
-      
+        run: 'yarn app:build-bundle:${{ matrix.platform }}'
+
+      - name: Validate split-bundle integrity
+        # Hard gate: fails the job if any segment ships un-rewritten Metro
+        # async-require URLs (REACT-NATIVE-4AX class). Must run AFTER Build
+        # Bundle (so segments exist to scan) and BEFORE upload zips (so a
+        # failure aborts publishing the OTA artifact to QA / users).
+        run: node apps/mobile/scripts/check-split-bundle-integrity.js
+
       - name: upload zips
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: release-native-bundle-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: release-native-bundle-${{ matrix.platform }}-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/mobile/out-dir-bundle-zip
             !**/.DS_Store
-      
+
       - name: upload bundles
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: release-native-bundle-sources-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: release-native-bundle-${{ matrix.platform }}-sources-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
-            ./apps/mobile/out-dir-bundle
+            ./apps/mobile/out-dir-bundle/${{ matrix.platform }}
             !**/.DS_Store
 
       - name: Upload QA Bundles
@@ -240,8 +351,8 @@ jobs:
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-          artifact-type: React-Native-Bundle
-          artifact-name: OneKey-Native-Bundle
+          artifact-type: React-Native-Bundle-${{ matrix.platform }}
+          artifact-name: OneKey-Native-Bundle-${{ matrix.platform }}
           artifact-bundle-id: 'so.onekey.wallet'
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'

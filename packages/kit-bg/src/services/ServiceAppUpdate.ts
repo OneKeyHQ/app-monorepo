@@ -72,6 +72,11 @@ export function resetFailedRecoveryRetryCount() {
   failedRecoveryRetryCount.clear();
 }
 
+// Exposed for tests only — resets volatile first-launch state.
+export function resetFirstLaunchForTest() {
+  firstLaunch = true;
+}
+
 function normalizeOptionalString(value: unknown): string | undefined {
   if (value === null || value === undefined) {
     return undefined;
