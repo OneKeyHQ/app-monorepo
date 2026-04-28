@@ -1,5 +1,6 @@
 node_modules
 __generated__
+packages/shared/src/runtime/version.ts
 .cursor/debug*.log
 *.swp
 .expo-shared

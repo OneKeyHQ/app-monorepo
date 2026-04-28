@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 
 import { ANDROID_CHANNEL } from './androidNativeEnv';
 import appGlobals from './appGlobals';
+import { APP_VERSION } from './runtime/version';
 import { isWebInDappMode } from './utils/devModeUtils';
 
 /*
@@ -529,7 +530,9 @@ const platformEnv: IPlatformEnv = {
 
   appFullName: '',
   androidChannel,
-  version: process.env.VERSION,
+  // APP_VERSION is generated from .env.version by development/scripts/sync-version.js
+  // (postinstall hook). Avoids per-bundler env injection drift.
+  version: APP_VERSION,
   bundleVersion: process.env.BUNDLE_VERSION,
   buildNumber: process.env.BUILD_NUMBER,
   buildTime: Number(process.env.BUILD_TIME) || undefined,
