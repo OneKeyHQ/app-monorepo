@@ -101,7 +101,11 @@ function PerpTradesHistoryList({
 
     // Spot Sell realizes PnL against the running cost basis — same math as a
     // perp Close Long, since HL's closedPnl is pre-fee on both sides.
-    if (normalizedDir === 'sell' && !new BigNumber(fill.closedPnl).isZero()) {
+    if (
+      isSpotInstrument(fill.coin) &&
+      fill.side === 'A' &&
+      !new BigNumber(fill.closedPnl).isZero()
+    ) {
       return exitPriceBN.minus(pnlPerUnit);
     }
 
