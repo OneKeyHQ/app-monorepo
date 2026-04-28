@@ -13,6 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
+  ETabDiscoveryRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -49,11 +50,19 @@ export function useNavigateToMarketTab() {
       const marketTab = platformEnv.isNative
         ? ETabRoutes.Discovery
         : ETabRoutes.Market;
+      const marketTabScreen = platformEnv.isNative
+        ? ETabDiscoveryRoutes.TabDiscovery
+        : ETabMarketRoutes.TabMarket;
 
       rootNavigationRef.current?.navigate(ERootRoutes.Main, {
         screen: marketTab,
         params: {
-          screen: ETabMarketRoutes.TabMarket,
+          screen: marketTabScreen,
+          params: platformEnv.isNative
+            ? {
+                defaultTab: ETranslations.global_market,
+              }
+            : undefined,
         },
       });
 

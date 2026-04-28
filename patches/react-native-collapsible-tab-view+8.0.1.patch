@@ -40,14 +40,18 @@ index 7a739fc..10c5d9a 100644
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..2e06853 100644
+index e782b90..e24c4dd 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-@@ -1,9 +1,10 @@
+@@ -1,9 +1,14 @@
  import React from 'react'
 -import { StyleSheet, useWindowDimensions, View } from 'react-native'
 +import { Animated as RNAnimated, Platform, StyleSheet, useWindowDimensions, View } from 'react-native'
  import PagerView from 'react-native-pager-view'
++import type {
++  PageScrollStateChangedNativeEvent,
++  PagerViewOnPageSelectedEvent,
++} from 'react-native-pager-view'
  import Animated, {
    runOnJS,
    runOnUI,
@@ -55,7 +59,7 @@ index e782b90..2e06853 100644
    useAnimatedReaction,
    useAnimatedStyle,
    useDerivedValue,
-@@ -78,6 +79,7 @@ export const Container = React.memo(
+@@ -78,6 +83,7 @@ export const Container = React.memo(
          onTabChange,
          width: customWidth,
          allowHeaderOverscroll,
@@ -63,7 +67,7 @@ index e782b90..2e06853 100644
        },
        ref
      ) => {
-@@ -95,7 +97,7 @@ export const Container = React.memo(
+@@ -95,7 +101,7 @@ export const Container = React.memo(
        const [tabBarHeight, getTabBarHeight] =
          useLayoutHeight(initialTabBarHeight)
  
@@ -72,8 +76,11 @@ index e782b90..2e06853 100644
          !renderHeader ? 0 : initialHeaderHeight
        )
        const initialIndex = React.useMemo(
-@@ -141,8 +143,10 @@ export const Container = React.memo(
+@@ -139,10 +145,13 @@ export const Container = React.memo(
+           return tabNames.value[index.value]
+         }, [tabNames])
        const calculateNextOffset = useSharedValue(initialIndex)
++      const programmaticPageTarget = useSharedValue<number | null>(null)
        const headerScrollDistance: ContextType['headerScrollDistance'] =
          useDerivedValue(() => {
 -          return headerHeight !== undefined ? headerHeight - minHeaderHeight : 0
@@ -85,7 +92,7 @@ index e782b90..2e06853 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
-@@ -174,12 +178,15 @@ export const Container = React.memo(
+@@ -174,12 +183,15 @@ export const Container = React.memo(
            return afterRender.value === 1
          },
          (trigger) => {
@@ -103,7 +110,23 @@ index e782b90..2e06853 100644
        )
  
        // derived from scrollX
-@@ -212,25 +219,46 @@ export const Container = React.memo(
+@@ -194,6 +206,15 @@ export const Container = React.memo(
+         },
+         (nextIndex) => {
+           if (nextIndex !== null && nextIndex !== index.value) {
++            if (
++              programmaticPageTarget.value !== null &&
++              nextIndex !== programmaticPageTarget.value
++            ) {
++              return
++            }
++            if (nextIndex === programmaticPageTarget.value) {
++              programmaticPageTarget.value = null
++            }
+             calculateNextOffset.value = nextIndex
+           }
+         },
+@@ -212,25 +233,46 @@ export const Container = React.memo(
          'worklet'
  
          const name = tabNamesArray[index.value]
@@ -156,7 +179,7 @@ index e782b90..2e06853 100644
            runOnJS(toggleSyncScrollFrame)(false)
          }
        }, false)
-@@ -241,54 +269,191 @@ export const Container = React.memo(
+@@ -241,54 +283,271 @@ export const Container = React.memo(
          },
          (i) => {
            if (i !== index.value) {
@@ -275,8 +298,7 @@ index e782b90..2e06853 100644
 -            },
 -          ],
 +          transform: [{ translateY: headerTranslateY.value }],
-         }
--      }, [revealHeaderOnScroll])
++        }
 +      }, [])
 +
 +      // Native animated header: uses RN's Animated driver for same-frame updates
@@ -368,12 +390,107 @@ index e782b90..2e06853 100644
 +              extrapolate: 'clamp',
 +            })
 +          }]
-+        }
+         }
+-      }, [revealHeaderOnScroll])
 +      }, [useNativeHeaderAnimation, nativeScrollY, headerScrollDist, contentInset])
++
++      const pendingPageFallbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
++
++      const clearPendingPageFallback = React.useCallback(() => {
++        if (pendingPageFallbackTimerRef.current) {
++          clearTimeout(pendingPageFallbackTimerRef.current)
++          pendingPageFallbackTimerRef.current = null
++        }
++      }, [])
++
++      React.useEffect(
++        () => () => {
++          clearPendingPageFallback()
++        },
++        [clearPendingPageFallback]
++      )
++
++      const handlePageSelected = React.useCallback(
++        (event: PagerViewOnPageSelectedEvent) => {
++          const selectedIndex = event.nativeEvent.position
++          const pendingTarget = programmaticPageTarget.value
++          if (pendingTarget !== null || pendingPageFallbackTimerRef.current) {
++            if (index.value !== selectedIndex) {
++              calculateNextOffset.value = selectedIndex
++              indexDecimal.value = selectedIndex
++            }
++            programmaticPageTarget.value = null
++            clearPendingPageFallback()
++          }
++          pagerProps?.onPageSelected?.(event)
++        },
++        [calculateNextOffset, clearPendingPageFallback, index, indexDecimal, pagerProps, programmaticPageTarget]
++      )
++
++      const handlePageScrollStateChanged = React.useCallback(
++        (event: PageScrollStateChangedNativeEvent) => {
++          const pendingTarget = programmaticPageTarget.value
++          if (pendingTarget !== null && index.value === pendingTarget) {
++            programmaticPageTarget.value = null
++            clearPendingPageFallback()
++          }
++          pagerProps?.onPageScrollStateChanged?.(event)
++        },
++        [clearPendingPageFallback, index, pagerProps, programmaticPageTarget]
++      )
++
++      const setPageWithFallback = React.useCallback(
++        (nextIndex: number) => {
++          clearPendingPageFallback()
++          programmaticPageTarget.value = nextIndex
++          containerRef.current?.setPage(nextIndex)
++
++          if (Platform.OS !== 'ios') {
++            return
++          }
++
++          pendingPageFallbackTimerRef.current = setTimeout(() => {
++            pendingPageFallbackTimerRef.current = null
++            if (index.value === nextIndex) {
++              programmaticPageTarget.value = null
++              return
++            }
++            programmaticPageTarget.value = null
++            calculateNextOffset.value = nextIndex
++            indexDecimal.value = nextIndex
++            containerRef.current?.setPageWithoutAnimation(nextIndex)
++          }, 300)
++        },
++        [calculateNextOffset, clearPendingPageFallback, containerRef, index, indexDecimal, programmaticPageTarget]
++      )
++
++      const syncToTabIndex = React.useCallback(
++        (nextIndex: number) => {
++          if (nextIndex === index.value) {
++            return
++          }
++          setPageWithFallback(nextIndex)
++        },
++        [index, setPageWithFallback]
++      )
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -344,55 +509,94 @@ export const Container = React.memo(
+@@ -303,11 +562,11 @@ export const Container = React.memo(
+               true
+             )
+           } else {
+-            containerRef.current?.setPage(i)
++            syncToTabIndex(i)
+           }
+         },
+         // eslint-disable-next-line react-hooks/exhaustive-deps
+-        [containerRef, refMap, contentInset]
++        [contentInset, refMap, syncToTabIndex]
+       )
+ 
+       useAnimatedReaction(
+@@ -344,55 +603,94 @@ export const Container = React.memo(
            getCurrentIndex: () => {
              return index.value
            },
@@ -505,7 +622,7 @@ index e782b90..2e06853 100644
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -407,8 +611,9 @@ export const Container = React.memo(
+@@ -407,8 +705,9 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -516,7 +633,7 @@ index e782b90..2e06853 100644
                  style={[styles.container, styles.tabBarContainer]}
                  onLayout={getTabBarHeight}
                  pointerEvents="box-none"
-@@ -425,7 +630,7 @@ export const Container = React.memo(
+@@ -425,13 +724,15 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>
@@ -525,6 +642,15 @@ index e782b90..2e06853 100644
  
              <AnimatedPagerView
                ref={containerRef}
+-              onPageScroll={pageScrollHandler}
+               initialPage={initialIndex}
+               {...pagerProps}
++              onPageScroll={pageScrollHandler}
++              onPageSelected={handlePageSelected}
++              onPageScrollStateChanged={handlePageScrollStateChanged}
+               style={[pagerProps?.style, StyleSheet.absoluteFill]}
+             >
+               {tabNamesArray.map((tabName, i) => {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
 index 9ce60da..d8f162e 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
@@ -874,10 +1000,10 @@ index 2bd6b9c..80c7377 100644
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..f2d3c16 100644
+index ba7dffa..14dbf92 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-@@ -8,7 +8,7 @@ import {
+@@ -8,11 +8,12 @@ import {
    useEffect,
    useRef,
  } from 'react'
@@ -886,26 +1012,75 @@ index ba7dffa..f2d3c16 100644
  import { ContainerRef, RefComponent } from 'react-native-collapsible-tab-view'
  import { PagerViewOnPageScrollEvent } from 'react-native-pager-view'
  import Animated, {
-@@ -101,7 +101,10 @@ export function useTabProps<T extends TabName>(
+   cancelAnimation,
++  makeMutable,
+   useAnimatedReaction,
+   useAnimatedRef,
+   useAnimatedScrollHandler,
+@@ -92,6 +93,39 @@ export function useTabProps<T extends TabName>(
+   return [memoizedOptions, memoizedTabNames]
+ }
+ 
++const FALLBACK_TAB_NAME = '__tabs_container_missing__' as TabName
++
++// Keep orphan renders alive in production without crashing worklets.
++const FALLBACK_TABS_CONTEXT: ContextType<TabName> = {
++  headerHeight: 0,
++  tabBarHeight: 0,
++  containerHeight: 0,
++  revealHeaderOnScroll: false,
++  snapThreshold: null,
++  indexDecimal: makeMutable(0),
++  tabNames: makeMutable([FALLBACK_TAB_NAME]),
++  index: makeMutable(0),
++  focusedTab: makeMutable(FALLBACK_TAB_NAME),
++  accDiffClamp: makeMutable(0),
++  scrollYCurrent: makeMutable(0),
++  scrollY: makeMutable({}),
++  refMap: {} as ContextType['refMap'],
++  setRef: <T extends RefComponent>(_key: TabName, ref: AnimatedRef<T>) => ref,
++  headerScrollDistance: makeMutable(0),
++  oldAccScrollY: makeMutable(0),
++  accScrollY: makeMutable(0),
++  offset: makeMutable(0),
++  snappingTo: makeMutable(0),
++  contentHeights: makeMutable([0]),
++  contentInset: 0,
++  headerTranslateY: makeMutable(0),
++  width: 0,
++  allowHeaderOverscroll: false,
++  minHeaderHeight: 0,
++  useNativeHeaderAnimation: false,
++  nativeScrollY: undefined,
++}
++
+ /**
+  * Hook exposing some useful variables.
+  *
+@@ -101,7 +135,12 @@ export function useTabProps<T extends TabName>(
   */
  export function useTabsContext(): ContextType<TabName> {
    const c = useContext(Context)
 -  if (!c) throw new Error('useTabsContext must be inside a Tabs.Container')
 +  if (!c) {
-+    console.error('useTabsContext must be inside a Tabs.Container')
-+    return {} as ContextType<TabName>
++    if (__DEV__) {
++      throw new Error('useTabsContext must be inside a Tabs.Container')
++    }
++    return FALLBACK_TABS_CONTEXT
 +  }
    return c
  }
  
-@@ -114,23 +117,35 @@ export function useTabsContext(): ContextType<TabName> {
+@@ -114,23 +153,37 @@ export function useTabsContext(): ContextType<TabName> {
   */
  export function useTabNameContext(): TabName {
    const c = useContext(TabNameContext)
 -  if (!c) throw new Error('useTabNameContext must be inside a TabNameContext')
 +  if (!c) {
-+    console.error('useTabNameContext must be inside a TabNameContext')
-+    return '' as TabName
++    if (__DEV__) {
++      throw new Error('useTabNameContext must be inside a TabNameContext')
++    }
++    return FALLBACK_TAB_NAME
 +  }
    return c
  }
@@ -939,7 +1114,7 @@ index ba7dffa..f2d3c16 100644
  }
  /**
   * Hook to access some key styles that make the whole thing work.
-@@ -265,10 +280,13 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -265,10 +318,13 @@ export const useScrollHandlerY = (name: TabName) => {
      accScrollY,
      offset,
      headerScrollDistance,
@@ -953,7 +1128,7 @@ index ba7dffa..f2d3c16 100644
    } = useTabsContext()
  
    const enabled = useSharedValue(false)
-@@ -296,10 +314,13 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -296,10 +352,13 @@ export const useScrollHandlerY = (name: TabName) => {
    useAnimatedReaction(
      () => scrollAnimation.value,
      (val) => {
@@ -968,7 +1143,7 @@ index ba7dffa..f2d3c16 100644
    )
  
    const onMomentumEnd = () => {
-@@ -403,6 +424,14 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -403,6 +462,14 @@ export const useScrollHandlerY = (name: TabName) => {
                accDiffClamp.value = Math.max(0, nextValue)
              }
            }
@@ -983,7 +1158,7 @@ index ba7dffa..f2d3c16 100644
          }
        },
        onBeginDrag: () => {
-@@ -465,6 +494,9 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -465,6 +532,9 @@ export const useScrollHandlerY = (name: TabName) => {
        return isChangingPane
      },
      (isSyncNeeded, wasSyncNeeded) => {
@@ -993,7 +1168,7 @@ index ba7dffa..f2d3c16 100644
        if (
          isSyncNeeded &&
          isSyncNeeded !== wasSyncNeeded &&
-@@ -505,10 +537,68 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -505,10 +575,68 @@ export const useScrollHandlerY = (name: TabName) => {
          }
        }
      },
@@ -1064,7 +1239,7 @@ index ba7dffa..f2d3c16 100644
  }
  
  type ForwardRefType<T> =
-@@ -579,11 +669,11 @@ export function useAfterMountEffect(
+@@ -579,11 +707,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {
