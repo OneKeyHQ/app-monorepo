@@ -55,6 +55,12 @@ export type IUsePromiseResultReturn<T> = {
   setResult: React.Dispatch<React.SetStateAction<T | undefined>>;
   isLoading: boolean | undefined;
   run: (config?: IRunnerConfig) => Promise<void>;
+  // Pause future polling ticks until deps change (or set back to false). The
+  // current run still completes; only the scheduled next tick is skipped.
+  // Returns true when calling setStopPolling(false) resurrected a paused
+  // polling chain and triggered a fresh run, so callers can avoid issuing a
+  // duplicate run().
+  setStopPolling: (stop: boolean) => boolean;
 };
 
 export type IUsePromiseResultReturnWithInitValue<T> =
@@ -171,6 +177,11 @@ export function usePromiseResult<T>(
   const isDepsChangedOnBlur = useRef(false);
   const nonceRef = useRef(0);
 
+  // The polling continuation in the finally-block reads this synchronously,
+  // so a ref is enough — no consumer reacts to the flag via React state, and
+  // adding a state would only churn renders without changing behavior.
+  const stopPollingRef = useRef(false);
+
   const isEffectValid = useRef(true);
 
   const run = useMemo(
@@ -283,11 +294,15 @@ export function usePromiseResult<T>(
           }
           if (
             pollingInterval &&
-            pollingNonceRef.current === config?.pollingNonce
+            pollingNonceRef.current === config?.pollingNonce &&
+            !stopPollingRef.current
           ) {
             await timerUtils.wait(pollingInterval);
             await defer.promise;
-            if (pollingNonceRef.current === config?.pollingNonce) {
+            if (
+              pollingNonceRef.current === config?.pollingNonce &&
+              !stopPollingRef.current
+            ) {
               if (shouldSetState(config)) {
                 void run({
                   triggerByDeps: true,
@@ -323,6 +338,25 @@ export function usePromiseResult<T>(
   const runRef = useRef(run);
   runRef.current = run;
 
+  const setStopPolling = useCallback((stop: boolean) => {
+    const wasStopped = stopPollingRef.current;
+    stopPollingRef.current = stop;
+    // Stopped → not stopped: the previous polling chain already exited via
+    // the finally-block guard once stopPollingRef flipped true, so clearing
+    // the flag alone won't bring it back. Bump the nonce and run with it —
+    // mirrors the runnerDeps effect — so the loop actually resumes; the
+    // bump also invalidates any stale queued tick that might still race.
+    if (wasStopped && !stop && optionsRef.current.pollingInterval) {
+      pollingNonceRef.current += 1;
+      void runRef.current({
+        triggerByDeps: true,
+        pollingNonce: pollingNonceRef.current,
+      });
+      return true;
+    }
+    return false;
+  }, []);
+
   const runnerDeps = useMemo(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => [...deps, optionsRef.current.pollingInterval],
@@ -333,6 +367,10 @@ export function usePromiseResult<T>(
   const prevPollingInterval = usePrevious(optionsRef.current.pollingInterval);
   useEffect(() => {
     const callback = () => {
+      // Deps changed (or polling interval changed) means the input is no
+      // longer the one the server-side stop applied to — auto-resume so the
+      // next attempt actually fires.
+      stopPollingRef.current = false;
       runAtRef.current = Date.now();
       pollingNonceRef.current += 1;
       void runRef.current({
@@ -435,7 +473,7 @@ export function usePromiseResult<T>(
     };
   }, []);
 
-  return { result, isLoading, run, setResult };
+  return { result, isLoading, run, setResult, setStopPolling };
 }
 
 export const useAsyncCall = usePromiseResult;
