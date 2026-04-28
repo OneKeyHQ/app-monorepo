@@ -935,6 +935,9 @@ function PreviewGrid({
   const auditPreview = audits?.items?.find((audit) =>
     hasText(getAuditTitle(audit)),
   );
+  const firstTeamMember = teamPreview || teamMembers[0];
+  const firstInvestorRound = investorPreview || investorsRounds[0];
+  const firstAudit = auditPreview || auditItems[0];
 
   if (!teamMembers.length && !investorsRounds.length && !auditItems.length) {
     return null;
@@ -944,27 +947,22 @@ function PreviewGrid({
     <XStack flexWrap="wrap" py="$3" rowGap="$6">
       <PreviewCell
         title={team?.title || team?.button?.data?.title}
-        value={getMemberName(teamPreview || teamMembers[0])}
-        imageUrl={getMemberAvatar(teamMembers[0] || teamPreview || {})}
+        value={getMemberName(firstTeamMember)}
+        imageUrl={getMemberAvatar(firstTeamMember)}
         fallbackIcon="UserAvatarFallbackColored"
         count={teamMembers.length || (team?.items?.length ?? 0)}
         onPress={onShowTeam}
       />
       <PreviewCell
         title={investors?.title || investors?.button?.data?.title}
-        value={getInvestorTitle(investorPreview || investorsRounds[0])}
+        value={getInvestorTitle(firstInvestorRound)}
         count={investorsRounds.length || (investors?.items?.length ?? 0)}
         onPress={onShowInvestors}
       />
       <PreviewCell
         title={audits?.title || audits?.button?.data?.title}
-        value={getAuditTitle(auditPreview || auditItems[0])}
-        imageUrl={
-          auditItems[0]?.auditorLogoUrl ||
-          auditItems[0]?.logoURI ||
-          auditPreview?.auditorLogoUrl ||
-          auditPreview?.logoURI
-        }
+        value={getAuditTitle(firstAudit)}
+        imageUrl={firstAudit?.auditorLogoUrl || firstAudit?.logoURI}
         count={auditItems.length || (audits?.items?.length ?? 0)}
         onPress={onShowAudits}
       />
