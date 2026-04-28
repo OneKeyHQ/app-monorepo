@@ -142,6 +142,85 @@ jobs:
           echo "  BRANCH=$BRANCH"
           echo "  COMMIT=$COMMIT"
 
+  # Pre-build the web-embed webpack bundle ONCE here, then both
+  # native-bundle-ios and native-bundle-android download the same artifact.
+  # Avoids the duplicate web-embed-build that would otherwise show up under
+  # each native-bundle-* slot when each workflow_call ran its own internal
+  # build.
+  web-embed-build:
+    needs: prepare-params
+    if: ${{ !cancelled() && !failure() }}
+    runs-on: ubuntu-24.04
+    outputs:
+      artifact_name: ${{ steps.artifact-name.outputs.value }}
+    steps:
+      - name: Compute artifact name
+        id: artifact-name
+        # Distinct from any naming used inside release-native-bundle.yml so
+        # callers / consumers can't collide with internal artifacts.
+        run: echo "value=web-embed-build-app-bundles-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          ref: ${{ needs.prepare-params.outputs.commit }}
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+          env_file_name: '.env'
+          sentry_project: 'react-native'
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Override params from prepare-params
+        run: |
+          echo "BUILD_NUMBER=${{ needs.prepare-params.outputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ needs.prepare-params.outputs.build_bundle_version }}" >> $GITHUB_ENV
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ needs.prepare-params.outputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ needs.prepare-params.outputs.build_number }}/" .env
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Build web-embed bundle
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          NODE_ENV: production
+        # Skip postbuild.sh; it only syncs to native asset dirs the OTA bundle
+        # does not need.
+        run: cd apps/web-embed && npx webpack build
+
+      - name: Upload web-embed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-name.outputs.value }}
+          path: |
+            apps/web-embed/web-build
+            !**/.DS_Store
+          if-no-files-found: error
+          retention-days: 1
+
   desktop-bundle:
     needs: prepare-params
     if: ${{ !cancelled() && !failure() }}
@@ -171,11 +250,49 @@ jobs:
       SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
       ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
 
-  native-bundle:
-    needs: prepare-params
+  # iOS and Android bundles are exposed as sibling top-level slots so the
+  # orchestrator UI shows them alongside desktop-bundle / web-bundle. Each
+  # call passes a `platform` input that narrows the matrix in
+  # release-native-bundle.yml to a single platform. Both jobs run in
+  # parallel — a failure in one does not block the other.
+  native-bundle-ios:
+    needs: [prepare-params, web-embed-build]
     if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/release-native-bundle.yml
     with:
+      platform: ios
+      web_embed_artifact: ${{ needs.web-embed-build.outputs.artifact_name }}
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+    secrets:
+      COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+      SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+      SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
+      SENTRY_DSN_MAS: ${{ secrets.SENTRY_DSN_MAS }}
+      SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
+      SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
+      SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
+      APPLEID: ${{ secrets.APPLEID }}
+      APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+      ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+      QA_JS_BUNDLE_SERVER_URL: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+      QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+      SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+      ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+
+  native-bundle-android:
+    needs: [prepare-params, web-embed-build]
+    if: ${{ !cancelled() && !failure() }}
+    uses: ./.github/workflows/release-native-bundle.yml
+    with:
+      platform: android
+      web_embed_artifact: ${{ needs.web-embed-build.outputs.artifact_name }}
       build_number: ${{ needs.prepare-params.outputs.build_number }}
       build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
       build_source: ${{ needs.prepare-params.outputs.build_source }}
