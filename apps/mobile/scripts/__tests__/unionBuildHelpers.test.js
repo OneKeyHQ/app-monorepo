@@ -327,10 +327,7 @@ describe('unionBuildHelpers', () => {
         [778, 'seg:kit.views.Receive.pages.ReceiveToken'],
       ]),
       moduleIdToAbsPath: new Map([
-        [
-          778,
-          '/repo/packages/kit/src/views/Receive/pages/ReceiveToken.tsx',
-        ],
+        [778, '/repo/packages/kit/src/views/Receive/pages/ReceiveToken.tsx'],
       ]),
       eagerAbsPaths: new Set(),
     });

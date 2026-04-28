@@ -100,6 +100,12 @@ const buildAndroidBundle = async () => {
     label: 'build android main bundle',
   });
   fs.rmSync(buildAndroidOutputAssetPath('main.jsbundle.packager.map'));
+  // Drop the raw hermesc intermediate map so it doesn't get uploaded by the
+  // batch sentry-cli walk below — only the composed map is the one we want
+  // Sentry to pair with main.jsbundle.hbc. Mirrors common/background paths.
+  fs.rmSync(buildAndroidOutputAssetPath('main.jsbundle.hbc.map'), {
+    force: true,
+  });
   // main.jsbundle sourcemap upload is deferred to the batch upload below
   // (uploadDirectoryToSentry) so all bundles + segments ship in ONE HTTP
   // round-trip instead of N per-file uploads.
@@ -141,7 +147,8 @@ const buildAndroidBundle = async () => {
     });
     // common bundle sourcemap upload is deferred to the batch upload below.
 
-    fs.rmSync(commonBundleJsPath, { force: true });
+    // Keep raw JS for debugging module ID issues (mirrors build-ios-bundle.js).
+    // fs.rmSync(commonBundleJsPath, { force: true });
     fs.rmSync(commonBundlePackagerMapPath, { force: true });
     fs.rmSync(`${commonBundleHbcPath}.map`, { force: true });
   }
@@ -197,7 +204,8 @@ const buildAndroidBundle = async () => {
     });
     // background bundle sourcemap upload is deferred to the batch upload below.
 
-    fs.rmSync(backgroundBundleJsPath, { force: true });
+    // Keep raw JS for debugging module ID issues (mirrors build-ios-bundle.js).
+    // fs.rmSync(backgroundBundleJsPath, { force: true });
     fs.rmSync(backgroundBundlePackagerMapPath, { force: true });
     fs.rmSync(`${backgroundBundleHbcPath}.map`, { force: true });
   }

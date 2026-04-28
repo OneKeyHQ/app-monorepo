@@ -96,6 +96,10 @@ const buildIOSBundle = async () => {
     label: 'build ios main bundle',
   });
   fs.rmSync(buildIOSOutputAssetPath('main.jsbundle.packager.map'));
+  // Drop the raw hermesc intermediate map so it doesn't get uploaded by the
+  // batch sentry-cli walk below — only the composed map is the one we want
+  // Sentry to pair with main.jsbundle.hbc. Mirrors common/background paths.
+  fs.rmSync(buildIOSOutputAssetPath('main.jsbundle.hbc.map'), { force: true });
   // main.jsbundle sourcemap upload is deferred to the batch upload below
   // (uploadDirectoryToSentry) so all bundles + segments ship in ONE HTTP
   // round-trip instead of N per-file uploads.

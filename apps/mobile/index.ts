@@ -196,7 +196,12 @@ if (!__DEV__) {
       require('./src/splitBundle/sentryEventProcessor') as typeof import('./src/splitBundle/sentryEventProcessor');
     if (typeof Sentry.addEventProcessor === 'function') {
       installSplitBundleSentryEventProcessor({
-        sentry: { addEventProcessor: Sentry.addEventProcessor },
+        // Wrap in an arrow so a future change in @sentry/react-native that
+        // makes addEventProcessor a method (depending on `this`) doesn't
+        // silently break — the bare reference would lose its receiver here.
+        sentry: {
+          addEventProcessor: (processor) => Sentry.addEventProcessor(processor),
+        },
         getBundleVersion: () => platformEnv.default?.bundleVersion,
       });
     }

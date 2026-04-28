@@ -142,7 +142,8 @@ function parseModuleDefs(segmentJs) {
 // (cross-ref) Same shape is matched at runtime by
 // apps/mobile/src/splitBundle/installProdBundleLoader.ts and rewritten by
 // apps/mobile/plugins/segmentSerializer.rewriteAsyncPaths.js — keep in sync.
-const UNREWRITTEN_ASYNC_PATH = /"(\d+)"\s*:\s*"(\/[^"]*\.bundle\?modulesOnly=true&runModule=false)"/g;
+const UNREWRITTEN_ASYNC_PATH =
+  /"(\d+)"\s*:\s*"(\/[^"]*\.bundle\?modulesOnly=true&runModule=false)"/g;
 
 function scanSegmentForUnrewrittenAsyncPaths(segmentJs) {
   // The `g` flag makes `.exec` advance `lastIndex` between calls. Since

@@ -77,7 +77,12 @@ module.exports = function ({ types: t }) {
                         t.identifier('globalThis'),
                         t.identifier('__harness_mock_actual_module_id__'),
                       ),
-                      [moduleId, args[1]],
+                      // Clone the AST nodes for the second usage. Babel's AST
+                      // is a tree, not a DAG; sharing the same `moduleId` /
+                      // `args[1]` references in two sibling call expressions
+                      // breaks subsequent visitors that mutate one and corrupts
+                      // generated output / source maps.
+                      [t.cloneNode(moduleId, true), t.cloneNode(args[1], true)],
                     ),
                   ),
                 ])

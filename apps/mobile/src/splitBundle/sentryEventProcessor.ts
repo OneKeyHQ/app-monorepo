@@ -58,7 +58,7 @@ export function buildSplitBundleEventProcessor(
       );
       if (!classification) return event;
       event.tags = {
-        ...(event.tags || {}),
+        ...event.tags,
         split_bundle_integrity: 'true',
         split_bundle_unknown_module_id: classification.moduleId,
       };
@@ -69,7 +69,7 @@ export function buildSplitBundleEventProcessor(
         bundleVersion = undefined;
       }
       event.extra = {
-        ...(event.extra || {}),
+        ...event.extra,
         bundle_version: bundleVersion ?? 'unknown',
       };
     } catch {

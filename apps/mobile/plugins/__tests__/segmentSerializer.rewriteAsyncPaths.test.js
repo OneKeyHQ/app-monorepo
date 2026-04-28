@@ -118,7 +118,9 @@ describe('rewriteAsyncPathsInModules', () => {
   it('legacy helper IS susceptible to false-rewrite of unrelated `{"id":"value"}` shapes (known limit; production path scopes by `"paths":{...}` block)', () => {
     const moduleToSegment = new Map([[777, 'seg:foo']]);
     // Imagine a config object accidentally keyed by the string "777":
-    const modules = [[1000, 'const cfg = {"777":"some-unrelated-string-value"};']];
+    const modules = [
+      [1000, 'const cfg = {"777":"some-unrelated-string-value"};'],
+    ];
     rewriteAsyncPathsInModules(modules, moduleToSegment);
     // The helper rewrites it. This test pins the behavior so a future
     // tightening (scoping to `"paths":{...}`) is caught and re-evaluated.
