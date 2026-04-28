@@ -120,6 +120,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { checkSwapLatestBalanceSufficient } from '../utils/swapBalanceUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapBuildTxInfo, useSwapProAccount } from './useSwapPro';
@@ -471,6 +472,39 @@ export function useSwapBuildTx() {
       return checkRes;
     },
     [fromToken, intl, selectQuote?.fromAmount, fromUserAddress, fromAccountId],
+  );
+
+  const checkLatestFromTokenBalance = useCallback(
+    async (token: ISwapToken, amount: string) => {
+      const checkResult = await checkSwapLatestBalanceSufficient({
+        token,
+        amount,
+        accountAddress: fromUserAddress,
+        accountId: fromAccountId,
+      });
+      if (!checkResult.isSufficient) {
+        Toast.error({
+          title: intl.formatMessage(
+            {
+              id: ETranslations.swap_page_toast_insufficient_balance_title,
+            },
+            { token: checkResult.tokenSymbol },
+          ),
+          message: intl.formatMessage(
+            {
+              id: ETranslations.swap_page_toast_insufficient_balance_content,
+            },
+            {
+              token: checkResult.tokenSymbol,
+              number: numberFormat(checkResult.requiredAmount, formatter),
+            },
+          ),
+        });
+        return false;
+      }
+      return true;
+    },
+    [fromAccountId, fromUserAddress, intl],
   );
 
   const cancelLimitOrder = useCallback(
@@ -1739,6 +1773,13 @@ export function useSwapBuildTx() {
         fromAccountNetworkId &&
         fromAccountId
       ) {
+        const checkLatestBalanceRes = await checkLatestFromTokenBalance(
+          data.fromTokenInfo,
+          data.fromAmount,
+        );
+        if (!checkLatestBalanceRes) {
+          throw new OneKeyError('checkLatestFromTokenBalance failed');
+        }
         if (swapStepsRef.current.preSwapData.swapBuildResultData) {
           return swapStepsRef.current.preSwapData.swapBuildResultData;
         }
@@ -2053,6 +2094,7 @@ export function useSwapBuildTx() {
       fromAccountNetworkId,
       fromAccountId,
       setSwapSteps,
+      checkLatestFromTokenBalance,
       checkOtherFee,
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
@@ -2221,6 +2263,13 @@ export function useSwapBuildTx() {
       ) {
         const selectQuoteRes = cloneDeep(data);
         if (selectQuoteRes.swapShouldSignedData && fromAccountId) {
+          const checkLatestBalanceRes = await checkLatestFromTokenBalance(
+            selectQuoteRes.fromTokenInfo,
+            data.fromAmount,
+          );
+          if (!checkLatestBalanceRes) {
+            throw new OneKeyError('checkLatestFromTokenBalance failed');
+          }
           const {
             unSignedInfo,
             unSignedMessage,
@@ -2404,6 +2453,7 @@ export function useSwapBuildTx() {
     },
     [
       buildTxNew,
+      checkLatestFromTokenBalance,
       slippageItem,
       fromAccountId,
       fromUserAddress,
