@@ -35,9 +35,13 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   const width = gtSm ? DESKTOP_WIDTH : pageWidth;
   const height = isDesktop ? width * DESKTOP_ASPECT_RATIO : pageWidth;
   const shouldLoop = step === 2;
+  const renderMode =
+    platformEnv.isNativeIOS && step === 2 && themeVariant !== 'dark'
+      ? 'HARDWARE'
+      : 'AUTOMATIC';
 
   return (
-    <Stack w={width} h={height} alignSelf="center">
+    <Stack w={width} h={height} alignSelf="center" bg="$bgApp">
       <LottieView
         source={lottieSource}
         width={width}
@@ -45,7 +49,8 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
         autoPlay
         loop={shouldLoop}
         resizeMode="contain"
-        renderMode="AUTOMATIC"
+        renderMode={renderMode}
+        backgroundColor="$bgApp"
       />
     </Stack>
   );
