@@ -158,10 +158,10 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         color={accent}
         peakAlpha={0.22}
         gradientEdgePct={65}
-        xKeyframes={[0, -100, 80, 0]}
-        yKeyframes={[0, 140, 70, 0]}
-        scaleKeyframes={[1, 1.18, 0.88, 1]}
-        durationMs={12_000}
+        xKeyframes={[0, -65, 50, 0]}
+        yKeyframes={[0, 90, 50, 0]}
+        scaleKeyframes={[1, 1.12, 0.92, 1]}
+        durationMs={15_000}
       />
       <Orb
         size={300}
@@ -170,10 +170,10 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         color={blue}
         peakAlpha={0.09}
         gradientEdgePct={70}
-        xKeyframes={[0, 130, 50, 0]}
-        yKeyframes={[0, -100, 130, 0]}
-        scaleKeyframes={[1, 1.22, 0.82, 1]}
-        durationMs={16_000}
+        xKeyframes={[0, 85, 35, 0]}
+        yKeyframes={[0, -65, 85, 0]}
+        scaleKeyframes={[1, 1.15, 0.88, 1]}
+        durationMs={20_000}
       />
       <Orb
         size={240}
@@ -182,11 +182,11 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         color={accent}
         peakAlpha={0.08}
         gradientEdgePct={70}
-        xKeyframes={[0, -160, 0]}
-        yKeyframes={[0, -80, 0]}
-        scaleKeyframes={[0.85, 1.12, 0.85]}
-        opacityKeyframes={[0.6, 1, 0.6]}
-        durationMs={20_000}
+        xKeyframes={[0, -105, 0]}
+        yKeyframes={[0, -55, 0]}
+        scaleKeyframes={[0.9, 1.08, 0.9]}
+        opacityKeyframes={[0.65, 1, 0.65]}
+        durationMs={25_000}
       />
     </Animated.View>
   );
