@@ -1,0 +1,87 @@
+// apps/mobile/plugins/__tests__/segmentSerializer.rewriteAsyncPaths.test.js
+const {
+  rewriteAsyncPathsInModules,
+} = require('../segmentSerializer.rewriteAsyncPaths');
+
+// Simulates Metro's serialized output for one module that does
+//   import('@onekeyhq/kit/src/views/Receive/pages/ReceiveToken')
+// with module id 777, before Step 10 rewrite.
+function makeModuleWithUnrewrittenPaths(modId, asyncIds) {
+  const pathsObject = asyncIds
+    .map(
+      (id) =>
+        `"${id}":"/packages/kit/src/views/X${id}/index.bundle?modulesOnly=true&runModule=false"`,
+    )
+    .join(',');
+  return [
+    modId,
+    `__d(function (g, r, i, a, m, e, d) { asyncRequire(${asyncIds[0]}, {${pathsObject}}); }, ${modId}, [${asyncIds.join(',')}]);`,
+  ];
+}
+
+describe('rewriteAsyncPathsInModules', () => {
+  it('replaces every async-id value with its seg: key', () => {
+    const moduleToSegment = new Map([
+      [777, 'seg:kit.views.Receive.pages.ReceiveToken'],
+      [791, 'seg:kit.views.ScanQrCode.pages.ScanQrCodeModal'],
+    ]);
+    const modules = [
+      makeModuleWithUnrewrittenPaths(1000, [777]),
+      makeModuleWithUnrewrittenPaths(1001, [791]),
+    ];
+
+    rewriteAsyncPathsInModules(modules, moduleToSegment);
+
+    expect(modules[0][1]).toContain(
+      '"777":"seg:kit.views.Receive.pages.ReceiveToken"',
+    );
+    expect(modules[0][1]).not.toContain('ReceiveToken.bundle');
+    expect(modules[1][1]).toContain(
+      '"791":"seg:kit.views.ScanQrCode.pages.ScanQrCodeModal"',
+    );
+  });
+
+  it('is idempotent — already-rewritten modules are not double-rewritten', () => {
+    const moduleToSegment = new Map([[777, 'seg:foo']]);
+    const modules = [[1000, '__d(function(){asyncRequire(777,{"777":"seg:foo"});},1000,[777]);']];
+
+    const before = modules[0][1];
+    rewriteAsyncPathsInModules(modules, moduleToSegment);
+
+    expect(modules[0][1]).toBe(before);
+  });
+
+  it('skips entries with non-string module code (defensive)', () => {
+    const moduleToSegment = new Map([[777, 'seg:foo']]);
+    const modules = [
+      [1000, null],
+      [1001, undefined],
+      [1002, 42],
+    ];
+    expect(() => rewriteAsyncPathsInModules(modules, moduleToSegment)).not.toThrow();
+  });
+
+  it('does nothing when moduleToSegment is empty', () => {
+    const modules = [makeModuleWithUnrewrittenPaths(1000, [777])];
+    const before = modules[0][1];
+    rewriteAsyncPathsInModules(modules, new Map());
+    expect(modules[0][1]).toBe(before);
+  });
+
+  it('matches paths that appear with both `{ "id":` and `, "id":` prefix shapes', () => {
+    const moduleToSegment = new Map([[777, 'seg:foo']]);
+    const modules = [
+      [
+        1000,
+        `__d(fn,1000,[777]); /* sentinel */ var p = {"777":"/x/y.bundle?modulesOnly=true&runModule=false","999":"/z.bundle"};`,
+      ],
+      [
+        1001,
+        `__d(fn,1001,[777]); var q = {"a":1,"777":"/x/y.bundle?modulesOnly=true&runModule=false"};`,
+      ],
+    ];
+    rewriteAsyncPathsInModules(modules, moduleToSegment);
+    expect(modules[0][1]).toContain('"777":"seg:foo"');
+    expect(modules[1][1]).toContain('"777":"seg:foo"');
+  });
+});
