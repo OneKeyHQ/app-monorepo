@@ -818,4 +818,43 @@ describe('scanSegmentForUnrewrittenAsyncPaths', () => {
              "3904":"/b.bundle?modulesOnly=true&runModule=false"};`;
     expect(scanSegmentForUnrewrittenAsyncPaths(segJs)).toHaveLength(2);
   });
+
+  it('flags only the unrewritten paths in a segment that mixes both shapes', () => {
+    const segJs = `__d(fn,2500,[100,200,777,3904]);
+      var p={
+        "100":"seg:already.rewritten.foo",
+        "200":"seg:already.rewritten.bar",
+        "777":"/packages/kit/src/views/Receive/pages/ReceiveToken.bundle?modulesOnly=true&runModule=false",
+        "3904":"/packages/kit/src/views/Send/pages/SendConfirm/SendConfirmContainer.bundle?modulesOnly=true&runModule=false"
+      };`;
+    const violations = scanSegmentForUnrewrittenAsyncPaths(segJs);
+    expect(violations).toHaveLength(2);
+    expect(violations.map((v) => v.moduleId).toSorted()).toEqual([
+      '3904',
+      '777',
+    ]);
+    expect(
+      violations.every((v) =>
+        v.url.includes('.bundle?modulesOnly=true&runModule=false'),
+      ),
+    ).toBe(true);
+  });
+
+  it('resets regex lastIndex so back-to-back calls return identical results', () => {
+    const segJs =
+      '__d(fn,2500,[777]);var p={"777":"/p/q.bundle?modulesOnly=true&runModule=false"};';
+    const a = scanSegmentForUnrewrittenAsyncPaths(segJs);
+    const b = scanSegmentForUnrewrittenAsyncPaths(segJs);
+    expect(a).toEqual(b);
+    expect(a).toHaveLength(1);
+  });
+
+  it('does not match when query params are reordered (Metro emits a stable order; this guard pins it)', () => {
+    // If Metro ever flips the order, this test will fail and force a deliberate
+    // decision: widen the regex or update the expected order. Either way it
+    // surfaces the change instead of silently passing the regression.
+    const segJs =
+      '__d(fn,2500,[777]);var p={"777":"/x.bundle?runModule=false&modulesOnly=true"};';
+    expect(scanSegmentForUnrewrittenAsyncPaths(segJs)).toEqual([]);
+  });
 });

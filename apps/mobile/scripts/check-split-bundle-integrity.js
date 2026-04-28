@@ -134,6 +134,11 @@ function parseModuleDefs(segmentJs) {
  * `.bundle?modulesOnly=true&runModule=false`, so unrelated `.bundle`
  * strings (e.g. CDN URLs) do not false-positive.
  */
+// Note: unlike segmentSerializer.rewriteAsyncPaths (which uses
+// "(?:[^"\\]|\\.)*" to tolerate escaped quotes inside arbitrary module
+// code), here we only match Metro async-require URL string values —
+// those never contain a literal " or \". Keeping the matcher narrow
+// avoids false positives on unrelated code.
 const UNREWRITTEN_ASYNC_PATH = /"(\d+)"\s*:\s*"(\/[^"]*\.bundle\?modulesOnly=true&runModule=false)"/g;
 
 function scanSegmentForUnrewrittenAsyncPaths(segmentJs) {
@@ -483,6 +488,9 @@ function printViolations(violations) {
     if (unrewrittenAsync.length > 10) {
       console.error(`  ... and ${unrewrittenAsync.length - 10} more`);
     }
+    console.error(
+      `  Fix: ensure apps/mobile/plugins/segmentSerializer.js routes these IDs through rewriteAsyncPathsInModules (Step 7 segment-write loop). The serializer must never emit a Metro '.bundle?modulesOnly=true' URL for an id that lives in a segment.`,
+    );
   }
 }
 
@@ -567,7 +575,7 @@ function main() {
 
   console.error('');
   console.error(
-    '[check-split-bundle-integrity] FAIL — split-bundle integrity violations (cross-segment sync or orphan deps):',
+    '[check-split-bundle-integrity] FAIL — split-bundle integrity violations (cross-segment sync, orphan deps, or unrewritten async paths):',
   );
   console.error('');
   printViolations(allViolations);
