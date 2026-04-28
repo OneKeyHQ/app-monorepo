@@ -5,6 +5,7 @@ import {
 
 import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/kit-bg/src/apis/backgroundApiPermissions';
 import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -787,8 +788,32 @@ appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
   webEmbedReadyWaiters.splice(0).forEach((cb) => cb());
 });
 
+// Backstop for the (rare) case where main missed the broadcasted
+// `LoadWebEmbedWebViewComplete` — e.g. event fired before our cross-thread
+// observer was wired, or some future refactor delays observer install. Ask
+// BG for the canonical `isWebEmbedApiReady` flag once, and if BG says ready
+// we mark local ready and stop blocking. Mirrors the original
+// `WebembedApiProxy.waitRemoteApiReady → isSDKReady` short-circuit.
+async function checkBackgroundWebEmbedReady(): Promise<boolean> {
+  try {
+    const bgApiProxy = appGlobals?.$backgroundApiProxy;
+    const ready = await bgApiProxy?.serviceDApp?.isWebEmbedApiReady?.();
+    if (ready) {
+      webEmbedReady = true;
+      webEmbedReadyWaiters.splice(0).forEach((cb) => cb());
+      return true;
+    }
+  } catch {
+    // RPC failed (transport not yet up, or BG side error). Fall through to
+    // event-wait path; it'll either succeed when the event arrives or time
+    // out with a clear error.
+  }
+  return false;
+}
+
 async function awaitWebEmbedReady(timeoutMs: number): Promise<void> {
   if (webEmbedReady) return;
+  if (await checkBackgroundWebEmbedReady()) return;
   await new Promise<void>((resolve, reject) => {
     const onReady = () => {
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
