@@ -266,7 +266,7 @@ function TxFeeInfo(props: IProps) {
       ]);
     }, [accountId, networkId]);
 
-  const { result, run, setResult } = usePromiseResult(
+  const { result, run, setResult, setStopPolling } = usePromiseResult(
     async () => {
       const staleResult = {
         r: undefined,
@@ -734,13 +734,35 @@ function TxFeeInfo(props: IProps) {
           return staleResult;
         }
 
+        const apiError = e as IOneKeyError;
+        // Server-driven stop: when the backend marks an error with
+        // `stopPolling: true` (e.g. allowance shortage, expired swap quote),
+        // retrying with the same input will keep failing. Pause future ticks
+        // so the message stays visible without spamming the endpoint. Polling
+        // auto-resumes when deps (unsignedTxs/accountId/...) change.
+        if (apiError?.data?.stopPolling === true) {
+          // Suppress the global error toast — the inline fee error already
+          // carries the same message and stays visible after polling stops,
+          // so a transient toast on top would be redundant. Mirrors the
+          // sponsor-fallback branches above.
+          apiError.autoToast = false;
+          setStopPolling(true);
+        }
+
         updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
+          // Inner JSON-RPC error first so `execution reverted: ...` from the
+          // upstream node survives the OneKey API response wrapper — the outer
+          // `translatedMessage/message` is generic server-side packaging text
+          // and would otherwise hide the real RPC failure reason from the user.
           errMessage:
             (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
               ?.message ??
+            apiError?.data?.translatedMessage ??
+            apiError?.data?.message ??
+            apiError?.message ??
             (e as Error).message ??
             e,
         });
@@ -1752,12 +1774,26 @@ function TxFeeInfo(props: IProps) {
   }, [feeSelectorItems]);
 
   useEffect(() => {
-    const callback = () => run();
+    const callback = () => {
+      // setStopPolling(false) clears any prior server-driven stop AND
+      // resurrects the polling chain (the finally-block guard kills it once
+      // stopPollingRef flips true). It returns true in that case, meaning a
+      // fresh run already fired — so we must NOT call run() again or we'd
+      // race two concurrent estimateFee requests against the backend
+      // (vault.estimateFee doesn't accept the AbortController signal, so
+      // cancellation isn't reliable). When no stop was active, the explicit
+      // run() still covers gas-account fallback paths that emit the same
+      // event without ever stopping the chain.
+      const resumed = setStopPolling(false);
+      if (!resumed) {
+        void run();
+      }
+    };
     appEventBus.on(EAppEventBusNames.EstimateTxFeeRetry, callback);
     return () => {
       appEventBus.off(EAppEventBusNames.EstimateTxFeeRetry, callback);
     };
-  }, [run]);
+  }, [run, setStopPolling]);
 
   useEffect(() => {
     if (currentTxUuid) {
