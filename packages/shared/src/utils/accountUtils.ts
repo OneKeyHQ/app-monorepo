@@ -1247,6 +1247,10 @@ const validDeriveTypesList: IAccountDeriveTypes[] = [
   'kaspaOfficial',
 ] as const satisfies IAccountDeriveTypes[];
 
+type AssertAllPresent<T extends readonly IAccountDeriveTypes[]> =
+  IAccountDeriveTypes extends T[number] ? true : never;
+const _exhaustiveCheck: AssertAllPresent<typeof validDeriveTypesList> = true;
+
 function normalizeDeriveType(
   deriveType: string,
 ): IAccountDeriveTypes | undefined {
