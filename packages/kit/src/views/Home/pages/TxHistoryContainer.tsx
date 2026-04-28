@@ -69,7 +69,7 @@ function TxHistoryListContainer(
   // when a modal is presented above Home, or when the app is locked. Combined
   // below with `isFocused` (inner Home-tab) so app-resume only refreshes when
   // the user is actually looking at this list.
-  const isPageFocused = useRouteIsFocused();
+  const isRouteFocused = useRouteIsFocused();
 
   const {
     updateSearchKey,
@@ -430,12 +430,12 @@ function TxHistoryListContainer(
 
   useEffect(() => {
     const removeSubscription = onVisibilityStateChange((visible) => {
-      if (visible && isFocused && isPageFocused) {
+      if (visible && isFocused && isRouteFocused) {
         handleRefreshOnVisibilityActive();
       }
     });
     return removeSubscription;
-  }, [handleRefreshOnVisibilityActive, isFocused, isPageFocused]);
+  }, [handleRefreshOnVisibilityActive, isFocused, isRouteFocused]);
 
   useEffect(() => {
     const refresh = () => {
