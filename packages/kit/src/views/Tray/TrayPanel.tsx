@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ScrollView, Stack } from '@onekeyhq/components';
 import {
+  type IPendingTx,
   type ITrayAction,
   type ITrayData,
   type ITrayWatchlistItem,
@@ -47,6 +48,16 @@ export function TrayPanel() {
 
   const handleViewAllTransactions = useCallback(() => {
     sendTrayAction({ type: 'view-all-transactions' });
+  }, []);
+
+  const handleTransactionPress = useCallback((tx: IPendingTx) => {
+    sendTrayAction({
+      type: 'transaction-detail',
+      txid: tx.id,
+      historyId: tx.historyId,
+      accountId: tx.accountId,
+      networkId: tx.networkId,
+    });
   }, []);
 
   const handleTickerPress = useCallback((ticker: ITrayWatchlistItem) => {
@@ -113,7 +124,7 @@ export function TrayPanel() {
           />
           <PendingTransactions
             transactions={data.pendingTxs}
-            onTxPress={(txId) => handleNavigate(`/transaction/${txId}`)}
+            onTxPress={handleTransactionPress}
             onViewAll={handleViewAllTransactions}
           />
         </ScrollView>
