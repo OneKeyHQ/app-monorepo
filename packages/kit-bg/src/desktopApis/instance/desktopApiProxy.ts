@@ -1,5 +1,6 @@
 /* eslint-disable no-restricted-syntax */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { unwrapElectronIpcError } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
 import platformEnvLite from '@onekeyhq/shared/src/platformEnvLite';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
@@ -41,12 +42,19 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
   }): Promise<any> {
     const { module, method, params } = options;
     // Use contextBridge-exposed desktopApiBridge (invoke-based, no JsBridge needed)
-    const result: unknown = await globalThis.desktopApiBridge.call(
-      module as string,
-      method,
-      ...params,
-    );
-    return result;
+    try {
+      const result: unknown = await globalThis.desktopApiBridge.call(
+        module as string,
+        method,
+        ...params,
+      );
+      return result;
+    } catch (e) {
+      // Strip Electron's `"Error invoking remote method '...': <payload>"`
+      // envelope so callers see the main-process error message verbatim
+      // (including i18n keys that downstream code formats via intl).
+      throw unwrapElectronIpcError(e);
+    }
   }
 
   system: DesktopApiSystem = this._createProxyModule<IDesktopApiKeys>('system');

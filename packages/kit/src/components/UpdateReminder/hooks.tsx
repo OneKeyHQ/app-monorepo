@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { resolveErrorI18nMessage } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ISoftwareUpdateParams } from '@onekeyhq/shared/src/logger/scopes/app/scenes/appUpdate';
@@ -335,11 +336,11 @@ export const useDownloadPackage = () => {
         if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
           onFail();
         } else if (showToastError) {
-          Toast.error({ title: (e as Error).message });
+          Toast.error({ title: resolveErrorI18nMessage(e, intl) });
         }
       }
     },
-    [getFileTypeFromUpdateInfo],
+    [getFileTypeFromUpdateInfo, intl],
   );
 
   const showSilentUpdateDialog = useCallback(() => {
