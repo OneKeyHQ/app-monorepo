@@ -103,7 +103,12 @@ describe('Secret Module Tests', () => {
       .mockImplementation(getDeterministicRandomBytes);
     if (globalThis.crypto) {
       originalGlobalRandomBytes = (globalThis.crypto as any).randomBytes;
-      originalGlobalGetRandomValues = globalThis.crypto.getRandomValues;
+      // .bind() so the captured reference keeps the original `this` (the
+      // crypto object) when we reassign it back in afterAll. Bare reference
+      // capture trips typescript-eslint(unbound-method).
+      originalGlobalGetRandomValues = globalThis.crypto.getRandomValues.bind(
+        globalThis.crypto,
+      );
       (globalThis.crypto as any).randomBytes = (crypto as any).randomBytes;
       (globalThis.crypto as any).getRandomValues = (array: Uint8Array) => {
         const bytes = getDeterministicRandomBytes(array.length);
