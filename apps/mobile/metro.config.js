@@ -42,9 +42,9 @@ config.resolver.nodeModulesPaths = Array.from(
 
 // When running under React Native Harness, set unstable_serverRoot to the monorepo root
 // so Metro can resolve test files from packages/ (e.g. packages/shared/src/**/*.test.ts).
-// Rewrite the Expo virtual metro entry to apps/mobile/harness-entry.js (a thin wrapper
-// that require('./index.ts')). The harness resolver intercepts that require and replaces
-// it with the harness runtime entry point.
+// Rewrite app entry bundle requests to apps/mobile/harness-entry.js (a thin wrapper
+// that require('./index.ts')). The harness config must still keep entryPoint='./index.ts'
+// so the harness resolver can replace that require with the runtime entry point.
 if (process.env.RN_HARNESS === 'true') {
   config.server = config.server || {};
   config.server.unstable_serverRoot = monorepoRoot;
@@ -67,7 +67,11 @@ if (process.env.RN_HARNESS === 'true') {
     //   /../../packages/core/x.bundle -> /packages/core/x.bundle
     const bundleMatch = url.match(/^(\/[^?]*\.bundle)(.*)/);
     if (bundleMatch) {
-      const normalized = path.posix.normalize(`/apps/mobile${bundleMatch[1]}`);
+      let bundlePath = bundleMatch[1];
+      if (bundlePath === '/index.bundle') {
+        bundlePath = '/harness-entry.bundle';
+      }
+      const normalized = path.posix.normalize(`/apps/mobile${bundlePath}`);
       // oxlint-disable-next-line no-param-reassign
       url = normalized + bundleMatch[2];
     }
