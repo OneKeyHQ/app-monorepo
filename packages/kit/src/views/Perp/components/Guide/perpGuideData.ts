@@ -49,6 +49,11 @@ export const PERP_GUIDE_CATEGORIES: IPerpGuideCategory[] = [
     titleId: ETranslations.perp_guide_trading_operations,
     articles: [
       {
+        titleId: ETranslations.perp_guide_article_spot_trading,
+        descriptionId: ETranslations.perp_guide_desc_spot_trading,
+        articleId: '14737659',
+      },
+      {
         titleId: ETranslations.perp_guide_article_open_position,
         descriptionId: ETranslations.perp_guide_desc_open_position,
         articleId: '13988742',
