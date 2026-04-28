@@ -694,6 +694,8 @@ export interface IEarnProtocolIntroAudit {
   name?: IEarnProtocolIntroText;
   auditor?: IEarnProtocolIntroText;
   date?: IEarnProtocolIntroText;
+  scope?: IEarnProtocolIntroText;
+  description?: IEarnProtocolIntroText;
   auditorLogoUrl?: string;
   logoURI?: string;
   url?: string;

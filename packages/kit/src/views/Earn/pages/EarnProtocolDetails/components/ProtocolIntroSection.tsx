@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
+  Accordion,
   Button,
   Dialog,
   Divider,
@@ -11,9 +12,14 @@ import {
   Image,
   ScrollView,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -711,6 +717,18 @@ function getAuditTitle(audit?: IEarnProtocolIntroAudit) {
   return audit?.title || audit?.name || audit?.auditor;
 }
 
+function getAuditScope(audit?: IEarnProtocolIntroAudit) {
+  return audit?.scope || audit?.description;
+}
+
+function FallbackAvatar({ size = 30 }: { size?: number }) {
+  return (
+    <XStack w={size} h={size} ai="center" jc="center" flexShrink={0}>
+      <Icon name="UserAvatarFallbackColored" width={size} height={size} />
+    </XStack>
+  );
+}
+
 function MemberAvatar({ member }: { member: IEarnProtocolIntroTeamMember }) {
   const avatar = getMemberAvatar(member);
   if (avatar) {
@@ -718,19 +736,7 @@ function MemberAvatar({ member }: { member: IEarnProtocolIntroTeamMember }) {
       <Image w={30} h={30} borderRadius="$full" src={avatar} flexShrink={0} />
     );
   }
-  return (
-    <XStack
-      w={30}
-      h={30}
-      borderRadius="$full"
-      bg="$bgStrong"
-      ai="center"
-      jc="center"
-      flexShrink={0}
-    >
-      <Icon name="PeopleOutline" size="$4" color="$iconSubdued" />
-    </XStack>
-  );
+  return <FallbackAvatar />;
 }
 
 function MemberSocialIcon({ link }: { link: IEarnProtocolIntroSocialLink }) {
@@ -810,17 +816,43 @@ function PreviewCountBadge({ count }: { count: number }) {
   );
 }
 
+function PreviewCellIcon({
+  imageUrl,
+  fallbackIcon,
+}: {
+  imageUrl?: string | null;
+  fallbackIcon?: IKeyOfIcons;
+}) {
+  if (imageUrl) {
+    return (
+      <Image w={30} h={30} borderRadius="$full" src={imageUrl} flexShrink={0} />
+    );
+  }
+
+  if (fallbackIcon) {
+    return (
+      <XStack w={30} h={30} ai="center" jc="center" flexShrink={0}>
+        <Icon name={fallbackIcon} width={30} height={30} />
+      </XStack>
+    );
+  }
+
+  return null;
+}
+
 function PreviewCell({
   title,
   value,
   count,
   imageUrl,
+  fallbackIcon,
   onPress,
 }: {
   title?: IEarnProtocolIntroText;
   value?: IEarnProtocolIntroText;
   count: number;
   imageUrl?: string | null;
+  fallbackIcon?: IKeyOfIcons;
   onPress: () => void;
 }) {
   if (!hasText(title) || !hasText(value)) {
@@ -831,15 +863,7 @@ function PreviewCell({
     <YStack flex={1} minWidth={176} pr="$2" gap="$2">
       <EarnText text={toEarnText(title)} size="$bodyMd" color="$textSubdued" />
       <XStack ai="center" gap="$2" cursor="pointer" onPress={onPress}>
-        {imageUrl ? (
-          <Image
-            w={30}
-            h={30}
-            borderRadius="$full"
-            src={imageUrl}
-            flexShrink={0}
-          />
-        ) : null}
+        <PreviewCellIcon imageUrl={imageUrl} fallbackIcon={fallbackIcon} />
         <EarnText
           text={toEarnText(value)}
           size="$bodyLgMedium"
@@ -896,6 +920,7 @@ function PreviewGrid({
         title={team?.title || team?.button?.data?.title}
         value={getMemberName(teamPreview || teamMembers[0])}
         imageUrl={getMemberAvatar(teamMembers[0] || teamPreview || {})}
+        fallbackIcon="UserAvatarFallbackColored"
         count={teamMembers.length || (team?.items?.length ?? 0)}
         onPress={onShowTeam}
       />
@@ -991,10 +1016,38 @@ function InvestorsDialogContent({
   );
 }
 
-function AuditRow({ audit }: { audit: IEarnProtocolIntroAudit }) {
+function AuditLogo({ audit }: { audit: IEarnProtocolIntroAudit }) {
+  const logoURI = audit.auditorLogoUrl || audit.logoURI;
+
+  if (logoURI) {
+    return <Image w="$5" h="$5" borderRadius="$full" src={logoURI} />;
+  }
+
+  return (
+    <XStack
+      w="$5"
+      h="$5"
+      borderRadius="$full"
+      bg="$bgStrong"
+      ai="center"
+      jc="center"
+    >
+      <Icon name="ShieldCheckDoneOutline" size="$3.5" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
+function AuditAccordionItem({
+  audit,
+  index,
+}: {
+  audit: IEarnProtocolIntroAudit;
+  index: number;
+}) {
   const intl = useIntl();
   const url = getLinkUrl(audit.button) || audit.url;
-  const logoURI = audit.auditorLogoUrl || audit.logoURI;
+  const scope = getAuditScope(audit);
+  const hasContent = hasText(scope) || Boolean(url);
   const handleOpen = useCallback(() => {
     if (url) {
       openUrlExternal(url);
@@ -1002,45 +1055,94 @@ function AuditRow({ audit }: { audit: IEarnProtocolIntroAudit }) {
   }, [url]);
 
   return (
-    <XStack ai="center" gap="$3">
-      {logoURI ? (
-        <Image w="$8" h="$8" borderRadius="$2" src={logoURI} />
-      ) : (
-        <XStack
-          w="$8"
-          h="$8"
-          borderRadius="$2"
-          bg="$bgStrong"
-          ai="center"
-          jc="center"
-        >
-          <Icon name="ShieldCheckDoneOutline" size="$5" color="$iconSubdued" />
-        </XStack>
-      )}
-      <YStack flex={1} minWidth={0}>
-        <EarnText
-          text={toEarnText(getAuditTitle(audit))}
-          size="$bodyLgMedium"
-          numberOfLines={1}
-        />
-        <EarnText
-          text={toEarnText(audit.date)}
-          size="$bodySm"
-          color="$textSubdued"
-        />
-      </YStack>
-      {url ? (
-        <Button
-          size="small"
-          variant="tertiary"
-          iconAfter="OpenOutline"
-          onPress={handleOpen}
-        >
-          {getText(audit.button?.title) ||
-            intl.formatMessage({ id: ETranslations.global_view })}
-        </Button>
+    <Accordion.Item value={String(index)}>
+      <Accordion.Trigger
+        unstyled
+        flexDirection="row"
+        alignItems="center"
+        borderWidth={0}
+        bg="$transparent"
+        p="$0"
+        hoverStyle={{
+          bg: '$transparent',
+        }}
+        pressStyle={{
+          bg: '$transparent',
+        }}
+      >
+        {({ open }: { open: boolean }) => (
+          <>
+            <XStack flex={1} minWidth={0} gap="$1.5" ai="center">
+              <AuditLogo audit={audit} />
+              <EarnText
+                text={toEarnText(getAuditTitle(audit))}
+                size="$bodyMdMedium"
+                color="$text"
+                numberOfLines={1}
+              />
+            </XStack>
+            <EarnText
+              text={toEarnText(audit.date)}
+              size="$bodyMd"
+              color="$textSubdued"
+              flex={1}
+              minWidth={0}
+              numberOfLines={1}
+            />
+            <XStack flex={1} jc="flex-end">
+              <Stack
+                animation="quick"
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
+                rotate={open ? '180deg' : '0deg'}
+              >
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  color={open ? '$iconActive' : '$iconSubdued'}
+                  size="$5"
+                />
+              </Stack>
+            </XStack>
+          </>
+        )}
+      </Accordion.Trigger>
+      {hasContent ? (
+        <Accordion.HeightAnimator animation="quick">
+          <Accordion.Content
+            unstyled
+            pt="$3"
+            pb="$4"
+            animation="100ms"
+            animateOnly={ANIMATE_ONLY_OPACITY}
+            enterStyle={{ opacity: 0 }}
+            exitStyle={{ opacity: 0 }}
+          >
+            <XStack gap="$3" ai="flex-start">
+              {hasText(scope) ? (
+                <EarnText
+                  text={toEarnText(scope)}
+                  size="$bodyMd"
+                  color="$text"
+                  flex={1}
+                />
+              ) : (
+                <YStack flex={1} />
+              )}
+              {url ? (
+                <Button
+                  size="small"
+                  variant="secondary"
+                  borderRadius="$full"
+                  onPress={handleOpen}
+                >
+                  {getText(audit.button?.title) ||
+                    intl.formatMessage({ id: ETranslations.global_view })}
+                </Button>
+              ) : null}
+            </XStack>
+          </Accordion.Content>
+        </Accordion.HeightAnimator>
       ) : null}
-    </XStack>
+    </Accordion.Item>
   );
 }
 
@@ -1050,15 +1152,15 @@ function AuditsDialogContent({ audits }: { audits: IEarnProtocolIntroAudits }) {
   const descriptions = audits.button?.data?.description;
   return (
     <YStack gap="$4">
-      {auditItems.map((audit, index) => (
-        <YStack
-          key={`${getText(getAuditTitle(audit)) || 'audit'}-${index}`}
-          gap="$4"
-        >
-          <AuditRow audit={audit} />
-          {index !== auditItems.length - 1 ? <Divider /> : null}
-        </YStack>
-      ))}
+      <Accordion type="single" collapsible defaultValue="0">
+        {auditItems.map((audit, index) => (
+          <AuditAccordionItem
+            key={`${getText(getAuditTitle(audit)) || 'audit'}-${index}`}
+            audit={audit}
+            index={index}
+          />
+        ))}
+      </Accordion>
       {descriptions?.map((description, index) => (
         <EarnText
           key={`${getText(description) || 'description'}-${index}`}
@@ -1095,6 +1197,10 @@ function ProtocolIntroSectionComponent({
       ? protocolInfo
       : protocolInfo?.items;
     return (items ?? []).filter(hasProtocolIntroItemContent);
+  }, [protocolInfo]);
+
+  useEffect(() => {
+    setSelectedIndex(0);
   }, [protocolInfo]);
 
   const selectedItem = protocolItems[selectedIndex] ?? protocolItems[0];
