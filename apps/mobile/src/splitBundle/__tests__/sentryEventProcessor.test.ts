@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
+
 import {
   buildSplitBundleEventProcessor,
   installSplitBundleSentryEventProcessor,
@@ -45,9 +47,6 @@ describe('split-bundle Sentry event processor', () => {
   });
 
   it('falls back to "unknown" when bundleVersion getter throws', () => {
-    const {
-      OneKeyLocalError,
-    } = require('@onekeyhq/shared/src/errors/errors/localError');
     const processor = buildSplitBundleEventProcessor(() => {
       throw new OneKeyLocalError('platformEnv died');
     });

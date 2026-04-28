@@ -4,6 +4,7 @@ const {
   buildModuleIndex,
   buildModuleIndexFromManifest,
   buildEagerIdSet,
+  scanSegmentForUnrewrittenAsyncPaths,
 } = require('../check-split-bundle-integrity');
 
 // ---------------------------------------------------------------------------
@@ -787,10 +788,6 @@ describe('integration: cross-segment sync edge detection', () => {
     });
   });
 });
-
-const {
-  scanSegmentForUnrewrittenAsyncPaths,
-} = require('../check-split-bundle-integrity');
 
 describe('scanSegmentForUnrewrittenAsyncPaths', () => {
   it('returns empty for a fully-rewritten segment', () => {
