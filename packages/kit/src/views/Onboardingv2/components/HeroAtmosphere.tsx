@@ -156,7 +156,7 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         top={120}
         right={-120}
         color={accent}
-        peakAlpha={0.22}
+        peakAlpha={0.15}
         gradientEdgePct={65}
         xKeyframes={[0, -65, 50, 0]}
         yKeyframes={[0, 90, 50, 0]}
@@ -168,7 +168,7 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         bottom={200}
         left={-140}
         color={blue}
-        peakAlpha={0.09}
+        peakAlpha={0.06}
         gradientEdgePct={70}
         xKeyframes={[0, 85, 35, 0]}
         yKeyframes={[0, -65, 85, 0]}
@@ -180,7 +180,7 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         top="45%"
         left="40%"
         color={accent}
-        peakAlpha={0.08}
+        peakAlpha={0.05}
         gradientEdgePct={70}
         xKeyframes={[0, -105, 0]}
         yKeyframes={[0, -55, 0]}
