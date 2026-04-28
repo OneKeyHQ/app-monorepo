@@ -60,22 +60,22 @@ function getItemTitle(item?: IEarnProtocolIntroItem) {
   return item?.title || item?.displayName || item?.name;
 }
 
-const protocolTypeLabelMap: Record<string, string> = {
-  complex_earn: 'Yield strategy',
-  complex_protocol: 'Yield strategy',
-  nested_earn: 'Yield strategy',
-  pendle: 'Yield strategy',
-  simple_earn: 'Underlying asset',
-  simple_protocol: 'Underlying asset',
-  strategy: 'Yield strategy',
-  underlying: 'Underlying asset',
-  underlying_asset: 'Underlying asset',
-  yield_strategy: 'Yield strategy',
+const protocolTypeLabelMap: Record<string, ETranslations> = {
+  complex_earn: ETranslations.earn_yield,
+  complex_protocol: ETranslations.earn_yield,
+  nested_earn: ETranslations.earn_yield,
+  pendle: ETranslations.earn_yield,
+  simple_earn: ETranslations.global_asset,
+  simple_protocol: ETranslations.global_asset,
+  strategy: ETranslations.earn_yield,
+  underlying: ETranslations.global_asset,
+  underlying_asset: ETranslations.global_asset,
+  yield_strategy: ETranslations.earn_yield,
 };
 
-const protocolProviderLabelMap: Record<string, string> = {
-  ethena: 'Underlying asset',
-  pendle: 'Yield strategy',
+const protocolProviderLabelMap: Record<string, ETranslations> = {
+  ethena: ETranslations.global_asset,
+  pendle: ETranslations.earn_yield,
 };
 
 const protocolLogoFallbackMap: Record<string, string> = {
@@ -86,12 +86,17 @@ const protocolLogoFallbackMap: Record<string, string> = {
   stakefish: 'https://uni.onekey-asset.com/static/logo/stakefish.png',
 };
 
-function getItemSubtitle(item?: IEarnProtocolIntroItem) {
-  return (
-    item?.role ||
+function getItemSubtitle(
+  item: IEarnProtocolIntroItem | undefined,
+  intl: ReturnType<typeof useIntl>,
+) {
+  const labelId =
     (item?.type ? protocolTypeLabelMap[item.type] : undefined) ||
     (item?.provider ? protocolProviderLabelMap[item.provider] : undefined) ||
-    (item?.slug ? protocolProviderLabelMap[item.slug] : undefined)
+    (item?.slug ? protocolProviderLabelMap[item.slug] : undefined);
+
+  return (
+    item?.role || (labelId ? intl.formatMessage({ id: labelId }) : undefined)
   );
 }
 
@@ -270,6 +275,7 @@ function hasProtocolIntroItemContent(item: IEarnProtocolIntroItem) {
     item.socialLinks?.some((link) => Boolean(getLinkUrl(link))) ||
     item.links?.some((link) => Boolean(getLinkUrl(link))) ||
     item.team?.items?.length ||
+    item.team?.button?.data?.members?.length ||
     item.teamMembers?.items?.length ||
     item.teamMembers?.button?.data?.members?.length ||
     item.investors?.items?.length ||
@@ -525,8 +531,9 @@ function ProtocolTabItem({
   selected: boolean;
   onPress: () => void;
 }) {
+  const intl = useIntl();
   const title = getItemTitle(item);
-  const subtitle = getItemSubtitle(item);
+  const subtitle = getItemSubtitle(item, intl);
 
   return (
     <XStack
@@ -634,7 +641,7 @@ function MetricGrid({ item }: { item: IEarnProtocolIntroItem }) {
         : undefined,
       hasText(item.establishment) || hasText(item.establishmentDate)
         ? {
-            title: 'Establishment',
+            title: intl.formatMessage({ id: ETranslations.global_date }),
             value: item.establishment || item.establishmentDate,
           }
         : undefined,
@@ -675,16 +682,16 @@ function MetricGrid({ item }: { item: IEarnProtocolIntroItem }) {
   );
 }
 
-function getMemberName(member: IEarnProtocolIntroTeamMember) {
-  return member.name || member.title;
+function getMemberName(member?: IEarnProtocolIntroTeamMember) {
+  return member?.name || member?.title;
 }
 
-function getMemberPosition(member: IEarnProtocolIntroTeamMember) {
-  return member.position || member.role || member.description;
+function getMemberPosition(member?: IEarnProtocolIntroTeamMember) {
+  return member?.position || member?.role || member?.description;
 }
 
-function getMemberAvatar(member: IEarnProtocolIntroTeamMember) {
-  return member.avatarUrl || member.avatar || member.logoURI;
+function getMemberAvatar(member?: IEarnProtocolIntroTeamMember) {
+  return member?.avatarUrl || member?.avatar || member?.logoURI;
 }
 
 function getMemberLinks(member: IEarnProtocolIntroTeamMember) {
