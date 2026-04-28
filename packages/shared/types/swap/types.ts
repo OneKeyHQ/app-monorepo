@@ -18,6 +18,7 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type { ICustomPriorityFeeOverride } from '../../src/utils/marketPresetFeeUtils';
 import type {
   IFeeAlgo,
   IFeeCkb,
@@ -118,6 +119,8 @@ export interface ISwapInitParams {
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
+  presetNetworkFeeLevel?: ESwapNetworkFeeLevel;
+  presetCustomPriorityFee?: ICustomPriorityFeeOverride;
 }
 
 // token & network

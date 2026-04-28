@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
@@ -43,6 +43,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSpeedQuoteResultAtom,
+  useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -85,6 +86,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapNetworkFeeLevel,
   ESwapProTradeType,
   ESwapQuoteKind,
   ESwapSelectTokenSource,
@@ -158,6 +160,25 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
+  const [, setSwapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
+  const presetNetworkFeeLevel = swapInitParams?.presetNetworkFeeLevel;
+  const presetCustomPriorityFee = swapInitParams?.presetCustomPriorityFee;
+  useEffect(() => {
+    // One-shot: apply Market preset overrides on mount; reset on unmount so the next
+    // standard Swap session does not inherit them.
+    if (!presetNetworkFeeLevel && !presetCustomPriorityFee) {
+      return;
+    }
+    setSwapStepNetFeeLevel({
+      networkFeeLevel: presetNetworkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM,
+      customPriorityFee: presetCustomPriorityFee,
+    });
+    return () => {
+      setSwapStepNetFeeLevel({
+        networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+      });
+    };
+  }, [presetNetworkFeeLevel, presetCustomPriorityFee, setSwapStepNetFeeLevel]);
   const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
   const [toSelectTokenAtom, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
