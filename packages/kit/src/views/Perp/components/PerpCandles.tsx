@@ -1,13 +1,12 @@
 import { useMemo } from 'react';
 
-import { DebugRenderTracker, Stack, usePageWidth } from '@onekeyhq/components';
+import { DebugRenderTracker, Stack } from '@onekeyhq/components';
 import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
   usePerpsCandlesWebviewReloadHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
@@ -21,7 +20,6 @@ export function PerpCandles({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
-  const width = usePageWidth();
 
   const { displayPair, displayCoin } = useMemo(() => {
     if (
@@ -38,7 +36,7 @@ export function PerpCandles({
   }, [activeTradeInstrument]);
 
   const content = (
-    <Stack w="100%" h="100%" flex={1} pr={6}>
+    <Stack w="100%" h="100%" flex={1}>
       {reloadHook > 0 && activeTradeInstrument.coin ? (
         <TradingViewPerpsV2
           webviewKey={reloadHook.toString()}
@@ -46,7 +44,7 @@ export function PerpCandles({
           symbol={activeTradeInstrument.coin}
           displayPair={displayPair}
           displayCoin={displayCoin}
-          w={platformEnv.isNative ? width : undefined}
+          w="100%"
           onTouchScroll={onTouchScroll}
         />
       ) : null}
