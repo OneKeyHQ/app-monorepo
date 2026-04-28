@@ -25,6 +25,7 @@ import {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { Txns } from '../../components/Txns';
@@ -177,13 +178,16 @@ export const useColumnsDesktop = (
       dataIndex: 'change24h',
       columnProps: { flex: 1 },
       render: (text: number) => {
+        const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
+          priceChange: text,
+        });
         return (
           <NumberSizeableText
             size="$bodyMd"
             formatter="priceChange"
-            color={text >= 0 ? '$textSuccess' : '$textCritical'}
+            color={changeColor}
             formatterOptions={{
-              showPlusMinusSigns: true,
+              showPlusMinusSigns,
             }}
           >
             {text}
