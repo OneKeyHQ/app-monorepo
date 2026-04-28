@@ -1247,9 +1247,15 @@ const validDeriveTypesList: IAccountDeriveTypes[] = [
   'kaspaOfficial',
 ] as const satisfies IAccountDeriveTypes[];
 
-type AssertAllPresent<T extends readonly IAccountDeriveTypes[]> =
-  IAccountDeriveTypes extends T[number] ? true : never;
-const _exhaustiveCheck: AssertAllPresent<typeof validDeriveTypesList> = true;
+// Compile-time guard: ensures every IAccountDeriveTypes member is present in
+// validDeriveTypesList above. On failure, TypeScript names the missing
+// member(s) in the error (e.g. "Type 'never' is not assignable to type 'BIP49'").
+type MissingDeriveTypes<T extends readonly IAccountDeriveTypes[]> = Exclude<
+  IAccountDeriveTypes,
+  T[number]
+>;
+const _exhaustiveCheck: MissingDeriveTypes<typeof validDeriveTypesList> =
+  undefined as never;
 
 function normalizeDeriveType(
   deriveType: string,
