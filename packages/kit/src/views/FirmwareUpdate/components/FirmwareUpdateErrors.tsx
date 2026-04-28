@@ -243,29 +243,6 @@ export function useFirmwareUpdateErrors({
     if (
       isHardwareErrorByCode({
         error,
-        code: [
-          HardwareErrorCode.DeviceNotFound,
-          HardwareErrorCode.WebDeviceNotFoundOrNeedsPermission,
-        ],
-      })
-    ) {
-      return {
-        content: (
-          <CommonError
-            icon="InfoCircleOutline"
-            title={intl.formatMessage({
-              id: ETranslations.onboarding_connect_your_device,
-            })}
-          />
-        ),
-        onRetryHandler: onRetry,
-        retryText: defaultRetryText,
-      };
-    }
-
-    if (
-      isHardwareErrorByCode({
-        error,
         code: HardwareErrorCode.FirmwareUpdateDownloadFailed,
       })
     ) {
@@ -357,6 +334,29 @@ export function useFirmwareUpdateErrors({
               })
             : defaultRetryText,
         // retryText: 'Continue',
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: [
+          HardwareErrorCode.DeviceNotFound,
+          HardwareErrorCode.WebDeviceNotFoundOrNeedsPermission,
+        ],
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="InfoCircleOutline"
+            title={intl.formatMessage({
+              id: ETranslations.onboarding_connect_your_device,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
       };
     }
 

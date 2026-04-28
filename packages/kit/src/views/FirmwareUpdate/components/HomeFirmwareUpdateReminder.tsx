@@ -14,7 +14,6 @@ import {
 } from '@onekeyhq/components';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -111,28 +110,9 @@ function HomeFirmwareUpdateReminderCmp() {
 
   const updateButton = useMemo(() => {
     if (result?.shouldUpdate) {
-      let message = 'New firmware is available';
-      if (result?.detectResult?.toVersion) {
-        const firmwareTypeLabel =
-          deviceUtils.getFirmwareTypeLabelByFirmwareType({
-            firmwareType: result?.detectResult?.toFirmwareType,
-            displayFormat: 'withSpace',
-          });
-        const version = `${firmwareTypeLabel}${result?.detectResult?.toVersion}`;
-        message = intl.formatMessage(
-          { id: ETranslations.update_firmware_version_available },
-          {
-            version,
-          },
-        );
-      } else if (result?.detectResult?.toVersionBle) {
-        message = intl.formatMessage(
-          { id: ETranslations.update_bluetooth_version_available },
-          {
-            version: result?.detectResult?.toVersionBle,
-          },
-        );
-      }
+      const message = intl.formatMessage({
+        id: ETranslations.update_firmware_available,
+      });
       return (
         <FirmwareUpdateReminderAlert
           containerProps={{
@@ -155,9 +135,6 @@ function HomeFirmwareUpdateReminderCmp() {
     return null;
   }, [
     result?.shouldUpdate,
-    result?.detectResult?.toVersion,
-    result?.detectResult?.toVersionBle,
-    result?.detectResult?.toFirmwareType,
     intl,
     closePopover,
     closeTooltip,
