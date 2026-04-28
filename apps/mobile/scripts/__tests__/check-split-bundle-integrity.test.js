@@ -787,3 +787,35 @@ describe('integration: cross-segment sync edge detection', () => {
     });
   });
 });
+
+const {
+  scanSegmentForUnrewrittenAsyncPaths,
+} = require('../check-split-bundle-integrity');
+
+describe('scanSegmentForUnrewrittenAsyncPaths', () => {
+  it('returns empty for a fully-rewritten segment', () => {
+    const segJs =
+      '__d(fn,2500,[777]);var p={"777":"seg:kit.views.Receive.pages.ReceiveToken"};';
+    expect(scanSegmentForUnrewrittenAsyncPaths(segJs)).toEqual([]);
+  });
+
+  it('flags an unrewritten Metro URL in a segment (regression: ios 10069276)', () => {
+    const segJs =
+      '__d(fn,2500,[777]);var p={"777":"/packages/kit/src/views/Receive/pages/ReceiveToken.bundle?modulesOnly=true&runModule=false"};';
+    const violations = scanSegmentForUnrewrittenAsyncPaths(segJs);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({
+      moduleId: '777',
+      url: expect.stringContaining(
+        '/packages/kit/src/views/Receive/pages/ReceiveToken.bundle',
+      ),
+    });
+  });
+
+  it('lists multiple unrewritten paths separately', () => {
+    const segJs = `__d(fn,2500,[777,3904]);
+      var p={"777":"/a.bundle?modulesOnly=true&runModule=false",
+             "3904":"/b.bundle?modulesOnly=true&runModule=false"};`;
+    expect(scanSegmentForUnrewrittenAsyncPaths(segJs)).toHaveLength(2);
+  });
+});
