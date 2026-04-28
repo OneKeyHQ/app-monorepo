@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { TonSignDataType } from '@onekeyfe/hd-core';
 import { TonWalletVersion } from '@onekeyfe/hd-transport';
 import { Cell } from '@ton/core';
 
@@ -23,6 +22,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -52,6 +52,7 @@ import type {
 import type {
   AllNetworkAddressParams,
   CommonParams,
+  TonSignDataType,
   TonSignMessageParams,
 } from '@onekeyfe/hd-core';
 
@@ -370,6 +371,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     // TON Connect v2 signData (text / binary / cell)
     if (msg.payload.payload) {
+      const { TonSignDataType: TonSignDataTypeEnum } = await CoreSDKLoader();
       const signDataPayload = msg.payload.payload;
 
       let type: TonSignDataType;
@@ -377,19 +379,19 @@ export class KeyringHardware extends KeyringHardwareBase {
       let schema: string | undefined;
       switch (signDataPayload.type) {
         case 'text':
-          type = TonSignDataType.TEXT;
+          type = TonSignDataTypeEnum.TEXT;
           payloadHex = Buffer.from(signDataPayload.text, 'utf-8').toString(
             'hex',
           );
           break;
         case 'binary':
-          type = TonSignDataType.BINARY;
+          type = TonSignDataTypeEnum.BINARY;
           payloadHex = Buffer.from(signDataPayload.bytes, 'base64').toString(
             'hex',
           );
           break;
         case 'cell':
-          type = TonSignDataType.CELL;
+          type = TonSignDataTypeEnum.CELL;
           payloadHex = Buffer.from(signDataPayload.cell, 'base64').toString(
             'hex',
           );
