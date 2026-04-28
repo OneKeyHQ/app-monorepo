@@ -1,6 +1,14 @@
 name: release-native-bundle
 
 on:
+  # Auto-fire after `daily-build` succeeds so cron-triggered builds still
+  # produce iOS/Android OTA bundles + QA artifacts. Mirrors release-web and
+  # release-desktop-bundle, which also chain off daily-build.
+  workflow_run:
+    workflows:
+      - daily-build
+    types:
+      - completed
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -81,6 +89,39 @@ env:
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
+  # Compute BUILD_BUNDLE_VERSION ONCE for the run so the iOS and Android
+  # matrix arms below produce identical bundleVersion / Sentry release / QA
+  # metadata. Without this, each matrix arm's `Setup ENV` step falls back to
+  # `date -u +%s` independently, drifting the two platforms apart whenever
+  # the matrix arms boot at different seconds. workflow_call still wins via
+  # `inputs.build_bundle_version` (the prepare-params output passed by
+  # release-app-bundles.yml).
+  prepare-bundle-version:
+    if: ${{ !github.event.workflow_run || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      build_bundle_version: ${{ steps.compute.outputs.value }}
+    steps:
+      - name: Validate workflow_run source
+        if: github.event_name == 'workflow_run'
+        run: |
+          if [ "${{ github.event.workflow_run.head_repository.full_name }}" != "${{ github.repository }}" ]; then
+            echo "::error::Rejecting workflow_run from fork repository"
+            exit 1
+          fi
+
+      - name: Compute BUILD_BUNDLE_VERSION
+        id: compute
+        run: |
+          if [ -n "${{ inputs.build_bundle_version }}" ]; then
+            echo "value=${{ inputs.build_bundle_version }}" >> "$GITHUB_OUTPUT"
+          else
+            EPOCH_2026=$(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null \
+              || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s)
+            NOW=$(date -u +%s)
+            echo "value=$(( NOW - EPOCH_2026 ))" >> "$GITHUB_OUTPUT"
+          fi
+
   # web-embed prebuild lives in the orchestrator (release-app-bundles.yml) so
   # iOS and Android — which here are sibling workflow_call invocations of this
   # workflow — can share ONE web-embed artifact. Without that lift, each
@@ -91,6 +132,11 @@ jobs:
   # buildWebEmbed() in build-bundle-base.js falls back to running webpack
   # locally per-platform. Acceptable for ad-hoc testing.
   release-native-bundle:
+    # `needs:` alone gives us the right gating: if prepare-bundle-version
+    # skips (workflow_run from a fork) or fails, the matrix arms also skip.
+    # No explicit `if:` here — adding `!cancelled() && !failure()` would
+    # silently bypass the fork-source rejection.
+    needs: prepare-bundle-version
     name: release-native-bundle (${{ matrix.platform }})
     runs-on: ubuntu-latest
     # Run iOS and Android JS bundles in parallel. Each platform's build is
@@ -120,6 +166,17 @@ jobs:
           lfs: true
           ref: ${{ inputs.checkout_ref || '' }}
 
+      - name: Pin WORKFLOW_BUNDLE_VERSION from prepare job
+        # shared-env/action.yml reads WORKFLOW_BUNDLE_VERSION first (line ~117)
+        # before falling back to its own `date - epoch` computation. Seeding
+        # it here makes shared-env emit the unified value into BOTH the
+        # process env (BUILD_BUNDLE_VERSION) AND the on-disk `.env` file
+        # (BUNDLE_VERSION=…). Without this, .env would still receive a
+        # per-arm timestamp and the JS bundle's runtime `bundleVersion` would
+        # disagree with the artifact / Sentry release metadata.
+        run: |
+          echo "WORKFLOW_BUNDLE_VERSION=${{ needs.prepare-bundle-version.outputs.build_bundle_version }}" >> $GITHUB_ENV
+
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
@@ -143,9 +200,10 @@ jobs:
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
-          if [ -z "${{ env.BUILD_BUNDLE_VERSION }}" ]; then
-            echo "BUILD_BUNDLE_VERSION=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s) ))" >> $GITHUB_ENV
-          fi
+          # Pull from the precursor `prepare-bundle-version` job so iOS and
+          # Android matrix arms share one value. The `Override params from
+          # caller` step below still wins for workflow_call invocations.
+          echo "BUILD_BUNDLE_VERSION=${{ needs.prepare-bundle-version.outputs.build_bundle_version }}" >> $GITHUB_ENV
 
       - name: Override params from caller
         if: ${{ inputs.build_number }}
