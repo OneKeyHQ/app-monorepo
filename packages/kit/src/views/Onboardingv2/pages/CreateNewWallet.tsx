@@ -8,7 +8,6 @@ import {
   Button,
   Icon,
   SizableText,
-  Spinner,
   XStack,
   YStack,
   useMedia,
@@ -31,6 +30,7 @@ import {
   OnboardingPage,
   OnboardingSidebar,
 } from '../components/Layout';
+import { RotatingLoader } from '../components/RotatingLoader';
 import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
 import { useKeylessLocalExistenceLogin } from '../hooks/useKeylessLocalExistenceLogin';
 
@@ -189,7 +189,7 @@ function CreateNewWallet() {
           >
             <YStack position="absolute" left="$5">
               {isGoogleLoading ? (
-                <Spinner size="small" />
+                <RotatingLoader size="$5" color="$iconInverse" />
               ) : (
                 <Icon name="GoogleIllus" size="$5" color="$iconInverse" />
               )}
@@ -211,7 +211,7 @@ function CreateNewWallet() {
           >
             <YStack position="absolute" left="$5">
               {isAppleLoading ? (
-                <Spinner size="small" />
+                <RotatingLoader size="$5" color="$iconInverse" />
               ) : (
                 <Icon name="AppleBrand" size="$5" color="$iconInverse" />
               )}
