@@ -35,6 +35,8 @@ import { isEncodedTxMatch } from './marketEncodedTxUtils';
 
 import type { IMarketPresetPriorityFeeOverride } from './marketPresetSettings';
 
+const EVM_GWEI_DECIMALS = 9;
+
 export type IMarketGasInfoEntry = {
   encodeTx: IEncodedTx;
   gasInfo: ISwapGasInfo;
@@ -150,6 +152,18 @@ function buildGasInfo(
   });
 }
 
+function convertEvmCustomPriorityFeeToFeeUnit({
+  value,
+  feeDecimals,
+}: {
+  value: BigNumber;
+  feeDecimals?: number;
+}) {
+  return value
+    .shiftedBy(EVM_GWEI_DECIMALS - (feeDecimals ?? EVM_GWEI_DECIMALS))
+    .toFixed();
+}
+
 function applyCustomPriorityFee({
   gasInfo,
   customPriorityFee,
@@ -167,7 +181,10 @@ function applyCustomPriorityFee({
   }
 
   if (gasInfo.gasEIP1559) {
-    const maxPriorityFeePerGas = customValueBN.toFixed();
+    const maxPriorityFeePerGas = convertEvmCustomPriorityFeeToFeeUnit({
+      value: customValueBN,
+      feeDecimals: gasInfo.common?.feeDecimals,
+    });
     const baseFeePerGas = new BigNumber(gasInfo.gasEIP1559.baseFeePerGas ?? 0);
     return {
       ...gasInfo,
@@ -187,7 +204,10 @@ function applyCustomPriorityFee({
       ...gasInfo,
       gas: {
         ...gasInfo.gas,
-        gasPrice: customValueBN.toFixed(),
+        gasPrice: convertEvmCustomPriorityFeeToFeeUnit({
+          value: customValueBN,
+          feeDecimals: gasInfo.common?.feeDecimals,
+        }),
       },
     };
   }

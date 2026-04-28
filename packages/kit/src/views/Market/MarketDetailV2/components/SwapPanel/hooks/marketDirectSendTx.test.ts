@@ -292,7 +292,7 @@ describe('marketDirectSendTx', () => {
     expect(highFeeResult.preparedUnsignedTx).toBe(preparedUnsignedTx);
   });
 
-  it('applies a custom EVM legacy priority fee to the selected gas price', async () => {
+  it('converts a custom EVM legacy priority fee from Gwei to fee unit', async () => {
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
 
     const result = await estimateMarketDirectGasInfos({
@@ -312,18 +312,18 @@ describe('marketDirectSendTx', () => {
       },
     });
 
-    expect(result.gasInfos[0].gasInfo.gas?.gasPrice).toBe('7');
+    expect(result.gasInfos[0].gasInfo.gas?.gasPrice).toBe('0.000000007');
   });
 
-  it('applies a custom EVM EIP-1559 priority fee and max fee', async () => {
+  it('converts a custom EVM EIP-1559 priority fee from Gwei to fee unit', async () => {
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
     mockEstimateFee.mockResolvedValue({
       common: createEstimateFeeResult().common,
       gasEIP1559: [
         {
-          baseFeePerGas: '10',
-          maxPriorityFeePerGas: '1',
-          maxFeePerGas: '11',
+          baseFeePerGas: '0.00000001',
+          maxPriorityFeePerGas: '0.000000001',
+          maxFeePerGas: '0.000000011',
           gasLimit: '21000',
         },
       ],
@@ -348,10 +348,46 @@ describe('marketDirectSendTx', () => {
 
     expect(result.gasInfos[0].gasInfo.gasEIP1559).toEqual(
       expect.objectContaining({
-        maxPriorityFeePerGas: '5',
-        maxFeePerGas: '25',
+        maxPriorityFeePerGas: '0.000000005',
+        maxFeePerGas: '0.000000025',
       }),
     );
+  });
+
+  it('keeps a custom EVM priority fee in Gwei when the fee unit is already Gwei', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockEstimateFee.mockResolvedValue({
+      common: {
+        ...createEstimateFeeResult().common,
+        feeDecimals: 9,
+        feeSymbol: 'Gwei',
+      },
+      gas: [
+        {
+          gasPrice: '1',
+          gasLimit: '21000',
+        },
+      ],
+    });
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      customPriorityFee: {
+        customValue: '7',
+      },
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: {
+          data: '0xencoded',
+        } as never,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(result.gasInfos[0].gasInfo.gas?.gasPrice).toBe('7');
   });
 
   it('converts a custom Solana total priority fee into compute unit price', async () => {
