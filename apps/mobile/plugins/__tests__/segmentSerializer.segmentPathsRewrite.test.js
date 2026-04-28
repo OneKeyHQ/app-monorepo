@@ -1,18 +1,18 @@
 // apps/mobile/plugins/__tests__/segmentSerializer.segmentPathsRewrite.test.js
 //
-// Regression test for the iOS 6.3.0-10069276 OTA crash: segment modules
-// that contain async-require paths must have those paths rewritten to
-// `seg:` keys before the segment is written to disk. Without this,
-// runtime hits installProdBundleLoader's eager-fallback short-circuit
-// for the unrewritten Metro URL, then crashes with
-// "Requiring unknown module <id>" because the actual segment was never
-// loaded.
+// Contract test: any caller of rewriteAsyncPathsInModules must rewrite
+// every async-require URL in a synthetic segment-shape input. Note this
+// does NOT catch a wiring regression in segmentSerializer.js (where the
+// real bug lived) — that regression class is closed by Task C's
+// build-time integrity scanner running across emitted .seg.js files.
+// This file's job is to make sure the helper API stays correct as new
+// callers are added.
 const {
   rewriteAsyncPathsInModules,
 } = require('../segmentSerializer.rewriteAsyncPaths');
 
-describe('segment serializer — segment async-path rewrite', () => {
-  it('rewrites async paths inside segment modules (regression: ios 10069276)', () => {
+describe('rewriteAsyncPathsInModules — segment-shape contract', () => {
+  it('rewrites every Metro async URL inside a synthetic segment module', () => {
     const moduleToSegment = new Map([
       [777, 'seg:kit.views.Receive.pages.ReceiveToken'],
       [3904, 'seg:kit.views.Send.pages.SendConfirm.SendConfirmContainer'],

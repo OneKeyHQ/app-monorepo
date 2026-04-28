@@ -506,24 +506,13 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
     }
   }
 
-  // Step 6e: Rewrite asyncRequire paths for production (#49 + #regression-fix)
+  // Step 6e: Rewrite asyncRequire paths in main bundle modules (#49, REACT-NATIVE-4AX)
   //
-  // Metro's babel-plugin-transform-metro-async-require emits async-require
-  // calls with a `paths` map keyed by module id and valued by the dev-server
-  // URL (`/packages/.../X.bundle?modulesOnly=true&runModule=false`).  In
-  // production we replace those URLs with stable segment keys (`seg:<key>`)
-  // so installProdBundleLoader can route them through the native segment
-  // loader instead of taking the eager-fallback short-circuit.
-  //
-  // CRITICAL: this rewrite must run on BOTH the main entry's modules AND
-  // every segment's modules.  An older revision only rewrote main —
-  // segments still shipped raw Metro URLs, the runtime fell into eager
-  // fallback, and `require(<id>)` then crashed because the target segment
-  // was never loaded.  See iOS 6.3.0-10069276 OTA crash for evidence.
+  // Per-segment rewrite happens inline in Step 7 below (immediately before
+  // bundleToString) so the ordering is enforced locally — without that,
+  // a refactor that re-orders Step 7 would silently re-introduce the
+  // iOS 6.3.0-10069276 regression. See REACT-NATIVE-4AX.
   if (!bundleOptions.dev) {
-    for (const [, segModules] of segmentOutputs) {
-      rewriteAsyncPathsInModules(segModules, moduleToSegment);
-    }
     rewriteAsyncPathsInModules(mainModules, moduleToSegment);
   }
 
@@ -538,6 +527,9 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
 
   for (const [segmentKey, segModules] of segmentOutputs) {
     const segmentId = segmentIdMap.get(segmentKey);
+    if (!bundleOptions.dev) {
+      rewriteAsyncPathsInModules(segModules, moduleToSegment);
+    }
     const { code } = bundleToString({
       pre: '',
       post: '',
