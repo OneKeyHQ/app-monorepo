@@ -204,9 +204,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     if (params?.flag !== AUTO_CLOSED_FLAG) {
       const vendor = uiStateRef.current?.vendor;
       if (vendor) {
-        await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse({
+        await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
           vendor,
-          type: 'cancel',
         });
       }
     }

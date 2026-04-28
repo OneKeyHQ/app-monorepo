@@ -84,6 +84,20 @@ export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.UserRejected;
 }
 
+/** User dismissed in-app cancel UI. No auto-toast (user already knows). */
+export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_user_cancel_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = ThirdPartyHwErrorCode.UserAborted;
+}
+
 /** OS-level device permission (Bluetooth / USB) denied. */
 export class ThirdPartyDevicePermissionDenied extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {

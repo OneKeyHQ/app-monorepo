@@ -71,6 +71,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.UserRejected:
       return new ThirdPartyErrors.ThirdPartyUserRejected(props);
 
+    case ThirdPartyHwErrorCode.UserAborted:
+      return new ThirdPartyErrors.ThirdPartyUserAborted(props);
+
     case ThirdPartyHwErrorCode.DevicePermissionDenied:
       return new ThirdPartyErrors.ThirdPartyDevicePermissionDenied(props);
 
