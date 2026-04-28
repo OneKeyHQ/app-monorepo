@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
@@ -112,6 +113,13 @@ export type IFinalizeWalletSetupCreateWalletResult = {
     indexedAccount: IDBIndexedAccount | undefined;
   };
 };
+
+// Ledger USB has no stable device id, so a failed batch leaves an orphan
+// wallet shell each retry. Soft-hide on these two third-party codes only.
+const LEDGER_ORPHAN_HIDE_CODES: number[] = [
+  ThirdPartyHwErrorCode.UserAborted,
+  ThirdPartyHwErrorCode.DeviceAppStuck,
+];
 
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
@@ -713,6 +721,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) => Promise<void>;
       },
     ) => {
+      let createdResult: IFinalizeWalletSetupCreateWalletResult | null = null;
       try {
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
           step: EFinalizeWalletSetupSteps.CreatingWallet,
@@ -720,6 +729,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         const [{ wallet, indexedAccount, hidden, isOverrideWallet }] =
           await Promise.all([createWalletFn(), timerUtils.wait(1000)]);
+        createdResult = { wallet, indexedAccount, hidden, isOverrideWallet };
 
         if (generatingAccountsFn) {
           appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
@@ -743,6 +753,35 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         };
         return createResult;
       } catch (error) {
+        // Soft-hide the just-created Ledger wallet shell when batch aborts.
+        // Uses isTemp + hideImmediately — no DB deletion.
+        if (
+          createdResult &&
+          !createdResult.isOverrideWallet &&
+          isHardwareErrorByCode({
+            error: error as IOneKeyError | undefined,
+            code: LEDGER_ORPHAN_HIDE_CODES,
+          })
+        ) {
+          const walletIds = [
+            createdResult.hidden?.wallet?.id,
+            createdResult.wallet?.id,
+          ].filter((id): id is string => Boolean(id));
+          for (const walletId of walletIds) {
+            try {
+              await serviceAccount.setWalletTempStatus({
+                walletId,
+                isTemp: true,
+                hideImmediately: true,
+              });
+            } catch (hideErr) {
+              console.error(
+                'withFinalizeWalletSetupStep softHide failed',
+                hideErr,
+              );
+            }
+          }
+        }
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
           error: error as IOneKeyError,
