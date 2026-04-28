@@ -168,12 +168,12 @@ const Orb = memo(function Orb({
   );
 });
 
-// Two large blurred orbs slowly drifting across the page — based on
-// `BgOrbDrift` from the Onboarding Background Explorations design handoff.
+// Based on `BgOrbDrift` from the Onboarding Background Explorations design
+// handoff (`docs/plans/2026-04-27-onboarding-hero-atmosphere.md`).
 export function HeroAtmosphere() {
   const theme = useTheme();
   const { gtMd } = useMedia();
-  const accent = theme.brand9?.val ?? '#32B826';
+  const accent = theme.brand9.val;
 
   // Orb sizes/positions are tuned for narrow viewports (mobile). On wide
   // breakpoints the same numbers look like small spots in the corners, so
