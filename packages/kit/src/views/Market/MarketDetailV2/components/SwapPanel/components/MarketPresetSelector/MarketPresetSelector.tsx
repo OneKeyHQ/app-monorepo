@@ -379,8 +379,12 @@ function MarketPresetSettingsDialog({
       await promise;
       await task();
     }, Promise.resolve());
+
+    if (activePresetKey !== presetSettings.selectedPresetKey) {
+      presetSettings.onPresetChange(activePresetKey);
+    }
     close();
-  }, [close, confirmDisabled, draftSettings, presetSettings]);
+  }, [activePresetKey, close, confirmDisabled, draftSettings, presetSettings]);
 
   const handleReset = useCallback(() => {
     if (activePresetKey === EMarketPresetKey.AUTO) {
@@ -654,7 +658,14 @@ function MarketPresetSettingsDialog({
           </YStack>
 
           {isReadonlyPreset ? (
-            <Button variant="primary" size="medium" onPress={close}>
+            <Button
+              variant="primary"
+              size="medium"
+              disabled={confirmDisabled}
+              onPress={() => {
+                void handleConfirm();
+              }}
+            >
               {intl.formatMessage({ id: ETranslations.global_ok })}
             </Button>
           ) : (

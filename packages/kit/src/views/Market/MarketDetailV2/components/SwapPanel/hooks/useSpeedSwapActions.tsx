@@ -1493,17 +1493,21 @@ export function useSpeedSwapActions(props: {
         (!approvesInfo?.length || isApproveOnlyTx);
 
       if (canAttachPresetFeeInfo) {
-        const feeState = await estimateMarketDirectGasInfos({
-          accountAddress: accountAddress as string,
-          accountId: accountId as string,
-          networkId: networkId as string,
-          buildUnsignedParams,
-          networkFeeLevel,
-          customPriorityFee,
-        });
-        const gasInfo =
-          feeState.gasInfos[feeState.gasInfos.length - 1]?.gasInfo;
-        feeInfo = gasInfo ? buildMarketGasInfoFeeInfo(gasInfo) : undefined;
+        try {
+          const feeState = await estimateMarketDirectGasInfos({
+            accountAddress: accountAddress as string,
+            accountId: accountId as string,
+            networkId: networkId as string,
+            buildUnsignedParams,
+            networkFeeLevel,
+            customPriorityFee,
+          });
+          const gasInfo =
+            feeState.gasInfos[feeState.gasInfos.length - 1]?.gasInfo;
+          feeInfo = gasInfo ? buildMarketGasInfoFeeInfo(gasInfo) : undefined;
+        } catch {
+          feeInfo = undefined;
+        }
       }
 
       await navigationToTxConfirm({
