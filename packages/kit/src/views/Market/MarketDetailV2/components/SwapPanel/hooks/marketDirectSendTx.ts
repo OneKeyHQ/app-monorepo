@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
+import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type {
   IEstimateFeeParams,
   IFeeAlgo,
@@ -34,8 +35,6 @@ import type {
 import { isEncodedTxMatch } from './marketEncodedTxUtils';
 
 import type { IMarketPresetPriorityFeeOverride } from './marketPresetSettings';
-
-const EVM_GWEI_DECIMALS = 9;
 
 export type IMarketGasInfoEntry = {
   encodeTx: IEncodedTx;
@@ -134,7 +133,7 @@ function buildGasInfo(
   customPriorityFee?: IMarketPresetPriorityFeeOverride,
   estimateFeeParams?: IEstimateFeeParams,
 ): ISwapGasInfo {
-  return applyCustomPriorityFee({
+  return applyCustomPriorityFeeToGasInfo({
     gasInfo: {
       common: gasCommon,
       gas: pickFeeLevelValue(gasRes.gas, networkFeeLevel),
@@ -150,93 +149,6 @@ function buildGasInfo(
     customPriorityFee,
     estimateFeeParams,
   });
-}
-
-function convertEvmCustomPriorityFeeToFeeUnit({
-  value,
-  feeDecimals,
-}: {
-  value: BigNumber;
-  feeDecimals?: number;
-}) {
-  return value
-    .shiftedBy(EVM_GWEI_DECIMALS - (feeDecimals ?? EVM_GWEI_DECIMALS))
-    .toFixed();
-}
-
-function applyCustomPriorityFee({
-  gasInfo,
-  customPriorityFee,
-  estimateFeeParams,
-}: {
-  gasInfo: ISwapGasInfo;
-  customPriorityFee?: IMarketPresetPriorityFeeOverride;
-  estimateFeeParams?: IEstimateFeeParams;
-}): ISwapGasInfo {
-  const customValueBN = new BigNumber(
-    customPriorityFee?.customValue ?? Number.NaN,
-  );
-  if (!customPriorityFee || customValueBN.isNaN() || !customValueBN.gt(0)) {
-    return gasInfo;
-  }
-
-  if (gasInfo.gasEIP1559) {
-    const maxPriorityFeePerGas = convertEvmCustomPriorityFeeToFeeUnit({
-      value: customValueBN,
-      feeDecimals: gasInfo.common?.feeDecimals,
-    });
-    const baseFeePerGas = new BigNumber(gasInfo.gasEIP1559.baseFeePerGas ?? 0);
-    return {
-      ...gasInfo,
-      gasEIP1559: {
-        ...gasInfo.gasEIP1559,
-        maxPriorityFeePerGas,
-        maxFeePerGas: baseFeePerGas
-          .times(2)
-          .plus(maxPriorityFeePerGas)
-          .toFixed(),
-      },
-    };
-  }
-
-  if (gasInfo.gas) {
-    return {
-      ...gasInfo,
-      gas: {
-        ...gasInfo.gas,
-        gasPrice: convertEvmCustomPriorityFeeToFeeUnit({
-          value: customValueBN,
-          feeDecimals: gasInfo.common?.feeDecimals,
-        }),
-      },
-    };
-  }
-
-  const solEstimateParams = estimateFeeParams?.estimateFeeParamsSol;
-  const computeUnitLimitBN = new BigNumber(
-    solEstimateParams?.computeUnitLimit ?? Number.NaN,
-  );
-  if (
-    gasInfo.feeSol &&
-    !computeUnitLimitBN.isNaN() &&
-    computeUnitLimitBN.gt(0)
-  ) {
-    const computeUnitPrice = customValueBN
-      .shiftedBy(gasInfo.common?.nativeDecimals ?? 9)
-      .shiftedBy(solEstimateParams?.computeUnitPriceDecimals ?? 6)
-      .dividedBy(computeUnitLimitBN)
-      .decimalPlaces(0, BigNumber.ROUND_CEIL)
-      .toFixed();
-    return {
-      ...gasInfo,
-      feeSol: {
-        ...gasInfo.feeSol,
-        computeUnitPrice,
-      },
-    };
-  }
-
-  return gasInfo;
 }
 
 async function estimateUnsignedTxGasInfo({
