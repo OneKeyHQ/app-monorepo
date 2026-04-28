@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -66,6 +66,11 @@ const SwapHistoryListModal = ({
   );
   const [{ swapHistoryPendingList, swapLimitOrders }] =
     useInAppNotificationAtom();
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceSwap.refreshSwapHistoryPendingStatusOnce();
+  }, []);
+
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
       const histories =
