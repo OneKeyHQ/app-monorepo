@@ -632,8 +632,28 @@ export function HomePageView({
     // Exclude isDeFiEnabled/isNFTEnabled from key to prevent Tabs.Container
     // from being destroyed and recreated when these values change async.
     // Tabs render conditionally inside the container instead.
-    const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
-      network?.id ?? ''
+    //
+    // Also exclude `account?.id` and `network?.id`: for HD wallets the
+    // per-network account.id differs across networks even when the user is
+    // on the same indexedAccount, and including network.id forces a full
+    // remount of Tabs.Container (and the FlashList inside TokenListView) on
+    // every network switch. The remount produces a brief blank frame while
+    // FlashList re-measures, even when the target has cache. Keying on
+    // wallet + indexedAccountId (with account.id as the Others-wallet
+    // fallback, since those have no indexedAccountId) keeps the subtree
+    // mounted across pure network switches — the singleton token-list atoms
+    // are then driven by account/network changes via the per-owner cache
+    // hydration in TokenListBlock.
+    //
+    // Caveat: Others wallets (imported / watching / external) have no
+    // `indexedAccountId`, so they fall back to `account.id`, which IS
+    // network-scoped for those wallet types. Switching networks on an
+    // Others wallet therefore still remounts Tabs.Container — the
+    // optimization here is intentionally HD-only because Others wallets
+    // typically stay pinned to a single network and the cost of the
+    // occasional remount is not worth special-casing.
+    const key = `${wallet?.id ?? ''}-${
+      account?.indexedAccountId ?? account?.id ?? ''
     }`;
     return (
       <Tabs.Container
@@ -658,10 +678,10 @@ export function HomePageView({
   }, [
     tabBarHeight,
     tabContainerWidth,
+    wallet?.id,
     account?.id,
     account?.indexedAccountId,
     isWalletNotBackedUp,
-    network?.id,
     renderHeader,
     renderTabBar,
     handleTabChange,
