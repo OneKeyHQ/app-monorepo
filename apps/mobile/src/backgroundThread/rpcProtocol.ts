@@ -35,6 +35,8 @@ export type IBackgroundThreadAppEventRequest = {
   type: 'app-event';
   eventName: string;
   payload: unknown;
+  /** appEventBus nodeId of the originating runtime; used to skip self-echo. */
+  originNodeId?: string;
 };
 
 export type IBackgroundThreadRequest =
@@ -51,6 +53,8 @@ export type IBackgroundThreadJotaiStateBroadcastPayload = {
 export type IBackgroundThreadAppEventBroadcastPayload = {
   eventName: string;
   payload: unknown;
+  /** appEventBus nodeId of the originating runtime; used to skip self-echo. */
+  originNodeId?: string;
 };
 
 export type IBackgroundThreadBridgeSendPayload = {

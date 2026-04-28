@@ -12,37 +12,68 @@ export function useSpotMetaMaps() {
 
   useEffect(() => {
     let isCancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 10;
+    const BASE_DELAY = 500;
+    const MAX_DELAY = 5000;
 
-    void backgroundApiProxy.serviceHyperliquid.getSpotMeta().then((meta) => {
-      if (isCancelled) {
-        return;
-      }
+    const fetchAndSet = () => {
+      void backgroundApiProxy.serviceHyperliquid.getSpotMeta().then((meta) => {
+        if (isCancelled) return;
+        const universes = meta.universes ?? [];
+        const tokens = meta.tokens ?? [];
 
-      setSpotUniverses(meta.universes ?? []);
-
-      const contractMap: Record<string, string> = {};
-      for (const token of meta.tokens ?? []) {
-        if (token.evmContract?.address) {
-          contractMap[token.name] = token.evmContract.address;
-          contractMap[getSpotTokenDisplayName(token.name)] =
-            token.evmContract.address;
+        // simpleDb may still be empty when this mounts before
+        // refreshSpotMeta() (fired on Perp tab focus) writes through. Retry
+        // with backoff so dependent columns don't stay empty forever.
+        if (universes.length === 0 && attempts < MAX_ATTEMPTS) {
+          attempts += 1;
+          const delay = Math.min(BASE_DELAY * 2 ** (attempts - 1), MAX_DELAY);
+          timer = setTimeout(fetchAndSet, delay);
+          return;
         }
-      }
-      setTokenContractMap(contractMap);
-    });
+
+        setSpotUniverses(universes);
+        // HL UI shows the canonical 32-char `tokenId` (e.g. "0x54e0...7f4b"),
+        // not the 40-char `evmContract.address` (which is often a placeholder
+        // like 0x111111...111111). Match HL so the displayed contract and the
+        // explorer jump line up with what users see on hyperliquid.xyz.
+        const contractMap: Record<string, string> = {};
+        for (const token of tokens) {
+          if (token.tokenId) {
+            contractMap[token.name] = token.tokenId;
+            contractMap[getSpotTokenDisplayName(token.name)] = token.tokenId;
+          }
+        }
+        setTokenContractMap(contractMap);
+      });
+    };
+
+    fetchAndSet();
 
     return () => {
       isCancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
-  const universeByBaseName = useMemo(
-    () =>
-      Object.fromEntries(
-        spotUniverses.map((universe) => [universe.baseName, universe]),
-      ) as Record<string, ISpotUniverse>,
-    [spotUniverses],
-  );
+  const universeByBaseName = useMemo(() => {
+    // Two passes so USDC-quoted pairs win the default mapping when a base
+    // coin has multiple quotes.
+    const map: Record<string, ISpotUniverse> = {};
+    for (const u of spotUniverses) {
+      if (u.quoteName === 'USDC') {
+        map[u.baseName] = u;
+      }
+    }
+    for (const u of spotUniverses) {
+      if (!map[u.baseName]) {
+        map[u.baseName] = u;
+      }
+    }
+    return map;
+  }, [spotUniverses]);
 
   return {
     spotUniverses,

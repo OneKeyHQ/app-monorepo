@@ -282,6 +282,7 @@ function BaseBulkSendReview({
                 unsignedTxs: [unsignedTx],
                 popStack: false,
                 useFeeInTx: true, // Use the fee info we set on unsignedTx
+                gasAccountScenario: 'send',
                 onSuccess: (data: ISendTxOnSuccessData[]) => {
                   resolve(data);
                 },

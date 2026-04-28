@@ -1,3 +1,5 @@
+import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
+
 export interface IPendingTx {
   id: string;
   type: 'send' | 'swap' | 'contract' | 'approve';
@@ -13,6 +15,8 @@ export interface ITrayWatchlistItem {
   symbol: string;
   name: string;
   icon: string;
+  iconUrls?: string[];
+  networkIcon?: string;
   price: string;
   change24h: number;
   type: 'spot' | 'perps';
@@ -20,6 +24,10 @@ export interface ITrayWatchlistItem {
   networkId?: string;
   isNative?: boolean;
   perpsCoin?: string;
+  maxLeverage?: number;
+  subtitle?: string;
+  communityRecognized?: boolean;
+  stock?: IMarketStockInfo;
 }
 
 export interface ITrayData {
@@ -41,12 +49,20 @@ export interface ITrayData {
     emoji: string;
     avatarImg: string;
   };
+  // Active account's display name (e.g. "Account 1"); wallet.name covers
+  // the wallet/HD identity only. Empty string when unavailable (cold start).
+  account: {
+    name: string;
+  };
   totalBalance: {
     amount: string;
     currency: string;
     // Resolved from currencyMap so unknown currencies don't collapse to '$'.
     symbol: string;
-    change24h: number;
+    // Undefined when no 24h source is wired — UI hides the badge instead of
+    // rendering a misleading 0.00% (OK-53612 partial: full fix waits on a
+    // backend account-level 24h change feed).
+    change24h?: number;
   };
   watchlist: ITrayWatchlistItem[];
   pendingTxs: IPendingTx[];
@@ -68,4 +84,6 @@ export const TRAY_IPC = {
   DATA_RESPONSE: 'tray/dataResponse',
   UPDATE: 'tray/update',
   ACTION: 'tray/action',
+  // Tray renderer → main: listener is attached, safe to push TRAY_UPDATE.
+  READY: 'tray/ready',
 } as const;

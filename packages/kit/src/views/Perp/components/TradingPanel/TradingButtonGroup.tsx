@@ -31,7 +31,10 @@ import {
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getSpotTokenDisplayName,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
@@ -151,7 +154,8 @@ function SideButtonInternal({
       .toFixed(szDecimals);
     const displayName = (() => {
       if (isSpot && activeTradeInstrument.mode === 'spot') {
-        return activeTradeInstrument.universe?.displayName ?? '';
+        const u = activeTradeInstrument.universe;
+        return u ? getSpotTokenDisplayName(u.displayName || u.baseName) : '';
       }
       const symbol = activeAsset?.coin || '';
       return symbol ? parseDexCoin(symbol).displayName : '';
@@ -166,6 +170,15 @@ function SideButtonInternal({
     activeTradeInstrument,
     activeAsset?.coin,
   ]);
+
+  const spotTradeSymbol = useMemo(() => {
+    if (!isSpot || activeTradeInstrument.mode !== 'spot') {
+      return '';
+    }
+    const u = activeTradeInstrument.universe;
+    if (!u) return '';
+    return getSpotTokenDisplayName(u.displayName || u.baseName);
+  }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
     if (priceError === 'bbo_unavailable')
@@ -182,12 +195,33 @@ function SideButtonInternal({
       });
     if (isNoEnoughMargin)
       return intl.formatMessage({
-        id: ETranslations.perp_trading_button_no_enough_margin,
+        id: isSpot
+          ? ETranslations.dexmarket_insufficient_balance
+          : ETranslations.perp_trading_button_no_enough_margin,
       });
     if (isSpot) {
+      if (!spotTradeSymbol) {
+        return side === 'long'
+          ? intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_buy,
+            })
+          : intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_sell,
+            });
+      }
       return side === 'long'
-        ? intl.formatMessage({ id: ETranslations.global_buy })
-        : intl.formatMessage({ id: ETranslations.global_sell });
+        ? intl.formatMessage(
+            {
+              id: ETranslations.dexmarket_buy_token_default,
+            },
+            { TokenName: spotTradeSymbol },
+          )
+        : intl.formatMessage(
+            {
+              id: ETranslations.dexmarket_sell_token_default,
+            },
+            { TokenName: spotTradeSymbol },
+          );
     }
     return side === 'long'
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
@@ -197,6 +231,7 @@ function SideButtonInternal({
     isNoEnoughMargin,
     isSpot,
     side,
+    spotTradeSymbol,
     intl,
     perpConfigCommon?.ipDisablePerp,
     perpConfigCommon?.disablePerpActionPerp,
@@ -327,7 +362,10 @@ function SideButtonInternal({
           if (tradingPreferences.sizeInputUnit === 'token') {
             const coinSymbol = (() => {
               if (isSpot && activeTradeInstrument.mode === 'spot') {
-                return activeTradeInstrument.universe?.displayName ?? '';
+                const u = activeTradeInstrument.universe;
+                return u
+                  ? getSpotTokenDisplayName(u.displayName || u.baseName)
+                  : '';
               }
               return activeAsset?.coin
                 ? parseDexCoin(activeAsset.coin).displayName
@@ -653,76 +691,78 @@ function SideButtonInternal({
           ) : null}
         </YStack>
       </Button>
-      <YStack gap="$1.5">
-        {/* <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
-          </SizableText>
-          <NumberSizeableText
-            size="$bodySm"
-            color="$text"
-            formatter="value"
-            formatterOptions={{ currency: '$' }}
-          >
-            {orderValue.toNumber()}
-          </NumberSizeableText>
-        </XStack> */}
+      {isSpot ? null : (
+        <YStack gap="$1.5">
+          {/* <XStack justifyContent="space-between">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
+            </SizableText>
+            <NumberSizeableText
+              size="$bodySm"
+              color="$text"
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
+              {orderValue.toNumber()}
+            </NumberSizeableText>
+          </XStack> */}
 
-        <XStack gap="$2" justifyContent={justifyContent}>
-          <Tooltip
-            placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_trade_margin_tooltip,
-            })}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="default"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_cost,
-                })}
-              </DashText>
-            }
-          />
+          <XStack gap="$2" justifyContent={justifyContent}>
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_tooltip,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_cost,
+                  })}
+                </DashText>
+              }
+            />
 
-          <NumberSizeableText
-            size="$bodySm"
-            color="$text"
-            formatter="value"
-            formatterOptions={{ currency: '$' }}
-          >
-            {marginRequired.toNumber()}
-          </NumberSizeableText>
-        </XStack>
+            <NumberSizeableText
+              size="$bodySm"
+              color="$text"
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
+              {marginRequired.toNumber()}
+            </NumberSizeableText>
+          </XStack>
 
-        <XStack gap="$2" justifyContent={justifyContent}>
-          <Tooltip
-            placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_est_liq_price_tooltip,
-            })}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="default"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_est_liq_price,
-                })}
-              </DashText>
-            }
-          />
+          <XStack gap="$2" justifyContent={justifyContent}>
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price_tooltip,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_est_liq_price,
+                  })}
+                </DashText>
+              }
+            />
 
-          {renderLiquidationPrice()}
-        </XStack>
-      </YStack>
+            {renderLiquidationPrice()}
+          </XStack>
+        </YStack>
+      )}
     </YStack>
   );
 }

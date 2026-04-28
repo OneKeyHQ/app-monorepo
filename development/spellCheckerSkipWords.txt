@@ -1448,3 +1448,16 @@ minimizable
 maximizable
 fullscreenable
 frecency
+reactnativeappupdate
+pinentry
+Pinentry
+PINENTRY
+SETDESC
+Bixin
+libsecret
+libusb
+TOCTOU
+ledgerhq
+keyrings
+APDU
+webhid

@@ -62,6 +62,11 @@ const validChannels = new Set([
 
 // --- Platform info (fetched once from main process, sandbox-compatible) ---
 
+// Shape mirrors IDesktopApiPlatformInfo in
+// @onekeyhq/shared/types/desktopApiPlatformInfo (kept inline to avoid import
+// ordering churn in this sandbox-critical preload). The IPC writer in
+// registerInfoHandlers.ts is typed against the shared interface, so any
+// addition/rename there will still surface here via a tsc error on the reads.
 const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
   arch: string;
   platform: string;
@@ -74,9 +79,12 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
 
 // Preload runs per-window; detect tray so tray-only surfaces can be scoped
-// away from the main renderer.
+// away from the main renderer. Renderer's `location` is the legitimate API
+// here — not the global `window.location` shadowing case the rule guards.
 const isTrayWindow =
+  // eslint-disable-next-line no-restricted-globals
   typeof location !== 'undefined' &&
+  // eslint-disable-next-line no-restricted-globals
   new URLSearchParams(location.search).get('render') === 'tray';
 
 // --- desktopApi: legacy API surface (plain object, contextBridge-compatible) ---
@@ -267,13 +275,14 @@ const desktopApi = {
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
   sendTrayData: (data: any) =>
     ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
-  // `sendTrayAction` is only exposed in the tray window so the main
-  // renderer cannot reach TRAY_ACTION at all — belt-and-suspenders with
-  // the sender-id check in trayIpc.ts.
+  // `sendTrayAction` / `sendTrayReady` are only exposed in the tray window
+  // so the main renderer cannot reach TRAY_ACTION / TRAY_READY at all —
+  // belt-and-suspenders with the sender-id checks in trayIpc.ts.
   ...(isTrayWindow
     ? {
         sendTrayAction: (action: any) =>
           ipcRenderer.send(ipcMessageKeys.TRAY_ACTION, action),
+        sendTrayReady: () => ipcRenderer.send(ipcMessageKeys.TRAY_READY),
       }
     : {}),
   toggleTray: (enabled: boolean) =>

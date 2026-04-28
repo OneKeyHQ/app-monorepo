@@ -4,13 +4,12 @@ import BigNumber from 'bignumber.js';
 
 import { rootNavigationRef } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
 import {
-  currencyPersistAtom,
-  settingsPersistAtom,
   useActiveAccountValueAtom,
   useAppIsLockedAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -24,19 +23,133 @@ import {
   type ITrayWatchlistItem,
   TRAY_IPC,
 } from '@onekeyhq/shared/src/types/desktop/tray';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  getHyperliquidTokenImageUrl,
+  getTokenSubtitle,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  composeTrayAccountChange24h,
+  formatTrayPendingTxAmount,
+} from '@onekeyhq/shared/src/utils/trayDataUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
+
+import {
+  TRAY_DATA_REFRESH_EVENT_NAMES,
+  getTrayTokenValueInTargetCurrency,
+} from './trayDataProviderUtils';
+
+const USD_CURRENCY_ID = 'usd';
+const USD_CURRENCY_SYMBOL = '$';
+
+function getNetworkLogoUri(networkId?: string): string {
+  if (!networkId) return '';
+  const network = getPresetNetworks().find((n) => n.id === networkId);
+  return network?.logoURI || '';
+}
+
+type ITrayEnabledNetworkScope = {
+  enabledNetworkIds: string[];
+  enabledNetworksCompatibleWithWalletId: Array<{ id: string }>;
+  networkInfoMap: Record<
+    string,
+    {
+      deriveType: string;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
+};
+
+async function getTrayEnabledNetworkScope({
+  walletId,
+  accountId,
+}: {
+  walletId: string;
+  accountId?: string;
+}): Promise<ITrayEnabledNetworkScope> {
+  const [{ enabledNetworks, disabledNetworks }, { networks }] =
+    await Promise.all([
+      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+      backgroundApiProxy.serviceNetwork.getAllNetworks({
+        excludeTestNetwork: true,
+        excludeAllNetworkItem: true,
+      }),
+    ]);
+
+  const enabledNetworkIds = networks
+    .filter((network) =>
+      isEnabledNetworksInAllNetworks({
+        networkId: network.id,
+        enabledNetworks,
+        disabledNetworks,
+        isTestnet: !!network.isTestnet,
+      }),
+    )
+    .map((network) => network.id);
+
+  if (enabledNetworkIds.length === 0) {
+    return {
+      enabledNetworkIds: [],
+      enabledNetworksCompatibleWithWalletId: [],
+      networkInfoMap: {},
+    };
+  }
+
+  const compatibleNetworks =
+    await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+      {
+        accountId,
+        walletId,
+        networkIds: enabledNetworkIds,
+      },
+    );
+
+  const enabledNetworksCompatibleWithWalletId =
+    compatibleNetworks.mainnetItems ?? [];
+
+  const networkInfoEntries = await Promise.all(
+    enabledNetworksCompatibleWithWalletId.map(async (network) => {
+      const [deriveType, vaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: network.id,
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: network.id,
+        }),
+      ]);
+      return [
+        network.id,
+        {
+          deriveType,
+          mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+        },
+      ] as const;
+    }),
+  );
+
+  return {
+    enabledNetworkIds: enabledNetworksCompatibleWithWalletId.map(
+      (network) => network.id,
+    ),
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap: Object.fromEntries(networkInfoEntries),
+  };
+}
 
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [appIsLocked] = useAppIsLockedAtom();
   const [{ enableMenuBarTray }] = useSettingsPersistAtom();
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet, accountName, account },
   } = useActiveAccount({ num: 0 });
   // Guard every effect on this predicate so flipping the setting tears
   // down IPC/event subscriptions and re-subscribes without remounting.
@@ -47,6 +160,16 @@ export function useTrayDataProvider() {
   appIsLockedRef.current = appIsLocked;
   const walletRef = useRef(wallet);
   walletRef.current = wallet;
+  const accountRef = useRef(account);
+  accountRef.current = account;
+  const accountNameRef = useRef<string>('');
+  accountNameRef.current = accountName || '';
+  // Seed with the current accountId so the first mount isn't mis-detected as
+  // an account switch, which would clobber cache primed by main-process
+  // guardedRequest() with an optimistic $0.00 placeholder.
+  const prevAccountIdRef = useRef<string | undefined>(
+    activeAccountValue?.accountId,
+  );
   const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
   const pendingTxsClearedRef = useRef(false);
   // Renderer-side inflight guard — main-process `guardedRequest` only
@@ -76,11 +199,11 @@ export function useTrayDataProvider() {
       accountId: activeAccountId,
       pendingTxsCleared: pendingTxsClearedRef.current,
       wallet: { name: '', emoji: '', avatarImg: '' },
+      account: { name: accountNameRef.current },
       totalBalance: {
         amount: '0.00',
         currency: 'USD',
         symbol: '$',
-        change24h: 0,
       },
       watchlist: [],
       pendingTxs: [],
@@ -91,30 +214,9 @@ export function useTrayDataProvider() {
       return;
     }
 
-    // Resolve USD→target factor up-front so totalBalance and watchlist rows
-    // format consistently; market API quotes USD and would otherwise be
-    // displayed next to a localized total.
-    let displayCurrency = 'usd';
-    let displaySymbol = '$';
-    let usdToTargetFactor = new BigNumber(1);
-    try {
-      const [{ currencyInfo }, { currencyMap }] = await Promise.all([
-        settingsPersistAtom.get(),
-        currencyPersistAtom.get(),
-      ]);
-      const targetCurrency = currencyInfo.id;
-      const usdInfoRaw = currencyMap.usd;
-      const targetInfoRaw = currencyMap[targetCurrency];
-      if (usdInfoRaw && targetInfoRaw) {
-        displayCurrency = targetCurrency;
-        displaySymbol = targetInfoRaw.unit || targetCurrency.toUpperCase();
-        usdToTargetFactor = new BigNumber(targetInfoRaw.value || '1').div(
-          new BigNumber(usdInfoRaw.value || '1'),
-        );
-      }
-    } catch {
-      // currencyMap not populated yet — keep USD defaults.
-    }
+    const displayCurrency = USD_CURRENCY_ID;
+    const displaySymbol = USD_CURRENCY_SYMBOL;
+    const usdToTargetFactor = new BigNumber(1);
 
     try {
       const trayData: ITrayData = {
@@ -122,11 +224,11 @@ export function useTrayDataProvider() {
         accountId: activeAccountId,
         pendingTxsCleared: pendingTxsClearedRef.current,
         wallet: { name: '', emoji: '', avatarImg: '' },
+        account: { name: accountNameRef.current },
         totalBalance: {
           amount: '0.00',
           currency: displayCurrency,
           symbol: displaySymbol,
-          change24h: 0,
         },
         watchlist: [],
         pendingTxs: [],
@@ -166,16 +268,29 @@ export function useTrayDataProvider() {
         try {
           // `value` is either a string (others account) or Record<key, string> (own).
           const val = accountValue.value;
-          let tokensUsd = new BigNumber(0);
-          if (typeof val === 'string') {
-            tokensUsd = new BigNumber(val || '0');
-          } else if (val && typeof val === 'object') {
-            tokensUsd = Object.values(val).reduce(
-              (sum, v) => sum.plus(new BigNumber(v || '0')),
-              new BigNumber(0),
-            );
+          let enabledNetworkScope: ITrayEnabledNetworkScope | undefined;
+          if (val && typeof val === 'object' && currentWallet.id) {
+            try {
+              enabledNetworkScope = await getTrayEnabledNetworkScope({
+                walletId: currentWallet.id,
+                accountId: accountRef.current?.id,
+              });
+            } catch (e) {
+              defaultLogger.app.error.log(
+                `[TrayDataProvider] enabled networks fetch error: ${
+                  (e as Error)?.message || String(e)
+                }`,
+              );
+            }
           }
-          const tokensInTarget = tokensUsd.times(usdToTargetFactor).toFixed();
+          const tokensInTarget = getTrayTokenValueInTargetCurrency({
+            tokensValue: val,
+            usdToTargetFactor,
+            walletId: currentWallet.id,
+            enabledNetworksCompatibleWithWalletId:
+              enabledNetworkScope?.enabledNetworksCompatibleWithWalletId,
+            networkInfoMap: enabledNetworkScope?.networkInfoMap,
+          });
 
           // DeFi via simpleDb.deFi cache only — no network call.
           let deFiNetWorth = '0';
@@ -185,6 +300,7 @@ export function useTrayDataProvider() {
                 accountId: accountValue.accountId,
                 networkId: getNetworkIdsMap().onekeyall,
                 targetCurrency: displayCurrency,
+                enabledNetworkIds: enabledNetworkScope?.enabledNetworkIds,
               });
             deFiNetWorth = deFiResp.netWorth;
           } catch (e) {
@@ -205,7 +321,7 @@ export function useTrayDataProvider() {
             amount: new BigNumber(total).toFixed(2),
             currency: displayCurrency,
             symbol: displaySymbol,
-            change24h: 0,
+            change24h: composeTrayAccountChange24h(),
           };
         } catch (e) {
           defaultLogger.app.error.log(
@@ -246,27 +362,36 @@ export function useTrayDataProvider() {
                   { tokenAddressList },
                 );
               if (response?.list?.length) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                response.list.forEach((coin: any) => {
+                // fetchMarketTokenListBatch preserves request-order via
+                // positional index. Matching on API-returned networkId/
+                // isNative is fragile: networkId may be a shortcode,
+                // isNative may be missing, and address casing can shift.
+                // Align by spotItems index and keep watchlist's canonical
+                // chainId/contractAddress/isNative for the navigation
+                // payload — the API row is display data only.
+                spotItems.forEach((spotItem: any, index: number) => {
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+                  const coin = response.list[index] as any;
                   if (!coin?.symbol) return;
-                  // Match by networkId + address — API may reorder results.
-                  const spotItem = spotItems.find(
-                    (s: any) =>
-                      s.chainId === coin.networkId &&
-                      (s.contractAddress || '') === (coin.address || ''),
-                  );
+                  const spotIsNative =
+                    (spotItem.isNative as boolean | undefined) ?? false;
                   watchlistResults.push({
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                     symbol: (coin.symbol || '').toUpperCase(),
                     name: coin.name || '',
-                    icon: coin.logoUrl || '',
+                    icon: coin.logoUrl || coin.logoUrls?.[0] || '',
+                    iconUrls: coin.logoUrls,
+                    networkIcon: getNetworkLogoUri(spotItem.chainId),
                     price: formatPriceInTarget(coin.price),
                     change24h: Number(coin.priceChange24hPercent || 0),
                     type: 'spot',
-                    tokenAddress:
-                      coin.address || spotItem?.contractAddress || '',
-                    networkId: coin.networkId || spotItem?.chainId || '',
-                    isNative: spotItem?.isNative ?? false,
+                    tokenAddress: spotIsNative
+                      ? ''
+                      : spotItem.contractAddress || '',
+                    networkId: spotItem.chainId,
+                    isNative: spotIsNative,
+                    communityRecognized: coin.communityRecognized,
+                    stock: coin.stock,
                   });
                 });
               }
@@ -277,10 +402,21 @@ export function useTrayDataProvider() {
 
           if (perpsItems.length > 0) {
             try {
+              const [perpsDataResult, tokenSearchAliasesResult] =
+                await Promise.allSettled([
+                  backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+                    category: 'all',
+                  }),
+                  backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+                ]);
               const perpsData =
-                await backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList(
-                  { category: 'all' },
-                );
+                perpsDataResult.status === 'fulfilled'
+                  ? perpsDataResult.value
+                  : undefined;
+              const tokenSearchAliases =
+                tokenSearchAliasesResult.status === 'fulfilled'
+                  ? tokenSearchAliasesResult.value
+                  : undefined;
               if (perpsData?.tokens?.length) {
                 for (const item of perpsItems) {
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -290,14 +426,37 @@ export function useTrayDataProvider() {
                       t.name?.toUpperCase() === item.perpsCoin?.toUpperCase(),
                   );
                   if (coin) {
+                    const parsedCoin = parseDexCoin(
+                      coin.name || item.perpsCoin || '',
+                    );
+                    const parsedDisplay = parseDexCoin(
+                      coin.displayName ||
+                        parsedCoin.displayName ||
+                        item.perpsCoin ||
+                        '',
+                    );
+                    const displayName =
+                      parsedDisplay.displayName ||
+                      parsedCoin.displayName ||
+                      item.perpsCoin ||
+                      '';
                     watchlistResults.push({
-                      symbol: (coin.name || '').toUpperCase(),
-                      name: coin.displayName || coin.name || '',
-                      icon: coin.tokenImageUrl || '',
+                      symbol: displayName,
+                      name: '',
+                      icon:
+                        coin.tokenImageUrl ||
+                        getHyperliquidTokenImageUrl(
+                          parsedCoin.displayName || displayName,
+                        ),
                       price: formatPriceInTarget(coin.markPrice),
                       change24h: coin.change24hPercent || 0,
                       type: 'perps',
                       perpsCoin: item.perpsCoin,
+                      maxLeverage: coin.maxLeverage,
+                      subtitle: getTokenSubtitle(
+                        coin.name || item.perpsCoin || '',
+                        tokenSearchAliases,
+                      ),
                     });
                   }
                 }
@@ -360,26 +519,16 @@ export function useTrayDataProvider() {
               txType = 'send';
             }
 
-            // BigNumber preserves precision for 18-decimal tokens that
-            // a raw JS Number would collapse to 0.
-            let amount = '';
             const firstSend = transfer?.sends?.[0];
-            if (firstSend) {
-              const bn = new BigNumber(firstSend.amount ?? '');
-              let formatted: string;
-              if (bn.isNaN()) {
-                formatted = firstSend.amount;
-              } else if (bn.abs().lt('0.01')) {
-                formatted = bn.toPrecision(3);
-              } else {
-                formatted = bn.toFixed(4).replace(/\.?0+$/, '');
-              }
-              amount = `${formatted} ${firstSend.symbol}`;
-            } else if (decodedTx?.totalFeeFiatValue) {
-              amount = `${displaySymbol}${new BigNumber(
-                decodedTx.totalFeeFiatValue,
-              ).toFixed(2)}`;
-            }
+            // NEVER fall back to totalFeeFiatValue here (OK-53607): gas fee is
+            // not the tx amount and displaying it misleads users into thinking
+            // they transferred cents when they actually approved or called a
+            // contract.
+            const amount = formatTrayPendingTxAmount({
+              firstSend: firstSend
+                ? { amount: firstSend.amount, symbol: firstSend.symbol }
+                : undefined,
+            });
 
             const to = firstSend?.to || decodedTx?.to || '';
 
@@ -439,11 +588,11 @@ export function useTrayDataProvider() {
         accountId: activeAccountId,
         pendingTxsCleared: pendingTxsClearedRef.current,
         wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
+        account: { name: accountNameRef.current },
         totalBalance: {
           amount: '0.00',
           currency: 'USD',
           symbol: '$',
-          change24h: 0,
         },
         watchlist: [],
         pendingTxs: [],
@@ -492,23 +641,29 @@ export function useTrayDataProvider() {
       }
 
       if (action?.type === 'view-all-transactions') {
-        // No public route param to select the history sub-tab directly;
-        // fall back to Home so the user at least lands on the right context.
         nav.navigate(ERootRoutes.Main, {
           screen: ETabRoutes.Home,
         });
+        // Delay lets HomePageView mount its SwitchWalletHomeTab listener
+        // before we emit.
+        setTimeout(() => {
+          appEventBus.emit(EAppEventBusNames.SwitchWalletHomeTab, {
+            id: EHomeWalletTab.History,
+          });
+        }, 80);
         return;
       }
 
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
+          const coin = action.perpsCoin as string;
           setTimeout(async () => {
             nav.navigate(ERootRoutes.Main, {
               screen: ETabRoutes.Perp,
             });
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-                coin: action.perpsCoin as string,
+                coin,
               });
             } catch (e) {
               defaultLogger.app.error.log(
@@ -517,11 +672,16 @@ export function useTrayDataProvider() {
                 }`,
               );
             }
+            appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
+              mode: 'perp',
+              coin,
+            });
           }, 80);
           return;
         }
 
-        if (action.tokenAddress && action.networkId) {
+        const isNative = (action.isNative as boolean) || false;
+        if (action.networkId && (isNative || action.tokenAddress)) {
           const networkId = action.networkId as string;
           const shortCode = networkUtils.getNetworkShortCode({ networkId });
           nav.navigate(ERootRoutes.Main, {
@@ -529,9 +689,9 @@ export function useTrayDataProvider() {
             params: {
               screen: ETabMarketRoutes.MarketDetailV2,
               params: {
-                tokenAddress: action.tokenAddress as string,
+                tokenAddress: (action.tokenAddress as string) || '',
                 network: shortCode || networkId,
-                isNative: (action.isNative as boolean) || false,
+                isNative,
               },
             },
           });
@@ -571,8 +731,39 @@ export function useTrayDataProvider() {
     };
   }, [isTrayActive, handleTrayDataRequest, handleTrayNavigation]);
 
+  // Account switch: push an optimistic placeholder + gather immediately so the
+  // panel clears stale numbers within one frame (OK-53623). Non-switch identity
+  // changes (per-network profile refresh) keep the 300ms debounce so the
+  // cascade in OK-53610 is absorbed.
   useEffect(() => {
     if (!isTrayActive) return;
+    const currentAccountId = activeAccountValue?.accountId;
+    const accountJustChanged = currentAccountId !== prevAccountIdRef.current;
+    if (accountJustChanged) {
+      prevAccountIdRef.current = currentAccountId;
+      globalThis.desktopApi?.sendTrayData({
+        accountId: currentAccountId,
+        pendingTxsCleared: false,
+        // Fall back to 'Wallet' — an empty name falls through to the
+        // `noWallet` empty-state branch in TrayPanel, which would replace
+        // the optimistic zeros with a full-panel "no wallet" screen.
+        wallet: {
+          name: walletRef.current?.name || 'Wallet',
+          emoji: '',
+          avatarImg: '',
+        },
+        account: { name: accountNameRef.current },
+        totalBalance: {
+          amount: '0.00',
+          currency: 'USD',
+          symbol: '$',
+        },
+        watchlist: [],
+        pendingTxs: [],
+      });
+      handleTrayDataRequestRef.current?.();
+      return;
+    }
     const timer = setTimeout(() => {
       handleTrayDataRequestRef.current?.();
     }, 300);
@@ -612,9 +803,9 @@ export function useTrayDataProvider() {
       debouncedRefresh();
     };
 
-    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, debouncedRefresh);
-    appEventBus.on(EAppEventBusNames.RefreshHistoryList, debouncedRefresh);
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, debouncedRefresh);
+    TRAY_DATA_REFRESH_EVENT_NAMES.forEach((eventName) => {
+      appEventBus.on(eventName, debouncedRefresh);
+    });
     appEventBus.on(
       EAppEventBusNames.ClearLocalHistoryPendingTxs,
       handlePendingTxsCleared,
@@ -622,12 +813,9 @@ export function useTrayDataProvider() {
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      appEventBus.off(
-        EAppEventBusNames.HistoryTxStatusChanged,
-        debouncedRefresh,
-      );
-      appEventBus.off(EAppEventBusNames.RefreshHistoryList, debouncedRefresh);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, debouncedRefresh);
+      TRAY_DATA_REFRESH_EVENT_NAMES.forEach((eventName) => {
+        appEventBus.off(eventName, debouncedRefresh);
+      });
       appEventBus.off(
         EAppEventBusNames.ClearLocalHistoryPendingTxs,
         handlePendingTxsCleared,

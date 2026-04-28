@@ -48,8 +48,8 @@ import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
 import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
 import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 import {
-  useSwapQuoteEventFetching,
   useSwapQuoteLoading,
+  useSwapQuoteProgressState,
 } from '../../hooks/useSwapState';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
@@ -85,6 +85,7 @@ const SwapQuoteResult = ({
   const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
     useSwapLimitPartiallyFillAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
+  const { isWaitingActionableQuote } = useSwapQuoteProgressState();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
@@ -161,7 +162,7 @@ const SwapQuoteResult = ({
     [calculateTaxItem],
   );
 
-  const quoting = useSwapQuoteEventFetching();
+  const quoting = isWaitingActionableQuote;
 
   const { limitOrderExpiryStepMap, limitOrderPartiallyFillStepMap } =
     useSwapLimitConfigMaps();
@@ -197,7 +198,7 @@ const SwapQuoteResult = ({
     );
   }
   if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
-    if (quoting || swapQuoteLoading) {
+    if (isWaitingActionableQuote) {
       return (
         <XStack alignItems="center">
           <XStack gap="$2">

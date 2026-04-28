@@ -53,10 +53,13 @@ const transportLog = (msg: string) => {
 const OBSERVER_RETRY_MS = 50;
 const MAX_OBSERVER_RETRY_COUNT = 600;
 const READY_TIMEOUT_MS = 10_000;
-const REQUEST_TIMEOUT_MS = 30_000;
+// Long enough to cover HW + passphrase batch derivation (dozens of BLE
+// round-trips, ~1.5 min in practice) plus headroom. A per-call timeout only
+// rejects that single call — it no longer tears down the transport.
+const REQUEST_TIMEOUT_MS = 10 * 60_000; // 10 minutes
 // bridge-calls may wait for user interaction (e.g. DApp connect modal),
 // so they need a much longer timeout and should NOT break the transport.
-const BRIDGE_CALL_TIMEOUT_MS = 5 * 60_000; // 5 minutes
+const BRIDGE_CALL_TIMEOUT_MS = 10 * 60_000; // 10 minutes
 const MAX_REMOTE_CALL_SLOT_COUNT = 512;
 
 type IQueuedCall = {
@@ -83,6 +86,7 @@ type INativeBackgroundThreadTransport = {
       type: 'app-event';
       eventName: string;
       payload: unknown;
+      originNodeId?: string;
     },
     localFallback: () => Promise<any>,
   ) => Promise<any>;
@@ -149,6 +153,43 @@ function clearReadyTimeoutTimer() {
   readyTimeoutTimer = undefined;
 }
 
+function rejectQueuedCalls(reason: string) {
+  const queuedCallsSnapshot = queuedCalls.splice(0);
+  const error = createTransportError(reason);
+  queuedCallsSnapshot.forEach(({ reject }) => {
+    reject(error);
+  });
+}
+
+function getRemoteBrokenReason(reason?: string) {
+  return (
+    remoteBrokenReason || reason || 'Background runtime unavailable after ready'
+  );
+}
+
+function switchToRemoteBroken(reason: string) {
+  if (!isNativeBackgroundThreadTransportEnabled()) {
+    return false;
+  }
+  if (transportState === 'remote-broken') {
+    return false;
+  }
+
+  remoteBrokenReason = reason;
+  transportState = 'remote-broken';
+  clearReadyTimeoutTimer();
+  rejectQueuedCalls(reason);
+
+  const pendingRemoteCallsSnapshot = Array.from(pendingRemoteCalls.values());
+  pendingRemoteCalls.clear();
+  const error = createTransportError(reason);
+  pendingRemoteCallsSnapshot.forEach(({ reject, timer }) => {
+    clearTimeout(timer);
+    reject(error);
+  });
+  return true;
+}
+
 function ensureReadyTimeout() {
   if (readyTimeoutTimer || transportState !== 'starting') {
     return;
@@ -198,11 +239,67 @@ function getRequestDebugLabel(request: IBackgroundThreadRequest) {
   }
 }
 
-function rejectQueuedCalls(reason: string) {
-  const queuedCallsSnapshot = queuedCalls.splice(0);
-  const error = createTransportError(reason);
-  queuedCallsSnapshot.forEach(({ reject }) => {
-    reject(error);
+function dispatchRemoteRequest(
+  request: IBackgroundThreadRequest,
+  localFallback: () => Promise<any>,
+) {
+  if (!isNativeBackgroundThreadTransportEnabled()) {
+    return localFallback();
+  }
+  if (transportState === 'remote-broken') {
+    throw createTransportError(getRemoteBrokenReason());
+  }
+
+  const sharedRPC = getSharedRPC();
+  if (!sharedRPC) {
+    const reason =
+      transportState === 'ready'
+        ? 'SharedRPC unavailable after background runtime ready'
+        : 'SharedRPC unavailable in main runtime';
+    switchToRemoteBroken(reason);
+    throw createTransportError(getRemoteBrokenReason(reason));
+  }
+
+  const callId = createRemoteCallId();
+  const requestKey = buildBackgroundThreadRequestKey(callId);
+  transportLog(
+    `dispatchRemoteRequest: callId=${callId}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
+  );
+  const isBridgeCall = request.type === 'bridge-call';
+  const timeoutMs = isBridgeCall ? BRIDGE_CALL_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      if (!pendingRemoteCalls.has(callId)) {
+        return;
+      }
+      transportLog(`dispatchRemoteRequest TIMEOUT: callId=${callId}`);
+      // A single slow call (e.g. batch account derivation that legitimately
+      // runs past REQUEST_TIMEOUT_MS) must NOT tear down the whole main↔bg
+      // transport. Reject only this pending call; keep transport alive so
+      // subsequent RPCs still reach the background runtime.
+      const pending = pendingRemoteCalls.get(callId);
+      pendingRemoteCalls.delete(callId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        pending.reject(
+          createTransportError(
+            isBridgeCall
+              ? `Bridge call timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`
+              : `Background request timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`,
+          ),
+        );
+      }
+    }, timeoutMs);
+
+    pendingRemoteCalls.set(callId, {
+      resolve,
+      reject,
+      timer,
+      localFallback,
+    });
+
+    sharedRPC.write(requestKey, serializeBackgroundThreadRequest(request));
   });
 }
 
@@ -232,35 +329,6 @@ function dispatchQueuedCallsToRemote() {
     .finally(() => {
       queuedFlushPromise = undefined;
     });
-}
-
-function getRemoteBrokenReason(reason?: string) {
-  return (
-    remoteBrokenReason || reason || 'Background runtime unavailable after ready'
-  );
-}
-
-function switchToRemoteBroken(reason: string) {
-  if (!isNativeBackgroundThreadTransportEnabled()) {
-    return false;
-  }
-  if (transportState === 'remote-broken') {
-    return false;
-  }
-
-  remoteBrokenReason = reason;
-  transportState = 'remote-broken';
-  clearReadyTimeoutTimer();
-  rejectQueuedCalls(reason);
-
-  const pendingRemoteCallsSnapshot = Array.from(pendingRemoteCalls.values());
-  pendingRemoteCalls.clear();
-  const error = createTransportError(reason);
-  pendingRemoteCallsSnapshot.forEach(({ reject, timer }) => {
-    clearTimeout(timer);
-    reject(error);
-  });
-  return true;
 }
 
 function handleRuntimeSignal(sharedRPC: ISharedRPC) {
@@ -414,11 +482,13 @@ function handleBackgroundThreadAppEventUpdate(
     return;
   }
 
-  appEventBus.emitToSelf({
-    type: payload.eventName as any,
+  // We are the main-thread foreground receiving a broadcast from the
+  // background. Route through dispatchInboundFromBackground so we skip our
+  // own echoes via originNodeId.
+  appEventBus.dispatchInboundFromBackground({
+    type: payload.eventName,
     payload: payload.payload,
-    isRemote: true,
-    cloned: false,
+    originNodeId: payload.originNodeId ?? '',
   });
 }
 
@@ -591,72 +661,6 @@ async function ensureTransportReady() {
   }
 }
 
-function dispatchRemoteRequest(
-  request: IBackgroundThreadRequest,
-  localFallback: () => Promise<any>,
-) {
-  if (!isNativeBackgroundThreadTransportEnabled()) {
-    return localFallback();
-  }
-  if (transportState === 'remote-broken') {
-    throw createTransportError(getRemoteBrokenReason());
-  }
-
-  const sharedRPC = getSharedRPC();
-  if (!sharedRPC) {
-    const reason =
-      transportState === 'ready'
-        ? 'SharedRPC unavailable after background runtime ready'
-        : 'SharedRPC unavailable in main runtime';
-    switchToRemoteBroken(reason);
-    throw createTransportError(getRemoteBrokenReason(reason));
-  }
-
-  const callId = createRemoteCallId();
-  const requestKey = buildBackgroundThreadRequestKey(callId);
-  transportLog(
-    `dispatchRemoteRequest: callId=${callId}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
-  );
-  const isBridgeCall = request.type === 'bridge-call';
-  const timeoutMs = isBridgeCall ? BRIDGE_CALL_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      if (!pendingRemoteCalls.has(callId)) {
-        return;
-      }
-      transportLog(`dispatchRemoteRequest TIMEOUT: callId=${callId}`);
-      if (isBridgeCall) {
-        // bridge-call timeouts mean user didn't interact in time,
-        // NOT that the background thread is dead — don't break transport.
-        const pending = pendingRemoteCalls.get(callId);
-        pendingRemoteCalls.delete(callId);
-        if (pending) {
-          clearTimeout(pending.timer);
-          pending.reject(
-            createTransportError(
-              `Bridge call timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`,
-            ),
-          );
-        }
-      } else {
-        switchToRemoteBroken(
-          `Background request timeout. request=${getRequestDebugLabel(request)}`,
-        );
-      }
-    }, timeoutMs);
-
-    pendingRemoteCalls.set(callId, {
-      resolve,
-      reject,
-      timer,
-      localFallback,
-    });
-
-    sharedRPC.write(requestKey, serializeBackgroundThreadRequest(request));
-  });
-}
-
 function callRemoteRequest(
   request: IBackgroundThreadRequest,
   localFallback: () => Promise<any>,
@@ -721,6 +725,7 @@ function emitAppEventRequest(
     type: 'app-event';
     eventName: string;
     payload: unknown;
+    originNodeId?: string;
   },
   localFallback: () => Promise<any>,
 ) {

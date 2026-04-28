@@ -2,6 +2,7 @@ import { createDeferred } from '@onekeyfe/hd-shared';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { SearchDevice, Success, Unsuccessful } from '@onekeyfe/hd-core';
 import type { Deferred } from '@onekeyfe/hd-shared';
@@ -32,6 +33,7 @@ export class DeviceScannerUtils {
     pollIntervalRate = POLL_INTERVAL_RATE,
     pollInterval = POLL_INTERVAL,
     maxTryCount = MAX_SEARCH_TRY_COUNT,
+    vendor?: EHardwareVendor,
   ) {
     const MaxTryCount = maxTryCount ?? MAX_SEARCH_TRY_COUNT;
     const searchDevices = async () => {
@@ -46,8 +48,9 @@ export class DeviceScannerUtils {
 
       let searchResponse;
       try {
-        searchResponse =
-          await this.backgroundApi.serviceHardware.searchDevices();
+        searchResponse = await this.backgroundApi.serviceHardware.searchDevices(
+          vendor ? { vendor } : undefined,
+        );
       } finally {
         searchPromise?.resolve();
         searchPromise = null;

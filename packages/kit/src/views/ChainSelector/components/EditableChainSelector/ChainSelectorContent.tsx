@@ -9,26 +9,21 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
-import type { ISortableSectionListRef } from '@onekeyhq/components';
+import type { ISectionListRef } from '@onekeyhq/components';
 import {
   Empty,
-  Icon,
-  Page,
   SearchBar,
   SectionList,
   SizableText,
-  SortableSectionList,
   Stack,
   XStack,
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -38,16 +33,18 @@ import RecentNetworks from '../RecentNetworks';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import {
-  ALL_NETWORK_HEADER_HEIGHT,
-  CELL_HEIGHT,
-  ZERO_VALUE_TOOLTIP_HEIGHT,
-} from './type';
+import { CELL_HEIGHT } from './type';
 
 import type {
   IEditableChainSelectorContext,
   IEditableChainSelectorSection,
 } from './type';
+
+// Passed through to FlashList v2's overrideProps. See SectionList JSX
+// below for why we use spread-cast instead of naming the prop directly.
+const flashListOverrideProps = {
+  overrideProps: { initialDrawBatchSize: 30 },
+};
 
 const ListEmptyComponent = () => {
   const intl = useIntl();
@@ -96,15 +93,12 @@ const ListHeaderComponent = () => {
           />
         </XStack>
       )}
-      {allNetworkItem ? (
-        <EditableListItem item={allNetworkItem} isEditable={false} />
-      ) : null}
+      {allNetworkItem ? <EditableListItem item={allNetworkItem} /> : null}
     </YStack>
   );
 };
 
 type IEditableChainSelectorContentProps = {
-  isEditMode?: boolean;
   recentNetworksEnabled?: boolean;
   accountNetworkValues: Record<string, string>;
   mainnetItems: IServerNetwork[];
@@ -117,9 +111,7 @@ type IEditableChainSelectorContentProps = {
   accountId?: string;
   indexedAccountId?: string;
   onPressItem?: (network: IServerNetwork) => void;
-  onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
-  onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   setAllNetworksChanged?: (value: boolean) => void;
   accountNetworkValueCurrency?: string;
   accountDeFiOverview: Record<
@@ -137,6 +129,7 @@ type IEditableChainSelectorContentProps = {
 export const EditableChainSelectorContent = ({
   recentNetworksEnabled,
   walletId,
+  accountId,
   indexedAccountId,
   accountNetworkValues,
   accountNetworkValueCurrency,
@@ -145,12 +138,9 @@ export const EditableChainSelectorContent = ({
   frequentlyUsedItems,
   unavailableItems,
   onPressItem,
-  onAddCustomNetwork,
   onEditCustomNetwork,
   networkId,
-  isEditMode,
   allNetworkItem,
-  onFrequentlyUsedItemsChange,
   accountDeFiOverview,
   showAllNetworkInRecentNetworks,
   zeroValue,
@@ -165,30 +155,7 @@ export const EditableChainSelectorContent = ({
   const [tempFrequentlyUsedItems, setTempFrequentlyUsedItems] = useState(
     frequentlyUsedItems ?? [],
   );
-  const listRef = useRef<ISortableSectionListRef<any> | null>(null);
-  const lastIsEditMode = usePrevious(isEditMode);
-  const showAllNetworkHeader = useMemo(
-    () => allNetworkItem && !searchText,
-    [allNetworkItem, searchText],
-  );
-
-  const showNonZeroValueTooltip = useMemo(
-    () => !zeroValue && !searchText,
-    [zeroValue, searchText],
-  );
-
-  const [recentNetworksHeight, setRecentNetworksHeight] = useState(0);
-
-  useEffect(() => {
-    if (!isEditMode && lastIsEditMode) {
-      onFrequentlyUsedItemsChange?.(tempFrequentlyUsedItems);
-    }
-  }, [
-    isEditMode,
-    lastIsEditMode,
-    tempFrequentlyUsedItems,
-    onFrequentlyUsedItemsChange,
-  ]);
+  const listRef = useRef<ISectionListRef<any> | null>(null);
 
   useEffect(() => {
     setTempFrequentlyUsedItems(frequentlyUsedItems);
@@ -242,7 +209,6 @@ export const EditableChainSelectorContent = ({
     const _sections: IEditableChainSelectorSection[] = [
       {
         data: tempFrequentlyUsedItems,
-        draggable: true,
       },
       ...mainnetSections,
     ];
@@ -274,70 +240,6 @@ export const EditableChainSelectorContent = ({
     intl,
     networkFuseSearch,
   ]);
-
-  const listHeaderHeight = useMemo(() => {
-    return (
-      recentNetworksHeight +
-      (showAllNetworkHeader ? ALL_NETWORK_HEADER_HEIGHT : 0) +
-      (showNonZeroValueTooltip ? ZERO_VALUE_TOOLTIP_HEIGHT : 0)
-    );
-  }, [showAllNetworkHeader, recentNetworksHeight, showNonZeroValueTooltip]);
-
-  const dragItemOverflowHitSlop = useMemo(() => {
-    const dragCount = tempFrequentlyUsedItems.length;
-    if (dragCount <= 0) {
-      return undefined;
-    }
-    return { bottom: (dragCount + 1) * listHeaderHeight + 16 };
-  }, [tempFrequentlyUsedItems, listHeaderHeight]);
-
-  const layoutList = useMemo(() => {
-    let offset = 16 + listHeaderHeight;
-    const layouts: {
-      offset: number;
-      length: number;
-      index: number;
-      sectionIndex?: number;
-    }[] = [];
-    sections.forEach((section, sectionIndex) => {
-      if (sectionIndex !== 0) {
-        layouts.push({
-          offset,
-          length: 20,
-          index: layouts.length,
-          sectionIndex,
-        });
-        offset += 20;
-      }
-      const headerHeight = section.title ? 36 : 0;
-      layouts.push({
-        offset,
-        length: headerHeight,
-        index: layouts.length,
-        sectionIndex,
-      });
-      offset += headerHeight;
-      section.data.forEach(() => {
-        layouts.push({
-          offset,
-          length: CELL_HEIGHT,
-          index: layouts.length,
-          sectionIndex,
-        });
-        offset += CELL_HEIGHT;
-      });
-      const footerHeight = 0;
-      layouts.push({
-        offset,
-        length: footerHeight,
-        index: layouts.length,
-        sectionIndex,
-      });
-      offset += footerHeight;
-    });
-    layouts.push({ offset, length: 16, index: layouts.length });
-    return layouts;
-  }, [sections, listHeaderHeight]);
 
   const initialScrollIndex = useMemo(() => {
     if (searchText.trim() || tempFrequentlyUsedItems !== frequentlyUsedItems) {
@@ -389,6 +291,43 @@ export const EditableChainSelectorContent = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, networkId, searchText]);
 
+  // Convert `initialScrollIndex` (section/item) into the flat data index
+  // that FlashList (via SectionList) uses for `initialScrollIndex` prop.
+  //
+  // SectionList flattens `sections` into [Header, Items..., Footer] for
+  // section 0, then [Separator, Header, Items..., Footer] for each
+  // subsequent section (see @onekeyhq/components/.../SectionList/index.tsx).
+  //
+  // Passing this as the *initial* scroll index (vs. imperative
+  // scrollToLocation after onLayout) lets FlashList v2 set its scroll
+  // offset before the first render, so the sticky-header compute runs
+  // once with the correct offset. Otherwise we'd observe ~100ms of
+  // "B header not stuck yet" because sticky compute depends on a
+  // scroll event to settle (StickyHeaders.tsx / useEffect reads
+  // getLastScrollOffset which is 0 at mount).
+  const initialScrollFlatIndex = useMemo(() => {
+    if (!initialScrollIndex || !sections.length) return undefined;
+    // Build up to the flat index of the *target section's header*, then
+    // add itemIndex. Matches SectionList's own scrollToLocation semantics
+    // (index = headerFlatIndex + itemIndex), where itemIndex = 0 lands on
+    // the header and itemIndex = 1 on the first item.
+    //
+    // Landing the scroll on the header (instead of on the selected item's
+    // exact row) avoids a FlashList v2 recycler glitch where a cell
+    // whose offset equals the scroll offset shows as an empty highlighted
+    // row — the section header row right above absorbs the boundary.
+    let idx = 0;
+    for (let si = 0; si < initialScrollIndex.sectionIndex; si += 1) {
+      if (si !== 0) idx += 1; // separator
+      idx += 1; // header
+      idx += sections[si].data.length;
+      idx += 1; // footer
+    }
+    if (initialScrollIndex.sectionIndex !== 0) idx += 1; // target separator
+    // idx now points at the target section's header flat index.
+    return idx + (initialScrollIndex.itemIndex ?? 0);
+  }, [sections, initialScrollIndex]);
+
   const context = useMemo<IEditableChainSelectorContext>(
     () => ({
       walletId: walletId ?? '',
@@ -400,16 +339,9 @@ export const EditableChainSelectorContent = ({
       ),
       networkId,
       onPressItem,
-      onAddCustomNetwork,
-      onEditCustomNetwork: (network: IServerNetwork) => {
-        // Save list edits before editing custom network
-        onFrequentlyUsedItemsChange?.(tempFrequentlyUsedItems);
-        onEditCustomNetwork?.(network);
-      },
-      isEditMode,
+      onEditCustomNetwork,
       searchText,
       allNetworkItem,
-      setRecentNetworksHeight,
       accountNetworkValues,
       accountNetworkValueCurrency,
       accountDeFiOverview,
@@ -421,13 +353,10 @@ export const EditableChainSelectorContent = ({
       tempFrequentlyUsedItems,
       networkId,
       onPressItem,
-      onAddCustomNetwork,
-      isEditMode,
       searchText,
       allNetworkItem,
       accountNetworkValues,
       accountNetworkValueCurrency,
-      onFrequentlyUsedItemsChange,
       onEditCustomNetwork,
       accountDeFiOverview,
       zeroValue,
@@ -437,22 +366,14 @@ export const EditableChainSelectorContent = ({
     ({
       item,
       section,
-      drag,
-      dragProps,
     }: {
       item: IServerNetwork;
       section: IEditableChainSelectorSection;
-      drag?: () => void;
-      dragProps?: Record<string, any>;
     }) => (
       <EditableListItem
         item={item}
-        isDraggable={section.draggable}
         isDisabled={section.unavailable}
-        isEditable={section.editable}
         isCustomNetworkEditable={item.isCustomNetwork}
-        drag={drag}
-        dragProps={dragProps}
       />
     ),
     [],
@@ -468,39 +389,6 @@ export const EditableChainSelectorContent = ({
     [],
   );
 
-  useEffect(() => {
-    // For non-native platforms, initialScrollIndex causes display bugs
-    // Handle it by manually scrolling to the target position
-    if (!platformEnv.isNative) {
-      if (!initialScrollIndex || layoutList.length === 0) return;
-
-      let offset = 0;
-
-      if (initialScrollIndex.sectionIndex === 0) {
-        offset = CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
-      } else {
-        const index = layoutList.findIndex(
-          (item) => item.sectionIndex === initialScrollIndex.sectionIndex,
-        );
-
-        if (index === -1) return;
-
-        offset =
-          layoutList[index].offset +
-          CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
-      }
-
-      setTimeout(() => {
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        listRef.current?._listRef?._scrollRef?.scrollTo?.({
-          y: offset,
-          animated: false,
-        });
-      }, 100);
-    }
-  }, [initialScrollIndex, layoutList]);
-
   return (
     <EditableChainSelectorContext.Provider value={context}>
       <Stack flex={1} position="relative">
@@ -512,19 +400,13 @@ export const EditableChainSelectorContent = ({
             })}
             value={searchText}
             onChangeText={(text) => {
-              // @ts-ignore
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-              listRef?.current?._listRef?._scrollRef?.scrollTo?.({
-                y: 0,
+              // Reset list to the top whenever the user types in search.
+              listRef.current?.scrollToLocation?.({
+                sectionIndex: 0,
+                itemIndex: 0,
+                viewPosition: 0,
                 animated: false,
               });
-              // @ts-ignore
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              if (listRef?.current?._listRef?._hasDoneInitialScroll) {
-                // @ts-ignore
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                listRef.current._listRef._hasDoneInitialScroll = false;
-              }
               setSearchText(text);
             }}
             {...(!platformEnv.isNative && {
@@ -544,75 +426,44 @@ export const EditableChainSelectorContent = ({
               allNetworkItem,
             ].filter(Boolean)}
             showAllNetwork={showAllNetworkInRecentNetworks}
+            swrKeyScope={EAppSWRCacheScopes.editableChainSelector}
+            walletId={walletId}
+            accountId={accountId}
           />
         ) : null}
         <Stack flex={1}>
           {sections.length > 0 ? (
-            <SortableSectionList
+            <SectionList
               ref={listRef}
-              enabled={false}
               stickySectionHeadersEnabled
               sections={sections}
               renderItem={renderItem}
               keyExtractor={(item) => (item as IServerNetwork).id}
-              onDragEnd={(result) => {
-                const itemList = result?.sections?.[0]
-                  ?.data as IServerNetwork[];
-                setTempFrequentlyUsedItems(itemList);
-              }}
-              initialScrollIndex={
-                platformEnv.isNative ? initialScrollIndex : undefined
-              }
-              dragItemOverflowHitSlop={dragItemOverflowHitSlop}
-              getItemLayout={(_, index) => {
-                if (index === -1) {
-                  return {
-                    index,
-                    offset:
-                      showAllNetworkHeader || showNonZeroValueTooltip
-                        ? listHeaderHeight
-                        : 0,
-                    length: 0,
-                  };
-                }
-                return layoutList[index];
-              }}
+              estimatedItemSize={CELL_HEIGHT}
+              // Set initial scroll before first paint so FlashList's
+              // sticky compute runs once at the target offset, instead
+              // of briefly sitting at offset=0 and snapping the sticky
+              // header into place after the first scroll event.
+              initialScrollIndex={initialScrollFlatIndex}
+              // FlashList v2 ships with progressive rendering: first
+              // paint emits only `initialDrawBatchSize` cells (default
+              // 2) and then grows exponentially (2,4,8,16,...) every 5
+              // frames. That produces the visible "list fills in row
+              // by row" effect on modal open. Bumping this makes the
+              // first paint large enough to cover the viewport at
+              // initialScrollIndex, so users see a complete list
+              // instead of a trickle. `overrideProps` isn't in OneKey's
+              // ISectionListProps (the web variant maps to FlatList),
+              // so we funnel it through as any.
+              {...(flashListOverrideProps as Record<string, unknown>)}
               ListHeaderComponent={<ListHeaderComponent />}
               renderSectionHeader={renderSectionHeader}
-              ListFooterComponent={
-                <>
-                  {isEditMode ? <Stack h="$2" /> : <Stack h={bottom || '$2'} />}
-                </>
-              } // Act as padding bottom
+              contentContainerStyle={{ paddingBottom: bottom || 8 }}
             />
           ) : (
             <ListEmptyComponent />
           )}
         </Stack>
-        {isEditMode ? (
-          <Page.Footer>
-            <Stack
-              pt="$2"
-              pb={bottom || '$2'}
-              borderTopWidth={StyleSheet.hairlineWidth}
-              borderTopColor="$borderSubdued"
-            >
-              <ListItem
-                userSelect="none"
-                onPress={() => onAddCustomNetwork?.()}
-              >
-                <Stack p="$1" borderRadius="$full" bg="$bgStrong">
-                  <Icon name="PlusSmallOutline" color="$iconSubdued" />
-                </Stack>
-                <ListItem.Text
-                  primary={intl.formatMessage({
-                    id: ETranslations.custom_network_add_network_action_text,
-                  })}
-                />
-              </ListItem>
-            </Stack>
-          </Page.Footer>
-        ) : null}
       </Stack>
     </EditableChainSelectorContext.Provider>
   );

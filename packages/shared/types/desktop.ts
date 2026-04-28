@@ -1,3 +1,4 @@
+import type { IDesktopApiGlobal } from './desktopApiPlatformInfo';
 import type { ILocaleSymbol } from '../src/locale';
 import type { ITrayAction, ITrayData } from '../src/types/desktop/tray';
 
@@ -40,19 +41,12 @@ export type INobleBleApi = {
   }>;
 };
 
-export type IDesktopApiLegacy = {
+export type IDesktopApiLegacy = IDesktopApiGlobal & {
   on: (
     channel: string,
     func: (...args: any[]) => any,
   ) => IDesktopEventUnSubscribe | undefined;
-  arch: string;
-  platform: string;
-  systemVersion: string;
   logDirectory: string;
-  deskChannel: string;
-  isMas: boolean;
-  isDev: boolean;
-  channel?: string;
   ready: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   isFocused: () => boolean;
@@ -112,6 +106,8 @@ export type IDesktopApiLegacy = {
   // `?render=tray`); `undefined` on the main renderer, so callers must
   // guard with optional chaining.
   sendTrayAction?: (action: ITrayAction) => void;
+  // Tray renderer → main handshake. Tray-only; undefined on main renderer.
+  sendTrayReady?: () => void;
   toggleTray: (enabled: boolean) => void;
 };
 

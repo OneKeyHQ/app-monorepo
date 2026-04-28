@@ -1,13 +1,20 @@
 import { memo, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
+  Icon,
   IconButton,
+  NumberSizeableText,
   SizableText,
   XStack,
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -32,8 +39,13 @@ interface IBalanceRowProps {
 }
 
 function formatPnlText(pnl?: string, pnlPercent?: number): string {
-  if (!pnl || parseFloat(pnl) === 0) return '';
-  const sign = parseFloat(pnl) > 0 ? '+' : '';
+  if (!pnl) return '--';
+
+  const numericPnl = parseFloat(pnl);
+  if (!Number.isFinite(numericPnl)) return '--';
+  if (numericPnl === 0) return '--';
+
+  const sign = numericPnl > 0 ? '+' : '';
   const formatted = numberFormat(pnl, balanceCurrencyFormatter);
   const pct = pnlPercent?.toFixed(1) ?? '0';
   return `${sign}${formatted} (${sign}${pct}%)`;
@@ -42,17 +54,16 @@ function formatPnlText(pnl?: string, pnlPercent?: number): string {
 function getPnlColor(pnl?: string): string | undefined {
   if (!pnl) return undefined;
   const val = parseFloat(pnl);
-  if (val > 0) return '$textSuccess';
-  if (val < 0) return '$textCritical';
+  if (val > 0) return '$green11';
+  if (val < 0) return '$red11';
   return undefined;
 }
 
-// Only add suffix when the same coin appears in both spot and perps (e.g. USDC).
-// Other tokens show without suffix, matching Hyperliquid's convention.
-function getCoinLabel(item: IBalanceDisplayItem): string {
+// Only add suffix to the perps side when the same coin appears in both spot and
+// perps (e.g. USDC). Spot keeps the plain symbol in both desktop and mobile UI.
+function getCoinLabel(item: IBalanceDisplayItem, perpLabel: string): string {
   if (!item.needsSuffix) return item.coin;
-  // TODO: add i18n keys for "Perps" / "Spot" suffixes
-  return item.type === 'perps' ? `${item.coin} (Perps)` : `${item.coin} (Spot)`;
+  return item.type === 'perps' ? `${item.coin} (${perpLabel})` : item.coin;
 }
 
 function ContractAddressCell({
@@ -63,7 +74,13 @@ function ContractAddressCell({
   size?: '$bodyXs' | '$bodySmMedium';
 }) {
   const { copyText } = useClipboard();
-  if (!contract) return null;
+  if (!contract) {
+    return (
+      <SizableText size={size} color="$textSubdued">
+        --
+      </SizableText>
+    );
+  }
   const shortened = `${contract.slice(0, 6)}...${contract.slice(-4)}`;
   return (
     <XStack gap="$1" alignItems="center">
@@ -80,45 +97,99 @@ function ContractAddressCell({
           copyText(contract);
         }}
       />
+      <IconButton
+        size="small"
+        variant="tertiary"
+        icon="OpenOutline"
+        iconProps={{ size: '$3', color: '$iconSubdued' }}
+        onPress={(e) => {
+          e?.stopPropagation?.();
+          void openHyperLiquidTokenExplorerUrl({ tokenId: contract });
+        }}
+      />
     </XStack>
   );
 }
 
 function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
-  const label = getCoinLabel(item);
+  const intl = useIntl();
+  const label = getCoinLabel(
+    item,
+    intl.formatMessage({
+      id: ETranslations.perp_label_perp,
+    }),
+  );
   const pnlText = formatPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
   const isAssetClickable = !!item.isAssetClickable;
+  const balanceText = item.total;
 
   return (
-    <ListItem py="$2.5" px="$5">
-      <YStack flex={1} gap="$0.5">
-        <XStack justifyContent="space-between" alignItems="center">
-          <XStack gap="$1.5" alignItems="center">
-            <SizableText
-              size="$bodyMdMedium"
-              color={isAssetClickable ? '$green11' : undefined}
-              onPress={onChangeAsset}
+    <ListItem py="$2" px="$4" mx="$0">
+      <XStack
+        flex={1}
+        minWidth={0}
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$3"
+      >
+        <XStack
+          flexGrow={1}
+          flexBasis={0}
+          minWidth={0}
+          alignItems="center"
+          gap="$3"
+        >
+          <Token size="md" tokenImageUri={item.logoURI} />
+          <YStack flex={1} minWidth={0} gap="$0.5">
+            <XStack
+              minWidth={0}
+              alignItems="center"
+              gap="$1"
+              onPress={isAssetClickable ? onChangeAsset : undefined}
             >
-              {label}
+              <SizableText
+                size="$bodyMdMedium"
+                fontWeight={600}
+                numberOfLines={1}
+              >
+                {label}
+              </SizableText>
+              {isAssetClickable ? (
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  size="$3.5"
+                  color="$iconSubdued"
+                />
+              ) : null}
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {balanceText}
             </SizableText>
-            <ContractAddressCell contract={item.contract} />
-          </XStack>
-          <SizableText size="$bodyMdMedium">
-            {numberFormat(item.usdcValue, balanceCurrencyFormatter)}
-          </SizableText>
+          </YStack>
         </XStack>
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {`${item.total} ${item.coin}`}
-          </SizableText>
+        <YStack flexShrink={0} alignItems="flex-end" gap="$0.5">
+          <NumberSizeableText
+            size="$bodyMdMedium"
+            formatter="value"
+            formatterOptions={{ currency: '$' }}
+            numberOfLines={1}
+            textAlign="right"
+          >
+            {item.usdcValue}
+          </NumberSizeableText>
           {pnlText ? (
-            <SizableText size="$bodySm" color={pnlColor}>
+            <SizableText
+              size="$bodySm"
+              color={pnlColor}
+              numberOfLines={1}
+              textAlign="right"
+            >
               {pnlText}
             </SizableText>
           ) : null}
-        </XStack>
-      </YStack>
+        </YStack>
+      </XStack>
     </ListItem>
   );
 }
@@ -129,7 +200,13 @@ function BalanceRowDesktop({
   index,
   onChangeAsset,
 }: IBalanceRowProps) {
-  const label = getCoinLabel(item);
+  const intl = useIntl();
+  const label = getCoinLabel(
+    item,
+    intl.formatMessage({
+      id: ETranslations.perp_label_perp,
+    }),
+  );
   const pnlText = formatPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
   const isAssetClickable = !!item.isAssetClickable;
@@ -158,17 +235,25 @@ function BalanceRowDesktop({
 
     if (cell.key === 'coin') {
       return (
-        <SizableText
-          size="$bodySmMedium"
-          fontWeight={600}
-          color={isAssetClickable ? '$green11' : undefined}
-          onPress={onChangeAsset}
+        <XStack
+          minWidth={0}
+          alignItems="center"
+          gap="$2"
+          onPress={isAssetClickable ? onChangeAsset : undefined}
           cursor={isAssetClickable ? 'pointer' : 'default'}
-          hoverStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
-          pressStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
         >
-          {cell.cellValue}
-        </SizableText>
+          <Token size="xs" tokenImageUri={item.logoURI} />
+          <SizableText
+            size="$bodySmMedium"
+            fontWeight={600}
+            color={isAssetClickable ? '$green11' : undefined}
+            numberOfLines={1}
+            hoverStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
+            pressStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
+          >
+            {cell.cellValue}
+          </SizableText>
+        </XStack>
       );
     }
 
@@ -184,10 +269,11 @@ function BalanceRowDesktop({
 
   return (
     <XStack
+      width="100%"
       py="$1.5"
       px="$5"
       minHeight={48}
-      bg={index % 2 === 0 ? '$bgApp' : '$bg'}
+      bg={index % 2 === 0 ? '$bgApp' : '$bgSubdued'}
       hoverStyle={{ bg: '$bgHover' }}
     >
       {cells.map((cell) => (

@@ -6,19 +6,23 @@ import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared
 
 export function PortfolioOverview({
   wallet,
+  account,
   totalBalance,
   onPress,
 }: {
   wallet: { name: string; emoji: string; avatarImg: string };
+  account: { name: string };
   totalBalance: {
     amount: string;
     currency: string;
     symbol: string;
-    change24h: number;
+    change24h?: number;
   };
   onPress: () => void;
 }) {
-  const isPositive = totalBalance.change24h >= 0;
+  const change24h = totalBalance.change24h;
+  const hasChange = typeof change24h === 'number';
+  const isPositive = hasChange && change24h >= 0;
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
 
@@ -44,7 +48,12 @@ export function PortfolioOverview({
       cursor="pointer"
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
-      <Stack flexDirection="row" alignItems="center" marginBottom="$1">
+      <Stack
+        flexDirection="row"
+        alignItems="center"
+        marginBottom="$1"
+        minWidth={0}
+      >
         {(() => {
           if (avatarSource) {
             return (
@@ -54,30 +63,51 @@ export function PortfolioOverview({
                 height={20}
                 borderRadius={4}
                 marginRight="$1.5"
+                flexShrink={0}
               />
             );
           }
           if (wallet.emoji) {
             return (
-              <SizableText fontSize="$bodyMd" marginRight="$1.5">
+              <SizableText fontSize="$bodyMd" marginRight="$1.5" flexShrink={0}>
                 {wallet.emoji}
               </SizableText>
             );
           }
           return null;
         })()}
-        <SizableText fontSize="$bodySm" color="$textSubdued">
+        <SizableText
+          fontSize="$bodySm"
+          color="$textSubdued"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          flexShrink={1}
+          minWidth={0}
+        >
           {wallet.name}
         </SizableText>
       </Stack>
+      {account.name ? (
+        <SizableText
+          fontSize="$bodySm"
+          color="$textSubdued"
+          marginBottom="$1"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          minWidth={0}
+        >
+          {account.name}
+        </SizableText>
+      ) : null}
       <SizableText fontSize="$headingXl" color="$text" fontWeight="600">
         {currencySymbol}
         {formattedAmount}
       </SizableText>
-      <SizableText fontSize="$bodySm" color={changeColor} marginTop="$1">
-        {changePrefix}
-        {totalBalance.change24h.toFixed(2)}%
-      </SizableText>
+      {hasChange ? (
+        <SizableText fontSize="$bodySm" color={changeColor} marginTop="$1">
+          {`${changePrefix}${change24h.toFixed(2)}%`}
+        </SizableText>
+      ) : null}
     </Stack>
   );
 }

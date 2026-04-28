@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import { DashText, SizableText, XStack } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
@@ -13,11 +14,15 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getHyperliquidTokenImageUrl,
+  getSpotTokenDisplayName,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { BalanceRow } from '../Components/BalanceRow';
+import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -31,6 +36,7 @@ export interface IBalanceDisplayItem {
   pnl?: string;
   pnlPercent?: number;
   contract?: string;
+  logoURI?: string;
   usdcValueNum: number;
   spotUniverse?: ISpotUniverse;
   isAssetClickable?: boolean;
@@ -43,6 +49,14 @@ interface ISpotBalanceListProps {
   useTabsList?: boolean;
   disableListScroll?: boolean;
   ListHeaderComponent?: ReactElement | null;
+}
+
+function getBalanceSortPriority(item: IBalanceDisplayItem): number {
+  if (item.coin !== 'USDC') {
+    return 2;
+  }
+
+  return item.type === 'spot' ? 0 : 1;
 }
 
 function SpotBalanceList({
@@ -91,17 +105,22 @@ function SpotBalanceList({
   const allBalances: IBalanceDisplayItem[] = useMemo(() => {
     const items: IBalanceDisplayItem[] = [];
 
-    const spotCoinNames = new Set(balances.map((b) => b.coin));
-    const hasPerpsUsdc = !!accountSummary?.totalRawUsd;
+    let spotUsdcBalance: (typeof balances)[number] | undefined;
 
     balances.forEach((b) => {
+      // USDC is merged with the perps-side USDC after the loop into a single
+      // total-across-spot+perps row; defer collection until then.
+      if (b.coin === 'USDC') {
+        spotUsdcBalance = b;
+        return;
+      }
+
       const totalBN = new BigNumber(b.total);
       const holdBN = new BigNumber(b.hold);
       const availableBN = BigNumber.max(totalBN.minus(holdBN), 0);
       const entryNtlBN = new BigNumber(b.entryNtl || '0');
 
-      const isStable =
-        b.coin === 'USDC' || b.coin === 'USDT' || b.coin === 'USDB';
+      const isStable = b.coin === 'USDT' || b.coin === 'USDB';
 
       const midPrice = tokenPriceLookup[b.coin];
       let usdcValueBN: BigNumber;
@@ -122,9 +141,8 @@ function SpotBalanceList({
       }
 
       const displayCoin = getSpotTokenDisplayName(b.coin);
-      const needsSuffix = displayCoin === 'USDC' && hasPerpsUsdc;
       const spotUniverse = universeByBaseName[b.coin];
-      const isAssetClickable = b.coin !== 'USDC' && !!spotUniverse;
+      const isAssetClickable = !!spotUniverse;
 
       items.push({
         coin: displayCoin,
@@ -136,31 +154,50 @@ function SpotBalanceList({
         pnl,
         pnlPercent,
         contract: tokenContractMap[b.coin],
+        logoURI: getHyperliquidTokenImageUrl(b.coin),
         spotUniverse,
         isAssetClickable,
-        needsSuffix,
+        needsSuffix: false,
         usdcValueNum: usdcValueBN.toNumber(),
       });
     });
 
-    if (accountSummary?.totalRawUsd) {
-      const perpsUsdcBN = new BigNumber(accountSummary.totalRawUsd);
-      if (perpsUsdcBN.isGreaterThan(0)) {
-        items.push({
-          coin: 'USDC',
-          rawCoin: 'USDC',
-          type: 'perps',
-          total: perpsUsdcBN.toFixed(),
-          available: accountSummary.withdrawable || '0',
-          usdcValue: perpsUsdcBN.toFixed(2),
-          isAssetClickable: false,
-          needsSuffix: spotCoinNames.has('USDC'),
-          usdcValueNum: perpsUsdcBN.toNumber(),
-        });
-      }
+    // HL doesn't expose a cross-account USDC total — sum on the client and
+    // tag as 'spot' so it inherits the existing USDC-first sort priority.
+    const spotUsdcTotalBN = spotUsdcBalance
+      ? new BigNumber(spotUsdcBalance.total)
+      : new BigNumber(0);
+    const spotUsdcHoldBN = spotUsdcBalance
+      ? new BigNumber(spotUsdcBalance.hold)
+      : new BigNumber(0);
+    const spotUsdcAvailBN = BigNumber.max(
+      spotUsdcTotalBN.minus(spotUsdcHoldBN),
+      0,
+    );
+    const perpsUsdcTotalBN = new BigNumber(accountSummary?.totalRawUsd || '0');
+    const perpsUsdcAvailBN = new BigNumber(accountSummary?.withdrawable || '0');
+    const mergedUsdcTotalBN = spotUsdcTotalBN.plus(perpsUsdcTotalBN);
+
+    if (mergedUsdcTotalBN.isGreaterThan(0)) {
+      items.push({
+        coin: 'USDC',
+        rawCoin: 'USDC',
+        type: 'spot',
+        total: mergedUsdcTotalBN.toFixed(),
+        available: spotUsdcAvailBN.plus(perpsUsdcAvailBN).toFixed(),
+        usdcValue: mergedUsdcTotalBN.toFixed(2),
+        logoURI: getHyperliquidTokenImageUrl('USDC'),
+        isAssetClickable: false,
+        needsSuffix: false,
+        usdcValueNum: mergedUsdcTotalBN.toNumber(),
+      });
     }
 
     return items.toSorted((a, b) => {
+      const priorityDiff =
+        getBalanceSortPriority(a) - getBalanceSortPriority(b);
+      if (priorityDiff !== 0) return priorityDiff;
+
       const valueDiff = Math.abs(b.usdcValueNum) - Math.abs(a.usdcValueNum);
       if (valueDiff !== 0) return valueDiff;
       return new BigNumber(b.total).comparedTo(new BigNumber(a.total));
@@ -259,6 +296,73 @@ function SpotBalanceList({
     [actions, isMobile, columnsConfig],
   );
 
+  const mobileHeaderComponent = useMemo(() => {
+    if (!isMobile || filteredBalances.length === 0) {
+      return ListHeaderComponent ?? null;
+    }
+
+    return (
+      <>
+        {ListHeaderComponent}
+        <XStack alignItems="center" gap="$3" px="$4" pt="$3" pb="$2.5">
+          <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">
+            <SizableText
+              size="$bodyXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+            >
+              {intl.formatMessage({ id: ETranslations.global_name })}
+            </SizableText>
+            <SizableText
+              size="$bodyXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+            >
+              /
+            </SizableText>
+            <SizableText
+              size="$bodyXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+            >
+              {intl.formatMessage({ id: ETranslations.global_balance })}
+            </SizableText>
+          </XStack>
+          <XStack
+            flexGrow={1}
+            flexBasis={0}
+            justifyContent="flex-end"
+            gap="$1"
+            alignItems="center"
+          >
+            <SizableText
+              size="$bodyXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+            >
+              {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
+            </SizableText>
+            <DashText
+              size="$bodyXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+              tooltip={intl.formatMessage({
+                id: ETranslations.marketdex_un_pnl,
+              })}
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.marketdex_unrealized_pnl,
+              })}
+            >
+              PnL
+            </DashText>
+          </XStack>
+        </XStack>
+      </>
+    );
+  }, [ListHeaderComponent, filteredBalances.length, intl, isMobile]);
+
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
@@ -288,7 +392,8 @@ function SpotBalanceList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty_desc,
       })}
-      ListHeaderComponent={ListHeaderComponent}
+      ListEmptyComponent={<PerpHoldingsEmptyState isMobile={isMobile} />}
+      ListHeaderComponent={mobileHeaderComponent}
     />
   );
 }

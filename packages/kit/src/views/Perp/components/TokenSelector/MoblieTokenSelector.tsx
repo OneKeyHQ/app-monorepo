@@ -237,7 +237,7 @@ function MobileTokenSelectorModal({
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
-      spot: 'Spot', // TODO: add i18n key (ETranslations)
+      spot: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
     }),
     [intl],
   );
@@ -397,6 +397,11 @@ function MobileTokenSelectorModal({
             dexIndex: SPOT_DEX_INDEX,
             index,
             assetId: u.assetId,
+            tokenSubtitle:
+              getTokenSubtitle(
+                getSpotTokenDisplayName(u.baseName),
+                tokenSearchAliases,
+              ) ?? getTokenSubtitle(u.baseName, tokenSearchAliases),
             spotUniverse: u,
           } as ITokenSelectorListItem,
           name: u.baseName,
@@ -440,6 +445,7 @@ function MobileTokenSelectorModal({
   }, [
     spotUniverses,
     spotPriceMap,
+    tokenSearchAliases,
     selectorConfig?.field,
     selectorConfig?.direction,
   ]);

@@ -27,7 +27,11 @@ import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 
 import type { IActionProps } from './type';
 
-function ActionBuy({
+type IActionBuyContentProps = Omit<IActionProps, 'isTabView'> & {
+  focusParam: boolean;
+};
+
+function ActionBuyContent({
   networkId,
   tokenAddress,
   tokenSymbol,
@@ -36,14 +40,12 @@ function ActionBuy({
   walletType,
   disabled,
   source,
-  isTabView,
+  focusParam,
   ...rest
-}: IActionProps) {
+}: IActionBuyContentProps) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const loadingRef = useRef(false);
-  const { isFocused } = useTabIsRefreshingFocused();
-  const focusParam = isTabView ? isFocused : true;
 
   const { result: supportState } = usePromiseResult(
     async () => {
@@ -310,6 +312,22 @@ function ActionBuy({
       </Stack>
     </>
   );
+}
+
+function ActionBuyWithTabFocus(props: Omit<IActionProps, 'isTabView'>) {
+  const { isFocused } = useTabIsRefreshingFocused();
+
+  return <ActionBuyContent {...props} focusParam={isFocused} />;
+}
+
+function ActionBuy(props: IActionProps) {
+  const { isTabView, ...contentProps } = props;
+
+  if (isTabView) {
+    return <ActionBuyWithTabFocus {...contentProps} />;
+  }
+
+  return <ActionBuyContent {...contentProps} focusParam />;
 }
 
 export default ActionBuy;

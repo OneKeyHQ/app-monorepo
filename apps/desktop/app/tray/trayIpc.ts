@@ -1,4 +1,4 @@
-import { type BrowserWindow, ipcMain } from 'electron';
+import { type BrowserWindow, type IpcMainEvent, ipcMain } from 'electron';
 import logger from 'electron-log/main';
 
 import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
@@ -14,9 +14,10 @@ let onResponseReceived: (() => void) | null = null;
 
 // Handler refs so unregister removes only this module's listeners instead
 // of clobbering unrelated subscribers on these channels.
-type IpcOn = Parameters<typeof ipcMain.on>[1];
-let onTrayDataResponse: IpcOn | null = null;
-let onTrayAction: IpcOn | null = null;
+type IIpcListener = Parameters<typeof ipcMain.on>[1];
+let onTrayDataResponse: IIpcListener | null = null;
+let onTrayAction: IIpcListener | null = null;
+let onTrayReady: IIpcListener | null = null;
 
 const ALLOWED_TRAY_ACTION_TYPES = new Set([
   'open-page',
@@ -43,6 +44,52 @@ export function resetCachedTrayData(): void {
   cachedTrayData = null;
 }
 
+// Sender-id gates: the tray window shares the main preload, so without
+// these checks either renderer could forge traffic on the other's channels.
+// Rejection logs dump the id comparison so field reports can pinpoint
+// whether the expected window was missing vs. a different sender.
+function isFromMainWindow(
+  event: IpcMainEvent,
+  getMainWindow: () => BrowserWindow | undefined,
+  channel: string,
+): boolean {
+  const mainWindow = getMainWindow();
+  if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
+    logger.warn(`[TrayIpc] rejected ${channel} from non-main window`, {
+      senderId: event.sender.id,
+      hasMainWindow: !!mainWindow,
+      mainWindowId: mainWindow?.webContents.id ?? null,
+    });
+    return false;
+  }
+  return true;
+}
+
+function isFromTrayWindow(event: IpcMainEvent, channel: string): boolean {
+  const trayWindow = getTrayWindow();
+  if (!trayWindow || event.sender.id !== trayWindow.webContents.id) {
+    logger.warn(`[TrayIpc] rejected ${channel} from non-tray window`, {
+      senderId: event.sender.id,
+      hasTrayWindow: !!trayWindow,
+      trayWindowId: trayWindow?.webContents.id ?? null,
+    });
+    return false;
+  }
+  return true;
+}
+
+export function requestDataFromMainWindow(
+  getMainWindow: () => BrowserWindow | undefined,
+): void {
+  if (isLocked) return;
+
+  const mainWindow = getMainWindow();
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.webContents.isCrashed()) return;
+
+  mainWindow.webContents.send(ipcMessageKeys.TRAY_DATA_REQUEST);
+}
+
 export function registerTrayIpcHandlers(
   getMainWindow: () => BrowserWindow | undefined,
   showMainWindow: () => void,
@@ -50,17 +97,18 @@ export function registerTrayIpcHandlers(
 ): void {
   onResponseReceived = onResponse ?? null;
   onTrayDataResponse = (event, data: ITrayData) => {
-    // Reject non-main-window senders: the tray window shares the same
-    // preload and could otherwise push crafted payloads into the cache.
-    const mainWindow = getMainWindow();
-    if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
-      logger.warn('[TrayIpc] rejected TRAY_DATA_RESPONSE from non-main window');
-      return;
-    }
+    if (!isFromMainWindow(event, getMainWindow, 'TRAY_DATA_RESPONSE')) return;
 
     // Release the in-flight guard immediately so the next poll/wallet-switch
     // doesn't have to wait for the backstop timeout.
     onResponseReceived?.();
+
+    // Detect account switch before we mutate cachedTrayData so the comparison
+    // reflects the identity the tray window is currently showing.
+    const accountChanged =
+      cachedTrayData?.accountId !== undefined &&
+      data.accountId !== undefined &&
+      cachedTrayData.accountId !== data.accountId;
 
     if (data.isLocked) {
       isLocked = true;
@@ -82,22 +130,19 @@ export function registerTrayIpcHandlers(
     }
 
     const trayWindow = getTrayWindow();
+    // Forward when visible (normal update) OR when account just switched —
+    // the switch case must push even to a hidden window so the next open
+    // doesn't re-read stale cachedTrayData before the next poll (OK-53623).
     if (trayWindow) {
-      trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, data);
+      if (accountChanged || trayWindow.isVisible()) {
+        trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, data);
+      }
     }
   };
   ipcMain.on(ipcMessageKeys.TRAY_DATA_RESPONSE, onTrayDataResponse);
 
   onTrayAction = (event, action: { type: string; [key: string]: unknown }) => {
-    // Defense-in-depth alongside the `isTrayWindow` scoping in preload.ts:
-    // rejects a compromised main renderer from driving navigation, and
-    // prevents a self-forwarding IPC loop (main forwards TRAY_ACTION to
-    // the main window for handleTrayNavigation — an echo would re-forward).
-    const trayWindow = getTrayWindow();
-    if (!trayWindow || event.sender.id !== trayWindow.webContents.id) {
-      logger.warn('[TrayIpc] rejected TRAY_ACTION from non-tray window');
-      return;
-    }
+    if (!isFromTrayWindow(event, 'TRAY_ACTION')) return;
 
     if (!action?.type || !ALLOWED_TRAY_ACTION_TYPES.has(action.type)) {
       logger.warn('[TrayIpc] rejected unknown action type:', action?.type);
@@ -124,6 +169,20 @@ export function registerTrayIpcHandlers(
     mainWindow.webContents.send(ipcMessageKeys.TRAY_ACTION, action);
   };
   ipcMain.on(ipcMessageKeys.TRAY_ACTION, onTrayAction);
+
+  onTrayReady = (event) => {
+    if (!isFromTrayWindow(event, 'TRAY_READY')) return;
+    const trayWindow = getTrayWindow();
+    if (!trayWindow) return;
+    if (cachedTrayData) {
+      trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, cachedTrayData);
+      return;
+    }
+    // Cold start: main renderer hasn't pushed data yet. Trigger a gather
+    // instead of waiting for the next 30s poll tick.
+    requestDataFromMainWindow(getMainWindow);
+  };
+  ipcMain.on(ipcMessageKeys.TRAY_READY, onTrayReady);
 }
 
 export function sendCachedDataToTrayWindow(): void {
@@ -132,18 +191,6 @@ export function sendCachedDataToTrayWindow(): void {
   if (trayWindow && !trayWindow.isDestroyed()) {
     trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, cachedTrayData);
   }
-}
-
-export function requestDataFromMainWindow(
-  getMainWindow: () => BrowserWindow | undefined,
-): void {
-  if (isLocked) return;
-
-  const mainWindow = getMainWindow();
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.webContents.isCrashed()) return;
-
-  mainWindow.webContents.send(ipcMessageKeys.TRAY_DATA_REQUEST);
 }
 
 export function unregisterTrayIpcHandlers(): void {
@@ -157,6 +204,10 @@ export function unregisterTrayIpcHandlers(): void {
   if (onTrayAction) {
     ipcMain.removeListener(ipcMessageKeys.TRAY_ACTION, onTrayAction);
     onTrayAction = null;
+  }
+  if (onTrayReady) {
+    ipcMain.removeListener(ipcMessageKeys.TRAY_READY, onTrayReady);
+    onTrayReady = null;
   }
   onResponseReceived = null;
 }

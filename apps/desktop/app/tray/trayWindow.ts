@@ -2,6 +2,7 @@ import path from 'path';
 
 import { BrowserWindow, type Tray, screen } from 'electron';
 import isDev from 'electron-is-dev';
+import logger from 'electron-log/main';
 
 const WINDOW_WIDTH = 360;
 const WINDOW_HEIGHT = 480;
@@ -16,6 +17,19 @@ export function onTrayWindowVisibilityChange(
   cb: (visible: boolean) => void,
 ): void {
   visibilityCallback = cb;
+}
+
+function hideTrayWindow(): void {
+  if (!trayWindow || trayWindow.isDestroyed()) return;
+  if (blurHideTimer) {
+    clearTimeout(blurHideTimer);
+    blurHideTimer = null;
+  }
+  if (!trayWindow.isVisible()) return;
+
+  trayWindow.setAlwaysOnTop(true, 'pop-up-menu');
+  trayWindow.hide();
+  visibilityCallback?.(false);
 }
 
 function calculateWindowPosition(
@@ -96,6 +110,23 @@ export function createTrayWindow(
     void trayWindow?.webContents.insertCSS(trayCSS);
   });
 
+  // Surface load / crash failures so `app-latest.log` captures why the panel
+  // went blank in the field — silent failures here produced the original
+  // "tray click does nothing" regression.
+  trayWindow.webContents.on(
+    'did-fail-load',
+    (_e, code, description, validatedURL) => {
+      logger.warn('[TrayWindow] did-fail-load', {
+        code,
+        description,
+        validatedURL,
+      });
+    },
+  );
+  trayWindow.webContents.on('render-process-gone', (_e, details) => {
+    logger.warn('[TrayWindow] render-process-gone', details);
+  });
+
   loadUrl(trayWindow);
 
   trayWindow.on('blur', () => {
@@ -103,16 +134,14 @@ export function createTrayWindow(
     blurHideTimer = setTimeout(() => {
       blurHideTimer = null;
       if (trayWindow && !trayWindow.isDestroyed() && !trayWindow.isFocused()) {
-        trayWindow.hide();
-        visibilityCallback?.(false);
+        hideTrayWindow();
       }
     }, 100);
   });
 
   trayWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'Escape' && input.type === 'keyDown') {
-      trayWindow?.hide();
-      visibilityCallback?.(false);
+      hideTrayWindow();
     }
   });
 
@@ -120,18 +149,17 @@ export function createTrayWindow(
 }
 
 export function showTrayWindow(tray: Tray): void {
-  if (!trayWindow || trayWindow.isDestroyed()) {
-    return;
-  }
+  if (!trayWindow || trayWindow.isDestroyed()) return;
 
   if (trayWindow.isVisible()) {
-    trayWindow.hide();
-    visibilityCallback?.(false);
+    hideTrayWindow();
     return;
   }
 
   const { x, y } = calculateWindowPosition(tray, WINDOW_WIDTH, WINDOW_HEIGHT);
   trayWindow.setPosition(x, y);
+  trayWindow.setAlwaysOnTop(true, 'pop-up-menu');
+  trayWindow.moveTop();
   trayWindow.show();
   visibilityCallback?.(true);
 }

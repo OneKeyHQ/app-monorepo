@@ -1023,8 +1023,27 @@ async function createMainWindow() {
     if (details.deviceType === 'usb') {
       return true;
     }
+    if (details.deviceType === 'hid') {
+      // WebHID has no protected-class blocklist (unlike WebUSB), so tighten
+      // to Ledger vendorId only.
+      return details.device?.vendorId === 0x2c_97;
+    }
     return false;
   });
+
+  browserWindow.webContents.session.on(
+    'select-hid-device',
+    (event, details, callback) => {
+      // preventDefault is required; otherwise Electron auto-picks the first
+      // device and ignores the callback — see Electron Session docs.
+      event.preventDefault();
+      // Only auto-select Ledger devices (vendorId 0x2c97)
+      const ledgerDevice = details.deviceList.find(
+        (d) => d.vendorId === 0x2c_97,
+      );
+      callback(ledgerDevice ? ledgerDevice.deviceId : '');
+    },
+  );
 
   // Permission handler for webview (partition: persist:onekey)
   //
@@ -1169,8 +1188,14 @@ async function createMainWindow() {
           return;
         }
 
-        // move to parent folder
-        const url = request.url.substring(PROTOCOL.length + 1);
+        // Strip the query string before path resolution — without this the
+        // tray window's `?render=tray` gets concatenated into the resolved
+        // filename and fs misses. Guarded by indexOf so the common
+        // no-query case (main window resources) stays allocation-free.
+        const queryIdx = request.url.indexOf('?');
+        const rawUrl =
+          queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
+        const url = rawUrl.substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
           if (decodedUrl.includes(bundleDirPath)) {
@@ -1338,24 +1363,25 @@ if (!singleInstance && !process.mas) {
         if (isDev) {
           const port = process.env.PORT || 3001;
           void win.loadURL(`http://localhost:${port}?render=tray`);
-        } else {
-          const bundleData = store.getUpdateBundleData();
-          const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
-          const filePath =
-            bundleIndexHtmlPath ||
-            path.join(__dirname, '..', 'build', 'index.html');
-          void win.loadFile(filePath, { query: { render: 'tray' } });
+          return;
         }
+        // Mirror createMainWindow's URL builder — the interceptFileProtocol
+        // handler only resolves the relative `file://index.html` form.
+        const bundleData = store.getUpdateBundleData();
+        const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+        void win.loadURL(
+          formatUrl({
+            pathname: bundleIndexHtmlPath || 'index.html',
+            protocol: 'file',
+            slashes: true,
+            query: { render: 'tray' },
+          }),
+        );
       };
 
       // Default to on; renderer sends TRAY_TOGGLE(false) on startup if
       // the user had previously disabled it.
-      initTrayManager(
-        getSafelyMainWindow,
-        showMainWindow,
-        appStaticResourcesPath,
-        loadTrayUrl,
-      );
+      initTrayManager(getSafelyMainWindow, showMainWindow, loadTrayUrl);
 
       // Sender gate: tray window shares the main preload and also exposes
       // `toggleTray`, so without this a tray-side caller could disable itself.
@@ -1369,12 +1395,7 @@ if (!singleInstance && !process.mas) {
           return;
         }
         if (enabled) {
-          initTrayManager(
-            getSafelyMainWindow,
-            showMainWindow,
-            appStaticResourcesPath,
-            loadTrayUrl,
-          );
+          initTrayManager(getSafelyMainWindow, showMainWindow, loadTrayUrl);
         } else {
           destroyTrayManager();
         }

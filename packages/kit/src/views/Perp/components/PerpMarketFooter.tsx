@@ -6,13 +6,31 @@ import { Page } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
+import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { GetTradingButtonStyleProps } from '../utils/styleUtils';
+
+const MARKET_FOOTER_BUTTON_WIDTH = '44%';
+const MARKET_FOOTER_BUTTON_HEIGHT = 36;
 
 function PerpMarketFooter() {
   const intl = useIntl();
   const actionsRef = useHyperliquidActions();
+  const { mode } = useActiveTradeDisplay();
   const longButtonStyle = GetTradingButtonStyleProps('long');
   const shortButtonStyle = GetTradingButtonStyleProps('short');
+
+  const buyText = intl.formatMessage({
+    id:
+      mode === 'spot'
+        ? ETranslations.dexmarket_details_transactions_buy
+        : ETranslations.perp_trade_long,
+  });
+  const sellText = intl.formatMessage({
+    id:
+      mode === 'spot'
+        ? ETranslations.dexmarket_details_transactions_sell
+        : ETranslations.perp_trade_short,
+  });
 
   const handleCancel = useCallback(
     (close: () => void) => {
@@ -32,16 +50,14 @@ function PerpMarketFooter() {
 
   return (
     <Page.Footer
-      onCancelText={intl.formatMessage({
-        id: ETranslations.perp_trade_long,
-      })}
-      onConfirmText={intl.formatMessage({
-        id: ETranslations.perp_trade_short,
-      })}
+      pt="$3"
+      pb="$8"
+      onCancelText={buyText}
+      onConfirmText={sellText}
       cancelButtonProps={{
-        flex: 1,
-        padding: 0,
-        height: 38,
+        width: MARKET_FOOTER_BUTTON_WIDTH,
+        height: MARKET_FOOTER_BUTTON_HEIGHT,
+        size: 'small',
         borderRadius: '$full',
         bg: longButtonStyle.bg,
         hoverStyle: longButtonStyle.hoverStyle,
@@ -51,9 +67,9 @@ function PerpMarketFooter() {
         alignItems: 'center',
       }}
       confirmButtonProps={{
-        flex: 1,
-        padding: 0,
-        height: 38,
+        width: MARKET_FOOTER_BUTTON_WIDTH,
+        height: MARKET_FOOTER_BUTTON_HEIGHT,
+        size: 'small',
         borderRadius: '$full',
         bg: shortButtonStyle.bg,
         hoverStyle: shortButtonStyle.hoverStyle,
@@ -61,6 +77,10 @@ function PerpMarketFooter() {
         color: shortButtonStyle.textColor,
         justifyContent: 'center',
         alignItems: 'center',
+      }}
+      buttonContainerProps={{
+        width: '100%',
+        justifyContent: 'space-between',
       }}
       onCancel={handleCancel}
       onConfirm={handleConfirm}

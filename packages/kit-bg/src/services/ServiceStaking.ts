@@ -1,3 +1,4 @@
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { omit } from 'lodash';
 
@@ -166,8 +167,65 @@ interface IEarnBatchInvestmentDetailResponse {
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
+  private _abortControllersByRequestId: Record<string, Set<AbortController>> =
+    {};
+
+  private _registerAbortController(params: {
+    requestId?: string;
+    controller: AbortController;
+  }) {
+    const { requestId, controller } = params;
+    if (!requestId) {
+      return;
+    }
+    if (!this._abortControllersByRequestId[requestId]) {
+      this._abortControllersByRequestId[requestId] = new Set();
+    }
+    this._abortControllersByRequestId[requestId].add(controller);
+  }
+
+  private _unregisterAbortController(params: {
+    requestId?: string;
+    controller: AbortController;
+  }) {
+    const { requestId, controller } = params;
+    if (!requestId) {
+      return;
+    }
+    const controllers = this._abortControllersByRequestId[requestId];
+    if (!controllers) {
+      return;
+    }
+    controllers.delete(controller);
+    if (controllers.size === 0) {
+      delete this._abortControllersByRequestId[requestId];
+    }
+  }
+
+  private _createScopedAbortController(params: { requestId?: string }) {
+    if (!params.requestId) {
+      return undefined;
+    }
+    const controller = new AbortController();
+    this._registerAbortController({
+      requestId: params.requestId,
+      controller,
+    });
+    return controller;
+  }
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async abortPendingRequestsByRequestId(params: { requestId: string }) {
+    const controllers = this._abortControllersByRequestId[params.requestId];
+    if (!controllers) {
+      return;
+    }
+    controllers.forEach((controller) => controller.abort());
+    delete this._abortControllersByRequestId[params.requestId];
   }
 
   @backgroundMethod()
@@ -851,24 +909,36 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
+  private async _fetchProtocolList(params: {
+    symbol: string;
+    type?: EAvailableAssetsTypeEnum;
+    accountAddress?: string;
+    signal?: AbortSignal;
+  }) {
+    const { symbol, type, accountAddress, signal } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+
+    const protocolListResp = await client.post<{
+      data: { protocols: IStakeProtocolListItem[] };
+    }>(
+      '/earn/v2/stake-protocol/list',
+      {
+        symbol,
+        type,
+        accountAddress,
+      },
+      { signal },
+    );
+    return protocolListResp.data.data.protocols;
+  }
+
   _getProtocolList = memoizee(
     async (params: {
       symbol: string;
       type?: EAvailableAssetsTypeEnum;
       accountAddress?: string;
     }) => {
-      const { symbol, type, accountAddress } = params;
-      const client = await this.getClient(EServiceEndpointEnum.Earn);
-
-      // Use v2 API that supports multiple networks
-      const protocolListResp = await client.post<{
-        data: { protocols: IStakeProtocolListItem[] };
-      }>('/earn/v2/stake-protocol/list', {
-        symbol,
-        type,
-        accountAddress,
-      });
-      return protocolListResp.data.data.protocols;
+      return this._fetchProtocolList(params);
     },
     {
       promise: true,
@@ -886,6 +956,7 @@ class ServiceStaking extends ServiceBase {
     filterNetworkId?: string;
     skipStakingConfigFilter?: boolean;
     includeWithdrawOnly?: boolean;
+    requestId?: string;
   }) {
     const accountNetworkId = params.networkId ?? params.filterNetworkId;
     let accountAddress: string | undefined;
@@ -904,19 +975,48 @@ class ServiceStaking extends ServiceBase {
     }
 
     let allItems: IStakeProtocolListItem[] = [];
+    const controller = this._createScopedAbortController({
+      requestId: params.requestId,
+    });
     try {
-      allItems = await this._getProtocolList({
-        symbol: params.symbol,
-        type: params.type,
-        accountAddress,
-      });
+      if (controller) {
+        allItems = await this._fetchProtocolList({
+          symbol: params.symbol,
+          type: params.type,
+          accountAddress,
+          signal: controller.signal,
+        });
+      } else {
+        allItems = await this._getProtocolList({
+          symbol: params.symbol,
+          type: params.type,
+          accountAddress,
+        });
+      }
     } catch (error) {
-      console.warn(
-        `Failed to fetch protocol list for symbol ${params.symbol}:`,
-        error,
-      );
-      // Fall back to empty array if request fails
-      allItems = [];
+      if (axios.isCancel(error)) {
+        // Cancellation is silent — fall back to empty
+        allItems = [];
+      } else if (controller) {
+        // Scoped (requestId) callers handle errors themselves so they can
+        // distinguish "no data" from "transient failure" for caching decisions.
+        throw error;
+      } else {
+        defaultLogger.app.error.log(
+          `Failed to fetch protocol list for symbol ${params.symbol}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        // Fall back to empty array if request fails
+        allItems = [];
+      }
+    } finally {
+      if (controller) {
+        this._unregisterAbortController({
+          requestId: params.requestId,
+          controller,
+        });
+      }
     }
 
     // Apply network filter if specified
@@ -2043,7 +2143,10 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getBlockRegion() {
+  async getBlockRegion(params?: { requestId?: string }) {
+    const controller = this._createScopedAbortController({
+      requestId: params?.requestId,
+    });
     try {
       const isIpConnection =
         await this.backgroundApi.serviceIpTable.isUsingIpConnection();
@@ -2053,7 +2156,7 @@ class ServiceStaking extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Earn);
       const response = await client.get<{
         data: IStakeBlockRegionResponse;
-      }>('/earn/v1/block-region');
+      }>('/earn/v1/block-region', { signal: controller?.signal });
       const blockResult = response.data.data;
       const blockData = blockResult.isBlockedRegion
         ? blockResult.notification
@@ -2062,6 +2165,13 @@ class ServiceStaking extends ServiceBase {
       return blockData;
     } catch (_error) {
       return null;
+    } finally {
+      if (controller) {
+        this._unregisterAbortController({
+          requestId: params?.requestId,
+          controller,
+        });
+      }
     }
   }
 

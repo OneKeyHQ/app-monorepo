@@ -459,13 +459,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     return config.tokenSearchAliases;
   }
 
-  private _filterFills(fills: IFill[]) {
-    return fills.filter(
-      (fill) =>
-        !fill.coin.startsWith('@') && fill.dir !== 'Sell' && fill.dir !== 'Buy',
-    );
-  }
-
   _getUserFillsByTimeMemo = cacheUtils.memoizee(
     async (params: IUserFillsByTimeParameters) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -473,7 +466,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         ...params,
         aggregateByTime: true,
       });
-      return this._filterFills(fills);
+      return fills;
     },
     {
       max: 1,
@@ -491,7 +484,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       ...params,
       aggregateByTime: true,
     });
-    return this._filterFills(fills);
+    return fills;
   }
 
   @backgroundMethod()
@@ -556,7 +549,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
-    const filtered = this._filterFills(newFills)
+    const filtered = newFills
       .filter((f) => f.time > current.latestTime)
       .toSorted((a, b) => b.time - a.time);
 
@@ -1108,6 +1101,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         universes,
       });
       this._rebuildSpotMappings(universes);
+    }
+    // Reuse the assetCtxs from this REST call so the first spot view doesn't
+    // wait 2-3s for the WS SPOT_ASSET_CTXS message and flash a skeleton.
+    const assetCtxs = result[1];
+    if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
+      void this.updateSpotAssetCtxsMap(assetCtxs);
     }
   }
 

@@ -189,7 +189,7 @@ function MobileBrowser() {
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
   const isLandscape = useIsSplitView();
-  const { earnTab } = route?.params || {};
+  const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
   const selectedHeaderTab =
     settings.selectedBrowserTab || ETranslations.global_browser;
@@ -245,6 +245,18 @@ function MobileBrowser() {
       showTabBar();
     }
   }, [tabs?.length]);
+
+  const previousDefaultTab = useRef<ETranslations | undefined>(undefined);
+  useEffect(() => {
+    if (previousDefaultTab.current !== defaultTab) {
+      previousDefaultTab.current = defaultTab;
+      if (defaultTab) {
+        void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
+          defaultTab,
+        );
+      }
+    }
+  }, [defaultTab]);
 
   useEffect(() => {
     if (!showDiscoveryPage) {

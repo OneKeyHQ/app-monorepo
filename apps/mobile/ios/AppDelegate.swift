@@ -76,17 +76,6 @@ private enum BackgroundThreadBridge {
   }
 }
 
-/// App-launch reference time. NOTE: a Swift module-level `let` is **lazy** —
-/// it would only initialize on first read, which (now that we log from inside
-/// `didFinishLaunching`) collapses the "from launch" delta to ~0ms. To make
-/// "from launch" actually reflect app-launch time, the real anchor lives on
-/// `AppDelegate.appLaunchCFTime` (a `static let` on the class) and is forced
-/// to evaluate inside `AppDelegate.init()` (called by `UIApplicationMain`
-/// before `didFinishLaunching` fires). A short `+load`-based ObjC bootstrap
-/// would push the anchor even earlier (into dyld), but pure-Swift this is the
-/// earliest hook that doesn't require touching `project.pbxproj`.
-private var appLaunchCFTime: CFAbsoluteTime { AppDelegate.appLaunchCFTime }
-
 /// Single flag controlling HBC + segment profile on native side. Read from
 /// either the env var (Xcode scheme → Arguments → Environment Variables) or
 /// Info.plist. See `.skillshare/skills/1k-startup-profile/skill.md`.
@@ -105,7 +94,7 @@ private func isStartupProfileEnabled() -> Bool {
 
 /// Tracks which bundle `bundleURL()` returned as RN's initial bundle, so
 /// `handleHostDidStart` can decide whether the main entry bundle still needs
-/// to be loaded. In single-bundle Release builds (no `common.jsbundle`) the
+/// to be loaded. In single-bundle Release builds (no `common.bundle`) the
 /// initial bundle is already `main.jsbundle` and loading it again would
 /// double-evaluate module side effects.
 private enum InitialBundleKind {
@@ -144,7 +133,7 @@ public class AppDelegate: ExpoAppDelegate {
     let didFinishLaunchingStartAt = CFAbsoluteTimeGetCurrent()
     NitroModuleBridge.logInfo(
       "StartupTiming",
-      "ios.app.did_finish_launching.start: +\(String(format: "%.0f", (didFinishLaunchingStartAt - appLaunchCFTime) * 1000))ms from launch"
+      "ios.app.did_finish_launching.start: +\(String(format: "%.0f", (didFinishLaunchingStartAt - AppDelegate.appLaunchCFTime) * 1000))ms from launch"
     )
     // === Recovery Check ===
     let defaults = UserDefaults.standard
@@ -228,7 +217,7 @@ public class AppDelegate: ExpoAppDelegate {
     )
     NitroModuleBridge.logInfo(
       "StartupTiming",
-      "ios.app.did_finish_launching.done: \(String(format: "%.0f", (tAfterSuper - didFinishLaunchingStartAt) * 1000))ms (+\(String(format: "%.0f", (tAfterSuper - appLaunchCFTime) * 1000))ms from launch)"
+      "ios.app.did_finish_launching.done: \(String(format: "%.0f", (tAfterSuper - didFinishLaunchingStartAt) * 1000))ms (+\(String(format: "%.0f", (tAfterSuper - AppDelegate.appLaunchCFTime) * 1000))ms from launch)"
     )
     return result
   }
@@ -358,7 +347,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(DEBUG): metroURL=\(metroURL?.absoluteString ?? "nil")")
     return metroURL
 #else
-    // In split-bundle mode the initial bundle is common.jsbundle (polyfills + shared modules).
+    // In split-bundle mode the initial bundle is common.bundle (polyfills + shared modules).
     // The entry-specific main.jsbundle is loaded later in handleHostDidStart via SplitBundleLoader.
 
     // Check for OTA-updated common bundle first
@@ -403,9 +392,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA main path not found, will fallback")
     }
 
-    // Three-bundle mode: initial bundle is common.jsbundle (polyfills + shared modules).
+    // Three-bundle mode: initial bundle is common.bundle (polyfills + shared modules).
     // Single-bundle mode: fall back to main.jsbundle (standard react-native bundle output).
-    let candidates: [(String, String)] = [("common", "jsbundle"), ("main", "jsbundle")]
+    let candidates: [(String, String)] = [("common", "bundle"), ("main", "jsbundle")]
     for (name, ext) in candidates {
       if let url = Bundle.main.url(forResource: name, withExtension: ext) {
         initialBundleKind = (name == "common") ? .common : .main
@@ -417,7 +406,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     }
 
     initialBundleKind = .none
-    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): no bundle found (common.jsbundle / main.jsbundle)")
+    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): no bundle found (common.bundle / main.jsbundle)")
     return nil
 #endif
   }
@@ -452,17 +441,17 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   @objc(hostDidStart:)
   func handleHostDidStart(_ host: AnyObject) {
     let hostDidStartAt = CFAbsoluteTimeGetCurrent()
-    let sinceAppLaunch = (hostDidStartAt - appLaunchCFTime) * 1000
+    let sinceAppLaunch = (hostDidStartAt - AppDelegate.appLaunchCFTime) * 1000
     NitroModuleBridge.logInfo("StartupTiming", "main_host.did_start: +\(String(format: "%.0f", sinceAppLaunch))ms from launch (ios, common bundle loaded)")
 
     (UIApplication.shared.delegate as? AppDelegate)?.reactHost = host
 
 #if !DEBUG
     // Skip entry bundle loading when RN's initial bundle is already main.jsbundle
-    // (single-bundle Release: no common.jsbundle shipped, or legacy OTA pushed a
+    // (single-bundle Release: no common.bundle shipped, or legacy OTA pushed a
     // monolithic main.jsbundle). Re-evaluating the same file would double-run module
     // side effects (timers, subscriptions, global init). Only proceed when the
-    // initial bundle was common.jsbundle, which is the split-bundle mode contract.
+    // initial bundle was common.bundle, which is the split-bundle mode contract.
     if initialBundleKind != .common {
       NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: initial bundle kind=\(initialBundleKind), skip main entry load to avoid double-evaluation")
     } else {
@@ -480,7 +469,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       guard let host = host else { return }
       let deferredAt = CFAbsoluteTimeGetCurrent()
       let deferDelay = (deferredAt - hostDidStartAt) * 1000
-      NitroModuleBridge.logInfo("StartupTiming", "ios.main_entry.deferred: +\(String(format: "%.0f", (deferredAt - appLaunchCFTime) * 1000))ms from launch (defer delay: \(String(format: "%.1f", deferDelay))ms)")
+      NitroModuleBridge.logInfo("StartupTiming", "ios.main_entry.deferred: +\(String(format: "%.0f", (deferredAt - AppDelegate.appLaunchCFTime) * 1000))ms from launch (defer delay: \(String(format: "%.1f", deferDelay))ms)")
 
       let entryLoadStart = CFAbsoluteTimeGetCurrent()
       if let entryPath = self.resolveMainEntryBundlePath() {
@@ -503,7 +492,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
         SplitBundleLoader.loadEntryBundle(entryPath, inHost: host)
         let elapsed = (CFAbsoluteTimeGetCurrent() - entryLoadStart) * 1000
-        let totalFromLaunch = (CFAbsoluteTimeGetCurrent() - appLaunchCFTime) * 1000
+        let totalFromLaunch = (CFAbsoluteTimeGetCurrent() - AppDelegate.appLaunchCFTime) * 1000
         NitroModuleBridge.logInfo("StartupTiming", "ios.main_entry.evaluated: \(String(format: "%.0f", elapsed))ms (+\(String(format: "%.0f", totalFromLaunch))ms from launch)")
         if isStartupProfileEnabled() && hbcSize > 0 {
           NitroModuleBridge.logInfo(
@@ -530,14 +519,14 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     let entryURL = backgroundBundleEntryURL()
     NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (debug) entryURL=\(entryURL)")
     let bgStartAtDebug = CFAbsoluteTimeGetCurrent()
-    NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAtDebug - appLaunchCFTime) * 1000))ms from launch (ios, debug)")
+    NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAtDebug - AppDelegate.appLaunchCFTime) * 1000))ms from launch (ios, debug)")
     BackgroundThreadBridge.startBackgroundRunner(entryURL: entryURL)
 #else
     // Release split-bundle: pass empty string so BackgroundRunnerReactNativeDelegate
-    // uses the default two-step strategy (common.jsbundle first, then background.bundle).
-    // Passing any non-empty path would bypass common.jsbundle loading.
+    // uses the default two-step strategy (common.bundle first, then background.bundle).
+    // Passing any non-empty path would bypass common.bundle loading.
     let bgStartAt = CFAbsoluteTimeGetCurrent()
-    NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAt - appLaunchCFTime) * 1000))ms from launch (ios)")
+    NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAt - AppDelegate.appLaunchCFTime) * 1000))ms from launch (ios)")
     BackgroundThreadBridge.startBackgroundRunner(entryURL: "")
 #endif
   }

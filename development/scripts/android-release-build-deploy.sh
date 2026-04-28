@@ -67,7 +67,7 @@ cmd_build() {
 
   echo ""
   echo "$(timestamp) ✅ Build complete:"
-  ls -lh out-dir-bundle/android/dist/common.jsbundle.hbc \
+  ls -lh out-dir-bundle/android/dist/common.bundle \
          out-dir-bundle/android/dist/main.jsbundle.hbc \
          out-dir-bundle/android/dist/background.bundle 2>/dev/null
   echo ""
@@ -90,7 +90,7 @@ cmd_deploy() {
     exit 1
   fi
 
-  if [ ! -f "out-dir-bundle/android/dist/common.jsbundle.hbc" ]; then
+  if [ ! -f "out-dir-bundle/android/dist/common.bundle" ]; then
     echo "❌ No HBC bundles found. Run '$0 build' first."
     exit 1
   fi
@@ -120,17 +120,17 @@ cmd_deploy() {
       
       # Push bundles to app data
       echo "   Copying bundles to app data..."
-      adb -s "$DEVICE_ID" push out-dir-bundle/android/dist/common.jsbundle.hbc "/data/local/tmp/common.jsbundle"
+      adb -s "$DEVICE_ID" push out-dir-bundle/android/dist/common.bundle "/data/local/tmp/common.bundle"
       adb -s "$DEVICE_ID" push out-dir-bundle/android/dist/main.jsbundle.hbc "/data/local/tmp/main.jsbundle"
       adb -s "$DEVICE_ID" push out-dir-bundle/android/dist/background.bundle "/data/local/tmp/background.bundle"
-      
+
       # Move files to app directory using run-as
-      adb -s "$DEVICE_ID" shell "run-as $PACKAGE_NAME cp /data/local/tmp/common.jsbundle files/bundle/common.jsbundle"
+      adb -s "$DEVICE_ID" shell "run-as $PACKAGE_NAME cp /data/local/tmp/common.bundle files/bundle/common.bundle"
       adb -s "$DEVICE_ID" shell "run-as $PACKAGE_NAME cp /data/local/tmp/main.jsbundle files/bundle/main.jsbundle"
       adb -s "$DEVICE_ID" shell "run-as $PACKAGE_NAME cp /data/local/tmp/background.bundle files/bundle/background.bundle"
-      
+
       # Clean up temp files
-      adb -s "$DEVICE_ID" shell "rm -f /data/local/tmp/common.jsbundle /data/local/tmp/main.jsbundle /data/local/tmp/background.bundle"
+      adb -s "$DEVICE_ID" shell "rm -f /data/local/tmp/common.bundle /data/local/tmp/main.jsbundle /data/local/tmp/background.bundle"
       
       # Push segments
       echo "   Copying segments..."

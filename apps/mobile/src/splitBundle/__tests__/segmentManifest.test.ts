@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
-type ManifestGlobal = typeof globalThis & {
+type IManifestGlobal = typeof globalThis & {
   __SEGMENT_MANIFEST__?: { segments: Record<string, any> };
 };
 
 beforeEach(() => {
   jest.resetModules();
-  delete (globalThis as ManifestGlobal).__SEGMENT_MANIFEST__;
+  delete (globalThis as IManifestGlobal).__SEGMENT_MANIFEST__;
   delete (globalThis as any).__ONEKEY_RUNTIME_KIND__;
 });
 
@@ -28,7 +28,7 @@ describe('segmentManifest', () => {
         },
       },
     };
-    (globalThis as ManifestGlobal).__SEGMENT_MANIFEST__ = manifest;
+    (globalThis as IManifestGlobal).__SEGMENT_MANIFEST__ = manifest;
     const { getSegmentManifest } = require('../segmentManifest');
     expect(getSegmentManifest()).toBe(manifest);
   });
@@ -49,7 +49,7 @@ describe('segmentManifest', () => {
       sha256: 'y',
       dependsOn: [],
     };
-    (globalThis as ManifestGlobal).__SEGMENT_MANIFEST__ = {
+    (globalThis as IManifestGlobal).__SEGMENT_MANIFEST__ = {
       segments: { 'seg:test': entry },
     };
     const { getSegmentEntry } = require('../segmentManifest');
@@ -74,7 +74,7 @@ describe('segmentManifest', () => {
       sha256: 'background',
       dependsOn: [],
     };
-    (globalThis as ManifestGlobal).__SEGMENT_MANIFEST__ = {
+    (globalThis as IManifestGlobal).__SEGMENT_MANIFEST__ = {
       segments: {
         'seg:test': {
           key: 'seg:test',
@@ -111,7 +111,7 @@ describe('segmentManifest', () => {
       sha256: 'background',
       dependsOn: [],
     };
-    (globalThis as ManifestGlobal).__SEGMENT_MANIFEST__ = {
+    (globalThis as IManifestGlobal).__SEGMENT_MANIFEST__ = {
       segments: {
         'seg:test': {
           key: 'seg:test',
@@ -133,7 +133,7 @@ describe('segmentManifest', () => {
   });
 
   it('getSegmentCount returns correct count', () => {
-    (globalThis as ManifestGlobal).__SEGMENT_MANIFEST__ = {
+    (globalThis as IManifestGlobal).__SEGMENT_MANIFEST__ = {
       segments: { a: {} as any, b: {} as any },
     };
     const { getSegmentCount } = require('../segmentManifest');
