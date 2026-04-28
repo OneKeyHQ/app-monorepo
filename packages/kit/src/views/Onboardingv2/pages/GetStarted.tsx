@@ -518,7 +518,7 @@ function GetStarted() {
             ))}
           </XStack>
         ) : (
-          <YStack gap="$3">
+          <YStack gap="$3" pb="$5">
             {actions.map((action) => (
               <Button
                 key={action.labelId}

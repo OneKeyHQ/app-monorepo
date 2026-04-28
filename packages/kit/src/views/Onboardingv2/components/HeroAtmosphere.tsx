@@ -20,6 +20,10 @@ type IOrbProps = {
   right?: number;
   color: string;
   peakAlpha: number;
+  // Optional second color for a blended gradient (center=color → mid=colorOuter
+  // → edge=transparent). Used to mix brand+blue into a green-leaning-blue tint.
+  colorOuter?: string;
+  peakAlphaOuter?: number;
   gradientEdgePct: number;
   xKeyframes: number[];
   yKeyframes: number[];
@@ -36,6 +40,8 @@ function Orb({
   right,
   color,
   peakAlpha,
+  colorOuter,
+  peakAlphaOuter,
   gradientEdgePct,
   xKeyframes,
   yKeyframes,
@@ -116,12 +122,30 @@ function Orb({
             fx="50%"
             fy="50%"
           >
-            <Stop offset="0%" stopColor={color} stopOpacity={peakAlpha} />
-            <Stop
-              offset={`${gradientEdgePct}%`}
-              stopColor={color}
-              stopOpacity={0}
-            />
+            {[
+              <Stop
+                key="start"
+                offset="0%"
+                stopColor={color}
+                stopOpacity={peakAlpha}
+              />,
+              ...(colorOuter
+                ? [
+                    <Stop
+                      key="mid"
+                      offset="45%"
+                      stopColor={colorOuter}
+                      stopOpacity={peakAlphaOuter ?? peakAlpha * 0.7}
+                    />,
+                  ]
+                : []),
+              <Stop
+                key="end"
+                offset={`${gradientEdgePct}%`}
+                stopColor={colorOuter ?? color}
+                stopOpacity={0}
+              />,
+            ]}
           </RadialGradient>
         </Defs>
         <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
@@ -156,7 +180,9 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         top={120}
         right={-120}
         color={accent}
-        peakAlpha={0.15}
+        peakAlpha={0.12}
+        colorOuter={blue}
+        peakAlphaOuter={0.08}
         gradientEdgePct={65}
         xKeyframes={[0, -65, 50, 0]}
         yKeyframes={[0, 90, 50, 0]}
@@ -164,10 +190,10 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         durationMs={20_000}
       />
       <Orb
-        size={300}
+        size={380}
         bottom={200}
         left={-140}
-        color={blue}
+        color={accent}
         peakAlpha={0.06}
         gradientEdgePct={70}
         xKeyframes={[0, 85, 35, 0]}

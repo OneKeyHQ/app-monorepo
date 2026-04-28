@@ -171,6 +171,7 @@ function CreateNewWallet() {
           gap="$3"
           $md={{
             mt: 'auto',
+            pb: '$5',
           }}
           $gtMd={{
             flex: 1,
