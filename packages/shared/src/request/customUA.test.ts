@@ -1,5 +1,7 @@
+import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 
+import requestHelper from './requestHelper';
 import {
   __resetCustomUARuntimeForTest,
   __setCustomUARuntimeForTest,
@@ -7,8 +9,6 @@ import {
   shouldInjectUAForUrl,
   withCustomUAHeaders,
 } from './customUA';
-
-import { checkIsOneKeyDomain } from './checkIsOneKeyDomain';
 
 jest.mock('../platformEnv', () => ({
   __esModule: true,
@@ -30,31 +30,49 @@ jest.mock('../platformEnv', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({
-  __esModule: true,
-  devSettingsPersistAtom: {
-    get: jest.fn(async () => ({ enabled: false, settings: {} })),
-  },
-}));
+const checkIsOneKeyDomainMock = jest.fn();
+const getDevSettingsPersistAtomMock = jest.fn();
 
-jest.mock('../logger/logger', () => ({
-  __esModule: true,
-  defaultLogger: {
-    app: { customUA: { decision: jest.fn() } },
-  },
-}));
+beforeAll(() => {
+  // Replace requestHelper methods with mocks. The other three
+  // overrideMethods fields (settings / settingsValue / ipTable) are required
+  // by the type signature but never called by customUA — provide stubs
+  // that throw, matching the default rejection behavior.
+  requestHelper.overrideMethods({
+    checkIsOneKeyDomain: checkIsOneKeyDomainMock as unknown as (
+      url: string,
+    ) => Promise<boolean>,
+    getDevSettingsPersistAtom:
+      getDevSettingsPersistAtomMock as unknown as () => Promise<any>,
+    getSettingsPersistAtom: async () => {
+      throw new OneKeyLocalError('not used in customUA tests');
+    },
+    getSettingsValuePersistAtom: async () => {
+      throw new OneKeyLocalError('not used in customUA tests');
+    },
+    getIpTableConfig: async () => {
+      throw new OneKeyLocalError('not used in customUA tests');
+    },
+  });
+});
+
+beforeEach(() => {
+  __resetCustomUARuntimeForTest();
+  (platformEnv as any).isDesktop = false;
+  (platformEnv as any).isNative = false;
+  (platformEnv as any).isExtension = false;
+  (platformEnv as any).isWeb = false;
+  (platformEnv as any).appPlatform = undefined;
+  (platformEnv as any).version = '6.3.0';
+  checkIsOneKeyDomainMock.mockReset();
+  getDevSettingsPersistAtomMock.mockReset();
+  getDevSettingsPersistAtomMock.mockResolvedValue({
+    enabled: false,
+    settings: {},
+  });
+});
 
 describe('buildCustomUA', () => {
-  beforeEach(() => {
-    __resetCustomUARuntimeForTest();
-    (platformEnv as any).isDesktop = false;
-    (platformEnv as any).isNative = false;
-    (platformEnv as any).isExtension = false;
-    (platformEnv as any).isWeb = false;
-    (platformEnv as any).appPlatform = undefined;
-    (platformEnv as any).version = '6.3.0';
-  });
-
   it('returns desktop-electron UA when platformEnv.isDesktop is true', async () => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
@@ -98,62 +116,73 @@ describe('buildCustomUA', () => {
       'OneKeyWallet/unknown (desktop-electron)',
     );
   });
-});
 
-jest.mock('./checkIsOneKeyDomain', () => ({
-  __esModule: true,
-  checkIsOneKeyDomain: jest.fn(),
-}));
-
-const mockedCheck = checkIsOneKeyDomain as jest.MockedFunction<
-  typeof checkIsOneKeyDomain
->;
-
-describe('shouldInjectUAForUrl', () => {
-  beforeEach(() => {
-    mockedCheck.mockReset();
+  it('returns null when dev toggle disableCustomUA is on', async () => {
+    (platformEnv as any).isDesktop = true;
+    (platformEnv as any).appPlatform = 'desktop';
+    getDevSettingsPersistAtomMock.mockResolvedValue({
+      enabled: true,
+      settings: { disableCustomUA: true },
+    });
+    expect(await buildCustomUA()).toBeNull();
   });
 
-  it('returns true for whitelisted host', async () => {
-    mockedCheck.mockResolvedValueOnce(true);
+  it('treats dev toggle as off when getDevSettingsPersistAtom throws (CLI fallback)', async () => {
+    (platformEnv as any).isDesktop = true;
+    (platformEnv as any).appPlatform = 'desktop';
+    getDevSettingsPersistAtomMock.mockRejectedValue(new Error('not wired'));
+    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0 (desktop-electron)');
+  });
+});
+
+describe('shouldInjectUAForUrl', () => {
+  it('returns true when requestHelper.checkIsOneKeyDomain says yes', async () => {
+    checkIsOneKeyDomainMock.mockResolvedValueOnce(true);
     expect(
       await shouldInjectUAForUrl('https://wallet.onekeycn.com/wallet/v1/x'),
     ).toBe(true);
-    expect(mockedCheck).toHaveBeenCalledWith(
-      'https://wallet.onekeycn.com/wallet/v1/x',
-    );
   });
 
-  it('returns false for non-whitelisted host (e.g. auth.onekey.so)', async () => {
-    mockedCheck.mockResolvedValueOnce(false);
+  it('returns false when requestHelper says no', async () => {
+    checkIsOneKeyDomainMock.mockResolvedValueOnce(false);
     expect(await shouldInjectUAForUrl('https://auth.onekey.so/health')).toBe(
       false,
     );
   });
 
+  it('falls back to OneKey-official regex when requestHelper throws (CLI)', async () => {
+    checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('not wired'));
+    expect(
+      await shouldInjectUAForUrl('https://swap.onekeycn.com/swap/v1/quote'),
+    ).toBe(true);
+  });
+
+  it('fallback returns false for non-official host when requestHelper throws', async () => {
+    checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('not wired'));
+    expect(await shouldInjectUAForUrl('https://example.com/foo')).toBe(false);
+  });
+
   it('returns false on bad URL input', async () => {
     expect(await shouldInjectUAForUrl('')).toBe(false);
     expect(await shouldInjectUAForUrl('not-a-url')).toBe(false);
-    expect(mockedCheck).not.toHaveBeenCalled();
+    expect(checkIsOneKeyDomainMock).not.toHaveBeenCalled();
   });
 
   it('returns false for local loopback', async () => {
-    mockedCheck.mockResolvedValueOnce(false);
+    checkIsOneKeyDomainMock.mockResolvedValueOnce(false);
     expect(await shouldInjectUAForUrl('http://127.0.0.1:21320/')).toBe(false);
   });
 });
 
 describe('withCustomUAHeaders', () => {
   beforeEach(() => {
-    mockedCheck.mockReset();
-    __resetCustomUARuntimeForTest();
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
     (platformEnv as any).version = '6.3.0';
   });
 
   it('writes UA when host is whitelisted', async () => {
-    mockedCheck.mockResolvedValueOnce(true);
+    checkIsOneKeyDomainMock.mockResolvedValueOnce(true);
     const out = await withCustomUAHeaders('https://wallet.onekeycn.com/x', {
       'X-Onekey-Request-ID': 'abc',
     });
@@ -164,15 +193,15 @@ describe('withCustomUAHeaders', () => {
   });
 
   it('returns headers unchanged when host is not whitelisted', async () => {
-    mockedCheck.mockResolvedValueOnce(false);
+    checkIsOneKeyDomainMock.mockResolvedValueOnce(false);
     const input = { 'X-Onekey-Request-ID': 'abc' };
     const out = await withCustomUAHeaders('https://auth.onekey.so/x', input);
     expect(out).toEqual(input);
     expect(out).not.toBe(input); // returns a copy, doesn't mutate
   });
 
-  it('returns headers unchanged when buildCustomUA returns null', async () => {
-    mockedCheck.mockResolvedValueOnce(true);
+  it('returns headers unchanged when buildCustomUA returns null (Web)', async () => {
+    checkIsOneKeyDomainMock.mockResolvedValueOnce(true);
     (platformEnv as any).isDesktop = false;
     (platformEnv as any).isWeb = true;
     (platformEnv as any).appPlatform = 'web';
@@ -183,10 +212,21 @@ describe('withCustomUAHeaders', () => {
   });
 
   it('does not overwrite an explicit User-Agent set by caller', async () => {
-    mockedCheck.mockResolvedValueOnce(true);
+    checkIsOneKeyDomainMock.mockResolvedValueOnce(true);
     const out = await withCustomUAHeaders('https://wallet.onekeycn.com/x', {
       'User-Agent': 'caller-explicit',
     });
     expect(out['User-Agent']).toBe('caller-explicit');
+  });
+
+  it('writes UA via fallback regex when requestHelper is not wired (CLI)', async () => {
+    __setCustomUARuntimeForTest('cli-node');
+    checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('not wired'));
+    getDevSettingsPersistAtomMock.mockRejectedValueOnce(new Error('not wired'));
+    const out = await withCustomUAHeaders(
+      'https://swap.onekeycn.com/swap/v1/quote/events',
+      { 'X-Onekey-Request-Platform': 'cli' },
+    );
+    expect(out['User-Agent']).toBe('OneKeyWallet/6.3.0 (cli-node)');
   });
 });

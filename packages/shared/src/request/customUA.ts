@@ -1,15 +1,16 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */
-import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import { checkIsOneKeyDomain } from './checkIsOneKeyDomain';
-
-import { defaultLogger } from '../logger/logger';
+import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
+
+import requestHelper from './requestHelper';
 
 export type ICustomUARuntime =
   | 'desktop-electron'
   | 'cli-node'
   | 'ios-native'
   | 'android-native';
+
+const ONEKEY_OFFICIAL_HOST = /\.onekey(cn|test)\.com$/i;
+const USER_AGENT_HEADER = 'User-Agent';
 
 let runtimeOverride: ICustomUARuntime | null = null;
 
@@ -38,12 +39,37 @@ function detectRuntime(): ICustomUARuntime | null {
 }
 
 async function isDisabledByDevSetting(): Promise<boolean> {
+  // requestHelper is shared-internal DI. When not wired (e.g. CLI runtime),
+  // getDevSettingsPersistAtom throws — treat as "toggle off" (UA enabled).
   try {
-    const state = await devSettingsPersistAtom.get();
+    const state = await requestHelper.getDevSettingsPersistAtom();
     return Boolean(state.enabled && state.settings?.disableCustomUA);
   } catch {
     return false;
   }
+}
+
+async function isManagedHost(url: string): Promise<boolean> {
+  // Prefer the upper-layer wired implementation (covers dev customApiEndpoints).
+  // Fall back to the built-in OneKey official-domain regex when the DI is not
+  // wired (CLI), or when the wired call rejects.
+  try {
+    return await requestHelper.checkIsOneKeyDomain(url);
+  } catch {
+    try {
+      return ONEKEY_OFFICIAL_HOST.test(new URL(url).host);
+    } catch {
+      return false;
+    }
+  }
+}
+
+export async function buildCustomUA(): Promise<string | null> {
+  const runtime = detectRuntime();
+  if (!runtime) return null;
+  if (await isDisabledByDevSetting()) return null;
+  const version = platformEnv.version ?? 'unknown';
+  return `OneKeyWallet/${version} (${runtime})`;
 }
 
 export async function shouldInjectUAForUrl(url: string): Promise<boolean> {
@@ -55,18 +81,8 @@ export async function shouldInjectUAForUrl(url: string): Promise<boolean> {
   } catch {
     return false;
   }
-  return checkIsOneKeyDomain(url);
+  return isManagedHost(url);
 }
-
-export async function buildCustomUA(): Promise<string | null> {
-  const runtime = detectRuntime();
-  if (!runtime) return null;
-  if (await isDisabledByDevSetting()) return null;
-  const version = platformEnv.version ?? 'unknown';
-  return `OneKeyWallet/${version} (${runtime})`;
-}
-
-const USER_AGENT_HEADER = 'User-Agent';
 
 function hasUserAgent(headers: Record<string, string>): boolean {
   return Object.keys(headers).some(
@@ -85,7 +101,7 @@ function logUADecision(record: {
   existing?: string;
 }): void {
   try {
-    defaultLogger.app.customUA.decision(record);
+    appGlobals.$defaultLogger?.app?.customUA?.decision?.(record);
   } catch {
     // never let logging failures affect the request
   }
