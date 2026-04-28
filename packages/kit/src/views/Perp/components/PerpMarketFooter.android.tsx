@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -9,11 +8,12 @@ import { runOnJS } from 'react-native-reanimated';
 import { Button, Page } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
-const MARKET_FOOTER_BUTTON_WIDTH = '44%';
+const MARKET_FOOTER_BUTTON_WIDTH = '47%';
 const MARKET_FOOTER_BUTTON_HEIGHT = 36;
 
 // On Android, the native bottom tab navigator (react-native-bottom-tabs)
@@ -35,7 +35,7 @@ function PerpMarketFooter() {
   const { mode } = useActiveTradeDisplay();
   const longButtonStyle = GetTradingButtonStyleProps('long');
   const shortButtonStyle = GetTradingButtonStyleProps('short');
-  const navigation = useNavigation();
+  const navigation = useAppNavigation();
 
   const buyText = intl.formatMessage({
     id:
@@ -52,16 +52,12 @@ function PerpMarketFooter() {
 
   const handleBuy = useCallback(() => {
     actionsRef.current.updateTradingForm({ side: 'long' });
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
+    navigation.pop();
   }, [actionsRef, navigation]);
 
   const handleSell = useCallback(() => {
     actionsRef.current.updateTradingForm({ side: 'short' });
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
+    navigation.pop();
   }, [actionsRef, navigation]);
 
   const buyGesture = useMemo(
@@ -133,13 +129,15 @@ function PerpMarketFooter() {
 
   return (
     <Page.Footer
+      px="$2"
       pt="$3"
       pb="$8"
       cancelButton={buyButton}
       confirmButton={sellButton}
       buttonContainerProps={{
         width: '100%',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
+        gap: '$2',
       }}
     />
   );
