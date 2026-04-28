@@ -129,6 +129,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }
   const showMarketPresetSelector =
     !isWrapped && !!marketPresetSettings?.enabled;
+  const suppressStandaloneSlippage =
+    isWrapped || showMarketPresetSelector || !!marketPresetSettings?.isLoading;
 
   const currentInputAmount = useMemo(() => {
     return tradeType === ESwapDirection.BUY ? paymentAmount : sellAmount;
@@ -341,7 +343,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       />
 
       {/* Slippage setting */}
-      {isWrapped || showMarketPresetSelector ? null : (
+      {suppressStandaloneSlippage ? null : (
         <SlippageSetting
           autoDefaultValue={slippageAutoValue}
           isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}

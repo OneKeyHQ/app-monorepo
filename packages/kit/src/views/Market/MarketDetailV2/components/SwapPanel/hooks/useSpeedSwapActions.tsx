@@ -22,6 +22,7 @@ import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/u
 import type {
   ISwapReviewAdapter,
   ISwapReviewApproveBroadcastResult,
+  ISwapReviewCustomPriorityFee,
   ISwapReviewGasInfoEntry,
   ISwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
@@ -48,6 +49,7 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import {
   EMessageTypesEth,
   ESigningScheme,
@@ -80,6 +82,7 @@ import type {
 
 import { buildMarketExecutionPayload } from './marketBuildExecutionUtils';
 import {
+  buildMarketGasInfoFeeInfo,
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
   sendMarketDirectUnsignedTxs,
@@ -125,6 +128,7 @@ type IMarketReviewExecutionSnapshot = {
   buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
   swapInfo: ISwapTxInfo;
   buildRes?: IFetchBuildTxResponse;
+  customPriorityFee?: ISwapReviewCustomPriorityFee;
 };
 
 type ICheckSwapLatestBalanceSufficient = (params: {
@@ -1099,7 +1103,10 @@ export function useSpeedSwapActions(props: {
     async (
       snapshot: IMarketReviewExecutionSnapshot,
       networkFeeLevel: ESwapNetworkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
+      customPriorityFee?: ISwapReviewCustomPriorityFee,
     ) => {
+      const effectiveCustomPriorityFee =
+        customPriorityFee ?? snapshot.customPriorityFee;
       const nextReviewState = buildMarketReviewState({
         accountId: snapshot.accountId,
         networkId: snapshot.networkId,
@@ -1135,6 +1142,7 @@ export function useSpeedSwapActions(props: {
             networkId: snapshot.networkId,
             approveUnsignedTxArr,
             networkFeeLevel,
+            customPriorityFee: effectiveCustomPriorityFee,
           });
 
           netWorkFee = {
@@ -1156,6 +1164,7 @@ export function useSpeedSwapActions(props: {
             buildUnsignedParams: snapshot.buildUnsignedParams,
             approveUnsignedTxArr,
             networkFeeLevel,
+            customPriorityFee: effectiveCustomPriorityFee,
           });
 
           if (
@@ -1204,11 +1213,13 @@ export function useSpeedSwapActions(props: {
       isWrap,
       quoteResult,
       networkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
+      customPriorityFee,
     } = {}) => {
       if (quoteResult && reviewExecutionSnapshotRef.current) {
         return buildMarketReviewStateFromSnapshot(
           reviewExecutionSnapshotRef.current,
           networkFeeLevel,
+          customPriorityFee,
         );
       }
 
@@ -1253,11 +1264,13 @@ export function useSpeedSwapActions(props: {
             disableMev: !antiMEV,
           } as ISendTxBaseParams & IBuildUnsignedTxParams,
           swapInfo,
+          customPriorityFee,
         };
 
         return buildMarketReviewStateFromSnapshot(
           reviewExecutionSnapshotRef.current,
           networkFeeLevel,
+          customPriorityFee,
         );
       }
 
@@ -1324,11 +1337,13 @@ export function useSpeedSwapActions(props: {
         } as ISendTxBaseParams & IBuildUnsignedTxParams,
         swapInfo,
         buildRes,
+        customPriorityFee,
       };
 
       return buildMarketReviewStateFromSnapshot(
         reviewExecutionSnapshotRef.current,
         networkFeeLevel,
+        customPriorityFee,
       );
     },
     [
@@ -1446,22 +1461,60 @@ export function useSpeedSwapActions(props: {
 
   const openMarketFallbackTxConfirm = useCallback(
     async ({
+      accountAddress,
+      accountId,
       buildUnsignedParams,
+      networkFeeLevel,
+      networkId,
+      customPriorityFee,
       approvesInfo,
       onSuccess,
       onCancel,
     }: {
+      accountAddress?: string;
+      accountId?: string;
       buildUnsignedParams: IMarketReviewExecutionSnapshot['buildUnsignedParams'];
+      networkFeeLevel?: ESwapNetworkFeeLevel;
+      networkId?: string;
+      customPriorityFee?: ISwapReviewCustomPriorityFee;
       approvesInfo?: IApproveInfo[];
       onSuccess?: (data: ISendTxOnSuccessData[]) => void;
       onCancel?: () => void;
     }) => {
+      let feeInfo: IFeeInfoUnit | undefined;
+      const isApproveOnlyTx =
+        approvesInfo?.length === 1 &&
+        !buildUnsignedParams.encodedTx &&
+        !buildUnsignedParams.transfersInfo?.length &&
+        !buildUnsignedParams.swapInfo;
+      const canAttachPresetFeeInfo =
+        Boolean(accountAddress && accountId && networkId) &&
+        Boolean(networkFeeLevel || customPriorityFee) &&
+        (!approvesInfo?.length || isApproveOnlyTx);
+
+      if (canAttachPresetFeeInfo) {
+        const feeState = await estimateMarketDirectGasInfos({
+          accountAddress: accountAddress as string,
+          accountId: accountId as string,
+          networkId: networkId as string,
+          buildUnsignedParams,
+          networkFeeLevel,
+          customPriorityFee,
+        });
+        const gasInfo =
+          feeState.gasInfos[feeState.gasInfos.length - 1]?.gasInfo;
+        feeInfo = gasInfo ? buildMarketGasInfoFeeInfo(gasInfo) : undefined;
+      }
+
       await navigationToTxConfirm({
         wrappedInfo: buildUnsignedParams.wrappedInfo,
         transfersInfo: buildUnsignedParams.transfersInfo,
         encodedTx: buildUnsignedParams.encodedTx,
         swapInfo: buildUnsignedParams.swapInfo,
         approvesInfo,
+        feeInfo,
+        useFeeInTx: feeInfo ? true : undefined,
+        feeInfoEditable: feeInfo ? false : undefined,
         isInternalSwap: true,
         disableMev: buildUnsignedParams.disableMev,
         onSuccess,
@@ -1728,6 +1781,7 @@ export function useSpeedSwapActions(props: {
       approvingTransaction,
       gasInfos,
       networkFeeLevel,
+      customPriorityFee,
       onBroadcast,
       onCancel,
     }: {
@@ -1738,6 +1792,7 @@ export function useSpeedSwapActions(props: {
       approvingTransaction: ISwapApproveTransaction;
       gasInfos?: ISwapReviewGasInfoEntry[];
       networkFeeLevel?: ESwapNetworkFeeLevel;
+      customPriorityFee?: ISwapReviewCustomPriorityFee;
       onBroadcast?: (result: ISwapReviewApproveBroadcastResult) => void;
       onCancel?: () => void;
     }) => {
@@ -1761,6 +1816,7 @@ export function useSpeedSwapActions(props: {
           } as ISendTxBaseParams & IBuildUnsignedTxParams,
           gasInfos,
           networkFeeLevel,
+          customPriorityFee,
         });
         handleMarketApproveTxSuccess({
           approveInfo,
@@ -1875,10 +1931,13 @@ export function useSpeedSwapActions(props: {
       approvesInfo,
       gasInfos,
       networkFeeLevel,
+      customPriorityFee,
       onBroadcast,
       onCancel,
     } = {}) => {
       const snapshot = requireReviewExecutionSnapshot('swap');
+      const effectiveCustomPriorityFee =
+        customPriorityFee ?? snapshot.customPriorityFee;
 
       try {
         await assertLatestFromTokenBalanceSufficient({
@@ -1892,7 +1951,12 @@ export function useSpeedSwapActions(props: {
           setSpeedSwapBuildTxLoading(true);
 
           await openMarketFallbackTxConfirm({
+            accountAddress: snapshot.accountAddress,
+            accountId: snapshot.accountId,
             buildUnsignedParams: snapshot.buildUnsignedParams,
+            networkFeeLevel,
+            networkId: snapshot.networkId,
+            customPriorityFee: effectiveCustomPriorityFee,
             approvesInfo: approvesInfo?.length ? approvesInfo : undefined,
             onSuccess: async (data) => {
               const result = await handleMarketSwapBuildTxSuccess(data);
@@ -1930,6 +1994,7 @@ export function useSpeedSwapActions(props: {
           approveUnsignedTxArr,
           gasInfos,
           networkFeeLevel,
+          customPriorityFee: effectiveCustomPriorityFee,
         });
         const result = await handleMarketSwapBuildTxSuccess(data);
         if (result) {
@@ -1973,15 +2038,28 @@ export function useSpeedSwapActions(props: {
   const sendMarketWrappedTx = useCallback<
     IMarketSwapReviewAdapter['sendWrappedTx']
   >(
-    async ({ gasInfos, networkFeeLevel, onBroadcast, onCancel } = {}) => {
+    async ({
+      gasInfos,
+      networkFeeLevel,
+      customPriorityFee,
+      onBroadcast,
+      onCancel,
+    } = {}) => {
       const snapshot = requireReviewExecutionSnapshot('wrap');
+      const effectiveCustomPriorityFee =
+        customPriorityFee ?? snapshot.customPriorityFee;
 
       try {
         if (snapshot.shouldFallback) {
           setSpeedSwapBuildTxLoading(true);
 
           await openMarketFallbackTxConfirm({
+            accountAddress: snapshot.accountAddress,
+            accountId: snapshot.accountId,
             buildUnsignedParams: snapshot.buildUnsignedParams,
+            networkFeeLevel,
+            networkId: snapshot.networkId,
+            customPriorityFee: effectiveCustomPriorityFee,
             onSuccess: async (data) => {
               const result = await handleMarketSwapBuildTxSuccess(data);
               if (result) {
@@ -2004,6 +2082,7 @@ export function useSpeedSwapActions(props: {
           buildUnsignedParams: snapshot.buildUnsignedParams,
           gasInfos,
           networkFeeLevel,
+          customPriorityFee: effectiveCustomPriorityFee,
         });
         const result = await handleMarketSwapBuildTxSuccess(data);
         if (result) {
@@ -2135,6 +2214,7 @@ export function useSpeedSwapActions(props: {
           } as ISendTxBaseParams & IBuildUnsignedTxParams,
           swapInfo,
           buildRes: buildResFinal,
+          customPriorityFee: snapshot.customPriorityFee,
         };
 
         if (shouldPersistSignedOrder) {
@@ -2192,11 +2272,14 @@ export function useSpeedSwapActions(props: {
       gasInfos,
       isResetApprove,
       networkFeeLevel,
+      customPriorityFee,
       quoteResult,
       onBroadcast,
       onCancel,
     }) => {
       const snapshot = reviewExecutionSnapshotRef.current;
+      const effectiveCustomPriorityFee =
+        customPriorityFee ?? snapshot?.customPriorityFee;
       const userAddress =
         snapshot?.accountAddress ??
         netAccountRes.result?.addressDetail.address ??
@@ -2243,6 +2326,8 @@ export function useSpeedSwapActions(props: {
           }));
 
           await openMarketFallbackTxConfirm({
+            accountAddress: userAddress,
+            accountId,
             buildUnsignedParams: {
               accountId,
               networkId: quoteResult.fromTokenInfo.networkId,
@@ -2250,6 +2335,9 @@ export function useSpeedSwapActions(props: {
               isInternalSwap: true,
               disableMev: !antiMEV,
             } as ISendTxBaseParams & IBuildUnsignedTxParams,
+            networkFeeLevel,
+            networkId: quoteResult.fromTokenInfo.networkId,
+            customPriorityFee: effectiveCustomPriorityFee,
             approvesInfo: [approveInfo],
             onSuccess: (data) => {
               handleMarketApproveTxSuccess({
@@ -2288,6 +2376,7 @@ export function useSpeedSwapActions(props: {
           }),
           gasInfos,
           networkFeeLevel,
+          customPriorityFee: effectiveCustomPriorityFee,
           onBroadcast,
           onCancel,
         });

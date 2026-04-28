@@ -292,6 +292,115 @@ describe('marketDirectSendTx', () => {
     expect(highFeeResult.preparedUnsignedTx).toBe(preparedUnsignedTx);
   });
 
+  it('applies a custom EVM legacy priority fee to the selected gas price', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      customPriorityFee: {
+        customValue: '7',
+      },
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: {
+          data: '0xencoded',
+        } as never,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(result.gasInfos[0].gasInfo.gas?.gasPrice).toBe('7');
+  });
+
+  it('applies a custom EVM EIP-1559 priority fee and max fee', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockEstimateFee.mockResolvedValue({
+      common: createEstimateFeeResult().common,
+      gasEIP1559: [
+        {
+          baseFeePerGas: '10',
+          maxPriorityFeePerGas: '1',
+          maxFeePerGas: '11',
+          gasLimit: '21000',
+        },
+      ],
+    });
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      customPriorityFee: {
+        customValue: '5',
+      },
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: {
+          data: '0xencoded',
+        } as never,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(result.gasInfos[0].gasInfo.gasEIP1559).toEqual(
+      expect.objectContaining({
+        maxPriorityFeePerGas: '5',
+        maxFeePerGas: '25',
+      }),
+    );
+  });
+
+  it('converts a custom Solana total priority fee into compute unit price', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockBuildEstimateFeeParams.mockImplementation(async ({ encodedTx }) => ({
+      encodedTx,
+      estimateFeeParams: {
+        estimateFeeParamsSol: {
+          baseFee: '5000',
+          computeUnitLimit: '200000',
+          computeUnitPriceDecimals: 6,
+        },
+      },
+    }));
+    mockEstimateFee.mockResolvedValue({
+      common: {
+        feeDecimals: 9,
+        feeSymbol: 'SOL',
+        nativeDecimals: 9,
+        nativeSymbol: 'SOL',
+        nativeTokenPrice: 100,
+      },
+      feeSol: [
+        {
+          computeUnitPrice: '1000',
+        },
+      ],
+    });
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: 'sol-user',
+      accountId: 'account-sol',
+      networkId: 'sol--101',
+      customPriorityFee: {
+        customValue: '0.001',
+      },
+      buildUnsignedParams: {
+        accountId: 'account-sol',
+        networkId: 'sol--101',
+        encodedTx: {
+          data: 'sol-tx',
+        } as never,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(result.gasInfos[0].gasInfo.feeSol?.computeUnitPrice).toBe('5000000');
+  });
+
   it('ignores gas infos without common data when aggregating fiat values', async () => {
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
     mockEstimateFee.mockResolvedValue({

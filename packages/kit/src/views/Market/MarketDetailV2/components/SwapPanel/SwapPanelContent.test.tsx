@@ -266,19 +266,50 @@ describe('SwapPanelContent', () => {
   it('uses Market preset settings instead of the standalone slippage setting', () => {
     const props = createProps();
     props.marketPresetSettings = {
+      config: undefined,
       enabled: true,
       isLoading: false,
       presets: [],
+      presetCustomizedMap: {},
+      priorityFeeUnit: 'Gwei',
+      savedSettings: undefined,
       selectedPresetKey: 'auto',
       selectedPreset: undefined,
+      selectedDirectionSettings: {
+        slippage: {
+          key: 'auto',
+        },
+        priorityFee: {
+          type: 'market',
+        },
+      },
       selectedNetworkFeeLevel: 'medium',
       selectedSlippageValue: 0.5,
+      defaultSlippageValue: 0.5,
+      tradeSide: 'buy',
       onPresetChange: jest.fn(),
+      onSavePresetDirectionSettings: jest.fn(),
+      onResetPresetDirectionSettings: jest.fn(),
+      getDirectionSettings: jest.fn(),
+      getSavedDirectionSettings: jest.fn(),
     } as never;
 
     render(<SwapPanelContent {...props} />);
 
     expect(screen.getByTestId('market-preset-selector')).toBeTruthy();
+    expect(screen.queryByTestId('slippage')).toBeNull();
+  });
+
+  it('suppresses the standalone slippage setting while Market preset config is loading', () => {
+    const props = createProps();
+    props.marketPresetSettings = {
+      enabled: false,
+      isLoading: true,
+    } as never;
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(screen.queryByTestId('market-preset-selector')).toBeNull();
     expect(screen.queryByTestId('slippage')).toBeNull();
   });
 });

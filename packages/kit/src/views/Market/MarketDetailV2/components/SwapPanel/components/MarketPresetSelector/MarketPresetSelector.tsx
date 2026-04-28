@@ -1,20 +1,39 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
+  Dialog,
   Divider,
   Icon,
+  Input,
   SegmentControl,
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  swapSlippageCustomDefaultList,
+  swapSlippageMaxValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import {
   EMarketPresetKey,
   EMarketPresetPriorityFeeType,
+  EMarketPresetTradeSide,
+  type IMarketPresetDirectionSettings,
+  getMarketPresetDefaultDirectionSettings,
+  isMarketPresetDirectionCustomized,
+  isValidMarketPresetCustomValue,
+  normalizeMarketPresetDirectionSettings,
 } from '../../hooks/marketPresetSettings';
 
 import type { IMarketPresetSettingsState } from '../../hooks/useMarketPresetSettings';
@@ -23,7 +42,20 @@ type IMarketPresetSelectorProps = {
   presetSettings: IMarketPresetSettingsState;
 };
 
+type IDraftPresetSettings = Partial<
+  Record<
+    EMarketPresetKey,
+    Partial<Record<EMarketPresetTradeSide, IMarketPresetDirectionSettings>>
+  >
+>;
+
+const EDIT_PRESETS_TITLE = 'Edit presets';
+
 function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
+  if (type === EMarketPresetPriorityFeeType.AUTO) {
+    return ETranslations.global_auto;
+  }
+
   if (type === EMarketPresetPriorityFeeType.FAST) {
     return ETranslations.transaction_fast;
   }
@@ -35,14 +67,619 @@ function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   return ETranslations.global_market;
 }
 
+function getPriorityFeeLabel({
+  intl,
+  settings,
+  unit,
+}: {
+  intl: ReturnType<typeof useIntl>;
+  settings?: IMarketPresetDirectionSettings;
+  unit?: string;
+}) {
+  if (
+    settings?.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
+    settings.priorityFee.customValue
+  ) {
+    return `${intl.formatMessage({
+      id: ETranslations.content__custom,
+    })} ${settings.priorityFee.customValue}${unit ? ` ${unit}` : ''}`;
+  }
+
+  return intl.formatMessage({
+    id: getPriorityFeeTranslationId(settings?.priorityFee.type),
+  });
+}
+
+function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
+  return presetSettings.presets.reduce<IDraftPresetSettings>((acc, preset) => {
+    if (preset.key === EMarketPresetKey.AUTO) {
+      return acc;
+    }
+
+    acc[preset.key] = {
+      [EMarketPresetTradeSide.BUY]: presetSettings.getDirectionSettings({
+        presetKey: preset.key,
+        tradeSide: EMarketPresetTradeSide.BUY,
+      }),
+      [EMarketPresetTradeSide.SELL]: presetSettings.getDirectionSettings({
+        presetKey: preset.key,
+        tradeSide: EMarketPresetTradeSide.SELL,
+      }),
+    };
+    return acc;
+  }, {});
+}
+
+function getDraftDirectionSettings({
+  draftSettings,
+  presetKey,
+  tradeSide,
+}: {
+  draftSettings: IDraftPresetSettings;
+  presetKey: EMarketPresetKey;
+  tradeSide: EMarketPresetTradeSide;
+}) {
+  return draftSettings[presetKey]?.[tradeSide];
+}
+
+function getDirectionKey({
+  presetKey,
+  tradeSide,
+}: {
+  presetKey: EMarketPresetKey;
+  tradeSide: EMarketPresetTradeSide;
+}) {
+  return `${presetKey}:${tradeSide}`;
+}
+
+function parseDirectionKey(directionKey: string) {
+  const [presetKey, tradeSide] = directionKey.split(':');
+
+  if (
+    !Object.values(EMarketPresetKey).includes(presetKey as EMarketPresetKey) ||
+    !Object.values(EMarketPresetTradeSide).includes(
+      tradeSide as EMarketPresetTradeSide,
+    )
+  ) {
+    return undefined;
+  }
+
+  return {
+    presetKey: presetKey as EMarketPresetKey,
+    tradeSide: tradeSide as EMarketPresetTradeSide,
+  };
+}
+
+function isInvalidDirectionSettings(settings?: IMarketPresetDirectionSettings) {
+  if (!settings) {
+    return false;
+  }
+
+  const customPriorityFeeInvalid =
+    settings.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
+    !isValidMarketPresetCustomValue(settings.priorityFee.customValue);
+
+  const slippageValueBN = new BigNumber(settings.slippage.value ?? Number.NaN);
+  const customSlippageInvalid =
+    settings.slippage.key === ESwapSlippageSegmentKey.CUSTOM &&
+    (settings.slippage.value === undefined ||
+      slippageValueBN.isNaN() ||
+      slippageValueBN.isNegative() ||
+      slippageValueBN.gt(swapSlippageMaxValue));
+
+  return customPriorityFeeInvalid || customSlippageInvalid;
+}
+
+function MarketPresetDialogHeader({ networkId }: { networkId?: string }) {
+  return (
+    <Dialog.Header>
+      <XStack alignItems="center" gap="$2" py="$px">
+        <NetworkAvatar networkId={networkId} size="$6" />
+        <SizableText size="$headingSm">{EDIT_PRESETS_TITLE}</SizableText>
+      </XStack>
+    </Dialog.Header>
+  );
+}
+
+function MarketPresetReadonlyRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <XStack alignItems="center" justifyContent="space-between" gap="$3">
+      <SizableText size="$bodyMdMedium">{label}</SizableText>
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
+        {value}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function MarketPresetSettingsDialog({
+  close,
+  presetSettings,
+}: {
+  close: () => void;
+  presetSettings: IMarketPresetSettingsState;
+}) {
+  const intl = useIntl();
+  const [activePresetKey, setActivePresetKey] = useState(
+    presetSettings.selectedPresetKey,
+  );
+  const [activeTradeSide, setActiveTradeSide] = useState(
+    presetSettings.tradeSide,
+  );
+  const [draftSettings, setDraftSettings] = useState(() =>
+    buildDraftSettings(presetSettings),
+  );
+  const dirtyDirectionSetRef = useRef(new Set<string>());
+  const resetDirectionSetRef = useRef(new Set<string>());
+
+  const presetOptions = useMemo(
+    () =>
+      presetSettings.presets.map((preset) => ({
+        label: preset.label,
+        value: preset.key,
+      })),
+    [presetSettings.presets],
+  );
+
+  const sideOptions = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({ id: ETranslations.global_buy }),
+        value: EMarketPresetTradeSide.BUY,
+      },
+      {
+        label: intl.formatMessage({ id: ETranslations.global_sell }),
+        value: EMarketPresetTradeSide.SELL,
+      },
+    ],
+    [intl],
+  );
+
+  const priorityFeeOptions = useMemo(
+    () =>
+      (
+        presetSettings.config?.priorityFee.supportedTypes ?? [
+          EMarketPresetPriorityFeeType.MARKET,
+        ]
+      ).map((type) => ({
+        label: intl.formatMessage({ id: getPriorityFeeTranslationId(type) }),
+        value: type,
+      })),
+    [intl, presetSettings.config?.priorityFee.supportedTypes],
+  );
+  const isReadonlyPreset =
+    !presetSettings.config?.slippage.editable &&
+    !presetSettings.config?.priorityFee.editable;
+
+  const currentSettings = useMemo(() => {
+    if (activePresetKey === EMarketPresetKey.AUTO) {
+      return getMarketPresetDefaultDirectionSettings();
+    }
+
+    return normalizeMarketPresetDirectionSettings(
+      draftSettings[activePresetKey]?.[activeTradeSide],
+    );
+  }, [activePresetKey, activeTradeSide, draftSettings]);
+
+  const updateCurrentSettings = useCallback(
+    (
+      updater: (
+        settings: IMarketPresetDirectionSettings,
+      ) => IMarketPresetDirectionSettings,
+    ) => {
+      if (activePresetKey === EMarketPresetKey.AUTO) {
+        return;
+      }
+
+      const directionKey = getDirectionKey({
+        presetKey: activePresetKey,
+        tradeSide: activeTradeSide,
+      });
+      const nextSettings = updater(currentSettings);
+      const savedSettings = presetSettings.getSavedDirectionSettings({
+        presetKey: activePresetKey,
+        tradeSide: activeTradeSide,
+      });
+
+      if (isMarketPresetDirectionCustomized(nextSettings)) {
+        resetDirectionSetRef.current.delete(directionKey);
+        dirtyDirectionSetRef.current.add(directionKey);
+      } else if (savedSettings) {
+        dirtyDirectionSetRef.current.delete(directionKey);
+        resetDirectionSetRef.current.add(directionKey);
+      } else {
+        dirtyDirectionSetRef.current.delete(directionKey);
+        resetDirectionSetRef.current.delete(directionKey);
+      }
+
+      setDraftSettings((prev) => ({
+        ...prev,
+        [activePresetKey]: {
+          ...prev[activePresetKey],
+          [activeTradeSide]: nextSettings,
+        },
+      }));
+    },
+    [activePresetKey, activeTradeSide, currentSettings, presetSettings],
+  );
+
+  const currentSettingsInvalid = isInvalidDirectionSettings(currentSettings);
+  const hasInvalidDirtySettings = Array.from(dirtyDirectionSetRef.current).some(
+    (directionKey) => {
+      const parsed = parseDirectionKey(directionKey);
+      if (!parsed) {
+        return false;
+      }
+      return isInvalidDirectionSettings(
+        getDraftDirectionSettings({
+          draftSettings,
+          presetKey: parsed.presetKey,
+          tradeSide: parsed.tradeSide,
+        }),
+      );
+    },
+  );
+
+  const confirmDisabled = currentSettingsInvalid || hasInvalidDirtySettings;
+
+  const handleConfirm = useCallback(async () => {
+    if (confirmDisabled) {
+      return;
+    }
+
+    const saveTasks: Array<() => Promise<void>> = [];
+
+    Array.from(resetDirectionSetRef.current).forEach((directionKey) => {
+      const parsed = parseDirectionKey(directionKey);
+      if (parsed && parsed.presetKey !== EMarketPresetKey.AUTO) {
+        saveTasks.push(() =>
+          presetSettings.onResetPresetDirectionSettings({
+            presetKey: parsed.presetKey,
+            tradeSide: parsed.tradeSide,
+          }),
+        );
+      }
+    });
+
+    Array.from(dirtyDirectionSetRef.current).forEach((directionKey) => {
+      const parsed = parseDirectionKey(directionKey);
+      if (
+        parsed &&
+        parsed.presetKey !== EMarketPresetKey.AUTO &&
+        !resetDirectionSetRef.current.has(directionKey)
+      ) {
+        const directionSettings = getDraftDirectionSettings({
+          draftSettings,
+          presetKey: parsed.presetKey,
+          tradeSide: parsed.tradeSide,
+        });
+        if (directionSettings) {
+          saveTasks.push(() =>
+            presetSettings.onSavePresetDirectionSettings({
+              presetKey: parsed.presetKey,
+              tradeSide: parsed.tradeSide,
+              settings: directionSettings,
+            }),
+          );
+        }
+      }
+    });
+
+    await saveTasks.reduce<Promise<void>>(async (promise, task) => {
+      await promise;
+      await task();
+    }, Promise.resolve());
+    close();
+  }, [close, confirmDisabled, draftSettings, presetSettings]);
+
+  const handleReset = useCallback(() => {
+    if (activePresetKey === EMarketPresetKey.AUTO) {
+      close();
+      return;
+    }
+
+    const defaultSettings = getMarketPresetDefaultDirectionSettings();
+    const directionKey = getDirectionKey({
+      presetKey: activePresetKey,
+      tradeSide: activeTradeSide,
+    });
+    const savedSettings = presetSettings.getSavedDirectionSettings({
+      presetKey: activePresetKey,
+      tradeSide: activeTradeSide,
+    });
+
+    dirtyDirectionSetRef.current.delete(directionKey);
+    if (savedSettings) {
+      resetDirectionSetRef.current.add(directionKey);
+    } else {
+      resetDirectionSetRef.current.delete(directionKey);
+    }
+
+    setDraftSettings((prev) => ({
+      ...prev,
+      [activePresetKey]: {
+        ...prev[activePresetKey],
+        [activeTradeSide]: defaultSettings,
+      },
+    }));
+  }, [activePresetKey, activeTradeSide, close, presetSettings]);
+
+  return (
+    <YStack gap="$4">
+      <MarketPresetDialogHeader networkId={presetSettings.config?.networkId} />
+
+      <SegmentControl
+        fullWidth
+        value={activePresetKey}
+        options={presetOptions}
+        onChange={(value) => setActivePresetKey(value as EMarketPresetKey)}
+      />
+
+      {activePresetKey === EMarketPresetKey.AUTO ? (
+        <YStack gap="$3">
+          <XStack gap="$3" py="$2">
+            <Icon name="Ai2StarSolid" size="$6" color="$iconSubdued" />
+            <YStack flex={1} minWidth={0}>
+              <SizableText size="$bodyMdMedium">
+                Smarter trade settings
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                OneKey suggests slippage and priority fees based on current
+                market conditions, giving you optimized trades and a better
+                experience.
+              </SizableText>
+            </YStack>
+          </XStack>
+          <XStack gap="$3" py="$2">
+            <Icon name="ShieldCheckDoneSolid" size="$6" color="$iconSubdued" />
+            <YStack flex={1} minWidth={0}>
+              <SizableText size="$bodyMdMedium">Anti-MEV</SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                Anti-MEV is available on select networks, shielding your trades
+                from malicious activity for safer transactions.
+              </SizableText>
+            </YStack>
+          </XStack>
+          <Button
+            variant="primary"
+            size="medium"
+            disabled={confirmDisabled}
+            onPress={() => {
+              void handleConfirm();
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_confirm })}
+          </Button>
+        </YStack>
+      ) : (
+        <YStack gap="$4">
+          <SegmentControl
+            fullWidth
+            value={activeTradeSide}
+            options={sideOptions}
+            onChange={(value) =>
+              setActiveTradeSide(value as EMarketPresetTradeSide)
+            }
+          />
+
+          <YStack gap="$2">
+            {presetSettings.config?.slippage.editable ? (
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.swap_page_provider_slippage_tolerance,
+                })}
+              </SizableText>
+            ) : null}
+            {presetSettings.config?.slippage.editable ? (
+              <>
+                <SegmentControl
+                  fullWidth
+                  value={currentSettings.slippage.key}
+                  options={[
+                    {
+                      label: intl.formatMessage({
+                        id: ETranslations.slippage_tolerance_switch_auto,
+                      }),
+                      value: ESwapSlippageSegmentKey.AUTO,
+                    },
+                    {
+                      label: intl.formatMessage({
+                        id: ETranslations.slippage_tolerance_switch_custom,
+                      }),
+                      value: ESwapSlippageSegmentKey.CUSTOM,
+                    },
+                  ]}
+                  onChange={(value) => {
+                    const key = value as ESwapSlippageSegmentKey;
+                    updateCurrentSettings((settings) => ({
+                      ...settings,
+                      slippage: {
+                        key,
+                        value:
+                          key === ESwapSlippageSegmentKey.CUSTOM
+                            ? (settings.slippage.value ??
+                              presetSettings.defaultSlippageValue)
+                            : undefined,
+                      },
+                    }));
+                  }}
+                />
+                {currentSettings.slippage.key ===
+                ESwapSlippageSegmentKey.CUSTOM ? (
+                  <>
+                    <XStack gap="$2.5">
+                      <SlippageInput
+                        swapSlippage={{
+                          key: ESwapSlippageSegmentKey.CUSTOM,
+                          value:
+                            currentSettings.slippage.value ??
+                            presetSettings.defaultSlippageValue,
+                        }}
+                        onChangeText={(text) => {
+                          const valueBN = new BigNumber(text);
+                          updateCurrentSettings((settings) => ({
+                            ...settings,
+                            slippage: {
+                              key: ESwapSlippageSegmentKey.CUSTOM,
+                              value:
+                                !text || valueBN.isNaN()
+                                  ? undefined
+                                  : valueBN.toNumber(),
+                            },
+                          }));
+                        }}
+                      />
+                      <XStack>
+                        {swapSlippageCustomDefaultList.map((item, index) => (
+                          <Button
+                            key={item}
+                            variant="secondary"
+                            size="medium"
+                            borderTopRightRadius={index !== 2 ? 0 : '$2'}
+                            borderBottomRightRadius={index !== 2 ? 0 : '$2'}
+                            borderTopLeftRadius={index !== 0 ? 0 : '$2'}
+                            borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
+                            onPress={() => {
+                              updateCurrentSettings((settings) => ({
+                                ...settings,
+                                slippage: {
+                                  key: ESwapSlippageSegmentKey.CUSTOM,
+                                  value: item,
+                                },
+                              }));
+                            }}
+                          >{`${item}%`}</Button>
+                        ))}
+                      </XStack>
+                    </XStack>
+                    {currentSettingsInvalid ? (
+                      <SizableText size="$bodySmMedium" color="$textCritical">
+                        {intl.formatMessage({
+                          id: ETranslations.slippage_tolerance_error_message,
+                        })}
+                      </SizableText>
+                    ) : null}
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <MarketPresetReadonlyRow
+                label={intl.formatMessage({
+                  id: ETranslations.swap_page_provider_slippage_tolerance,
+                })}
+                value={intl.formatMessage({ id: ETranslations.global_auto })}
+              />
+            )}
+          </YStack>
+
+          <YStack gap="$2">
+            {presetSettings.config?.priorityFee.editable ? (
+              <SizableText size="$bodyMdMedium">Priority fee</SizableText>
+            ) : null}
+            {presetSettings.config?.priorityFee.editable ? (
+              <>
+                <SegmentControl
+                  fullWidth
+                  value={currentSettings.priorityFee.type}
+                  options={priorityFeeOptions}
+                  onChange={(value) => {
+                    const type = value as EMarketPresetPriorityFeeType;
+                    updateCurrentSettings((settings) => ({
+                      ...settings,
+                      priorityFee: {
+                        type,
+                        customValue:
+                          type === EMarketPresetPriorityFeeType.CUSTOM
+                            ? (settings.priorityFee.customValue ?? '')
+                            : undefined,
+                      },
+                    }));
+                  }}
+                />
+                {currentSettings.priorityFee.type ===
+                EMarketPresetPriorityFeeType.CUSTOM ? (
+                  <Input
+                    size="medium"
+                    value={currentSettings.priorityFee.customValue ?? ''}
+                    addOns={[
+                      {
+                        label: presetSettings.priorityFeeUnit,
+                      },
+                    ]}
+                    placeholder="0"
+                    onChangeText={(text) => {
+                      if (!validateAmountInput(text, 9)) {
+                        return;
+                      }
+                      updateCurrentSettings((settings) => ({
+                        ...settings,
+                        priorityFee: {
+                          ...settings.priorityFee,
+                          customValue: text,
+                        },
+                      }));
+                    }}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <MarketPresetReadonlyRow
+                label="Priority fee"
+                value={intl.formatMessage({ id: ETranslations.global_auto })}
+              />
+            )}
+          </YStack>
+
+          {isReadonlyPreset ? (
+            <Button variant="primary" size="medium" onPress={close}>
+              {intl.formatMessage({ id: ETranslations.global_ok })}
+            </Button>
+          ) : (
+            <XStack gap="$3">
+              <Button
+                flex={1}
+                variant="secondary"
+                size="medium"
+                onPress={handleReset}
+              >
+                {intl.formatMessage({ id: ETranslations.global_reset })}
+              </Button>
+              <Button
+                flex={1}
+                variant="primary"
+                size="medium"
+                disabled={confirmDisabled}
+                onPress={() => {
+                  void handleConfirm();
+                }}
+              >
+                {intl.formatMessage({ id: ETranslations.global_confirm })}
+              </Button>
+            </XStack>
+          )}
+        </YStack>
+      )}
+    </YStack>
+  );
+}
+
 export function MarketPresetSelector({
   presetSettings,
 }: IMarketPresetSelectorProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const {
     enabled,
     presets,
+    presetCustomizedMap,
     selectedPreset,
+    selectedDirectionSettings,
     selectedPresetKey,
     selectedSlippageValue,
     onPresetChange,
@@ -51,38 +688,60 @@ export function MarketPresetSelector({
   const presetOptions = useMemo(
     () =>
       presets.map((preset) => ({
-        label: preset.label,
+        label: `${preset.label}${presetCustomizedMap[preset.key] ? '*' : ''}`,
         value: preset.key,
         testID: `market-preset-${preset.key}`,
       })),
-    [presets],
+    [presetCustomizedMap, presets],
   );
+
+  const openPresetDialog = useCallback(() => {
+    const dialog = Dialog.show({
+      title: EDIT_PRESETS_TITLE,
+      renderContent: (
+        <MarketPresetSettingsDialog
+          close={() => {
+            void dialog.close();
+          }}
+          presetSettings={presetSettings}
+        />
+      ),
+      showFooter: false,
+    });
+  }, [presetSettings]);
 
   if (!enabled || presetOptions.length === 0) {
     return null;
   }
 
   const slippageLabel =
-    selectedPreset?.key === EMarketPresetKey.AUTO ||
-    selectedPreset?.slippage.value === undefined
-      ? intl.formatMessage({ id: ETranslations.global_auto })
-      : `${selectedSlippageValue}%`;
-  const priorityFeeLabel = intl.formatMessage({
-    id: getPriorityFeeTranslationId(selectedPreset?.priorityFee.type),
+    selectedDirectionSettings.slippage.key === ESwapSlippageSegmentKey.CUSTOM
+      ? `${selectedSlippageValue}%`
+      : intl.formatMessage({ id: ETranslations.global_auto });
+  const priorityFeeLabel = getPriorityFeeLabel({
+    intl,
+    settings: selectedDirectionSettings,
+    unit: presetSettings.priorityFeeUnit,
   });
+  const selectedPresetLabel =
+    selectedPreset?.label ??
+    presets.find((preset) => preset.key === selectedPresetKey)?.label ??
+    'Auto';
 
   return (
     <YStack gap="$2" testID="market-preset-selector">
-      <SegmentControl
-        fullWidth
-        value={selectedPresetKey}
-        options={presetOptions}
-        onChange={(value) => onPresetChange(value as EMarketPresetKey)}
-        segmentControlItemStyleProps={{
-          px: '$2',
-          minWidth: 0,
-        }}
-      />
+      {gtMd ? (
+        <SegmentControl
+          fullWidth
+          value={selectedPresetKey}
+          options={presetOptions}
+          onChange={(value) => onPresetChange(value as EMarketPresetKey)}
+          segmentControlItemStyleProps={{
+            px: '$2',
+            minWidth: 0,
+          }}
+        />
+      ) : null}
 
       <XStack
         alignItems="center"
@@ -91,10 +750,25 @@ export function MarketPresetSelector({
         borderColor="$borderSubdued"
         borderRadius="$2"
         borderWidth="$px"
+        cursor="pointer"
         minHeight="$10"
         px="$3"
         py="$2"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        onPress={openPresetDialog}
       >
+        {gtMd ? null : (
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            numberOfLines={1}
+            minWidth="$10"
+          >
+            {selectedPresetLabel}
+          </SizableText>
+        )}
+
         <XStack alignItems="center" gap="$1.5" flex={1} minWidth={0}>
           <Icon name="SliderHorOutline" size="$5" color="$iconSubdued" />
           <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
@@ -113,8 +787,18 @@ export function MarketPresetSelector({
 
         <Divider vertical h="$4" mx="$2" />
 
-        <XStack alignItems="center" justifyContent="flex-end" flex={1}>
+        <XStack
+          alignItems="center"
+          justifyContent="flex-end"
+          gap="$1"
+          flex={gtMd ? 1 : undefined}
+        >
           <Icon name="ShieldCheckDoneSolid" size="$5" color="$iconSuccess" />
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+          />
         </XStack>
       </XStack>
     </YStack>
