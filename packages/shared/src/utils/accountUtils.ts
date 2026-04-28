@@ -1240,6 +1240,7 @@ async function hashKeylessSocialUserId({
 const validDeriveTypesList: IAccountDeriveTypes[] = [
   'default',
   'ledgerLive',
+  'ledgerLegacy',
   'BIP86',
   'BIP84',
   'BIP44',
