@@ -75,6 +75,7 @@ import ServiceBase from './ServiceBase';
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IDesktopBluetoothAtom } from '../states/jotai/atoms';
+import type { INewBrowserTabPosition } from '../states/jotai/atoms/settings';
 
 export type IAccountDerivationConfigItem = {
   num: number;
@@ -728,6 +729,15 @@ class ServiceSetting extends ServiceBase {
     const { enableMenuBarTray } = await settingsPersistAtom.get();
     // Fall back to true to match settingsAtomInitialValue for upgrades.
     return enableMenuBarTray ?? true;
+  }
+
+  @backgroundMethod()
+  public async setNewBrowserTabPosition(value: INewBrowserTabPosition) {
+    await settingsPersistAtom.set((prev) =>
+      prev.newBrowserTabPosition === value
+        ? prev
+        : { ...prev, newBrowserTabPosition: value },
+    );
   }
 
   @backgroundMethod()
