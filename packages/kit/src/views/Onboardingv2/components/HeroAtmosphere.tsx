@@ -20,10 +20,6 @@ type IOrbProps = {
   right?: number;
   color: string;
   peakAlpha: number;
-  // Optional second color for a blended gradient (center=color → mid=colorOuter
-  // → edge=transparent). Used to mix brand+blue into a green-leaning-blue tint.
-  colorOuter?: string;
-  peakAlphaOuter?: number;
   gradientEdgePct: number;
   xKeyframes: number[];
   yKeyframes: number[];
@@ -40,8 +36,6 @@ function Orb({
   right,
   color,
   peakAlpha,
-  colorOuter,
-  peakAlphaOuter,
   gradientEdgePct,
   xKeyframes,
   yKeyframes,
@@ -122,30 +116,12 @@ function Orb({
             fx="50%"
             fy="50%"
           >
-            {[
-              <Stop
-                key="start"
-                offset="0%"
-                stopColor={color}
-                stopOpacity={peakAlpha}
-              />,
-              ...(colorOuter
-                ? [
-                    <Stop
-                      key="mid"
-                      offset="45%"
-                      stopColor={colorOuter}
-                      stopOpacity={peakAlphaOuter ?? peakAlpha * 0.7}
-                    />,
-                  ]
-                : []),
-              <Stop
-                key="end"
-                offset={`${gradientEdgePct}%`}
-                stopColor={colorOuter ?? color}
-                stopOpacity={0}
-              />,
-            ]}
+            <Stop offset="0%" stopColor={color} stopOpacity={peakAlpha} />
+            <Stop
+              offset={`${gradientEdgePct}%`}
+              stopColor={color}
+              stopOpacity={0}
+            />
           </RadialGradient>
         </Defs>
         <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
@@ -154,14 +130,15 @@ function Orb({
   );
 }
 
-// Three large blurred orbs slowly drifting across the page — based on
+// Two large blurred orbs slowly drifting across the page — based on
 // `BgOrbDrift` from the Onboarding Background Explorations design handoff.
 // `wordIndex` is kept as an optional forward-compat prop in case future
 // iterations want to couple per-word visual response.
+const BLEND_TEAL = '#2CD6A0';
+
 export function HeroAtmosphere(_props: { wordIndex?: number }) {
   const theme = useTheme();
   const accent = theme.brand9?.val ?? '#32B826';
-  const blue = theme.blue9?.val ?? '#0090FF';
 
   return (
     <Animated.View
@@ -179,10 +156,8 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         size={360}
         top={120}
         right={-120}
-        color={accent}
-        peakAlpha={0.12}
-        colorOuter={blue}
-        peakAlphaOuter={0.08}
+        color={BLEND_TEAL}
+        peakAlpha={0.13}
         gradientEdgePct={65}
         xKeyframes={[0, -65, 50, 0]}
         yKeyframes={[0, 90, 50, 0]}
@@ -200,19 +175,6 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         yKeyframes={[0, -65, 85, 0]}
         scaleKeyframes={[1, 1.15, 0.88, 1]}
         durationMs={25_000}
-      />
-      <Orb
-        size={240}
-        top="45%"
-        left="40%"
-        color={accent}
-        peakAlpha={0.05}
-        gradientEdgePct={70}
-        xKeyframes={[0, -105, 0]}
-        yKeyframes={[0, -55, 0]}
-        scaleKeyframes={[0.9, 1.08, 0.9]}
-        opacityKeyframes={[0.65, 1, 0.65]}
-        durationMs={30_000}
       />
     </Animated.View>
   );
