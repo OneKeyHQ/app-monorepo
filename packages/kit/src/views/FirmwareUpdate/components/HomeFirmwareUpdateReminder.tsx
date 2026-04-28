@@ -22,7 +22,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
+import { useDeviceManagerNavigation } from '../../DeviceManagement/hooks/useDeviceManagerNavigation';
 
 import { BootloaderModeUpdateReminder } from './BootloaderModeUpdateReminder';
 import { HomeFirmwareUpdateDetect } from './HomeFirmwareUpdateDetect';
@@ -83,7 +83,7 @@ function HomeFirmwareUpdateReminderCmp() {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const connectId = activeAccount.device?.connectId;
-  const actions = useFirmwareUpdateActions();
+  const { pushToDeviceList } = useDeviceManagerNavigation();
   const { closePopover } = usePopoverContext();
   const { closeTooltip } = useTooltipContext();
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
@@ -147,7 +147,7 @@ function HomeFirmwareUpdateReminderCmp() {
           onPress={async () => {
             await closePopover?.();
             await closeTooltip?.();
-            actions.openChangeLogModal({ connectId });
+            pushToDeviceList();
           }}
         />
       );
@@ -161,8 +161,7 @@ function HomeFirmwareUpdateReminderCmp() {
     intl,
     closePopover,
     closeTooltip,
-    actions,
-    connectId,
+    pushToDeviceList,
   ]);
 
   if (!updateButton) {
