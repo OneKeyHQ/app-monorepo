@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { TonSignDataType } from '@onekeyfe/hd-core';
 import { TonWalletVersion } from '@onekeyfe/hd-transport';
 import { Cell } from '@ton/core';
 
@@ -48,8 +49,6 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import { TonSignDataType } from '@onekeyfe/hd-core';
-
 import type {
   AllNetworkAddressParams,
   CommonParams,
@@ -371,10 +370,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     // TON Connect v2 signData (text / binary / cell)
     if (msg.payload.payload) {
-      const signDataPayload = msg.payload.payload as
-        | ISignDataPayloadText
-        | ISignDataPayloadBinary
-        | ISignDataPayloadCell;
+      const signDataPayload = msg.payload.payload;
 
       let type: TonSignDataType;
       let payloadHex: string;
