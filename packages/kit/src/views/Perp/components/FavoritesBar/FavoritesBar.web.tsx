@@ -361,6 +361,23 @@ function FavoritesBar() {
     }
   }, [actions, hasPerpFavorites]);
 
+  // Spot ctxs come from a planner-driven WS sub, not a refcount, so we surface
+  // bar visibility as a viewState flag the planner can OR into spotAssetCtxsEnabled.
+  // Otherwise spot favorites rendered while in perp mode would lack prevDayPx
+  // and show 0% / stale 24h change in the bar.
+  const hasSpotFavorites = spotItems.length > 0;
+  useEffect(() => {
+    if (hasSpotFavorites) {
+      const currentActions = actions.current;
+      currentActions.setTradeRouteViewState({ favoritesBarSpotActive: true });
+      return () => {
+        currentActions.setTradeRouteViewState({
+          favoritesBarSpotActive: false,
+        });
+      };
+    }
+  }, [actions, hasSpotFavorites]);
+
   if (!hasFavorites) {
     return null;
   }
