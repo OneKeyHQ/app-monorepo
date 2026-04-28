@@ -821,7 +821,7 @@ function PerpTradingForm({
               borderRadius="$2"
               bg="$bgSubdued"
               borderWidth="$px"
-              borderColor={isBBOActive ? '$borderPrimary' : '$bgSubdued'}
+              borderColor={isBBOActive ? '$borderActive' : '$bgSubdued'}
               onPress={handleBBOToggle}
               px="$3"
               h={isMobile ? 38 : 40}
