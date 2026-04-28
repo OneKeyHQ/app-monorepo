@@ -49,8 +49,6 @@ type IDraftPresetSettings = Partial<
   >
 >;
 
-const EDIT_PRESETS_TITLE = 'Edit presets';
-
 function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   if (type === EMarketPresetPriorityFeeType.AUTO) {
     return ETranslations.global_auto;
@@ -171,11 +169,17 @@ function isInvalidDirectionSettings(settings?: IMarketPresetDirectionSettings) {
 }
 
 function MarketPresetDialogHeader({ networkId }: { networkId?: string }) {
+  const intl = useIntl();
+
   return (
     <Dialog.Header>
       <XStack alignItems="center" gap="$2" py="$px">
         <NetworkAvatar networkId={networkId} size="$6" />
-        <SizableText size="$headingSm">{EDIT_PRESETS_TITLE}</SizableText>
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.marketdex_edit_presets_title,
+          })}
+        </SizableText>
       </XStack>
     </Dialog.Header>
   );
@@ -427,22 +431,29 @@ function MarketPresetSettingsDialog({
             <Icon name="Ai2StarSolid" size="$6" color="$iconSubdued" />
             <YStack flex={1} minWidth={0}>
               <SizableText size="$bodyMdMedium">
-                Smarter trade settings
+                {intl.formatMessage({
+                  id: ETranslations.marketdex_smarter_trade_settings_title,
+                })}
               </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
-                OneKey suggests slippage and priority fees based on current
-                market conditions, giving you optimized trades and a better
-                experience.
+                {intl.formatMessage({
+                  id: ETranslations.marketdex_smarter_trade_settings_description,
+                })}
               </SizableText>
             </YStack>
           </XStack>
           <XStack gap="$3" py="$2">
             <Icon name="ShieldCheckDoneSolid" size="$6" color="$iconSubdued" />
             <YStack flex={1} minWidth={0}>
-              <SizableText size="$bodyMdMedium">Anti-MEV</SizableText>
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.marketdex_anti_mev_title,
+                })}
+              </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
-                Anti-MEV is available on select networks, shielding your trades
-                from malicious activity for safer transactions.
+                {intl.formatMessage({
+                  id: ETranslations.marketdex_anti_mev_description,
+                })}
               </SizableText>
             </YStack>
           </XStack>
@@ -580,7 +591,11 @@ function MarketPresetSettingsDialog({
 
           <YStack gap="$2">
             {presetSettings.config?.priorityFee.editable ? (
-              <SizableText size="$bodyMdMedium">Priority fee</SizableText>
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.marketdex_priority_fee,
+                })}
+              </SizableText>
             ) : null}
             {presetSettings.config?.priorityFee.editable ? (
               <>
@@ -630,7 +645,9 @@ function MarketPresetSettingsDialog({
               </>
             ) : (
               <MarketPresetReadonlyRow
-                label="Priority fee"
+                label={intl.formatMessage({
+                  id: ETranslations.marketdex_priority_fee,
+                })}
                 value={intl.formatMessage({ id: ETranslations.global_auto })}
               />
             )}
@@ -697,7 +714,9 @@ export function MarketPresetSelector({
 
   const openPresetDialog = useCallback(() => {
     const dialog = Dialog.show({
-      title: EDIT_PRESETS_TITLE,
+      title: intl.formatMessage({
+        id: ETranslations.marketdex_edit_presets_title,
+      }),
       renderContent: (
         <MarketPresetSettingsDialog
           close={() => {
@@ -708,7 +727,7 @@ export function MarketPresetSelector({
       ),
       showFooter: false,
     });
-  }, [presetSettings]);
+  }, [intl, presetSettings]);
 
   if (!enabled || presetOptions.length === 0) {
     return null;
@@ -726,7 +745,7 @@ export function MarketPresetSelector({
   const selectedPresetLabel =
     selectedPreset?.label ??
     presets.find((preset) => preset.key === selectedPresetKey)?.label ??
-    'Auto';
+    intl.formatMessage({ id: ETranslations.global_auto });
 
   return (
     <YStack gap={gtMd ? '$3' : '$2'} testID="market-preset-selector">
