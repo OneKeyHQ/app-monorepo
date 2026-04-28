@@ -771,27 +771,60 @@ function installGlobalTransport() {
 
 const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
 
+// `connectWebEmbedBridge` (which populates `mainThreadBridgeMap.webEmbed`)
+// fires as soon as the WebView component mounts and attaches its onMessage
+// channel. The page-side JS that actually services `imageUtils.*` calls only
+// becomes ready when `apps/web-embed/pages/PageWebEmbedApi.ts` sends
+// `webEmbedApiReady` to the BG, which then re-emits
+// `LoadWebEmbedWebViewComplete` on the cross-thread event bus. So checking
+// the bridge alone is not sufficient — we need to wait until the JS is
+// ready, mirroring `WebembedApiProxy.waitRemoteApiReady` on this thread.
+let webEmbedReady = false;
+const webEmbedReadyWaiters: Array<() => void> = [];
+
+appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
+  webEmbedReady = true;
+  webEmbedReadyWaiters.splice(0).forEach((cb) => cb());
+});
+
+async function awaitWebEmbedReady(timeoutMs: number): Promise<void> {
+  if (webEmbedReady) return;
+  await new Promise<void>((resolve, reject) => {
+    const onReady = () => {
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      const idx = webEmbedReadyWaiters.indexOf(onReady);
+      if (idx !== -1) webEmbedReadyWaiters.splice(idx, 1);
+      reject(
+        new OneKeyLocalError(`webEmbed not ready after ${timeoutMs / 1000}s`),
+      );
+    }, timeoutMs);
+    webEmbedReadyWaiters.push(onReady);
+    // Cover the race where the event fired between our flag check at the
+    // top of this function and the listener push above.
+    if (webEmbedReady) {
+      const idx = webEmbedReadyWaiters.indexOf(onReady);
+      if (idx !== -1) webEmbedReadyWaiters.splice(idx, 1);
+      clearTimeout(timer);
+      resolve();
+    }
+  });
+}
+
 async function ensureMainThreadWebEmbedBridge(): Promise<JsBridgeBase> {
-  let bridge = mainThreadBridgeMap.webEmbed;
-  if (!bridge) {
-    appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(
-          new OneKeyLocalError(
-            `webEmbed bridge not ready after ${
-              WEBEMBED_BRIDGE_READY_TIMEOUT_MS / 1000
-            }s`,
-          ),
-        );
-      }, WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
-      appEventBus.once(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
-    bridge = mainThreadBridgeMap.webEmbed;
+  if (!webEmbedReady) {
+    // Trigger WebView mount if it hasn't been requested yet — bridge being
+    // unset is a strong hint, but emit unconditionally because the event
+    // handler in WebViewWebEmbedProvider is idempotent.
+    if (!mainThreadBridgeMap.webEmbed) {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    }
+    await awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
   }
+  const bridge = mainThreadBridgeMap.webEmbed;
   if (!bridge) {
     throw new OneKeyLocalError('webEmbed bridge not available on main thread');
   }
