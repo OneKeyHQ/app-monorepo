@@ -1,7 +1,10 @@
 import { type BrowserWindow, type IpcMainEvent, ipcMain } from 'electron';
 import logger from 'electron-log/main';
 
-import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
+import type {
+  ITrayAction,
+  ITrayData,
+} from '@onekeyhq/shared/src/types/desktop/tray';
 
 import { ipcMessageKeys } from '../config';
 
@@ -23,6 +26,7 @@ const ALLOWED_TRAY_ACTION_TYPES = new Set([
   'open-page',
   'market-detail-v2',
   'view-all-transactions',
+  'transaction-detail',
 ]);
 
 // Strict pattern so the tray cannot coerce the EVENT_OPEN_URL fan-out
@@ -159,9 +163,12 @@ export function registerTrayIpcHandlers(
     if (action.type === 'open-page' && typeof action.route === 'string') {
       const match = TX_DETAIL_ROUTE_PATTERN.exec(action.route);
       if (match) {
-        mainWindow.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, {
-          url: `onekey-wallet://transaction/${match[1]}`,
-        });
+        const nextAction: ITrayAction = {
+          type: 'transaction-detail',
+          txid: match[1],
+          historyId: match[1],
+        };
+        mainWindow.webContents.send(ipcMessageKeys.TRAY_ACTION, nextAction);
         return;
       }
     }
