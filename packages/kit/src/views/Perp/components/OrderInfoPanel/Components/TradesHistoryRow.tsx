@@ -28,7 +28,11 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { calcCellAlign, getColumnStyle } from '../utils';
+import {
+  calcCellAlign,
+  getColumnStyle,
+  getPerpFillDirectionType,
+} from '../utils';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
@@ -124,15 +128,34 @@ const TradesHistoryRow = memo(
         directionColor = '$red11';
       }
 
+      const directionType = getPerpFillDirectionType(fill.dir);
       let directionStr = fill.dir;
+      if (directionType === 'openLong') {
+        directionStr = intl.formatMessage({
+          id: ETranslations.perp_long,
+        });
+      } else if (directionType === 'openShort') {
+        directionStr = intl.formatMessage({
+          id: ETranslations.perp_short,
+        });
+      } else if (directionType === 'closeLong') {
+        directionStr = intl.formatMessage({
+          id: ETranslations.perp_order_close_long,
+        });
+      } else if (directionType === 'closeShort') {
+        directionStr = intl.formatMessage({
+          id: ETranslations.perp_order_close_short,
+        });
+      }
+
       if (fill.liquidation) {
-        // market: common liquidation via market order
-        // backstop: rare fallback when market liquidity is insufficient
-        const liqPrefix =
-          fill.liquidation.method === 'backstop'
-            ? 'Backstop Liq'
-            : 'Market Liq';
-        directionStr = `${liqPrefix}: ${fill.dir}`;
+        const liqPrefix = intl.formatMessage({
+          id:
+            fill.liquidation.method === 'backstop'
+              ? ETranslations.perp_backstop_liquidation__title
+              : ETranslations.perp_market_liquidation__title,
+        });
+        directionStr = `${liqPrefix}: ${directionStr}`;
       }
 
       return { directionStr, directionColor };
