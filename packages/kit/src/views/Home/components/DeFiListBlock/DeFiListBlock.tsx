@@ -67,6 +67,7 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const MAX_PROTOCOLS_ON_LARGE_SCREEN = OVERVIEW_TOP_N;
+const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
 
 export type IDeFiListBlockProps = {
   refreshCacheOnly?: boolean;
@@ -991,6 +992,50 @@ function DeFiListBlock({
     return sorted;
   }, [protocols, protocolMap, isOverflow, isSliced, tableLayout]);
 
+  const protocolListLockUntilRef = useRef(0);
+  const protocolListUnlockTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const [isProtocolListInteractionLocked, setIsProtocolListInteractionLocked] =
+    useState(false);
+
+  const isProtocolListLocked = useCallback(
+    () => protocolListLockUntilRef.current > Date.now(),
+    [],
+  );
+  const lockProtocolListInteractions = useCallback(() => {
+    protocolListLockUntilRef.current =
+      Date.now() + PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS;
+    setIsProtocolListInteractionLocked(true);
+
+    if (protocolListUnlockTimerRef.current) {
+      clearTimeout(protocolListUnlockTimerRef.current);
+    }
+    protocolListUnlockTimerRef.current = setTimeout(() => {
+      protocolListUnlockTimerRef.current = null;
+      setIsProtocolListInteractionLocked(false);
+    }, PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (protocolListUnlockTimerRef.current) {
+        clearTimeout(protocolListUnlockTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleToggleSliced = useCallback(() => {
+    if (isProtocolListLocked()) return;
+    lockProtocolListInteractions();
+    setIsSliced(!isSliced);
+  }, [
+    isSliced,
+    isProtocolListLocked,
+    lockProtocolListInteractions,
+    setIsSliced,
+  ]);
+
   const renderSubTitle = useCallback(() => {
     if (!initialized && isRefreshing) {
       return <Skeleton.HeadingXl />;
@@ -1020,7 +1065,11 @@ function DeFiListBlock({
   const renderContent = useCallback(() => {
     return (
       <>
-        <YStack gap={tableLayout ? '$5' : '$0'} flex={1}>
+        <YStack
+          gap={tableLayout ? '$5' : '$0'}
+          flex={1}
+          pointerEvents={isProtocolListInteractionLocked ? 'none' : undefined}
+        >
           {filteredProtocols.map((protocol, index) => {
             const protocolKey = defiUtils.buildProtocolMapKey({
               protocol: protocol.protocol,
@@ -1049,7 +1098,8 @@ function DeFiListBlock({
             <Button
               size="small"
               variant="secondary"
-              onPress={() => setIsSliced(!isSliced)}
+              disabled={isProtocolListInteractionLocked}
+              onPress={handleToggleSliced}
               $md={
                 {
                   flexGrow: 1,
@@ -1074,7 +1124,8 @@ function DeFiListBlock({
     intl,
     isOverflow,
     isSliced,
-    setIsSliced,
+    isProtocolListInteractionLocked,
+    handleToggleSliced,
     registerProtocol,
   ]);
 
