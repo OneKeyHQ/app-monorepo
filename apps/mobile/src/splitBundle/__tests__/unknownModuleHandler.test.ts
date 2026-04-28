@@ -43,4 +43,29 @@ describe('classifyUnknownModuleError', () => {
       ),
     ).toBeNull();
   });
+
+  it('handles Hermes-style trailing period', () => {
+    // Some RN/Hermes builds append a period after the id.
+    expect(classifyUnknownModuleError(new Error('Requiring unknown module 777.')))
+      .toEqual({ kind: 'split_bundle_integrity', moduleId: '777' });
+  });
+
+  it('preserves leading zeros in module id (kept as captured string)', () => {
+    expect(classifyUnknownModuleError(new Error('Requiring unknown module 007')))
+      .toEqual({ kind: 'split_bundle_integrity', moduleId: '007' });
+  });
+
+  it('rejects negative-id-style messages (Metro never emits these)', () => {
+    expect(
+      classifyUnknownModuleError(new Error('Requiring unknown module -3')),
+    ).toBeNull();
+  });
+
+  it('handles very large module ids (kept as string, not parsed)', () => {
+    expect(
+      classifyUnknownModuleError(
+        new Error('Requiring unknown module 999999999999999'),
+      ),
+    ).toEqual({ kind: 'split_bundle_integrity', moduleId: '999999999999999' });
+  });
 });
