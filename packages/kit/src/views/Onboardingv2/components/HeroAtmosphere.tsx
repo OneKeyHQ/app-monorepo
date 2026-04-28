@@ -169,7 +169,7 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
         bottom={220}
         left={-200}
         color={accent}
-        peakAlpha={0.06}
+        peakAlpha={0.08}
         gradientEdgePct={70}
         xKeyframes={[0, 85, 35, 0]}
         yKeyframes={[0, -65, 85, 0]}
