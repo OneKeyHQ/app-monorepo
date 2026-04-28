@@ -504,8 +504,8 @@ function DeFiContainer() {
   if (tableLayout) {
     return (
       <>
-        <XStack gap="$6">
-          <YStack flex={1} gap="$8" pt="$3" pb="$8">
+        <XStack gap="$6" pt="$3">
+          <YStack flex={1} gap="$8" pb="$8">
             {shouldShowOverview ? (
               <YStack gap="$6" px="$pagePadding" userSelect="none">
                 <DeFiPortfolioCard
@@ -546,7 +546,6 @@ function DeFiContainer() {
                     node as unknown as HTMLElement | null;
                 }}
                 width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
-                pt={isSidebarPinned ? '$0' : '$3'}
                 {...(isSidebarPinned
                   ? {
                       position: 'fixed' as any,
