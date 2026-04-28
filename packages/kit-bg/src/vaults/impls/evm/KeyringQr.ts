@@ -92,12 +92,14 @@ export class KeyringQr extends KeyringQrBase {
   ): IGetChildPathTemplatesResult {
     const { airGapAccount } = params;
     // TODO get deriveType by path
-    if (
-      airGapAccount.note &&
-      airGapAccount.note === EAirGapAccountNoteEvm.Standard
-    ) {
+    if (airGapAccount.note === EAirGapAccountNoteEvm.Standard) {
       return {
         childPathTemplates: ['0/*'],
+      };
+    }
+    if (airGapAccount.note === EAirGapAccountNoteEvm.LedgerLegacy) {
+      return {
+        childPathTemplates: ['*'],
       };
     }
     return {
