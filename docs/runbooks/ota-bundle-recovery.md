@@ -20,10 +20,13 @@ launch of the affected version pulls the broken OTA and re-crashes.
 
 1. Identify the bad bundleVersion (from Sentry `dist:` tag or BundleUpdate
    log line `currentBundleVersion: <ver>`).
-2. In the bundle CDN dashboard
-   (`https://bundle-test.onekey-asset.com` → admin), mark the bundle as
-   `disabled` for that `appVersion`. Verify by `curl`-ing the manifest
-   endpoint and confirming it no longer references the disabled version.
+2. In the bundle CDN admin dashboard for the affected environment
+   (production or staging — confirm the host with the on-call lead;
+   the JS bundles for the env are downloaded from the same host shown
+   in the BundleUpdate `downloadBundle:` log line you used in step 1),
+   mark the bundle as `disabled` for that `appVersion`. Verify by
+   `curl`-ing the manifest endpoint and confirming it no longer
+   references the disabled version.
 3. Devices on launch will re-fetch the manifest, see no eligible OTA, and
    fall back to the built-in bundle that shipped with the .ipa/.apk
    (`builtinBundleVersion` in BundleUpdate logs).
@@ -41,11 +44,22 @@ Watch:
 ## Step 3 — Build and publish the corrected OTA
 
 1. Land the underlying fix on `x` (or the active hotfix branch).
-2. Trigger `release-native-bundle` workflow with `appVersion=<n>` and a
-   new `bundleVersion` (monotonic; this is the
-   `${commit_count}${YYMMDD}${rev}` convention).
-3. Block the publish step on the integrity check passing (Phase 3 of the
-   segment async-paths fix plan).
+2. Trigger the `release-native-bundle` workflow with `appVersion=<n>`
+   and a new monotonic `bundleVersion`. Either via the GitHub Actions
+   UI (Actions → release-native-bundle → "Run workflow") or via gh CLI:
+
+   ```
+   gh workflow run release-native-bundle.yml \
+     --ref x \
+     -f appVersion=<n> \
+     -f bundleVersion=<commit_count>${YYMMDD}<rev>
+   ```
+
+3. Confirm the build-time integrity check passed (the workflow already
+   runs `node apps/mobile/scripts/check-split-bundle-integrity.js` as
+   a hard gate before any artifact upload — see References below).
+   If the workflow fails at that step, the OTA is NOT published; fix
+   the underlying serializer/manifest issue and rerun.
 4. Publish to CDN.
 
 ## Step 4 — Postmortem
@@ -59,6 +73,5 @@ Record:
 
 ## References
 
-- [Plan: segment async-paths rewrite fix](../plans/2026-04-28-segment-async-paths-rewrite-fix.md)
-- [Build-time integrity gate: `apps/mobile/scripts/check-split-bundle-integrity.js`](../../apps/mobile/scripts/check-split-bundle-integrity.js)
+- Build-time integrity gate: [`apps/mobile/scripts/check-split-bundle-integrity.js`](../../apps/mobile/scripts/check-split-bundle-integrity.js)
 - Sentry issue: `REACT-NATIVE-4AX` (iOS 6.3.0-10069276 `Requiring unknown module "777"` crash)
