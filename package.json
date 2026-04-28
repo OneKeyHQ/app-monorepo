@@ -40,6 +40,8 @@
     "app:native-bundle:bg": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn workspace @onekeyhq/mobile native-bundle:bg",
     "app:split-bundle": "yarn workspace @onekeyhq/mobile split-bundle",
     "app:build-bundle": "yarn workspace @onekeyhq/mobile build-bundle",
+    "app:build-bundle:ios": "yarn workspace @onekeyhq/mobile build-bundle:ios",
+    "app:build-bundle:android": "yarn workspace @onekeyhq/mobile build-bundle:android",
     "app:ios": "yarn workspace @onekeyhq/mobile ios",
     "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
     "app:ios:pod-install": "yarn workspace @onekeyhq/mobile ios:pod-install",
@@ -213,7 +215,7 @@
     "react-native": "0.81.5",
     "react-native-confirmation-code-field": "^7.4.0",
     "react-native-draggable-flatlist": "4.0.3",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.23",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.24",
     "react-native-reanimated": "4.2.1",
     "react-native-screens": "4.23.0",
     "react-native-web": "0.21.2",
@@ -447,7 +449,7 @@
     "react-native-reanimated": "4.2.1",
     "react-native-worklets": "0.7.1",
     "react-native-screens": "4.23.0",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.23",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.24",
     "@isaacs/brace-expansion": "5.0.1",
     "fast-xml-parser": "4.5.4"
   }
