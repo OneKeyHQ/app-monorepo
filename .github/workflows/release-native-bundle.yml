@@ -240,6 +240,13 @@ jobs:
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
         run: 'yarn app:build-bundle:${{ matrix.platform }}'
 
+      - name: Validate split-bundle integrity
+        # Hard gate: fails the job if any segment ships un-rewritten Metro
+        # async-require URLs (REACT-NATIVE-4AX class). Must run AFTER Build
+        # Bundle (so segments exist to scan) and BEFORE upload zips (so a
+        # failure aborts publishing the OTA artifact to QA / users).
+        run: node apps/mobile/scripts/check-split-bundle-integrity.js
+
       - name: upload zips
         uses: actions/upload-artifact@v4
         continue-on-error: true
