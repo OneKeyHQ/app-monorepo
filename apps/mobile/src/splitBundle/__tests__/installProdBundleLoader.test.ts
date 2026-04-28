@@ -438,6 +438,9 @@ describe('installProdBundleLoader', () => {
 
   describe('Metro-URL eager fallback is loud', () => {
     it('logs at ERROR level with [BUG] prefix for paths matching the Metro async-require URL shape', async () => {
+      const {
+        LogLevel,
+      } = require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
       const { installProdBundleLoader, loadSegment } = getLoader();
       installProdBundleLoader(createMockNativeLoader());
 
@@ -446,7 +449,7 @@ describe('installProdBundleLoader', () => {
       );
 
       const errorLogs = mockNativeLoggerWrite.mock.calls.filter(
-        ([level]) => level === 3,
+        ([level]) => level === LogLevel.Error,
       );
       expect(
         errorLogs.some(
@@ -460,13 +463,16 @@ describe('installProdBundleLoader', () => {
     });
 
     it('still logs at WARNING for benign eager-fallback (non-Metro-URL) keys', async () => {
+      const {
+        LogLevel,
+      } = require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
       const { installProdBundleLoader, loadSegment } = getLoader();
       installProdBundleLoader(createMockNativeLoader());
 
       await loadSegment(`some-non-metro-key-${Math.random()}`);
 
       const warnLogs = mockNativeLoggerWrite.mock.calls.filter(
-        ([level]) => level === 2,
+        ([level]) => level === LogLevel.Warning,
       );
       expect(
         warnLogs.some(

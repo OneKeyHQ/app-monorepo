@@ -139,6 +139,9 @@ function parseModuleDefs(segmentJs) {
 // code), here we only match Metro async-require URL string values —
 // those never contain a literal " or \". Keeping the matcher narrow
 // avoids false positives on unrelated code.
+// (cross-ref) Same shape is matched at runtime by
+// apps/mobile/src/splitBundle/installProdBundleLoader.ts and rewritten by
+// apps/mobile/plugins/segmentSerializer.rewriteAsyncPaths.js — keep in sync.
 const UNREWRITTEN_ASYNC_PATH = /"(\d+)"\s*:\s*"(\/[^"]*\.bundle\?modulesOnly=true&runModule=false)"/g;
 
 function scanSegmentForUnrewrittenAsyncPaths(segmentJs) {

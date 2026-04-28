@@ -15,6 +15,11 @@
  *     `,"<id>":"<segKey>"` / `{"<id>":"<segKey>"`.
  *   - Idempotent: rewriting an already-rewritten module is a no-op.
  */
+// (cross-ref) Same Metro async-require URL shape is detected at build time
+// by apps/mobile/scripts/check-split-bundle-integrity.js (UNREWRITTEN_ASYNC_PATH)
+// and at runtime by apps/mobile/src/splitBundle/installProdBundleLoader.ts
+// (isMetroAsyncRequireUrl). All three must change together if Metro
+// updates its async-require URL convention.
 function buildRewritePattern(moduleToSegment) {
   const ids = [...moduleToSegment.keys()];
   if (ids.length === 0) return null;
