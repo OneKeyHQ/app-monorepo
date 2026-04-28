@@ -1,5 +1,6 @@
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
+import uriUtils from '../utils/uriUtils';
 
 import requestHelper from './requestHelper';
 
@@ -39,8 +40,6 @@ function detectRuntime(): ICustomUARuntime | null {
 }
 
 async function isDisabledByDevSetting(): Promise<boolean> {
-  // requestHelper is shared-internal DI. When not wired (e.g. CLI runtime),
-  // getDevSettingsPersistAtom throws — treat as "toggle off" (UA enabled).
   try {
     const state = await requestHelper.getDevSettingsPersistAtom();
     return Boolean(state.enabled && state.settings?.disableCustomUA);
@@ -49,29 +48,8 @@ async function isDisabledByDevSetting(): Promise<boolean> {
   }
 }
 
-async function isManagedHost(url: string): Promise<boolean> {
-  // Prefer the upper-layer wired implementation (covers dev customApiEndpoints).
-  // Fall back to the built-in OneKey official-domain regex when the DI is not
-  // wired (CLI), or when the wired call rejects.
-  try {
-    return await requestHelper.checkIsOneKeyDomain(url);
-  } catch {
-    try {
-      return ONEKEY_OFFICIAL_HOST.test(new URL(url).host);
-    } catch {
-      return false;
-    }
-  }
-}
-
 export async function buildCustomUA(): Promise<string | null> {
-  // detectRuntime() still gates injection (returns null on Web/Ext) and is
-  // surfaced via decision logs, but the runtime token is intentionally NOT
-  // appended to the UA string. Callers that need the runtime can read
-  // X-Onekey-Request-Platform; keeping the UA as `OneKeyWallet/<version>`
-  // matches the chromium UA's product token across desktop renderer and the
-  // 11 non-axios call sites, so backend can grep `OneKeyWallet/<version>` to
-  // capture all OneKey traffic uniformly.
+  // UA is product-token only; runtime is conveyed via X-Onekey-Request-Platform.
   const runtime = detectRuntime();
   if (!runtime) return null;
   if (await isDisabledByDevSetting()) return null;
@@ -81,14 +59,14 @@ export async function buildCustomUA(): Promise<string | null> {
 
 export async function shouldInjectUAForUrl(url: string): Promise<boolean> {
   if (!url || typeof url !== 'string') return false;
+  const parsed = uriUtils.safeParseURL(url);
+  if (!parsed) return false;
+  // CLI has no wired DI — fall back to official-domain regex only.
   try {
-    // throws on invalid URL — guard with try/catch
-    // eslint-disable-next-line no-new
-    new URL(url);
+    return await requestHelper.checkIsOneKeyDomain(url);
   } catch {
-    return false;
+    return ONEKEY_OFFICIAL_HOST.test(parsed.host);
   }
-  return isManagedHost(url);
 }
 
 function hasUserAgent(headers: Record<string, string>): boolean {

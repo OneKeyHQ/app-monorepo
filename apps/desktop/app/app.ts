@@ -1795,19 +1795,9 @@ function startWebviewMemoryMonitoring() {
 }
 /* oxlint-enable typescript/no-unsafe-call */
 
-// Align chromium UA's product token with the OneKey marketing version.
-//
-// Default behavior:
-//   - Prod (electron-builder packaged): app.getVersion() reads
-//     extraMetadata.version from the packaged app/package.json (= APP_VERSION),
-//     so chromium UA is `OneKeyWallet/<APP_VERSION> ...`.
-//   - Dev (electron app/dist/app.js): app.getVersion() falls back to the
-//     electron binary version (e.g. 39.8.4), so chromium UA is
-//     `OneKeyWallet/39.8.4 ...` — version field is wrong.
-//
-// We patch app.userAgentFallback after ready so the product token's version
-// always matches APP_VERSION on every build. Other tokens (Chrome / Electron /
-// Safari / OS info) are kept untouched so the UA stays a valid chromium UA.
+// In dev, app.getVersion() falls back to the electron binary version because
+// no packaged app/package.json is on disk, leaving chromium UA's product token
+// as `OneKeyWallet/<electronVer>`. Patch only that token so dev/prod agree.
 app
   .whenReady()
   .then(() => {

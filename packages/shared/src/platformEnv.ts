@@ -530,8 +530,6 @@ const platformEnv: IPlatformEnv = {
 
   appFullName: '',
   androidChannel,
-  // APP_VERSION is generated from .env.version by development/scripts/sync-version.js
-  // (postinstall hook). Avoids per-bundler env injection drift.
   version: APP_VERSION,
   bundleVersion: process.env.BUNDLE_VERSION,
   buildNumber: process.env.BUILD_NUMBER,
