@@ -167,14 +167,27 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
         // Pure eager-fallback: mark ready first, diagnostic log strictly
         // after — so a logger failure can never turn a success into an
         // error. Warn once per unique key.
+        const isMetroAsyncRequireUrl =
+          /\.bundle\?modulesOnly=true&runModule=false/.test(segmentKey);
         loadedSegments.add(segmentKey);
         segmentStates.set(segmentKey, 'ready');
         if (!eagerFallbackWarned.has(segmentKey)) {
           eagerFallbackWarned.add(segmentKey);
-          safeNativeLog(
-            LogLevel.Warning,
-            `[SplitBundle] eager fallback: key="${segmentKey}" runtime=${getRuntimeKind()}`,
-          );
+          if (isMetroAsyncRequireUrl) {
+            // The serializer was supposed to rewrite this to `seg:<key>`.
+            // It didn't, so the require() that follows will FATAL.  Log
+            // loud and structured so we can spot a corrupted OTA in
+            // production logs immediately. See REACT-NATIVE-4AX.
+            safeNativeLog(
+              LogLevel.Error,
+              `[SplitBundle][BUG] missing-rewrite eager fallback: key="${segmentKey}" runtime=${getRuntimeKind()}`,
+            );
+          } else {
+            safeNativeLog(
+              LogLevel.Warning,
+              `[SplitBundle] eager fallback: key="${segmentKey}" runtime=${getRuntimeKind()}`,
+            );
+          }
         }
         return;
       }
