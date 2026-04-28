@@ -72,8 +72,14 @@ async function resolveSpotInstrumentFromUrl(urlToken: string): Promise<{
   coin: string;
   spotUniverse?: ISpotUniverse;
 } | null> {
-  const { universes } =
-    await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+  // Cold-start deep links can hit before SimpleDb has spot meta cached;
+  // mirror usePerpsFavorites' refresh-then-retry so the URL isn't dropped.
+  let { universes } = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+  if (!universes?.length) {
+    await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+    const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+    universes = res.universes;
+  }
   if (!universes?.length) return null;
 
   // Legacy URLs ship asset.name verbatim ("@151", "PURR/USDC"); accept them so
