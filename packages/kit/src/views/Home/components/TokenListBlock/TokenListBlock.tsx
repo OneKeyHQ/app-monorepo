@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
@@ -19,6 +26,7 @@ import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
+import { getTokenListOwnerCacheAccountId } from '@onekeyhq/kit/src/components/TokenListView/utils';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
@@ -33,6 +41,8 @@ import { buildOverviewOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/a
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAggregateTokensListMapAtom,
+  useAllTokenListAtom,
+  useRenderedTokenListCacheAtom,
   useTokenListActions,
   useTokenListMapAtom,
   useTokenListStateAtom,
@@ -240,6 +250,8 @@ function TokenListBlock({
 
   const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
   const [tokenListMapAtom] = useTokenListMapAtom();
+  const [allTokenListAtomValue] = useAllTokenListAtom();
+  const [renderedTokenListCache] = useRenderedTokenListCacheAtom();
   const {
     updateAccountWorth,
     updateAccountOverviewState,
@@ -1581,7 +1593,113 @@ function TokenListBlock({
     updateAccountWorth,
   ]);
 
+  // Eagerly restore the singleton token-list atoms from the per-owner cache
+  // when the user switches to a network/account they've previously rendered.
+  // Runs synchronously before paint so `tokenListMapAtom` is in sync with
+  // the new `tokens` for the same render — without this, the balance and
+  // price components would briefly render against the previous owner's map.
+  // The async `initTokenListData` below still fetches the latest local cache
+  // and overwrites these atoms with fresh data once it returns.
+  useLayoutEffect(() => {
+    const currentAccountId = getTokenListOwnerCacheAccountId({
+      accountId: account?.id,
+      indexedAccountId: indexedAccount?.id,
+      mergeDeriveAddressData: !!mergeDeriveAddressData,
+    });
+    const currentNetworkId = network?.id;
+    if (!currentAccountId || !currentNetworkId) return;
+    // Every `refreshAllTokenList` writer in this file (the `run` polling
+    // fn, `initTokenListData`, `updateAllNetworksTokenList`) stamps
+    // `account?.id` into `allTokenList.accountId`. In merge mode
+    // `currentAccountId` is `indexedAccountId`, which never equals
+    // `account?.id`, so a guard keyed on `currentAccountId` would fail
+    // after every normal write and re-fire the hydrate on every poll —
+    // repeatedly resetting the small-balance/risky atoms below. Compare
+    // and stamp on the writer axis (`account?.id`) to converge.
+    const writerAccountId = account?.id;
+    if (
+      !!writerAccountId &&
+      allTokenListAtomValue.accountId === writerAccountId &&
+      allTokenListAtomValue.networkId === currentNetworkId
+    ) {
+      return;
+    }
+    const ownerKey = `${currentAccountId}__${currentNetworkId}`;
+    const cached = (
+      renderedTokenListCache as { byOwner?: Record<string, unknown> }
+    ).byOwner?.[ownerKey] as
+      | {
+          tokens: IAccountToken[];
+          tokenListMap?: Record<string, ITokenFiat>;
+          aggregateTokensMap?: Record<string, Record<string, ITokenFiat>>;
+          accountId: string;
+          networkId: string;
+        }
+      | undefined;
+    // Legacy entries persisted by an earlier build only carried `tokens`.
+    // Hydrating the map atom from `undefined` would set it to undefined and
+    // crash readers (e.g. `flattenAggregateTokensMap` doing Object.entries
+    // on it) — treat them as invalid and let the async fetch refill normally.
+    if (!cached || cached.tokens.length === 0 || !cached.tokenListMap) return;
+    const cacheKeys = `${currentAccountId}_${currentNetworkId}_cache`;
+    refreshTokenList({ tokens: cached.tokens, keys: cacheKeys });
+    refreshTokenListMap({ tokens: cached.tokenListMap });
+    refreshAllTokenList({
+      keys: cacheKeys,
+      tokens: cached.tokens,
+      // Stamp `account?.id` to match the other writers; the cache lookup
+      // above is owner-aware (indexedAccountId in merge mode) but
+      // `allTokenList.accountId` is always written as `account?.id`, so
+      // the guard above can detect "already loaded" on later renders.
+      accountId: writerAccountId ?? currentAccountId,
+      networkId: currentNetworkId,
+    });
+    refreshAllTokenListMap({ tokens: cached.tokenListMap });
+    // Restore the aggregate-token source map so cached aggregate tokens
+    // render against their own balances/prices instead of the previous
+    // owner's map. Older entries without it leave the atom alone — the
+    // async fetch below will refill it.
+    if (cached.aggregateTokensMap) {
+      refreshAggregateTokensMap({ tokens: cached.aggregateTokensMap });
+    }
+    // The cache only stores the high-value `tokens` and `tokenListMap`.
+    // Reset small-balance and risky atoms here so the footer counts/value
+    // and risky list don't briefly mirror the previous owner until the
+    // async fetch (initTokenListData) repopulates them.
+    refreshSmallBalanceTokenList({ smallBalanceTokens: [], keys: cacheKeys });
+    refreshSmallBalanceTokenListMap({ tokens: {} });
+    refreshSmallBalanceTokensFiatValue({ value: '0' });
+    refreshRiskyTokenList({ riskyTokens: [], keys: cacheKeys });
+    refreshRiskyTokenListMap({ tokens: {} });
+  }, [
+    account?.id,
+    indexedAccount?.id,
+    mergeDeriveAddressData,
+    network?.id,
+    allTokenListAtomValue.accountId,
+    allTokenListAtomValue.networkId,
+    renderedTokenListCache,
+    refreshTokenList,
+    refreshTokenListMap,
+    refreshAllTokenList,
+    refreshAllTokenListMap,
+    refreshAggregateTokensMap,
+    refreshSmallBalanceTokenList,
+    refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
+    refreshRiskyTokenList,
+    refreshRiskyTokenListMap,
+  ]);
+
   useEffect(() => {
+    // Flips to true on cleanup (next owner change or unmount). Any write
+    // back to the singleton token-list atoms after the first `await` must
+    // be gated on this — otherwise a slow response from a previous owner
+    // can stomp on the freshly hydrated state of the new owner. The
+    // `useLayoutEffect` above eagerly hydrates from the per-owner cache,
+    // so dropping the late response simply leaves that hydration in place
+    // until the new owner's own `initTokenListData` resolves.
+    let cancelled = false;
     const initTokenListData = async ({
       accountId,
       networkId,
@@ -1716,6 +1834,11 @@ function TokenListBlock({
         };
       }
 
+      // Owner-change or unmount happened while we were awaiting the local
+      // token cache — drop the result so we don't overwrite the new owner's
+      // freshly hydrated atoms with this stale response.
+      if (cancelled) return;
+
       if (
         isEmpty(tokenList) &&
         isEmpty(smallBalanceTokenList) &&
@@ -1735,6 +1858,32 @@ function TokenListBlock({
             createAtNetworkWorth: tokenListValue,
             merge: false,
           });
+          // Without these refresh calls the token list atoms keep the
+          // previous owner's data, leaving allTokenList.accountId/networkId
+          // stale and triggering the owner-mismatch skeleton in TokenListView
+          // forever for this empty-cache target.
+          const emptyKeys = `${accountId}_${networkId}_local_empty`;
+          refreshTokenList({ tokens: [], keys: emptyKeys });
+          refreshTokenListMap({ tokens: {} });
+          refreshSmallBalanceTokenList({
+            smallBalanceTokens: [],
+            keys: emptyKeys,
+          });
+          refreshSmallBalanceTokenListMap({ tokens: {} });
+          refreshSmallBalanceTokensFiatValue({ value: '0' });
+          refreshRiskyTokenList({ riskyTokens: [], keys: emptyKeys });
+          refreshRiskyTokenListMap({ tokens: {} });
+          // Use the request-time `accountId`/`networkId` (the owner this
+          // response belongs to) — not closure-captured React state which
+          // can read like "current owner" but is actually frozen at the
+          // useEffect run that fired this request.
+          refreshAllTokenList({
+            keys: emptyKeys,
+            tokens: [],
+            accountId,
+            networkId,
+          });
+          refreshAllTokenListMap({ tokens: {} });
           handleClearAllNetworkData();
           updateAccountOverviewState({
             isRefreshing: false,
@@ -1802,11 +1951,14 @@ function TokenListBlock({
           tokens: tokenListMap,
         });
 
+        // Same rationale as the empty-cache branch above: write the
+        // request-time owner IDs so a late response stamps `allTokenList`
+        // with the owner it actually belongs to.
         refreshAllTokenList({
           keys: `${accountId}_${networkId}_local`,
           tokens: [...tokenList, ...smallBalanceTokenList, ...riskyTokenList],
-          accountId: account?.id,
-          networkId: network?.id,
+          accountId,
+          networkId,
         });
         refreshAllTokenListMap({
           tokens: tokenListMap,
@@ -1841,6 +1993,9 @@ function TokenListBlock({
         xpub: account?.xpubSegwit || account?.xpub,
       });
     }
+    return () => {
+      cancelled = true;
+    };
   }, [
     account?.address,
     account?.id,
@@ -1858,6 +2013,7 @@ function TokenListBlock({
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
     refreshTokenList,
     refreshTokenListMap,
     setOverviewTokenCacheState,
@@ -2126,6 +2282,7 @@ function TokenListBlock({
         accountId={account?.id ?? ''}
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}
+        mergeDeriveAddressData={!!mergeDeriveAddressData}
         allAggregateTokenMap={allAggregateTokenMap}
         showNetworkIcon={!!network?.isAllNetworks}
         hideZeroBalanceTokens={!!network?.isAllNetworks}
@@ -2177,6 +2334,7 @@ function TokenListBlock({
     intl,
     isAllNetworkEmptyAccount,
     manageTokenEnabled,
+    mergeDeriveAddressData,
     network?.id,
     network?.isAllNetworks,
     network?.name,

@@ -111,7 +111,15 @@ function HomeOverviewContainer() {
   // canDismissSplash=true to Balance displayed. After the window expires, the
   // original gate logic (BALANCE_REUSE_GRACE_MS + hasPositiveCurrentOwnerSignal)
   // takes over for account-switch scenarios.
-  const isFirstColdStartMountRef = useRef(true);
+  //
+  // Gated on the session-level `__onekeyBalanceDisplayed` flag (set on the
+  // first balance render) so the fast path only fires on the actual cold-start
+  // mount, not on every fresh mount triggered by Tabs.Container remount during
+  // network/account switches — otherwise the previous owner's `.latest` value
+  // briefly leaks into the new owner's overview.
+  const isFirstColdStartMountRef = useRef(
+    !(globalThis as any).__onekeyBalanceDisplayed,
+  );
   useEffect(() => {
     const t = setTimeout(() => {
       isFirstColdStartMountRef.current = false;
