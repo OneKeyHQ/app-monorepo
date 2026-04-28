@@ -304,9 +304,6 @@ function hasProtocolIntroItemContent(item: IEarnProtocolIntroItem) {
 
 const DIALOG_CONTENT_MAX_HEIGHT = 512;
 const PREVIEW_CELL_MIN_WIDTH = 176;
-const PREVIEW_CELL_MAX_WIDTH = 240;
-const AUDIT_DATE_COLUMN_WIDTH = 96;
-const AUDIT_CHEVRON_COLUMN_WIDTH = 28;
 
 function DialogContent({ children }: { children: React.ReactNode }) {
   return (
@@ -703,7 +700,11 @@ function getMemberName(member?: IEarnProtocolIntroTeamMember) {
 }
 
 function getMemberPosition(member?: IEarnProtocolIntroTeamMember) {
-  return member?.position || member?.role || member?.description;
+  return member?.position || member?.role;
+}
+
+function getMemberDescription(member?: IEarnProtocolIntroTeamMember) {
+  return member?.description;
 }
 
 function getMemberAvatar(member?: IEarnProtocolIntroTeamMember) {
@@ -744,7 +745,7 @@ function getAuditScope(audit?: IEarnProtocolIntroAudit) {
   return audit?.scope || audit?.description;
 }
 
-function FallbackAvatar({ size = 28 }: { size?: number }) {
+function FallbackAvatar({ size = 24 }: { size?: number }) {
   return (
     <XStack w={size} h={size} ai="center" jc="center" flexShrink={0}>
       <Icon name="UserAvatarFallbackColored" width={size} height={size} />
@@ -756,7 +757,7 @@ function MemberAvatar({ member }: { member: IEarnProtocolIntroTeamMember }) {
   const avatar = getMemberAvatar(member);
   if (avatar) {
     return (
-      <Image w={28} h={28} borderRadius="$full" src={avatar} flexShrink={0} />
+      <Image w={24} h={24} borderRadius="$full" src={avatar} flexShrink={0} />
     );
   }
   return <FallbackAvatar />;
@@ -792,42 +793,58 @@ function MemberSocialIcon({ link }: { link: IEarnProtocolIntroSocialLink }) {
 function TeamMemberRow({ member }: { member: IEarnProtocolIntroTeamMember }) {
   const name = getMemberName(member);
   const position = getMemberPosition(member);
+  const description = getMemberDescription(member);
   const links = getMemberLinks(member);
 
   return (
-    <XStack gap="$3" ai="center" flex={1} minWidth={176}>
-      <MemberAvatar member={member} />
-      <YStack gap="$1" flex={1} minWidth={0}>
-        <XStack gap="$1.5" ai="center" minWidth={0}>
-          <EarnText
-            text={toEarnText(name)}
-            size="$bodyLgMedium"
-            color="$text"
-            numberOfLines={1}
-          />
-          {hasText(position) ? (
+    <YStack gap="$1" w="100%">
+      <XStack gap="$3" ai="center" minWidth={0}>
+        <MemberAvatar member={member} />
+        <XStack gap="$1.5" ai="center" flex={1} minWidth={0}>
+          <XStack gap="$1.5" ai="center" flex={1} minWidth={0}>
             <EarnText
-              text={toEarnText(position)}
-              size="$bodyLg"
-              color="$textSubdued"
-              flex={1}
-              minWidth={0}
+              text={toEarnText(name)}
+              size="$bodyLgMedium"
+              color="$text"
+              flexShrink={0}
               numberOfLines={1}
             />
+            {hasText(position) ? (
+              <EarnText
+                text={toEarnText(position)}
+                size="$bodyLg"
+                color="$textSubdued"
+                flex={1}
+                minWidth={0}
+                numberOfLines={1}
+              />
+            ) : null}
+          </XStack>
+          {links.length ? (
+            <XStack gap="$1" ai="center" flexShrink={0}>
+              {links.map((link, index) => (
+                <MemberSocialIcon
+                  key={`${getLinkUrl(link) || link.type || 'link'}-${index}`}
+                  link={link}
+                />
+              ))}
+            </XStack>
           ) : null}
         </XStack>
-        {links.length ? (
-          <XStack gap="$1" ai="center">
-            {links.map((link, index) => (
-              <MemberSocialIcon
-                key={`${getLinkUrl(link) || link.type || 'link'}-${index}`}
-                link={link}
-              />
-            ))}
-          </XStack>
-        ) : null}
-      </YStack>
-    </XStack>
+      </XStack>
+      {hasText(description) ? (
+        <XStack pl={36} minWidth={0}>
+          <EarnText
+            text={toEarnText(description)}
+            size="$bodyMd"
+            color="$textSubdued"
+            flex={1}
+            minWidth={0}
+            numberOfLines={2}
+          />
+        </XStack>
+      ) : null}
+    </YStack>
   );
 }
 
@@ -984,12 +1001,7 @@ function PreviewCell({
   }
 
   return (
-    <YStack
-      minWidth={PREVIEW_CELL_MIN_WIDTH}
-      maxWidth={PREVIEW_CELL_MAX_WIDTH}
-      flexShrink={0}
-      gap="$2"
-    >
+    <YStack flex={1} minWidth={PREVIEW_CELL_MIN_WIDTH} pr="$2" gap="$1.5">
       <EarnText text={toEarnText(title)} size="$bodyMd" color="$textSubdued" />
       <XStack
         ai="center"
@@ -1055,7 +1067,7 @@ function PreviewGrid({
   }
 
   return (
-    <XStack flexWrap="wrap" py="$3" rowGap="$6" columnGap="$16">
+    <XStack flexWrap="wrap" py="$3" rowGap="$6">
       <PreviewCell
         title={team?.title || team?.button?.data?.title}
         value={getMemberName(firstTeamMember)}
@@ -1167,16 +1179,15 @@ function AuditAccordionItem({
                 numberOfLines={1}
               />
             </XStack>
-            <XStack w={AUDIT_DATE_COLUMN_WIDTH} flexShrink={0} jc="flex-end">
-              <EarnText
-                text={toEarnText(audit.date)}
-                size="$bodyMd"
-                color="$textSubdued"
-                textAlign="right"
-                numberOfLines={1}
-              />
-            </XStack>
-            <XStack w={AUDIT_CHEVRON_COLUMN_WIDTH} flexShrink={0} jc="flex-end">
+            <EarnText
+              text={toEarnText(audit.date)}
+              size="$bodyMd"
+              color="$textSubdued"
+              flex={1}
+              minWidth={0}
+              numberOfLines={1}
+            />
+            <XStack flex={1} minWidth={0} jc="flex-end">
               <Stack
                 animation="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
@@ -1239,7 +1250,7 @@ function AuditsDialogContent({ audits }: { audits: IEarnProtocolIntroAudits }) {
   const descriptions = audits.button?.data?.description;
   return (
     <YStack gap="$4">
-      <Accordion type="single" collapsible defaultValue="0">
+      <Accordion type="single" collapsible defaultValue="0" gap="$4">
         {auditItems.map((audit, index) => (
           <AuditAccordionItem
             key={`${getText(getAuditTitle(audit)) || 'audit'}-${index}`}
