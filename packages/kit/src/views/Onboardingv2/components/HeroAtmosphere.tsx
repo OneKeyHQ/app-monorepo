@@ -153,21 +153,21 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
       }}
     >
       <Orb
-        size={360}
-        top={120}
-        right={-120}
+        size={280}
+        top={50}
+        right={-160}
         color={BLEND_TEAL}
         peakAlpha={0.13}
         gradientEdgePct={65}
-        xKeyframes={[0, -65, 50, 0]}
-        yKeyframes={[0, 90, 50, 0]}
-        scaleKeyframes={[1, 1.12, 0.92, 1]}
+        xKeyframes={[0, -30, 25, 0]}
+        yKeyframes={[0, 40, 25, 0]}
+        scaleKeyframes={[1, 1.06, 0.96, 1]}
         durationMs={20_000}
       />
       <Orb
         size={380}
-        bottom={200}
-        left={-140}
+        bottom={100}
+        left={-200}
         color={accent}
         peakAlpha={0.06}
         gradientEdgePct={70}
