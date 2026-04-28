@@ -15,6 +15,9 @@ function BasicWebViewWebEmbedProvider() {
   const [ts, setTs] = useState(0);
   const showWebEmbedWebView = useCallback(({ reason }: { reason?: string }) => {
     defaultLogger.app.webembed.showWebEmbedWebView({ reason });
+    defaultLogger.app.webembed.webEmbedProviderEventReceived({
+      reason: reason || 'unknown',
+    });
     setIsShow(true);
     setTs(Date.now());
   }, []);

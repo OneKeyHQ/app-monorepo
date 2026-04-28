@@ -20,7 +20,7 @@ import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWeb
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+// import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,13 +33,13 @@ import { ETranslateDisplayMode, ETranslateEngine } from '../types';
 import { useActiveTabId, useWebTabDataById } from './useWebTabs';
 
 function TranslateSettings({
-  onTestAITranslateError,
+  onTestAITranslateError: _onTestAITranslateError,
 }: {
   onTestAITranslateError?: (testFlag: string) => void;
 }) {
   const intl = useIntl();
   const [settings, setSettings] = useTranslateSettingsPersistAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
+  // const [devSettings] = useDevSettingsPersistAtom();
 
   const updateSetting = useCallback(
     <K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) => {
@@ -179,7 +179,7 @@ function TranslateSettings({
           }
         />
       </YStack>
-      {devSettings.enabled && onTestAITranslateError ? (
+      {/* {devSettings.enabled && onTestAITranslateError ? (
         <YStack gap="$2">
           <SizableText size="$headingSm" color="$textSubdued">
             {intl.formatMessage({
@@ -205,7 +205,7 @@ function TranslateSettings({
             </Button>
           </XStack>
         </YStack>
-      ) : null}
+      ) : null} */}
     </YStack>
   );
 }
@@ -228,6 +228,7 @@ function useTargetLanguageLabel() {
 export function TranslatePopoverContent({
   isTranslated,
   onTranslate,
+  onRetranslate,
   onTestAITranslateError,
   closePopover,
   showSettings,
@@ -235,6 +236,7 @@ export function TranslatePopoverContent({
 }: {
   isTranslated: boolean;
   onTranslate: () => void;
+  onRetranslate?: () => void;
   onTestAITranslateError?: (testFlag: string) => void;
   closePopover: () => void;
   showSettings: boolean;
@@ -269,6 +271,11 @@ export function TranslatePopoverContent({
     onTranslate();
     closePopover();
   }, [onTranslate, closePopover, isTranslated, isPrimeUser, navigation]);
+
+  const handleRetranslatePress = useCallback(() => {
+    onRetranslate?.();
+    closePopover();
+  }, [onRetranslate, closePopover]);
 
   const handleTestAITranslateError = useCallback(
     (testFlag: string) => {
@@ -322,13 +329,29 @@ export function TranslatePopoverContent({
         />
       </XStack>
       <Stack overflow="visible">
-        <Button variant="primary" size="medium" onPress={handleAction}>
-          {intl.formatMessage({
-            id: isTranslated
-              ? ETranslations.browser_restore_original
-              : ETranslations.browser_translate_start,
-          })}
-        </Button>
+        <XStack gap="$2" alignItems="center">
+          <Button
+            flex={1}
+            variant="primary"
+            size="medium"
+            onPress={handleAction}
+          >
+            {intl.formatMessage({
+              id: isTranslated
+                ? ETranslations.browser_restore_original
+                : ETranslations.browser_translate_start,
+            })}
+          </Button>
+          {isTranslated && onRetranslate ? (
+            <IconButton
+              icon="RotateClockwiseOutline"
+              variant="secondary"
+              size="medium"
+              onPress={handleRetranslatePress}
+              title={intl.formatMessage({ id: ETranslations.global_retry })}
+            />
+          ) : null}
+        </XStack>
         {!isTranslated && !isPrimeUser ? (
           <Stack position="absolute" right={-4} top={-8}>
             <Badge
@@ -355,6 +378,7 @@ export function TranslatePopoverContent({
 export function TranslatePopoverTrigger({
   isTranslated,
   onTranslate,
+  onRetranslate,
   onTestAITranslateError,
   placement = 'top',
   open,
@@ -362,6 +386,7 @@ export function TranslatePopoverTrigger({
 }: {
   isTranslated: boolean;
   onTranslate: () => void;
+  onRetranslate?: () => void;
   onTestAITranslateError?: (testFlag: string) => void;
   placement?: 'top' | 'bottom-end';
   open?: boolean;
@@ -400,6 +425,7 @@ export function TranslatePopoverTrigger({
         <TranslatePopoverContent
           isTranslated={isTranslated}
           onTranslate={onTranslate}
+          onRetranslate={onRetranslate}
           onTestAITranslateError={onTestAITranslateError}
           closePopover={closePopover}
           showSettings={showSettings}
@@ -423,19 +449,22 @@ export function usePageTranslation(tabId: string) {
   activeTabIdRef.current = activeTabId;
   currentTabUrlRef.current = tab?.url;
 
-  const onNavigate = useCallback(() => {
+  const onNavigate = useCallback((stillTranslating: boolean) => {
     pageContextVersionRef.current += 1;
-    setIsTranslated(false);
+    if (!stillTranslating) {
+      setIsTranslated(false);
+    }
   }, []);
 
-  const { startTranslate, toggleTranslate, translatingRef } =
-    useWebViewTranslate(
+  const { startTranslate, restoreOriginal, toggleTranslate, translatingRef } =
+    useWebViewTranslate({
       tabId,
       onNavigate,
-      settings.engine,
-      settings.displayMode,
-      tab?.url,
-      ({ targetLang }) => {
+      engine: settings.engine,
+      displayMode: settings.displayMode,
+      dappUrl: tab?.url,
+      currentTargetLang: resolvedTargetLang,
+      onAITranslateUnavailable: ({ targetLang }) => {
         setIsTranslated(false);
 
         const failedPageUrl = tab?.url;
@@ -489,27 +518,39 @@ export function usePageTranslation(tabId: string) {
           ],
         });
       },
-    );
+    });
+
+  const logToggle = useCallback(
+    (action: 'enable' | 'disable') => {
+      defaultLogger.discovery.translation.dappTranslateToggle({
+        action,
+        engine: settings.engine,
+        targetLang: resolvedTargetLang,
+        displayMode: settings.displayMode,
+        dappDomain: tab?.url ?? '',
+      });
+    },
+    [settings.engine, settings.displayMode, resolvedTargetLang, tab?.url],
+  );
 
   const handleTranslate = useCallback(() => {
     const willTranslate = !translatingRef.current;
     toggleTranslate(resolvedTargetLang);
     setIsTranslated(willTranslate);
+    logToggle(willTranslate ? 'enable' : 'disable');
+  }, [toggleTranslate, translatingRef, resolvedTargetLang, logToggle]);
 
-    defaultLogger.discovery.translation.dappTranslateToggle({
-      action: willTranslate ? 'enable' : 'disable',
-      engine: settings.engine,
-      targetLang: resolvedTargetLang,
-      displayMode: settings.displayMode,
-      dappDomain: tab?.url ?? '',
-    });
+  const handleRetranslate = useCallback(() => {
+    restoreOriginal();
+    startTranslate(resolvedTargetLang, settings.engine);
+    setIsTranslated(true);
+    logToggle('enable');
   }, [
-    toggleTranslate,
-    translatingRef,
+    restoreOriginal,
+    startTranslate,
     resolvedTargetLang,
     settings.engine,
-    settings.displayMode,
-    tab?.url,
+    logToggle,
   ]);
 
   const handleTranslateTestAIError = useCallback(
@@ -523,6 +564,7 @@ export function usePageTranslation(tabId: string) {
   return {
     isTranslated,
     handleTranslate,
+    handleRetranslate,
     handleTranslateTestAIError,
   };
 }

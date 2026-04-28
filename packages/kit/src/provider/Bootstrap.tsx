@@ -33,6 +33,7 @@ import {
   PERPS_CONFIG_FETCH_MAX_RETRIES,
   PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
 } from '@onekeyhq/shared/src/consts/perp';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -66,12 +67,15 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../components/AccountSelector';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
+import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
 import type { IntlShape } from 'react-intl';
 
@@ -406,11 +410,16 @@ export const useFetchMarketBasicConfig = () => {
 export const useFetchPerpConfig = () => {
   useEffect(() => {
     void pRetry(
-      (attemptNumber) => {
-        if (attemptNumber === 1) {
-          return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+      async (attemptNumber) => {
+        try {
+          if (attemptNumber === 1) {
+            return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+          }
+          return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+        } catch (err) {
+          errorToastUtils.toastIfErrorDisable(err);
+          throw err;
         }
-        return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
       },
       {
         retries: PERPS_CONFIG_FETCH_MAX_RETRIES,
@@ -708,6 +717,25 @@ export const useTabletDetailView = () => {
   }, [appNavigation, isTabletDetailView]);
 };
 
+function TrayDataProviderInner() {
+  useTrayDataProvider();
+  return null;
+}
+
+function DesktopTrayDataProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <TrayDataProviderInner />
+    </AccountSelectorProviderMirror>
+  );
+}
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -754,7 +782,6 @@ export function Bootstrap() {
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
-            // screen: EOnboardingPagesV2.AddExistingWallet,
             screen: EOnboardingPagesV2.CreateOrImportWallet,
           },
         });
@@ -824,5 +851,5 @@ export function Bootstrap() {
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
-  return null;
+  return platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null;
 }

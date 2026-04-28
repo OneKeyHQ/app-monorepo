@@ -1143,6 +1143,7 @@ function DepositWithdrawContent({
                 tokenInfo: USDC_TOKEN_INFO,
               },
             ],
+            gasAccountScenario: 'perps',
           });
         } else {
           await buildPerpDepositTx();
@@ -1470,7 +1471,7 @@ function DepositWithdrawContent({
           >
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.perp_account_panel_account_value,
+                id: ETranslations.perp_portfolio_value,
               })}
             </SizableText>
             <PerpsAccountNumberValue

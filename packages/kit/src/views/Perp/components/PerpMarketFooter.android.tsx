@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -9,8 +8,13 @@ import { runOnJS } from 'react-native-reanimated';
 import { Button, Page } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
+import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { GetTradingButtonStyleProps } from '../utils/styleUtils';
+
+const MARKET_FOOTER_BUTTON_WIDTH = '47%';
+const MARKET_FOOTER_BUTTON_HEIGHT = 36;
 
 // On Android, the native bottom tab navigator (react-native-bottom-tabs)
 // intercepts touches in the tab bar area, preventing RN's built-in touch
@@ -21,29 +25,39 @@ import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
 const styles = StyleSheet.create({
   buttonContainer: {
-    flex: 1,
+    width: MARKET_FOOTER_BUTTON_WIDTH,
   },
 });
 
 function PerpMarketFooter() {
   const intl = useIntl();
   const actionsRef = useHyperliquidActions();
+  const { mode } = useActiveTradeDisplay();
   const longButtonStyle = GetTradingButtonStyleProps('long');
   const shortButtonStyle = GetTradingButtonStyleProps('short');
-  const navigation = useNavigation();
+  const navigation = useAppNavigation();
+
+  const buyText = intl.formatMessage({
+    id:
+      mode === 'spot'
+        ? ETranslations.dexmarket_details_transactions_buy
+        : ETranslations.perp_trade_long,
+  });
+  const sellText = intl.formatMessage({
+    id:
+      mode === 'spot'
+        ? ETranslations.dexmarket_details_transactions_sell
+        : ETranslations.perp_trade_short,
+  });
 
   const handleBuy = useCallback(() => {
     actionsRef.current.updateTradingForm({ side: 'long' });
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
+    navigation.pop();
   }, [actionsRef, navigation]);
 
   const handleSell = useCallback(() => {
     actionsRef.current.updateTradingForm({ side: 'short' });
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
+    navigation.pop();
   }, [actionsRef, navigation]);
 
   const buyGesture = useMemo(
@@ -71,8 +85,9 @@ function PerpMarketFooter() {
       <GestureDetector gesture={buyGesture}>
         <View style={styles.buttonContainer}>
           <Button
-            padding={0}
-            height={38}
+            width="100%"
+            height={MARKET_FOOTER_BUTTON_HEIGHT}
+            size="small"
             borderRadius="$full"
             bg={longButtonStyle.bg}
             color={longButtonStyle.textColor}
@@ -80,12 +95,12 @@ function PerpMarketFooter() {
             alignItems="center"
             testID="page-footer-cancel"
           >
-            {intl.formatMessage({ id: ETranslations.perp_trade_long })}
+            {buyText}
           </Button>
         </View>
       </GestureDetector>
     ),
-    [buyGesture, longButtonStyle, intl],
+    [buyGesture, longButtonStyle, buyText],
   );
 
   const sellButton = useMemo(
@@ -94,8 +109,9 @@ function PerpMarketFooter() {
         <View style={styles.buttonContainer}>
           <Button
             variant="primary"
-            padding={0}
-            height={38}
+            width="100%"
+            height={MARKET_FOOTER_BUTTON_HEIGHT}
+            size="small"
             borderRadius="$full"
             bg={shortButtonStyle.bg}
             color={shortButtonStyle.textColor}
@@ -103,15 +119,28 @@ function PerpMarketFooter() {
             alignItems="center"
             testID="page-footer-confirm"
           >
-            {intl.formatMessage({ id: ETranslations.perp_trade_short })}
+            {sellText}
           </Button>
         </View>
       </GestureDetector>
     ),
-    [sellGesture, shortButtonStyle, intl],
+    [sellGesture, shortButtonStyle, sellText],
   );
 
-  return <Page.Footer cancelButton={buyButton} confirmButton={sellButton} />;
+  return (
+    <Page.Footer
+      px="$2"
+      pt="$3"
+      pb="$8"
+      cancelButton={buyButton}
+      confirmButton={sellButton}
+      buttonContainerProps={{
+        width: '100%',
+        justifyContent: 'center',
+        gap: '$2',
+      }}
+    />
+  );
 }
 
 export default PerpMarketFooter;

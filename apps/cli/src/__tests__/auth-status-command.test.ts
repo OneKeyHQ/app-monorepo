@@ -22,9 +22,9 @@ describe('executeAuthStatusCommand', () => {
       authStatus: 'authenticated',
       hasSecrets: true,
       storageBackend: 'macos-keychain',
-      loginMethod: 'mnemonic',
+      loginMethod: 'app_transfer',
       walletKind: 'hd',
-      sourceLabel: 'Mnemonic Import',
+      sourceLabel: 'Bot Wallet (abcd1234)',
       displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
       importedAt: '2026-04-06T06:10:00.000Z',
     };
@@ -41,11 +41,13 @@ describe('executeAuthStatusCommand', () => {
       authStatus: 'authenticated',
       hasSecrets: true,
       storageBackend: 'macos-keychain',
-      loginMethod: 'mnemonic',
+      loginMethod: 'app_transfer',
       walletKind: 'hd',
-      sourceLabel: 'Mnemonic Import',
+      sourceLabel: 'Bot Wallet (abcd1234)',
       displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
       importedAt: '2026-04-06T06:10:00.000Z',
+      device: null,
+      passphraseMode: null,
     });
   });
 
@@ -73,6 +75,8 @@ describe('executeAuthStatusCommand', () => {
       sourceLabel: null,
       displayAddress: null,
       importedAt: null,
+      device: null,
+      passphraseMode: null,
     });
   });
 

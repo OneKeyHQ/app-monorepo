@@ -102,6 +102,7 @@ import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
+import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
@@ -1109,6 +1110,17 @@ const BaseDevSettingsSection = () => {
                       </SectionFieldItem>
 
                       <SectionPressItem
+                        icon="RepeatOutline"
+                        title="Split Bundle & Background Thread"
+                        subtitle="Check dual-thread mode & test service RPC"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSplitBundleTestModal,
+                          );
+                        }}
+                      />
+
+                      <SectionPressItem
                         icon="Lab2Outline"
                         title="Dev Unit Tests"
                         testID="dev-unit-tests-menu"
@@ -1598,6 +1610,33 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      <SectionFieldItem
+                        icon="WalletOutline"
+                        name="enableBotWalletFeature"
+                        title="启用 BotWallet 功能"
+                        subtitle="开启后，Keyless 钱包更多菜单显示 BotWallets 管理入口"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+
+                      <SectionPressItem
+                        icon="GiftOutline"
+                        title="Referral Bind Debug"
+                        subtitle="Reset the selected wallet referral bind status"
+                        searchKeywords="referral rebate bind wallet dev unbind creation record"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'Referral Bind Debug',
+                            renderContent: (
+                              <ReferralCodeDebugPanel
+                                activeWalletId={activeAccount.wallet?.id}
+                                activeWalletName={activeAccount.wallet?.name}
+                              />
+                            ),
+                          });
+                        }}
+                      />
+
                       <SectionPressItem
                         icon="ServerOutline"
                         title="Add ServerNetwork Test Data"
@@ -1768,6 +1807,14 @@ const BaseDevSettingsSection = () => {
                         name="alwaysSignOnlySendTx"
                         title="始终只签名不广播"
                         testID="always-sign-only-send-tx"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="EyeOutline"
+                        name="allowBulkSendWatchingAccount"
+                        title="批量转账允许观察账户进入前置流程"
+                        subtitle="仅放行前置校验，实际发送仍会在提交时拦截"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>

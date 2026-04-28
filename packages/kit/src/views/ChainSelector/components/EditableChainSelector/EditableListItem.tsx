@@ -19,12 +19,8 @@ import type { IServerNetworkMatch } from '../../types';
 
 type IEditableListItemProps = {
   item: IServerNetworkMatch;
-  isDraggable?: boolean;
   isDisabled?: boolean;
-  isEditable?: boolean;
   isCustomNetworkEditable?: boolean;
-  drag?: () => void;
-  dragProps?: Record<string, any>;
   actions?:
     | {
         leadingIcon?: IKeyOfIcons;
@@ -35,65 +31,14 @@ type IEditableListItemProps = {
     | React.ReactNode;
 };
 
-const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
-  const {
-    frequentlyUsedItems,
-    frequentlyUsedItemsIds,
-    setFrequentlyUsedItems,
-  } = useContext(EditableChainSelectorContext);
-  const intl = useIntl();
-
-  const onPinOrNot = useCallback(() => {
-    if (frequentlyUsedItemsIds.has(item.id)) {
-      setFrequentlyUsedItems?.(
-        frequentlyUsedItems.filter((o) => o.id !== item.id),
-      );
-    } else {
-      setFrequentlyUsedItems?.([...frequentlyUsedItems, item]);
-    }
-  }, [
-    frequentlyUsedItemsIds,
-    frequentlyUsedItems,
-    item,
-    setFrequentlyUsedItems,
-  ]);
-
-  return (
-    <ListItem.IconButton
-      onPress={onPinOrNot}
-      title={
-        frequentlyUsedItemsIds.has(item.id)
-          ? intl.formatMessage({
-              id: ETranslations.global_unpin_from_top,
-            })
-          : intl.formatMessage({ id: ETranslations.global_pin_to_top })
-      }
-      key="moveToTop"
-      icon={
-        frequentlyUsedItemsIds.has(item.id)
-          ? 'ThumbackRotateOffOutline'
-          : 'ThumbackRotateOutline'
-      }
-      iconProps={{
-        color: '$iconSubdued',
-      }}
-    />
-  );
-};
-
 export const EditableListItem = ({
   item,
-  drag,
-  dragProps,
   isDisabled,
-  isDraggable,
-  isEditable = true,
   isCustomNetworkEditable,
   actions,
 }: IEditableListItemProps) => {
   const intl = useIntl();
   const {
-    isEditMode,
     networkId,
     onPressItem,
     onEditCustomNetwork,
@@ -102,12 +47,7 @@ export const EditableListItem = ({
     accountDeFiOverview,
   } = useContext(EditableChainSelectorContext);
 
-  const onPress = useMemo(() => {
-    if (!isEditMode) {
-      return () => onPressItem?.(item);
-    }
-    return undefined;
-  }, [isEditMode, item, onPressItem]);
+  const onPress = useCallback(() => onPressItem?.(item), [item, onPressItem]);
 
   const networkTotalValue = useMemo(() => {
     if (item.isAllNetworks) {
@@ -197,21 +137,6 @@ export const EditableListItem = ({
             title={intl.formatMessage({ id: ETranslations.global_edit })}
             onPress={() => onEditCustomNetwork?.(item)}
           />
-        ) : null}
-        {isEditable && isEditMode && !isDisabled && !isDraggable ? (
-          <EditableListItemPinOrNot item={item} />
-        ) : null}
-        {isEditMode && isDraggable ? (
-          <>
-            <EditableListItemPinOrNot item={item} />
-            <ListItem.IconButton
-              key="darg"
-              cursor="move"
-              icon="DragOutline"
-              onPressIn={drag}
-              dataSet={dragProps}
-            />
-          </>
         ) : null}
 
         {new BigNumber(networkTotalValue || 0).gt(

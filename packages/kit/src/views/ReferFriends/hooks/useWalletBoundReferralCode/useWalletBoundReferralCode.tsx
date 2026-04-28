@@ -7,7 +7,6 @@ import {
   Toast,
   useInPageDialog,
 } from '@onekeyhq/components';
-import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { INavigationToMessageConfirmParams } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -18,6 +17,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import {
@@ -26,6 +27,7 @@ import {
 } from '@onekeyhq/shared/types/message';
 
 import { InviteCodeDialog } from './InviteCodeDialog';
+import { resolveWalletBindStatusAfterCheck } from './referralBindStatusUtils';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
 import type { IReferralCodeWalletInfo } from './types';
@@ -60,8 +62,12 @@ export function useWalletBoundReferralCode({
         return false;
       }
       const { address, networkId } = walletInfo;
+      const cachedReferralCodeInfo =
+        await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
+          walletId: walletInfo.walletId,
+        });
 
-      let alreadyBound = false;
+      let serverStatus;
       let isTimeout = false;
 
       try {
@@ -76,14 +82,11 @@ export function useWalletBoundReferralCode({
           });
 
           try {
-            // Race between the API call and timeout
-            alreadyBound = await Promise.race([
-              backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
-                {
-                  address,
-                  networkId,
-                },
-              ),
+            serverStatus = await Promise.race([
+              backgroundApiProxy.serviceReferralCode.checkWalletBindStatus({
+                address,
+                networkId,
+              }),
               timeoutPromise,
             ]);
           } finally {
@@ -92,44 +95,47 @@ export function useWalletBoundReferralCode({
             }
           }
         } else {
-          // No timeout, just make the request
-          alreadyBound =
-            await backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
-              {
-                address,
-                networkId,
-              },
-            );
+          serverStatus =
+            await backgroundApiProxy.serviceReferralCode.checkWalletBindStatus({
+              address,
+              networkId,
+            });
         }
-      } catch (error) {
-        console.log(
-          '===>>> getReferralCodeBondStatus error, treating as not bound:',
-          error,
-        );
-        alreadyBound = false;
+      } catch {
+        // Fall back to local status when the server check is unavailable.
       }
 
-      // Always execute setWalletReferralCode regardless of timeout
-      try {
-        await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
-          walletId: walletInfo.walletId,
-          referralCodeInfo: {
-            walletId: walletInfo.walletId,
-            address: walletInfo.address,
-            networkId: walletInfo.networkId,
-            pubkey: walletInfo.pubkey ?? '',
-            isBound: alreadyBound,
-          },
-        });
-      } catch (error) {
-        console.log('===>>> setWalletReferralCode error:', error);
-      }
+      const resolvedBindStatus = resolveWalletBindStatusAfterCheck({
+        serverStatus,
+        cachedReferralCodeInfo,
+        isTimeout,
+        skipIfTimeout,
+      });
 
-      if (isTimeout && skipIfTimeout) {
+      if (resolvedBindStatus.shouldSkip) {
         return false;
       }
 
-      if (alreadyBound) {
+      if (resolvedBindStatus.shouldPersist) {
+        try {
+          await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
+            walletId: walletInfo.walletId,
+            referralCodeInfo: {
+              walletId: walletInfo.walletId,
+              address: walletInfo.address,
+              networkId: walletInfo.networkId,
+              pubkey: walletInfo.pubkey ?? '',
+              isBound: resolvedBindStatus.status.isBound,
+              bindable: resolvedBindStatus.status.bindable,
+              bindWindowReason: resolvedBindStatus.status.bindWindowReason,
+            },
+          });
+        } catch {
+          // Ignore local cache write failures; the server status remains authoritative.
+        }
+      }
+
+      if (!resolvedBindStatus.shouldShowBindDialog) {
         return false;
       }
       setShouldBondReferralCode(true);
@@ -168,7 +174,6 @@ export function useWalletBoundReferralCode({
               inviteCode: referralCode,
             },
           );
-        console.log('===>>> unsignedMessage: ', unsignedMessage);
 
         if (walletInfo.networkId === getNetworkIdsMap().eth) {
           unsignedMessage = autoFixPersonalSignMessage({
@@ -235,7 +240,6 @@ export function useWalletBoundReferralCode({
                 : signedMessage,
             },
           );
-        console.log('===>>> signedMessage: ', signedMessage);
         if (bindResult) {
           await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
             walletId: walletInfo.walletId,
@@ -249,6 +253,11 @@ export function useWalletBoundReferralCode({
           });
           // Clear cached invite code after successful binding
           await backgroundApiProxy.serviceReferralCode.setCachedInviteCode('');
+          defaultLogger.referral.page.referralBindingCompleted({
+            referralCode,
+            address: walletInfo.address,
+            networkId: walletInfo.networkId,
+          });
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.global_success,
@@ -260,9 +269,19 @@ export function useWalletBoundReferralCode({
         // Keep API validation errors inline in the form instead of showing a toast.
         errorToastUtils.toastIfErrorDisable(e);
 
-        const err = e as OneKeyError;
+        const err = e as OneKeyError<
+          unknown,
+          {
+            message?: string;
+            messageId?: string;
+          }
+        >;
         const isServerApiError =
           err?.className === EOneKeyErrorClassNames.OneKeyServerApiError;
+        const isBindWindowExpired =
+          err?.data?.messageId === 'exceeded_bind_window' ||
+          err?.data?.message === 'exceeded_bind_window' ||
+          err?.message === 'exceeded_bind_window';
 
         // Only suppress toast for server API errors when preventClose is
         // provided — the caller (InviteCodeDialog) handles them inline via
@@ -270,10 +289,13 @@ export function useWalletBoundReferralCode({
         // still need the toast.
         if (!(isServerApiError && preventClose) && err?.message) {
           Toast.error({
-            title: err.message,
+            title: isBindWindowExpired
+              ? intl.formatMessage({
+                  id: ETranslations.referral_not_applicable_desc,
+                })
+              : err.message,
           });
         }
-
         preventClose?.();
         throw e;
       }
@@ -290,14 +312,17 @@ export function useWalletBoundReferralCode({
     ({
       wallet,
       onSuccess,
+      onClose,
       defaultReferralCode,
     }: {
       wallet?: IDBWallet;
       onSuccess?: () => void;
+      onClose?: () => void;
       defaultReferralCode?: string;
     }) => {
       dialog.show({
         showExitButton: true,
+        onClose,
         title: intl.formatMessage({
           id: ETranslations.referral_apply_referral_code,
         }),

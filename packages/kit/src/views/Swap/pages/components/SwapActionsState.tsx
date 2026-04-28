@@ -50,6 +50,7 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -68,8 +69,7 @@ import {
 } from '../../hooks/useSwapIncognitoRecipientInput';
 import {
   useSwapActionState,
-  useSwapQuoteEventFetching,
-  useSwapQuoteLoading,
+  useSwapQuoteProgressState,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
@@ -120,7 +120,8 @@ const SwapActionsState = ({
     setSettings,
   ] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const quoteLoading = useSwapQuoteLoading();
+  const { quoteLoading, quoteEventFetching, isWaitingActionableQuote } =
+    useSwapQuoteProgressState();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -128,7 +129,6 @@ const SwapActionsState = ({
     swapSlippageRef.current = slippageItem;
   }
   const themeVariant = useThemeVariant();
-  const quoting = useSwapQuoteEventFetching();
   const [desktopActionWidth, setDesktopActionWidth] = useState<number>();
 
   const isModalPage = useIsOverlayPage();
@@ -224,11 +224,48 @@ const SwapActionsState = ({
     clearRecipientAddressOnHide,
     networkId: toToken?.networkId ?? swapToAddressInfo.networkId,
     accountId:
-      swapToAddressInfo.activeAccount?.account?.id ??
-      swapToAddressInfo.accountInfo?.account?.id,
+      swapToAddressInfo.accountInfo?.account?.id ??
+      swapToAddressInfo.activeAccount?.account?.id,
+    accountInfo:
+      swapToAddressInfo.accountInfo ?? swapToAddressInfo.activeAccount,
     address: swapToAnotherAccountAddress.address,
     swapToAnotherAccountSwitchOn,
   });
+  const {
+    errorTranslationId: incognitoRecipientErrorTranslationId,
+    inputText: incognitoRecipientInputText,
+    loading: incognitoRecipientLoading,
+    onInputChange: handleIncognitoRecipientInputChange,
+    queryResult: incognitoRecipientQueryResult,
+  } = incognitoRecipientInput;
+
+  const handleAddRecipientAddressToAddressBook = useCallback(() => {
+    const recipientAddress = incognitoRecipientInputText.trim();
+    const recipientNetworkId =
+      toToken?.networkId ?? swapToAddressInfo.networkId;
+
+    if (!recipientAddress || !recipientNetworkId) {
+      return;
+    }
+
+    navigation.pushModal(EModalRoutes.AddressBookModal, {
+      screen: EModalAddressBookRoutes.EditItemModal,
+      params: {
+        address: recipientAddress,
+        networkId: recipientNetworkId,
+        isAllowListed: true,
+        onSaveSuccess: () => {
+          handleIncognitoRecipientInputChange(incognitoRecipientInputText);
+        },
+      },
+    });
+  }, [
+    handleIncognitoRecipientInputChange,
+    incognitoRecipientInputText,
+    navigation,
+    swapToAddressInfo.networkId,
+    toToken?.networkId,
+  ]);
 
   const shouldBlockIncognitoRecipientAction =
     shouldBlockSwapActionForIncognitoRecipientInput({
@@ -296,20 +333,24 @@ const SwapActionsState = ({
     () => (
       <SwapIncognitoRecipientInput
         visible={shouldShowIncognitoRecipientInput}
-        errorMessage={incognitoRecipientInput.errorMessage}
-        inputText={incognitoRecipientInput.inputText}
-        loading={incognitoRecipientInput.loading}
+        errorTranslationId={incognitoRecipientErrorTranslationId}
+        inputText={incognitoRecipientInputText}
+        loading={incognitoRecipientLoading}
+        onAddRecipientAddressToAddressBook={
+          handleAddRecipientAddressToAddressBook
+        }
         onOpenRecipientAddress={onOpenRecipientAddress}
-        onInputChange={incognitoRecipientInput.onInputChange}
-        queryResult={incognitoRecipientInput.queryResult}
+        onInputChange={handleIncognitoRecipientInputChange}
+        queryResult={incognitoRecipientQueryResult}
       />
     ),
     [
-      incognitoRecipientInput.errorMessage,
-      incognitoRecipientInput.inputText,
-      incognitoRecipientInput.loading,
-      incognitoRecipientInput.onInputChange,
-      incognitoRecipientInput.queryResult,
+      handleIncognitoRecipientInputChange,
+      handleAddRecipientAddressToAddressBook,
+      incognitoRecipientErrorTranslationId,
+      incognitoRecipientInputText,
+      incognitoRecipientLoading,
+      incognitoRecipientQueryResult,
       onOpenRecipientAddress,
       shouldShowIncognitoRecipientInput,
     ],
@@ -686,7 +727,7 @@ const SwapActionsState = ({
       new BigNumber(currentQuoteRes?.fee?.costSavings || 0).gt(0);
 
     if (hasCostSavings) {
-      const isLoadingQuote = quoting || quoteLoading;
+      const isLoadingQuote = quoteEventFetching || quoteLoading;
       const shouldShow = hasEverShownCostSavingsRef.current || !isLoadingQuote;
 
       if (shouldShow) {
@@ -728,7 +769,7 @@ const SwapActionsState = ({
   }, [
     currentQuoteRes?.fee?.costSavings,
     settingsPersistAtom.currencyInfo.symbol,
-    quoting,
+    quoteEventFetching,
     quoteLoading,
     intl,
   ]);
@@ -767,7 +808,7 @@ const SwapActionsState = ({
 
   const actionButtonChildren = useMemo(
     () =>
-      quoting || quoteLoading ? (
+      isWaitingActionableQuote || swapActionState.isWaitingAutoSlippage ? (
         <LottieView
           source={
             themeVariant === 'light'
@@ -784,7 +825,12 @@ const SwapActionsState = ({
       ) : (
         swapActionState.label
       ),
-    [quoteLoading, quoting, swapActionState.label, themeVariant],
+    [
+      isWaitingActionableQuote,
+      swapActionState.isWaitingAutoSlippage,
+      swapActionState.label,
+      themeVariant,
+    ],
   );
 
   const actionRowComponent = useMemo(

@@ -26,8 +26,11 @@ import {
 } from '../../../hooks/usePerpOrderInfoPanel';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import { TradesHistoryRow } from '../Components/TradesHistoryRow';
+import { getPerpFillDirectionType } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
+
+const TRADES_HISTORY_PAGE_SIZE = 20;
 
 interface IPerpTradesHistoryListProps {
   isMobile?: boolean;
@@ -82,13 +85,13 @@ function PerpTradesHistoryList({
 
     const exitPriceBN = new BigNumber(fill.px);
     const pnlPerUnit = new BigNumber(fill.closedPnl).dividedBy(sizeBN);
-    const normalizedDir = fill.dir.toLowerCase();
+    const directionType = getPerpFillDirectionType(fill.dir);
 
-    if (normalizedDir.includes('close long')) {
+    if (directionType === 'closeLong') {
       return exitPriceBN.minus(pnlPerUnit);
     }
 
-    if (normalizedDir.includes('close short')) {
+    if (directionType === 'closeShort') {
       return exitPriceBN.plus(pnlPerUnit);
     }
 
@@ -285,12 +288,17 @@ function PerpTradesHistoryList({
         id: ETranslations.perp_trade_history_empty,
       })}
       emptySubMessage={intl.formatMessage({
-        id: ETranslations.perp_trade_history_empty_desc,
+        id: ETranslations.perp_trades_history_recent_range_desc,
       })}
       enablePagination
+      pageSize={TRADES_HISTORY_PAGE_SIZE}
       paginationToBottom={isMobile}
       listLoading={isLoading}
-      onViewAll={!isMobile ? onViewAllUrl : undefined}
+      onViewAll={
+        !isMobile && trades.length > TRADES_HISTORY_PAGE_SIZE
+          ? onViewAllUrl
+          : undefined
+      }
     />
   );
 }

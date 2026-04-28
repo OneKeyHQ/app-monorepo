@@ -13,7 +13,9 @@ import {
   formatPriceToSignificantDigits,
   formatWithPrecision,
   getDisplayPriceScaleDecimals,
+  getHyperliquidTokenImageUrl,
   getMostFrequentDecimalPlaces,
+  getSpotTokenDisplayName,
   getValidPriceDecimals,
 } from './perpsUtils';
 
@@ -78,6 +80,27 @@ describe('getDisplayPriceScaleDecimals', () => {
     expect(getDisplayPriceScaleDecimals('0.0012345')).toBe(6);
     expect(getDisplayPriceScaleDecimals('0.0001230')).toBe(6);
     expect(getDisplayPriceScaleDecimals('0.000123456')).toBe(6);
+  });
+});
+
+describe('spot token display helpers', () => {
+  test('maps wrapped Hyperliquid spot symbols to display names', () => {
+    expect(getSpotTokenDisplayName('UETH')).toBe('ETH');
+    expect(getSpotTokenDisplayName('USOL')).toBe('SOL');
+    expect(getSpotTokenDisplayName('UBTC')).toBe('BTC');
+    expect(getSpotTokenDisplayName('HYPE')).toBe('HYPE');
+  });
+
+  test('resolves spot token image url using normalized display symbol', () => {
+    expect(getHyperliquidTokenImageUrl('UETH')).toBe(
+      'https://uni.onekey-asset.com/static/hyperliquid/ETH.png',
+    );
+    expect(getHyperliquidTokenImageUrl('USOL')).toBe(
+      'https://uni.onekey-asset.com/static/hyperliquid/SOL.png',
+    );
+    expect(getHyperliquidTokenImageUrl('USDC')).toBe(
+      'https://uni.onekey-asset.com/static/hyperliquid/USDC.png',
+    );
   });
 });
 

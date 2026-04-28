@@ -80,22 +80,25 @@ export function CategoryFilterItemWithLayout({
   name,
   isSelected,
   icon,
-  onPress,
+  onLayout,
+  ...rest
 }: {
   id: string;
   name: string;
   isSelected: boolean;
   icon?: string;
-  onPress: () => void;
-}) {
+} & IXStackProps) {
   const { handleItemLayout } = useScrollableFilterBar();
   return (
     <CategoryFilterItem
       name={name}
       isSelected={isSelected}
       icon={icon}
-      onPress={onPress}
-      onLayout={(event) => handleItemLayout(id, event)}
+      {...rest}
+      onLayout={(event) => {
+        handleItemLayout(id, event);
+        onLayout?.(event);
+      }}
     />
   );
 }

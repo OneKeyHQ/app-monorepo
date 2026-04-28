@@ -9,6 +9,7 @@ import {
   usePerpsActiveAccountSummaryAtom,
   usePerpsTradesHistoryDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPortfolioMetrics,
   IUserNonFundingLedgerUpdatesResponse,
@@ -104,7 +105,11 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
 
   const fillsStats = useMemo(() => {
     const isMatchingAddress = tradesHistoryData?.accountAddress === address;
-    const fills = isMatchingAddress ? (tradesHistoryData?.fills ?? []) : [];
+    const fills = isMatchingAddress
+      ? (tradesHistoryData?.fills ?? []).filter(
+          (f) => !isSpotInstrument(f.coin),
+        )
+      : [];
     const startMs = getStartTimeForPeriod(timePeriod);
 
     const filteredFills = fills.filter((fill) => {

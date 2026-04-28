@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
+  useActiveTradeInstrumentAtom,
   useHyperliquidActions,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
@@ -37,15 +38,24 @@ import {
   usePerpsCustomSettingsAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotActiveAssetAtom,
+  useSpotActiveAssetCtxAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
+  getSpotTokenDisplayName,
   getTriggerEffectivePrice,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
+import { useOrderPrice } from '../../../hooks/useOrderPrice';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
@@ -60,6 +70,7 @@ import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
+import { TradeSideToggle } from '../selectors/TradeSideToggle';
 
 interface IPerpTradingFormProps {
   isSubmitting?: boolean;
@@ -116,11 +127,17 @@ function PerpTradingForm({
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [spotActiveAsset] = useSpotActiveAssetAtom();
+  const [spotActiveAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [{ balances: spotBalances }] = useSpotBalancesAtom();
+  const { baseName: activeBaseName } = useActiveTradeDisplay();
   const { midPrice, midPriceBN } = useTradingPrice();
+  const { price: orderPriceBN } = useOrderPrice(formData.side);
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
   const isBBOActive = !!formData.bboPriceMode;
@@ -129,12 +146,102 @@ function PerpTradingForm({
     [perpsSelectedSymbol.coin],
   );
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
-  const { universe } = perpsSelectedSymbol;
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
 
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
+
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const spotUniverse = isSpot ? spotActiveAsset?.universe : undefined;
+  const sizeSzDecimals = isSpot
+    ? (spotUniverse?.baseSzDecimals ?? 2)
+    : (activeAsset?.universe?.szDecimals ?? 2);
+  const selectedTradeAsset = useMemo(
+    () =>
+      isSpot
+        ? ({
+            coin: spotActiveAsset?.coin ?? activeTradeInstrument.coin,
+            assetId: spotActiveAsset?.assetId,
+            universe: {
+              ...spotUniverse,
+              szDecimals: sizeSzDecimals,
+            },
+          } as typeof activeAsset)
+        : activeAsset,
+    [
+      activeAsset,
+      activeTradeInstrument.coin,
+      isSpot,
+      sizeSzDecimals,
+      spotActiveAsset?.assetId,
+      spotActiveAsset?.coin,
+      spotUniverse,
+    ],
+  );
+  const selectedTradeAssetCtx = isSpot
+    ? (spotActiveAssetCtx as typeof activeAssetCtx)
+    : activeAssetCtx;
+
+  const spotAvailableBaseBN = useMemo(() => {
+    if (!spotUniverse?.baseName) {
+      return new BigNumber(0);
+    }
+    const balance = spotBalances.find(
+      (item) => item.coin === spotUniverse.baseName,
+    );
+    if (!balance) {
+      return new BigNumber(0);
+    }
+    return BigNumber.max(
+      new BigNumber(balance.total).minus(balance.hold ?? 0),
+      0,
+    );
+  }, [spotBalances, spotUniverse?.baseName]);
+
+  const spotAvailableQuoteBN = useMemo(() => {
+    if (!spotUniverse?.quoteName) {
+      return new BigNumber(0);
+    }
+    const balance = spotBalances.find(
+      (item) => item.coin === spotUniverse.quoteName,
+    );
+    if (!balance) {
+      return new BigNumber(0);
+    }
+    return BigNumber.max(
+      new BigNumber(balance.total).minus(balance.hold ?? 0),
+      0,
+    );
+  }, [spotBalances, spotUniverse?.quoteName]);
+
+  const spotMaxTradeSzs = useMemo(() => {
+    if (!isSpot) {
+      return undefined;
+    }
+    let effectiveSpotPriceBN = new BigNumber(0);
+    if (orderPriceBN.isFinite() && orderPriceBN.gt(0)) {
+      effectiveSpotPriceBN = orderPriceBN;
+    } else if (midPriceBN.isFinite() && midPriceBN.gt(0)) {
+      effectiveSpotPriceBN = midPriceBN;
+    }
+    const buyMax = effectiveSpotPriceBN.gt(0)
+      ? spotAvailableQuoteBN.dividedBy(effectiveSpotPriceBN)
+      : new BigNumber(0);
+    return [
+      buyMax.decimalPlaces(sizeSzDecimals, BigNumber.ROUND_FLOOR).toFixed(),
+      spotAvailableBaseBN
+        .decimalPlaces(sizeSzDecimals, BigNumber.ROUND_FLOOR)
+        .toFixed(),
+    ] as [string, string];
+  }, [
+    isSpot,
+    midPriceBN,
+    orderPriceBN,
+    sizeSzDecimals,
+    spotAvailableBaseBN,
+    spotAvailableQuoteBN,
+  ]);
 
   // Derive primaryOrderType from formData.orderMode
   const primaryOrderType: IPrimaryOrderType =
@@ -165,26 +272,52 @@ function PerpTradingForm({
 
     if (prevType !== 'limit' && currentType === 'limit' && midPrice) {
       updateForm({
-        price: formatPriceToSignificantDigits(midPrice),
+        price: isSpot
+          ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
+          : formatPriceToSignificantDigits(midPrice),
       });
     }
 
     prevTypeRef.current = currentType;
-  }, [formData.type, formData.price, midPrice, updateForm]);
+  }, [
+    formData.type,
+    formData.price,
+    isSpot,
+    midPrice,
+    sizeSzDecimals,
+    updateForm,
+  ]);
 
   useEffect(() => {
-    const rawAvailable = activeAssetData?.availableToTrade;
-    const maxAvailable = rawAvailable
-      ? Math.max(Number(rawAvailable[0] ?? 0), Number(rawAvailable[1] ?? 0))
-      : 0;
-    const nextEnv = {
-      markPrice: midPrice,
-      availableToTrade: [maxAvailable, maxAvailable],
-      maxTradeSzs: activeAssetData?.maxTradeSzs,
-      leverageValue: activeAssetData?.leverage?.value,
-      fallbackLeverage: activeAsset?.universe?.maxLeverage,
-      szDecimals: activeAsset?.universe?.szDecimals,
-    };
+    const nextEnv = isSpot
+      ? {
+          markPrice: midPrice,
+          availableToTrade: [
+            spotAvailableQuoteBN.toFixed(),
+            spotAvailableBaseBN.toFixed(),
+          ],
+          maxTradeSzs: spotMaxTradeSzs,
+          leverageValue: 1,
+          fallbackLeverage: 1,
+          szDecimals: sizeSzDecimals,
+        }
+      : (() => {
+          const rawAvailable = activeAssetData?.availableToTrade;
+          const maxAvailable = rawAvailable
+            ? Math.max(
+                Number(rawAvailable[0] ?? 0),
+                Number(rawAvailable[1] ?? 0),
+              )
+            : 0;
+          return {
+            markPrice: midPrice,
+            availableToTrade: [maxAvailable, maxAvailable],
+            maxTradeSzs: activeAssetData?.maxTradeSzs,
+            leverageValue: activeAssetData?.leverage?.value,
+            fallbackLeverage: activeAsset?.universe?.maxLeverage,
+            szDecimals: activeAsset?.universe?.szDecimals,
+          };
+        })();
     setTradingFormEnv((prev) => {
       const prevAvailable = prev.availableToTrade ?? [];
       const nextAvailable = nextEnv.availableToTrade ?? [];
@@ -211,6 +344,11 @@ function PerpTradingForm({
     }
   }, [
     midPrice,
+    isSpot,
+    sizeSzDecimals,
+    spotAvailableBaseBN,
+    spotAvailableQuoteBN,
+    spotMaxTradeSzs,
     activeAssetData?.availableToTrade,
     activeAssetData?.maxTradeSzs,
     activeAssetData?.leverage?.value,
@@ -220,6 +358,20 @@ function PerpTradingForm({
     formData.leverage,
     updateForm,
   ]);
+
+  useEffect(() => {
+    if (!isSpot || formData.orderMode !== 'trigger') {
+      return;
+    }
+    updateForm({
+      ...TRIGGER_MODE_TPSL_RESET,
+      bboPriceMode: null,
+      orderMode: 'standard',
+      type: 'market',
+      triggerPrice: '',
+      executionPrice: '',
+    });
+  }, [formData.orderMode, isSpot, updateForm]);
 
   // Reference Price: Get the effective trading price (limit price, market price, or trigger effective price)
   const [, referencePriceString] = useMemo(() => {
@@ -241,10 +393,9 @@ function PerpTradingForm({
     }
     return [
       price,
-      formatPriceToSignificantDigits(
-        price,
-        activeAsset?.universe?.szDecimals ?? 2,
-      ),
+      isSpot
+        ? formatSpotPriceToValid(price.toFixed(), sizeSzDecimals)
+        : formatPriceToSignificantDigits(price, sizeSzDecimals),
     ];
   }, [
     formData.type,
@@ -253,8 +404,9 @@ function PerpTradingForm({
     formData.triggerOrderType,
     formData.triggerPrice,
     formData.executionPrice,
+    isSpot,
     midPriceBN,
-    activeAsset?.universe?.szDecimals,
+    sizeSzDecimals,
   ]);
 
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
@@ -270,6 +422,16 @@ function PerpTradingForm({
     }, [perpsPositions, perpsSelectedSymbol.coin]);
 
   const availableToTrade = useMemo(() => {
+    if (isSpot) {
+      // For spot, availableToTrade is used by env/slider calculations (needs USD-like value)
+      const availableValue =
+        formData.side === 'long'
+          ? spotAvailableQuoteBN
+          : spotAvailableBaseBN.multipliedBy(
+              midPriceBN.isFinite() && midPriceBN.gt(0) ? midPriceBN : 0,
+            );
+      return availableValue.toFixed(2, BigNumber.ROUND_DOWN);
+    }
     const available = activeAssetData?.availableToTrade;
     if (!available) return '0';
     const longValue = Number(available[0] ?? 0);
@@ -278,7 +440,78 @@ function PerpTradingForm({
       2,
       BigNumber.ROUND_DOWN,
     );
-  }, [activeAssetData?.availableToTrade]);
+  }, [
+    activeAssetData?.availableToTrade,
+    formData.side,
+    isSpot,
+    midPriceBN,
+    spotAvailableBaseBN,
+    spotAvailableQuoteBN,
+  ]);
+
+  // Spot: display raw token balance with symbol
+  const spotAvailableDisplay = useMemo(() => {
+    if (!isSpot) return '';
+    if (formData.side === 'long') {
+      return `${spotAvailableQuoteBN.toFixed(2, BigNumber.ROUND_DOWN)} ${spotUniverse?.quoteName ?? ''}`;
+    }
+    return `${spotAvailableBaseBN.toFixed(sizeSzDecimals, BigNumber.ROUND_DOWN)} ${
+      spotUniverse?.baseName
+        ? getSpotTokenDisplayName(spotUniverse.baseName)
+        : ''
+    }`;
+  }, [
+    isSpot,
+    formData.side,
+    spotAvailableQuoteBN,
+    spotAvailableBaseBN,
+    spotUniverse?.quoteName,
+    spotUniverse?.baseName,
+    sizeSzDecimals,
+  ]);
+
+  const spotMaxTradeLabel = useMemo(
+    () =>
+      intl.formatMessage({
+        id:
+          formData.side === 'long'
+            ? ETranslations.perp_spot_max_buy
+            : ETranslations.perp_spot_max_sell,
+      }),
+    [formData.side, intl],
+  );
+  const spotMaxTradeTooltip = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_spot_max_buy_sell_tooltip,
+      }),
+    [intl],
+  );
+
+  const spotMaxTradeDisplay = useMemo(() => {
+    if (!isSpot) return '';
+    const maxSize =
+      formData.side === 'long' ? spotMaxTradeSzs?.[0] : spotMaxTradeSzs?.[1];
+    return `${maxSize ?? '0'} ${
+      spotUniverse?.baseName
+        ? getSpotTokenDisplayName(spotUniverse.baseName)
+        : ''
+    }`;
+  }, [formData.side, isSpot, spotMaxTradeSzs, spotUniverse?.baseName]);
+
+  const handleSideChange = useCallback(
+    (newSide: 'long' | 'short') => {
+      if (newSide !== formData.side) {
+        updateForm({
+          side: newSide,
+          size: '',
+          sizePercent: 0,
+          sizeInputMode: EPerpsSizeInputMode.MANUAL,
+        });
+      }
+    },
+    [formData.side, updateForm],
+  );
 
   const switchToManual = useCallback(() => {
     if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
@@ -411,8 +644,8 @@ function PerpTradingForm({
     ],
     [intl],
   );
-  const mobileOrderTypeOptions = useMemo(
-    () => [
+  const mobileOrderTypeOptions = useMemo(() => {
+    const base = [
       {
         label: intl.formatMessage({ id: ETranslations.perp_trade_market }),
         value: 'market' as string,
@@ -421,6 +654,10 @@ function PerpTradingForm({
         label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
         value: 'limit' as string,
       },
+    ];
+    if (isSpot) return base;
+    return [
+      ...base,
       {
         label: intl.formatMessage({
           id: ETranslations.perp_order_trigger_market,
@@ -433,9 +670,8 @@ function PerpTradingForm({
         }),
         value: ETriggerOrderType.TRIGGER_LIMIT as string,
       },
-    ],
-    [intl],
-  );
+    ];
+  }, [intl, isSpot]);
 
   const applyPrimaryOrderType = useCallback(
     (nextType: IPrimaryOrderType) => {
@@ -506,7 +742,8 @@ function PerpTradingForm({
             })}
             value={triggerPrice}
             onChange={(value) => updateForm({ triggerPrice: value })}
-            szDecimals={universe?.szDecimals ?? 2}
+            szDecimals={sizeSzDecimals}
+            isSpot={isSpot}
             isMobile={isMobile}
             disabled={isSubmitting}
           />
@@ -515,7 +752,9 @@ function PerpTradingForm({
               onUseMidPrice={() => {
                 if (midPrice) {
                   updateForm({
-                    executionPrice: formatPriceToSignificantDigits(midPrice),
+                    executionPrice: isSpot
+                      ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
+                      : formatPriceToSignificantDigits(midPrice),
                   });
                 }
               }}
@@ -524,7 +763,8 @@ function PerpTradingForm({
               })}
               value={formData.executionPrice ?? ''}
               onChange={(value) => updateForm({ executionPrice: value })}
-              szDecimals={universe?.szDecimals ?? 2}
+              szDecimals={sizeSzDecimals}
+              isSpot={isSpot}
               isMobile={isMobile}
               disabled={isSubmitting}
             />
@@ -534,7 +774,11 @@ function PerpTradingForm({
     }
     if (formData.type === 'limit' || isMobile) {
       return (
-        <XStack alignItems="center" flex={1} gap={isMobile ? '$2.5' : '$3'}>
+        <XStack
+          alignItems="center"
+          flex={isMobile ? undefined : 1}
+          gap={isMobile ? '$2.5' : '$3'}
+        >
           {isBBOActive && formData.type === 'limit' ? (
             <YStack flex={1}>
               <BBOSelector
@@ -550,7 +794,9 @@ function PerpTradingForm({
                 onUseMidPrice={() => {
                   if (midPrice) {
                     updateForm({
-                      price: formatPriceToSignificantDigits(midPrice),
+                      price: isSpot
+                        ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
+                        : formatPriceToSignificantDigits(midPrice),
                     });
                   }
                 }}
@@ -562,7 +808,8 @@ function PerpTradingForm({
                       })
                 }
                 onChange={(value) => updateForm({ price: value })}
-                szDecimals={universe?.szDecimals ?? 2}
+                szDecimals={sizeSzDecimals}
+                isSpot={isSpot}
                 isMobile={isMobile}
                 disabled={formData.type === 'market'}
               />
@@ -574,7 +821,7 @@ function PerpTradingForm({
               borderRadius="$2"
               bg="$bgSubdued"
               borderWidth="$px"
-              borderColor={isBBOActive ? '$borderPrimary' : '$bgSubdued'}
+              borderColor={isBBOActive ? '$borderActive' : '$bgSubdued'}
               onPress={handleBBOToggle}
               px="$3"
               h={isMobile ? 38 : 40}
@@ -634,6 +881,7 @@ function PerpTradingForm({
     : ETranslations.perp_trade_sl_price;
 
   const renderBottomSection = () => {
+    if (isSpot) return null;
     if (shouldShowEnableTradingButton && isMobile) {
       return null;
     }
@@ -740,7 +988,7 @@ function PerpTradingForm({
               value={formData.tpValue || ''}
               inputType={formData.tpType || 'price'}
               referencePrice={referencePriceString}
-              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+              szDecimals={sizeSzDecimals}
               onChange={handleTpValueChange}
               onTypeChange={handleTpTypeChange}
               disabled={isSubmitting}
@@ -754,7 +1002,7 @@ function PerpTradingForm({
               value={formData.slValue || ''}
               inputType={formData.slType || 'price'}
               referencePrice={referencePriceString}
-              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+              szDecimals={sizeSzDecimals}
               onChange={handleSlValueChange}
               onTypeChange={handleSlTypeChange}
               disabled={isSubmitting}
@@ -777,18 +1025,83 @@ function PerpTradingForm({
     ? triggerOrderType
     : primaryOrderType;
 
-  return (
-    <YStack gap={isMobile ? '$2.5' : '$4'} pt={isMobile ? '$0' : '$2.5'}>
-      {isMobile ? (
-        <>
-          <XStack alignItems="center" flex={1} gap="$2.5">
-            <YStack flex={1}>
-              <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-            </YStack>
-            <LeverageAdjustModal isMobile={isMobile} />
-          </XStack>
+  const renderSpotTradeSummaryRows = () => (
+    <>
+      <XStack justifyContent="space-between" alignItems="center" gap="$3">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_available })}
+        </SizableText>
+        <XStack alignItems="center" gap="$1">
+          <SizableText size="$bodySmMedium">{spotAvailableDisplay}</SizableText>
+          <MobileDepositButton />
+        </XStack>
+      </XStack>
 
-          <XStack alignItems="center" flex={1} gap="$2.5">
+      <XStack justifyContent="space-between" alignItems="center" gap="$3">
+        {isMobile ? (
+          <Popover
+            title={spotMaxTradeLabel}
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+              >
+                {spotMaxTradeLabel}
+              </DashText>
+            }
+            renderContent={() => (
+              <YStack px="$5" pt="$2" pb="$4">
+                <SizableText size="$bodyMd">{spotMaxTradeTooltip}</SizableText>
+              </YStack>
+            )}
+          />
+        ) : (
+          <Tooltip
+            placement="top"
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                cursor="help"
+              >
+                {spotMaxTradeLabel}
+              </DashText>
+            }
+            renderContent={
+              <SizableText size="$bodySm">{spotMaxTradeTooltip}</SizableText>
+            }
+          />
+        )}
+        <SizableText size="$bodySmMedium">{spotMaxTradeDisplay}</SizableText>
+      </XStack>
+    </>
+  );
+
+  return (
+    <YStack
+      gap={isMobile ? '$2.5' : '$4'}
+      pt={isMobile ? '$0' : '$2.5'}
+      flex={isSpot && isMobile ? 1 : undefined}
+    >
+      {isMobile ? (
+        <YStack gap="$2.5" flexShrink={0}>
+          {isSpot ? null : (
+            <XStack alignItems="center" gap="$2.5">
+              <YStack flex={1}>
+                <MarginModeSelector
+                  disabled={isSubmitting}
+                  isMobile={isMobile}
+                />
+              </YStack>
+              <LeverageAdjustModal isMobile={isMobile} />
+            </XStack>
+          )}
+
+          <XStack alignItems="center" gap="$2.5">
             <YStack flex={1}>
               <Select
                 items={mobileOrderTypeOptions}
@@ -838,19 +1151,29 @@ function PerpTradingForm({
               />
             </YStack>
           </XStack>
-        </>
+          {isSpot ? (
+            <TradeSideToggle
+              value={formData.side}
+              onChange={handleSideChange}
+              isMobile={isMobile}
+              isSpot
+            />
+          ) : null}
+        </YStack>
       ) : (
         <>
           <YStack gap="$2">
-            <XStack alignItems="center" flex={1} gap="$3">
-              <YStack flex={1}>
-                <MarginModeSelector
-                  disabled={isSubmitting}
-                  isMobile={isMobile}
-                />
-              </YStack>
-              <LeverageAdjustModal isMobile={isMobile} />
-            </XStack>
+            {isSpot ? null : (
+              <XStack alignItems="center" flex={1} gap="$3">
+                <YStack flex={1}>
+                  <MarginModeSelector
+                    disabled={isSubmitting}
+                    isMobile={isMobile}
+                  />
+                </YStack>
+                <LeverageAdjustModal isMobile={isMobile} />
+              </XStack>
+            )}
 
             <XStack
               h={38}
@@ -894,130 +1217,152 @@ function PerpTradingForm({
                   </XStack>
                 );
               })}
-              <Select
-                items={triggerTypeOptions}
-                title="Trigger"
-                value={triggerOrderType}
-                onOpenChange={setTriggerMenuOpen}
-                onChange={handleTriggerOrderTypeChange}
-                disabled={isSubmitting}
-                placement="bottom-start"
-                floatingPanelProps={{ width: 180 }}
-                renderTrigger={({ onPress, disabled: disabledTrigger }) => (
-                  <XStack
-                    h={38}
-                    alignItems="center"
-                    position="relative"
-                    gap="$1"
-                    cursor="pointer"
-                    onPress={(e) => {
-                      if (disabledTrigger) return;
-                      if (!isTriggerMode) {
-                        // First click: activate trigger mode with persisted type
-                        applyPrimaryOrderType('trigger');
-                      } else {
-                        // Already in trigger mode: open dropdown to switch type
-                        onPress?.(e);
-                      }
-                    }}
-                  >
-                    <SizableText
-                      size="$bodyMdMedium"
-                      color={isTriggerMode ? '$text' : '$textSubdued'}
+              {isSpot ? null : (
+                <Select
+                  items={triggerTypeOptions}
+                  title="Trigger"
+                  value={triggerOrderType}
+                  onOpenChange={setTriggerMenuOpen}
+                  onChange={handleTriggerOrderTypeChange}
+                  disabled={isSubmitting}
+                  placement="bottom-start"
+                  floatingPanelProps={{ width: 180 }}
+                  renderTrigger={({ onPress, disabled: disabledTrigger }) => (
+                    <XStack
+                      h={38}
+                      alignItems="center"
+                      position="relative"
+                      gap="$1"
+                      cursor="pointer"
+                      onPress={(e) => {
+                        if (disabledTrigger) return;
+                        if (!isTriggerMode) {
+                          // First click: activate trigger mode with persisted type
+                          applyPrimaryOrderType('trigger');
+                        } else {
+                          // Already in trigger mode: open dropdown to switch type
+                          onPress?.(e);
+                        }
+                      }}
                     >
-                      {triggerTabLabel}
-                    </SizableText>
-                    <Icon
-                      name={
-                        triggerMenuOpen
-                          ? 'ChevronTopSmallOutline'
-                          : 'ChevronDownSmallOutline'
-                      }
-                      color={isTriggerMode ? '$icon' : '$iconSubdued'}
-                      size="$4"
-                    />
-                    {isTriggerMode ? (
-                      <YStack
-                        position="absolute"
-                        bottom={0}
-                        left={0}
-                        right={0}
-                        h="$0.5"
-                        bg="$text"
-                        borderRadius={1}
+                      <SizableText
+                        size="$bodyMdMedium"
+                        color={isTriggerMode ? '$text' : '$textSubdued'}
+                      >
+                        {triggerTabLabel}
+                      </SizableText>
+                      <Icon
+                        name={
+                          triggerMenuOpen
+                            ? 'ChevronTopSmallOutline'
+                            : 'ChevronDownSmallOutline'
+                        }
+                        color={isTriggerMode ? '$icon' : '$iconSubdued'}
+                        size="$4"
                       />
-                    ) : null}
-                  </XStack>
-                )}
-              />
+                      {isTriggerMode ? (
+                        <YStack
+                          position="absolute"
+                          bottom={0}
+                          left={0}
+                          right={0}
+                          h="$0.5"
+                          bg="$text"
+                          borderRadius={1}
+                        />
+                      ) : null}
+                    </XStack>
+                  )}
+                />
+              )}
             </XStack>
           </YStack>
         </>
       )}
 
-      <YStack
-        gap="$2.5"
-        {...(!isMobile && {
-          flex: 1,
-          p: '$2.5',
-          borderWidth: '$px',
-          borderColor: '$borderSubdued',
-          borderRadius: '$2',
-        })}
-      >
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_account_overview_available,
-            })}
-          </SizableText>
-          <XStack alignItems="center" gap="$1">
-            <PerpsAccountNumberValue
-              value={availableToTrade}
-              skeletonWidth={60}
-            />
-            <MobileDepositButton />
-          </XStack>
-        </XStack>
+      {isSpot && !isMobile ? (
+        <TradeSideToggle
+          value={formData.side}
+          onChange={handleSideChange}
+          isMobile={isMobile}
+          isSpot
+        />
+      ) : null}
 
-        {isMobile ? null : (
-          <XStack justifyContent="space-between">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_current_position,
-              })}
-            </SizableText>
-            {perpsAccountLoading?.selectAccountLoading ? (
-              <Skeleton width={60} height={16} />
-            ) : (
-              <SizableText
-                size="$bodySmMedium"
-                color={getTradingSideTextColor(
-                  selectedSymbolPositionSide as ITradeSide,
-                )}
-              >
-                {selectedSymbolPositionValue} {perpsSelectedDisplayName}
-              </SizableText>
-            )}
-          </XStack>
-        )}
-      </YStack>
+      {isSpot && isMobile ? null : (
+        <YStack
+          gap={isSpot ? '$1.5' : '$2.5'}
+          {...(!isMobile && {
+            flex: 1,
+            p: '$2.5',
+            borderWidth: '$px',
+            borderColor: '$borderSubdued',
+            borderRadius: '$2',
+          })}
+        >
+          {isSpot ? (
+            renderSpotTradeSummaryRows()
+          ) : (
+            <>
+              <XStack justifyContent="space-between">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trade_account_overview_available,
+                  })}
+                </SizableText>
+                <XStack alignItems="center" gap="$1">
+                  <PerpsAccountNumberValue
+                    value={availableToTrade}
+                    skeletonWidth={60}
+                  />
+                  <MobileDepositButton />
+                </XStack>
+              </XStack>
+
+              {isMobile ? null : (
+                <XStack justifyContent="space-between">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_trade_current_position,
+                    })}
+                  </SizableText>
+                  {perpsAccountLoading?.selectAccountLoading ? (
+                    <Skeleton width={60} height={16} />
+                  ) : (
+                    <SizableText
+                      size="$bodySmMedium"
+                      color={getTradingSideTextColor(
+                        selectedSymbolPositionSide as ITradeSide,
+                      )}
+                    >
+                      {selectedSymbolPositionValue} {perpsSelectedDisplayName}
+                    </SizableText>
+                  )}
+                </XStack>
+              )}
+            </>
+          )}
+        </YStack>
+      )}
 
       {renderPriceInputSection()}
 
       <SizeInput
         referencePrice={referencePriceString}
         side={formData.side}
-        activeAsset={activeAsset}
-        activeAssetCtx={activeAssetCtx}
-        symbol={perpsSelectedDisplayName}
+        activeAsset={selectedTradeAsset}
+        activeAssetCtx={selectedTradeAssetCtx}
+        symbol={activeBaseName || perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
         sizeInputMode={tradingComputed.sizeInputMode}
         sliderPercent={tradingComputed.sizePercent}
         onRequestManualMode={switchToManual}
         isMobile={isMobile}
-        leverage={formData.leverage ?? 1}
+        allowMarginInput={!isSpot}
+        // Spot has no leverage concept — bypass formData.leverage (perps state)
+        // to avoid stale perps leverage affecting spot size calculations.
+        leverage={isSpot ? 1 : (formData.leverage ?? 1)}
       />
 
       <YStack px="$1" {...(isMobile && { pt: '$2', pb: '$2', mt: '$0' })}>
@@ -1034,6 +1379,12 @@ function PerpTradingForm({
       </YStack>
 
       {renderBottomSection()}
+
+      {isSpot && isMobile ? (
+        <YStack gap="$0.5" pt="$0" pb="$1.5" mt="auto">
+          {renderSpotTradeSummaryRows()}
+        </YStack>
+      ) : null}
     </YStack>
   );
 }

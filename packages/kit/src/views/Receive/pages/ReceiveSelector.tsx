@@ -20,6 +20,7 @@ import {
   type IExchangeConfig,
 } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
@@ -265,12 +266,15 @@ function ReceiveSelectorContent() {
 
   const handleExchangePress = useCallback(
     async (config: IExchangeConfig) => {
+      defaultLogger.transaction.receive.clickExchangeEntry({
+        exchangeSource: config.id,
+        walletType: wallet?.type,
+      });
       const isInstalled = isExchangeInstalled(config.id);
+      const shouldUseBinancePreOrder =
+        !platformEnv.isWebDappMode && (!platformEnv.isNative || isInstalled);
 
-      if (
-        config.id === EExchangeId.Binance &&
-        (!platformEnv.isNative || isInstalled)
-      ) {
+      if (config.id === EExchangeId.Binance && shouldUseBinancePreOrder) {
         await handleBinancePress();
         return;
       }
@@ -345,6 +349,7 @@ function ReceiveSelectorContent() {
       accountId,
       indexedAccountId,
       walletId,
+      wallet?.type,
     ],
   );
 
@@ -506,6 +511,43 @@ function ReceiveSelectorContent() {
                 <ListItem.Text flex={1} primary={config.name} />
               </ListItem>
             ))}
+            <WalletActionReceive
+              sameModal
+              source="receiveSelector"
+              renderTrigger={({ onPress, disabled }) => (
+                <ListItem
+                  drillIn
+                  onPress={() => {
+                    defaultLogger.transaction.receive.clickExchangeEntry({
+                      exchangeSource: 'others',
+                      walletType: wallet?.type,
+                    });
+                    handleReceiveOnPress({ onPress });
+                  }}
+                  disabled={disabled}
+                  gap="$4"
+                  nativePressableStyle={{ flexShrink: 0 }}
+                  userSelect="none"
+                >
+                  <YStack
+                    w="$10"
+                    h="$10"
+                    borderRadius="$full"
+                    bg="$bgStrong"
+                    justifyContent="center"
+                    alignItems="center"
+                  >
+                    <Icon name="BankOutline" color="$iconActive" />
+                  </YStack>
+                  <ListItem.Text
+                    flex={1}
+                    primary={intl.formatMessage({
+                      id: ETranslations.receive_other_exchanges,
+                    })}
+                  />
+                </ListItem>
+              )}
+            />
           </YStack>
         </YStack>
       </Page.Body>

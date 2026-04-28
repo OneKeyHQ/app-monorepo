@@ -234,6 +234,7 @@ export interface ISwapAutoSlippageSuggestedValue {
   value: number;
   from: string;
   to: string;
+  eventId: string;
 }
 
 // quote
@@ -367,6 +368,14 @@ export interface IQuoteTip {
   link?: string;
   showCheckbox?: boolean;
   checkboxLabel?: string;
+  priceImpact?: number;
+  priceImpactLoss?: number;
+  type?: EQuoteShowTipType;
+}
+
+export enum EQuoteShowTipType {
+  PRICE_IMPACT = 'priceImpact',
+  TRADE_UNKNOWN = 'tradeUnknown',
 }
 
 export interface IFetchLimitMarketPrice {
@@ -673,6 +682,7 @@ export interface ISwapState {
   noConnectWallet?: boolean;
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
+  isWaitingAutoSlippage?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
@@ -924,6 +934,7 @@ export interface IFetchSwapTxHistoryStatusResponse {
   state: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
+  stateDetail?: string;
   crossChainReceiveTxHash?: string;
   gasFee?: string;
   gasFeeFiatValue?: string;
@@ -947,6 +958,7 @@ export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
+  stateDetail?: string;
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;

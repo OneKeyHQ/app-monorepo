@@ -31,7 +31,6 @@ export function useTableColumns(
     order: 'asc' | 'desc' | undefined,
   ) => void,
   onCodeUpdated?: (shouldRefreshSummary?: boolean) => Promise<void> | void,
-  codeItems?: IInviteCodeListTableItem[],
 ) {
   const intl = useIntl();
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -59,18 +58,10 @@ export function useTableColumns(
     );
     const createdAtWidth = 145;
 
-    const maxCodeLength =
-      codeItems?.reduce(
-        (max, item) => Math.max(max, (item.displayCode ?? item.code).length),
-        0,
-      ) ?? 0;
     // Keep the fixed code column aligned with the actual cell/header layout.
-    const codeContentWidth = Math.max(
+    const codeContentWidth =
       INVITE_CODE_COLUMN_MIN_CODE_LENGTH * INVITE_CODE_COLUMN_CODE_CHAR_WIDTH +
-        INVITE_CODE_COLUMN_EXTRA_WIDTH,
-      maxCodeLength * INVITE_CODE_COLUMN_CODE_CHAR_WIDTH +
-        INVITE_CODE_COLUMN_EXTRA_WIDTH,
-    );
+      INVITE_CODE_COLUMN_EXTRA_WIDTH;
     const codeHeaderWidth =
       codeTitle.length * INVITE_CODE_COLUMN_HEADER_CHAR_WIDTH;
     const codeWidth = Math.max(
@@ -92,7 +83,7 @@ export function useTableColumns(
       codeWidth,
       inviteUrlWidth,
     };
-  }, [intl, codeItems]);
+  }, [intl]);
 
   // Calculate total fixed width
   const totalFixedWidth = useMemo(() => {
@@ -123,6 +114,9 @@ export function useTableColumns(
           <CodeCell
             code={record.code}
             displayCode={record.displayCode}
+            codeViewportWidth={
+              columnWidths.codeWidth - INVITE_CODE_COLUMN_EXTRA_WIDTH
+            }
             note={record.note}
             isPrimary={record.isPrimary}
             isCustomCode={record.isCustomCode}

@@ -1,4 +1,5 @@
 import { BigNumber } from 'bignumber.js';
+import { selectAtom } from 'jotai/utils';
 
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import {
@@ -86,6 +87,47 @@ export const {
 
 export const { atom: subscriptionActiveAtom, use: useSubscriptionActiveAtom } =
   contextAtom<boolean>(false);
+
+export type IActiveTradeInstrument =
+  | {
+      mode: 'perp';
+      coin: string;
+      assetId: number | undefined;
+      universe: HL.IPerpsUniverse | undefined;
+    }
+  | {
+      mode: 'spot';
+      coin: string;
+      assetId: number | undefined;
+      universe: HL.ISpotUniverse | undefined;
+    };
+
+export const {
+  atom: activeTradeInstrumentAtom,
+  use: useActiveTradeInstrumentAtom,
+} = contextAtom<IActiveTradeInstrument>({
+  mode: 'perp',
+  coin: '',
+  assetId: undefined,
+  universe: undefined,
+});
+
+export interface ITradeRouteViewState {
+  routeFocused: boolean;
+  tokenSelectorOpen: boolean;
+  tokenSelectorTab: string;
+  infoPanelTab: string;
+}
+
+export const {
+  atom: tradeRouteViewStateAtom,
+  use: useTradeRouteViewStateAtom,
+} = contextAtom<ITradeRouteViewState>({
+  routeFocused: false,
+  tokenSelectorOpen: false,
+  tokenSelectorTab: 'all',
+  infoPanelTab: 'Positions',
+});
 
 export type IBBOPriceMode =
   | null
@@ -371,6 +413,40 @@ export const {
   };
 });
 
+// Field-by-field equality for IPerpsAssetCtx (all primitive strings + one string[] | null).
+// Used by selectAtom to return the previous reference when data is unchanged,
+// which causes Jotai to skip the notification chain → derived atoms not
+// re-evaluated → row components not re-rendered.
+function isPerpsCtxEqual(
+  a: HL.IPerpsAssetCtx | null,
+  b: HL.IPerpsAssetCtx | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (
+    a.markPx !== b.markPx ||
+    a.midPx !== b.midPx ||
+    a.funding !== b.funding ||
+    a.openInterest !== b.openInterest ||
+    a.prevDayPx !== b.prevDayPx ||
+    a.dayNtlVlm !== b.dayNtlVlm ||
+    a.oraclePx !== b.oraclePx ||
+    a.premium !== b.premium ||
+    a.dayBaseVlm !== b.dayBaseVlm
+  ) {
+    return false;
+  }
+  // impactPxs: string[] | null
+  const ai = a.impactPxs;
+  const bi = b.impactPxs;
+  if (ai === bi) return true;
+  if (!ai || !bi || ai.length !== bi.length) return false;
+  for (let i = 0; i < ai.length; i += 1) {
+    if (ai[i] !== bi[i]) return false;
+  }
+  return true;
+}
+
 export const perpsCtxByCoinAtomCache = new Map<
   string,
   ReturnType<typeof contextAtomComputed<HL.IPerpsAssetCtx | null>>
@@ -381,10 +457,23 @@ function getOrCreateCtxByCoinAtom(dexIndex: number, assetId: number) {
   let entry = perpsCtxByCoinAtomCache.get(key);
   if (!entry) {
     const ctxIndex = dexIndex === 1 ? assetId - XYZ_ASSET_ID_OFFSET : assetId;
-    entry = contextAtomComputed((get) => {
-      const { assetCtxsByDex } = get(perpsAllAssetCtxsAtom());
-      return assetCtxsByDex?.[dexIndex]?.[ctxIndex] ?? null;
-    });
+    // selectAtom passes prevSlice to the selector. Returning prevSlice when
+    // fields are unchanged makes Jotai's Object.is check pass, so the derived
+    // atom's value stays the same reference → dependents skip re-evaluation.
+    const selectedAtom = selectAtom(
+      perpsAllAssetCtxsAtom(),
+      (
+        { assetCtxsByDex }: { assetCtxsByDex: HL.IPerpsAssetCtx[][] },
+        prevCtx?: HL.IPerpsAssetCtx | null,
+      ) => {
+        const newCtx = assetCtxsByDex?.[dexIndex]?.[ctxIndex] ?? null;
+        if (prevCtx !== undefined && isPerpsCtxEqual(prevCtx, newCtx)) {
+          return prevCtx;
+        }
+        return newCtx;
+      },
+    );
+    entry = contextAtomComputed((get) => get(selectedAtom));
     perpsCtxByCoinAtomCache.set(key, entry);
   }
   return entry;

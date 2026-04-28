@@ -8,7 +8,6 @@ import {
   authStatusOutputSchema,
 } from './auth-schema';
 import { balanceAllOutputSchema, balanceInputSchema } from './balance-schema';
-import { importInputSchema, importOutputSchema } from './import-schema';
 import { logoutInputSchema, logoutOutputSchema } from './logout-schema';
 import {
   marketKlineInputSchema,
@@ -80,14 +79,6 @@ defineCommand({
 });
 
 defineCommand({
-  name: 'import',
-  description: 'Import wallet from mnemonic (read from stdin)',
-  input: importInputSchema,
-  output: importOutputSchema,
-  examples: ['echo "word1 word2 ..." | onekey import'],
-});
-
-defineCommand({
   name: 'logout',
   description: 'Remove wallet from system keychain',
   input: logoutInputSchema,
@@ -121,12 +112,14 @@ defineCommand({
 
 defineCommand({
   name: 'auth-login',
-  description: 'Authenticate with a mnemonic or OneKey App Bot Wallet',
+  description: 'Authenticate with a OneKey App Bot Wallet or hardware wallet',
   input: authLoginInputSchema,
   output: authLoginOutputSchema,
   examples: [
-    'onekey auth login --mnemonic',
     'onekey auth login --app-transfer',
+    'onekey auth login --hardware',
+    'onekey auth login --hardware --device-id <uuid>',
+    'onekey auth login --hardware --passphrase-mode on-device',
   ],
 });
 

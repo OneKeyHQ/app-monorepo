@@ -19,6 +19,15 @@ import {
   PendingQueueTooLong,
 } from '@onekeyhq/shared/src/errors';
 import {
+  GasAccountSubmitCancelledError,
+  MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
+  abortableWait,
+  getGasAccountErrorCode,
+  getGasAccountRetryAfterSec,
+  isGasAccountSubmitCancelledError,
+  shouldDeepRetryGasAccount,
+} from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -65,6 +74,21 @@ import type {
 class ServiceSend extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  // submitId → AbortController for in-flight 90212 retry loops. Registered
+  // when `signAndSendTransaction` enters the gas-account retry branch and
+  // cleared in its `finally`. UI calls `abortGasAccountSubmit` to break the
+  // loop when the user cancels the confirm screen.
+  private gasAccountSubmitAborters: Map<string, AbortController> = new Map();
+
+  @backgroundMethod()
+  public async abortGasAccountSubmit(submitId: string): Promise<void> {
+    const controller = this.gasAccountSubmitAborters.get(submitId);
+    if (controller) {
+      controller.abort();
+      this.gasAccountSubmitAborters.delete(submitId);
+    }
   }
 
   @backgroundMethod()
@@ -160,6 +184,7 @@ class ServiceSend extends ServiceBase {
       signature,
       rawTxType,
       tronResourceRentalInfo,
+      gasAccountUiState,
       useDefaultRpc,
     } = params;
 
@@ -212,6 +237,13 @@ class ServiceSend extends ServiceBase {
         disableBroadcast,
         disableAntiMev: signedTx.disableMev,
         hasEnergyRented,
+        ...(gasAccountUiState?.selectedPayer === 'gasAccount' &&
+        gasAccountUiState.gasAccountQuote?.quoteId
+          ? {
+              quoteId: gasAccountUiState.gasAccountQuote.quoteId,
+              idempotencyKey: gasAccountUiState.idempotencyKey,
+            }
+          : {}),
       },
       {
         timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
@@ -316,7 +348,11 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async signAndSendTransaction(
-    params: ISendTxBaseParams & ISignTransactionParamsBase,
+    params: ISendTxBaseParams &
+      ISignTransactionParamsBase & {
+        gasAccountUiState?: IBatchSignTransactionParamsBase['gasAccountUiState'];
+        gasAccountSubmitId?: IBatchSignTransactionParamsBase['gasAccountSubmitId'];
+      },
   ) {
     const {
       networkId,
@@ -325,6 +361,8 @@ class ServiceSend extends ServiceBase {
       signOnly,
       rawTxType,
       tronResourceRentalInfo,
+      gasAccountUiState,
+      gasAccountSubmitId,
       useDefaultRpc,
     } = params;
 
@@ -361,7 +399,7 @@ class ServiceSend extends ServiceBase {
         accountId,
       });
 
-      const broadcastTx = async () => {
+      const broadcastOnce = async () => {
         return vault.broadcastTransaction({
           accountId,
           networkId,
@@ -369,19 +407,130 @@ class ServiceSend extends ServiceBase {
           signedTx,
           rawTxType,
           tronResourceRentalInfo,
+          gasAccountUiState,
           useDefaultRpc,
         });
       };
 
-      const { txid } = await pRetry(broadcastTx, {
-        retries: vaultSettings.maxRetryBroadcastTxCount ?? 5,
-        minTimeout:
-          vaultSettings.minRetryBroadcastTxInterval ??
-          timerUtils.getTimeDurationMs({ seconds: 3 }),
-        shouldRetry: async (error) => {
-          return vault.checkShouldRetryBroadcastTx(error);
-        },
-      });
+      // 90212 GasAccountAdmissionOverloaded is a transient, idempotent retry
+      // signal. Prime + BFF guarantee that re-sending the same signedTx with
+      // the same quoteId + idempotencyKey will not double-charge or consume
+      // the quote, so we can deep-retry up to N times without re-signing and
+      // without re-estimating. Only engage when the user actually picked the
+      // gas account payer and we have a live quote.
+      const isGasAccountSubmit =
+        gasAccountUiState?.selectedPayer === 'gasAccount' &&
+        !!gasAccountUiState.gasAccountQuote?.quoteId;
+
+      // Register an AbortController against the UI-provided submitId so the
+      // confirm page can break the retry sleep via
+      // `serviceSend.abortGasAccountSubmit(submitId)`. Cleaned up in finally.
+      let abortController: AbortController | undefined;
+      if (isGasAccountSubmit && gasAccountSubmitId) {
+        abortController = new AbortController();
+        this.gasAccountSubmitAborters.set(gasAccountSubmitId, abortController);
+      }
+
+      const broadcastWithGasAccountRetry = async () => {
+        let lastError: unknown;
+        let emittedScheduled = false;
+        const emitClearedIfNeeded = () => {
+          if (emittedScheduled) {
+            appEventBus.emit(
+              EAppEventBusNames.GasAccountSubmitRetryCleared,
+              undefined,
+            );
+          }
+        };
+        try {
+          for (
+            let attempt = 0;
+            attempt <= MAX_GAS_ACCOUNT_RETRY_ATTEMPTS;
+            attempt += 1
+          ) {
+            if (abortController?.signal.aborted) {
+              throw new GasAccountSubmitCancelledError();
+            }
+            try {
+              const result = await broadcastOnce();
+              emitClearedIfNeeded();
+              return result;
+            } catch (error) {
+              if (isGasAccountSubmitCancelledError(error)) {
+                // abortableWait unwound mid-sleep; bubble straight up.
+                emitClearedIfNeeded();
+                throw error;
+              }
+              if (abortController?.signal.aborted) {
+                emitClearedIfNeeded();
+                throw new GasAccountSubmitCancelledError();
+              }
+              lastError = error;
+              const code = getGasAccountErrorCode(error);
+              const retryAfterSec = getGasAccountRetryAfterSec(error);
+              const canRetry =
+                attempt < MAX_GAS_ACCOUNT_RETRY_ATTEMPTS &&
+                shouldDeepRetryGasAccount({ code, retryAfterSec });
+              if (!canRetry) {
+                emitClearedIfNeeded();
+                throw error;
+              }
+              appEventBus.emit(
+                EAppEventBusNames.GasAccountSubmitRetryScheduled,
+                {
+                  attempt: attempt + 1,
+                  maxAttempts: MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
+                  retryAfterSec: retryAfterSec as number,
+                  scheduledAt: Date.now(),
+                },
+              );
+              emittedScheduled = true;
+              await abortableWait(
+                (retryAfterSec as number) * 1000,
+                abortController?.signal,
+              );
+            }
+          }
+          emitClearedIfNeeded();
+          // Structurally unreachable — every loop iteration returns on success
+          // or throws on exhaustion — but TS can't narrow `for` exit, so keep a
+          // typed fallback for the linter.
+          throw lastError instanceof Error
+            ? lastError
+            : new OneKeyLocalError(
+                'Gas account broadcast failed after deep retry.',
+              );
+        } finally {
+          if (gasAccountSubmitId) {
+            this.gasAccountSubmitAborters.delete(gasAccountSubmitId);
+          }
+        }
+      };
+
+      // Gas account submit runs its own bounded deep-retry loop (3 × 90212).
+      // We deliberately bypass the outer pRetry here: vault
+      // checkShouldRetryBroadcastTx returns true for generic transient codes
+      // (EVM 40001 SERVICE_BUSY, SOL BLOCK_HASH_NOT_FOUND, Algo follower-mode)
+      // and would re-enter `broadcastWithGasAccountRetry` with its attempt
+      // counter reset, amplifying the nominal 3-retry budget to
+      // (pRetry.retries × inner.retries) ≈ 24 broadcasts and violating the
+      // product contract with Prime/BFF on retry amplification.
+      const runBroadcast = async () => {
+        if (isGasAccountSubmit) {
+          return broadcastWithGasAccountRetry();
+        }
+        return pRetry(broadcastOnce, {
+          retries: vaultSettings.maxRetryBroadcastTxCount ?? 5,
+          minTimeout:
+            vaultSettings.minRetryBroadcastTxInterval ??
+            timerUtils.getTimeDurationMs({ seconds: 3 }),
+          shouldRetry: async (error) => {
+            return vault.checkShouldRetryBroadcastTx(error);
+          },
+        });
+      };
+
+      const { txid } = await runBroadcast();
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
           return signedTx;
@@ -453,11 +602,28 @@ class ServiceSend extends ServiceBase {
       transferPayload,
       successfullySentTxs,
       tronResourceRentalInfo,
+      gasAccountUiState,
+      gasAccountSubmitId,
       useDefaultRpc,
     } = params;
 
     const isMultiTxs = unsignedTxs.length > 1;
     const vault = await vaultFactory.getVault({ networkId, accountId });
+
+    // A Gas Account quote is bound to a single user tx (payloadHash + locked
+    // nonce). In batch flows (approve+swap, bulk send, multi-staking) every
+    // iteration would otherwise reuse the same quoteId/idempotencyKey and
+    // bounce off the server's single-use enforcement (40203 QUOTE_ALREADY_USED).
+    // Until per-tx quoting is supported, skip sponsor attachment in batches.
+    const effectiveGasAccountUiState = isMultiTxs
+      ? undefined
+      : gasAccountUiState;
+    // Only thread the submitId through when we're actually going to engage the
+    // retry loop, to avoid registering a controller for paths that will never
+    // abort it.
+    const effectiveGasAccountSubmitId = isMultiTxs
+      ? undefined
+      : gasAccountSubmitId;
 
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -484,6 +650,8 @@ class ServiceSend extends ServiceBase {
               accountId,
               signOnly: false,
               tronResourceRentalInfo,
+              gasAccountUiState: effectiveGasAccountUiState,
+              gasAccountSubmitId: effectiveGasAccountSubmitId,
               useDefaultRpc,
             });
         const decodedTx = await this.buildDecodedTx({
@@ -850,22 +1018,11 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     toAddress: string;
   }) {
-    // For BTC network with fresh address enabled, skip interaction check
-    let checkInteraction: boolean | undefined;
-    if (networkUtils.isBTCNetwork(networkId)) {
-      const enableBTCFreshAddress =
-        await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
-      if (enableBTCFreshAddress) {
-        checkInteraction = false;
-      }
-    }
-
     const { isContract, isScam } =
       await this.backgroundApi.serviceAccountProfile.getAddressAccountBadge({
         networkId,
         fromAddress,
         toAddress,
-        checkInteraction,
       });
     if (isContract || isScam) {
       await new Promise<boolean>((resolve, reject) => {
@@ -978,15 +1135,17 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     accountId?: string;
     memo: string;
+    tokenAddress?: string;
   }) {
-    const { networkId, accountId, memo } = params;
+    const { networkId, accountId, memo, tokenAddress } = params;
     if (accountId) {
       const vault = await vaultFactory.getVault({ networkId, accountId });
-      return vault.validateMemo(memo);
+      return vault.validateMemo(memo, tokenAddress);
     }
 
     return (await vaultFactory.getChainOnlyVault({ networkId })).validateMemo(
       memo,
+      tokenAddress,
     );
   }
 

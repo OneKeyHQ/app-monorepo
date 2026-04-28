@@ -31,11 +31,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
@@ -55,6 +58,9 @@ export type IDeviceManagementListItem = IHwQrWalletWithDevice & {
   isQrWallet?: boolean;
 };
 
+// Module-level so dedup survives modal close/reopen within a session.
+const reportedUnverifiedDeviceIds = new Set<string>();
+
 function DeviceListItem({
   item,
   onPress,
@@ -65,6 +71,9 @@ function DeviceListItem({
   isConnected: boolean;
 }) {
   const { gtMd } = useMedia();
+  const isThirdParty = getVendorProfile(
+    item.device?.vendor ?? EHardwareVendor.onekey,
+  ).isThirdParty;
   const walletAvatarProps: IWalletAvatarProps = {
     img: item.wallet.avatarInfo?.img,
     wallet: item.wallet,
@@ -77,6 +86,78 @@ function DeviceListItem({
   };
 
   const isVerified = Boolean(item.device?.verifiedAtVersion);
+
+  // Diagnostic: snapshot unverified devices once per session, comparing UI vs fresh DB.
+  useEffect(() => {
+    const dbDevice = item.device;
+    if (item.isQrWallet || !dbDevice || isVerified) return;
+    if (reportedUnverifiedDeviceIds.has(dbDevice.id)) return;
+    reportedUnverifiedDeviceIds.add(dbDevice.id);
+
+    const uiRaw = JSON.stringify(dbDevice.verifiedAtVersion) ?? 'undefined';
+
+    void (async () => {
+      let freshDbFound: boolean | undefined;
+      let freshRaw: string | undefined;
+      try {
+        const fresh = await backgroundApiProxy.serviceAccount.getDevice({
+          dbDeviceId: dbDevice.id,
+        });
+        freshDbFound = Boolean(fresh);
+        if (fresh) {
+          freshRaw = JSON.stringify(fresh.verifiedAtVersion);
+        }
+      } catch {
+        // freshDbFound stays undefined → read error
+      }
+
+      // Bypass usePromiseResult cache by re-issuing the same service call.
+      let requeryServiceFound: boolean | undefined;
+      let requeryMatchCount: number | undefined;
+      let requeryWalletId: string | undefined;
+      let requeryRaw: string | undefined;
+      try {
+        const requery =
+          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+            filterHiddenWallet: true,
+            skipDuplicateDeviceSameType: true,
+          });
+        const matches = Object.values(requery).filter(
+          (entry) => entry.device?.id === dbDevice.id,
+        );
+        requeryMatchCount = matches.length;
+        const match = matches[0];
+        requeryServiceFound = Boolean(match?.device);
+        if (match?.device) {
+          requeryWalletId = match.wallet.id;
+          requeryRaw = JSON.stringify(match.device.verifiedAtVersion);
+        }
+      } catch {
+        // requeryServiceFound stays undefined → read error
+      }
+
+      try {
+        defaultLogger.hardware.verify.deviceUnverifiedDetected({
+          dbDeviceId: dbDevice.id,
+          deviceId: dbDevice.deviceId,
+          uiWalletId: item.wallet.id,
+          uiVerifiedAtVersion: uiRaw,
+          freshDbFound,
+          freshDbVerifiedAtVersion: freshRaw,
+          requeryServiceFound,
+          requeryServiceMatchCount: requeryMatchCount,
+          requeryServiceWalletId: requeryWalletId,
+          requeryServiceVerifiedAtVersion: requeryRaw,
+          mismatch: freshRaw !== undefined && freshRaw !== uiRaw,
+          createdAt: dbDevice.createdAt,
+          updatedAt: dbDevice.updatedAt,
+          connectId: dbDevice.connectId,
+        });
+      } catch {
+        // never affect rendering
+      }
+    })();
+  }, [isVerified, item.device, item.isQrWallet, item.wallet.id]);
 
   const bleName = deviceUtils.buildDeviceBleName({
     features: item.device?.featuresInfo,
@@ -165,7 +246,9 @@ function DeviceListItem({
             >
               {item.wallet.name}
             </SizableText>
-            {item.isQrWallet ? null : <VerifiedBadge isVerified={isVerified} />}
+            {item.isQrWallet || isThirdParty ? null : (
+              <VerifiedBadge isVerified={isVerified} />
+            )}
           </XStack>
           {bleName ? (
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -174,10 +257,10 @@ function DeviceListItem({
           ) : null}
         </YStack>
       )}
-      onPress={() => onPress(item.wallet)}
-      drillIn
+      onPress={isThirdParty ? undefined : () => onPress(item.wallet)}
+      drillIn={!isThirdParty}
     >
-      {renderItemText}
+      {isThirdParty ? null : renderItemText}
     </ListItem>
   );
 }
@@ -224,6 +307,18 @@ function DeviceManagementV2ListWeb() {
         });
 
       for (const item of devices) {
+        item.isQrWallet = accountUtils.isQrWallet({
+          walletId: item.wallet.id,
+        });
+
+        const vendorProfile = getVendorProfile(
+          item.device?.vendor ?? EHardwareVendor.onekey,
+        );
+        if (vendorProfile.isThirdParty) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+
         const firmwareTypeBadge = await deviceUtils.getFirmwareType({
           features: item.device?.featuresInfo,
         });
@@ -234,9 +329,6 @@ function DeviceManagementV2ListWeb() {
         const deviceDetectStatus = detectStatus?.[item.device?.connectId ?? ''];
         const shouldUpdate = deviceDetectStatus?.hasUpgrade;
         const updateVersionDisplay = deviceDetectStatus?.toVersion;
-        item.isQrWallet = accountUtils.isQrWallet({
-          walletId: item.wallet.id,
-        });
         item.firmwareTypeBadge = firmwareTypeBadge;
         item.firmwareVersionDisplay = `v${
           deviceVersion.firmwareVersion ?? '-'

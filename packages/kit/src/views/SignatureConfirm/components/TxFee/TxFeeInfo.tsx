@@ -13,27 +13,32 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
+  DashText,
   Dialog,
+  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
+  useTheme,
+  useThemeName,
 } from '@onekeyhq/components';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
-import {
-  tronTokenAddressMainnet,
-  tronTokenAddressTestnet,
-} from '@onekeyhq/core/src/chains/tron/constants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useCustomFeeAtom,
   useDecodedTxsAtom,
+  useEffectiveFeePayerAtom,
   useExtraFeeInfoAtom,
+  useGasAccountTemporarilyDisabledAtom,
+  useGasAccountUiStateAtom,
   useIsSinglePresetAtom,
   useMegafuelEligibleAtom,
   useNativeTokenInfoAtom,
@@ -52,13 +57,21 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
+  tronTokenAddressMainnet,
+  tronTokenAddressTestnet,
+} from '@onekeyhq/shared/src/consts/chainConsts';
+import {
   BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
-import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyRpcError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -72,6 +85,7 @@ import {
   getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/shared/src/utils/feeUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import {
@@ -82,8 +96,15 @@ import {
 import type {
   IFeeInfoUnit,
   IFeeSelectorItem,
+  IGasAccountScenario,
+  IGasPayer,
   IMultiTxsFeeSelectorItem,
 } from '@onekeyhq/shared/types/fee';
+
+import {
+  EGasAccountErrorStrategy,
+  getGasAccountErrorEntry,
+} from '../../constants/gasAccountErrorCodes';
 
 import { TxFeeEditor } from './TxFeeEditor';
 import { TxFeeSelectorTrigger } from './TxFeeSelectorTrigger';
@@ -96,7 +117,19 @@ type IProps = {
   tableLayout?: boolean;
   feeInfoWrapperProps?: React.ComponentProps<typeof Stack>;
   transferPayload?: ITransferPayload;
+  gasAccountScenario?: IGasAccountScenario;
 };
+
+const SPONSORED_COUPON_INFO_WIDTH = 56;
+const SPONSORED_COUPON_SEPARATOR_STROKE = 2;
+const SPONSORED_COUPON_CUTOUT_SIZE = 18;
+const SPONSORED_COUPON_CUTOUT_OFFSET = SPONSORED_COUPON_CUTOUT_SIZE / 2;
+const SPONSORED_FEES_HELP_CENTER_URL =
+  'https://help.onekey.so/collections/15988402';
+
+function buildGasAccountIdempotencyKey(quoteId?: string) {
+  return quoteId ? `gas-account:${quoteId}` : '';
+}
 
 function TxFeeInfo(props: IProps) {
   const {
@@ -106,8 +139,11 @@ function TxFeeInfo(props: IProps) {
     feeInfoEditable = true,
     feeInfoWrapperProps,
     transferPayload,
+    gasAccountScenario,
   } = props;
   const intl = useIntl();
+  const theme = useTheme();
+  const themeName = useThemeName();
   const feeInTxUpdated = useRef(false);
   const tronRentalUpdated = useRef(false);
   const lastTxUuidRef = useRef<string | undefined>(undefined);
@@ -128,6 +164,10 @@ function TxFeeInfo(props: IProps) {
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tokenTransferAmount] = useTokenTransferAmountAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
+  const [effectiveFeePayer] = useEffectiveFeePayerAtom();
+  const [gasAccountTemporarilyDisabled] =
+    useGasAccountTemporarilyDisabledAtom();
+  const [gasAccountUiState] = useGasAccountUiStateAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const currentTxUuid = unsignedTxs[0]?.uuid;
   const feeRequestIdRef = useRef(0);
@@ -154,11 +194,35 @@ function TxFeeInfo(props: IProps) {
     resetPayWithTokenInfo,
     updateMegafuelEligible,
     resetMegafuelEligible,
+    updateEffectiveFeePayer,
+    resetGasAccountTemporarilyDisabled,
+    updateGasAccountTemporarilyDisabled,
+    updateGasAccountUiState,
+    resetGasAccountUiState,
     updateTxFeeInfoInit,
     resetTxFeeState,
   } = useSignatureConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
+  const gasAccountQuote = gasAccountUiState.gasAccountQuote;
+  const gasAccountMaxFee = gasAccountQuote?.maxFee ?? '0';
+  const isGasAccountEligible =
+    gasAccountUiState.gasAccountEligible && !!gasAccountQuote?.quoteId;
+  const isGasAccountSelected =
+    isGasAccountEligible && gasAccountUiState.selectedPayer === 'gasAccount';
+  const isMegafuelSponsored =
+    effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable;
+  const isGasAccountSponsored = effectiveFeePayer === 'gasAccount';
+  const isPayerManagedByService = isMegafuelSponsored || isGasAccountSponsored;
+  const isDarkMode = /dark/.test(themeName);
+  const gasSponsoredAccentColor = theme.bgAccent.val;
+  const sponsoredCouponBgColor = theme.brand3.val;
+  const sponsoredCouponTextColor = theme.text.val;
+  const sponsoredCouponSubTextColor = theme.textSubdued.val;
+  const sponsoredCouponIconBgColor = isDarkMode
+    ? theme.brand8.val
+    : gasSponsoredAccentColor;
+  const sponsoredCouponSeparatorColor = theme.borderSubdued.val;
 
   // For non-HD wallets, approve&swap transactions will be sent as separate consecutive transactions,
   // each requiring individual confirmation
@@ -202,7 +266,7 @@ function TxFeeInfo(props: IProps) {
       ]);
     }, [accountId, networkId]);
 
-  const { result, run, setResult } = usePromiseResult(
+  const { result, run, setResult, setStopPolling } = usePromiseResult(
     async () => {
       const staleResult = {
         r: undefined,
@@ -341,27 +405,114 @@ function TxFeeInfo(props: IProps) {
           };
         }
 
+        let lockedUserNonceValue: number | undefined;
+        if (txAdvancedSettings.nonce) {
+          lockedUserNonceValue = Number(txAdvancedSettings.nonce);
+        } else if (typeof unsignedTxs[0].nonce === 'number') {
+          lockedUserNonceValue = unsignedTxs[0].nonce;
+        } else if (vaultSettings?.nonceRequired) {
+          // Submit resolves an unset nonce via `serviceSend.getNextNonce`
+          // before broadcast. The backend binds sponsor quotes to this
+          // locked nonce, so estimate must mirror the same resolution —
+          // otherwise the quote drifts against the broadcast nonce
+          // (typically for users with local pending txs, where
+          // `max(pending+1, chain)` differs from the chain nonce the
+          // backend defaults to) and triggers a 40209 NONCE_CHANGED
+          // refresh loop.
+          try {
+            lockedUserNonceValue =
+              await backgroundApiProxy.serviceSend.getNextNonce({
+                accountId,
+                networkId,
+                accountAddress,
+              });
+          } catch (nonceErr) {
+            // Degrade to the pre-fix behavior for this attempt; a
+            // downstream 40209 would still route through the Refresh
+            // strategy, so the flow stays recoverable.
+            console.warn(
+              '[GasAccount] pre-estimate nonce lock failed',
+              nonceErr,
+            );
+            lockedUserNonceValue = undefined;
+          }
+          if (getStaleResult()) {
+            return staleResult;
+          }
+        }
+        const lockedUserNonce = Number.isFinite(lockedUserNonceValue)
+          ? lockedUserNonceValue
+          : undefined;
+
         const r = await backgroundApiProxy.serviceGas.estimateFee({
           accountId,
           networkId,
           encodedTx,
           accountAddress,
           transfersInfo: unsignedTxs[0].transfersInfo,
+          lockedUserNonce,
+          gasAccountEnabled: !gasAccountTemporarilyDisabled,
+          scenario: gasAccountScenario,
         });
+        // L3 scenario gate telemetry: surface frontend contract bugs. Both
+        // reasons indicate a client-side mismatch with the backend enum; log
+        // to console so it shows up in dev/staging. Backend already records
+        // `admission_*` events for this, so we don't double-report here.
+        // `scenario_disabled_*` is a policy outcome and stays silent per
+        // product decision.
+        if (
+          r.gasAccountScenarioReason === 'scenario_missing' ||
+          r.gasAccountScenarioReason === 'scenario_unknown'
+        ) {
+          console.error(
+            '[GasAccount] scenario gate rejected request',
+            r.gasAccountScenarioReason,
+            { scenario: gasAccountScenario, networkId },
+          );
+        }
         if (getStaleResult()) {
           return staleResult;
         }
 
-        if (r.megafuelEligible) {
-          const customRpcInfo =
-            await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
-              networkId,
-            );
-          if (getStaleResult()) {
-            return staleResult;
-          }
+        const customRpcInfo =
+          r.megafuelEligible || r.gasAccountEligible || r.payer === 'gasAccount'
+            ? await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
+                networkId,
+              )
+            : undefined;
+        if (getStaleResult()) {
+          return staleResult;
+        }
+
+        const isCustomRpcEnabled = !!(
+          customRpcInfo?.rpc && customRpcInfo?.enabled
+        );
+        // Multi-tx flows fall through to this single-tx estimate path when
+        // `batchEstimateFee` is unavailable or fails. The single-tx estimate
+        // can return sponsor eligibility (gasAccount / megafuel) for the
+        // first tx, but `ServiceSend.batchSignAndSendTransaction` strips
+        // `gasAccountUiState` for any batch (a quote is bound to one user tx
+        // via payloadHash + locked nonce). Surfacing sponsor UI here would
+        // show "0 network fee" / sponsor badge while the actual broadcast
+        // falls back to user-paid. Treat batches like sponsor is disabled.
+        const sponsorDisabledForBatch = isMultiTxs;
+        // `gasAccountTemporarilyDisabled` narrows only the gas-account path.
+        // Megafuel is an independent sponsor mechanism and should still be
+        // honored when the server indicates `payer='megafuel'` after a
+        // gas-account fallback. Custom RPC and multi-tx batches still force
+        // user-paid for all sponsors (see the block comment above).
+        const serverPayer: IGasPayer = r.payer ?? 'user';
+        const nextEffectiveFeePayer: IGasPayer =
+          isCustomRpcEnabled ||
+          sponsorDisabledForBatch ||
+          (gasAccountTemporarilyDisabled && serverPayer === 'gasAccount')
+            ? 'user'
+            : serverPayer;
+        updateEffectiveFeePayer(nextEffectiveFeePayer);
+
+        if (r.megafuelEligible && !sponsorDisabledForBatch) {
           // if custom rpc is enabled, disable megafuel eligible
-          if (customRpcInfo?.rpc && customRpcInfo?.enabled) {
+          if (isCustomRpcEnabled) {
             r.megafuelEligible = undefined;
             r.gas = r.gas?.map((gas) => ({
               ...gas,
@@ -375,7 +526,61 @@ function TxFeeInfo(props: IProps) {
             updateMegafuelEligible(r.megafuelEligible);
           }
         } else {
+          if (sponsorDisabledForBatch) {
+            r.megafuelEligible = undefined;
+            r.gas = r.gas?.map((gas) => ({
+              ...gas,
+              gasPrice: gas.originalGasPrice ?? gas.gasPrice,
+            }));
+          }
           resetMegafuelEligible();
+        }
+
+        if (
+          isCustomRpcEnabled ||
+          gasAccountTemporarilyDisabled ||
+          sponsorDisabledForBatch
+        ) {
+          resetGasAccountUiState();
+          if (gasAccountTemporarilyDisabled || sponsorDisabledForBatch) {
+            // The default state already flags `selectedPayer='user'`,
+            // `gasAccountEligible=false`, `idempotencyKey=''`; only the
+            // explicit `payer='user'` is worth setting so downstream
+            // consumers see a concrete value instead of `undefined`.
+            updateGasAccountUiState({ payer: 'user' });
+          }
+        } else if (r.gasAccountEligible && r.gasAccountQuote) {
+          resetGasAccountTemporarilyDisabled();
+          const nextSelectedPayer =
+            r.megafuelEligible?.sponsorable || r.payer !== 'gasAccount'
+              ? 'user'
+              : 'gasAccount';
+
+          updateGasAccountUiState({
+            payer: r.payer,
+            gasAccountEligible: true,
+            gasAccountQuote: r.gasAccountQuote,
+            selectedPayer: nextSelectedPayer,
+            lockedUserNonce,
+            idempotencyKey:
+              nextSelectedPayer === 'gasAccount'
+                ? buildGasAccountIdempotencyKey(r.gasAccountQuote.quoteId)
+                : '',
+            gasAccountScenarioReason: r.gasAccountScenarioReason,
+          });
+        } else {
+          resetGasAccountUiState();
+          // L3 reason is observational: record it so downstream consumers
+          // (and Grafana-equivalent telemetry) can distinguish policy gate
+          // from transient chain failure. Do NOT set
+          // `gasAccountTemporarilyDisabled` — scenario gate is not a
+          // fallback-worthy condition, retrying won't flip it.
+          if (r.gasAccountScenarioReason) {
+            updateGasAccountUiState({
+              payer: 'user',
+              gasAccountScenarioReason: r.gasAccountScenarioReason,
+            });
+          }
         }
 
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
@@ -470,16 +675,104 @@ function TxFeeInfo(props: IProps) {
         if (getStaleResult()) {
           return staleResult;
         }
+
+        // Mirror the submit-flow strategy table (see
+        // `handleGasAccountSubmitError` in TxConfirmActions). Estimate polls on
+        // an interval with `gasAccountEnabled: !gasAccountTemporarilyDisabled`,
+        // so a sponsor-side failure (e.g. 40_218 SPONSOR_UNAVAILABLE) that
+        // isn't classified here would loop: every tick re-asks for a sponsor
+        // and gets the same error. Classifying the error and flipping
+        // `gasAccountTemporarilyDisabled` forces the next tick onto the
+        // user-paid path.
+        const gasAccountCode = getGasAccountErrorCode(e);
+        const gasAccountEntry = getGasAccountErrorEntry(gasAccountCode);
+        if (
+          gasAccountEntry &&
+          !gasAccountTemporarilyDisabled &&
+          (gasAccountEntry.strategy === EGasAccountErrorStrategy.Fallback ||
+            gasAccountEntry.strategy === EGasAccountErrorStrategy.Hint)
+        ) {
+          if (e) {
+            (e as IOneKeyError).autoToast = false;
+          }
+          updateEffectiveFeePayer('user');
+          updateGasAccountTemporarilyDisabled(true);
+          resetGasAccountUiState();
+          updateGasAccountUiState({ payer: 'user' });
+          resetMegafuelEligible();
+          updateTxFeeInfoInit(false);
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Loading,
+            errMessage: '',
+            discountPercent: 0,
+          });
+          Toast.warning({
+            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+          });
+          appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+          return staleResult;
+        }
+        if (
+          gasAccountEntry &&
+          gasAccountEntry.strategy === EGasAccountErrorStrategy.Refresh
+        ) {
+          if (e) {
+            (e as IOneKeyError).autoToast = false;
+          }
+          resetGasAccountUiState();
+          resetMegafuelEligible();
+          updateTxFeeInfoInit(false);
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Loading,
+            errMessage: '',
+            discountPercent: 0,
+          });
+          Toast.warning({
+            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+          });
+          appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+          return staleResult;
+        }
+
+        const apiError = e as IOneKeyError;
+        // Server-driven stop: when the backend marks an error with
+        // `stopPolling: true` (e.g. allowance shortage, expired swap quote),
+        // retrying with the same input will keep failing. Pause future ticks
+        // so the message stays visible without spamming the endpoint. Polling
+        // auto-resumes when deps (unsignedTxs/accountId/...) change.
+        if (apiError?.data?.stopPolling === true) {
+          // Suppress the global error toast — the inline fee error already
+          // carries the same message and stays visible after polling stops,
+          // so a transient toast on top would be redundant. Mirrors the
+          // sponsor-fallback branches above.
+          apiError.autoToast = false;
+          setStopPolling(true);
+        }
+
         updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
+          // Inner JSON-RPC error first so `execution reverted: ...` from the
+          // upstream node survives the OneKey API response wrapper — the outer
+          // `translatedMessage/message` is generic server-side packaging text
+          // and would otherwise hide the real RPC failure reason from the user.
           errMessage:
             (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
               ?.message ??
+            apiError?.data?.translatedMessage ??
+            apiError?.data?.message ??
+            apiError?.message ??
             (e as Error).message ??
             e,
         });
+        // The previous estimate may have populated sponsor state (badge, quote).
+        // Clear it together with the payer so a stale "free" UI never survives
+        // a failed re-estimate and misleads the user or leaks an expired quote
+        // into submit.
+        updateEffectiveFeePayer('user');
+        resetGasAccountUiState();
+        resetMegafuelEligible();
       }
     },
     [
@@ -491,15 +784,25 @@ function TxFeeInfo(props: IProps) {
       network?.isTestnet,
       networkId,
       unsignedTxs,
+      gasAccountTemporarilyDisabled,
+      resetGasAccountTemporarilyDisabled,
+      updateGasAccountTemporarilyDisabled,
+      resetGasAccountUiState,
       resetMegafuelEligible,
       resetPayWithTokenInfo,
       resetTronResourceRentalInfo,
+      updateEffectiveFeePayer,
+      updateGasAccountUiState,
       updateMegafuelEligible,
       updatePayWithTokenInfo,
       updateSendFeeStatus,
       updateTronResourceRentalInfo,
       updateTxAdvancedSettings,
       updateTxFeeInfoInit,
+      txAdvancedSettings.nonce,
+      vaultSettings?.nonceRequired,
+      gasAccountScenario,
+      intl,
     ],
     {
       watchLoading: true,
@@ -518,6 +821,24 @@ function TxFeeInfo(props: IProps) {
   const { r: txFee, e: estimateFeeParams, m: multiTxsFee } = result ?? {};
 
   const txFeeCommon = txFee?.common ?? multiTxsFee?.common;
+  const gasAccountFeeNative = useMemo(() => {
+    if (!network) {
+      return '0';
+    }
+
+    return chainValueUtils.convertChainValueToAmount({
+      value: gasAccountMaxFee || '0',
+      network,
+    });
+  }, [gasAccountMaxFee, network]);
+  const gasAccountFeeFiat = useMemo(
+    () =>
+      new BigNumber(gasAccountFeeNative || 0).times(
+        txFeeCommon?.nativeTokenPrice ?? 0,
+      ),
+    [gasAccountFeeNative, txFeeCommon?.nativeTokenPrice],
+  );
+  const isGasAccountFree = isGasAccountSponsored;
 
   const openFeeEditorEnabled =
     !isLastSwapTxWithFeeInfo &&
@@ -1304,6 +1625,44 @@ function TxFeeInfo(props: IProps) {
   useEffect(() => {
     if (!txFeeInfoInit) return;
 
+    if (isGasAccountSelected) {
+      // Gas Account sponsorship only covers the network fee, not the
+      // principal native amount being transferred or chain-specific extra
+      // fees paid from the user's native balance (e.g. Solana SPL token
+      // account creation rent). Still validate that the user holds enough
+      // native balance for `amountToUpdate + extraFee`, otherwise the
+      // top-up alert disappears and Confirm becomes clickable until the
+      // submit fails on chain.
+      if (nativeTokenInfo.isLoading || !nativeTokenInfo) return;
+
+      const requiredNativeBalance = new BigNumber(
+        nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0,
+      ).plus(extraFeeInfo.feeNative ?? 0);
+      const fillUpNativeBalance = requiredNativeBalance.minus(
+        nativeTokenInfo.balance ?? 0,
+      );
+      const decodedTx = decodedTxs[0];
+      let isInsufficientNativeBalance =
+        nativeTokenTransferAmountToUpdate.isMaxSend
+          ? false
+          : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0);
+      if (decodedTx && decodedTx.isPsbt) {
+        isInsufficientNativeBalance = false;
+      }
+
+      updateSendTxStatus({
+        isInsufficientNativeBalance,
+        isInsufficientTokenBalance: false,
+        fillUpNativeBalance: fillUpNativeBalance
+          .sd(4, BigNumber.ROUND_UP)
+          .toFixed(),
+        fillUpTokenBalance: '0',
+        isBaseOnEstimateMaxFee: false,
+        maxFeeNative: '0',
+      });
+      return;
+    }
+
     if (payWithTokenInfo.enabled) {
       let requiredTokenBalance = new BigNumber(tokenTransferAmount ?? 0);
 
@@ -1389,6 +1748,7 @@ function TxFeeInfo(props: IProps) {
     decodedTxs,
     txFeeInfoInit,
     extraFeeInfo.feeNative,
+    isGasAccountSelected,
     isResourceRentalEnabled,
     isResourceRentalNeeded,
     isSwapTrxEnabled,
@@ -1414,18 +1774,287 @@ function TxFeeInfo(props: IProps) {
   }, [feeSelectorItems]);
 
   useEffect(() => {
-    const callback = () => run();
+    const callback = () => {
+      // setStopPolling(false) clears any prior server-driven stop AND
+      // resurrects the polling chain (the finally-block guard kills it once
+      // stopPollingRef flips true). It returns true in that case, meaning a
+      // fresh run already fired — so we must NOT call run() again or we'd
+      // race two concurrent estimateFee requests against the backend
+      // (vault.estimateFee doesn't accept the AbortController signal, so
+      // cancellation isn't reliable). When no stop was active, the explicit
+      // run() still covers gas-account fallback paths that emit the same
+      // event without ever stopping the chain.
+      const resumed = setStopPolling(false);
+      if (!resumed) {
+        void run();
+      }
+    };
     appEventBus.on(EAppEventBusNames.EstimateTxFeeRetry, callback);
     return () => {
       appEventBus.off(EAppEventBusNames.EstimateTxFeeRetry, callback);
     };
-  }, [run]);
+  }, [run, setStopPolling]);
 
   useEffect(() => {
     if (currentTxUuid) {
       updateTxFeeInfoInit(false);
     }
   }, [currentTxUuid, updateTxFeeInfoInit]);
+
+  const renderGasAccountSummary = useCallback(() => {
+    if (!isGasAccountSelected || isGasAccountFree) {
+      return null;
+    }
+
+    return (
+      <XStack alignItems="center" gap="$2" flexWrap="wrap">
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$text"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: txFeeCommon?.nativeSymbol,
+            keepLeadingZero: true,
+          }}
+        >
+          {gasAccountFeeNative}
+        </NumberSizeableText>
+        {gasAccountFeeFiat.gt(0) ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            (
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{
+                currency: settings.currencyInfo.symbol,
+              }}
+            >
+              {gasAccountFeeFiat.toFixed()}
+            </NumberSizeableText>
+            )
+          </SizableText>
+        ) : null}
+      </XStack>
+    );
+  }, [
+    gasAccountFeeFiat,
+    gasAccountFeeNative,
+    isGasAccountFree,
+    isGasAccountSelected,
+    settings.currencyInfo.symbol,
+    txFeeCommon?.nativeSymbol,
+  ]);
+
+  const shouldShowFreeBadge = isMegafuelSponsored || isGasAccountSponsored;
+  const sponsoredInfoTitle = intl.formatMessage({
+    id: ETranslations.wallet_fee_sponsorship__title,
+  });
+  const sponsoredCouponSubtitle = intl.formatMessage({
+    id: ETranslations.wallet_sponsored_by_onekey__title,
+  });
+  const sponsoredCouponTitle = intl.formatMessage({
+    id: ETranslations.wallet_zero_network_fee__title,
+  });
+  const sponsoredInfoDescription = intl.formatMessage({
+    id: ETranslations.wallet_sponsorship_availability_rules__desc,
+  });
+  const sponsoredLearnMoreText = intl.formatMessage({
+    id: ETranslations.wallet_learn_about_sponsored_fees__action,
+  });
+  const sponsoredSummaryTitle = intl.formatMessage({
+    id: ETranslations.wallet_onekey_sponsored__title,
+  });
+  const sponsoredSummaryDescription = intl.formatMessage({
+    id: ETranslations.wallet_you_pay_zero_network_fee__desc,
+  });
+  const handleOpenSponsoredFeesHelpCenter = useCallback(() => {
+    openUrlExternal(SPONSORED_FEES_HELP_CENTER_URL);
+  }, []);
+
+  const renderSponsoredCoupon = useCallback(
+    () => (
+      <Stack position="relative" alignSelf="stretch">
+        <XStack overflow="hidden" borderRadius="$5" bg={sponsoredCouponBgColor}>
+          <XStack
+            flex={1}
+            px="$3.5"
+            py="$3"
+            gap="$3"
+            alignItems="center"
+            minWidth={0}
+          >
+            <Stack
+              width={42}
+              height={42}
+              borderRadius="$full"
+              bg={sponsoredCouponIconBgColor}
+              alignItems="center"
+              justifyContent="center"
+              flexShrink={0}
+            >
+              <Icon name="GiftSolid" size="$4.5" color="$iconOnColor" />
+            </Stack>
+            <Stack flex={1} minWidth={0} gap="$1">
+              <SizableText
+                size="$headingMd"
+                color={sponsoredCouponTextColor}
+                numberOfLines={1}
+              >
+                {sponsoredCouponTitle}
+              </SizableText>
+              <SizableText
+                size="$bodySmMedium"
+                color={sponsoredCouponSubTextColor}
+                numberOfLines={1}
+              >
+                {sponsoredCouponSubtitle}
+              </SizableText>
+            </Stack>
+          </XStack>
+          <Stack
+            width={SPONSORED_COUPON_INFO_WIDTH}
+            position="relative"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Stack
+              position="absolute"
+              left={-(SPONSORED_COUPON_SEPARATOR_STROKE / 2)}
+              top="$3"
+              bottom="$3"
+              borderLeftWidth={SPONSORED_COUPON_SEPARATOR_STROKE}
+              borderStyle="dashed"
+              borderColor={sponsoredCouponSeparatorColor}
+              opacity={0.52}
+            />
+            <Stack
+              width={28}
+              height={28}
+              borderRadius="$full"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              onPress={handleOpenSponsoredFeesHelpCenter}
+              hoverStyle={{ opacity: 0.72 }}
+              pressStyle={{ opacity: 0.56 }}
+            >
+              <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
+            </Stack>
+          </Stack>
+        </XStack>
+        <Stack
+          position="absolute"
+          right={SPONSORED_COUPON_INFO_WIDTH - SPONSORED_COUPON_CUTOUT_OFFSET}
+          top={-SPONSORED_COUPON_CUTOUT_OFFSET}
+          width={SPONSORED_COUPON_CUTOUT_SIZE}
+          height={SPONSORED_COUPON_CUTOUT_SIZE}
+          borderRadius="$full"
+          bg="$bg"
+          pointerEvents="none"
+        />
+        <Stack
+          position="absolute"
+          right={SPONSORED_COUPON_INFO_WIDTH - SPONSORED_COUPON_CUTOUT_OFFSET}
+          bottom={-SPONSORED_COUPON_CUTOUT_OFFSET}
+          width={SPONSORED_COUPON_CUTOUT_SIZE}
+          height={SPONSORED_COUPON_CUTOUT_SIZE}
+          borderRadius="$full"
+          bg="$bg"
+          pointerEvents="none"
+        />
+      </Stack>
+    ),
+    [
+      handleOpenSponsoredFeesHelpCenter,
+      sponsoredCouponBgColor,
+      sponsoredCouponIconBgColor,
+      sponsoredCouponSeparatorColor,
+      sponsoredCouponSubTextColor,
+      sponsoredCouponTitle,
+      sponsoredCouponSubtitle,
+      sponsoredCouponTextColor,
+    ],
+  );
+
+  const handleShowSponsoredInfo = useCallback(() => {
+    const dialogInstance = Dialog.show({
+      title: sponsoredInfoTitle,
+      showFooter: false,
+      showCancelButton: false,
+      renderContent: (
+        <Stack gap="$4">
+          {renderSponsoredCoupon()}
+          <Stack px="$1" gap="$3">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {sponsoredInfoDescription}
+            </SizableText>
+            <SizableText
+              size="$bodySmMedium"
+              color="$text"
+              textDecorationLine="underline"
+              cursor="pointer"
+              alignSelf="flex-start"
+              hoverStyle={{ opacity: 0.8 }}
+              pressStyle={{ opacity: 0.7 }}
+              onPress={handleOpenSponsoredFeesHelpCenter}
+            >
+              {sponsoredLearnMoreText}
+            </SizableText>
+          </Stack>
+          <Button
+            size="medium"
+            onPress={() => {
+              void dialogInstance?.close?.();
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_got_it })}
+          </Button>
+        </Stack>
+      ),
+    });
+    return dialogInstance;
+  }, [
+    handleOpenSponsoredFeesHelpCenter,
+    intl,
+    renderSponsoredCoupon,
+    sponsoredInfoDescription,
+    sponsoredInfoTitle,
+    sponsoredLearnMoreText,
+  ]);
+
+  const renderSponsoredSummary = useCallback(
+    () => (
+      <XStack
+        alignItems="center"
+        gap="$3"
+        cursor="pointer"
+        onPress={handleShowSponsoredInfo}
+        hoverStyle={{ opacity: 0.9 }}
+        pressStyle={{ opacity: 0.82 }}
+      >
+        <Stack flex={1} minWidth={0} gap="$1">
+          <DashText
+            size="$bodyMd"
+            color="$textSubdued"
+            dashColor="$textDisabled"
+            dashThickness={0.5}
+            cursor="pointer"
+          >
+            {sponsoredSummaryTitle}
+          </DashText>
+          <SizableText size="$bodyMd" color="$text">
+            {sponsoredSummaryDescription}
+          </SizableText>
+        </Stack>
+      </XStack>
+    ),
+    [
+      handleShowSponsoredInfo,
+      sponsoredSummaryDescription,
+      sponsoredSummaryTitle,
+    ],
+  );
 
   const handlePress = useCallback(() => {
     Dialog.show({
@@ -1473,7 +2102,7 @@ function TxFeeInfo(props: IProps) {
     if (
       !vaultSettings?.editFeeEnabled ||
       !feeInfoEditable ||
-      megafuelEligible.sponsorable
+      isPayerManagedByService
     ) {
       return null;
     }
@@ -1512,9 +2141,9 @@ function TxFeeInfo(props: IProps) {
     );
   }, [
     feeInfoEditable,
-    megafuelEligible.sponsorable,
     handlePress,
     intl,
+    isPayerManagedByService,
     isSinglePreset,
     openFeeEditorEnabled,
     sendFeeStatus.errMessage,
@@ -1526,7 +2155,7 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const renderTotalNative = useCallback(() => {
-    if (megafuelEligible.sponsorable) {
+    if (isPayerManagedByService) {
       return null;
     }
 
@@ -1566,7 +2195,7 @@ function TxFeeInfo(props: IProps) {
       </NumberSizeableText>
     );
   }, [
-    megafuelEligible.sponsorable,
+    isPayerManagedByService,
     isResourceRentalEnabled,
     isResourceRentalNeeded,
     isSwapTrxEnabled,
@@ -1577,7 +2206,7 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const renderTotalFiat = useCallback(() => {
-    if (megafuelEligible.sponsorable) {
+    if (isPayerManagedByService) {
       return null;
     }
 
@@ -1627,7 +2256,7 @@ function TxFeeInfo(props: IProps) {
       </SizableText>
     );
   }, [
-    megafuelEligible.sponsorable,
+    isPayerManagedByService,
     selectedFee?.totalFiatMinForDisplay,
     isResourceRentalNeeded,
     isResourceRentalEnabled,
@@ -1638,22 +2267,26 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const renderOriginalFeeInfo = useCallback(() => {
+    if (shouldShowFreeBadge) {
+      return null;
+    }
+
     if (
       (!isResourceRentalNeeded || !isResourceRentalEnabled) &&
       !transferPayload?.isTronResourceAutoClaimed &&
-      !megafuelEligible.sponsorable
+      !isPayerManagedByService
     ) {
       return null;
     }
 
-    const textColor = megafuelEligible.sponsorable ? '$text' : '$textSubdued';
+    const textColor = '$textSubdued';
 
-    let totalNative = megafuelEligible.sponsorable
+    let totalNative = isPayerManagedByService
       ? (selectedFee?.originalTotalNative ??
         selectedFee?.totalNativeMinForDisplay)
       : selectedFee?.totalNativeMinForDisplay;
 
-    let totalFiat = megafuelEligible.sponsorable
+    let totalFiat = isPayerManagedByService
       ? (selectedFee?.originalTotalFiat ?? selectedFee?.totalFiatMinForDisplay)
       : selectedFee?.totalFiatMinForDisplay;
 
@@ -1698,16 +2331,9 @@ function TxFeeInfo(props: IProps) {
           </NumberSizeableText>
           )
         </SizableText>
-        {megafuelEligible.sponsorable ? (
-          <Badge badgeSize="sm" badgeType="success">
-            <Badge.Text>
-              {intl.formatMessage({
-                id: ETranslations.prime_status_free,
-              })}
-            </Badge.Text>
-          </Badge>
-        ) : null}
-        {sendFeeStatus.discountPercent && sendFeeStatus.discountPercent > 0 ? (
+        {sendFeeStatus.discountPercent &&
+        sendFeeStatus.discountPercent > 0 &&
+        !shouldShowFreeBadge ? (
           <Badge badgeSize="sm" badgeType="success">
             <Badge.Text>
               {sendFeeStatus.discountPercent === 100
@@ -1730,7 +2356,7 @@ function TxFeeInfo(props: IProps) {
     isResourceRentalEnabled,
     transferPayload?.isTronResourceAutoClaimed,
     transferPayload?.txOriginalFee,
-    megafuelEligible.sponsorable,
+    isPayerManagedByService,
     selectedFee?.originalTotalNative,
     selectedFee?.totalNativeMinForDisplay,
     selectedFee?.originalTotalFiat,
@@ -1738,6 +2364,7 @@ function TxFeeInfo(props: IProps) {
     txFeeCommon?.nativeSymbol,
     settings.currencyInfo.symbol,
     intl,
+    shouldShowFreeBadge,
     sendFeeStatus.discountPercent,
   ]);
 
@@ -1775,6 +2402,10 @@ function TxFeeInfo(props: IProps) {
         .toFixed();
     }
 
+    if (isPayerManagedByService) {
+      totalFiat = '0';
+    }
+
     if (
       !isNil(originalTotalFiat) &&
       !isNil(totalFiat) &&
@@ -1799,8 +2430,8 @@ function TxFeeInfo(props: IProps) {
   }, [
     isResourceRentalEnabled,
     isResourceRentalNeeded,
+    isPayerManagedByService,
     isSwapTrxEnabled,
-    megafuelEligible.sponsorable,
     payTokenInfo,
     payType,
     selectedFee?.totalFiatMinForDisplay,
@@ -1809,25 +2440,16 @@ function TxFeeInfo(props: IProps) {
     updateSendFeeStatus,
   ]);
 
-  return (
-    <Stack {...feeInfoWrapperProps}>
-      <XStack gap="$2" alignItems="center" pb="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.global_est_network_fee,
-          })}
-        </SizableText>
-        {vaultSettings?.editFeeEnabled &&
-        feeInfoEditable &&
-        !sendFeeStatus.errMessage &&
-        !megafuelEligible.sponsorable ? (
-          <SizableText size="$bodyMd" color="$textSubdued">
-            •
-          </SizableText>
-        ) : null}
-        {renderFeeEditor()}
-      </XStack>
-      {renderOriginalFeeInfo()}
+  const renderFeeSummary = useCallback(() => {
+    if (shouldShowFreeBadge) {
+      return null;
+    }
+
+    if (isGasAccountSelected) {
+      return renderGasAccountSummary();
+    }
+
+    return (
       <XStack gap="$1" alignItems="center">
         {txFeeInfoInit ? (
           renderTotalNative()
@@ -1840,6 +2462,43 @@ function TxFeeInfo(props: IProps) {
           ? renderTotalFiat()
           : ''}
       </XStack>
+    );
+  }, [
+    isGasAccountSelected,
+    renderGasAccountSummary,
+    renderTotalFiat,
+    renderTotalNative,
+    selectedFee?.totalFiatMinForDisplay,
+    shouldShowFreeBadge,
+    txFeeInfoInit,
+  ]);
+
+  return (
+    <Stack {...feeInfoWrapperProps}>
+      {shouldShowFreeBadge ? (
+        renderSponsoredSummary()
+      ) : (
+        <>
+          <XStack gap="$2" alignItems="center" flexWrap="wrap" pb="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.global_est_network_fee,
+              })}
+            </SizableText>
+            {vaultSettings?.editFeeEnabled &&
+            feeInfoEditable &&
+            !sendFeeStatus.errMessage &&
+            !isPayerManagedByService ? (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                •
+              </SizableText>
+            ) : null}
+            {renderFeeEditor()}
+          </XStack>
+          {renderOriginalFeeInfo()}
+          {renderFeeSummary()}
+        </>
+      )}
     </Stack>
   );
 }

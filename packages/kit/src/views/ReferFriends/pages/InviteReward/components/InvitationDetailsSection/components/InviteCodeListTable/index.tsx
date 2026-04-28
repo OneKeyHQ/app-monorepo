@@ -70,7 +70,6 @@ export function InviteCodeListTable({
     containerWidth,
     handleSortChange,
     onCodeUpdated ?? refetch,
-    tableItems,
   );
 
   // Fixed column shadow management using shared hook

@@ -16,6 +16,8 @@ export enum EAppSyncStorageKeys {
   onekey_whats_new_shown = 'onekey_whats_new_shown',
   last_valid_server_time = 'last_valid_server_time',
   last_valid_local_time = 'last_valid_local_time',
+  onekey_jotai_context_atoms_snapshot = 'onekey_jotai_context_atoms_snapshot',
+  onekey_swr_cache = 'onekey_swr_cache',
 }
 
 // Dev setting keys stored in the separate 'onekey-app-dev-setting' MMKV instance,
@@ -23,4 +25,13 @@ export enum EAppSyncStorageKeys {
 export enum EDevSettingSyncStorageKeys {
   onekey_developer_mode_enabled = 'onekey_developer_mode_enabled',
   onekey_bundle_skip_gpg_verification = 'onekey_bundle_skip_gpg_verification',
+}
+
+// Logical "scope" identifiers used when caching lists that are surfaced by
+// more than one UI variant. Each scope is an independent slot inside
+// `onekey_swr_cache`. Keep the value strings stable: changing one
+// invalidates every cached entry for that scope.
+export enum EAppSWRCacheScopes {
+  editableChainSelector = 'editable-chain-selector',
+  pureChainSelector = 'pure-chain-selector',
 }

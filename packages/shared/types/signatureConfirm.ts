@@ -66,6 +66,7 @@ export interface IDisplayComponentAddress {
   label: string;
   address: string;
   tags: {
+    key?: string;
     value: string;
     displayType: IBadgeType;
     icon?: IKeyOfIcons;

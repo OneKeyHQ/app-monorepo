@@ -159,8 +159,10 @@ function BasicEditAddress() {
     if (errors.length) {
       return false;
     }
-    return !addressValue.pending && form.formState.isValid;
-  }, [addressValue.pending, form.formState]);
+    return (
+      !addressValue.pending && !!addressValue.resolved && form.formState.isValid
+    );
+  }, [addressValue.pending, addressValue.resolved, form.formState]);
 
   const { result: addressBookEnabledNetworkIds } = usePromiseResult(
     async () => {

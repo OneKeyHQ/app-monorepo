@@ -553,6 +553,43 @@ export interface IBatchCheckWalletParams {
 // Response is a map where key is "networkId:address" and value is boolean
 export type IBatchCheckWalletResponse = Record<string, boolean>;
 
+// V2 batch check - includes bind window status
+export interface IBatchCheckWalletV2Item {
+  bound: boolean;
+  bindable: boolean;
+  reason?: string; // 'already_bound' | 'exceeded_bind_window'
+}
+export type IBatchCheckWalletV2Response = Record<
+  string,
+  IBatchCheckWalletV2Item
+>;
+
+// Check single wallet - extended response
+export interface ICheckWalletBindStatusResponse {
+  data: boolean;
+  bindable: boolean;
+  reason?: string;
+}
+
+// Creation records
+export interface IWalletCreationRecordItem {
+  address: string;
+  networkId: string;
+  walletCreatedAt?: string;
+}
+
+export interface IWalletDevUnbindParams {
+  address: string;
+  walletCreatedAt?: string;
+}
+
+export interface IWalletDevUnbindResponse {
+  deletedBundles: number;
+  creationRecord?: {
+    updated: boolean;
+  };
+}
+
 // Hardware records types
 export interface IHardwareRecordHistoryItem {
   type: string;
@@ -658,4 +695,97 @@ export interface IRedemptionRecordItem {
 export interface IRedemptionRecordsResponse {
   total: number;
   items: IRedemptionRecordItem[];
+}
+
+// BTC reward (cbBTC redemption) types
+export enum EBtcRewardStatus {
+  Wait = 'wait',
+  PendingPayout = 'pendingPayout',
+  PayoutInProgress = 'payoutInProgress',
+  Paid = 'paid',
+  Rejected = 'rejected',
+}
+
+export enum EBtcRewardErrorCode {
+  Unknown = -1,
+  InvalidCode = 100_300,
+  InvalidOrder = 100_301,
+  InvalidAddress = 100_302,
+  CommitFailed = 100_303,
+}
+
+export interface IBtcRewardError {
+  code: EBtcRewardErrorCode;
+  message: string;
+}
+
+export type IBtcRewardResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: IBtcRewardError };
+
+export interface IBtcRewardVerifyCodeParams {
+  code: string;
+}
+
+export interface IBtcRewardVerifyCodeData {
+  codeId: string;
+  activityName: string;
+  modelLabel: string;
+  rewardUsdCents: number;
+}
+
+export interface IBtcRewardVerifyVoucherParams {
+  codeId: string;
+  // Shopify order number (# prefix) or offline / dealer voucher code.
+  // Server dispatches by prefix.
+  voucherCode: string;
+}
+
+export interface IBtcRewardVerifyVoucherData {
+  orderSummary: {
+    orderNumber: string;
+    displayTitle: string;
+  };
+  quotaRemaining: number;
+}
+
+export interface IBtcRewardCommitParams {
+  codeId: string;
+  voucherCode: string;
+  walletAddress: string;
+}
+
+export interface IBtcRewardCommitData {
+  codeId: string;
+  btcAmount: string;
+  btcPriceUsd: string;
+  payoutEligibleAt: string;
+}
+
+export interface IBtcRewardHistoryParams {
+  walletAddress: string;
+  current?: number;
+  pageSize?: number;
+  status?: EBtcRewardStatus;
+}
+
+export interface IBtcRewardHistoryItem {
+  code: string;
+  activityName?: string | null;
+  modelLabel: string;
+  rewardUsdCents: number;
+  btcAmount?: string | null;
+  btcPriceUsd?: string | null;
+  status: EBtcRewardStatus;
+  submittedAt?: string | null;
+  payoutEligibleAt?: string | null;
+  paidAt?: string | null;
+  txHash?: string | null;
+  rejectReason?: string | null;
+  walletAddress?: string;
+}
+
+export interface IBtcRewardHistoryResponse {
+  total: number;
+  data: IBtcRewardHistoryItem[];
 }
