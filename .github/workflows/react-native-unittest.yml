@@ -20,6 +20,7 @@ jobs:
   harness-android:
     name: Harness Tests (Android)
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
 
     strategy:
       matrix:
@@ -171,7 +172,7 @@ jobs:
         run: adb logcat -v time > /tmp/logcat.txt 2>&1 &
 
       - name: Run Harness Tests (Android)
-        timeout-minutes: 30
+        timeout-minutes: 60
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
