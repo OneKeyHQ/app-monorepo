@@ -2,7 +2,13 @@ diff --git a/node_modules/@react-native-harness/platform-android/dist/adb.js b/n
 index 0b6a1d1..4f7c4bc 100644
 --- a/node_modules/@react-native-harness/platform-android/dist/adb.js
 +++ b/node_modules/@react-native-harness/platform-android/dist/adb.js
-@@ -21,7 +21,18 @@ export const reversePort = async (adbId, port, hostPort = port) => {
+@@ -1,4 +1,4 @@
+-import { spawn } from '@react-native-harness/tools';
++import { spawn, SubprocessError } from '@react-native-harness/tools';
+ export const isAppInstalled = async (adbId, bundleId) => {
+     const { stdout } = await spawn('adb', [
+         '-s',
+@@ -21,7 +21,20 @@ export const reversePort = async (adbId, port, hostPort = port) => {
      ]);
  };
  export const stopApp = async (adbId, bundleId) => {
@@ -11,10 +17,12 @@ index 0b6a1d1..4f7c4bc 100644
 +        await spawn('adb', ['-s', adbId, 'shell', 'am', 'force-stop', bundleId]);
 +    }
 +    catch (error) {
-+        // Some Android emulator images return exit code 1 for force-stop even when
-+        // the app is already stopped. Treat stop as best-effort; a real device
-+        // failure is still caught by the following start/is-running adb calls.
-+        if (String(error?.message ?? error).includes('am force-stop')) {
++        // Some Android emulator images return exit code 1 for force-stop even
++        // when the app is already stopped (no other side-channel signal).
++        // Match on the SubprocessError shape so genuine adb failures
++        // (binary missing, device unauthorized — different errors / no exitCode)
++        // still surface; only the documented "exit 1" case is swallowed.
++        if (error instanceof SubprocessError && error.exitCode === 1) {
 +            return;
 +        }
 +        throw error;
@@ -26,7 +34,13 @@ diff --git a/node_modules/@react-native-harness/platform-android/src/adb.ts b/no
 index f43b1cb..9a2b61d 100644
 --- a/node_modules/@react-native-harness/platform-android/src/adb.ts
 +++ b/node_modules/@react-native-harness/platform-android/src/adb.ts
-@@ -29,8 +29,18 @@ export const reversePort = async (
+@@ -1,4 +1,4 @@
+-import { spawn } from '@react-native-harness/tools';
++import { spawn, SubprocessError } from '@react-native-harness/tools';
+
+ export const isAppInstalled = async (
+   adbId: string,
+@@ -29,8 +29,20 @@ export const reversePort = async (
  export const stopApp = async (
    adbId: string,
    bundleId: string
@@ -35,14 +49,16 @@ index f43b1cb..9a2b61d 100644
 +  try {
 +    await spawn('adb', ['-s', adbId, 'shell', 'am', 'force-stop', bundleId]);
 +  } catch (error) {
-+    // Some Android emulator images return exit code 1 for force-stop even when
-+    // the app is already stopped. Treat stop as best-effort; a real device
-+    // failure is still caught by the following start/is-running adb calls.
-+    if (String(error?.message ?? error).includes('am force-stop')) {
++    // Some Android emulator images return exit code 1 for force-stop even
++    // when the app is already stopped (no other side-channel signal).
++    // Match on the SubprocessError shape so genuine adb failures
++    // (binary missing, device unauthorized — different errors / no exitCode)
++    // still surface; only the documented "exit 1" case is swallowed.
++    if (error instanceof SubprocessError && error.exitCode === 1) {
 +      return;
 +    }
 +    throw error;
 +  }
  };
- 
+
  export const startApp = async (
