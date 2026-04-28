@@ -26,6 +26,7 @@ import {
 } from '../../../hooks/usePerpOrderInfoPanel';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import { TradesHistoryRow } from '../Components/TradesHistoryRow';
+import { getPerpFillDirectionType } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -84,13 +85,13 @@ function PerpTradesHistoryList({
 
     const exitPriceBN = new BigNumber(fill.px);
     const pnlPerUnit = new BigNumber(fill.closedPnl).dividedBy(sizeBN);
-    const normalizedDir = fill.dir.toLowerCase();
+    const directionType = getPerpFillDirectionType(fill.dir);
 
-    if (normalizedDir.includes('close long')) {
+    if (directionType === 'closeLong') {
       return exitPriceBN.minus(pnlPerUnit);
     }
 
-    if (normalizedDir.includes('close short')) {
+    if (directionType === 'closeShort') {
       return exitPriceBN.plus(pnlPerUnit);
     }
 
