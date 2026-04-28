@@ -86,6 +86,8 @@ const protocolLogoFallbackMap: Record<string, string> = {
   stakefish: 'https://uni.onekey-asset.com/static/logo/stakefish.png',
 };
 
+const AUDIT_NAME_COLUMN_WIDTH = 172;
+
 function getItemSubtitle(
   item: IEarnProtocolIntroItem | undefined,
   intl: ReturnType<typeof useIntl>,
@@ -1168,7 +1170,13 @@ function AuditAccordionItem({
       >
         {({ open }: { open: boolean }) => (
           <>
-            <XStack flex={1} minWidth={0} gap="$1.5" ai="center">
+            <XStack
+              width={AUDIT_NAME_COLUMN_WIDTH}
+              flexShrink={0}
+              minWidth={0}
+              gap="$1.5"
+              ai="center"
+            >
               <AuditLogo audit={audit} />
               <EarnText
                 text={toEarnText(getAuditTitle(audit))}
@@ -1186,8 +1194,9 @@ function AuditAccordionItem({
               flex={1}
               minWidth={0}
               numberOfLines={1}
+              textAlign="left"
             />
-            <XStack flex={1} minWidth={0} jc="flex-end">
+            <XStack w="$5" flexShrink={0} minWidth={0} jc="flex-end">
               <Stack
                 animation="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
