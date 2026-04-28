@@ -43,6 +43,7 @@ export function HeaderScrollGestureWrapper({
   const targetScrollY = useSharedValue(0);
   const containerWidth = useSharedValue(0);
   const isGestureEnabled = useSharedValue(true);
+  const hasNotifiedGestureActive = useSharedValue(false);
   const [measuredWidth, setMeasuredWidth] = useState(0);
 
   const handleLayout = useCallback(
@@ -109,11 +110,13 @@ export function HeaderScrollGestureWrapper({
 
         isGestureEnabled.value = !shouldIgnoreByStartX(e.x);
         if (!isGestureEnabled.value) {
+          hasNotifiedGestureActive.value = false;
           return;
         }
         cancelAnimation(targetScrollY);
         startScrollY.value = scrollYCurrent?.value ?? 0;
         if (onGestureActiveChange) {
+          hasNotifiedGestureActive.value = true;
           runOnJS(onGestureActiveChange)(true);
         }
       })
@@ -144,9 +147,10 @@ export function HeaderScrollGestureWrapper({
       .onFinalize(() => {
         'worklet';
 
-        if (isGestureEnabled.value && onGestureActiveChange) {
+        if (hasNotifiedGestureActive.value && onGestureActiveChange) {
           runOnJS(onGestureActiveChange)(false);
         }
+        hasNotifiedGestureActive.value = false;
         isGestureEnabled.value = true;
       });
 
@@ -222,6 +226,7 @@ export function HeaderScrollGestureWrapper({
     containerWidth,
     measuredWidth,
     isGestureEnabled,
+    hasNotifiedGestureActive,
   ]);
 
   return (
