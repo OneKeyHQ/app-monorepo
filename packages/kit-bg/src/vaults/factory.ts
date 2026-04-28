@@ -47,6 +47,7 @@ import {
   OneKeyLocalError,
   VaultKeyringNotDefinedError,
 } from '@onekeyhq/shared/src/errors';
+import { ThirdPartyChainNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -96,13 +97,19 @@ export async function createKeyringInstance(vault: VaultBase) {
     switch (vendor) {
       case EHardwareVendor.ledger:
         if (!keyringMap.hwLedger) {
-          throw new NotImplemented(`Ledger does not support this chain yet`);
+          throw new ThirdPartyChainNotSupported({
+            vendor: 'Ledger',
+            payload: {},
+          });
         }
         keyring = new keyringMap.hwLedger(vault);
         break;
       case EHardwareVendor.trezor:
         if (!keyringMap.hwTrezor) {
-          throw new NotImplemented(`Trezor does not support this chain yet`);
+          throw new ThirdPartyChainNotSupported({
+            vendor: 'Trezor',
+            payload: {},
+          });
         }
         keyring = new keyringMap.hwTrezor(vault);
         break;

@@ -61,8 +61,15 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   private async createConnector(vendor: VendorType): Promise<IConnector> {
     switch (vendor) {
       case 'ledger': {
-        const { createLedgerWebHidConnector } =
-          await import('@onekeyfe/hwk-ledger-connector-webhid');
+        // Forward the whole SdkEvent union to SW; new variants ride this
+        // same channel without a new IPC route.
+        const { onSdkEvent } = await import('@onekeyfe/hwk-ledger-adapter');
+        onSdkEvent((event) => {
+          emitOffscreenEventToBackground('hwkSdkEvent', event);
+        });
+        const { createLedgerWebHidConnector } = await import(
+          '@onekeyfe/hwk-ledger-connector-webhid'
+        );
         return createLedgerWebHidConnector();
       }
       default:

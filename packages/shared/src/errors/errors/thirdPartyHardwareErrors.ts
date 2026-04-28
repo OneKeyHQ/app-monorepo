@@ -1,7 +1,7 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
-import { ETranslations } from '../../locale';
+import { ETranslations, ETranslationsMock } from '../../locale';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
@@ -145,6 +145,24 @@ export class ThirdPartyDeviceDisconnected extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceDisconnected;
 }
 
+/** Chain app wedged (e.g. Ledger BTC 0x6901). User must exit app on device. */
+export class ThirdPartyDeviceAppStuck extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(
+        { ...props, info: { ...props?.info, vendor: props?.vendor } },
+        {
+          defaultKey: ETranslationsMock.hardware_third_party_device_app_stuck,
+          defaultAutoToast: true,
+        },
+      ),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceAppStuck;
+}
+
 /** Connected device does not match the stored wallet */
 export class ThirdPartyDeviceMismatch extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
@@ -171,6 +189,24 @@ export class ThirdPartyOperationTimeout extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.OperationTimeout;
+}
+
+/** Chain has no keyring impl for this vendor (e.g. Ledger doesn't support Aptos). */
+export class ThirdPartyChainNotSupported extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(
+        { ...props, info: { ...props?.info, vendor: props?.vendor } },
+        {
+          defaultKey: ETranslationsMock.hardware_third_party_chain_not_supported,
+          defaultAutoToast: true,
+        },
+      ),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.ChainNotSupported;
 }
 
 /** Method not supported by this vendor/chain */
