@@ -4,6 +4,7 @@ import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/co
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import {
   checkWrappedTokenPair,
@@ -494,6 +495,7 @@ export const {
   use: useSwapStepNetFeeLevelAtom,
 } = contextAtom<{
   networkFeeLevel: ESwapNetworkFeeLevel;
+  customPriorityFee?: ICustomPriorityFeeOverride;
 }>({
   networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
 });

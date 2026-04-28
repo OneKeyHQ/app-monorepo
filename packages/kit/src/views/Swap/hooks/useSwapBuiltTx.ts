@@ -47,6 +47,7 @@ import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
+import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   numberFormat,
@@ -55,6 +56,7 @@ import {
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
+  IEstimateFeeParams,
   IFeeAlgo,
   IFeeCkb,
   IFeeDot,
@@ -1029,6 +1031,7 @@ export function useSwapBuildTx() {
         nativeSymbol: string;
         nativeTokenPrice?: number;
       },
+      estimateFeeParams?: IEstimateFeeParams,
     ) => {
       let gasLet = gasRes.gas?.[1] ?? gasRes.gas?.[0];
       let gasEIP1559Let = gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0];
@@ -1071,21 +1074,27 @@ export function useSwapBuildTx() {
         feeBudgetLet = gasRes.feeBudget?.[0];
       }
 
-      const gasInfo = {
-        common: gasCommon,
-        gas: gasLet,
-        gasEIP1559: gasEIP1559Let,
-        feeUTXO: feeUTXOLet,
-        feeTron: feeTronLet,
-        feeSol: feeSolLet,
-        feeCkb: feeCkbLet,
-        feeAlgo: feeAlgoLet,
-        feeDot: feeDotLet,
-        feeBudget: feeBudgetLet,
-      };
-      return gasInfo;
+      return applyCustomPriorityFeeToGasInfo({
+        gasInfo: {
+          common: gasCommon,
+          gas: gasLet,
+          gasEIP1559: gasEIP1559Let,
+          feeUTXO: feeUTXOLet,
+          feeTron: feeTronLet,
+          feeSol: feeSolLet,
+          feeCkb: feeCkbLet,
+          feeAlgo: feeAlgoLet,
+          feeDot: feeDotLet,
+          feeBudget: feeBudgetLet,
+        },
+        customPriorityFee: swapNetWorkFeeLevel?.customPriorityFee,
+        estimateFeeParams,
+      });
     },
-    [swapNetWorkFeeLevel?.networkFeeLevel],
+    [
+      swapNetWorkFeeLevel?.networkFeeLevel,
+      swapNetWorkFeeLevel?.customPriorityFee,
+    ],
   );
 
   const sendTxActions = useCallback(
@@ -1233,7 +1242,11 @@ export function useSwapBuildTx() {
             for (let i = 0; i < unsignedTxArr.length; i += 1) {
               const unsignedTxItem = unsignedTxArr[i];
               const gasRes = gasResArr.txFees[i];
-              const gasInfo = buildGasInfo(gasRes, gasResArr.common);
+              const gasInfo = buildGasInfo(
+                gasRes,
+                gasResArr.common,
+                estimateFeeParamsArr[i].estimateFeeParams,
+              );
               try {
                 updateStepTitle(stepIndex, i, approveUnsignedTxArr);
                 const res = await updateUnsignedTxAndSendTx({
@@ -1436,7 +1449,11 @@ export function useSwapBuildTx() {
                   gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
                 };
               }
-              const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
+              const gasParseInfo = buildGasInfo(
+                gasRes,
+                gasRes.common,
+                estimateFeeParams.estimateFeeParams,
+              );
               updateStepTitle(stepIndex, i, approveUnsignedTxArr);
               await updateUnsignedTxAndSendTx({
                 stepIndex,
@@ -1507,7 +1524,11 @@ export function useSwapBuildTx() {
               swapInfo,
             );
           }
-          const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
+          const gasParseInfo = buildGasInfo(
+            gasRes,
+            gasRes.common,
+            estimateFeeParams.estimateFeeParams,
+          );
           try {
             lastTxRes = await updateUnsignedTxAndSendTx({
               stepIndex,
@@ -2747,7 +2768,11 @@ export function useSwapBuildTx() {
             for (let i = 0; i < unsignedTxArr.length; i += 1) {
               const unsignedTxItem = unsignedTxArr[i];
               const gasRes = gasResArr.txFees[i];
-              const gasInfo = buildGasInfo(gasRes, gasResArr.common);
+              const gasInfo = buildGasInfo(
+                gasRes,
+                gasResArr.common,
+                estimateFeeParamsArr[i].estimateFeeParams,
+              );
               gasFeeInfos.push({
                 encodeTx: unsignedTxItem.encodedTx ?? {},
                 gasInfo,
@@ -2852,7 +2877,11 @@ export function useSwapBuildTx() {
                   gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
                 };
               }
-              const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
+              const gasParseInfo = buildGasInfo(
+                gasRes,
+                gasRes.common,
+                estimateFeeParams.estimateFeeParams,
+              );
               gasFeeInfos.push({
                 encodeTx: unsignedTxItem.encodedTx,
                 gasInfo: gasParseInfo,
@@ -2882,7 +2911,11 @@ export function useSwapBuildTx() {
               JSON.stringify(unsignedTx.encodedTx ?? ''),
               swapInfo,
             );
-            const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
+            const gasParseInfo = buildGasInfo(
+              gasRes,
+              gasRes.common,
+              estimateFeeParams.estimateFeeParams,
+            );
             gasFeeInfos = [
               ...gasFeeInfos,
               {
