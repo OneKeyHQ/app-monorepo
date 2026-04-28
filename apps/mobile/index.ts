@@ -101,11 +101,46 @@ if ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__) {
 if (!__DEV__) {
   const { NativeLogger, LogLevel } =
     require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+  const { classifyUnknownModuleError } =
+    require('./src/splitBundle/unknownModuleHandler') as typeof import('./src/splitBundle/unknownModuleHandler');
+  const platformEnv =
+    require('@onekeyhq/shared/src/platformEnv') as typeof import('@onekeyhq/shared/src/platformEnv');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const origHandler = (globalThis as any).ErrorUtils?.getGlobalHandler?.();
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   (globalThis as any).ErrorUtils?.setGlobalHandler?.(
     (error: Error, isFatal: boolean) => {
+      // Classify "Requiring unknown module <id>" errors before the default
+      // handler runs. RN's ExceptionsManager.reportException re-throws while
+      // reporting (`TypeError: Failed to execute 'dispatchEvent'`), which
+      // masks the original error in Sentry. Tagging here gives us a stable
+      // marker even when the secondary fault hides the real cause.
+      // See REACT-NATIVE-4AX.
+      const classification = classifyUnknownModuleError(error);
+      if (classification) {
+        try {
+          const bundleVersion = platformEnv.default?.bundleVersion ?? 'unknown';
+          NativeLogger.write(
+            LogLevel.Error,
+            `[SplitBundle][BUG] split_bundle_integrity moduleId=${classification.moduleId} bundleVersion=${bundleVersion}`,
+          );
+        } catch {
+          /* never let logging break the handler */
+        }
+        try {
+          const Sentry =
+            require('@onekeyhq/shared/src/modules3rdParty/sentry') as typeof import('@onekeyhq/shared/src/modules3rdParty/sentry');
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          Sentry.setTag?.('split_bundle_integrity', 'true');
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          Sentry.setTag?.(
+            'split_bundle_unknown_module_id',
+            classification.moduleId,
+          );
+        } catch {
+          /* sentry may not be initialised yet — never let tagging break the handler */
+        }
+      }
       NativeLogger.write(
         LogLevel.Error,
         `[JSError] ${isFatal ? 'FATAL' : 'ERROR'}: ${error?.message || error}\n${error?.stack?.slice(0, 500) || ''}`,
