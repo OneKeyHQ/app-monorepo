@@ -136,16 +136,35 @@ function getMetricValue(metric?: IEarnProtocolIntroMetric) {
   return metric?.value || metric?.description;
 }
 
+function getSafeExternalUrl(url?: string | null) {
+  const normalizedUrl = url?.trim();
+  if (!normalizedUrl) {
+    return undefined;
+  }
+
+  try {
+    const parsedUrl = new URL(normalizedUrl);
+    if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+      return normalizedUrl;
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
 function getLinkUrl(link?: IEarnProtocolIntroSocialLink) {
-  return link?.url || link?.data?.link;
+  return getSafeExternalUrl(link?.url || link?.data?.link);
 }
 
 function getHostname(url?: string) {
-  if (!url) {
+  const safeUrl = getSafeExternalUrl(url);
+  if (!safeUrl) {
     return undefined;
   }
   try {
-    return new URL(url).hostname.replace(/^www\./, '');
+    return new URL(safeUrl).hostname.replace(/^www\./, '');
   } catch {
     return undefined;
   }
@@ -1052,7 +1071,7 @@ function AuditAccordionItem({
   index: number;
 }) {
   const intl = useIntl();
-  const url = getLinkUrl(audit.button) || audit.url;
+  const url = getLinkUrl(audit.button) || getSafeExternalUrl(audit.url);
   const scope = getAuditScope(audit);
   const hasContent = hasText(scope) || Boolean(url);
   const handleOpen = useCallback(() => {
