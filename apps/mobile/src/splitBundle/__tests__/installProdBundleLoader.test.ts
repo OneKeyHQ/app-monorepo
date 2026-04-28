@@ -436,6 +436,48 @@ describe('installProdBundleLoader', () => {
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
   });
 
+  describe('Metro-URL eager fallback is loud', () => {
+    it('logs at ERROR level with [BUG] prefix for paths matching the Metro async-require URL shape', async () => {
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(createMockNativeLoader());
+
+      await loadSegment(
+        '/packages/kit/src/views/Receive/pages/ReceiveToken.bundle?modulesOnly=true&runModule=false',
+      );
+
+      const errorLogs = mockNativeLoggerWrite.mock.calls.filter(
+        ([level]) => level === 3,
+      );
+      expect(
+        errorLogs.some(
+          ([, msg]) =>
+            typeof msg === 'string' &&
+            msg.includes(
+              '[SplitBundle][BUG] missing-rewrite eager fallback',
+            ),
+        ),
+      ).toBe(true);
+    });
+
+    it('still logs at WARNING for benign eager-fallback (non-Metro-URL) keys', async () => {
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(createMockNativeLoader());
+
+      await loadSegment(`some-non-metro-key-${Math.random()}`);
+
+      const warnLogs = mockNativeLoggerWrite.mock.calls.filter(
+        ([level]) => level === 2,
+      );
+      expect(
+        warnLogs.some(
+          ([, msg]) =>
+            typeof msg === 'string' &&
+            msg.includes('[SplitBundle] eager fallback'),
+        ),
+      ).toBe(true);
+    });
+  });
+
   it('rejects circular dependsOn graphs', async () => {
     (globalThis as any).__SEGMENT_MANIFEST__ = {
       segments: {
