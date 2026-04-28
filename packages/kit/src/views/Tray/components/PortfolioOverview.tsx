@@ -1,8 +1,17 @@
 import BigNumber from 'bignumber.js';
 
 import { Image, SizableText, Stack } from '@onekeyhq/components';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+
+import { AccountAvatar } from '../../../components/AccountAvatar';
 
 export function PortfolioOverview({
   wallet,
@@ -10,14 +19,9 @@ export function PortfolioOverview({
   totalBalance,
   onPress,
 }: {
-  wallet: { name: string; emoji: string; avatarImg: string };
-  account: { name: string };
-  totalBalance: {
-    amount: string;
-    currency: string;
-    symbol: string;
-    change24h?: number;
-  };
+  wallet: ITrayData['wallet'];
+  account: ITrayData['account'];
+  totalBalance: ITrayData['totalBalance'];
   onPress: () => void;
 }) {
   const change24h = totalBalance.change24h;
@@ -38,6 +42,23 @@ export function PortfolioOverview({
         wallet.avatarImg as IAllWalletAvatarImageNamesWithoutDividers
       ]
     : undefined;
+  const hasAccountAvatar = Boolean(
+    account.avatar?.address ||
+    account.avatar?.indexedAccount ||
+    account.avatar?.account ||
+    account.avatar?.dbAccount,
+  );
+  const walletForAvatar =
+    wallet.avatarInfo?.img || wallet.avatarImg
+      ? ({
+          id: wallet.id,
+          name: wallet.name,
+          type: wallet.type,
+          passphraseState: wallet.passphraseState,
+          avatarInfo: wallet.avatarInfo ?? { img: wallet.avatarImg },
+          firmwareTypeAtCreated: wallet.firmwareTypeAtCreated,
+        } as IDBWallet)
+      : undefined;
 
   return (
     <Stack
@@ -48,57 +69,67 @@ export function PortfolioOverview({
       cursor="pointer"
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
-      <Stack
-        flexDirection="row"
-        alignItems="center"
-        marginBottom="$1"
-        minWidth={0}
-      >
-        {(() => {
-          if (avatarSource) {
-            return (
-              <Image
-                source={avatarSource}
-                width={20}
-                height={20}
-                borderRadius={4}
-                marginRight="$1.5"
-                flexShrink={0}
-              />
-            );
-          }
-          if (wallet.emoji) {
-            return (
-              <SizableText fontSize="$bodyMd" marginRight="$1.5" flexShrink={0}>
-                {wallet.emoji}
-              </SizableText>
-            );
-          }
-          return null;
-        })()}
-        <SizableText
-          fontSize="$bodySm"
-          color="$textSubdued"
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          flexShrink={1}
-          minWidth={0}
-        >
-          {wallet.name}
-        </SizableText>
+      <Stack flexDirection="row" alignItems="center" marginBottom="$1.5">
+        <Stack marginRight="$2.5" flexShrink={0}>
+          {hasAccountAvatar ? (
+            <AccountAvatar
+              size="small"
+              borderRadius="$1"
+              address={account.avatar?.address}
+              indexedAccount={
+                account.avatar?.indexedAccount as IDBIndexedAccount | undefined
+              }
+              account={account.avatar?.account as INetworkAccount | undefined}
+              dbAccount={account.avatar?.dbAccount as IDBAccount | undefined}
+              wallet={walletForAvatar}
+            />
+          ) : (
+            (() => {
+              if (avatarSource) {
+                return (
+                  <Image
+                    source={avatarSource}
+                    width={24}
+                    height={24}
+                    borderRadius={4}
+                    flexShrink={0}
+                  />
+                );
+              }
+              if (wallet.emoji) {
+                return (
+                  <SizableText fontSize="$bodyLg" flexShrink={0}>
+                    {wallet.emoji}
+                  </SizableText>
+                );
+              }
+              return null;
+            })()
+          )}
+        </Stack>
+        <Stack flexShrink={1} minWidth={0}>
+          <SizableText
+            fontSize="$bodySm"
+            color="$textSubdued"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            minWidth={0}
+          >
+            {wallet.name}
+          </SizableText>
+          {account.name ? (
+            <SizableText
+              fontSize="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              minWidth={0}
+            >
+              {account.name}
+            </SizableText>
+          ) : null}
+        </Stack>
       </Stack>
-      {account.name ? (
-        <SizableText
-          fontSize="$bodySm"
-          color="$textSubdued"
-          marginBottom="$1"
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          minWidth={0}
-        >
-          {account.name}
-        </SizableText>
-      ) : null}
       <SizableText fontSize="$headingXl" color="$text" fontWeight="600">
         {currencySymbol}
         {formattedAmount}

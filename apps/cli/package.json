@@ -1,6 +1,6 @@
 {
   "name": "@onekeyfe/cli",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "OneKey wallet CLI for developers and AI agents",
   "bin": {
     "onekey": "./bin/onekey"
@@ -37,5 +37,10 @@
     "zod": "^3.23.0",
     "zod-to-json-schema": "^3.25.2",
     "zod-to-ts": "^2.0.0"
+  },
+  "dependencies": {
+    "@onekeyfe/hd-common-connect-sdk": "1.1.26-alpha.8",
+    "@onekeyfe/hd-core": "1.1.26-alpha.8",
+    "@onekeyfe/hd-transport-usb": "1.1.26-alpha.8"
   }
 }

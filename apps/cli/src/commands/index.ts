@@ -15,3 +15,4 @@ export { registerSecurityCommands } from './security';
 export { registerSwapCommands } from './swap';
 export { registerTokenCommands } from './token';
 export { registerSchemaCommand } from './schema';
+export { registerDeviceCommands } from './device';

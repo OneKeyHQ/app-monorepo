@@ -17,10 +17,7 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
-import {
-  useSwapQuoteEventFetching,
-  useSwapQuoteLoading,
-} from '../../hooks/useSwapState';
+import { useSwapQuoteProgressState } from '../../hooks/useSwapState';
 
 import SwapInputContainer from './SwapInputContainer';
 
@@ -39,8 +36,7 @@ const SwapQuoteInput = ({
 }: ISwapQuoteInputProps) => {
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [toInputAmount, setToInputAmount] = useSwapToTokenAmountAtom();
-  const swapQuoteLoading = useSwapQuoteLoading();
-  const quoteEventFetching = useSwapQuoteEventFetching();
+  const { isWaitingActionableQuote } = useSwapQuoteProgressState();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
@@ -65,7 +61,7 @@ const SwapQuoteInput = ({
       <SwapInputContainer
         token={fromToken}
         direction={ESwapDirectionType.FROM}
-        inputLoading={swapQuoteLoading || quoteEventFetching}
+        inputLoading={isWaitingActionableQuote}
         selectTokenLoading={selectLoading}
         onAmountChange={(value) => {
           if (validateAmountInput(value, fromToken?.decimals)) {
@@ -111,7 +107,7 @@ const SwapQuoteInput = ({
       </Stack>
       <SwapInputContainer
         token={toToken}
-        inputLoading={swapQuoteLoading || quoteEventFetching}
+        inputLoading={isWaitingActionableQuote}
         selectTokenLoading={selectLoading}
         direction={ESwapDirectionType.TO}
         onAmountChange={(value) => {
