@@ -1,6 +1,10 @@
+import { EDecodedTxActionType } from '../../types/tx';
+
 import {
   composeTrayAccountChange24h,
   formatTrayPendingTxAmount,
+  getTrayPendingTxAmountInfo,
+  getTrayPendingTxType,
 } from './trayDataUtils';
 
 describe('formatTrayPendingTxAmount', () => {
@@ -25,11 +29,11 @@ describe('formatTrayPendingTxAmount', () => {
     expect(result).toBe('1.5 USDC');
   });
 
-  test('formats zero amount via 3 significant figures (documents sub-cent branch behavior)', () => {
+  test('formats zero amount without reserved decimal zeros', () => {
     const result = formatTrayPendingTxAmount({
       firstSend: { amount: '0', symbol: 'ETH' },
     });
-    expect(result).toBe('0.00 ETH');
+    expect(result).toBe('0 ETH');
   });
 
   test('returns em dash when no firstSend (approve/contract/send/swap all pass through here)', () => {
@@ -45,6 +49,53 @@ describe('formatTrayPendingTxAmount', () => {
       firstSend: { amount: 'not-a-number', symbol: 'ETH' },
     });
     expect(result).toBe('not-a-number ETH');
+  });
+});
+
+describe('getTrayPendingTxAmountInfo', () => {
+  test('uses token approve amount before transfer amount', () => {
+    const result = getTrayPendingTxAmountInfo({
+      type: EDecodedTxActionType.TOKEN_APPROVE,
+      tokenApprove: {
+        amount: '12.34',
+        symbol: 'USDT',
+      },
+      assetTransfer: {
+        sends: [{ amount: '0.1', symbol: 'ETH' }],
+      },
+    } as never);
+
+    expect(result).toEqual({ amount: '12.34', symbol: 'USDT' });
+  });
+
+  test('falls back to received amount when there is no send amount', () => {
+    const result = getTrayPendingTxAmountInfo({
+      type: EDecodedTxActionType.ASSET_TRANSFER,
+      assetTransfer: {
+        receives: [{ amount: '0.25', symbol: 'ATOM' }],
+      },
+    } as never);
+
+    expect(result).toEqual({ amount: '0.25', symbol: 'ATOM' });
+  });
+});
+
+describe('getTrayPendingTxType', () => {
+  test('classifies function calls as contract transactions', () => {
+    expect(
+      getTrayPendingTxType({
+        action: { type: EDecodedTxActionType.FUNCTION_CALL } as never,
+      }),
+    ).toBe('contract');
+  });
+
+  test('classifies asset transfers to contracts as contract transactions', () => {
+    expect(
+      getTrayPendingTxType({
+        decodedTx: { isToContract: true } as never,
+        action: { type: EDecodedTxActionType.ASSET_TRANSFER } as never,
+      }),
+    ).toBe('contract');
   });
 });
 
