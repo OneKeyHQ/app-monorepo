@@ -144,6 +144,7 @@ type ModSnapshot = {
 };
 
 const mockSnapshots = new Map<Record<string, unknown>, ModSnapshot>();
+const registeredModuleMocks = new Map<number, () => unknown>();
 
 // Sentinel value for keys whose getter threw during snapshot.
 // These keys existed on the module but couldn't be read, so restoreAllMocks
@@ -270,12 +271,49 @@ const restoreAllMocks = () => {
 };
 
 // Exposed for the harness runtime to call between test files.
-(globalThis as any).__harness_restore_mocks__ = restoreAllMocks;
+(globalThis as any).__harness_restore_mocks__ = () => {
+  restoreAllMocks();
+  registeredModuleMocks.clear();
+  harness.resetModules();
+};
+
+(globalThis as any).__harness_mock_module_id__ = (
+  moduleId: number,
+  factory: () => unknown,
+): void => {
+  registeredModuleMocks.set(moduleId, factory);
+  harness.mock(moduleId as unknown as string, factory);
+};
+
+(globalThis as any).__harness_mock_actual_module_id__ = (
+  moduleId: number,
+  factory: () => unknown,
+): void => {
+  const actual = harness.requireActual(moduleId as unknown as string);
+  if (actual && typeof actual === 'object') {
+    (globalThis as any).__harness_mock_module__(
+      actual as Record<string, unknown>,
+      factory,
+    );
+  }
+};
+
+(globalThis as any).__harness_require_actual__ = (moduleId: number): unknown =>
+  harness.requireActual(moduleId as unknown as string);
+
+const resetModules = () => {
+  harness.resetModules();
+  for (const [moduleId, factory] of registeredModuleMocks) {
+    harness.mock(moduleId as unknown as string, factory);
+  }
+};
 
 // Runtime module mock via in-place mutation.
 // The babel plugin transforms jest.mock('mod', factory) into:
-//   globalThis.__harness_mock_module__(require('mod'), factory)
-// so the module object is already resolved (static require).
+//   globalThis.__harness_mock_module_id__(require.resolveWeak('mod'), factory)
+// so the module can be replaced before first require. This in-place mutation
+// fallback is kept for older transformed bundles and edge cases where a module
+// object is already resolved.
 // We mutate its exports in-place so property-access patterns
 // (e.g. `uuid.v4()`) see the mocked values.
 //
@@ -369,6 +407,174 @@ const restoreAllMocks = () => {
   }
 };
 
+// ---- Fake timers ----
+// Keep this implementation intentionally small: it covers the timer APIs used
+// by repository unit tests without pulling Node-only Jest fake timer internals
+// into the Hermes bundle.
+type TimerTask = {
+  args: unknown[];
+  callback: (...args: unknown[]) => void;
+  interval?: number;
+  time: number;
+};
+
+const realTimerGlobals = {
+  Date: globalThis.Date,
+  clearInterval: globalThis.clearInterval,
+  clearTimeout: globalThis.clearTimeout,
+  setInterval: globalThis.setInterval,
+  setTimeout: globalThis.setTimeout,
+};
+
+let fakeTimersInstalled = false;
+let fakeNow = realTimerGlobals.Date.now();
+let nextTimerId = 1;
+const fakeTimerTasks = new Map<number, TimerTask>();
+
+const makeFakeDate = () => {
+  const RealDate = realTimerGlobals.Date;
+  const FakeDate = function fakeDate(this: unknown, ...args: unknown[]) {
+    if (this instanceof FakeDate) {
+      return args.length > 0
+        ? Reflect.construct(RealDate, args)
+        : new RealDate(fakeNow);
+    }
+    return new RealDate(fakeNow).toString();
+  } as unknown as DateConstructor;
+
+  Object.setPrototypeOf(FakeDate, RealDate);
+  Object.defineProperty(FakeDate, 'prototype', {
+    value: RealDate.prototype,
+  });
+  FakeDate.now = () => fakeNow;
+  FakeDate.parse = RealDate.parse;
+  FakeDate.UTC = RealDate.UTC;
+  return FakeDate;
+};
+
+const runMicrotasks = async () => {
+  await Promise.resolve();
+};
+
+const scheduleFakeTimer = (
+  callback: TimerHandler,
+  delay?: number,
+  args: unknown[] = [],
+  interval?: number,
+) => {
+  const id = nextTimerId;
+  nextTimerId += 1;
+  const timeout = Math.max(0, Number(delay) || 0);
+  fakeTimerTasks.set(id, {
+    args,
+    callback:
+      typeof callback === 'function'
+        ? (...callbackArgs) => {
+            callback(...callbackArgs);
+          }
+        : () => {
+            // eslint-disable-next-line no-eval
+            eval(String(callback));
+          },
+    interval,
+    time: fakeNow + timeout,
+  });
+  return id as unknown as ReturnType<typeof setTimeout>;
+};
+
+const runDueTimers = (targetTime: number, onlyTimerIds?: Set<number>) => {
+  let guard = 100_000;
+  while (guard > 0) {
+    guard -= 1;
+    let due: [number, TimerTask] | undefined;
+    for (const entry of fakeTimerTasks.entries()) {
+      const [id, task] = entry;
+      const shouldRun =
+        task.time <= targetTime && (!onlyTimerIds || onlyTimerIds.has(id));
+      const shouldReplaceDue =
+        shouldRun &&
+        (!due ||
+          task.time < due[1].time ||
+          (task.time === due[1].time && id < due[0]));
+      if (shouldReplaceDue) {
+        due = entry;
+      }
+    }
+    if (!due) break;
+
+    const [id, task] = due;
+    fakeNow = task.time;
+    if (task.interval === undefined) {
+      fakeTimerTasks.delete(id);
+    }
+    task.callback(...task.args);
+    if (task.interval !== undefined && fakeTimerTasks.has(id)) {
+      fakeTimerTasks.set(id, {
+        ...task,
+        time: fakeNow + Math.max(0, task.interval),
+      });
+    }
+  }
+  if (guard <= 0) {
+    // eslint-disable-next-line no-restricted-syntax
+    throw new Error('[harness-compat] Aborting fake timers after 100000 runs');
+  }
+  fakeNow = targetTime;
+};
+
+const useFakeTimers = () => {
+  if (!fakeTimersInstalled) {
+    fakeNow = realTimerGlobals.Date.now();
+    fakeTimerTasks.clear();
+    fakeTimersInstalled = true;
+    (globalThis as any).Date = makeFakeDate();
+    (globalThis as any).setTimeout = (
+      callback: TimerHandler,
+      delay?: number,
+      ...args: unknown[]
+    ) => scheduleFakeTimer(callback, delay, args);
+    (globalThis as any).clearTimeout = (id: number) => {
+      fakeTimerTasks.delete(Number(id));
+    };
+    (globalThis as any).setInterval = (
+      callback: TimerHandler,
+      delay?: number,
+      ...args: unknown[]
+    ) =>
+      scheduleFakeTimer(callback, delay, args, Math.max(0, Number(delay) || 0));
+    (globalThis as any).clearInterval = (id: number) => {
+      fakeTimerTasks.delete(Number(id));
+    };
+  }
+  return (globalThis as any).jest;
+};
+
+const useRealTimers = () => {
+  if (fakeTimersInstalled) {
+    fakeTimerTasks.clear();
+    fakeTimersInstalled = false;
+    globalThis.Date = realTimerGlobals.Date;
+    globalThis.setTimeout = realTimerGlobals.setTimeout;
+    globalThis.clearTimeout = realTimerGlobals.clearTimeout;
+    globalThis.setInterval = realTimerGlobals.setInterval;
+    globalThis.clearInterval = realTimerGlobals.clearInterval;
+  }
+  return (globalThis as any).jest;
+};
+
+const setSystemTime = (now?: number | Date) => {
+  if (now instanceof realTimerGlobals.Date) {
+    fakeNow = now.getTime();
+  } else if (typeof now === 'number') {
+    fakeNow = now;
+  } else {
+    fakeNow = realTimerGlobals.Date.now();
+  }
+  return (globalThis as any).jest;
+};
+
+(globalThis as any).__harness_use_real_timers__ = useRealTimers;
+
 // Override the harness jest-mock Proxy with a compat shim.
 // The patch to @react-native-harness/runtime makes the property configurable,
 // allowing this override.
@@ -377,86 +583,117 @@ const restoreAllMocks = () => {
 // babel-plugin-jest-compat at compile time. The functions below are fallbacks
 // that should rarely be called at runtime. They intentionally do NOT use
 // dynamic require() since Metro forbids it.
-Object.defineProperty(globalThis, 'jest', {
-  value: {
-    fn,
-    spyOn,
-    mock: (_moduleName: string, _factory?: () => unknown) => {
-      // Handled by babel plugin -> __harness_mock_module__
-      // This fallback is a no-op for edge cases the plugin doesn't catch
-    },
-    unmock: (_moduleName: string) => {
-      // no-op
-    },
-    requireActual: (_moduleName: string) => {
-      // Handled by babel plugin -> require('module')
-      // This fallback should not be reached
-      // eslint-disable-next-line no-restricted-syntax
-      throw new Error(
-        '[harness-compat] jest.requireActual() was not transformed by babel plugin',
-      );
-    },
-    requireMock: (_moduleName: string) => {
-      // Handled by babel plugin -> require('module')
-      // eslint-disable-next-line no-restricted-syntax
-      throw new Error(
-        '[harness-compat] jest.requireMock() was not transformed by babel plugin',
-      );
-    },
-    // Fake timers cannot be safely implemented in the harness because
-    // replacing globalThis.setTimeout breaks the harness bridge communication.
-    // Tests using fake timers are excluded via jest.harness.config.mjs.
-    // Throw so tests that slip through fail clearly instead of silently
-    // running with real timers and producing misleading results.
-    useFakeTimers: () => {
-      // eslint-disable-next-line no-restricted-syntax
-      throw new Error(
-        '[harness-compat] jest.useFakeTimers() is not supported in harness mode. ' +
-          'Add this test to testPathIgnorePatterns in jest.harness.config.mjs.',
-      );
-    },
-    useRealTimers: () => (globalThis as any).jest,
-    advanceTimersByTime: (_ms: number) => {},
-    advanceTimersByTimeAsync: async (_ms: number) => {},
-    runAllTimers: () => {},
-    runOnlyPendingTimers: () => {},
-    getTimerCount: () => 0,
-    clearAllMocks: harness.clearAllMocks,
-    resetAllMocks: harness.resetAllMocks,
-    restoreAllMocks: harness.restoreAllMocks,
-    resetModules: harness.resetModules,
-    // jest.doMock / jest.isolateModules are not supported in the harness
-    // environment (Metro shares a single module registry). Provide no-op
-    // stubs to prevent crashes from undefined function calls.
-    doMock: (_moduleName: string, _factory?: () => unknown) => {
-      console.warn(
-        `[harness-compat] jest.doMock('${_moduleName}') is not supported in harness mode`,
-      );
-    },
-    dontMock: (_moduleName: string) => {
-      // no-op
-    },
-    // eslint-disable-next-line @typescript-eslint/no-shadow
-    isolateModules: (fn: () => void) => {
-      console.warn(
-        '[harness-compat] jest.isolateModules() is not supported in harness mode, running inline',
-      );
-      fn();
-    },
-    // eslint-disable-next-line @typescript-eslint/no-shadow
-    isolateModulesAsync: async (fn: () => Promise<void>) => {
-      console.warn(
-        '[harness-compat] jest.isolateModulesAsync() is not supported in harness mode, running inline',
-      );
-      await fn();
-    },
-    isMockFunction: (f: unknown): boolean => {
-      return typeof f === 'function' && '_isMockFunction' in (f as any);
-    },
-    setTimeout: (_ms: number) => {
-      // no-op: timeout configuration is not applicable in harness mode.
-    },
+const jestCompat = {
+  fn,
+  spyOn,
+  mock: (_moduleName: string, _factory?: () => unknown) => {
+    // Handled by babel plugin -> __harness_mock_module__
+    // This fallback is a no-op for edge cases the plugin doesn't catch
   },
+  unmock: (_moduleName: string) => {
+    // no-op
+  },
+  requireActual: (_moduleName: string) => {
+    // Handled by babel plugin -> require('module')
+    // This fallback should not be reached
+    // eslint-disable-next-line no-restricted-syntax
+    throw new Error(
+      '[harness-compat] jest.requireActual() was not transformed by babel plugin',
+    );
+  },
+  requireMock: (_moduleName: string) => {
+    // Handled by babel plugin -> require('module')
+    // eslint-disable-next-line no-restricted-syntax
+    throw new Error(
+      '[harness-compat] jest.requireMock() was not transformed by babel plugin',
+    );
+  },
+  useFakeTimers,
+  useRealTimers,
+  setSystemTime,
+  getRealSystemTime: () => realTimerGlobals.Date.now(),
+  now: () => fakeNow,
+  advanceTimersByTime: (ms: number) => {
+    runDueTimers(fakeNow + Math.max(0, Number(ms) || 0));
+    return (globalThis as any).jest;
+  },
+  advanceTimersByTimeAsync: async (ms: number) => {
+    runDueTimers(fakeNow + Math.max(0, Number(ms) || 0));
+    await runMicrotasks();
+    return (globalThis as any).jest;
+  },
+  runAllTimers: () => {
+    let guard = 100_000;
+    while (fakeTimerTasks.size > 0) {
+      guard -= 1;
+      if (guard <= 0) {
+        // eslint-disable-next-line no-restricted-syntax
+        throw new Error(
+          '[harness-compat] Aborting fake timers after 100000 runs',
+        );
+      }
+      const nextTime = Math.min(
+        ...[...fakeTimerTasks.values()].map((t) => t.time),
+      );
+      runDueTimers(nextTime);
+    }
+    return (globalThis as any).jest;
+  },
+  runOnlyPendingTimers: () => {
+    const pendingIds = new Set(fakeTimerTasks.keys());
+    const maxTime = Math.max(
+      ...[...fakeTimerTasks.values()].map((t) => t.time),
+    );
+    if (Number.isFinite(maxTime)) {
+      runDueTimers(maxTime, pendingIds);
+    }
+    return (globalThis as any).jest;
+  },
+  clearAllTimers: () => {
+    fakeTimerTasks.clear();
+    return (globalThis as any).jest;
+  },
+  getTimerCount: () => fakeTimerTasks.size,
+  clearAllMocks: harness.clearAllMocks,
+  resetAllMocks: harness.resetAllMocks,
+  restoreAllMocks: harness.restoreAllMocks,
+  resetModules,
+  // jest.doMock / jest.isolateModules are not supported in the harness
+  // environment (Metro shares a single module registry). Provide no-op
+  // stubs to prevent crashes from undefined function calls.
+  doMock: (_moduleName: string, _factory?: () => unknown) => {
+    console.warn(
+      `[harness-compat] jest.doMock('${_moduleName}') is not supported in harness mode`,
+    );
+  },
+  dontMock: (_moduleName: string) => {
+    // no-op
+  },
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  isolateModules: (fn: () => void) => {
+    console.warn(
+      '[harness-compat] jest.isolateModules() is not supported in harness mode, running inline',
+    );
+    fn();
+  },
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  isolateModulesAsync: async (fn: () => Promise<void>) => {
+    console.warn(
+      '[harness-compat] jest.isolateModulesAsync() is not supported in harness mode, running inline',
+    );
+    await fn();
+  },
+  isMockFunction: (f: unknown): boolean => {
+    return typeof f === 'function' && '_isMockFunction' in (f as any);
+  },
+  mocked: <T>(source: T): T => source,
+  setTimeout: (_ms: number) => {
+    // no-op: timeout configuration is not applicable in harness mode.
+  },
+};
+
+Object.defineProperty(globalThis, 'jest', {
+  value: jestCompat,
   writable: true,
   configurable: true,
 });
