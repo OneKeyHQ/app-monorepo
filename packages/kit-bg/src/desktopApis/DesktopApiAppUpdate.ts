@@ -26,8 +26,8 @@ import {
 } from '@onekeyhq/desktop/app/windowProgressBar';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import type { IDesktopApi } from './base/types';

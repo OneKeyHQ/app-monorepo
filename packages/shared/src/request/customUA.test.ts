@@ -1,7 +1,6 @@
 import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 
-import requestHelper from './requestHelper';
 import {
   __resetCustomUARuntimeForTest,
   __setCustomUARuntimeForTest,
@@ -9,6 +8,7 @@ import {
   shouldInjectUAForUrl,
   withCustomUAHeaders,
 } from './customUA';
+import requestHelper from './requestHelper';
 
 jest.mock('../platformEnv', () => ({
   __esModule: true,

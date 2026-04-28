@@ -1802,7 +1802,14 @@ function startWebviewMemoryMonitoring() {
 // webContents created in the ready handler already sees the patched UA —
 // `app.userAgentFallback` is readable/writable before `ready`.
 try {
-  const electronVer = process.versions.electron.replace(/\./g, '\\.');
+  // Escape every regex meta character (including backslash) before
+  // interpolating into a RegExp source — process.versions.electron is
+  // well-formed in practice, but CodeQL flags partial escapes and the
+  // strict version is a one-liner.
+  const electronVer = process.versions.electron.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&',
+  );
   app.userAgentFallback = app.userAgentFallback.replace(
     new RegExp(`(OneKeyWallet)/${electronVer}\\b`),
     `$1/${APP_VERSION}`,
