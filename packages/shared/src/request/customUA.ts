@@ -61,11 +61,14 @@ export async function shouldInjectUAForUrl(url: string): Promise<boolean> {
   if (!url || typeof url !== 'string') return false;
   const parsed = uriUtils.safeParseURL(url);
   if (!parsed) return false;
-  // CLI has no wired DI — fall back to official-domain regex only.
   try {
     return await requestHelper.checkIsOneKeyDomain(url);
   } catch {
-    return ONEKEY_OFFICIAL_HOST.test(parsed.host);
+    // CLI has no wired DI — fall back to a narrow regex (CLI only talks to
+    // *.onekeycn.com / *.onekeytest.com). For App, refuse rather than
+    // mis-inject under an uncertain whitelist.
+    if (detectRuntime() !== 'cli-node') return false;
+    return ONEKEY_OFFICIAL_HOST.test(parsed.hostname);
   }
 }
 
@@ -75,18 +78,17 @@ function hasUserAgent(headers: Record<string, string>): boolean {
   );
 }
 
-function logUADecision(record: {
-  url: string;
-  decision:
-    | 'inject'
-    | 'skip-non-whitelist'
-    | 'skip-caller-already-set'
-    | 'skip-runtime-or-disabled';
-  injected: string | null;
-  existing?: string;
-}): void {
+function logCallerConflict(url: string, existing: string): void {
   try {
-    appGlobals.$defaultLogger?.app?.customUA?.decision?.(record);
+    // Strip query/fragment — swap/auth URLs carry addresses, amounts, tokens.
+    const parsed = uriUtils.safeParseURL(url);
+    const safeUrl = parsed
+      ? `${parsed.protocol}//${parsed.host}${parsed.pathname}`
+      : '<invalid>';
+    appGlobals.$defaultLogger?.app?.customUA?.callerConflict?.({
+      url: safeUrl,
+      existing,
+    });
   } catch {
     // never let logging failures affect the request
   }
@@ -97,30 +99,13 @@ export async function withCustomUAHeaders(
   headers: Record<string, string> = {},
 ): Promise<Record<string, string>> {
   const next = { ...headers };
-  if (!(await shouldInjectUAForUrl(url))) {
-    logUADecision({ url, decision: 'skip-non-whitelist', injected: null });
-    return next;
-  }
+  if (!(await shouldInjectUAForUrl(url))) return next;
   if (hasUserAgent(next)) {
     const existing = next[USER_AGENT_HEADER] ?? next['user-agent'] ?? 'unknown';
-    logUADecision({
-      url,
-      decision: 'skip-caller-already-set',
-      injected: null,
-      existing,
-    });
+    logCallerConflict(url, existing);
     return next;
   }
   const ua = await buildCustomUA();
-  if (ua) {
-    next[USER_AGENT_HEADER] = ua;
-    logUADecision({ url, decision: 'inject', injected: ua });
-  } else {
-    logUADecision({
-      url,
-      decision: 'skip-runtime-or-disabled',
-      injected: null,
-    });
-  }
+  if (ua) next[USER_AGENT_HEADER] = ua;
   return next;
 }

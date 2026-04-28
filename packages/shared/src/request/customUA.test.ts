@@ -149,15 +149,34 @@ describe('shouldInjectUAForUrl', () => {
   });
 
   it('falls back to OneKey-official regex when requestHelper throws (CLI)', async () => {
+    __setCustomUARuntimeForTest('cli-node');
     checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('not wired'));
     expect(
       await shouldInjectUAForUrl('https://swap.onekeycn.com/swap/v1/quote'),
     ).toBe(true);
   });
 
-  it('fallback returns false for non-official host when requestHelper throws', async () => {
+  it('CLI fallback strips port (uses hostname, not host)', async () => {
+    __setCustomUARuntimeForTest('cli-node');
+    checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('not wired'));
+    expect(
+      await shouldInjectUAForUrl('https://swap.onekeycn.com:443/quote'),
+    ).toBe(true);
+  });
+
+  it('fallback returns false for non-official host when requestHelper throws (CLI)', async () => {
+    __setCustomUARuntimeForTest('cli-node');
     checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('not wired'));
     expect(await shouldInjectUAForUrl('https://example.com/foo')).toBe(false);
+  });
+
+  it('App refuses to fall back when requestHelper throws (avoid mis-inject)', async () => {
+    (platformEnv as any).isDesktop = true;
+    (platformEnv as any).appPlatform = 'desktop';
+    checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('flaky DI'));
+    expect(
+      await shouldInjectUAForUrl('https://swap.onekeycn.com/swap/v1/quote'),
+    ).toBe(false);
   });
 
   it('returns false on bad URL input', async () => {

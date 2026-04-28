@@ -107,8 +107,15 @@ class NetInfo {
     } = this.configuration;
 
     try {
-      const baseHeaders = await getRequestHeaders();
-      const headers = await withCustomUAHeaders(reachabilityUrl, baseHeaders);
+      // atoms may not be wired yet during early bootstrap; in that case ping
+      // without app headers so we don't flash a false offline state.
+      let headers: Record<string, string> | undefined;
+      try {
+        const baseHeaders = await getRequestHeaders();
+        headers = await withCustomUAHeaders(reachabilityUrl, baseHeaders);
+      } catch {
+        headers = undefined;
+      }
       const response = await healthCheckRequest({
         url: reachabilityUrl,
         method: reachabilityMethod as 'GET' | 'POST',

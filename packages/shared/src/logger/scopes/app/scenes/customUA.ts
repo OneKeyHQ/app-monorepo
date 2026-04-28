@@ -1,22 +1,16 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
 
-export type ICustomUADecisionKind =
-  | 'inject'
-  | 'skip-non-whitelist'
-  | 'skip-caller-already-set'
-  | 'skip-runtime-or-disabled';
-
-interface ICustomUADecisionRecord {
+interface ICustomUACallerConflictRecord {
   url: string;
-  decision: ICustomUADecisionKind;
-  injected: string | null;
-  existing?: string;
+  existing: string;
 }
 
 export class CustomUAScene extends BaseScene {
-  @LogToLocal({ level: 'info' })
-  public decision(record: ICustomUADecisionRecord) {
+  // Anomaly only: callsite already set User-Agent, our injection skipped.
+  // Server-side access logs are the source of truth for normal `inject` paths.
+  @LogToLocal({ level: 'warn' })
+  public callerConflict(record: ICustomUACallerConflictRecord) {
     return record;
   }
 }

@@ -1798,18 +1798,18 @@ function startWebviewMemoryMonitoring() {
 // In dev, app.getVersion() falls back to the electron binary version because
 // no packaged app/package.json is on disk, leaving chromium UA's product token
 // as `OneKeyWallet/<electronVer>`. Patch only that token so dev/prod agree.
-app
-  .whenReady()
-  .then(() => {
-    const electronVer = process.versions.electron.replace(/\./g, '\\.');
-    app.userAgentFallback = app.userAgentFallback.replace(
-      new RegExp(`(OneKeyWallet)/${electronVer}\\b`),
-      `$1/${APP_VERSION}`,
-    );
-  })
-  .catch((error) => {
-    logger.warn('[user-agent] failed to align chromium UA version', error);
-  });
+// Run synchronously at module load (before `ready` fires) so the very first
+// webContents created in the ready handler already sees the patched UA —
+// `app.userAgentFallback` is readable/writable before `ready`.
+try {
+  const electronVer = process.versions.electron.replace(/\./g, '\\.');
+  app.userAgentFallback = app.userAgentFallback.replace(
+    new RegExp(`(OneKeyWallet)/${electronVer}\\b`),
+    `$1/${APP_VERSION}`,
+  );
+} catch (error) {
+  logger.warn('[user-agent] failed to align chromium UA version', error);
+}
 
 // Start monitoring when app is ready
 app.on('ready', async () => {
