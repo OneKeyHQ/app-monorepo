@@ -143,14 +143,8 @@ class DesktopApiDev {
     logger.info('[client-log-upload] url:', uploadUrl);
     logger.info('[client-log-upload] filePath:', filePath);
     logger.info('[client-log-upload] sizeBytes:', sizeBytes);
-    logger.info('[client-log-upload] headers:', JSON.stringify(reqHeaders));
-
-    const curlParts = [`curl -X POST '${uploadUrl}'`];
-    Object.entries(reqHeaders).forEach(([key, value]) => {
-      curlParts.push(`-H '${key}: ${value}'`);
-    });
-    curlParts.push(`--data-binary '@${filePath}'`);
-    logger.info('[client-log-upload] curl command:', curlParts.join(' \\\n  '));
+    // headers / curl logs are emitted after withCustomUAHeaders so the values
+    // reflect what is actually sent (including the injected User-Agent).
 
     const totalBytes =
       typeof sizeBytes === 'number' && sizeBytes > 0
@@ -212,12 +206,28 @@ class DesktopApiDev {
 
     try {
       const finalHeaders = await withCustomUAHeaders(uploadUrl, reqHeaders);
+      logger.info('[client-log-upload] headers:', JSON.stringify(finalHeaders));
+      const curlParts = [`curl -X POST '${uploadUrl}'`];
+      Object.entries(finalHeaders).forEach(([key, value]) => {
+        curlParts.push(`-H '${key}: ${value}'`);
+      });
+      curlParts.push(`--data-binary '@${filePath}'`);
+      logger.info(
+        '[client-log-upload] curl command:',
+        curlParts.join(' \\\n  '),
+      );
       const response = await fetch(uploadUrl, {
         method: 'POST',
         headers: finalHeaders,
         body: fileStream as unknown as any,
       });
       const text = await response.text();
+      logger.info(
+        '[client-log-upload] response status:',
+        response.status,
+        'body:',
+        text.slice(0, 500),
+      );
       try {
         const parsed = JSON.parse(text) as Record<string, any>;
         if (typeof parsed.code === 'number') {

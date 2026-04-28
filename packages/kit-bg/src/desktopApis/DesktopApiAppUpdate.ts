@@ -357,7 +357,7 @@ class DesktopApiAppUpdate {
       provider: 'generic',
     });
     autoUpdater.requestHeaders = finalHeaders;
-    logger.info('auto-updater', 'request headers: ', requestHeaders);
+    logger.info('auto-updater', 'request headers: ', finalHeaders);
     logger.info('current feed url: ', feedUrl);
     try {
       const result = await autoUpdater.checkForUpdates();
