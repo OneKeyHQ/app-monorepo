@@ -4,10 +4,7 @@ import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/co
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
-import {
-  selectBestQuote,
-  sortSwapQuotes,
-} from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -48,6 +45,12 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
+
+import {
+  type ISwapQuoteSelectionIntent,
+  buildSwapQuoteProviderKey,
+  selectSwapCurrentQuote,
+} from './quoteProgress';
 
 import type { IAccountSelectorActiveAccountInfo } from '../accountSelector';
 
@@ -186,7 +189,7 @@ export const {
 export const {
   atom: swapManualSelectQuoteProvidersAtom,
   use: useSwapManualSelectQuoteProvidersAtom,
-} = contextAtom<IFetchQuoteResult | undefined>(undefined);
+} = contextAtom<ISwapQuoteSelectionIntent | undefined>(undefined);
 
 export const { atom: swapQuoteListAtom, use: useSwapQuoteListAtom } =
   contextAtom<IFetchQuoteResult[]>([]);
@@ -223,15 +226,45 @@ export const {
 });
 
 export const {
+  atom: swapQuoteEventCompletedAtom,
+  use: useSwapQuoteEventCompletedAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: swapQuoteCurrentEventProviderKeysAtom,
+  use: useSwapQuoteCurrentEventProviderKeysAtom,
+} = contextAtom<string[]>([]);
+
+export const {
+  atom: swapQuoteCurrentEventReceivedCountAtom,
+  use: useSwapQuoteCurrentEventReceivedCountAtom,
+} = contextAtom<number>(0);
+
+export const {
   atom: swapShouldRefreshQuoteAtom,
   use: useSwapShouldRefreshQuoteAtom,
 } = contextAtom<boolean>(false);
 
 export const {
+  atom: swapQuoteCurrentEventListAtom,
+  use: useSwapQuoteCurrentEventListAtom,
+} = contextAtomComputed<IFetchQuoteResult[]>((get) => {
+  const list = get(swapQuoteListAtom());
+  const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
+  const currentEventProviderKeys = get(swapQuoteCurrentEventProviderKeysAtom());
+  const currentEventProviderKeySet = new Set(currentEventProviderKeys);
+  return quoteEventTotalCount.count > 0
+    ? list.filter((quote) =>
+        currentEventProviderKeySet.has(buildSwapQuoteProviderKey(quote)),
+      )
+    : list;
+});
+
+export const {
   atom: swapSortedQuoteListAtom,
   use: useSwapSortedQuoteListAtom,
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
-  const list = get(swapQuoteListAtom());
+  const list = get(swapQuoteCurrentEventListAtom());
   const fromTokenAmount = get(swapFromTokenAmountAtom());
   const sortType = get(swapProviderSortAtom());
   return sortSwapQuotes(list, {
@@ -244,10 +277,20 @@ export const {
   atom: swapQuoteCurrentSelectAtom,
   use: useSwapQuoteCurrentSelectAtom,
 } = contextAtomComputed((get) => {
-  const list = get(swapSortedQuoteListAtom());
-  const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
-  return selectBestQuote(list, {
-    manualSelect: manualSelectQuoteProviders ?? undefined,
+  const list = get(swapQuoteCurrentEventListAtom());
+  const fromTokenAmount = get(swapFromTokenAmountAtom());
+  const selectionIntent = get(swapManualSelectQuoteProvidersAtom());
+  const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
+  const currentEventProviderKeys = get(swapQuoteCurrentEventProviderKeysAtom());
+  const recommendedSortedList = sortSwapQuotes(list, {
+    sort: ESwapProviderSort.RECOMMENDED,
+    fromTokenAmount: fromTokenAmount.value,
+  });
+  return selectSwapCurrentQuote({
+    currentEventSortedQuotes: recommendedSortedList,
+    selectionIntent: selectionIntent ?? undefined,
+    quoteEventTotalCount,
+    currentEventProviderKeys,
   });
 });
 
