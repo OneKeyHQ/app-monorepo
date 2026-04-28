@@ -249,10 +249,14 @@ if (process.env.RN_HARNESS === 'true') {
         filePath: path.resolve(projectRoot, 'harness/mmkvMock.js'),
       };
     }
-    // Replace @testing-library/react-native with a lightweight shim that uses
-    // react-test-renderer. @testing-library/react-native imports Node.js built-ins (console, util) that
-    // Metro can't resolve, so we provide renderHook/act/waitFor without them.
-    if (moduleName === '@testing-library/react-native') {
+    // Replace Testing Library with a lightweight shim that uses
+    // react-test-renderer. The DOM/native packages import platform-specific
+    // internals that are not suitable for the on-device Hermes harness, while
+    // hook-focused tests only need renderHook/act/waitFor.
+    if (
+      moduleName === '@testing-library/react-native' ||
+      moduleName === '@testing-library/react'
+    ) {
       return {
         type: 'sourceFile',
         filePath: path.resolve(
