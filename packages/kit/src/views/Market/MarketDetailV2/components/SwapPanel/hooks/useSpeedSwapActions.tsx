@@ -1510,6 +1510,12 @@ export function useSpeedSwapActions(props: {
         }
       }
 
+      // Lock the fee editor whenever a Market preset Custom priority fee is in play:
+      // even when feeInfo cannot be pre-attached (approve + swap path), the override is
+      // applied at tx-build time, so letting the user change the tier here would just
+      // mislead them about what is actually sent.
+      const lockFeeEditor = Boolean(feeInfo) || Boolean(customPriorityFee);
+
       await navigationToTxConfirm({
         wrappedInfo: buildUnsignedParams.wrappedInfo,
         transfersInfo: buildUnsignedParams.transfersInfo,
@@ -1518,7 +1524,7 @@ export function useSpeedSwapActions(props: {
         approvesInfo,
         feeInfo,
         useFeeInTx: feeInfo ? true : undefined,
-        feeInfoEditable: feeInfo ? false : undefined,
+        feeInfoEditable: lockFeeEditor ? false : undefined,
         isInternalSwap: true,
         disableMev: buildUnsignedParams.disableMev,
         onSuccess,
