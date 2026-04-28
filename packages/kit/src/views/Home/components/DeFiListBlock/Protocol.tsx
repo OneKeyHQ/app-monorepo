@@ -202,76 +202,84 @@ const ProtocolDesktopLayout = memo(
                   borderTopWidth={StyleSheet.hairlineWidth}
                   borderColor="$borderSubdued"
                 >
-                  {positions.map((position, index) => (
-                    <YStack key={position.positionKey} py="$3">
-                      <XStack
-                        alignItems="center"
-                        gap="$2"
-                        px="$5"
-                        minHeight={40}
+                  {positions.map((position, index) => {
+                    const isLastPosition = index === positions.length - 1;
+                    return (
+                      <YStack
+                        key={position.positionKey}
+                        pb={isLastPosition ? '$3' : '$0'}
                       >
-                        <Badge bg={position.categoryConfig.bg} badgeSize="lg">
-                          <Badge.Text color={position.categoryConfig.text}>
-                            {position.categoryLabel}
-                          </Badge.Text>
-                        </Badge>
-                        {position.poolName ? (
-                          <Popover
-                            hoverable
-                            placement="top"
-                            title={positionNamePopoverTitle}
-                            renderTrigger={
-                              <SizableText
-                                size="$headingSm"
-                                color="$textSubdued"
-                                numberOfLines={1}
-                                flex={1}
-                                minWidth={0}
-                              >
-                                {position.poolName}
-                              </SizableText>
-                            }
-                            renderContent={
-                              <Stack px="$4" py="$2">
-                                <SizableText size="$bodyLgMedium">
-                                  {position.poolFullName || position.poolName}
-                                </SizableText>
-                              </Stack>
-                            }
-                          />
-                        ) : (
-                          <Stack flex={1} />
-                        )}
-                        <NumberSizeableTextWrapper
-                          hideValue
-                          size="$headingMd"
-                          formatter="value"
-                          formatterOptions={{ currency: currencySymbol }}
-                          textAlign="right"
-                          numberOfLines={1}
-                          maxWidth="45%"
+                        <XStack
+                          alignItems="center"
+                          gap="$2"
+                          px="$5"
+                          minHeight={40}
                         >
-                          {position.value}
-                        </NumberSizeableTextWrapper>
-                      </XStack>
-                      <YStack gap="$2" px="$5">
-                        {position.sections.map((section) => (
-                          <ProtocolPositionSection
-                            key={section.key}
-                            itemKeyPrefix={position.positionKey}
-                            section={section}
-                            currencySymbol={currencySymbol}
-                            priceUnavailableLabel={priceUnavailableLabel}
-                          />
-                        ))}
+                          <Badge bg={position.categoryConfig.bg} badgeSize="lg">
+                            <Badge.Text color={position.categoryConfig.text}>
+                              {position.categoryLabel}
+                            </Badge.Text>
+                          </Badge>
+                          {position.poolName ? (
+                            <Stack flex={1} minWidth={0}>
+                              <Popover
+                                hoverable
+                                placement="top"
+                                title={positionNamePopoverTitle}
+                                renderTrigger={
+                                  <SizableText
+                                    size="$headingSm"
+                                    color="$textSubdued"
+                                    numberOfLines={1}
+                                    minWidth={0}
+                                  >
+                                    {position.poolName}
+                                  </SizableText>
+                                }
+                                renderContent={
+                                  <Stack px="$4" py="$2">
+                                    <SizableText size="$bodyLgMedium">
+                                      {position.poolFullName ||
+                                        position.poolName}
+                                    </SizableText>
+                                  </Stack>
+                                }
+                              />
+                            </Stack>
+                          ) : (
+                            <Stack flex={1} />
+                          )}
+                          <NumberSizeableTextWrapper
+                            hideValue
+                            size="$headingMd"
+                            formatter="value"
+                            formatterOptions={{ currency: currencySymbol }}
+                            textAlign="right"
+                            numberOfLines={1}
+                            maxWidth="45%"
+                          >
+                            {position.value}
+                          </NumberSizeableTextWrapper>
+                        </XStack>
+                        <YStack gap="$2" px="$5">
+                          {position.sections.map((section) => (
+                            <ProtocolPositionSection
+                              key={section.key}
+                              itemKeyPrefix={position.positionKey}
+                              section={section}
+                              currencySymbol={currencySymbol}
+                              priceUnavailableLabel={priceUnavailableLabel}
+                            />
+                          ))}
+                        </YStack>
+                        {index !== positions.length - 1 ? (
+                          <Stack px="$5">
+                            <Divider />
+                          </Stack>
+                        ) : null}
                       </YStack>
-                      {index !== positions.length - 1 ? (
-                        <Stack px="$5" py="$3">
-                          <Divider />
-                        </Stack>
-                      ) : null}
-                    </YStack>
-                  ))}
+                    );
+                  })}
                 </YStack>
               </Accordion.Content>
             </Accordion.Item>
