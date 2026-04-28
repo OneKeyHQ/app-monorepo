@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 
 import Animated, {
   Easing,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -12,6 +13,34 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { useMedia, useTheme } from '@onekeyhq/components';
 
+import type { ViewStyle } from 'react-native';
+
+const BLEND_TEAL = '#2CD6A0';
+
+const TEAL_ORB = {
+  size: 280,
+  top: 50,
+  left: -120,
+  peakAlpha: 0.13,
+  gradientEdgePct: 65,
+  xKeyframes: [0, -30, 25, 0],
+  yKeyframes: [0, 40, 25, 0],
+  scaleKeyframes: [1, 1.06, 0.96, 1],
+  durationMs: 20_000,
+} as const;
+
+const BRAND_ORB = {
+  size: 380,
+  bottom: 220,
+  right: -100,
+  peakAlpha: 0.08,
+  gradientEdgePct: 70,
+  xKeyframes: [0, 85, 35, 0],
+  yKeyframes: [0, -65, 85, 0],
+  scaleKeyframes: [1, 1.15, 0.88, 1],
+  durationMs: 25_000,
+} as const;
+
 type IOrbProps = {
   size: number;
   top?: number | `${number}%`;
@@ -21,14 +50,14 @@ type IOrbProps = {
   color: string;
   peakAlpha: number;
   gradientEdgePct: number;
-  xKeyframes: number[];
-  yKeyframes: number[];
-  scaleKeyframes: number[];
-  opacityKeyframes?: number[];
+  xKeyframes: readonly number[];
+  yKeyframes: readonly number[];
+  scaleKeyframes: readonly number[];
+  opacityKeyframes?: readonly number[];
   durationMs: number;
 };
 
-function Orb({
+const Orb = memo(function Orb({
   size,
   top,
   bottom,
@@ -48,17 +77,12 @@ function Orb({
   const scale = useSharedValue(scaleKeyframes[0]);
   const opacity = useSharedValue(opacityKeyframes?.[0] ?? 1);
 
-  // Empty deps: animations are set up once on mount. Including the
-  // `*Keyframes` array props in deps would re-run on every render (parent
-  // passes new array literals each time) and reset the animation before it
-  // ever completes a cycle.
-  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     const segments = xKeyframes.length - 1;
     const segDur = durationMs / segments;
     const easing = Easing.inOut(Easing.ease);
 
-    const seq = (vals: number[]) =>
+    const seq = (vals: readonly number[]) =>
       withRepeat(
         withSequence(
           ...vals
@@ -75,8 +99,23 @@ function Orb({
     if (opacityKeyframes) {
       opacity.value = seq(opacityKeyframes);
     }
-  }, []);
-  /* eslint-enable react-hooks/exhaustive-deps */
+    return () => {
+      cancelAnimation(x);
+      cancelAnimation(y);
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+    };
+  }, [
+    durationMs,
+    opacity,
+    opacityKeyframes,
+    scale,
+    scaleKeyframes,
+    x,
+    xKeyframes,
+    y,
+    yKeyframes,
+  ]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [
@@ -91,7 +130,6 @@ function Orb({
 
   return (
     <Animated.View
-      pointerEvents="none"
       style={[
         {
           position: 'absolute',
@@ -101,7 +139,7 @@ function Orb({
           bottom,
           left,
           right,
-        } as never,
+        } as ViewStyle,
         animStyle,
       ]}
     >
@@ -128,15 +166,11 @@ function Orb({
       </Svg>
     </Animated.View>
   );
-}
+});
 
 // Two large blurred orbs slowly drifting across the page — based on
 // `BgOrbDrift` from the Onboarding Background Explorations design handoff.
-// `wordIndex` is kept as an optional forward-compat prop in case future
-// iterations want to couple per-word visual response.
-const BLEND_TEAL = '#2CD6A0';
-
-export function HeroAtmosphere(_props: { wordIndex?: number }) {
+export function HeroAtmosphere() {
   const theme = useTheme();
   const { gtMd } = useMedia();
   const accent = theme.brand9?.val ?? '#32B826';
@@ -149,41 +183,9 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
   }
 
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        overflow: 'hidden',
-      }}
-    >
-      <Orb
-        size={280}
-        top={50}
-        left={-120}
-        color={BLEND_TEAL}
-        peakAlpha={0.13}
-        gradientEdgePct={65}
-        xKeyframes={[0, -30, 25, 0]}
-        yKeyframes={[0, 40, 25, 0]}
-        scaleKeyframes={[1, 1.06, 0.96, 1]}
-        durationMs={20_000}
-      />
-      <Orb
-        size={380}
-        bottom={220}
-        right={-100}
-        color={accent}
-        peakAlpha={0.08}
-        gradientEdgePct={70}
-        xKeyframes={[0, 85, 35, 0]}
-        yKeyframes={[0, -65, 85, 0]}
-        scaleKeyframes={[1, 1.15, 0.88, 1]}
-        durationMs={25_000}
-      />
-    </Animated.View>
+    <>
+      <Orb {...TEAL_ORB} color={BLEND_TEAL} />
+      <Orb {...BRAND_ORB} color={accent} />
+    </>
   );
 }
