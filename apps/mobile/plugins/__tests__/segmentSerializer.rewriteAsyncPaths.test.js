@@ -108,4 +108,22 @@ describe('rewriteAsyncPathsInModules', () => {
     rewriteAsyncPathsInModules(modules, moduleToSegment);
     expect(modules[0][1]).toBe('var x = ["aaa", "bbb"]; /* 777 was here */');
   });
+
+  // Codex 2026-04-28 audit, Important #1: this helper is BROADER than the
+  // production-path helper (`unionBuildHelpers.js:rewriteAsyncRequirePaths`),
+  // which scopes inside `"paths":{...}` blocks. Here we only require the
+  // `[{,]` prefix, so an unrelated object literal whose key happens to be a
+  // numeric string we are tracking COULD be mutated. Document the limit so
+  // a future user of this legacy helper knows what they're getting.
+  it('legacy helper IS susceptible to false-rewrite of unrelated `{"id":"value"}` shapes (known limit; production path scopes by `"paths":{...}` block)', () => {
+    const moduleToSegment = new Map([[777, 'seg:foo']]);
+    // Imagine a config object accidentally keyed by the string "777":
+    const modules = [[1000, 'const cfg = {"777":"some-unrelated-string-value"};']];
+    rewriteAsyncPathsInModules(modules, moduleToSegment);
+    // The helper rewrites it. This test pins the behavior so a future
+    // tightening (scoping to `"paths":{...}`) is caught and re-evaluated.
+    expect(modules[0][1]).toBe('const cfg = {"777":"seg:foo"};');
+    // If you scope this helper to `"paths":{...}` blocks in the future,
+    // flip this assertion to .not.toBe and update the documentation.
+  });
 });
