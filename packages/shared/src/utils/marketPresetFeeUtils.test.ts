@@ -1,7 +1,7 @@
 import { applyCustomPriorityFeeToGasInfo } from './marketPresetFeeUtils';
+
 import type { IEstimateFeeParams } from '../../types/fee';
 import type { ISwapGasInfo } from '../../types/swap/types';
-
 
 const baseCommon: NonNullable<ISwapGasInfo['common']> = {
   feeDecimals: 9,

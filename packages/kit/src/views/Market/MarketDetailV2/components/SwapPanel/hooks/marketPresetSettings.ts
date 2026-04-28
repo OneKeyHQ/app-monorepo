@@ -360,6 +360,15 @@ export function getMarketPresetNetworkFeeLevel(
   return ESwapNetworkFeeLevel.MEDIUM;
 }
 
+export function isValidMarketPresetCustomValue(value?: string) {
+  if (!value) {
+    return false;
+  }
+
+  const valueBN = new BigNumber(value);
+  return !valueBN.isNaN() && valueBN.gt(0);
+}
+
 export function getMarketPresetPriorityFeeOverride(
   settings?: IMarketPresetDirectionSettings,
 ): IMarketPresetPriorityFeeOverride | undefined {
@@ -379,15 +388,6 @@ export function getMarketPresetPriorityFeeOverride(
 
 export function getMarketPresetPriorityFeeUnit(config?: IMarketPresetConfig) {
   return config?.priorityFee.customUnit ?? '';
-}
-
-export function isValidMarketPresetCustomValue(value?: string) {
-  if (!value) {
-    return false;
-  }
-
-  const valueBN = new BigNumber(value);
-  return !valueBN.isNaN() && valueBN.gt(0);
 }
 
 function isMarketPresetKey(value: unknown): value is EMarketPresetKey {
