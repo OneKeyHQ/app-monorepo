@@ -1870,6 +1870,7 @@ function TokenListBlock({
             keys: emptyKeys,
           });
           refreshSmallBalanceTokenListMap({ tokens: {} });
+          refreshSmallBalanceTokensFiatValue({ value: '0' });
           refreshRiskyTokenList({ riskyTokens: [], keys: emptyKeys });
           refreshRiskyTokenListMap({ tokens: {} });
           // Use the request-time `accountId`/`networkId` (the owner this
@@ -2012,6 +2013,7 @@ function TokenListBlock({
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
     refreshTokenList,
     refreshTokenListMap,
     setOverviewTokenCacheState,
