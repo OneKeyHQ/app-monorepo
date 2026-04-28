@@ -81,7 +81,7 @@ export function useAccountRenameMethod({
         // local DB only.
         const isThirdPartyHwWallet = Boolean(
           wallet?.associatedDeviceInfo?.vendor &&
-            getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
+          getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
         );
         if (isThirdPartyHwWallet) {
           callShowRenameDialog();

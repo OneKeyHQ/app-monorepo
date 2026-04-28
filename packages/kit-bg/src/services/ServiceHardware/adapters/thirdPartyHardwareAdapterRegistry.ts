@@ -31,9 +31,8 @@ export const thirdPartyHardwareAdapterRegistry = {
     //   - desktop / native / web   → `ledger.desktop.ts` / `.native.ts` / `.ts`
     const { createLedgerConnector } =
       await import('@onekeyhq/shared/src/hardware/connector-loader/ledger');
-    const { LedgerAdapter: HwkLedgerAdapter, onSdkEvent } = await import(
-      '@onekeyfe/hwk-ledger-adapter'
-    );
+    const { LedgerAdapter: HwkLedgerAdapter, onSdkEvent } =
+      await import('@onekeyfe/hwk-ledger-adapter');
     const { UI_REQUEST, UI_RESPONSE } =
       await import('@onekeyfe/hwk-adapter-core');
     // SW-side subscriber. Offscreen runtime has its own bus singleton and

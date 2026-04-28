@@ -67,9 +67,8 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
         onSdkEvent((event) => {
           emitOffscreenEventToBackground('hwkSdkEvent', event);
         });
-        const { createLedgerWebHidConnector } = await import(
-          '@onekeyfe/hwk-ledger-connector-webhid'
-        );
+        const { createLedgerWebHidConnector } =
+          await import('@onekeyfe/hwk-ledger-connector-webhid');
         return createLedgerWebHidConnector();
       }
       default:

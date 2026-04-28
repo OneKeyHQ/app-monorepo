@@ -198,7 +198,8 @@ export class ThirdPartyChainNotSupported extends ThirdPartyHardwareError {
       normalizeErrorProps(
         { ...props, info: { ...props?.info, vendor: props?.vendor } },
         {
-          defaultKey: ETranslationsMock.hardware_third_party_chain_not_supported,
+          defaultKey:
+            ETranslationsMock.hardware_third_party_chain_not_supported,
           defaultAutoToast: true,
         },
       ),

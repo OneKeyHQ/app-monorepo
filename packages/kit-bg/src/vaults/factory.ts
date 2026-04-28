@@ -42,7 +42,6 @@ import {
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
-  NotImplemented,
   OneKeyInternalError,
   OneKeyLocalError,
   VaultKeyringNotDefinedError,
