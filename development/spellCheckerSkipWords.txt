@@ -1461,3 +1461,4 @@ ledgerhq
 keyrings
 APDU
 webhid
+unrewritten
