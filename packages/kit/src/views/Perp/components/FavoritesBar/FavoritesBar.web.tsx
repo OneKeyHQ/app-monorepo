@@ -154,8 +154,12 @@ ScrollButton.displayName = 'ScrollButton';
 function FavoritesBar() {
   // Bar always shows both modes regardless of which the user is currently
   // trading, so the perp/spot pulls happen unconditionally.
-  const { favoriteItems: perpItems } = usePerpsFavorites({ mode: 'perp' });
-  const { favoriteItems: spotItems } = usePerpsFavorites({ mode: 'spot' });
+  const { favoriteItems: perpItems, isReady: perpReady } = usePerpsFavorites({
+    mode: 'perp',
+  });
+  const { favoriteItems: spotItems, isReady: spotReady } = usePerpsFavorites({
+    mode: 'spot',
+  });
   const [favoritesOrder, setFavoritesOrder] =
     usePerpsFavoritesOrderPersistAtom();
 
@@ -187,7 +191,10 @@ function FavoritesBar() {
   // Idempotent reconciliation — only writes when sequence drifts from
   // membership, so callers that toggle favorites without touching this atom
   // (initial migration, external watchlist sync) self-heal on next render.
+  // Gated on isReady so the persisted drag-reorder is not wiped by an empty
+  // run before the async universe data resolves.
   useEffect(() => {
+    if (!perpReady || !spotReady) return;
     setFavoritesOrder((prev) => {
       const allKeys = new Set<string>();
       for (const it of perpItems) allKeys.add(`${it.mode}:${it.coinName}`);
@@ -214,7 +221,7 @@ function FavoritesBar() {
         );
       return changed ? { sequence: next } : prev;
     });
-  }, [perpItems, spotItems, setFavoritesOrder]);
+  }, [perpItems, spotItems, perpReady, spotReady, setFavoritesOrder]);
 
   const actions = useHyperliquidActions();
   const hasFavorites = favoriteItems.length > 0;
