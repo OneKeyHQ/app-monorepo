@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -73,11 +74,22 @@ function ContractAddressCell({
   size?: '$bodyXs' | '$bodySmMedium';
 }) {
   const { copyText } = useClipboard();
-  if (!contract) return null;
+  if (!contract) {
+    return (
+      <SizableText size={size} color="$textSubdued">
+        --
+      </SizableText>
+    );
+  }
   const shortened = `${contract.slice(0, 6)}...${contract.slice(-4)}`;
   return (
-    <XStack gap="$1" alignItems="center">
-      <SizableText size={size} color="$textSubdued" fontFamily="$monoRegular">
+    <XStack minWidth={0} gap="$1" alignItems="center">
+      <SizableText
+        size={size}
+        color="$textSubdued"
+        fontFamily="$monoRegular"
+        numberOfLines={1}
+      >
         {shortened}
       </SizableText>
       <IconButton
@@ -88,6 +100,16 @@ function ContractAddressCell({
         onPress={(e) => {
           e?.stopPropagation?.();
           copyText(contract);
+        }}
+      />
+      <IconButton
+        size="small"
+        variant="tertiary"
+        icon="OpenOutline"
+        iconProps={{ size: '$3', color: '$iconSubdued' }}
+        onPress={(e) => {
+          e?.stopPropagation?.();
+          void openHyperLiquidTokenExplorerUrl({ tokenId: contract });
         }}
       />
     </XStack>
@@ -254,7 +276,8 @@ function BalanceRowDesktop({
     <XStack
       width="100%"
       py="$1.5"
-      px="$5"
+      pl="$5"
+      pr="$3"
       minHeight={48}
       bg={index % 2 === 0 ? '$bgApp' : '$bgSubdued'}
       hoverStyle={{ bg: '$bgHover' }}
@@ -266,7 +289,14 @@ function BalanceRowDesktop({
           alignItems="center"
           justifyContent={calcCellAlign(cell.align)}
         >
-          {renderCellContent(cell)}
+          <XStack
+            width="100%"
+            minWidth={0}
+            alignItems="center"
+            justifyContent={calcCellAlign(cell.align)}
+          >
+            {renderCellContent(cell)}
+          </XStack>
         </XStack>
       ))}
     </XStack>

@@ -17,7 +17,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -392,13 +391,7 @@ function HistoryDetails() {
           });
       }
 
-      const swapHistoryInfo =
-        await backgroundApiProxy.serviceSwap.getSwapHistoryByTxId({
-          txId: txid,
-        });
-
       return {
-        swapHistoryInfo,
         txDetails: r?.data,
         decodedOnChainTx,
         addressMap: r?.addressMap,
@@ -428,8 +421,7 @@ function HistoryDetails() {
     },
   );
 
-  const { txDetails, decodedOnChainTx, addressMap, swapHistoryInfo } =
-    result || {};
+  const { txDetails, decodedOnChainTx, addressMap } = result || {};
   const historyTx = historyTxParam ?? decodedOnChainTx;
 
   useEffect(() => {
@@ -1183,28 +1175,6 @@ function HistoryDetails() {
               compact
             />
 
-            {swapHistoryInfo?.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd ? (
-              <InfoItem
-                label={intl.formatMessage({
-                  id: ETranslations.provider_ios_popover_onekey_fee,
-                })}
-                renderContent={
-                  <Currency
-                    formatter="value"
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    sourceCurrency="usd"
-                  >
-                    {
-                      swapHistoryInfo?.swapInfo?.oneKeyFeeExtraInfo
-                        ?.oneKeyFeeUsd
-                    }
-                  </Currency>
-                }
-                compact
-              />
-            ) : null}
-
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.global_network,
@@ -1286,7 +1256,6 @@ function HistoryDetails() {
     vaultSettings?.isUtxo,
     vaultSettings?.hideTxUtxoListWhenPending,
     renderFeeInfo,
-    swapHistoryInfo?.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd,
     network?.name,
     network?.id,
     historyTx?.decodedTx.status,
