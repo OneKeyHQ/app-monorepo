@@ -123,6 +123,44 @@ function parseModuleDefs(segmentJs) {
 }
 
 /**
+ * Detect Metro default async-require URLs that the production serializer
+ * should have rewritten to `seg:<key>` form. Any match here means the
+ * runtime will hit installProdBundleLoader's eager-fallback path for that
+ * id and crash with "Requiring unknown module <id>" (see iOS bundle
+ * 6.3.0-10069276 / REACT-NATIVE-4AX regression).
+ *
+ * The matcher is deliberately narrow: it only flags strings that match the
+ * Metro default-async-require shape ending in
+ * `.bundle?modulesOnly=true&runModule=false`, so unrelated `.bundle`
+ * strings (e.g. CDN URLs) do not false-positive.
+ */
+// Note: unlike segmentSerializer.rewriteAsyncPaths (which uses
+// "(?:[^"\\]|\\.)*" to tolerate escaped quotes inside arbitrary module
+// code), here we only match Metro async-require URL string values —
+// those never contain a literal " or \". Keeping the matcher narrow
+// avoids false positives on unrelated code.
+// (cross-ref) Same shape is matched at runtime by
+// apps/mobile/src/splitBundle/installProdBundleLoader.ts and rewritten by
+// apps/mobile/plugins/segmentSerializer.rewriteAsyncPaths.js — keep in sync.
+const UNREWRITTEN_ASYNC_PATH =
+  /"(\d+)"\s*:\s*"(\/[^"]*\.bundle\?modulesOnly=true&runModule=false)"/g;
+
+function scanSegmentForUnrewrittenAsyncPaths(segmentJs) {
+  // The `g` flag makes `.exec` advance `lastIndex` between calls. Since
+  // UNREWRITTEN_ASYNC_PATH is module-level, residual `lastIndex` from a
+  // previous invocation would silently skip matches in the next one. Reset
+  // explicitly so each scan starts clean.
+  UNREWRITTEN_ASYNC_PATH.lastIndex = 0;
+  const violations = [];
+  let m;
+  // eslint-disable-next-line no-cond-assign
+  while ((m = UNREWRITTEN_ASYNC_PATH.exec(segmentJs)) !== null) {
+    violations.push({ moduleId: m[1], url: m[2] });
+  }
+  return violations;
+}
+
+/**
  * Build a filename → segmentKey map by reading each manifest entry's
  * `relativePath`. The serializer sanitizes segment keys before writing them
  * to disk (e.g. `@` → `_`), so we can't just prepend `seg:` to the filename —
@@ -295,6 +333,24 @@ function scanRuntime({
     const segJs = fs.readFileSync(path.join(segmentsDir, fname), 'utf8');
     const moduleDefs = parseModuleDefs(segJs);
 
+    // Phase 3.2: any Metro default-async-require URL that the serializer
+    // failed to rewrite to `seg:<key>` form will hit
+    // installProdBundleLoader's eager-fallback path at runtime and crash
+    // with "Requiring unknown module <id>" (REACT-NATIVE-4AX). Surface
+    // these at build time per segment so a regression in segmentSerializer
+    // fails CI instead of shipping.
+    const unrewritten = scanSegmentForUnrewrittenAsyncPaths(segJs);
+    for (const u of unrewritten) {
+      violations.push({
+        kind: 'unrewritten_async_path',
+        runtime: runtimeLabel,
+        segment: segKey,
+        segmentFile: fname,
+        moduleId: u.moduleId,
+        url: u.url,
+      });
+    }
+
     // For shared segments, the emitted .seg.js ships __d(...) for every
     // module EITHER runtime reaches, but only one runtime actually calls
     // into each module at runtime (the other side just carries the inert
@@ -362,6 +418,7 @@ function printViolations(violations) {
   const groups = new Map();
   const structural = [];
   const orphans = [];
+  const unrewrittenAsync = [];
   for (const v of violations) {
     if (v.kind === 'cross_segment_sync') {
       const key = `${v.runtime}::${v.srcSegment} -> ${v.depSegment}`;
@@ -371,6 +428,10 @@ function printViolations(violations) {
     }
     if (v.kind === 'orphan_dep') {
       orphans.push(v);
+      continue;
+    }
+    if (v.kind === 'unrewritten_async_path') {
+      unrewrittenAsync.push(v);
       continue;
     }
     structural.push(v);
@@ -415,6 +476,25 @@ function printViolations(violations) {
     if (orphans.length > 10) {
       console.error(`  ... and ${orphans.length - 10} more`);
     }
+  }
+
+  if (unrewrittenAsync.length > 0) {
+    console.error('');
+    console.error(
+      `[integrity] UNREWRITTEN ASYNC PATHS (${unrewrittenAsync.length}) — Metro default-async-require URLs that the serializer failed to rewrite to seg:<key>; the runtime will hit installProdBundleLoader's eager-fallback path and crash with "Requiring unknown module <id>" (REACT-NATIVE-4AX):`,
+    );
+    for (const v of unrewrittenAsync.slice(0, 10)) {
+      console.error(
+        `  [${v.runtime}] ${v.segment} (${v.segmentFile}) id=${v.moduleId}`,
+      );
+      console.error(`    → ${v.url}`);
+    }
+    if (unrewrittenAsync.length > 10) {
+      console.error(`  ... and ${unrewrittenAsync.length - 10} more`);
+    }
+    console.error(
+      `  Fix: ensure apps/mobile/plugins/segmentSerializer.js routes these IDs through rewriteAsyncPathsInModules (Step 7 segment-write loop). The serializer must never emit a Metro '.bundle?modulesOnly=true' URL for an id that lives in a segment.`,
+    );
   }
 }
 
@@ -499,7 +579,7 @@ function main() {
 
   console.error('');
   console.error(
-    '[check-split-bundle-integrity] FAIL — split-bundle integrity violations (cross-segment sync or orphan deps):',
+    '[check-split-bundle-integrity] FAIL — split-bundle integrity violations (cross-segment sync, orphan deps, or unrewritten async paths):',
   );
   console.error('');
   printViolations(allViolations);
@@ -524,4 +604,5 @@ module.exports = {
   buildModuleIndexFromManifest,
   buildEagerIdSet,
   scanRuntime,
+  scanSegmentForUnrewrittenAsyncPaths,
 };
