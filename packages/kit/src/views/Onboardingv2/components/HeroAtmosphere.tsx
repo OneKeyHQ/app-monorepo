@@ -154,7 +154,7 @@ export function HeroAtmosphere(_props: { wordIndex?: number }) {
     >
       <Orb
         size={280}
-        top={50}
+        top={100}
         right={-160}
         color={BLEND_TEAL}
         peakAlpha={0.13}
