@@ -132,6 +132,8 @@ function FinalizeWalletSetupPage({
     isWalletCreationReadyForReferralCheck,
     setIsWalletCreationReadyForReferralCheck,
   ] = useState(false);
+  const [isWalletCreationRecordHandled, setIsWalletCreationRecordHandled] =
+    useState(false);
 
   const created = useRef(false);
   const createdWalletRef = useRef<IDBWallet | undefined>(undefined);
@@ -437,6 +439,7 @@ function FinalizeWalletSetupPage({
     createdWalletRef.current = undefined;
     readyReferralCheckHandledRef.current = false;
     setIsWalletCreationReadyForReferralCheck(false);
+    setIsWalletCreationRecordHandled(false);
     // Reset the dedup guard so a retry triggered after a late, post-success
     // error (e.g. a hardware-connect event firing after a non-hardware
     // wallet was already created) can re-enter the create-wallet branch
@@ -452,12 +455,12 @@ function FinalizeWalletSetupPage({
 
   const handleWalletSetupReady = useCallback(async () => {
     const referralWalletId = createdWalletRef.current?.id;
-    if (!referralWalletId) {
-      return;
-    }
-
-    const walletCreatedAt = buildWalletCreatedAtISOString();
     try {
+      if (!referralWalletId) {
+        return;
+      }
+
+      const walletCreatedAt = buildWalletCreatedAtISOString();
       await backgroundApiProxy.serviceReferralCode.cacheWalletCreationRecordTimestamp(
         {
           walletId: referralWalletId,
@@ -479,6 +482,8 @@ function FinalizeWalletSetupPage({
       }
     } catch {
       // Startup migration will retry with the cached creation timestamp.
+    } finally {
+      setIsWalletCreationRecordHandled(true);
     }
   }, []);
 
@@ -530,10 +535,11 @@ function FinalizeWalletSetupPage({
   }, [isReady]);
 
   const orbSize = 160;
+  const isReadyActionVisible = isReady && isWalletCreationRecordHandled;
 
   const enterWalletTransitionProps = {
-    opacity: isReady ? 1 : 0,
-    pointerEvents: isReady ? ('auto' as const) : ('none' as const),
+    opacity: isReadyActionVisible ? 1 : 0,
+    pointerEvents: isReadyActionVisible ? ('auto' as const) : ('none' as const),
     ...(!platformEnv.isNative && {
       animation: 'quick' as const,
       animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
