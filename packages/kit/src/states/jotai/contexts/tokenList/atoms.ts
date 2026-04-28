@@ -190,21 +190,59 @@ export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
     sortDirection: 'desc',
   });
 
+// Hard cap on how many `${accountId}__${networkId}` entries the per-owner
+// cache may hold at once. Each entry persists into MMKV via `coldStartCache`,
+// so an unbounded `byOwner` would steadily grow with the user's session
+// history and slow down every cold-start hydration. 50 covers a typical HD
+// wallet with ~5 active accounts × ~10 networks comfortably; older entries
+// are dropped in MRU order on write (see TokenListView's setter).
+export const RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS = 50;
+
 /**
- * Cached snapshot of the final rendered token list (after filtering
- * hideZeroBalance, hideDeFiMarked, etc.). Used for cold start cache
- * so the exact UI-visible list is restored on next launch.
+ * Per-owner cache of the final rendered token list (after filtering
+ * hideZeroBalance, hideDeFiMarked, etc.). Keyed by `${accountId}__${networkId}`.
+ *
+ * Stores both the rendered token list AND its `$key`→ITokenFiat balance/price
+ * map so a network/account switch can hydrate `tokenListAtom` and
+ * `tokenListMapAtom` together — otherwise the new owner's tokens render with
+ * the previous owner's map (no balance, no price) until the async
+ * `getAccountLocalTokens` fetch returns.
+ *
+ * Used for:
+ *  1. Cold start: the last UI-visible list and its map are restored on next
+ *     launch.
+ *  2. Network/account switching within a session: `TokenListBlock` looks the
+ *     entry up by current `${accountId}__${networkId}` and eagerly hydrates
+ *     the singleton atoms before `initTokenListData`'s async fetch runs.
+ *
+ * Capacity is bounded — see `RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS`. Writers
+ * are responsible for MRU-evicting older entries before persisting.
  */
 export const {
   atom: renderedTokenListCacheAtom,
   use: useRenderedTokenListCacheAtom,
 } = contextAtom<{
-  tokens: IAccountToken[];
-  initialized: boolean;
-  accountId?: string;
-  networkId?: string;
+  byOwner: Record<
+    string,
+    {
+      tokens: IAccountToken[];
+      // Optional in the read type because entries persisted by an earlier
+      // build don't carry it. Fresh writes always include it.
+      tokenListMap?: Record<string, ITokenFiat>;
+      // Raw nested aggregate-token map (the source for
+      // `flattenAggregateTokensMapAtom`). Cached so a paint-time hydrate can
+      // restore aggregate-token balance/value alongside `tokenListMap` —
+      // without this, rendering cached tokens against stale aggregate data
+      // briefly mis-attributes balances after a network/account switch.
+      // Optional because legacy entries persisted by an earlier build don't
+      // carry it; legacy entries are skipped on the read side.
+      aggregateTokensMap?: Record<string, Record<string, ITokenFiat>>;
+      accountId: string;
+      networkId: string;
+    }
+  >;
 }>(
-  { tokens: [], initialized: false },
+  { byOwner: {} },
   {
     coldStartCache: true,
     coldStartCacheKey:
