@@ -52,6 +52,7 @@ export interface IActionListItemProps {
   onPress?: (close: () => void) => void | Promise<boolean | void>;
   onClose?: () => void;
   disabled?: boolean;
+  extraInteractiveWhenDisabled?: boolean;
   testID?: string;
   trackID?: string;
   shortcutKeys?: string[] | EShortcutEvents;
@@ -113,11 +114,16 @@ export function ActionListItem(
     onPress,
     destructive,
     disabled,
+    extraInteractiveWhenDisabled,
     onClose,
     testID,
     shortcutKeys,
     isLoading,
   } = props;
+  const isActionDisabled = Boolean(disabled);
+  const shouldKeepExtraInteractive = Boolean(
+    isActionDisabled && extraInteractiveWhenDisabled,
+  );
 
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
@@ -156,10 +162,10 @@ export function ActionListItem(
       $md={ACTION_LIST_ITEM_MD}
       borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
-      disabled={disabled}
+      disabled={shouldKeepExtraInteractive ? false : disabled}
       aria-disabled={disabled}
       {...(!disabled && ACTION_LIST_ENABLED_STYLE)}
-      onPress={isLoading ? undefined : sharedOnPress}
+      onPress={isLoading || isActionDisabled ? undefined : sharedOnPress}
       testID={testID}
     >
       <XStack jc="space-between" flex={1} alignItems="center">
