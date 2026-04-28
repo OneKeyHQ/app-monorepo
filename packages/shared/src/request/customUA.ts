@@ -65,11 +65,18 @@ async function isManagedHost(url: string): Promise<boolean> {
 }
 
 export async function buildCustomUA(): Promise<string | null> {
+  // detectRuntime() still gates injection (returns null on Web/Ext) and is
+  // surfaced via decision logs, but the runtime token is intentionally NOT
+  // appended to the UA string. Callers that need the runtime can read
+  // X-Onekey-Request-Platform; keeping the UA as `OneKeyWallet/<version>`
+  // matches the chromium UA's product token across desktop renderer and the
+  // 11 non-axios call sites, so backend can grep `OneKeyWallet/<version>` to
+  // capture all OneKey traffic uniformly.
   const runtime = detectRuntime();
   if (!runtime) return null;
   if (await isDisabledByDevSetting()) return null;
   const version = platformEnv.version ?? 'unknown';
-  return `OneKeyWallet/${version} (${runtime})`;
+  return `OneKeyWallet/${version}`;
 }
 
 export async function shouldInjectUAForUrl(url: string): Promise<boolean> {

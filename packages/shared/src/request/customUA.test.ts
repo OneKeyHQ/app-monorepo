@@ -76,24 +76,24 @@ describe('buildCustomUA', () => {
   it('returns desktop-electron UA when platformEnv.isDesktop is true', async () => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
-    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0 (desktop-electron)');
+    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
   });
 
   it('returns ios-native UA when iOS native', async () => {
     (platformEnv as any).isNative = true;
     (platformEnv as any).appPlatform = 'ios';
-    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0 (ios-native)');
+    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
   });
 
   it('returns android-native UA when Android native', async () => {
     (platformEnv as any).isNative = true;
     (platformEnv as any).appPlatform = 'android';
-    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0 (android-native)');
+    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
   });
 
   it('returns cli-node UA after explicit override', async () => {
     __setCustomUARuntimeForTest('cli-node');
-    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0 (cli-node)');
+    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
   });
 
   it('returns null on Web (browser default UA suffices)', async () => {
@@ -112,9 +112,7 @@ describe('buildCustomUA', () => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
     (platformEnv as any).version = undefined;
-    expect(await buildCustomUA()).toBe(
-      'OneKeyWallet/unknown (desktop-electron)',
-    );
+    expect(await buildCustomUA()).toBe('OneKeyWallet/unknown');
   });
 
   it('returns null when dev toggle disableCustomUA is on', async () => {
@@ -131,7 +129,7 @@ describe('buildCustomUA', () => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
     getDevSettingsPersistAtomMock.mockRejectedValue(new Error('not wired'));
-    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0 (desktop-electron)');
+    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
   });
 });
 
@@ -188,7 +186,7 @@ describe('withCustomUAHeaders', () => {
     });
     expect(out).toEqual({
       'X-Onekey-Request-ID': 'abc',
-      'User-Agent': 'OneKeyWallet/6.3.0 (desktop-electron)',
+      'User-Agent': 'OneKeyWallet/6.3.0',
     });
   });
 
@@ -227,6 +225,6 @@ describe('withCustomUAHeaders', () => {
       'https://swap.onekeycn.com/swap/v1/quote/events',
       { 'X-Onekey-Request-Platform': 'cli' },
     );
-    expect(out['User-Agent']).toBe('OneKeyWallet/6.3.0 (cli-node)');
+    expect(out['User-Agent']).toBe('OneKeyWallet/6.3.0');
   });
 });

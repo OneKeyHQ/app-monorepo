@@ -38,6 +38,7 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { APP_VERSION } from '@onekeyhq/shared/src/runtime/version';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
@@ -1793,6 +1794,32 @@ function startWebviewMemoryMonitoring() {
   }, METRICS_SAMPLE_INTERVAL_MS);
 }
 /* oxlint-enable typescript/no-unsafe-call */
+
+// Align chromium UA's product token with the OneKey marketing version.
+//
+// Default behavior:
+//   - Prod (electron-builder packaged): app.getVersion() reads
+//     extraMetadata.version from the packaged app/package.json (= APP_VERSION),
+//     so chromium UA is `OneKeyWallet/<APP_VERSION> ...`.
+//   - Dev (electron app/dist/app.js): app.getVersion() falls back to the
+//     electron binary version (e.g. 39.8.4), so chromium UA is
+//     `OneKeyWallet/39.8.4 ...` — version field is wrong.
+//
+// We patch app.userAgentFallback after ready so the product token's version
+// always matches APP_VERSION on every build. Other tokens (Chrome / Electron /
+// Safari / OS info) are kept untouched so the UA stays a valid chromium UA.
+app
+  .whenReady()
+  .then(() => {
+    const electronVer = process.versions.electron.replace(/\./g, '\\.');
+    app.userAgentFallback = app.userAgentFallback.replace(
+      new RegExp(`(OneKeyWallet)/${electronVer}\\b`),
+      `$1/${APP_VERSION}`,
+    );
+  })
+  .catch((error) => {
+    logger.warn('[user-agent] failed to align chromium UA version', error);
+  });
 
 // Start monitoring when app is ready
 app.on('ready', async () => {
