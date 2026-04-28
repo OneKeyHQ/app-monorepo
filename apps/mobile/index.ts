@@ -98,6 +98,14 @@ if ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__) {
 // Install native error logger for Release mode debugging.
 // ErrorUtils is React Native's global error handler — catches both
 // sync exceptions and unhandled promise rejections.
+//
+// NOTE on Sentry tagging: do NOT call Sentry.setTag(...) from inside this
+// handler. @sentry/react-native's ReactNativeErrorHandlers integration
+// wraps ErrorUtils.setGlobalHandler such that Sentry captures the event
+// BEFORE invoking our wrapped handler — so setTag here would (a) miss the
+// actual crash event and (b) leak onto the next unrelated event via global
+// scope. We tag via a Sentry event processor instead; see
+// installSplitBundleSentryEventProcessor below.
 if (!__DEV__) {
   const { NativeLogger, LogLevel } =
     require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
@@ -113,8 +121,10 @@ if (!__DEV__) {
       // Classify "Requiring unknown module <id>" errors before the default
       // handler runs. RN's ExceptionsManager.reportException re-throws while
       // reporting (`TypeError: Failed to execute 'dispatchEvent'`), which
-      // masks the original error in Sentry. Tagging here gives us a stable
-      // marker even when the secondary fault hides the real cause.
+      // masks the original error in Sentry. The NativeLogger breadcrumb
+      // here gives us an on-device, Sentry-independent record of the
+      // moduleId; the Sentry event processor (see below) attaches the
+      // matching tags to the actual crash event.
       // See REACT-NATIVE-4AX.
       const classification = classifyUnknownModuleError(error);
       if (classification) {
@@ -126,19 +136,6 @@ if (!__DEV__) {
           );
         } catch {
           /* never let logging break the handler */
-        }
-        try {
-          const Sentry =
-            require('@onekeyhq/shared/src/modules3rdParty/sentry') as typeof import('@onekeyhq/shared/src/modules3rdParty/sentry');
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          Sentry.setTag?.('split_bundle_integrity', 'true');
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          Sentry.setTag?.(
-            'split_bundle_unknown_module_id',
-            classification.moduleId,
-          );
-        } catch {
-          /* sentry may not be initialised yet — never let tagging break the handler */
         }
       }
       NativeLogger.write(
@@ -184,6 +181,30 @@ require('./src/startupProfile').scheduleStartupProfileJsFlush();
 
 ReactNativeDeviceUtils.initEventListeners();
 initSentry();
+
+// Install Sentry event processor that tags split-bundle integrity crashes.
+// Must run AFTER initSentry() so the SDK's isolation scope is up. See
+// apps/mobile/src/splitBundle/sentryEventProcessor.ts for why this lives
+// in a processor instead of a global error handler.
+if (!__DEV__) {
+  try {
+    const Sentry =
+      require('@onekeyhq/shared/src/modules3rdParty/sentry') as typeof import('@onekeyhq/shared/src/modules3rdParty/sentry');
+    const platformEnv =
+      require('@onekeyhq/shared/src/platformEnv') as typeof import('@onekeyhq/shared/src/platformEnv');
+    const { installSplitBundleSentryEventProcessor } =
+      require('./src/splitBundle/sentryEventProcessor') as typeof import('./src/splitBundle/sentryEventProcessor');
+    if (typeof Sentry.addEventProcessor === 'function') {
+      installSplitBundleSentryEventProcessor({
+        sentry: { addEventProcessor: Sentry.addEventProcessor },
+        getBundleVersion: () => platformEnv.default?.bundleVersion,
+      });
+    }
+  } catch {
+    /* never let processor install break startup */
+  }
+}
+
 I18nManager.allowRTL(true);
 
 if (typeof globalThis.nativePerformanceNow === 'function') {
