@@ -968,3 +968,46 @@ Verification:
 - [ ] Broken OTA `10069276` is taken offline.
 - [ ] PR merged to `x` and a fresh OTA published.
 - [ ] Sentry REACT-NATIVE-4AX events/hour drops to ~0 within 1 hour after publish.
+
+---
+
+## Post-execution amendments
+
+The plan above was authored before any code landed. During execution two
+significant deviations surfaced that future readers should know about:
+
+### Task K added after Task H verification
+
+The original plan assumed the only segment-emit code path was
+`apps/mobile/plugins/segmentSerializer.js`. Tasks A + B fixed that file
+and all synthetic Jest tests passed. **Task H's real-artifact verification
+(Phase 6.1) caught that the production CI build runs with `UNION_BUILD=true`,
+which routes through `apps/mobile/scripts/unionBuild.js`'s `emitSegment()`
+— a separate code path that never called the rewrite.** The integrity
+scanner from Task C correctly fired with 25 violations on the un-fixed
+UNION_BUILD output (including the original Sentry IDs 778/792/798/799/2786/3908).
+
+Task K was added on the spot: it wires `rewriteAsyncRequirePaths` (the
+unionBuild-side helper at `apps/mobile/scripts/unionBuildHelpers.js:362`) into
+all 5 `emitSegment` call sites, mirroring the eager-bundle rewrite at
+`unionBuild.js:1065`. After Task K: 0 violations across 2204 main + 153 bg
+segments; integrity scanner exits 0.
+
+Both fixes (Tasks A+B AND Task K) are kept in place — Tasks A+B cover the
+legacy non-UNION_BUILD path; Task K covers the production path. The
+integrity scanner (Task C) is the build-time gate that proved both paths
+needed coverage.
+
+### Lessons captured
+
+1. **Synthetic tests can pass on the wrong code path.** The TDD red→green
+   in Tasks A + B was correct against `segmentSerializer.js` but never
+   exercised the actual production serializer. Always include a real-artifact
+   verification step (Phase 6.1) — don't trust unit-test green alone.
+2. **Build-time integrity checks pay for themselves immediately.** Task C
+   was built as defense-in-depth; it ended up being the load-bearing signal
+   that caught the dual-path issue before user-facing rebuild.
+3. **CI gating must run before artifact upload, not after.** Task D's hard
+   gate at `.github/workflows/release-native-bundle.yml:243` is what stops
+   future regressions of this class from reaching the OTA CDN even when
+   unit tests miss them.

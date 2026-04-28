@@ -1168,6 +1168,7 @@ async function writeSegments({
     rewriteContext,
   }) => {
     const segmentId = segmentIdMap.get(segmentKey);
+    // Mirror the eager-bundle rewrite at line 1065. See REACT-NATIVE-4AX.
     rewriteAsyncRequirePaths(segModules, {
       moduleToSegment: rewriteContext.moduleToSegment,
       moduleIdToAbsPath,

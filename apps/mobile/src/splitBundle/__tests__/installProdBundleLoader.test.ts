@@ -455,9 +455,7 @@ describe('installProdBundleLoader', () => {
         errorLogs.some(
           ([, msg]) =>
             typeof msg === 'string' &&
-            msg.includes(
-              '[SplitBundle][BUG] missing-rewrite eager fallback',
-            ),
+            msg.includes('[SplitBundle][BUG] missing-rewrite eager fallback'),
         ),
       ).toBe(true);
     });

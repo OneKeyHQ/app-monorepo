@@ -36,6 +36,8 @@ describe('rewriteAsyncPathsInModules — segment-shape contract', () => {
       '"3904":"seg:kit.views.Send.pages.SendConfirm.SendConfirmContainer"',
     );
     // Hard guarantee: no Metro default URL leaks past rewrite
-    expect(segModules[0][1]).not.toMatch(/\.bundle\?modulesOnly=true&runModule=false/);
+    expect(segModules[0][1]).not.toMatch(
+      /\.bundle\?modulesOnly=true&runModule=false/,
+    );
   });
 });

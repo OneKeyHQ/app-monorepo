@@ -39,13 +39,13 @@ function buildRewritePattern(moduleToSegment) {
 function rewriteAsyncPathsInModules(modules, moduleToSegment) {
   const pattern = buildRewritePattern(moduleToSegment);
   if (!pattern) return;
-  for (const mod of modules) {
-    if (!mod || typeof mod[1] !== 'string') continue;
+  modules.forEach((mod) => {
+    if (!mod || typeof mod[1] !== 'string') return;
     mod[1] = mod[1].replace(pattern, (match, prefix, modId, colon) => {
       const segKey = moduleToSegment.get(Number(modId));
       return segKey ? `${prefix}"${modId}"${colon}"${segKey}"` : match;
     });
-  }
+  });
 }
 
 module.exports = { buildRewritePattern, rewriteAsyncPathsInModules };
