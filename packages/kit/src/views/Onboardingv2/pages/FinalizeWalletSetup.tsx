@@ -59,7 +59,6 @@ import {
   flushPendingExistingWalletSwitchToast,
   setExistingWalletSwitchToastDeferred,
 } from '../../../utils/toastExistingWalletSwitch';
-import { useWalletBoundReferralCode } from '../../ReferFriends/hooks/useWalletBoundReferralCode';
 import { OnboardingPage } from '../components/Layout';
 import { OrbShader } from '../components/OrbShader';
 import {
@@ -129,9 +128,6 @@ function FinalizeWalletSetupPage({
       }
     | undefined
   >(undefined);
-  const [isReferralReadyChecked, setIsReferralReadyChecked] = useState(false);
-  const [shouldShowReferralBindAction, setShouldShowReferralBindAction] =
-    useState(false);
   const [
     isWalletCreationReadyForReferralCheck,
     setIsWalletCreationReadyForReferralCheck,
@@ -175,14 +171,7 @@ function FinalizeWalletSetupPage({
     setPendingKeylessAutoConnectWalletId,
     openKeylessAutoConnectDappModal,
   } = useKeylessWebFlowAutoConnectDapp();
-  const keylessAutoConnectScheduledRef = useRef(false);
   const readyReferralCheckHandledRef = useRef(false);
-
-  const { getReferralCodeBondStatus, bindWalletInviteCode } =
-    useWalletBoundReferralCode({
-      entry: 'tab',
-      mnemonicType,
-    });
 
   // Hold the "existing wallet switched" toast until the user confirms with
   // Enter wallet, so it doesn't pop over the setup progress animation.
@@ -447,10 +436,7 @@ function FinalizeWalletSetupPage({
     stepQueue.current = [];
     createdWalletRef.current = undefined;
     readyReferralCheckHandledRef.current = false;
-    keylessAutoConnectScheduledRef.current = false;
     setIsWalletCreationReadyForReferralCheck(false);
-    setIsReferralReadyChecked(false);
-    setShouldShowReferralBindAction(false);
     // Reset the dedup guard so a retry triggered after a late, post-success
     // error (e.g. a hardware-connect event firing after a non-hardware
     // wallet was already created) can re-enter the create-wallet branch
@@ -466,43 +452,35 @@ function FinalizeWalletSetupPage({
 
   const handleWalletSetupReady = useCallback(async () => {
     const referralWalletId = createdWalletRef.current?.id;
-    try {
-      if (referralWalletId) {
-        const walletCreatedAt = buildWalletCreatedAtISOString();
-        try {
-          await backgroundApiProxy.serviceReferralCode.cacheWalletCreationRecordTimestamp(
-            {
-              walletId: referralWalletId,
-              walletCreatedAt,
-            },
-          );
-          const info =
-            await backgroundApiProxy.serviceReferralCode.getReferralCodeWalletInfo(
-              { walletId: referralWalletId },
-            );
-          if (info) {
-            await backgroundApiProxy.serviceReferralCode.recordWalletCreation([
-              {
-                address: info.address,
-                networkId: info.networkId,
-                walletCreatedAt,
-              },
-            ]);
-          }
-        } catch {
-          // Startup migration will retry with the cached creation timestamp.
-        }
-      }
-
-      const shouldBind = await getReferralCodeBondStatus({
-        walletId: referralWalletId,
-        skipIfTimeout: true,
-      });
-      setShouldShowReferralBindAction(shouldBind);
-    } finally {
-      setIsReferralReadyChecked(true);
+    if (!referralWalletId) {
+      return;
     }
-  }, [getReferralCodeBondStatus]);
+
+    const walletCreatedAt = buildWalletCreatedAtISOString();
+    try {
+      await backgroundApiProxy.serviceReferralCode.cacheWalletCreationRecordTimestamp(
+        {
+          walletId: referralWalletId,
+          walletCreatedAt,
+        },
+      );
+      const info =
+        await backgroundApiProxy.serviceReferralCode.getReferralCodeWalletInfo({
+          walletId: referralWalletId,
+        });
+      if (info) {
+        await backgroundApiProxy.serviceReferralCode.recordWalletCreation([
+          {
+            address: info.address,
+            networkId: info.networkId,
+            walletCreatedAt,
+          },
+        ]);
+      }
+    } catch {
+      // Startup migration will retry with the cached creation timestamp.
+    }
+  }, []);
 
   useEffect(() => {
     // Hardware wallet creation may emit Ready before the post-create wallet
@@ -552,11 +530,10 @@ function FinalizeWalletSetupPage({
   }, [isReady]);
 
   const orbSize = 160;
-  const isReadyActionVisible = isReady && isReferralReadyChecked;
 
   const enterWalletTransitionProps = {
-    opacity: isReadyActionVisible ? 1 : 0,
-    pointerEvents: isReadyActionVisible ? ('auto' as const) : ('none' as const),
+    opacity: isReady ? 1 : 0,
+    pointerEvents: isReady ? ('auto' as const) : ('none' as const),
     ...(!platformEnv.isNative && {
       animation: 'quick' as const,
       animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
@@ -573,52 +550,6 @@ function FinalizeWalletSetupPage({
     >
       {intl.formatMessage({ id: ETranslations.enter_wallet })}
     </Button>
-  );
-
-  const handleReferralBindExit = useCallback(() => {
-    if (keylessAutoConnectScheduledRef.current) {
-      return;
-    }
-    keylessAutoConnectScheduledRef.current = true;
-    setTimeout(() => {
-      void openKeylessAutoConnectDappModal();
-    }, 600);
-  }, [openKeylessAutoConnectDappModal]);
-
-  const handleBindReferralCode = useCallback(() => {
-    if (closePageCalled.current) {
-      return;
-    }
-    keylessAutoConnectScheduledRef.current = false;
-    closePage();
-    flushPendingExistingWalletSwitchToast();
-    bindWalletInviteCode({
-      wallet: createdWalletRef.current,
-      onSuccess: handleReferralBindExit,
-      onClose: handleReferralBindExit,
-    });
-  }, [bindWalletInviteCode, closePage, handleReferralBindExit]);
-
-  const readyActionContent = shouldShowReferralBindAction ? (
-    <XStack gap="$2.5" w="100%" maxWidth={420} alignSelf="center">
-      <Button
-        flex={1}
-        variant="primary"
-        size="large"
-        onPress={handleBindReferralCode}
-      >
-        {intl.formatMessage({
-          id: ETranslations.referral_onboard_bind_code,
-        })}
-      </Button>
-      <Button flex={1} size="large" onPress={handleLetsGo}>
-        {intl.formatMessage({
-          id: ETranslations.referral_onboard_bind_code_finish,
-        })}
-      </Button>
-    </XStack>
-  ) : (
-    enterWalletButton
   );
 
   return (
@@ -708,13 +639,13 @@ function FinalizeWalletSetupPage({
               <StepTextSwap text={stepText} />
               {gtMd ? (
                 <YStack mt="$4" minHeight={48} {...enterWalletTransitionProps}>
-                  {readyActionContent}
+                  {enterWalletButton}
                 </YStack>
               ) : null}
             </YStack>
             {!gtMd ? (
               <YStack {...enterWalletTransitionProps}>
-                {readyActionContent}
+                {enterWalletButton}
               </YStack>
             ) : null}
           </>
