@@ -1911,20 +1911,11 @@ function TokenListBlock({
 
   const handleRefreshAllNetworkData = useCallback(() => {
     isAllNetworkManualRefresh.current = true;
-    void runAllNetworksRequests({ alwaysSetState: true });
+    void runAllNetworksRequests({
+      alwaysSetState: true,
+      skipAccountsCache: true,
+    });
   }, [runAllNetworksRequests]);
-
-  useEffect(() => {
-    const fn = () => {
-      if (network?.isAllNetworks) {
-        void runAllNetworksRequests({ alwaysSetState: true });
-      }
-    };
-    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, fn);
-    };
-  }, [network?.isAllNetworks, runAllNetworksRequests]);
 
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
