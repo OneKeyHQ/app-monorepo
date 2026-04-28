@@ -190,6 +190,7 @@ function BaseMarketHomeWithProvider({
   return (
     <MobileLayout
       {...layoutProps}
+      isFocused={isFocused}
       tabsRef={tabsRef}
       nestedPager={nestedPager}
     />
