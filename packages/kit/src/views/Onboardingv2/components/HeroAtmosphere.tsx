@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-import { useTheme } from '@onekeyhq/components';
+import { useMedia, useTheme } from '@onekeyhq/components';
 
 type IOrbProps = {
   size: number;
@@ -138,7 +138,15 @@ const BLEND_TEAL = '#2CD6A0';
 
 export function HeroAtmosphere(_props: { wordIndex?: number }) {
   const theme = useTheme();
+  const { gtMd } = useMedia();
   const accent = theme.brand9?.val ?? '#32B826';
+
+  // Orb sizes/positions are tuned for narrow viewports (mobile). On wide
+  // breakpoints the same numbers look like small spots in the corners, so
+  // we hide the atmosphere entirely there.
+  if (gtMd) {
+    return null;
+  }
 
   return (
     <Animated.View

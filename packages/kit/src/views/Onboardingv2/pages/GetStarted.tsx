@@ -434,14 +434,13 @@ function GetStarted() {
   return (
     <OnboardingPage
       headerBack="exit"
-      contentContainerProps={{
-        position: 'relative',
-        ...(platformEnv.isNative
-          ? {}
-          : { enterStyle: { opacity: 0, scale: 0.9 } }),
-      }}
+      backgroundLayer={<HeroAtmosphere />}
+      contentContainerProps={
+        platformEnv.isNative
+          ? undefined
+          : { enterStyle: { opacity: 0, scale: 0.9 } }
+      }
     >
-      <HeroAtmosphere />
       <YStack
         $md={{
           flex: 1,
