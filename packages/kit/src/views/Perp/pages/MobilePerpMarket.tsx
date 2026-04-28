@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
+  HeaderScrollGestureWrapper,
   Icon,
   NavBackButton,
   Page,
@@ -37,14 +38,97 @@ import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
-function MobilePerpCandlesTouchBridge() {
-  const handleTouchScroll = useMobileTabTouchScrollBridge();
+const IOS_CHART_HEIGHT = 500;
+const IOS_CHART_BOTTOM_OVERLAP = 40;
 
+function useNativeGestureTouchScrollGuard({
+  onTouchScroll,
+  releaseDelayMs = 80,
+}: {
+  onTouchScroll: (deltaY: number) => void;
+  releaseDelayMs?: number;
+}) {
+  const isNativeGestureActiveRef = useRef(false);
+  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (releaseTimerRef.current) {
+        clearTimeout(releaseTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const handleGestureActiveChange = useCallback(
+    (active: boolean) => {
+      if (releaseTimerRef.current) {
+        clearTimeout(releaseTimerRef.current);
+        releaseTimerRef.current = null;
+      }
+
+      if (active) {
+        isNativeGestureActiveRef.current = true;
+        return;
+      }
+
+      releaseTimerRef.current = setTimeout(() => {
+        isNativeGestureActiveRef.current = false;
+        releaseTimerRef.current = null;
+      }, releaseDelayMs);
+    },
+    [releaseDelayMs],
+  );
+
+  const handleTouchScroll = useCallback(
+    (deltaY: number) => {
+      if (isNativeGestureActiveRef.current) {
+        return;
+      }
+      onTouchScroll(deltaY);
+    },
+    [onTouchScroll],
+  );
+
+  return {
+    handleGestureActiveChange,
+    handleTouchScroll,
+  };
+}
+
+function MobilePerpCandlesTouchBridge() {
+  const rawTouchScroll = useMobileTabTouchScrollBridge();
+  const { handleGestureActiveChange, handleTouchScroll } =
+    useNativeGestureTouchScrollGuard({
+      onTouchScroll: rawTouchScroll,
+    });
+
+  return (
+    <YStack mb={-IOS_CHART_BOTTOM_OVERLAP}>
+      <MobilePerpMarketHeader />
+      <HeaderScrollGestureWrapper
+        panActiveOffsetY={[-4, 4]}
+        panFailOffsetX={[-40, 40]}
+        excludeRightEdgeRatio={0.1}
+        scrollScale={1}
+        simultaneousWithNativeGesture
+        cancelChildTouches={false}
+        onGestureActiveChange={handleGestureActiveChange}
+      >
+        <YStack h={IOS_CHART_HEIGHT} overflow="hidden">
+          <PerpCandles onTouchScroll={handleTouchScroll} />
+        </YStack>
+      </HeaderScrollGestureWrapper>
+    </YStack>
+  );
+}
+
+function MobilePerpCandlesStatic() {
   return (
     <YStack>
       <MobilePerpMarketHeader />
       <YStack flex={1} minHeight={500}>
-        <PerpCandles onTouchScroll={handleTouchScroll} />
+        <PerpCandles />
       </YStack>
     </YStack>
   );
@@ -148,18 +232,7 @@ function MobilePerpMarket() {
     [renderHeaderTitle, renderHeaderRight],
   );
 
-  const marketHeaderContent = useMemo(
-    () => (
-      <YStack>
-        <MobilePerpMarketHeader />
-
-        <YStack flex={1} minHeight={500}>
-          <PerpCandles />
-        </YStack>
-      </YStack>
-    ),
-    [],
-  );
+  const marketHeaderContent = useMemo(() => <MobilePerpCandlesStatic />, []);
 
   const orderBookContent = useMemo(
     () => (
@@ -172,12 +245,12 @@ function MobilePerpMarket() {
 
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);
 
-  if (platformEnv.isNativeAndroid) {
+  if (platformEnv.isNativeIOS) {
     return (
       <Page>
         {pageHeader}
         <Page.Body p="$0">
-          <YStack flex={1} bg="$bgApp" gap="$1.5">
+          <YStack flex={1} bg="$bgApp">
             <Tabs.Container
               initialTabName="orderbook"
               renderHeader={() => <MobilePerpCandlesTouchBridge />}
@@ -185,7 +258,7 @@ function MobilePerpMarket() {
             >
               <Tabs.Tab name="orderbook">
                 <Tabs.ScrollView showsVerticalScrollIndicator={false}>
-                  {orderBookContent}
+                  <YStack pt="$1.5">{orderBookContent}</YStack>
                 </Tabs.ScrollView>
               </Tabs.Tab>
             </Tabs.Container>

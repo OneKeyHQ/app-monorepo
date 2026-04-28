@@ -13,11 +13,22 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
+import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import type {
   EExportTimeRange,
   IBatchCheckWalletItem,
   IBatchCheckWalletResponse,
   IBatchCheckWalletV2Response,
+  IBtcRewardCommitData,
+  IBtcRewardCommitParams,
+  IBtcRewardError,
+  IBtcRewardHistoryParams,
+  IBtcRewardHistoryResponse,
+  IBtcRewardResult,
+  IBtcRewardVerifyCodeData,
+  IBtcRewardVerifyCodeParams,
+  IBtcRewardVerifyVoucherData,
+  IBtcRewardVerifyVoucherParams,
   ICheckWalletBindStatusResponse,
   IEarnPositionsResponse,
   IEarnRewardResponse,
@@ -1156,6 +1167,138 @@ class ServiceReferralCode extends ServiceBase {
       }
       throw error;
     }
+  }
+
+  // BTC reward endpoints are security: [] in OAS — auth token is optional and
+  // instance fallback goes via X-Onekey-Instance-Id (injected by the shared
+  // interceptor). Use the plain client rather than getOneKeyIdClient.
+  private async btcRewardPost<TData>(
+    path: string,
+    params: unknown,
+  ): Promise<IBtcRewardResult<TData>> {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    try {
+      const response = await client.post<unknown>(path, params, {
+        autoHandleError: false,
+      } as any);
+      return this.unwrapBtcRewardPostEnvelope<TData>(response.data);
+    } catch (error) {
+      return this.normalizeBtcRewardError(error);
+    }
+  }
+
+  private async btcRewardGet<TData>(
+    path: string,
+    params: unknown,
+  ): Promise<IBtcRewardResult<TData>> {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    try {
+      const response = await client.get<unknown>(path, {
+        params,
+        autoHandleError: false,
+      } as any);
+      return this.unwrapBtcRewardFlatEnvelope<TData>(response.data);
+    } catch (error) {
+      return this.normalizeBtcRewardError(error);
+    }
+  }
+
+  @backgroundMethod()
+  async btcRewardVerifyCode(
+    params: IBtcRewardVerifyCodeParams,
+  ): Promise<IBtcRewardResult<IBtcRewardVerifyCodeData>> {
+    return this.btcRewardPost<IBtcRewardVerifyCodeData>(
+      '/rebate/v1/btc-reward/verify-code',
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async btcRewardVerifyVoucher(
+    params: IBtcRewardVerifyVoucherParams,
+  ): Promise<IBtcRewardResult<IBtcRewardVerifyVoucherData>> {
+    return this.btcRewardPost<IBtcRewardVerifyVoucherData>(
+      '/rebate/v1/btc-reward/verify-voucher',
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async btcRewardCommit(
+    params: IBtcRewardCommitParams,
+  ): Promise<IBtcRewardResult<IBtcRewardCommitData>> {
+    return this.btcRewardPost<IBtcRewardCommitData>(
+      '/rebate/v1/btc-reward/commit',
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async btcRewardHistory(
+    params: IBtcRewardHistoryParams,
+  ): Promise<IBtcRewardResult<IBtcRewardHistoryResponse>> {
+    return this.btcRewardGet<IBtcRewardHistoryResponse>(
+      '/rebate/v1/btc-reward/history',
+      params,
+    );
+  }
+
+  private toBtcRewardError(code: number, message: string): IBtcRewardError {
+    return { code: code as EBtcRewardErrorCode, message };
+  }
+
+  private toBtcRewardFailure<T>(
+    body: { code?: number; message?: string } | undefined,
+  ): IBtcRewardResult<T> {
+    if (typeof body?.code === 'number' && typeof body.message === 'string') {
+      return {
+        success: false,
+        error: this.toBtcRewardError(body.code, body.message),
+      };
+    }
+    return {
+      success: false,
+      error: this.toBtcRewardError(
+        EBtcRewardErrorCode.Unknown,
+        'Unknown BTC reward error',
+      ),
+    };
+  }
+
+  private unwrapBtcRewardPostEnvelope<TData>(
+    envelope: unknown,
+  ): IBtcRewardResult<TData> {
+    const body = envelope as
+      | { success?: boolean; data?: TData; code?: number; message?: string }
+      | undefined;
+    if (
+      body?.success === true &&
+      body.data !== null &&
+      body.data !== undefined
+    ) {
+      return { success: true, data: body.data };
+    }
+    return this.toBtcRewardFailure<TData>(body);
+  }
+
+  private unwrapBtcRewardFlatEnvelope<TData>(
+    envelope: unknown,
+  ): IBtcRewardResult<TData> {
+    const body = envelope as
+      | (TData & { success?: boolean; code?: number; message?: string })
+      | undefined;
+    if (body?.success === true) {
+      return { success: true, data: body };
+    }
+    return this.toBtcRewardFailure<TData>(body);
+  }
+
+  private normalizeBtcRewardError<T>(error: unknown): IBtcRewardResult<T> {
+    const axiosError = error as { response?: { data?: unknown } };
+    const errData = axiosError?.response?.data as
+      | { code?: number; message?: string }
+      | undefined;
+    return this.toBtcRewardFailure<T>(errData);
   }
 }
 
