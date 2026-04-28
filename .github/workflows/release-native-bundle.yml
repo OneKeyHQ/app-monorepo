@@ -88,6 +88,18 @@ env:
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
 
+# Restrict GITHUB_TOKEN to the minimum scopes this workflow actually uses.
+# Prevents CodeQL from flagging the `workflow_run` trigger as a privileged
+# context with implicit write access (the `permissions:` block downgrades the
+# token from the default contents:write to contents:read).
+#   - contents: read   → actions/checkout, downloading source.
+#   - packages: read   → yarn install from npm.pkg.github.com (NODE_AUTH_TOKEN).
+#   - actions: read    → reading github.event.workflow_run metadata.
+permissions:
+  contents: read
+  packages: read
+  actions: read
+
 jobs:
   # Compute BUILD_BUNDLE_VERSION ONCE for the run so the iOS and Android
   # matrix arms below produce identical bundleVersion / Sentry release / QA
