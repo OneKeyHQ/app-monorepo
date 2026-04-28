@@ -7,6 +7,7 @@ import {
   Button,
   Icon,
   SizableText,
+  Spinner,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -35,7 +36,6 @@ import {
   OnboardingPage,
   OnboardingSidebar,
 } from '../components/Layout';
-import { RotatingLoader } from '../components/RotatingLoader';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 import { useKeylessLocalExistenceLogin } from '../hooks/useKeylessLocalExistenceLogin';
 
@@ -284,12 +284,9 @@ function CreateOrImportWallet() {
       >
         <YStack position="absolute" left="$5">
           {isLoading ? (
-            <RotatingLoader
-              size="$6"
+            <Spinner
+              size="small"
               color={isPrimary ? '$iconInverse' : '$icon'}
-              $gtMd={{
-                size: '$5',
-              }}
             />
           ) : (
             <Icon
