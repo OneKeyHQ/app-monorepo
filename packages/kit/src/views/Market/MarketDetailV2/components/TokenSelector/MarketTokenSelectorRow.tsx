@@ -16,6 +16,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
 import {
@@ -62,7 +63,9 @@ const MarketTokenSelectorRow = memo(
       return 'price' as const;
     }, [item.price]);
 
-    const changeColor = item.change24h >= 0 ? '$textSuccess' : '$textCritical';
+    const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
+      priceChange: item.change24h,
+    });
 
     // Use hooks directly + custom IconButton to match perps FavoriteButton exactly
     const spotStar = useStarV2Checked({
@@ -180,7 +183,7 @@ const MarketTokenSelectorRow = memo(
           <NumberSizeableText
             size="$bodySm"
             formatter="priceChange"
-            formatterOptions={{ showPlusMinusSigns: true }}
+            formatterOptions={{ showPlusMinusSigns }}
             color={changeColor}
           >
             {String(item.change24h)}
