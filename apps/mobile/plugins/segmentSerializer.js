@@ -32,6 +32,9 @@ const {
   getModuleIdMapPath,
 } = require('./segmentPaths');
 const {
+  rewriteAsyncPathsInModules,
+} = require('./segmentSerializer.rewriteAsyncPaths');
+const {
   deriveSegmentKey,
   allocateSegmentIds,
   monorepoRoot,
@@ -503,6 +506,27 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
     }
   }
 
+  // Step 6e: Rewrite asyncRequire paths for production (#49 + #regression-fix)
+  //
+  // Metro's babel-plugin-transform-metro-async-require emits async-require
+  // calls with a `paths` map keyed by module id and valued by the dev-server
+  // URL (`/packages/.../X.bundle?modulesOnly=true&runModule=false`).  In
+  // production we replace those URLs with stable segment keys (`seg:<key>`)
+  // so installProdBundleLoader can route them through the native segment
+  // loader instead of taking the eager-fallback short-circuit.
+  //
+  // CRITICAL: this rewrite must run on BOTH the main entry's modules AND
+  // every segment's modules.  An older revision only rewrote main —
+  // segments still shipped raw Metro URLs, the runtime fell into eager
+  // fallback, and `require(<id>)` then crashed because the target segment
+  // was never loaded.  See iOS 6.3.0-10069276 OTA crash for evidence.
+  if (!bundleOptions.dev) {
+    for (const [, segModules] of segmentOutputs) {
+      rewriteAsyncPathsInModules(segModules, moduleToSegment);
+    }
+    rewriteAsyncPathsInModules(mainModules, moduleToSegment);
+  }
+
   // Step 7: Write segment files and build manifest
   const manifest = { segments: {} };
 
@@ -646,31 +670,6 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
   const moduleIdMapPath = getModuleIdMapPath(runtimeTarget);
   await fs.writeFile(moduleIdMapPath, JSON.stringify(moduleIdMap));
   console.log(`info Writing module-id map → ${moduleIdMapPath}`);
-
-  // Step 10: Rewrite asyncRequire paths for production (#49)
-  // In production mode, replace dev server URLs with segment keys.
-  // Only matches entries preceded by { or , to avoid false positives
-  // in unrelated JSON/object literals within module code.
-  if (!bundleOptions.dev) {
-    // Build a single regex that matches all async module IDs at once
-    const asyncModuleIds = [...moduleToSegment.keys()];
-    if (asyncModuleIds.length > 0) {
-      const idAlternation = asyncModuleIds.map(String).join('|');
-      // Match: {  "ID" : "..." or ,  "ID" : "..."
-      // The lookbehind ensures we're inside a paths map object literal
-      const pattern = new RegExp(
-        `([{,]\\s*)"(${idAlternation})"(\\s*:\\s*)"[^"]*"`,
-        'g',
-      );
-      for (const mod of mainModules) {
-        if (typeof mod[1] !== 'string') continue;
-        mod[1] = mod[1].replace(pattern, (_, prefix, modId, colon) => {
-          const segKey = moduleToSegment.get(Number(modId));
-          return segKey ? `${prefix}"${modId}"${colon}"${segKey}"` : _;
-        });
-      }
-    }
-  }
 
   // Step 11: Generate source map for main bundle (needed by Sentry / EAS)
   const mainGraphModules = [];
