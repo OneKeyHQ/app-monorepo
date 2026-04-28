@@ -261,18 +261,16 @@ function getLinkTitle({
       return intl.formatMessage({ id: ETranslations.global_website });
     }
     if (iconName === 'DiscordBrand') {
-      return `${intl.formatMessage({
-        id: ETranslations.global_discord,
-      })} link`;
+      return intl.formatMessage({ id: ETranslations.global_discord });
     }
     if (iconName === 'Xbrand') {
-      return 'X link';
+      return 'X';
     }
     if (iconName === 'LinkedinBrand') {
-      return 'LinkedIn link';
+      return 'LinkedIn';
     }
     if (iconName === 'TelegramBrand') {
-      return 'Telegram link';
+      return 'Telegram';
     }
   }
 
@@ -304,9 +302,15 @@ function hasProtocolIntroItemContent(item: IEarnProtocolIntroItem) {
   );
 }
 
+const DIALOG_CONTENT_MAX_HEIGHT = 512;
+const PREVIEW_CELL_MIN_WIDTH = 176;
+const PREVIEW_CELL_MAX_WIDTH = 240;
+const AUDIT_DATE_COLUMN_WIDTH = 96;
+const AUDIT_CHEVRON_COLUMN_WIDTH = 28;
+
 function DialogContent({ children }: { children: React.ReactNode }) {
   return (
-    <ScrollView maxHeight="$96" nestedScrollEnabled>
+    <ScrollView maxHeight={DIALOG_CONTENT_MAX_HEIGHT} nestedScrollEnabled>
       <YStack px="$5" pb="$5">
         {children}
       </YStack>
@@ -442,13 +446,6 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
       </YStack>
       {!expanded && hasOverflow ? (
         <XStack position="absolute" right={0} bottom={0} bg="$bg" pl="$1">
-          <SizableText
-            size="$bodyMd"
-            lineHeight={DESCRIPTION_LINE_HEIGHT}
-            color="$textSubdued"
-          >
-            ...
-          </SizableText>
           <SizableText
             size="$bodyMd"
             lineHeight={DESCRIPTION_LINE_HEIGHT}
@@ -747,7 +744,7 @@ function getAuditScope(audit?: IEarnProtocolIntroAudit) {
   return audit?.scope || audit?.description;
 }
 
-function FallbackAvatar({ size = 30 }: { size?: number }) {
+function FallbackAvatar({ size = 28 }: { size?: number }) {
   return (
     <XStack w={size} h={size} ai="center" jc="center" flexShrink={0}>
       <Icon name="UserAvatarFallbackColored" width={size} height={size} />
@@ -759,7 +756,7 @@ function MemberAvatar({ member }: { member: IEarnProtocolIntroTeamMember }) {
   const avatar = getMemberAvatar(member);
   if (avatar) {
     return (
-      <Image w={30} h={30} borderRadius="$full" src={avatar} flexShrink={0} />
+      <Image w={28} h={28} borderRadius="$full" src={avatar} flexShrink={0} />
     );
   }
   return <FallbackAvatar />;
@@ -779,8 +776,8 @@ function MemberSocialIcon({ link }: { link: IEarnProtocolIntroSocialLink }) {
 
   return (
     <XStack
-      w="$5"
-      h="$5"
+      w="$4"
+      h="$4"
       ai="center"
       jc="center"
       borderRadius="$full"
@@ -793,32 +790,133 @@ function MemberSocialIcon({ link }: { link: IEarnProtocolIntroSocialLink }) {
 }
 
 function TeamMemberRow({ member }: { member: IEarnProtocolIntroTeamMember }) {
+  const name = getMemberName(member);
+  const position = getMemberPosition(member);
+  const links = getMemberLinks(member);
+
   return (
-    <XStack gap="$4" ai="center" flex={1} minWidth={176}>
+    <XStack gap="$3" ai="center" flex={1} minWidth={176}>
       <MemberAvatar member={member} />
-      <YStack gap="$0.5" flex={1} minWidth={0}>
-        <EarnText
-          text={toEarnText(getMemberName(member))}
-          size="$bodyLgMedium"
-          color="$text"
-          numberOfLines={1}
-        />
-        <XStack gap="$1" ai="center" flexWrap="wrap">
+      <YStack gap="$1" flex={1} minWidth={0}>
+        <XStack gap="$1.5" ai="center" minWidth={0}>
           <EarnText
-            text={toEarnText(getMemberPosition(member))}
-            size="$bodyMd"
-            color="$textSubdued"
+            text={toEarnText(name)}
+            size="$bodyLgMedium"
+            color="$text"
             numberOfLines={1}
           />
-          {getMemberLinks(member).map((link, index) => (
-            <MemberSocialIcon
-              key={`${getLinkUrl(link) || link.type || 'link'}-${index}`}
-              link={link}
+          {hasText(position) ? (
+            <EarnText
+              text={toEarnText(position)}
+              size="$bodyLg"
+              color="$textSubdued"
+              flex={1}
+              minWidth={0}
+              numberOfLines={1}
+            />
+          ) : null}
+        </XStack>
+        {links.length ? (
+          <XStack gap="$1" ai="center">
+            {links.map((link, index) => (
+              <MemberSocialIcon
+                key={`${getLinkUrl(link) || link.type || 'link'}-${index}`}
+                link={link}
+              />
+            ))}
+          </XStack>
+        ) : null}
+      </YStack>
+    </XStack>
+  );
+}
+
+function InvestorMetricCell({
+  title,
+  value,
+}: {
+  title?: IEarnProtocolIntroText;
+  value?: IEarnProtocolIntroText;
+}) {
+  if (!hasText(value)) {
+    return null;
+  }
+
+  return (
+    <YStack flex={1} minWidth={0} gap="$0.5">
+      <EarnText text={toEarnText(title)} size="$bodySm" color="$textSubdued" />
+      <EarnText
+        text={toEarnText(value)}
+        size="$bodyMd"
+        color="$text"
+        numberOfLines={1}
+      />
+    </YStack>
+  );
+}
+
+function getInvestorMetricCells(round: IEarnProtocolIntroInvestorRound) {
+  const metrics = (round.items ?? []).filter((metric) =>
+    hasText(getMetricValue(metric)),
+  );
+
+  if (metrics.length) {
+    return metrics;
+  }
+
+  return [
+    { title: 'Date', value: round.date },
+    { title: 'Amount', value: round.amount },
+    { title: 'Valuation', value: round.valuation },
+  ].filter((metric) => hasText(metric.value));
+}
+
+function InvestorRoundSection({
+  round,
+  isLast,
+}: {
+  round: IEarnProtocolIntroInvestorRound;
+  isLast: boolean;
+}) {
+  const metrics = getInvestorMetricCells(round);
+
+  return (
+    <YStack>
+      {hasText(round.title || round.round) ? (
+        <EarnText
+          text={toEarnText(round.title || round.round)}
+          size="$bodyMdMedium"
+          color="$text"
+          mb="$3"
+        />
+      ) : null}
+      {metrics.length ? (
+        <XStack gap="$3" mb="$3">
+          {metrics.map((metric, metricIndex) => (
+            <InvestorMetricCell
+              key={`${getText(metric.title) || 'metric'}-${metricIndex}`}
+              title={metric.title}
+              value={getMetricValue(metric)}
             />
           ))}
         </XStack>
-      </YStack>
-    </XStack>
+      ) : null}
+      {hasText(round.investors) ? (
+        <YStack gap="$0.5" mb={isLast ? '$3' : '$5'}>
+          <EarnText
+            text={toEarnText('Investors')}
+            size="$bodySm"
+            color="$textSubdued"
+          />
+          <EarnText
+            text={toEarnText(round.investors)}
+            size="$bodyMd"
+            color="$text"
+          />
+        </YStack>
+      ) : null}
+      {isLast ? null : <Divider mb="$5" />}
+    </YStack>
   );
 }
 
@@ -886,14 +984,27 @@ function PreviewCell({
   }
 
   return (
-    <YStack flex={1} minWidth={176} pr="$2" gap="$2">
+    <YStack
+      minWidth={PREVIEW_CELL_MIN_WIDTH}
+      maxWidth={PREVIEW_CELL_MAX_WIDTH}
+      flexShrink={0}
+      gap="$2"
+    >
       <EarnText text={toEarnText(title)} size="$bodyMd" color="$textSubdued" />
-      <XStack ai="center" gap="$2" cursor="pointer" onPress={onPress}>
+      <XStack
+        ai="center"
+        gap="$2"
+        minWidth={0}
+        cursor="pointer"
+        onPress={onPress}
+      >
         <PreviewCellIcon imageUrl={imageUrl} fallbackIcon={fallbackIcon} />
         <EarnText
           text={toEarnText(value)}
           size="$bodyLgMedium"
           color="$text"
+          flexShrink={1}
+          minWidth={0}
           numberOfLines={1}
         />
         <PreviewCountBadge count={count} />
@@ -944,7 +1055,7 @@ function PreviewGrid({
   }
 
   return (
-    <XStack flexWrap="wrap" py="$3" rowGap="$6">
+    <XStack flexWrap="wrap" py="$3" rowGap="$6" columnGap="$16">
       <PreviewCell
         title={team?.title || team?.button?.data?.title}
         value={getMemberName(firstTeamMember)}
@@ -977,64 +1088,13 @@ function InvestorsDialogContent({
 }) {
   const rounds = getInvestorRounds(investors);
   return (
-    <YStack gap="$4">
+    <YStack>
       {rounds.map((round, index) => (
-        <YStack
+        <InvestorRoundSection
           key={`${getText(getInvestorTitle(round)) || 'round'}-${index}`}
-          gap="$3"
-        >
-          {hasText(round.title || round.round) ? (
-            <EarnText
-              text={toEarnText(round.title || round.round)}
-              size="$bodyLgMedium"
-            />
-          ) : null}
-          <YStack gap="$2">
-            {(round.items ?? []).map((metric, metricIndex) => (
-              <XStack
-                key={`${getText(metric.title) || 'metric'}-${metricIndex}`}
-                jc="space-between"
-                gap="$4"
-              >
-                <EarnText
-                  text={toEarnText(metric.title)}
-                  size="$bodyMd"
-                  color="$textSubdued"
-                />
-                <EarnText
-                  text={toEarnText(getMetricValue(metric))}
-                  size="$bodyMdMedium"
-                  textAlign="right"
-                />
-              </XStack>
-            ))}
-            {hasText(round.date) ? (
-              <EarnText
-                text={toEarnText(round.date)}
-                size="$bodyMd"
-                color="$textSubdued"
-              />
-            ) : null}
-            {hasText(round.amount) ? (
-              <EarnText text={toEarnText(round.amount)} size="$bodyMdMedium" />
-            ) : null}
-            {hasText(round.valuation) ? (
-              <EarnText
-                text={toEarnText(round.valuation)}
-                size="$bodyMd"
-                color="$textSubdued"
-              />
-            ) : null}
-            {hasText(round.investors) ? (
-              <EarnText
-                text={toEarnText(round.investors)}
-                size="$bodyMd"
-                color="$textSubdued"
-              />
-            ) : null}
-          </YStack>
-          {index !== rounds.length - 1 ? <Divider /> : null}
-        </YStack>
+          round={round}
+          isLast={index === rounds.length - 1}
+        />
       ))}
     </YStack>
   );
@@ -1102,18 +1162,21 @@ function AuditAccordionItem({
                 text={toEarnText(getAuditTitle(audit))}
                 size="$bodyMdMedium"
                 color="$text"
+                flexShrink={1}
+                minWidth={0}
                 numberOfLines={1}
               />
             </XStack>
-            <EarnText
-              text={toEarnText(audit.date)}
-              size="$bodyMd"
-              color="$textSubdued"
-              flex={1}
-              minWidth={0}
-              numberOfLines={1}
-            />
-            <XStack flex={1} jc="flex-end">
+            <XStack w={AUDIT_DATE_COLUMN_WIDTH} flexShrink={0} jc="flex-end">
+              <EarnText
+                text={toEarnText(audit.date)}
+                size="$bodyMd"
+                color="$textSubdued"
+                textAlign="right"
+                numberOfLines={1}
+              />
+            </XStack>
+            <XStack w={AUDIT_CHEVRON_COLUMN_WIDTH} flexShrink={0} jc="flex-end">
               <Stack
                 animation="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
@@ -1246,11 +1309,18 @@ function ProtocolIntroSectionComponent({
     }) => {
       Dialog.show({
         title: getText(title),
+        contentContainerProps: {
+          px: '$0',
+          pb: '$0',
+        },
         floatingPanelProps: {
           width: 400,
         },
         renderContent: <DialogContent>{renderContent}</DialogContent>,
         onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
+        confirmButtonProps: {
+          variant: 'secondary',
+        },
         showCancelButton: false,
       });
     },
@@ -1265,7 +1335,7 @@ function ProtocolIntroSectionComponent({
     showDialog({
       title: team?.button?.data?.title || team?.title,
       renderContent: (
-        <YStack gap="$4">
+        <YStack gap="$5">
           {members.map((member, index) => (
             <TeamMemberRow
               key={`${getText(getMemberName(member)) || 'member'}-${index}`}
