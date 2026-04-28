@@ -66,9 +66,13 @@ import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
 
 import {
   TRAY_DATA_REFRESH_EVENT_NAMES,
+  buildTrayWatchlistInSourceOrder,
   collectTrayTrackedTxs,
+  formatTrayUsdPrice,
   getTrayCurrencyDisplayInfo,
+  getTrayMarketNavigationTarget,
   getTrayTokenValueInTargetCurrency,
+  getTrayWatchlistNativeInfo,
   recoverFailedTrackedTxs,
 } from './trayDataProviderUtils';
 
@@ -539,11 +543,6 @@ export function useTrayDataProvider() {
         }
       }
 
-      // BigNumber keeps sub-cent precision a raw JS Number would drop.
-      const formatPriceInTarget = (usdPrice: number | string): string => {
-        const converted = new BigNumber(usdPrice || 0).times(usdToTargetFactor);
-        return `${displaySymbol}${converted.toFormat(2)}`;
-      };
       try {
         const watchListData =
           await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
@@ -555,14 +554,25 @@ export function useTrayDataProvider() {
             (item: any) => !!item.perpsCoin,
           );
 
-          const watchlistResults: ITrayWatchlistItem[] = [];
+          const watchlistResults: Array<{
+            sourceItem: {
+              chainId?: string;
+              contractAddress?: string;
+              isNative?: boolean;
+              perpsCoin?: string;
+            };
+            item: ITrayWatchlistItem;
+          }> = [];
 
           if (spotItems.length > 0) {
             try {
               const tokenAddressList = spotItems.map((item: any) => ({
                 chainId: item.chainId,
                 contractAddress: item.contractAddress || '',
-                isNative: item.isNative ?? false,
+                isNative: getTrayWatchlistNativeInfo({
+                  isNative: item.isNative,
+                  contractAddress: item.contractAddress,
+                }).isNative,
               }));
               const response =
                 await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
@@ -575,25 +585,31 @@ export function useTrayDataProvider() {
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
                   const coin = response.list[index] as any;
                   if (!coin?.symbol) return;
-                  const spotIsNative =
-                    (spotItem.isNative as boolean | undefined) ?? false;
+                  const { isNative: spotIsNative, tokenAddress } =
+                    getTrayWatchlistNativeInfo({
+                      isNative: spotItem.isNative as boolean | undefined,
+                      contractAddress: spotItem.contractAddress as
+                        | string
+                        | undefined,
+                    });
                   watchlistResults.push({
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                    symbol: (coin.symbol || '').toUpperCase(),
-                    name: coin.name || '',
-                    icon: coin.logoUrl || coin.logoUrls?.[0] || '',
-                    iconUrls: coin.logoUrls,
-                    networkIcon: getNetworkLogoUri(spotItem.chainId),
-                    price: formatPriceInTarget(coin.price),
-                    change24h: Number(coin.priceChange24hPercent || 0),
-                    type: 'spot',
-                    tokenAddress: spotIsNative
-                      ? ''
-                      : spotItem.contractAddress || '',
-                    networkId: spotItem.chainId,
-                    isNative: spotIsNative,
-                    communityRecognized: coin.communityRecognized,
-                    stock: coin.stock,
+                    sourceItem: spotItem,
+                    item: {
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                      symbol: (coin.symbol || '').toUpperCase(),
+                      name: coin.name || '',
+                      icon: coin.logoUrl || coin.logoUrls?.[0] || '',
+                      iconUrls: coin.logoUrls,
+                      networkIcon: getNetworkLogoUri(spotItem.chainId),
+                      price: formatTrayUsdPrice(coin.price),
+                      change24h: Number(coin.priceChange24hPercent || 0),
+                      type: 'spot',
+                      tokenAddress,
+                      networkId: spotItem.chainId,
+                      isNative: spotIsNative,
+                      communityRecognized: coin.communityRecognized,
+                      stock: coin.stock,
+                    },
                   });
                 });
               }
@@ -643,22 +659,25 @@ export function useTrayDataProvider() {
                       item.perpsCoin ||
                       '';
                     watchlistResults.push({
-                      symbol: displayName,
-                      name: '',
-                      icon:
-                        coin.tokenImageUrl ||
-                        getHyperliquidTokenImageUrl(
-                          parsedCoin.displayName || displayName,
+                      sourceItem: item,
+                      item: {
+                        symbol: displayName,
+                        name: '',
+                        icon:
+                          coin.tokenImageUrl ||
+                          getHyperliquidTokenImageUrl(
+                            parsedCoin.displayName || displayName,
+                          ),
+                        price: formatTrayUsdPrice(coin.markPrice),
+                        change24h: coin.change24hPercent || 0,
+                        type: 'perps',
+                        perpsCoin: item.perpsCoin,
+                        maxLeverage: coin.maxLeverage,
+                        subtitle: getTokenSubtitle(
+                          coin.name || item.perpsCoin || '',
+                          tokenSearchAliases,
                         ),
-                      price: formatPriceInTarget(coin.markPrice),
-                      change24h: coin.change24hPercent || 0,
-                      type: 'perps',
-                      perpsCoin: item.perpsCoin,
-                      maxLeverage: coin.maxLeverage,
-                      subtitle: getTokenSubtitle(
-                        coin.name || item.perpsCoin || '',
-                        tokenSearchAliases,
-                      ),
+                      },
                     });
                   }
                 }
@@ -668,7 +687,10 @@ export function useTrayDataProvider() {
             }
           }
 
-          trayData.watchlist = watchlistResults;
+          trayData.watchlist = buildTrayWatchlistInSourceOrder({
+            sourceItems: watchListData.data,
+            resolvedItems: watchlistResults,
+          });
         }
       } catch (e) {
         defaultLogger.app.error.log(
@@ -935,11 +957,12 @@ export function useTrayDataProvider() {
         if (action.networkId && (isNative || action.tokenAddress)) {
           const networkId = action.networkId;
           const shortCode = networkUtils.getNetworkShortCode({ networkId });
-          const params = {
-            tokenAddress: action.tokenAddress || '',
+          const target = getTrayMarketNavigationTarget({
             network: shortCode || networkId,
+            tokenAddress: action.tokenAddress,
             isNative,
-          };
+          });
+          if (!target) return;
 
           void switchTabAsync(ETabRoutes.Market).then(() => {
             rootNavigationRef.current?.navigate(
@@ -959,8 +982,8 @@ export function useTrayDataProvider() {
               rootNavigationRef.current?.navigate(ERootRoutes.Main, {
                 screen: ETabRoutes.Market,
                 params: {
-                  screen: ETabMarketRoutes.MarketDetailV2,
-                  params,
+                  screen: target.screen,
+                  params: target.params,
                 },
               });
             }, 100);

@@ -1,6 +1,8 @@
 import BigNumber from 'bignumber.js';
 
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
+import type { ITrayWatchlistItem } from '@onekeyhq/shared/src/types/desktop/tray';
 import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -13,6 +15,18 @@ type ITrayNetworkInfoMap = Record<
     mergeDeriveAssetsEnabled: boolean;
   }
 >;
+
+type ITrayWatchlistSourceItem = {
+  chainId?: string;
+  contractAddress?: string;
+  isNative?: boolean;
+  perpsCoin?: string;
+};
+
+type ITrayWatchlistResolvedItem = {
+  sourceItem: ITrayWatchlistSourceItem;
+  item: ITrayWatchlistItem;
+};
 
 export const TRAY_DATA_REFRESH_EVENT_NAMES = [
   EAppEventBusNames.HistoryTxStatusChanged,
@@ -42,6 +56,112 @@ export function getTrayCurrencyDisplayInfo({
     displayCurrency,
     displaySymbol,
     usdToTargetFactor: new BigNumber(usdToTargetFactor),
+  };
+}
+
+export function formatTrayUsdPrice(usdPrice: BigNumber.Value): string {
+  return `$${new BigNumber(usdPrice || 0).toFormat(2)}`;
+}
+
+export function getTrayWatchlistNativeInfo({
+  isNative,
+  contractAddress,
+}: {
+  isNative?: boolean;
+  contractAddress?: string;
+}) {
+  const resolvedIsNative =
+    isNative !== undefined ? isNative : (contractAddress?.length ?? 0) < 30;
+  return {
+    isNative: resolvedIsNative,
+    tokenAddress: resolvedIsNative ? '' : contractAddress || '',
+    normalizedTokenAddress: resolvedIsNative
+      ? ''
+      : (contractAddress || '').toLowerCase(),
+  };
+}
+
+function getTrayWatchlistSourceKey(
+  item: ITrayWatchlistSourceItem,
+): string | undefined {
+  if (item.perpsCoin) {
+    return `perps:${item.perpsCoin.toUpperCase()}`;
+  }
+  if (!item.chainId) return undefined;
+  const { normalizedTokenAddress } = getTrayWatchlistNativeInfo({
+    isNative: item.isNative,
+    contractAddress: item.contractAddress,
+  });
+  return `spot:${item.chainId}:${normalizedTokenAddress}`;
+}
+
+export function buildTrayWatchlistInSourceOrder({
+  sourceItems,
+  resolvedItems,
+}: {
+  sourceItems: ITrayWatchlistSourceItem[];
+  resolvedItems: ITrayWatchlistResolvedItem[];
+}): ITrayWatchlistItem[] {
+  const buckets = new Map<string, ITrayWatchlistItem[]>();
+
+  for (const { sourceItem, item } of resolvedItems) {
+    const key = getTrayWatchlistSourceKey(sourceItem);
+    if (key) {
+      const bucket = buckets.get(key) ?? [];
+      bucket.push(item);
+      buckets.set(key, bucket);
+    }
+  }
+
+  const orderedItems: ITrayWatchlistItem[] = [];
+  for (const sourceItem of sourceItems) {
+    const key = getTrayWatchlistSourceKey(sourceItem);
+    if (key) {
+      const item = buckets.get(key)?.shift();
+      if (item) orderedItems.push(item);
+    }
+  }
+
+  return orderedItems;
+}
+
+export function getTrayMarketNavigationTarget({
+  network,
+  tokenAddress,
+  isNative,
+}: {
+  network: string;
+  tokenAddress?: string;
+  isNative?: boolean;
+}):
+  | {
+      screen: ETabMarketRoutes;
+      params: {
+        network: string;
+        tokenAddress?: string;
+        isNative?: boolean;
+      };
+    }
+  | undefined {
+  if (isNative) {
+    return {
+      screen: ETabMarketRoutes.MarketNativeDetail,
+      params: {
+        network,
+        isNative: true,
+      },
+    };
+  }
+
+  if (!tokenAddress) return undefined;
+
+  return {
+    screen: ETabMarketRoutes.MarketDetailV2,
+    params: {
+      tokenAddress,
+      network,
+      isNative: false,
+    },
   };
 }
 

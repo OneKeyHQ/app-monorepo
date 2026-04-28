@@ -1,12 +1,18 @@
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
+import type { ITrayWatchlistItem } from '@onekeyhq/shared/src/types/desktop/tray';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   TRAY_DATA_REFRESH_EVENT_NAMES,
+  buildTrayWatchlistInSourceOrder,
   collectTrayTrackedTxs,
+  formatTrayUsdPrice,
   getTrayCurrencyDisplayInfo,
+  getTrayMarketNavigationTarget,
   getTrayTokenValueInTargetCurrency,
+  getTrayWatchlistNativeInfo,
   recoverFailedTrackedTxs,
 } from './trayDataProviderUtils';
 
@@ -20,6 +26,20 @@ function buildTrackedTx(
     originalId,
     decodedTx: { status },
   } as unknown as IAccountHistoryTx;
+}
+
+function buildTicker(
+  symbol: string,
+  type: 'spot' | 'perps',
+): ITrayWatchlistItem {
+  return {
+    symbol,
+    name: symbol,
+    icon: '',
+    price: '$1.00',
+    change24h: 0,
+    type,
+  };
 }
 
 describe('trayDataProviderUtils', () => {
@@ -105,6 +125,86 @@ describe('trayDataProviderUtils', () => {
     expect(result.displayCurrency).toBe('usd');
     expect(result.displaySymbol).toBe('$');
     expect(result.usdToTargetFactor.toFixed()).toBe('1');
+  });
+
+  test('formatTrayUsdPrice always formats token rows in USD', () => {
+    expect(formatTrayUsdPrice('1234.567')).toBe('$1,234.57');
+    expect(formatTrayUsdPrice('0')).toBe('$0.00');
+  });
+
+  test('buildTrayWatchlistInSourceOrder preserves mixed spot and perps order', () => {
+    const sourceItems = [
+      { chainId: 'evm--1', contractAddress: '0xabc', isNative: false },
+      { perpsCoin: 'BTC' },
+      {
+        chainId: 'sui--0',
+        contractAddress: '0x2::sui::SUI',
+        isNative: true,
+      },
+      { perpsCoin: 'ETH' },
+    ];
+
+    const result = buildTrayWatchlistInSourceOrder({
+      sourceItems,
+      resolvedItems: [
+        { sourceItem: sourceItems[2], item: buildTicker('SUI', 'spot') },
+        { sourceItem: sourceItems[0], item: buildTicker('ABC', 'spot') },
+        { sourceItem: sourceItems[3], item: buildTicker('ETH', 'perps') },
+        { sourceItem: sourceItems[1], item: buildTicker('BTC', 'perps') },
+      ],
+    });
+
+    expect(result.map((item) => item.symbol)).toEqual([
+      'ABC',
+      'BTC',
+      'SUI',
+      'ETH',
+    ]);
+  });
+
+  test('getTrayWatchlistNativeInfo treats SUI native as native even with an address', () => {
+    const result = getTrayWatchlistNativeInfo({
+      contractAddress: '0x2::sui::SUI',
+      isNative: true,
+    });
+
+    expect(result.isNative).toBe(true);
+    expect(result.tokenAddress).toBe('');
+    expect(result.normalizedTokenAddress).toBe('');
+  });
+
+  test('getTrayMarketNavigationTarget uses native route for SUI native actions', () => {
+    const result = getTrayMarketNavigationTarget({
+      network: 'sui',
+      tokenAddress: '0x2::sui::SUI',
+      isNative: true,
+    });
+
+    expect(result).toEqual({
+      screen: ETabMarketRoutes.MarketNativeDetail,
+      params: {
+        network: 'sui',
+        isNative: true,
+      },
+    });
+    expect(result?.params).not.toHaveProperty('tokenAddress');
+  });
+
+  test('getTrayMarketNavigationTarget uses token route for contract token actions', () => {
+    const result = getTrayMarketNavigationTarget({
+      network: 'eth',
+      tokenAddress: '0xabc',
+      isNative: false,
+    });
+
+    expect(result).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        tokenAddress: '0xabc',
+        network: 'eth',
+        isNative: false,
+      },
+    });
   });
 
   test('collectTrayTrackedTxs picks up Pending and Failed entries from pendingTxs bucket', () => {
