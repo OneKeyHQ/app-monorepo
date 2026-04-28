@@ -3,14 +3,19 @@ import {
   getSharedRPC,
 } from '@onekeyfe/react-native-background-thread';
 
+import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/kit-bg/src/apis/backgroundApiPermissions';
 import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   LogLevel,
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import {
   BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX,
@@ -764,6 +769,73 @@ function installGlobalTransport() {
   };
 }
 
+const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
+
+async function ensureMainThreadWebEmbedBridge(): Promise<JsBridgeBase> {
+  let bridge = mainThreadBridgeMap.webEmbed;
+  if (!bridge) {
+    appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(
+          new OneKeyLocalError(
+            `webEmbed bridge not ready after ${
+              WEBEMBED_BRIDGE_READY_TIMEOUT_MS / 1000
+            }s`,
+          ),
+        );
+      }, WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
+      appEventBus.once(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+    bridge = mainThreadBridgeMap.webEmbed;
+  }
+  if (!bridge) {
+    throw new OneKeyLocalError('webEmbed bridge not available on main thread');
+  }
+  const origin = bridge.remoteInfo?.origin || '';
+  if (!isWebEmbedApiAllowedOrigin(origin)) {
+    throw new OneKeyLocalError(
+      `webEmbed callImageUtils not allowed origin: ${origin || 'undefined'}`,
+    );
+  }
+  return bridge;
+}
+
+async function callMainThreadWebEmbedImageUtils<T>(
+  method: string,
+  params: unknown[],
+): Promise<T> {
+  const bridge = await ensureMainThreadWebEmbedBridge();
+  const result = await bridge.request({
+    scope: '$private',
+    data: { module: 'imageUtils', method, params },
+  });
+  return result as T;
+}
+
+function registerMainThreadImageEmbedBridge() {
+  registerImageEmbedBridge({
+    convertToBlackAndWhiteImageBase64: (img, mime) =>
+      callMainThreadWebEmbedImageUtils<string>(
+        'convertToBlackAndWhiteImageBase64',
+        [img, mime],
+      ),
+    applyRoundedCorners: (params) =>
+      callMainThreadWebEmbedImageUtils<string>('applyRoundedCorners', [params]),
+    base64ImageToBitmap: (params) =>
+      callMainThreadWebEmbedImageUtils<string>('base64ImageToBitmap', [params]),
+    processImageBlur: (params) =>
+      callMainThreadWebEmbedImageUtils<{
+        hex: string;
+        width: number;
+        height: number;
+      }>('processImageBlur', [params]),
+  });
+}
+
 /** Expose startup milestones for the timing summary log. */
 export function getTransportTimingMilestones() {
   return {
@@ -776,6 +848,17 @@ export function getTransportTimingMilestones() {
 export function setupMainThreadBackgroundRunner() {
   installGlobalTransport();
   ensureBackgroundRuntimeObserver();
+  // Only register on dual-thread native main: in single-thread native the
+  // BG-side webembedApiProxy.ts already registers a serviceDApp-routed
+  // adapter and `mainThreadBridgeMap` would be empty here. In dual-thread
+  // mode the WebView lives on this thread, so we can call the local bridge
+  // directly and skip the main → BG → main round-trip.
+  if (
+    platformEnv.isNativeMainThread &&
+    platformEnv.enableNativeBackgroundThread
+  ) {
+    registerMainThreadImageEmbedBridge();
+  }
 }
 
 setupMainThreadBackgroundRunner();
