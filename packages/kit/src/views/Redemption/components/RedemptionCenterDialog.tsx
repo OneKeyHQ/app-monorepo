@@ -15,9 +15,12 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -30,7 +33,7 @@ interface IRedemptionFormValues {
 }
 
 export interface IRedemptionCenterDialogProps {
-  onClose?: () => void;
+  onClose?: () => Promise<void> | void;
   onSuccess?: () => void;
 }
 
@@ -40,6 +43,7 @@ function RedemptionCenterDialogContent({
 }: IRedemptionCenterDialogProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { isLoggedIn, loginOneKeyId } = useOneKeyAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<IRedemptionFormValues>({
@@ -51,8 +55,8 @@ function RedemptionCenterDialogContent({
 
   const codeValue = form.watch('code');
 
-  const handleHistoryPress = useCallback(() => {
-    onClose?.();
+  const handleHistoryPress = useCallback(async () => {
+    await onClose?.();
     navigation.pushModal(EModalRoutes.ReferFriendsModal, {
       screen: EModalReferFriendsRoutes.RedemptionHistory,
     });
@@ -66,6 +70,66 @@ function RedemptionCenterDialogContent({
       form.clearErrors('code');
 
       try {
+        // Server has no unified endpoint, so dispatch between the two
+        // redemption modes (BTC reward vs legacy rebate level upgrade) by
+        // trying btc-reward first and falling back to redeemCode on
+        // InvalidCode.
+        const btcResult =
+          await backgroundApiProxy.serviceReferralCode.btcRewardVerifyCode({
+            code,
+          });
+
+        if (btcResult.success) {
+          // verify-code only validates the code; the actual redemption is the
+          // commit at the end of the BTC reward flow. Log success there.
+          await onClose?.();
+          navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+            screen: EModalReferFriendsRoutes.BtcRewardVerifyVoucher,
+            params: {
+              codeInfo: {
+                codeId: btcResult.data.codeId,
+                modelLabel: btcResult.data.modelLabel,
+                rewardUsdCents: btcResult.data.rewardUsdCents,
+                activityName: btcResult.data.activityName,
+              },
+            },
+          });
+          return;
+        }
+
+        // Only the server-confirmed "this isn't a BTC code" signal triggers
+        // the legacy fallback. Transport / envelope failures normalize to
+        // Unknown — those keep the user on the BTC path with a retryable
+        // error, otherwise a real BTC code during a BTC outage would be
+        // routed to legacy and surface as "invalid code".
+        if (btcResult.error.code !== EBtcRewardErrorCode.InvalidCode) {
+          const message =
+            btcResult.error.code === EBtcRewardErrorCode.Unknown
+              ? intl.formatMessage({
+                  id: ETranslations.redemption_btc_confirm_error_desc,
+                })
+              : btcResult.error.message;
+          defaultLogger.referral.redemption.redeemFailed(code, message);
+          form.setError('code', { message });
+          preventClose?.();
+          return;
+        }
+
+        // legacy redeemCode requires OneKey ID auth; prompt login before the
+        // fallback so logged-out users can still redeem a legacy rebate code
+        // (the redemption center entry no longer gates on login).
+        if (!isLoggedIn) {
+          try {
+            await loginOneKeyId();
+          } catch (loginError) {
+            if (loginError instanceof PrimeLoginDialogCancelError) {
+              preventClose?.();
+              return;
+            }
+            throw loginError;
+          }
+        }
+
         const result = await backgroundApiProxy.serviceReferralCode.redeemCode({
           code,
         });
@@ -88,7 +152,7 @@ function RedemptionCenterDialogContent({
 
         defaultLogger.referral.redemption.redeemSuccess(code);
 
-        onClose?.();
+        await onClose?.();
         showRedemptionSuccessDialog({
           upgradeInfo: result.upgradeInfo,
         });
@@ -114,7 +178,7 @@ function RedemptionCenterDialogContent({
         setIsSubmitting(false);
       }
     },
-    [form, intl, onClose, onSuccess],
+    [form, intl, isLoggedIn, loginOneKeyId, navigation, onClose, onSuccess],
   );
 
   const handleRedeem = useCallback(
