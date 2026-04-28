@@ -2,10 +2,19 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { rootNavigationRef } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
+import {
+  rootNavigationRef,
+  switchTabAsync,
+} from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   useActiveAccountValueAtom,
   useAppIsLockedAtom,
+  useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -16,10 +25,19 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalAssetDetailRoutes,
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import {
+  type IPendingTx,
+  type ITrayAccountAvatarInfo,
+  type ITrayAction,
   type ITrayData,
+  type ITrayWalletAvatarInfo,
   type ITrayWatchlistItem,
   TRAY_IPC,
 } from '@onekeyhq/shared/src/types/desktop/tray';
@@ -35,7 +53,11 @@ import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtil
 import {
   composeTrayAccountChange24h,
   formatTrayPendingTxAmount,
+  getTrayPendingTxAmountInfo,
+  getTrayPendingTxType,
 } from '@onekeyhq/shared/src/utils/trayDataUtils';
+import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
@@ -44,16 +66,193 @@ import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
 
 import {
   TRAY_DATA_REFRESH_EVENT_NAMES,
+  collectTrayTrackedTxs,
+  getTrayCurrencyDisplayInfo,
   getTrayTokenValueInTargetCurrency,
+  recoverFailedTrackedTxs,
 } from './trayDataProviderUtils';
 
-const USD_CURRENCY_ID = 'usd';
-const USD_CURRENCY_SYMBOL = '$';
+async function refreshTrayPendingTxStatuses(
+  txs: IAccountHistoryTx[],
+): Promise<void> {
+  const requestKeys = new Set<string>();
+  const requests: Array<{ accountId: string; networkId: string }> = [];
+
+  for (const tx of txs) {
+    if (tx.decodedTx?.status === EDecodedTxStatus.Pending) {
+      const { accountId, networkId } = tx.decodedTx;
+      if (accountId && networkId) {
+        const key = `${accountId}__${networkId}`;
+        if (!requestKeys.has(key)) {
+          requestKeys.add(key);
+          requests.push({ accountId, networkId });
+        }
+      }
+    }
+  }
+
+  if (!requests.length) return;
+
+  const results = await Promise.allSettled(
+    requests.map(({ accountId, networkId }) =>
+      backgroundApiProxy.serviceHistory.fetchAccountHistory({
+        accountId,
+        networkId,
+        isManualRefresh: true,
+        excludeTestNetwork: true,
+        limit: 10,
+      }),
+    ),
+  );
+
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      const request = requests[index];
+      defaultLogger.app.error.log(
+        `[TrayDataProvider] pending tx refresh error: ${
+          (result.reason as Error)?.message || String(result.reason)
+        } (${request.accountId}, ${request.networkId})`,
+      );
+    }
+  });
+}
+
+async function findTrayHistoryTxByAction(
+  action: ITrayAction,
+): Promise<IAccountHistoryTx | undefined> {
+  if (action.accountId && action.networkId && action.historyId) {
+    const localTx =
+      await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
+        accountId: action.accountId,
+        networkId: action.networkId,
+        historyId: action.historyId,
+      });
+    if (localTx) return localTx;
+  }
+
+  const txid = action.txid || action.historyId;
+  if (!txid) return undefined;
+
+  const rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
+  const txGroups: IAccountHistoryTx[][] = [
+    ...Object.values(rawData?.pendingTxs ?? {}),
+    ...Object.values(rawData?.confirmedTxs ?? {}),
+  ];
+  for (const group of txGroups) {
+    if (Array.isArray(group)) {
+      const found = group.find(
+        (tx) => tx.id === txid || tx.decodedTx?.txid === txid,
+      );
+      if (found) return found;
+    }
+  }
+
+  return undefined;
+}
 
 function getNetworkLogoUri(networkId?: string): string {
   if (!networkId) return '';
   const network = getPresetNetworks().find((n) => n.id === networkId);
   return network?.logoURI || '';
+}
+
+function getTrayWalletAvatarInfo(
+  wallet: IDBWallet | undefined,
+): ITrayWalletAvatarInfo | undefined {
+  if (wallet?.avatarInfo) {
+    return wallet.avatarInfo;
+  }
+
+  if (!wallet?.avatar) return undefined;
+  try {
+    return JSON.parse(wallet.avatar) as ITrayWalletAvatarInfo;
+  } catch {
+    return undefined;
+  }
+}
+
+function buildTrayWalletInfo(
+  wallet: IDBWallet | undefined,
+  fallbackName = '',
+): ITrayData['wallet'] {
+  const walletInfo: ITrayData['wallet'] = {
+    id: wallet?.id,
+    name: wallet?.name || fallbackName,
+    emoji: '',
+    avatarImg: '',
+    type: wallet?.type,
+    passphraseState: wallet?.passphraseState,
+    firmwareTypeAtCreated: wallet?.firmwareTypeAtCreated,
+  };
+
+  const avatarInfo = getTrayWalletAvatarInfo(wallet);
+  if (avatarInfo) {
+    walletInfo.avatarInfo = avatarInfo;
+    if (avatarInfo.emoji && avatarInfo.emoji !== 'img') {
+      walletInfo.emoji = avatarInfo.emoji;
+    }
+    if (avatarInfo.img) {
+      walletInfo.avatarImg = avatarInfo.img;
+    }
+  }
+
+  if (wallet && !walletInfo.emoji && !walletInfo.avatarImg) {
+    if (wallet.type === 'watching') {
+      walletInfo.emoji = '👁';
+    } else if (wallet.type === 'hw') {
+      walletInfo.emoji = '🔑';
+    } else {
+      walletInfo.emoji = '💰';
+    }
+  }
+
+  return walletInfo;
+}
+
+function buildTrayAccountInfo({
+  accountName,
+  account,
+  indexedAccount,
+  dbAccount,
+}: {
+  accountName: string;
+  account: { id?: string; address?: string } | undefined;
+  indexedAccount: IDBIndexedAccount | undefined;
+  dbAccount: IDBAccount | undefined;
+}): ITrayData['account'] {
+  const avatar: ITrayAccountAvatarInfo = {};
+  if (indexedAccount) {
+    avatar.indexedAccount = {
+      id: indexedAccount.id,
+      idHash: indexedAccount.idHash,
+    };
+  }
+  if (account) {
+    avatar.account = {
+      id: account.id,
+      address: account.address,
+    };
+  }
+  if (dbAccount) {
+    const dbAccountWithConnection = dbAccount as IDBAccount & {
+      connectionInfo?: unknown;
+    };
+    avatar.dbAccount = {
+      id: dbAccountWithConnection.id,
+      address: dbAccountWithConnection.address,
+      connectionInfo: dbAccountWithConnection.connectionInfo,
+    };
+  }
+  if (!avatar.indexedAccount && !avatar.account && !avatar.dbAccount) {
+    const address = account?.address || dbAccount?.address;
+    if (address) {
+      avatar.address = address;
+    }
+  }
+
+  return Object.keys(avatar).length
+    ? { name: accountName, avatar }
+    : { name: accountName };
 }
 
 type ITrayEnabledNetworkScope = {
@@ -147,34 +346,37 @@ async function getTrayEnabledNetworkScope({
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [appIsLocked] = useAppIsLockedAtom();
-  const [{ enableMenuBarTray }] = useSettingsPersistAtom();
+  const [{ enableMenuBarTray, currencyInfo }] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const {
-    activeAccount: { wallet, accountName, account },
+    activeAccount: { wallet, accountName, account, indexedAccount, dbAccount },
   } = useActiveAccount({ num: 0 });
-  // Guard every effect on this predicate so flipping the setting tears
-  // down IPC/event subscriptions and re-subscribes without remounting.
   const isTrayActive = platformEnv.isDesktopMac && (enableMenuBarTray ?? true);
   const activeAccountValueRef = useRef(activeAccountValue);
   activeAccountValueRef.current = activeAccountValue;
   const appIsLockedRef = useRef(appIsLocked);
   appIsLockedRef.current = appIsLocked;
+  const currencyInfoRef = useRef(currencyInfo);
+  currencyInfoRef.current = currencyInfo;
+  const currencyMapRef = useRef(currencyMap);
+  currencyMapRef.current = currencyMap;
   const walletRef = useRef(wallet);
   walletRef.current = wallet;
   const accountRef = useRef(account);
   accountRef.current = account;
+  const indexedAccountRef = useRef(indexedAccount);
+  indexedAccountRef.current = indexedAccount;
+  const dbAccountRef = useRef(dbAccount);
+  dbAccountRef.current = dbAccount;
   const accountNameRef = useRef<string>('');
   accountNameRef.current = accountName || '';
-  // Seed with the current accountId so the first mount isn't mis-detected as
-  // an account switch, which would clobber cache primed by main-process
-  // guardedRequest() with an optimistic $0.00 placeholder.
+  // Seed with current accountId so first mount isn't mis-detected as a switch.
   const prevAccountIdRef = useRef<string | undefined>(
     activeAccountValue?.accountId,
   );
   const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
   const pendingTxsClearedRef = useRef(false);
-  // Renderer-side inflight guard — main-process `guardedRequest` only
-  // covers poll-driven runs; renderer-triggered paths (account change,
-  // appEventBus refresh) coalesce extra calls into a single trailing re-run.
+  // Renderer-side inflight guard for non-poll paths (account change, refresh).
   const inFlightRef = useRef(false);
   const trailingRefreshRef = useRef(false);
 
@@ -189,21 +391,47 @@ export function useTrayDataProvider() {
       // ignore
     }
 
-    // Capture accountId up-front so every outbound payload (main/locked/error)
-    // carries the identity the notification diff uses to reset its baseline.
+    // Capture accountId up-front so every outbound payload carries the same identity.
     const activeAccountId = activeAccountValueRef.current?.accountId;
+    let trayCurrencyMap = currencyMapRef.current;
+    const selectedCurrencyId = currencyInfoRef.current?.id || 'usd';
+    if (
+      selectedCurrencyId !== 'usd' &&
+      !trayCurrencyMap?.[selectedCurrencyId]
+    ) {
+      try {
+        trayCurrencyMap =
+          await backgroundApiProxy.serviceSetting.getCurrencyMap();
+      } catch (e) {
+        defaultLogger.app.error.log(
+          `[TrayDataProvider] currency map fetch error: ${
+            (e as Error)?.message || String(e)
+          }`,
+        );
+      }
+    }
+    const { displayCurrency, displaySymbol, usdToTargetFactor } =
+      getTrayCurrencyDisplayInfo({
+        currencyInfo: currencyInfoRef.current,
+        currencyMap: trayCurrencyMap,
+      });
 
     const buildLockedPayload = (): ITrayData => ({
       isLocked: true,
       locale,
       accountId: activeAccountId,
       pendingTxsCleared: pendingTxsClearedRef.current,
-      wallet: { name: '', emoji: '', avatarImg: '' },
-      account: { name: accountNameRef.current },
+      wallet: buildTrayWalletInfo(undefined),
+      account: buildTrayAccountInfo({
+        accountName: accountNameRef.current,
+        account: accountRef.current,
+        indexedAccount: indexedAccountRef.current,
+        dbAccount: dbAccountRef.current,
+      }),
       totalBalance: {
         amount: '0.00',
-        currency: 'USD',
-        symbol: '$',
+        currency: displayCurrency,
+        symbol: displaySymbol,
       },
       watchlist: [],
       pendingTxs: [],
@@ -214,17 +442,18 @@ export function useTrayDataProvider() {
       return;
     }
 
-    const displayCurrency = USD_CURRENCY_ID;
-    const displaySymbol = USD_CURRENCY_SYMBOL;
-    const usdToTargetFactor = new BigNumber(1);
-
     try {
       const trayData: ITrayData = {
         locale,
         accountId: activeAccountId,
         pendingTxsCleared: pendingTxsClearedRef.current,
-        wallet: { name: '', emoji: '', avatarImg: '' },
-        account: { name: accountNameRef.current },
+        wallet: buildTrayWalletInfo(undefined),
+        account: buildTrayAccountInfo({
+          accountName: accountNameRef.current,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        }),
         totalBalance: {
           amount: '0.00',
           currency: displayCurrency,
@@ -236,29 +465,7 @@ export function useTrayDataProvider() {
 
       const currentWallet = walletRef.current;
       if (currentWallet) {
-        trayData.wallet.name = currentWallet.name || 'Wallet';
-        if (currentWallet.avatar) {
-          try {
-            const avatarInfo = JSON.parse(currentWallet.avatar);
-            if (avatarInfo?.emoji && avatarInfo.emoji !== 'img') {
-              trayData.wallet.emoji = avatarInfo.emoji;
-            }
-            if (avatarInfo?.img) {
-              trayData.wallet.avatarImg = avatarInfo.img;
-            }
-          } catch {
-            // avatar is not JSON
-          }
-        }
-        if (!trayData.wallet.emoji && !trayData.wallet.avatarImg) {
-          if (currentWallet.type === 'watching') {
-            trayData.wallet.emoji = '👁';
-          } else if (currentWallet.type === 'hw') {
-            trayData.wallet.emoji = '🔑';
-          } else {
-            trayData.wallet.emoji = '💰';
-          }
-        }
+        trayData.wallet = buildTrayWalletInfo(currentWallet, 'Wallet');
       }
 
       // Tray is always cross-network (spec non-goal #1) — pass the
@@ -362,13 +569,8 @@ export function useTrayDataProvider() {
                   { tokenAddressList },
                 );
               if (response?.list?.length) {
-                // fetchMarketTokenListBatch preserves request-order via
-                // positional index. Matching on API-returned networkId/
-                // isNative is fragile: networkId may be a shortcode,
-                // isNative may be missing, and address casing can shift.
-                // Align by spotItems index and keep watchlist's canonical
-                // chainId/contractAddress/isNative for the navigation
-                // payload — the API row is display data only.
+                // Align by spotItems index — API row is display-only; networkId
+                // shortcodes and address casing make field matching fragile.
                 spotItems.forEach((spotItem: any, index: number) => {
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
                   const coin = response.list[index] as any;
@@ -481,56 +683,58 @@ export function useTrayDataProvider() {
       // tracking only Pending would mis-fire "Confirmed" on failed txs.
       let pendingTxReadFailed = false;
       try {
-        const rawData =
+        let rawData =
           await backgroundApiProxy.simpleDb.localHistory.getRawData();
-        const allTrackedTxs: any[] = [];
-        if (rawData?.pendingTxs) {
-          for (const txs of Object.values(rawData.pendingTxs)) {
-            if (Array.isArray(txs)) {
-              for (const tx of txs) {
-                const s = tx?.decodedTx?.status;
-                if (
-                  s === EDecodedTxStatus.Pending ||
-                  s === EDecodedTxStatus.Failed
-                ) {
-                  allTrackedTxs.push(tx);
-                }
-              }
+        let allTrackedTxs = collectTrayTrackedTxs(rawData);
+        const trackedPendingIds = new Set(
+          allTrackedTxs
+            .filter((tx) => tx.decodedTx?.status === EDecodedTxStatus.Pending)
+            .map((tx) => tx.id),
+        );
+        if (trackedPendingIds.size > 0) {
+          await refreshTrayPendingTxStatuses(allTrackedTxs);
+          rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
+          allTrackedTxs = collectTrayTrackedTxs(rawData);
+          // Refresh moves failed txs out of the pendingTxs bucket
+          // (SimpleDbEntityLocalHistory's save filters that bucket to
+          // Pending-only), so re-attach them from confirmedTxs by id /
+          // originalId — otherwise diffAndNotify mis-fires "Confirmed".
+          const recovered = recoverFailedTrackedTxs(rawData, trackedPendingIds);
+          if (recovered.length > 0) {
+            const stillTrackedIds = new Set(allTrackedTxs.map((tx) => tx.id));
+            for (const tx of recovered) {
+              if (!stillTrackedIds.has(tx.id)) allTrackedTxs.push(tx);
             }
           }
         }
+
         allTrackedTxs.sort(
           (a, b) =>
             (b.decodedTx?.createdAt || 0) - (a.decodedTx?.createdAt || 0),
         );
         const history = allTrackedTxs;
         if (history?.length) {
-          trayData.pendingTxs = history.map((tx: any) => {
+          trayData.pendingTxs = history.map((tx): IPendingTx => {
             const decodedTx = tx.decodedTx;
-            const action = decodedTx?.actions?.[0];
+            const action = decodedTx
+              ? (getDisplayedActions({ decodedTx })[0] ??
+                decodedTx.actions?.[0])
+              : undefined;
             const transfer = action?.assetTransfer;
+            const txType = getTrayPendingTxType({ decodedTx, action });
 
-            let txType: 'send' | 'swap' | 'contract' | 'approve' = 'send';
-            if (action?.type === 'INTERNAL_SWAP' || transfer?.isInternalSwap) {
-              txType = 'swap';
-            } else if (action?.type === 'TOKEN_APPROVE') {
-              txType = 'approve';
-            } else if (action?.type === 'ASSET_TRANSFER') {
-              txType = 'send';
-            }
-
-            const firstSend = transfer?.sends?.[0];
-            // NEVER fall back to totalFeeFiatValue here (OK-53607): gas fee is
-            // not the tx amount and displaying it misleads users into thinking
-            // they transferred cents when they actually approved or called a
-            // contract.
+            // Don't fall back to totalFeeFiatValue: gas fee is not the tx amount (OK-53607).
             const amount = formatTrayPendingTxAmount({
-              firstSend: firstSend
-                ? { amount: firstSend.amount, symbol: firstSend.symbol }
-                : undefined,
+              amountInfo: getTrayPendingTxAmountInfo(action),
             });
 
-            const to = firstSend?.to || decodedTx?.to || '';
+            const to =
+              action?.tokenApprove?.spender ||
+              transfer?.sends?.[0]?.to ||
+              action?.functionCall?.to ||
+              action?.unknownAction?.to ||
+              decodedTx?.to ||
+              '';
 
             const status: 'pending' | 'failed' =
               decodedTx?.status === EDecodedTxStatus.Failed
@@ -539,9 +743,15 @@ export function useTrayDataProvider() {
 
             return {
               id: decodedTx?.txid || tx.id || '',
+              historyId: tx.id,
+              accountId: decodedTx?.accountId,
+              networkId: decodedTx?.networkId,
+              historyTx: tx,
               type: txType,
               to,
               amount,
+              createdAt: decodedTx?.createdAt,
+              updatedAt: decodedTx?.updatedAt,
               status,
             };
           });
@@ -587,12 +797,17 @@ export function useTrayDataProvider() {
         locale,
         accountId: activeAccountId,
         pendingTxsCleared: pendingTxsClearedRef.current,
-        wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
-        account: { name: accountNameRef.current },
+        wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
+        account: buildTrayAccountInfo({
+          accountName: accountNameRef.current,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        }),
         totalBalance: {
           amount: '0.00',
-          currency: 'USD',
-          symbol: '$',
+          currency: displayCurrency,
+          symbol: displaySymbol,
         },
         watchlist: [],
         pendingTxs: [],
@@ -622,10 +837,43 @@ export function useTrayDataProvider() {
     }
   }, [handleTrayDataRequestInner]);
 
+  const handleOpenTransactionDetail = useCallback(
+    async (action: ITrayAction) => {
+      try {
+        const historyTx = await findTrayHistoryTxByAction(action);
+        const decodedTx = historyTx?.decodedTx;
+        if (!historyTx || !decodedTx?.accountId || !decodedTx.networkId) return;
+
+        const nav = rootNavigationRef.current;
+        if (!nav) return;
+
+        nav.navigate(ERootRoutes.Modal, {
+          screen: EModalRoutes.MainModal,
+          params: {
+            screen: EModalAssetDetailRoutes.HistoryDetails,
+            params: {
+              accountId: decodedTx.accountId,
+              networkId: decodedTx.networkId,
+              historyTx,
+              checkIsFocused: false,
+            },
+          },
+        });
+      } catch (e) {
+        defaultLogger.app.error.log(
+          `[TrayDataProvider] transaction navigation error: ${
+            (e as Error)?.message || String(e)
+          }`,
+        );
+      }
+    },
+    [],
+  );
+
   // addIpcEventListener strips the IpcRendererEvent, so the action payload
   // is the first (and only) argument to this handler.
   const handleTrayNavigation = useCallback(
-    (action: { type: string; [key: string]: unknown }) => {
+    (action: ITrayAction) => {
       const nav = rootNavigationRef.current;
       if (!nav) return;
 
@@ -635,8 +883,11 @@ export function useTrayDataProvider() {
             screen: ETabRoutes.Home,
           });
         }
-        // Transaction-detail routes go through the EVENT_OPEN_URL
-        // deep-link pipeline in trayIpc.ts and never reach here.
+        return;
+      }
+
+      if (action?.type === 'transaction-detail') {
+        void handleOpenTransactionDetail(action);
         return;
       }
 
@@ -656,7 +907,7 @@ export function useTrayDataProvider() {
 
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
-          const coin = action.perpsCoin as string;
+          const coin = action.perpsCoin;
           setTimeout(async () => {
             nav.navigate(ERootRoutes.Main, {
               screen: ETabRoutes.Perp,
@@ -680,25 +931,44 @@ export function useTrayDataProvider() {
           return;
         }
 
-        const isNative = (action.isNative as boolean) || false;
+        const isNative = action.isNative || false;
         if (action.networkId && (isNative || action.tokenAddress)) {
-          const networkId = action.networkId as string;
+          const networkId = action.networkId;
           const shortCode = networkUtils.getNetworkShortCode({ networkId });
-          nav.navigate(ERootRoutes.Main, {
-            screen: ETabRoutes.Market,
-            params: {
-              screen: ETabMarketRoutes.MarketDetailV2,
-              params: {
-                tokenAddress: (action.tokenAddress as string) || '',
-                network: shortCode || networkId,
-                isNative,
+          const params = {
+            tokenAddress: action.tokenAddress || '',
+            network: shortCode || networkId,
+            isNative,
+          };
+
+          void switchTabAsync(ETabRoutes.Market).then(() => {
+            rootNavigationRef.current?.navigate(
+              ERootRoutes.Main,
+              {
+                screen: ETabRoutes.Market,
+                params: {
+                  screen: ETabMarketRoutes.TabMarket,
+                },
               },
-            },
+              {
+                pop: true,
+              },
+            );
+
+            setTimeout(() => {
+              rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+                screen: ETabRoutes.Market,
+                params: {
+                  screen: ETabMarketRoutes.MarketDetailV2,
+                  params,
+                },
+              });
+            }, 100);
           });
         }
       }
     },
-    [],
+    [handleOpenTransactionDetail],
   );
 
   useEffect(() => {
@@ -731,32 +1001,33 @@ export function useTrayDataProvider() {
     };
   }, [isTrayActive, handleTrayDataRequest, handleTrayNavigation]);
 
-  // Account switch: push an optimistic placeholder + gather immediately so the
-  // panel clears stale numbers within one frame (OK-53623). Non-switch identity
-  // changes (per-network profile refresh) keep the 300ms debounce so the
-  // cascade in OK-53610 is absorbed.
+  // Account switch: optimistic placeholder + immediate gather (OK-53623).
+  // Non-switch identity changes stay debounced to absorb OK-53610 cascade.
   useEffect(() => {
     if (!isTrayActive) return;
     const currentAccountId = activeAccountValue?.accountId;
     const accountJustChanged = currentAccountId !== prevAccountIdRef.current;
     if (accountJustChanged) {
       prevAccountIdRef.current = currentAccountId;
+      const { displayCurrency, displaySymbol } = getTrayCurrencyDisplayInfo({
+        currencyInfo,
+        currencyMap,
+      });
       globalThis.desktopApi?.sendTrayData({
         accountId: currentAccountId,
         pendingTxsCleared: false,
-        // Fall back to 'Wallet' — an empty name falls through to the
-        // `noWallet` empty-state branch in TrayPanel, which would replace
-        // the optimistic zeros with a full-panel "no wallet" screen.
-        wallet: {
-          name: walletRef.current?.name || 'Wallet',
-          emoji: '',
-          avatarImg: '',
-        },
-        account: { name: accountNameRef.current },
+        // Empty name triggers TrayPanel's `noWallet` branch, hiding the optimistic zeros.
+        wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
+        account: buildTrayAccountInfo({
+          accountName: accountNameRef.current,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        }),
         totalBalance: {
           amount: '0.00',
-          currency: 'USD',
-          symbol: '$',
+          currency: displayCurrency,
+          symbol: displaySymbol,
         },
         watchlist: [],
         pendingTxs: [],
@@ -768,7 +1039,7 @@ export function useTrayDataProvider() {
       handleTrayDataRequestRef.current?.();
     }, 300);
     return () => clearTimeout(timer);
-  }, [isTrayActive, activeAccountValue]);
+  }, [isTrayActive, activeAccountValue, currencyInfo, currencyMap]);
 
   useEffect(() => {
     if (!isTrayActive) return;
