@@ -19,8 +19,14 @@ function buildRewritePattern(moduleToSegment) {
   const ids = [...moduleToSegment.keys()];
   if (ids.length === 0) return null;
   const idAlternation = ids.map(String).join('|');
+  // Group 1: prefix `{` or `,` (preserved verbatim).
+  // Group 2: the numeric module id (used to look up the seg key).
+  // Group 3: the colon and surrounding whitespace (preserved verbatim).
+  // Trailing "(?:[^"\\]|\\.)*" tolerates escaped chars inside the URL value
+  // — without this, a value like "/x/\"y\"/z.bundle" would tear and emit
+  // invalid JS that Hermes would refuse to parse.
   return new RegExp(
-    `([{,]\\s*)"(${idAlternation})"(\\s*:\\s*)"[^"]*"`,
+    `([{,]\\s*)"(${idAlternation})"(\\s*:\\s*)"(?:[^"\\\\]|\\\\.)*"`,
     'g',
   );
 }

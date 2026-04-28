@@ -41,14 +41,15 @@ describe('rewriteAsyncPathsInModules', () => {
     );
   });
 
-  it('is idempotent — already-rewritten modules are not double-rewritten', () => {
+  it('is idempotent — running twice equals running once', () => {
     const moduleToSegment = new Map([[777, 'seg:foo']]);
-    const modules = [[1000, '__d(function(){asyncRequire(777,{"777":"seg:foo"});},1000,[777]);']];
+    const modules = [[1000, '__d(function(){asyncRequire(777,{"777":"/p/q.bundle?modulesOnly=true&runModule=false"});},1000,[777]);']];
 
-    const before = modules[0][1];
     rewriteAsyncPathsInModules(modules, moduleToSegment);
+    const afterOnce = modules[0][1];
 
-    expect(modules[0][1]).toBe(before);
+    rewriteAsyncPathsInModules(modules, moduleToSegment);
+    expect(modules[0][1]).toEqual(afterOnce);
   });
 
   it('skips entries with non-string module code (defensive)', () => {
@@ -83,5 +84,19 @@ describe('rewriteAsyncPathsInModules', () => {
     rewriteAsyncPathsInModules(modules, moduleToSegment);
     expect(modules[0][1]).toContain('"777":"seg:foo"');
     expect(modules[1][1]).toContain('"777":"seg:foo"');
+  });
+
+  it('handles values containing escaped quotes without corruption', () => {
+    const moduleToSegment = new Map([[777, 'seg:foo']]);
+    const modules = [[1000, '{"777":"/p/\\"q\\"/x.bundle?modulesOnly=true&runModule=false"}']];
+    rewriteAsyncPathsInModules(modules, moduleToSegment);
+    expect(modules[0][1]).toBe('{"777":"seg:foo"}');
+  });
+
+  it('does not rewrite ids that are not inside a paths-map shape', () => {
+    const moduleToSegment = new Map([[777, 'seg:foo']]);
+    const modules = [[1000, 'var x = ["aaa", "bbb"]; /* 777 was here */']];
+    rewriteAsyncPathsInModules(modules, moduleToSegment);
+    expect(modules[0][1]).toBe('var x = ["aaa", "bbb"]; /* 777 was here */');
   });
 });
