@@ -155,8 +155,10 @@ export function initTrayManager(
     showMainWindow();
     const mainWindow = getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, {
-        url: `onekey-wallet://transaction/${txId}`,
+      mainWindow.webContents.send(ipcMessageKeys.TRAY_ACTION, {
+        type: 'transaction-detail',
+        txid: txId,
+        historyId: txId,
       });
     }
   });
