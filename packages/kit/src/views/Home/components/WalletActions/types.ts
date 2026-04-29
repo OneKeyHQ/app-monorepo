@@ -1,3 +1,5 @@
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
+
 export type IWalletActionType =
   | 'send'
   | 'receive'
@@ -18,8 +20,6 @@ export type IWalletActionType =
   | 'custom';
 
 export type IMoreActionGroupType = 'trading' | 'tools' | 'developer' | 'others';
-
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export interface IActionCustomization {
   labelId?: ETranslations;

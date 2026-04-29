@@ -101,6 +101,7 @@ export function useAccountRenameMethod({
         } else if (isHwWallet) {
           await showUpdateHardwareWalletLegacyXfpDialog({
             walletId: wallet?.id || '',
+            intl,
             onConfirm: () => {
               callShowRenameDialog();
             },
