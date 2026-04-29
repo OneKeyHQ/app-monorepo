@@ -218,15 +218,13 @@ export const {
   return activePositions?.activePositions?.length ?? 0;
 });
 
-export const {
-  atom: positionFilterByCurrentTokenAtom,
-  use: usePositionFilterByCurrentTokenAtom,
-} = contextAtom<boolean>(false);
+const { atom: filterByCurrentTokenAtom, use: useFilterByCurrentTokenAtom } =
+  contextAtom<boolean>(false);
 
-export const {
-  atom: orderFilterByCurrentTokenAtom,
-  use: useOrderFilterByCurrentTokenAtom,
-} = contextAtom<boolean>(false);
+export const positionFilterByCurrentTokenAtom = filterByCurrentTokenAtom;
+export const usePositionFilterByCurrentTokenAtom = useFilterByCurrentTokenAtom;
+export const orderFilterByCurrentTokenAtom = filterByCurrentTokenAtom;
+export const useOrderFilterByCurrentTokenAtom = useFilterByCurrentTokenAtom;
 
 export type IPerpsActiveOpenOrdersAtom = {
   accountAddress: string | undefined;
