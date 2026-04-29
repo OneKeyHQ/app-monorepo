@@ -792,9 +792,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 });
               }
             } catch (hideErr) {
-              console.error(
+              defaultLogger.app.error.log(
                 'withFinalizeWalletSetupStep softHide failed',
-                hideErr,
+                hideErr instanceof Error ? hideErr.stack : undefined,
               );
             }
           }
