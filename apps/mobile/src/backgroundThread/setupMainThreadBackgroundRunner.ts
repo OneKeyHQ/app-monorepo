@@ -756,6 +756,11 @@ const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
 // gated on (a), the next call would skip waiting and crash with
 // `webEmbed bridge not available on main thread`.
 let webEmbedReady = false;
+// Bumped on every webEmbed teardown (null bridge sync). Used by
+// `checkBackgroundWebEmbedReady` to discard a BG `true` read whose RPC was
+// in flight across the unmount → next-mount boundary, so the stale flag
+// can't promote (a) for a page that hasn't actually replayed its handshake.
+let webEmbedMountGeneration = 0;
 const webEmbedReadyWaiters: Array<() => void> = [];
 
 function isMainThreadWebEmbedReady(): boolean {
@@ -793,6 +798,7 @@ function syncBridgeConnection(
       // ready page. Resetting on every null sync forces the next caller to
       // re-validate via BG and wait for the new ready signal.
       webEmbedReady = false;
+      webEmbedMountGeneration += 1;
     }
   }
   return callRemoteRequest(
@@ -831,10 +837,15 @@ appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
 // we mark local (a) ready. Whether the gate releases still depends on (b)
 // — see `isMainThreadWebEmbedReady`.
 async function checkBackgroundWebEmbedReady(): Promise<boolean> {
+  // Capture the mount generation *before* the cross-thread fetch. If a
+  // teardown happens while the RPC is in flight, the BG `true` we read
+  // belongs to the previous mount — promoting it would race a fresh mount
+  // whose page hasn't replayed `webEmbedApiReady` yet.
+  const generationAtStart = webEmbedMountGeneration;
   try {
     const bgApiProxy = appGlobals?.$backgroundApiProxy;
     const ready = await bgApiProxy?.serviceDApp?.isWebEmbedApiReady?.();
-    if (ready) {
+    if (ready && webEmbedMountGeneration === generationAtStart) {
       webEmbedReady = true;
       flushWebEmbedReadyWaiters();
       return isMainThreadWebEmbedReady();
