@@ -1,3 +1,4 @@
+/* eslint-disable onekey/no-app-locale-main-thread -- helper invoked from jotai actions outside React render */
 import { Dialog, Stack } from '@onekeyhq/components';
 import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
 import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';

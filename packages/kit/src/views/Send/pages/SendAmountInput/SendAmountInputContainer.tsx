@@ -1311,6 +1311,7 @@ function SendAmountInputContainer() {
             accountId: currentAccountId,
             networkId,
             mergeDeriveAssetsEnabled: false,
+            intl,
           });
         }}
         hoverStyle={{ opacity: 0.7 }}
