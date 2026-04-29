@@ -319,7 +319,11 @@ jobs:
 
       - name: upload zips
         uses: actions/upload-artifact@v4
-        continue-on-error: true
+        # Hard fail: the downstream `qa-upload` job downloads this artifact.
+        # If we let a flaky upload pass silently, the build job succeeds,
+        # qa metadata gets stashed, qa-upload then fails at download — and
+        # rerun-failed-jobs only reruns qa-upload, never recreating the
+        # bundle artifact.
         with:
           name: release-native-bundle-${{ matrix.platform }}-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
