@@ -39,7 +39,7 @@ import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProvi
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
 const IOS_CHART_HEIGHT = 500;
-const IOS_CHART_BOTTOM_OVERLAP = 40;
+const IOS_CHART_BOTTOM_OVERLAP = 56;
 
 function useNativeGestureTouchScrollGuard({
   onTouchScroll,
@@ -257,8 +257,11 @@ function MobilePerpMarket() {
               renderTabBar={() => null}
             >
               <Tabs.Tab name="orderbook">
-                <Tabs.ScrollView showsVerticalScrollIndicator={false}>
-                  <YStack pt="$1.5">{orderBookContent}</YStack>
+                <Tabs.ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
+                >
+                  <YStack>{orderBookContent}</YStack>
                 </Tabs.ScrollView>
               </Tabs.Tab>
             </Tabs.Container>
