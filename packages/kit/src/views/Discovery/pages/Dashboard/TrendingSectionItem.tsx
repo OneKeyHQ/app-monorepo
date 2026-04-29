@@ -25,6 +25,7 @@ export function TrendingSectionItem({
       title={title}
       url={url}
       dApp={dApp}
+      isAd={dApp.isAd}
       handleOpenWebSite={handleOpenWebSite}
       isLoading={isLoading}
     />
