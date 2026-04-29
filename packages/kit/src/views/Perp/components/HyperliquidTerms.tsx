@@ -35,15 +35,17 @@ function CustomCheckbox({
   onChange,
   label,
   labelSize,
+  compact,
 }: {
   value: boolean;
   onChange: (value: boolean) => void;
   label: string;
   labelSize: '$bodyMd' | '$bodySm';
+  compact?: boolean;
 }) {
   return (
     <XStack
-      p="$4"
+      p={compact ? '$3' : '$4'}
       gap="$3"
       alignItems="center"
       onPress={() => onChange(!value)}
@@ -93,6 +95,7 @@ export function HyperliquidTermsContent({
   const { hyperliquidLogo } = usePerpsLogo();
 
   const { gtMd } = useMedia();
+  const isCompact = !gtMd;
 
   const confirmationSlideStyle: IYStackProps | undefined = platformEnv.isNative
     ? undefined
@@ -101,23 +104,30 @@ export function HyperliquidTermsContent({
       };
 
   return (
-    <Stack>
+    <Stack w="100%">
       <Stack
+        w="100%"
         minHeight={200}
         display="flex"
-        alignItems="center"
+        alignItems={isCompact ? 'stretch' : 'center'}
         justifyContent="center"
       >
         <DelayedRender delay={renderDelay}>
-          <Stack px="$2" py="$4" position="relative">
-            <YStack {...confirmationSlideStyle}>
+          <Stack
+            w="100%"
+            px={isCompact ? '$2' : '$2'}
+            py="$4"
+            position="relative"
+          >
+            <YStack w="100%" {...confirmationSlideStyle}>
               <Stack
                 testID="hyperliquid-intro-confirmation-slide"
+                w="100%"
                 alignItems="center"
                 justifyContent="center"
-                px="$2"
+                px={isCompact ? '$0' : '$2'}
               >
-                <YStack gap="$2">
+                <YStack w="100%" gap="$2">
                   <YStack
                     alignItems="center"
                     gap={gtMd ? '$2' : '$2'}
@@ -142,8 +152,9 @@ export function HyperliquidTermsContent({
                   </YStack>
 
                   <YStack
+                    w="100%"
                     maxWidth="100%"
-                    px="$3"
+                    px={isCompact ? '$1' : '$3'}
                     bg="$bgSubdued"
                     borderRadius="$3"
                   >
@@ -154,6 +165,7 @@ export function HyperliquidTermsContent({
                         id: ETranslations.perp_term_content_1,
                       })}
                       labelSize={gtMd ? '$bodyMd' : '$bodySm'}
+                      compact={isCompact}
                     />
                     <Divider borderColor="$borderSubdued" />
                     <CustomCheckbox
@@ -163,13 +175,15 @@ export function HyperliquidTermsContent({
                         id: ETranslations.perp_term_content_2,
                       })}
                       labelSize={gtMd ? '$bodyMd' : '$bodySm'}
+                      compact={isCompact}
                     />
                   </YStack>
                 </YStack>
               </Stack>
               <YStack
+                w="100%"
                 py="$8"
-                px={gtMd ? '$4' : '$2'}
+                px={gtMd ? '$4' : '$1'}
                 justifyContent="center"
                 pb={gtMd ? '$3' : '$1'}
                 gap="$1"
@@ -304,6 +318,12 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
       disableDrag: true,
       dismissOnOverlayPress: false,
       showFooter: false,
+      contentContainerProps: platformEnv.isNative
+        ? {
+            px: '$3',
+            pb: '$3',
+          }
+        : undefined,
       showCancelButton: false,
       showConfirmButton: false,
       onClose: () => {
