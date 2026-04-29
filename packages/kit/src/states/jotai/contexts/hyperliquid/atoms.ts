@@ -117,6 +117,7 @@ export interface ITradeRouteViewState {
   tokenSelectorOpen: boolean;
   tokenSelectorTab: string;
   infoPanelTab: string;
+  favoritesBarSpotActive: boolean;
 }
 
 export const {
@@ -127,6 +128,7 @@ export const {
   tokenSelectorOpen: false,
   tokenSelectorTab: 'all',
   infoPanelTab: 'Positions',
+  favoritesBarSpotActive: false,
 });
 
 export type IBBOPriceMode =
