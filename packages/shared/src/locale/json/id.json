@@ -811,6 +811,7 @@
   "dexmarket_stock.underlying_asset_name": "Nama Aset Dasar",
   "dexmarket_stock.underlying_asset_ticker": "Ticker Aset Dasar",
   "dexmarket_stock.volume_shares": "Volume (Saham)",
+  "discovery.ad_label": "AD",
   "do_not_exit_app_during_setup": "Jangan keluar dari aplikasi selama pengaturan, atau pembuatan akan gagal",
   "dont_have_mobile_app_yet": "Belum memiliki aplikasi seluler?",
   "downgrade_warning_checkbox_label": "Saya TIDAK akan menurunkan versi ke OneKey v4",
