@@ -1018,7 +1018,10 @@ class ServiceHardware extends ServiceBase {
       connectId: params.connectId,
     });
     if (!dbDevice) {
-      throw new OneKeyLocalError('device not found');
+      // Onboarding / bootloader-mode flows hit this with a freshly-discovered
+      // device that has no local DB record yet — skip pre-flight and let the
+      // update modal proceed.
+      return;
     }
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId: params.connectId,
