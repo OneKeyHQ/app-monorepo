@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
+  resetAboveMainRoute,
   rootNavigationRef,
   switchTabAsync,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
@@ -77,6 +78,9 @@ import {
   getTrayWatchlistNativeInfo,
   recoverFailedTrackedTxs,
 } from './trayDataProviderUtils';
+
+const TRAY_ROUTE_HOME = '/main/tab-home';
+const TRAY_ROUTE_MARKET = '/main/tab-market';
 
 async function refreshTrayPendingTxStatuses(
   txs: IAccountHistoryTx[],
@@ -425,7 +429,14 @@ async function getTrayEnabledNetworkScope({
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [appIsLocked] = useAppIsLockedAtom();
-  const [{ enableMenuBarTray, currencyInfo }] = useSettingsPersistAtom();
+  const [
+    {
+      enableMenuBarTray,
+      currencyInfo,
+      locale: settingsLocale,
+      lastLocale: settingsLastLocale,
+    },
+  ] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const {
     activeAccount: { wallet, accountName, account, indexedAccount, dbAccount },
@@ -986,9 +997,28 @@ export function useTrayDataProvider() {
       if (!nav) return;
 
       if (action?.type === 'open-page') {
-        if (action.route === '/main/tab-home') {
+        if (action.route === TRAY_ROUTE_HOME) {
+          resetAboveMainRoute();
+          setTimeout(resetAboveMainRoute, 120);
           nav.navigate(ERootRoutes.Main, {
             screen: ETabRoutes.Home,
+          });
+        } else if (action.route === TRAY_ROUTE_MARKET) {
+          resetAboveMainRoute();
+          setTimeout(resetAboveMainRoute, 120);
+          void switchTabAsync(ETabRoutes.Market).then(() => {
+            rootNavigationRef.current?.navigate(
+              ERootRoutes.Main,
+              {
+                screen: ETabRoutes.Market,
+                params: {
+                  screen: ETabMarketRoutes.TabMarket,
+                },
+              },
+              {
+                pop: true,
+              },
+            );
           });
         }
         return;
@@ -1154,6 +1184,11 @@ export function useTrayDataProvider() {
     if (!isTrayActive) return;
     handleTrayDataRequestRef.current?.();
   }, [isTrayActive, appIsLocked]);
+
+  useEffect(() => {
+    if (!isTrayActive) return;
+    handleTrayDataRequestRef.current?.();
+  }, [isTrayActive, settingsLocale, settingsLastLocale]);
 
   // Main process inits tray by default — if the user previously disabled
   // it, tell main to destroy on startup.
