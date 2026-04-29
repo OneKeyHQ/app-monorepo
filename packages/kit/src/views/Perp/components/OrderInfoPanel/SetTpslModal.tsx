@@ -29,7 +29,7 @@ import {
 } from '@onekeyhq/shared/src/routes/perp';
 import {
   calculateProfitLoss,
-  formatWithPrecision,
+  formatHlSize,
   parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -206,7 +206,8 @@ const SetTpslForm = memo(
         ? 0
         : formData.percentage;
       const amount = positionSize.multipliedBy(percentage).dividedBy(100);
-      return formatWithPrecision(amount.toNumber(), szDecimals, true);
+      // Floor-truncate to szDecimals to match HL lot-size rule (no over-rounding).
+      return formatHlSize(amount, szDecimals) || '0';
     }, [positionSize, formData.percentage, szDecimals]);
 
     const handleTpslChange = useCallback(

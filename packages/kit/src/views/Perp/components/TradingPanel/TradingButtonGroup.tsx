@@ -382,13 +382,11 @@ function SideButtonInternal({
           } else if (resolvedSizeInputUnit === 'margin') {
             const leverageBN = new BigNumber(leverage || 1);
             if (leverageBN.isFinite() && leverageBN.gt(0)) {
-              // System uses toFixed (ROUND_HALF_UP) to convert margin to token size.
-              // The smallest raw value that rounds up to minSize is: minSize - 0.5 * 10^(-szDecimals)
-              const halfStep = new BigNumber(5).times(
-                new BigNumber(10).pow(-(szDecimals + 1)),
-              );
+              // SizeInput floors (margin × leverage / price) to szDecimals via
+              // formatHlSize, so the smallest margin that produces ≥ `minSize`
+              // tokens is exactly `minSize × effectivePrice / leverage`,
+              // rounded up to 2 cents to keep the displayed amount on the safe side.
               const minMargin = minSize
-                .minus(halfStep)
                 .multipliedBy(effectivePriceBN)
                 .dividedBy(leverageBN)
                 .decimalPlaces(2, BigNumber.ROUND_UP)
