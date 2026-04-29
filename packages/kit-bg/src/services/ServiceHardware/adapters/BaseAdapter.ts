@@ -1,3 +1,4 @@
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type {
@@ -21,10 +22,25 @@ export abstract class BaseAdapter {
   }
 
   uiResponse(response: IAdapterUiResponse): void {
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][${this.vendor}] uiResponse type=${
+        (response as { type?: string })?.type ?? 'unknown'
+      }`,
+    );
     this.hw.uiResponse(response);
   }
 
+  cancel(connectId?: string): void {
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][${this.vendor}] cancel connectId=${connectId || '(empty)'}`,
+    );
+    this.hw.cancel(connectId);
+  }
+
   protected emitUiEvent(event: IAdapterUiEvent): void {
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][${this.vendor}] emitUiEvent kind=${event.kind} type=${event.type}`,
+    );
     for (const handler of this.uiEventHandlers) {
       handler(event);
     }
