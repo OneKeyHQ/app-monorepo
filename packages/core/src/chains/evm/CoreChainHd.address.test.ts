@@ -126,7 +126,7 @@ describe('EVM Address Derivation Tests', () => {
     // ledgerLive templates resolve to the SAME path (m/44'/60'/0'/0/0), so
     // their addresses would be identical by definition. Index 1 yields three
     // genuinely distinct paths.
-    const [defaultAddrs, liveAddrs, legacyAddrs] = await Promise.all(
+    const [defaultAddresses, liveAddresses, legacyAddresses] = await Promise.all(
       [
         "m/44'/60'/0'/0/$$INDEX$$",
         "m/44'/60'/$$INDEX$$'/0/0",
@@ -142,9 +142,9 @@ describe('EVM Address Derivation Tests', () => {
         }),
       ),
     );
-    const a = defaultAddrs.addresses[0].address;
-    const b = liveAddrs.addresses[0].address;
-    const c = legacyAddrs.addresses[0].address;
+    const a = defaultAddresses.addresses[0].address;
+    const b = liveAddresses.addresses[0].address;
+    const c = legacyAddresses.addresses[0].address;
     expect(a).not.toBe(b);
     expect(b).not.toBe(c);
     expect(a).not.toBe(c);
