@@ -4,54 +4,12 @@ import { useIntl } from 'react-intl';
 
 import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EIntervalMode,
   type IIntervalSettings,
 } from '@onekeyhq/shared/types/bulkSend';
 
 import { BULK_SEND_INTERVAL_MAX_SECONDS, filterIntegerInput } from '../utils';
-
-// FIXME: these used to be top-level appLocale calls evaluated at module
-// import time; switched to lazy getters so they read the current locale at
-// call time. Replace with useIntl() at call sites for true reactivity.
-/* eslint-disable onekey/no-app-locale-main-thread -- legacy lazy getters */
-export const INTERVAL_SETTINGS_TITLE = () =>
-  // eslint-disable-next-line onekey/no-app-locale-main-thread
-  appLocale.intl.formatMessage({
-    id: ETranslations.wallet_bulk_send_interval_title,
-  });
-export const INTERVAL_SETTINGS_NONE_LABEL = () =>
-  // eslint-disable-next-line onekey/no-app-locale-main-thread
-  appLocale.intl.formatMessage({
-    id: ETranslations.wallet_bulk_send_interval_none,
-  });
-export const INTERVAL_SETTINGS_CANCEL_TEXT = () =>
-  // eslint-disable-next-line onekey/no-app-locale-main-thread
-  appLocale.intl.formatMessage({
-    id: ETranslations.wallet_bulk_send_btn_cancel,
-  });
-export const INTERVAL_SETTINGS_CONFIRM_TEXT = () =>
-  // eslint-disable-next-line onekey/no-app-locale-main-thread
-  appLocale.intl.formatMessage({
-    id: ETranslations.wallet_bulk_send_btn_confirm,
-  });
-export const INTERVAL_SETTINGS_REVIEW_TEXT = () =>
-  // eslint-disable-next-line onekey/no-app-locale-main-thread
-  appLocale.intl.formatMessage({
-    id: ETranslations.wallet_bulk_send_btn_review,
-  });
-export const INTERVAL_SETTINGS_SPECIFIED_LABEL = () =>
-  // eslint-disable-next-line onekey/no-app-locale-main-thread
-  appLocale.intl.formatMessage({
-    id: ETranslations.wallet_bulk_send_interval_specified_range,
-  });
-export const INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER = () =>
-  // eslint-disable-next-line onekey/no-app-locale-main-thread
-  appLocale.intl.formatMessage({
-    id: ETranslations.wallet_bulk_send_interval_max_sec_placeholder,
-  });
-/* eslint-enable onekey/no-app-locale-main-thread */
 
 function useIntervalLabels() {
   const intl = useIntl();

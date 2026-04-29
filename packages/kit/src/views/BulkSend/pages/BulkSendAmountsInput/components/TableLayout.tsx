@@ -30,13 +30,7 @@ import {
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 
-import {
-  INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER,
-  INTERVAL_SETTINGS_NONE_LABEL,
-  INTERVAL_SETTINGS_SPECIFIED_LABEL,
-  INTERVAL_SETTINGS_TITLE,
-  IntervalRangeInputs,
-} from '../../../components/IntervalSettingsContent';
+import { IntervalRangeInputs } from '../../../components/IntervalSettingsContent';
 import {
   BULK_SEND_INTERVAL_MAX_SECONDS,
   filterNumericInput,
@@ -69,15 +63,19 @@ function IntervalCard() {
   const modeOptions = useMemo(
     () => [
       {
-        label: INTERVAL_SETTINGS_SPECIFIED_LABEL(),
+        label: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_interval_specified_range,
+        }),
         value: EIntervalMode.Specified,
       },
       {
-        label: INTERVAL_SETTINGS_NONE_LABEL(),
+        label: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_interval_none,
+        }),
         value: EIntervalMode.None,
       },
     ],
-    [],
+    [intl],
   );
 
   const handleModeChange = useCallback(
@@ -115,7 +113,9 @@ function IntervalCard() {
     >
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size="$bodyLgMedium">
-          {INTERVAL_SETTINGS_TITLE()}
+          {intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_interval_title,
+          })}
         </SizableText>
         <Select
           title=""
@@ -142,7 +142,9 @@ function IntervalCard() {
             minSeconds={intervalSettings.minSeconds}
             maxSeconds={intervalSettings.maxSeconds}
             error={shouldShowIntervalError ? intervalError : undefined}
-            maxSecPlaceholder={INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER()}
+            maxSecPlaceholder={intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_interval_max_sec_placeholder,
+            })}
             onMinChange={handleMinChange}
             onMaxChange={handleMaxChange}
             inputBackgroundColor="$bg"
@@ -185,7 +187,9 @@ function IntervalCardOneToMany() {
     >
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size="$bodyLgMedium">
-          {INTERVAL_SETTINGS_TITLE()}
+          {intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_interval_title,
+          })}
         </SizableText>
         <Button
           variant="tertiary"
@@ -193,7 +197,9 @@ function IntervalCardOneToMany() {
           iconAfter="ChevronDownSmallOutline"
           disabled
         >
-          {INTERVAL_SETTINGS_NONE_LABEL()}
+          {intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_interval_none,
+          })}
         </Button>
       </XStack>
 
