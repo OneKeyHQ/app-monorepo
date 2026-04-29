@@ -152,7 +152,7 @@ function WalletXfpStatusReminderCmp() {
           onPress={async () => {
             await closePopover?.();
             await closeTooltip?.();
-            await showUpdateHardwareWalletLegacyXfpDialog({ walletId });
+            await showUpdateHardwareWalletLegacyXfpDialog({ walletId, intl });
           }}
         />
       );

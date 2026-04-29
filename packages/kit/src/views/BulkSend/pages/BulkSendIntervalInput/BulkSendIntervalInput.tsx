@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Page, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -42,6 +44,7 @@ function BulkSendIntervalInputContent({
   intervalSettings: initialIntervalSettings,
   onConfirmIntervalSettings,
 }: IBulkSendIntervalInputRouteParams) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>({
@@ -56,8 +59,8 @@ function BulkSendIntervalInputContent({
   const [showValidationError, setShowValidationError] = useState(false);
 
   const intervalError = useMemo(
-    () => validateIntervalSettings(intervalSettings),
-    [intervalSettings],
+    () => validateIntervalSettings(intervalSettings, intl),
+    [intervalSettings, intl],
   );
   const shouldShowIntervalError = useMemo(
     () =>
