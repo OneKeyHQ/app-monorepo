@@ -811,6 +811,7 @@
   "dexmarket_stock.underlying_asset_name": "기초 자산 이름",
   "dexmarket_stock.underlying_asset_ticker": "기초 자산 티커",
   "dexmarket_stock.volume_shares": "거래량 (주식)",
+  "discovery.ad_label": "광고",
   "do_not_exit_app_during_setup": "설정 중에는 앱을 종료하지 마세요. 그렇지 않으면 생성이 실패합니다.",
   "dont_have_mobile_app_yet": "아직 모바일 앱을 가지고 있지 않으신가요?",
   "downgrade_warning_checkbox_label": "나는 OneKey v4로 다운그레이드하지 않을 것입니다",
