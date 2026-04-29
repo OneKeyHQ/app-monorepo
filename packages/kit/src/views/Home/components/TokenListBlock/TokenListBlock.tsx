@@ -31,6 +31,7 @@ import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useAccountOverviewActions,
   useAccountWorthAtom,
@@ -115,6 +116,11 @@ function TokenListBlock({
 
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
+  // Outer-route focus: false when user is on Market/Swap (Home tab inactive),
+  // when a modal is presented above Home, or when the app is locked. Combined
+  // below with `isFocused` (inner Home-tab) so app-resume only refreshes when
+  // the user is actually looking at this list.
+  const isRouteFocused = useRouteIsFocused();
 
   const {
     activeAccount: {
@@ -2089,12 +2095,12 @@ function TokenListBlock({
 
   useEffect(() => {
     const removeSubscription = onVisibilityStateChange((visible) => {
-      if (visible && isFocused) {
+      if (visible && isFocused && isRouteFocused) {
         handleRefreshOnVisibilityActive();
       }
     });
     return removeSubscription;
-  }, [handleRefreshOnVisibilityActive, isFocused]);
+  }, [handleRefreshOnVisibilityActive, isFocused, isRouteFocused]);
 
   useEffect(() => {
     const fn = () => {
