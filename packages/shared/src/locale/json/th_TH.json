@@ -811,6 +811,7 @@
   "dexmarket_stock.underlying_asset_name": "ชื่อสินทรัพย์พื้นฐาน",
   "dexmarket_stock.underlying_asset_ticker": "สัญลักษณ์สินทรัพย์พื้นฐาน",
   "dexmarket_stock.volume_shares": "ปริมาณ (หุ้น)",
+  "discovery.ad_label": "AD",
   "do_not_exit_app_during_setup": "โปรดอย่าออกจากแอประหว่างการตั้งค่า มิฉะนั้นการสร้างจะล้มเหลว",
   "dont_have_mobile_app_yet": "ยังไม่มีแอปมือถือหรือ?",
   "downgrade_warning_checkbox_label": "ฉันจะไม่ยอมลดรุ่นลงไปยัง OneKey v4",

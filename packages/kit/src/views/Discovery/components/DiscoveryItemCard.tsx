@@ -1,11 +1,12 @@
 import { useCallback, useMemo } from 'react';
 
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 
 import {
   AdCornerBadge,
   Icon,
   Image,
+  InnerStroke,
   SizableText,
   Skeleton,
   Stack,
@@ -104,10 +105,6 @@ export function DiscoveryItemCard({
           <Image
             width="100%"
             height="100%"
-            borderRadius="$3"
-            borderCurve="continuous"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
             source={{ uri: logo }}
             fallback={
               <Image.Fallback>
@@ -115,6 +112,7 @@ export function DiscoveryItemCard({
               </Image.Fallback>
             }
           />
+          <InnerStroke borderRadius="$3" />
           {isAd ? <AdCornerBadge badgeSize="sm" /> : null}
         </Stack>
         <SizableText
