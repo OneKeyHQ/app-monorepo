@@ -40,6 +40,13 @@ type ITrayDisplayAmount = {
 };
 
 type ITrayDisplayValue = string | ITrayDisplayAmount;
+type ITrayAmountSubTextStyle = ComponentProps<
+  typeof NumberSizeableTextWrapper
+>['subTextStyle'];
+
+const TRAY_AMOUNT_SUB_TEXT_STYLE: ITrayAmountSubTextStyle = {
+  transform: [{ translateY: 2 }],
+};
 
 function formatDisplayAmount({
   amount,
@@ -310,6 +317,7 @@ function TxRow({
         color={color}
         formatter="balance"
         formatterOptions={{ tokenSymbol: value.symbol }}
+        subTextStyle={TRAY_AMOUNT_SUB_TEXT_STYLE}
         numberOfLines={1}
         minWidth={0}
         textAlign="right"
