@@ -17,6 +17,7 @@ import {
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
   HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
+  PERPS_FILTERED_LEDGER_TYPES,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -50,6 +51,7 @@ import type {
   ISpotUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
+  IUserNonFundingLedgerUpdate,
   IWsActiveAssetCtx,
   IWsActiveSpotAssetCtx,
   IWsAllDexsClearinghouseState,
@@ -619,6 +621,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     const { infoClient } = hyperLiquidApiClients;
 
     return infoClient.userFills(params);
+  }
+
+  @backgroundMethod()
+  async getUserNonFundingLedgerUpdates(
+    accountAddress: IHex,
+  ): Promise<IUserNonFundingLedgerUpdate[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const now =
+      Math.floor(Date.now() / CACHE_TIME_QUANTIZE_MS) * CACHE_TIME_QUANTIZE_MS;
+    const twoYearsAgo = now - timerUtils.getTimeDurationMs({ year: 2 });
+    const updates = await infoClient.userNonFundingLedgerUpdates({
+      user: accountAddress,
+      startTime: twoYearsAgo,
+      endTime: now,
+    });
+    return updates
+      .filter((update) => !PERPS_FILTERED_LEDGER_TYPES.has(update.delta.type))
+      .toSorted((a, b) => b.time - a.time)
+      .slice(0, 200);
   }
 
   @backgroundMethod()

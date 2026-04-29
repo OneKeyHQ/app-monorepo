@@ -1,10 +1,10 @@
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsLedgerUpdatesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -45,9 +45,12 @@ function PerpAccountList({
     indexedAccountId: currentUser?.indexedAccountId,
   });
   useEffect(() => {
-    noop(currentUser?.accountAddress);
     setCurrentListPage(1);
-  }, [currentUser?.accountAddress]);
+    if (currentUser?.accountAddress) {
+      void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
+      void actions.current.loadLedgerUpdatesByRest();
+    }
+  }, [actions, currentUser?.accountAddress]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -149,6 +152,7 @@ function PerpAccountList({
     <CommonTableListView
       onPullToRefresh={async () => {
         await actions.current.refreshAllPerpsData();
+        await actions.current.loadLedgerUpdatesByRest();
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({

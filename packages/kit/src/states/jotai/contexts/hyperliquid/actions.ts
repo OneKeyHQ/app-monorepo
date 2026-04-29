@@ -553,6 +553,60 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  loadLedgerUpdatesByRest = contextAtomMethod(async (get, set) => {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAccountAddress = activeAccount?.accountAddress;
+    const normalizedAccountAddress = activeAccountAddress?.toLowerCase();
+
+    if (!activeAccountAddress || !normalizedAccountAddress) {
+      set(perpsLedgerUpdatesAtom(), {
+        accountAddress: undefined,
+        updates: [],
+        isSubscribed: true,
+      });
+      return;
+    }
+
+    try {
+      const updates =
+        await backgroundApiProxy.serviceHyperliquid.getUserNonFundingLedgerUpdates(
+          activeAccountAddress,
+        );
+      const latestActiveAccount = await perpsActiveAccountAtom.get();
+      if (
+        latestActiveAccount?.accountAddress?.toLowerCase() !==
+        normalizedAccountAddress
+      ) {
+        return;
+      }
+
+      set(perpsLedgerUpdatesAtom(), {
+        accountAddress: normalizedAccountAddress,
+        updates,
+        isSubscribed: true,
+      });
+    } catch (error) {
+      console.error('Failed to load perp account history:', error);
+      const latestActiveAccount = await perpsActiveAccountAtom.get();
+      if (
+        latestActiveAccount?.accountAddress?.toLowerCase() !==
+        normalizedAccountAddress
+      ) {
+        return;
+      }
+
+      const current = get(perpsLedgerUpdatesAtom());
+      set(perpsLedgerUpdatesAtom(), {
+        accountAddress: normalizedAccountAddress,
+        updates:
+          current.accountAddress === normalizedAccountAddress
+            ? current.updates
+            : [],
+        isSubscribed: true,
+      });
+    }
+  });
+
   private async _getActiveCoin(): Promise<string> {
     const mode = await tradingModeAtom.get();
     if (mode === 'spot') {
@@ -1991,6 +2045,7 @@ export function useHyperliquidActions() {
   const updateAllMids = actions.updateAllMids.use();
   const updateWebData2 = actions.updateWebData2.use();
   const updateLedgerUpdates = actions.updateLedgerUpdates.use();
+  const loadLedgerUpdatesByRest = actions.loadLedgerUpdatesByRest.use();
   const markAllAssetCtxsRequired = actions.markAllAssetCtxsRequired.use();
   const markAllAssetCtxsNotRequired = actions.markAllAssetCtxsNotRequired.use();
   const updateL2Book = actions.updateL2Book.use();
@@ -2051,6 +2106,7 @@ export function useHyperliquidActions() {
     markAllAssetCtxsNotRequired,
     updateWebData2,
     updateLedgerUpdates,
+    loadLedgerUpdatesByRest,
     updateL2Book,
     updateBbo,
     updateConnectionState,
