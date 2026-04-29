@@ -449,6 +449,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   }),
                   renderElement: <BTCFreshAddressListItem />,
                 },
+              ],
+              [
                 {
                   icon: 'GasOutline',
                   // TODO: i18n — replace with ETranslations keys once product
