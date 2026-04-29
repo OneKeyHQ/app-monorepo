@@ -30,6 +30,10 @@ function buildTrackedTx(
   } as unknown as IAccountHistoryTx;
 }
 
+function buildActiveScope(accountId = 'account-1') {
+  return { accountIds: [accountId] };
+}
+
 function buildTicker(
   symbol: string,
   type: 'spot' | 'perps',
@@ -220,7 +224,7 @@ describe('trayDataProviderUtils', () => {
           ],
         },
       },
-      'account-1',
+      buildActiveScope(),
     );
 
     expect(result.map((tx) => tx.id)).toEqual(['a', 'b']);
@@ -253,7 +257,7 @@ describe('trayDataProviderUtils', () => {
           ],
         },
       },
-      'account-1',
+      buildActiveScope(),
     );
 
     expect(result.map((tx) => tx.id)).toEqual([
@@ -263,6 +267,36 @@ describe('trayDataProviderUtils', () => {
     ]);
   });
 
+  test('collectTrayTrackedTxs matches network account ids from indexed account scope', () => {
+    const result = collectTrayTrackedTxs(
+      {
+        pendingTxs: {
+          "tbtc--0_tr([8a5ecad8/86'/1'/1']tpub/<0;1>/*)": [
+            buildTrackedTx(
+              'active-btc-testnet',
+              EDecodedTxStatus.Pending,
+              undefined,
+              "hd-1--m/86'/1'/1'",
+              'tbtc--0',
+            ),
+            buildTrackedTx(
+              'other-indexed-account',
+              EDecodedTxStatus.Pending,
+              undefined,
+              "hd-1--m/86'/1'/0'",
+              'tbtc--0',
+            ),
+          ],
+        },
+      },
+      {
+        accountIds: ["hd-1--m/86'/1'/1'", "hd-1--m/44'/60'/0'/0/1"],
+      },
+    );
+
+    expect(result.map((tx) => tx.id)).toEqual(['active-btc-testnet']);
+  });
+
   test('collectTrayTrackedTxs returns empty when active account is missing', () => {
     const result = collectTrayTrackedTxs(
       {
@@ -270,7 +304,7 @@ describe('trayDataProviderUtils', () => {
           'evm--1_addr1': [buildTrackedTx('a', EDecodedTxStatus.Pending)],
         },
       },
-      undefined,
+      {},
     );
 
     expect(result).toEqual([]);
@@ -289,7 +323,7 @@ describe('trayDataProviderUtils', () => {
         },
       },
       trackedIds,
-      'account-1',
+      buildActiveScope(),
     );
 
     expect(result.map((tx) => tx.id)).toEqual(['pending-1']);
@@ -312,7 +346,7 @@ describe('trayDataProviderUtils', () => {
         },
       },
       trackedIds,
-      'account-1',
+      buildActiveScope(),
     );
 
     expect(result.map((tx) => tx.id)).toEqual(['pending-1']);
@@ -329,7 +363,7 @@ describe('trayDataProviderUtils', () => {
         },
       },
       trackedIds,
-      'account-1',
+      buildActiveScope(),
     );
 
     expect(result).toHaveLength(1);
@@ -344,7 +378,7 @@ describe('trayDataProviderUtils', () => {
         },
       },
       new Set(),
-      'account-1',
+      buildActiveScope(),
     );
 
     expect(result).toEqual([]);

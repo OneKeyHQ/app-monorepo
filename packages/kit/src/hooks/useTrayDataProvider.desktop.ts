@@ -41,6 +41,7 @@ import {
   type ITrayWatchlistItem,
   TRAY_IPC,
 } from '@onekeyhq/shared/src/types/desktop/tray';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
@@ -65,6 +66,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
 
 import {
+  type ITrayActiveAccountScope,
   TRAY_DATA_REFRESH_EVENT_NAMES,
   buildTrayWatchlistInSourceOrder,
   collectTrayTrackedTxs,
@@ -257,6 +259,79 @@ function buildTrayAccountInfo({
   return Object.keys(avatar).length
     ? { name: accountName, avatar }
     : { name: accountName };
+}
+
+function getIndexedAccountIdFromActiveAccountId({
+  activeAccountId,
+  walletId,
+}: {
+  activeAccountId: string | undefined;
+  walletId: string | undefined;
+}) {
+  if (!activeAccountId || !walletId) return undefined;
+  const parsed = accountUtils.parseIndexedAccountId({
+    indexedAccountId: activeAccountId,
+  });
+  if (parsed.walletId === walletId && Number.isInteger(parsed.index)) {
+    return activeAccountId;
+  }
+  return undefined;
+}
+
+async function getTrayActiveAccountScope({
+  wallet,
+  activeAccountId,
+  account,
+  indexedAccount,
+  dbAccount,
+}: {
+  wallet: IDBWallet | undefined;
+  activeAccountId: string | undefined;
+  account: { id?: string } | undefined;
+  indexedAccount: IDBIndexedAccount | undefined;
+  dbAccount: IDBAccount | undefined;
+}): Promise<ITrayActiveAccountScope> {
+  const accountIds = new Set<string>();
+  const addAccountId = (accountId?: string) => {
+    if (accountId) accountIds.add(accountId);
+  };
+
+  const walletId = wallet?.id;
+  const shouldUseIndexedAccountScope =
+    accountUtils.isHdWallet({ walletId }) ||
+    accountUtils.isHwWallet({ walletId });
+
+  if (shouldUseIndexedAccountScope) {
+    const indexedAccountId =
+      indexedAccount?.id ||
+      dbAccount?.indexedAccountId ||
+      getIndexedAccountIdFromActiveAccountId({ activeAccountId, walletId });
+
+    if (indexedAccountId) {
+      try {
+        const { accounts } =
+          await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
+            { indexedAccountId },
+          );
+        accounts.forEach((item) => addAccountId(item.id));
+      } catch (e) {
+        defaultLogger.app.error.log(
+          `[TrayDataProvider] active account scope error: ${
+            (e as Error)?.message || String(e)
+          }`,
+        );
+      }
+    }
+
+    addAccountId(account?.id);
+    addAccountId(dbAccount?.id);
+  } else {
+    addAccountId(account?.id);
+    addAccountId(dbAccount?.id);
+    addAccountId(activeAccountId);
+  }
+
+  return { accountIds: Array.from(accountIds) };
 }
 
 type ITrayEnabledNetworkScope = {
@@ -705,9 +780,16 @@ export function useTrayDataProvider() {
       // tracking only Pending would mis-fire "Confirmed" on failed txs.
       let pendingTxReadFailed = false;
       try {
+        const activeAccountScope = await getTrayActiveAccountScope({
+          wallet: currentWallet,
+          activeAccountId,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        });
         let rawData =
           await backgroundApiProxy.simpleDb.localHistory.getRawData();
-        let allTrackedTxs = collectTrayTrackedTxs(rawData, activeAccountId);
+        let allTrackedTxs = collectTrayTrackedTxs(rawData, activeAccountScope);
         const trackedPendingIds = new Set(
           allTrackedTxs
             .filter((tx) => tx.decodedTx?.status === EDecodedTxStatus.Pending)
@@ -716,7 +798,7 @@ export function useTrayDataProvider() {
         if (trackedPendingIds.size > 0) {
           await refreshTrayPendingTxStatuses(allTrackedTxs);
           rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
-          allTrackedTxs = collectTrayTrackedTxs(rawData, activeAccountId);
+          allTrackedTxs = collectTrayTrackedTxs(rawData, activeAccountScope);
           // Refresh moves failed txs out of the pendingTxs bucket
           // (SimpleDbEntityLocalHistory's save filters that bucket to
           // Pending-only), so re-attach them from confirmedTxs by id /
@@ -724,7 +806,7 @@ export function useTrayDataProvider() {
           const recovered = recoverFailedTrackedTxs(
             rawData,
             trackedPendingIds,
-            activeAccountId,
+            activeAccountScope,
           );
           if (recovered.length > 0) {
             const stillTrackedIds = new Set(allTrackedTxs.map((tx) => tx.id));

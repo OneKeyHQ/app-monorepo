@@ -201,12 +201,34 @@ export function getTrayTokenValueInTargetCurrency({
     .toFixed();
 }
 
+export type ITrayActiveAccountScope = {
+  accountIds?: Array<string | undefined>;
+};
+
+function buildActiveAccountIdSet(scope: ITrayActiveAccountScope): Set<string> {
+  const accountIds = new Set<string>();
+  scope.accountIds?.forEach((accountId) => {
+    if (accountId) accountIds.add(accountId);
+  });
+
+  return accountIds;
+}
+
+function isTxInActiveAccountScope(
+  tx: IAccountHistoryTx | undefined,
+  activeAccountIds: Set<string>,
+) {
+  const accountId = tx?.decodedTx?.accountId;
+  return !!accountId && activeAccountIds.has(accountId);
+}
+
 export function collectTrayTrackedTxs(
   rawData: { pendingTxs?: Record<string, unknown> } | undefined | null,
-  activeAccountId: string | undefined,
+  activeAccountScope: ITrayActiveAccountScope,
 ): IAccountHistoryTx[] {
   const txs: IAccountHistoryTx[] = [];
-  if (!activeAccountId || !rawData?.pendingTxs) return txs;
+  const activeAccountIds = buildActiveAccountIdSet(activeAccountScope);
+  if (activeAccountIds.size === 0 || !rawData?.pendingTxs) return txs;
 
   for (const value of Object.values(rawData.pendingTxs)) {
     if (Array.isArray(value)) {
@@ -216,7 +238,7 @@ export function collectTrayTrackedTxs(
         const status = decodedTx?.status;
         if (
           historyTx &&
-          decodedTx?.accountId === activeAccountId &&
+          isTxInActiveAccountScope(historyTx, activeAccountIds) &&
           (status === EDecodedTxStatus.Pending ||
             status === EDecodedTxStatus.Failed)
         ) {
@@ -232,11 +254,12 @@ export function collectTrayTrackedTxs(
 export function recoverFailedTrackedTxs(
   rawData: { confirmedTxs?: Record<string, unknown> } | undefined | null,
   trackedPendingIds: Set<string>,
-  activeAccountId: string | undefined,
+  activeAccountScope: ITrayActiveAccountScope,
 ): IAccountHistoryTx[] {
   const recovered: IAccountHistoryTx[] = [];
+  const activeAccountIds = buildActiveAccountIdSet(activeAccountScope);
   if (
-    !activeAccountId ||
+    activeAccountIds.size === 0 ||
     !rawData?.confirmedTxs ||
     trackedPendingIds.size === 0
   )
@@ -248,7 +271,7 @@ export function recoverFailedTrackedTxs(
         const historyTx = tx as IAccountHistoryTx | undefined;
         if (
           historyTx &&
-          historyTx.decodedTx?.accountId === activeAccountId &&
+          isTxInActiveAccountScope(historyTx, activeAccountIds) &&
           historyTx.decodedTx?.status === EDecodedTxStatus.Failed
         ) {
           const originalId = historyTx.originalId;
