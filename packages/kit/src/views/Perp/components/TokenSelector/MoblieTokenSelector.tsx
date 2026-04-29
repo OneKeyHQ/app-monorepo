@@ -222,6 +222,9 @@ function MobileTokenSelectorModal({
     }
     lastSortRef.current = { field, direction };
     ctxSnapshotRef.current = assetCtxsByDex;
+    if (sortChanged) {
+      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+    }
   }, [selectorConfig?.direction, selectorConfig?.field, assetCtxsByDex]);
 
   // Container-level mark instead of per-row
