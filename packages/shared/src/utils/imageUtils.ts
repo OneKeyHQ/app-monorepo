@@ -18,11 +18,11 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 
-import appGlobals from '../appGlobals';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import bufferUtils from './bufferUtils';
+import { getImageEmbedBridge } from './imageUtils.embedBridge';
 
 import type {
   Action as ExpoImageManipulatorAction,
@@ -83,7 +83,7 @@ function convertToBlackAndWhiteImageBase64(
   mime: string,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return appGlobals.$webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(
+    return getImageEmbedBridge().convertToBlackAndWhiteImageBase64(
       colorImageBase64,
       mime,
     );
@@ -269,7 +269,7 @@ async function applyRoundedCorners({
   }
 
   if (platformEnv.isNative) {
-    return appGlobals.$webembedApiProxy.imageUtils.applyRoundedCorners({
+    return getImageEmbedBridge().applyRoundedCorners({
       base64,
       width,
       height,
@@ -1006,7 +1006,7 @@ async function base64ImageToBitmap({
   height: number;
 }): Promise<string> {
   if (platformEnv.isNative) {
-    return appGlobals.$webembedApiProxy.imageUtils.base64ImageToBitmap({
+    return getImageEmbedBridge().base64ImageToBitmap({
       base64,
       width,
       height,
@@ -1059,7 +1059,7 @@ async function processImageBlur({
   height: number;
 }> {
   if (platformEnv.isNative) {
-    return appGlobals.$webembedApiProxy.imageUtils.processImageBlur({
+    return getImageEmbedBridge().processImageBlur({
       base64Data,
       blurRadius,
       overlayOpacity,
