@@ -187,6 +187,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
       const currencyCode = p.product.currencyCode || '';
 
+      const freeTrial = primePaymentUtils.extractNativeFreeTrial(p.product);
+
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
         currencyCode,
@@ -206,6 +208,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             : pricePerYear || 0,
           currencyCode,
         ),
+        freeTrial,
       });
     });
 
