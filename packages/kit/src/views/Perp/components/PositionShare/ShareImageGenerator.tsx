@@ -83,6 +83,7 @@ export const ShareImageGenerator = forwardRef<
 
       const {
         side,
+        mode,
         token: _token,
         tokenDisplayName,
         tokenImageUrl,
@@ -177,13 +178,24 @@ export const ShareImageGenerator = forwardRef<
 
           // Measure text
           ctx.font = toCanvasFont(fonts.side, 600);
+          const isSpot = mode === 'spot';
+          const isLong = side === 'long';
+          let sideLabelId: ETranslations;
+          if (isSpot) {
+            sideLabelId = isLong
+              ? ETranslations.global_buy
+              : ETranslations.global_sell;
+          } else {
+            sideLabelId = isLong
+              ? ETranslations.perp_long
+              : ETranslations.perp_short;
+          }
           const sideTranslation = appLocale.intl.formatMessage({
-            id:
-              side === 'long'
-                ? ETranslations.perp_long
-                : ETranslations.perp_short,
+            id: sideLabelId,
           });
-          const sideText = `${sideTranslation} ${leverage}X`;
+          const sideText = isSpot
+            ? sideTranslation
+            : `${sideTranslation} ${leverage}X`;
           const textWidth = ctx.measureText(sideText).width;
 
           // Background rectangle size
