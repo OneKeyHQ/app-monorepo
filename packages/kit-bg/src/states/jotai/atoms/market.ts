@@ -5,6 +5,7 @@ export type IMarketSelectedTab = 'watchlist' | 'trending' | 'perps';
 
 export interface IMarketSelectedTabAtom {
   tab: IMarketSelectedTab;
+  spotCategoryToSelect?: string;
 }
 
 export const { target: marketSelectedTabAtom, use: useMarketSelectedTabAtom } =
