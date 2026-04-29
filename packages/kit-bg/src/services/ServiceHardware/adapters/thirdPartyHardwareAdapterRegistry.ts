@@ -1,4 +1,5 @@
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -21,34 +22,54 @@ export type IThirdPartyHardwareAdapterFactory =
  */
 export const thirdPartyHardwareAdapterRegistry = {
   [EHardwareVendor.ledger]: async () => {
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] ledger factory start',
+    );
     const { LedgerAdapter } = await import('./LedgerAdapter');
     // webpack resolves this to the platform-specific variant:
     //   - ext Service Worker (MV3) → `ledger.ext-bg-v3.ts` (bridges to offscreen)
     //   - desktop / native / web   → `ledger.desktop.ts` / `.native.ts` / `.ts`
     const { createLedgerConnector } =
       await import('@onekeyhq/shared/src/hardware/connector-loader/ledger');
-    const { LedgerAdapter: HwkLedgerAdapter, setDebugEnabled } =
+    const { LedgerAdapter: HwkLedgerAdapter, onSdkEvent } =
       await import('@onekeyfe/hwk-ledger-adapter');
     const { UI_REQUEST, UI_RESPONSE } =
       await import('@onekeyfe/hwk-adapter-core');
-    // DEV: surface real DMK errors that SDK maps to code=0 Unknown.
-    setDebugEnabled(platformEnv.isDev ?? false);
+    // SW-side subscriber. Offscreen runtime has its own bus singleton and
+    // forwards into this same logger via IPC.
+    onSdkEvent((event) => {
+      if (event.type === 'log') {
+        defaultLogger.hardware.sdkLog.log(`[hwk] ${event.message}`);
+      }
+    });
     const connector = await createLedgerConnector();
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] ledger connector created',
+    );
     const hw = new HwkLedgerAdapter(connector);
     // Only native mobile (iOS/Android) has an app-level BLE permission.
     // Desktop/web/extension handle device permission at the OS/browser layer
     // (WebHID/WebUSB prompts, node-hid, system Bluetooth) — from this app's
     // perspective there's nothing to check, so grant immediately.
     hw.on(UI_REQUEST.REQUEST_DEVICE_PERMISSION, async () => {
+      defaultLogger.hardware.sdkLog.log(
+        '[3rdPartyHW][Registry] REQUEST_DEVICE_PERMISSION',
+      );
       const granted = platformEnv.isNative
         ? !!(await checkBLEPermissions())
         : true;
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Registry] BLE permission granted=${String(granted)}`,
+      );
       hw.uiResponse({
         type: UI_RESPONSE.RECEIVE_DEVICE_PERMISSION,
         payload: { granted },
       });
     });
-    return new LedgerAdapter(hw, connector);
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] ledger adapter ready',
+    );
+    return new LedgerAdapter(hw);
   },
 } satisfies Partial<Record<EHardwareVendor, IThirdPartyHardwareAdapterFactory>>;
 
