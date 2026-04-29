@@ -63,7 +63,7 @@ function MarketNormalTokenList({
       tabIntegrated={tabIntegrated}
       tabName={tabName}
       listContainerProps={listContainerProps}
-      showStockSubtitle={false}
+      showStockSubtitle="auto"
       hiddenDesktopColumns={hiddenDesktopColumns}
       liveTokenOverride={liveTokenOverride}
       rowBg={rowBg}
