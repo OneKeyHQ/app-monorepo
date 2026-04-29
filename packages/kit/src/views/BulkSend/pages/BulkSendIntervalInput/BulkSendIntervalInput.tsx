@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { Page, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalBulkSendRoutes,
   type IModalBulkSendParamList,
@@ -15,7 +14,10 @@ import {
   type IIntervalSettings,
 } from '@onekeyhq/shared/types/bulkSend';
 
-import { IntervalSettingsContent } from '../../components/IntervalSettingsContent';
+import {
+  IntervalSettingsContent,
+  useIntervalLabels,
+} from '../../components/IntervalSettingsContent';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 import {
   DEFAULT_INTERVAL_SETTINGS,
@@ -42,6 +44,7 @@ function BulkSendIntervalInputContent({
   onConfirmIntervalSettings,
 }: IBulkSendIntervalInputRouteParams) {
   const intl = useIntl();
+  const { title, reviewText } = useIntervalLabels();
   const navigation = useAppNavigation();
 
   const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>({
@@ -110,11 +113,7 @@ function BulkSendIntervalInputContent({
 
   return (
     <Page scrollEnabled>
-      <Page.Header
-        headerTitle={intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_interval_title,
-        })}
-      />
+      <Page.Header headerTitle={title} />
       <Page.Body px="$5" pb="$5">
         <IntervalSettingsContent
           value={intervalSettings}
@@ -125,9 +124,7 @@ function BulkSendIntervalInputContent({
       <Page.Footer>
         <YStack $md={{ pb: '$5' }}>
           <Page.FooterActions
-            onConfirmText={intl.formatMessage({
-              id: ETranslations.wallet_bulk_send_btn_review,
-            })}
+            onConfirmText={reviewText}
             confirmButtonProps={{
               onPress: handleConfirm,
             }}

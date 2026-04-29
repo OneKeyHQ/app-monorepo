@@ -73,14 +73,6 @@ function TradingGuardWrapperInternal({
 
   const isEnableTradingLoading = perpsAccountLoading.enableTradingLoading;
 
-  const buttonText = useMemo(
-    () =>
-      intl.formatMessage({
-        id: ETranslations.perp_trade_button_enable_trading,
-      }),
-    [intl],
-  );
-
   const buttonStyles = useMemo(() => {
     const isDisabled = disabled || isEnableTradingLoading;
     return {
@@ -123,7 +115,9 @@ function TradingGuardWrapperInternal({
         color="$textOnColor"
       >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
-          {buttonText}
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_button_enable_trading,
+          })}
         </SizableText>
       </Button>
     );

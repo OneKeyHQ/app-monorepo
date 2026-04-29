@@ -11,9 +11,15 @@ import {
 
 import { BULK_SEND_INTERVAL_MAX_SECONDS, filterIntegerInput } from '../utils';
 
-function useIntervalLabels() {
+export function useIntervalLabels() {
   const intl = useIntl();
   return {
+    title: intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_interval_title,
+    }),
+    reviewText: intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_btn_review,
+    }),
     specifiedLabel: intl.formatMessage({
       id: ETranslations.wallet_bulk_send_interval_specified_range,
     }),
