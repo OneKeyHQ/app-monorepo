@@ -96,6 +96,7 @@ export function TransactionsHistoryBase({
   const [, setRealtimePauseState] = useMarketTransactionsRealtimePauseAtom();
   const transactionsListRootRef = useRef<HTMLElement | null>(null);
   const didScrollDuringTouchRef = useRef(false);
+  const isScrollDraggingRef = useRef(false);
   const isMomentumScrollingRef = useRef(false);
   const hasPendingTouchResumeRef = useRef(false);
 
@@ -220,7 +221,11 @@ export function TransactionsHistoryBase({
   }, [networkId, tokenAddress]);
 
   const flushPendingTouchResume = useCallback(() => {
-    if (!hasPendingTouchResumeRef.current || isMomentumScrollingRef.current) {
+    if (
+      !hasPendingTouchResumeRef.current ||
+      isScrollDraggingRef.current ||
+      isMomentumScrollingRef.current
+    ) {
       return;
     }
 
@@ -241,6 +246,8 @@ export function TransactionsHistoryBase({
 
   const handleRealtimePauseNativeTouchStart = useCallback(() => {
     didScrollDuringTouchRef.current = false;
+    isScrollDraggingRef.current = false;
+    isMomentumScrollingRef.current = false;
     hasPendingTouchResumeRef.current = false;
     handleRealtimePauseTouchStart();
   }, [handleRealtimePauseTouchStart]);
@@ -253,20 +260,25 @@ export function TransactionsHistoryBase({
     }
 
     hasPendingTouchResumeRef.current = true;
-  }, [resumeRealtimeUpdates]);
+    schedulePendingTouchResumeCheck();
+  }, [resumeRealtimeUpdates, schedulePendingTouchResumeCheck]);
 
   const handleRealtimePauseNativeScrollBeginDrag = useCallback(() => {
     didScrollDuringTouchRef.current = true;
+    isScrollDraggingRef.current = true;
   }, []);
 
   const handleRealtimePauseNativeScrollEndDrag = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      isScrollDraggingRef.current = false;
+
       if (!hasPendingTouchResumeRef.current) {
         return;
       }
 
       const velocityY = Math.abs(event.nativeEvent.velocity?.y ?? 0);
       if (velocityY > 0) {
+        isMomentumScrollingRef.current = true;
         return;
       }
 
@@ -276,6 +288,7 @@ export function TransactionsHistoryBase({
   );
 
   const handleRealtimePauseNativeMomentumScrollBegin = useCallback(() => {
+    isScrollDraggingRef.current = false;
     isMomentumScrollingRef.current = true;
   }, []);
 

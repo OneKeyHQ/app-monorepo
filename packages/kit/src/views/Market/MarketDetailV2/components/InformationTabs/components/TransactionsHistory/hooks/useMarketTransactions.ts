@@ -47,15 +47,20 @@ export function useMarketTransactions({
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
   const cursorRef = useRef<string | undefined>(undefined);
+  const getVisibleTransactions = useCallback(
+    (transactions: IMarketTokenTransaction[]) =>
+      platformEnv.isNative
+        ? transactions.slice(0, 50 + loadTimesRef.current * 30)
+        : transactions,
+    [],
+  );
   const setAccumulatedTransactionsImmediately = useCallback(
     (transactions: IMarketTokenTransaction[]) => {
-      const current = platformEnv.isNative
-        ? transactions.slice(0, 50 + loadTimesRef.current * 30)
-        : transactions;
+      const current = getVisibleTransactions(transactions);
       setAccumulatedTransactions(current);
       accumulatedTransactionsRef.current = current;
     },
-    [],
+    [getVisibleTransactions],
   );
   const throttleSetAccumulatedTransactions = useThrottledCallback(
     setAccumulatedTransactionsImmediately,
@@ -153,7 +158,8 @@ export function useMarketTransactions({
 
   // Reset accumulated state when token address or network ID changes
   useEffect(() => {
-    throttleSetAccumulatedTransactions([]);
+    throttleSetAccumulatedTransactions.cancel();
+    setAccumulatedTransactionsImmediately([]);
     setHasMore(true);
     cursorRef.current = undefined;
     loadTimesRef.current = 0;
@@ -161,6 +167,7 @@ export function useMarketTransactions({
   }, [
     tokenAddress,
     networkId,
+    setAccumulatedTransactionsImmediately,
     throttleSetAccumulatedTransactions,
     resetRealtimePause,
   ]);
@@ -273,13 +280,12 @@ export function useMarketTransactions({
         newTransaction,
         ...prev,
       ]);
+      const currentTransactions = getVisibleTransactions(updatedTransactions);
 
-      accumulatedTransactionsRef.current = platformEnv.isNative
-        ? updatedTransactions.slice(0, 50 + loadTimesRef.current * 30)
-        : updatedTransactions;
-      throttleSetAccumulatedTransactions(updatedTransactions);
+      accumulatedTransactionsRef.current = currentTransactions;
+      throttleSetAccumulatedTransactions(currentTransactions);
     },
-    [throttleSetAccumulatedTransactions],
+    [getVisibleTransactions, throttleSetAccumulatedTransactions],
   );
 
   const hasTransactions = accumulatedTransactions.length > 0;

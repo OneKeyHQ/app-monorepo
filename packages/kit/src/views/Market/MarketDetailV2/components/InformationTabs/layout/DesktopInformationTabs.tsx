@@ -25,6 +25,7 @@ import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
 import { Portfolio } from '../components/Portfolio';
 import { TransactionsHistory } from '../components/TransactionsHistory';
+import { MAX_BUFFERED_TRANSACTIONS } from '../components/TransactionsHistory/hooks/transactionBufferUtils';
 import { useBottomTabAnalytics } from '../hooks/useBottomTabAnalytics';
 import { useNetworkAccountAddress } from '../hooks/useNetworkAccountAddress';
 
@@ -71,7 +72,7 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
   const hasBufferedUpdates =
     realtimePauseState.isPaused && realtimePauseState.bufferedCount > 0;
   const updatesAmount = realtimePauseState.hasBufferOverflow
-    ? '100+'
+    ? `${MAX_BUFFERED_TRANSACTIONS}+`
     : String(realtimePauseState.bufferedCount);
   const updatesText = intl.formatMessage(
     { id: ETranslations.marketdex_new_updates },

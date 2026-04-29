@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import { MAX_BUFFERED_TRANSACTIONS } from '../components/TransactionsHistory/hooks/transactionBufferUtils';
+
 import { DesktopInformationTabs } from './DesktopInformationTabs';
 
 const mockResumeRealtimeUpdates = jest.fn();
@@ -163,6 +165,11 @@ jest.mock('./StickyHeader', () => ({
 
 describe('DesktopInformationTabs', () => {
   beforeEach(() => {
+    Object.assign(mockRealtimePauseState, {
+      isPaused: true,
+      bufferedCount: 2,
+      hasBufferOverflow: false,
+    });
     mockResumeRealtimeUpdates.mockReset();
     mockFlushBufferedTransactions.mockReset();
     mockScrollTransactionsToTop.mockReset();
@@ -178,5 +185,15 @@ describe('DesktopInformationTabs', () => {
 
     expect(mockResumeRealtimeUpdates).toHaveBeenCalledTimes(1);
     expect(mockScrollTransactionsToTop).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the shared max buffer size in the overflow updates label', () => {
+    mockRealtimePauseState.hasBufferOverflow = true;
+
+    render(<DesktopInformationTabs portfolioData={[]} />);
+
+    expect(
+      screen.getByText(new RegExp(`${MAX_BUFFERED_TRANSACTIONS}\\+$`)),
+    ).toBeTruthy();
   });
 });

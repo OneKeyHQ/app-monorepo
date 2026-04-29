@@ -229,6 +229,7 @@ describe('TransactionsHistory', () => {
         onTouchStart: expect.any(Function),
         onTouchEnd: expect.any(Function),
         onScrollBeginDrag: expect.any(Function),
+        onScrollEndDrag: expect.any(Function),
         onMomentumScrollBegin: expect.any(Function),
         onMomentumScrollEnd: expect.any(Function),
       }),
@@ -249,5 +250,45 @@ describe('TransactionsHistory', () => {
     });
 
     expect(mockResumeRealtimeUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('resumes native realtime updates when scroll end drag fires before touch end', () => {
+    const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = ((callback) => {
+      callback(0);
+      return 1;
+    }) as typeof requestAnimationFrame;
+    getMockPlatformEnv().isNative = true;
+
+    try {
+      render(
+        <TransactionsHistory
+          tokenAddress="0xabc"
+          networkId="evm--1"
+          isTabFocused
+        />,
+      );
+
+      act(() => {
+        (mockFlatListProps.onTouchStart as (() => void) | undefined)?.();
+        (mockFlatListProps.onScrollBeginDrag as (() => void) | undefined)?.();
+        (
+          mockFlatListProps.onScrollEndDrag as
+            | ((event: unknown) => void)
+            | undefined
+        )?.({
+          nativeEvent: {
+            velocity: {
+              y: 0,
+            },
+          },
+        });
+        (mockFlatListProps.onTouchEnd as (() => void) | undefined)?.();
+      });
+
+      expect(mockResumeRealtimeUpdates).toHaveBeenCalledTimes(1);
+    } finally {
+      globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+    }
   });
 });

@@ -15,6 +15,7 @@ type IThrottledTransactionsUpdate = ((
   cancel: jest.Mock;
   flush: () => void;
   isPending: () => boolean;
+  getPendingTransactions: () => IMarketTokenTransaction[] | undefined;
 };
 
 type IMockUsePromiseResultReturn = {
@@ -64,6 +65,7 @@ jest.mock('use-debounce', () => {
           callbackRef.current(transactions);
         };
         throttledUpdate.isPending = () => Boolean(pendingTransactions);
+        throttledUpdate.getPendingTransactions = () => pendingTransactions;
 
         mockThrottledTransactionsUpdates.push(throttledUpdate);
 
@@ -96,8 +98,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+function getMockPlatformEnv() {
+  return jest.requireMock('@onekeyhq/shared/src/platformEnv').default as {
+    isNative: boolean;
+    isNativeAndroid: boolean;
+  };
+}
+
 describe('useMarketTransactions', () => {
   beforeEach(() => {
+    const platformEnv = getMockPlatformEnv();
+    platformEnv.isNative = false;
+    platformEnv.isNativeAndroid = false;
     mockFetchTransactions.mockReset();
     mockUsePromiseResult.mockReset();
     mockThrottledTransactionsUpdates.length = 0;
@@ -142,12 +154,13 @@ describe('useMarketTransactions', () => {
 
     expect(result.current.bufferedTransactionsCount).toBe(1);
     expect(throttledUpdate.isPending()).toBe(true);
+    const cancelCallCount = throttledUpdate.cancel.mock.calls.length;
 
     act(() => {
       result.current.flushBufferedTransactions();
     });
 
-    expect(throttledUpdate.cancel).toHaveBeenCalledTimes(1);
+    expect(throttledUpdate.cancel).toHaveBeenCalledTimes(cancelCallCount + 1);
     expect(result.current.transactions.map((tx) => tx.hash)).toEqual([
       'buffered-1',
       'live-1',
@@ -196,12 +209,13 @@ describe('useMarketTransactions', () => {
     });
 
     expect(result.current.bufferedTransactionsCount).toBe(1);
+    const cancelCallCount = throttledUpdate.cancel.mock.calls.length;
 
     act(() => {
       rerender({ enableRealtimePause: false });
     });
 
-    expect(throttledUpdate.cancel).toHaveBeenCalledTimes(1);
+    expect(throttledUpdate.cancel).toHaveBeenCalledTimes(cancelCallCount + 1);
     expect(result.current.transactions.map((tx) => tx.hash)).toEqual([
       'buffered-1',
       'base-1',
@@ -258,5 +272,85 @@ describe('useMarketTransactions', () => {
         (tx) => tx.hash === `buffered-${MAX_BUFFERED_TRANSACTIONS + 5}`,
       ),
     ).toBe(true);
+  });
+
+  it('clears accumulated transactions immediately when token identity changes', () => {
+    const { result, rerender } = renderHook(
+      ({ tokenAddress }: { tokenAddress: string }) =>
+        useMarketTransactions({
+          tokenAddress,
+          networkId: 'evm--1',
+          normalMode: false,
+          enableRealtimePause: true,
+        }),
+      {
+        initialProps: {
+          tokenAddress: '0xabc',
+        },
+      },
+    );
+
+    const throttledUpdate = mockThrottledTransactionsUpdates[0];
+
+    expect(throttledUpdate).toBeDefined();
+
+    act(() => {
+      throttledUpdate.flush();
+    });
+
+    expect(result.current.transactions.map((tx) => tx.hash)).toEqual([
+      'base-1',
+    ]);
+
+    const cancelCallCount = throttledUpdate.cancel.mock.calls.length;
+
+    act(() => {
+      rerender({ tokenAddress: '0xdef' });
+    });
+
+    expect(throttledUpdate.cancel).toHaveBeenCalledTimes(cancelCallCount + 1);
+    expect(result.current.transactions).toEqual([]);
+  });
+
+  it('queues the native render slice for live transaction inserts', () => {
+    getMockPlatformEnv().isNative = true;
+    mockUsePromiseResult.mockReturnValue({
+      result: {
+        list: Array.from({ length: 55 }, (_, index) =>
+          createMockTransaction(`base-${index + 1}`, index + 1),
+        ),
+        cursor: 'cursor-1',
+      },
+      isLoading: false,
+      run: mockFetchTransactions,
+    });
+
+    const { result } = renderHook(() =>
+      useMarketTransactions({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        normalMode: false,
+        enableRealtimePause: true,
+      }),
+    );
+
+    const throttledUpdate = mockThrottledTransactionsUpdates[0];
+
+    expect(throttledUpdate).toBeDefined();
+
+    act(() => {
+      throttledUpdate.flush();
+    });
+
+    expect(result.current.transactions).toHaveLength(50);
+
+    act(() => {
+      result.current.addNewTransaction(createMockTransaction('live-1', 100));
+    });
+
+    const pendingTransactions = throttledUpdate.getPendingTransactions();
+
+    expect(pendingTransactions).toHaveLength(50);
+    expect(pendingTransactions?.[0]?.hash).toBe('live-1');
   });
 });
