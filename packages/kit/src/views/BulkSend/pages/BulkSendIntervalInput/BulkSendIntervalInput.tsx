@@ -110,7 +110,7 @@ function BulkSendIntervalInputContent({
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={INTERVAL_SETTINGS_TITLE} />
+      <Page.Header headerTitle={INTERVAL_SETTINGS_TITLE()} />
       <Page.Body px="$5" pb="$5">
         <IntervalSettingsContent
           value={intervalSettings}
@@ -121,7 +121,7 @@ function BulkSendIntervalInputContent({
       <Page.Footer>
         <YStack $md={{ pb: '$5' }}>
           <Page.FooterActions
-            onConfirmText={INTERVAL_SETTINGS_REVIEW_TEXT}
+            onConfirmText={INTERVAL_SETTINGS_REVIEW_TEXT()}
             confirmButtonProps={{
               onPress: handleConfirm,
             }}

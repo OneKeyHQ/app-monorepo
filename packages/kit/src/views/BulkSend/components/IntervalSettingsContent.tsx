@@ -12,28 +12,39 @@ import {
 
 import { BULK_SEND_INTERVAL_MAX_SECONDS, filterIntegerInput } from '../utils';
 
-export const INTERVAL_SETTINGS_TITLE = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_interval_title,
-});
-export const INTERVAL_SETTINGS_NONE_LABEL = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_interval_none,
-});
-export const INTERVAL_SETTINGS_CANCEL_TEXT = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_btn_cancel,
-});
-export const INTERVAL_SETTINGS_CONFIRM_TEXT = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_btn_confirm,
-});
-export const INTERVAL_SETTINGS_REVIEW_TEXT = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_btn_review,
-});
-export const INTERVAL_SETTINGS_SPECIFIED_LABEL = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_interval_specified_range,
-});
-export const INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER =
+// FIXME: these used to be top-level appLocale calls evaluated at module
+// import time; switched to lazy getters so they read the current locale at
+// call time. Replace with useIntl() at call sites for true reactivity.
+/* eslint-disable onekey/no-app-locale-main-thread -- legacy lazy getters */
+export const INTERVAL_SETTINGS_TITLE = () =>
+  appLocale.intl.formatMessage({
+    id: ETranslations.wallet_bulk_send_interval_title,
+  });
+export const INTERVAL_SETTINGS_NONE_LABEL = () =>
+  appLocale.intl.formatMessage({
+    id: ETranslations.wallet_bulk_send_interval_none,
+  });
+export const INTERVAL_SETTINGS_CANCEL_TEXT = () =>
+  appLocale.intl.formatMessage({
+    id: ETranslations.wallet_bulk_send_btn_cancel,
+  });
+export const INTERVAL_SETTINGS_CONFIRM_TEXT = () =>
+  appLocale.intl.formatMessage({
+    id: ETranslations.wallet_bulk_send_btn_confirm,
+  });
+export const INTERVAL_SETTINGS_REVIEW_TEXT = () =>
+  appLocale.intl.formatMessage({
+    id: ETranslations.wallet_bulk_send_btn_review,
+  });
+export const INTERVAL_SETTINGS_SPECIFIED_LABEL = () =>
+  appLocale.intl.formatMessage({
+    id: ETranslations.wallet_bulk_send_interval_specified_range,
+  });
+export const INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER = () =>
   appLocale.intl.formatMessage({
     id: ETranslations.wallet_bulk_send_interval_max_sec_placeholder,
   });
+/* eslint-enable onekey/no-app-locale-main-thread */
 
 function useIntervalLabels() {
   const intl = useIntl();

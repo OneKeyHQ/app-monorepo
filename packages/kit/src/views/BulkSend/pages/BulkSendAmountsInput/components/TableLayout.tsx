@@ -69,11 +69,11 @@ function IntervalCard() {
   const modeOptions = useMemo(
     () => [
       {
-        label: INTERVAL_SETTINGS_SPECIFIED_LABEL,
+        label: INTERVAL_SETTINGS_SPECIFIED_LABEL(),
         value: EIntervalMode.Specified,
       },
       {
-        label: INTERVAL_SETTINGS_NONE_LABEL,
+        label: INTERVAL_SETTINGS_NONE_LABEL(),
         value: EIntervalMode.None,
       },
     ],
@@ -115,7 +115,7 @@ function IntervalCard() {
     >
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size="$bodyLgMedium">
-          {INTERVAL_SETTINGS_TITLE}
+          {INTERVAL_SETTINGS_TITLE()}
         </SizableText>
         <Select
           title=""
@@ -142,7 +142,7 @@ function IntervalCard() {
             minSeconds={intervalSettings.minSeconds}
             maxSeconds={intervalSettings.maxSeconds}
             error={shouldShowIntervalError ? intervalError : undefined}
-            maxSecPlaceholder={INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER}
+            maxSecPlaceholder={INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER()}
             onMinChange={handleMinChange}
             onMaxChange={handleMaxChange}
             inputBackgroundColor="$bg"
@@ -185,7 +185,7 @@ function IntervalCardOneToMany() {
     >
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size="$bodyLgMedium">
-          {INTERVAL_SETTINGS_TITLE}
+          {INTERVAL_SETTINGS_TITLE()}
         </SizableText>
         <Button
           variant="tertiary"
@@ -193,7 +193,7 @@ function IntervalCardOneToMany() {
           iconAfter="ChevronDownSmallOutline"
           disabled
         >
-          {INTERVAL_SETTINGS_NONE_LABEL}
+          {INTERVAL_SETTINGS_NONE_LABEL()}
         </Button>
       </XStack>
 
