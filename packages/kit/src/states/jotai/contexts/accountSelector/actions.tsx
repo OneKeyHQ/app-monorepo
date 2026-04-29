@@ -793,8 +793,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               }
             } catch (hideErr) {
               defaultLogger.app.error.log(
-                'withFinalizeWalletSetupStep softHide failed',
-                hideErr instanceof Error ? hideErr.stack : undefined,
+                `withFinalizeWalletSetupStep softHide failed: ${
+                  (hideErr as Error)?.message || String(hideErr)
+                }`,
               );
             }
           }
