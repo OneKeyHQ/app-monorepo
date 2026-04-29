@@ -3118,6 +3118,7 @@
   "perps__fee_discount_activated__msg": "手續費優惠已生效",
   "perps__snooze_remind_later__action": "暫不需要，下次再提醒我",
   "perps_footer.help_us_better": "合約社区",
+  "perps_hide_other_pairs": "隱藏其他交易對",
   "perps_referral_campaign__desc": "邀請好友，一起抽獎 99U。更有天梯排名衝擊大獎！",
   "perps_trigger_price_equal_current": "觸發價不能等於當前價格",
   "pick_your_device": "選擇您的裝置",
