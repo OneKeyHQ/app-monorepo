@@ -39,8 +39,8 @@
     "zod-to-ts": "^2.0.0"
   },
   "dependencies": {
-    "@onekeyfe/hd-common-connect-sdk": "1.1.26-alpha.8",
-    "@onekeyfe/hd-core": "1.1.26-alpha.8",
-    "@onekeyfe/hd-transport-usb": "1.1.26-alpha.8"
+    "@onekeyfe/hd-common-connect-sdk": "1.1.26-alpha.11",
+    "@onekeyfe/hd-core": "1.1.26-alpha.11",
+    "@onekeyfe/hd-transport-usb": "1.1.26-alpha.11"
   }
 }
