@@ -11,6 +11,19 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  # Required by the reusable workflow `release-native-bundle.yml`, which
+  # declares its own `permissions:` block. When a reusable workflow requests
+  # a permission the caller did not grant, GitHub blocks the call with
+  # "Invalid workflow file ... is requesting 'X: read', but is only allowed
+  # 'X: none'" before any job starts. Mirror its scopes here so the iOS /
+  # Android slots actually launch:
+  #   - packages: read  → yarn install from npm.pkg.github.com inside the
+  #     reusable workflow.
+  #   - actions: read   → the reusable workflow reads
+  #     github.event.workflow_run metadata even when invoked via workflow_call
+  #     so it can format build summaries consistently.
+  packages: read
+  actions: read
 
 jobs:
   validate-pr:
