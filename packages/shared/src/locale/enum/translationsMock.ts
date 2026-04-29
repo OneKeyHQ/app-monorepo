@@ -7,6 +7,4 @@ export enum ETranslationsMock {
   // ----------------------------------------------
   unavailable_networks_for_selected_account = 'Unavailable networks for selected account',
   testnet = 'Testnet',
-  hardware_third_party_device_app_stuck = 'hardware_third_party_device_app_stuck',
-  hardware_third_party_chain_not_supported = 'hardware_third_party_chain_not_supported',
 }

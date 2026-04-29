@@ -1,7 +1,7 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
-import { ETranslations, ETranslationsMock } from '../../locale';
+import { ETranslations } from '../../locale';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
@@ -152,7 +152,7 @@ export class ThirdPartyDeviceAppStuck extends ThirdPartyHardwareError {
       normalizeErrorProps(
         { ...props, info: { ...props?.info, vendor: props?.vendor } },
         {
-          defaultKey: ETranslationsMock.hardware_third_party_device_app_stuck,
+          defaultKey: ETranslations.hardware_third_party_device_app_stuck,
           defaultAutoToast: true,
         },
       ),
@@ -207,8 +207,7 @@ export class ThirdPartyChainNotSupported extends ThirdPartyHardwareError {
           },
         },
         {
-          defaultKey:
-            ETranslationsMock.hardware_third_party_chain_not_supported,
+          defaultKey: ETranslations.hardware_third_party_chain_not_supported,
           defaultAutoToast: true,
         },
       ),
