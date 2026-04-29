@@ -11,6 +11,21 @@ const HOME_MARKET_CATEGORY_POLLING_INTERVAL = timerUtils.getTimeDurationMs({
   seconds: 30,
 });
 
+type ICategoryTokensResult = {
+  requestKey: string;
+  tokens: IFavoriteTokenDisplay[];
+};
+
+function getMarketCategoryTokensRequestKey({
+  minLiquidity,
+  selectedMarketCategoryId,
+}: {
+  minLiquidity: number;
+  selectedMarketCategoryId?: string;
+}) {
+  return `${selectedMarketCategoryId ?? ''}:${minLiquidity}`;
+}
+
 function useHomeMarketCategoryTokens({
   minLiquidity,
   selectedMarketCategoryId,
@@ -18,11 +33,24 @@ function useHomeMarketCategoryTokens({
   minLiquidity: number;
   selectedMarketCategoryId?: string;
 }) {
-  const { result: categoryTokensResult, isLoading: isCategoryLoading } =
-    usePromiseResult(
+  const requestKey = getMarketCategoryTokensRequestKey({
+    minLiquidity,
+    selectedMarketCategoryId,
+  });
+
+  const { result: categoryTokensResult } =
+    usePromiseResult<ICategoryTokensResult>(
       async () => {
+        const currentRequestKey = getMarketCategoryTokensRequestKey({
+          minLiquidity,
+          selectedMarketCategoryId,
+        });
+
         if (!selectedMarketCategoryId) {
-          return [];
+          return {
+            requestKey: currentRequestKey,
+            tokens: EMPTY_DISPLAY_TOKENS,
+          };
         }
 
         const response =
@@ -37,25 +65,33 @@ function useHomeMarketCategoryTokens({
             timeFrame: '2',
           });
 
-        return response.list
-          .map(mapMarketTokenToDisplay)
-          .filter((item): item is IFavoriteTokenDisplay => item !== null)
-          .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT);
+        return {
+          requestKey: currentRequestKey,
+          tokens: response.list
+            .map(mapMarketTokenToDisplay)
+            .filter((item): item is IFavoriteTokenDisplay => item !== null)
+            .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT),
+        };
       },
       [minLiquidity, selectedMarketCategoryId],
       {
-        initResult: [],
-        watchLoading: true,
         pollingInterval: HOME_MARKET_CATEGORY_POLLING_INTERVAL,
         revalidateOnFocus: true,
         revalidateOnReconnect: true,
-        undefinedResultIfReRun: true,
+        undefinedResultIfReRun: false,
       },
     );
 
+  const hasCurrentCategoryTokens =
+    categoryTokensResult?.requestKey === requestKey;
+  const hasSelectedMarketCategory = Boolean(selectedMarketCategoryId);
+
   return {
-    categoryTokens: categoryTokensResult ?? EMPTY_DISPLAY_TOKENS,
-    isCategoryLoading,
+    categoryTokens:
+      hasCurrentCategoryTokens && categoryTokensResult
+        ? categoryTokensResult.tokens
+        : EMPTY_DISPLAY_TOKENS,
+    isCategoryLoading: hasSelectedMarketCategory && !hasCurrentCategoryTokens,
   };
 }
 

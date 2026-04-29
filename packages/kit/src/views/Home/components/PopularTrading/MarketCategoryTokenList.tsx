@@ -235,7 +235,7 @@ function MarketCategoryTokenList({
     ];
   }, [intl, isTokenInWatchList, onStarPress, tableLayout]);
 
-  if (isLoading && tokens.length === 0) {
+  if (isLoading !== false && tokens.length === 0) {
     return (
       <ListLoading
         listCount={HOME_MARKET_CATEGORY_REQUEST_LIMIT}

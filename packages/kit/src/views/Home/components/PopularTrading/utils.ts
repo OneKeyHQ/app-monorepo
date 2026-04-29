@@ -25,14 +25,11 @@ function mapMarketTokenToDisplay(
     return null;
   }
 
-  const { isNative, normalizedAddress } = getNativeTokenInfo(
-    item.isNative,
-    item.address,
-  );
+  const { isNative } = getNativeTokenInfo(item.isNative, item.address);
 
   return {
     chainId,
-    contractAddress: normalizedAddress,
+    contractAddress: isNative ? '' : (item.address ?? ''),
     isNative,
     symbol: item.symbol,
     name: item.name,
