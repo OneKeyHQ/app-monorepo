@@ -1442,18 +1442,18 @@ export function useSwapBuildTx() {
                 accountId,
                 scenario: 'swap',
               });
-              if (i === unsignedTxArr.length - 2) {
-                lastTxUseGasInfo = {
-                  common: gasRes.common,
-                  gas: gasRes.gas?.[1] ?? gasRes.gas?.[0],
-                  gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
-                };
-              }
               const gasParseInfo = buildGasInfo(
                 gasRes,
                 gasRes.common,
                 estimateFeeParams.estimateFeeParams,
               );
+              if (i === unsignedTxArr.length - 2) {
+                lastTxUseGasInfo = {
+                  common: gasParseInfo.common,
+                  gas: gasParseInfo.gas,
+                  gasEIP1559: gasParseInfo.gasEIP1559,
+                };
+              }
               updateStepTitle(stepIndex, i, approveUnsignedTxArr);
               await updateUnsignedTxAndSendTx({
                 stepIndex,
@@ -2870,18 +2870,18 @@ export function useSwapBuildTx() {
                 accountId,
                 scenario: 'swap',
               });
-              if (i === unsignedTxArr.length - 2) {
-                lastTxUseGasInfo = {
-                  common: gasRes.common,
-                  gas: gasRes.gas?.[1] ?? gasRes.gas?.[0],
-                  gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
-                };
-              }
               const gasParseInfo = buildGasInfo(
                 gasRes,
                 gasRes.common,
                 estimateFeeParams.estimateFeeParams,
               );
+              if (i === unsignedTxArr.length - 2) {
+                lastTxUseGasInfo = {
+                  common: gasParseInfo.common,
+                  gas: gasParseInfo.gas,
+                  gasEIP1559: gasParseInfo.gasEIP1559,
+                };
+              }
               gasFeeInfos.push({
                 encodeTx: unsignedTxItem.encodedTx,
                 gasInfo: gasParseInfo,
