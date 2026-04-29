@@ -19,8 +19,10 @@ export type IWalletActionType =
 
 export type IMoreActionGroupType = 'trading' | 'tools' | 'developer' | 'others';
 
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
+
 export interface IActionCustomization {
-  label?: string;
+  labelId?: ETranslations;
   icon?: any;
   disabled?: boolean;
   onPress?: () => void | Promise<void>;
