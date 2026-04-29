@@ -67,6 +67,7 @@ import {
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
 import { EGlobalDeriveTypesScopes } from '@onekeyhq/shared/types/account';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -115,10 +116,14 @@ export type IFinalizeWalletSetupCreateWalletResult = {
 };
 
 // Ledger USB has no stable device id, so a failed batch leaves an orphan
-// wallet shell each retry. Soft-hide on these two third-party codes only.
+// wallet shell each retry. Mirrors the third-party fatal codes in
+// ServiceBatchCreateAccount.forceExitFlowWhenErrorMatched so any code that
+// breaks the batch also clears the now-empty shell.
 const LEDGER_ORPHAN_HIDE_CODES: number[] = [
   ThirdPartyHwErrorCode.UserAborted,
   ThirdPartyHwErrorCode.DeviceAppStuck,
+  ThirdPartyHwErrorCode.DeviceDisconnected,
+  ThirdPartyHwErrorCode.ChainNotSupported,
 ];
 
 class AccountSelectorActions extends ContextJotaiActionsBase {
@@ -754,10 +759,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         return createResult;
       } catch (error) {
         // Soft-hide the just-created Ledger wallet shell when batch aborts.
-        // Uses isTemp + hideImmediately — no DB deletion.
+        // Uses isTemp + hideImmediately — no DB deletion. Vendor-gated to
+        // Ledger so other HW lines (OneKey/BLE) keep their dedup'able shells.
+        const isLedgerWallet =
+          createdResult?.wallet?.associatedDeviceInfo?.vendor ===
+          EHardwareVendor.ledger;
         if (
           createdResult &&
           !createdResult.isOverrideWallet &&
+          isLedgerWallet &&
           isHardwareErrorByCode({
             error: error as IOneKeyError | undefined,
             code: LEDGER_ORPHAN_HIDE_CODES,
