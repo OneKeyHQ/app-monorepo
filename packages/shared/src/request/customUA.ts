@@ -67,10 +67,13 @@ export async function shouldInjectUAForUrl(url: string): Promise<boolean> {
   try {
     return await requestHelper.checkIsOneKeyDomain(url);
   } catch {
-    // CLI has no wired DI — fall back to a narrow regex (CLI only talks to
-    // *.onekeycn.com / *.onekeytest.com). For App, refuse rather than
-    // mis-inject under an uncertain whitelist.
-    if (detectRuntime() !== 'cli-node') return false;
+    // CLI and the Electron main process never call updateInterceptorRequestHelper()
+    // (renderer-only init), so checkIsOneKeyDomain() throws there. Fall back
+    // to a narrow regex (both runtimes only talk to *.onekeycn.com /
+    // *.onekeytest.com). On native / web / extension, DI is reliable — refuse
+    // rather than mis-inject under an uncertain whitelist.
+    const runtime = detectRuntime();
+    if (runtime !== 'cli-node' && runtime !== 'desktop-electron') return false;
     return ONEKEY_OFFICIAL_HOST.test(parsed.hostname);
   }
 }

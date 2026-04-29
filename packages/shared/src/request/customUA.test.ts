@@ -171,9 +171,25 @@ describe('shouldInjectUAForUrl', () => {
     expect(await shouldInjectUAForUrl('https://example.com/foo')).toBe(false);
   });
 
-  it('App refuses to fall back when requestHelper throws (avoid mis-inject)', async () => {
+  it('Electron main falls back to OneKey-official regex when requestHelper throws (renderer-only init)', async () => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
+    checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('not wired'));
+    expect(
+      await shouldInjectUAForUrl('https://utility.onekeycn.com/utility/v1/x'),
+    ).toBe(true);
+  });
+
+  it('Electron main fallback rejects non-official hosts when requestHelper throws', async () => {
+    (platformEnv as any).isDesktop = true;
+    (platformEnv as any).appPlatform = 'desktop';
+    checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('not wired'));
+    expect(await shouldInjectUAForUrl('https://example.com/foo')).toBe(false);
+  });
+
+  it('Native refuses to fall back when requestHelper throws (avoid mis-inject)', async () => {
+    (platformEnv as any).isNative = true;
+    (platformEnv as any).appPlatform = 'ios';
     checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('flaky DI'));
     expect(
       await shouldInjectUAForUrl('https://swap.onekeycn.com/swap/v1/quote'),
