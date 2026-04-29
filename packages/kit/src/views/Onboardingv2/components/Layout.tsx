@@ -174,6 +174,7 @@ export interface IOnboardingPageProps extends IPageProps {
   enterAnimation?: boolean;
   alignTop?: boolean;
   narrow?: boolean;
+  backgroundLayer?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -186,6 +187,7 @@ export function OnboardingPage({
   enterAnimation = true,
   alignTop = false,
   narrow = false,
+  backgroundLayer,
   children,
   ...pageProps
 }: IOnboardingPageProps) {
@@ -226,6 +228,19 @@ export function OnboardingPage({
 
   return (
     <Page {...pageProps}>
+      {backgroundLayer ? (
+        <YStack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          overflow="hidden"
+          pointerEvents="none"
+        >
+          {backgroundLayer}
+        </YStack>
+      ) : null}
       <LayoutHeader>
         {headerBack !== false ? (
           <LayoutHeaderBack exit={headerBack === 'exit'} />

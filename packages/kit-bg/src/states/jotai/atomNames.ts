@@ -110,6 +110,7 @@ export enum EAtomNames {
   spotAssetCtxsMapAtom = 'spotAssetCtxsMapAtom',
   spotActiveOpenOrdersAtom = 'spotActiveOpenOrdersAtom',
   spotPairDisplayMapAtom = 'spotPairDisplayMapAtom',
+  perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
