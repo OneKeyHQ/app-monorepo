@@ -776,19 +776,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             code: LEDGER_ORPHAN_HIDE_CODES,
           })
         ) {
-          const targets = [
-            {
-              walletId: createdResult.hidden?.wallet?.id,
-              indexedAccountId: createdResult.hidden?.indexedAccount?.id,
-            },
-            {
-              walletId: createdResult.wallet?.id,
-              indexedAccountId: createdResult.indexedAccount?.id,
-            },
-          ].filter((t): t is { walletId: string; indexedAccountId: string } =>
-            Boolean(t.walletId && t.indexedAccountId),
-          );
-          for (const { walletId, indexedAccountId } of targets) {
+          const walletId = createdResult.wallet?.id;
+          const indexedAccountId = createdResult.indexedAccount?.id;
+          if (walletId && indexedAccountId) {
             try {
               const { accounts } =
                 await serviceAccount.getAccountsInSameIndexedAccountId({
