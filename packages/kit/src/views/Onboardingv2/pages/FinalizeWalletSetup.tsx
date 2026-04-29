@@ -650,7 +650,7 @@ function FinalizeWalletSetupPage({
               ) : null}
             </YStack>
             {!gtMd ? (
-              <YStack {...enterWalletTransitionProps}>
+              <YStack pb="$5" {...enterWalletTransitionProps}>
                 {enterWalletButton}
               </YStack>
             ) : null}
