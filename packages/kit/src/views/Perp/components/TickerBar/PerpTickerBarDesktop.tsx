@@ -18,8 +18,8 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -779,7 +779,7 @@ function TickerBarFundingRate() {
 }
 
 function PerpTickerBarDesktop() {
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
   const marketDataGap = useMemo(() => (isSpot ? '$6' : '$8'), [isSpot]);
@@ -800,7 +800,7 @@ function PerpTickerBarDesktop() {
       <XStack gap="$4" alignItems="center" minWidth={0} flexShrink={1}>
         <XStack gap="$2" alignItems="center" minWidth={0} flexShrink={1}>
           <FavoriteButton
-            coin={activeAsset.coin}
+            coin={activeTradeInstrument.coin}
             iconSize="$4"
             isSpot={isSpot}
           />
