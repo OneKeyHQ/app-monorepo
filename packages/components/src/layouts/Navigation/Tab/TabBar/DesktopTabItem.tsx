@@ -8,6 +8,7 @@ import {
   Tooltip,
 } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
+import { useNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
 import {
   Icon,
   Image,
@@ -80,6 +81,11 @@ function BasicDesktopTabItemImage({
   avatarSrc?: string;
   selected?: boolean;
 }) {
+  const { isRawInternetReachable } = useNetInfo(Boolean(avatarSrc));
+  const imageKey = useMemo(
+    () => `${avatarSrc ?? ''}:${isRawInternetReachable ?? 'unknown'}`,
+    [avatarSrc, isRawInternetReachable],
+  );
   const fallbackElement = useMemo(
     () => (
       <Image.Fallback bg="$bgSidebar" delayMs={180}>
@@ -94,6 +100,7 @@ function BasicDesktopTabItemImage({
   );
   return (
     <Image
+      key={imageKey}
       borderRadius="$1"
       size="$4.5"
       m="$px"
