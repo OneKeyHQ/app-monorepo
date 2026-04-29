@@ -32,7 +32,7 @@ export function usePurchasePackageWebview() {
         return;
       }
       navigation.popStack();
-      const { apiKey } = await getPrimePaymentApiKey({
+      const { apiKey, isSandboxKey } = await getPrimePaymentApiKey({
         apiKeyType: 'web',
       });
 
@@ -48,6 +48,7 @@ export function usePurchasePackageWebview() {
           locale: intl.locale,
           mode: platformEnv.isDev ? 'dev' : 'prod',
           apiKey: apiKey || '',
+          isSandboxKey: isSandboxKey ? '1' : '0',
           ...(currency ? { currency } : {}),
           ...(featureName ? { featureName } : {}),
         },
