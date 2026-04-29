@@ -790,15 +790,14 @@ function MemberSocialIcon({ link }: { link: IEarnProtocolIntroSocialLink }) {
 
   return (
     <XStack
-      w="$4"
-      h="$4"
+      w={20}
+      h={20}
       ai="center"
       jc="center"
-      borderRadius="$full"
       cursor="pointer"
       onPress={handlePress}
     >
-      <Icon name={getLinkIcon(link)} size="$4" color="$iconSubdued" />
+      <Icon name={getLinkIcon(link)} size="$5" color="$iconSubdued" />
     </XStack>
   );
 }
@@ -810,40 +809,38 @@ function TeamMemberRow({ member }: { member: IEarnProtocolIntroTeamMember }) {
   const links = getMemberLinks(member);
 
   return (
-    <YStack gap="$1" w="100%">
+    <YStack gap="$2" w="100%">
       <XStack gap="$3" ai="center" minWidth={0}>
         <MemberAvatar member={member} />
-        <XStack gap="$1.5" ai="center" flex={1} minWidth={0}>
-          <XStack gap="$1.5" ai="center" flex={1} minWidth={0}>
+        <YStack flex={1} minWidth={0} pr="$1" jc="center">
+          <XStack gap="$2" ai="center" minWidth={0}>
             <EarnText
               text={toEarnText(name)}
               size="$bodyLgMedium"
               color="$text"
-              flexShrink={0}
+              flex={1}
+              minWidth={0}
               numberOfLines={1}
             />
-            {hasText(position) ? (
-              <EarnText
-                text={toEarnText(position)}
-                size="$bodyLg"
-                color="$textSubdued"
-                flex={1}
-                minWidth={0}
-                numberOfLines={1}
-              />
+            {links.length ? (
+              <XStack ai="center" gap="$2" flexShrink={0}>
+                {links.map((link, index) => (
+                  <MemberSocialIcon
+                    key={`${getLinkUrl(link) || link.type || 'link'}-${index}`}
+                    link={link}
+                  />
+                ))}
+              </XStack>
             ) : null}
           </XStack>
-          {links.length ? (
-            <XStack gap="$1" ai="center" flexShrink={0}>
-              {links.map((link, index) => (
-                <MemberSocialIcon
-                  key={`${getLinkUrl(link) || link.type || 'link'}-${index}`}
-                  link={link}
-                />
-              ))}
-            </XStack>
+          {hasText(position) ? (
+            <EarnText
+              text={toEarnText(position)}
+              size="$bodyMdMedium"
+              color="$textSubdued"
+            />
           ) : null}
-        </XStack>
+        </YStack>
       </XStack>
       {hasText(description) ? (
         <XStack pl={36} minWidth={0}>
@@ -853,7 +850,6 @@ function TeamMemberRow({ member }: { member: IEarnProtocolIntroTeamMember }) {
             color="$textSubdued"
             flex={1}
             minWidth={0}
-            numberOfLines={2}
           />
         </XStack>
       ) : null}
@@ -915,7 +911,7 @@ function InvestorRoundSection({
       {hasText(round.title || round.round) ? (
         <EarnText
           text={toEarnText(round.title || round.round)}
-          size="$bodyMdMedium"
+          size="$headingSm"
           color="$text"
           mb="$3"
         />
@@ -1186,12 +1182,16 @@ function AuditAccordionItem({
         alignItems="center"
         borderWidth={0}
         bg="$transparent"
-        p="$0"
+        px="$2"
+        py="$2"
+        mx="$-2"
+        my="$-2"
+        borderRadius="$2"
         hoverStyle={{
-          bg: '$transparent',
+          bg: '$bgHover',
         }}
         pressStyle={{
-          bg: '$transparent',
+          bg: '$bgActive',
         }}
       >
         {({ open }: { open: boolean }) => (
@@ -1285,7 +1285,7 @@ function AuditsDialogContent({ audits }: { audits: IEarnProtocolIntroAudits }) {
   const descriptions = audits.button?.data?.description;
   return (
     <YStack gap="$4">
-      <Accordion type="single" collapsible defaultValue="0" gap="$4">
+      <Accordion type="single" collapsible gap="$4" pt="$2">
         {auditItems.map((audit, index) => (
           <AuditAccordionItem
             key={`${getText(getAuditTitle(audit)) || 'audit'}-${index}`}
@@ -1381,7 +1381,7 @@ function ProtocolIntroSectionComponent({
     showDialog({
       title: team?.button?.data?.title || team?.title,
       renderContent: (
-        <YStack gap="$5">
+        <YStack gap="$6">
           {members.map((member, index) => (
             <TeamMemberRow
               key={`${getText(getMemberName(member)) || 'member'}-${index}`}
