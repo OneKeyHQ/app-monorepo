@@ -39,9 +39,8 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
           this.subscribeConnectorEvents(vendor, connector);
           return connector;
         })
-        .catch((error) => {
+        .finally(() => {
           this.connectorInitPromises.delete(vendor);
-          throw error;
         });
       this.connectorInitPromises.set(vendor, pending);
     }
@@ -62,6 +61,12 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   private async createConnector(vendor: VendorType): Promise<IConnector> {
     switch (vendor) {
       case 'ledger': {
+        // Forward the whole SdkEvent union to SW; new variants ride this
+        // same channel without a new IPC route.
+        const { onSdkEvent } = await import('@onekeyfe/hwk-ledger-adapter');
+        onSdkEvent((event) => {
+          emitOffscreenEventToBackground('hwkSdkEvent', event);
+        });
         const { createLedgerWebHidConnector } =
           await import('@onekeyfe/hwk-ledger-connector-webhid');
         return createLedgerWebHidConnector();
@@ -93,7 +98,6 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
     };
     connector.on('device-connect', forward('device-connect'));
     connector.on('device-disconnect', forward('device-disconnect'));
-    connector.on('ui-request', forward('ui-request'));
     connector.on('ui-event', forward('ui-event'));
   }
 
