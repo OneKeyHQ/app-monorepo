@@ -4,7 +4,6 @@ import { Platform } from 'react-native';
 
 import { ANDROID_CHANNEL } from './androidNativeEnv';
 import appGlobals from './appGlobals';
-import { APP_VERSION } from './runtime/version';
 import { isWebInDappMode } from './utils/devModeUtils';
 
 /*
@@ -530,7 +529,7 @@ const platformEnv: IPlatformEnv = {
 
   appFullName: '',
   androidChannel,
-  version: APP_VERSION,
+  version: process.env.VERSION,
   bundleVersion: process.env.BUNDLE_VERSION,
   buildNumber: process.env.BUILD_NUMBER,
   buildTime: Number(process.env.BUILD_TIME) || undefined,

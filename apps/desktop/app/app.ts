@@ -38,7 +38,6 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { APP_VERSION } from '@onekeyhq/shared/src/runtime/version';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
@@ -1810,9 +1809,12 @@ try {
     /[.*+?^${}()|[\]\\]/g,
     '\\$&',
   );
+  // process.env.VERSION is substituted at build time by webpack DefinePlugin
+  // (apps/desktop/scripts/build.js) — the same path every other call site uses.
+  const appVersion = process.env.VERSION || '1.0.0';
   app.userAgentFallback = app.userAgentFallback.replace(
     new RegExp(`(OneKeyWallet)/${electronVer}\\b`),
-    `$1/${APP_VERSION}`,
+    `$1/${appVersion}`,
   );
 } catch (error) {
   logger.warn('[user-agent] failed to align chromium UA version', error);
