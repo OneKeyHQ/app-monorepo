@@ -19,8 +19,8 @@ const styles = StyleSheet.create({
   },
 });
 
-const markWidth = 8;
-const thumbWidth = 16;
+const markWidth = 10;
+const thumbWidth = markWidth + 6;
 
 const Mark = ({
   slideOver,
@@ -43,7 +43,7 @@ const Mark = ({
     () => ({
       width: markWidth,
       height: markWidth,
-      backgroundColor,
+      backgroundColor: slideOver ? markColor : backgroundColor,
       borderWidth: 1,
       borderColor: slideOver ? markColor : borderColor,
       borderRadius: markWidth / 2,
