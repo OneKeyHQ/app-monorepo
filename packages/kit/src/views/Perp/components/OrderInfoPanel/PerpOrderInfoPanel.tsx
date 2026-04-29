@@ -16,12 +16,16 @@ import {
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
+  usePerpsAbstractionModeAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
   useSpotActiveOpenOrdersAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
@@ -54,10 +58,15 @@ function TabBarItem({
   const [positionsLength] = usePerpsActivePositionLengthAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
+  );
 
   const holdingsCount = useMemo(() => {
-    // Mirrors the spot+perps USDC merge in SpotBalanceList — count non-USDC
-    // spot rows once and add 1 if either side has any USDC.
+    // Mirrors the USDC merge in SpotBalanceList.
     const nonUsdcSpotCount = balances.filter(
       (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
     ).length;
@@ -65,10 +74,11 @@ function TabBarItem({
       (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
     );
     const hasPerpsUsdc =
+      !isUnifiedAccountMode &&
       !!accountSummary?.totalRawUsd &&
       new BigNumber(accountSummary.totalRawUsd).gt(0);
     return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
-  }, [accountSummary?.totalRawUsd, balances]);
+  }, [accountSummary?.totalRawUsd, balances, isUnifiedAccountMode]);
 
   const tabCount = useMemo(() => {
     if (name === 'Balances') {
