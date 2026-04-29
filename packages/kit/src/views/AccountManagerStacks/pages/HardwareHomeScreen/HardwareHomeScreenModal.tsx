@@ -31,6 +31,7 @@ import type {
   IDeviceHomeScreenSizeInfo,
   IHardwareHomeScreenData,
 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -846,6 +847,12 @@ export default function HardwareHomeScreenModal({
               blurScreenHex: finallyBlurScreenHex || '',
               isUserUpload,
             });
+
+            // Surface the real failure (e.g. webembed proxy missing) instead of
+            // letting the BG path throw a misleading "thumbnailHex not defined".
+            if (buildCustomHexError) {
+              throw new OneKeyLocalError(buildCustomHexError);
+            }
 
             const response =
               await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
