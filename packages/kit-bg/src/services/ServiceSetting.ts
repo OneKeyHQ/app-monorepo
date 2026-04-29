@@ -717,6 +717,14 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setUseGasAccountByDefault(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      useGasAccountByDefault: value,
+    }));
+  }
+
+  @backgroundMethod()
   public async setEnableMenuBarTray(value: boolean) {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
