@@ -206,9 +206,21 @@ class DesktopApiDev {
 
     try {
       const finalHeaders = await withCustomUAHeaders(uploadUrl, reqHeaders);
-      logger.info('[client-log-upload] headers:', JSON.stringify(finalHeaders));
+      // Redact sensitive values before logging. Anything written here lands
+      // in app-latest.log and gets re-uploaded inside the next zip, so it
+      // must never contain auth tokens, raw HTML, or other "fuel" for WAF
+      // rules / token replay.
+      const redactedHeaders = Object.fromEntries(
+        Object.entries(finalHeaders).map(([k, v]) =>
+          k.toLowerCase() === 'authorization' ? [k, '[REDACTED]'] : [k, v],
+        ),
+      );
+      logger.info(
+        '[client-log-upload] headers:',
+        JSON.stringify(redactedHeaders),
+      );
       const curlParts = [`curl -X POST '${uploadUrl}'`];
-      Object.entries(finalHeaders).forEach(([key, value]) => {
+      Object.entries(redactedHeaders).forEach(([key, value]) => {
         curlParts.push(`-H '${key}: ${value}'`);
       });
       curlParts.push(`--data-binary '@${filePath}'`);
@@ -222,11 +234,21 @@ class DesktopApiDev {
         body: fileStream as unknown as any,
       });
       const text = await response.text();
+      // Log only safe metadata. The response body is intentionally NOT
+      // written here — for non-2xx the upstream is often a Cloudflare HTML
+      // error page whose <script>/<iframe>/<style> bytes would otherwise be
+      // captured into app-latest.log and re-uploaded inside the next zip,
+      // tripping CF's OWASP HTML Injection / XSS rule and creating a
+      // self-perpetuating 403 loop. cf-ray is sufficient for backend triage.
       logger.info(
         '[client-log-upload] response status:',
         response.status,
-        'body:',
-        text.slice(0, 500),
+        'cf-ray:',
+        response.headers.get('cf-ray') ?? 'n/a',
+        'cf-mitigated:',
+        response.headers.get('cf-mitigated') ?? 'n/a',
+        'body-len:',
+        text.length,
       );
       try {
         const parsed = JSON.parse(text) as Record<string, any>;
@@ -252,13 +274,19 @@ class DesktopApiDev {
         }
         return parsed;
       } catch (_error) {
+        // Non-JSON response (typically a CF block page). Surface a stable,
+        // non-HTML error message so the renderer / caller never sees raw
+        // <script>/<iframe> bytes that could be re-logged or rendered.
+        const safeMessage = `Upload failed (HTTP ${response.status}, cf-ray=${
+          response.headers.get('cf-ray') ?? 'n/a'
+        })`;
         sendProgress({
           stage: ELogUploadStage.Error,
-          message: text,
+          message: safeMessage,
         });
         return {
           code: response.status,
-          message: text,
+          message: safeMessage,
         };
       }
     } catch (error) {
