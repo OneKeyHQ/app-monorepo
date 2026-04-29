@@ -11,6 +11,12 @@ import type {
 
 export type ISubscriptionPeriod = 'P1Y' | 'P1M';
 
+export type IPackageFreeTrial = {
+  periodIso: string; // e.g. "P3D"
+  periodNumber: number; // e.g. 3
+  periodUnit: 'day' | 'week' | 'month' | 'year';
+};
+
 export type IPackage = {
   subscriptionPeriod: ISubscriptionPeriod;
   currencyCode: string;
@@ -19,6 +25,7 @@ export type IPackage = {
   pricePerYear: number;
   pricePerYearString: string;
   priceTotalPerYearString: string;
+  freeTrial?: IPackageFreeTrial;
 };
 
 export type IRevenueCatCustomerInfoWeb = CustomerInfoWeb;
