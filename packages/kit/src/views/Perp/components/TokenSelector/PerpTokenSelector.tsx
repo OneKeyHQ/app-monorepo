@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import {
+  type ISpotAssetCtxsMap,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   usePerpsActiveAssetCtxAtom,
@@ -379,6 +380,36 @@ function BasePerpTokenSelectorContent({
     }
   }, [selectorConfig?.direction, selectorConfig?.field, assetCtxsByDex]);
 
+  // Snapshot held in state (not ref) so the sort memo only re-runs when we
+  // explicitly bump it — sort-config change or first non-empty data arrival.
+  const [spotPriceSnapshot, setSpotPriceSnapshot] =
+    useState<ISpotAssetCtxsMap>(spotPriceMap);
+  const spotLastSortRef = useRef<{
+    field?: string;
+    direction?: string;
+  } | null>(null);
+  useEffect(() => {
+    const field = selectorConfig?.field;
+    const direction = selectorConfig?.direction;
+    const last = spotLastSortRef.current;
+    const sortChanged = last?.field !== field || last?.direction !== direction;
+    const snapshotEmpty = Object.keys(spotPriceSnapshot).length === 0;
+    if (!sortChanged && !snapshotEmpty) {
+      return;
+    }
+    spotLastSortRef.current = { field, direction };
+    setSpotPriceSnapshot(spotPriceMap);
+    if (sortChanged && activeTab === 'spot') {
+      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+    }
+  }, [
+    selectorConfig?.direction,
+    selectorConfig?.field,
+    spotPriceMap,
+    activeTab,
+    spotPriceSnapshot,
+  ]);
+
   // Container-level mark instead of per-row
   useEffect(() => {
     actions.current.markAllAssetCtxsRequired();
@@ -516,15 +547,18 @@ function BasePerpTokenSelectorContent({
     tokenSearchAliases,
   ]);
 
-  // Layer 1b: spot sort — isolated from perp. Reruns only when spot data or
-  // sort config changes. spotPriceMap WS updates never touch the perp list.
+  // Sort against the frozen snapshot so live WS price updates don't trigger
+  // an O(n log n) resort on every frame for a 100+ item spot list. Per-row
+  // hooks still read live values from spotPriceMap at render time; only the
+  // row order is frozen.
   const spotSortedList = useMemo((): ITokenSelectorListItem[] => {
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
+    const snapshot = spotPriceSnapshot;
 
     const entries = spotUniverses
       .map((u, index) => {
-        const ctx = spotPriceMap[u.name];
+        const ctx = snapshot[u.name];
         const markPrice = Number(ctx?.markPx || 0);
         const prevDayPx = Number(ctx?.prevDayPx || 0);
         const change24hPercent =
@@ -537,11 +571,6 @@ function BasePerpTokenSelectorContent({
             dexIndex: SPOT_DEX_INDEX,
             index,
             assetId: u.assetId,
-            tokenSubtitle:
-              getTokenSubtitle(
-                getSpotTokenDisplayName(u.baseName),
-                tokenSearchAliases,
-              ) ?? getTokenSubtitle(u.baseName, tokenSearchAliases),
             spotUniverse: u,
           } as ITokenSelectorListItem,
           name: u.baseName,
@@ -585,10 +614,9 @@ function BasePerpTokenSelectorContent({
     return entries.map((e) => e.item);
   }, [
     spotUniverses,
-    spotPriceMap,
-    tokenSearchAliases,
     selectorConfig?.field,
     selectorConfig?.direction,
+    spotPriceSnapshot,
   ]);
 
   // Layer 2: filter — cheap O(n); no sort computation.
@@ -772,10 +800,12 @@ function BasePerpTokenSelectorContent({
               <FavoritesEmptyState />
             ) : (
               <ListView
+                useFlashList
                 ref={listRef}
                 keyExtractor={keyExtractor}
+                estimatedItemSize={40}
                 windowSize={3}
-                initialNumToRender={12}
+                initialNumToRender={5}
                 data={activeTabData}
                 renderItem={renderItem}
                 ListEmptyComponent={listEmptyComponent}

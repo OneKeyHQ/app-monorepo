@@ -70,13 +70,12 @@ const TradesHistoryRow = memo(
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
       return (
-        !isSpotInstrument(fill.coin) &&
         fill.closedPnl &&
         !new BigNumber(fill.closedPnl).isZero() &&
         !fill.liquidation &&
         onShare
       );
-    }, [fill.closedPnl, fill.coin, fill.liquidation, onShare]);
+    }, [fill.closedPnl, fill.liquidation, onShare]);
     const actions = useHyperliquidActions();
     const intl = useIntl();
     const [spotDisplayMap] = useSpotPairDisplayMapAtom();
