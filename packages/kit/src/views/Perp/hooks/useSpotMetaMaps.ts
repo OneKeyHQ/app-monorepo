@@ -1,37 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { ethers } from 'ethersV6';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
-
-export type ISpotTokenContractExplorer =
-  | {
-      type: 'address';
-      value: string;
-    }
-  | {
-      type: 'token';
-      value: string;
-    };
-
-function formatEvmAddress(address?: string | null) {
-  if (!address) return undefined;
-  try {
-    return ethers.getAddress(address);
-  } catch {
-    return address;
-  }
-}
 
 export function useSpotMetaMaps() {
   const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);
   const [tokenContractMap, setTokenContractMap] = useState<
     Record<string, string>
-  >({});
-  const [tokenContractExplorerMap, setTokenContractExplorerMap] = useState<
-    Record<string, ISpotTokenContractExplorer>
   >({});
 
   useEffect(() => {
@@ -59,27 +35,19 @@ export function useSpotMetaMaps() {
         }
 
         setSpotUniverses(universes);
+        // HL UI shows the canonical 32-char `tokenId` (e.g. "0x54e0...7f4b"),
+        // not the 40-char `evmContract.address` (which is often a placeholder
+        // like 0x111111...111111). Match HL so the displayed contract and the
+        // explorer jump line up with what users see on hyperliquid.xyz.
         const contractMap: Record<string, string> = {};
-        const contractExplorerMap: Record<string, ISpotTokenContractExplorer> =
-          {};
         for (const token of tokens) {
-          const evmContractAddress = formatEvmAddress(
-            token.evmContract?.address,
-          );
-          const contract = token.tokenId ?? evmContractAddress;
-          if (contract) {
-            const displayName = getSpotTokenDisplayName(token.name);
-            const explorer: ISpotTokenContractExplorer = token.tokenId
-              ? { type: 'token', value: token.tokenId }
-              : { type: 'address', value: evmContractAddress ?? contract };
-            contractMap[token.name] = contract;
-            contractMap[displayName] = contract;
-            contractExplorerMap[token.name] = explorer;
-            contractExplorerMap[displayName] = explorer;
+          const tokenId = token.tokenId?.toLowerCase();
+          if (tokenId) {
+            contractMap[token.name] = tokenId;
+            contractMap[getSpotTokenDisplayName(token.name)] = tokenId;
           }
         }
         setTokenContractMap(contractMap);
-        setTokenContractExplorerMap(contractExplorerMap);
       });
     };
 
@@ -112,6 +80,5 @@ export function useSpotMetaMaps() {
     spotUniverses,
     universeByBaseName,
     tokenContractMap,
-    tokenContractExplorerMap,
   };
 }

@@ -13,10 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import {
-  openHyperLiquidExplorerUrl,
-  openHyperLiquidTokenExplorerUrl,
-} from '@onekeyhq/kit/src/utils/explorerUtils';
+import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -71,11 +68,9 @@ function getCoinLabel(item: IBalanceDisplayItem, perpLabel: string): string {
 
 function ContractAddressCell({
   contract,
-  explorer,
   size = '$bodyXs',
 }: {
   contract?: string;
-  explorer?: IBalanceDisplayItem['contractExplorer'];
   size?: '$bodyXs' | '$bodySmMedium';
 }) {
   const { copyText } = useClipboard();
@@ -114,13 +109,7 @@ function ContractAddressCell({
         iconProps={{ size: '$3', color: '$iconSubdued' }}
         onPress={(e) => {
           e?.stopPropagation?.();
-          if (explorer?.type === 'address') {
-            void openHyperLiquidExplorerUrl({ address: explorer.value });
-          } else {
-            void openHyperLiquidTokenExplorerUrl({
-              tokenId: explorer?.value ?? contract,
-            });
-          }
+          void openHyperLiquidTokenExplorerUrl({ tokenId: contract });
         }}
       />
     </XStack>
@@ -182,12 +171,6 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
               {balanceText}
             </SizableText>
-            {item.contract ? (
-              <ContractAddressCell
-                contract={item.contract}
-                explorer={item.contractExplorer}
-              />
-            ) : null}
           </YStack>
         </XStack>
         <YStack flexShrink={0} alignItems="flex-end" gap="$0.5">
@@ -251,11 +234,7 @@ function BalanceRowDesktop({
   const renderCellContent = (cell: (typeof cells)[number]) => {
     if (cell.key === 'contract') {
       return (
-        <ContractAddressCell
-          contract={item.contract}
-          explorer={item.contractExplorer}
-          size="$bodySmMedium"
-        />
+        <ContractAddressCell contract={item.contract} size="$bodySmMedium" />
       );
     }
 
