@@ -1359,6 +1359,19 @@ class ServiceDApp extends ServiceBase {
     return Promise.resolve(privateProvider?.isWebEmbedApiReady);
   }
 
+  // Flip BG's canonical `isWebEmbedApiReady` back to false when the WebView
+  // host tears down. Without this, the flag stays sticky-true from the first
+  // mount, and `checkBackgroundWebEmbedReady` on the main thread can promote a
+  // stale BG ready into the next mount before that page has actually replayed
+  // its `webEmbedApiReady` handshake.
+  @backgroundMethod()
+  markWebEmbedApiNotReady() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.webEmbedApiNotReady() ?? Promise.resolve();
+  }
+
   @backgroundMethod()
   callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
     const privateProvider = this.backgroundApi.providers.$private as
