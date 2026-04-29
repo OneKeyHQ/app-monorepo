@@ -326,12 +326,7 @@ function MobilePerpMarketHeader() {
               id: ETranslations.perp_token_bar_24h_Volume,
             })}
           >
-            <SizableText
-              size="$bodySmMedium"
-              color="$text"
-              flex={1}
-              textAlign="right"
-            >
+            <SizableText size="$bodySmMedium" color="$text" textAlign="right">
               {volumeDisplay}
             </SizableText>
           </StatRow>
@@ -343,12 +338,7 @@ function MobilePerpMarketHeader() {
                 : ETranslations.perp_token_bar_open_Interest,
             })}
           >
-            <SizableText
-              size="$bodySmMedium"
-              color="$text"
-              flex={1}
-              textAlign="right"
-            >
+            <SizableText size="$bodySmMedium" color="$text" textAlign="right">
               {openInterestDisplay}
             </SizableText>
           </StatRow>
@@ -361,7 +351,6 @@ function MobilePerpMarketHeader() {
             >
               <SizableText
                 size="$bodySmMedium"
-                flex={1}
                 textAlign="right"
                 color={fundingColor}
               >
@@ -400,7 +389,6 @@ function MobilePerpMarketHeader() {
               />
               <SizableText
                 size="$bodySmMedium"
-                flex={1}
                 textAlign="right"
                 color="$green11"
               >
