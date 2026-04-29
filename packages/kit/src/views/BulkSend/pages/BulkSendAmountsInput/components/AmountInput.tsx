@@ -195,6 +195,7 @@ export function SpecifiedAmountInput() {
 }
 
 export function RangeAmountInput() {
+  const intl = useIntl();
   const {
     tokenDetails,
     tokenInfo,
@@ -239,6 +240,7 @@ export function RangeAmountInput() {
         minTransferAmount: ctxMinTransferAmount,
         tokenSymbol: tokenInfo.symbol,
         tokenDecimals: tokenInfo.decimals,
+        intl,
       });
       return error ? { rangeError: error } : {};
     },

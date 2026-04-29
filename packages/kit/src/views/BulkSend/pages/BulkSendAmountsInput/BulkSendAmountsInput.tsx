@@ -571,7 +571,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
     // Desktop non-OneToMany: also check interval validity (inline editing has no confirm gate)
     const hasIntervalError =
-      !isOneToMany && !!validateIntervalSettings(intervalSettings);
+      !isOneToMany && !!validateIntervalSettings(intervalSettings, intl);
 
     return !isAmountValid || isInsufficientBalance || hasIntervalError;
   }, [
@@ -1153,6 +1153,7 @@ function BulkSendAmountsInputContent({
       minTransferAmount,
       tokenSymbol: tokenInfo.symbol,
       tokenDecimals: tokenInfo.decimals,
+      intl,
     });
 
     return error ? { rangeError: error } : {};

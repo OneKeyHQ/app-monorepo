@@ -244,6 +244,7 @@ function BulkSendReviewCostCard({
               {formatIntervalSecondsRange({
                 minSeconds: intervalSettings.minSeconds,
                 maxSeconds: intervalSettings.maxSeconds,
+                intl,
               })}
             </SizableText>
           </XStack>

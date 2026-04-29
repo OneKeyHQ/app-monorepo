@@ -59,8 +59,8 @@ function IntervalCard() {
     useBulkSendAmountsInputContext();
 
   const intervalError = useMemo(
-    () => validateIntervalSettings(intervalSettings),
-    [intervalSettings],
+    () => validateIntervalSettings(intervalSettings, intl),
+    [intervalSettings, intl],
   );
   const shouldShowIntervalError =
     intervalSettings.mode === EIntervalMode.Specified &&
@@ -470,6 +470,7 @@ function AmountCard() {
         minTransferAmount,
         tokenSymbol: tokenInfo?.symbol,
         tokenDecimals: tokenInfo?.decimals,
+        intl,
       });
       setAmountInputErrors({
         ...amountInputErrorsRef.current,
