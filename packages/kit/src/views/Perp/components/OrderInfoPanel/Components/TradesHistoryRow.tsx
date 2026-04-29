@@ -317,7 +317,7 @@ const TradesHistoryRow = memo(
             <YStack gap="$1" flex={1} alignItems="flex-start">
               <SizableText size="$bodySm" color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.dexmarket_details_history_amount,
+                  id: ETranslations.perp_position_position_size,
                 })}
               </SizableText>
               <SizableText size="$bodySm">{tradeBaseInfo.size}</SizableText>
