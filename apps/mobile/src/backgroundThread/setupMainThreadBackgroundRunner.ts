@@ -761,6 +761,18 @@ let webEmbedReady = false;
 // in flight across the unmount → next-mount boundary, so the stale flag
 // can't promote (a) for a page that hasn't actually replayed its handshake.
 let webEmbedMountGeneration = 0;
+// BG canonical `isWebEmbedApiReady` is only authoritative when we know the
+// flag belongs to the live mount. After a teardown, BG's `markWebEmbedApi
+// NotReady` is fire-and-forget (see `WebViewWebEmbed/index.tsx`), so for a
+// window between disconnect and BG actually clearing its flag, BG can still
+// report the previous mount's stale `true`. The mount-generation guard
+// only catches a teardown that happens *during* the BG RPC; it does NOT
+// catch the case where the next-mount call fires entirely *after* a
+// teardown, before BG has finished resetting. Disable the BG fallback
+// path on every teardown, and re-enable only when `LoadWebEmbedWebView
+// Complete` arrives — that event is BG-relayed *after* the new page sent
+// `webEmbedApiReady`, so once we observe it BG's flag is fresh again.
+let webEmbedBgFallbackEnabled = true;
 const webEmbedReadyWaiters: Array<() => void> = [];
 
 function isMainThreadWebEmbedReady(): boolean {
@@ -799,6 +811,7 @@ function syncBridgeConnection(
       // re-validate via BG and wait for the new ready signal.
       webEmbedReady = false;
       webEmbedMountGeneration += 1;
+      webEmbedBgFallbackEnabled = false;
     }
   }
   return callRemoteRequest(
@@ -827,6 +840,11 @@ function installGlobalTransport() {
 
 appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
   webEmbedReady = true;
+  // BG re-emits this event only *after* the live page sent
+  // `webEmbedApiReady`, which means BG's canonical flag has been updated
+  // for the current mount. Re-arm the fallback so post-teardown callers
+  // can use it again.
+  webEmbedBgFallbackEnabled = true;
   flushWebEmbedReadyWaiters();
 });
 
@@ -837,6 +855,11 @@ appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
 // we mark local (a) ready. Whether the gate releases still depends on (b)
 // — see `isMainThreadWebEmbedReady`.
 async function checkBackgroundWebEmbedReady(): Promise<boolean> {
+  // Skip BG fallback if a teardown has happened and no fresh
+  // `LoadWebEmbedWebViewComplete` has arrived yet — BG's flag may still
+  // hold the previous mount's stale `true`. Callers fall back to the
+  // event-wait path; the next-mount event will set ready directly.
+  if (!webEmbedBgFallbackEnabled) return false;
   // Capture the mount generation *before* the cross-thread fetch. If a
   // teardown happens while the RPC is in flight, the BG `true` we read
   // belongs to the previous mount — promoting it would race a fresh mount
@@ -845,7 +868,11 @@ async function checkBackgroundWebEmbedReady(): Promise<boolean> {
   try {
     const bgApiProxy = appGlobals?.$backgroundApiProxy;
     const ready = await bgApiProxy?.serviceDApp?.isWebEmbedApiReady?.();
-    if (ready && webEmbedMountGeneration === generationAtStart) {
+    if (
+      ready &&
+      webEmbedMountGeneration === generationAtStart &&
+      webEmbedBgFallbackEnabled
+    ) {
       webEmbedReady = true;
       flushWebEmbedReadyWaiters();
       return isMainThreadWebEmbedReady();
