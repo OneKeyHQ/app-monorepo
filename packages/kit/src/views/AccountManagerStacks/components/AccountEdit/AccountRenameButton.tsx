@@ -32,9 +32,11 @@ export function useAccountRenameMethod({
   wallet?: IDBWallet;
 }) {
   const { serviceAccount } = backgroundApiProxy;
+  const intl = useIntl();
 
   const callShowRenameDialog = useCallback(() => {
     showRenameDialog(name, {
+      intl,
       disabledMaxLengthLabel: true,
       indexedAccount,
       nameHistoryInfo: {
@@ -65,7 +67,7 @@ export function useAccountRenameMethod({
         }
       },
     });
-  }, [account?.id, indexedAccount, name, serviceAccount, wallet?.id]);
+  }, [account?.id, indexedAccount, name, serviceAccount, wallet?.id, intl]);
 
   const showAccountRenameDialog = useCallback(() => {
     if (indexedAccount?.id) {

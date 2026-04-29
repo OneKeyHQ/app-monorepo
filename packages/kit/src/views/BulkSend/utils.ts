@@ -8,8 +8,6 @@ import type {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-
-import type { IntlShape } from 'react-intl';
 import {
   EAmountInputMode,
   EIntervalMode,
@@ -19,6 +17,8 @@ import {
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+
+import type { IntlShape } from 'react-intl';
 
 export const BULK_SEND_INTERVAL_MAX_SECONDS = 600;
 
