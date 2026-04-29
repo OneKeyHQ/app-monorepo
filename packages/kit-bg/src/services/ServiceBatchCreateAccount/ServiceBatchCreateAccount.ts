@@ -1105,7 +1105,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
             ThirdPartyHwErrorCode.UserAborted,
             ThirdPartyHwErrorCode.DeviceDisconnected,
             ThirdPartyHwErrorCode.DeviceAppStuck,
-            ThirdPartyHwErrorCode.ChainNotSupported,
           ],
         })
       ) {
