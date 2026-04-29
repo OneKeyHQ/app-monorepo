@@ -1,6 +1,12 @@
+import { memo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { SizableText, Stack } from '../../primitives';
 
-import type { ISizableTextProps, IStackProps } from '../../primitives';
+import type { IStackProps } from '../../primitives';
 
 type IAdCornerBadgeSize = 'sm' | 'lg';
 type IAdCornerBadgePlacement = 'top-left' | 'top-right';
@@ -8,33 +14,30 @@ type IAdCornerBadgePlacement = 'top-left' | 'top-right';
 const adCornerBadgeSizeMap: Record<
   IAdCornerBadgeSize,
   {
-    containerSize: number;
-    ribbonEdge: number;
-    ribbonHeight: number;
-    ribbonTop: number;
-    ribbonWidth: number;
-    textSize: ISizableTextProps['size'];
+    offset: number;
+    paddingX: number;
+    paddingY: number;
+    fontSize: number;
+    lineHeight: number;
   }
 > = {
   sm: {
-    containerSize: 36,
-    ribbonEdge: -24,
-    ribbonHeight: 15,
-    ribbonTop: 1,
-    ribbonWidth: 66,
-    textSize: '$bodyXsMedium',
+    offset: 3,
+    paddingX: 4,
+    paddingY: 1,
+    fontSize: 9,
+    lineHeight: 11,
   },
   lg: {
-    containerSize: 60,
-    ribbonEdge: -36,
-    ribbonHeight: 22,
-    ribbonTop: 5,
-    ribbonWidth: 112,
-    textSize: '$bodySmMedium',
+    offset: 6,
+    paddingX: 6,
+    paddingY: 2,
+    fontSize: 11,
+    lineHeight: 13,
   },
 };
 
-export function AdCornerBadge({
+export const AdCornerBadge = memo(function AdCornerBadge({
   badgeSize = 'sm',
   placement = 'top-right',
   ...rest
@@ -42,48 +45,38 @@ export function AdCornerBadge({
   badgeSize?: IAdCornerBadgeSize;
   placement?: IAdCornerBadgePlacement;
 } & IStackProps) {
+  const intl = useIntl();
+  const label = intl.formatMessage({ id: ETranslations.discovery_ad_label });
   const config = adCornerBadgeSizeMap[badgeSize];
   const isTopLeft = placement === 'top-left';
 
   return (
     <Stack
+      role="img"
+      aria-label={label}
       position="absolute"
-      top={0}
-      {...(isTopLeft ? { left: 0 } : { right: 0 })}
-      width={config.containerSize}
-      height={config.containerSize}
-      overflow="hidden"
+      top={config.offset}
+      left={isTopLeft ? config.offset : undefined}
+      right={isTopLeft ? undefined : config.offset}
+      paddingHorizontal={config.paddingX}
+      paddingVertical={config.paddingY}
+      borderRadius="$full"
+      bg="rgba(255, 255, 255, 0.65)"
       pointerEvents="none"
       zIndex={1}
       {...rest}
     >
-      <Stack
-        position="absolute"
-        top={config.ribbonTop}
-        {...(isTopLeft
-          ? { left: config.ribbonEdge }
-          : { right: config.ribbonEdge })}
-        width={config.ribbonWidth}
-        height={config.ribbonHeight}
-        rotate={isTopLeft ? '-45deg' : '45deg'}
-        alignItems="center"
-        justifyContent="center"
-        bg="rgba(255, 255, 255, 0.78)"
-        borderWidth={0.5}
-        borderColor="rgba(0, 0, 0, 0.06)"
+      <SizableText
+        allowFontScaling={false}
+        color="rgba(0, 0, 0, 0.65)"
+        fontWeight="500"
+        fontSize={config.fontSize}
+        lineHeight={config.lineHeight}
+        letterSpacing={0}
+        numberOfLines={1}
       >
-        <SizableText
-          allowFontScaling={false}
-          color="$textSubduedLight"
-          fontWeight="600"
-          letterSpacing={0}
-          lineHeight={config.ribbonHeight}
-          numberOfLines={1}
-          size={config.textSize}
-        >
-          AD
-        </SizableText>
-      </Stack>
+        {label}
+      </SizableText>
     </Stack>
   );
-}
+});

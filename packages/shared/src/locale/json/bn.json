@@ -811,6 +811,7 @@
   "dexmarket_stock.underlying_asset_name": "অন্তর্নিহিত সম্পদের নাম",
   "dexmarket_stock.underlying_asset_ticker": "অন্তর্নিহিত সম্পদের টিকার",
   "dexmarket_stock.volume_shares": "ভলিউম (শেয়ার)",
+  "discovery.ad_label": "AD",
   "do_not_exit_app_during_setup": "সেটআপের সময় অনুগ্রহ করে অ্যাপ থেকে বের হবেন না, নইলে তৈরি প্রক্রিয়া ব্যর্থ হবে",
   "dont_have_mobile_app_yet": "মোবাইল অ্যাপটি এখনো নেই?",
   "downgrade_warning_checkbox_label": "আমি OneKey v4 এ ডাউনগ্রেড করব না",
