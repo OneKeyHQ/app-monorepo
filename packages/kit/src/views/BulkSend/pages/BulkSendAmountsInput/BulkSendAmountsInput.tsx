@@ -592,6 +592,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isInPreviewMode,
     amountInputMode,
     intervalSettings,
+    intl,
   ]);
 
   const confirmButtonText = useMemo(() => {
@@ -1166,6 +1167,7 @@ function BulkSendAmountsInputContent({
     matchedTokenDetails?.balanceParsed,
     tokenInfo.decimals,
     tokenInfo.symbol,
+    intl,
   ]);
 
   const validateCustomTransfers = useCallback(

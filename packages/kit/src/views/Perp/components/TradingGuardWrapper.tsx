@@ -73,6 +73,7 @@ function TradingGuardWrapperInternal({
 
   const buttonText = useMemo(
     () =>
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
       appLocale.intl.formatMessage({
         id: ETranslations.perp_trade_button_enable_trading,
       }),
@@ -99,9 +100,12 @@ function TradingGuardWrapperInternal({
     return (
       <Button variant="primary" size="medium" disabled>
         <SizableText size="$bodyMdMedium" color="$textOnColor">
-          {appLocale.intl.formatMessage({
-            id: ETranslations.perp_trade_button_account_unsupported,
-          })}
+          {
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            appLocale.intl.formatMessage({
+              id: ETranslations.perp_trade_button_account_unsupported,
+            })
+          }
         </SizableText>
       </Button>
     );

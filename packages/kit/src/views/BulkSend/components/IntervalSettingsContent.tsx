@@ -17,30 +17,37 @@ import { BULK_SEND_INTERVAL_MAX_SECONDS, filterIntegerInput } from '../utils';
 // call time. Replace with useIntl() at call sites for true reactivity.
 /* eslint-disable onekey/no-app-locale-main-thread -- legacy lazy getters */
 export const INTERVAL_SETTINGS_TITLE = () =>
+  // eslint-disable-next-line onekey/no-app-locale-main-thread
   appLocale.intl.formatMessage({
     id: ETranslations.wallet_bulk_send_interval_title,
   });
 export const INTERVAL_SETTINGS_NONE_LABEL = () =>
+  // eslint-disable-next-line onekey/no-app-locale-main-thread
   appLocale.intl.formatMessage({
     id: ETranslations.wallet_bulk_send_interval_none,
   });
 export const INTERVAL_SETTINGS_CANCEL_TEXT = () =>
+  // eslint-disable-next-line onekey/no-app-locale-main-thread
   appLocale.intl.formatMessage({
     id: ETranslations.wallet_bulk_send_btn_cancel,
   });
 export const INTERVAL_SETTINGS_CONFIRM_TEXT = () =>
+  // eslint-disable-next-line onekey/no-app-locale-main-thread
   appLocale.intl.formatMessage({
     id: ETranslations.wallet_bulk_send_btn_confirm,
   });
 export const INTERVAL_SETTINGS_REVIEW_TEXT = () =>
+  // eslint-disable-next-line onekey/no-app-locale-main-thread
   appLocale.intl.formatMessage({
     id: ETranslations.wallet_bulk_send_btn_review,
   });
 export const INTERVAL_SETTINGS_SPECIFIED_LABEL = () =>
+  // eslint-disable-next-line onekey/no-app-locale-main-thread
   appLocale.intl.formatMessage({
     id: ETranslations.wallet_bulk_send_interval_specified_range,
   });
 export const INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER = () =>
+  // eslint-disable-next-line onekey/no-app-locale-main-thread
   appLocale.intl.formatMessage({
     id: ETranslations.wallet_bulk_send_interval_max_sec_placeholder,
   });

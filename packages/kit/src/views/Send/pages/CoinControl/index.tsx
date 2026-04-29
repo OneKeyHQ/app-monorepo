@@ -61,6 +61,7 @@ function formatBlockTime(blockTime?: number, confirmations?: number): string {
     return formatDate(new Date(blockTime));
   }
   if (confirmations === 0) {
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     return appLocale.intl.formatMessage({ id: ETranslations.global_pending });
   }
   return '-';

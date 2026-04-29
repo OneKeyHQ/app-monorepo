@@ -117,6 +117,7 @@ export function useAccountRenameMethod({
     serviceAccount,
     wallet?.id,
     wallet?.associatedDeviceInfo?.vendor,
+    intl,
   ]);
 
   return {

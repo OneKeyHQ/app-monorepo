@@ -250,6 +250,7 @@ export function RangeAmountInput() {
       ctxMinTransferAmount,
       tokenInfo.symbol,
       tokenInfo.decimals,
+      intl,
     ],
   );
 

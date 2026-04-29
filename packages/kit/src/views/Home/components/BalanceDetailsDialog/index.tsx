@@ -36,6 +36,7 @@ import {
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
+
 import type { IntlShape } from 'react-intl';
 
 const detailsBlockStyles: ComponentProps<typeof Stack> = {

@@ -176,7 +176,8 @@ const getTypeConfig = (displayType: string): ITypeConfig => {
 
   return {
     text: config.translationId
-      ? appLocale.intl.formatMessage({ id: config.translationId })
+      ? // eslint-disable-next-line onekey/no-app-locale-main-thread
+        appLocale.intl.formatMessage({ id: config.translationId })
       : config.text || displayType,
     isIncrease: config.isIncrease,
   };
@@ -328,6 +329,7 @@ const AccountRow = memo(
       const isPending = 'status' in delta && delta.status === 'pending';
       return {
         color: isPending ? '$yellow11' : '$green11',
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
         text: appLocale.intl.formatMessage({
           id: isPending
             ? ETranslations.global_pending
