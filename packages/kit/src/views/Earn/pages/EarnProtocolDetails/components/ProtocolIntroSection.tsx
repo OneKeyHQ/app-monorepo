@@ -305,7 +305,6 @@ function hasProtocolIntroItemContent(item: IEarnProtocolIntroItem) {
 }
 
 const DIALOG_CONTENT_MAX_HEIGHT = 512;
-const PREVIEW_CELL_MIN_WIDTH = 176;
 
 function DialogContent({ children }: { children: React.ReactNode }) {
   return (
@@ -376,28 +375,25 @@ function ProtocolLogo({
 }
 
 const DESCRIPTION_LINE_HEIGHT = 20;
-const DESCRIPTION_MAX_LINES = 2;
+const DESCRIPTION_MAX_LINES = 3;
 
 function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
   const intl = useIntl();
   const [expanded, setExpanded] = useState(false);
-  const [hasOverflow, setHasOverflow] = useState(false);
+  const [fullHeight, setFullHeight] = useState(0);
 
-  const description = getText(text);
+  const description = getText(text) || '';
+  const color = toEarnText(text)?.color || '$textSubdued';
 
   useEffect(() => {
     setExpanded(false);
-    setHasOverflow(false);
+    setFullHeight(0);
   }, [description]);
 
   const handleMeasureLayout = useCallback(
     (event: { nativeEvent: { layout: { height: number } } }) => {
-      const nextHasOverflow =
-        event.nativeEvent.layout.height >
-        DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES + 1;
-      setHasOverflow((prev) =>
-        prev === nextHasOverflow ? prev : nextHasOverflow,
-      );
+      const next = event.nativeEvent.layout.height;
+      setFullHeight((prev) => (prev === next ? prev : next));
     },
     [],
   );
@@ -406,21 +402,64 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
     setExpanded(true);
   }, []);
 
+  const maxVisibleHeight = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES + 1;
+  const hasOverflow = fullHeight > maxVisibleHeight;
+
+  // Estimate how many characters fit within DESCRIPTION_MAX_LINES, based on
+  // the ratio of the visible-line height to the full text height. Height-based
+  // measurement works on every platform (unlike onTextLayout, which is not
+  // reliable on react-native-web here).
+  const truncatedText = useMemo(() => {
+    if (!hasOverflow || !fullHeight) {
+      return description;
+    }
+    const ratio =
+      (DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES) / fullHeight;
+    // Reserve room for the inline "… more" suffix.
+    const buffer = 14;
+    const target = Math.max(0, Math.floor(description.length * ratio) - buffer);
+    let cut = description.slice(0, target);
+    const lastSpace = cut.lastIndexOf(' ');
+    if (lastSpace > target * 0.6) {
+      cut = cut.slice(0, lastSpace);
+    }
+    return cut.trimEnd();
+  }, [description, fullHeight, hasOverflow]);
+
   if (!description) {
     return null;
   }
 
   return (
     <YStack position="relative">
-      <SizableText
-        size="$bodyMd"
-        lineHeight={DESCRIPTION_LINE_HEIGHT}
-        color={toEarnText(text)?.color || '$textSubdued'}
-        numberOfLines={expanded ? undefined : DESCRIPTION_MAX_LINES}
-        pr={!expanded && hasOverflow ? '$12' : undefined}
-      >
-        {description}
-      </SizableText>
+      {expanded || !hasOverflow ? (
+        <SizableText
+          size="$bodyMd"
+          lineHeight={DESCRIPTION_LINE_HEIGHT}
+          color={color}
+        >
+          {description}
+        </SizableText>
+      ) : (
+        <SizableText
+          size="$bodyMd"
+          lineHeight={DESCRIPTION_LINE_HEIGHT}
+          color={color}
+          numberOfLines={DESCRIPTION_MAX_LINES}
+        >
+          {`${truncatedText}… `}
+          <SizableText
+            size="$bodyMd"
+            lineHeight={DESCRIPTION_LINE_HEIGHT}
+            color={color}
+            textDecorationLine="underline"
+            cursor="pointer"
+            onPress={handleExpand}
+          >
+            {intl.formatMessage({ id: ETranslations.global_more })}
+          </SizableText>
+        </SizableText>
+      )}
       <YStack
         position="absolute"
         opacity={0}
@@ -436,27 +475,13 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
         <SizableText
           size="$bodyMd"
           lineHeight={DESCRIPTION_LINE_HEIGHT}
-          color="$textSubdued"
+          color={color}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
           {description}
         </SizableText>
       </YStack>
-      {!expanded && hasOverflow ? (
-        <XStack position="absolute" right={0} bottom={0} bg="$bg" pl="$1">
-          <SizableText
-            size="$bodyMd"
-            lineHeight={DESCRIPTION_LINE_HEIGHT}
-            color="$textSubdued"
-            textDecorationLine="underline"
-            cursor="pointer"
-            onPress={handleExpand}
-          >
-            {intl.formatMessage({ id: ETranslations.global_more })}
-          </SizableText>
-        </XStack>
-      ) : null}
     </YStack>
   );
 }
@@ -627,7 +652,24 @@ function DescriptionBlock({ item }: { item: IEarnProtocolIntroItem }) {
   );
 }
 
-function MetricGrid({ item }: { item: IEarnProtocolIntroItem }) {
+function MetricCell({ metric }: { metric: IEarnProtocolIntroMetric }) {
+  return (
+    <YStack flexBasis="50%" $gtMd={{ flexBasis: '33.33%' }} pr="$2" gap="$1.5">
+      <EarnText
+        text={toEarnText(metric.title)}
+        size="$bodyMd"
+        color="$textSubdued"
+      />
+      <EarnText
+        text={toEarnText(getMetricValue(metric))}
+        size="$bodyLgMedium"
+        color="$text"
+      />
+    </YStack>
+  );
+}
+
+function useVisibleMetrics(item: IEarnProtocolIntroItem) {
   const intl = useIntl();
   const metrics = useMemo(() => {
     if (item.metrics?.length) {
@@ -663,38 +705,7 @@ function MetricGrid({ item }: { item: IEarnProtocolIntroItem }) {
     ].filter(Boolean) as IEarnProtocolIntroMetric[];
   }, [intl, item]);
 
-  const visibleMetrics = metrics.filter((metric) =>
-    hasText(getMetricValue(metric)),
-  );
-
-  if (!visibleMetrics.length) {
-    return null;
-  }
-
-  return (
-    <XStack flexWrap="wrap" py="$3" rowGap="$6">
-      {visibleMetrics.map((metric, index) => (
-        <YStack
-          key={`${getText(metric.title) || getText(metric.value)}-${index}`}
-          flex={1}
-          minWidth={176}
-          pr="$2"
-          gap="$1.5"
-        >
-          <EarnText
-            text={toEarnText(metric.title)}
-            size="$bodyMd"
-            color="$textSubdued"
-          />
-          <EarnText
-            text={toEarnText(getMetricValue(metric))}
-            size="$bodyLgMedium"
-            color="$text"
-          />
-        </YStack>
-      ))}
-    </XStack>
-  );
+  return metrics.filter((metric) => hasText(getMetricValue(metric)));
 }
 
 function getMemberName(member?: IEarnProtocolIntroTeamMember) {
@@ -945,7 +956,7 @@ function PreviewCountBadge({ count }: { count: number }) {
   }
   return (
     <XStack
-      px="$2"
+      px="$1.5"
       py="$0.5"
       borderRadius="$full"
       bg="$bgStrong"
@@ -968,14 +979,14 @@ function PreviewCellIcon({
 }) {
   if (imageUrl) {
     return (
-      <Image w={30} h={30} borderRadius="$full" src={imageUrl} flexShrink={0} />
+      <Image w={20} h={20} borderRadius="$full" src={imageUrl} flexShrink={0} />
     );
   }
 
   if (fallbackIcon) {
     return (
-      <XStack w={30} h={30} ai="center" jc="center" flexShrink={0}>
-        <Icon name={fallbackIcon} width={30} height={30} />
+      <XStack w={20} h={20} ai="center" jc="center" flexShrink={0}>
+        <Icon name={fallbackIcon} width={20} height={20} />
       </XStack>
     );
   }
@@ -1003,7 +1014,7 @@ function PreviewCell({
   }
 
   return (
-    <YStack flex={1} minWidth={PREVIEW_CELL_MIN_WIDTH} pr="$2" gap="$1.5">
+    <YStack flexBasis="50%" $gtMd={{ flexBasis: '33.33%' }} pr="$2" gap="$1.5">
       <EarnText text={toEarnText(title)} size="$bodyMd" color="$textSubdued" />
       <XStack
         ai="center"
@@ -1027,7 +1038,8 @@ function PreviewCell({
   );
 }
 
-function PreviewGrid({
+function ProtocolFactsGrid({
+  item,
   team,
   investors,
   audits,
@@ -1035,6 +1047,7 @@ function PreviewGrid({
   onShowInvestors,
   onShowAudits,
 }: {
+  item: IEarnProtocolIntroItem;
   team?: IEarnProtocolIntroTeam;
   investors?: IEarnProtocolIntroInvestors;
   audits?: IEarnProtocolIntroAudits;
@@ -1042,6 +1055,8 @@ function PreviewGrid({
   onShowInvestors: () => void;
   onShowAudits: () => void;
 }) {
+  const visibleMetrics = useVisibleMetrics(item);
+
   const teamMembers = getTeamMembers(team).filter((member) =>
     hasText(getMemberName(member)),
   );
@@ -1064,12 +1079,23 @@ function PreviewGrid({
   const firstInvestorRound = investorPreview || investorsRounds[0];
   const firstAudit = auditPreview || auditItems[0];
 
-  if (!teamMembers.length && !investorsRounds.length && !auditItems.length) {
+  if (
+    !visibleMetrics.length &&
+    !teamMembers.length &&
+    !investorsRounds.length &&
+    !auditItems.length
+  ) {
     return null;
   }
 
   return (
     <XStack flexWrap="wrap" py="$3" rowGap="$6">
+      {visibleMetrics.map((metric, index) => (
+        <MetricCell
+          key={`${getText(metric.title) || getText(metric.value)}-${index}`}
+          metric={metric}
+        />
+      ))}
       <PreviewCell
         title={team?.title || team?.button?.data?.title}
         value={getMemberName(firstTeamMember)}
@@ -1393,15 +1419,15 @@ function ProtocolIntroSectionComponent({
 
   return (
     <>
-      <YStack gap="$6" pt="$0" pb="$8">
+      <YStack gap="$6">
         <ProtocolTabs
           items={protocolItems}
           selectedIndex={selectedIndex}
           onChange={setSelectedIndex}
         />
         <DescriptionBlock item={selectedItem} />
-        <MetricGrid item={selectedItem} />
-        <PreviewGrid
+        <ProtocolFactsGrid
+          item={selectedItem}
           team={team}
           investors={investors}
           audits={audits}
