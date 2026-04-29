@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,60 +9,89 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { openBlockExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  NUMBER_FORMATTER,
-  formatDisplayNumber,
-} from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { useBtcMetadata } from '../../hooks/useBtcMetadata';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
+import {
+  STAT_FALLBACK_VALUE,
+  formatBlockHeightValue,
+  formatCurrencyStatValue,
+  formatMarketCapValue,
+} from '../../utils/statValue';
 
-const FALLBACK_VALUE = '--';
-
-type ISupplyValue = string | number | null | undefined;
-
-const toSupplyInput = (value: unknown): ISupplyValue => {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
-  if (typeof value === 'string' || typeof value === 'number') {
-    return value;
-  }
-  return undefined;
+const formatBtcAmount = (value: string | number | undefined) => {
+  const formatted = formatMarketCapValue(value);
+  return formatted === STAT_FALLBACK_VALUE ? formatted : `${formatted} BTC`;
 };
 
-const formatSupplyValue = (
-  value: ISupplyValue,
-  fallback: string = FALLBACK_VALUE,
-) => {
-  if (value === null || value === undefined) {
-    return fallback;
-  }
-  const formatted = formatDisplayNumber(
-    NUMBER_FORMATTER.marketCap(String(value)),
-  );
-  return typeof formatted === 'string' ? formatted : String(formatted);
-};
-
-const formatCurrencyValue = (value: ISupplyValue, currencySymbol: string) => {
-  const formatted = formatSupplyValue(value);
-  return formatted === FALLBACK_VALUE
-    ? formatted
-    : `${currencySymbol}${formatted}`;
-};
+interface ISupplementaryRow {
+  key: string;
+  label: string;
+  value: string;
+  tooltip?: string;
+  onPress?: () => void;
+}
 
 export function TokenSupplementaryInfo() {
   const intl = useIntl();
-  const { tokenDetail } = useTokenDetail();
+  const { tokenDetail, networkId } = useTokenDetail();
+  const btcMetadata = useBtcMetadata();
 
-  const rows = useMemo(() => {
+  const handleBlockHeightPress = useCallback(() => {
+    if (!btcMetadata) {
+      return;
+    }
+    void openBlockExplorerUrl({
+      networkId,
+      blockHeight: btcMetadata.blockHeight,
+    });
+  }, [btcMetadata, networkId]);
+
+  const rows = useMemo<ISupplementaryRow[]>(() => {
+    if (btcMetadata) {
+      return [
+        {
+          key: 'totalSupply',
+          label: intl.formatMessage({
+            id: ETranslations.dexmarket_btc_total_supply,
+          }),
+          value: formatBtcAmount(btcMetadata.totalSupply),
+        },
+        {
+          key: 'fdv',
+          label: intl.formatMessage({ id: ETranslations.dexmarket_fdv_title }),
+          value: formatCurrencyStatValue(btcMetadata.fdv),
+        },
+        {
+          key: 'blockHeight',
+          label: intl.formatMessage({
+            id: ETranslations.dexmarket_btc_block_height,
+          }),
+          value: formatBlockHeightValue(btcMetadata.blockHeight),
+          onPress: handleBlockHeightPress,
+        },
+        {
+          key: 'blockReward',
+          label: intl.formatMessage({
+            id: ETranslations.dexmarket_btc_block_reward,
+          }),
+          value: `${btcMetadata.blockReward} BTC`,
+        },
+        {
+          key: 'nextHalving',
+          label: intl.formatMessage({
+            id: ETranslations.dexmarket_btc_next_halving,
+          }),
+          value: btcMetadata.nextHalvingDisplay,
+        },
+      ];
+    }
+
     if (!tokenDetail) {
       return [];
     }
-
-    const circulatingSupply = toSupplyInput(tokenDetail.circulatingSupply);
-    const marketCap = toSupplyInput(tokenDetail.marketCap);
-    const fdv = toSupplyInput(tokenDetail.fdv);
 
     return [
       {
@@ -70,31 +99,25 @@ export function TokenSupplementaryInfo() {
         label: intl.formatMessage({
           id: ETranslations.global_circulating_supply,
         }),
-        value: formatSupplyValue(circulatingSupply),
+        value: formatMarketCapValue(tokenDetail.circulatingSupply),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_circulating_supply_tips,
         }),
       },
       {
         key: 'marketCap',
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_market_cap,
-        }),
-        value: formatCurrencyValue(marketCap, '$'),
-        tooltip: intl.formatMessage({
-          id: ETranslations.dexmarket_mc_tips,
-        }),
+        label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
+        value: formatCurrencyStatValue(tokenDetail.marketCap),
+        tooltip: intl.formatMessage({ id: ETranslations.dexmarket_mc_tips }),
       },
       {
         key: 'fdv',
         label: intl.formatMessage({ id: ETranslations.global_fdv }),
-        value: formatCurrencyValue(fdv, '$'),
-        tooltip: intl.formatMessage({
-          id: ETranslations.dexmarket_fdv_desc,
-        }),
+        value: formatCurrencyStatValue(tokenDetail.fdv),
+        tooltip: intl.formatMessage({ id: ETranslations.dexmarket_fdv_desc }),
       },
     ];
-  }, [intl, tokenDetail]);
+  }, [btcMetadata, intl, tokenDetail, handleBlockHeightPress]);
 
   if (!tokenDetail) {
     return null;
@@ -104,24 +127,38 @@ export function TokenSupplementaryInfo() {
     <YStack pl="$3" pr="$5" pt="$3" gap="$2.5">
       {rows.map((item) => (
         <XStack key={item.key} gap="$2" jc="space-between" ai="center">
-          <Tooltip
-            placement="top"
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-                cursor="help"
-              >
-                {item.label}
-              </DashText>
+          {item.tooltip ? (
+            <Tooltip
+              placement="top"
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  cursor="help"
+                >
+                  {item.label}
+                </DashText>
+              }
+              renderContent={
+                <SizableText size="$bodySm">{item.tooltip}</SizableText>
+              }
+            />
+          ) : (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {item.label}
+            </SizableText>
+          )}
+          <SizableText
+            size="$bodySmMedium"
+            color={item.onPress ? '$textInfo' : '$text'}
+            cursor={item.onPress ? 'pointer' : undefined}
+            hoverStyle={
+              item.onPress ? { textDecorationLine: 'underline' } : undefined
             }
-            renderContent={
-              <SizableText size="$bodySm">{item.tooltip}</SizableText>
-            }
-          />
-          <SizableText size="$bodySmMedium" color="$text">
+            onPress={item.onPress}
+          >
             {item.value}
           </SizableText>
         </XStack>

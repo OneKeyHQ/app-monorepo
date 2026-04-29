@@ -86,6 +86,17 @@ export function formatRatioValue(
   return numberFormat(str, { formatter: 'value' });
 }
 
+export function formatBlockHeightValue(
+  value?: string | number | null,
+  fallback: string = STAT_FALLBACK_VALUE,
+): string {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toLocaleString('en-US') : fallback;
+}
+
 export function formatPercentValue(
   value?: string | number | null,
   fallback: string = STAT_FALLBACK_VALUE,
