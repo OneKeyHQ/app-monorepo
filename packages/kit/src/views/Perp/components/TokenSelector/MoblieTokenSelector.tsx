@@ -257,7 +257,6 @@ function MobileTokenSelectorModal({
       if (tab === activeTab) {
         return;
       }
-      scrollListToTop();
       startTransition(() => {
         setSelectorConfig((prev) => ({
           field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
@@ -266,7 +265,7 @@ function MobileTokenSelectorModal({
         }));
       });
     },
-    [activeTab, scrollListToTop, setSelectorConfig],
+    [activeTab, setSelectorConfig],
   );
 
   const computeSortValues = useCallback(
@@ -733,6 +732,7 @@ function MobileTokenSelectorModal({
           {isListReady ? (
             <ListView
               useFlashList
+              key={activeTab}
               ref={listRef}
               keyExtractor={keyExtractor}
               estimatedItemSize={44}
