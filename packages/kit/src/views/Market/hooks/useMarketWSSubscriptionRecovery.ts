@@ -17,6 +17,7 @@ interface IUseMarketWSSubscriptionRecoveryParams {
   currency?: string;
   chartType?: string;
   selfHealInterval?: number;
+  onRestored?: () => void;
 }
 
 interface IMarketWSSubscriptionRecoveryResult {
@@ -41,6 +42,7 @@ export function useMarketWSSubscriptionRecovery({
   currency = 'usd',
   chartType,
   selfHealInterval = MARKET_WS_SUBSCRIPTION_SELF_HEAL_INTERVAL,
+  onRestored,
 }: IUseMarketWSSubscriptionRecoveryParams): IMarketWSSubscriptionRecoveryResult {
   const canRestore = Boolean(enabled && networkId && tokenAddress);
   const subscriptionIdentity = [
@@ -113,6 +115,7 @@ export function useMarketWSSubscriptionRecovery({
         channel,
       });
       lastActivityAtRef.current = Date.now();
+      onRestored?.();
     } catch (error) {
       console.error(`Failed to restore market ${channel} subscription:`, error);
     }
@@ -123,6 +126,7 @@ export function useMarketWSSubscriptionRecovery({
     chartType,
     channel,
     subscriptionIdentity,
+    onRestored,
   ]);
 
   useEffect(() => {
