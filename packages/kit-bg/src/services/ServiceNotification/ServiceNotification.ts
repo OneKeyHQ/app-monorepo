@@ -178,7 +178,7 @@ export default class ServiceNotification extends ServiceBase {
       // register when webSocket or jpush established
       void this.registerClientWithOverrideAllAccounts();
     } else {
-      void this.updateClientBasicAppInfo();
+      void this.updateClientBasicAppInfoDebounced();
     }
   };
 
