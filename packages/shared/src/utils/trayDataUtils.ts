@@ -6,6 +6,8 @@ import {
   type IDecodedTxAction,
 } from '../../types/tx';
 
+import { numberFormat } from './numberUtils';
+
 export type ITrayPendingTxType = 'send' | 'swap' | 'contract' | 'approve';
 
 export interface ITrayPendingTxAmountInfo {
@@ -18,33 +20,19 @@ export interface IFormatTrayPendingTxAmountInput {
   amountInfo?: ITrayPendingTxAmountInfo | undefined;
 }
 
-function trimTrayAmountZeros(value: string): string {
-  const [coefficient, exponent] = value.split('e');
-  const trimmedCoefficient = coefficient.includes('.')
-    ? coefficient.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '')
-    : coefficient;
-  return exponent === undefined
-    ? trimmedCoefficient
-    : `${trimmedCoefficient}e${exponent}`;
-}
-
 export function formatTrayPendingTxAmount(
   input: IFormatTrayPendingTxAmountInput,
 ): string {
   const amountInfo = input.amountInfo ?? input.firstSend;
   if (amountInfo) {
     const bn = new BigNumber(amountInfo.amount ?? '');
-    let formatted: string;
     if (bn.isNaN()) {
-      formatted = amountInfo.amount;
-    } else if (bn.isZero()) {
-      formatted = '0';
-    } else if (bn.abs().lt('0.01')) {
-      formatted = trimTrayAmountZeros(bn.toPrecision(3));
-    } else {
-      formatted = trimTrayAmountZeros(bn.toFixed(4));
+      return `${amountInfo.amount} ${amountInfo.symbol}`;
     }
-    return `${formatted} ${amountInfo.symbol}`;
+    return numberFormat(bn.toFixed(), {
+      formatter: 'balance',
+      formatterOptions: { tokenSymbol: amountInfo.symbol },
+    });
   }
   // No English label — PendingTransactions renders the i18n'd typeLabel on the row.
   return '—';

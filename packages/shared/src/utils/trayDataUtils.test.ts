@@ -15,11 +15,11 @@ describe('formatTrayPendingTxAmount', () => {
     expect(result).toBe('1.2345 ETH');
   });
 
-  test('uses 3 significant figures for sub-cent amounts', () => {
+  test('uses history balance formatting for sub-cent amounts', () => {
     const result = formatTrayPendingTxAmount({
       firstSend: { amount: '0.000123456', symbol: 'ETH' },
     });
-    expect(result).toBe('0.000123 ETH');
+    expect(result).toBe('0.0001235 ETH');
   });
 
   test('trims trailing zeros from sub-cent amounts', () => {
@@ -29,18 +29,25 @@ describe('formatTrayPendingTxAmount', () => {
     expect(result).toBe('0.0099 ETH');
   });
 
-  test('uses scientific notation for tiny amounts without rounding to zero', () => {
+  test('keeps tiny amounts in decimal form without rounding to zero', () => {
     const result = formatTrayPendingTxAmount({
       firstSend: { amount: '0.000000123456', symbol: 'ETH' },
     });
-    expect(result).toBe('1.23e-7 ETH');
+    expect(result).toBe('0.0000001235 ETH');
   });
 
-  test('trims trailing zeros from tiny scientific notation amounts', () => {
+  test('trims trailing zeros from tiny decimal amounts', () => {
     const result = formatTrayPendingTxAmount({
       firstSend: { amount: '0.0000001200', symbol: 'ETH' },
     });
-    expect(result).toBe('1.2e-7 ETH');
+    expect(result).toBe('0.00000012 ETH');
+  });
+
+  test('does not use scientific notation for extremely tiny token amounts', () => {
+    const result = formatTrayPendingTxAmount({
+      firstSend: { amount: '0.00000000000012', symbol: 'AAVE' },
+    });
+    expect(result).toBe('0.00000000000012 AAVE');
   });
 
   test('trims trailing zeros for 4-decimal amounts', () => {
