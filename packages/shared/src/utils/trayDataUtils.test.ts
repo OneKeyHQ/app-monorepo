@@ -22,11 +22,25 @@ describe('formatTrayPendingTxAmount', () => {
     expect(result).toBe('0.000123 ETH');
   });
 
+  test('trims trailing zeros from sub-cent amounts', () => {
+    const result = formatTrayPendingTxAmount({
+      firstSend: { amount: '0.0099000', symbol: 'ETH' },
+    });
+    expect(result).toBe('0.0099 ETH');
+  });
+
   test('uses scientific notation for tiny amounts without rounding to zero', () => {
     const result = formatTrayPendingTxAmount({
       firstSend: { amount: '0.000000123456', symbol: 'ETH' },
     });
     expect(result).toBe('1.23e-7 ETH');
+  });
+
+  test('trims trailing zeros from tiny scientific notation amounts', () => {
+    const result = formatTrayPendingTxAmount({
+      firstSend: { amount: '0.0000001200', symbol: 'ETH' },
+    });
+    expect(result).toBe('1.2e-7 ETH');
   });
 
   test('trims trailing zeros for 4-decimal amounts', () => {

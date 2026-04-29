@@ -18,6 +18,16 @@ export interface IFormatTrayPendingTxAmountInput {
   amountInfo?: ITrayPendingTxAmountInfo | undefined;
 }
 
+function trimTrayAmountZeros(value: string): string {
+  const [coefficient, exponent] = value.split('e');
+  const trimmedCoefficient = coefficient.includes('.')
+    ? coefficient.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '')
+    : coefficient;
+  return exponent === undefined
+    ? trimmedCoefficient
+    : `${trimmedCoefficient}e${exponent}`;
+}
+
 export function formatTrayPendingTxAmount(
   input: IFormatTrayPendingTxAmountInput,
 ): string {
@@ -30,9 +40,9 @@ export function formatTrayPendingTxAmount(
     } else if (bn.isZero()) {
       formatted = '0';
     } else if (bn.abs().lt('0.01')) {
-      formatted = bn.toPrecision(3);
+      formatted = trimTrayAmountZeros(bn.toPrecision(3));
     } else {
-      formatted = bn.toFixed(4).replace(/\.?0+$/, '');
+      formatted = trimTrayAmountZeros(bn.toFixed(4));
     }
     return `${formatted} ${amountInfo.symbol}`;
   }
