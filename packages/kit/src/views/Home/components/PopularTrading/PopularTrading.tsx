@@ -1070,11 +1070,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
     return (
       <YStack>
-        <CategorySelector
-          categories={homeCategories}
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={setSelectedCategoryId}
-        />
+        <YStack px={tableLayout ? '$pagePadding' : undefined}>
+          <CategorySelector
+            categories={homeCategories}
+            selectedCategoryId={selectedCategoryId}
+            onSelectCategory={setSelectedCategoryId}
+          />
+        </YStack>
         {listContent}
       </YStack>
     );
