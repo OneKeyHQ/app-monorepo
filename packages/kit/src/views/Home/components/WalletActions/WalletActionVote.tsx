@@ -43,7 +43,9 @@ export function WalletActionVote({
       label={
         customization?.label ??
         intl.formatMessage({
-          id: ETranslations.wallet_tron_votes_management,
+          id:
+            customization?.labelId ??
+            ETranslations.wallet_tron_votes_management,
         })
       }
       onClose={() => {}}
