@@ -72,6 +72,10 @@ export type ISettingsPersistAtom = {
   enableBTCFreshAddress?: boolean;
   enableMenuBarTray?: boolean;
   newBrowserTabPosition?: INewBrowserTabPosition;
+  // Pay eligible network fees from Gas Account (sponsored gas) when available;
+  // turning this off makes ServiceGas.estimateFee force gasAccountEnabled=false
+  // for every caller (Send / Swap / Perps / Earn / dApp ...).
+  useGasAccountByDefault?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -110,6 +114,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   enableBTCFreshAddress: true,
   enableMenuBarTray: true,
   newBrowserTabPosition: 'bottom',
+  useGasAccountByDefault: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
