@@ -776,36 +776,36 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             code: LEDGER_ORPHAN_HIDE_CODES,
           })
         ) {
-          const walletIds = [
-            createdResult.hidden?.wallet?.id,
-            createdResult.wallet?.id,
-          ].filter((id): id is string => Boolean(id));
-          let allAccounts: IDBAccount[] | undefined;
-          try {
-            ({ accounts: allAccounts } = await serviceAccount.getAllAccounts());
-          } catch (e) {
-            console.error('softHide getAllAccounts failed', e);
-          }
-          for (const walletId of walletIds) {
-            const hasAccounts = allAccounts?.some(
-              (a) =>
-                accountUtils.getWalletIdFromAccountId({
-                  accountId: a.id,
-                }) === walletId,
-            );
-            if (!hasAccounts) {
-              try {
+          const targets = [
+            {
+              walletId: createdResult.hidden?.wallet?.id,
+              indexedAccountId: createdResult.hidden?.indexedAccount?.id,
+            },
+            {
+              walletId: createdResult.wallet?.id,
+              indexedAccountId: createdResult.indexedAccount?.id,
+            },
+          ].filter((t): t is { walletId: string; indexedAccountId: string } =>
+            Boolean(t.walletId && t.indexedAccountId),
+          );
+          for (const { walletId, indexedAccountId } of targets) {
+            try {
+              const { accounts } =
+                await serviceAccount.getAccountsInSameIndexedAccountId({
+                  indexedAccountId,
+                });
+              if (accounts.length === 0) {
                 await serviceAccount.setWalletTempStatus({
                   walletId,
                   isTemp: true,
                   hideImmediately: true,
                 });
-              } catch (hideErr) {
-                console.error(
-                  'withFinalizeWalletSetupStep softHide failed',
-                  hideErr,
-                );
               }
+            } catch (hideErr) {
+              console.error(
+                'withFinalizeWalletSetupStep softHide failed',
+                hideErr,
+              );
             }
           }
         }
