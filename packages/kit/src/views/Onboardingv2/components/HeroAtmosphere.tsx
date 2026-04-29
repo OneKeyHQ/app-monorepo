@@ -169,6 +169,7 @@ const Orb = memo(
     );
   },
 );
+Orb.displayName = 'Orb';
 
 // Based on `BgOrbDrift` from the Onboarding Background Explorations design
 // handoff (`docs/plans/2026-04-27-onboarding-hero-atmosphere.md`).

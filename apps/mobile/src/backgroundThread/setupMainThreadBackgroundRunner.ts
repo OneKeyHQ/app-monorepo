@@ -738,6 +738,35 @@ function emitAppEventRequest(
   return callRemoteRequest(request, localFallback);
 }
 
+const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
+
+// Local readiness has TWO independent components and the gate must require
+// BOTH:
+//   (a) page-side JS handshake done — `webEmbedReady`, set by
+//       `LoadWebEmbedWebViewComplete` (re-emitted by BG after the page sent
+//       `webEmbedApiReady`) or by `checkBackgroundWebEmbedReady` falling back
+//       to BG's canonical `serviceDApp.isWebEmbedApiReady` flag.
+//   (b) main thread holds the JsBridge — `mainThreadBridgeMap.webEmbed`,
+//       populated by `syncBridgeConnection` when `connectWebEmbedBridge`
+//       runs on the WebView host.
+// Normal first-mount populates (b) before (a), so the BG flag and (b)
+// converge naturally. But across WebView re-mounts, or whenever BG's
+// `isWebEmbedApiReady` is ahead of main's transport sync (event missed,
+// listener not yet installed, etc.), (a) and (b) can drift. If we only
+// gated on (a), the next call would skip waiting and crash with
+// `webEmbed bridge not available on main thread`.
+let webEmbedReady = false;
+const webEmbedReadyWaiters: Array<() => void> = [];
+
+function isMainThreadWebEmbedReady(): boolean {
+  return webEmbedReady && Boolean(mainThreadBridgeMap.webEmbed);
+}
+
+function flushWebEmbedReadyWaiters() {
+  if (!isMainThreadWebEmbedReady()) return;
+  webEmbedReadyWaiters.splice(0).forEach((cb) => cb());
+}
+
 function syncBridgeConnection(
   params: {
     channel: IBackgroundThreadBridgeChannel;
@@ -788,35 +817,6 @@ function installGlobalTransport() {
     getState: () => transportState,
     isEnabled: isNativeBackgroundThreadTransportEnabled,
   };
-}
-
-const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
-
-// Local readiness has TWO independent components and the gate must require
-// BOTH:
-//   (a) page-side JS handshake done — `webEmbedReady`, set by
-//       `LoadWebEmbedWebViewComplete` (re-emitted by BG after the page sent
-//       `webEmbedApiReady`) or by `checkBackgroundWebEmbedReady` falling back
-//       to BG's canonical `serviceDApp.isWebEmbedApiReady` flag.
-//   (b) main thread holds the JsBridge — `mainThreadBridgeMap.webEmbed`,
-//       populated by `syncBridgeConnection` when `connectWebEmbedBridge`
-//       runs on the WebView host.
-// Normal first-mount populates (b) before (a), so the BG flag and (b)
-// converge naturally. But across WebView re-mounts, or whenever BG's
-// `isWebEmbedApiReady` is ahead of main's transport sync (event missed,
-// listener not yet installed, etc.), (a) and (b) can drift. If we only
-// gated on (a), the next call would skip waiting and crash with
-// `webEmbed bridge not available on main thread`.
-let webEmbedReady = false;
-const webEmbedReadyWaiters: Array<() => void> = [];
-
-function isMainThreadWebEmbedReady(): boolean {
-  return webEmbedReady && Boolean(mainThreadBridgeMap.webEmbed);
-}
-
-function flushWebEmbedReadyWaiters() {
-  if (!isMainThreadWebEmbedReady()) return;
-  webEmbedReadyWaiters.splice(0).forEach((cb) => cb());
 }
 
 appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
