@@ -195,6 +195,9 @@ function MobileTokenSelectorModal({
   const dynamicTabs = useMemo(() => dynamicTabsRaw ?? [], [dynamicTabsRaw]);
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+  const scrollListToTop = useCallback(() => {
+    listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+  }, []);
 
   // Mount FlashList only after the navigation transition animation completes.
   // transitionEnd fires via navigation listener, so this is exact — no guesswork.
@@ -223,9 +226,14 @@ function MobileTokenSelectorModal({
     lastSortRef.current = { field, direction };
     ctxSnapshotRef.current = assetCtxsByDex;
     if (sortChanged) {
-      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+      scrollListToTop();
     }
-  }, [selectorConfig?.direction, selectorConfig?.field, assetCtxsByDex]);
+  }, [
+    selectorConfig?.direction,
+    selectorConfig?.field,
+    assetCtxsByDex,
+    scrollListToTop,
+  ]);
 
   // Container-level mark instead of per-row
   useEffect(() => {
@@ -246,6 +254,10 @@ function MobileTokenSelectorModal({
   );
   const setActiveTab = useCallback(
     (tab: string) => {
+      if (tab === activeTab) {
+        return;
+      }
+      scrollListToTop();
       startTransition(() => {
         setSelectorConfig((prev) => ({
           field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
@@ -254,7 +266,7 @@ function MobileTokenSelectorModal({
         }));
       });
     },
-    [setSelectorConfig],
+    [activeTab, scrollListToTop, setSelectorConfig],
   );
 
   const computeSortValues = useCallback(
