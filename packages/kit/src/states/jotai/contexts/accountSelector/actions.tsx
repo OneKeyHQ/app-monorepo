@@ -116,14 +116,13 @@ export type IFinalizeWalletSetupCreateWalletResult = {
 };
 
 // Ledger USB has no stable device id, so a failed batch leaves an orphan
-// wallet shell each retry. Mirrors the third-party fatal codes in
-// ServiceBatchCreateAccount.forceExitFlowWhenErrorMatched so any code that
-// breaks the batch also clears the now-empty shell.
+// wallet shell each retry. Restricted to codes that fire on the FIRST
+// chain (i.e. before any account is persisted) — DeviceDisconnected and
+// ChainNotSupported can fire mid-batch after partial success, hiding the
+// wallet there would orphan the already-created accounts.
 const LEDGER_ORPHAN_HIDE_CODES: number[] = [
   ThirdPartyHwErrorCode.UserAborted,
   ThirdPartyHwErrorCode.DeviceAppStuck,
-  ThirdPartyHwErrorCode.DeviceDisconnected,
-  ThirdPartyHwErrorCode.ChainNotSupported,
 ];
 
 class AccountSelectorActions extends ContextJotaiActionsBase {
