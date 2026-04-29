@@ -1,4 +1,5 @@
 export * from './Badge';
+export * from './AdCornerBadge';
 export * from './Breadcrumb';
 export * from './HeightTransition';
 export * from './LinearGradient';

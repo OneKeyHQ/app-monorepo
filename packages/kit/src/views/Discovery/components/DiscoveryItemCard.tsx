@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 
 import {
+  AdCornerBadge,
   Icon,
   Image,
   SizableText,
@@ -20,6 +21,7 @@ export interface IDiscoveryItemCardProps {
   title: string;
   url: string;
   dApp?: IDApp;
+  isAd?: boolean;
   isLoading?: boolean;
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }
@@ -29,6 +31,7 @@ export function DiscoveryItemCard({
   title,
   url,
   dApp,
+  isAd,
   isLoading,
   handleOpenWebSite,
 }: IDiscoveryItemCardProps) {
@@ -90,20 +93,30 @@ export function DiscoveryItemCard({
         alignItems="center"
         userSelect="none"
       >
-        <Image
-          size="$14"
+        <Stack
+          width="$14"
+          height="$14"
           position="relative"
           borderRadius="$3"
           borderCurve="continuous"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-          source={{ uri: logo }}
-          fallback={
-            <Image.Fallback>
-              <Icon size="$12" color="$iconSubdued" name="GlobusOutline" />
-            </Image.Fallback>
-          }
-        />
+          overflow="hidden"
+        >
+          <Image
+            width="100%"
+            height="100%"
+            borderRadius="$3"
+            borderCurve="continuous"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+            source={{ uri: logo }}
+            fallback={
+              <Image.Fallback>
+                <Icon size="$12" color="$iconSubdued" name="GlobusOutline" />
+              </Image.Fallback>
+            }
+          />
+          {isAd ? <AdCornerBadge badgeSize="sm" /> : null}
+        </Stack>
         <SizableText
           px="$2"
           w="100%"
