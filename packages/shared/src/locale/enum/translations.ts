@@ -3123,6 +3123,7 @@ export enum ETranslations {
   perps__fee_discount_activated__msg = 'perps__fee_discount_activated__msg',
   perps__snooze_remind_later__action = 'perps__snooze_remind_later__action',
   perps_footer_help_us_better = 'perps_footer.help_us_better',
+  perps_hide_other_pairs = 'perps_hide_other_pairs',
   perps_referral_campaign__desc = 'perps_referral_campaign__desc',
   perps_trigger_price_equal_current = 'perps_trigger_price_equal_current',
   pick_your_device = 'pick_your_device',

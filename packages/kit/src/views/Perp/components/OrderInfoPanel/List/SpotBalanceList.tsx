@@ -247,8 +247,9 @@ function SpotBalanceList({
       },
       {
         key: 'pnl',
-        // TODO: add i18n key — domain term consistent with Hyperliquid UI
-        title: 'PNL (ROE %)',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_pnl,
+        }),
         minWidth: 140,
         align: 'left',
         flex: 1,
@@ -355,7 +356,9 @@ function SpotBalanceList({
                 id: ETranslations.marketdex_unrealized_pnl,
               })}
             >
-              PnL
+              {intl.formatMessage({
+                id: ETranslations.perp_position_pnl_mobile,
+              })}
             </DashText>
           </XStack>
         </XStack>

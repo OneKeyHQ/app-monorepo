@@ -3118,6 +3118,7 @@
   "perps__fee_discount_activated__msg": "手数料割引が有効になりました",
   "perps__snooze_remind_later__action": "今はいい、後でもう一度",
   "perps_footer.help_us_better": "改善にご協力ください",
+  "perps_hide_other_pairs": "他のペアを非表示",
   "perps_referral_campaign__desc": "友達を招待して、一緒に 99U を当てよう。ランキングを上げてグランドプライズを狙え！",
   "perps_trigger_price_equal_current": "トリガー価格は現在の価格と異なる必要があります",
   "pick_your_device": "デバイスを選択",
