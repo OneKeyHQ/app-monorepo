@@ -70,6 +70,7 @@ import {
   ResetAppListItem,
   ResetPinListItem,
   ThemeListItem,
+  UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
@@ -447,6 +448,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.settings_btc_multiple_addresses_description,
                   }),
                   renderElement: <BTCFreshAddressListItem />,
+                },
+              ],
+              [
+                {
+                  icon: 'GasOutline',
+                  // TODO: i18n — replace with ETranslations keys once product
+                  // adds the translation entries (settings_use_gas_account_by_default
+                  // / settings_use_gas_account_by_default_description).
+                  title: 'Use Gas Account by default',
+                  subtitle:
+                    'Pay eligible network fees from your Gas Account when available. Otherwise, use your wallet balance.',
+                  renderElement: <UseGasAccountByDefaultListItem />,
                 },
               ],
             ],
