@@ -1,3 +1,4 @@
+/* eslint-disable onekey/no-app-locale-main-thread -- low-level cropper utility consumed via callbacks */
 import {
   openCropper as nativeOpenCropper,
   openPicker as nativeOpenPicker,

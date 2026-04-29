@@ -1,4 +1,5 @@
 /* eslint-disable camelcase */
+/* eslint-disable onekey/no-app-locale-main-thread -- low-level cropper utility consumed via callbacks */
 import {
   type ChangeEvent,
   useCallback,
