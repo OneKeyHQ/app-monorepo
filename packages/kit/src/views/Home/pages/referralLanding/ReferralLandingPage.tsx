@@ -9,11 +9,13 @@ import {
   Stack,
   XStack,
   YStack,
+  closeAllDialogInstances,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { safePushToEarnRoute } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import {
   InvitedByFriendContent,
   InvitedByFriendImage,
@@ -36,6 +38,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
+  ETabEarnRoutes,
+  ETabHomeRoutes,
   type ETabHomeRoutes as ETabHomeRoutesType,
   ETabRoutes,
   type ITabHomeParamList,
@@ -102,15 +106,40 @@ const waitForNavigationReady = async (maxWaitMs = 3000): Promise<boolean> => {
   return false;
 };
 
+enum EReferralLandingPageName {
+  Perp = 'perp',
+  Perps = 'perps',
+  Swap = 'swap',
+  Market = 'market',
+  Earn = 'earn',
+  DeFi = 'defi',
+  Discover = 'discover',
+}
+
 // Map page parameter to tab routes
-const PAGE_TO_TAB_ROUTE: Record<string, ETabRoutes> = {
-  perp: ETabRoutes.Perp,
-  perps: ETabRoutes.Perp,
-  swap: ETabRoutes.Swap,
-  market: ETabRoutes.Market,
-  earn: ETabRoutes.Earn,
-  defi: ETabRoutes.Earn,
-  discover: ETabRoutes.Discovery,
+const PAGE_TO_TAB_ROUTE: Partial<Record<EReferralLandingPageName, ETabRoutes>> =
+  {
+    [EReferralLandingPageName.Perp]: ETabRoutes.Perp,
+    [EReferralLandingPageName.Perps]: ETabRoutes.Perp,
+    [EReferralLandingPageName.Swap]: ETabRoutes.Swap,
+    [EReferralLandingPageName.Market]: ETabRoutes.Market,
+    [EReferralLandingPageName.Discover]: ETabRoutes.Discovery,
+  };
+
+const EARN_PAGE_NAMES = new Set<EReferralLandingPageName>([
+  EReferralLandingPageName.Earn,
+  EReferralLandingPageName.DeFi,
+]);
+
+const normalizeReferralLandingPageName = (
+  page?: string,
+): EReferralLandingPageName | undefined => {
+  const pageLower = page?.toLowerCase();
+  return Object.values(EReferralLandingPageName).includes(
+    pageLower as EReferralLandingPageName,
+  )
+    ? (pageLower as EReferralLandingPageName)
+    : undefined;
 };
 
 function ReferralLandingPage() {
@@ -294,25 +323,42 @@ function ReferralLandingPage() {
         }
       }
 
-      const pageLower = page?.toLowerCase() ?? '';
-      const targetTabRoute = PAGE_TO_TAB_ROUTE[pageLower] ?? ETabRoutes.Market;
+      const pageName = normalizeReferralLandingPageName(page);
+      const targetTabRoute = pageName
+        ? (PAGE_TO_TAB_ROUTE[pageName] ?? ETabRoutes.Market)
+        : ETabRoutes.Market;
 
-      if (targetTabRoute === ETabRoutes.Perp) {
+      if (pageName && EARN_PAGE_NAMES.has(pageName)) {
+        await safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
+      } else if (targetTabRoute === ETabRoutes.Perp) {
         setPerpPageEnterSource(EPerpPageEnterSource.Referral);
+        navigation.switchTab(targetTabRoute);
+      } else {
+        navigation.switchTab(targetTabRoute);
       }
-      navigation.switchTab(targetTabRoute);
 
       modalTimerId = setTimeout(() => {
-        if (!mounted) {
-          return;
-        }
-        navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-          screen: EModalReferFriendsRoutes.InvitedByFriend,
-          params: {
-            code,
-            page,
-          },
-        });
+        void (async () => {
+          // Native referral links can arrive while an app-level Dialog is open.
+          // Close existing dialogs before pushing the invitation modal.
+          if (platformEnv.isNative) {
+            await closeAllDialogInstances();
+          }
+          if (!mounted) {
+            return;
+          }
+          navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+            screen: EModalReferFriendsRoutes.InvitedByFriend,
+            params: {
+              code,
+              page,
+            },
+          });
+          navigation.reset({
+            index: 0,
+            routes: [{ name: ETabHomeRoutes.TabHome }],
+          });
+        })();
       }, MODAL_OPEN_DELAY_MS);
     };
 
