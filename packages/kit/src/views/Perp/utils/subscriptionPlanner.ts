@@ -26,7 +26,8 @@ export function planTradeSubscriptions(params: {
   const spotEnabled = hasAccount;
   const spotAssetCtxsEnabled =
     isSpot ||
-    (viewState.tokenSelectorOpen && viewState.tokenSelectorTab === 'spot');
+    (viewState.tokenSelectorOpen && viewState.tokenSelectorTab === 'spot') ||
+    viewState.favoritesBarSpotActive;
   const enableLedgerUpdates =
     hasAccount && viewState.infoPanelTab === 'Account';
 

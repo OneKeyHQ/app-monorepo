@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useActiveTradeInstrumentAtom,
@@ -10,6 +11,8 @@ import {
 import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_ROUTE_PATH } from '@onekeyhq/shared/src/consts/perp';
+import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import {
   DEX_PREFIXES,
   DEX_SEPARATOR,
@@ -17,13 +20,28 @@ import {
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 
+const SPOT_PAIR_SEPARATOR = '_';
+
 function findDexPrefix(token: string): string | null {
   const lowerToken = token.toLowerCase();
   return DEX_PREFIXES.find((prefix) => lowerToken.startsWith(prefix)) ?? null;
 }
 
-function encodeCoinForUrl(coin: string): string {
+function encodeCoinForUrl(params: {
+  coin: string;
+  mode: 'perp' | 'spot';
+  spotUniverse?: ISpotUniverse;
+}): string {
+  const { coin, mode, spotUniverse } = params;
   if (!coin) return '';
+
+  // Spot raw forms (`@149`, `PURR/USDC`, `UETH`) URL-encode to `%40149` /
+  // `PURR%2FUSDC` — unreadable. Use BASE_QUOTE with the normalized base name
+  // when the universe is available; perp falls through to the upper-cased coin.
+  if (mode === 'spot' && spotUniverse) {
+    const base = getSpotTokenDisplayName(spotUniverse.baseName);
+    return `${base}${SPOT_PAIR_SEPARATOR}${spotUniverse.quoteName}`;
+  }
 
   const dexPrefix = findDexPrefix(coin);
   if (dexPrefix && coin.includes(DEX_SEPARATOR)) {
@@ -50,15 +68,54 @@ function decodeCoinFromUrl(urlToken: string): string {
   return urlToken.toUpperCase();
 }
 
-function getInstrumentFromUrl(): {
+async function resolveSpotInstrumentFromUrl(urlToken: string): Promise<{
+  coin: string;
+  spotUniverse?: ISpotUniverse;
+} | null> {
+  // Cold-start deep links can hit before SimpleDb has spot meta cached;
+  // mirror usePerpsFavorites' refresh-then-retry so the URL isn't dropped.
+  let { universes } = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+  if (!universes?.length) {
+    await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+    const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+    universes = res.universes;
+  }
+  if (!universes?.length) return null;
+
+  // Legacy URLs ship asset.name verbatim ("@151", "PURR/USDC"); accept them so
+  // existing bookmarks keep working alongside the new BASE_QUOTE form.
+  const direct = universes.find((u) => u.name === urlToken);
+  if (direct) return { coin: direct.name, spotUniverse: direct };
+
+  if (urlToken.includes(SPOT_PAIR_SEPARATOR)) {
+    const idx = urlToken.lastIndexOf(SPOT_PAIR_SEPARATOR);
+    const base = urlToken.slice(0, idx);
+    const quote = urlToken.slice(idx + SPOT_PAIR_SEPARATOR.length);
+    const match = universes.find(
+      (u) =>
+        getSpotTokenDisplayName(u.baseName) === base && u.quoteName === quote,
+    );
+    if (match) return { coin: match.name, spotUniverse: match };
+  }
+
+  return null;
+}
+
+async function getInstrumentFromUrl(): Promise<{
   coin: string;
   mode: 'perp' | 'spot';
-} | null {
+  spotUniverse?: ISpotUniverse;
+} | null> {
   try {
     const searchParams = new URLSearchParams(globalThis.location.search);
     const urlToken = searchParams.get('token')?.trim();
     if (!urlToken) return null;
     const mode = searchParams.get('mode') === 'spot' ? 'spot' : 'perp';
+
+    if (mode === 'spot') {
+      const resolved = await resolveSpotInstrumentFromUrl(urlToken);
+      return resolved ? { ...resolved, mode } : null;
+    }
 
     return {
       coin: decodeCoinFromUrl(urlToken),
@@ -72,9 +129,11 @@ function getInstrumentFromUrl(): {
 function updateUrlWithoutNavigation(params: {
   coin: string;
   mode: 'perp' | 'spot';
+  spotUniverse?: ISpotUniverse;
 }): void {
   try {
-    const encoded = encodeCoinForUrl(params.coin);
+    const encoded = encodeCoinForUrl(params);
+    if (!encoded) return;
     const searchParams = new URLSearchParams();
     if (params.mode === 'spot') {
       searchParams.set('mode', 'spot');
@@ -143,7 +202,7 @@ export function usePerpTokenUrlSync(): void {
     originalTitleRef.current = globalThis.document.title;
 
     void (async () => {
-      const urlInstrument = getInstrumentFromUrl();
+      const urlInstrument = await getInstrumentFromUrl();
       if (urlInstrument) {
         await actions.current.switchTradeInstrument(urlInstrument);
       }
@@ -162,9 +221,22 @@ export function usePerpTokenUrlSync(): void {
     const currentToken = activeTradeInstrument?.coin?.trim();
     if (!currentToken) return;
 
+    // Spot needs the universe to derive the readable label; defer until it
+    // arrives so the URL doesn't briefly flash the raw "@149" form.
+    if (
+      activeTradeInstrument.mode === 'spot' &&
+      !activeTradeInstrument.universe
+    ) {
+      return;
+    }
+
     updateUrlWithoutNavigation({
       coin: currentToken,
       mode: activeTradeInstrument.mode,
+      spotUniverse:
+        activeTradeInstrument.mode === 'spot'
+          ? activeTradeInstrument.universe
+          : undefined,
     });
   }, [activeTradeInstrument, isFocused]);
 
