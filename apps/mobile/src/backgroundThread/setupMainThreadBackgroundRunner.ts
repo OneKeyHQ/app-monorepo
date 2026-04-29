@@ -745,7 +745,23 @@ function syncBridgeConnection(
   },
   localFallback: () => Promise<any>,
 ) {
+  const previousBridge = mainThreadBridgeMap[params.channel] ?? null;
   mainThreadBridgeMap[params.channel] = params.bridge;
+  if (params.channel === 'webEmbed') {
+    if (params.bridge) {
+      // Bridge just came up — if BG-reported `webEmbedReady` already arrived
+      // ahead of the transport sync, release any waiters now that gate (b)
+      // is satisfied. `flushWebEmbedReadyWaiters` no-ops when (a) is still
+      // false, so this is safe to call unconditionally.
+      flushWebEmbedReadyWaiters();
+    } else if (previousBridge) {
+      // WebView unmounted (or transport sync flipped to disconnected). The
+      // page-side JS handshake of the *previous* mount is no longer
+      // authoritative for the *next* mount — reset (a) so the next caller
+      // re-validates against BG and waits for the new ready signal.
+      webEmbedReady = false;
+    }
+  }
   return callRemoteRequest(
     {
       type: 'bridge-connect',
@@ -772,36 +788,52 @@ function installGlobalTransport() {
 
 const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
 
-// `connectWebEmbedBridge` (which populates `mainThreadBridgeMap.webEmbed`)
-// fires as soon as the WebView component mounts and attaches its onMessage
-// channel. The page-side JS that actually services `imageUtils.*` calls only
-// becomes ready when `apps/web-embed/pages/PageWebEmbedApi.ts` sends
-// `webEmbedApiReady` to the BG, which then re-emits
-// `LoadWebEmbedWebViewComplete` on the cross-thread event bus. So checking
-// the bridge alone is not sufficient — we need to wait until the JS is
-// ready, mirroring `WebembedApiProxy.waitRemoteApiReady` on this thread.
+// Local readiness has TWO independent components and the gate must require
+// BOTH:
+//   (a) page-side JS handshake done — `webEmbedReady`, set by
+//       `LoadWebEmbedWebViewComplete` (re-emitted by BG after the page sent
+//       `webEmbedApiReady`) or by `checkBackgroundWebEmbedReady` falling back
+//       to BG's canonical `serviceDApp.isWebEmbedApiReady` flag.
+//   (b) main thread holds the JsBridge — `mainThreadBridgeMap.webEmbed`,
+//       populated by `syncBridgeConnection` when `connectWebEmbedBridge`
+//       runs on the WebView host.
+// Normal first-mount populates (b) before (a), so the BG flag and (b)
+// converge naturally. But across WebView re-mounts, or whenever BG's
+// `isWebEmbedApiReady` is ahead of main's transport sync (event missed,
+// listener not yet installed, etc.), (a) and (b) can drift. If we only
+// gated on (a), the next call would skip waiting and crash with
+// `webEmbed bridge not available on main thread`.
 let webEmbedReady = false;
 const webEmbedReadyWaiters: Array<() => void> = [];
 
+function isMainThreadWebEmbedReady(): boolean {
+  return webEmbedReady && Boolean(mainThreadBridgeMap.webEmbed);
+}
+
+function flushWebEmbedReadyWaiters() {
+  if (!isMainThreadWebEmbedReady()) return;
+  webEmbedReadyWaiters.splice(0).forEach((cb) => cb());
+}
+
 appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
   webEmbedReady = true;
-  webEmbedReadyWaiters.splice(0).forEach((cb) => cb());
+  flushWebEmbedReadyWaiters();
 });
 
 // Backstop for the (rare) case where main missed the broadcasted
 // `LoadWebEmbedWebViewComplete` — e.g. event fired before our cross-thread
 // observer was wired, or some future refactor delays observer install. Ask
 // BG for the canonical `isWebEmbedApiReady` flag once, and if BG says ready
-// we mark local ready and stop blocking. Mirrors the original
-// `WebembedApiProxy.waitRemoteApiReady → isSDKReady` short-circuit.
+// we mark local (a) ready. Whether the gate releases still depends on (b)
+// — see `isMainThreadWebEmbedReady`.
 async function checkBackgroundWebEmbedReady(): Promise<boolean> {
   try {
     const bgApiProxy = appGlobals?.$backgroundApiProxy;
     const ready = await bgApiProxy?.serviceDApp?.isWebEmbedApiReady?.();
     if (ready) {
       webEmbedReady = true;
-      webEmbedReadyWaiters.splice(0).forEach((cb) => cb());
-      return true;
+      flushWebEmbedReadyWaiters();
+      return isMainThreadWebEmbedReady();
     }
   } catch {
     // RPC failed (transport not yet up, or BG side error). Fall through to
@@ -812,7 +844,7 @@ async function checkBackgroundWebEmbedReady(): Promise<boolean> {
 }
 
 async function awaitWebEmbedReady(timeoutMs: number): Promise<void> {
-  if (webEmbedReady) return;
+  if (isMainThreadWebEmbedReady()) return;
   if (await checkBackgroundWebEmbedReady()) return;
   await new Promise<void>((resolve, reject) => {
     const onReady = () => {
@@ -828,9 +860,9 @@ async function awaitWebEmbedReady(timeoutMs: number): Promise<void> {
       );
     }, timeoutMs);
     webEmbedReadyWaiters.push(onReady);
-    // Cover the race where the event fired between our flag check at the
-    // top of this function and the listener push above.
-    if (webEmbedReady) {
+    // Cover the race where either signal flipped between our gate check at
+    // the top of this function and the listener push above.
+    if (isMainThreadWebEmbedReady()) {
       const idx = webEmbedReadyWaiters.indexOf(onReady);
       if (idx !== -1) webEmbedReadyWaiters.splice(idx, 1);
       clearTimeout(timer);
@@ -840,7 +872,7 @@ async function awaitWebEmbedReady(timeoutMs: number): Promise<void> {
 }
 
 async function ensureMainThreadWebEmbedBridge(): Promise<JsBridgeBase> {
-  if (!webEmbedReady) {
+  if (!isMainThreadWebEmbedReady()) {
     // Trigger WebView mount if it hasn't been requested yet — bridge being
     // unset is a strong hint, but emit unconditionally because the event
     // handler in WebViewWebEmbedProvider is idempotent.
