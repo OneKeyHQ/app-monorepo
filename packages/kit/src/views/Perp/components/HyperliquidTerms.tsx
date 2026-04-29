@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   openUrlExternal,
@@ -283,6 +284,20 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
   return new Promise((resolve) => {
     let didConfirm = false;
     let hasResolved = false;
+    let didTrackAgree = false;
+    let didTrackReject = false;
+    const trackTermsAgree = () => {
+      if (!didTrackAgree) {
+        didTrackAgree = true;
+        defaultLogger.perp.hyperliquid.perpTermsAgree();
+      }
+    };
+    const trackTermsReject = () => {
+      if (!didConfirm && !didTrackAgree && !didTrackReject) {
+        didTrackReject = true;
+        defaultLogger.perp.hyperliquid.perpTermsReject();
+      }
+    };
     const safeResolve = (value: boolean) => {
       if (!hasResolved) {
         hasResolved = true;
@@ -295,6 +310,7 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
         <HyperliquidTermsContent
           renderDelay={300}
           onConfirm={async () => {
+            trackTermsAgree();
             try {
               await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
                 true,
@@ -309,6 +325,7 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
           onClose={() => {
             void dialog.close();
             if (!didConfirm) {
+              trackTermsReject();
               safeResolve(false);
             }
           }}
@@ -328,6 +345,7 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
       showConfirmButton: false,
       onClose: () => {
         if (!didConfirm) {
+          trackTermsReject();
           safeResolve(false);
         }
       },
