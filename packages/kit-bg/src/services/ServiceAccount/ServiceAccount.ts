@@ -4459,7 +4459,7 @@ class ServiceAccount extends ServiceBase {
         return results;
       },
       {
-        deviceParams: isThirdPartyVendor ? undefined : deviceParams,
+        deviceParams,
         hideCheckingDeviceLoading: isThirdPartyVendor,
         skipDeviceCancelAtFirst: true,
         debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
