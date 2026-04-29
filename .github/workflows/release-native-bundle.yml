@@ -381,9 +381,21 @@ jobs:
   # (each platform is ~8-10 minutes). Same matrix as release-native-bundle so
   # iOS and Android upload independently and one slot's failure doesn't block
   # the other.
+  #
+  # Two scenarios the `if:` has to thread:
+  # 1. Upstream `release-native-bundle` is *skipped* (workflow_run fired with a
+  #    failed daily-build, or prepare-bundle-version skipped). `!cancelled() &&
+  #    !failure()` is true for "skipped", so qa-upload would run and fail at
+  #    metadata download. Require explicit success-or-failure result.
+  # 2. Upstream is a matrix (ios + android). `needs.X.result` is the aggregate
+  #    — one slot failing reports 'failure' even when the other succeeded. We
+  #    still want to run qa-upload for the succeeded slot, so accept 'failure'
+  #    here. With `fail-fast: false` below, the failed-platform qa-upload slot
+  #    fails at "Download QA upload metadata" (its artifact never uploaded),
+  #    which is the right outcome and keeps the good platform unblocked.
   qa-upload:
     needs: release-native-bundle
-    if: ${{ !cancelled() && !failure() }}
+    if: ${{ needs.release-native-bundle.result == 'success' || needs.release-native-bundle.result == 'failure' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

@@ -331,9 +331,15 @@ jobs:
 
   # Separate job so a transient QA server failure can be retried via
   # rerun-failed-jobs without triggering another full desktop bundle build.
+  #
+  # Gate explicitly on `result == 'success'`. `!cancelled() && !failure()`
+  # alone treats a skipped upstream as "not failed" — when this workflow is
+  # triggered via workflow_run after a failed daily-build, the build job's
+  # `if:` at line 88 evaluates false, the build job is *skipped*, and
+  # qa-upload would otherwise run and fail at "Download QA upload metadata".
   qa-upload:
     needs: release-desktop-bundle
-    if: ${{ !cancelled() && !failure() }}
+    if: ${{ needs.release-desktop-bundle.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Download QA upload metadata
