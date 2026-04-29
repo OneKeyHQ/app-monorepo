@@ -148,6 +148,8 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
     this.eventHandlersByVendor.clear();
     this.unsubscribeFromBus?.();
     this.unsubscribeFromBus = null;
+    this.unsubscribeFromHwkSdkEvent?.();
+    this.unsubscribeFromHwkSdkEvent = null;
   }
 
   private ensureSubscribed(): void {
