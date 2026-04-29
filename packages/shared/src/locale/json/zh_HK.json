@@ -4669,7 +4669,7 @@
   "update.downloading_package": "下載中... {progress}%",
   "update.ensure_one_usb_device_connected": "請確保只有一個 USB 裝置正在連接狀態，如果連接了多個裝置，請斷開其他裝置並重試。",
   "update.failed_to_enter_bootloader_mode": "無法進入 bootloader 模式",
-  "update.firmware_available": "硬體錢包韌體可更新",
+  "update.firmware_available": "設備韌體可更新",
   "update.firmware_version_available": "韌體可更新至 {version} 版本",
   "update.follow_online_tutorial_to_proceed_manually": "請按照<url>線上教學</url>手動操作，然後按一下「重試」。",
   "update.hardware_sdk_initialization_failed": "硬體 SDK 初始化失敗，請檢查您的網路或切換代理，然後再試一次。",

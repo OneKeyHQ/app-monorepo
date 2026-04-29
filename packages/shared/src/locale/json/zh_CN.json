@@ -4669,7 +4669,7 @@
   "update.downloading_package": "下载中... {progress}%",
   "update.ensure_one_usb_device_connected": "请确保只有一个 USB 设备正在连接状态，如果连接了多个设备，请断开其他设备并重试。",
   "update.failed_to_enter_bootloader_mode": "无法进入 bootloader 模式",
-  "update.firmware_available": "硬件钱包固件可更新",
+  "update.firmware_available": "设备固件可更新",
   "update.firmware_version_available": "固件可更新至 {version} 版本",
   "update.follow_online_tutorial_to_proceed_manually": "请按照<url>在线教程</url>手动操作，然后点击“重试”。",
   "update.hardware_sdk_initialization_failed": "硬件 SDK 初始化失败，请检查您的网络或切换代理，然后再试一次。",

@@ -4669,7 +4669,7 @@
   "update.downloading_package": "Downloading... {progress}%",
   "update.ensure_one_usb_device_connected": "Please ensure only one USB device is connected to proceed with the upgrade. If multiple devices are connected, disconnect the others and try again.",
   "update.failed_to_enter_bootloader_mode": "Failed to enter bootloader mode",
-  "update.firmware_available": "Hardware wallet firmware update available",
+  "update.firmware_available": "Firmware update available",
   "update.firmware_version_available": "Firmware {version} is available",
   "update.follow_online_tutorial_to_proceed_manually": "Follow the <url>online tutorial</url> to proceed manually, then click \"Retry\".",
   "update.hardware_sdk_initialization_failed": "Hardware SDK initialization failed. Please check your network or switch the proxy and try again.",
