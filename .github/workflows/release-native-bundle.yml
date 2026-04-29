@@ -319,7 +319,11 @@ jobs:
 
       - name: upload zips
         uses: actions/upload-artifact@v4
-        continue-on-error: true
+        # Hard fail: the downstream `qa-upload` job downloads this artifact.
+        # If we let a flaky upload pass silently, the build job succeeds,
+        # qa metadata gets stashed, qa-upload then fails at download — and
+        # rerun-failed-jobs only reruns qa-upload, never recreating the
+        # bundle artifact.
         with:
           name: release-native-bundle-${{ matrix.platform }}-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -335,15 +339,29 @@ jobs:
             ./apps/mobile/out-dir-bundle/${{ matrix.platform }}
             !**/.DS_Store
 
-      - name: Upload QA Bundles
-        uses: onekeyhq/actions/qa-bundle-upload@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+      # Stash the metadata the downstream qa-upload job needs. Lifting QA
+      # upload out of this build job means a flaky QA server no longer forces
+      # a full re-bundle on rerun-failed-jobs. We pass everything via a small
+      # artifact (instead of job outputs) because matrix jobs cannot expose
+      # per-arm outputs reliably.
+      - name: Stash QA upload metadata
+        run: |
+          mkdir -p ./qa-upload-meta
+          jq -n \
+            --arg artifact_name "release-native-bundle-${{ matrix.platform }}-zips-${BUILD_APP_VERSION}-${BUILD_NUMBER}-${BUILD_BUNDLE_VERSION}-${{ github.sha }}" \
+            --arg commit "$COMMIT" \
+            --arg branch "$BRANCH" \
+            --arg commit_message "$COMMIT_MESSAGE" \
+            '{artifact_name:$artifact_name, commit:$commit, branch:$branch, commit_message:$commit_message}' \
+            > ./qa-upload-meta/meta.json
+
+      - name: Upload QA metadata artifact
+        uses: actions/upload-artifact@v4
         with:
-          server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
-          upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
-          bundle-dir: ./apps/mobile/out-dir-bundle-zip
-          commit-hash: ${{ env.COMMIT }}
-          branch: ${{ env.BRANCH }}
-          pr-title: ${{ env.COMMIT_MESSAGE }}
+          name: release-native-bundle-${{ matrix.platform }}-qa-upload-meta-${{ github.run_id }}
+          path: ./qa-upload-meta
+          retention-days: 1
+          if-no-files-found: error
 
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
@@ -361,3 +379,67 @@ jobs:
           artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
           artifact-branch: '${{ env.BRANCH }}'
           artifact-commit: '${{ env.COMMIT }}'
+
+  # Separate job so a transient QA server failure can be retried via
+  # rerun-failed-jobs without triggering another full native bundle build
+  # (each platform is ~8-10 minutes). Same matrix as release-native-bundle so
+  # iOS and Android upload independently and one slot's failure doesn't block
+  # the other.
+  #
+  # Two scenarios the `if:` has to thread:
+  # 1. Upstream `release-native-bundle` is *skipped* (workflow_run fired with a
+  #    failed daily-build, or prepare-bundle-version skipped). `!cancelled() &&
+  #    !failure()` is true for "skipped", so qa-upload would run and fail at
+  #    metadata download. Require explicit success-or-failure result.
+  # 2. Upstream is a matrix (ios + android). `needs.X.result` is the aggregate
+  #    — one slot failing reports 'failure' even when the other succeeded. We
+  #    still want to run qa-upload for the succeeded slot, so accept 'failure'
+  #    here. With `fail-fast: false` below, the failed-platform qa-upload slot
+  #    fails at "Download QA upload metadata" (its artifact never uploaded),
+  #    which is the right outcome and keeps the good platform unblocked.
+  qa-upload:
+    needs: release-native-bundle
+    if: ${{ needs.release-native-bundle.result == 'success' || needs.release-native-bundle.result == 'failure' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ inputs.platform != '' && fromJSON(format('["{0}"]', inputs.platform)) || fromJSON('["ios","android"]') }}
+    steps:
+      - name: Download QA upload metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: release-native-bundle-${{ matrix.platform }}-qa-upload-meta-${{ github.run_id }}
+          path: ./qa-upload-meta
+
+      - name: Read metadata
+        id: meta
+        run: |
+          meta=./qa-upload-meta/meta.json
+          {
+            echo "artifact_name=$(jq -r .artifact_name "$meta")"
+            echo "commit=$(jq -r .commit "$meta")"
+            echo "branch=$(jq -r .branch "$meta")"
+          } >> "$GITHUB_OUTPUT"
+          DELIMITER=$(uuidgen)
+          {
+            echo "commit_message<<${DELIMITER}"
+            jq -r .commit_message "$meta"
+            echo "${DELIMITER}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download bundle zips
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: ./bundle-zip
+
+      - name: Upload QA Bundles
+        uses: onekeyhq/actions/qa-bundle-upload@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        with:
+          server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+          upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+          bundle-dir: ./bundle-zip
+          commit-hash: ${{ steps.meta.outputs.commit }}
+          branch: ${{ steps.meta.outputs.branch }}
+          pr-title: ${{ steps.meta.outputs.commit_message }}
