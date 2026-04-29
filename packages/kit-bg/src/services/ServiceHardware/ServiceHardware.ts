@@ -1721,6 +1721,17 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async thirdPartyHardwareCancel(params: {
+    vendor: EHardwareVendor;
+    connectId?: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) return;
+    adapter.cancel(params.connectId);
+  }
+
+  @backgroundMethod()
   async getEvmAddressByStandardWallet(params: {
     connectId: string;
     deviceId: string;
