@@ -15,12 +15,21 @@ export type IDependencies = {
 let bridgeInstance: BridgeProcess;
 
 export const restartBridge = async () => {
+  if (!bridgeInstance?.isCurrentSystemSupported()) {
+    logger.info('bridge: Skip restart on unsupported system');
+    return;
+  }
+
   logger.debug('bridge: ', 'Restarting');
   await bridgeInstance?.restart();
 };
 
 export const launchBridge = async () => {
   const bridge = new BridgeProcess();
+  if (!bridge.isCurrentSystemSupported()) {
+    logger.info('bridge: Skip launch on unsupported system');
+    return;
+  }
 
   try {
     logger.info('bridge: Staring');
