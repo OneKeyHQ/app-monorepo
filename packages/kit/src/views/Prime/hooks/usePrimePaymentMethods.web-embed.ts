@@ -36,6 +36,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const params = useMemo(() => {
     const apiKey = searchParams.get('apiKey') || '';
+    const isSandboxKey = searchParams.get('isSandboxKey') === '1';
     const primeUserId = searchParams.get('primeUserId') || '';
     const primeUserEmail = searchParams.get('primeUserEmail') || '';
     const subscriptionPeriod = (searchParams.get('subscriptionPeriod') ||
@@ -46,6 +47,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const featureName = searchParams.get('featureName') || '';
     return {
       apiKey,
+      isSandboxKey,
       primeUserId,
       primeUserEmail,
       subscriptionPeriod,
@@ -108,13 +110,20 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       throw new OneKeyLocalError('PrimeAuth Not ready');
     }
 
-    const offerings = await Purchases.getSharedInstance().getOfferings(
-      params.currency ? { currency: params.currency } : undefined,
-    );
+    const { offerings, targetOffering } =
+      await primePaymentUtils.fetchWebTargetOffering({
+        purchases: Purchases.getSharedInstance(),
+        isSandboxKey: params.isSandboxKey,
+        currency: params.currency,
+      });
 
     const packages: IPackage[] =
-      offerings?.current?.availablePackages?.map((p) => {
-        const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
+      targetOffering?.availablePackages?.map((p) => {
+        const {
+          normalPeriodDuration,
+          currentPrice,
+          defaultSubscriptionOption,
+        } = p.rcBillingProduct;
 
         const currencyCode = currentPrice.currency || '';
 
@@ -134,6 +143,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           pricePerMonth: Number(pricePerMonth),
           pricePerMonthString: `${pricePerMonth} ${currencyCode}`,
           priceTotalPerYearString: `${pricePerYear} ${currencyCode}`,
+          freeTrial: primePaymentUtils.extractWebFreeTrial(
+            defaultSubscriptionOption?.trial,
+          ),
         };
       }) || [];
 
@@ -143,7 +155,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     });
 
     return packages;
-  }, [initSdk, isReady, params.currency]);
+  }, [initSdk, isReady, params.currency, params.isSandboxKey]);
 
   const purchasePackageWeb = useCallback(
     async ({
@@ -187,20 +199,23 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           'purchasePackageWeb77632723>>>>>> getOfferings',
           typeof Purchases.getSharedInstance().getOfferings,
         );
-        const offerings = await Purchases.getSharedInstance().getOfferings(
-          currency ? { currency } : undefined,
-        );
+        const { offerings, targetOffering } =
+          await primePaymentUtils.fetchWebTargetOffering({
+            purchases: Purchases.getSharedInstance(),
+            isSandboxKey: params.isSandboxKey,
+            currency,
+          });
         console.log('purchasePackageWeb77632723>>>>>> offerings', {
           offerings,
         });
 
-        if (!offerings.current) {
+        if (!targetOffering) {
           throw new OneKeyLocalError(
             'purchasePaywallPackage ERROR: No offerings',
           );
         }
 
-        const paywallPackage = offerings.current.availablePackages.find(
+        const paywallPackage = targetOffering.availablePackages.find(
           (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
         );
 
@@ -247,7 +262,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         // void backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [initSdk, isReady],
+    [initSdk, isReady, params.isSandboxKey],
   );
 
   return {
