@@ -43,6 +43,9 @@ export function formatNextHalving(
   if (days === 0 && hours === 0) {
     return `~${fmt.imminent()}`;
   }
+  if (days === 0) {
+    return `~${fmt.h(hours)}`;
+  }
   if (hours === 0 && days > 0) {
     return `~${fmt.d(days)}`;
   }

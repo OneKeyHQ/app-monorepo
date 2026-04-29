@@ -112,6 +112,38 @@ describe('useBtcMetadata', () => {
     expect(result.current).toBeNull();
   });
 
+  it('returns null when nextHalving metadata is missing', () => {
+    mockedUseTokenDetail.mockReturnValue({
+      ...baseReturn,
+      tokenDetail: {
+        btcMetadata: buildBtcMetadata({
+          nextHalving: undefined as never,
+        }),
+      } as IMarketTokenDetail,
+      networkId: getNetworkIdsMap().btc,
+    });
+    const { result } = renderHook(() => useBtcMetadata());
+    expect(result.current).toBeNull();
+  });
+
+  it('returns null when nextHalving seconds are invalid', () => {
+    mockedUseTokenDetail.mockReturnValue({
+      ...baseReturn,
+      tokenDetail: {
+        btcMetadata: buildBtcMetadata({
+          nextHalving: {
+            nextHalvingBlockHeight: 1_050_000,
+            blocksUntilHalving: 102_897,
+            estimatedSecondsUntilHalving: Number.NaN,
+          },
+        }),
+      } as IMarketTokenDetail,
+      networkId: getNetworkIdsMap().btc,
+    });
+    const { result } = renderHook(() => useBtcMetadata());
+    expect(result.current).toBeNull();
+  });
+
   it('returns formatted struct for fresh BTC data', () => {
     mockedUseTokenDetail.mockReturnValue({
       ...baseReturn,

@@ -29,7 +29,13 @@ export function useBtcMetadata(): IUseBtcMetadataResult | null {
       return null;
     }
     const meta = tokenDetail?.btcMetadata;
-    if (!meta || meta.stale) {
+    const estimatedSecondsUntilHalving =
+      meta?.nextHalving?.estimatedSecondsUntilHalving;
+    if (
+      !meta ||
+      meta.stale ||
+      !Number.isFinite(Number(estimatedSecondsUntilHalving))
+    ) {
       return null;
     }
     return {
@@ -41,7 +47,7 @@ export function useBtcMetadata(): IUseBtcMetadataResult | null {
       blockHeight: meta.blockHeight,
       blockReward: meta.blockReward,
       nextHalvingDisplay: formatNextHalving(
-        meta.nextHalving.estimatedSecondsUntilHalving,
+        Number(estimatedSecondsUntilHalving),
         {
           y: (amount) =>
             intl.formatMessage(

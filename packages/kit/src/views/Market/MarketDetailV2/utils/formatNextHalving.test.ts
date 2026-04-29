@@ -18,12 +18,13 @@ describe('formatNextHalving', () => {
     expect(formatNextHalving(3599, fmt)).toBe('~Imminent');
   });
 
-  it('formats < 30 days as days + hours, omitting hours when 0', () => {
+  it('formats < 30 days with hour-only output below 1 day', () => {
     expect(formatNextHalving(12 * 86_400 + 5 * 3600, fmt)).toBe('~12D 5H');
     expect(formatNextHalving(86_400 + 3600, fmt)).toBe('~1D 1H');
     expect(formatNextHalving(86_400, fmt)).toBe('~1D');
     expect(formatNextHalving(29 * 86_400, fmt)).toBe('~29D');
-    expect(formatNextHalving(3600, fmt)).toBe('~0D 1H');
+    expect(formatNextHalving(3600, fmt)).toBe('~1H');
+    expect(formatNextHalving(23 * 3600, fmt)).toBe('~23H');
   });
 
   it('formats 30d <= seconds < 365d as days only', () => {
