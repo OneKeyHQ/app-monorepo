@@ -816,6 +816,7 @@ export enum ETranslations {
   dexmarket_stock_underlying_asset_name = 'dexmarket_stock.underlying_asset_name',
   dexmarket_stock_underlying_asset_ticker = 'dexmarket_stock.underlying_asset_ticker',
   dexmarket_stock_volume_shares = 'dexmarket_stock.volume_shares',
+  discovery_ad_label = 'discovery.ad_label',
   do_not_exit_app_during_setup = 'do_not_exit_app_during_setup',
   dont_have_mobile_app_yet = 'dont_have_mobile_app_yet',
   downgrade_warning_checkbox_label = 'downgrade_warning_checkbox_label',
