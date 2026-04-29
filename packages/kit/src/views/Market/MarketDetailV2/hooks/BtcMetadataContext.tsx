@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 
 import { useBtcMetadata } from './useBtcMetadata';
@@ -9,10 +9,8 @@ const BtcMetadataContext = createContext<IUseBtcMetadataResult | null>(null);
 
 export function BtcMetadataProvider({ children }: { children: ReactNode }) {
   const value = useBtcMetadata();
-  // Stable reference unless the underlying memoized result identity changes.
-  const contextValue = useMemo(() => value, [value]);
   return (
-    <BtcMetadataContext.Provider value={contextValue}>
+    <BtcMetadataContext.Provider value={value}>
       {children}
     </BtcMetadataContext.Provider>
   );

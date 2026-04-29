@@ -7,14 +7,15 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openBlockExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
+  MARKET_CAP_FORMATTER,
+  USD_CURRENCY_FORMATTER,
   formatBlockHeightValue,
+  formatBtcSupplyValue,
   formatCurrencyStatValue,
-  formatMarketCapValue,
   formatStatValueWithFormatter,
 } from '../../utils/statValue';
 import { TokenSecurityAlertDialogContent } from '../TokenSecurityAlert/components';
@@ -25,20 +26,6 @@ import { StatCard } from './components/StatCard';
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
 
 import type { IStatItem } from './components/StatCard';
-
-const marketCapFormatter: INumberFormatProps = {
-  formatter: 'marketCap',
-};
-
-const usdCurrencyFormatter: INumberFormatProps = {
-  formatter: 'marketCap',
-  formatterOptions: { currency: '$' },
-};
-
-const formatBtcAmount = (value: string | number | undefined): string => {
-  const formatted = formatMarketCapValue(value);
-  return formatted === '--' ? formatted : `${formatted} BTC`;
-};
 
 export function TokenOverview() {
   const intl = useIntl();
@@ -146,7 +133,7 @@ export function TokenOverview() {
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_btc_circulating_supply,
               })}
-              value={formatBtcAmount(btcMetadata.circulatingSupply)}
+              value={formatBtcSupplyValue(btcMetadata.circulatingSupply)}
             />
           </XStack>
           <XStack gap="$2">
@@ -154,13 +141,13 @@ export function TokenOverview() {
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_btc_remaining_supply,
               })}
-              value={formatBtcAmount(btcMetadata.remainingSupply)}
+              value={formatBtcSupplyValue(btcMetadata.remainingSupply)}
             />
             <StatCard
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_btc_total_supply,
               })}
-              value={formatBtcAmount(btcMetadata.totalSupply)}
+              value={formatBtcSupplyValue(btcMetadata.totalSupply)}
             />
           </XStack>
           <XStack gap="$2">
@@ -203,7 +190,7 @@ export function TokenOverview() {
               })}
               value={formatStatValueWithFormatter(
                 tokenDetail.holders,
-                marketCapFormatter,
+                MARKET_CAP_FORMATTER,
               )}
             />
           </XStack>
@@ -215,7 +202,7 @@ export function TokenOverview() {
               })}
               value={formatStatValueWithFormatter(
                 tokenDetail.marketCap,
-                usdCurrencyFormatter,
+                USD_CURRENCY_FORMATTER,
               )}
               tooltip={intl.formatMessage({
                 id: ETranslations.dexmarket_mc_tips,
@@ -227,7 +214,7 @@ export function TokenOverview() {
               })}
               value={formatStatValueWithFormatter(
                 tokenDetail.tvl,
-                usdCurrencyFormatter,
+                USD_CURRENCY_FORMATTER,
               )}
               tooltip={intl.formatMessage({
                 id: ETranslations.dexmarket_Liq_tips,
@@ -242,7 +229,7 @@ export function TokenOverview() {
               })}
               value={formatStatValueWithFormatter(
                 tokenDetail.circulatingSupply,
-                marketCapFormatter,
+                MARKET_CAP_FORMATTER,
               )}
               tooltip={intl.formatMessage({
                 id: ETranslations.dexmarket_circulating_supply_tips,
@@ -254,7 +241,7 @@ export function TokenOverview() {
               })}
               value={formatStatValueWithFormatter(
                 tokenDetail.fdv,
-                usdCurrencyFormatter,
+                USD_CURRENCY_FORMATTER,
               )}
               tooltip={intl.formatMessage({
                 id: ETranslations.dexmarket_fdv_desc,

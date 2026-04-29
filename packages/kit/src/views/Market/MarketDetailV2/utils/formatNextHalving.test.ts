@@ -4,6 +4,7 @@ const fmt = {
   y: (n: number) => `${n}Y`,
   d: (n: number) => `${n}D`,
   h: (n: number) => `${n}H`,
+  imminent: () => 'Imminent',
 };
 
 describe('formatNextHalving', () => {

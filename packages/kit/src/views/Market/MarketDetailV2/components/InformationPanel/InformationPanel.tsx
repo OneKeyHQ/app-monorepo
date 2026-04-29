@@ -9,13 +9,14 @@ import {
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
+  MARKET_CAP_FORMATTER,
+  USD_CURRENCY_FORMATTER,
   formatPriceChangeDisplay,
   formatRatioValue,
   formatStatValueWithFormatter,
@@ -34,17 +35,6 @@ function getPriceSizeByValue(price: string) {
   }
   return '$heading3xl';
 }
-
-const marketCapFormatter: INumberFormatProps = {
-  formatter: 'marketCap',
-};
-
-const usdCurrencyFormatter: INumberFormatProps = {
-  formatter: 'marketCap',
-  formatterOptions: {
-    currency: '$',
-  },
-};
 
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
@@ -80,7 +70,7 @@ function HeaderStatRows({
           label={intl.formatMessage({ id: ETranslations.global_market_cap })}
           value={formatStatValueWithFormatter(
             stock.marketCap,
-            usdCurrencyFormatter,
+            USD_CURRENCY_FORMATTER,
           )}
         />
         <StatRow
@@ -89,7 +79,7 @@ function HeaderStatRows({
           })}
           value={formatStatValueWithFormatter(
             stock.assetAnalysis?.volume24h,
-            usdCurrencyFormatter,
+            USD_CURRENCY_FORMATTER,
           )}
         />
         <StatRow
@@ -108,7 +98,7 @@ function HeaderStatRows({
           label={intl.formatMessage({ id: ETranslations.global_market_cap })}
           value={formatStatValueWithFormatter(
             btcMetadata.marketCap,
-            usdCurrencyFormatter,
+            USD_CURRENCY_FORMATTER,
           )}
         />
         <StatRow
@@ -117,7 +107,7 @@ function HeaderStatRows({
           })}
           value={formatStatValueWithFormatter(
             btcMetadata.circulatingSupply,
-            marketCapFormatter,
+            MARKET_CAP_FORMATTER,
           )}
         />
         <StatRow
@@ -126,7 +116,7 @@ function HeaderStatRows({
           })}
           value={formatStatValueWithFormatter(
             btcMetadata.remainingSupply,
-            marketCapFormatter,
+            MARKET_CAP_FORMATTER,
           )}
         />
       </>
@@ -180,17 +170,17 @@ export function InformationPanel() {
 
   const formattedMarketCap = formatStatValueWithFormatter(
     marketCap,
-    usdCurrencyFormatter,
+    USD_CURRENCY_FORMATTER,
   );
 
   const formattedLiquidity = formatStatValueWithFormatter(
     liquidity,
-    usdCurrencyFormatter,
+    USD_CURRENCY_FORMATTER,
   );
 
   const formattedHolders = formatStatValueWithFormatter(
     holders,
-    marketCapFormatter,
+    MARKET_CAP_FORMATTER,
   );
 
   const { color: priceChangeColor, display: priceChangeDisplay } =

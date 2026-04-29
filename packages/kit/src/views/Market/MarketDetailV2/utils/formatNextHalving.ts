@@ -7,19 +7,15 @@ export interface INextHalvingUnitFormatters {
   y: (amount: number) => string;
   d: (amount: number) => string;
   h: (amount: number) => string;
-  // Optional localized "Imminent" label; falls back to the English literal
-  // when the caller doesn't inject one (e.g. unit tests).
-  imminent?: () => string;
+  imminent: () => string;
 }
 
 export function formatNextHalving(
   seconds: number,
   fmt: INextHalvingUnitFormatters,
 ): string {
-  const imminent = () => `~${fmt.imminent ? fmt.imminent() : 'Imminent'}`;
-
   if (!Number.isFinite(seconds) || seconds <= 0) {
-    return imminent();
+    return `~${fmt.imminent()}`;
   }
 
   const totalSeconds = Math.floor(seconds);
@@ -45,7 +41,7 @@ export function formatNextHalving(
     (totalSeconds - days * SECONDS_PER_DAY) / SECONDS_PER_HOUR,
   );
   if (days === 0 && hours === 0) {
-    return imminent();
+    return `~${fmt.imminent()}`;
   }
   if (hours === 0 && days > 0) {
     return `~${fmt.d(days)}`;

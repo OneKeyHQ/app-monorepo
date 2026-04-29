@@ -4,6 +4,16 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 export const STAT_FALLBACK_VALUE = '--';
+
+export const MARKET_CAP_FORMATTER: INumberFormatProps = {
+  formatter: 'marketCap',
+};
+
+export const USD_CURRENCY_FORMATTER: INumberFormatProps = {
+  formatter: 'marketCap',
+  formatterOptions: { currency: '$' },
+};
+
 type ITTextColorToken =
   | '$textSuccess'
   | '$textCritical'
@@ -95,6 +105,11 @@ export function formatBlockHeightValue(
   }
   const n = Number(value);
   return Number.isFinite(n) ? n.toLocaleString('en-US') : fallback;
+}
+
+export function formatBtcSupplyValue(value?: string | number | null): string {
+  const formatted = formatMarketCapValue(value);
+  return formatted === STAT_FALLBACK_VALUE ? formatted : `${formatted} BTC`;
 }
 
 export function formatPercentValue(
