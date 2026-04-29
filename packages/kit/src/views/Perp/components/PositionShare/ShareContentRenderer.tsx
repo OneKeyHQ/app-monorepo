@@ -47,6 +47,7 @@ export function ShareContentRenderer({
 }: IShareContentRendererProps) {
   const {
     side,
+    mode,
     tokenDisplayName,
     tokenImageUrl,
     pnl,
@@ -194,12 +195,22 @@ export function ShareContentRenderer({
                   fontWeight="600"
                   color={sideColor}
                 >
-                  {`${appLocale.intl.formatMessage({
-                    id:
-                      side === 'long'
+                  {(() => {
+                    const isSpot = mode === 'spot';
+                    const isLong = side === 'long';
+                    let labelId: ETranslations;
+                    if (isSpot) {
+                      labelId = isLong
+                        ? ETranslations.global_buy
+                        : ETranslations.global_sell;
+                    } else {
+                      labelId = isLong
                         ? ETranslations.perp_long
-                        : ETranslations.perp_short,
-                  })} ${leverage}X`}
+                        : ETranslations.perp_short;
+                    }
+                    const label = appLocale.intl.formatMessage({ id: labelId });
+                    return isSpot ? label : `${label} ${leverage}X`;
+                  })()}
                 </SizableText>
               </XStack>
             ) : null}
