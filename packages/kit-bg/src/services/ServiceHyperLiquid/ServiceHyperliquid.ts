@@ -764,9 +764,12 @@ export default class ServiceHyperliquid extends ServiceBase {
           ctx: perpsUtils.formatSpotAssetCtx(data.ctx),
         }),
       );
+    } else {
+      const activeSpotAssetCtx = await spotActiveAssetCtxAtom.get();
+      if (activeSpotAssetCtx?.coin !== activeSpotAsset?.coin) {
+        await spotActiveAssetCtxAtom.set(undefined);
+      }
     }
-    // Don't clear to undefined — stale data from the previous coin is preferable
-    // to a brief flash of empty state while waiting for the new WS update.
   }
 
   async updateSpotAssetCtxsMap(data: IWsSpotAssetCtxs) {

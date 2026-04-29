@@ -989,13 +989,15 @@ const BasePerpTokenSelectorMobileView = memo(
 BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
-  const { displayName, mode } = useActiveTradeDisplay();
+  const { coin, displayName, mode } = useActiveTradeDisplay();
 
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const spotCtxForActiveCoin =
+    spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
   const change24hPercent =
     mode === 'spot'
-      ? spotAssetCtx?.ctx?.change24hPercent || 0
+      ? spotCtxForActiveCoin?.change24hPercent || 0
       : assetCtx?.ctx?.change24hPercent || 0;
 
   const displayLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
