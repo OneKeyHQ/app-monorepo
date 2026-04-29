@@ -10,20 +10,14 @@ import {
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  type IActiveTradeInstrument,
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountAtom,
   useSpotActiveOpenOrdersAtom,
-  useSpotPairDisplayMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  formatSpotPairDisplayName,
-  isSpotInstrument,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
@@ -38,40 +32,6 @@ interface IPerpOpenOrdersListProps {
   disableListScroll?: boolean;
 }
 
-function isOrderForActiveInstrument({
-  order,
-  activeTradeInstrument,
-  spotPairDisplayMap,
-}: {
-  order: IPerpsFrontendOrder;
-  activeTradeInstrument: IActiveTradeInstrument;
-  spotPairDisplayMap: Record<string, string>;
-}) {
-  const orderIsSpot = isSpotInstrument(order.coin);
-  if (activeTradeInstrument.mode === 'perp') {
-    return !orderIsSpot && order.coin === activeTradeInstrument.coin;
-  }
-
-  if (!orderIsSpot) {
-    return false;
-  }
-
-  const universe = activeTradeInstrument.universe;
-  const activeCoins = new Set(
-    [
-      activeTradeInstrument.coin,
-      universe?.name,
-      universe
-        ? formatSpotPairDisplayName(universe.baseName, universe.quoteName)
-        : undefined,
-    ].filter((coin): coin is string => Boolean(coin)),
-  );
-  return (
-    activeCoins.has(order.coin) ||
-    activeCoins.has(spotPairDisplayMap[order.coin])
-  );
-}
-
 function PerpOpenOrdersList({
   isMobile,
   useTabsList,
@@ -80,7 +40,6 @@ function PerpOpenOrdersList({
   const intl = useIntl();
   const [{ openOrders: perpOpenOrders }] = usePerpsActiveOpenOrdersAtom();
   const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
-  const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
@@ -106,32 +65,16 @@ function PerpOpenOrdersList({
     if (isMobile && filterByCurrentToken) {
       setCurrentListPage(1);
     }
-  }, [
-    activeTradeInstrument?.assetId,
-    activeTradeInstrument?.coin,
-    activeTradeInstrument?.mode,
-    isMobile,
-    filterByCurrentToken,
-  ]);
+  }, [activeTradeInstrument?.coin, isMobile, filterByCurrentToken]);
 
   const filteredOrders = useMemo(() => {
     if (!isMobile || !filterByCurrentToken || !activeTradeInstrument?.coin) {
       return openOrders;
     }
-    return openOrders.filter((order) =>
-      isOrderForActiveInstrument({
-        order,
-        activeTradeInstrument,
-        spotPairDisplayMap,
-      }),
+    return openOrders.filter(
+      (order) => order.coin === activeTradeInstrument.coin,
     );
-  }, [
-    openOrders,
-    isMobile,
-    filterByCurrentToken,
-    activeTradeInstrument,
-    spotPairDisplayMap,
-  ]);
+  }, [openOrders, isMobile, filterByCurrentToken, activeTradeInstrument]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
