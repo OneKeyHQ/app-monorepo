@@ -224,7 +224,7 @@ function PerpTradesHistoryList({
       {
         key: 'size',
         title: intl.formatMessage({
-          id: ETranslations.perp_position_position_size,
+          id: ETranslations.dexmarket_details_history_amount,
         }),
         minWidth: 120,
         flex: 1,
