@@ -93,11 +93,20 @@ export async function createKeyringInstance(vault: VaultBase) {
     // Exhaustive switch: adding a new EHardwareVendor without handling it
     // here will fail to compile (the `never` assertion in `default`).
     const vendor = vault.options.hardwareVendor;
+    const resolveChainName = async (): Promise<string | undefined> => {
+      try {
+        const network = await vault.getNetwork();
+        return network?.name;
+      } catch {
+        return undefined;
+      }
+    };
     switch (vendor) {
       case EHardwareVendor.ledger:
         if (!keyringMap.hwLedger) {
           throw new ThirdPartyChainNotSupported({
             vendor: 'Ledger',
+            chain: await resolveChainName(),
             payload: {},
           });
         }
@@ -107,6 +116,7 @@ export async function createKeyringInstance(vault: VaultBase) {
         if (!keyringMap.hwTrezor) {
           throw new ThirdPartyChainNotSupported({
             vendor: 'Trezor',
+            chain: await resolveChainName(),
             payload: {},
           });
         }

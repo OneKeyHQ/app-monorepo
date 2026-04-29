@@ -193,10 +193,19 @@ export class ThirdPartyOperationTimeout extends ThirdPartyHardwareError {
 
 /** Chain has no keyring impl for this vendor (e.g. Ledger doesn't support Aptos). */
 export class ThirdPartyChainNotSupported extends ThirdPartyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+  constructor(
+    props?: IOneKeyErrorHardwareProps & { vendor?: string; chain?: string },
+  ) {
     super(
       normalizeErrorProps(
-        { ...props, info: { ...props?.info, vendor: props?.vendor } },
+        {
+          ...props,
+          info: {
+            ...props?.info,
+            vendor: props?.vendor,
+            chain: props?.chain,
+          },
+        },
         {
           defaultKey:
             ETranslationsMock.hardware_third_party_chain_not_supported,
@@ -205,6 +214,7 @@ export class ThirdPartyChainNotSupported extends ThirdPartyHardwareError {
       ),
     );
     this.vendor = props?.vendor;
+    this.chain = props?.chain;
   }
 
   override code = ThirdPartyHwErrorCode.ChainNotSupported;
