@@ -14,6 +14,13 @@ const mockScrollTransactionsToTop = jest.fn();
 const mockHandleTabChange = jest.fn();
 const mockHandleRealtimePauseHoverIn = jest.fn();
 const mockHandleRealtimePauseHoverOut = jest.fn();
+const mockTokenDetailState = {
+  tokenAddress: '0xabc',
+  networkId: 'evm--1',
+  tokenDetail: undefined,
+  isNative: false,
+  isStockToken: false,
+};
 
 const mockRealtimePauseState = {
   isPaused: true,
@@ -87,6 +94,9 @@ jest.mock('@onekeyhq/components', () => {
       ),
       Tab: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
       TabBar: () => <div data-testid="tab-bar" />,
+      ScrollView: ({ children }: { children?: ReactNode }) => (
+        <div>{children}</div>
+      ),
     },
     XStack: Box,
     YStack: Box,
@@ -127,12 +137,7 @@ jest.mock('@onekeyhq/shared/src/utils/numberUtils', () => ({
 }));
 
 jest.mock('../../../hooks/useTokenDetail', () => ({
-  useTokenDetail: () => ({
-    tokenAddress: '0xabc',
-    networkId: 'evm--1',
-    tokenDetail: undefined,
-    isNative: false,
-  }),
+  useTokenDetail: () => mockTokenDetailState,
 }));
 
 jest.mock('../components/Holders', () => ({
@@ -145,6 +150,10 @@ jest.mock('../components/Portfolio', () => ({
 
 jest.mock('../components/TransactionsHistory', () => ({
   TransactionsHistory: () => <div>transactions</div>,
+}));
+
+jest.mock('../../TokenLiquidityPools', () => ({
+  TokenLiquidityPools: () => <div>liquidity-pools</div>,
 }));
 
 jest.mock('../hooks/useBottomTabAnalytics', () => ({
@@ -169,6 +178,13 @@ describe('DesktopInformationTabs', () => {
       isPaused: true,
       bufferedCount: 2,
       hasBufferOverflow: false,
+    });
+    Object.assign(mockTokenDetailState, {
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+      tokenDetail: undefined,
+      isNative: false,
+      isStockToken: false,
     });
     mockResumeRealtimeUpdates.mockReset();
     mockFlushBufferedTransactions.mockReset();
@@ -195,5 +211,13 @@ describe('DesktopInformationTabs', () => {
     expect(
       screen.getByText(new RegExp(`${MAX_BUFFERED_TRANSACTIONS}\\+$`)),
     ).toBeTruthy();
+  });
+
+  it('does not render liquidity pools for native tokens', () => {
+    mockTokenDetailState.isNative = true;
+
+    render(<DesktopInformationTabs portfolioData={[]} />);
+
+    expect(screen.queryByText('liquidity-pools')).toBeNull();
   });
 });
