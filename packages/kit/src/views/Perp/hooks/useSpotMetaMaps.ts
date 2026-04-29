@@ -66,12 +66,12 @@ export function useSpotMetaMaps() {
           const evmContractAddress = formatEvmAddress(
             token.evmContract?.address,
           );
-          const contract = evmContractAddress ?? token.tokenId;
+          const contract = token.tokenId ?? evmContractAddress;
           if (contract) {
             const displayName = getSpotTokenDisplayName(token.name);
-            const explorer: ISpotTokenContractExplorer = evmContractAddress
-              ? { type: 'address', value: evmContractAddress }
-              : { type: 'token', value: contract };
+            const explorer: ISpotTokenContractExplorer = token.tokenId
+              ? { type: 'token', value: token.tokenId }
+              : { type: 'address', value: evmContractAddress ?? contract };
             contractMap[token.name] = contract;
             contractMap[displayName] = contract;
             contractExplorerMap[token.name] = explorer;
