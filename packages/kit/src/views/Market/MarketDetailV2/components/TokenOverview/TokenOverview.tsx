@@ -7,13 +7,15 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openBlockExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { useBtcMetadata } from '../../hooks/useBtcMetadata';
+import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
   formatBlockHeightValue,
   formatCurrencyStatValue,
   formatMarketCapValue,
+  formatStatValueWithFormatter,
 } from '../../utils/statValue';
 import { TokenSecurityAlertDialogContent } from '../TokenSecurityAlert/components';
 import { useTokenSecurity } from '../TokenSecurityAlert/hooks/useTokenSecurity';
@@ -23,6 +25,15 @@ import { StatCard } from './components/StatCard';
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
 
 import type { IStatItem } from './components/StatCard';
+
+const marketCapFormatter: INumberFormatProps = {
+  formatter: 'marketCap',
+};
+
+const usdCurrencyFormatter: INumberFormatProps = {
+  formatter: 'marketCap',
+  formatterOptions: { currency: '$' },
+};
 
 const formatBtcAmount = (value: string | number | undefined): string => {
   const formatted = formatMarketCapValue(value);
@@ -37,7 +48,7 @@ export function TokenOverview() {
       tokenAddress,
       networkId,
     });
-  const btcMetadata = useBtcMetadata();
+  const btcMetadata = useBtcMetadataContext();
 
   const handleAuditPress = useCallback(() => {
     Dialog.show({
@@ -190,7 +201,10 @@ export function TokenOverview() {
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_holders,
               })}
-              value={formatMarketCapValue(tokenDetail.holders)}
+              value={formatStatValueWithFormatter(
+                tokenDetail.holders,
+                marketCapFormatter,
+              )}
             />
           </XStack>
 
@@ -199,7 +213,10 @@ export function TokenOverview() {
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_market_cap,
               })}
-              value={formatCurrencyStatValue(tokenDetail.marketCap)}
+              value={formatStatValueWithFormatter(
+                tokenDetail.marketCap,
+                usdCurrencyFormatter,
+              )}
               tooltip={intl.formatMessage({
                 id: ETranslations.dexmarket_mc_tips,
               })}
@@ -208,7 +225,10 @@ export function TokenOverview() {
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_liquidity,
               })}
-              value={formatCurrencyStatValue(tokenDetail.tvl)}
+              value={formatStatValueWithFormatter(
+                tokenDetail.tvl,
+                usdCurrencyFormatter,
+              )}
               tooltip={intl.formatMessage({
                 id: ETranslations.dexmarket_Liq_tips,
               })}
@@ -220,7 +240,10 @@ export function TokenOverview() {
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_details_circulating_supply,
               })}
-              value={formatMarketCapValue(tokenDetail.circulatingSupply)}
+              value={formatStatValueWithFormatter(
+                tokenDetail.circulatingSupply,
+                marketCapFormatter,
+              )}
               tooltip={intl.formatMessage({
                 id: ETranslations.dexmarket_circulating_supply_tips,
               })}
@@ -229,7 +252,10 @@ export function TokenOverview() {
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_fdv_title,
               })}
-              value={formatCurrencyStatValue(tokenDetail.fdv)}
+              value={formatStatValueWithFormatter(
+                tokenDetail.fdv,
+                usdCurrencyFormatter,
+              )}
               tooltip={intl.formatMessage({
                 id: ETranslations.dexmarket_fdv_desc,
               })}

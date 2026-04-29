@@ -58,6 +58,10 @@ export function useBtcMetadata(): IUseBtcMetadataResult | null {
               { id: ETranslations.dexmarket_token_age_h },
               { amount },
             ),
+          imminent: () =>
+            intl.formatMessage({
+              id: ETranslations.dexmarket_btc_next_halving_imminent,
+            }),
         },
       ),
     };

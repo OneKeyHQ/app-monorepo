@@ -13,7 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
-import { useBtcMetadata } from '../../hooks/useBtcMetadata';
+import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
 import {
   STAT_FALLBACK_VALUE,
   formatRatioValue,
@@ -70,7 +70,7 @@ export function TokenDetailHeaderRight({
   const marketCapValue = normalizeStatValue(marketCap) ?? STAT_FALLBACK_VALUE;
   const liquidityValue = normalizeStatValue(liquidity) ?? STAT_FALLBACK_VALUE;
   const holdersValue = normalizeStatValue(holders) ?? STAT_FALLBACK_VALUE;
-  const btcMetadata = useBtcMetadata();
+  const btcMetadata = useBtcMetadataContext();
 
   const shareButton =
     networkId && platformEnv.isNative ? (

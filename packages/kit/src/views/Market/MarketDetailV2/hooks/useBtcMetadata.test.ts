@@ -14,10 +14,18 @@ jest.mock('./useTokenDetail', () => ({
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: (descriptor: { id: string }, values: { amount: number }) => {
-      if (descriptor.id === 'dexmarket.token_age_y') return `${values.amount}Y`;
-      if (descriptor.id === 'dexmarket.token_age_d') return `${values.amount}D`;
-      if (descriptor.id === 'dexmarket.token_age_h') return `${values.amount}H`;
+    formatMessage: (
+      descriptor: { id: string },
+      values?: { amount: number },
+    ) => {
+      if (descriptor.id === 'dexmarket.token_age_y')
+        return `${values?.amount}Y`;
+      if (descriptor.id === 'dexmarket.token_age_d')
+        return `${values?.amount}D`;
+      if (descriptor.id === 'dexmarket.token_age_h')
+        return `${values?.amount}H`;
+      if (descriptor.id === 'dexmarket_btc.next_halving_imminent')
+        return 'Imminent';
       return descriptor.id;
     },
   }),

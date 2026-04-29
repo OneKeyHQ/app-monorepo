@@ -11,15 +11,26 @@ import {
 } from '@onekeyhq/components';
 import { openBlockExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { useBtcMetadata } from '../../hooks/useBtcMetadata';
+import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
   STAT_FALLBACK_VALUE,
   formatBlockHeightValue,
   formatCurrencyStatValue,
   formatMarketCapValue,
+  formatStatValueWithFormatter,
 } from '../../utils/statValue';
+
+const marketCapFormatter: INumberFormatProps = {
+  formatter: 'marketCap',
+};
+
+const usdCurrencyFormatter: INumberFormatProps = {
+  formatter: 'marketCap',
+  formatterOptions: { currency: '$' },
+};
 
 const formatBtcAmount = (value: string | number | undefined) => {
   const formatted = formatMarketCapValue(value);
@@ -37,7 +48,7 @@ interface ISupplementaryRow {
 export function TokenSupplementaryInfo() {
   const intl = useIntl();
   const { tokenDetail, networkId } = useTokenDetail();
-  const btcMetadata = useBtcMetadata();
+  const btcMetadata = useBtcMetadataContext();
 
   const handleBlockHeightPress = useCallback(() => {
     if (!btcMetadata) {
@@ -99,7 +110,10 @@ export function TokenSupplementaryInfo() {
         label: intl.formatMessage({
           id: ETranslations.global_circulating_supply,
         }),
-        value: formatMarketCapValue(tokenDetail.circulatingSupply),
+        value: formatStatValueWithFormatter(
+          tokenDetail.circulatingSupply,
+          marketCapFormatter,
+        ),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_circulating_supply_tips,
         }),
@@ -107,13 +121,19 @@ export function TokenSupplementaryInfo() {
       {
         key: 'marketCap',
         label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
-        value: formatCurrencyStatValue(tokenDetail.marketCap),
+        value: formatStatValueWithFormatter(
+          tokenDetail.marketCap,
+          usdCurrencyFormatter,
+        ),
         tooltip: intl.formatMessage({ id: ETranslations.dexmarket_mc_tips }),
       },
       {
         key: 'fdv',
         label: intl.formatMessage({ id: ETranslations.global_fdv }),
-        value: formatCurrencyStatValue(tokenDetail.fdv),
+        value: formatStatValueWithFormatter(
+          tokenDetail.fdv,
+          usdCurrencyFormatter,
+        ),
         tooltip: intl.formatMessage({ id: ETranslations.dexmarket_fdv_desc }),
       },
     ];

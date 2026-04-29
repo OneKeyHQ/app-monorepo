@@ -13,7 +13,7 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
-import { useBtcMetadata } from '../../hooks/useBtcMetadata';
+import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
   formatPriceChangeDisplay,
@@ -65,7 +65,7 @@ function HeaderStatRows({
 }: {
   isStockToken: boolean;
   stock: IMarketTokenDetail['stock'];
-  btcMetadata: ReturnType<typeof useBtcMetadata>;
+  btcMetadata: ReturnType<typeof useBtcMetadataContext>;
   fallback: {
     marketCap: string;
     liquidity: string;
@@ -155,7 +155,7 @@ export function InformationPanel() {
   const currencyInfo = useCurrency();
   const { tokenDetail, networkId, tokenAddress, isStockToken } =
     useTokenDetail();
-  const btcMetadata = useBtcMetadata();
+  const btcMetadata = useBtcMetadataContext();
 
   const { securityData } = useTokenSecurity({
     tokenAddress,
