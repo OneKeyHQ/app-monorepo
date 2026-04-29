@@ -57,116 +57,119 @@ type IOrbProps = {
   durationMs: number;
 };
 
-const Orb = memo(function Orb({
-  size,
-  top,
-  bottom,
-  left,
-  right,
-  color,
-  peakAlpha,
-  gradientEdgePct,
-  xKeyframes,
-  yKeyframes,
-  scaleKeyframes,
-  opacityKeyframes,
-  durationMs,
-}: IOrbProps) {
-  const x = useSharedValue(xKeyframes[0]);
-  const y = useSharedValue(yKeyframes[0]);
-  const scale = useSharedValue(scaleKeyframes[0]);
-  const opacity = useSharedValue(opacityKeyframes?.[0] ?? 1);
-
-  useEffect(() => {
-    const segments = xKeyframes.length - 1;
-    const segDur = durationMs / segments;
-    const easing = Easing.inOut(Easing.ease);
-
-    const seq = (vals: readonly number[]) =>
-      withRepeat(
-        withSequence(
-          ...vals
-            .slice(1)
-            .map((v) => withTiming(v, { duration: segDur, easing })),
-        ),
-        -1,
-        false,
-      );
-
-    x.value = seq(xKeyframes);
-    y.value = seq(yKeyframes);
-    scale.value = seq(scaleKeyframes);
-    if (opacityKeyframes) {
-      opacity.value = seq(opacityKeyframes);
-    }
-    return () => {
-      cancelAnimation(x);
-      cancelAnimation(y);
-      cancelAnimation(scale);
-      cancelAnimation(opacity);
-    };
-  }, [
-    durationMs,
-    opacity,
-    opacityKeyframes,
-    scale,
-    scaleKeyframes,
-    x,
+const Orb = memo(
+  ({
+    size,
+    top,
+    bottom,
+    left,
+    right,
+    color,
+    peakAlpha,
+    gradientEdgePct,
     xKeyframes,
-    y,
     yKeyframes,
-  ]);
+    scaleKeyframes,
+    opacityKeyframes,
+    durationMs,
+  }: IOrbProps) => {
+    const x = useSharedValue(xKeyframes[0]);
+    const y = useSharedValue(yKeyframes[0]);
+    const scale = useSharedValue(scaleKeyframes[0]);
+    const opacity = useSharedValue(opacityKeyframes?.[0] ?? 1);
 
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: x.value },
-      { translateY: y.value },
-      { scale: scale.value },
-    ],
-    opacity: opacity.value,
-  }));
+    useEffect(() => {
+      const segments = xKeyframes.length - 1;
+      const segDur = durationMs / segments;
+      const easing = Easing.inOut(Easing.ease);
 
-  const gradientId = `hero-orb-${size}-${color.replace('#', '')}`;
+      const seq = (vals: readonly number[]) =>
+        withRepeat(
+          withSequence(
+            ...vals
+              .slice(1)
+              .map((v) => withTiming(v, { duration: segDur, easing })),
+          ),
+          -1,
+          false,
+        );
 
-  return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          width: size,
-          height: size,
-          top,
-          bottom,
-          left,
-          right,
-        } as ViewStyle,
-        animStyle,
-      ]}
-    >
-      <Svg width="100%" height="100%">
-        <Defs>
-          <RadialGradient
-            id={gradientId}
-            cx="50%"
-            cy="50%"
-            rx="50%"
-            ry="50%"
-            fx="50%"
-            fy="50%"
-          >
-            <Stop offset="0%" stopColor={color} stopOpacity={peakAlpha} />
-            <Stop
-              offset={`${gradientEdgePct}%`}
-              stopColor={color}
-              stopOpacity={0}
-            />
-          </RadialGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
-      </Svg>
-    </Animated.View>
-  );
-});
+      x.value = seq(xKeyframes);
+      y.value = seq(yKeyframes);
+      scale.value = seq(scaleKeyframes);
+      if (opacityKeyframes) {
+        opacity.value = seq(opacityKeyframes);
+      }
+      return () => {
+        cancelAnimation(x);
+        cancelAnimation(y);
+        cancelAnimation(scale);
+        cancelAnimation(opacity);
+      };
+    }, [
+      durationMs,
+      opacity,
+      opacityKeyframes,
+      scale,
+      scaleKeyframes,
+      x,
+      xKeyframes,
+      y,
+      yKeyframes,
+    ]);
+
+    const animStyle = useAnimatedStyle(() => ({
+      transform: [
+        { translateX: x.value },
+        { translateY: y.value },
+        { scale: scale.value },
+      ],
+      opacity: opacity.value,
+    }));
+
+    const gradientId = `hero-orb-${size}-${color.replace('#', '')}`;
+
+    return (
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            width: size,
+            height: size,
+            top,
+            bottom,
+            left,
+            right,
+          } as ViewStyle,
+          animStyle,
+        ]}
+      >
+        <Svg width="100%" height="100%">
+          <Defs>
+            <RadialGradient
+              id={gradientId}
+              cx="50%"
+              cy="50%"
+              rx="50%"
+              ry="50%"
+              fx="50%"
+              fy="50%"
+            >
+              <Stop offset="0%" stopColor={color} stopOpacity={peakAlpha} />
+              <Stop
+                offset={`${gradientEdgePct}%`}
+                stopColor={color}
+                stopOpacity={0}
+              />
+            </RadialGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
+        </Svg>
+      </Animated.View>
+    );
+  },
+);
+Orb.displayName = 'Orb';
 
 // Based on `BgOrbDrift` from the Onboarding Background Explorations design
 // handoff (`docs/plans/2026-04-27-onboarding-hero-atmosphere.md`).
