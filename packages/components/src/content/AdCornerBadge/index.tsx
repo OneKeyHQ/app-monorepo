@@ -37,7 +37,7 @@ const adCornerBadgeSizeMap: Record<
   },
 };
 
-function AdCornerBadgeInner({
+function BasicAdCornerBadge({
   badgeSize = 'sm',
   placement = 'top-right',
   ...rest
@@ -81,4 +81,4 @@ function AdCornerBadgeInner({
   );
 }
 
-export const AdCornerBadge = memo(AdCornerBadgeInner);
+export const AdCornerBadge = memo(BasicAdCornerBadge);
