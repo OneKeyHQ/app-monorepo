@@ -510,6 +510,7 @@ function WebSocketSubscriptionUpdate() {
   const tokenSelectorOpen = tradeRouteViewState.tokenSelectorOpen;
   const tokenSelectorTab = tradeRouteViewState.tokenSelectorTab;
   const infoPanelTab = tradeRouteViewState.infoPanelTab;
+  const favoritesBarSpotActive = tradeRouteViewState.favoritesBarSpotActive;
   const accountAddress = activePerpsAccount?.accountAddress;
 
   // Refs for reading inside effect body without triggering it
@@ -535,6 +536,7 @@ function WebSocketSubscriptionUpdate() {
       tokenSelectorOpen,
       tokenSelectorTab,
       infoPanelTab,
+      favoritesBarSpotActive,
     });
 
     const plan = planTradeSubscriptions({
@@ -575,6 +577,7 @@ function WebSocketSubscriptionUpdate() {
     tokenSelectorOpen,
     tokenSelectorTab,
     infoPanelTab,
+    favoritesBarSpotActive,
   ]);
   return null;
 }
