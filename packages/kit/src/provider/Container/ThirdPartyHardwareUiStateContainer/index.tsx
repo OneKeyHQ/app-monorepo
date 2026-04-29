@@ -50,7 +50,7 @@ function getToastLabel(action: string | undefined, _vendor: string): string {
   switch (action) {
     case EThirdPartyHardwareUiAction.openApp:
       return appLocale.intl.formatMessage({
-        id: ETranslations.hardware_third_party_app_not_installed,
+        id: ETranslations.hardware_third_party_app_not_open,
       });
     case EThirdPartyHardwareUiAction.unlockDevice:
       return appLocale.intl.formatMessage({
@@ -204,9 +204,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     if (params?.flag !== AUTO_CLOSED_FLAG) {
       const vendor = uiStateRef.current?.vendor;
       if (vendor) {
-        await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse({
+        await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
           vendor,
-          type: 'cancel',
         });
       }
     }
