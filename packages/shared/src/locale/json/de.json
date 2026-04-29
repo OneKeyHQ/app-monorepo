@@ -811,6 +811,7 @@
   "dexmarket_stock.underlying_asset_name": "Name des Basiswerts",
   "dexmarket_stock.underlying_asset_ticker": "Basiswert-Ticker",
   "dexmarket_stock.volume_shares": "Volumen (Aktien)",
+  "discovery.ad_label": "AD",
   "do_not_exit_app_during_setup": "Bitte beenden Sie die App während der Einrichtung nicht, da sonst die Erstellung fehlschlägt",
   "dont_have_mobile_app_yet": "Haben Sie die mobile App noch nicht?",
   "downgrade_warning_checkbox_label": "Ich werde NICHT auf OneKey v4 herunterstufen",
