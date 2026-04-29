@@ -729,9 +729,8 @@ export interface IBtcRewardVerifyCodeParams {
 
 export interface IBtcRewardVerifyCodeData {
   codeId: string;
-  activityName: string;
-  modelLabel: string;
-  rewardUsdCents: number;
+  batchName: string;
+  rewardUsd: number;
 }
 
 export interface IBtcRewardVerifyVoucherParams {
@@ -742,10 +741,8 @@ export interface IBtcRewardVerifyVoucherParams {
 }
 
 export interface IBtcRewardVerifyVoucherData {
-  orderSummary: {
-    orderNumber: string;
-    displayTitle: string;
-  };
+  voucherSource: string;
+  displayTitle: string;
   quotaRemaining: number;
 }
 
@@ -771,18 +768,16 @@ export interface IBtcRewardHistoryParams {
 
 export interface IBtcRewardHistoryItem {
   code: string;
-  activityName?: string | null;
-  modelLabel: string;
-  rewardUsdCents: number;
-  btcAmount?: string | null;
-  btcPriceUsd?: string | null;
+  batchName: string;
+  rewardUsd: number;
+  voucherCode: string;
+  voucherSource: string;
+  walletAddress: string;
+  btcAmount: string;
+  btcPriceUsd: string;
   status: EBtcRewardStatus;
-  submittedAt?: string | null;
-  payoutEligibleAt?: string | null;
-  paidAt?: string | null;
-  txHash?: string | null;
-  rejectReason?: string | null;
-  walletAddress?: string;
+  submittedAt: string;
+  payoutEligibleAt: string;
 }
 
 export interface IBtcRewardHistoryResponse {

@@ -97,7 +97,7 @@ const DESKTOP_SUBTITLE_MAX_WIDTH = 52;
 const MOBILE_SUBTITLE_MAX_WIDTH = 80;
 
 export const SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT = {
-  asset: { flex: 1.8, minWidth: 180 },
+  asset: { flex: 2.2, minWidth: 220 },
   price: { flex: 1.1, minWidth: 110 },
   change24h: { flex: 1.5, minWidth: 150 },
   volume: { flex: 1.1, minWidth: 110 },
@@ -671,9 +671,11 @@ const TokenSelectorRowDesktop = memo(() => {
           onPress={onPress}
           borderRadius="$0"
           justifyContent="flex-start"
+          width="100%"
           hoverStyle={{ bg: '$bgHover' }}
           px="$4"
           py="$3"
+          minHeight={48}
           flex={1}
           cursor="default"
         >
