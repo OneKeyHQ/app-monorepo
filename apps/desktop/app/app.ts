@@ -1810,8 +1810,10 @@ try {
     '\\$&',
   );
   // process.env.VERSION is substituted at build time by webpack DefinePlugin
-  // (apps/desktop/scripts/build.js) — the same path every other call site uses.
-  const appVersion = process.env.VERSION || '1.0.0';
+  // (apps/desktop/scripts/build.js) — the same path every other call site
+  // uses. Falls back to '1' to match buildCustomUA()'s fallback in
+  // packages/shared/src/request/customUA.ts.
+  const appVersion = process.env.VERSION || '1';
   app.userAgentFallback = app.userAgentFallback.replace(
     new RegExp(`(OneKeyWallet)/${electronVer}\\b`),
     `$1/${appVersion}`,
