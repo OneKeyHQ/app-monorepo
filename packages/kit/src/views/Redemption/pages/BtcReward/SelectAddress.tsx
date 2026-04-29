@@ -32,7 +32,6 @@ type IRouteParams = RouteProp<
     BtcRewardSelectAddress: {
       codeInfo: IBtcRewardCodeInfoParam;
       voucherCode: string;
-      displayOrderNumber: string;
       displayTitle: string;
       quotaRemaining?: number;
     };
@@ -46,13 +45,7 @@ function SelectAddressContent() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route = useRoute<IRouteParams>();
-  const {
-    codeInfo,
-    voucherCode,
-    displayOrderNumber,
-    displayTitle,
-    quotaRemaining,
-  } = route.params;
+  const { codeInfo, voucherCode, displayTitle, quotaRemaining } = route.params;
 
   const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
@@ -109,7 +102,6 @@ function SelectAddressContent() {
     navigation.push(EModalReferFriendsRoutes.BtcRewardConfirm, {
       codeInfo,
       voucherCode,
-      displayOrderNumber,
       displayTitle,
       walletAddress,
     });
@@ -119,7 +111,6 @@ function SelectAddressContent() {
     walletAddress,
     codeInfo,
     voucherCode,
-    displayOrderNumber,
     displayTitle,
   ]);
 

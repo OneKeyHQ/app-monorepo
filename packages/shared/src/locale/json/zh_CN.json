@@ -3118,6 +3118,7 @@
   "perps__fee_discount_activated__msg": "手续费优惠已生效",
   "perps__snooze_remind_later__action": "暂不需要，下次再提醒我",
   "perps_footer.help_us_better": "合约社区",
+  "perps_hide_other_pairs": "隐藏其他交易对",
   "perps_referral_campaign__desc": "邀请好友，一起抽奖 99U。更有天梯排名冲击大奖！",
   "perps_trigger_price_equal_current": "触发价不能等于当前价格",
   "pick_your_device": "选择您的设备",
