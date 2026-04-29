@@ -29,7 +29,6 @@ type IRouteParams = RouteProp<
     BtcRewardConfirm: {
       codeInfo: IBtcRewardCodeInfoParam;
       voucherCode: string;
-      displayOrderNumber: string;
       displayTitle: string;
       walletAddress: string;
     };
@@ -41,14 +40,8 @@ function ConfirmRedeemPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route = useRoute<IRouteParams>();
-  const {
-    codeInfo,
-    voucherCode,
-    displayOrderNumber,
-    displayTitle,
-    walletAddress,
-  } = route.params;
-  const { codeId, rewardUsdCents, activityName } = codeInfo;
+  const { codeInfo, voucherCode, displayTitle, walletAddress } = route.params;
+  const { codeId, rewardUsd } = codeInfo;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -83,7 +76,7 @@ function ConfirmRedeemPage() {
             {
               name: EModalReferFriendsRoutes.BtcRewardSuccess,
               params: {
-                rewardUsdCents,
+                rewardUsd,
                 walletAddress,
                 btcAmount: result.data.btcAmount,
                 btcPriceUsd: result.data.btcPriceUsd,
@@ -102,7 +95,7 @@ function ConfirmRedeemPage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [navigation, codeId, rewardUsdCents, voucherCode, walletAddress, intl]);
+  }, [navigation, codeId, rewardUsd, voucherCode, walletAddress, intl]);
 
   const handleChangeAddress = useCallback(() => {
     navigation.pop();
@@ -124,7 +117,7 @@ function ConfirmRedeemPage() {
               })}
             </SizableText>
             <SizableText size="$heading4xl" color="$text">
-              {formatUsd(rewardUsdCents / 100)}
+              {formatUsd(rewardUsd)}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
               {intl.formatMessage({
@@ -137,33 +130,11 @@ function ConfirmRedeemPage() {
             <XStack justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.Limit_order_history_order_id,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {displayOrderNumber}
-              </SizableText>
-            </XStack>
-
-            <XStack justifyContent="space-between">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
                   id: ETranslations.redemption_btc_label_product,
                 })}
               </SizableText>
               <SizableText size="$bodyMdMedium">{displayTitle}</SizableText>
             </XStack>
-
-            {activityName ? (
-              <XStack justifyContent="space-between">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.redemption_btc_label_activity_title,
-                  })}
-                </SizableText>
-                <SizableText size="$bodyMdMedium">{activityName}</SizableText>
-              </XStack>
-            ) : null}
 
             <Divider />
 

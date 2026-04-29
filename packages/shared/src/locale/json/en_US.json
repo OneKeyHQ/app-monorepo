@@ -3118,6 +3118,7 @@
   "perps__fee_discount_activated__msg": "Fee discount activated",
   "perps__snooze_remind_later__action": "Not now, remind me later",
   "perps_footer.help_us_better": "Perps Community",
+  "perps_hide_other_pairs": "Hide other pairs",
   "perps_referral_campaign__desc": "Invite friends, win 99U together. Climb the leaderboard for a chance at the grand prize!",
   "perps_trigger_price_equal_current": "Trigger price must differ from current price",
   "pick_your_device": "Pick your device",
