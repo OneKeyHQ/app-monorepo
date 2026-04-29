@@ -37,6 +37,10 @@ export interface IDevSettings {
   showDevExportPrivateKey?: boolean;
   // disable Solana priority fee
   disableSolanaPriorityFee?: boolean;
+  // global kill switch for Gas Account (sponsored gas) — when true,
+  // ServiceGas.estimateFee forces gasAccountEnabled=false for every caller
+  // (Send / Swap / Perps / Earn / dApp ...)
+  disableGasAccount?: boolean;
   enableMockHighTxFee?: boolean;
   disableAllShortcuts?: boolean;
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
@@ -106,6 +110,7 @@ export const {
       enableTestEndpoint: !!platformEnv.isDev || !!platformEnv.isE2E,
       showDevOverlayWindow: platformEnv.isE2E ? true : undefined,
       disableSolanaPriorityFee: false,
+      disableGasAccount: false,
       enableMockHighTxFee: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,

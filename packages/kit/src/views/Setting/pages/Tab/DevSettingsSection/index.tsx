@@ -1785,6 +1785,27 @@ const BaseDevSettingsSection = () => {
                         />
                       </SectionFieldItem>
                       <SectionFieldItem
+                        icon="GasOutline"
+                        name="disableGasAccount"
+                        title="禁用 Gas Account（代付）"
+                        subtitle={
+                          devSettings.settings?.disableGasAccount
+                            ? '全局禁用：所有 estimateFee 调用强制 gasAccountEnabled=false'
+                            : '默认启用（按后端策略判定）'
+                        }
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'disableGasAccount',
+                              !devSettings.settings?.disableGasAccount,
+                            );
+                          }}
+                          value={devSettings.settings?.disableGasAccount}
+                        />
+                      </SectionFieldItem>
+                      <SectionFieldItem
                         icon="GasIllus"
                         name="enableMockHighTxFee"
                         title="模拟交易费过高"
