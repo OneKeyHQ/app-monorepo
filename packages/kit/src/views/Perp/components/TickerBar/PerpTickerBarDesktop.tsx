@@ -20,6 +20,10 @@ import {
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  openHyperLiquidExplorerUrl,
+  openHyperLiquidTokenExplorerUrl,
+} from '@onekeyhq/kit/src/utils/explorerUtils';
+import {
   usePerpsActiveAssetCtxAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -36,7 +40,10 @@ import {
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
-import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
+import {
+  type ISpotTokenContractExplorer,
+  useSpotMetaMaps,
+} from '../../hooks/useSpotMetaMaps';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
 
@@ -398,7 +405,15 @@ function TickerBarMarketCap() {
 }
 
 const TickerBarSpotContractView = memo(
-  ({ contract, isLoading }: { contract?: string; isLoading: boolean }) => {
+  ({
+    contract,
+    explorer,
+    isLoading,
+  }: {
+    contract?: string;
+    explorer?: ISpotTokenContractExplorer;
+    isLoading: boolean;
+  }) => {
     const intl = useIntl();
     const { copyText } = useClipboard();
     const shortenedContract = contract
@@ -424,15 +439,34 @@ const TickerBarSpotContractView = memo(
                 {shortenedContract}
               </SizableText>
               {contract ? (
-                <IconButton
-                  size="small"
-                  variant="tertiary"
-                  icon="Copy3Outline"
-                  iconProps={{ size: '$3', color: '$iconSubdued' }}
-                  onPress={() => {
-                    copyText(contract);
-                  }}
-                />
+                <>
+                  <IconButton
+                    size="small"
+                    variant="tertiary"
+                    icon="Copy3Outline"
+                    iconProps={{ size: '$3', color: '$iconSubdued' }}
+                    onPress={() => {
+                      copyText(contract);
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    variant="tertiary"
+                    icon="OpenOutline"
+                    iconProps={{ size: '$3', color: '$iconSubdued' }}
+                    onPress={() => {
+                      if (explorer?.type === 'address') {
+                        void openHyperLiquidExplorerUrl({
+                          address: explorer.value,
+                        });
+                      } else {
+                        void openHyperLiquidTokenExplorerUrl({
+                          tokenId: explorer?.value ?? contract,
+                        });
+                      }
+                    }}
+                  />
+                </>
               ) : null}
             </XStack>
           </SkeletonContainer>
@@ -445,14 +479,21 @@ TickerBarSpotContractView.displayName = 'TickerBarSpotContractView';
 
 function TickerBarSpotContract() {
   const [spotAsset] = useSpotActiveAssetAtom();
-  const { tokenContractMap } = useSpotMetaMaps();
+  const { tokenContractMap, tokenContractExplorerMap } = useSpotMetaMaps();
   const isLoading = useTickerBarIsLoading();
   const contract =
     tokenContractMap[spotAsset?.universe?.baseName ?? ''] ||
     tokenContractMap[spotAsset?.coin ?? ''];
+  const explorer =
+    tokenContractExplorerMap[spotAsset?.universe?.baseName ?? ''] ||
+    tokenContractExplorerMap[spotAsset?.coin ?? ''];
 
   return (
-    <TickerBarSpotContractView contract={contract} isLoading={isLoading} />
+    <TickerBarSpotContractView
+      contract={contract}
+      explorer={explorer}
+      isLoading={isLoading}
+    />
   );
 }
 

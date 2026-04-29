@@ -20,7 +20,10 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
-import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
+import {
+  type ISpotTokenContractExplorer,
+  useSpotMetaMaps,
+} from '../../../hooks/useSpotMetaMaps';
 import { BalanceRow } from '../Components/BalanceRow';
 import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
 
@@ -36,6 +39,7 @@ export interface IBalanceDisplayItem {
   pnl?: string;
   pnlPercent?: number;
   contract?: string;
+  contractExplorer?: ISpotTokenContractExplorer;
   logoURI?: string;
   usdcValueNum: number;
   spotUniverse?: ISpotUniverse;
@@ -71,8 +75,12 @@ function SpotBalanceList({
   const [currentUser] = usePerpsActiveAccountAtom();
   const [priceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
-  const { spotUniverses, universeByBaseName, tokenContractMap } =
-    useSpotMetaMaps();
+  const {
+    spotUniverses,
+    universeByBaseName,
+    tokenContractMap,
+    tokenContractExplorerMap,
+  } = useSpotMetaMaps();
   const [currentListPage, setCurrentListPage] = useState(1);
 
   useEffect(() => {
@@ -154,6 +162,7 @@ function SpotBalanceList({
         pnl,
         pnlPercent,
         contract: tokenContractMap[b.coin],
+        contractExplorer: tokenContractExplorerMap[b.coin],
         logoURI: getHyperliquidTokenImageUrl(b.coin),
         spotUniverse,
         isAssetClickable,
@@ -207,6 +216,7 @@ function SpotBalanceList({
     accountSummary,
     tokenPriceLookup,
     tokenContractMap,
+    tokenContractExplorerMap,
     universeByBaseName,
   ]);
 
