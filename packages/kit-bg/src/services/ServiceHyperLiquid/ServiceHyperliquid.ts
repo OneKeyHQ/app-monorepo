@@ -115,6 +115,10 @@ import type {
   IPerpServerDepositConfig,
 } from '../ServiceWebviewPerp/ServiceWebviewPerp';
 
+type ILoadTradesHistoryOptions = {
+  force?: boolean;
+};
+
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
@@ -459,6 +463,27 @@ export default class ServiceHyperliquid extends ServiceBase {
     return config.tokenSearchAliases;
   }
 
+  private _getFillKey(fill: IFill): string {
+    if (typeof fill.tid === 'number') {
+      return `tid:${fill.tid}`;
+    }
+    return `${fill.hash}-${fill.oid}-${fill.time}-${fill.coin}-${fill.side}-${fill.px}-${fill.sz}`;
+  }
+
+  private _sortAndDedupeFills(fills: IFill[]): IFill[] {
+    const fillMap = new Map<string, IFill>();
+    for (const fill of fills) {
+      const key = this._getFillKey(fill);
+      const existing = fillMap.get(key);
+      if (!existing || fill.time >= existing.time) {
+        fillMap.set(key, fill);
+      }
+    }
+    return Array.from(fillMap.values()).toSorted(
+      (a, b) => b.time - a.time || (b.tid ?? 0) - (a.tid ?? 0),
+    );
+  }
+
   _getUserFillsByTimeMemo = cacheUtils.memoizee(
     async (params: IUserFillsByTimeParameters) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -495,14 +520,20 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async loadTradesHistory(accountAddress: IHex): Promise<IFill[]> {
+  async loadTradesHistory(
+    accountAddress: IHex,
+    options: ILoadTradesHistoryOptions = {},
+  ): Promise<IFill[]> {
     const current = await perpsTradesHistoryDataAtom.get();
+    const isSameAccount =
+      current.accountAddress?.toLowerCase() === accountAddress.toLowerCase();
 
-    if (
-      current.isLoaded &&
-      current.accountAddress?.toLowerCase() === accountAddress.toLowerCase()
-    ) {
+    if (!options.force && current.isLoaded && isSameAccount) {
       return current.fills;
+    }
+
+    if (options.force) {
+      this._getUserFillsByTimeMemo.clear();
     }
 
     // Quantize to 10-second boundary so near-simultaneous callers
@@ -512,14 +543,19 @@ export default class ServiceHyperliquid extends ServiceBase {
     const historyDuration = timerUtils.getTimeDurationMs({ year: 2 });
     const twoYearsAgo = now - historyDuration;
 
-    const fills = await this._getUserFillsByTimeMemo({
+    const params = {
       user: accountAddress,
       startTime: twoYearsAgo,
       endTime: now,
       aggregateByTime: true,
-    });
+    };
 
-    const sorted = [...fills].toSorted((a, b) => b.time - a.time);
+    const fills = options.force
+      ? await this.getUserFillsByTime(params)
+      : await this._getUserFillsByTimeMemo(params);
+    const sorted = this._sortAndDedupeFills(
+      isSameAccount ? [...current.fills, ...fills] : fills,
+    );
 
     await perpsTradesHistoryDataAtom.set({
       fills: sorted,
@@ -549,18 +585,22 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
-    const filtered = newFills
-      .filter((f) => f.time > current.latestTime)
-      .toSorted((a, b) => b.time - a.time);
-
-    if (filtered.length === 0) {
+    const currentFillKeys = new Set(
+      current.fills.map((fill) => this._getFillKey(fill)),
+    );
+    const hasNewFill = newFills.some(
+      (fill) => !currentFillKeys.has(this._getFillKey(fill)),
+    );
+    if (!hasNewFill) {
       return;
     }
 
+    const fills = this._sortAndDedupeFills([...newFills, ...current.fills]);
+
     await perpsTradesHistoryDataAtom.set({
       ...current,
-      fills: [...filtered, ...current.fills],
-      latestTime: Math.max(current.latestTime, filtered[0].time),
+      fills,
+      latestTime: fills[0]?.time ?? current.latestTime,
     });
   }
 

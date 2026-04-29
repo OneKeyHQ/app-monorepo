@@ -45,8 +45,13 @@ function PerpTradesHistoryList({
   useTabsList,
 }: IPerpTradesHistoryListProps) {
   const intl = useIntl();
-  const { trades, currentListPage, setCurrentListPage, isLoading } =
-    usePerpTradesHistory();
+  const {
+    trades,
+    currentListPage,
+    setCurrentListPage,
+    isLoading,
+    refreshTradesHistory,
+  } = usePerpTradesHistory();
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
@@ -297,14 +302,14 @@ function PerpTradesHistoryList({
 
   useUpdateEffect(() => {
     if (!isLocked) {
-      void backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
+      void refreshTradesHistory();
     }
-  }, [isLocked]);
+  }, [isLocked, refreshTradesHistory]);
 
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
-        await backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
+        await refreshTradesHistory();
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
