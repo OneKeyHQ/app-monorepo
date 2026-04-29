@@ -272,6 +272,8 @@ function CreateOrImportWallet() {
     disabled,
   }: IImportOption) => {
     const isPrimary = HIGHEST_PRIORITY_KEYS.has(key);
+    const iconColor = isPrimary ? '$iconInverse' : '$icon';
+    const textColor = isPrimary ? '$textInverse' : '$text';
     return (
       <Button
         key={key}
@@ -284,22 +286,19 @@ function CreateOrImportWallet() {
       >
         <YStack position="absolute" left="$5">
           {isLoading ? (
-            <Spinner size="small" />
+            <Spinner size="small" color={iconColor} />
           ) : (
             <Icon
               name={icon}
               size="$6"
-              color={isPrimary ? '$iconInverse' : '$icon'}
+              color={iconColor}
               $gtMd={{
                 size: '$5',
               }}
             />
           )}
         </YStack>
-        <SizableText
-          size="$bodyLgMedium"
-          color={isPrimary ? '$textInverse' : '$text'}
-        >
+        <SizableText size="$bodyLgMedium" color={textColor}>
           {title}
         </SizableText>
       </Button>
