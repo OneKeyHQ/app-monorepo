@@ -745,7 +745,6 @@ function syncBridgeConnection(
   },
   localFallback: () => Promise<any>,
 ) {
-  const previousBridge = mainThreadBridgeMap[params.channel] ?? null;
   mainThreadBridgeMap[params.channel] = params.bridge;
   if (params.channel === 'webEmbed') {
     if (params.bridge) {
@@ -754,11 +753,16 @@ function syncBridgeConnection(
       // is satisfied. `flushWebEmbedReadyWaiters` no-ops when (a) is still
       // false, so this is safe to call unconditionally.
       flushWebEmbedReadyWaiters();
-    } else if (previousBridge) {
-      // WebView unmounted (or transport sync flipped to disconnected). The
-      // page-side JS handshake of the *previous* mount is no longer
-      // authoritative for the *next* mount — reset (a) so the next caller
-      // re-validates against BG and waits for the new ready signal.
+    } else {
+      // No live webEmbed bridge — reset (a) unconditionally. We must NOT gate
+      // this on a previous bridge, because `checkBackgroundWebEmbedReady`
+      // can flip (a) true from BG's canonical flag *before* main has ever
+      // received a bridge. If we then ignored the null sync, a later mount
+      // whose bridge syncs ahead of its own `webEmbedApiReady` would see
+      // stale (a)=true + fresh (b)=true and `isMainThreadWebEmbedReady`
+      // would falsely release, dispatching imageUtils calls to a not-yet-
+      // ready page. Resetting on every null sync forces the next caller to
+      // re-validate via BG and wait for the new ready signal.
       webEmbedReady = false;
     }
   }
