@@ -707,7 +707,7 @@ export function useTrayDataProvider() {
       try {
         let rawData =
           await backgroundApiProxy.simpleDb.localHistory.getRawData();
-        let allTrackedTxs = collectTrayTrackedTxs(rawData);
+        let allTrackedTxs = collectTrayTrackedTxs(rawData, activeAccountId);
         const trackedPendingIds = new Set(
           allTrackedTxs
             .filter((tx) => tx.decodedTx?.status === EDecodedTxStatus.Pending)
@@ -716,12 +716,16 @@ export function useTrayDataProvider() {
         if (trackedPendingIds.size > 0) {
           await refreshTrayPendingTxStatuses(allTrackedTxs);
           rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
-          allTrackedTxs = collectTrayTrackedTxs(rawData);
+          allTrackedTxs = collectTrayTrackedTxs(rawData, activeAccountId);
           // Refresh moves failed txs out of the pendingTxs bucket
           // (SimpleDbEntityLocalHistory's save filters that bucket to
           // Pending-only), so re-attach them from confirmedTxs by id /
           // originalId — otherwise diffAndNotify mis-fires "Confirmed".
-          const recovered = recoverFailedTrackedTxs(rawData, trackedPendingIds);
+          const recovered = recoverFailedTrackedTxs(
+            rawData,
+            trackedPendingIds,
+            activeAccountId,
+          );
           if (recovered.length > 0) {
             const stillTrackedIds = new Set(allTrackedTxs.map((tx) => tx.id));
             for (const tx of recovered) {

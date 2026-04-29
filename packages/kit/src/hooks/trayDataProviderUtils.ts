@@ -203,17 +203,20 @@ export function getTrayTokenValueInTargetCurrency({
 
 export function collectTrayTrackedTxs(
   rawData: { pendingTxs?: Record<string, unknown> } | undefined | null,
+  activeAccountId: string | undefined,
 ): IAccountHistoryTx[] {
   const txs: IAccountHistoryTx[] = [];
-  if (!rawData?.pendingTxs) return txs;
+  if (!activeAccountId || !rawData?.pendingTxs) return txs;
 
   for (const value of Object.values(rawData.pendingTxs)) {
     if (Array.isArray(value)) {
       for (const tx of value) {
         const historyTx = tx as IAccountHistoryTx | undefined;
-        const status = historyTx?.decodedTx?.status;
+        const decodedTx = historyTx?.decodedTx;
+        const status = decodedTx?.status;
         if (
           historyTx &&
+          decodedTx?.accountId === activeAccountId &&
           (status === EDecodedTxStatus.Pending ||
             status === EDecodedTxStatus.Failed)
         ) {
@@ -229,9 +232,15 @@ export function collectTrayTrackedTxs(
 export function recoverFailedTrackedTxs(
   rawData: { confirmedTxs?: Record<string, unknown> } | undefined | null,
   trackedPendingIds: Set<string>,
+  activeAccountId: string | undefined,
 ): IAccountHistoryTx[] {
   const recovered: IAccountHistoryTx[] = [];
-  if (!rawData?.confirmedTxs || trackedPendingIds.size === 0) return recovered;
+  if (
+    !activeAccountId ||
+    !rawData?.confirmedTxs ||
+    trackedPendingIds.size === 0
+  )
+    return recovered;
 
   for (const value of Object.values(rawData.confirmedTxs)) {
     if (Array.isArray(value)) {
@@ -239,6 +248,7 @@ export function recoverFailedTrackedTxs(
         const historyTx = tx as IAccountHistoryTx | undefined;
         if (
           historyTx &&
+          historyTx.decodedTx?.accountId === activeAccountId &&
           historyTx.decodedTx?.status === EDecodedTxStatus.Failed
         ) {
           const originalId = historyTx.originalId;
