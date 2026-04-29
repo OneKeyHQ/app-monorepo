@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
-import { Button, Page } from '@onekeyhq/components';
+import { Button, Page, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -15,6 +15,7 @@ import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
 const MARKET_FOOTER_BUTTON_WIDTH = '47%';
 const MARKET_FOOTER_BUTTON_HEIGHT = 36;
+const MARKET_FOOTER_BUTTON_TEXT_LINE_HEIGHT = 20;
 
 // On Android, the native bottom tab navigator (react-native-bottom-tabs)
 // intercepts touches in the tab bar area, preventing RN's built-in touch
@@ -88,14 +89,24 @@ function PerpMarketFooter() {
             width="100%"
             height={MARKET_FOOTER_BUTTON_HEIGHT}
             size="small"
+            py="$0"
             borderRadius="$full"
             bg={longButtonStyle.bg}
-            color={longButtonStyle.textColor}
             justifyContent="center"
             alignItems="center"
+            childrenAsText={false}
             testID="page-footer-cancel"
           >
-            {buyText}
+            <SizableText
+              size="$bodyMdMedium"
+              lineHeight={MARKET_FOOTER_BUTTON_TEXT_LINE_HEIGHT}
+              color={longButtonStyle.textColor}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              textAlign="center"
+            >
+              {buyText}
+            </SizableText>
           </Button>
         </View>
       </GestureDetector>
@@ -112,14 +123,24 @@ function PerpMarketFooter() {
             width="100%"
             height={MARKET_FOOTER_BUTTON_HEIGHT}
             size="small"
+            py="$0"
             borderRadius="$full"
             bg={shortButtonStyle.bg}
-            color={shortButtonStyle.textColor}
             justifyContent="center"
             alignItems="center"
+            childrenAsText={false}
             testID="page-footer-confirm"
           >
-            {sellText}
+            <SizableText
+              size="$bodyMdMedium"
+              lineHeight={MARKET_FOOTER_BUTTON_TEXT_LINE_HEIGHT}
+              color={shortButtonStyle.textColor}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              textAlign="center"
+            >
+              {sellText}
+            </SizableText>
           </Button>
         </View>
       </GestureDetector>
@@ -131,7 +152,7 @@ function PerpMarketFooter() {
     <Page.Footer
       px="$2"
       pt="$3"
-      pb="$8"
+      pb="$10"
       cancelButton={buyButton}
       confirmButton={sellButton}
       buttonContainerProps={{

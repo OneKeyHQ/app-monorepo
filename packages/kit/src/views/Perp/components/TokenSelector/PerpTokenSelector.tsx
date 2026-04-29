@@ -50,7 +50,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
-  SPOT_MIN_VOLUME_STRICT,
+  SPOT_SELECTOR_MIN_VOLUME,
   formatSpotPairDisplayName,
   getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
@@ -138,6 +138,7 @@ function TokenListHeader({ isSpot }: { isSpot?: boolean }) {
   const intl = useIntl();
   return (
     <XStack
+      width="100%"
       px="$4"
       py="$3"
       borderBottomWidth="$px"
@@ -580,7 +581,7 @@ function BasePerpTokenSelectorContent({
           marketCap,
         };
       })
-      .filter((e) => e.volume24h >= SPOT_MIN_VOLUME_STRICT);
+      .filter((e) => e.volume24h >= SPOT_SELECTOR_MIN_VOLUME);
 
     if (sortField) {
       entries.sort((a, b) => {
@@ -800,12 +801,10 @@ function BasePerpTokenSelectorContent({
               <FavoritesEmptyState />
             ) : (
               <ListView
-                useFlashList
                 ref={listRef}
                 keyExtractor={keyExtractor}
-                estimatedItemSize={40}
                 windowSize={3}
-                initialNumToRender={5}
+                initialNumToRender={12}
                 data={activeTabData}
                 renderItem={renderItem}
                 ListEmptyComponent={listEmptyComponent}
