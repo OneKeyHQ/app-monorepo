@@ -811,6 +811,7 @@
   "dexmarket_stock.underlying_asset_name": "基礎資産名",
   "dexmarket_stock.underlying_asset_ticker": "基礎資産ティッカー",
   "dexmarket_stock.volume_shares": "取引量（株式）",
+  "discovery.ad_label": "広告",
   "do_not_exit_app_during_setup": "セットアップ中はアプリを終了しないでください。終了すると作成に失敗します",
   "dont_have_mobile_app_yet": "まだモバイルアプリをお持ちでないですか？",
   "downgrade_warning_checkbox_label": "私はOneKey v4にダウングレードするつもりはありません",
