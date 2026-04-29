@@ -778,6 +778,12 @@ export interface IBtcRewardHistoryItem {
   status: EBtcRewardStatus;
   submittedAt: string;
   payoutEligibleAt: string;
+  // Status-conditional fields. OAS marks them required but the value is an
+  // empty string when not applicable (paidAt/txHash empty unless paid;
+  // rejectReason empty unless rejected).
+  paidAt: string;
+  txHash: string;
+  rejectReason: string;
 }
 
 export interface IBtcRewardHistoryResponse {
