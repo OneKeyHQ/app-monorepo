@@ -18,6 +18,7 @@ interface IUseTransactionsWebSocketProps {
   enabled?: boolean;
   currency?: string;
   onNewTransaction?: (transaction: IMarketTokenTransaction) => void;
+  onSubscriptionRestored?: () => void;
 }
 
 interface IMarketWSDataUpdatePayload {
@@ -94,6 +95,7 @@ export function useTransactionsWebSocket({
   enabled = true,
   currency = 'usd',
   onNewTransaction,
+  onSubscriptionRestored,
 }: IUseTransactionsWebSocketProps): void {
   const { markSubscriptionActivity } = useMarketWSSubscriptionRecovery({
     enabled,
@@ -101,6 +103,7 @@ export function useTransactionsWebSocket({
     tokenAddress,
     currency,
     channel: 'tokenTxs',
+    ...(onSubscriptionRestored ? { onRestored: onSubscriptionRestored } : {}),
   });
 
   useEffect(() => {
