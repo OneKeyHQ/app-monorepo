@@ -1449,7 +1449,7 @@ export function useSwapBuildTx() {
               );
               if (i === unsignedTxArr.length - 2) {
                 lastTxUseGasInfo = {
-                  common: gasParseInfo.common,
+                  common: gasRes.common,
                   gas: gasParseInfo.gas,
                   gasEIP1559: gasParseInfo.gasEIP1559,
                 };
@@ -2877,7 +2877,7 @@ export function useSwapBuildTx() {
               );
               if (i === unsignedTxArr.length - 2) {
                 lastTxUseGasInfo = {
-                  common: gasParseInfo.common,
+                  common: gasRes.common,
                   gas: gasParseInfo.gas,
                   gasEIP1559: gasParseInfo.gasEIP1559,
                 };

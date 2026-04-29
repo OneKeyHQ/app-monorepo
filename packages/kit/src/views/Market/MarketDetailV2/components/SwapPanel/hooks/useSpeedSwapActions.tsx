@@ -1510,11 +1510,12 @@ export function useSpeedSwapActions(props: {
         }
       }
 
-      // Lock the fee editor whenever a Market preset Custom priority fee is in play:
-      // even when feeInfo cannot be pre-attached (approve + swap path), the override is
-      // applied at tx-build time, so letting the user change the tier here would just
-      // mislead them about what is actually sent.
-      const lockFeeEditor = Boolean(feeInfo) || Boolean(customPriorityFee);
+      // Only lock the fee editor when a preset feeInfo was actually pre-attached.
+      // The fallback path (approve + swap) cannot pre-attach feeInfo and the standard
+      // SignatureConfirm flow does not read the swap-context customPriorityFee, so
+      // locking without an attached feeInfo would leave the user unable to adjust fees
+      // for a tier the preset never delivered.
+      const lockFeeEditor = Boolean(feeInfo);
 
       await navigationToTxConfirm({
         wrappedInfo: buildUnsignedParams.wrappedInfo,
