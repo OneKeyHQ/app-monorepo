@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useMarketSelectedTabAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,9 +31,14 @@ const useMarketHomeLayoutProps = () => {
   const { md } = useMedia();
 
   // Load market basic config using the new hook
-  const { formattedMinLiquidity, spotCategories: apiSpotCategories } =
-    useMarketBasicConfig();
+  const {
+    formattedMinLiquidity,
+    spotCategories: apiSpotCategories,
+    isLoading: isMarketBasicConfigLoading,
+  } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
+  const [{ spotCategoryToSelect }, setMarketSelectedTab] =
+    useMarketSelectedTabAtom();
 
   // Track market entry analytics
   useMarketHomePageEnterAnalytics();
@@ -77,6 +85,39 @@ const useMarketHomeLayoutProps = () => {
       { id: 'x_mentioned', name: 'X Mentioned' },
     ];
   }, [apiSpotCategories]);
+
+  useEffect(() => {
+    if (!spotCategoryToSelect) {
+      return;
+    }
+
+    const hasTargetCategory = categories.some(
+      (item) => item.id === spotCategoryToSelect,
+    );
+    if (!hasTargetCategory) {
+      if (isMarketBasicConfigLoading !== false) {
+        return;
+      }
+
+      setMarketSelectedTab((prev) => ({
+        ...prev,
+        spotCategoryToSelect: undefined,
+      }));
+      return;
+    }
+
+    setSelectedCategory(spotCategoryToSelect);
+    setMarketSelectedTab((prev) => ({
+      ...prev,
+      tab: 'trending',
+      spotCategoryToSelect: undefined,
+    }));
+  }, [
+    categories,
+    isMarketBasicConfigLoading,
+    setMarketSelectedTab,
+    spotCategoryToSelect,
+  ]);
 
   const handleNetworkIdChange = useCallback(
     (networkId: string) => {

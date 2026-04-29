@@ -13,7 +13,6 @@ import { BaseAdapter } from './BaseAdapter';
 
 import type {
   DeviceInfo,
-  IConnector,
   IHardwareWallet,
   IThirdPartyHardwareAdapter,
   Response,
@@ -27,15 +26,18 @@ export class LedgerAdapter
 
   readonly hw: IHardwareWallet;
 
-  private _connector: IConnector;
-
-  constructor(hw: IHardwareWallet, connector: IConnector) {
+  constructor(hw: IHardwareWallet) {
     super();
     this.hw = hw;
-    this._connector = connector;
+    defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] adapter created');
 
     // Whitelist known ui-event types; unknown ones log-only.
-    this._connector.on('ui-event', (event) => {
+    this.hw.on('ui-event', (event) => {
+      const eventType = (event as { type?: string }).type ?? 'unknown';
+      defaultLogger.hardware.sdkLog.uiEvent(
+        `[3rdPartyHW][Ledger] ${eventType}`,
+        event,
+      );
       switch (event.type) {
         case EConnectorInteraction.ConfirmOpenApp:
           void thirdPartyHardwareUiStateAtom.set({
@@ -59,23 +61,18 @@ export class LedgerAdapter
           void thirdPartyHardwareUiStateAtom.set(undefined);
           break;
         default: {
-          const unknownType = (event as { type?: string }).type ?? 'unknown';
           defaultLogger.hardware.sdkLog.log(
-            `[LedgerAdapter] Unhandled SDK ui-event type: ${unknownType}`,
+            `[3rdPartyHW][Ledger] Unhandled SDK ui-event type: ${eventType}`,
           );
           break;
         }
       }
     });
 
-    this.hw.on('ui-request-button', () => {
-      void thirdPartyHardwareUiStateAtom.set({
-        action: EThirdPartyHardwareUiAction.confirmOnDevice,
-        vendor: EHardwareVendor.ledger,
-      });
-    });
-
     this.hw.on(UI_REQUEST.REQUEST_DEVICE_CONNECT, () => {
+      defaultLogger.hardware.sdkLog.log(
+        '[3rdPartyHW][Ledger] REQUEST_DEVICE_CONNECT',
+      );
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestUnlock,
@@ -100,20 +97,36 @@ export class LedgerAdapter
   }
 
   async searchDevices(): Promise<DeviceInfo[]> {
-    return this.hw.searchDevices();
+    defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] searchDevices()');
+    const devices = await this.hw.searchDevices();
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][Ledger] searchDevices -> count=${devices.length}`,
+    );
+    return devices;
   }
 
   async connectDevice(
     connectId: string,
   ): Promise<Response<{ connectId: string; deviceId: string }>> {
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][Ledger] connectDevice connectId=${connectId}`,
+    );
     void thirdPartyHardwareUiStateAtom.set({
       action: EThirdPartyHardwareUiAction.searching,
       vendor: EHardwareVendor.ledger,
     });
     try {
       const result = await this.hw.connectDevice(connectId);
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Ledger] connectDevice result success=${String(
+          result.success,
+        )}`,
+      );
       if (result.success) {
         const info = await this.hw.getDeviceInfo(connectId, result.payload);
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW][Ledger] getDeviceInfo success=${String(info.success)}`,
+        );
         void thirdPartyHardwareUiStateAtom.set(undefined);
         if (info.success) {
           return {
@@ -129,6 +142,11 @@ export class LedgerAdapter
       void thirdPartyHardwareUiStateAtom.set(undefined);
       return { success: false, payload: result.payload };
     } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Ledger] connectDevice threw: ${
+          (error as Error)?.message ?? String(error)
+        }`,
+      );
       // Ensure atom is cleared on unexpected errors
       void thirdPartyHardwareUiStateAtom.set(undefined);
       throw error;
@@ -136,10 +154,14 @@ export class LedgerAdapter
   }
 
   async disconnect(connectId: string): Promise<void> {
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][Ledger] disconnect connectId=${connectId}`,
+    );
     await this.hw.disconnectDevice(connectId);
   }
 
   reset(): void {
+    defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] reset()');
     void thirdPartyHardwareUiStateAtom.set(undefined);
     void this.hw.dispose();
   }
