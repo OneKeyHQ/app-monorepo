@@ -1805,7 +1805,7 @@ const BaseDevSettingsSection = () => {
                         icon="GlobusOutline"
                         name="disableCustomUA"
                         title="禁用自定义 User-Agent"
-                        subtitle="dev 调试用：开启后回退到 runtime 默认 UA，用于复现 CF UA 拦截"
+                        subtitle="dev 调试用：开启后回退到 runtime 默认 UA"
                       >
                         <Switch
                           size={ESwitchSize.small}

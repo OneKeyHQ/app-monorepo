@@ -88,7 +88,7 @@ export interface IDevSettings {
   allowBulkSendWatchingAccount?: boolean;
   // Disable custom User-Agent injection (debug only).
   // When true, buildCustomUA() returns null, all call sites fall back to
-  // runtime default UA — used to reproduce CF UA-block behavior locally.
+  // the runtime default UA.
   disableCustomUA?: boolean;
 }
 
