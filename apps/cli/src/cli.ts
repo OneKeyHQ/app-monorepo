@@ -25,6 +25,7 @@ import { createSignalCleanupHandler } from './core/auth/auth-flow-interruption';
 import { ERROR_CODES } from './errors';
 import { apiClient } from './infra';
 import { OutputFormatter } from './output';
+import './runtime/customUA';
 import './schemas/register-all';
 import { createLogger } from './utils/logger';
 import { detectOutputMode } from './utils/mode-detector';

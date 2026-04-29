@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
@@ -120,15 +121,17 @@ export async function fetchQuotesViaSSE(
 
   let response: Response;
   try {
+    const baseHeaders: Record<string, string> = {
+      Accept: 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'X-Onekey-Request-ID': randomUUID(),
+      'X-Onekey-Request-Platform': 'cli',
+      'X-Onekey-Request-Version': VERSION,
+    };
+    const headers = await withCustomUAHeaders(url, baseHeaders);
     response = await fetch(url, {
       method: 'GET',
-      headers: {
-        Accept: 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'X-Onekey-Request-ID': randomUUID(),
-        'X-Onekey-Request-Platform': 'cli',
-        'X-Onekey-Request-Version': VERSION,
-      },
+      headers,
       signal: controller.signal,
     });
   } catch (error) {
