@@ -550,6 +550,8 @@ export default class ServiceHyperliquid extends ServiceBase {
       startTime: twoYearsAgo,
       endTime: now,
       aggregateByTime: true,
+      // HL caps userFillsByTime at 2000 rows; reverse to keep the latest fills.
+      reversed: true,
     };
 
     const fills = options.force
