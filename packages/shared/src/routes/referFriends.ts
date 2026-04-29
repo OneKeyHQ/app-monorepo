@@ -7,9 +7,8 @@ import type {
 
 export interface IBtcRewardCodeInfoParam {
   codeId: string;
-  modelLabel: string;
-  rewardUsdCents: number;
-  activityName?: string;
+  batchName: string;
+  rewardUsd: number;
 }
 
 export enum EModalReferFriendsRoutes {
@@ -88,19 +87,17 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.BtcRewardSelectAddress]: {
     codeInfo: IBtcRewardCodeInfoParam;
     voucherCode: string;
-    displayOrderNumber: string;
     displayTitle: string;
     quotaRemaining?: number;
   };
   [EModalReferFriendsRoutes.BtcRewardConfirm]: {
     codeInfo: IBtcRewardCodeInfoParam;
     voucherCode: string;
-    displayOrderNumber: string;
     displayTitle: string;
     walletAddress: string;
   };
   [EModalReferFriendsRoutes.BtcRewardSuccess]: {
-    rewardUsdCents: number;
+    rewardUsd: number;
     walletAddress: string;
     btcAmount: string;
     btcPriceUsd: string;
