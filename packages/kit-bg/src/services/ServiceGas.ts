@@ -16,7 +16,7 @@ import type {
   IServerBatchEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
 
-import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+import { settingsPersistAtom } from '../states/jotai/atoms/settings';
 import { vaultFactory } from '../vaults/factory';
 import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
 
@@ -86,12 +86,13 @@ class ServiceGas extends ServiceBase {
     const controller = new AbortController();
     this._estimateFeeController = controller;
 
-    // Global Gas Account kill switch driven by DevSettings. When the dev flag
-    // is on, force every fee estimation across the app (Send, Swap, Perps,
-    // Earn, dApp...) to opt out of sponsored gas. Backend then returns no
-    // quote and downstream code naturally falls back to user-paid.
-    const devSettings = await devSettingsPersistAtom.get();
-    if (devSettings.enabled && devSettings.settings?.disableGasAccount) {
+    // Global Gas Account opt-out driven by user setting (Settings → Wallet →
+    // "Use Gas Account by default"). When the user turns it off, force every
+    // fee estimation across the app (Send / Swap / Perps / Earn / dApp ...)
+    // to opt out of sponsored gas. Backend then returns no quote and
+    // downstream code naturally falls back to user-paid.
+    const { useGasAccountByDefault } = await settingsPersistAtom.get();
+    if (useGasAccountByDefault === false) {
       rest.gasAccountEnabled = false;
     }
 
