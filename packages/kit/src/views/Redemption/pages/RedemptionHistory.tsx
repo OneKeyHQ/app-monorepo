@@ -26,8 +26,6 @@ import { getBtcRewardStatusConfig } from '../utils';
 
 const baseNetworkId = getNetworkIdsMap().base;
 
-const EPOCH = new Date(0);
-
 type IUnifiedRecord =
   | {
       kind: 'legacy';
@@ -79,19 +77,16 @@ function BtcRewardRecordRow({
     statusConfigs[record.status] ?? statusConfigs[EBtcRewardStatus.Wait];
   const handlePress = useCallback(() => onPress(record), [onPress, record]);
 
-  const subtitleParts: string[] = [];
-  if (record.btcAmount) {
-    subtitleParts.push(`~${record.btcAmount} cbBTC`);
-  }
-  if (record.submittedAt) {
-    subtitleParts.push(formatDate(record.submittedAt, { hideSeconds: true }));
-  }
+  const subtitle = `~${record.btcAmount} cbBTC · ${formatDate(
+    record.submittedAt,
+    { hideSeconds: true },
+  )}`;
 
   return (
     <ListItem
       icon="TicketOutline"
-      title={record.modelLabel}
-      subtitle={subtitleParts.join(' · ') || record.code}
+      title={record.batchName}
+      subtitle={subtitle}
       drillIn
       onPress={handlePress}
     >
@@ -150,6 +145,7 @@ function RedemptionHistoryContent() {
       const result =
         await backgroundApiProxy.serviceReferralCode.btcRewardHistory({
           walletAddress,
+          pageSize: 100,
         });
       if (!result.success) return [] as IBtcRewardHistoryItem[];
       return result.data.data;
@@ -169,7 +165,7 @@ function RedemptionHistoryContent() {
     const btc = (btcItems ?? []).map<IUnifiedRecord>((record) => ({
       kind: 'btc',
       id: record.code,
-      sortDate: record.submittedAt ? new Date(record.submittedAt) : EPOCH,
+      sortDate: new Date(record.submittedAt),
       data: record,
     }));
     return [...legacy, ...btc].toSorted(
