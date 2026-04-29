@@ -25,7 +25,7 @@ import type { RouteProp } from '@react-navigation/core';
 type IRouteParams = RouteProp<
   {
     BtcRewardSuccess: {
-      rewardUsdCents: number;
+      rewardUsd: number;
       walletAddress: string;
       btcAmount: string;
       btcPriceUsd: string;
@@ -39,13 +39,8 @@ function RedeemSuccessPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route = useRoute<IRouteParams>();
-  const {
-    rewardUsdCents,
-    walletAddress,
-    btcAmount,
-    btcPriceUsd,
-    payoutEligibleAt,
-  } = route.params;
+  const { rewardUsd, walletAddress, btcAmount, btcPriceUsd, payoutEligibleAt } =
+    route.params;
 
   const handleViewHistory = useCallback(() => {
     navigation.dispatch(
@@ -103,7 +98,7 @@ function RedeemSuccessPage() {
                   { id: ETranslations.redemption_btc_success_reward_value },
                   {
                     amount: btcAmount,
-                    usd: formatUsd(rewardUsdCents / 100),
+                    usd: formatUsd(rewardUsd),
                   },
                 )}
               </SizableText>

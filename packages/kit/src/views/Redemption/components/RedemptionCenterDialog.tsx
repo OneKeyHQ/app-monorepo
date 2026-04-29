@@ -88,9 +88,8 @@ function RedemptionCenterDialogContent({
             params: {
               codeInfo: {
                 codeId: btcResult.data.codeId,
-                modelLabel: btcResult.data.modelLabel,
-                rewardUsdCents: btcResult.data.rewardUsdCents,
-                activityName: btcResult.data.activityName,
+                batchName: btcResult.data.batchName,
+                rewardUsd: btcResult.data.rewardUsd,
               },
             },
           });

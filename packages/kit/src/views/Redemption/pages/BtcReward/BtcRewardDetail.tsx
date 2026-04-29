@@ -13,8 +13,6 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
-import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBtcRewardHistoryItem } from '@onekeyhq/shared/src/referralCode/type';
 import { EBtcRewardStatus } from '@onekeyhq/shared/src/referralCode/type';
@@ -63,31 +61,11 @@ function BtcRewardDetailPage() {
   });
 
   const handleCopyAddress = useCallback(() => {
-    if (item.walletAddress) {
-      copyText(item.walletAddress);
-    }
+    copyText(item.walletAddress);
   }, [item.walletAddress, copyText]);
-
-  const handleCopyTxHash = useCallback(() => {
-    if (item.txHash) {
-      copyText(item.txHash);
-    }
-  }, [item.txHash, copyText]);
-
-  const handleViewOnBaseScan = useCallback(() => {
-    if (item.txHash) {
-      void openTransactionDetailsUrl({
-        networkId: getNetworkIdsMap().base,
-        txid: item.txHash,
-      });
-    }
-  }, [item.txHash]);
 
   const statusConfig =
     statusConfigs[item.status] ?? statusConfigs[EBtcRewardStatus.Wait];
-  const isPaid = item.status === EBtcRewardStatus.Paid;
-  const rejectReason =
-    item.status === EBtcRewardStatus.Rejected ? item.rejectReason : null;
 
   return (
     <Page scrollEnabled>
@@ -99,27 +77,21 @@ function BtcRewardDetailPage() {
               <Badge.Text>{statusConfig.label}</Badge.Text>
             </Badge>
             <SizableText size="$heading4xl" textAlign="center" pt="$2">
-              {formatUsd(item.rewardUsdCents / 100)}
+              {formatUsd(item.rewardUsd)}
             </SizableText>
-            {item.btcAmount ? (
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                textAlign="center"
-              >
-                {intl.formatMessage(
-                  { id: ETranslations.redemption_btc_amount_on_base },
-                  { amount: item.btcAmount },
-                )}
-              </SizableText>
-            ) : null}
+            <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+              {intl.formatMessage(
+                { id: ETranslations.redemption_btc_amount_on_base },
+                { amount: item.btcAmount },
+              )}
+            </SizableText>
             <SizableText
               size="$bodyMd"
-              color={rejectReason ? '$textCritical' : '$textSubdued'}
+              color="$textSubdued"
               textAlign="center"
               pt="$1"
             >
-              {rejectReason ?? statusConfig.description}
+              {statusConfig.description}
             </SizableText>
           </YStack>
 
@@ -128,17 +100,8 @@ function BtcRewardDetailPage() {
               label={intl.formatMessage({
                 id: ETranslations.redemption_btc_label_product,
               })}
-              value={item.modelLabel}
+              value={item.batchName}
             />
-
-            {item.activityName ? (
-              <DetailRow
-                label={intl.formatMessage({
-                  id: ETranslations.redemption_btc_label_activity_title,
-                })}
-                value={item.activityName}
-              />
-            ) : null}
 
             <DetailRow
               label={intl.formatMessage({
@@ -147,26 +110,28 @@ function BtcRewardDetailPage() {
               value={item.code}
             />
 
-            {item.btcPriceUsd ? (
-              <DetailRow
-                label={intl.formatMessage({
-                  id: ETranslations.redemption_btc_label_btc_price_locked,
-                })}
-                value={formatUsd(item.btcPriceUsd)}
-              />
-            ) : null}
+            <DetailRow
+              label={intl.formatMessage({
+                id: ETranslations.redemption_btc_verify_order_input_label,
+              })}
+              value={item.voucherCode}
+            />
 
-            {item.submittedAt ? (
-              <DetailRow
-                label={intl.formatMessage({
-                  id: ETranslations.redemption_btc_label_submitted,
-                })}
-                value={formatDate(item.submittedAt)}
-              />
-            ) : null}
+            <DetailRow
+              label={intl.formatMessage({
+                id: ETranslations.redemption_btc_label_btc_price_locked,
+              })}
+              value={formatUsd(item.btcPriceUsd)}
+            />
 
-            {item.payoutEligibleAt &&
-            item.status !== EBtcRewardStatus.Paid &&
+            <DetailRow
+              label={intl.formatMessage({
+                id: ETranslations.redemption_btc_label_submitted,
+              })}
+              value={formatDate(item.submittedAt)}
+            />
+
+            {item.status !== EBtcRewardStatus.Paid &&
             item.status !== EBtcRewardStatus.Rejected ? (
               <DetailRow
                 label={intl.formatMessage({
@@ -181,84 +146,30 @@ function BtcRewardDetailPage() {
               />
             ) : null}
 
-            {isPaid && item.paidAt ? (
-              <DetailRow
-                label={intl.formatMessage({
-                  id: ETranslations.referral_distributed,
+            <Divider />
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.referral_reward_received_address,
                 })}
-                value={formatDate(item.paidAt)}
-              />
-            ) : null}
-
-            {item.walletAddress ? (
-              <>
-                <Divider />
-                <XStack
-                  justifyContent="space-between"
-                  alignItems="center"
-                  gap="$2"
-                >
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.referral_reward_received_address,
-                    })}
-                  </SizableText>
-                  <XStack gap="$1" alignItems="center" flexShrink={1}>
-                    <SizableText size="$bodyMdMedium" numberOfLines={1}>
-                      {accountUtils.shortenAddress({
-                        address: item.walletAddress,
-                      })}
-                    </SizableText>
-                    <IconButton
-                      variant="tertiary"
-                      size="small"
-                      icon="Copy3Outline"
-                      onPress={handleCopyAddress}
-                      title={intl.formatMessage({
-                        id: ETranslations.global_copy_address,
-                      })}
-                    />
-                  </XStack>
-                </XStack>
-              </>
-            ) : null}
-
-            {isPaid && item.txHash ? (
-              <XStack
-                justifyContent="space-between"
-                alignItems="center"
-                gap="$2"
-              >
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.global_transaction_id,
+              </SizableText>
+              <XStack gap="$1" alignItems="center" flexShrink={1}>
+                <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                  {accountUtils.shortenAddress({
+                    address: item.walletAddress,
                   })}
                 </SizableText>
-                <XStack gap="$1" alignItems="center" flexShrink={1}>
-                  <SizableText size="$bodyMdMedium" numberOfLines={1}>
-                    {accountUtils.shortenAddress({ address: item.txHash })}
-                  </SizableText>
-                  <IconButton
-                    variant="tertiary"
-                    size="small"
-                    icon="Copy3Outline"
-                    onPress={handleCopyTxHash}
-                    title={intl.formatMessage({
-                      id: ETranslations.redemption_btc_detail_copy_tx_hash,
-                    })}
-                  />
-                  <IconButton
-                    variant="tertiary"
-                    size="small"
-                    icon="OpenOutline"
-                    onPress={handleViewOnBaseScan}
-                    title={intl.formatMessage({
-                      id: ETranslations.global_view_in_blockchain_explorer,
-                    })}
-                  />
-                </XStack>
+                <IconButton
+                  variant="tertiary"
+                  size="small"
+                  icon="Copy3Outline"
+                  onPress={handleCopyAddress}
+                  title={intl.formatMessage({
+                    id: ETranslations.global_copy_address,
+                  })}
+                />
               </XStack>
-            ) : null}
+            </XStack>
           </YStack>
         </YStack>
       </Page.Body>
