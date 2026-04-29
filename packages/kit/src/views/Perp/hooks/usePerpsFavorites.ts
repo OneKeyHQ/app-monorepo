@@ -105,9 +105,12 @@ export function usePerpsFavorites(options?: {
           items.push({
             mode: 'spot',
             coinName: asset.name,
-            displayName:
-              asset.displayName ||
-              formatSpotPairDisplayName(asset.baseName, asset.quoteName),
+            // universe.displayName is base-only ("HYPE"), which hides the
+            // quote currency — favorites need the full pair to disambiguate.
+            displayName: formatSpotPairDisplayName(
+              asset.baseName,
+              asset.quoteName,
+            ),
             imageTokenName: asset.baseName,
             assetId: asset.assetId,
             dexIndex: -1,
