@@ -91,9 +91,10 @@ describe('buildCustomUA', () => {
     expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
   });
 
-  it('returns cli-node UA after explicit override', async () => {
+  it('returns CLI UA with constant version 1 (platformEnv.version unsubstituted in CLI bundle)', async () => {
     __setCustomUARuntimeForTest('cli-node');
-    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
+    (platformEnv as any).version = undefined;
+    expect(await buildCustomUA()).toBe('OneKeyWallet/1');
   });
 
   it('returns null on Web (browser default UA suffices)', async () => {
@@ -108,11 +109,11 @@ describe('buildCustomUA', () => {
     expect(await buildCustomUA()).toBeNull();
   });
 
-  it('falls back to "unknown" when version is missing', async () => {
+  it('falls back to "1" when version is missing', async () => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
     (platformEnv as any).version = undefined;
-    expect(await buildCustomUA()).toBe('OneKeyWallet/unknown');
+    expect(await buildCustomUA()).toBe('OneKeyWallet/1');
   });
 
   it('returns null when dev toggle disableCustomUA is on', async () => {
@@ -238,12 +239,13 @@ describe('withCustomUAHeaders', () => {
 
   it('writes UA via fallback regex when requestHelper is not wired (CLI)', async () => {
     __setCustomUARuntimeForTest('cli-node');
+    (platformEnv as any).version = undefined; // CLI bundle reality
     checkIsOneKeyDomainMock.mockRejectedValueOnce(new Error('not wired'));
     getDevSettingsPersistAtomMock.mockRejectedValueOnce(new Error('not wired'));
     const out = await withCustomUAHeaders(
       'https://swap.onekeycn.com/swap/v1/quote/events',
       { 'X-Onekey-Request-Platform': 'cli' },
     );
-    expect(out['User-Agent']).toBe('OneKeyWallet/6.3.0');
+    expect(out['User-Agent']).toBe('OneKeyWallet/1');
   });
 });

@@ -1,26 +1,10 @@
-import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
-import { config as dotenvConfig } from 'dotenv';
 import { defineConfig } from 'tsup';
 import * as ts from 'typescript';
 
 import type { Plugin } from 'esbuild';
-
-// Load .env files into process.env at config-evaluation time, matching the
-// chain webpack uses (development/env.js → dotenv.config). After this the
-// `env` field below picks up VERSION/BUILD_NUMBER from .env.version at build
-// time, so process.env.VERSION is substituted into the CLI bundle the same
-// way it is for renderer/web/ext/mobile.
-const repoRootForEnv = path.resolve(__dirname, '../..');
-[
-  path.resolve(repoRootForEnv, '.env.version'),
-  path.resolve(repoRootForEnv, '.env.expo'),
-  path.resolve(repoRootForEnv, '.env'),
-]
-  .filter((p) => existsSync(p))
-  .forEach((p) => dotenvConfig({ path: p }));
 
 const resolvePath = (...paths: string[]) => path.resolve(...paths);
 const pathSeparator = path.sep as string;
@@ -466,9 +450,6 @@ export default defineConfig((options) => {
     },
     env: {
       NODE_ENV: 'production',
-      VERSION: process.env.VERSION ?? 'unknown',
-      BUILD_NUMBER: process.env.BUILD_NUMBER ?? '',
-      BUNDLE_VERSION: process.env.BUNDLE_VERSION ?? '',
     },
   };
 });

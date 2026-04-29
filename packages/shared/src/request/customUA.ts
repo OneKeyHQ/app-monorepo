@@ -53,7 +53,10 @@ export async function buildCustomUA(): Promise<string | null> {
   const runtime = detectRuntime();
   if (!runtime) return null;
   if (await isDisabledByDevSetting()) return null;
-  const version = platformEnv.version ?? 'unknown';
+  // CLI's platformEnv.version is undefined at runtime (tsup does not
+  // substitute process.env.VERSION), so it naturally falls through to '1'.
+  // App targets get the build-time substituted version.
+  const version = platformEnv.version ?? '1';
   return `OneKeyWallet/${version}`;
 }
 
