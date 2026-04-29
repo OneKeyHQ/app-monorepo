@@ -811,6 +811,7 @@
   "dexmarket_stock.underlying_asset_name": "Nome do ativo subjacente",
   "dexmarket_stock.underlying_asset_ticker": "Código do ativo subjacente",
   "dexmarket_stock.volume_shares": "Volume (Ações)",
+  "discovery.ad_label": "AD",
   "do_not_exit_app_during_setup": "Não saia do aplicativo durante a configuração, ou a criação falhará",
   "dont_have_mobile_app_yet": "Ainda não tem o aplicativo móvel?",
   "downgrade_warning_checkbox_label": "Eu NÃO vou retroceder para o OneKey v4",

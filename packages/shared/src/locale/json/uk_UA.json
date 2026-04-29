@@ -811,6 +811,7 @@
   "dexmarket_stock.underlying_asset_name": "Назва базового активу",
   "dexmarket_stock.underlying_asset_ticker": "Тікер базового активу",
   "dexmarket_stock.volume_shares": "Обсяг (акції)",
+  "discovery.ad_label": "AD",
   "do_not_exit_app_during_setup": "Будь ласка, не виходьте з програми під час налаштування, інакше створення не вдасться",
   "dont_have_mobile_app_yet": "Ще не маєте мобільного додатку?",
   "downgrade_warning_checkbox_label": "Я НЕ буду переходити на OneKey v4",
