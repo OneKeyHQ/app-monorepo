@@ -126,22 +126,23 @@ describe('EVM Address Derivation Tests', () => {
     // ledgerLive templates resolve to the SAME path (m/44'/60'/0'/0/0), so
     // their addresses would be identical by definition. Index 1 yields three
     // genuinely distinct paths.
-    const [defaultAddresses, liveAddresses, legacyAddresses] = await Promise.all(
-      [
-        "m/44'/60'/0'/0/$$INDEX$$",
-        "m/44'/60'/$$INDEX$$'/0/0",
-        "m/44'/60'/0'/$$INDEX$$",
-      ].map((template) =>
-        coreApi.getAddressesFromHd({
-          networkInfo,
-          password: hdCredential.password,
-          hdCredential: hdCredential.hdCredentialHex,
-          template,
-          indexes: [1],
-          addressEncoding: undefined,
-        }),
-      ),
-    );
+    const [defaultAddresses, liveAddresses, legacyAddresses] =
+      await Promise.all(
+        [
+          "m/44'/60'/0'/0/$$INDEX$$",
+          "m/44'/60'/$$INDEX$$'/0/0",
+          "m/44'/60'/0'/$$INDEX$$",
+        ].map((template) =>
+          coreApi.getAddressesFromHd({
+            networkInfo,
+            password: hdCredential.password,
+            hdCredential: hdCredential.hdCredentialHex,
+            template,
+            indexes: [1],
+            addressEncoding: undefined,
+          }),
+        ),
+      );
     const a = defaultAddresses.addresses[0].address;
     const b = liveAddresses.addresses[0].address;
     const c = legacyAddresses.addresses[0].address;
