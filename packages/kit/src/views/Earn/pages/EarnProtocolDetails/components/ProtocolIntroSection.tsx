@@ -139,26 +139,48 @@ function getMetricValue(metric?: IEarnProtocolIntroMetric) {
   return metric?.value || metric?.description;
 }
 
-function getSafeExternalUrl(url?: string | null) {
-  const normalizedUrl = url?.trim();
-  if (!normalizedUrl) {
-    return undefined;
-  }
-
-  try {
-    const parsedUrl = new URL(normalizedUrl);
-    if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
-      return normalizedUrl;
+function getSafeExternalUrl(...urls: Array<string | null | undefined>) {
+  for (const url of urls) {
+    const normalizedUrl = url?.trim();
+    if (normalizedUrl) {
+      try {
+        const parsedUrl = new URL(normalizedUrl);
+        if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+          return normalizedUrl;
+        }
+      } catch {
+        // Invalid URL candidates are skipped so later aliases can still work.
+      }
     }
-  } catch {
-    return undefined;
   }
 
   return undefined;
 }
 
 function getLinkUrl(link?: IEarnProtocolIntroSocialLink) {
-  return getSafeExternalUrl(link?.url || link?.data?.link);
+  return getSafeExternalUrl(link?.url, link?.data?.link);
+}
+
+function getVisibleLinks(
+  ...linkGroups: Array<IEarnProtocolIntroSocialLink[] | undefined>
+) {
+  const seen = new Set<string>();
+
+  return linkGroups
+    .flatMap((links) => links ?? [])
+    .filter((link) => {
+      if (link.disabled) {
+        return false;
+      }
+
+      const url = getLinkUrl(link);
+      if (!url || seen.has(url)) {
+        return false;
+      }
+
+      seen.add(url);
+      return true;
+    });
 }
 
 function getHostname(url?: string) {
@@ -726,7 +748,7 @@ function getMemberAvatar(member?: IEarnProtocolIntroTeamMember) {
 }
 
 function getMemberLinks(member: IEarnProtocolIntroTeamMember) {
-  return member.socialLinks || member.links || [];
+  return getVisibleLinks(member.socialLinks, member.links);
 }
 
 function getTeamMembers(team?: IEarnProtocolIntroTeam) {
@@ -1395,9 +1417,9 @@ function ProtocolIntroSectionComponent({
   const team = selectedItem?.teamMembers || selectedItem?.team;
   const investors = selectedItem?.investors;
   const audits = selectedItem?.audits;
-  const socialLinks = selectedItem?.socialLinks || selectedItem?.links || [];
-  const visibleSocialLinks = socialLinks.filter(
-    (link) => !link.disabled && getLinkUrl(link),
+  const visibleSocialLinks = getVisibleLinks(
+    selectedItem?.socialLinks,
+    selectedItem?.links,
   );
 
   const handleSelectProtocol = useCallback(
