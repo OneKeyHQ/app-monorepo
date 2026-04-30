@@ -1,4 +1,4 @@
-/* cspell:words oxlintrc */
+/* cspell:words oxlintrc callees */
 
 /**
  * Custom oxlint JS plugin for OneKey-specific lint rules.
@@ -151,14 +151,11 @@ const noNonWorkletCallInWorklet = {
         context.report({
           node: callNode.callee,
           message:
-            "Function '" +
-            name +
-            "' is called from a Reanimated worklet (" +
-            hookName +
-            ') but its declaration lacks a "\'worklet\';" directive. ' +
-            'Add the directive to the function body, inline the logic, ' +
-            'or wrap the call with runOnJS(). Otherwise the UI thread ' +
-            'will crash with "Object is not a function".',
+            `Function '${name}' is called from a Reanimated worklet (${hookName}) ` +
+            `but its declaration lacks a "'worklet';" directive. ` +
+            `Add the directive to the function body, inline the logic, ` +
+            `or wrap the call with runOnJS(). Otherwise the UI thread ` +
+            `will crash with "Object is not a function".`,
         });
       }
     }
@@ -169,7 +166,8 @@ const noNonWorkletCallInWorklet = {
       while (stack.length) {
         const cur = stack.pop();
         // Don't descend into nested functions — they own their own context
-        // (an inline arrow inside the worklet is auto-worketed by babel).
+        // (an inline arrow inside the worklet hook is processed automatically
+        // by Reanimated's babel plugin).
         if (cur && typeof cur === 'object' && !isFunctionLikeNode(cur)) {
           if (cur.type === 'CallExpression') {
             reportBadCall(cur, hookName);
