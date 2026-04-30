@@ -31,6 +31,8 @@ import type {
   IMarketTokenListItem,
   IMarketTokenListResponse,
   IMarketTokenSecurityBatchResponse,
+  IMarketTokenTopLiquidityItem,
+  IMarketTokenTopLiquidityResponse,
   IMarketTokenTransactionsResponse,
 } from '@onekeyhq/shared/types/marketV2';
 import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
@@ -385,6 +387,32 @@ class ServiceMarketV2 extends ServiceBase {
     });
     const { data } = response.data;
     return data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenTopLiquidity({
+    tokenAddress,
+    networkId,
+  }: {
+    tokenAddress: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenTopLiquidityResponse | IMarketTokenTopLiquidityItem[];
+    }>('/utility/v1/market/token/top-liquidity', {
+      params: {
+        tokenAddress,
+        networkId,
+      },
+    });
+    const { data } = response.data;
+    if (Array.isArray(data)) {
+      return { list: data };
+    }
+    return data ?? { list: [] };
   }
 
   @backgroundMethod()

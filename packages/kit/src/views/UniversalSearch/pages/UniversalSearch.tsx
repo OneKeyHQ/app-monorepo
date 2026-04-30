@@ -60,7 +60,6 @@ import {
   UniversalSearchAccountAssetItem,
   UniversalSearchAddressItem,
   UniversalSearchDappItem,
-  UniversalSearchMarketTokenItem,
   UniversalSearchPerpItem,
   UniversalSearchSettingsItem,
   UniversalSearchV2MarketTokenItem,
@@ -84,7 +83,6 @@ const SEARCH_DEBOUNCE_MS = 300;
 const getSearchTypes = (): EUniversalSearchType[] => {
   return [
     !platformEnv.isWebDappMode && EUniversalSearchType.Address,
-    EUniversalSearchType.MarketToken,
     EUniversalSearchType.V2MarketToken,
     // Hide AccountAssets search in WebDapp mode
     !platformEnv.isWebDappMode && EUniversalSearchType.AccountAssets,
@@ -103,13 +101,13 @@ const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
     [EUniversalSearchType.Address]: 1, // Wallets tab
     [EUniversalSearchType.V2MarketToken]: 2, // Market tab
     [EUniversalSearchType.Perp]: 3, // Perp tab (after Market)
-    [EUniversalSearchType.MarketToken]: 4, // Tokens tab
+    [EUniversalSearchType.MarketToken]: 0, // Legacy Tokens tab is hidden
     // In WebDapp mode, My Assets tab is hidden
-    [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 5,
+    [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 4,
     // DApps tab index changes based on whether My Assets tab is shown
-    [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 5 : 6,
+    [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 4 : 5,
     // Settings tab is last
-    [EUniversalSearchType.Settings]: platformEnv.isWebDappMode ? 6 : 7,
+    [EUniversalSearchType.Settings]: platformEnv.isWebDappMode ? 5 : 6,
   };
 
   return tabMapping[searchType];
@@ -204,9 +202,6 @@ export function UniversalSearch({
       intl.formatMessage({
         id: ETranslations.global_perp,
       }),
-      intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_tokens,
-      }),
       // Include My Assets tab only when not in WebDapp mode
       !platformEnv.isWebDappMode &&
         intl.formatMessage({
@@ -281,49 +276,16 @@ export function UniversalSearch({
 
     const result =
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
-        searchTypes: [EUniversalSearchType.MarketToken],
+        searchTypes: [EUniversalSearchType.V2MarketToken],
       });
 
-    // Prefer V2MarketToken (has network badge from searchRecommendTokens)
     if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
       searchResultSections.push({
-        tabIndex: 2,
+        tabIndex: MARKET_TAB_INDEX,
         type: EUniversalSearchType.V2MarketToken,
         title: intl.formatMessage({ id: ETranslations.market_trending }),
         data: result[EUniversalSearchType.V2MarketToken]
           .items as IUniversalSearchResultItem[],
-      });
-    } else if (result?.[EUniversalSearchType.MarketToken]?.items) {
-      // Fallback: convert MarketToken (coingecko-based, no network) to V2MarketToken
-      const v2Items = result[EUniversalSearchType.MarketToken].items.map(
-        (item) => {
-          const token = item.payload;
-          return {
-            type: EUniversalSearchType.V2MarketToken,
-            payload: {
-              name: token.name,
-              symbol: token.symbol,
-              price: String(token.price),
-              address: token.coingeckoId,
-              network: '',
-              logoUrl: token.image,
-              isNative: false,
-              decimals: 0,
-              liquidity: '0',
-              volume_24h: String(token.totalVolume || 0),
-              marketCap: String(token.marketCap || 0),
-              priceChange24hPercent: String(
-                token.priceChangePercentage24H || 0,
-              ),
-            },
-          };
-        },
-      );
-      searchResultSections.push({
-        tabIndex: 2,
-        type: EUniversalSearchType.V2MarketToken,
-        title: intl.formatMessage({ id: ETranslations.market_trending }),
-        data: v2Items as IUniversalSearchResultItem[],
       });
     }
     setRecommendSections(searchResultSections);
@@ -427,19 +389,6 @@ export function UniversalSearch({
           type: EUniversalSearchType.Perp,
           title: intl.formatMessage({
             id: ETranslations.global_perp,
-          }),
-          ...buildSectionData(data),
-        });
-      }
-
-      if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
-        const data = result[EUniversalSearchType.MarketToken]
-          .items as IUniversalSearchResultItem[];
-        searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(EUniversalSearchType.MarketToken),
-          type: EUniversalSearchType.MarketToken,
-          title: intl.formatMessage({
-            id: ETranslations.global_universal_search_tabs_tokens,
           }),
           ...buildSectionData(data),
         });
@@ -731,14 +680,6 @@ export function UniversalSearch({
               getSearchInput={getSearchInput}
             />
           );
-        case EUniversalSearchType.MarketToken:
-          return (
-            <UniversalSearchMarketTokenItem
-              item={item}
-              searchStatus={searchStatus}
-              getSearchInput={getSearchInput}
-            />
-          );
         case EUniversalSearchType.V2MarketToken:
           return (
             <>
@@ -806,8 +747,6 @@ export function UniversalSearch({
             payload.wallet?.id ??
             index
           }-${payload.network?.id ?? ''}`;
-        case EUniversalSearchType.MarketToken:
-          return `${type}-${payload.coingeckoId ?? index}`;
         case EUniversalSearchType.V2MarketToken:
           return `${type}-${payload.address ?? payload.symbol}-${index}`;
         case EUniversalSearchType.AccountAssets:
