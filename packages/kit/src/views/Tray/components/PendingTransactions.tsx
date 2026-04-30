@@ -1,12 +1,14 @@
+import type { ComponentProps } from 'react';
+
 import BigNumber from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import { SizableText, Stack } from '@onekeyhq/components';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPendingTx } from '@onekeyhq/shared/src/types/desktop/tray';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { formatTrayPendingTxAmount } from '@onekeyhq/shared/src/utils/trayDataUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import {
   EDecodedTxActionType,
@@ -27,9 +29,23 @@ type ITransferInfo = NonNullable<
 type IHistoryAlignedDisplayInfo = {
   title: string;
   description?: string;
-  primaryValue?: string;
-  secondaryValue?: string;
+  primaryValue?: ITrayDisplayValue;
+  secondaryValue?: ITrayDisplayValue;
   timestamp?: number;
+};
+
+type ITrayDisplayAmount = {
+  amount: string;
+  symbol: string;
+};
+
+type ITrayDisplayValue = string | ITrayDisplayAmount;
+type ITrayAmountSubTextStyle = ComponentProps<
+  typeof NumberSizeableTextWrapper
+>['subTextStyle'];
+
+const TRAY_AMOUNT_SUB_TEXT_STYLE: ITrayAmountSubTextStyle = {
+  transform: [{ translateY: 2 }],
 };
 
 function formatDisplayAmount({
@@ -40,17 +56,16 @@ function formatDisplayAmount({
   amount?: string;
   symbol?: string;
   prefix?: string;
-}) {
+}): ITrayDisplayValue {
   if (!amount || !symbol) return '';
   const bn = new BigNumber(amount);
-  const normalizedAmount = bn.isNaN() ? amount : bn.abs().toFixed();
-  const formatted = formatTrayPendingTxAmount({
-    amountInfo: {
-      amount: normalizedAmount,
-      symbol,
-    },
-  });
-  return prefix ? `${prefix}${formatted}` : formatted;
+  if (bn.isNaN()) {
+    return `${prefix}${amount} ${symbol}`;
+  }
+  return {
+    amount: `${prefix}${bn.abs().toFixed()}`,
+    symbol,
+  };
 }
 
 function formatTransfersAmount({
@@ -188,8 +203,8 @@ function getHistoryAlignedDisplayInfo({
     const onlyReceives = receives.length > 0 && sends.length === 0;
     let title = transfer?.label ?? '';
     let description = transfer?.to ?? decodedTx.to ?? '';
-    let primaryValue = '';
-    let secondaryValue = '';
+    let primaryValue: ITrayDisplayValue = '';
+    let secondaryValue: ITrayDisplayValue = '';
 
     if (onlySends) {
       title =
@@ -280,6 +295,37 @@ function TxRow({
   const primaryValue = historyInfo?.primaryValue || tx.amount;
   const secondaryValue =
     historyInfo?.secondaryValue || tx.confirmations || pendingLabel;
+  const renderDisplayValue = ({
+    value,
+    color,
+    size,
+  }: {
+    value: ITrayDisplayValue;
+    color: ComponentProps<typeof SizableText>['color'];
+    size: ComponentProps<typeof SizableText>['size'];
+  }) => {
+    if (typeof value === 'string') {
+      return (
+        <SizableText size={size} color={color} textAlign="right">
+          {value}
+        </SizableText>
+      );
+    }
+    return (
+      <NumberSizeableTextWrapper
+        size={size}
+        color={color}
+        formatter="balance"
+        formatterOptions={{ tokenSymbol: value.symbol }}
+        subTextStyle={TRAY_AMOUNT_SUB_TEXT_STYLE}
+        numberOfLines={1}
+        minWidth={0}
+        textAlign="right"
+      >
+        {value.amount}
+      </NumberSizeableTextWrapper>
+    );
+  };
 
   return (
     <Stack
@@ -307,20 +353,20 @@ function TxRow({
         ) : null}
       </Stack>
       <Stack alignItems="flex-end">
-        {primaryValue ? (
-          <SizableText fontSize="$bodyMd" color="$text" textAlign="right">
-            {primaryValue}
-          </SizableText>
-        ) : null}
-        {secondaryValue ? (
-          <SizableText
-            fontSize="$bodySm"
-            color="$textSubdued"
-            textAlign="right"
-          >
-            {secondaryValue}
-          </SizableText>
-        ) : null}
+        {primaryValue
+          ? renderDisplayValue({
+              value: primaryValue,
+              color: '$text',
+              size: '$bodyMd',
+            })
+          : null}
+        {secondaryValue
+          ? renderDisplayValue({
+              value: secondaryValue,
+              color: '$textSubdued',
+              size: '$bodySm',
+            })
+          : null}
       </Stack>
     </Stack>
   );
