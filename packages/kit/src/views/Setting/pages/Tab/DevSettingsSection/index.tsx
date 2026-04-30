@@ -1801,6 +1801,23 @@ const BaseDevSettingsSection = () => {
                           value={devSettings.settings?.enableMockHighTxFee}
                         />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="GlobusOutline"
+                        name="disableCustomUA"
+                        title="禁用自定义 User-Agent"
+                        subtitle="dev 调试用：开启后回退到 runtime 默认 UA"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'disableCustomUA',
+                              !devSettings.settings?.disableCustomUA,
+                            );
+                          }}
+                          value={devSettings.settings?.disableCustomUA}
+                        />
+                      </SectionFieldItem>
 
                       <SectionFieldItem
                         icon="SignatureOutline"
