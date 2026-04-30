@@ -6,6 +6,8 @@ import {
   type IDecodedTxAction,
 } from '../../types/tx';
 
+import { numberFormat } from './numberUtils';
+
 export type ITrayPendingTxType = 'send' | 'swap' | 'contract' | 'approve';
 
 export interface ITrayPendingTxAmountInfo {
@@ -24,17 +26,13 @@ export function formatTrayPendingTxAmount(
   const amountInfo = input.amountInfo ?? input.firstSend;
   if (amountInfo) {
     const bn = new BigNumber(amountInfo.amount ?? '');
-    let formatted: string;
     if (bn.isNaN()) {
-      formatted = amountInfo.amount;
-    } else if (bn.isZero()) {
-      formatted = '0';
-    } else if (bn.abs().lt('0.01')) {
-      formatted = bn.toPrecision(3);
-    } else {
-      formatted = bn.toFixed(4).replace(/\.?0+$/, '');
+      return `${amountInfo.amount} ${amountInfo.symbol}`;
     }
-    return `${formatted} ${amountInfo.symbol}`;
+    return numberFormat(bn.toFixed(), {
+      formatter: 'balance',
+      formatterOptions: { tokenSymbol: amountInfo.symbol },
+    });
   }
   // No English label — PendingTransactions renders the i18n'd typeLabel on the row.
   return '—';

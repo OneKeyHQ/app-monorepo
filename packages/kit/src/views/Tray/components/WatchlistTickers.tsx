@@ -253,9 +253,11 @@ function TickerRow({
 export function WatchlistTickers({
   tickers,
   onTickerPress,
+  onEmptyPress,
 }: {
   tickers: ITrayWatchlistItem[];
   onTickerPress: (ticker: ITrayWatchlistItem) => void;
+  onEmptyPress?: () => void;
 }) {
   const intl = useIntl();
   const perpsBadgeText = intl.formatMessage({
@@ -270,11 +272,48 @@ export function WatchlistTickers({
 
   if (!tickers || tickers.length === 0) {
     return (
-      <Stack padding="$4">
-        <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
+      <XStack
+        marginHorizontal="$4"
+        marginTop="$5"
+        marginBottom="$5"
+        minHeight={64}
+        paddingHorizontal="$4"
+        paddingVertical="$3"
+        borderRadius="$3"
+        borderWidth={1}
+        borderColor="$borderSubdued"
+        backgroundColor="$bg"
+        alignItems="center"
+        gap="$3"
+        elevation={0.5}
+        onPress={onEmptyPress}
+        cursor={onEmptyPress ? 'pointer' : 'default'}
+        hoverStyle={onEmptyPress ? { backgroundColor: '$bgHover' } : undefined}
+        pressStyle={onEmptyPress ? { backgroundColor: '$bgActive' } : undefined}
+      >
+        <Stack
+          width="$9"
+          height="$9"
+          borderRadius="$full"
+          backgroundColor="$brand3"
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+        >
+          <Icon name="PlusLargeOutline" size="$5" color="$brand9" />
+        </Stack>
+        <SizableText
+          size="$bodyMdMedium"
+          color="$text"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          flex={1}
+          minWidth={0}
+        >
           {intl.formatMessage({ id: ETranslations.tray_add_favorites_desc })}
         </SizableText>
-      </Stack>
+        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+      </XStack>
     );
   }
 
