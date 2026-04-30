@@ -712,6 +712,7 @@ export enum EBtcRewardErrorCode {
   InvalidOrder = 100_301,
   InvalidAddress = 100_302,
   CommitFailed = 100_303,
+  CodeNotFound = 100_304,
 }
 
 export interface IBtcRewardError {
