@@ -110,6 +110,14 @@ describe('onekey/no-non-worklet-call-in-worklet', () => {
             useEffect(() => { notWorklet(); });
           `,
         },
+        // Member-expression call must not collide with a module-scope helper
+        // of the same name. obj.format() is unrelated to the local format().
+        {
+          code: `
+            function format() { return 1; }
+            useAnimatedReaction(() => 1, () => { obj.format(); });
+          `,
+        },
       ],
       invalid: [
         // 1) Inline arrow body calls non-worklet helper.

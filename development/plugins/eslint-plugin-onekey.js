@@ -141,7 +141,11 @@ const noNonWorkletCallInWorklet = {
     }
 
     function reportBadCall(callNode, hookName) {
-      const name = calleeName(callNode.callee);
+      // Only bare Identifier callees can collide with a module-scope helper.
+      // For MemberExpression (obj.foo()) the receiver is independent of any
+      // same-named local function, so skip to avoid false positives.
+      if (callNode.callee?.type !== 'Identifier') return;
+      const name = callNode.callee.name;
       if (
         name &&
         !WORKLET_SAFE_CALLEES.has(name) &&
