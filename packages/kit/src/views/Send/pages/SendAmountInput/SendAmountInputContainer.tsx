@@ -1311,6 +1311,7 @@ function SendAmountInputContainer() {
             accountId: currentAccountId,
             networkId,
             mergeDeriveAssetsEnabled: false,
+            intl,
           });
         }}
         hoverStyle={{ opacity: 0.7 }}
@@ -1320,7 +1321,7 @@ function SendAmountInputContainer() {
         <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
       </XStack>
     );
-  }, [hasFrozenBalance, currentAccountId, networkId]);
+  }, [hasFrozenBalance, currentAccountId, networkId, intl]);
 
   const extraContent = useMemo(() => {
     const addons: React.ReactNode[] = [];

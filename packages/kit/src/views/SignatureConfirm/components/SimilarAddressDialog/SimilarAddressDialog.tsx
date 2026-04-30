@@ -226,6 +226,7 @@ export const showSimilarAddressDialog = async ({
 }) => {
   return new Promise((resolve, reject) => {
     const dialog = Dialog.show({
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
       title: appLocale.intl.formatMessage({
         id: ETranslations.wallet_high_risk_address_detected,
       }),

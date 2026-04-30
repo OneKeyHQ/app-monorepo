@@ -30,10 +30,35 @@ const noRawError = {
   },
 };
 
+const noAppLocaleMainThread = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description:
+        'appLocale.intl is bg-thread only. Main thread should use useIntl() for reactivity.',
+    },
+    schema: [],
+  },
+  create(context) {
+    return {
+      "MemberExpression[object.type='MemberExpression'][object.object.name='appLocale'][object.property.name='intl'][property.name='formatMessage']"(
+        node,
+      ) {
+        context.report({
+          node,
+          message:
+            'Main thread must not use appLocale.intl.formatMessage — it is not reactive and falls back to the raw key when called at module top-level. Use useIntl().formatMessage in components, or pass intl as a parameter from the caller.',
+        });
+      },
+    };
+  },
+};
+
 const plugin = {
   meta: { name: 'onekey' },
   rules: {
     'no-raw-error': noRawError,
+    'no-app-locale-main-thread': noAppLocaleMainThread,
   },
 };
 

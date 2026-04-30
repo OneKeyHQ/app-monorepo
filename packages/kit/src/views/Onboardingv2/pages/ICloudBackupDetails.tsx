@@ -310,6 +310,7 @@ export default function ICloudBackupDetails({
                   <Button
                     onPress={async () => {
                       showCloudBackupPasswordDialog({
+                        intl,
                         onSubmit: async (password) => {
                           const privateData =
                             await backgroundApiProxy.serviceCloudBackupV2.restorePreparePrivateData(

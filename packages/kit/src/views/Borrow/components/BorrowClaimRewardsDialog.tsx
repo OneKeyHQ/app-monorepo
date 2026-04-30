@@ -311,6 +311,7 @@ export function showBorrowClaimRewardsDialog({
   onClose?: () => void;
 }) {
   return Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.defi_claimable_rewards,
     }),

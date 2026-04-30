@@ -890,6 +890,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 );
               if (allAppNotInstalled) {
                 Toast.error({
+                  // eslint-disable-next-line onekey/no-app-locale-main-thread
                   title: appLocale.intl.formatMessage({
                     id: ETranslations.hardware_third_party_no_app_installed_on_device,
                   }),
@@ -920,6 +921,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               // mute error toast for qr wallet
             } else {
               Toast.error({
+                // eslint-disable-next-line onekey/no-app-locale-main-thread
                 title: appLocale.intl.formatMessage(
                   {
                     id: ETranslations.feedback_hw_create_unsupported_address_title,
@@ -1073,6 +1075,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           try {
             if (options?.showAddAccountsLoading) {
               dialog = Dialog.show({
+                // eslint-disable-next-line onekey/no-app-locale-main-thread
                 title: appLocale.intl.formatMessage({
                   id: ETranslations.onboarding_finalize_generating_accounts,
                 }),
