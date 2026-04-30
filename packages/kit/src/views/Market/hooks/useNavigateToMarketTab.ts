@@ -22,6 +22,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 interface INavigateToMarketTabOptions {
   tabToSelect?: IMarketSelectedTab;
+  spotCategoryToSelect?: string;
 }
 
 export function useNavigateToMarketTab() {
@@ -29,11 +30,16 @@ export function useNavigateToMarketTab() {
 
   const navigateToMarketTab = useCallback(
     (options?: INavigateToMarketTabOptions) => {
-      const { tabToSelect } = options ?? {};
+      const { tabToSelect, spotCategoryToSelect } = options ?? {};
+      const targetTab = spotCategoryToSelect ? 'trending' : tabToSelect;
 
       // Switch to specific tab inside Market (watchlist or trending)
-      if (tabToSelect) {
-        setMarketSelectedTab({ tab: tabToSelect });
+      if (targetTab || spotCategoryToSelect) {
+        setMarketSelectedTab((prev) => ({
+          ...prev,
+          tab: targetTab ?? prev.tab,
+          spotCategoryToSelect,
+        }));
       }
 
       if (

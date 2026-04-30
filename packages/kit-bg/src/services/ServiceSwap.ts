@@ -25,6 +25,7 @@ import EventSource from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -759,6 +760,10 @@ export default class ServiceSwap extends ServiceBase {
           }
         : {}),
     };
+    headers = await withCustomUAHeaders(
+      swapEventUrl,
+      headers as Record<string, string>,
+    );
     if (platformEnv.isExtension) {
       if (this._quoteEventSourcePolyfill) {
         this._quoteEventSourcePolyfill.close();
