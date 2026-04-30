@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { debounce } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
@@ -9,11 +10,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function DiskFullWarningDialogContainer() {
+  const intl = useIntl();
   const dialogRef = useRef<IDialogInstance | null>(null);
   useEffect(() => {
     if (platformEnv.isWebDappMode) {
@@ -30,16 +31,16 @@ export function DiskFullWarningDialogContainer() {
         dialogRef.current = Dialog.show({
           icon: 'Disk2Outline',
           tone: 'destructive',
-          title: appLocale.intl.formatMessage({
+          title: intl.formatMessage({
             id: ETranslations.extension_disk_full,
           }),
-          description: appLocale.intl.formatMessage({
+          description: intl.formatMessage({
             id: ETranslations.extension_disk_full_desc,
           }),
           dismissOnOverlayPress: false,
           disableDrag: true,
           showCancelButton: false,
-          onConfirmText: appLocale.intl.formatMessage({
+          onConfirmText: intl.formatMessage({
             id: ETranslations.global_got_it,
           }),
           confirmButtonProps: {
@@ -59,6 +60,6 @@ export function DiskFullWarningDialogContainer() {
       appEventBus.off(EAppEventBusNames.ShowSystemDiskFullWarning, showFn);
       // appEventBus.off(EAppEventBusNames.HideSystemDiskFullWarning, hideFn);
     };
-  }, []);
+  }, [intl]);
   return null;
 }

@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -40,6 +42,7 @@ function WalletActionReceive({
   useSelector?: boolean;
   showButtonStyle?: boolean;
 } = {}) {
+  const intl = useIntl();
   const {
     activeAccount: {
       network,
@@ -161,7 +164,11 @@ function WalletActionReceive({
       disabled={customization?.disabled ?? isReceiveDisabled}
       allowPressWhenDisabled={isBotWalletDeactivated}
       onPress={handleReceiveOnPress}
-      label={customization?.label}
+      label={
+        customization?.labelId
+          ? intl.formatMessage({ id: customization.labelId })
+          : undefined
+      }
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}
       trackID="wallet-receive"

@@ -2,10 +2,10 @@ import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import QRCodeUtil from 'qrcode';
+import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -69,6 +69,7 @@ export const ShareImageGenerator = forwardRef<
     },
     ref,
   ) => {
+    const intl = useIntl();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const generate = useCallback(async (): Promise<string> => {
       const canvas = canvasRef.current;
@@ -190,7 +191,7 @@ export const ShareImageGenerator = forwardRef<
               ? ETranslations.perp_long
               : ETranslations.perp_short;
           }
-          const sideTranslation = appLocale.intl.formatMessage({
+          const sideTranslation = intl.formatMessage({
             id: sideLabelId,
           });
           const sideText = isSpot
@@ -242,7 +243,7 @@ export const ShareImageGenerator = forwardRef<
             ctx.font = toCanvasFont(fonts.priceLabel);
             ctx.globalAlpha = layout.labelOpacity;
             ctx.fillText(
-              appLocale.intl.formatMessage({
+              intl.formatMessage({
                 id: ETranslations.perp_position_entry_price,
               }),
               padding,
@@ -265,10 +266,10 @@ export const ShareImageGenerator = forwardRef<
             ctx.globalAlpha = layout.labelOpacity;
             ctx.fillText(
               priceType === 'exit'
-                ? appLocale.intl.formatMessage({
+                ? intl.formatMessage({
                     id: ETranslations.perp_position_exit_price,
                   })
-                : appLocale.intl.formatMessage({
+                : intl.formatMessage({
                     id: ETranslations.perp_position_mark_price,
                   }),
               padding,
@@ -337,7 +338,7 @@ export const ShareImageGenerator = forwardRef<
           ctx.font = toCanvasFont(fonts.priceLabel);
           ctx.globalAlpha = layout.labelOpacity;
           ctx.fillText(
-            appLocale.intl.formatMessage({
+            intl.formatMessage({
               id: ETranslations.perp_share_referral_desc,
             }),
             padding,
@@ -361,7 +362,14 @@ export const ShareImageGenerator = forwardRef<
         }
         return '';
       }
-    }, [data, config, referralQrCodeUrl, referralDisplayText, isReferralReady]);
+    }, [
+      data,
+      config,
+      referralQrCodeUrl,
+      referralDisplayText,
+      isReferralReady,
+      intl,
+    ]);
 
     useImperativeHandle(ref, () => ({ generate }));
 

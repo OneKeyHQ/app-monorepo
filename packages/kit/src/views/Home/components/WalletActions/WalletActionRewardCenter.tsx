@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { ActionList } from '@onekeyhq/components';
 import type { IRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -16,6 +18,7 @@ export function WalletActionRewardCenter({
   rewardCenterConfig: IRewardCenterConfig;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const { network, account, wallet } = activeAccount;
@@ -47,7 +50,7 @@ export function WalletActionRewardCenter({
     <ActionList.Item
       trackID="wallet-reward-center"
       icon={rewardCenterConfig?.icon}
-      label={rewardCenterConfig?.title}
+      label={intl.formatMessage({ id: rewardCenterConfig.titleId })}
       onClose={() => {}}
       onPress={handleRewardCenter}
     />
