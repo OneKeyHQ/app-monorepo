@@ -323,7 +323,12 @@ export function ProtocolListContent({
                 : undefined,
             });
           const actionData = getManagePageDepositAction(managePageData);
-          const balanceBN = BigNumber(actionData?.data?.balance || '0');
+          const balance = actionData?.data?.balance;
+          if (balance === undefined || balance === null || balance === '') {
+            return undefined;
+          }
+
+          const balanceBN = BigNumber(balance);
           return {
             key: getProtocolItemKey(protocol),
             balanceParsed: balanceBN.isNaN() ? '0' : balanceBN.toFixed(),

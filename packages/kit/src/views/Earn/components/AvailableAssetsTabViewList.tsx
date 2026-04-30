@@ -55,6 +55,7 @@ export function AvailableAssetsTabViewList() {
   const accountId = activeAccount.account?.id;
   const accountReady = activeAccount.ready;
   const activeNetworkId = activeAccount.network?.id;
+  const shouldApplyNetworkFilter = media.gtMd && selectedNetworkIds.length > 0;
 
   const tabData = useMemo(
     () => buildEarnAvailableAssetCategoryTabs(intl),
@@ -72,7 +73,7 @@ export function AvailableAssetsTabViewList() {
     let source = availableAssetsByType[currentTabType] || [];
 
     // Network filter
-    if (selectedNetworkIds.length > 0) {
+    if (shouldApplyNetworkFilter) {
       const networkSet = new Set(selectedNetworkIds);
       source = source.filter((a) =>
         a.protocols.some((p) => networkSet.has(p.networkId)),
@@ -93,6 +94,7 @@ export function AvailableAssetsTabViewList() {
     tabData,
     searchText,
     selectedNetworkIds,
+    shouldApplyNetworkFilter,
   ]);
 
   // Compute available network IDs for the current tab
@@ -118,6 +120,12 @@ export function AvailableAssetsTabViewList() {
   const handleNetworkFilterChange = useCallback((networkIds: string[]) => {
     setSelectedNetworkIds(networkIds);
   }, []);
+
+  useEffect(() => {
+    if (!media.gtMd && selectedNetworkIds.length > 0) {
+      setSelectedNetworkIds([]);
+    }
+  }, [media.gtMd, selectedNetworkIds.length]);
 
   // Use ref to track component mount status to prevent state updates after unmount
   const isMountedRef = useRef(true);
@@ -431,7 +439,7 @@ export function AvailableAssetsTabViewList() {
   // Memoize ListEmptyComponent
   const listEmptyComponent = useMemo(
     () =>
-      searchText || selectedNetworkIds.length > 0 ? (
+      searchText || shouldApplyNetworkFilter ? (
         <Empty
           icon="SearchOutline"
           title={intl.formatMessage({
@@ -439,7 +447,7 @@ export function AvailableAssetsTabViewList() {
           })}
         />
       ) : null,
-    [searchText, selectedNetworkIds, intl],
+    [searchText, shouldApplyNetworkFilter, intl],
   );
 
   // Pre-fetch all categories and open search dialog
