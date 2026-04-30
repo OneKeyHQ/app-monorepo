@@ -197,6 +197,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   private async _formatOrdersForHyperLiquid(
     orders: IOrderParams[],
+    options?: {
+      allowZeroSize?: boolean;
+    },
   ): Promise<IOrderParams[]> {
     const precisionMap = await this._getOrderAssetPrecisionMap(
       orders.map((order) => order.a),
@@ -213,7 +216,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         precision.szDecimals,
         precision.type,
       );
-      const size = formatHlSize(order.s, precision.szDecimals);
+      const size =
+        options?.allowZeroSize && new BigNumber(order.s).isZero()
+          ? '0'
+          : formatHlSize(order.s, precision.szDecimals);
       if (!price) {
         throw new OneKeyLocalError('Order price is too small for HL tick size');
       }
@@ -699,7 +705,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   ): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
 
-    const formattedOrders = await this._formatOrdersForHyperLiquid(orders);
+    const formattedOrders = await this._formatOrdersForHyperLiquid(orders, {
+      allowZeroSize: grouping === 'positionTpsl',
+    });
     const client = await this.getExchangeClientForTrading();
     const requestPayload: IHyperLiquidOrderRequestPayload = {
       orders: formattedOrders,

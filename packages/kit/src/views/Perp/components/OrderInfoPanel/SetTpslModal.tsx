@@ -225,14 +225,11 @@ const SetTpslForm = memo(
 
     const handlePercentageChange = useCallback(
       (percentage: number) => {
-        const amount = positionSize
-          .multipliedBy(percentage)
-          .dividedBy(100)
-          .toFixed(szDecimals);
+        const amount = positionSize.multipliedBy(percentage).dividedBy(100);
         setFormData((prev) => ({
           ...prev,
           percentage,
-          amount,
+          amount: formatHlSize(amount, szDecimals) || '0',
         }));
       },
       [positionSize, szDecimals],

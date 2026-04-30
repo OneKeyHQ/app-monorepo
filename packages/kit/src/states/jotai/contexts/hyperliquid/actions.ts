@@ -127,6 +127,45 @@ function mergeLedgerUpdates(
   return sortAndLimitLedgerUpdates(mergedUpdates);
 }
 
+async function clearMatchedDepositOrders(
+  updates: HL.IUserNonFundingLedgerUpdate[],
+) {
+  const depositUpdates = updates.filter(
+    (update) =>
+      update.delta.type === 'deposit' ||
+      (update.delta.type as string) === 'send',
+  );
+  if (depositUpdates.length === 0) {
+    return;
+  }
+
+  const perpDepositOrder = await perpsDepositOrderAtom.get();
+  const pendingOrders = perpDepositOrder.orders.filter((order) => order.toTxId);
+  if (pendingOrders.length === 0) {
+    return;
+  }
+
+  const matchedOrderIds = new Set<string>();
+  for (const depositUpdate of depositUpdates) {
+    const matchedOrder = pendingOrders.find(
+      (order) => order.toTxId === depositUpdate.hash,
+    );
+
+    if (matchedOrder) {
+      matchedOrderIds.add(matchedOrder.fromTxId);
+    }
+  }
+
+  if (matchedOrderIds.size > 0) {
+    await perpsDepositOrderAtom.set((prev) => ({
+      ...prev,
+      orders: prev.orders.filter(
+        (order) => !matchedOrderIds.has(order.fromTxId),
+      ),
+    }));
+  }
+}
+
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private orderBookTickOptionsLoaded = false;
 
@@ -512,65 +551,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         );
 
         const current = get(perpsLedgerUpdatesAtom());
-        if (!isSnapshot) {
-          const existingUpdates =
-            current.accountAddress === activeAccountAddress
-              ? current.updates || []
-              : [];
-          const existingKeys = new Set(
-            existingUpdates.map((update) => getLedgerUpdateKey(update)),
-          );
-          const newUpdates = incomingUpdates.filter((update) => {
-            return !existingKeys.has(getLedgerUpdateKey(update));
-          });
-
-          set(perpsLedgerUpdatesAtom(), {
-            accountAddress: activeAccountAddress,
-            updates: mergeLedgerUpdates(incomingUpdates, existingUpdates),
-            isLoaded:
-              current.accountAddress === activeAccountAddress
-                ? current.isLoaded
-                : false,
-          });
-
-          // Check for deposit/send updates and match with pending orders
-          // Hyperliquid use 'send' type for deposit confirmations
-          const depositUpdates = newUpdates.filter(
-            (update) =>
-              update.delta.type === 'deposit' ||
-              (update.delta.type as string) === 'send',
-          );
-          if (depositUpdates.length > 0) {
-            const perpDepositOrder = await perpsDepositOrderAtom.get();
-            const pendingOrders = perpDepositOrder.orders.filter(
-              (order) => order.toTxId,
-            );
-
-            if (pendingOrders.length > 0) {
-              const matchedOrderIds = new Set<string>();
-
-              for (const depositUpdate of depositUpdates) {
-                const matchedOrder = pendingOrders.find(
-                  (order) => order.toTxId === depositUpdate.hash,
-                );
-
-                if (matchedOrder) {
-                  matchedOrderIds.add(matchedOrder.fromTxId);
-                }
-              }
-
-              // Remove matched orders from the atom
-              if (matchedOrderIds.size > 0) {
-                await perpsDepositOrderAtom.set((prev) => ({
-                  ...prev,
-                  orders: prev.orders.filter(
-                    (order) => !matchedOrderIds.has(order.fromTxId),
-                  ),
-                }));
-              }
-            }
-          }
+        const existingUpdates =
+          current.accountAddress === activeAccountAddress
+            ? current.updates || []
+            : [];
+        const existingKeys = new Set(
+          existingUpdates.map((update) => getLedgerUpdateKey(update)),
+        );
+        const newUpdates = incomingUpdates.filter((update) => {
+          return !existingKeys.has(getLedgerUpdateKey(update));
+        });
+        let isLoaded = false;
+        if (isSnapshot) {
+          isLoaded = true;
+        } else if (current.accountAddress === activeAccountAddress) {
+          isLoaded = current.isLoaded;
         }
+
+        set(perpsLedgerUpdatesAtom(), {
+          accountAddress: activeAccountAddress,
+          updates: mergeLedgerUpdates(incomingUpdates, existingUpdates),
+          isLoaded,
+        });
+
+        await clearMatchedDepositOrders(newUpdates);
       }
     },
   );
@@ -626,6 +630,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           updates,
           isLoaded: true,
         });
+        await clearMatchedDepositOrders(updates);
       } catch (error) {
         console.error('Failed to load perp account history:', error);
         // Keep loading state intact. This path represents a real request failure,
