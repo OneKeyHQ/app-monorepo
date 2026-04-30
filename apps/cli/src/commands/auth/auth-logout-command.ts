@@ -55,6 +55,7 @@ export async function executeAuthLogoutCommand(params: {
     }
 
     await authManager.clearSession();
+
     output.success(presentAuthLogoutResult('logged_out'));
   } catch (error) {
     const appError = AppError.from(error);

@@ -2,6 +2,7 @@
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
+import type { EAppSWRCacheScopes } from '../storage/syncStorageKeys';
 
 // SWR cache uses the dedicated cold-start cache MMKV instance,
 // separate from onekey-app-setting.
@@ -15,7 +16,7 @@ type ISWREntry<T = any> = {
 type ISWRStore = Record<string, ISWREntry>;
 
 // Max entries to prevent unbounded MMKV growth.
-const MAX_ENTRIES = 80;
+const MAX_ENTRIES = 300;
 
 let _syncStorage: ISyncStorage | undefined;
 let _cache: ISWRStore | undefined;
@@ -156,6 +157,81 @@ export const swrKeys = {
       indexedAccountId ?? '',
       withNetworksInfo ? '1' : '0',
       enabledNetworkIdsKey ?? '',
+    ].join(':'),
+  // UnifiedNetworkSelector modal's list/meta bundle:
+  // allNetworks + allNetworksState + compatibleNetworks grouped together so
+  // the modal can render its skeleton synchronously on mount. Balances/DeFi
+  // deliberately live outside this key — see UnifiedNetworkSelector/index.tsx.
+  unifiedNetworkSelectorMeta: ({
+    walletId,
+    accountId,
+  }: {
+    walletId: string;
+    accountId?: string;
+  }) => ['unsMeta', 'v1', walletId, accountId ?? ''].join(':'),
+  // NetworkContent (the "Network" tab inside UnifiedNetworkSelector) bundles
+  // sorted chainSelectorNetworks + account balances + DeFi overview into one
+  // result object. Balances/DeFi are included despite being volatile because
+  // the sorted list itself depends on them — caching them together lets the
+  // first render match the final UI. walletId + accountId in the key
+  // guarantees each account sees its own snapshot.
+  networkContentData: ({
+    walletId,
+    accountId,
+    indexedAccountId,
+    networkIdsKey,
+  }: {
+    walletId?: string;
+    accountId?: string;
+    indexedAccountId?: string;
+    networkIdsKey?: string;
+  }) =>
+    // v3: v2 stored an empty frequentlyUsedItems (stripped to avoid a
+    // "ghost row" flash). In practice this caused the opposite problem —
+    // every cold open jumped from 0 pinned networks to the account's real
+    // set (often 8 items), a far larger visual glitch. v3 persists the
+    // real frequentlyUsedItems again so the first frame already matches
+    // the post-revalidate layout for accounts whose pinned segment is
+    // stable across sessions. Old v2 (empty-freq) entries are orphaned.
+    [
+      'netContent',
+      'v3',
+      walletId ?? '',
+      accountId ?? '',
+      indexedAccountId ?? '',
+      networkIdsKey ?? '*',
+    ].join(':'),
+  // RecentNetworks chip row. `scope` identifies which UI surface rendered
+  // the component. availableNetworks is deliberately NOT in the key: the
+  // upstream list often hydrates empty-then-full on first render, and
+  // including it here would make swrKey flip between two cache slots mid-
+  // mount, which trips usePromiseResult's prevSwrKey reset logic and
+  // flashes the chip row. availableNetworks only filters the method output
+  // — its transient values are safe to ignore for cache identity.
+  //
+  // walletId/accountId ARE in the key: the fetcher passes availableNetworks
+  // (derived from the account) to bg for filtering, so the cached result is
+  // account-specific. Without wallet/account in the key, switching accounts
+  // would leak one account's recent chips into another's first paint. v2
+  // bumps the version to orphan the old (account-agnostic) v1 entries.
+  recentNetworks: ({
+    scope,
+    showAllNetwork,
+    walletId,
+    accountId,
+  }: {
+    scope: EAppSWRCacheScopes;
+    showAllNetwork: boolean;
+    walletId?: string;
+    accountId?: string;
+  }) =>
+    [
+      'recentNets',
+      'v2',
+      scope,
+      showAllNetwork ? '1' : '0',
+      walletId ?? '',
+      accountId ?? '',
     ].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
 };

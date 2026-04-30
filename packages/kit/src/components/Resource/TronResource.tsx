@@ -283,9 +283,11 @@ export function showTronResourceDetailsDialog({
   networkId: string;
 }) {
   return Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.global_energy_bandwidth,
     }),
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     description: appLocale.intl.formatMessage({
       id: ETranslations.global_energy_bandwidth_desc,
     }),
@@ -294,6 +296,7 @@ export function showTronResourceDetailsDialog({
       <ResourceDetailsContent accountId={accountId} networkId={networkId} />
     ),
     showCancelButton: false,
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     onConfirmText: appLocale.intl.formatMessage({
       id: ETranslations.global_ok,
     }),

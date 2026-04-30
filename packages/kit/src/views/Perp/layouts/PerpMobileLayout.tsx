@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import {
   usePerpsActiveAccountSummaryAtom,
+  useSpotActiveOpenOrdersAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -130,21 +131,26 @@ export function PerpMobileLayout() {
     }
   }, [actions]);
 
-  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [perpOpenOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
+  const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
   const [positionsLength] = usePerpsActivePositionLengthAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
 
   const holdingsCount = useMemo(() => {
-    const nonZeroSpotBalanceCount = balances.filter(
-      (item) => !new BigNumber(item.total).isZero(),
+    // Mirrors the spot+perps USDC merge in SpotBalanceList — count non-USDC
+    // spot rows once and add 1 if either side has any USDC.
+    const nonUsdcSpotCount = balances.filter(
+      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
     ).length;
-    const perpsUsdcCount =
-      accountSummary?.totalRawUsd &&
-      new BigNumber(accountSummary.totalRawUsd).gt(0)
-        ? 1
-        : 0;
-    return nonZeroSpotBalanceCount + perpsUsdcCount;
+    const hasSpotUsdc = balances.some(
+      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
+    );
+    const hasPerpsUsdc =
+      !!accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0);
+    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
   }, [accountSummary?.totalRawUsd, balances]);
 
   const positionsTabCount = useMemo(() => {
@@ -161,7 +167,12 @@ export function PerpMobileLayout() {
     return '';
   }, [openOrdersLength]);
 
-  const holdingsTabCount = useMemo(() => `(${holdingsCount})`, [holdingsCount]);
+  const holdingsTabCount = useMemo(() => {
+    if (holdingsCount > 0) {
+      return `(${holdingsCount})`;
+    }
+    return '';
+  }, [holdingsCount]);
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}

@@ -3,14 +3,20 @@ import {
   getSharedRPC,
 } from '@onekeyfe/react-native-background-thread';
 
+import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/kit-bg/src/apis/backgroundApiPermissions';
 import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   LogLevel,
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import {
   BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX,
@@ -86,6 +92,7 @@ type INativeBackgroundThreadTransport = {
       type: 'app-event';
       eventName: string;
       payload: unknown;
+      originNodeId?: string;
     },
     localFallback: () => Promise<any>,
   ) => Promise<any>;
@@ -152,6 +159,43 @@ function clearReadyTimeoutTimer() {
   readyTimeoutTimer = undefined;
 }
 
+function rejectQueuedCalls(reason: string) {
+  const queuedCallsSnapshot = queuedCalls.splice(0);
+  const error = createTransportError(reason);
+  queuedCallsSnapshot.forEach(({ reject }) => {
+    reject(error);
+  });
+}
+
+function getRemoteBrokenReason(reason?: string) {
+  return (
+    remoteBrokenReason || reason || 'Background runtime unavailable after ready'
+  );
+}
+
+function switchToRemoteBroken(reason: string) {
+  if (!isNativeBackgroundThreadTransportEnabled()) {
+    return false;
+  }
+  if (transportState === 'remote-broken') {
+    return false;
+  }
+
+  remoteBrokenReason = reason;
+  transportState = 'remote-broken';
+  clearReadyTimeoutTimer();
+  rejectQueuedCalls(reason);
+
+  const pendingRemoteCallsSnapshot = Array.from(pendingRemoteCalls.values());
+  pendingRemoteCalls.clear();
+  const error = createTransportError(reason);
+  pendingRemoteCallsSnapshot.forEach(({ reject, timer }) => {
+    clearTimeout(timer);
+    reject(error);
+  });
+  return true;
+}
+
 function ensureReadyTimeout() {
   if (readyTimeoutTimer || transportState !== 'starting') {
     return;
@@ -201,11 +245,67 @@ function getRequestDebugLabel(request: IBackgroundThreadRequest) {
   }
 }
 
-function rejectQueuedCalls(reason: string) {
-  const queuedCallsSnapshot = queuedCalls.splice(0);
-  const error = createTransportError(reason);
-  queuedCallsSnapshot.forEach(({ reject }) => {
-    reject(error);
+function dispatchRemoteRequest(
+  request: IBackgroundThreadRequest,
+  localFallback: () => Promise<any>,
+) {
+  if (!isNativeBackgroundThreadTransportEnabled()) {
+    return localFallback();
+  }
+  if (transportState === 'remote-broken') {
+    throw createTransportError(getRemoteBrokenReason());
+  }
+
+  const sharedRPC = getSharedRPC();
+  if (!sharedRPC) {
+    const reason =
+      transportState === 'ready'
+        ? 'SharedRPC unavailable after background runtime ready'
+        : 'SharedRPC unavailable in main runtime';
+    switchToRemoteBroken(reason);
+    throw createTransportError(getRemoteBrokenReason(reason));
+  }
+
+  const callId = createRemoteCallId();
+  const requestKey = buildBackgroundThreadRequestKey(callId);
+  transportLog(
+    `dispatchRemoteRequest: callId=${callId}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
+  );
+  const isBridgeCall = request.type === 'bridge-call';
+  const timeoutMs = isBridgeCall ? BRIDGE_CALL_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      if (!pendingRemoteCalls.has(callId)) {
+        return;
+      }
+      transportLog(`dispatchRemoteRequest TIMEOUT: callId=${callId}`);
+      // A single slow call (e.g. batch account derivation that legitimately
+      // runs past REQUEST_TIMEOUT_MS) must NOT tear down the whole main↔bg
+      // transport. Reject only this pending call; keep transport alive so
+      // subsequent RPCs still reach the background runtime.
+      const pending = pendingRemoteCalls.get(callId);
+      pendingRemoteCalls.delete(callId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        pending.reject(
+          createTransportError(
+            isBridgeCall
+              ? `Bridge call timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`
+              : `Background request timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`,
+          ),
+        );
+      }
+    }, timeoutMs);
+
+    pendingRemoteCalls.set(callId, {
+      resolve,
+      reject,
+      timer,
+      localFallback,
+    });
+
+    sharedRPC.write(requestKey, serializeBackgroundThreadRequest(request));
   });
 }
 
@@ -235,35 +335,6 @@ function dispatchQueuedCallsToRemote() {
     .finally(() => {
       queuedFlushPromise = undefined;
     });
-}
-
-function getRemoteBrokenReason(reason?: string) {
-  return (
-    remoteBrokenReason || reason || 'Background runtime unavailable after ready'
-  );
-}
-
-function switchToRemoteBroken(reason: string) {
-  if (!isNativeBackgroundThreadTransportEnabled()) {
-    return false;
-  }
-  if (transportState === 'remote-broken') {
-    return false;
-  }
-
-  remoteBrokenReason = reason;
-  transportState = 'remote-broken';
-  clearReadyTimeoutTimer();
-  rejectQueuedCalls(reason);
-
-  const pendingRemoteCallsSnapshot = Array.from(pendingRemoteCalls.values());
-  pendingRemoteCalls.clear();
-  const error = createTransportError(reason);
-  pendingRemoteCallsSnapshot.forEach(({ reject, timer }) => {
-    clearTimeout(timer);
-    reject(error);
-  });
-  return true;
 }
 
 function handleRuntimeSignal(sharedRPC: ISharedRPC) {
@@ -417,11 +488,13 @@ function handleBackgroundThreadAppEventUpdate(
     return;
   }
 
-  appEventBus.emitToSelf({
-    type: payload.eventName as any,
+  // We are the main-thread foreground receiving a broadcast from the
+  // background. Route through dispatchInboundFromBackground so we skip our
+  // own echoes via originNodeId.
+  appEventBus.dispatchInboundFromBackground({
+    type: payload.eventName,
     payload: payload.payload,
-    isRemote: true,
-    cloned: false,
+    originNodeId: payload.originNodeId ?? '',
   });
 }
 
@@ -594,70 +667,6 @@ async function ensureTransportReady() {
   }
 }
 
-function dispatchRemoteRequest(
-  request: IBackgroundThreadRequest,
-  localFallback: () => Promise<any>,
-) {
-  if (!isNativeBackgroundThreadTransportEnabled()) {
-    return localFallback();
-  }
-  if (transportState === 'remote-broken') {
-    throw createTransportError(getRemoteBrokenReason());
-  }
-
-  const sharedRPC = getSharedRPC();
-  if (!sharedRPC) {
-    const reason =
-      transportState === 'ready'
-        ? 'SharedRPC unavailable after background runtime ready'
-        : 'SharedRPC unavailable in main runtime';
-    switchToRemoteBroken(reason);
-    throw createTransportError(getRemoteBrokenReason(reason));
-  }
-
-  const callId = createRemoteCallId();
-  const requestKey = buildBackgroundThreadRequestKey(callId);
-  transportLog(
-    `dispatchRemoteRequest: callId=${callId}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
-  );
-  const isBridgeCall = request.type === 'bridge-call';
-  const timeoutMs = isBridgeCall ? BRIDGE_CALL_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      if (!pendingRemoteCalls.has(callId)) {
-        return;
-      }
-      transportLog(`dispatchRemoteRequest TIMEOUT: callId=${callId}`);
-      // A single slow call (e.g. batch account derivation that legitimately
-      // runs past REQUEST_TIMEOUT_MS) must NOT tear down the whole main↔bg
-      // transport. Reject only this pending call; keep transport alive so
-      // subsequent RPCs still reach the background runtime.
-      const pending = pendingRemoteCalls.get(callId);
-      pendingRemoteCalls.delete(callId);
-      if (pending) {
-        clearTimeout(pending.timer);
-        pending.reject(
-          createTransportError(
-            isBridgeCall
-              ? `Bridge call timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`
-              : `Background request timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`,
-          ),
-        );
-      }
-    }, timeoutMs);
-
-    pendingRemoteCalls.set(callId, {
-      resolve,
-      reject,
-      timer,
-      localFallback,
-    });
-
-    sharedRPC.write(requestKey, serializeBackgroundThreadRequest(request));
-  });
-}
-
 function callRemoteRequest(
   request: IBackgroundThreadRequest,
   localFallback: () => Promise<any>,
@@ -722,10 +731,57 @@ function emitAppEventRequest(
     type: 'app-event';
     eventName: string;
     payload: unknown;
+    originNodeId?: string;
   },
   localFallback: () => Promise<any>,
 ) {
   return callRemoteRequest(request, localFallback);
+}
+
+const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
+
+// Local readiness has TWO independent components and the gate must require
+// BOTH:
+//   (a) page-side JS handshake done — `webEmbedReady`, set by
+//       `LoadWebEmbedWebViewComplete` (re-emitted by BG after the page sent
+//       `webEmbedApiReady`) or by `checkBackgroundWebEmbedReady` falling back
+//       to BG's canonical `serviceDApp.isWebEmbedApiReady` flag.
+//   (b) main thread holds the JsBridge — `mainThreadBridgeMap.webEmbed`,
+//       populated by `syncBridgeConnection` when `connectWebEmbedBridge`
+//       runs on the WebView host.
+// Normal first-mount populates (b) before (a), so the BG flag and (b)
+// converge naturally. But across WebView re-mounts, or whenever BG's
+// `isWebEmbedApiReady` is ahead of main's transport sync (event missed,
+// listener not yet installed, etc.), (a) and (b) can drift. If we only
+// gated on (a), the next call would skip waiting and crash with
+// `webEmbed bridge not available on main thread`.
+let webEmbedReady = false;
+// Bumped on every webEmbed teardown (null bridge sync). Used by
+// `checkBackgroundWebEmbedReady` to discard a BG `true` read whose RPC was
+// in flight across the unmount → next-mount boundary, so the stale flag
+// can't promote (a) for a page that hasn't actually replayed its handshake.
+let webEmbedMountGeneration = 0;
+// BG canonical `isWebEmbedApiReady` is only authoritative when we know the
+// flag belongs to the live mount. After a teardown, BG's `markWebEmbedApi
+// NotReady` is fire-and-forget (see `WebViewWebEmbed/index.tsx`), so for a
+// window between disconnect and BG actually clearing its flag, BG can still
+// report the previous mount's stale `true`. The mount-generation guard
+// only catches a teardown that happens *during* the BG RPC; it does NOT
+// catch the case where the next-mount call fires entirely *after* a
+// teardown, before BG has finished resetting. Disable the BG fallback
+// path on every teardown, and re-enable only when `LoadWebEmbedWebView
+// Complete` arrives — that event is BG-relayed *after* the new page sent
+// `webEmbedApiReady`, so once we observe it BG's flag is fresh again.
+let webEmbedBgFallbackEnabled = true;
+const webEmbedReadyWaiters: Array<() => void> = [];
+
+function isMainThreadWebEmbedReady(): boolean {
+  return webEmbedReady && Boolean(mainThreadBridgeMap.webEmbed);
+}
+
+function flushWebEmbedReadyWaiters() {
+  if (!isMainThreadWebEmbedReady()) return;
+  webEmbedReadyWaiters.splice(0).forEach((cb) => cb());
 }
 
 function syncBridgeConnection(
@@ -736,6 +792,28 @@ function syncBridgeConnection(
   localFallback: () => Promise<any>,
 ) {
   mainThreadBridgeMap[params.channel] = params.bridge;
+  if (params.channel === 'webEmbed') {
+    if (params.bridge) {
+      // Bridge just came up — if BG-reported `webEmbedReady` already arrived
+      // ahead of the transport sync, release any waiters now that gate (b)
+      // is satisfied. `flushWebEmbedReadyWaiters` no-ops when (a) is still
+      // false, so this is safe to call unconditionally.
+      flushWebEmbedReadyWaiters();
+    } else {
+      // No live webEmbed bridge — reset (a) unconditionally. We must NOT gate
+      // this on a previous bridge, because `checkBackgroundWebEmbedReady`
+      // can flip (a) true from BG's canonical flag *before* main has ever
+      // received a bridge. If we then ignored the null sync, a later mount
+      // whose bridge syncs ahead of its own `webEmbedApiReady` would see
+      // stale (a)=true + fresh (b)=true and `isMainThreadWebEmbedReady`
+      // would falsely release, dispatching imageUtils calls to a not-yet-
+      // ready page. Resetting on every null sync forces the next caller to
+      // re-validate via BG and wait for the new ready signal.
+      webEmbedReady = false;
+      webEmbedMountGeneration += 1;
+      webEmbedBgFallbackEnabled = false;
+    }
+  }
   return callRemoteRequest(
     {
       type: 'bridge-connect',
@@ -760,6 +838,136 @@ function installGlobalTransport() {
   };
 }
 
+appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
+  webEmbedReady = true;
+  // BG re-emits this event only *after* the live page sent
+  // `webEmbedApiReady`, which means BG's canonical flag has been updated
+  // for the current mount. Re-arm the fallback so post-teardown callers
+  // can use it again.
+  webEmbedBgFallbackEnabled = true;
+  flushWebEmbedReadyWaiters();
+});
+
+// Backstop for the (rare) case where main missed the broadcasted
+// `LoadWebEmbedWebViewComplete` — e.g. event fired before our cross-thread
+// observer was wired, or some future refactor delays observer install. Ask
+// BG for the canonical `isWebEmbedApiReady` flag once, and if BG says ready
+// we mark local (a) ready. Whether the gate releases still depends on (b)
+// — see `isMainThreadWebEmbedReady`.
+async function checkBackgroundWebEmbedReady(): Promise<boolean> {
+  // Skip BG fallback if a teardown has happened and no fresh
+  // `LoadWebEmbedWebViewComplete` has arrived yet — BG's flag may still
+  // hold the previous mount's stale `true`. Callers fall back to the
+  // event-wait path; the next-mount event will set ready directly.
+  if (!webEmbedBgFallbackEnabled) return false;
+  // Capture the mount generation *before* the cross-thread fetch. If a
+  // teardown happens while the RPC is in flight, the BG `true` we read
+  // belongs to the previous mount — promoting it would race a fresh mount
+  // whose page hasn't replayed `webEmbedApiReady` yet.
+  const generationAtStart = webEmbedMountGeneration;
+  try {
+    const bgApiProxy = appGlobals?.$backgroundApiProxy;
+    const ready = await bgApiProxy?.serviceDApp?.isWebEmbedApiReady?.();
+    if (
+      ready &&
+      webEmbedMountGeneration === generationAtStart &&
+      webEmbedBgFallbackEnabled
+    ) {
+      webEmbedReady = true;
+      flushWebEmbedReadyWaiters();
+      return isMainThreadWebEmbedReady();
+    }
+  } catch {
+    // RPC failed (transport not yet up, or BG side error). Fall through to
+    // event-wait path; it'll either succeed when the event arrives or time
+    // out with a clear error.
+  }
+  return false;
+}
+
+async function awaitWebEmbedReady(timeoutMs: number): Promise<void> {
+  if (isMainThreadWebEmbedReady()) return;
+  if (await checkBackgroundWebEmbedReady()) return;
+  await new Promise<void>((resolve, reject) => {
+    const onReady = () => {
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      const idx = webEmbedReadyWaiters.indexOf(onReady);
+      if (idx !== -1) webEmbedReadyWaiters.splice(idx, 1);
+      reject(
+        new OneKeyLocalError(`webEmbed not ready after ${timeoutMs / 1000}s`),
+      );
+    }, timeoutMs);
+    webEmbedReadyWaiters.push(onReady);
+    // Cover the race where either signal flipped between our gate check at
+    // the top of this function and the listener push above.
+    if (isMainThreadWebEmbedReady()) {
+      const idx = webEmbedReadyWaiters.indexOf(onReady);
+      if (idx !== -1) webEmbedReadyWaiters.splice(idx, 1);
+      clearTimeout(timer);
+      resolve();
+    }
+  });
+}
+
+async function ensureMainThreadWebEmbedBridge(): Promise<JsBridgeBase> {
+  if (!isMainThreadWebEmbedReady()) {
+    // Trigger WebView mount if it hasn't been requested yet — bridge being
+    // unset is a strong hint, but emit unconditionally because the event
+    // handler in WebViewWebEmbedProvider is idempotent.
+    if (!mainThreadBridgeMap.webEmbed) {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    }
+    await awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
+  }
+  const bridge = mainThreadBridgeMap.webEmbed;
+  if (!bridge) {
+    throw new OneKeyLocalError('webEmbed bridge not available on main thread');
+  }
+  const origin = bridge.remoteInfo?.origin || '';
+  if (!isWebEmbedApiAllowedOrigin(origin)) {
+    throw new OneKeyLocalError(
+      `webEmbed callImageUtils not allowed origin: ${origin || 'undefined'}`,
+    );
+  }
+  return bridge;
+}
+
+async function callMainThreadWebEmbedImageUtils<T>(
+  method: string,
+  params: unknown[],
+): Promise<T> {
+  const bridge = await ensureMainThreadWebEmbedBridge();
+  const result = await bridge.request({
+    scope: '$private',
+    data: { module: 'imageUtils', method, params },
+  });
+  return result as T;
+}
+
+function registerMainThreadImageEmbedBridge() {
+  registerImageEmbedBridge({
+    convertToBlackAndWhiteImageBase64: (img, mime) =>
+      callMainThreadWebEmbedImageUtils<string>(
+        'convertToBlackAndWhiteImageBase64',
+        [img, mime],
+      ),
+    applyRoundedCorners: (params) =>
+      callMainThreadWebEmbedImageUtils<string>('applyRoundedCorners', [params]),
+    base64ImageToBitmap: (params) =>
+      callMainThreadWebEmbedImageUtils<string>('base64ImageToBitmap', [params]),
+    processImageBlur: (params) =>
+      callMainThreadWebEmbedImageUtils<{
+        hex: string;
+        width: number;
+        height: number;
+      }>('processImageBlur', [params]),
+  });
+}
+
 /** Expose startup milestones for the timing summary log. */
 export function getTransportTimingMilestones() {
   return {
@@ -772,6 +980,17 @@ export function getTransportTimingMilestones() {
 export function setupMainThreadBackgroundRunner() {
   installGlobalTransport();
   ensureBackgroundRuntimeObserver();
+  // Only register on dual-thread native main: in single-thread native the
+  // BG-side webembedApiProxy.ts already registers a serviceDApp-routed
+  // adapter and `mainThreadBridgeMap` would be empty here. In dual-thread
+  // mode the WebView lives on this thread, so we can call the local bridge
+  // directly and skip the main → BG → main round-trip.
+  if (
+    platformEnv.isNativeMainThread &&
+    platformEnv.enableNativeBackgroundThread
+  ) {
+    registerMainThreadImageEmbedBridge();
+  }
 }
 
 setupMainThreadBackgroundRunner();

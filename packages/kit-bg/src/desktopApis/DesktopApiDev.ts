@@ -14,6 +14,7 @@ import * as store from '@onekeyhq/desktop/app/libs/store';
 import { flushDesktopDedup } from '@onekeyhq/desktop/app/logger';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -142,14 +143,8 @@ class DesktopApiDev {
     logger.info('[client-log-upload] url:', uploadUrl);
     logger.info('[client-log-upload] filePath:', filePath);
     logger.info('[client-log-upload] sizeBytes:', sizeBytes);
-    logger.info('[client-log-upload] headers:', JSON.stringify(reqHeaders));
-
-    const curlParts = [`curl -X POST '${uploadUrl}'`];
-    Object.entries(reqHeaders).forEach(([key, value]) => {
-      curlParts.push(`-H '${key}: ${value}'`);
-    });
-    curlParts.push(`--data-binary '@${filePath}'`);
-    logger.info('[client-log-upload] curl command:', curlParts.join(' \\\n  '));
+    // headers / curl logs are emitted after withCustomUAHeaders so the values
+    // reflect what is actually sent (including the injected User-Agent).
 
     const totalBytes =
       typeof sizeBytes === 'number' && sizeBytes > 0
@@ -210,12 +205,51 @@ class DesktopApiDev {
     });
 
     try {
+      const finalHeaders = await withCustomUAHeaders(uploadUrl, reqHeaders);
+      // Redact sensitive values before logging. Anything written here lands
+      // in app-latest.log and gets re-uploaded inside the next zip, so it
+      // must never contain auth tokens, raw HTML, or other "fuel" for WAF
+      // rules / token replay.
+      const redactedHeaders = Object.fromEntries(
+        Object.entries(finalHeaders).map(([k, v]) =>
+          k.toLowerCase() === 'authorization' ? [k, '[REDACTED]'] : [k, v],
+        ),
+      );
+      logger.info(
+        '[client-log-upload] headers:',
+        JSON.stringify(redactedHeaders),
+      );
+      const curlParts = [`curl -X POST '${uploadUrl}'`];
+      Object.entries(redactedHeaders).forEach(([key, value]) => {
+        curlParts.push(`-H '${key}: ${value}'`);
+      });
+      curlParts.push(`--data-binary '@${filePath}'`);
+      logger.info(
+        '[client-log-upload] curl command:',
+        curlParts.join(' \\\n  '),
+      );
       const response = await fetch(uploadUrl, {
         method: 'POST',
-        headers: reqHeaders,
+        headers: finalHeaders,
         body: fileStream as unknown as any,
       });
       const text = await response.text();
+      // Log only safe metadata. The response body is intentionally NOT
+      // written here — for non-2xx the upstream is often a Cloudflare HTML
+      // error page whose <script>/<iframe>/<style> bytes would otherwise be
+      // captured into app-latest.log and re-uploaded inside the next zip,
+      // tripping CF's OWASP HTML Injection / XSS rule and creating a
+      // self-perpetuating 403 loop. cf-ray is sufficient for backend triage.
+      logger.info(
+        '[client-log-upload] response status:',
+        response.status,
+        'cf-ray:',
+        response.headers.get('cf-ray') ?? 'n/a',
+        'cf-mitigated:',
+        response.headers.get('cf-mitigated') ?? 'n/a',
+        'body-len:',
+        text.length,
+      );
       try {
         const parsed = JSON.parse(text) as Record<string, any>;
         if (typeof parsed.code === 'number') {
@@ -240,13 +274,19 @@ class DesktopApiDev {
         }
         return parsed;
       } catch (_error) {
+        // Non-JSON response (typically a CF block page). Surface a stable,
+        // non-HTML error message so the renderer / caller never sees raw
+        // <script>/<iframe> bytes that could be re-logged or rendered.
+        const safeMessage = `Upload failed (HTTP ${response.status}, cf-ray=${
+          response.headers.get('cf-ray') ?? 'n/a'
+        })`;
         sendProgress({
           stage: ELogUploadStage.Error,
-          message: text,
+          message: safeMessage,
         });
         return {
           code: response.status,
-          message: text,
+          message: safeMessage,
         };
       }
     } catch (error) {

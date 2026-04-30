@@ -40,20 +40,28 @@ export default {
     'packages/core/src/chains/stc',
     'packages/core/src/chains/xmr',
     'packages/core/src/chains/xrp',
-    // ---------------------------------------------------------------
-    // TODO: Harness-incompatible tests — all pass in Node.js Jest (`yarn test`).
-    // ---------------------------------------------------------------
-    // Reason: uses jest.doMock + jest.resetModules to reload module with different platformEnv.version
-    'packages/shared/src/appUpdate/bundleUpdate\\.test',
-    // Reason: uses jest.isolateModules to get fresh hook instances per test case
-    'packages/kit/src/components/UpdateReminder/hooks\\.test',
-    // Reason: uses jest.useFakeTimers — replacing global setTimeout breaks harness WebSocket bridge
-    'packages/kit-bg/src/services/ServiceAppUpdate\\.test',
-    // Reason: uses jest.useFakeTimers — same as above
-    'packages/kit-bg/src/services/ServiceAppUpdate\\.pendingInstallTask\\.test',
-    // Reason: native module (MMKV/AsyncStorage) init hangs after harness-triggered app restart
-    'packages/kit-bg/src/services/servicePendingInstallTask\\.test',
-    // Reason: uses jest.isolateModules + jest.useFakeTimers — both unsupported in harness
-    'packages/kit/src/provider/SplashProvider\\.test',
+    // These files declare @jest-environment jsdom and rely on DOM/JSDOM
+    // semantics. The React Native harness runs on-device Hermes, so keep them
+    // on the normal Jest path instead of hanging the native runner.
+    'packages/components/src/hooks/useNetInfo\\.test\\.tsx',
+    'packages/kit/src/components/UpdateReminder/hooks\\.test\\.ts',
+    'packages/kit/src/hooks/usePromiseResult\\.test\\.tsx',
+    'packages/kit/src/provider/SplashProvider\\.test\\.ts',
+    'packages/kit/src/states/jotai/contexts/earn/actions\\.test\\.tsx',
+    'packages/kit/src/views/Discovery/hooks/useSearchModalData\\.test\\.tsx',
+    'packages/kit/src/views/Earn/hooks/useRecommendedRefreshTrigger/useRecommendedRefreshAppEvents\\.test\\.tsx',
+    'packages/kit/src/views/Earn/hooks/useRecommendedRefreshTrigger/useRecommendedRefreshScope\\.test\\.tsx',
+    'packages/kit/src/views/Earn/hooks/useRecommendedRefreshTrigger/useRecommendedRefreshSwapEvents\\.test\\.tsx',
+    'packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket\\.test\\.ts',
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/MarketSwapReviewDialog\\.test\\.tsx',
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/MarketSwapReviewInitializer\\.test\\.tsx',
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/SwapPanelContent\\.test\\.tsx',
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapReviewActions\\.test\\.tsx',
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapActions\\.test\\.tsx',
+    'packages/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery\\.test\\.ts',
+    'packages/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useFetchWalletsWithBoundStatus\\.test\\.tsx',
+    'packages/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useWalletBoundReferralCode\\.test\\.tsx',
+    'packages/kit/src/views/Swap/hooks/useSwapIncognitoRecipientInput\\.test\\.ts',
+    'packages/kit/src/views/Swap/pages/components/SwapReviewDialog\\.test\\.tsx',
   ],
 };

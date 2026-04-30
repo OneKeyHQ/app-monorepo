@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountSummaryAtom,
+  useSpotActiveOpenOrdersAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -47,26 +48,31 @@ function TabBarItem({
 }) {
   const intl = useIntl();
 
-  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [perpOpenOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
+  const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
   const [positionsLength] = usePerpsActivePositionLengthAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
 
   const holdingsCount = useMemo(() => {
-    const nonZeroSpotBalanceCount = balances.filter(
-      (item) => !new BigNumber(item.total).isZero(),
+    // Mirrors the spot+perps USDC merge in SpotBalanceList — count non-USDC
+    // spot rows once and add 1 if either side has any USDC.
+    const nonUsdcSpotCount = balances.filter(
+      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
     ).length;
-    const perpsUsdcCount =
-      accountSummary?.totalRawUsd &&
-      new BigNumber(accountSummary.totalRawUsd).gt(0)
-        ? 1
-        : 0;
-    return nonZeroSpotBalanceCount + perpsUsdcCount;
+    const hasSpotUsdc = balances.some(
+      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
+    );
+    const hasPerpsUsdc =
+      !!accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0);
+    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
   }, [accountSummary?.totalRawUsd, balances]);
 
   const tabCount = useMemo(() => {
     if (name === 'Balances') {
-      return `(${holdingsCount})`;
+      return holdingsCount > 0 ? `(${holdingsCount})` : '';
     }
     if (name === 'Trades History') {
       return '';

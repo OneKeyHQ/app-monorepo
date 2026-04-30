@@ -1,8 +1,17 @@
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
+
 export interface IPendingTx {
   id: string;
+  historyId?: string;
+  accountId?: string;
+  networkId?: string;
+  historyTx?: IAccountHistoryTx;
   type: 'send' | 'swap' | 'contract' | 'approve';
   to: string;
   amount: string;
+  createdAt?: number;
+  updatedAt?: number;
   // Failed is kept briefly so diffAndNotify can emit the "failed"
   // notification; the panel filters it out from display.
   status: 'pending' | 'failed';
@@ -13,6 +22,8 @@ export interface ITrayWatchlistItem {
   symbol: string;
   name: string;
   icon: string;
+  iconUrls?: string[];
+  networkIcon?: string;
   price: string;
   change24h: number;
   type: 'spot' | 'perps';
@@ -20,6 +31,33 @@ export interface ITrayWatchlistItem {
   networkId?: string;
   isNative?: boolean;
   perpsCoin?: string;
+  maxLeverage?: number;
+  subtitle?: string;
+  communityRecognized?: boolean;
+  stock?: IMarketStockInfo;
+}
+
+export interface ITrayWalletAvatarInfo {
+  img?: string;
+  emoji?: string;
+  bgColor?: string;
+}
+
+export interface ITrayAccountAvatarInfo {
+  address?: string;
+  indexedAccount?: {
+    id?: string;
+    idHash?: string;
+  };
+  account?: {
+    id?: string;
+    address?: string;
+  };
+  dbAccount?: {
+    id?: string;
+    address?: string;
+    connectionInfo?: unknown;
+  };
 }
 
 export interface ITrayData {
@@ -37,16 +75,26 @@ export interface ITrayData {
   // wallet switch; without it, old-account txs would look "confirmed".
   accountId?: string;
   wallet: {
+    id?: string;
     name: string;
     emoji: string;
     avatarImg: string;
+    avatarInfo?: ITrayWalletAvatarInfo;
+    type?: string;
+    passphraseState?: string;
+    firmwareTypeAtCreated?: unknown;
+  };
+  account: {
+    name: string;
+    avatar?: ITrayAccountAvatarInfo;
   };
   totalBalance: {
     amount: string;
     currency: string;
     // Resolved from currencyMap so unknown currencies don't collapse to '$'.
     symbol: string;
-    change24h: number;
+    // Undefined when no 24h feed; UI hides the badge instead of showing 0.00% (OK-53612).
+    change24h?: number;
   };
   watchlist: ITrayWatchlistItem[];
   pendingTxs: IPendingTx[];
@@ -54,10 +102,17 @@ export interface ITrayData {
 
 // Must stay in sync with ALLOWED_TRAY_ACTION_TYPES in trayIpc.ts.
 export interface ITrayAction {
-  type: 'open-page' | 'market-detail-v2' | 'view-all-transactions';
+  type:
+    | 'open-page'
+    | 'market-detail-v2'
+    | 'view-all-transactions'
+    | 'transaction-detail';
   route?: string;
-  tokenAddress?: string;
+  txid?: string;
+  historyId?: string;
+  accountId?: string;
   networkId?: string;
+  tokenAddress?: string;
   isNative?: boolean;
   perpsCoin?: string;
 }

@@ -1,12 +1,35 @@
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   backgroundClass,
   backgroundMethod,
+  backgroundMethodForDev,
+  checkDevOnlyPassword,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  FIRST_BTC_TAPROOT_ADDRESS_PATH,
+  FIRST_EVM_ADDRESS_PATH,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
+import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import type {
   EExportTimeRange,
   IBatchCheckWalletItem,
   IBatchCheckWalletResponse,
+  IBatchCheckWalletV2Response,
+  IBtcRewardCommitData,
+  IBtcRewardCommitParams,
+  IBtcRewardError,
+  IBtcRewardHistoryParams,
+  IBtcRewardHistoryResponse,
+  IBtcRewardResult,
+  IBtcRewardVerifyCodeData,
+  IBtcRewardVerifyCodeParams,
+  IBtcRewardVerifyVoucherData,
+  IBtcRewardVerifyVoucherParams,
+  ICheckWalletBindStatusResponse,
   IEarnPositionsResponse,
   IEarnRewardResponse,
   IEarnWalletHistory,
@@ -34,6 +57,9 @@ import type {
   IRedemptionCodeRedeemResponse,
   IRedemptionRecordsResponse,
   IUpdateInviteCodeNoteResponse,
+  IWalletCreationRecordItem,
+  IWalletDevUnbindParams,
+  IWalletDevUnbindResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -41,10 +67,13 @@ import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliqui
 
 import ServiceBase from './ServiceBase';
 
+import type { IDBWallet } from '../dbs/local/types';
 import type { IWalletReferralCode } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
 
 @backgroundClass()
 class ServiceReferralCode extends ServiceBase {
+  private _migrationPromise: Promise<void> | null = null;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -664,6 +693,298 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async recordWalletCreation(items: IWalletCreationRecordItem[]) {
+    if (items.length === 0) return;
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    await client.post('/rebate/v1/wallet/creation-records', { items });
+  }
+
+  @backgroundMethod()
+  async cacheWalletCreationRecordTimestamp({
+    walletId,
+    walletCreatedAt,
+  }: {
+    walletId: string;
+    walletCreatedAt: string;
+  }) {
+    return this.backgroundApi.simpleDb.referralCode.setWalletCreationRecordTimestamp(
+      {
+        walletId,
+        walletCreatedAt,
+      },
+    );
+  }
+
+  @backgroundMethodForDev()
+  async devUnbindWallet(
+    params: IBackgroundMethodWithDevOnlyPassword,
+    {
+      walletId,
+      walletCreatedAt,
+    }: {
+      walletId: string;
+      walletCreatedAt?: string;
+    },
+  ) {
+    checkDevOnlyPassword(params);
+
+    const walletInfo = await this.getReferralCodeWalletInfo({ walletId });
+    if (!walletInfo) {
+      throw new OneKeyLocalError(
+        'Unable to resolve the selected wallet referral address.',
+      );
+    }
+
+    const payload: IWalletDevUnbindParams = {
+      address: walletInfo.address,
+    };
+    if (walletCreatedAt) {
+      payload.walletCreatedAt = walletCreatedAt;
+    }
+
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: IWalletDevUnbindResponse;
+    }>('/rebate/v1/wallet/dev/unbind', payload);
+
+    const existingReferralCodeInfo =
+      await this.backgroundApi.simpleDb.referralCode.getWalletReferralCode({
+        walletId,
+      });
+
+    let bindStatus: ICheckWalletBindStatusResponse | null = null;
+    try {
+      bindStatus = await this.checkWalletBindStatus({
+        address: walletInfo.address,
+        networkId: walletInfo.networkId,
+      });
+    } catch {
+      // Keep the debug action usable even if the follow-up status refresh fails.
+    }
+
+    await this.backgroundApi.simpleDb.referralCode.setWalletReferralCode({
+      walletId,
+      referralCodeInfo: {
+        walletId,
+        address: walletInfo.address,
+        networkId: walletInfo.networkId,
+        pubkey: existingReferralCodeInfo?.pubkey ?? '',
+        isBound: bindStatus?.data ?? false,
+        bindable:
+          bindStatus?.bindable ?? existingReferralCodeInfo?.bindable ?? true,
+        bindWindowReason:
+          bindStatus?.reason ?? existingReferralCodeInfo?.bindWindowReason,
+      },
+    });
+
+    return {
+      walletInfo,
+      serverResult: response.data.data,
+      bindStatus,
+    };
+  }
+
+  @backgroundMethod()
+  async batchCheckWalletsBoundReferralCodeV2(items: IBatchCheckWalletItem[]) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: IBatchCheckWalletV2Response;
+    }>('/rebate/v1/wallet/batch-check-v2', { items });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async checkWalletBindStatus({
+    address,
+    networkId,
+  }: {
+    address: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    // Server wraps response as { code, data: { data, bindable?, reason? } }
+    // matching the existing triple-nested structure of checkWalletIsBoundReferralCode
+    const response = await client.get<{
+      data: { data: boolean; bindable?: boolean; reason?: string };
+    }>('/rebate/v1/wallet/check', {
+      params: { address, networkId },
+    });
+    const serverData = response.data.data;
+    const result: ICheckWalletBindStatusResponse = {
+      data: serverData.data,
+      bindable: serverData.bindable ?? !serverData.data,
+      reason: serverData.reason,
+    };
+    return result;
+  }
+
+  @backgroundMethod()
+  async getReferralCodeWalletInfo({ walletId }: { walletId: string }) {
+    if (
+      !accountUtils.isHdWallet({ walletId }) &&
+      !accountUtils.isHwWallet({ walletId })
+    ) {
+      return null;
+    }
+
+    let wallet;
+    try {
+      wallet = await this.backgroundApi.serviceAccount.getWallet({ walletId });
+      if (accountUtils.isHwHiddenWallet({ wallet })) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
+    const isBtcOnlyWallet =
+      await this.backgroundApi.serviceHardware.isBtcOnlyWallet({ walletId });
+
+    if (isBtcOnlyWallet) {
+      const accountId = `${walletId}--${FIRST_BTC_TAPROOT_ADDRESS_PATH}`;
+      try {
+        const networkId = getNetworkIdsMap().btc;
+        const account = await this.backgroundApi.serviceAccount.getAccount({
+          accountId,
+          networkId,
+        });
+        if (!account) return null;
+        return { walletId, networkId, accountId, address: account.address };
+      } catch {
+        return null;
+      }
+    }
+
+    const accountId = `${walletId}--${FIRST_EVM_ADDRESS_PATH}`;
+    try {
+      const networkId = getNetworkIdsMap().eth;
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      if (!account) return null;
+      return { walletId, networkId, accountId, address: account.address };
+    } catch {
+      return null;
+    }
+  }
+
+  @backgroundMethod()
+  async migrateCreationRecordsIfNeeded() {
+    if (this._migrationPromise) {
+      return this._migrationPromise;
+    }
+    this._migrationPromise = this._doMigrateCreationRecords().finally(() => {
+      this._migrationPromise = null;
+    });
+    return this._migrationPromise;
+  }
+
+  private async resolveWalletCreatedAtForMigration({
+    wallet,
+  }: {
+    wallet: IDBWallet;
+  }) {
+    const cachedWalletCreatedAt =
+      await this.backgroundApi.simpleDb.referralCode.getWalletCreationRecordTimestamp(
+        {
+          walletId: wallet.id,
+        },
+      );
+    if (cachedWalletCreatedAt) {
+      return cachedWalletCreatedAt;
+    }
+
+    let deviceCreatedAt: number | undefined;
+    if (wallet.associatedDevice) {
+      try {
+        const device = await this.backgroundApi.serviceAccount.getDevice({
+          dbDeviceId: wallet.associatedDevice,
+        });
+        deviceCreatedAt = device?.createdAt;
+      } catch {
+        deviceCreatedAt = undefined;
+      }
+    }
+
+    const walletCreatedAt = resolveWalletCreatedAtForCreationRecord({
+      deviceCreatedAt,
+    });
+    await this.backgroundApi.simpleDb.referralCode.setWalletCreationRecordTimestamp(
+      {
+        walletId: wallet.id,
+        walletCreatedAt,
+      },
+    );
+    return walletCreatedAt;
+  }
+
+  private async _doMigrateCreationRecords() {
+    try {
+      const isDone =
+        await this.backgroundApi.simpleDb.referralCode.isCreationRecordsMigrationDone();
+      if (isDone) {
+        return;
+      }
+
+      const { wallets } = await this.backgroundApi.serviceAccount.getWallets({
+        nestedHiddenWallets: false,
+      });
+
+      const validWallets = wallets.filter(
+        (w) =>
+          (accountUtils.isHdWallet({ walletId: w.id }) ||
+            accountUtils.isHwWallet({ walletId: w.id })) &&
+          !w.isMocked &&
+          !accountUtils.isHwHiddenWallet({ wallet: w }),
+      );
+
+      if (validWallets.length === 0) {
+        return;
+      }
+
+      const items: IWalletCreationRecordItem[] = [];
+      let unresolvedWalletCount = 0;
+      for (const w of validWallets) {
+        try {
+          const walletInfo = await this.getReferralCodeWalletInfo({
+            walletId: w.id,
+          });
+          if (walletInfo) {
+            const walletCreatedAt =
+              await this.resolveWalletCreatedAtForMigration({
+                wallet: w,
+              });
+            items.push({
+              address: walletInfo.address,
+              networkId: walletInfo.networkId,
+              walletCreatedAt,
+            });
+          } else {
+            unresolvedWalletCount += 1;
+          }
+        } catch {
+          unresolvedWalletCount += 1;
+        }
+      }
+
+      // Batch in chunks of 100
+      for (let i = 0; i < items.length; i += 100) {
+        const chunk = items.slice(i, i + 100);
+        await this.recordWalletCreation(chunk);
+      }
+
+      if (unresolvedWalletCount > 0) {
+        return;
+      }
+
+      await this.backgroundApi.simpleDb.referralCode.setCreationRecordsMigrationDone();
+    } catch {
+      // Keep migration retryable on the next launch.
+    }
+  }
+
+  @backgroundMethod()
   async autoSignBoundReferralCodeMessageByHDWallet({
     unsignedMessage,
     networkId,
@@ -846,6 +1167,121 @@ class ServiceReferralCode extends ServiceBase {
       }
       throw error;
     }
+  }
+
+  // BTC reward endpoints are security: [] in OAS — auth token is optional and
+  // instance fallback goes via X-Onekey-Instance-Id (injected by the shared
+  // interceptor). Use the plain client rather than getOneKeyIdClient.
+  // autoHandleError: false keeps the interceptor from throwing on non-zero
+  // codes so we can route InvalidCode to the legacy redeem fallback.
+  private async btcRewardRequest<TData>(
+    method: 'get' | 'post',
+    path: string,
+    params: unknown,
+  ): Promise<IBtcRewardResult<TData>> {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const opts = { autoHandleError: false } as any;
+    try {
+      const response =
+        method === 'post'
+          ? await client.post<{
+              code: number;
+              message: string;
+              data: TData;
+            }>(path, params, opts)
+          : await client.get<{
+              code: number;
+              message: string;
+              data: TData;
+            }>(path, { ...opts, params });
+      return this.toBtcRewardResult<TData>(response.data);
+    } catch (error) {
+      return this.normalizeBtcRewardError(error);
+    }
+  }
+
+  @backgroundMethod()
+  async btcRewardVerifyCode(
+    params: IBtcRewardVerifyCodeParams,
+  ): Promise<IBtcRewardResult<IBtcRewardVerifyCodeData>> {
+    return this.btcRewardRequest<IBtcRewardVerifyCodeData>(
+      'post',
+      '/rebate/v1/btc-reward/verify-code',
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async btcRewardVerifyVoucher(
+    params: IBtcRewardVerifyVoucherParams,
+  ): Promise<IBtcRewardResult<IBtcRewardVerifyVoucherData>> {
+    return this.btcRewardRequest<IBtcRewardVerifyVoucherData>(
+      'post',
+      '/rebate/v1/btc-reward/verify-voucher',
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async btcRewardCommit(
+    params: IBtcRewardCommitParams,
+  ): Promise<IBtcRewardResult<IBtcRewardCommitData>> {
+    return this.btcRewardRequest<IBtcRewardCommitData>(
+      'post',
+      '/rebate/v1/btc-reward/commit',
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async btcRewardHistory(
+    params: IBtcRewardHistoryParams,
+  ): Promise<IBtcRewardResult<IBtcRewardHistoryResponse>> {
+    return this.btcRewardRequest<IBtcRewardHistoryResponse>(
+      'get',
+      '/rebate/v1/btc-reward/history',
+      params,
+    );
+  }
+
+  private toBtcRewardError(code: number, message: string): IBtcRewardError {
+    return { code: code as EBtcRewardErrorCode, message };
+  }
+
+  private toBtcRewardResult<TData>(envelope: {
+    code: number;
+    message: string;
+    data: TData;
+  }): IBtcRewardResult<TData> {
+    if (envelope.code !== 0) {
+      return {
+        success: false,
+        error: this.toBtcRewardError(envelope.code, envelope.message),
+      };
+    }
+    return { success: true, data: envelope.data };
+  }
+
+  private normalizeBtcRewardError<T>(error: unknown): IBtcRewardResult<T> {
+    const errData = (error as { response?: { data?: unknown } })?.response
+      ?.data as { code?: number; message?: string } | undefined;
+    if (
+      typeof errData?.code === 'number' &&
+      errData.code !== 0 &&
+      typeof errData.message === 'string'
+    ) {
+      return {
+        success: false,
+        error: this.toBtcRewardError(errData.code, errData.message),
+      };
+    }
+    return {
+      success: false,
+      error: this.toBtcRewardError(
+        EBtcRewardErrorCode.Unknown,
+        error instanceof Error ? error.message : 'Unknown BTC reward error',
+      ),
+    };
   }
 }
 

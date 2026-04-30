@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ScrollView, Stack } from '@onekeyhq/components';
 import {
+  type IPendingTx,
   type ITrayAction,
   type ITrayData,
   type ITrayWatchlistItem,
@@ -17,6 +18,9 @@ function sendTrayAction(action: ITrayAction) {
   // Only exposed on the tray-window preload; undefined elsewhere.
   globalThis.desktopApi?.sendTrayAction?.(action);
 }
+
+const TRAY_ROUTE_HOME = '/main/tab-home';
+const TRAY_ROUTE_MARKET = '/main/tab-market';
 
 export function TrayPanel() {
   const [data, setData] = useState<ITrayData | null>(null);
@@ -49,6 +53,16 @@ export function TrayPanel() {
     sendTrayAction({ type: 'view-all-transactions' });
   }, []);
 
+  const handleTransactionPress = useCallback((tx: IPendingTx) => {
+    sendTrayAction({
+      type: 'transaction-detail',
+      txid: tx.id,
+      historyId: tx.historyId,
+      accountId: tx.accountId,
+      networkId: tx.networkId,
+    });
+  }, []);
+
   const handleTickerPress = useCallback((ticker: ITrayWatchlistItem) => {
     sendTrayAction({
       type: 'market-detail-v2',
@@ -59,11 +73,9 @@ export function TrayPanel() {
     });
   }, []);
 
-  const hasWatchlist = data?.watchlist && data.watchlist.length > 0;
   // Failed txs are tracked for notifications but don't count as content.
   const hasPendingTxs =
     data?.pendingTxs?.some((tx) => tx.status === 'pending') ?? false;
-  const hasContent = hasWatchlist || hasPendingTxs;
 
   if (!data) {
     return (
@@ -78,7 +90,7 @@ export function TrayPanel() {
       <Stack flex={1} backgroundColor="$bgApp" borderRadius="$3">
         <TrayEmptyState
           type="locked"
-          onPress={() => handleNavigate('/main/tab-home')}
+          onPress={() => handleNavigate(TRAY_ROUTE_HOME)}
         />
       </Stack>
     );
@@ -101,27 +113,24 @@ export function TrayPanel() {
     >
       <PortfolioOverview
         wallet={data.wallet}
+        account={data.account}
         totalBalance={data.totalBalance}
-        onPress={() => handleNavigate('/main/tab-home')}
+        onPress={() => handleNavigate(TRAY_ROUTE_HOME)}
       />
-      {hasContent ? (
-        <ScrollView flex={1}>
-          <WatchlistTickers
-            tickers={data.watchlist}
-            onTickerPress={handleTickerPress}
-          />
+      <ScrollView flex={1}>
+        <WatchlistTickers
+          tickers={data.watchlist}
+          onTickerPress={handleTickerPress}
+          onEmptyPress={() => handleNavigate(TRAY_ROUTE_MARKET)}
+        />
+        {hasPendingTxs ? (
           <PendingTransactions
             transactions={data.pendingTxs}
-            onTxPress={(txId) => handleNavigate(`/transaction/${txId}`)}
+            onTxPress={handleTransactionPress}
             onViewAll={handleViewAllTransactions}
           />
-        </ScrollView>
-      ) : (
-        <TrayEmptyState
-          type="noContent"
-          onPress={() => handleNavigate('/main/tab-home')}
-        />
-      )}
+        ) : null}
+      </ScrollView>
     </Stack>
   );
 }

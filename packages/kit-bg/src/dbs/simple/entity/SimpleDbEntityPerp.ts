@@ -51,6 +51,7 @@ export interface ISimpleDbPerpData {
   configVersion?: string;
   tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
   hyperliquidTermsAccepted?: boolean;
+  perpOrderOpenFlags?: Record<string, boolean>; // user address -> whether orderOpen has succeeded
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
   abstractionModeUsers?: Record<string, string>; // user address -> EHyperLiquidAbstractionMode
@@ -87,6 +88,33 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       (prevConfig): ISimpleDbPerpData => ({
         ...prevConfig,
         hyperliquidTermsAccepted: termsAccepted,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async isFirstPerpOrderOpen(userAddress: string): Promise<boolean> {
+    const key = userAddress.toLowerCase();
+    if (!key) {
+      return true;
+    }
+    const config = await this.getPerpData();
+    return !config.perpOrderOpenFlags?.[key];
+  }
+
+  @backgroundMethod()
+  async markPerpOrderOpen(userAddress: string) {
+    const key = userAddress.toLowerCase();
+    if (!key) {
+      return;
+    }
+    await this.setPerpData(
+      (prevConfig): ISimpleDbPerpData => ({
+        ...prevConfig,
+        perpOrderOpenFlags: {
+          ...prevConfig?.perpOrderOpenFlags,
+          [key]: true,
+        },
       }),
     );
   }

@@ -42,9 +42,9 @@ config.resolver.nodeModulesPaths = Array.from(
 
 // When running under React Native Harness, set unstable_serverRoot to the monorepo root
 // so Metro can resolve test files from packages/ (e.g. packages/shared/src/**/*.test.ts).
-// Rewrite the Expo virtual metro entry to apps/mobile/harness-entry.js (a thin wrapper
-// that require('./index.ts')). The harness resolver intercepts that require and replaces
-// it with the harness runtime entry point.
+// Rewrite app entry bundle requests to apps/mobile/harness-entry.js (a thin wrapper
+// that require('./index.ts')). The harness config must still keep entryPoint='./index.ts'
+// so the harness resolver can replace that require with the runtime entry point.
 if (process.env.RN_HARNESS === 'true') {
   config.server = config.server || {};
   config.server.unstable_serverRoot = monorepoRoot;
@@ -67,7 +67,11 @@ if (process.env.RN_HARNESS === 'true') {
     //   /../../packages/core/x.bundle -> /packages/core/x.bundle
     const bundleMatch = url.match(/^(\/[^?]*\.bundle)(.*)/);
     if (bundleMatch) {
-      const normalized = path.posix.normalize(`/apps/mobile${bundleMatch[1]}`);
+      let bundlePath = bundleMatch[1];
+      if (bundlePath === '/index.bundle') {
+        bundlePath = '/harness-entry.bundle';
+      }
+      const normalized = path.posix.normalize(`/apps/mobile${bundlePath}`);
       // oxlint-disable-next-line no-param-reassign
       url = normalized + bundleMatch[2];
     }
@@ -123,6 +127,28 @@ const devRouterStub = path.resolve(
   monorepoRoot,
   'packages/kit/src/views/Developer/router.empty.ts',
 );
+
+// Ledger DMK packages only declare `exports` (no `main`). With
+// unstable_enablePackageExports=false above, Metro can't find the entry
+// for the bare specifier. Resolve each to its CJS entry directly.
+const LEDGER_CJS_ENTRY_PACKAGES = [
+  '@ledgerhq/device-management-kit',
+  '@ledgerhq/device-signer-kit-ethereum',
+  '@ledgerhq/device-signer-kit-solana',
+  '@ledgerhq/device-transport-kit-react-native-ble',
+  '@ledgerhq/context-module',
+  '@ledgerhq/signer-utils',
+];
+// Ledger DMK packages restrict `exports` and do not expose `./package.json`,
+// so `require.resolve('<pkg>/package.json')` throws ERR_PACKAGE_PATH_NOT_EXPORTED.
+// Resolve via the filesystem layout in node_modules instead.
+const ledgerCjsByPackage = new Map(
+  LEDGER_CJS_ENTRY_PACKAGES.map((pkg) => {
+    const pkgRoot = path.join(monorepoRoot, 'node_modules', pkg);
+    return [pkg, path.join(pkgRoot, 'lib/cjs/index.js')];
+  }),
+);
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === '@nktkas/hyperliquid/signing') {
     return {
@@ -150,6 +176,13 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === 'lodash-es' || moduleName.startsWith('lodash-es/')) {
     const cjsName = moduleName.replace('lodash-es', 'lodash');
     return resolve(context, cjsName, platform);
+  }
+  const ledgerCjs = ledgerCjsByPackage.get(moduleName);
+  if (ledgerCjs) {
+    return {
+      type: 'sourceFile',
+      filePath: ledgerCjs,
+    };
   }
   return resolve(context, moduleName, platform);
 };
@@ -216,10 +249,14 @@ if (process.env.RN_HARNESS === 'true') {
         filePath: path.resolve(projectRoot, 'harness/mmkvMock.js'),
       };
     }
-    // Replace @testing-library/react-native with a lightweight shim that uses
-    // react-test-renderer. @testing-library/react-native imports Node.js built-ins (console, util) that
-    // Metro can't resolve, so we provide renderHook/act/waitFor without them.
-    if (moduleName === '@testing-library/react-native') {
+    // Replace Testing Library with a lightweight shim that uses
+    // react-test-renderer. The DOM/native packages import platform-specific
+    // internals that are not suitable for the on-device Hermes harness, while
+    // hook-focused tests only need renderHook/act/waitFor.
+    if (
+      moduleName === '@testing-library/react-native' ||
+      moduleName === '@testing-library/react'
+    ) {
       return {
         type: 'sourceFile',
         filePath: path.resolve(

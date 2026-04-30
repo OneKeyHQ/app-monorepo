@@ -59,6 +59,7 @@ const showResourceRentalDetailsDialog = ({
     icon: 'FlashOutline',
     renderContent: content,
     showCancelButton: false,
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     onConfirmText: appLocale.intl.formatMessage({
       id: ETranslations.global_ok,
     }),

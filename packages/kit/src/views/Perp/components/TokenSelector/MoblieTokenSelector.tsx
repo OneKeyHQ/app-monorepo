@@ -43,7 +43,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  SPOT_MIN_VOLUME_STRICT,
+  SPOT_SELECTOR_MIN_VOLUME,
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
   getTokenSubtitle,
@@ -397,6 +397,11 @@ function MobileTokenSelectorModal({
             dexIndex: SPOT_DEX_INDEX,
             index,
             assetId: u.assetId,
+            tokenSubtitle:
+              getTokenSubtitle(
+                getSpotTokenDisplayName(u.baseName),
+                tokenSearchAliases,
+              ) ?? getTokenSubtitle(u.baseName, tokenSearchAliases),
             spotUniverse: u,
           } as ITokenSelectorListItem,
           name: u.baseName,
@@ -406,7 +411,7 @@ function MobileTokenSelectorModal({
           marketCap,
         };
       })
-      .filter((e) => e.volume24h >= SPOT_MIN_VOLUME_STRICT);
+      .filter((e) => e.volume24h >= SPOT_SELECTOR_MIN_VOLUME);
 
     if (sortField) {
       entries.sort((a, b) => {
@@ -440,6 +445,7 @@ function MobileTokenSelectorModal({
   }, [
     spotUniverses,
     spotPriceMap,
+    tokenSearchAliases,
     selectorConfig?.field,
     selectorConfig?.direction,
   ]);

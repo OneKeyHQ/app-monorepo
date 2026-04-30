@@ -31,10 +31,12 @@ import {
   EEnterWay,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-import { formatTokenSymbolForDisplay } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  formatTokenSymbolForDisplay,
+  getTokenPriceChangeStyle,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
@@ -197,11 +199,12 @@ export function UniversalSearchV2MarketTokenItem({
     isLegacyNavigation,
   });
 
-  // Hide favorite button in extension popup and side panel
-  const shouldShowFavoriteButton = useMemo(
+  const priceChangeStyle = useMemo(
     () =>
-      !platformEnv.isExtensionUiPopup && !platformEnv.isExtensionUiSidePanel,
-    [],
+      getTokenPriceChangeStyle({
+        priceChange: Number(priceChange24hPercent),
+      }),
+    [priceChange24hPercent],
   );
 
   const handlePress = useCallback(() => {
@@ -290,16 +293,14 @@ export function UniversalSearchV2MarketTokenItem({
       {/* # + NAME column */}
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
-          {shouldShowFavoriteButton ? (
-            <MarketStarV2
-              chainId={network}
-              contractAddress={address}
-              from={EWatchlistFrom.Search}
-              tokenSymbol={symbol}
-              size="small"
-              isNative={isNative}
-            />
-          ) : null}
+          <MarketStarV2
+            chainId={network}
+            contractAddress={address}
+            from={EWatchlistFrom.Search}
+            tokenSymbol={symbol}
+            size="small"
+            isNative={isNative}
+          />
         </XStack>
         <XStack ai="center" gap="$2" flex={1} minWidth={0}>
           <MarketTokenIcon
@@ -373,12 +374,10 @@ export function UniversalSearchV2MarketTokenItem({
             <NumberSizeableText
               size="$bodySm"
               formatter="priceChange"
-              color={
-                Number(priceChange24hPercent) >= 0
-                  ? '$textSuccess'
-                  : '$textCritical'
-              }
-              formatterOptions={{ showPlusMinusSigns: true }}
+              color={priceChangeStyle.changeColor}
+              formatterOptions={{
+                showPlusMinusSigns: priceChangeStyle.showPlusMinusSigns,
+              }}
             >
               {priceChange24hPercent}
             </NumberSizeableText>

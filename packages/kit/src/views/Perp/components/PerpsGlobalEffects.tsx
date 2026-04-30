@@ -510,6 +510,7 @@ function WebSocketSubscriptionUpdate() {
   const tokenSelectorOpen = tradeRouteViewState.tokenSelectorOpen;
   const tokenSelectorTab = tradeRouteViewState.tokenSelectorTab;
   const infoPanelTab = tradeRouteViewState.infoPanelTab;
+  const favoritesBarSpotActive = tradeRouteViewState.favoritesBarSpotActive;
   const accountAddress = activePerpsAccount?.accountAddress;
 
   // Refs for reading inside effect body without triggering it
@@ -535,6 +536,7 @@ function WebSocketSubscriptionUpdate() {
       tokenSelectorOpen,
       tokenSelectorTab,
       infoPanelTab,
+      favoritesBarSpotActive,
     });
 
     const plan = planTradeSubscriptions({
@@ -575,6 +577,7 @@ function WebSocketSubscriptionUpdate() {
     tokenSelectorOpen,
     tokenSelectorTab,
     infoPanelTab,
+    favoritesBarSpotActive,
   ]);
   return null;
 }
@@ -715,51 +718,13 @@ function AutoPauseSubscriptions() {
     platformEnv.isNative ? handleAppActiveFromBackground : undefined,
   );
 
-  // useListenTabFocusState only covers in-app route changes;
-  // browser tab switches need platform-level visibility events
-  useEffect(() => {
-    if (platformEnv.isNative) return undefined;
-
-    if (platformEnv.isDesktop) {
-      return globalThis.desktopApi.onAppState(
-        (state: 'active' | 'background' | 'blur') => {
-          if (!state) return; // fullscreen transitions send undefined
-          const isActive = state === 'active';
-          if (isActive && isFocusedRef.current) {
-            void onFocusHandler({ isFocus: true });
-          } else if (!isActive) {
-            void onFocusHandler({ isFocus: false });
-          }
-        },
-      );
-    }
-
-    const handleVisibilityChange = () => {
-      const isVisible = document.visibilityState === 'visible';
-      if (isVisible && isFocusedRef.current) {
-        void onFocusHandler({ isFocus: true });
-      } else if (!isVisible) {
-        void onFocusHandler({ isFocus: false });
-      }
-    };
-    const handleWindowFocus = () => {
-      if (isFocusedRef.current) {
-        void onFocusHandler({ isFocus: true });
-      }
-    };
-    const handleWindowBlur = () => {
-      void onFocusHandler({ isFocus: false });
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('blur', handleWindowBlur);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleWindowFocus);
-      window.removeEventListener('blur', handleWindowBlur);
-    };
-  }, [onFocusHandler]);
+  // Desktop / web: keep the subscription live as long as the Perp route
+  // is mounted. Browser-tab hidden, window blur, switching to another OS
+  // app, same-origin iframe focus — none of these should pause the data
+  // flow. Only in-app navigation away from Perp (handled by
+  // useListenTabFocusState above) or auto-lock triggers a pause. On
+  // native the OS itself suspends JS in the background and resume is
+  // handled by useHandleAppStateActive.
 
   const [isLocked] = useAppIsLockedAtom();
 
@@ -784,12 +749,41 @@ function AutoPauseSubscriptions() {
   return null;
 }
 
+// Bridge for context-less callers (tray, notifications): the bg
+// `changeActiveAsset` alone leaves this context's
+// activeTradeInstrumentAtom / tradingModeAtom stale, so the UI keeps
+// rendering the previous coin.
+function useHyperliquidInstrumentSwitchRequest() {
+  const actions = useHyperliquidActions();
+  useEffect(() => {
+    const handler = (
+      payload: IAppEventBusPayload[EAppEventBusNames.PerpSwitchActiveInstrument],
+    ) => {
+      if (!payload?.coin) return;
+      // Context-less callers (tray, notifications) update bg
+      // perpsActiveAssetAtom before emitting. Without `force: true`,
+      // changeActiveAsset hits its `activeAsset?.coin === coin` early-exit
+      // and skips clearActiveAssetData / form reset / limit price update.
+      void actions.current.switchTradeInstrument({
+        mode: payload.mode,
+        coin: payload.coin,
+        force: true,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.PerpSwitchActiveInstrument, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpSwitchActiveInstrument, handler);
+    };
+  }, [actions]);
+}
+
 function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();
   usePerpTokenUrlSync();
   useHyperliquidSymbolSelect();
+  useHyperliquidInstrumentSwitchRequest();
   useHyperliquidScreenLockHandler();
   useSyncContextOrderBookOptionsToGlobal();
   useTradeRouteViewStateSync();

@@ -17,7 +17,11 @@ import {
   AUTH_SESSION_SCHEMA_VERSION,
   AuthSessionStore,
 } from '../infra/auth-session-store';
-import { KEYCHAIN_ENCRYPTION_KEY, KEYCHAIN_MNEMONIC_KEY } from '../signer';
+import {
+  KEYCHAIN_ENCRYPTION_KEY,
+  KEYCHAIN_MNEMONIC_KEY,
+  KEYCHAIN_PASSPHRASE_STATE_KEY,
+} from '../signer';
 
 import type {
   AppTransferLoginResult,
@@ -86,6 +90,27 @@ function createCleanupFailingSecureStorage(): ISecureStorage {
           ERROR_CODES.SEC_STORAGE_ERROR.code,
           'cleanup failed',
           'retry',
+        );
+      }
+
+      await storage.delete(key);
+    },
+  };
+}
+
+function createHardwareCleanupFailingSecureStorage(): ISecureStorage {
+  const storage = new InMemorySecureStorage();
+
+  return {
+    getBackendType: () => storage.getBackendType(),
+    get: (key) => storage.get(key),
+    set: (key, value) => storage.set(key, value),
+    delete: async (key) => {
+      if (key === KEYCHAIN_PASSPHRASE_STATE_KEY) {
+        throw new AppError(
+          ERROR_CODES.SEC_STORAGE_ERROR.code,
+          'hardware cleanup failed',
+          'Unlock or grant access to the OS keychain, then retry logout.',
         );
       }
 
@@ -316,6 +341,37 @@ describe('AuthManager', () => {
 
     await expect(manager.clearSession()).rejects.toMatchObject({
       code: ERROR_CODES.SEC_STORAGE_ERROR.code,
+    });
+  });
+
+  it('keeps session metadata when hardware key cleanup fails', async () => {
+    const sessionStore = new AuthSessionStore(sessionPath);
+    const manager = new AuthManager(
+      createHardwareCleanupFailingSecureStorage(),
+      sessionStore,
+    );
+
+    await sessionStore.save(
+      makeSession({
+        loginMethod: 'hardware',
+        walletKind: 'hw',
+        sourceLabel: 'Hardware: OneKey Touch',
+        device: {
+          connectId: 'connect-123',
+          deviceId: 'device-xyz',
+          deviceLabel: 'OneKey Touch',
+        },
+        passphraseMode: 'on_host',
+      }),
+    );
+
+    await expect(manager.clearSession()).rejects.toMatchObject({
+      code: ERROR_CODES.SEC_STORAGE_ERROR.code,
+    });
+    await expect(sessionStore.load()).resolves.toMatchObject({
+      loginMethod: 'hardware',
+      walletKind: 'hw',
+      passphraseMode: 'on_host',
     });
   });
 

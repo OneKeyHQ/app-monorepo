@@ -1,3 +1,6 @@
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+
+import { AUTH_LOGIN_METHOD_APP_TRANSFER } from './auth-types';
 import { buildHdWalletHashFromMnemonic } from './mnemonic-utils';
 
 import type { AuthSessionMetadata } from './auth-types';
@@ -23,8 +26,8 @@ export function createAppTransferSessionMetadata(
 ): AuthSessionMetadata {
   return {
     schemaVersion: 1,
-    loginMethod: 'app_transfer',
-    walletKind: 'hd',
+    loginMethod: AUTH_LOGIN_METHOD_APP_TRANSFER,
+    walletKind: WALLET_TYPE_HD,
     displayAddress: address,
     importedAt,
     sourceLabel: createAppTransferSourceLabelFromMnemonic(rawMnemonic),

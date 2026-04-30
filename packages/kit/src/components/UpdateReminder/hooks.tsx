@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { resolveErrorI18nMessage } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ISoftwareUpdateParams } from '@onekeyhq/shared/src/logger/scopes/app/scenes/appUpdate';
@@ -335,11 +336,11 @@ export const useDownloadPackage = () => {
         if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
           onFail();
         } else if (showToastError) {
-          Toast.error({ title: (e as Error).message });
+          Toast.error({ title: resolveErrorI18nMessage(e, intl) });
         }
       }
     },
-    [getFileTypeFromUpdateInfo],
+    [getFileTypeFromUpdateInfo, intl],
   );
 
   const showSilentUpdateDialog = useCallback(() => {
@@ -884,16 +885,18 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     };
 
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
-      const fileType = getUpdateFileType(appUpdateInfo);
+      // After the update has completed, current == target, so
+      // getUpdateFileType always returns appShell. Derive the actual type
+      // from appUpdateInfo so bundle (hot-update) successes aren't
+      // misclassified as app-shell in analytics.
+      const fileType = appUpdateInfo.jsBundleVersion
+        ? EUpdateFileType.jsBundle
+        : EUpdateFileType.appShell;
       defaultLogger.app.appUpdate.softwareUpdateResult({
         ...buildSoftwareUpdateParams(fileType, appUpdateInfo),
         status: 'success',
       });
       const whatsNewAlreadyShown = isWhatsNewShown();
-      // Don't use fileType here — getUpdateFileType compares against the
-      // already-updated running version (current == target), so it always
-      // returns appShell for completed updates. Determine the type directly
-      // from appUpdateInfo instead.
       markWhatsNewShown(Boolean(appUpdateInfo.jsBundleVersion));
       if (
         appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless &&

@@ -1,9 +1,18 @@
 import { AppError, ERROR_CODES } from '../../errors';
 import { AuthSessionStore } from '../../infra/auth-session-store';
-import { KEYCHAIN_ENCRYPTION_KEY, KEYCHAIN_MNEMONIC_KEY } from '../../signer';
+import {
+  KEYCHAIN_ENCRYPTION_KEY,
+  KEYCHAIN_MNEMONIC_KEY,
+  KEYCHAIN_PASSPHRASE_STATE_KEY,
+  KEYCHAIN_SESSION_ID_KEY,
+} from '../../signer/keychain-keys';
 import { decrypt, secureWipe } from '../crypto-utils';
 
 import { createAppTransferSourceLabelFromMnemonic } from './app-transfer-session';
+import {
+  AUTH_LOGIN_METHOD_APP_TRANSFER,
+  AUTH_LOGIN_METHOD_HARDWARE,
+} from './auth-types';
 
 import type { AuthSessionMetadata, ResolvedAuthSession } from './auth-types';
 import type { ISecureStorage } from '../../infra/keychain-storage';
@@ -40,6 +49,23 @@ export class AuthSessionResolver {
       throw error;
     }
 
+    // Hardware sessions keep no mnemonic in the keychain — the device is the
+    // secret holder. The session file itself is the source of truth.
+    if (metadata?.loginMethod === AUTH_LOGIN_METHOD_HARDWARE) {
+      return {
+        authStatus: 'authenticated',
+        hasSecrets: true,
+        storageBackend: this.storage.getBackendType(),
+        loginMethod: metadata.loginMethod,
+        walletKind: metadata.walletKind,
+        displayAddress: metadata.displayAddress,
+        importedAt: metadata.importedAt,
+        sourceLabel: metadata.sourceLabel,
+        device: metadata.device,
+        passphraseMode: metadata.passphraseMode,
+      };
+    }
+
     let encryptedMnemonic: Buffer | null = null;
     let encryptionKey: Buffer | null = null;
     let decryptedMnemonic: Buffer | null = null;
@@ -59,7 +85,7 @@ export class AuthSessionResolver {
 
       let sourceLabel = metadata?.sourceLabel;
       if (
-        metadata?.loginMethod === 'app_transfer' &&
+        metadata?.loginMethod === AUTH_LOGIN_METHOD_APP_TRANSFER &&
         encryptedMnemonic &&
         encryptionKey
       ) {
@@ -109,22 +135,31 @@ export class AuthSessionResolver {
   }
 
   // Order matters: delete keychain secrets first, and only clear the session
-  // index if BOTH succeeded. If a keychain delete fails we keep the session
+  // index if ALL succeeded. If any keychain delete fails we keep the session
   // file so the next resolve() re-enters this cleanup path — never leave the
   // store in a "metadata missing + secrets present" state, which resolve()
   // would otherwise report as authenticated (see auth-manager.test.ts
   // "reports authenticated status when secrets exist but metadata is missing").
+  //
+  // All four keys must be cleared so a corrupted hardware session cannot leak
+  // stale passphraseState / session_id into the next `auth login --hardware`,
+  // where SignerHardware.preloadSessionFromKeychain would pick up the old
+  // values and either mis-sign or trigger spurious passphrase prompts.
   private async silentlyClearEverything(): Promise<void> {
+    const keys = [
+      KEYCHAIN_MNEMONIC_KEY,
+      KEYCHAIN_ENCRYPTION_KEY,
+      KEYCHAIN_PASSPHRASE_STATE_KEY,
+      KEYCHAIN_SESSION_ID_KEY,
+    ];
+
     let keychainCleared = true;
-    try {
-      await this.storage.delete(KEYCHAIN_MNEMONIC_KEY);
-    } catch {
-      keychainCleared = false;
-    }
-    try {
-      await this.storage.delete(KEYCHAIN_ENCRYPTION_KEY);
-    } catch {
-      keychainCleared = false;
+    for (const key of keys) {
+      try {
+        await this.storage.delete(key);
+      } catch {
+        keychainCleared = false;
+      }
     }
 
     if (!keychainCleared) {

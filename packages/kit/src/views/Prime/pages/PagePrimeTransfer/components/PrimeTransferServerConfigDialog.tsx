@@ -14,7 +14,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { buildChangeHistoryInputAddon } from '@onekeyhq/kit/src/components/ChangeHistoryDialog/ChangeHistoryDialog';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -22,6 +21,8 @@ import {
 import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferSaveCustomServer } from './hooks/usePrimeTransferSaveCustomServer';
+
+import type { IntlShape } from 'react-intl';
 
 function ServerConfigContent() {
   const intl = useIntl();
@@ -152,10 +153,14 @@ function ServerConfigContent() {
   );
 }
 
-export function showPrimeTransferServerConfigDialog() {
+export function showPrimeTransferServerConfigDialog({
+  intl,
+}: {
+  intl: IntlShape;
+}) {
   return Dialog.show({
     isAsync: true,
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.transfer_transfer_server_server_configuration,
     }),
     icon: 'ServerOutline',

@@ -18,6 +18,7 @@ import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import type {
   ISwapReviewAdapter,
   ISwapReviewApproveBroadcastResult,
@@ -125,6 +126,26 @@ type IMarketReviewExecutionSnapshot = {
   swapInfo: ISwapTxInfo;
   buildRes?: IFetchBuildTxResponse;
 };
+
+type ICheckSwapLatestBalanceSufficient = (params: {
+  token: ISwapToken;
+  amount: string;
+  accountAddress?: string;
+  accountId?: string;
+}) => Promise<
+  | {
+      isSufficient: true;
+    }
+  | {
+      isSufficient: false;
+      balance: string;
+      requiredAmount: string;
+      tokenSymbol: string;
+    }
+>;
+
+const checkLatestBalanceSufficient =
+  checkSwapLatestBalanceSufficient as ICheckSwapLatestBalanceSufficient;
 
 export function buildMarketReviewTokens({
   tradeType,
@@ -713,6 +734,38 @@ export function useSpeedSwapActions(props: {
     [intl, marketDeriveInfoRes.result?.addressEncoding, slippage],
   );
 
+  const assertLatestFromTokenBalanceSufficient = useCallback(
+    async ({
+      token,
+      amount,
+      accountAddress,
+      accountId,
+    }: {
+      token: ISwapToken;
+      amount: string;
+      accountAddress?: string;
+      accountId?: string;
+    }) => {
+      const checkResult = await checkLatestBalanceSufficient({
+        token,
+        amount,
+        accountAddress,
+        accountId,
+      });
+      if (!checkResult.isSufficient) {
+        throw new OneKeyLocalError(
+          intl.formatMessage(
+            {
+              id: ETranslations.swap_page_toast_insufficient_balance_title,
+            },
+            { token: checkResult.tokenSymbol },
+          ),
+        );
+      }
+    },
+    [intl],
+  );
+
   const buildSpeedSwapTxData = useCallback(
     async ({
       fromAmount,
@@ -733,6 +786,13 @@ export function useSpeedSwapActions(props: {
           'Market swap review requires account and amount.',
         );
       }
+
+      await assertLatestFromTokenBalanceSufficient({
+        token: fromTokenFinal,
+        amount,
+        accountAddress: userAddress,
+        accountId: netAccountRes.result.id,
+      });
 
       setSpeedSwapBuildTxLoading(true);
       try {
@@ -871,6 +931,7 @@ export function useSpeedSwapActions(props: {
       slippage,
       toToken,
       buildMarketExecutionFromBuildRes,
+      assertLatestFromTokenBalanceSufficient,
     ],
   );
 
@@ -1820,6 +1881,13 @@ export function useSpeedSwapActions(props: {
       const snapshot = requireReviewExecutionSnapshot('swap');
 
       try {
+        await assertLatestFromTokenBalanceSufficient({
+          token: snapshot.swapInfo.sender.token,
+          amount: snapshot.swapInfo.sender.amount,
+          accountAddress: snapshot.accountAddress,
+          accountId: snapshot.accountId,
+        });
+
         if (snapshot.shouldFallback) {
           setSpeedSwapBuildTxLoading(true);
 
@@ -1892,6 +1960,7 @@ export function useSpeedSwapActions(props: {
     },
     [
       buildMarketApproveUnsignedTxArr,
+      assertLatestFromTokenBalanceSufficient,
       cancelSpeedSwapBuildTx,
       handleMarketSwapBuildTxSuccess,
       isUserCancelledError,
@@ -1971,6 +2040,14 @@ export function useSpeedSwapActions(props: {
       try {
         const signingQuoteResult = await refreshMarketSigningQuoteResult({
           snapshot,
+        });
+        const signingFromAmount =
+          signingQuoteResult.fromAmount ?? snapshot.swapInfo.sender.amount;
+        await assertLatestFromTokenBalanceSufficient({
+          token: snapshot.swapInfo.sender.token,
+          amount: signingFromAmount,
+          accountAddress: snapshot.accountAddress,
+          accountId: snapshot.accountId,
         });
         const signedQuoteResult = await signMarketReviewQuoteResult({
           quoteResult: signingQuoteResult,
@@ -2095,6 +2172,7 @@ export function useSpeedSwapActions(props: {
     [
       antiMEV,
       buildMarketExecutionFromBuildRes,
+      assertLatestFromTokenBalanceSufficient,
       cancelSpeedSwapBuildTx,
       handleMarketSignedOrderSuccess,
       isUserCancelledError,
