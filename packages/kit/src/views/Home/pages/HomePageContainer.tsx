@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 
+import { Stack, useIsDesktopModeUIInTabPages } from '@onekeyhq/components';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -54,6 +55,7 @@ function SelectedAccountsMapTest() {
 
 function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
+  const isDesktopModeUI = useIsDesktopModeUIInTabPages();
 
   useDebugComponentRemountLog({ name: 'HomePageContainer' });
 
@@ -63,33 +65,39 @@ function HomePageContainer() {
   const sceneName = EAccountSelectorSceneName.home;
   return (
     <TabletHomeContainer>
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName,
-          sceneUrl: '',
-        }}
-        enabledNum={[0]}
+      <Stack
+        flex={1}
+        className="HomeRootTabPageContainer"
+        bg={isDesktopModeUI ? '$bgSubdued' : '$bgApp'}
       >
-        <HomePageView
-          key={sceneName}
-          sceneName={sceneName}
-          onPressHide={() => setIsHide((v) => !v)}
-        />
-        <DAppConnectExtensionFloatingTrigger />
-        <OnboardingOnMount />
-        <NotificationRegisterDaily />
-        <BTCFreshAddressProvider />
-        {/* <UrlAccountAutoReplaceHistory num={0} /> */}
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName,
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+        >
+          <HomePageView
+            key={sceneName}
+            sceneName={sceneName}
+            onPressHide={() => setIsHide((v) => !v)}
+          />
+          <DAppConnectExtensionFloatingTrigger />
+          <OnboardingOnMount />
+          <NotificationRegisterDaily />
+          <BTCFreshAddressProvider />
+          {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
-        {process.env.NODE_ENV !== 'production' ? (
-          <>
-            <SelectedAccountsMapTest />
-            <SelectedAccountTest />
-            <ActiveAccountTest />
-            <EmptyRenderTest />
-          </>
-        ) : null}
-      </AccountSelectorProviderMirror>
+          {process.env.NODE_ENV !== 'production' ? (
+            <>
+              <SelectedAccountsMapTest />
+              <SelectedAccountTest />
+              <ActiveAccountTest />
+              <EmptyRenderTest />
+            </>
+          ) : null}
+        </AccountSelectorProviderMirror>
+      </Stack>
     </TabletHomeContainer>
   );
 }
