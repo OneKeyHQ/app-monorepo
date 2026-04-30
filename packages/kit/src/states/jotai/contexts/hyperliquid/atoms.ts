@@ -296,13 +296,13 @@ export function usePerpsOpenOrdersByCoin(
 export type IPerpsLedgerUpdatesAtom = {
   accountAddress: string | undefined;
   updates: HL.IUserNonFundingLedgerUpdate[];
-  isSubscribed: boolean;
+  isLoaded: boolean;
 };
 export const { atom: perpsLedgerUpdatesAtom, use: usePerpsLedgerUpdatesAtom } =
   contextAtom<IPerpsLedgerUpdatesAtom>({
     accountAddress: undefined,
     updates: [],
-    isSubscribed: false,
+    isLoaded: false,
   });
 
 export interface ITradingFormEnv {

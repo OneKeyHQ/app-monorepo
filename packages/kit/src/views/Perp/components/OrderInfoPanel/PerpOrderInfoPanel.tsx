@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,6 +11,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
@@ -125,6 +126,8 @@ function TabBarItem({
 
 function PerpOrderInfoPanel() {
   const tabsRef = useRef<ITabContainerRef | null>(null);
+  const actions = useHyperliquidActions();
+  const [activeTab, setActiveTab] = useState('Positions');
 
   const handleViewTpslOrders = () => {
     tabsRef.current?.jumpToTab('Open Orders');
@@ -137,6 +140,8 @@ function PerpOrderInfoPanel() {
       initialTabName="Positions"
       disableScroll={!platformEnv.isNative}
       onTabChange={async (tab) => {
+        setActiveTab(tab.tabName);
+        actions.current.setTradeRouteViewState({ infoPanelTab: tab.tabName });
         if (tab.tabName === 'Account') {
           void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
         }
@@ -174,7 +179,7 @@ function PerpOrderInfoPanel() {
         <PerpTradesHistoryList useTabsList />
       </Tabs.Tab>
       <Tabs.Tab name="Account">
-        <PerpAccountList useTabsList />
+        <PerpAccountList useTabsList isActive={activeTab === 'Account'} />
       </Tabs.Tab>
     </Tabs.Container>
   );
