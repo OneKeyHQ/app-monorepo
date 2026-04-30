@@ -82,9 +82,22 @@ function BasicDesktopTabItemImage({
   selected?: boolean;
 }) {
   const { isRawInternetReachable } = useNetInfo(Boolean(avatarSrc));
+  const previousInternetReachableRef = useRef(isRawInternetReachable);
+  const [imageReloadVersion, setImageReloadVersion] = useState(0);
+
+  useEffect(() => {
+    if (
+      previousInternetReachableRef.current === false &&
+      isRawInternetReachable === true
+    ) {
+      setImageReloadVersion((version) => version + 1);
+    }
+    previousInternetReachableRef.current = isRawInternetReachable;
+  }, [isRawInternetReachable]);
+
   const imageKey = useMemo(
-    () => `${avatarSrc ?? ''}:${isRawInternetReachable ?? 'unknown'}`,
-    [avatarSrc, isRawInternetReachable],
+    () => `${avatarSrc ?? ''}:${imageReloadVersion}`,
+    [avatarSrc, imageReloadVersion],
   );
   const fallbackElement = useMemo(
     () => (
