@@ -1511,10 +1511,15 @@ export function useSpeedSwapActions(props: {
       }
 
       // Only lock the fee editor when a preset feeInfo was actually pre-attached.
-      // The fallback path (approve + swap) cannot pre-attach feeInfo and the standard
-      // SignatureConfirm flow does not read the swap-context customPriorityFee, so
-      // locking without an attached feeInfo would leave the user unable to adjust fees
-      // for a tier the preset never delivered.
+      // For the approve+swap fallback path we cannot pre-attach feeInfo (each tx
+      // needs its own estimation through the standard SignatureConfirm flow,
+      // which does not read the swap-context customPriorityFee). Keeping the
+      // editor unlocked there lets the user manually choose a tier rather than
+      // being stuck on a preset value the flow never delivered.
+      // TODO(market-preset): pipe `customPriorityFee` through
+      //   `useSignatureConfirm` → `EModalSignatureConfirmRoutes.TxConfirmFromSwap`
+      //   → `TxFeeInfo` so the approve+swap fallback path can also honour the
+      //   Market preset without forcing the user to re-pick the tier manually.
       const lockFeeEditor = Boolean(feeInfo);
 
       await navigationToTxConfirm({

@@ -1,5 +1,8 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
+import {
+  type ESwapNetworkFeeLevel,
+  ESwapSlippageSegmentKey,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   EMarketPresetKey,
@@ -16,6 +19,13 @@ import {
 export type IMarketPresetSwapOverrides = {
   networkFeeLevel: ESwapNetworkFeeLevel;
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
+  // Only emitted when the preset explicitly chose a CUSTOM slippage with a
+  // valid value. AUTO is intentionally omitted so the standard Swap fallback
+  // (auto-suggested per quote) keeps owning slippage.
+  slippage?: {
+    key: ESwapSlippageSegmentKey;
+    value: number;
+  };
 };
 
 export async function loadMarketPresetSwapOverrides({
@@ -37,6 +47,10 @@ export async function loadMarketPresetSwapOverrides({
       }) as Promise<IMarketPresetSavedSettings | undefined>,
     ]);
 
+    if (!config?.enabled) {
+      return undefined;
+    }
+
     const normalized = normalizeMarketPresetSavedSettings({
       config,
       savedSettings,
@@ -52,9 +66,21 @@ export async function loadMarketPresetSwapOverrides({
       tradeSide,
     });
 
+    const slippageValue = directionSettings.slippage?.value;
+    const slippage =
+      directionSettings.slippage?.key === ESwapSlippageSegmentKey.CUSTOM &&
+      typeof slippageValue === 'number' &&
+      Number.isFinite(slippageValue)
+        ? {
+            key: ESwapSlippageSegmentKey.CUSTOM,
+            value: slippageValue,
+          }
+        : undefined;
+
     return {
       networkFeeLevel: getMarketPresetNetworkFeeLevel(directionSettings),
       customPriorityFee: getMarketPresetPriorityFeeOverride(directionSettings),
+      slippage,
     };
   } catch {
     return undefined;

@@ -20,10 +20,19 @@ import {
   mevSwapNetworks,
   swapProTimeRangeItems,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  ESwapNetworkFeeLevel,
+  ESwapProTradeType,
+  ESwapTabSwitchType,
+  LIMIT_PRICE_DEFAULT_DECIMALS,
+  defaultLimitExpirationTime,
+} from '@onekeyhq/shared/types/swap/types';
+
 import type {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapRateDifferenceUnit,
+  ESwapSlippageSegmentKey,
   IFetchQuoteResult,
   ISwapAlertState,
   ISwapAutoSlippageSuggestedValue,
@@ -36,13 +45,6 @@ import type {
   ISwapToken,
   ISwapTokenCatch,
   ISwapTokenMetadata,
-} from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapNetworkFeeLevel,
-  ESwapProTradeType,
-  ESwapTabSwitchType,
-  LIMIT_PRICE_DEFAULT_DECIMALS,
-  defaultLimitExpirationTime,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -499,6 +501,21 @@ export const {
 }>({
   networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
 });
+
+// Session-scoped slippage override sourced from Market preset. When set, takes
+// precedence over the global persisted swap slippage in
+// `useSwapSlippagePercentageModeInfo`. Cleanup is owned by the component that
+// installed it (e.g. `useMarketPresetSwapOverridesEffect`).
+export const {
+  atom: swapSlippageOverrideAtom,
+  use: useSwapSlippageOverrideAtom,
+} = contextAtom<
+  | {
+      key: ESwapSlippageSegmentKey;
+      value?: number;
+    }
+  | undefined
+>(undefined);
 
 export const {
   atom: swapSelectTokenNetworkAtom,

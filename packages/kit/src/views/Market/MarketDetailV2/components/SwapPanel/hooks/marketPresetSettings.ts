@@ -179,18 +179,7 @@ async function fetchMarketPresetDashboardConfig({
 export async function fetchMarketPresetConfig(params: {
   networkId: string;
 }): Promise<IMarketPresetConfig | undefined> {
-  const dashboardConfig = await fetchMarketPresetDashboardConfig(params).catch(
-    () => undefined,
-  );
-  if (dashboardConfig) {
-    return dashboardConfig;
-  }
-
-  return buildPresetConfig({
-    networkId: params.networkId,
-    slippageEditable: false,
-    priorityFeeEditable: false,
-  });
+  return fetchMarketPresetDashboardConfig(params).catch(() => undefined);
 }
 
 export function getMarketPresetItem({
@@ -366,7 +355,10 @@ export function isValidMarketPresetCustomValue(value?: string) {
   }
 
   const valueBN = new BigNumber(value);
-  return !valueBN.isNaN() && valueBN.gt(0);
+  // Reject NaN, Infinity, negatives, and zero. `new BigNumber('Infinity')`
+  // produces a non-NaN value that satisfies `gt(0)`, so the explicit
+  // `isFinite()` check is required to keep the value usable downstream.
+  return valueBN.isFinite() && valueBN.gt(0);
 }
 
 export function getMarketPresetPriorityFeeOverride(
@@ -480,7 +472,8 @@ export function normalizeMarketPresetSavedSettings({
                 slippage: {
                   key: slippageKey,
                   value:
-                    typeof directionSettings?.slippage?.value === 'number'
+                    typeof directionSettings?.slippage?.value === 'number' &&
+                    Number.isFinite(directionSettings.slippage.value)
                       ? directionSettings.slippage.value
                       : undefined,
                 },
@@ -488,7 +481,10 @@ export function normalizeMarketPresetSavedSettings({
                   type: priorityFeeType,
                   customValue:
                     typeof directionSettings?.priorityFee?.customValue ===
-                    'string'
+                      'string' &&
+                    isValidMarketPresetCustomValue(
+                      directionSettings.priorityFee.customValue,
+                    )
                       ? directionSettings.priorityFee.customValue
                       : undefined,
                 },

@@ -33,7 +33,9 @@ export function applyCustomPriorityFeeToGasInfo({
   const customValueBN = new BigNumber(
     customPriorityFee?.customValue ?? Number.NaN,
   );
-  if (!customPriorityFee || customValueBN.isNaN() || !customValueBN.gt(0)) {
+  // Defense in depth: reject NaN, Infinity, non-positive values even though
+  // upstream `isValidMarketPresetCustomValue` should already filter these.
+  if (!customPriorityFee || !customValueBN.isFinite() || !customValueBN.gt(0)) {
     return gasInfo;
   }
 

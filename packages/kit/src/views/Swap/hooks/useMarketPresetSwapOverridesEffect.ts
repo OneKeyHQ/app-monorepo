@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSlippageOverrideAtom,
   useSwapStepNetFeeLevelAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -22,9 +23,15 @@ export function useMarketPresetSwapOverridesEffect({
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [, setSwapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
+  const [, setSwapSlippageOverride] = useSwapSlippageOverrideAtom();
   const requestIdRef = useRef(0);
 
   useEffect(() => {
+    // Bump request id at the very top so any in-flight async load from a prior
+    // run is invalidated regardless of which branch we take below.
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
     if (!marketPresetToken?.networkId) {
       return;
     }
@@ -47,11 +54,9 @@ export function useMarketPresetSwapOverridesEffect({
 
     if (!tradeSide) {
       setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
+      setSwapSlippageOverride(undefined);
       return;
     }
-
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
 
     void (async () => {
       const overrides = await loadMarketPresetSwapOverrides({
@@ -66,13 +71,22 @@ export function useMarketPresetSwapOverridesEffect({
           overrides?.networkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM,
         customPriorityFee: overrides?.customPriorityFee,
       });
+      setSwapSlippageOverride(overrides?.slippage);
     })();
-  }, [marketPresetToken, fromToken, toToken, setSwapStepNetFeeLevel]);
+  }, [
+    marketPresetToken,
+    fromToken,
+    toToken,
+    setSwapStepNetFeeLevel,
+    setSwapSlippageOverride,
+  ]);
 
   useEffect(() => {
     return () => {
       requestIdRef.current += 1;
       setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
+      setSwapSlippageOverride(undefined);
     };
-  }, [setSwapStepNetFeeLevel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 }

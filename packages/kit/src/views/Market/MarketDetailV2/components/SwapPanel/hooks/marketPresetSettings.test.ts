@@ -39,14 +39,15 @@ describe('marketPresetSettings', () => {
     ]);
   });
 
-  it('returns readonly fallback presets when dashboard has no network config', async () => {
+  it('returns undefined for networks without a market preset dashboard config', async () => {
+    // Networks not in the hardcoded EVM/SOL/READONLY allowlist have no Market
+    // preset coverage. Returning undefined keeps the standard slippage control
+    // visible and avoids forcing default Auto on unsupported networks.
     const config = await fetchMarketPresetConfig({
       networkId: presetNetworksMap.btc.id,
     });
 
-    expect(config?.enabled).toBe(true);
-    expect(config?.slippage.editable).toBe(false);
-    expect(config?.priorityFee.editable).toBe(false);
+    expect(config).toBeUndefined();
 
     const settings = resolveMarketPresetDirectionSettings({
       config,
@@ -70,6 +71,8 @@ describe('marketPresetSettings', () => {
       },
     });
 
+    // Without a config, resolveMarketPresetDirectionSettings still safely
+    // collapses to the default AUTO state.
     expect(settings.slippage.key).toBe(ESwapSlippageSegmentKey.AUTO);
     expect(settings.priorityFee.type).toBe(EMarketPresetPriorityFeeType.AUTO);
   });
