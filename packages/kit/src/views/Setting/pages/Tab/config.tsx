@@ -453,12 +453,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               [
                 {
                   icon: 'GasOutline',
-                  // TODO: i18n — replace with ETranslations keys once product
-                  // adds the translation entries (settings_use_gas_account_by_default
-                  // / settings_use_gas_account_by_default_description).
-                  title: 'Use Gas Account by default',
-                  subtitle:
-                    'Pay eligible network fees from your Gas Account when available. Otherwise, use your wallet balance.',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__desc,
+                  }),
                   renderElement: <UseGasAccountByDefaultListItem />,
                 },
               ],

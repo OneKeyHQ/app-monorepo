@@ -34,6 +34,7 @@ export interface IHyperLiquidLogParams<
   response?: TResponse;
   error?: Record<string, unknown>;
   extra?: Record<string, unknown>;
+  isFirstTime?: boolean;
 }
 
 function stripSensitiveFields<TRequest, TResponse>(
@@ -133,6 +134,16 @@ export class HyperLiquidScene extends BaseScene {
     >,
   ) {
     return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public perpTermsAgree() {
+    return {};
+  }
+
+  @LogToServer()
+  public perpTermsReject() {
+    return {};
   }
 
   @LogToServer()
