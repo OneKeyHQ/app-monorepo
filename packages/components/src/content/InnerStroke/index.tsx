@@ -16,7 +16,7 @@ import type { IStackProps } from '../../primitives';
  *
  * Place inside a parent with matching borderRadius + overflow:hidden.
  */
-export const InnerStroke = memo(function InnerStroke({
+function BasicInnerStroke({
   borderRadius,
   borderColor = 'rgba(0, 0, 0, 0.1)',
   ...rest
@@ -38,4 +38,6 @@ export const InnerStroke = memo(function InnerStroke({
       {...rest}
     />
   );
-});
+}
+
+export const InnerStroke = memo(BasicInnerStroke);

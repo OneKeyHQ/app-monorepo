@@ -407,11 +407,12 @@ function HomeOverviewContainer() {
       networkId: network?.id ?? '',
       deriveInfoItems,
       indexedAccountId: account?.indexedAccountId,
+      intl,
       onClose: () => {
         balanceDialogInstance.current = null;
       },
     });
-  }, [account, network, deriveInfoItems]);
+  }, [account, network, deriveInfoItems, intl]);
 
   const currentWorthKey = useMemo(() => {
     if (!account?.id || !network?.id || network.isAllNetworks) {

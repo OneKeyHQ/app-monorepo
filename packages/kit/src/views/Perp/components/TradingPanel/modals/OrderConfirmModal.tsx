@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getSpotTokenDisplayName,
@@ -37,6 +36,8 @@ import {
 } from '../../../utils/styleUtils';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
+
+import type { IntlShape } from 'react-intl';
 
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
 
@@ -176,7 +177,7 @@ function OrderConfirmContent({
     if (formData.type === 'market' || !formData.price) {
       return (
         <SizableText size="$bodyMdMedium">
-          {appLocale.intl.formatMessage({
+          {intl.formatMessage({
             id: ETranslations.perp_trade_market,
           })}
         </SizableText>
@@ -204,14 +205,14 @@ function OrderConfirmContent({
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.perp_trading_button_placing,
       });
     }
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.perp_confirm_order,
     });
-  }, [isSubmitting]);
+  }, [isSubmitting, intl]);
 
   const setSkipOrderConfirm = useCallback(
     (value: boolean) => {
@@ -320,7 +321,7 @@ function OrderConfirmContent({
         {/* Position Size */}
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.perp_position_position_size,
             })}
           </SizableText>
@@ -348,7 +349,7 @@ function OrderConfirmContent({
         {!isTriggerMode ? (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perp_orderbook_price,
               })}
             </SizableText>
@@ -360,7 +361,7 @@ function OrderConfirmContent({
         {isSpot ? null : (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perp_position_liq_price,
               })}
             </SizableText>
@@ -408,7 +409,7 @@ function OrderConfirmContent({
               fontSize: '$bodyMdMedium',
               color: '$textSubdued',
             }}
-            label={appLocale.intl.formatMessage({
+            label={intl.formatMessage({
               id: ETranslations.perp_confirm_not_show,
             })}
             value={perpsCustomSettings.skipOrderConfirm}
@@ -435,9 +436,15 @@ function OrderConfirmContent({
   );
 }
 
-export function showOrderConfirmDialog(overrideSide?: 'long' | 'short') {
+export function showOrderConfirmDialog({
+  overrideSide,
+  intl,
+}: {
+  overrideSide?: 'long' | 'short';
+  intl: IntlShape;
+}) {
   const dialogInstance = Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.perp_confirm_order,
     }),
     renderContent: (
