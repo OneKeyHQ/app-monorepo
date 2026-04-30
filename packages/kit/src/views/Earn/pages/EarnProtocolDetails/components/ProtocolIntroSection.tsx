@@ -882,7 +882,10 @@ function InvestorMetricCell({
   );
 }
 
-function getInvestorMetricCells(round: IEarnProtocolIntroInvestorRound) {
+function getInvestorMetricCells(
+  round: IEarnProtocolIntroInvestorRound,
+  intl: ReturnType<typeof useIntl>,
+) {
   const metrics = (round.items ?? []).filter((metric) =>
     hasText(getMetricValue(metric)),
   );
@@ -892,20 +895,32 @@ function getInvestorMetricCells(round: IEarnProtocolIntroInvestorRound) {
   }
 
   return [
-    { title: 'Date', value: round.date },
-    { title: 'Amount', value: round.amount },
-    { title: 'Valuation', value: round.valuation },
+    {
+      title: intl.formatMessage({ id: ETranslations.global_date }),
+      value: round.date,
+    },
+    {
+      title: intl.formatMessage({ id: ETranslations.content__amount }),
+      value: round.amount,
+    },
+    {
+      title: intl.formatMessage({ id: ETranslations.global_value }),
+      value: round.valuation,
+    },
   ].filter((metric) => hasText(metric.value));
 }
 
 function InvestorRoundSection({
   round,
   isLast,
+  investorsTitle,
 }: {
   round: IEarnProtocolIntroInvestorRound;
   isLast: boolean;
+  investorsTitle?: IEarnProtocolIntroText;
 }) {
-  const metrics = getInvestorMetricCells(round);
+  const intl = useIntl();
+  const metrics = getInvestorMetricCells(round, intl);
 
   return (
     <YStack>
@@ -930,11 +945,13 @@ function InvestorRoundSection({
       ) : null}
       {hasText(round.investors) ? (
         <YStack gap="$0.5" mb={isLast ? '$3' : '$5'}>
-          <EarnText
-            text={toEarnText('Investors')}
-            size="$bodySm"
-            color="$textSubdued"
-          />
+          {hasText(investorsTitle) ? (
+            <EarnText
+              text={toEarnText(investorsTitle)}
+              size="$bodySm"
+              color="$textSubdued"
+            />
+          ) : null}
           <EarnText
             text={toEarnText(round.investors)}
             size="$bodyMd"
@@ -1141,6 +1158,7 @@ function InvestorsDialogContent({
   investors: IEarnProtocolIntroInvestors;
 }) {
   const rounds = getInvestorRounds(investors);
+  const investorsTitle = investors.title || investors.button?.data?.title;
   return (
     <YStack>
       {rounds.map((round, index) => (
@@ -1148,6 +1166,7 @@ function InvestorsDialogContent({
           key={`${getText(getInvestorTitle(round)) || 'round'}-${index}`}
           round={round}
           isLast={index === rounds.length - 1}
+          investorsTitle={investorsTitle}
         />
       ))}
     </YStack>
@@ -1354,7 +1373,10 @@ function ProtocolIntroSectionComponent({
   protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
 }) {
   const intl = useIntl();
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selection, setSelection] = useState<{
+    protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
+    index: number;
+  }>({ protocolInfo, index: 0 });
 
   const protocolItems = useMemo(() => {
     const items = Array.isArray(protocolInfo)
@@ -1363,10 +1385,12 @@ function ProtocolIntroSectionComponent({
     return (items ?? []).filter(hasProtocolIntroItemContent);
   }, [protocolInfo]);
 
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [protocolInfo]);
-
+  const selectedIndex =
+    selection.protocolInfo === protocolInfo &&
+    selection.index >= 0 &&
+    selection.index < protocolItems.length
+      ? selection.index
+      : 0;
   const selectedItem = protocolItems[selectedIndex] ?? protocolItems[0];
   const team = selectedItem?.teamMembers || selectedItem?.team;
   const investors = selectedItem?.investors;
@@ -1374,6 +1398,13 @@ function ProtocolIntroSectionComponent({
   const socialLinks = selectedItem?.socialLinks || selectedItem?.links || [];
   const visibleSocialLinks = socialLinks.filter(
     (link) => !link.disabled && getLinkUrl(link),
+  );
+
+  const handleSelectProtocol = useCallback(
+    (index: number) => {
+      setSelection({ protocolInfo, index });
+    },
+    [protocolInfo],
   );
 
   const showDialog = useCallback(
@@ -1454,7 +1485,7 @@ function ProtocolIntroSectionComponent({
         <ProtocolTabs
           items={protocolItems}
           selectedIndex={selectedIndex}
-          onChange={setSelectedIndex}
+          onChange={handleSelectProtocol}
         />
         <DescriptionBlock item={selectedItem} />
         <ProtocolFactsGrid
