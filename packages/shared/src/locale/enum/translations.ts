@@ -784,6 +784,7 @@ export enum ETranslations {
   dexmarket_btc_block_reward = 'dexmarket_btc.block_reward',
   dexmarket_btc_circulating_supply = 'dexmarket_btc.circulating_supply',
   dexmarket_btc_next_halving = 'dexmarket_btc.next_halving',
+  dexmarket_btc_next_halving_imminent = 'dexmarket_btc.next_halving_imminent',
   dexmarket_btc_remaining_supply = 'dexmarket_btc.remaining_supply',
   dexmarket_btc_total_supply = 'dexmarket_btc.total_supply',
   dexmarket_pro_token_find = 'dexmarket_pro_token_find',
