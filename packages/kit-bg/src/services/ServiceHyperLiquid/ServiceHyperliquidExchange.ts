@@ -174,11 +174,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     if (options.action !== 'orderOpen') {
       return undefined;
     }
-    const key = this._getOrderOpenFirstTimeKey(context);
-    if (!key) {
-      return true;
+    try {
+      const key = this._getOrderOpenFirstTimeKey(context);
+      if (!key) {
+        return true;
+      }
+      return await this.backgroundApi.simpleDb.perp.isFirstPerpOrderOpen(key);
+    } catch (error) {
+      console.error(error);
+      return undefined;
     }
-    return this.backgroundApi.simpleDb.perp.isFirstPerpOrderOpen(key);
   }
 
   private async _markOrderOpenSucceeded(

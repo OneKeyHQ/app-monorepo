@@ -81,11 +81,11 @@ function CustomCheckbox({
 
 export function HyperliquidTermsContent({
   onConfirm,
-  onClose,
+  onOpenLegalLink,
   renderDelay = 0,
 }: {
   onConfirm: () => void;
-  onClose?: () => void;
+  onOpenLegalLink?: () => void;
   renderDelay?: number;
 }) {
   const intl = useIntl();
@@ -217,7 +217,7 @@ export function HyperliquidTermsContent({
                       color="$textInteractive"
                       onPress={() => {
                         if (platformEnv.isDesktop || platformEnv.isNative) {
-                          onClose?.();
+                          onOpenLegalLink?.();
                           openUrlInDiscovery({ url: TERMS_OF_SERVICE_URL });
                         } else {
                           openUrlExternal(TERMS_OF_SERVICE_URL);
@@ -252,7 +252,7 @@ export function HyperliquidTermsContent({
                       color="$textInteractive"
                       onPress={() => {
                         if (platformEnv.isDesktop || platformEnv.isNative) {
-                          onClose?.();
+                          onOpenLegalLink?.();
                           openUrlInDiscovery({ url: PRIVACY_POLICY_URL });
                         } else {
                           openUrlExternal(PRIVACY_POLICY_URL);
@@ -286,6 +286,7 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
     let hasResolved = false;
     let didTrackAgree = false;
     let didTrackReject = false;
+    let didOpenLegalLink = false;
     const trackTermsAgree = () => {
       if (!didTrackAgree) {
         didTrackAgree = true;
@@ -293,7 +294,12 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
       }
     };
     const trackTermsReject = () => {
-      if (!didConfirm && !didTrackAgree && !didTrackReject) {
+      if (
+        !didConfirm &&
+        !didTrackAgree &&
+        !didTrackReject &&
+        !didOpenLegalLink
+      ) {
         didTrackReject = true;
         defaultLogger.perp.hyperliquid.perpTermsReject();
       }
@@ -322,12 +328,10 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
               safeResolve(didConfirm);
             }
           }}
-          onClose={() => {
+          onOpenLegalLink={() => {
+            didOpenLegalLink = true;
             void dialog.close();
-            if (!didConfirm) {
-              trackTermsReject();
-              safeResolve(false);
-            }
+            safeResolve(false);
           }}
         />
       ),
