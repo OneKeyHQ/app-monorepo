@@ -37,7 +37,7 @@ const adCornerBadgeSizeMap: Record<
   },
 };
 
-export const AdCornerBadge = memo(function AdCornerBadge({
+function BasicAdCornerBadge({
   badgeSize = 'sm',
   placement = 'top-right',
   ...rest
@@ -79,4 +79,6 @@ export const AdCornerBadge = memo(function AdCornerBadge({
       </SizableText>
     </Stack>
   );
-});
+}
+
+export const AdCornerBadge = memo(BasicAdCornerBadge);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Image,
@@ -11,7 +12,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -45,6 +45,7 @@ export function ShareContentRenderer({
   referralDisplayText,
   isReferralReady = true,
 }: IShareContentRendererProps) {
+  const intl = useIntl();
   const {
     side,
     mode,
@@ -208,7 +209,7 @@ export function ShareContentRenderer({
                         ? ETranslations.perp_long
                         : ETranslations.perp_short;
                     }
-                    const label = appLocale.intl.formatMessage({ id: labelId });
+                    const label = intl.formatMessage({ id: labelId });
                     return isSpot ? label : `${label} ${leverage}X`;
                   })()}
                 </SizableText>
@@ -251,7 +252,7 @@ export function ShareContentRenderer({
               opacity={layout.labelOpacity}
               lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perp_position_entry_price,
               })}
             </SizableText>
@@ -284,10 +285,10 @@ export function ShareContentRenderer({
               lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
               {priceType === 'exit'
-                ? appLocale.intl.formatMessage({
+                ? intl.formatMessage({
                     id: ETranslations.perp_position_exit_price,
                   })
-                : appLocale.intl.formatMessage({
+                : intl.formatMessage({
                     id: ETranslations.perp_position_mark_price,
                   })}
             </SizableText>
@@ -327,7 +328,7 @@ export function ShareContentRenderer({
                   opacity={layout.labelOpacity}
                   lineHeight={scaledFonts.priceLabel * layout.lineHeight}
                 >
-                  {appLocale.intl.formatMessage({
+                  {intl.formatMessage({
                     id: ETranslations.perp_share_referral_desc,
                   })}
                 </SizableText>
