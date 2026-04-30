@@ -114,7 +114,7 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
           </Badge.Text>
         </Badge>
       ) : null}
-      <StickyHeader firstTabName={firstTabName} />
+      <StickyHeader firstTabName={firstTabName} variant="desktop" />
       {hasBufferedUpdates ? (
         <XStack
           position="absolute"
@@ -232,6 +232,7 @@ export function DesktopInformationTabs({
           <Tabs.ScrollView>
             <TokenLiquidityPools
               showTitle={false}
+              showTableHeader={false}
               variant="desktop"
               px="$0"
               pt="$0"

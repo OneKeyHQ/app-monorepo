@@ -16,8 +16,6 @@ function getFallbackTabSelect(index: number) {
       return ETabSelect.Transactions;
     case 1:
       return ETabSelect.Portfolio;
-    case 2:
-      return ETabSelect.Holders;
     default:
       return undefined;
   }

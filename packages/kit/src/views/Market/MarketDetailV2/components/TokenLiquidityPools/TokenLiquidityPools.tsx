@@ -73,6 +73,7 @@ type ITokenLiquidityPoolsProps = {
   pt?: string;
   pb?: string;
   showTitle?: boolean;
+  showTableHeader?: boolean;
   variant?: 'desktop' | 'mobile';
 };
 
@@ -841,9 +842,89 @@ function TokenAmountLines({ tokens }: { tokens: IDisplayPoolToken[] }) {
   );
 }
 
-function TokenLiquidityPoolsDesktop({ pools }: { pools: IDisplayPool[] }) {
+function TokenLiquidityPoolsDesktopHeader() {
   const intl = useIntl();
   const labels = useLiquidityPoolLabels();
+  const { styles } = useLiquidityPoolsLayoutDesktop();
+
+  return (
+    <XStack
+      width="100%"
+      minWidth={DESKTOP_CONTENT_MIN_WIDTH}
+      py="$2"
+      pl="$5"
+      pr="$3"
+      ai="center"
+      bg="$bgApp"
+    >
+      <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.pool}>
+        {labels.pool}
+      </SizableText>
+      <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.liquidity}>
+        {intl.formatMessage({ id: ETranslations.global_liquidity })}
+      </SizableText>
+      <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.tokenAmount}>
+        {labels.tokenAmount}
+      </SizableText>
+      <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.feeRate}>
+        {labels.feeRate}
+      </SizableText>
+      <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.poolAddress}>
+        {labels.poolAddress}
+      </SizableText>
+      <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.creator}>
+        {labels.creator}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function TokenLiquidityPoolsMobileHeader() {
+  const intl = useIntl();
+  const labels = useLiquidityPoolLabels();
+
+  return (
+    <XStack h="$11" px="$5" py="$2" ai="center" gap="$3" bg="$bgApp">
+      <SizableText {...MOBILE_HEADER_TEXT_PROPS} {...MOBILE_COLUMN_STYLE.pool}>
+        {labels.pool}
+      </SizableText>
+      <SizableText
+        {...MOBILE_HEADER_TEXT_PROPS}
+        textAlign="right"
+        {...MOBILE_COLUMN_STYLE.liquidity}
+      >
+        {intl.formatMessage({ id: ETranslations.global_liquidity })}
+      </SizableText>
+      <SizableText
+        {...MOBILE_HEADER_TEXT_PROPS}
+        textAlign="right"
+        {...MOBILE_COLUMN_STYLE.feeRate}
+      >
+        {labels.feeRate}
+      </SizableText>
+    </XStack>
+  );
+}
+
+export function TokenLiquidityPoolsTableHeader({
+  variant,
+}: {
+  variant: 'desktop' | 'mobile';
+}) {
+  return variant === 'mobile' ? (
+    <TokenLiquidityPoolsMobileHeader />
+  ) : (
+    <TokenLiquidityPoolsDesktopHeader />
+  );
+}
+
+function TokenLiquidityPoolsDesktop({
+  pools,
+  showTableHeader = true,
+}: {
+  pools: IDisplayPool[];
+  showTableHeader?: boolean;
+}) {
   const { styles } = useLiquidityPoolsLayoutDesktop();
 
   return (
@@ -856,26 +937,7 @@ function TokenLiquidityPoolsDesktop({ pools }: { pools: IDisplayPool[] }) {
       }}
     >
       <YStack flex={1} minWidth={DESKTOP_CONTENT_MIN_WIDTH}>
-        <XStack width="100%" py="$2" pl="$5" pr="$3" ai="center" bg="$bgApp">
-          <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.pool}>
-            {labels.pool}
-          </SizableText>
-          <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.liquidity}>
-            {intl.formatMessage({ id: ETranslations.global_liquidity })}
-          </SizableText>
-          <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.tokenAmount}>
-            {labels.tokenAmount}
-          </SizableText>
-          <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.feeRate}>
-            {labels.feeRate}
-          </SizableText>
-          <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.poolAddress}>
-            {labels.poolAddress}
-          </SizableText>
-          <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.creator}>
-            {labels.creator}
-          </SizableText>
-        </XStack>
+        {showTableHeader ? <TokenLiquidityPoolsDesktopHeader /> : null}
 
         {pools.map((item, index) => (
           <XStack
@@ -1102,34 +1164,16 @@ function MobilePoolRow({ item }: { item: IDisplayPool }) {
   );
 }
 
-function TokenLiquidityPoolsMobile({ pools }: { pools: IDisplayPool[] }) {
-  const intl = useIntl();
-  const labels = useLiquidityPoolLabels();
-
+function TokenLiquidityPoolsMobile({
+  pools,
+  showTableHeader = true,
+}: {
+  pools: IDisplayPool[];
+  showTableHeader?: boolean;
+}) {
   return (
     <YStack>
-      <XStack h="$11" px="$5" py="$2" ai="center" gap="$3" bg="$bgApp">
-        <SizableText
-          {...MOBILE_HEADER_TEXT_PROPS}
-          {...MOBILE_COLUMN_STYLE.pool}
-        >
-          {labels.pool}
-        </SizableText>
-        <SizableText
-          {...MOBILE_HEADER_TEXT_PROPS}
-          textAlign="right"
-          {...MOBILE_COLUMN_STYLE.liquidity}
-        >
-          {intl.formatMessage({ id: ETranslations.global_liquidity })}
-        </SizableText>
-        <SizableText
-          {...MOBILE_HEADER_TEXT_PROPS}
-          textAlign="right"
-          {...MOBILE_COLUMN_STYLE.feeRate}
-        >
-          {labels.feeRate}
-        </SizableText>
-      </XStack>
+      {showTableHeader ? <TokenLiquidityPoolsMobileHeader /> : null}
       {pools.map((item) => (
         <MobilePoolRow key={item.key} item={item} />
       ))}
@@ -1192,6 +1236,7 @@ export function TokenLiquidityPools({
   pt = '$0',
   pb = '$4',
   showTitle = true,
+  showTableHeader = true,
   variant = 'desktop',
 }: ITokenLiquidityPoolsProps) {
   const intl = useIntl();
@@ -1266,13 +1311,19 @@ export function TokenLiquidityPools({
     }
     if (pools.length) {
       return variant === 'mobile' ? (
-        <TokenLiquidityPoolsMobile pools={pools} />
+        <TokenLiquidityPoolsMobile
+          pools={pools}
+          showTableHeader={showTableHeader}
+        />
       ) : (
-        <TokenLiquidityPoolsDesktop pools={pools} />
+        <TokenLiquidityPoolsDesktop
+          pools={pools}
+          showTableHeader={showTableHeader}
+        />
       );
     }
     return <EmptyPools />;
-  }, [pools, showLoading, variant]);
+  }, [pools, showLoading, showTableHeader, variant]);
 
   return (
     <YStack pl={pl ?? px} pr={pr ?? px} pt={pt} pb={pb}>
