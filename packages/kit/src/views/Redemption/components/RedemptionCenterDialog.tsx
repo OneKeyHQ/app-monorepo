@@ -72,8 +72,8 @@ function RedemptionCenterDialogContent({
       try {
         // Server has no unified endpoint, so dispatch between the two
         // redemption modes (BTC reward vs legacy rebate level upgrade) by
-        // trying btc-reward first and falling back to redeemCode on
-        // InvalidCode.
+        // trying btc-reward first and falling back to redeemCode only when
+        // the server confirms the code is unknown to BTC (CodeNotFound).
         const btcResult =
           await backgroundApiProxy.serviceReferralCode.btcRewardVerifyCode({
             code,
@@ -96,12 +96,15 @@ function RedemptionCenterDialogContent({
           return;
         }
 
-        // Only the server-confirmed "this isn't a BTC code" signal triggers
-        // the legacy fallback. Transport / envelope failures normalize to
-        // Unknown — those keep the user on the BTC path with a retryable
-        // error, otherwise a real BTC code during a BTC outage would be
-        // routed to legacy and surface as "invalid code".
-        if (btcResult.error.code !== EBtcRewardErrorCode.InvalidCode) {
+        // Only the server-confirmed "this code is not in the BTC system"
+        // signal (CodeNotFound, 100_304) triggers the legacy fallback.
+        // InvalidCode (100_300) means the code IS a BTC code but is bad
+        // (format/expired/used) — surface that directly instead of
+        // routing the user through a misleading OneKey ID login. Transport
+        // / envelope failures normalize to Unknown and also stay on the
+        // BTC path so a real BTC code during a BTC outage is not sent
+        // down the legacy channel.
+        if (btcResult.error.code !== EBtcRewardErrorCode.CodeNotFound) {
           const message =
             btcResult.error.code === EBtcRewardErrorCode.Unknown
               ? intl.formatMessage({

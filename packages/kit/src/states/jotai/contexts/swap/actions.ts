@@ -1182,18 +1182,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         : Math.random().toString();
     return {
       icon: 'WalletCryptoOutline',
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
       title: appLocale.intl.formatMessage(
         {
           id: ETranslations.swap_page_no_address,
         },
         { network: netInfo?.name ?? '' },
       ),
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
       message: appLocale.intl.formatMessage({
         id: ETranslations.swap_page_create_to_enable_network,
       }),
       alertLevel: ESwapAlertLevel.INFO,
       action: {
         actionType: ESwapAlertActionType.CREATE_ADDRESS,
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
         actionLabel: appLocale.intl.formatMessage({
           id: ETranslations.global_create,
         }),
@@ -1229,6 +1232,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       });
     if (accountNetworkNotSupported) {
       return {
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
         message: appLocale.intl.formatMessage({
           id: ETranslations.swap_page_alert_account_does_not_support_swap,
         }),
@@ -1326,6 +1330,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         return;
       }
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
       const notSupportSwapMessage = appLocale.intl.formatMessage({
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
@@ -1501,6 +1506,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           alertsRes = [
             ...alertsRes,
             {
+              // eslint-disable-next-line onekey/no-app-locale-main-thread
               message: appLocale.intl.formatMessage(
                 {
                   id: ETranslations.swap_page_alert_minimum_amount,
@@ -1522,6 +1528,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           alertsRes = [
             ...alertsRes,
             {
+              // eslint-disable-next-line onekey/no-app-locale-main-thread
               message: appLocale.intl.formatMessage(
                 {
                   id: ETranslations.swap_page_alert_maximum_amount,
@@ -1548,6 +1555,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               ...alertsRes,
               {
                 icon: 'HandCoinsOutline',
+                // eslint-disable-next-line onekey/no-app-locale-main-thread
                 title: appLocale.intl.formatMessage(
                   {
                     id: ETranslations.swap_page_alert_require_native_token_title,
@@ -1560,6 +1568,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   },
                 ),
                 alertLevel: ESwapAlertLevel.WARNING,
+                // eslint-disable-next-line onekey/no-app-locale-main-thread
                 message: appLocale.intl.formatMessage({
                   id: ETranslations.swap_page_alert_require_native_token_content,
                 }),
@@ -1584,6 +1593,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
         );
         if (buyTokenBuyTaxBN.gt(0) || buyTokenSellTaxBN.gt(0)) {
+          // eslint-disable-next-line onekey/no-app-locale-main-thread
           const actionLabel = appLocale.intl.formatMessage({
             id: buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)
               ? ETranslations.swap_page_alert_tax_detected_sell
@@ -1598,6 +1608,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             ...alertsRes,
             {
               icon: 'HandCoinsOutline',
+              // eslint-disable-next-line onekey/no-app-locale-main-thread
               title: appLocale.intl.formatMessage(
                 {
                   id: ETranslations.swap_page_alert_tax_detected_title,
@@ -1608,6 +1619,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   action: actionLabel,
                 },
               ),
+              // eslint-disable-next-line onekey/no-app-locale-main-thread
               message: appLocale.intl.formatMessage({
                 id: ETranslations.swap_page_alert_tax_detected,
               }),
@@ -1616,6 +1628,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ];
         }
         if (sellTokenBuyTaxBN.gt(0) || sellTokenSellTaxBN.gt(0)) {
+          // eslint-disable-next-line onekey/no-app-locale-main-thread
           const actionLabel = appLocale.intl.formatMessage({
             id: sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)
               ? ETranslations.swap_page_alert_tax_detected_sell
@@ -1629,6 +1642,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             ...alertsRes,
             {
               icon: 'HandCoinsOutline',
+              // eslint-disable-next-line onekey/no-app-locale-main-thread
               title: appLocale.intl.formatMessage(
                 {
                   id: ETranslations.swap_page_alert_tax_detected_title,
@@ -1639,6 +1653,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   action: actionLabel,
                 },
               ),
+              // eslint-disable-next-line onekey/no-app-locale-main-thread
               message: appLocale.intl.formatMessage({
                 id: ETranslations.swap_page_alert_tax_detected,
               }),
@@ -1654,6 +1669,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ...alertsRes,
           {
             icon: 'ErrorSolid',
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
             title: appLocale.intl.formatMessage(
               {
                 id: ETranslations.Limit_native_token_no_sell,

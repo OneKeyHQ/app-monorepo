@@ -1,3 +1,4 @@
+/* eslint-disable onekey/no-app-locale-main-thread -- non-React util consumed by jotai actions */
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 

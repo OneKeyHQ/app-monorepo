@@ -1,15 +1,18 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import {
+  Animated,
+  Easing,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   DashText,
@@ -71,6 +74,8 @@ export function PerpBookText({ children, style, ...props }: TextProps) {
 export const rowHeight = 24;
 
 type IWebPointerStyle = ViewStyle & { cursor?: string };
+const ORDER_BOOK_DEPTH_WIDTH_TRANSITION_MS = 260;
+const ORDER_BOOK_SIDE_RATIO_TRANSITION_MS = 300;
 
 const getPressableHoverState = (state: PressableStateCallbackType): boolean => {
   if (!platformEnv.isNative) {
@@ -366,16 +371,79 @@ export type IOrderBookSelection = {
   index: number;
 };
 
+function normalizeDepthWidth(width: DimensionValue) {
+  let numericWidth = 0;
+
+  if (typeof width === 'number') {
+    numericWidth = width;
+  } else if (typeof width === 'string') {
+    numericWidth = Number.parseFloat(width);
+  }
+
+  if (!Number.isFinite(numericWidth)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, numericWidth));
+}
+
+function useAnimatedOrderBookPercentage({
+  duration,
+  value,
+}: {
+  duration: number;
+  value: number;
+}) {
+  const targetValue = Math.max(0, Math.min(100, value));
+  const reducedMotion = useReducedMotion();
+  const animatedValue = useRef(new Animated.Value(targetValue)).current;
+  const isFirstRenderRef = useRef(true);
+
+  useEffect(() => {
+    animatedValue.stopAnimation();
+
+    if (isFirstRenderRef.current || reducedMotion) {
+      isFirstRenderRef.current = false;
+      animatedValue.setValue(targetValue);
+      return;
+    }
+
+    Animated.timing(animatedValue, {
+      toValue: targetValue,
+      duration,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [animatedValue, duration, reducedMotion, targetValue]);
+
+  return animatedValue;
+}
+
 function ColorBlock({ color, width, left, right, height }: IColorBlockProps) {
+  const targetWidth = useMemo(() => normalizeDepthWidth(width), [width]);
+  const widthAnim = useAnimatedOrderBookPercentage({
+    duration: ORDER_BOOK_DEPTH_WIDTH_TRANSITION_MS,
+    value: targetWidth,
+  });
+  const animatedWidth = useMemo(
+    () =>
+      widthAnim.interpolate({
+        inputRange: [0, 100],
+        outputRange: ['0%', '100%'],
+        extrapolate: 'clamp',
+      }),
+    [widthAnim],
+  );
+
   return (
-    <View
+    <Animated.View
       style={[
         styles.colorBlock,
         {
           height: height ?? rowHeight,
           right,
           left,
-          width,
+          width: animatedWidth,
           backgroundColor: color,
         },
       ]}
@@ -534,6 +602,14 @@ function OrderBookSideRatio({
       askPercentage: 100 - bid,
     };
   }, [bidDepth, totalDepth]);
+  const bidSegmentFlex = useAnimatedOrderBookPercentage({
+    duration: ORDER_BOOK_SIDE_RATIO_TRANSITION_MS,
+    value: Math.max(bidPercentage, 1),
+  });
+  const askSegmentFlex = useAnimatedOrderBookPercentage({
+    duration: ORDER_BOOK_SIDE_RATIO_TRANSITION_MS,
+    value: Math.max(askPercentage, 1),
+  });
   const isCompact = size === 'compact' || size === 'mobile';
   const isMobile = size === 'mobile';
 
@@ -564,22 +640,22 @@ function OrderBookSideRatio({
           isMobile ? styles.sideRatioTrackMobile : null,
         ]}
       >
-        <View
+        <Animated.View
           style={[
             styles.sideRatioSegment,
             styles.sideRatioSegmentStart,
             {
-              flex: Math.max(bidPercentage, 1),
+              flex: bidSegmentFlex,
               backgroundColor: sideRatioColors.long,
             },
           ]}
         />
-        <View
+        <Animated.View
           style={[
             styles.sideRatioSegment,
             styles.sideRatioSegmentEnd,
             {
-              flex: Math.max(askPercentage, 1),
+              flex: askSegmentFlex,
               backgroundColor: sideRatioColors.short,
             },
           ]}
@@ -1035,7 +1111,7 @@ export function OrderBook({
                   <OrderBookVerticalRow
                     item={itemData}
                     priceColor={textColor.red}
-                    sizeColor={textColor.textSubdued}
+                    sizeColor={textColor.text}
                     isHovered={getPressableHoverState(state)}
                   />
                 )}
@@ -1122,7 +1198,7 @@ export function OrderBook({
                 <OrderBookVerticalRow
                   item={itemData}
                   priceColor={textColor.green}
-                  sizeColor={textColor.textSubdued}
+                  sizeColor={textColor.text}
                   isHovered={getPressableHoverState(state)}
                 />
               )}

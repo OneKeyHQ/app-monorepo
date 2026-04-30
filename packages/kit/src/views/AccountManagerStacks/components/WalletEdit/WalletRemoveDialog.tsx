@@ -10,10 +10,11 @@ import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+
+import type { IntlShape } from 'react-intl';
 
 export function WalletRemoveDialog({
   defaultValue,
@@ -90,9 +91,11 @@ export function WalletRemoveDialog({
 export function getTitleAndDescription({
   wallet,
   isRemoveToMocked,
+  intl,
 }: {
   wallet: IDBWallet | undefined;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
+  intl: IntlShape;
 }): {
   isHwOrQr: boolean;
   isKeyless: boolean;
@@ -110,8 +113,8 @@ export function getTitleAndDescription({
     return {
       isHwOrQr: false,
       isKeyless: true,
-      title: appLocale.intl.formatMessage({ id: ETranslations.log_out_wallet }),
-      description: appLocale.intl.formatMessage({
+      title: intl.formatMessage({ id: ETranslations.log_out_wallet }),
+      description: intl.formatMessage({
         id: ETranslations.log_out_wallet_desc,
       }),
     };
@@ -126,10 +129,10 @@ export function getTitleAndDescription({
       return {
         isHwOrQr,
         isKeyless: false,
-        title: appLocale.intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.remove_wallet,
         }),
-        description: appLocale.intl.formatMessage({
+        description: intl.formatMessage({
           id: ETranslations.remove_hidden_wallet_desc,
         }),
       };
@@ -138,10 +141,10 @@ export function getTitleAndDescription({
       return {
         isHwOrQr,
         isKeyless: false,
-        title: appLocale.intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.remove_device,
         }),
-        description: appLocale.intl.formatMessage({
+        description: intl.formatMessage({
           id: ETranslations.remove_device_desc,
         }),
       };
@@ -150,10 +153,10 @@ export function getTitleAndDescription({
     return {
       isHwOrQr,
       isKeyless: false,
-      title: appLocale.intl.formatMessage({
+      title: intl.formatMessage({
         id: ETranslations.remove_standard_wallet,
       }),
-      description: appLocale.intl.formatMessage({
+      description: intl.formatMessage({
         id: ETranslations.remove_standard_wallet_desc,
       }),
     };
@@ -162,8 +165,8 @@ export function getTitleAndDescription({
   return {
     isHwOrQr,
     isKeyless: false,
-    title: appLocale.intl.formatMessage({ id: ETranslations.remove_wallet }),
-    description: appLocale.intl.formatMessage({
+    title: intl.formatMessage({ id: ETranslations.remove_wallet }),
+    description: intl.formatMessage({
       id: ETranslations.remove_wallet_desc,
     }),
   };

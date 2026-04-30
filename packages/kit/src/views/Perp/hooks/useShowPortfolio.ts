@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { useInTabDialog, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -11,16 +13,17 @@ export function useShowPortfolio() {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const dialogInTab = useInTabDialog();
+  const intl = useIntl();
 
   const showPortfolio = useCallback(() => {
     if (gtMd) {
-      showPerpPortfolioDialog(dialogInTab);
+      showPerpPortfolioDialog(dialogInTab, intl);
     } else {
       navigation.pushModal(EModalRoutes.PerpModal, {
         screen: EModalPerpRoutes.MobilePortfolioPage,
       });
     }
-  }, [gtMd, dialogInTab, navigation]);
+  }, [gtMd, dialogInTab, navigation, intl]);
 
   return { showPortfolio };
 }
