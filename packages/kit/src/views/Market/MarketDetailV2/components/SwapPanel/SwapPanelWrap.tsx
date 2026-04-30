@@ -426,20 +426,24 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   ]);
 
   useEffect(() => {
-    if (marketPresetSettings.enabled) {
-      setSlippage(effectiveSlippage);
+    if (!marketPresetSettings.enabled) {
       return;
     }
 
-    if (speedConfig?.slippage) {
-      setSlippage(speedConfig.slippage);
-    }
+    setSlippage(marketPresetSettings.selectedSlippageValue);
   }, [
     marketPresetSettings.enabled,
-    effectiveSlippage,
-    speedConfig?.slippage,
+    marketPresetSettings.selectedSlippageValue,
     setSlippage,
   ]);
+
+  useEffect(() => {
+    if (marketPresetSettings.enabled || !speedConfig?.slippage) {
+      return;
+    }
+
+    setSlippage(speedConfig.slippage);
+  }, [marketPresetSettings.enabled, speedConfig?.slippage, setSlippage]);
 
   const reviewAdapter = useMemo<ISwapReviewAdapter>(
     () => ({
