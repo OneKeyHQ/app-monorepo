@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/shared/src/logger/types';
 import utils from '@onekeyhq/shared/src/logger/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -175,15 +176,15 @@ export const uploadLogBundle = async ({
 
   if (fileSystemModule?.createUploadTask) {
     try {
+      const mainPathHeaders = await withCustomUAHeaders(uploadUrl, {
+        ...headers,
+        'content-type': digest.bundle.mimeType ?? 'application/octet-stream',
+      });
       const uploadTask = fileSystemModule.createUploadTask(
         uploadUrl,
         digest.bundle.filePath,
         {
-          headers: {
-            ...headers,
-            'content-type':
-              digest.bundle.mimeType ?? 'application/octet-stream',
-          },
+          headers: mainPathHeaders,
           httpMethod: 'POST',
           uploadType: fileSystemModule.FileSystemUploadType.BINARY_CONTENT,
         },
@@ -236,10 +237,15 @@ export const uploadLogBundle = async ({
     delete fallbackHeaders['content-type'];
     delete fallbackHeaders['Content-Type'];
 
+    const finalFallbackHeaders = await withCustomUAHeaders(
+      uploadUrl,
+      fallbackHeaders,
+    );
+
     try {
       const response = await fetch(uploadUrl, {
         method: 'POST',
-        headers: fallbackHeaders as any,
+        headers: finalFallbackHeaders as any,
         body: form,
       });
       httpStatus = response.status;

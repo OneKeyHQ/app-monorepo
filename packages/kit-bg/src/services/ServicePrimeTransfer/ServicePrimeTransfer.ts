@@ -46,6 +46,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { headerPlatform } from '@onekeyhq/shared/src/request/InterceptorConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -78,6 +80,7 @@ import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTran
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
+import { checkIsOneKeyDomain } from '../../endpoints';
 import {
   devSettingsPersistAtom,
   perpsActiveAccountRefreshHookAtom,
@@ -159,8 +162,21 @@ class ServicePrimeTransfer extends ServiceBase {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10_000); // 5 second timeout
 
-          const response = await fetch(`${url}/health`, {
+          const healthUrl = `${url}/health`;
+          // User-supplied custom Prime Transfer servers must not receive
+          // X-Onekey-* fingerprint headers (instanceId, device, locale,
+          // version, etc.) — and the no-protocol path probes http:// in
+          // parallel, so any leak would also go in plaintext. Only attach
+          // app headers + UA when the target is on the OneKey official
+          // whitelist.
+          const isOneKeyEndpoint = await checkIsOneKeyDomain(healthUrl);
+          const headers: Record<string, string> = isOneKeyEndpoint
+            ? await withCustomUAHeaders(healthUrl, await getRequestHeaders())
+            : {};
+
+          const response = await fetch(healthUrl, {
             method: 'GET',
+            headers,
             signal: controller.signal,
           });
 
