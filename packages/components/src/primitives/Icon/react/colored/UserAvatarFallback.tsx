@@ -1,0 +1,30 @@
+import Svg, { ClipPath, Defs, G, Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+
+const SvgUserAvatarFallback = (props: SvgProps) => (
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+    <G clipPath="url(#clip0_user_avatar_fallback)">
+      <Path
+        d="M0 12C0 5.37258 5.37258 0 12 0C18.6274 0 24 5.37258 24 12C24 18.6274 18.6274 24 12 24C5.37258 24 0 18.6274 0 12Z"
+        fill="#fff"
+      />
+      <Path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 -0.5C18.9042 -0.5 24.5 5.09646 24.5 12C24.5 18.9035 18.9042 24.5 12 24.5C5.0957 24.5 -0.5 18.9035 -0.5 12C-0.5 5.09646 5.0957 -0.5 12 -0.5ZM12 15.75C9.00684 15.75 6.52148 17.0069 4.85645 18.9995C6.67282 20.8513 9.2023 22 12 22C14.7978 22 17.3272 20.8513 19.1436 18.9995C17.4786 17.0069 14.9931 15.75 12 15.75ZM12 5.4375C9.75563 5.4375 7.9375 7.25636 7.9375 9.5C7.9375 11.7436 9.75563 13.5625 12 13.5625C14.2444 13.5625 16.0625 11.7436 16.0625 9.5C16.0625 7.25636 14.2444 5.4375 12 5.4375Z"
+        fill="#000"
+        fillOpacity={0.447}
+      />
+    </G>
+    <Defs>
+      <ClipPath id="clip0_user_avatar_fallback">
+        <Path
+          d="M0 12C0 5.37258 5.37258 0 12 0C18.6274 0 24 5.37258 24 12C24 18.6274 18.6274 24 12 24C5.37258 24 0 18.6274 0 12Z"
+          fill="#fff"
+        />
+      </ClipPath>
+    </Defs>
+  </Svg>
+);
+
+export default SvgUserAvatarFallback;
