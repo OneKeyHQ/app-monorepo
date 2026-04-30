@@ -19,6 +19,9 @@ function sendTrayAction(action: ITrayAction) {
   globalThis.desktopApi?.sendTrayAction?.(action);
 }
 
+const TRAY_ROUTE_HOME = '/main/tab-home';
+const TRAY_ROUTE_MARKET = '/main/tab-market';
+
 export function TrayPanel() {
   const [data, setData] = useState<ITrayData | null>(null);
 
@@ -70,11 +73,9 @@ export function TrayPanel() {
     });
   }, []);
 
-  const hasWatchlist = data?.watchlist && data.watchlist.length > 0;
   // Failed txs are tracked for notifications but don't count as content.
   const hasPendingTxs =
     data?.pendingTxs?.some((tx) => tx.status === 'pending') ?? false;
-  const hasContent = hasWatchlist || hasPendingTxs;
 
   if (!data) {
     return (
@@ -89,7 +90,7 @@ export function TrayPanel() {
       <Stack flex={1} backgroundColor="$bgApp" borderRadius="$3">
         <TrayEmptyState
           type="locked"
-          onPress={() => handleNavigate('/main/tab-home')}
+          onPress={() => handleNavigate(TRAY_ROUTE_HOME)}
         />
       </Stack>
     );
@@ -114,26 +115,22 @@ export function TrayPanel() {
         wallet={data.wallet}
         account={data.account}
         totalBalance={data.totalBalance}
-        onPress={() => handleNavigate('/main/tab-home')}
+        onPress={() => handleNavigate(TRAY_ROUTE_HOME)}
       />
-      {hasContent ? (
-        <ScrollView flex={1}>
-          <WatchlistTickers
-            tickers={data.watchlist}
-            onTickerPress={handleTickerPress}
-          />
+      <ScrollView flex={1}>
+        <WatchlistTickers
+          tickers={data.watchlist}
+          onTickerPress={handleTickerPress}
+          onEmptyPress={() => handleNavigate(TRAY_ROUTE_MARKET)}
+        />
+        {hasPendingTxs ? (
           <PendingTransactions
             transactions={data.pendingTxs}
             onTxPress={handleTransactionPress}
             onViewAll={handleViewAllTransactions}
           />
-        </ScrollView>
-      ) : (
-        <TrayEmptyState
-          type="noContent"
-          onPress={() => handleNavigate('/main/tab-home')}
-        />
-      )}
+        ) : null}
+      </ScrollView>
     </Stack>
   );
 }

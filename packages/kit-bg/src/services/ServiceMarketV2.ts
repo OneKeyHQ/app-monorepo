@@ -46,6 +46,7 @@ import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
 import { MOCK_MARKET_BANNER_LIST } from './ServiceMarketV2.const';
+import { resolveMarketTokenDetailRequestTokenAddress } from './utils/marketTokenDetailUtils';
 
 type IMarketTokenListRequestParams = {
   networkId: string;
@@ -157,8 +158,15 @@ class ServiceMarketV2 extends ServiceBase {
     const settings = await settingsPersistAtom.get();
     const selectedCurrencyId = settings.currencyInfo?.id ?? 'usd';
     const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestTokenAddress =
+      await resolveMarketTokenDetailRequestTokenAddress({
+        tokenAddress,
+        networkId,
+        getNativeTokenAddress: (params) =>
+          this.backgroundApi.serviceToken.getNativeTokenAddress(params),
+      });
     const params: Record<string, string> = {
-      tokenAddress,
+      tokenAddress: requestTokenAddress,
       networkId,
       currency: 'usd',
     };
