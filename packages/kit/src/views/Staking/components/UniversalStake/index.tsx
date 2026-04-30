@@ -313,6 +313,7 @@ function ProtocolSwitcher({
           variant="switcher"
           symbol={tokenSymbol}
           accountId={accountId}
+          indexedAccountId={protocolSwitchConfig.indexedAccountId}
           protocols={protocolSwitchConfig.protocols}
           isLoading={protocolSwitchConfig.isLoading}
           selectedProtocol={protocolSwitchConfig.selectedProtocol}
