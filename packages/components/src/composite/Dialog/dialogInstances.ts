@@ -18,3 +18,15 @@ export function removeDialogInstance(instance: IDialogInstance): void {
     dialogInstances.splice(idx, 1);
   }
 }
+
+export async function closeAllDialogInstances(): Promise<void> {
+  const instances = [...dialogInstances];
+  if (instances.length === 0) {
+    return;
+  }
+  await Promise.allSettled(
+    instances.map((instance) =>
+      instance.isExist() ? instance.close() : undefined,
+    ),
+  );
+}
