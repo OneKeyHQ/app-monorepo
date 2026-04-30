@@ -60,6 +60,34 @@ export const openTransactionDetailsUrl = async ({
   }
 };
 
+export const openBlockExplorerUrl = async ({
+  networkId,
+  blockHeight,
+  openInExternal,
+}: {
+  networkId?: string;
+  blockHeight?: string;
+  openInExternal?: boolean;
+}) => {
+  if (!networkId || !blockHeight) {
+    return;
+  }
+  const params = {
+    networkId,
+    param: blockHeight,
+    type: 'block' as const,
+  };
+  const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
+  if (!url) {
+    return;
+  }
+  if (openInExternal ?? platformEnv.isDesktop) {
+    openUrlExternal(url);
+  } else {
+    openUrlInApp(url);
+  }
+};
+
 export const openTokenDetailsUrl = async ({
   networkId,
   tokenAddress,
