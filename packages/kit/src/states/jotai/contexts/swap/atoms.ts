@@ -27,7 +27,6 @@ import {
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
 } from '@onekeyhq/shared/types/swap/types';
-
 import type {
   ESwapDirectionType,
   ESwapQuoteKind,
