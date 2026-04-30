@@ -44,7 +44,6 @@ type IDisplayPoolToken = {
   key: string;
   symbol: string;
   amount: string;
-  fiatValue?: string;
 };
 
 type IDisplayPool = {
@@ -58,12 +57,6 @@ type IDisplayPool = {
   poolAddress?: string;
   creatorAddress?: string;
   networkId: string;
-};
-
-type ICurrentTokenPriceContext = {
-  address?: string;
-  symbol?: string;
-  price?: string;
 };
 
 type ITokenLiquidityPoolsProps = {
@@ -209,12 +202,6 @@ const TOKEN_SYMBOL_FIELDS = [
   'name',
 ] as const;
 
-const TOKEN_ADDRESS_FIELDS = [
-  'address',
-  'tokenAddress',
-  'contractAddress',
-] as const;
-
 const TOKEN_AMOUNT_FIELDS = [
   'amount',
   'tokenAmount',
@@ -223,15 +210,6 @@ const TOKEN_AMOUNT_FIELDS = [
   'reserveAmount',
   'quantity',
   'liquidity',
-] as const;
-
-const TOKEN_FIAT_FIELDS = [
-  'fiatValue',
-  'valueUsd',
-  'valueUSD',
-  'usdValue',
-  'amountUsd',
-  'amountUSD',
 ] as const;
 
 const TOKEN_FIELD_GROUPS = [
@@ -246,7 +224,6 @@ const TOKEN_FIELD_GROUPS = [
       'baseReserve',
       'token0Reserve',
     ],
-    fiatPaths: ['baseTokenValueUsd', 'token0ValueUsd', 'baseValueUsd'],
   },
   {
     objectPaths: [['quoteToken'], ['token1']],
@@ -259,7 +236,6 @@ const TOKEN_FIELD_GROUPS = [
       'quoteReserve',
       'token1Reserve',
     ],
-    fiatPaths: ['quoteTokenValueUsd', 'token1ValueUsd', 'quoteValueUsd'],
   },
 ] as const;
 
@@ -500,78 +476,15 @@ function getValidAddress(
   return address;
 }
 
-function getRecordText(
-  record: Record<string, unknown>,
-  keys: readonly string[],
-) {
-  for (const key of keys) {
-    const text = normalizeText(record[key]);
-    if (text) {
-      return text;
-    }
-  }
-  return undefined;
-}
-
-function isCurrentTokenRecord(
-  tokenRecord: Record<string, unknown>,
-  symbol: string | undefined,
-  priceContext?: ICurrentTokenPriceContext,
-) {
-  if (!priceContext) {
-    return false;
-  }
-
-  const currentAddress = priceContext.address?.toLowerCase();
-  const tokenAddress = getRecordText(tokenRecord, TOKEN_ADDRESS_FIELDS);
-  if (
-    currentAddress &&
-    tokenAddress &&
-    tokenAddress.toLowerCase() === currentAddress
-  ) {
-    return true;
-  }
-
-  const currentSymbol = priceContext.symbol?.toUpperCase();
-  return !!currentSymbol && !!symbol && symbol.toUpperCase() === currentSymbol;
-}
-
-function getTokenFiatValue(
-  rawAmount: unknown,
-  tokenRecord: Record<string, unknown>,
-  symbol: string | undefined,
-  priceContext?: ICurrentTokenPriceContext,
-) {
-  if (!symbol || !isCurrentTokenRecord(tokenRecord, symbol, priceContext)) {
-    return FALLBACK_VALUE;
-  }
-
-  const amountValue = getPositiveBigNumber(rawAmount);
-  const priceValue = getPositiveBigNumber(priceContext?.price);
-  if (!amountValue || !priceValue) {
-    return FALLBACK_VALUE;
-  }
-
-  return formatUsdValue(amountValue.times(priceValue).toFixed());
-}
-
 function getTokenFromRecord(
   tokenRecord: Record<string, unknown>,
   fallbackKey: string,
-  priceContext?: ICurrentTokenPriceContext,
 ): IDisplayPoolToken | undefined {
-  const symbol = getRecordText(tokenRecord, TOKEN_SYMBOL_FIELDS);
+  const symbol = normalizeText(getFirstValue(tokenRecord, TOKEN_SYMBOL_FIELDS));
   const rawAmount = getFirstValue(tokenRecord, TOKEN_AMOUNT_FIELDS);
   const amount = formatTokenAmount(rawAmount);
-  const apiFiatValue = formatUsdValue(
-    getFirstValue(tokenRecord, TOKEN_FIAT_FIELDS),
-  );
-  const fiatValue =
-    apiFiatValue === FALLBACK_VALUE
-      ? getTokenFiatValue(rawAmount, tokenRecord, symbol, priceContext)
-      : apiFiatValue;
 
-  if (!symbol && amount === FALLBACK_VALUE && fiatValue === FALLBACK_VALUE) {
+  if (!symbol && amount === FALLBACK_VALUE) {
     return undefined;
   }
 
@@ -579,24 +492,18 @@ function getTokenFromRecord(
     key: `${fallbackKey}:${symbol ?? amount}`,
     symbol: symbol ?? FALLBACK_VALUE,
     amount,
-    fiatValue: fiatValue === FALLBACK_VALUE ? undefined : fiatValue,
   };
 }
 
 function getTokenFromFieldGroup(
   record: Record<string, unknown>,
   groupIndex: number,
-  priceContext?: ICurrentTokenPriceContext,
 ) {
   const group = TOKEN_FIELD_GROUPS[groupIndex];
   for (const objectPath of group.objectPaths) {
     const value = getValue(record, objectPath);
     if (isRecord(value)) {
-      const token = getTokenFromRecord(
-        value,
-        `object:${groupIndex}`,
-        priceContext,
-      );
+      const token = getTokenFromRecord(value, `object:${groupIndex}`);
       if (token) {
         return token;
       }
@@ -606,13 +513,8 @@ function getTokenFromFieldGroup(
   const symbol = normalizeText(getFirstValue(record, group.symbolPaths));
   const rawAmount = getFirstValue(record, group.amountPaths);
   const amount = formatTokenAmount(rawAmount);
-  const apiFiatValue = formatUsdValue(getFirstValue(record, group.fiatPaths));
-  const fiatValue =
-    apiFiatValue === FALLBACK_VALUE
-      ? getTokenFiatValue(rawAmount, record, symbol, priceContext)
-      : apiFiatValue;
 
-  if (!symbol && amount === FALLBACK_VALUE && fiatValue === FALLBACK_VALUE) {
+  if (!symbol && amount === FALLBACK_VALUE) {
     return undefined;
   }
 
@@ -620,21 +522,17 @@ function getTokenFromFieldGroup(
     key: `fields:${groupIndex}:${symbol ?? amount}`,
     symbol: symbol ?? FALLBACK_VALUE,
     amount,
-    fiatValue: fiatValue === FALLBACK_VALUE ? undefined : fiatValue,
   };
 }
 
-function getTokenAmounts(
-  item: IMarketTokenTopLiquidityItem,
-  priceContext?: ICurrentTokenPriceContext,
-) {
+function getTokenAmounts(item: IMarketTokenTopLiquidityItem) {
   const record = item as Record<string, unknown>;
   const tokenListValue = getFirstValue(record, TOKEN_LIST_CANDIDATES);
   if (Array.isArray(tokenListValue)) {
     const tokens = tokenListValue
       .map((token, index) =>
         isRecord(token)
-          ? getTokenFromRecord(token, `list:${index}`, priceContext)
+          ? getTokenFromRecord(token, `list:${index}`)
           : undefined,
       )
       .filter(Boolean);
@@ -644,7 +542,7 @@ function getTokenAmounts(
   }
 
   return TOKEN_FIELD_GROUPS.map((_, index) =>
-    getTokenFromFieldGroup(record, index, priceContext),
+    getTokenFromFieldGroup(record, index),
   ).filter(Boolean);
 }
 
@@ -652,7 +550,6 @@ function toDisplayPool(
   item: IMarketTokenTopLiquidityItem,
   index: number,
   fallbackNetworkId: string,
-  priceContext?: ICurrentTokenPriceContext,
 ): IDisplayPool {
   const poolAddress = getValidAddress(item, POOL_ADDRESS_CANDIDATES);
   const creatorAddress = getValidAddress(item, CREATOR_ADDRESS_CANDIDATES);
@@ -664,7 +561,7 @@ function toDisplayPool(
     dexLogoUrl: getText(item, DEX_LOGO_CANDIDATES),
     liquidity: formatLiquidity(item),
     feeRate: formatFeeRate(item),
-    tokenAmounts: getTokenAmounts(item, priceContext),
+    tokenAmounts: getTokenAmounts(item),
     poolAddress,
     creatorAddress,
     networkId,
@@ -989,15 +886,6 @@ function DetailTokenRows({ tokens }: { tokens: IDisplayPoolToken[] }) {
             <SizableText size="$bodyLg" color="$text" numberOfLines={1}>
               {token.amount}
             </SizableText>
-            {token.fiatValue ? (
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {token.fiatValue}
-              </SizableText>
-            ) : null}
           </YStack>
         </XStack>
       ))}
@@ -1257,21 +1145,12 @@ export function TokenLiquidityPools({
 
   const hasStaleResult =
     result !== undefined && result.requestKey !== requestKey;
-  const priceContext = useMemo(
-    () => ({
-      address: requestTokenAddress,
-      symbol: tokenDetail?.symbol,
-      price: tokenDetail?.price,
-    }),
-    [requestTokenAddress, tokenDetail?.price, tokenDetail?.symbol],
-  );
-
   const pools = useMemo(
     () =>
       (currentResult?.list ?? []).map((item, index) =>
-        toDisplayPool(item, index, networkId, priceContext),
+        toDisplayPool(item, index, networkId),
       ),
-    [currentResult?.list, networkId, priceContext],
+    [currentResult?.list, networkId],
   );
 
   const showLoading =
