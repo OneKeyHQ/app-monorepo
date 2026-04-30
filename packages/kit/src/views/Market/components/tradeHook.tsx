@@ -26,7 +26,6 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
-import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -36,20 +35,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnNavigation } from '../../Earn/earnUtils';
-import {
-  EMarketPresetKey,
-  EMarketPresetTradeSide,
-  fetchMarketPresetConfig,
-  getMarketPresetNetworkFeeLevel,
-  getMarketPresetPriorityFeeOverride,
-  normalizeMarketPresetSavedSettings,
-  resolveMarketPresetDirectionSettings,
-} from '../MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
-
-import type {
-  IMarketPresetPriorityFeeOverride,
-  IMarketPresetSavedSettings,
-} from '../MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms, platforms = {} } = token || {};
@@ -239,37 +224,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         networkId,
       });
 
-      let presetNetworkFeeLevel: ESwapNetworkFeeLevel | undefined;
-      let presetCustomPriorityFee: IMarketPresetPriorityFeeOverride | undefined;
-      try {
-        const [config, savedSettings] = await Promise.all([
-          fetchMarketPresetConfig({ networkId }),
-          backgroundApiProxy.simpleDb.marketPresetSettings.getSettings({
-            networkId,
-          }) as Promise<IMarketPresetSavedSettings | undefined>,
-        ]);
-        const normalized = normalizeMarketPresetSavedSettings({
-          config,
-          savedSettings,
-        });
-        const presetKey =
-          normalized?.selectedPresetKey ??
-          config?.defaultPresetKey ??
-          EMarketPresetKey.AUTO;
-        const directionSettings = resolveMarketPresetDirectionSettings({
-          config,
-          savedSettings: normalized,
-          presetKey,
-          tradeSide: EMarketPresetTradeSide.BUY,
-        });
-        presetNetworkFeeLevel =
-          getMarketPresetNetworkFeeLevel(directionSettings);
-        presetCustomPriorityFee =
-          getMarketPresetPriorityFeeOverride(directionSettings);
-      } catch {
-        // Best effort: if preset read fails the swap modal still opens without overrides.
-      }
-
       navigateToSwapPage({
         importFromToken: {
           ...onekeyNetwork,
@@ -284,8 +238,11 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         swapTabSwitchType: isSupportSwap
           ? ESwapTabSwitchType.SWAP
           : ESwapTabSwitchType.BRIDGE,
-        presetNetworkFeeLevel,
-        presetCustomPriorityFee,
+        marketPresetToken: {
+          networkId,
+          contractAddress: realContractAddress,
+          isNative,
+        },
       });
     },
     [

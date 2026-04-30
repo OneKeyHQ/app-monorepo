@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
@@ -43,7 +43,6 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSpeedQuoteResultAtom,
-  useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -86,7 +85,6 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
-  ESwapNetworkFeeLevel,
   ESwapProTradeType,
   ESwapQuoteKind,
   ESwapSelectTokenSource,
@@ -100,6 +98,7 @@ import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionL
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
+import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
 import {
   useSwapProAccount,
   useSwapProErrorAlert,
@@ -160,25 +159,11 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
-  const [, setSwapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
-  const presetNetworkFeeLevel = swapInitParams?.presetNetworkFeeLevel;
-  const presetCustomPriorityFee = swapInitParams?.presetCustomPriorityFee;
-  useEffect(() => {
-    // One-shot: apply Market preset overrides on mount; reset on unmount so the next
-    // standard Swap session does not inherit them.
-    if (!presetNetworkFeeLevel && !presetCustomPriorityFee) {
-      return;
-    }
-    setSwapStepNetFeeLevel({
-      networkFeeLevel: presetNetworkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM,
-      customPriorityFee: presetCustomPriorityFee,
-    });
-    return () => {
-      setSwapStepNetFeeLevel({
-        networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
-      });
-    };
-  }, [presetNetworkFeeLevel, presetCustomPriorityFee, setSwapStepNetFeeLevel]);
+  // Reactively resolve Market preset overrides based on which side the market token sits on.
+  // Lets the standard Swap modal pick up BUY vs SELL preset even when the user flips from/to.
+  useMarketPresetSwapOverridesEffect({
+    marketPresetToken: swapInitParams?.marketPresetToken,
+  });
   const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
   const [toSelectTokenAtom, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();

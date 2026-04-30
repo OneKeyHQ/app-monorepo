@@ -3,17 +3,16 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   EProtocolOfExchange,
   ESwapDirectionType,
-  ESwapNetworkFeeLevel,
   ESwapSource,
   ESwapTabSwitchType,
   IFetchLimitOrderRes,
+  IMarketPresetTokenContext,
   ISwapNetwork,
   ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
 import type { EEnterWay } from '../logger/scopes/dex';
-import type { ICustomPriorityFeeOverride } from '../utils/marketPresetFeeUtils';
 
 export enum EModalSwapRoutes {
   SwapMainLand = 'SwapMainLand',
@@ -39,8 +38,7 @@ export type IModalSwapParamList = {
     swapTabSwitchType?: ESwapTabSwitchType;
     importDeriveType?: IAccountDeriveTypes;
     swapSource?: ESwapSource;
-    presetNetworkFeeLevel?: ESwapNetworkFeeLevel;
-    presetCustomPriorityFee?: ICustomPriorityFeeOverride;
+    marketPresetToken?: IMarketPresetTokenContext;
   };
   [EModalSwapRoutes.SwapTokenSelect]: {
     type: ESwapDirectionType;

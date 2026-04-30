@@ -18,7 +18,6 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
-import type { ICustomPriorityFeeOverride } from '../../src/utils/marketPresetFeeUtils';
 import type {
   IFeeAlgo,
   IFeeCkb,
@@ -113,14 +112,19 @@ export enum ETokenRiskLevel {
   SCAM = 1002,
 }
 
+export interface IMarketPresetTokenContext {
+  networkId: string;
+  contractAddress: string;
+  isNative?: boolean;
+}
+
 export interface ISwapInitParams {
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
-  presetNetworkFeeLevel?: ESwapNetworkFeeLevel;
-  presetCustomPriorityFee?: ICustomPriorityFeeOverride;
+  marketPresetToken?: IMarketPresetTokenContext;
 }
 
 // token & network
