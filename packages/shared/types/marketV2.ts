@@ -331,6 +331,57 @@ export interface IMarketTokenHoldersResponse {
   list: IMarketTokenHolder[];
 }
 
+export type IMarketTokenTopLiquidityValue = string | number | null;
+
+export interface IMarketTokenTopLiquidityToken {
+  address?: string | null;
+  name?: string | null;
+  symbol?: string | null;
+  tokenSymbol?: string | null;
+  tokenAmount?: IMarketTokenTopLiquidityValue;
+  logoUrl?: string | null;
+  decimals?: number | null;
+  [key: string]: unknown;
+}
+
+export interface IMarketTokenTopLiquidityItem {
+  networkId?: string | null;
+  pool?: string | null;
+  pairName?: string | null;
+  poolName?: string | null;
+  pairAddress?: string | null;
+  poolAddress?: string | null;
+  contractAddress?: string | null;
+  dexName?: string | null;
+  dexLogoUri?: string | null;
+  dexLogoUrl?: string | null;
+  protocolName?: string | null;
+  protocolLogoUri?: string | null;
+  protocolLogoUrl?: string | null;
+  liquidity?: IMarketTokenTopLiquidityValue;
+  liquidityUsd?: IMarketTokenTopLiquidityValue;
+  reserveInUsd?: IMarketTokenTopLiquidityValue;
+  tvl?: IMarketTokenTopLiquidityValue;
+  liquidityProviderFeePercent?: IMarketTokenTopLiquidityValue;
+  liquidityProviderFeeRate?: IMarketTokenTopLiquidityValue;
+  feeRate?: IMarketTokenTopLiquidityValue;
+  lpFeeRate?: IMarketTokenTopLiquidityValue;
+  feePercent?: IMarketTokenTopLiquidityValue;
+  lpFeePercent?: IMarketTokenTopLiquidityValue;
+  feeBps?: IMarketTokenTopLiquidityValue;
+  lpFeeBps?: IMarketTokenTopLiquidityValue;
+  tokenAddress?: string | null;
+  poolCreator?: string | null;
+  liquidityAmount?: IMarketTokenTopLiquidityToken[] | null;
+  baseToken?: IMarketTokenTopLiquidityToken | null;
+  quoteToken?: IMarketTokenTopLiquidityToken | null;
+  [key: string]: unknown;
+}
+
+export interface IMarketTokenTopLiquidityResponse {
+  list: IMarketTokenTopLiquidityItem[];
+}
+
 export interface IMarketTokenBatchListResponse {
   list: IMarketTokenListItem[];
 }
