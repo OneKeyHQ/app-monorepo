@@ -65,6 +65,22 @@ function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   return ETranslations.global_market;
 }
 
+function getMarketPresetLabel({
+  intl,
+  label,
+  presetKey,
+}: {
+  intl: ReturnType<typeof useIntl>;
+  label: string;
+  presetKey: EMarketPresetKey;
+}) {
+  if (presetKey === EMarketPresetKey.AUTO) {
+    return intl.formatMessage({ id: ETranslations.global_auto });
+  }
+
+  return label;
+}
+
 function getPriorityFeeLabel({
   intl,
   settings,
@@ -231,10 +247,14 @@ function MarketPresetSettingsDialog({
   const presetOptions = useMemo(
     () =>
       presetSettings.presets.map((preset) => ({
-        label: preset.label,
+        label: getMarketPresetLabel({
+          intl,
+          label: preset.label,
+          presetKey: preset.key,
+        }),
         value: preset.key,
       })),
-    [presetSettings.presets],
+    [intl, presetSettings.presets],
   );
 
   const sideOptions = useMemo(
@@ -726,11 +746,15 @@ export function MarketPresetSelector({
   const presetOptions = useMemo(
     () =>
       presets.map((preset) => ({
-        label: `${preset.label}${presetCustomizedMap[preset.key] ? '*' : ''}`,
+        label: `${getMarketPresetLabel({
+          intl,
+          label: preset.label,
+          presetKey: preset.key,
+        })}${presetCustomizedMap[preset.key] ? '*' : ''}`,
         value: preset.key,
         testID: `market-preset-${preset.key}`,
       })),
-    [presetCustomizedMap, presets],
+    [intl, presetCustomizedMap, presets],
   );
 
   const openPresetDialog = useCallback(() => {
@@ -763,10 +787,16 @@ export function MarketPresetSelector({
     settings: selectedDirectionSettings,
     unit: presetSettings.priorityFeeUnit,
   });
-  const selectedPresetLabel =
-    selectedPreset?.label ??
-    presets.find((preset) => preset.key === selectedPresetKey)?.label ??
-    intl.formatMessage({ id: ETranslations.global_auto });
+  const selectedPresetItem =
+    selectedPreset ??
+    presets.find((preset) => preset.key === selectedPresetKey);
+  const selectedPresetLabel = selectedPresetItem
+    ? getMarketPresetLabel({
+        intl,
+        label: selectedPresetItem.label,
+        presetKey: selectedPresetItem.key,
+      })
+    : intl.formatMessage({ id: ETranslations.global_auto });
 
   return (
     <YStack gap={gtMd ? '$3' : '$2'} testID="market-preset-selector">
