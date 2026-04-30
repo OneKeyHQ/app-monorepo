@@ -58,7 +58,7 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
           textSize="$bodyMdMedium"
           onTabPress={handleTabPress}
         />
-        <StickyHeader firstTabName={firstTabName} variant="mobile" />
+        <StickyHeader firstTabName={firstTabName} />
       </YStack>
     </HeaderScrollGestureWrapper>
   );
@@ -144,7 +144,6 @@ export function MobileInformationTabs({
           <Tabs.ScrollView>
             <TokenLiquidityPools
               showTitle={false}
-              showTableHeader={false}
               variant="mobile"
               px="$0"
               pt="$0"

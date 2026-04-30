@@ -1,5 +1,4 @@
 import { memo, useMemo } from 'react';
-import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,7 +6,6 @@ import { Stack, useMedia } from '@onekeyhq/components';
 import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { TokenLiquidityPoolsTableHeader } from '../../TokenLiquidityPools';
 import {
   HoldersHeaderNormal,
   HoldersHeaderSmall,
@@ -21,13 +19,7 @@ import {
   TransactionsHeaderSmall,
 } from '../components/TransactionsHistory';
 
-function BaseStickyHeader({
-  firstTabName,
-  variant = 'desktop',
-}: {
-  firstTabName: string;
-  variant?: 'desktop' | 'mobile';
-}) {
+function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
   const intl = useIntl();
   const { gtLg, gtXl } = useMedia();
   const focusedTab = useFocusedTab();
@@ -44,11 +36,6 @@ function BaseStickyHeader({
     return gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />;
   }, [gtLg]);
 
-  const liquidityPoolsHeader = useMemo(
-    () => <TokenLiquidityPoolsTableHeader variant={variant} />,
-    [variant],
-  );
-
   // Determine which header to show based on focused tab name
   const portfolioTabName = intl.formatMessage({
     id: ETranslations.dexmarket_details_myposition,
@@ -57,11 +44,11 @@ function BaseStickyHeader({
     id: ETranslations.global_liquidity,
   });
 
-  let currentHeader: ReactNode = transactionsHeader;
+  let currentHeader = transactionsHeader;
   if (focusedTab === portfolioTabName) {
     currentHeader = portfolioHeader;
   } else if (focusedTab === liquidityPoolsTabName) {
-    currentHeader = liquidityPoolsHeader;
+    return null;
   } else if (focusedTab !== firstTabName) {
     currentHeader = holdersHeader;
   }

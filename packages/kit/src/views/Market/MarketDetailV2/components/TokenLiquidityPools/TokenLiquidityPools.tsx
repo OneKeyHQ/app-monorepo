@@ -73,7 +73,6 @@ type ITokenLiquidityPoolsProps = {
   pt?: string;
   pb?: string;
   showTitle?: boolean;
-  showTableHeader?: boolean;
   variant?: 'desktop' | 'mobile';
 };
 
@@ -906,25 +905,7 @@ function TokenLiquidityPoolsMobileHeader() {
   );
 }
 
-export function TokenLiquidityPoolsTableHeader({
-  variant,
-}: {
-  variant: 'desktop' | 'mobile';
-}) {
-  return variant === 'mobile' ? (
-    <TokenLiquidityPoolsMobileHeader />
-  ) : (
-    <TokenLiquidityPoolsDesktopHeader />
-  );
-}
-
-function TokenLiquidityPoolsDesktop({
-  pools,
-  showTableHeader = true,
-}: {
-  pools: IDisplayPool[];
-  showTableHeader?: boolean;
-}) {
+function TokenLiquidityPoolsDesktop({ pools }: { pools: IDisplayPool[] }) {
   const { styles } = useLiquidityPoolsLayoutDesktop();
 
   return (
@@ -937,7 +918,7 @@ function TokenLiquidityPoolsDesktop({
       }}
     >
       <YStack flex={1} minWidth={DESKTOP_CONTENT_MIN_WIDTH}>
-        {showTableHeader ? <TokenLiquidityPoolsDesktopHeader /> : null}
+        <TokenLiquidityPoolsDesktopHeader />
 
         {pools.map((item, index) => (
           <XStack
@@ -1164,16 +1145,10 @@ function MobilePoolRow({ item }: { item: IDisplayPool }) {
   );
 }
 
-function TokenLiquidityPoolsMobile({
-  pools,
-  showTableHeader = true,
-}: {
-  pools: IDisplayPool[];
-  showTableHeader?: boolean;
-}) {
+function TokenLiquidityPoolsMobile({ pools }: { pools: IDisplayPool[] }) {
   return (
     <YStack>
-      {showTableHeader ? <TokenLiquidityPoolsMobileHeader /> : null}
+      <TokenLiquidityPoolsMobileHeader />
       {pools.map((item) => (
         <MobilePoolRow key={item.key} item={item} />
       ))}
@@ -1236,7 +1211,6 @@ export function TokenLiquidityPools({
   pt = '$0',
   pb = '$4',
   showTitle = true,
-  showTableHeader = true,
   variant = 'desktop',
 }: ITokenLiquidityPoolsProps) {
   const intl = useIntl();
@@ -1311,19 +1285,13 @@ export function TokenLiquidityPools({
     }
     if (pools.length) {
       return variant === 'mobile' ? (
-        <TokenLiquidityPoolsMobile
-          pools={pools}
-          showTableHeader={showTableHeader}
-        />
+        <TokenLiquidityPoolsMobile pools={pools} />
       ) : (
-        <TokenLiquidityPoolsDesktop
-          pools={pools}
-          showTableHeader={showTableHeader}
-        />
+        <TokenLiquidityPoolsDesktop pools={pools} />
       );
     }
     return <EmptyPools />;
-  }, [pools, showLoading, showTableHeader, variant]);
+  }, [pools, showLoading, variant]);
 
   return (
     <YStack pl={pl ?? px} pr={pr ?? px} pt={pt} pb={pb}>
