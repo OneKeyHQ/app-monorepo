@@ -87,6 +87,11 @@ interface IOrderLogOptions {
   extra?: Record<string, unknown>;
 }
 
+interface IOrderLogContext {
+  accountAddress: string | null;
+  exchangeAccountAddress: string | null;
+}
+
 // TV lowercases everything; HL universe keys perps as `BTC`, spot as `@N`,
 // and sub-DEX as `xyz:<TICKER>` (lowercase prefix, uppercase ticker).
 function normalizePerpsCoin(coin: string): string {
@@ -152,6 +157,52 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       accountAddress: activeAccount?.accountAddress ?? null,
       exchangeAccountAddress: this._account,
     };
+  }
+
+  private _getOrderOpenFirstTimeKey(context: IOrderLogContext) {
+    return (
+      context.accountAddress ??
+      context.exchangeAccountAddress ??
+      ''
+    ).toLowerCase();
+  }
+
+  private async _resolveOrderOpenIsFirstTime(
+    options: IOrderLogOptions,
+    context: IOrderLogContext,
+  ) {
+    if (options.action !== 'orderOpen') {
+      return undefined;
+    }
+    try {
+      const key = this._getOrderOpenFirstTimeKey(context);
+      if (!key) {
+        return true;
+      }
+      return await this.backgroundApi.simpleDb.perp.isFirstPerpOrderOpen(key);
+    } catch (error) {
+      console.error(error);
+      return undefined;
+    }
+  }
+
+  private async _markOrderOpenSucceeded(
+    options: IOrderLogOptions,
+    context: IOrderLogContext,
+    isFirstTime: boolean | undefined,
+  ) {
+    if (options.action !== 'orderOpen' || !isFirstTime) {
+      return;
+    }
+    const key = this._getOrderOpenFirstTimeKey(context);
+    if (!key) {
+      return;
+    }
+    try {
+      await this.backgroundApi.simpleDb.perp.markPerpOrderOpen(key);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   private _composeOrderLogExtra(options: IOrderLogOptions) {
@@ -558,6 +609,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
     const context = await this._buildLogContext();
     const extra = this._composeOrderLogExtra(options);
+    const isFirstTime = await this._resolveOrderOpenIsFirstTime(
+      options,
+      context,
+    );
+    const firstTimePayload =
+      typeof isFirstTime === 'boolean' ? { isFirstTime } : {};
     try {
       const response = await convertHyperLiquidResponse(() =>
         client.order({
@@ -571,6 +628,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         action: options.action,
         payload: {
           ...context,
+          ...firstTimePayload,
           request: requestPayload,
           response,
           extra,
@@ -580,6 +638,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       void this.backgroundApi.serviceRookieGuide.recordTaskCompleted(
         ERookieTaskType.PERPS,
       );
+      await this._markOrderOpenSucceeded(options, context, isFirstTime);
       return response;
     } catch (error) {
       dispatchHyperLiquidOrderLog({
@@ -587,6 +646,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         action: options.action,
         payload: {
           ...context,
+          ...firstTimePayload,
           request: requestPayload,
           response: extractHyperLiquidErrorResponse<
             IOrderResponse | IApiErrorResponse
