@@ -411,7 +411,7 @@ const resetModules = () => {
 // Keep this implementation intentionally small: it covers the timer APIs used
 // by repository unit tests without pulling Node-only Jest fake timer internals
 // into the Hermes bundle.
-type TimerTask = {
+type ITimerTask = {
   args: unknown[];
   callback: (...args: unknown[]) => void;
   interval?: number;
@@ -429,7 +429,7 @@ const realTimerGlobals = {
 let fakeTimersInstalled = false;
 let fakeNow = realTimerGlobals.Date.now();
 let nextTimerId = 1;
-const fakeTimerTasks = new Map<number, TimerTask>();
+const fakeTimerTasks = new Map<number, ITimerTask>();
 
 const makeFakeDate = () => {
   const RealDate = realTimerGlobals.Date;
@@ -486,7 +486,7 @@ const runDueTimers = (targetTime: number, onlyTimerIds?: Set<number>) => {
   let guard = 100_000;
   while (guard > 0) {
     guard -= 1;
-    let due: [number, TimerTask] | undefined;
+    let due: [number, ITimerTask] | undefined;
     for (const entry of fakeTimerTasks.entries()) {
       const [id, task] = entry;
       const shouldRun =

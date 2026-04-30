@@ -143,6 +143,7 @@ function showCustomHexDataAlert({
   onConfirm: () => void;
 }) {
   return Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.send_send_to_this_address,
     }),

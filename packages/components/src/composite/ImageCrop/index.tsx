@@ -1,4 +1,5 @@
 /* eslint-disable camelcase */
+/* eslint-disable onekey/no-app-locale-main-thread -- low-level cropper utility consumed via callbacks */
 import {
   type ChangeEvent,
   useCallback,
@@ -167,6 +168,7 @@ const openPicker: IOpenPickerFunc = ({ width, height }) =>
           const imageSrc = reader.result?.toString();
           if (imageSrc) {
             Dialog.show({
+              // eslint-disable-next-line onekey/no-app-locale-main-thread
               title: appLocale.intl.formatMessage({
                 id: ETranslations.global_crop_image,
               }),
@@ -200,6 +202,7 @@ const openCropImage = (
 ): Promise<IPickerImage> =>
   new Promise((resolve, reject) => {
     const dialog = Dialog.show({
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
       title: appLocale.intl.formatMessage({
         id: ETranslations.global_crop_image,
       }),

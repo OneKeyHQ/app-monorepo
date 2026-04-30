@@ -72,6 +72,7 @@ export function WalletRenameButton({
               void showHardwareLabelSetDialog(
                 {
                   wallet,
+                  intl,
                 },
                 {
                   onSubmit: async (name) => {
@@ -84,6 +85,7 @@ export function WalletRenameButton({
               );
             } else {
               showRenameDialog(wallet.name, {
+                intl,
                 nameHistoryInfo: {
                   entityId: wallet.id,
                   entityType: EChangeHistoryEntityType.Wallet,

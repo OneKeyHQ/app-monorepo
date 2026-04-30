@@ -114,7 +114,7 @@ export function PrimeTransferServerStatusBar() {
   }, [connectionState, intl]);
 
   const handleManagePress = () => {
-    showPrimeTransferServerConfigDialog();
+    showPrimeTransferServerConfigDialog({ intl });
   };
 
   const { result: statusInfo } = usePromiseResult(

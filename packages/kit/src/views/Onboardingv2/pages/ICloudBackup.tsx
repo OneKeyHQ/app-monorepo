@@ -272,6 +272,7 @@ export default function ICloudBackup() {
                   <Button
                     onPress={async () =>
                       showCloudBackupPasswordDialog({
+                        intl,
                         onSubmit: async (password) => {
                           const result =
                             await backgroundApiProxy.serviceCloudBackupV2.verifyBackupPassword(
@@ -291,6 +292,7 @@ export default function ICloudBackup() {
                   <Button
                     onPress={async () => {
                       showCloudBackupPasswordDialog({
+                        intl,
                         onSubmit: async (password) => {
                           const result =
                             await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(

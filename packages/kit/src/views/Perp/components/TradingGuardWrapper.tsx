@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, SizableText, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -10,7 +12,6 @@ import {
   usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
 
@@ -27,6 +28,7 @@ function TradingGuardWrapperInternal({
   forceShowEnableTrading = false,
   disabled = false,
 }: ITradingGuardWrapperProps) {
+  const intl = useIntl();
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
@@ -71,14 +73,6 @@ function TradingGuardWrapperInternal({
 
   const isEnableTradingLoading = perpsAccountLoading.enableTradingLoading;
 
-  const buttonText = useMemo(
-    () =>
-      appLocale.intl.formatMessage({
-        id: ETranslations.perp_trade_button_enable_trading,
-      }),
-    [],
-  );
-
   const buttonStyles = useMemo(() => {
     const isDisabled = disabled || isEnableTradingLoading;
     return {
@@ -99,7 +93,7 @@ function TradingGuardWrapperInternal({
     return (
       <Button variant="primary" size="medium" disabled>
         <SizableText size="$bodyMdMedium" color="$textOnColor">
-          {appLocale.intl.formatMessage({
+          {intl.formatMessage({
             id: ETranslations.perp_trade_button_account_unsupported,
           })}
         </SizableText>
@@ -121,7 +115,9 @@ function TradingGuardWrapperInternal({
         color="$textOnColor"
       >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
-          {buttonText}
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_button_enable_trading,
+          })}
         </SizableText>
       </Button>
     );
