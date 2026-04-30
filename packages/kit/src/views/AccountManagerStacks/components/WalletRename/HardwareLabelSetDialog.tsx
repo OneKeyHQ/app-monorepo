@@ -10,11 +10,12 @@ import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/Rename
 import { MAX_LENGTH_HW_LABEL_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
+
+import type { IntlShape } from 'react-intl';
 
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
@@ -60,7 +61,7 @@ function DeviceLabelDialogContent(props: {
             },
             required: {
               value: true,
-              message: appLocale.intl.formatMessage({
+              message: intl.formatMessage({
                 id: ETranslations.form_rename_error_empty,
               }),
             },
@@ -97,7 +98,7 @@ function DeviceLabelDialogContent(props: {
             // fix toast dropped frames
             await close();
             Toast.success({
-              title: appLocale.intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.feedback_change_saved,
               }),
             });
@@ -113,8 +114,10 @@ function DeviceLabelDialogContent(props: {
 export const showLabelSetDialog = async (
   {
     wallet,
+    intl,
   }: {
     wallet: IDBWallet | undefined;
+    intl: IntlShape;
   },
   {
     onSubmit,
@@ -133,7 +136,7 @@ export const showLabelSetDialog = async (
     );
 
     const dialog = Dialog.show({
-      title: appLocale.intl.formatMessage({ id: ETranslations.global_rename }),
+      title: intl.formatMessage({ id: ETranslations.global_rename }),
       renderContent: (
         <DeviceLabelDialogContent
           wallet={wallet}
@@ -148,7 +151,7 @@ export const showLabelSetDialog = async (
     return dialog;
   } catch (error) {
     Toast.error({
-      title: appLocale.intl.formatMessage({
+      title: intl.formatMessage({
         id: ETranslations.global_connet_error_try_again,
       }),
     });

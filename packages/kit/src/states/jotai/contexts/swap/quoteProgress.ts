@@ -89,6 +89,12 @@ export function isSwapQuoteEventFetching({
   );
 }
 
+export function isSwapQuoteActionable(
+  quoteCurrentSelect?: ISwapActionableQuote,
+) {
+  return new BigNumber(quoteCurrentSelect?.toAmount ?? 0).gt(0);
+}
+
 export function selectSwapCurrentQuote({
   currentEventSortedQuotes,
   selectionIntent,
@@ -123,12 +129,6 @@ export function selectSwapCurrentQuote({
   }
 
   return selectBestQuote(currentEventSortedQuotes);
-}
-
-export function isSwapQuoteActionable(
-  quoteCurrentSelect?: ISwapActionableQuote,
-) {
-  return new BigNumber(quoteCurrentSelect?.toAmount ?? 0).gt(0);
 }
 
 export function getSwapQuoteProgressState({

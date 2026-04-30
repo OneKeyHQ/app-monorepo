@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { DebugRenderTracker, YStack } from '@onekeyhq/components';
 import {
@@ -24,6 +25,7 @@ import { PerpTradingButton } from './PerpTradingButton';
 import { TradingButtonGroup } from './TradingButtonGroup';
 
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
+  const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
@@ -113,8 +115,13 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       void handleConfirm();
       return;
     }
-    showOrderConfirmDialog();
-  }, [activeAssetData, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
+    showOrderConfirmDialog({ intl });
+  }, [
+    activeAssetData,
+    perpsCustomSettings.skipOrderConfirm,
+    handleConfirm,
+    intl,
+  ]);
 
   const content = (
     <YStack
