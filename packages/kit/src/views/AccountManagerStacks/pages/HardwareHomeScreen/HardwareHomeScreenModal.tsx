@@ -35,7 +35,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -118,6 +117,7 @@ function HomeScreenImageItem({
   onImageLayout?: (params: { width: number; height: number }) => void;
   onDelete?: (item: IHardwareHomeScreenData) => void;
 }) {
+  const intl = useIntl();
   const [showDelete, setShowDelete] = useState(false);
 
   return (
@@ -155,12 +155,12 @@ function HomeScreenImageItem({
         onLongPress={() => {
           if (platformEnv.isNative) {
             ActionList.show({
-              title: appLocale.intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.explore_options,
               }),
               items: [
                 {
-                  label: appLocale.intl.formatMessage({
+                  label: intl.formatMessage({
                     id: ETranslations.global_delete,
                   }),
                   destructive: true,
@@ -409,6 +409,7 @@ function WallpaperCustomCategorySection({
   imageLayout?: { width: number; height: number };
   onImageLayout?: (params: { width: number; height: number }) => void;
 }) {
+  const intl = useIntl();
   const { result: deviceHomeScreens, run: runGetDeviceHomeScreens } =
     usePromiseResult<IHardwareHomeScreenData[]>(async () => {
       const data = UploadedHomeScreenCache.getCacheList(device.id);
@@ -431,7 +432,7 @@ function WallpaperCustomCategorySection({
 
     if (deviceHomeScreens?.length && deviceHomeScreens.length >= 7) {
       Toast.error({
-        title: appLocale.intl.formatMessage(
+        title: intl.formatMessage(
           {
             id: ETranslations.global_wallpaper_custom_max_limit,
           },
@@ -497,10 +498,11 @@ function WallpaperCustomCategorySection({
     deviceHomeScreens,
     onItemSelected,
     runGetDeviceHomeScreens,
+    intl,
   ]);
 
   const category = {
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.global_wallpaper_custom,
     }),
     data: deviceHomeScreens ?? [],
@@ -693,7 +695,7 @@ export default function HardwareHomeScreenModal({
       !deviceUtils.isTouchDevice(deviceInfo?.deviceType)
     ) {
       categories.push({
-        title: appLocale.intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.global_wallpaper_collection,
         }),
         data: defaultWallpapers,
@@ -702,7 +704,7 @@ export default function HardwareHomeScreenModal({
 
     if (cobrandingWallpapers.length > 0) {
       categories.push({
-        title: appLocale.intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.global_wallpaper_cobranding,
         }),
         data: cobrandingWallpapers,
@@ -710,7 +712,7 @@ export default function HardwareHomeScreenModal({
     }
 
     return categories;
-  }, [deviceInfo?.deviceType, result?.homeScreenList]);
+  }, [deviceInfo?.deviceType, result?.homeScreenList, intl]);
 
   const ScreenContent = useMemo(() => {
     if (isHardwareHomeScreenLoading || result?.isLoadingError) {
@@ -866,12 +868,12 @@ export default function HardwareHomeScreenModal({
               });
             // setSelectedItem(undefined);
             Toast.success({
-              title: appLocale.intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.hardware_wallpaper_add_success,
               }),
               message: response.applyScreen
                 ? undefined
-                : appLocale.intl.formatMessage({
+                : intl.formatMessage({
                     id: ETranslations.hardware_wallpaper_add_success_information,
                   }),
             });

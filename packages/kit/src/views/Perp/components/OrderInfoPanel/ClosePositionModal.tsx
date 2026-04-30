@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -20,7 +21,6 @@ import {
   usePerpsAllMidsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   calculateProfitLoss,
   formatPriceToSignificantDigits,
@@ -35,6 +35,8 @@ import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
+
+import type { IntlShape } from 'react-intl';
 
 type IPosition =
   IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
@@ -59,6 +61,7 @@ interface IClosePositionFormProps extends IClosePositionParams {
 
 const ClosePositionForm = memo(
   ({ position, type, onClose }: IClosePositionFormProps) => {
+    const intl = useIntl();
     const [allMids] = usePerpsAllMidsAtom();
     const hyperliquidActions = useHyperliquidActions();
 
@@ -379,7 +382,7 @@ const ClosePositionForm = memo(
         <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perp_token_selector_asset,
               })}
             </SizableText>
@@ -388,7 +391,7 @@ const ClosePositionForm = memo(
 
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perp_position_position_size,
               })}
             </SizableText>
@@ -398,7 +401,7 @@ const ClosePositionForm = memo(
           </XStack>
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perp_position_entry_price,
               })}
             </SizableText>
@@ -407,7 +410,7 @@ const ClosePositionForm = memo(
 
           {/* <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perp_position_mark_price,
               })}
             </SizableText>
@@ -416,7 +419,7 @@ const ClosePositionForm = memo(
 
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perp_trade_order_type,
               })}
             </SizableText>
@@ -430,10 +433,10 @@ const ClosePositionForm = memo(
             >
               <SizableText size="$bodyMdMedium">
                 {formData.type === 'limit'
-                  ? appLocale.intl.formatMessage({
+                  ? intl.formatMessage({
                       id: ETranslations.perp_trade_limit,
                     })
-                  : appLocale.intl.formatMessage({
+                  : intl.formatMessage({
                       id: ETranslations.perp_trade_market,
                     })}
               </SizableText>
@@ -449,7 +452,7 @@ const ClosePositionForm = memo(
         <Divider />
         {formData.type === 'limit' ? (
           <PriceInput
-            label={appLocale.intl.formatMessage({
+            label={intl.formatMessage({
               id: ETranslations.perp_trade_limit_pirce,
             })}
             value={formData.limitPrice}
@@ -462,7 +465,7 @@ const ClosePositionForm = memo(
         ) : null}
 
         <TradingFormInput
-          label={appLocale.intl.formatMessage({
+          label={intl.formatMessage({
             id: ETranslations.dexmarket_details_history_amount,
           })}
           value={
@@ -487,7 +490,7 @@ const ClosePositionForm = memo(
 
         <XStack justifyContent="space-between" gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.perp_tp_sl_profit,
             })}
           </SizableText>
@@ -506,7 +509,7 @@ const ClosePositionForm = memo(
             disabled={!isFormValid || isSubmitting}
             loading={isSubmitting}
           >
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.perp_confirm_order,
             })}
           </Button>{' '}
@@ -521,9 +524,10 @@ ClosePositionForm.displayName = 'ClosePositionForm';
 export function showClosePositionDialog({
   position,
   type,
-}: IClosePositionParams) {
+  intl,
+}: IClosePositionParams & { intl: IntlShape }) {
   const dialogInstance = Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.perp_close_position_title,
     }),
     disableDrag: true,

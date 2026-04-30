@@ -52,7 +52,6 @@ import {
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -1905,6 +1904,7 @@ function DepositWithdrawContent({
 }
 
 function MobileDepositWithdrawModal() {
+  const intl = useIntl();
   const navigation = useNavigation();
   const route =
     useRoute<
@@ -1955,7 +1955,7 @@ function MobileDepositWithdrawModal() {
   return (
     <Page>
       <Page.Header
-        title={appLocale.intl.formatMessage({
+        title={intl.formatMessage({
           id: ETranslations.perp_trade_account_overview,
         })}
       />

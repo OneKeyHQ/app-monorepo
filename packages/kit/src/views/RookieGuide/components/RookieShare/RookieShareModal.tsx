@@ -201,6 +201,7 @@ export function showRookieShareDialog(
     const DialogInstance = dialog ?? Dialog;
 
     const dialogInstance = DialogInstance.show({
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
       title: appLocale.intl.formatMessage({
         id: ETranslations.explore_share,
       }),

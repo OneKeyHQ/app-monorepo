@@ -513,7 +513,7 @@ function SideButtonInternal({
       if (perpsCustomSettings.skipOrderConfirm) {
         void handleConfirm(side);
       } else {
-        showOrderConfirmDialog(side);
+        showOrderConfirmDialog({ overrideSide: side, intl });
       }
     },
     1000,
