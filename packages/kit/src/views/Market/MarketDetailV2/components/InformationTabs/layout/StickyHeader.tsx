@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -44,11 +45,11 @@ function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
     id: ETranslations.global_liquidity,
   });
 
-  let currentHeader = transactionsHeader;
+  let currentHeader: ReactNode = transactionsHeader;
   if (focusedTab === portfolioTabName) {
     currentHeader = portfolioHeader;
   } else if (focusedTab === liquidityPoolsTabName) {
-    return null;
+    currentHeader = null;
   } else if (focusedTab !== firstTabName) {
     currentHeader = holdersHeader;
   }
