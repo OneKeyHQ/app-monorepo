@@ -160,6 +160,26 @@ const noNonWorkletCallInWorklet = {
       }
     }
 
+    function reportBadIdentifierArg(idNode, hookName) {
+      const name = idNode?.name;
+      if (
+        name &&
+        !WORKLET_SAFE_CALLEES.has(name) &&
+        localFns.has(name) &&
+        localFns.get(name) === false
+      ) {
+        context.report({
+          node: idNode,
+          message:
+            `Function '${name}' is passed to a Reanimated worklet hook (${hookName}) ` +
+            `but its declaration lacks a "'worklet';" directive. ` +
+            `Add the directive to the function body, inline the logic, ` +
+            `or wrap the call with runOnJS(). Otherwise the UI thread ` +
+            `will crash with "Object is not a function".`,
+        });
+      }
+    }
+
     function walkBodyForBadCalls(fnNode, hookName) {
       const body = fnNode.body;
       const stack = body.type === 'BlockStatement' ? [...body.body] : [body];
@@ -173,6 +193,30 @@ const noNonWorkletCallInWorklet = {
             reportBadCall(cur, hookName);
           }
           pushAstChildren(cur, stack);
+        }
+      }
+    }
+
+    // Normalize a hook argument into something we can inspect:
+    // - inline function/arrow → walk its body
+    // - identifier → look it up in localFns and report if it lacks 'worklet'
+    // - object handler map (useAnimatedScrollHandler / useAnimatedGestureHandler)
+    //   → recurse into each property value
+    function inspectWorkletArg(arg, hookName) {
+      if (!arg || typeof arg !== 'object') return;
+      if (isFunctionLikeNode(arg)) {
+        walkBodyForBadCalls(arg, hookName);
+        return;
+      }
+      if (arg.type === 'Identifier') {
+        reportBadIdentifierArg(arg, hookName);
+        return;
+      }
+      if (arg.type === 'ObjectExpression') {
+        for (const prop of arg.properties) {
+          if (prop.type === 'Property') {
+            inspectWorkletArg(prop.value, hookName);
+          }
         }
       }
     }
@@ -219,12 +263,7 @@ const noNonWorkletCallInWorklet = {
         const name = calleeName(node.callee);
         if (!name || !WORKLET_HOOKS.has(name)) return;
         for (const arg of node.arguments) {
-          if (
-            arg.type === 'ArrowFunctionExpression' ||
-            arg.type === 'FunctionExpression'
-          ) {
-            walkBodyForBadCalls(arg, name);
-          }
+          inspectWorkletArg(arg, name);
         }
       },
     };
