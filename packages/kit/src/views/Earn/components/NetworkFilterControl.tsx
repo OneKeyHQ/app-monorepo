@@ -89,7 +89,7 @@ function NetworkFilterControl({
 
   return (
     <Popover
-      title="Networks"
+      title={intl.formatMessage({ id: ETranslations.global_networks })}
       showHeader={false}
       open={isOpen}
       onOpenChange={setIsOpen}
