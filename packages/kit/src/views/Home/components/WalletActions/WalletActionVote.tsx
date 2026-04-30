@@ -40,12 +40,10 @@ export function WalletActionVote({
     <ActionList.Item
       trackID="wallet-vote"
       icon={customization?.icon ?? 'ArchiveBoxOutline'}
-      label={
-        customization?.label ??
-        intl.formatMessage({
-          id: ETranslations.wallet_tron_votes_management,
-        })
-      }
+      label={intl.formatMessage({
+        id:
+          customization?.labelId ?? ETranslations.wallet_tron_votes_management,
+      })}
       onClose={() => {}}
       onPress={handleVote}
     />

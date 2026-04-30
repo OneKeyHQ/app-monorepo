@@ -476,7 +476,8 @@
         "react_perf/jsx-no-new-function-as-prop": "error",
         "react_perf/jsx-no-new-object-as-prop": "error",
         "react_perf/jsx-no-new-array-as-prop": "error",
-        "react_perf/jsx-no-jsx-as-prop": "error"
+        "react_perf/jsx-no-jsx-as-prop": "error",
+        "onekey/no-app-locale-main-thread": "error"
       }
     },
     {
@@ -564,7 +565,8 @@
               }
             ]
           }
-        ]
+        ],
+        "onekey/no-app-locale-main-thread": "error"
       }
     },
     {

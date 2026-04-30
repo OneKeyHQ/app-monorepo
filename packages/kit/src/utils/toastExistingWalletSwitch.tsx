@@ -22,18 +22,22 @@ export function toastSuccessWhenImportAddressOrPrivateKey({
       })
     ) {
       Toast.success({
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
         title: appLocale.intl.formatMessage({
           id: ETranslations.feedback_wallet_exists_title,
         }),
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
         message: appLocale.intl.formatMessage({
           id: ETranslations.feedback_wallet_exists_desc,
         }),
       });
     } else {
       Toast.success({
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
         title: appLocale.intl.formatMessage({
           id: ETranslations.private_key_imported_feedback_title,
         }),
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
         message: appLocale.intl.formatMessage({
           id: ETranslations.private_key_imported_feedback_desc,
         }),
@@ -59,9 +63,11 @@ const showExistingWalletSwitchToast = (
   createResult: IWalletSwitchCreateResult,
 ) => {
   Toast.success({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.feedback_wallet_exists_title,
     }),
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     message: appLocale.intl.formatMessage({
       id: createResult.isAttachPinMode
         ? ETranslations.feedback_wallet_exsited_due_to_same_pin_desc

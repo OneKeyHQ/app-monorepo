@@ -288,7 +288,7 @@ function PerpAccountPanel() {
             variant="secondary"
             icon="ChartLine2Outline"
             iconSize="$4.5"
-            title={getPortfolioTitle()}
+            title={getPortfolioTitle(intl)}
             onPress={showPortfolio}
           />
         </XStack>

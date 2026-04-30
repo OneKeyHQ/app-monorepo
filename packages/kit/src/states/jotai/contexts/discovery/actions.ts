@@ -286,6 +286,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     this.addWebTab.call(set, {
       id,
       url: '',
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
       title: appLocale.intl.formatMessage({
         id: ETranslations.browser_start_tab,
       }),
@@ -931,6 +932,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           const disabledAddedNewTab = get(disabledAddedNewTabAtom());
           if (disabledAddedNewTab) {
             Toast.message({
+              // eslint-disable-next-line onekey/no-app-locale-main-thread
               title: appLocale.intl.formatMessage(
                 { id: ETranslations.explore_toast_tab_limit_reached },
                 { number: MaximumNumberOfTabs },
