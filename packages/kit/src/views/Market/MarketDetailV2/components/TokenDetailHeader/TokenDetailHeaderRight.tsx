@@ -13,6 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
+import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
 import {
   STAT_FALLBACK_VALUE,
   formatRatioValue,
@@ -69,6 +70,7 @@ export function TokenDetailHeaderRight({
   const marketCapValue = normalizeStatValue(marketCap) ?? STAT_FALLBACK_VALUE;
   const liquidityValue = normalizeStatValue(liquidity) ?? STAT_FALLBACK_VALUE;
   const holdersValue = normalizeStatValue(holders) ?? STAT_FALLBACK_VALUE;
+  const btcMetadata = useBtcMetadataContext();
 
   const shareButton =
     networkId && platformEnv.isNative ? (
@@ -78,6 +80,169 @@ export function TokenDetailHeaderRight({
         isNative={isNative}
       />
     ) : null;
+
+  let statsContent: React.ReactNode;
+  if (isStockToken) {
+    statsContent = (
+      <>
+        <StatItem
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_market_cap,
+          })}
+          value={
+            <NumberSizeableText
+              size="$headingXs"
+              color="$text"
+              formatter="marketCap"
+              formatterOptions={{
+                capAtMaxT: true,
+                currency: '$',
+              }}
+            >
+              {normalizeStatValue(tokenDetail?.stock?.marketCap) ??
+                STAT_FALLBACK_VALUE}
+            </NumberSizeableText>
+          }
+        />
+        <StatItem
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_stock_24h_volume,
+          })}
+          value={
+            <NumberSizeableText
+              size="$headingXs"
+              color="$text"
+              formatter="marketCap"
+              formatterOptions={{
+                currency: '$',
+              }}
+            >
+              {normalizeStatValue(
+                tokenDetail?.stock?.assetAnalysis?.volume24h,
+              ) ?? STAT_FALLBACK_VALUE}
+            </NumberSizeableText>
+          }
+        />
+        <StatItem
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_stock_pe_ttm,
+          })}
+          value={
+            <SizableText size="$headingXs" color="$text">
+              {formatRatioValue(tokenDetail?.stock?.tradingActivity?.peRatio)}
+            </SizableText>
+          }
+        />
+      </>
+    );
+  } else if (btcMetadata) {
+    statsContent = (
+      <>
+        <StatItem
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_market_cap,
+          })}
+          value={
+            <NumberSizeableText
+              size="$headingXs"
+              color="$text"
+              formatter="marketCap"
+              formatterOptions={{
+                capAtMaxT: true,
+                currency: '$',
+              }}
+            >
+              {btcMetadata.marketCap}
+            </NumberSizeableText>
+          }
+        />
+        <StatItem
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_btc_circulating_supply,
+          })}
+          value={
+            <NumberSizeableText
+              size="$headingXs"
+              color="$text"
+              formatter="marketCap"
+              formatterOptions={{ tokenSymbol: 'BTC' }}
+            >
+              {btcMetadata.circulatingSupply}
+            </NumberSizeableText>
+          }
+        />
+        <StatItem
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_btc_remaining_supply,
+          })}
+          value={
+            <NumberSizeableText
+              size="$headingXs"
+              color="$text"
+              formatter="marketCap"
+              formatterOptions={{ tokenSymbol: 'BTC' }}
+            >
+              {btcMetadata.remainingSupply}
+            </NumberSizeableText>
+          }
+        />
+      </>
+    );
+  } else {
+    statsContent = (
+      <>
+        <StatItem
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_market_cap,
+          })}
+          value={
+            <NumberSizeableText
+              size="$headingXs"
+              color="$text"
+              formatter="marketCap"
+              formatterOptions={{
+                capAtMaxT: true,
+                currency: '$',
+              }}
+            >
+              {marketCapValue}
+            </NumberSizeableText>
+          }
+        />
+        <StatItem
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_liquidity,
+          })}
+          value={
+            <NumberSizeableText
+              size="$headingXs"
+              color="$text"
+              formatter="marketCap"
+              formatterOptions={{
+                currency: '$',
+              }}
+            >
+              {liquidityValue}
+            </NumberSizeableText>
+          }
+        />
+        <StatItem
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_holders,
+          })}
+          value={
+            <NumberSizeableText
+              size="$headingXs"
+              color="$text"
+              formatter="marketCap"
+            >
+              {holdersValue}
+            </NumberSizeableText>
+          }
+        />
+      </>
+    );
+  }
 
   if (!showStats) {
     return shareButton ? <XStack gap="$3">{shareButton}</XStack> : null;
@@ -114,110 +279,7 @@ export function TokenDetailHeaderRight({
         </XStack>
       </XStack>
 
-      {isStockToken ? (
-        <>
-          <StatItem
-            label={intl.formatMessage({
-              id: ETranslations.dexmarket_market_cap,
-            })}
-            value={
-              <NumberSizeableText
-                size="$headingXs"
-                color="$text"
-                formatter="marketCap"
-                formatterOptions={{
-                  capAtMaxT: true,
-                  currency: '$',
-                }}
-              >
-                {normalizeStatValue(tokenDetail?.stock?.marketCap) ??
-                  STAT_FALLBACK_VALUE}
-              </NumberSizeableText>
-            }
-          />
-          <StatItem
-            label={intl.formatMessage({
-              id: ETranslations.dexmarket_stock_24h_volume,
-            })}
-            value={
-              <NumberSizeableText
-                size="$headingXs"
-                color="$text"
-                formatter="marketCap"
-                formatterOptions={{
-                  currency: '$',
-                }}
-              >
-                {normalizeStatValue(
-                  tokenDetail?.stock?.assetAnalysis?.volume24h,
-                ) ?? STAT_FALLBACK_VALUE}
-              </NumberSizeableText>
-            }
-          />
-          <StatItem
-            label={intl.formatMessage({
-              id: ETranslations.dexmarket_stock_pe_ttm,
-            })}
-            value={
-              <SizableText size="$headingXs" color="$text">
-                {formatRatioValue(tokenDetail?.stock?.tradingActivity?.peRatio)}
-              </SizableText>
-            }
-          />
-        </>
-      ) : (
-        <>
-          <StatItem
-            label={intl.formatMessage({
-              id: ETranslations.dexmarket_market_cap,
-            })}
-            value={
-              <NumberSizeableText
-                size="$headingXs"
-                color="$text"
-                formatter="marketCap"
-                formatterOptions={{
-                  capAtMaxT: true,
-                  currency: '$',
-                }}
-              >
-                {marketCapValue}
-              </NumberSizeableText>
-            }
-          />
-          <StatItem
-            label={intl.formatMessage({
-              id: ETranslations.dexmarket_liquidity,
-            })}
-            value={
-              <NumberSizeableText
-                size="$headingXs"
-                color="$text"
-                formatter="marketCap"
-                formatterOptions={{
-                  currency: '$',
-                }}
-              >
-                {liquidityValue}
-              </NumberSizeableText>
-            }
-          />
-          <StatItem
-            label={intl.formatMessage({
-              id: ETranslations.dexmarket_holders,
-            })}
-            value={
-              <NumberSizeableText
-                size="$headingXs"
-                color="$text"
-                formatter="marketCap"
-              >
-                {holdersValue}
-              </NumberSizeableText>
-            }
-          />
-        </>
-      )}
+      {statsContent}
 
       {shareButton}
     </XStack>

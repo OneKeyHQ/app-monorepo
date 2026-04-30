@@ -1,3 +1,22 @@
+export interface IBtcMetadataNextHalving {
+  nextHalvingBlockHeight: number;
+  blocksUntilHalving: number;
+  estimatedSecondsUntilHalving: number;
+}
+
+export interface IBtcMetadata {
+  marketCap: string;
+  circulatingSupply: string;
+  remainingSupply: string;
+  totalSupply: string;
+  fdv: string;
+  blockHeight: string;
+  blockReward: string;
+  nextHalving: IBtcMetadataNextHalving;
+  updatedAt: string;
+  stale: boolean;
+}
+
 export interface IMarketTokenDetail {
   networkId?: string;
   isNative?: boolean;
@@ -95,6 +114,7 @@ export interface IMarketTokenDetail {
   lastUpdated?: number;
   communityRecognized?: boolean;
   stock?: IMarketStockInfo;
+  btcMetadata?: IBtcMetadata;
   [key: string]: unknown;
 }
 
