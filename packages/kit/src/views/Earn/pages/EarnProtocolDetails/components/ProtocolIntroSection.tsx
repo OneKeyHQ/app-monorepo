@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import Svg, { Path } from 'react-native-svg';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -969,13 +970,23 @@ function PreviewCountBadge({ count }: { count: number }) {
 function PreviewCellIcon({
   imageUrl,
   fallbackIcon,
+  fallbackAuditIcon,
 }: {
   imageUrl?: string | null;
   fallbackIcon?: IKeyOfIcons;
+  fallbackAuditIcon?: boolean;
 }) {
   if (imageUrl) {
     return (
       <Image w={20} h={20} borderRadius="$full" src={imageUrl} flexShrink={0} />
+    );
+  }
+
+  if (fallbackAuditIcon) {
+    return (
+      <XStack w={20} h={20} ai="center" jc="center" flexShrink={0}>
+        <AuditFallbackIcon />
+      </XStack>
     );
   }
 
@@ -996,6 +1007,7 @@ function PreviewCell({
   count,
   imageUrl,
   fallbackIcon,
+  fallbackAuditIcon,
   onPress,
 }: {
   title?: IEarnProtocolIntroText;
@@ -1003,6 +1015,7 @@ function PreviewCell({
   count: number;
   imageUrl?: string | null;
   fallbackIcon?: IKeyOfIcons;
+  fallbackAuditIcon?: boolean;
   onPress: () => void;
 }) {
   if (!hasText(title) || !hasText(value)) {
@@ -1019,7 +1032,11 @@ function PreviewCell({
         cursor="pointer"
         onPress={onPress}
       >
-        <PreviewCellIcon imageUrl={imageUrl} fallbackIcon={fallbackIcon} />
+        <PreviewCellIcon
+          imageUrl={imageUrl}
+          fallbackIcon={fallbackIcon}
+          fallbackAuditIcon={fallbackAuditIcon}
+        />
         <EarnText
           text={toEarnText(value)}
           size="$bodyLgMedium"
@@ -1110,6 +1127,7 @@ function ProtocolFactsGrid({
         title={audits?.title || audits?.button?.data?.title}
         value={getAuditTitle(firstAudit)}
         imageUrl={firstAudit?.auditorLogoUrl || firstAudit?.logoURI}
+        fallbackAuditIcon
         count={auditItems.length || (audits?.items?.length ?? 0)}
         onPress={onShowAudits}
       />
@@ -1140,20 +1158,33 @@ function AuditLogo({ audit }: { audit: IEarnProtocolIntroAudit }) {
   const logoURI = audit.auditorLogoUrl || audit.logoURI;
 
   if (logoURI) {
-    return <Image w="$5" h="$5" borderRadius="$full" src={logoURI} />;
+    return (
+      <Image w="$5" h="$5" borderRadius="$full" src={logoURI} flexShrink={0} />
+    );
   }
 
   return (
-    <XStack
-      w="$5"
-      h="$5"
-      borderRadius="$full"
-      bg="$bgStrong"
-      ai="center"
-      jc="center"
-    >
-      <Icon name="ShieldCheckDoneOutline" size="$3.5" color="$iconSubdued" />
+    <XStack w="$5" h="$5" ai="center" jc="center" flexShrink={0}>
+      <AuditFallbackIcon />
     </XStack>
+  );
+}
+
+function AuditFallbackIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+      <Path
+        d="M0 10C0 4.47715 4.47715 0 10 0C15.5228 0 20 4.47715 20 10C20 15.5228 15.5228 20 10 20C4.47715 20 0 15.5228 0 10Z"
+        fill="black"
+        fillOpacity={0.447}
+      />
+      <Path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M11.7507 4.75V13.5H12.334V7.08333H15.2507V13.5H16.4173V14.6667H3.58398V13.5H4.75065V4.75H11.7507ZM7.08398 11.1667H9.41732V10H7.08398V11.1667ZM7.08398 8.83333H9.41732V7.66667H7.08398V8.83333Z"
+        fill="white"
+      />
+    </Svg>
   );
 }
 
