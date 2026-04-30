@@ -70,10 +70,6 @@ function PasswordField() {
         },
         validate: (value: string) => {
           if (!value?.trim()) {
-            // eslint-disable-next-line onekey/no-app-locale-main-thread
-            // return appLocale.intl.formatMessage({
-            //   id: ETranslations.form_rename_error_empty,
-            // });
             return intl.formatMessage({
               id: ETranslations.address_book_add_address_name_required,
             });

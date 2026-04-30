@@ -5,8 +5,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 export const showNotificationPermissionsDialog = () =>
   Dialog.show({
-    // eslint-disable-next-line onekey/no-app-locale-main-thread
-    // title: appLocale.intl.formatMessage({ id: ETranslations.global_rename }),
     title: '通知权限',
     renderContent: (
       <Stack>

@@ -1055,12 +1055,6 @@ export function useFirmwareVerifyDialog() {
       };
 
       setIsLoading(true);
-      // await backgroundApiProxy.serviceApp.showDialogLoading({
-      // eslint-disable-next-line onekey/no-app-locale-main-thread
-      //   title: appLocale.intl.formatMessage({
-      //     id: ETranslations.global_processing,
-      //   }),
-      // });
       let shouldUseNewAuthenticateVersion = false;
       try {
         console.log('====> features: ', features);
