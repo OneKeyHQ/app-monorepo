@@ -185,6 +185,8 @@ function ActionBuyContent({
   /* eslint-enable no-nested-ternary */
 
   const iconName = 'CurrencyDollarOutline' as const;
+  const actionItemIcon =
+    source === 'earn' && rest.showButtonStyle ? null : iconName;
 
   // Single-action or loading: buy-only or sell-only → direct URL, use ActionItem
   if (!bothSupported || rest.showButtonStyle) {
@@ -192,7 +194,7 @@ function ActionBuyContent({
       <ActionItem
         loading={loading}
         label={label}
-        icon={iconName}
+        icon={actionItemIcon}
         disabled={effectiveDisabled}
         onPress={handleDirectPress}
         {...rest}

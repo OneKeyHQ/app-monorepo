@@ -599,6 +599,157 @@ export interface IEarnIcon {
   size?: string;
 }
 
+export type IEarnProtocolIntroText = IEarnText | string;
+
+export interface IEarnProtocolIntroLooseIcon {
+  icon?: string;
+  color?: string;
+  size?: string;
+}
+
+export interface IEarnProtocolIntroLinkData {
+  link?: string;
+  icon?: IEarnProtocolIntroLooseIcon;
+}
+
+export interface IEarnProtocolIntroSocialLink {
+  type?:
+    | 'website'
+    | 'twitter'
+    | 'x'
+    | 'discord'
+    | 'linkedin'
+    | 'telegram'
+    | 'link';
+  title?: IEarnProtocolIntroText;
+  url?: string;
+  icon?: IEarnProtocolIntroLooseIcon;
+  disabled?: boolean;
+  data?: IEarnProtocolIntroLinkData;
+}
+
+export interface IEarnProtocolIntroMetric {
+  title?: IEarnProtocolIntroText;
+  value?: IEarnProtocolIntroText;
+  description?: IEarnProtocolIntroText;
+}
+
+export type IEarnProtocolIntroTag =
+  | IEarnProtocolIntroText
+  | {
+      tag?: IEarnProtocolIntroText;
+      title?: IEarnProtocolIntroText;
+      badge?: IBadgeType | string;
+    };
+
+export interface IEarnProtocolIntroTeamMember {
+  name?: IEarnProtocolIntroText;
+  title?: IEarnProtocolIntroText;
+  role?: IEarnProtocolIntroText;
+  position?: IEarnProtocolIntroText;
+  description?: IEarnProtocolIntroText;
+  avatarUrl?: string | null;
+  avatar?: string;
+  logoURI?: string;
+  links?: IEarnProtocolIntroSocialLink[];
+  socialLinks?: IEarnProtocolIntroSocialLink[];
+}
+
+export interface IEarnProtocolIntroTeam {
+  title?: IEarnProtocolIntroText;
+  items?: IEarnProtocolIntroTeamMember[];
+  button?: {
+    type?: 'popup' | string;
+    data?: {
+      title?: IEarnProtocolIntroText;
+      members?: IEarnProtocolIntroTeamMember[];
+    };
+  };
+}
+
+export interface IEarnProtocolIntroInvestorRound {
+  title?: IEarnProtocolIntroText;
+  round?: IEarnProtocolIntroText;
+  date?: IEarnProtocolIntroText;
+  amount?: IEarnProtocolIntroText;
+  valuation?: IEarnProtocolIntroText;
+  investors?: IEarnProtocolIntroText;
+  items?: IEarnProtocolIntroMetric[];
+}
+
+export interface IEarnProtocolIntroInvestors {
+  title?: IEarnProtocolIntroText;
+  items?: IEarnProtocolIntroInvestorRound[];
+  button?: {
+    type?: 'popup' | string;
+    data?: {
+      title?: IEarnProtocolIntroText;
+      fundingRounds?: IEarnProtocolIntroInvestorRound[];
+    };
+  };
+}
+
+export interface IEarnProtocolIntroAudit {
+  title?: IEarnProtocolIntroText;
+  name?: IEarnProtocolIntroText;
+  auditor?: IEarnProtocolIntroText;
+  date?: IEarnProtocolIntroText;
+  scope?: IEarnProtocolIntroText;
+  description?: IEarnProtocolIntroText;
+  auditorLogoUrl?: string;
+  logoURI?: string;
+  url?: string;
+  button?: IEarnProtocolIntroSocialLink;
+}
+
+export interface IEarnProtocolIntroAudits {
+  title?: IEarnProtocolIntroText;
+  updatedAt?: IEarnProtocolIntroText;
+  items?: IEarnProtocolIntroAudit[];
+  button?: {
+    type?: 'popup' | string;
+    data?: {
+      title?: IEarnProtocolIntroText;
+      description?: IEarnProtocolIntroText[];
+      auditItems?: IEarnProtocolIntroAudit[];
+    };
+  };
+}
+
+export interface IEarnProtocolIntroItem {
+  title?: IEarnProtocolIntroText;
+  displayName?: IEarnProtocolIntroText;
+  name?: IEarnProtocolIntroText;
+  role?: IEarnProtocolIntroText;
+  provider?: string;
+  slug?: string;
+  type?: string;
+  logoURI?: string;
+  logoUrl?: string;
+  logoUri?: string;
+  icon?: IEarnIcon;
+  description?: IEarnProtocolIntroText;
+  tags?: IEarnProtocolIntroTag[];
+  metrics?: IEarnProtocolIntroMetric[];
+  stats?: IEarnProtocolIntroMetric[];
+  tvl?: IEarnProtocolIntroText;
+  fdv?: IEarnProtocolIntroText;
+  establishment?: IEarnProtocolIntroText;
+  establishmentDate?: IEarnProtocolIntroText;
+  socialLinks?: IEarnProtocolIntroSocialLink[];
+  links?: IEarnProtocolIntroSocialLink[];
+  team?: IEarnProtocolIntroTeam;
+  teamMembers?: IEarnProtocolIntroTeam;
+  investors?: IEarnProtocolIntroInvestors;
+  audits?: IEarnProtocolIntroAudits;
+}
+
+export interface IEarnProtocolIntroInfo {
+  title?: IEarnProtocolIntroText;
+  notice?: IEarnProtocolIntroText;
+  items?: IEarnProtocolIntroItem[];
+}
+
 export interface IEarnPopupActionIcon {
   type: 'popup';
   data: {
@@ -1246,6 +1397,7 @@ export interface IStakeEarnDetail {
   subscriptionValue?: ISubscriptionValue;
   tags?: IStakeBadgeTag[];
   protocol?: IProtocolInfo;
+  protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
   countDownAlert?: {
     title?: IEarnText;
     description: IEarnText;
