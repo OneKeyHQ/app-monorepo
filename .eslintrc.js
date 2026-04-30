@@ -430,6 +430,7 @@ module.exports = {
             ],
           },
         ],
+        'onekey/no-app-locale-main-thread': 'error',
       },
     },
     {
@@ -512,6 +513,7 @@ module.exports = {
             ],
           },
         ],
+        'onekey/no-app-locale-main-thread': 'error',
       },
     },
     {
