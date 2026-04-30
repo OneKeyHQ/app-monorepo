@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   DialogContainer,
   Icon,
@@ -24,11 +26,12 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+
+import type { IntlShape } from 'react-intl';
 
 const AUTO_CLOSED_FLAG = 'autoClosed';
 const SHOW_CLOSE_BUTTON_DELAY = 8000;
@@ -46,23 +49,27 @@ function getDeviceLabel(vendor: string | undefined): string {
   );
 }
 
-function getToastLabel(action: string | undefined, _vendor: string): string {
+function getToastLabel(
+  action: string | undefined,
+  _vendor: string,
+  intl: IntlShape,
+): string {
   switch (action) {
     case EThirdPartyHardwareUiAction.openApp:
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.hardware_third_party_app_not_open,
       });
     case EThirdPartyHardwareUiAction.unlockDevice:
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.hardware_third_party_device_locked,
       });
     case EThirdPartyHardwareUiAction.searching:
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.hardware_searching_for_device,
       });
     case EThirdPartyHardwareUiAction.confirmOnDevice:
     default:
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.global_confirm_on_device,
       });
   }
@@ -94,6 +101,7 @@ function DeviceActionToast({
   action?: string;
   vendor: string;
 }) {
+  const intl = useIntl();
   const [showCloseButton, setShowCloseButton] = useState(false);
   const themeVariant = useThemeVariant();
 
@@ -105,7 +113,7 @@ function DeviceActionToast({
     return () => clearTimeout(timer);
   }, []);
 
-  const label = getToastLabel(action, vendor);
+  const label = getToastLabel(action, vendor, intl);
 
   const animationSource = useMemo(() => {
     if (vendor !== EHardwareVendor.ledger) return null;
