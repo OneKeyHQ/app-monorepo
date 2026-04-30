@@ -76,6 +76,7 @@ function BotWalletListItem({
   onDeactivate: (walletId: string) => Promise<void>;
   onReactivate: (walletId: string) => Promise<void>;
 }) {
+  const intl = useIntl();
   const { wallet, metadata } = entry;
   const navigation = useAppNavigation();
   const isDeactivated = metadata.status === BOT_WALLET_STATUS_DEACTIVATED;
@@ -147,6 +148,7 @@ function BotWalletListItem({
 
   const handleRename = useCallback(() => {
     showRenameDialog(metadata.name, {
+      intl,
       disabledMaxLengthLabel: true,
       nameHistoryInfo: {
         entityId: wallet.id,
@@ -160,7 +162,7 @@ function BotWalletListItem({
         });
       },
     });
-  }, [metadata.name, onRename, wallet.id]);
+  }, [metadata.name, onRename, wallet.id, intl]);
 
   return (
     <XStack

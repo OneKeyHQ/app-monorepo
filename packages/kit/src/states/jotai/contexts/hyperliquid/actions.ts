@@ -1962,6 +1962,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ) {
       if (!platformEnv.isNative) {
         Toast.message({
+          // eslint-disable-next-line onekey/no-app-locale-main-thread
           title: appLocale.intl.formatMessage({
             id: ETranslations.global_request_limit,
           }),

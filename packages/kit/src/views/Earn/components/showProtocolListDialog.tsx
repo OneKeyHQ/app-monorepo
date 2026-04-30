@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -18,7 +19,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
@@ -32,6 +32,8 @@ import {
 import { capitalizeString } from '../../Staking/utils/utils';
 
 import { AprText } from './AprText';
+
+import type { IntlShape } from 'react-intl';
 
 type ISelectedProtocol = {
   networkId: string;
@@ -80,20 +82,20 @@ interface IProtocolSection {
 type IProtocolListVariant = 'dialog' | 'switcher';
 
 // Get section title based on group
-const getSectionTitle = (group: string): string => {
+const getSectionTitle = (group: string, intl: IntlShape): string => {
   switch (group) {
     case EStakeProtocolGroupEnum.Available:
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.earn_available_to_deposit,
       });
     case EStakeProtocolGroupEnum.WithdrawOnly:
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.earn_withdrawal_only,
       });
     case EStakeProtocolGroupEnum.Deposited:
-      return appLocale.intl.formatMessage({ id: ETranslations.earn_deposited });
+      return intl.formatMessage({ id: ETranslations.earn_deposited });
     case EStakeProtocolGroupEnum.Unavailable:
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.provider_unavailable,
       });
     default:
@@ -104,6 +106,7 @@ const getSectionTitle = (group: string): string => {
 // Group protocols by their group field
 const groupProtocolsByGroup = (
   protocols: IStakeProtocolListItem[],
+  intl: IntlShape,
 ): IProtocolSection[] => {
   const grouped = protocols.reduce(
     (acc, protocol) => {
@@ -130,7 +133,7 @@ const groupProtocolsByGroup = (
   groupOrder.forEach((group) => {
     if (grouped[group] && grouped[group].length > 0) {
       sections.push({
-        title: getSectionTitle(group),
+        title: getSectionTitle(group, intl),
         data: grouped[group],
         group,
       });
@@ -144,7 +147,7 @@ const groupProtocolsByGroup = (
       grouped[group].length > 0
     ) {
       sections.push({
-        title: getSectionTitle(group),
+        title: getSectionTitle(group, intl),
         data: grouped[group],
         group: group as EStakeProtocolGroupEnum,
       });
@@ -185,6 +188,7 @@ export function ProtocolListContent({
   isLoading?: boolean;
   variant?: IProtocolListVariant;
 }) {
+  const intl = useIntl();
   const [fetchedProtocols, setFetchedProtocols] = useState<
     IStakeProtocolListItem[]
   >([]);
@@ -244,8 +248,8 @@ export function ProtocolListContent({
   );
   const isLoading = shouldFetchProtocols ? isFetching : !!isLoadingProp;
   const protocolData = useMemo(
-    () => groupProtocolsByGroup(resolvedProtocols),
-    [resolvedProtocols],
+    () => groupProtocolsByGroup(resolvedProtocols, intl),
+    [resolvedProtocols, intl],
   );
   const flatProtocolData = useMemo(
     () => protocolData.flatMap((section) => section.data),
@@ -461,13 +465,13 @@ export function ProtocolListContent({
           py="$0"
           width="100%"
           icon="ErrorOutline"
-          title={appLocale.intl.formatMessage({
+          title={intl.formatMessage({
             id: ETranslations.earn_no_protocols_available,
           })}
           buttonProps={{
             flex: 1,
             width: '100%',
-            children: appLocale.intl.formatMessage({
+            children: intl.formatMessage({
               id: ETranslations.global_refresh,
             }),
             onPress: () => {
@@ -484,12 +488,12 @@ export function ProtocolListContent({
       <YStack gap="$1" minHeight={90} {...switcherContentContainerProps}>
         <XStack px="$2" py="$1.5" alignItems="center">
           <SizableText size="$bodySmMedium" color="$textSubdued" flex={1}>
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.global_protocol,
             })}
           </SizableText>
           <SizableText size="$bodySmMedium" color="$textSubdued">
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.defi_apr_apy,
             })}
           </SizableText>
@@ -520,6 +524,7 @@ export function showProtocolListDialog({
   filterNetworkId,
   selectedProtocol,
   onProtocolSelect,
+  intl,
 }: {
   symbol: string;
   accountId: string;
@@ -534,9 +539,10 @@ export function showProtocolListDialog({
     provider: string;
     vault?: string;
   }) => Promise<void>;
+  intl: IntlShape;
 }) {
   const dialog = Dialog.show({
-    title: appLocale.intl.formatMessage(
+    title: intl.formatMessage(
       {
         id: ETranslations.earn_symbol_staking_provider,
       },
