@@ -1794,6 +1794,38 @@ function startWebviewMemoryMonitoring() {
 }
 /* oxlint-enable typescript/no-unsafe-call */
 
+// In dev, app.getVersion() falls back to the electron binary version because
+// no packaged app/package.json is on disk. Chromium builds the UA product
+// token from app.getName() verbatim, so the actual default UA contains
+// `OneKey Wallet/<electronVer>` (with the space from APP_NAME above) — and
+// some packaging paths can also surface the no-space `OneKeyWallet/` form.
+// Match both, and normalize to the canonical no-space `OneKeyWallet/<APP_VERSION>`
+// that buildCustomUA() emits, so chromium and our X-Onekey-* injection agree.
+// Run synchronously at module load (before `ready` fires) so the very first
+// webContents created in the ready handler already sees the patched UA —
+// `app.userAgentFallback` is readable/writable before `ready`.
+try {
+  // Escape every regex meta character (including backslash) before
+  // interpolating into a RegExp source — process.versions.electron is
+  // well-formed in practice, but CodeQL flags partial escapes and the
+  // strict version is a one-liner.
+  const electronVer = process.versions.electron.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&',
+  );
+  // process.env.VERSION is substituted at build time by webpack DefinePlugin
+  // (apps/desktop/scripts/build.js) — the same path every other call site
+  // uses. Falls back to '1' to match buildCustomUA()'s fallback in
+  // packages/shared/src/request/customUA.ts.
+  const appVersion = process.env.VERSION || '1';
+  app.userAgentFallback = app.userAgentFallback.replace(
+    new RegExp(`OneKey ?Wallet/${electronVer}\\b`),
+    `OneKeyWallet/${appVersion}`,
+  );
+} catch (error) {
+  logger.warn('[user-agent] failed to align chromium UA version', error);
+}
+
 // Start monitoring when app is ready
 app.on('ready', async () => {
   startMemoryMonitoring();

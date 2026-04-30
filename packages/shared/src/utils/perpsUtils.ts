@@ -1668,6 +1668,7 @@ function isSpotInstrument(coin?: string | null): boolean {
 }
 
 const SPOT_MIN_VOLUME_STRICT = 10;
+const SPOT_SELECTOR_MIN_VOLUME = 1000;
 
 function filterSpotTokensStrict(
   tokens: Array<{ dayNtlVlm: number; midPx: boolean }>,
@@ -1718,6 +1719,7 @@ export {
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,
   SPOT_MIN_VOLUME_STRICT,
+  SPOT_SELECTOR_MIN_VOLUME,
 };
 export default {
   formatAssetCtx,
@@ -1767,6 +1769,7 @@ export default {
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,
   SPOT_MIN_VOLUME_STRICT,
+  SPOT_SELECTOR_MIN_VOLUME,
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
 };

@@ -43,7 +43,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  SPOT_MIN_VOLUME_STRICT,
+  SPOT_SELECTOR_MIN_VOLUME,
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
   getTokenSubtitle,
@@ -411,7 +411,7 @@ function MobileTokenSelectorModal({
           marketCap,
         };
       })
-      .filter((e) => e.volume24h >= SPOT_MIN_VOLUME_STRICT);
+      .filter((e) => e.volume24h >= SPOT_SELECTOR_MIN_VOLUME);
 
     if (sortField) {
       entries.sort((a, b) => {

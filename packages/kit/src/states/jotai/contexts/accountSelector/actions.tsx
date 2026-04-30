@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
@@ -66,6 +67,7 @@ import {
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
 import { EGlobalDeriveTypesScopes } from '@onekeyhq/shared/types/account';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -112,6 +114,16 @@ export type IFinalizeWalletSetupCreateWalletResult = {
     indexedAccount: IDBIndexedAccount | undefined;
   };
 };
+
+// Ledger USB has no stable device id, so a failed batch leaves an orphan
+// wallet shell each retry. Restricted to codes that fire on the FIRST
+// chain (i.e. before any account is persisted) — DeviceDisconnected and
+// ChainNotSupported can fire mid-batch after partial success, hiding the
+// wallet there would orphan the already-created accounts.
+const LEDGER_ORPHAN_HIDE_CODES: number[] = [
+  ThirdPartyHwErrorCode.UserAborted,
+  ThirdPartyHwErrorCode.DeviceAppStuck,
+];
 
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
@@ -713,6 +725,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) => Promise<void>;
       },
     ) => {
+      let createdResult: IFinalizeWalletSetupCreateWalletResult | null = null;
       try {
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
           step: EFinalizeWalletSetupSteps.CreatingWallet,
@@ -720,6 +733,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         const [{ wallet, indexedAccount, hidden, isOverrideWallet }] =
           await Promise.all([createWalletFn(), timerUtils.wait(1000)]);
+        createdResult = { wallet, indexedAccount, hidden, isOverrideWallet };
 
         if (generatingAccountsFn) {
           appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
@@ -743,6 +757,49 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         };
         return createResult;
       } catch (error) {
+        // Soft-hide the just-created Ledger wallet shell when batch aborts.
+        // Uses isTemp + hideImmediately — no DB deletion. Vendor-gated to
+        // Ledger so other HW lines (OneKey/BLE) keep their dedup'able shells.
+        // Final guard is the DB account count: even on UserAborted /
+        // DeviceAppStuck the user may have completed earlier chains in the
+        // batch — if any IDBAccount belongs to the wallet, the shell is no
+        // longer empty and must not be hidden.
+        const isLedgerWallet =
+          createdResult?.wallet?.associatedDeviceInfo?.vendor ===
+          EHardwareVendor.ledger;
+        if (
+          createdResult &&
+          !createdResult.isOverrideWallet &&
+          isLedgerWallet &&
+          isHardwareErrorByCode({
+            error: error as IOneKeyError | undefined,
+            code: LEDGER_ORPHAN_HIDE_CODES,
+          })
+        ) {
+          const walletId = createdResult.wallet?.id;
+          const indexedAccountId = createdResult.indexedAccount?.id;
+          if (walletId && indexedAccountId) {
+            try {
+              const { accounts } =
+                await serviceAccount.getAccountsInSameIndexedAccountId({
+                  indexedAccountId,
+                });
+              if (accounts.length === 0) {
+                await serviceAccount.setWalletTempStatus({
+                  walletId,
+                  isTemp: true,
+                  hideImmediately: true,
+                });
+              }
+            } catch (hideErr) {
+              defaultLogger.app.error.log(
+                `withFinalizeWalletSetupStep softHide failed: ${
+                  (hideErr as Error)?.message || String(hideErr)
+                }`,
+              );
+            }
+          }
+        }
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
           error: error as IOneKeyError,
