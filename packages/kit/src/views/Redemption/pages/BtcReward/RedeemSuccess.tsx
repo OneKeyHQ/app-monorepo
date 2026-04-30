@@ -42,14 +42,20 @@ function RedeemSuccessPage() {
   const { rewardUsd, walletAddress, btcAmount, btcPriceUsd, payoutEligibleAt } =
     route.params;
 
-  const handleViewHistory = useCallback(() => {
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: EModalReferFriendsRoutes.RedemptionHistory }],
-      }),
-    );
-  }, [navigation]);
+  // Page.Footer's FooterCancelButton auto-pops the page when onCancel has
+  // zero declared parameters; declare an unused arg so the reset dispatch
+  // isn't immediately undone by an auto-pop that closes the whole modal.
+  const handleViewHistory = useCallback(
+    (_close: () => void) => {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: EModalReferFriendsRoutes.RedemptionHistory }],
+        }),
+      );
+    },
+    [navigation],
+  );
 
   const handleDone = useCallback(() => {
     navigation.popStack();
