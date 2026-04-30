@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { SizeTokens } from '@onekeyhq/components';
 import {
   Dialog,
   Divider,
@@ -670,21 +671,21 @@ function toDisplayPool(
   };
 }
 
-function PoolLogo({ uri, size = '$5' }: { uri?: string; size?: string }) {
+function PoolLogo({ uri, size = '$5' }: { uri?: string; size?: SizeTokens }) {
   if (!uri) {
     return null;
   }
 
   return (
     <Image
-      size={size as any}
+      size={size}
       borderRadius="$full"
       source={{ uri }}
       fallback={
         <Image.Fallback>
           <YStack
-            w={size as any}
-            h={size as any}
+            w={size}
+            h={size}
             borderRadius="$full"
             bg="$bgDisabled"
             ai="center"
@@ -704,7 +705,7 @@ function PoolIdentity({
   textSize = '$bodyLg',
 }: {
   item: IDisplayPool;
-  logoSize?: string;
+  logoSize?: SizeTokens;
   textSize?: '$bodyLg' | '$bodyMd';
 }) {
   return (
