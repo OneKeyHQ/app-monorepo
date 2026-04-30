@@ -89,6 +89,7 @@ export function DesktopLayout() {
   });
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
+  const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
 
   const swapToken = useMemo(
     () => ({
@@ -171,10 +172,12 @@ export function DesktopLayout() {
               <StockTradingActivity />
             ) : (
               <>
-                <TokenActivityOverview pl="$3" pr="$5" />
-
-                <Divider />
-
+                {isBTCMainnet ? null : (
+                  <>
+                    <TokenActivityOverview pl="$3" pr="$5" />
+                    <Divider />
+                  </>
+                )}
                 <TokenSupplementaryInfo />
               </>
             )}
