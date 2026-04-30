@@ -35,6 +35,7 @@ const icons = {
   YoutubeBrand: () => import("./react/brand/Youtube"),
   OnekeyPrimeDarkColored: () => import("./react/colored/OnekeyPrimeDark"),
   OnekeyPrimeLightColored: () => import("./react/colored/OnekeyPrimeLight"),
+  UserAvatarFallbackColored: () => import("./react/colored/UserAvatarFallback"),
   AccountErrorCustom: () => import("./react/custom/AccountError"),
   CheckboxCheckedCustom: () => import("./react/custom/CheckboxChecked"),
   CheckboxIndeterminateCustom: () =>
