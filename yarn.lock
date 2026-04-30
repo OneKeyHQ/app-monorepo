@@ -9644,7 +9644,6 @@ __metadata:
     "@svgr/cli": "npm:8.1.0"
     "@types/qrcode": "npm:^1.4.2"
     ethereum-blockies-base64: "npm:^1.0.2"
-    folderslint: "npm:1.2.0"
     iso-639-1: "npm:^2.1.13"
     lodash: "npm:^4.17.23"
     moti: "npm:^0.25.3"
@@ -9708,7 +9707,6 @@ __metadata:
     elliptic: "npm:^6.6.0"
     eth-sig-util: "npm:^3.0.1"
     ethereumjs-util: "npm:7.1.5"
-    folderslint: "npm:1.2.0"
     js-conflux-sdk: "npm:^2.1.12"
     jsrsasign: "npm:^10.8.6"
     near-api-js: "npm:^2.1.4"
@@ -9744,7 +9742,6 @@ __metadata:
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.7.3"
     esbuild: "npm:0.27.2"
-    folderslint: "npm:1.2.0"
     glob: "npm:^7.2.0"
     node-fetch: "npm:^2.6.7"
     passport-desktop: "npm:0.1.2"
@@ -9762,7 +9759,6 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    folderslint: "npm:1.2.0"
     rimraf: "npm:3.0.2"
   languageName: unknown
   linkType: soft
@@ -9772,7 +9768,6 @@ __metadata:
   resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
     eth-url-parser: "npm:^1.0.4"
-    folderslint: "npm:1.2.0"
     idb: "npm:^7.1.1"
     miscreant: "npm:^0.3.2"
   languageName: unknown
@@ -9790,7 +9785,6 @@ __metadata:
     "@types/url-parse": "npm:^1.4.8"
     date-fns: "npm:2.30.0"
     expo-camera: "npm:16.1.10"
-    folderslint: "npm:1.2.0"
     fuse.js: "npm:^7.0.0"
     lightweight-charts: "npm:^3.8.0"
     mime: "npm:^3.0.0"
@@ -9886,7 +9880,6 @@ __metadata:
     expo-sharing: "npm:14.0.8"
     expo-splash-screen: "npm:55.0.2"
     expo-web-browser: "npm:15.0.10"
-    folderslint: "npm:1.2.0"
     https-browserify: "npm:^1.0.0"
     jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git#4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c"
     jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git#33eca9ebd18aba2ed6810f26f00add94211d9156"
@@ -9963,7 +9956,6 @@ __metadata:
     "@types/webextension-polyfill": "npm:^0.8.2"
     async-mutex: "npm:^0.3.2"
     fast-safe-stringify: "npm:^2.1.1"
-    folderslint: "npm:1.2.0"
     js-base64: "npm:3.7.5"
     jsonschema: "npm:^1.4.1"
     localforage: "npm:^1.10.0"
@@ -9986,7 +9978,6 @@ __metadata:
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
     cross-env: "npm:7.0.3"
-    folderslint: "npm:1.2.0"
     rimraf: "npm:3.0.2"
   languageName: unknown
   linkType: soft
@@ -9998,7 +9989,6 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    folderslint: "npm:1.2.0"
     rimraf: "npm:3.0.2"
   languageName: unknown
   linkType: soft
@@ -30603,19 +30593,6 @@ __metadata:
   version: 1.1.0
   resolution: "fn.name@npm:1.1.0"
   checksum: 10/000198af190ae02f0138ac5fa4310da733224c628e0230c81e3fff7c4e094af7e0e8bb9f4357cabd21db601759d89f3445da744afbae20623cfa41edf3888397
-  languageName: node
-  linkType: hard
-
-"folderslint@npm:1.2.0":
-  version: 1.2.0
-  resolution: "folderslint@npm:1.2.0"
-  dependencies:
-    chalk: "npm:^4.0.0"
-    glob: "npm:^7.1.6"
-    minimist: "npm:^1.2.0"
-  bin:
-    folderslint: index.js
-  checksum: 10/9054ceb6ef50e657a6ab7c0d08abff6b25e3e5a77c14772c6521115ba1e1fc9b5532bcf06ab65d3a5fc700487a5a1dc53df843c27bcb9e9bb0813a851508577b
   languageName: node
   linkType: hard
 
