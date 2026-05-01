@@ -30,6 +30,7 @@ import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -632,7 +633,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         });
         await clearMatchedDepositOrders(updates);
       } catch (error) {
-        console.error('Failed to load perp account history:', error);
+        defaultLogger.app.error.log(
+          `Failed to load perp account history: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
         // Keep loading state intact. This path represents a real request failure,
         // not a successful empty history.
       }
