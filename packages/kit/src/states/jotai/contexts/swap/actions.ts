@@ -111,7 +111,9 @@ import {
   swapTypeSwitchAtom,
 } from './atoms';
 import {
+  SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
   buildSwapQuoteProviderKey,
+  getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
   isSwapQuoteEventFetching,
 } from './quoteProgress';
@@ -1262,8 +1264,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const currentEventReceivedCount = get(
         swapQuoteCurrentEventReceivedCountAtom(),
       );
-      const quoteEventFetching = isSwapQuoteEventFetching({
+      const { swapIncognitoMode } = await settingsAtom.get();
+      const swapTypeSwitch = get(swapTypeSwitchAtom());
+      const quoteEventProgressTotalCount = getSwapQuoteEventProgressTotalCount({
         quoteEventTotalCount,
+        maxQuoteCount:
+          swapIncognitoMode && swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+            ? SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP
+            : undefined,
+      });
+      const quoteEventFetching = isSwapQuoteEventFetching({
+        quoteEventTotalCount: quoteEventProgressTotalCount,
         currentEventReceivedCount,
         quoteEventCompleted,
       });
