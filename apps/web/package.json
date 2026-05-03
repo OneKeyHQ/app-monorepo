@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" webpack serve",
-    "start:rspack": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" rspack serve",
+    "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=10240\" webpack serve",
+    "start:rspack": "cross-env NODE_OPTIONS=\"--max-old-space-size=10240\" rspack serve",
     "start:proxy": "ONEKEY_PROXY=true yarn start",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./web-build && rimraf .tamagui && rimraf ./node_modules/.cache",
