@@ -60,6 +60,10 @@ export const authLoginInputSchema = z.object({
     .describe(
       'Hardware passphrase mode. Required in non-interactive mode when device passphrase protection is enabled.',
     ),
+  payload: z
+    .string()
+    .optional()
+    .describe('CLI Bot Wallet payload JSON or base64-encoded JSON'),
 });
 
 export const authLoginOutputSchema = z.object({

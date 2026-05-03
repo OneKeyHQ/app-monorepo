@@ -1,3 +1,4 @@
+import { getBip39Fixture } from '../__test-utils__/bip39-fixtures';
 import { sanitize } from '../utils/logger';
 
 describe('sanitize', () => {
@@ -12,13 +13,17 @@ describe('sanitize', () => {
   });
 
   it('redacts 12-word mnemonic phrases', () => {
-    const mnemonic =
-      'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    const mnemonic = getBip39Fixture(
+      'bip39-english-00000000000000000000000000000000',
+    ).mnemonic;
     expect(sanitize(`seed: ${mnemonic}`)).toBe('seed: [REDACTED]');
   });
 
   it('redacts 24-word mnemonic phrases', () => {
-    const words = Array(24).fill('abandon').join(' ');
+    const mnemonic = getBip39Fixture(
+      'bip39-english-00000000000000000000000000000000',
+    ).mnemonic;
+    const words = [...mnemonic.split(' '), ...mnemonic.split(' ')].join(' ');
     expect(sanitize(`seed: ${words}`)).toBe('seed: [REDACTED]');
   });
 

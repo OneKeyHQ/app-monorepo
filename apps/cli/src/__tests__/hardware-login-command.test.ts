@@ -3,20 +3,8 @@ import { ERROR_CODES } from '../errors';
 import type { ResolvedAuthSession } from '../core/auth/auth-types';
 import type { OutputFormatter } from '../output';
 
-jest.mock('../infra/auth-session-store', () => ({
-  AUTH_SESSION_SCHEMA_VERSION: 1,
-  AuthSessionStore: jest.fn().mockImplementation(() => {
-    const { mockSave } = jest.requireMock('../commands/device/hardware-sdk')
-      .__testMocks as IHardwareSdkTestMocks;
-    return {
-      save: mockSave,
-    };
-  }),
-}));
-
 jest.mock('../commands/device/hardware-sdk', () => ({
   __testMocks: {
-    mockSave: jest.fn(async () => undefined),
     mockSearchDevice: jest.fn(),
     mockEnsureSDKReady: jest.fn(),
     mockResolvePassphraseState: jest.fn(),
@@ -52,7 +40,6 @@ jest.mock('../commands/device/hardware-sdk', () => ({
 }));
 
 interface IHardwareSdkTestMocks {
-  mockSave: jest.Mock;
   mockSearchDevice: jest.Mock;
   mockEnsureSDKReady: jest.Mock;
   mockResolvePassphraseState: jest.Mock;
@@ -134,6 +121,7 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
   it('rejects non-interactive hardware login when passphrase protection is enabled and mode is implicit', async () => {
     const output = makeOutputMock();
     const getStatus = jest.fn(async () => makeUnauthenticatedStatus());
+    const persistSession = jest.fn(async () => undefined);
 
     await expect(
       executeHardwareLoginCommand({
@@ -141,6 +129,7 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
         isTTY: false,
         isHumanMode: false,
         getStatus,
+        persistSession,
       }),
     ).rejects.toMatchObject({
       code: ERROR_CODES.PARAM_REQUIRES_TTY.code,
@@ -149,7 +138,7 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
     });
 
     expect(hardwareSdkMocks.mockResolvePassphraseState).not.toHaveBeenCalled();
-    expect(hardwareSdkMocks.mockSave).not.toHaveBeenCalled();
+    expect(persistSession).not.toHaveBeenCalled();
   });
 
   it('allows explicit standard-wallet mode in non-interactive hardware login', async () => {
@@ -158,6 +147,7 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
       .fn()
       .mockResolvedValueOnce(makeUnauthenticatedStatus())
       .mockResolvedValueOnce(makeAuthenticatedStatus());
+    const persistSession = jest.fn(async () => undefined);
 
     await executeHardwareLoginCommand({
       output: output as OutputFormatter,
@@ -165,6 +155,7 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
       isHumanMode: false,
       passphraseMode: 'none',
       getStatus,
+      persistSession,
     });
 
     const sdk = await hardwareSdkMocks.mockEnsureSDKReady.mock.results[0].value;
@@ -175,9 +166,12 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
         useEmptyPassphrase: true,
       }),
     );
-    expect(hardwareSdkMocks.mockSave).toHaveBeenCalledWith(
+    expect(persistSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        passphraseMode: 'none',
+        session: expect.objectContaining({
+          passphraseMode: 'none',
+          loginMethod: 'hardware',
+        }),
       }),
     );
     expect(output.success).toHaveBeenCalled();
@@ -186,6 +180,7 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
   it('rejects explicit hidden-wallet mode when device passphrase protection is disabled', async () => {
     const output = makeOutputMock();
     const getStatus = jest.fn(async () => makeUnauthenticatedStatus());
+    const persistSession = jest.fn(async () => undefined);
     hardwareSdkMocks.mockEnsureSDKReady.mockResolvedValueOnce({
       getFeatures: jest.fn(async () => ({
         success: true,
@@ -206,6 +201,7 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
         isHumanMode: false,
         passphraseMode: 'on-device',
         getStatus,
+        persistSession,
       }),
     ).rejects.toMatchObject({
       code: ERROR_CODES.PARAM_INVALID_CONFIG.code,
@@ -214,6 +210,6 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
     });
 
     expect(hardwareSdkMocks.mockResolvePassphraseState).not.toHaveBeenCalled();
-    expect(hardwareSdkMocks.mockSave).not.toHaveBeenCalled();
+    expect(persistSession).not.toHaveBeenCalled();
   });
 });

@@ -14,8 +14,6 @@ import type {
 } from './transfer-types';
 import type { AppTransferLoginResult } from '../auth/auth-types';
 
-const SPINNER_FRAMES = ['|', '/', '-', '\\'];
-
 interface IRuntimeTextWriter {
   isTTY?: boolean;
   write(chunk: string | Uint8Array): boolean;
@@ -25,24 +23,33 @@ interface IRunAppTransferPairingDisplayOptions {
   runtime?: ITransferPairingRuntime;
   stderr?: IRuntimeTextWriter;
   renderQr?: (uri: string) => string;
-  refreshIntervalMs?: number;
-  setIntervalFn?: typeof setInterval;
-  clearIntervalFn?: typeof clearInterval;
   now?: () => Date;
   setTimeoutFn?: typeof setTimeout;
   clearTimeoutFn?: typeof clearTimeout;
+}
+
+function toHttpEndpointForDisplay(websocketEndpoint: string): string {
+  return websocketEndpoint
+    .replace(/^wss:/i, 'https:')
+    .replace(/^ws:/i, 'http:');
 }
 
 function buildPairingDisplayScreen(
   pairingSession: AppTransferLoginResult,
   qrText: string,
 ): string {
+  const serverUrl = toHttpEndpointForDisplay(
+    pairingSession.pairingPayload.websocketEndpoint,
+  );
   return [
     'Scan the QR code in OneKey App or enter the pairing code manually.',
     '',
     qrText,
     '',
-    `Pairing code: ${pairingSession.pairingCode}`,
+    `Pairing Server: ${serverUrl}`,
+    'Pairing code:',
+    pairingSession.pairingCode,
+    '',
     'In OneKey App, open Bot Wallet import and scan the QR code or enter the pairing code.',
     '',
   ].join('\n');
@@ -117,9 +124,6 @@ export async function runAppTransferPairingDisplay(
     runtime,
     stderr = process.stderr,
     renderQr = renderAsciiQr,
-    refreshIntervalMs = 80,
-    setIntervalFn = setInterval,
-    clearIntervalFn = clearInterval,
     now = () => new Date(),
     setTimeoutFn = setTimeout,
     clearTimeoutFn = clearTimeout,
@@ -130,8 +134,60 @@ export async function runAppTransferPairingDisplay(
   let terminalState: ITransferStateSnapshot | undefined;
   let terminalError: AppError | null = null;
   let renderedVerificationCode: string | null = null;
+  let lastRenderedStatusMessage: string | null = null;
+  let pairingPhaseLineCount = 0;
+  let pairingPhaseCleared = false;
+  let verificationPhaseLineCount = 0;
+  let verificationPhaseCleared = false;
+  let verificationPhaseActive = false;
 
-  stderr.write(`${buildPairingDisplayScreen(pairingSession, qrText)}\n`);
+  const countNewlines = (text: string): number => {
+    let count = 0;
+    for (let i = 0; i < text.length; i += 1) {
+      if (text[i] === '\n') {
+        count += 1;
+      }
+    }
+    return count;
+  };
+
+  const writeStderr = (text: string): void => {
+    stderr.write(text);
+    const newlines = countNewlines(text);
+    if (!pairingPhaseCleared) {
+      pairingPhaseLineCount += newlines;
+    } else if (verificationPhaseActive && !verificationPhaseCleared) {
+      verificationPhaseLineCount += newlines;
+    }
+  };
+
+  const clearPairingPhaseIfNeeded = (): void => {
+    if (pairingPhaseCleared) {
+      return;
+    }
+    pairingPhaseCleared = true;
+    if (!stderr.isTTY) {
+      return;
+    }
+    if (pairingPhaseLineCount > 0) {
+      stderr.write(`\x1b[${pairingPhaseLineCount}A\x1b[0J`);
+    }
+  };
+
+  const clearVerificationPhaseIfNeeded = (): void => {
+    if (!verificationPhaseActive || verificationPhaseCleared) {
+      return;
+    }
+    verificationPhaseCleared = true;
+    if (!stderr.isTTY) {
+      return;
+    }
+    if (verificationPhaseLineCount > 0) {
+      stderr.write(`\x1b[${verificationPhaseLineCount}A\x1b[0J`);
+    }
+  };
+
+  writeStderr(`${buildPairingDisplayScreen(pairingSession, qrText)}\n`);
   const timeoutWindow = startTransferPairingRuntimeTimeout(pairingRuntime, {
     timeoutMs: pairingSession.timeoutMs,
     now,
@@ -142,67 +198,44 @@ export async function runAppTransferPairingDisplay(
     pairingSession.expiresAt = timeoutWindow.expiresAt;
   }
 
-  let frameIndex = 0;
-  let lastLineLength = 0;
-  let isStopped = false;
-
   const renderVerificationCodeIfAvailable = () => {
     const verificationCode = pairingRuntime.getVerificationCode();
     if (!verificationCode || verificationCode === renderedVerificationCode) {
       return;
     }
 
-    if (lastLineLength > 0) {
-      stderr.write(`\r${''.padEnd(lastLineLength, ' ')}\r`);
-      lastLineLength = 0;
-    }
-
-    stderr.write(`${buildVerificationCodeScreen(verificationCode)}\n`);
+    clearPairingPhaseIfNeeded();
+    verificationPhaseActive = true;
+    writeStderr(`${buildVerificationCodeScreen(verificationCode)}\n`);
     renderedVerificationCode = verificationCode;
   };
 
-  const renderStatusLine = () => {
-    renderVerificationCodeIfAvailable();
-
+  const renderStatusMessageIfChanged = () => {
     const state = pairingRuntime.getState();
-    const frame = state.isTerminal
-      ? ' '
-      : SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length];
-    frameIndex += 1;
-
-    const line = `${frame} ${state.message}`;
-    lastLineLength = Math.max(lastLineLength, line.length);
-    stderr.write(`\r${line.padEnd(lastLineLength, ' ')}`);
-
     if (state.isTerminal) {
-      stderr.write('\n');
+      return;
     }
-  };
-
-  let unsubscribe: () => void = () => {};
-  const intervalRef: { current?: ReturnType<typeof setInterval> } = {};
-  const stop = () => {
-    if (isStopped) {
+    if (state.message === lastRenderedStatusMessage) {
       return;
     }
 
-    isStopped = true;
-    unsubscribe();
-
-    if (intervalRef.current) {
-      clearIntervalFn(intervalRef.current);
+    if (state.status !== 'pairing') {
+      clearPairingPhaseIfNeeded();
     }
+    if (state.status !== 'pairing' && state.status !== 'paired') {
+      clearVerificationPhaseIfNeeded();
+    }
+
+    writeStderr(`${state.message}\n`);
+    lastRenderedStatusMessage = state.message;
   };
 
-  unsubscribe = pairingRuntime.subscribe(() => {
-    renderStatusLine();
-  });
+  renderStatusMessageIfChanged();
 
-  intervalRef.current = setIntervalFn(() => {
-    if (!pairingRuntime.getState().isTerminal) {
-      renderStatusLine();
-    }
-  }, refreshIntervalMs);
+  const unsubscribe = pairingRuntime.subscribe(() => {
+    renderVerificationCodeIfAvailable();
+    renderStatusMessageIfChanged();
+  });
 
   try {
     terminalState = await pairingRuntime.waitForState(
@@ -212,11 +245,7 @@ export async function runAppTransferPairingDisplay(
       terminalError = createTerminalStateError(pairingRuntime, terminalState);
     }
   } finally {
-    stop();
-
-    if (!pairingRuntime.getState().isTerminal && lastLineLength > 0) {
-      stderr.write(`\r${''.padEnd(lastLineLength, ' ')}\r`);
-    }
+    unsubscribe();
 
     if (pairingRuntime.getState().isTerminal) {
       if (getActiveTransferPairingRuntime() === pairingRuntime) {
