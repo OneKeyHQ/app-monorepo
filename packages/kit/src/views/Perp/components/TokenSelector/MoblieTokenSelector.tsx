@@ -821,7 +821,11 @@ function MobileTokenSelectorModal({
   }
 
   let listEmptyComponent: ReactNode;
-  if (isPerpTokenSelectorSpotTab(displayActiveTab) && spotLoading) {
+  const shouldShowSpotLoadingEmptyState =
+    spotLoading &&
+    (isPerpTokenSelectorSpotTab(displayActiveTab) ||
+      isPerpTokenSelectorAllTab(displayActiveTab));
+  if (shouldShowSpotLoadingEmptyState) {
     listEmptyComponent = (
       <YStack p="$5" alignItems="center">
         <Spinner size="small" />
