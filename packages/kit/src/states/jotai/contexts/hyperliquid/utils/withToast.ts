@@ -1,6 +1,7 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { extractHyperLiquidErrorMessage } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 
 import { ERROR_MESSAGES, ERROR_PATTERNS, TOAST_CONFIGS } from './config';
 import { EErrorType } from './types';
@@ -27,6 +28,9 @@ function identifyError(errorMessage: string): EErrorType | null {
 }
 
 function extractErrorMessage(error: unknown): string {
+  const hyperLiquidMessage = extractHyperLiquidErrorMessage(error);
+  if (hyperLiquidMessage) return hyperLiquidMessage;
+
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
   if (error && typeof error === 'object' && 'message' in error) {
