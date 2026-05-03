@@ -76,6 +76,10 @@ function runCliSourceSubprocess(...args: string[]) {
 
   return spawnSync(process.execPath, ['-e', bootstrap], {
     encoding: 'utf8',
+    env: {
+      ...process.env,
+      NODE_NO_WARNINGS: '1',
+    },
     timeout: 10_000,
   });
 }

@@ -537,38 +537,6 @@ function SocialLinkButton({ link }: { link: IEarnProtocolIntroSocialLink }) {
   );
 }
 
-function ProtocolTabs({
-  items,
-  selectedIndex,
-  onChange,
-}: {
-  items: IEarnProtocolIntroItem[];
-  selectedIndex: number;
-  onChange: (index: number) => void;
-}) {
-  if (items.length <= 1) {
-    const item = items[0];
-    return item ? <ProtocolTitle item={item} /> : null;
-  }
-
-  return (
-    <XStack gap="$2" flexWrap="wrap">
-      {items.map((item, index) => {
-        const selected = selectedIndex === index;
-        const title = getItemTitle(item);
-        return (
-          <ProtocolTabItem
-            key={`${getText(title) || item.provider || item.slug || 'provider'}-${index}`}
-            item={item}
-            selected={selected}
-            onPress={() => onChange(index)}
-          />
-        );
-      })}
-    </XStack>
-  );
-}
-
 function ProtocolTitle({ item }: { item: IEarnProtocolIntroItem }) {
   const title = getItemTitle(item);
 
@@ -629,6 +597,38 @@ function ProtocolTabItem({
           />
         ) : null}
       </YStack>
+    </XStack>
+  );
+}
+
+function ProtocolTabs({
+  items,
+  selectedIndex,
+  onChange,
+}: {
+  items: IEarnProtocolIntroItem[];
+  selectedIndex: number;
+  onChange: (index: number) => void;
+}) {
+  if (items.length <= 1) {
+    const item = items[0];
+    return item ? <ProtocolTitle item={item} /> : null;
+  }
+
+  return (
+    <XStack gap="$2" flexWrap="wrap">
+      {items.map((item, index) => {
+        const selected = selectedIndex === index;
+        const title = getItemTitle(item);
+        return (
+          <ProtocolTabItem
+            key={`${getText(title) || item.provider || item.slug || 'provider'}-${index}`}
+            item={item}
+            selected={selected}
+            onPress={() => onChange(index)}
+          />
+        );
+      })}
     </XStack>
   );
 }
@@ -1006,6 +1006,24 @@ function PreviewCountBadge({ count }: { count: number }) {
   );
 }
 
+function AuditFallbackIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+      <Path
+        d="M0 10C0 4.47715 4.47715 0 10 0C15.5228 0 20 4.47715 20 10C20 15.5228 15.5228 20 10 20C4.47715 20 0 15.5228 0 10Z"
+        fill="black"
+        fillOpacity={0.447}
+      />
+      <Path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M11.7507 4.75V13.5H12.334V7.08333H15.2507V13.5H16.4173V14.6667H3.58398V13.5H4.75065V4.75H11.7507ZM7.08398 11.1667H9.41732V10H7.08398V11.1667ZM7.08398 8.83333H9.41732V7.66667H7.08398V8.83333Z"
+        fill="white"
+      />
+    </Svg>
+  );
+}
+
 function PreviewCellIcon({
   imageUrl,
   fallbackIcon,
@@ -1208,24 +1226,6 @@ function AuditLogo({ audit }: { audit: IEarnProtocolIntroAudit }) {
     <XStack w="$5" h="$5" ai="center" jc="center" flexShrink={0}>
       <AuditFallbackIcon />
     </XStack>
-  );
-}
-
-function AuditFallbackIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-      <Path
-        d="M0 10C0 4.47715 4.47715 0 10 0C15.5228 0 20 4.47715 20 10C20 15.5228 15.5228 20 10 20C4.47715 20 0 15.5228 0 10Z"
-        fill="black"
-        fillOpacity={0.447}
-      />
-      <Path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M11.7507 4.75V13.5H12.334V7.08333H15.2507V13.5H16.4173V14.6667H3.58398V13.5H4.75065V4.75H11.7507ZM7.08398 11.1667H9.41732V10H7.08398V11.1667ZM7.08398 8.83333H9.41732V7.66667H7.08398V8.83333Z"
-        fill="white"
-      />
-    </Svg>
   );
 }
 
