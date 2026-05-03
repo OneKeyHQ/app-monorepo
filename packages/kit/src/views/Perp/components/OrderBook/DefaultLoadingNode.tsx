@@ -9,7 +9,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getOrderBookSizeDisplaySymbol } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import type { IOrderBookVariant } from './types';
 
@@ -33,13 +34,23 @@ const MOBILE_HORIZONTAL_WIDTHS = [
 export type IDefaultLoadingNodeProps = {
   variant: IOrderBookVariant;
   symbol?: string;
+  isSpot?: boolean;
+  spotUniverse?: Pick<ISpotUniverse, 'baseName'> | null;
 };
 
 export function DefaultLoadingNode({
   variant,
   symbol,
+  isSpot = false,
+  spotUniverse,
 }: IDefaultLoadingNodeProps) {
   const intl = useIntl();
+  const sizeDisplaySymbol =
+    getOrderBookSizeDisplaySymbol({
+      coin: symbol,
+      isSpot,
+      spotUniverse,
+    }) || '—';
 
   if (variant === 'mobileHorizontal') {
     return (
@@ -111,7 +122,7 @@ export function DefaultLoadingNode({
               {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
             </SizableText>
             <SizableText fontSize={10} lineHeight={12} color="$textSubdued">
-              ({symbol ? parseDexCoin(symbol).displayName : '—'})
+              ({sizeDisplaySymbol})
             </SizableText>
           </YStack>
         </XStack>

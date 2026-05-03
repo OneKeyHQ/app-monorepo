@@ -37,7 +37,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateSpreadPercentage,
-  parseDexCoin,
+  getOrderBookSizeDisplaySymbol,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -1521,6 +1521,14 @@ export function OrderBookMobile({
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = activeTradeInstrument.mode === 'spot';
   const currentCtx = isSpot ? spotAssetCtx?.ctx : assetCtx?.ctx;
+  const sizeDisplaySymbol = getOrderBookSizeDisplaySymbol({
+    coin: _symbol ?? activeTradeInstrument.coin,
+    isSpot,
+    spotUniverse:
+      activeTradeInstrument.mode === 'spot'
+        ? activeTradeInstrument.universe
+        : undefined,
+  });
   const { markPrice } = currentCtx || {
     markPrice: '0',
     oraclePrice: '0',
@@ -1654,7 +1662,7 @@ export function OrderBookMobile({
                   },
                 ]}
               >
-                ({_symbol ? parseDexCoin(_symbol).displayName : ''})
+                ({sizeDisplaySymbol})
               </PerpBookText>
             </View>
           </View>
