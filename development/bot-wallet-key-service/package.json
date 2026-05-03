@@ -1,0 +1,20 @@
+{
+  "name": "@onekeyhq/bot-wallet-key-service",
+  "version": "0.1.0-poc",
+  "private": true,
+  "description": "BotWallet remote key protection PoC — local Node service (zero runtime deps)",
+  "main": "src/server.ts",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "dev": "yarn install && tsx watch src/server.ts",
+    "test": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json && jest",
+    "postinstall": "node -e \"\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "jest": "^29.7.0",
+    "tsx": "^4.19.0",
+    "typescript": "5.9.3"
+  }
+}

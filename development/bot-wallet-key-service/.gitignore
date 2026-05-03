@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/
+*.log
+.DS_Store
+.yarn/cache/
+.yarn/install-state.gz
+.yarn/build-state.yml
+.yarn/unplugged/
