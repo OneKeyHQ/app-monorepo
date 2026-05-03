@@ -10,6 +10,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 // };
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDeviceKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
+import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/src/types/cliBotWallet';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '../../src/utils/avatarUtils';
@@ -122,6 +123,10 @@ export type IPrimeTransferPrivateData = {
   wallets: Record<string, IPrimeTransferHDWallet>;
   // DeviceKeyPack for keyless wallet transfer
   deviceKeyPack?: IDeviceKeyPack;
+  // Bot Wallet -> CLI remote-key-protection payload. When present, CLI must
+  // persist this payload through the bot-wallet vault path instead of the
+  // legacy decryptedCredentials path.
+  cliBotWalletEncryptedCredential?: ICliBotWalletEncryptedCredential;
   // simpleDb?: {
   //   utxoAccounts?: ISimpleDbEntityUtxoData;
   //   market?: ISimpleDbEntityMarktData;
