@@ -1400,6 +1400,10 @@ export function sortPerpsAssetIndices({
         compareResult = a.openInterestValue - b.openInterestValue;
         break;
 
+      case 'marketCap':
+        compareResult = 0;
+        break;
+
       default:
         break;
     }
