@@ -526,9 +526,10 @@ export default class ServiceHyperliquid extends ServiceBase {
     accountAddress: IHex,
     options: ILoadTradesHistoryOptions = {},
   ): Promise<IFill[]> {
+    const normalizedAccountAddress = accountAddress.toLowerCase();
     const current = await perpsTradesHistoryDataAtom.get();
     const isSameAccount =
-      current.accountAddress?.toLowerCase() === accountAddress.toLowerCase();
+      current.accountAddress?.toLowerCase() === normalizedAccountAddress;
 
     if (!options.force && current.isLoaded && isSameAccount) {
       return current.fills;
@@ -557,15 +558,36 @@ export default class ServiceHyperliquid extends ServiceBase {
     const fills = options.force
       ? await this.getUserFillsByTime(params)
       : await this._getUserFillsByTimeMemo(params);
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (
+      activeAccount?.accountAddress?.toLowerCase() !== normalizedAccountAddress
+    ) {
+      return this._sortAndDedupeFills(fills);
+    }
+
+    // Merge with the latest atom after the request returns so WS appends or
+    // concurrent refreshes that landed during the REST call are preserved.
+    const latestCurrent = await perpsTradesHistoryDataAtom.get();
+    const shouldMergeLatest =
+      latestCurrent.accountAddress?.toLowerCase() === normalizedAccountAddress;
     const sorted = this._sortAndDedupeFills(
-      isSameAccount ? [...current.fills, ...fills] : fills,
+      shouldMergeLatest ? [...latestCurrent.fills, ...fills] : fills,
     );
+
+    const latestActiveAccount = await perpsActiveAccountAtom.get();
+    if (
+      latestActiveAccount?.accountAddress?.toLowerCase() !==
+      normalizedAccountAddress
+    ) {
+      return sorted;
+    }
 
     await perpsTradesHistoryDataAtom.set({
       fills: sorted,
       isLoaded: true,
       latestTime: sorted[0]?.time ?? 0,
-      accountAddress: accountAddress.toLowerCase(),
+      accountAddress: normalizedAccountAddress,
     });
 
     return sorted;
