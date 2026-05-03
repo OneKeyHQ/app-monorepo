@@ -48,6 +48,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
@@ -349,15 +350,25 @@ function BasePerpTokenSelectorContent({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      let { universes } =
-        await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-      if (!universes?.length) {
-        await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
-        const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-        universes = res.universes;
+      let universes: ISpotUniverse[] = [];
+      try {
+        const cachedMeta =
+          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        universes = cachedMeta.universes ?? [];
+        if (!universes.length) {
+          await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+          const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+          universes = res.universes ?? universes;
+        }
+      } catch (error) {
+        defaultLogger.app.error.log(
+          `Failed to load spot meta: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
       if (!cancelled) {
-        setSpotUniverses(universes ?? []);
+        setSpotUniverses(universes);
         setSpotLoading(false);
       }
     })();
@@ -682,31 +693,33 @@ function BasePerpTokenSelectorContent({
     const sortDirection = selectorConfig?.direction ?? 'desc';
     const snapshot = spotPriceSnapshot;
 
-    const entries = spotUniverses
-      .map((u, index) => {
-        const ctx = snapshot[u.name];
-        const markPrice = Number(ctx?.markPx || 0);
-        const prevDayPx = Number(ctx?.prevDayPx || 0);
-        const change24hPercent =
-          prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
-        const volume24h = Number(ctx?.dayNtlVlm || 0);
-        const marketCapValue = getSpotMarketCapValue(ctx, u.baseName);
-        const marketCap = marketCapValue ? Number(marketCapValue) : undefined;
-        return {
-          item: {
-            dexIndex: SPOT_DEX_INDEX,
-            index,
-            assetId: u.assetId,
-            spotUniverse: u,
-          } as ITokenSelectorListItem,
-          name: u.baseName,
-          markPrice,
-          change24hPercent,
-          volume24h,
-          marketCap,
-        };
-      })
-      .filter((e) => e.volume24h >= SPOT_SELECTOR_MIN_VOLUME);
+    const mappedEntries = spotUniverses.map((u, index) => {
+      const ctx = snapshot[u.name];
+      const markPrice = Number(ctx?.markPx || 0);
+      const prevDayPx = Number(ctx?.prevDayPx || 0);
+      const change24hPercent =
+        prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
+      const volume24h = Number(ctx?.dayNtlVlm || 0);
+      const marketCapValue = getSpotMarketCapValue(ctx, u.baseName);
+      const marketCap = marketCapValue ? Number(marketCapValue) : undefined;
+      return {
+        item: {
+          dexIndex: SPOT_DEX_INDEX,
+          index,
+          assetId: u.assetId,
+          spotUniverse: u,
+        } as ITokenSelectorListItem,
+        name: u.baseName,
+        markPrice,
+        change24hPercent,
+        volume24h,
+        marketCap,
+      };
+    });
+    const hasVolumeData = mappedEntries.some((e) => e.volume24h > 0);
+    const entries = mappedEntries.filter(
+      (e) => !hasVolumeData || e.volume24h >= SPOT_SELECTOR_MIN_VOLUME,
+    );
 
     if (sortField) {
       entries.sort((a, b) => {
