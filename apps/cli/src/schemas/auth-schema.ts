@@ -27,6 +27,7 @@ const passphraseModeSchema = z.enum([
 const secureStorageBackendSchema = z.enum([
   'macos-keychain',
   'linux-secret-service',
+  'windows-credential-manager',
 ]);
 
 const deviceInfoSchema = z.object({

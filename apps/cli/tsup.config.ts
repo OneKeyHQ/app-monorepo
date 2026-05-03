@@ -437,6 +437,9 @@ export default defineConfig((options) => {
       ext.add('@onekeyfe/hd-common-connect-sdk');
       ext.add('@onekeyfe/hd-core');
       ext.add('@onekeyfe/hd-transport-usb');
+      // Native N-API addon packages must remain external and be distributed
+      // beside the CLI bundle for each target platform.
+      ext.add('@napi-rs/keyring');
       esbuildOptions.external = [...ext];
 
       if (!isProductionBuild) {

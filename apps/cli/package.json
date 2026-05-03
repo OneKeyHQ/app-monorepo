@@ -41,6 +41,7 @@
     "zod-to-ts": "^2.0.0"
   },
   "dependencies": {
+    "@napi-rs/keyring": "^1.3.0",
     "@onekeyfe/hd-common-connect-sdk": "1.1.26-alpha.11",
     "@onekeyfe/hd-core": "1.1.26-alpha.11",
     "@onekeyfe/hd-transport-usb": "1.1.26-alpha.11",
