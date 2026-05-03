@@ -1611,6 +1611,78 @@ export function formatPerpsCompactUsd(value: number): string {
   return formatted;
 }
 
+const SPOT_MARKET_CAP_SUPPRESSED_TOKENS = new Set([
+  'USDE',
+  'USDH',
+  'USDXL',
+  'FEUSD',
+  'USDT',
+  'USDT0',
+]);
+
+function isSpotMarketCapSuppressedToken(tokenName?: string): boolean {
+  if (!tokenName) {
+    return false;
+  }
+
+  const baseName = tokenName.split('/')[0]?.toUpperCase();
+  const displayName = baseName ? getSpotTokenDisplayName(baseName) : undefined;
+  return (
+    Boolean(baseName && SPOT_MARKET_CAP_SUPPRESSED_TOKENS.has(baseName)) ||
+    Boolean(displayName && SPOT_MARKET_CAP_SUPPRESSED_TOKENS.has(displayName))
+  );
+}
+
+function getSpotMarketCapValue(
+  spotCtx:
+    | {
+        markPx?: string;
+        markPrice?: string;
+        totalSupply?: string;
+        circulatingSupply?: string;
+      }
+    | null
+    | undefined,
+  tokenName?: string,
+): string | undefined {
+  if (isSpotMarketCapSuppressedToken(tokenName)) {
+    return undefined;
+  }
+
+  const markPrice = new BigNumber(spotCtx?.markPx ?? spotCtx?.markPrice ?? '0');
+  const circulatingSupply = new BigNumber(spotCtx?.circulatingSupply ?? '0');
+
+  if (
+    !markPrice.isFinite() ||
+    !circulatingSupply.isFinite() ||
+    markPrice.lte(0) ||
+    circulatingSupply.lte(0)
+  ) {
+    return undefined;
+  }
+
+  return circulatingSupply.multipliedBy(markPrice).toFixed();
+}
+
+function compareSpotMarketCapValues(
+  a: number | undefined,
+  b: number | undefined,
+  direction: IPerpTokenSortDirection,
+): number {
+  const aValid = typeof a === 'number' && Number.isFinite(a);
+  const bValid = typeof b === 'number' && Number.isFinite(b);
+
+  if (!aValid || !bValid) {
+    if (!aValid && !bValid) {
+      return 0;
+    }
+    return aValid ? -1 : 1;
+  }
+
+  const cmp = a - b;
+  return direction === 'asc' ? cmp : -cmp;
+}
+
 /**
  * Return a theme color token based on PnL sign.
  * Positive → '$green11', Negative → '$red11', Zero/null → '$text'.
@@ -1800,6 +1872,8 @@ export {
   mapTriggerOrderType,
   inferTpsl,
   getTriggerEffectivePrice,
+  getSpotMarketCapValue,
+  compareSpotMarketCapValues,
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
   formatSpotAssetCtx,
@@ -1854,6 +1928,8 @@ export default {
   formatPerpsCompactUsd,
   getPerpsValueColor,
   formatChartUsdPrice,
+  getSpotMarketCapValue,
+  compareSpotMarketCapValues,
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,

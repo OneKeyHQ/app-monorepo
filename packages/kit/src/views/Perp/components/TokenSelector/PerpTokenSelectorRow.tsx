@@ -41,6 +41,7 @@ import {
   formatSpotPriceToValid,
   formatWithPrecision,
   getHyperliquidTokenImageUrl,
+  getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getValidSpotPriceDecimals,
   parseDexCoin,
@@ -983,19 +984,27 @@ const SpotTokenSelectorRowInner = memo(
       [onPress, spotUniverse.name],
     );
     const marketCapDisplay = useMemo(() => {
-      if (!ctx?.circulatingSupply || markPxNum <= 0) {
+      if (markPxNum <= 0) {
+        return undefined;
+      }
+      const marketCap = getSpotMarketCapValue(
+        {
+          markPx,
+          circulatingSupply: ctx?.circulatingSupply,
+        },
+        spotUniverse.baseName,
+      );
+      if (!marketCap) {
         return undefined;
       }
       const formatted = formatDisplayNumber(
-        NUMBER_FORMATTER.marketCap(
-          (Number(ctx.circulatingSupply) * markPxNum).toString(),
-        ),
+        NUMBER_FORMATTER.marketCap(marketCap),
       );
       if (typeof formatted !== 'string' || formatted.length === 0) {
         return undefined;
       }
       return `$${formatted}`;
-    }, [ctx?.circulatingSupply, markPxNum]);
+    }, [ctx?.circulatingSupply, markPx, markPxNum, spotUniverse.baseName]);
 
     const contextValue: ITokenSelectorRowContextValue = useMemo(
       () => ({

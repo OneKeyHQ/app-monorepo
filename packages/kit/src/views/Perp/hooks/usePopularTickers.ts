@@ -8,6 +8,7 @@ import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/context
 import { useSpotAssetCtxsMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   formatSpotPairDisplayName,
+  getSpotMarketCapValue,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -98,14 +99,10 @@ export function usePopularTickers(): IPopularTickerItem[] {
         .map((asset) => {
           const ctx = spotPriceMap[asset.name];
           const volume24h = new BigNumber(ctx?.dayNtlVlm ?? '0');
-          const markPrice = new BigNumber(ctx?.markPx ?? '0');
-          const circulatingSupply = new BigNumber(
-            ctx?.circulatingSupply ?? '0',
-          );
           const hotScore = volume24h.toNumber();
-          const marketCap = circulatingSupply
-            .multipliedBy(markPrice)
-            .toNumber();
+          const marketCap = new BigNumber(
+            getSpotMarketCapValue(ctx, asset.baseName) ?? '0',
+          ).toNumber();
 
           return {
             mode: 'spot' as const,

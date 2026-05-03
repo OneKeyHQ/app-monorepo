@@ -51,8 +51,10 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
   SPOT_SELECTOR_MIN_VOLUME,
+  compareSpotMarketCapValues,
   formatSpotPairDisplayName,
   getHyperliquidTokenImageUrl,
+  getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getTokenSubtitle,
   isSpotInstrument,
@@ -565,8 +567,8 @@ function BasePerpTokenSelectorContent({
         const change24hPercent =
           prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
         const volume24h = Number(ctx?.dayNtlVlm || 0);
-        const circulatingSupply = Number(ctx?.circulatingSupply || 0);
-        const marketCap = circulatingSupply * markPrice;
+        const marketCapValue = getSpotMarketCapValue(ctx, u.baseName);
+        const marketCap = marketCapValue ? Number(marketCapValue) : undefined;
         return {
           item: {
             dexIndex: SPOT_DEX_INDEX,
@@ -603,8 +605,11 @@ function BasePerpTokenSelectorContent({
             break;
           case 'openInterest':
             // Reuse openInterest field for marketCap sort in spot tab
-            cmp = a.marketCap - b.marketCap;
-            break;
+            return compareSpotMarketCapValues(
+              a.marketCap,
+              b.marketCap,
+              sortDirection,
+            );
           default:
             break;
         }

@@ -29,6 +29,7 @@ export type ISpotActiveAssetCtxAtom =
   | {
       coin: string;
       assetId: number | undefined;
+      baseName?: string;
       ctx: ISpotFormattedAssetCtx;
     }
   | undefined;
@@ -109,6 +110,7 @@ export interface ISpotAssetCtxEntry {
   prevDayPx?: string;
   dayNtlVlm?: string;
   circulatingSupply?: string;
+  totalSupply?: string;
 }
 export type ISpotAssetCtxsMap = Record<string, ISpotAssetCtxEntry>;
 export const { target: spotAssetCtxsMapAtom, use: useSpotAssetCtxsMapAtom } =

@@ -785,6 +785,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         (_prev): ISpotActiveAssetCtxAtom => ({
           coin: data.coin,
           assetId: activeSpotAsset?.assetId,
+          baseName: activeSpotAsset?.universe?.baseName,
           ctx: perpsUtils.formatSpotAssetCtx(data.ctx),
         }),
       );
@@ -807,6 +808,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           prevDayPx: ctx.prevDayPx,
           dayNtlVlm: ctx.dayNtlVlm,
           circulatingSupply: ctx.circulatingSupply,
+          totalSupply: ctx.totalSupply,
         };
       }
     });

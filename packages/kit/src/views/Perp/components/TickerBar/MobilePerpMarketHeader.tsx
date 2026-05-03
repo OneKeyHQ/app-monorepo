@@ -24,6 +24,7 @@ import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getSpotMarketCapValue } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 
@@ -84,7 +85,6 @@ function MobilePerpMarketHeader() {
   const openInterest = perpCtx?.openInterest ?? '0';
   // Spot-only fields
   const spotCtx = spotCtxForActiveCoin;
-  const circulatingSupply = spotCtx?.circulatingSupply ?? '0';
 
   const midPriceNumber = useMemo(() => parseFloat(midPrice), [midPrice]);
   const fundingRateNumber = useMemo(
@@ -125,9 +125,19 @@ function MobilePerpMarketHeader() {
 
   const openInterestDisplay = useMemo(() => {
     if (isSpot) {
-      const marketCap = (
-        Number(circulatingSupply || 0) * Number(markPrice || 0)
-      ).toString();
+      const marketCap = getSpotMarketCapValue(
+        {
+          markPrice,
+          totalSupply: spotCtx?.totalSupply,
+          circulatingSupply: spotCtx?.circulatingSupply,
+        },
+        spotAssetCtx?.coin === coin
+          ? (spotAssetCtx?.baseName ?? spotAssetCtx?.coin)
+          : coin,
+      );
+      if (!marketCap) {
+        return '--';
+      }
       const formatted = numberFormat(marketCap, {
         formatter: 'marketCap',
       });
@@ -155,7 +165,16 @@ function MobilePerpMarketHeader() {
       return '--';
     }
     return `$${formatted}`;
-  }, [circulatingSupply, isSpot, markPrice, openInterest]);
+  }, [
+    coin,
+    isSpot,
+    markPrice,
+    openInterest,
+    spotAssetCtx?.baseName,
+    spotAssetCtx?.coin,
+    spotCtx?.circulatingSupply,
+    spotCtx?.totalSupply,
+  ]);
 
   const priceMetaContent = useMemo(() => {
     return (

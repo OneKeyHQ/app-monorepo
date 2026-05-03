@@ -44,7 +44,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   SPOT_SELECTOR_MIN_VOLUME,
+  compareSpotMarketCapValues,
   formatSpotPairDisplayName,
+  getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getTokenSubtitle,
   isSpotInstrument,
@@ -396,36 +398,38 @@ function MobileTokenSelectorModal({
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
 
-    const entries = spotUniverses
-      .map((u, index) => {
-        const ctx = spotPriceMap[u.name];
-        const markPrice = Number(ctx?.markPx || 0);
-        const prevDayPx = Number(ctx?.prevDayPx || 0);
-        const change24hPercent =
-          prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
-        const volume24h = Number(ctx?.dayNtlVlm || 0);
-        const circulatingSupply = Number(ctx?.circulatingSupply || 0);
-        const marketCap = circulatingSupply * markPrice;
-        return {
-          item: {
-            dexIndex: SPOT_DEX_INDEX,
-            index,
-            assetId: u.assetId,
-            tokenSubtitle:
-              getTokenSubtitle(
-                getSpotTokenDisplayName(u.baseName),
-                tokenSearchAliases,
-              ) ?? getTokenSubtitle(u.baseName, tokenSearchAliases),
-            spotUniverse: u,
-          } as ITokenSelectorListItem,
-          name: u.baseName,
-          markPrice,
-          change24hPercent,
-          volume24h,
-          marketCap,
-        };
-      })
-      .filter((e) => e.volume24h >= SPOT_SELECTOR_MIN_VOLUME);
+    const mappedEntries = spotUniverses.map((u, index) => {
+      const ctx = spotPriceMap[u.name];
+      const markPrice = Number(ctx?.markPx || 0);
+      const prevDayPx = Number(ctx?.prevDayPx || 0);
+      const change24hPercent =
+        prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
+      const volume24h = Number(ctx?.dayNtlVlm || 0);
+      const marketCapValue = getSpotMarketCapValue(ctx, u.baseName);
+      const marketCap = marketCapValue ? Number(marketCapValue) : undefined;
+      return {
+        item: {
+          dexIndex: SPOT_DEX_INDEX,
+          index,
+          assetId: u.assetId,
+          tokenSubtitle:
+            getTokenSubtitle(
+              getSpotTokenDisplayName(u.baseName),
+              tokenSearchAliases,
+            ) ?? getTokenSubtitle(u.baseName, tokenSearchAliases),
+          spotUniverse: u,
+        } as ITokenSelectorListItem,
+        name: u.baseName,
+        markPrice,
+        change24hPercent,
+        volume24h,
+        marketCap,
+      };
+    });
+    const hasVolumeData = mappedEntries.some((e) => e.volume24h > 0);
+    const entries = mappedEntries.filter(
+      (e) => !hasVolumeData || e.volume24h >= SPOT_SELECTOR_MIN_VOLUME,
+    );
 
     if (sortField) {
       entries.sort((a, b) => {
@@ -446,8 +450,11 @@ function MobileTokenSelectorModal({
             cmp = a.volume24h - b.volume24h;
             break;
           case 'openInterest':
-            cmp = a.marketCap - b.marketCap;
-            break;
+            return compareSpotMarketCapValues(
+              a.marketCap,
+              b.marketCap,
+              sortDirection,
+            );
           default:
             break;
         }
