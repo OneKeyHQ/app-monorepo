@@ -5,6 +5,7 @@ import {
 } from '../../../infra/vault';
 import {
   LEGACY_ENCRYPTION_KEY_ACCOUNT,
+  LEGACY_KEYCHAIN_ACCOUNTS,
   LEGACY_MNEMONIC_ACCOUNT,
   executeLogoutPipeline,
 } from '../_internal/logout-pipeline';
@@ -88,10 +89,37 @@ describe('auth logout legacy cleanup', () => {
       `delete:${MASTER_KEY_ACCOUNT}`,
       `unlink:${VAULT_FILE}`,
       `unlink:${VAULT_LOCK}`,
-      `delete:${LEGACY_MNEMONIC_ACCOUNT}`,
-      `delete:${LEGACY_ENCRYPTION_KEY_ACCOUNT}`,
+      ...LEGACY_KEYCHAIN_ACCOUNTS.map((account) => `delete:${account}`),
       'clear',
     ]);
+  });
+
+  it('purges legacy raw-account storage separately from the current keychain backend', async () => {
+    const currentDeletes: string[] = [];
+    const legacyDeletes: string[] = [];
+
+    await executeLogoutPipeline({
+      clearSecureCache: jest.fn(),
+      keychainStorage: {
+        delete: jest.fn(async (account: string) => {
+          currentDeletes.push(account);
+        }),
+      },
+      legacyKeychainStorage: {
+        delete: jest.fn(async (account: string) => {
+          legacyDeletes.push(account);
+        }),
+      },
+      readVaultRecords: async () => [],
+      unlink: async () => undefined,
+      warn: jest.fn(),
+    });
+
+    expect(currentDeletes).toEqual([
+      MASTER_KEY_ACCOUNT,
+      ...LEGACY_KEYCHAIN_ACCOUNTS,
+    ]);
+    expect(legacyDeletes).toEqual([...LEGACY_KEYCHAIN_ACCOUNTS]);
   });
 
   it('does not attempt legacy cleanup when new master-key deletion fails', async () => {

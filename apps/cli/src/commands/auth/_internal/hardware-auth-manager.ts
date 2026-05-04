@@ -1,11 +1,12 @@
 import { AUTH_LOGIN_METHOD_HARDWARE } from '../../../core/auth/auth-types';
 import { AuthSessionStore } from '../../../infra/auth-session-store';
 import { KeychainStorage } from '../../../infra/keychain-storage';
+import { persistKeychainSessionPair } from '../../../signer/keychain-keys';
+
 import {
-  KEYCHAIN_PASSPHRASE_STATE_KEY,
-  KEYCHAIN_SESSION_ID_KEY,
-  persistKeychainSessionPair,
-} from '../../../signer/keychain-keys';
+  deleteLegacyKeychainAccounts,
+  resolveLegacyKeychainStorage,
+} from './legacy-keychain-cleanup';
 
 import type {
   AuthSessionMetadata,
@@ -17,6 +18,7 @@ type IHardwareKeychain = Pick<
   KeychainStorage,
   'getBackendType' | 'set' | 'delete'
 >;
+type IHardwareLegacyKeychain = Pick<KeychainStorage, 'delete'>;
 type IPersistKeychainPair = typeof persistKeychainSessionPair;
 
 export interface IHardwareSessionPersistInput {
@@ -28,6 +30,7 @@ export interface IHardwareSessionPersistInput {
 export type IHardwareAuthManagerOptions = {
   sessionStore?: IHardwareSessionStore;
   keychainStorage?: IHardwareKeychain;
+  legacyKeychainStorage?: IHardwareLegacyKeychain | null;
   persistKeychainPair?: IPersistKeychainPair;
 };
 
@@ -47,11 +50,17 @@ export class HardwareAuthManager {
 
   private readonly keychainStorage: IHardwareKeychain;
 
+  private readonly legacyKeychainStorage: IHardwareLegacyKeychain | null;
+
   private readonly persistKeychainPair: IPersistKeychainPair;
 
   constructor(options: IHardwareAuthManagerOptions = {}) {
     this.sessionStore = options.sessionStore ?? new AuthSessionStore();
     this.keychainStorage = options.keychainStorage ?? new KeychainStorage();
+    this.legacyKeychainStorage = resolveLegacyKeychainStorage({
+      currentWasInjected: Boolean(options.keychainStorage),
+      legacyKeychainStorage: options.legacyKeychainStorage,
+    });
     this.persistKeychainPair =
       options.persistKeychainPair ?? persistKeychainSessionPair;
   }
@@ -108,9 +117,10 @@ export class HardwareAuthManager {
     // never wrote them). Best-effort delete avoids ENOENT-style throws from
     // bubbling up while still scrubbing residue from past hidden-wallet
     // sessions.
-    await Promise.allSettled([
-      this.keychainStorage.delete(KEYCHAIN_PASSPHRASE_STATE_KEY),
-      this.keychainStorage.delete(KEYCHAIN_SESSION_ID_KEY),
-    ]);
+    await deleteLegacyKeychainAccounts({
+      currentKeychainStorage: this.keychainStorage,
+      legacyKeychainStorage: this.legacyKeychainStorage,
+      warn: () => undefined,
+    });
   }
 }

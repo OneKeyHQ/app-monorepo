@@ -84,7 +84,7 @@ describe('no silent migration from legacy wallet:default keychain entries', () =
     ).rejects.toMatchObject({ code: 'NOT_AUTHENTICATED' });
   });
 
-  it('only references legacy mnemonic cleanup in logout pipeline production code', () => {
+  it('only references legacy mnemonic cleanup in auth cleanup production code', () => {
     const srcRoot = path.resolve(__dirname, '..');
     const matches = [
       ...listSourceFiles(path.join(srcRoot, 'commands')),
@@ -95,6 +95,8 @@ describe('no silent migration from legacy wallet:default keychain entries', () =
       )
       .map((filePath) => path.relative(srcRoot, filePath));
 
-    expect(matches).toEqual(['commands/auth/_internal/logout-pipeline.ts']);
+    expect(matches).toEqual([
+      'commands/auth/_internal/legacy-keychain-cleanup.ts',
+    ]);
   });
 });

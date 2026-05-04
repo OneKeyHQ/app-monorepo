@@ -11,6 +11,7 @@ import {
   KEYCHAIN_SESSION_ID_KEY,
 } from '../../../signer/keychain-keys';
 import { HardwareAuthManager } from '../_internal/hardware-auth-manager';
+import { LEGACY_KEYCHAIN_ACCOUNTS } from '../_internal/legacy-keychain-cleanup';
 
 import type {
   AuthSessionMetadata,
@@ -185,6 +186,23 @@ describe('HardwareAuthManager.clearSession', () => {
     expect(stubs.keychainStorage.delete).toHaveBeenCalledWith(
       KEYCHAIN_SESSION_ID_KEY,
     );
+  });
+
+  it('also purges raw-account legacy keychain storage when supplied', async () => {
+    const stubs = makeStubs(HARDWARE_SESSION);
+    const legacyDeletes: string[] = [];
+    const manager = new HardwareAuthManager({
+      ...stubs,
+      legacyKeychainStorage: {
+        delete: jest.fn(async (account: string) => {
+          legacyDeletes.push(account);
+        }),
+      },
+    });
+
+    await manager.clearSession();
+
+    expect(legacyDeletes).toEqual([...LEGACY_KEYCHAIN_ACCOUNTS]);
   });
 
   it('does not bubble keychain delete errors (entries may legitimately be absent)', async () => {

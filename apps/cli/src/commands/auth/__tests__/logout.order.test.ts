@@ -2,8 +2,7 @@ import { performance } from 'node:perf_hooks';
 
 import {
   type ILogoutPipelineDependencies,
-  LEGACY_ENCRYPTION_KEY_ACCOUNT,
-  LEGACY_MNEMONIC_ACCOUNT,
+  LEGACY_KEYCHAIN_ACCOUNTS,
   executeLogoutPipeline,
 } from '../_internal/logout-pipeline';
 
@@ -55,8 +54,7 @@ describe('auth logout pipeline order', () => {
       `delete:${MASTER_KEY_ACCOUNT}`,
       'unlink:vault.enc',
       'unlink:vault.enc.lock',
-      `delete:${LEGACY_MNEMONIC_ACCOUNT}`,
-      `delete:${LEGACY_ENCRYPTION_KEY_ACCOUNT}`,
+      ...LEGACY_KEYCHAIN_ACCOUNTS.map((account) => `delete:${account}`),
       'clear-cache',
     ]);
   });
@@ -153,8 +151,7 @@ describe('auth logout pipeline order', () => {
       'revoke',
       `delete:${MASTER_KEY_ACCOUNT}`,
       'unlink:vault.enc',
-      `delete:${LEGACY_MNEMONIC_ACCOUNT}`,
-      `delete:${LEGACY_ENCRYPTION_KEY_ACCOUNT}`,
+      ...LEGACY_KEYCHAIN_ACCOUNTS.map((account) => `delete:${account}`),
       'clear-cache',
       'lock:end',
     ]);

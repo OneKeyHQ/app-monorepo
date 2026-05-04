@@ -11,6 +11,17 @@ import {
   revokeBotWalletKey,
 } from '../../../infra/vault';
 
+import {
+  deleteLegacyKeychainAccounts,
+  resolveLegacyKeychainStorage,
+} from './legacy-keychain-cleanup';
+
+export {
+  LEGACY_ENCRYPTION_KEY_ACCOUNT,
+  LEGACY_KEYCHAIN_ACCOUNTS,
+  LEGACY_MNEMONIC_ACCOUNT,
+} from './legacy-keychain-cleanup';
+
 type ILogoutRecord = {
   keyId: string;
   accessToken: string;
@@ -18,12 +29,10 @@ type ILogoutRecord = {
 
 type IKeychainStorageLike = Pick<KeychainStorage, 'delete'>;
 
-export const LEGACY_MNEMONIC_ACCOUNT = 'wallet:default/mnemonic';
-export const LEGACY_ENCRYPTION_KEY_ACCOUNT = 'wallet:default/encryption-key';
-
 export type ILogoutPipelineDependencies = {
   vaultClient?: Pick<VaultClient, 'atomicMutate' | 'readOnly'>;
   keychainStorage?: IKeychainStorageLike;
+  legacyKeychainStorage?: IKeychainStorageLike | null;
   readVaultRecords?: () => Promise<ILogoutRecord[]>;
   revokeKey?: (record: ILogoutRecord, signal: AbortSignal) => Promise<void>;
   unlink?: (filePath: string) => Promise<void>;
@@ -99,6 +108,7 @@ async function performLogoutCleanup({
   clearSecureCache,
   deleteVaultLock,
   keychainStorage,
+  legacyKeychainStorage,
   masterKeyAccount,
   records,
   revokeKey,
@@ -111,6 +121,7 @@ async function performLogoutCleanup({
   clearSecureCache: () => void;
   deleteVaultLock: boolean;
   keychainStorage: IKeychainStorageLike;
+  legacyKeychainStorage?: IKeychainStorageLike | null;
   masterKeyAccount: string;
   records: ILogoutRecord[];
   revokeKey: (record: ILogoutRecord, signal: AbortSignal) => Promise<void>;
@@ -135,17 +146,11 @@ async function performLogoutCleanup({
     await unlinkIfExists(unlink, vaultLock);
   }
 
-  try {
-    await keychainStorage.delete(LEGACY_MNEMONIC_ACCOUNT);
-  } catch (error) {
-    warn(`Failed to delete ${LEGACY_MNEMONIC_ACCOUNT}`, error);
-  }
-
-  try {
-    await keychainStorage.delete(LEGACY_ENCRYPTION_KEY_ACCOUNT);
-  } catch (error) {
-    warn(`Failed to delete ${LEGACY_ENCRYPTION_KEY_ACCOUNT}`, error);
-  }
+  await deleteLegacyKeychainAccounts({
+    currentKeychainStorage: keychainStorage,
+    legacyKeychainStorage,
+    warn,
+  });
 
   clearSecureCache();
 }
@@ -155,6 +160,10 @@ export async function executeLogoutPipeline(
 ): Promise<void> {
   const vaultClient = dependencies.vaultClient ?? new VaultClient();
   const keychainStorage = dependencies.keychainStorage ?? new KeychainStorage();
+  const legacyKeychainStorage = resolveLegacyKeychainStorage({
+    currentWasInjected: Boolean(dependencies.keychainStorage),
+    legacyKeychainStorage: dependencies.legacyKeychainStorage,
+  });
   const readVaultRecords =
     dependencies.readVaultRecords ??
     (async () =>
@@ -188,6 +197,7 @@ export async function executeLogoutPipeline(
           clearSecureCache,
           deleteVaultLock: false,
           keychainStorage,
+          legacyKeychainStorage,
           masterKeyAccount,
           records: Object.entries(vault.records).map(([keyId, record]) => ({
             keyId,
@@ -216,6 +226,7 @@ export async function executeLogoutPipeline(
         clearSecureCache,
         deleteVaultLock: true,
         keychainStorage,
+        legacyKeychainStorage,
         masterKeyAccount,
         records: [],
         revokeKey,
@@ -242,6 +253,7 @@ export async function executeLogoutPipeline(
     clearSecureCache,
     deleteVaultLock: true,
     keychainStorage,
+    legacyKeychainStorage,
     masterKeyAccount,
     records,
     revokeKey,

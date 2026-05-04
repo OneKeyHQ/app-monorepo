@@ -11,8 +11,7 @@ import {
   executeLoginPipeline,
 } from '../commands/auth/_internal/login-pipeline';
 import {
-  LEGACY_ENCRYPTION_KEY_ACCOUNT,
-  LEGACY_MNEMONIC_ACCOUNT,
+  LEGACY_KEYCHAIN_ACCOUNTS,
   executeLogoutPipeline,
 } from '../commands/auth/_internal/logout-pipeline';
 import { triggerSelfHeal } from '../commands/auth/_internal/self-heal';
@@ -572,8 +571,7 @@ describe('onekey CLI (integration)', () => {
         `revoke:${'F'.repeat(43)}`,
         `delete:${MASTER_KEY_ACCOUNT}`,
         'unlink:vault.enc',
-        `delete:${LEGACY_MNEMONIC_ACCOUNT}`,
-        `delete:${LEGACY_ENCRYPTION_KEY_ACCOUNT}`,
+        ...LEGACY_KEYCHAIN_ACCOUNTS.map((account) => `delete:${account}`),
         'clear-cache',
       ]);
       expect(existsSync(paths.vaultFile)).toBe(false);

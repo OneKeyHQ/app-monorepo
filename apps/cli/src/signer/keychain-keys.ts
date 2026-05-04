@@ -5,10 +5,9 @@
  * naming convention on macOS and libsecret attributes on Linux. The HD
  * (software) flow now lives entirely inside the vault — the only keychain
  * entries the CLI still writes are the hardware passphrase pair below.
- * `logout-pipeline.ts` keeps a defensive purge of the historical
- * `wallet:default/mnemonic` / `…/encryption-key` accounts via string
- * literals, so legacy installs upgrading through this version still get
- * cleaned out at logout.
+ * `legacy-keychain-cleanup.ts` keeps a defensive purge of the historical
+ * software-wallet and hardware-session accounts, so legacy installs upgrading
+ * through this version still get cleaned out at logout.
  */
 
 const WALLET_NAME = 'default';
