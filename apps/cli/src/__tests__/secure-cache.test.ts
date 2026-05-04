@@ -46,16 +46,25 @@ describe('SecureCache', () => {
   it('unrefs the session memo timer', () => {
     const unref = jest.fn();
     const timerId = { unref } as unknown as ReturnType<typeof setTimeout>;
-    const setTimeoutSpy = jest
-      .spyOn(globalThis, 'setTimeout')
-      .mockImplementation(((handler: () => void, timeout?: number) => {
-        void handler;
-        void timeout;
-        return timerId;
-      }) as typeof setTimeout);
-    jest
-      .spyOn(globalThis, 'clearTimeout')
-      .mockImplementation((() => undefined) as typeof clearTimeout);
+    const setTimeoutSpy = jest.spyOn(
+      globalThis,
+      'setTimeout',
+    ) as jest.SpiedFunction<typeof setTimeout>;
+    setTimeoutSpy.mockImplementation(((
+      handler: () => void,
+      timeout?: number,
+    ) => {
+      void handler;
+      void timeout;
+      return timerId;
+    }) as typeof setTimeout);
+    const clearTimeoutSpy = jest.spyOn(
+      globalThis,
+      'clearTimeout',
+    ) as jest.SpiedFunction<typeof clearTimeout>;
+    clearTimeoutSpy.mockImplementation(
+      (() => undefined) as typeof clearTimeout,
+    );
 
     const cache = new SecureCache();
     cache.set(createSecureCacheKey('wallet-1', 'key-1'), Buffer.from('value'));
