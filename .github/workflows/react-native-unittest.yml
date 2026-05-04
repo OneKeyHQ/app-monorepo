@@ -146,6 +146,23 @@ jobs:
             .apk-build-commit
           key: android-debug-apk-${{ github.sha }}
 
+      - name: Configure swap memory
+        run: |
+          # The 16 GiB runner is overcommitted at peak: 6 GiB emulator RAM
+          # (qemu RSS ~7-8 GiB) + Node/Metro --max-old-space-size=8192
+          # (RSS up to ~9 GiB) + adb/logcat/runner agent + OS easily
+          # exceeds physical memory. Without swap the kernel OOM-killer
+          # kills the runner agent mid-test, surfacing as
+          # "The hosted runner lost communication with the server".
+          # Allocate extra swap on /mnt (the runner SSD has ~50 GiB free).
+          sudo fallocate -l 10G /mnt/extra-swapfile
+          sudo chmod 600 /mnt/extra-swapfile
+          sudo mkswap /mnt/extra-swapfile
+          sudo swapon /mnt/extra-swapfile
+          echo "Memory after swap configuration:"
+          free -h
+          swapon --show
+
       - name: Start Android Emulator
         run: |
           $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 6144 &
