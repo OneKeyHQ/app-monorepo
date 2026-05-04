@@ -193,6 +193,34 @@ const shimLocalePlugin: Plugin = {
   },
 };
 
+const shimHdCorePackageJsonPlugin: Plugin = {
+  name: 'shim-hd-core-package-json',
+  setup(build) {
+    build.onResolve({ filter: /^@onekeyfe\/hd-core\/package\.json$/ }, () => ({
+      path: resolvePath(
+        repoRoot,
+        'node_modules/@onekeyfe/hd-core/package.json',
+      ),
+      namespace: 'hd-core-package-json-shim',
+    }));
+
+    build.onLoad(
+      { filter: /.*/, namespace: 'hd-core-package-json-shim' },
+      async (args) => {
+        const pkg = JSON.parse(await readFileText(args.path, 'utf8')) as {
+          version?: string;
+        };
+        return {
+          contents: `module.exports = ${JSON.stringify({
+            version: pkg.version ?? '0.0.0',
+          })};`,
+          loader: 'js',
+        };
+      },
+    );
+  },
+};
+
 const shimReactNativePlugin: Plugin = {
   name: 'shim-react-native',
   setup(build) {
@@ -426,6 +454,7 @@ export default defineConfig((options) => {
     esbuildPlugins: [
       guardBrowserStoragePlugin,
       shimLocalePlugin,
+      shimHdCorePackageJsonPlugin,
       shimReactNativePlugin,
       shimCrossInpageProviderDebugBrowserPlugin,
       shimCrossInpageProviderLoggerPlugin,

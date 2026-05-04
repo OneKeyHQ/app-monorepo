@@ -8522,6 +8522,7 @@ __metadata:
     chalk: "npm:^4.1.2"
     commander: "npm:^12.0.0"
     expect-type: "npm:^1.3.0"
+    postject: "npm:1.0.0-alpha.6"
     proper-lockfile: "npm:^4.1.2"
     qrcode: "npm:^1.5.0"
     tsup: "npm:^8.0.0"
@@ -24928,7 +24929,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"commander@npm:^9.4.1":
+"commander@npm:^9.4.0, commander@npm:^9.4.1":
   version: 9.5.0
   resolution: "commander@npm:9.5.0"
   checksum: 10/41c49b3d0f94a1fbeb0463c85b13f15aa15a9e0b4d5e10a49c0a1d58d4489b549d62262b052ae0aa6cfda53299bee487bfe337825df15e342114dde543f82906
@@ -40211,6 +40212,17 @@ __metadata:
     query-selector-shadow-dom: "npm:^1.0.1"
     web-vitals: "npm:^5.1.0"
   checksum: 10/91011cf97874549f9ec5008717eca5deaaf8dceb47a8e8120281c6390f9ed82caa9024b55fae2f45ca92d8dbb0430534402501689f7f1d030de525dc553932fd
+  languageName: node
+  linkType: hard
+
+"postject@npm:1.0.0-alpha.6":
+  version: 1.0.0-alpha.6
+  resolution: "postject@npm:1.0.0-alpha.6"
+  dependencies:
+    commander: "npm:^9.4.0"
+  bin:
+    postject: dist/cli.js
+  checksum: 10/deda89e3cb623332f477a7d9ab75c5aebf3338cb305adb9420f37fc50930f3eb46782fe3b2ab2dc22a59da91ea1a011c7edfe2b3d2e225a9cd6b0e745c51061d
   languageName: node
   linkType: hard
 

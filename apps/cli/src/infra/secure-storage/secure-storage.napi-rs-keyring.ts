@@ -1,5 +1,18 @@
 /* oxlint-disable @cspell/spellchecker */
 
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+
 import { AppError, ERROR_CODES } from '../../errors';
 
 import type { ISecureStorage, SecureStorageBackend } from './types';
@@ -7,6 +20,11 @@ import type { ISecureStorage, SecureStorageBackend } from './types';
 const SERVICE_NAME = 'onekey-cli';
 export const NAPI_RS_KEYRING_ACCOUNT_PREFIX = 'napi-rs/';
 const NAPI_RS_KEYRING_PACKAGE_NAME = '@napi-rs/keyring';
+const NAPI_RS_KEYRING_SEA_ASSET_KEY = 'onekey-cli/keyring-native.node';
+const requireFromCliRuntime = createRequire(
+  process.env.ONEKEY_CLI_STANDALONE === '1' ? process.execPath : __filename,
+);
+const requireFromSourceFile = createRequire(__filename);
 
 type IKeyringEntry = {
   getPassword(): Promise<string | null | undefined>;
@@ -17,6 +35,8 @@ type IKeyringEntry = {
 type IKeyringModule = {
   AsyncEntry: new (service: string, account: string) => IKeyringEntry;
 };
+
+type ISeaModule = typeof import('node:sea');
 
 export type IKeyringModuleLoader = () => Promise<IKeyringModule>;
 
@@ -43,8 +63,94 @@ export function isNapiRsKeyringSupportedCliRuntime(
   );
 }
 
+function loadSeaModule(): ISeaModule | null {
+  try {
+    return requireFromSourceFile('node:sea') as ISeaModule;
+  } catch {
+    return null;
+  }
+}
+
+function toBuffer(arrayBuffer: ArrayBuffer): Buffer {
+  return Buffer.from(new Uint8Array(arrayBuffer));
+}
+
+function getSha256(buffer: Buffer): string {
+  return createHash('sha256').update(buffer).digest('hex');
+}
+
+function removeFileIfExists(filePath: string): void {
+  try {
+    unlinkSync(filePath);
+  } catch (error) {
+    const err = error as Error & { code?: string };
+    if (err.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
+function writeFileAtomically(filePath: string, contents: Buffer): void {
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    writeFileSync(tempPath, contents, { mode: 0o755 });
+    renameSync(tempPath, filePath);
+  } catch (error) {
+    removeFileIfExists(tempPath);
+    throw error;
+  }
+}
+
+function ensureExtractedSeaAsset(filePath: string, contents: Buffer): void {
+  const expectedHash = getSha256(contents);
+
+  if (existsSync(filePath)) {
+    const actualHash = getSha256(readFileSync(filePath));
+    if (actualHash === expectedHash) {
+      return;
+    }
+  }
+
+  mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
+  writeFileAtomically(filePath, contents);
+}
+
+function getStandaloneKeyringNativeBindingPath(): string | null {
+  if (
+    process.env.ONEKEY_CLI_STANDALONE !== '1' ||
+    process.platform !== 'darwin'
+  ) {
+    return null;
+  }
+
+  const sea = loadSeaModule();
+  if (!sea?.isSea()) {
+    return null;
+  }
+
+  const nativeBinding = toBuffer(
+    sea.getRawAsset(NAPI_RS_KEYRING_SEA_ASSET_KEY),
+  );
+  const nativeBindingHash = getSha256(nativeBinding);
+  const nativeBindingPath = join(
+    tmpdir(),
+    'onekey-cli',
+    'sea-assets',
+    nativeBindingHash,
+    `keyring.darwin-${process.arch}.node`,
+  );
+
+  ensureExtractedSeaAsset(nativeBindingPath, nativeBinding);
+  return nativeBindingPath;
+}
+
 async function defaultKeyringModuleLoader(): Promise<IKeyringModule> {
-  const keyringModule = await import(NAPI_RS_KEYRING_PACKAGE_NAME);
+  const standaloneNativeBindingPath = getStandaloneKeyringNativeBindingPath();
+  if (standaloneNativeBindingPath) {
+    return requireFromCliRuntime(standaloneNativeBindingPath) as IKeyringModule;
+  }
+
+  const keyringModule = requireFromCliRuntime(NAPI_RS_KEYRING_PACKAGE_NAME);
   return keyringModule as IKeyringModule;
 }
 
@@ -184,6 +290,7 @@ export class NapiRsKeyringSecureStorage implements ISecureStorage {
 
     if (
       lowerErrorText.includes('cannot find native binding') ||
+      lowerErrorText.includes('cannot find module') ||
       lowerErrorText.includes('unsupported os') ||
       lowerErrorText.includes('unsupported architecture')
     ) {

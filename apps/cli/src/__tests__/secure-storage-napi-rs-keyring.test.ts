@@ -86,6 +86,23 @@ describe('NapiRsKeyringSecureStorage', () => {
     await expect(storage.get('bot-wallet/master-key')).resolves.toBeNull();
   });
 
+  it('maps missing native keyring packages to backend unavailable', async () => {
+    const moduleError = Object.assign(
+      new Error("Cannot find module '@napi-rs/keyring'"),
+      { code: 'MODULE_NOT_FOUND' },
+    );
+    const storage = new NapiRsKeyringSecureStorage({
+      keyringModuleLoader: async () => {
+        throw moduleError;
+      },
+      platform: 'darwin',
+    });
+
+    await expect(storage.get('bot-wallet/master-key')).rejects.toMatchObject({
+      code: 'SEC_STORAGE_BACKEND_UNAVAILABLE',
+    });
+  });
+
   it.each([
     ['darwin' as NodeJS.Platform, 'macos-keychain'],
     ['linux' as NodeJS.Platform, 'linux-secret-service'],
