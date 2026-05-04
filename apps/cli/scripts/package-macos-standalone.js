@@ -22,6 +22,8 @@ const timestamp =
 const hardenedRuntime = process.env.CLI_MACOS_HARDENED_RUNTIME === 'true';
 const seaSentinel = 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
 const keyringSeaAssetKey = 'onekey-cli/keyring-native.node';
+const nodeOptionsEnvKey = Buffer.from('NODE_OPTIONS');
+const disabledNodeOptionsEnvKey = Buffer.from('NO=E_OPTIONS');
 
 function run(command, args, options = {}) {
   console.log(`$ ${[command, ...args].join(' ')}`);
@@ -137,6 +139,37 @@ function signFile(filePath) {
   run('codesign', args, { cwd: repoRoot });
 }
 
+function disableNodeOptionsEnv(filePath) {
+  if (nodeOptionsEnvKey.length !== disabledNodeOptionsEnvKey.length) {
+    throw new PackageMacOSStandaloneError(
+      'NODE_OPTIONS patch key lengths must match.',
+    );
+  }
+
+  const contents = fs.readFileSync(filePath);
+  let replacements = 0;
+  let offset = contents.indexOf(nodeOptionsEnvKey);
+  while (offset !== -1) {
+    disabledNodeOptionsEnvKey.copy(contents, offset);
+    replacements += 1;
+    offset = contents.indexOf(
+      nodeOptionsEnvKey,
+      offset + disabledNodeOptionsEnvKey.length,
+    );
+  }
+
+  if (replacements === 0) {
+    throw new PackageMacOSStandaloneError(
+      `Could not find NODE_OPTIONS references in ${filePath}.`,
+    );
+  }
+
+  fs.writeFileSync(filePath, contents);
+  console.log(
+    `Patched ${replacements} NODE_OPTIONS runtime reference(s) in ${filePath}.`,
+  );
+}
+
 function removeSignature(filePath) {
   try {
     execFileSync('codesign', ['--remove-signature', filePath], {
@@ -151,8 +184,15 @@ function removeSignature(filePath) {
 function prepareSeaEntry(distCliPath, seaEntryPath) {
   const cliBundle = stripShebang(fs.readFileSync(distCliPath, 'utf8'));
   const bootstrap = [
-    "const { createRequire: __onekeyCreateRequire } = require('node:module');",
-    'require = __onekeyCreateRequire(process.execPath);',
+    "const { realpathSync: __onekeyRealpathSync } = require('node:fs');",
+    "const __onekeyModule = require('node:module');",
+    "delete process.env['NODE' + '_OPTIONS'];",
+    'delete process.env.NODE_PATH;',
+    '__onekeyModule.globalPaths.length = 0;',
+    'const __onekeyRuntimeRequirePath = (() => {',
+    '  try { return __onekeyRealpathSync(process.execPath); } catch { return process.execPath; }',
+    '})();',
+    'require = __onekeyModule.createRequire(__onekeyRuntimeRequirePath);',
     'process.noDeprecation = true;',
     "process.env.ONEKEY_CLI_STANDALONE = '1';",
     '',
@@ -194,6 +234,7 @@ function buildStandaloneBinary({ buildDir, executablePath }) {
       cwd: cliRoot,
     });
     fs.chmodSync(executablePath, 0o755);
+    disableNodeOptionsEnv(executablePath);
     signFile(executablePath);
     run('codesign', ['--verify', '--verbose=2', executablePath], {
       cwd: repoRoot,
@@ -235,6 +276,7 @@ function buildStandaloneBinary({ buildDir, executablePath }) {
     { cwd: cliRoot },
   );
 
+  disableNodeOptionsEnv(executablePath);
   signFile(executablePath);
   run('codesign', ['--verify', '--verbose=2', executablePath], {
     cwd: repoRoot,

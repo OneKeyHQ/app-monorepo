@@ -107,6 +107,7 @@ jobs:
 
       - name: Verify standalone CLI
         run: |
+          set -euo pipefail
           BIN="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/onekey"
           TARBALL_DIR="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/npm-tarball"
           file "$BIN"
@@ -117,6 +118,18 @@ jobs:
           fi
           "$BIN" --version
           "$BIN" --help
+          if grep -a -q "NODE_OPTIONS" "$BIN"; then
+            echo "::error::Standalone binary still contains NODE_OPTIONS references."
+            exit 1
+          fi
+          NODE_OPTIONS="--require=$RUNNER_TEMP/onekey-missing-preload.cjs" "$BIN" --version
+          INSPECT_LOG="$RUNNER_TEMP/onekey-node-options-inspect.log"
+          NODE_OPTIONS="--inspect=0" "$BIN" --version > "$INSPECT_LOG" 2>&1
+          cat "$INSPECT_LOG"
+          if grep -E "Debugger listening|Starting inspector" "$INSPECT_LOG"; then
+            echo "::error::Standalone binary consumed NODE_OPTIONS inspector flags."
+            exit 1
+          fi
           cp "$BIN" "$RUNNER_TEMP/onekey-standalone-test"
           HOME="$RUNNER_TEMP/onekey-cli-home" "$RUNNER_TEMP/onekey-standalone-test" auth status --json
           codesign --verify --verbose=2 "$BIN"

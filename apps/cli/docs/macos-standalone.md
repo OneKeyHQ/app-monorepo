@@ -21,6 +21,12 @@ the system temp directory, and loads that native binding directly. This keeps
 Keychain access working when the binary is copied outside the repository or
 installed as the npm package.
 
+The packaging step also patches the final Node SEA executable so it does not
+consume `NODE_OPTIONS`. This prevents environment-level preloads or inspector
+flags from running before the CLI code under the OneKey CLI Keychain identity.
+The CLI bootstrap additionally clears `NODE_OPTIONS`, `NODE_PATH`, and Node
+global module search paths before bundled code runs.
+
 ## Build
 
 ```bash
@@ -79,6 +85,11 @@ npm install -g @onekeyfe/cli-darwin-arm64@next
 
 This standalone package is opt-in. The existing `@onekeyfe/cli` package keeps
 its current Node.js entry until we explicitly switch the default distribution.
+
+The single copied binary embeds the Keychain native binding. Hardware-wallet
+commands still depend on the HD SDK and USB packages declared by the npm package,
+so use the npm-installed package for hardware-wallet flows rather than copying
+only the binary to an arbitrary directory.
 
 ## Notarization Policy
 
