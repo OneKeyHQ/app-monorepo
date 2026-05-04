@@ -48,6 +48,12 @@ jobs:
           cache: yarn
           registry-url: https://registry.npmjs.org
 
+      - name: Verify Node SEA runtime
+        run: |
+          node -p "process.version + ' ' + process.platform + ' ' + process.arch"
+          test "$(node -p "process.arch")" = "$CLI_MACOS_ARCH"
+          node -e "const fs=require('node:fs');const fuse='NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';if(!fs.readFileSync(process.execPath).includes(Buffer.from(fuse))){throw new Error('Node binary does not contain the SEA fuse: '+process.execPath)}"
+
       - name: Install dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -102,11 +108,19 @@ jobs:
       - name: Verify standalone CLI
         run: |
           BIN="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/onekey"
+          TARBALL_DIR="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/npm-tarball"
+          file "$BIN"
+          if [ "$CLI_MACOS_ARCH" = "arm64" ]; then
+            file "$BIN" | grep -q "arm64"
+          else
+            file "$BIN" | grep -q "x86_64"
+          fi
           "$BIN" --version
           "$BIN" --help
           cp "$BIN" "$RUNNER_TEMP/onekey-standalone-test"
           HOME="$RUNNER_TEMP/onekey-cli-home" "$RUNNER_TEMP/onekey-standalone-test" auth status --json
           codesign --verify --verbose=2 "$BIN"
+          ls "$TARBALL_DIR"/*.tgz
 
       - name: Upload standalone package
         uses: actions/upload-artifact@v4
