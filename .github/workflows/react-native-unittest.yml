@@ -188,13 +188,35 @@ jobs:
       - name: Start logcat capture
         run: adb logcat -v time > /tmp/logcat.txt 2>&1 &
 
-      - name: Run Harness Tests (Android)
-        timeout-minutes: 60
+      # Harness tests are split into 3 shards run in separate Node processes.
+      # The harness keeps Metro in-process, and each test bundle creates a
+      # delta-calculator with full module graph (~150 MB each). Across 53+
+      # tests this exhausts the 8 GiB V8 heap. Sharding bounds heap growth
+      # by giving each shard a fresh Node + Metro + bridge.
+      # The patched @react-native-harness/cli accepts jest's --shard=k/n.
+      - name: Run Harness Tests (Android, shard 1/3)
+        timeout-minutes: 25
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
         working-directory: apps/mobile
-        run: yarn harness:test:android
+        run: yarn harness:test:android --shard=1/3
+
+      - name: Run Harness Tests (Android, shard 2/3)
+        timeout-minutes: 25
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HARNESS_ANDROID_AVD: test_avd
+        working-directory: apps/mobile
+        run: yarn harness:test:android --shard=2/3
+
+      - name: Run Harness Tests (Android, shard 3/3)
+        timeout-minutes: 25
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HARNESS_ANDROID_AVD: test_avd
+        working-directory: apps/mobile
+        run: yarn harness:test:android --shard=3/3
 
       - name: Dump logcat on failure
         if: failure()

@@ -1,0 +1,25 @@
+diff --git a/node_modules/@react-native-harness/cli/dist/index.js b/node_modules/@react-native-harness/cli/dist/index.js
+index 048172d..bba803e 100644
+--- a/node_modules/@react-native-harness/cli/dist/index.js
++++ b/node_modules/@react-native-harness/cli/dist/index.js
+@@ -37,7 +37,9 @@ const patchYargsOptions = () => {
+     delete yargsOptions.updateSnapshot;
+     delete yargsOptions.workerThreads;
+     delete yargsOptions.snapshotSerializers;
+-    delete yargsOptions.shard;
++    // Keep yargsOptions.shard so jest's --shard=k/n flag is accepted.
++    // Used by CI to split harness tests across multiple Node processes,
++    // each with a fresh Metro bundle cache, to bound heap growth.
+     delete yargsOptions.runInBand;
+     delete yargsOptions.resolver;
+     delete yargsOptions.resetMocks;
+@@ -60,7 +62,8 @@ const patchYargsOptions = () => {
+     delete yargsOptions.haste;
+     delete yargsOptions.automock;
+     delete yargsOptions.coverageProvider;
+-    delete yargsOptions.logHeapUsage;
++    // Keep yargsOptions.logHeapUsage so --logHeapUsage is available for
++    // diagnosing harness memory growth.
+ };
+ if (process.argv.includes('init')) {
+     runInitWizard();
