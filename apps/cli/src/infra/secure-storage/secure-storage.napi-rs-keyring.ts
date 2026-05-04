@@ -5,6 +5,7 @@ import { AppError, ERROR_CODES } from '../../errors';
 import type { ISecureStorage, SecureStorageBackend } from './types';
 
 const SERVICE_NAME = 'onekey-cli';
+export const NAPI_RS_KEYRING_ACCOUNT_PREFIX = 'napi-rs/';
 const NAPI_RS_KEYRING_PACKAGE_NAME = '@napi-rs/keyring';
 
 type IKeyringEntry = {
@@ -127,7 +128,10 @@ export class NapiRsKeyringSecureStorage implements ISecureStorage {
 
   private async createEntry(key: string): Promise<IKeyringEntry> {
     const { AsyncEntry } = await this.keyringModuleLoader();
-    return new AsyncEntry(SERVICE_NAME, key);
+    return new AsyncEntry(
+      SERVICE_NAME,
+      `${NAPI_RS_KEYRING_ACCOUNT_PREFIX}${key}`,
+    );
   }
 
   private isItemNotFound(error: unknown): boolean {

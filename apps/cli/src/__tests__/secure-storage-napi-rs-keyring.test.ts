@@ -2,6 +2,7 @@
 
 import { AppError } from '../errors';
 import {
+  NAPI_RS_KEYRING_ACCOUNT_PREFIX,
   NapiRsKeyringSecureStorage,
   isNapiRsKeyringSupportedCliRuntime,
 } from '../infra/secure-storage/secure-storage.napi-rs-keyring';
@@ -35,7 +36,9 @@ describe('NapiRsKeyringSecureStorage', () => {
       keyringModuleLoader: async () =>
         createTestKeyringModule((service, account) => {
           expect(service).toBe('onekey-cli');
-          expect(account).toBe('bot-wallet/master-key');
+          expect(account).toBe(
+            `${NAPI_RS_KEYRING_ACCOUNT_PREFIX}bot-wallet/master-key`,
+          );
 
           return {
             getPassword: jest.fn(),
