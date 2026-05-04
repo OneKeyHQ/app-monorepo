@@ -46,6 +46,10 @@ const ClipboardPermissionModal = LazyLoadPage(
   () => import('../pages/ClipboardPermissionModal'),
 );
 
+const DeriveContextHashModal = LazyLoadPage(
+  () => import('../pages/DeriveContextHashModal'),
+);
+
 // Custom Network
 const SettingCustomNetworkModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNetwork'),
@@ -112,5 +116,9 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.ClipboardPermissionModal,
     component: ClipboardPermissionModal,
+  },
+  {
+    name: EDAppConnectionModal.DeriveContextHashModal,
+    component: DeriveContextHashModal,
   },
 ];

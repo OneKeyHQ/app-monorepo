@@ -31,6 +31,8 @@ export enum EDAppConnectionModal {
   RiskWhiteListModal = 'RiskWhiteListModal',
   // Clipboard Permission
   ClipboardPermissionModal = 'ClipboardPermissionModal',
+  // Derive Context Hash (BTC) — experimental
+  DeriveContextHashModal = 'DeriveContextHashModal',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -82,5 +84,15 @@ export type IDAppConnectionModalParamList = {
   [EDAppConnectionModal.ClipboardPermissionModal]: {
     clipboardType: 'read' | 'write';
     textNonce?: string;
+  };
+  // Derive Context Hash (BTC) — experimental
+  // appName/context are NOT in route params — they're fetched from the
+  // background by `payloadNonce` to avoid being logged via dappOpenModal /
+  // console.log(modalParams). See ServiceDApp.openDeriveContextHashModal.
+  [EDAppConnectionModal.DeriveContextHashModal]: {
+    walletId: string;
+    accountId: string;
+    networkId: string;
+    payloadNonce: string;
   };
 };

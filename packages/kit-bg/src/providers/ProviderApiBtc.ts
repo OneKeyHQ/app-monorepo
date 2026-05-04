@@ -7,6 +7,10 @@ import { isEmpty, isNil } from 'lodash';
 
 import { getInputsToSignFromPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
+  parseHexContext as coreParseHexContext,
+  validateAppName as coreValidateAppName,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/deriveContextHash';
+import {
   decodedPsbt as decodedPsbtFN,
   formatPsbtHex,
   toPsbtNetwork,
@@ -34,6 +38,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   BtcDappUniSetChainTypes,
   EBtcDappUniSetChainTypeEnum,
+  type IDeriveContextHashParams,
   type IPushPsbtParams,
   type ISendBitcoinParams,
   type ISignMessageParams,
@@ -933,6 +938,91 @@ class ProviderApiBtc extends ProviderApiBase {
     }
 
     return result;
+  }
+
+  /**
+   * @experimental Derive a deterministic 32-byte value from the wallet's key
+   * material via HKDF-SHA-256. See `core/src/chains/btc/sdkBtc/deriveContextHash.ts`
+   * for the algorithm and validation rules.
+   *
+   * Validation here mirrors the core validators word-for-word so invalid
+   * params fail fast — before showing any approval UI to the user.
+   */
+  @providerApiMethod()
+  public async deriveContextHash(
+    request: IJsBridgeMessagePayload,
+    params: IDeriveContextHashParams,
+  ): Promise<string> {
+    // Build a sanitized request whose `data.params` no longer contains the
+    // dApp-supplied `appName`/`context`. This single sanitized object is used
+    // for every downstream call that touches the logging or modal-routing
+    // pipeline (`dappRequest` log, `openModal` → `dappOpenModal` log,
+    // `$sourceInfo.data` JSON in route query, native console.log of
+    // modalParams). The original `request` is still used for `getAccountsInfo`
+    // since auth is scoped to origin/scope, not params.
+    const sanitizedRequest = {
+      ...request,
+      data: {
+        ...(request.data as Record<string, unknown>),
+        params: { appName: '<redacted>', context: '<redacted>' },
+      },
+    } as IJsBridgeMessagePayload;
+    defaultLogger.discovery.dapp.dappRequest({ request: sanitizedRequest });
+    await this.checkIfEnableConnect();
+
+    if (!params || typeof params !== 'object') {
+      throw web3Errors.rpc.invalidParams('params object is required');
+    }
+    const { appName, context } = params;
+
+    // Validate via the canonical core validators so error messages and
+    // limits are byte-for-byte identical to the eventual derivation step.
+    // Wrapped into web3Errors.rpc.invalidParams for JSON-RPC-style failures.
+    try {
+      coreValidateAppName(appName);
+      // We discard the return value here — bytes are re-parsed inside the
+      // keyring via parseHexContext(). This call is for validation only.
+      coreParseHexContext(context);
+    } catch (e) {
+      throw web3Errors.rpc.invalidParams(
+        e instanceof Error ? e.message : 'invalid params',
+      );
+    }
+
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, walletId } = {} } =
+      accountsInfo[0];
+
+    if (!accountId || !networkId || !walletId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: 'Can not get account',
+      });
+    }
+
+    // Positive whitelist: only HD (mnemonic) and imported software keyrings
+    // are supported. Hardware / QR / watching / external accounts cannot
+    // perform HKDF locally and would require firmware-side support that is
+    // not yet shipped.
+    const isHdOrImported =
+      accountUtils.isHdAccount({ accountId }) ||
+      accountUtils.isImportedAccount({ accountId });
+    if (!isHdOrImported) {
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message:
+          'deriveContextHash is only supported on HD (mnemonic) and imported software accounts',
+      });
+    }
+
+    return this.backgroundApi.serviceDApp.openDeriveContextHashModal({
+      request: sanitizedRequest,
+      walletId,
+      accountId,
+      networkId,
+      appName,
+      context,
+    });
   }
 
   @providerApiMethod()

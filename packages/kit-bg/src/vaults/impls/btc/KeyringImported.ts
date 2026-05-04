@@ -49,4 +49,12 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<ISignedMessagePro> {
     return this.baseSignMessageBtc(params);
   }
+
+  override async deriveContextHash(params: {
+    password: string;
+    appName: string;
+    context: string;
+  }): Promise<string> {
+    return this.baseDeriveContextHashBtc(params);
+  }
 }

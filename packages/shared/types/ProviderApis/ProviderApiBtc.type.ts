@@ -108,3 +108,14 @@ export type ISignPsbtsParams = {
 export type IPushPsbtParams = {
   psbtHex: string;
 };
+
+/**
+ * @experimental
+ * Params for `deriveContextHash` — see
+ * `core/src/chains/btc/sdkBtc/deriveContextHash.ts` for the algorithm and
+ * validation rules.
+ */
+export type IDeriveContextHashParams = {
+  appName: string;
+  context: string;
+};
