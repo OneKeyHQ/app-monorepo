@@ -34,15 +34,18 @@ import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiqu
 import {
   MAX_DECIMALS_PERP,
   formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
   getValidPriceDecimals,
   mapTriggerOrderType,
   parseSignatureToRSV,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { SPOT_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IApiErrorResponse,
   IApiRequestResult,
   ICancelResponse,
   IHex,
+  IModifyResponse,
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
@@ -52,11 +55,13 @@ import type {
   IBuilderFeeRequest,
   ICancelOrderParams,
   ILeverageUpdateRequest,
+  IModifyOrderParams,
   IOrderCloseParams,
   IOrderOpenParams,
   IPlaceOrderParams,
   IPositionTpslOrderParams,
   ISetReferrerRequest,
+  ISpotOrderParams,
   ITriggerOrderParams,
   IUpdateIsolatedMarginRequest,
   IWithdrawParams,
@@ -80,6 +85,21 @@ interface IOrderLogOptions {
   action?: IHyperLiquidOrderAction;
   originalParams?: unknown;
   extra?: Record<string, unknown>;
+}
+
+interface IOrderLogContext {
+  accountAddress: string | null;
+  exchangeAccountAddress: string | null;
+}
+
+// TV lowercases everything; HL universe keys perps as `BTC`, spot as `@N`,
+// and sub-DEX as `xyz:<TICKER>` (lowercase prefix, uppercase ticker).
+function normalizePerpsCoin(coin: string): string {
+  if (!coin) return coin;
+  if (coin.startsWith('@')) return coin;
+  const xyzMatch = coin.match(/^xyz:(.*)$/i);
+  if (xyzMatch) return `xyz:${xyzMatch[1].toUpperCase()}`;
+  return coin.toUpperCase();
 }
 
 @backgroundClass()
@@ -137,6 +157,52 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       accountAddress: activeAccount?.accountAddress ?? null,
       exchangeAccountAddress: this._account,
     };
+  }
+
+  private _getOrderOpenFirstTimeKey(context: IOrderLogContext) {
+    return (
+      context.accountAddress ??
+      context.exchangeAccountAddress ??
+      ''
+    ).toLowerCase();
+  }
+
+  private async _resolveOrderOpenIsFirstTime(
+    options: IOrderLogOptions,
+    context: IOrderLogContext,
+  ) {
+    if (options.action !== 'orderOpen') {
+      return undefined;
+    }
+    try {
+      const key = this._getOrderOpenFirstTimeKey(context);
+      if (!key) {
+        return true;
+      }
+      return await this.backgroundApi.simpleDb.perp.isFirstPerpOrderOpen(key);
+    } catch (error) {
+      console.error(error);
+      return undefined;
+    }
+  }
+
+  private async _markOrderOpenSucceeded(
+    options: IOrderLogOptions,
+    context: IOrderLogContext,
+    isFirstTime: boolean | undefined,
+  ) {
+    if (options.action !== 'orderOpen' || !isFirstTime) {
+      return;
+    }
+    const key = this._getOrderOpenFirstTimeKey(context);
+    if (!key) {
+      return;
+    }
+    try {
+      await this.backgroundApi.simpleDb.perp.markPerpOrderOpen(key);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   private _composeOrderLogExtra(options: IOrderLogOptions) {
@@ -208,35 +274,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       );
     }
   }
-
-  // @backgroundMethod()
-  // async getOnekeyWalletClient(params: {
-  //   userAddress: IHex;
-  //   userAccountId?: string;
-  // }): Promise<ExchangeClient> {
-  //   const transport = new HttpTransport();
-
-  //   let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
-
-  //   if (params.userAccountId) {
-  //     wallet =
-  //       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
-  //         userAccountId: params.userAccountId,
-  //       });
-  //   } else {
-  //     const proxyWallet =
-  //       await this.backgroundApi.serviceHyperliquidWallet.getProxyWallet({
-  //         userAddress: params.userAddress,
-  //       });
-  //     wallet = proxyWallet.wallet;
-  //   }
-
-  //   return new ExchangeClient({
-  //     transport,
-  //     wallet,
-  //     signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
-  //   });
-  // }
 
   /**
    * Check if agent is ready based on local status only
@@ -572,6 +609,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
     const context = await this._buildLogContext();
     const extra = this._composeOrderLogExtra(options);
+    const isFirstTime = await this._resolveOrderOpenIsFirstTime(
+      options,
+      context,
+    );
+    const firstTimePayload =
+      typeof isFirstTime === 'boolean' ? { isFirstTime } : {};
     try {
       const response = await convertHyperLiquidResponse(() =>
         client.order({
@@ -585,6 +628,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         action: options.action,
         payload: {
           ...context,
+          ...firstTimePayload,
           request: requestPayload,
           response,
           extra,
@@ -594,6 +638,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       void this.backgroundApi.serviceRookieGuide.recordTaskCompleted(
         ERookieTaskType.PERPS,
       );
+      await this._markOrderOpenSucceeded(options, context, isFirstTime);
       return response;
     } catch (error) {
       dispatchHyperLiquidOrderLog({
@@ -601,6 +646,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         action: options.action,
         payload: {
           ...context,
+          ...firstTimePayload,
           request: requestPayload,
           response: extractHyperLiquidErrorResponse<
             IOrderResponse | IApiErrorResponse
@@ -685,6 +731,76 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return response;
     } catch (error) {
       throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
+    }
+  }
+
+  private _calculateSpotSlippagePrice(params: {
+    markPrice: string;
+    isBuy: boolean;
+    slippage: number;
+    szDecimals: number;
+  }): string {
+    const price = new BigNumber(params.markPrice);
+    const slippageMultiplier = params.isBuy
+      ? new BigNumber(1).plus(params.slippage)
+      : new BigNumber(1).minus(params.slippage);
+    const adjustedPrice = price.multipliedBy(slippageMultiplier);
+    return formatSpotPriceToValid(adjustedPrice.toFixed(), params.szDecimals);
+  }
+
+  @backgroundMethod()
+  async placeSpotOrder(params: ISpotOrderParams): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
+    if (
+      typeof params.assetId !== 'number' ||
+      params.assetId < SPOT_ASSET_ID_OFFSET
+    ) {
+      throw new OneKeyLocalError(
+        `placeSpotOrder: invalid spot assetId ${params.assetId}, must be >= ${SPOT_ASSET_ID_OFFSET}`,
+      );
+    }
+    try {
+      const isMarket = params.orderType === 'market';
+
+      const price = isMarket
+        ? this._calculateSpotSlippagePrice({
+            markPrice: params.limitPx,
+            isBuy: params.isBuy,
+            slippage: params.slippage || this.slippage,
+            szDecimals: params.szDecimals || 0,
+          })
+        : params.limitPx;
+
+      const orderParams: IOrderParams = {
+        a: params.assetId,
+        b: params.isBuy,
+        p: price,
+        s: params.sz,
+        r: false,
+        t: isMarket
+          ? { limit: { tif: params.tif || 'Ioc' } }
+          : { limit: { tif: params.tif || 'Gtc' } },
+      };
+
+      const response = await this.placeOrderRaw(
+        {
+          orders: [orderParams],
+          grouping: 'na',
+        },
+        {
+          action: 'placeSpotOrder',
+          originalParams: params,
+          extra: {
+            isMarket,
+            isSpot: true,
+          },
+        },
+      );
+      return response;
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to place spot order: ${String(error)}`,
+      );
     }
   }
 
@@ -924,6 +1040,49 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  async modifyOrder(params: IModifyOrderParams): Promise<IModifyResponse> {
+    await this.checkAccountCanTrade();
+
+    const order: IOrderParams = {
+      a: params.assetId,
+      b: params.isBuy,
+      p: params.price,
+      s: params.sz,
+      r: params.reduceOnly ?? false,
+      t: params.orderType ?? { limit: { tif: 'Gtc' } },
+    };
+
+    const client = await this.getExchangeClientForTrading();
+    const requestPayload = { oid: params.oid, order };
+    const context = await this._buildLogContext();
+    const extra = { originalParams: params };
+
+    try {
+      const response = await convertHyperLiquidResponse(() =>
+        client.modify({ oid: params.oid, order }),
+      );
+      defaultLogger.perp.hyperliquid.modifyOrder({
+        ...context,
+        request: requestPayload,
+        response,
+        extra,
+      });
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.modifyOrder({
+        ...context,
+        request: requestPayload,
+        response: extractHyperLiquidErrorResponse<
+          IModifyResponse | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+        extra,
+      });
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
   async cancelOrder(cancels: ICancelOrderParams[]): Promise<ICancelResponse> {
     await this.checkAccountCanTrade();
 
@@ -962,6 +1121,86 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
       throw error;
     }
+  }
+
+  @backgroundMethod()
+  async placeLimitOrderByCoin(params: {
+    coin: string;
+    isBuy: boolean;
+    size: string;
+    price: string;
+    tif?: 'Gtc' | 'Ioc';
+    reduceOnly?: boolean;
+  }): Promise<IOrderResponse> {
+    const symbolMeta =
+      await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
+        coin: normalizePerpsCoin(params.coin),
+      });
+    if (!symbolMeta) {
+      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
+    }
+
+    if (symbolMeta.isSpot) {
+      const szDecimals = symbolMeta.spotUniverse?.baseSzDecimals ?? 0;
+      return this.placeSpotOrder({
+        assetId: symbolMeta.assetId,
+        isBuy: params.isBuy,
+        sz: params.size,
+        limitPx: formatSpotPriceToValid(params.price, szDecimals),
+        orderType: 'limit',
+        tif: params.tif ?? 'Gtc',
+        szDecimals,
+      });
+    }
+
+    return this.placeOrder({
+      assetId: symbolMeta.assetId,
+      isBuy: params.isBuy,
+      sz: params.size,
+      limitPx: formatPriceToSignificantDigits(
+        params.price,
+        symbolMeta.universe?.szDecimals,
+      ),
+      orderType: { limit: { tif: params.tif ?? 'Gtc' } },
+      reduceOnly: params.reduceOnly,
+    });
+  }
+
+  @backgroundMethod()
+  async amendOrderPriceByOid(params: {
+    coin: string;
+    oid: number;
+    newPrice: string;
+    isBuy: boolean;
+    size: string;
+    reduceOnly: boolean;
+  }): Promise<IModifyResponse> {
+    const symbolMeta =
+      await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
+        coin: normalizePerpsCoin(params.coin),
+      });
+    if (!symbolMeta) {
+      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
+    }
+
+    const formattedPrice = symbolMeta.isSpot
+      ? formatSpotPriceToValid(
+          params.newPrice,
+          symbolMeta.spotUniverse?.baseSzDecimals ?? 0,
+        )
+      : formatPriceToSignificantDigits(
+          params.newPrice,
+          symbolMeta.universe?.szDecimals,
+        );
+
+    return this.modifyOrder({
+      oid: params.oid,
+      assetId: symbolMeta.assetId,
+      isBuy: params.isBuy,
+      sz: params.size,
+      price: formattedPrice,
+      reduceOnly: params.reduceOnly,
+    });
   }
 
   @backgroundMethod()

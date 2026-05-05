@@ -24,18 +24,24 @@ export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
     return;
   }
-  init({
-    dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
-    ...buildBasicOptions({
+  const { profilesSampleRate: _profilesSampleRate, ...basicOptions } =
+    buildBasicOptions({
       onError: (errorMessage, stacktrace) => {
         appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
       },
-    }),
+    });
+
+  init({
+    dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
+    ...basicOptions,
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
     integrations: [navigationIntegration, reactNativeTracingIntegration()],
     enableAutoPerformanceTracing: true,
+    // Disable Hermes profiling on React Native. With multiple Hermes runtimes
+    // in the iOS release smoke test, native stopProfiling can throw on a
+    // background queue and crash during TurboModule error conversion.
     // Disable options that may include sensitive memory context or visual data.
     // enableNativeCrashHandling and enableNdk are kept enabled because they only
     // collect stack traces and thread stack memory (not Hermes JS

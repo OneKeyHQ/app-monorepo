@@ -2,14 +2,13 @@ import { randomUUID } from 'node:crypto';
 
 import axios from 'axios';
 
+import { version as VERSION } from '../../package.json';
 import { getHost } from '../config';
 import { AppError, ERROR_CODES } from '../errors';
 
 import type { IEndpointEnv } from '../config';
 import type { Logger } from '../utils/logger';
 import type { AxiosInstance } from 'axios';
-
-const VERSION = '0.1.0';
 
 export interface IOneKeyApiResponse<T> {
   code: number;
@@ -22,7 +21,7 @@ export class ApiClient {
 
   private logger?: Logger;
 
-  constructor(env: IEndpointEnv = 'test') {
+  constructor(env: IEndpointEnv = 'prod') {
     this.env = env;
   }
 

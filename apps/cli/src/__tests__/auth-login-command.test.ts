@@ -159,12 +159,107 @@ describe('executeAuthLoginCommand', () => {
 
     expect(output.error).toHaveBeenCalledWith({
       code: ERROR_CODES.PARAM_MISSING_REQUIRED.code,
-      message: 'Login method required. Use --app-transfer.',
-      suggestion: 'Run: onekey auth login --app-transfer',
+      message: 'Login method required. Use --app-transfer or --hardware.',
+      suggestion: 'Run: onekey auth login --app-transfer | --hardware',
     });
     expect(authManager.getStatus).not.toHaveBeenCalled();
     expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(ERROR_CODES.PARAM_MISSING_REQUIRED.exitCode);
+    expect(exit).not.toHaveBeenCalled();
+  });
+
+  it('rejects combining --app-transfer and --hardware', async () => {
+    const authManager = {
+      getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
+      startAppTransferLogin: jest.fn(async () => makePairingResult()),
+    };
+    const runHardwareLogin = jest.fn(async () => undefined);
+
+    await executeAuthLoginCommand({
+      output: output as OutputFormatter,
+      appTransferFlag: true,
+      hardwareFlag: true,
+      isHumanMode: false,
+      isTTY: false,
+      authManager,
+      runHardwareLogin,
+      exit,
+    });
+
+    expect(output.error).toHaveBeenCalledWith({
+      code: ERROR_CODES.PARAM_MISSING_REQUIRED.code,
+      message: '--app-transfer and --hardware are mutually exclusive.',
+      suggestion: 'Pass only one of the two flags.',
+    });
+    expect(runHardwareLogin).not.toHaveBeenCalled();
+    expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(ERROR_CODES.PARAM_MISSING_REQUIRED.exitCode);
+    expect(exit).not.toHaveBeenCalled();
+  });
+
+  it('routes --hardware to the hardware login flow', async () => {
+    const authManager = {
+      getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
+      startAppTransferLogin: jest.fn(async () => makePairingResult()),
+    };
+    type IHardwareLoginDeps = {
+      output: unknown;
+      isTTY: boolean;
+      isHumanMode: boolean;
+      getStatus: () => Promise<ResolvedAuthSession>;
+    };
+    const runHardwareLogin: jest.Mock<
+      Promise<void>,
+      [IHardwareLoginDeps]
+    > = jest.fn(async (_deps: IHardwareLoginDeps) => undefined);
+
+    await executeAuthLoginCommand({
+      output: output as OutputFormatter,
+      hardwareFlag: true,
+      isHumanMode: true,
+      isTTY: true,
+      authManager,
+      runHardwareLogin,
+      exit,
+    });
+
+    expect(runHardwareLogin).toHaveBeenCalledTimes(1);
+    const deps = runHardwareLogin.mock.calls[0][0];
+    expect(deps.isTTY).toBe(true);
+    expect(deps.isHumanMode).toBe(true);
+    expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
+    expect(exit).not.toHaveBeenCalled();
+  });
+
+  it('surfaces hardware login errors through the output formatter', async () => {
+    const authManager = {
+      getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
+      startAppTransferLogin: jest.fn(async () => makePairingResult()),
+    };
+    const runHardwareLogin = jest.fn(async () => {
+      throw new AppError(
+        ERROR_CODES.AUTH_WALLET_EXISTS.code,
+        'Wallet already exists. Log out before importing another wallet.',
+        'Run: onekey auth logout',
+      );
+    });
+
+    await executeAuthLoginCommand({
+      output: output as OutputFormatter,
+      hardwareFlag: true,
+      isHumanMode: true,
+      isTTY: true,
+      authManager,
+      runHardwareLogin,
+      exit,
+    });
+
+    expect(output.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: ERROR_CODES.AUTH_WALLET_EXISTS.code,
+      }),
+    );
+    expect(process.exitCode).toBe(ERROR_CODES.AUTH_WALLET_EXISTS.exitCode);
     expect(exit).not.toHaveBeenCalled();
   });
 

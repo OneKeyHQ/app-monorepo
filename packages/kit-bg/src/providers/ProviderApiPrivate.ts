@@ -8,6 +8,10 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  DOWNLOAD_URL,
+  getOneKeyWebUrl,
+} from '@onekeyhq/shared/src/config/appConfig';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventBusPayloadShowToast } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -34,12 +38,14 @@ import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 import type {
   IRookieGuideInfo,
   IRookieShareData,
 } from '@onekeyhq/shared/types/rookieGuide';
 
 import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -627,6 +633,13 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
     const bg = this.backgroundApi as unknown as BackgroundApiBase;
 
+    defaultLogger.app.webembed.callWebEmbedApiProxyEntry({
+      module: data?.module || '',
+      method: data?.method || '',
+      isWebEmbedApiReady: !!this.isWebEmbedApiReady,
+      hasWebEmbedBridge: !!bg?.webEmbedBridge,
+    });
+
     await waitForDataLoaded({
       data: () => this.isWebEmbedApiReady && Boolean(bg?.webEmbedBridge),
       logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${JSON.stringify({
@@ -644,6 +657,11 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
 
     const webviewOrigin = bg?.webEmbedBridge?.remoteInfo?.origin || '';
+    defaultLogger.app.webembed.callWebEmbedApiProxyBridgeReady({
+      module: data?.module || '',
+      method: data?.method || '',
+      origin: webviewOrigin,
+    });
     if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
       throw new OneKeyLocalError(
         `callWebEmbedApiProxy not allowed origin: ${
@@ -927,11 +945,12 @@ class ProviderApiPrivate extends ProviderApiBase {
           title: 'How to deposit? Your first step on-chain',
           subtitle: 'Every step brings you closer to Web3',
           footerText: 'Open source and easy to use from day one.',
-          referralCode: 'ABC123',
-          referralUrl: 'https://web.onekey.so/learning?ref=ABC123',
         }
       }
     });
+    Note: referralCode and referralUrl are injected by the App from the
+    logged-in user's primary referral code; any values passed from H5 are
+    ignored.
   */
   @providerApiMethod()
   async wallet_showRookieShare(
@@ -944,7 +963,31 @@ class ProviderApiPrivate extends ProviderApiBase {
         'Invalid share data: imageUrl and title are required',
       );
     }
-    appEventBus.emit(EAppEventBusNames.ShowRookieShare, { data });
+
+    const [isLoggedIn, devSettings] = await Promise.all([
+      this.backgroundApi.servicePrime.isLoggedIn().catch(() => false),
+      devSettingsPersistAtom.get(),
+    ]);
+    const myReferralCode = isLoggedIn
+      ? await this.backgroundApi.serviceReferralCode
+          .getMyReferralCode()
+          .catch(() => '')
+      : '';
+    const env: IEndpointEnv =
+      devSettings.enabled && devSettings.settings?.enableTestEndpoint
+        ? 'test'
+        : 'prod';
+    const referralHost = getOneKeyWebUrl(env);
+
+    appEventBus.emit(EAppEventBusNames.ShowRookieShare, {
+      data: {
+        ...data,
+        referralCode: myReferralCode || undefined,
+        referralUrl: myReferralCode
+          ? `${referralHost}/r/${encodeURIComponent(myReferralCode)}/app`
+          : DOWNLOAD_URL,
+      },
+    });
     return { success: true };
   }
 

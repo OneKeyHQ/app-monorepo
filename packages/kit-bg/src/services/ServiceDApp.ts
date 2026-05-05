@@ -219,7 +219,7 @@ class ServiceDApp extends ServiceBase {
         });
         this.existingWindowId = extensionWindow.id;
       }
-    } else {
+    } else if (appGlobals.$navigationRef?.current) {
       const doOpenModal = () =>
         appGlobals.$navigationRef.current?.navigate(
           modalParams.screen,
@@ -228,6 +228,13 @@ class ServiceDApp extends ServiceBase {
       console.log('modalParams: ', modalParams);
       // TODO remove timeout after dapp request queue implemented.
       doOpenModal();
+    } else {
+      // Background thread: no navigation ref available.
+      // Relay navigation to main thread via app event bus.
+      appEventBus.emit(EAppEventBusNames.NavigateModalFromBackgroundThread, {
+        screen: modalParams.screen,
+        params: modalParams.params,
+      });
     }
   };
 
@@ -1350,6 +1357,19 @@ class ServiceDApp extends ServiceBase {
       isWebEmbedApiReady: privateProvider?.isWebEmbedApiReady,
     });
     return Promise.resolve(privateProvider?.isWebEmbedApiReady);
+  }
+
+  // Flip BG's canonical `isWebEmbedApiReady` back to false when the WebView
+  // host tears down. Without this, the flag stays sticky-true from the first
+  // mount, and `checkBackgroundWebEmbedReady` on the main thread can promote a
+  // stale BG ready into the next mount before that page has actually replayed
+  // its `webEmbedApiReady` handshake.
+  @backgroundMethod()
+  markWebEmbedApiNotReady() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.webEmbedApiNotReady() ?? Promise.resolve();
   }
 
   @backgroundMethod()

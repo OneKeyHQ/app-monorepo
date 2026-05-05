@@ -41,77 +41,69 @@ export function FirmwareUpdateCheckList({
     [],
   );
 
-  const [checkValueList, setCheckValueList] = useState([
-    {
-      label: intl.formatMessage({
-        id: ETranslations.update_i_have_backed_up_my_recovery_phrase,
-      }),
-      emoji: '✅',
-      value: false,
-    },
-    {
-      label: intl.formatMessage({
-        id: platformEnv.isNative
-          ? ETranslations.update_device_connected_via_bluetooth
-          : ETranslations.update_device_connected_via_usb,
-      }),
-      emoji: platformEnv.isNative ? '📲' : '🔌',
-      value: false,
-    },
-    // {
-    //   label: intl.formatMessage({
-    //     id: ETranslations.update_device_fully_charged,
-    //   }),
-    //   emoji: '🔋',
-    //   value: false,
-    // },
-    ...(platformEnv.isNative
-      ? []
-      : [
-          {
-            label: intl.formatMessage({
-              id: ETranslations.update_only_one_device_connected,
-            }),
-            emoji: '📱',
-            value: false,
-          },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.update_all_other_apps_closed,
-            }),
-            emoji: '🆗',
-            value: false,
-          },
-        ]),
-  ]);
-  const onCheckChanged = useCallback(
-    (checkValue: { value: boolean }) => {
-      if (!isMountedRef.current) return;
-      checkValue.value = !checkValue.value;
-      setCheckValueList([...checkValueList]);
-    },
-    [checkValueList],
+  const checkItems = useMemo(
+    () => [
+      {
+        id: 'backup',
+        label: intl.formatMessage({
+          id: ETranslations.update_i_have_backed_up_my_recovery_phrase,
+        }),
+        emoji: '✅',
+      },
+      {
+        id: 'connection',
+        label: intl.formatMessage({
+          id: platformEnv.isNative
+            ? ETranslations.update_device_connected_via_bluetooth
+            : ETranslations.update_device_connected_via_usb,
+        }),
+        emoji: platformEnv.isNative ? '📲' : '🔌',
+      },
+      ...(platformEnv.isNative
+        ? []
+        : [
+            {
+              id: 'single-device',
+              label: intl.formatMessage({
+                id: ETranslations.update_only_one_device_connected,
+              }),
+              emoji: '📱',
+            },
+            {
+              id: 'apps-closed',
+              label: intl.formatMessage({
+                id: ETranslations.update_all_other_apps_closed,
+              }),
+              emoji: '🆗',
+            },
+          ]),
+    ],
+    [intl],
   );
+  const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
+  const onCheckChanged = useCallback((id: string) => {
+    if (!isMountedRef.current) return;
+    setCheckedMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
   const isAllChecked = useMemo(
-    () => checkValueList.every((x) => x.value),
-    [checkValueList],
+    () => checkItems.every((item) => checkedMap[item.id]),
+    [checkItems, checkedMap],
   );
 
   return (
     <Stack>
       <Stack>
-        {checkValueList.map((checkValue) => (
-          <Checkbox
-            key={checkValue.label}
-            value={checkValue.value}
-            label={
-              checkValue.value
-                ? `${checkValue.label} ${checkValue.emoji}`
-                : checkValue.label
-            }
-            onChange={() => onCheckChanged(checkValue)}
-          />
-        ))}
+        {checkItems.map((item) => {
+          const checked = !!checkedMap[item.id];
+          return (
+            <Checkbox
+              key={item.id}
+              value={checked}
+              label={checked ? `${item.label} ${item.emoji}` : item.label}
+              onChange={() => onCheckChanged(item.id)}
+            />
+          );
+        })}
       </Stack>
       <Dialog.Footer
         confirmButtonProps={{

@@ -7,6 +7,8 @@ import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils'
 import type {
   IMarginTableMap as IMarginTablesMap,
   IPerpsUniverse,
+  ISpotToken,
+  ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IHyperLiquidErrorLocaleItem,
@@ -49,6 +51,7 @@ export interface ISimpleDbPerpData {
   configVersion?: string;
   tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
   hyperliquidTermsAccepted?: boolean;
+  perpOrderOpenFlags?: Record<string, boolean>; // user address -> whether orderOpen has succeeded
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
   abstractionModeUsers?: Record<string, string>; // user address -> EHyperLiquidAbstractionMode
@@ -64,6 +67,8 @@ export interface ISimpleDbPerpData {
   perpsSharePromptShown?: boolean; // whether the once-per-app Perps share prompt has been shown
   tokenSearchAliases?: ITokenSearchAliases; // token search aliases from server
   tokenSelectorTabs?: IPerpDynamicTab[]; // dynamic token selector tabs from server
+  spotTokens?: ISpotToken[]; // all spot tokens metadata
+  spotUniverses?: ISpotUniverse[]; // spot trading pairs with resolved names
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -83,6 +88,33 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       (prevConfig): ISimpleDbPerpData => ({
         ...prevConfig,
         hyperliquidTermsAccepted: termsAccepted,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async isFirstPerpOrderOpen(userAddress: string): Promise<boolean> {
+    const key = userAddress.toLowerCase();
+    if (!key) {
+      return true;
+    }
+    const config = await this.getPerpData();
+    return !config.perpOrderOpenFlags?.[key];
+  }
+
+  @backgroundMethod()
+  async markPerpOrderOpen(userAddress: string) {
+    const key = userAddress.toLowerCase();
+    if (!key) {
+      return;
+    }
+    await this.setPerpData(
+      (prevConfig): ISimpleDbPerpData => ({
+        ...prevConfig,
+        perpOrderOpenFlags: {
+          ...prevConfig?.perpOrderOpenFlags,
+          [key]: true,
+        },
       }),
     );
   }
@@ -374,6 +406,35 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       (prev): ISimpleDbPerpData => ({
         ...prev,
         perpsSharePromptShown: shown,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getSpotMeta(): Promise<{
+    tokens: ISpotToken[];
+    universes: ISpotUniverse[];
+  }> {
+    const config = await this.getPerpData();
+    return {
+      tokens: config.spotTokens || [],
+      universes: config.spotUniverses || [],
+    };
+  }
+
+  @backgroundMethod()
+  async setSpotMeta({
+    tokens,
+    universes,
+  }: {
+    tokens: ISpotToken[];
+    universes: ISpotUniverse[];
+  }) {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        spotTokens: tokens,
+        spotUniverses: universes,
       }),
     );
   }

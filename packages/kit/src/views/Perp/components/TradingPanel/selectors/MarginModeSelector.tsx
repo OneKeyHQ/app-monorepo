@@ -40,7 +40,7 @@ const MarginModeSelector = ({
 
   const handlePress = () => {
     if (disabled) return;
-    showMarginModeDialog(selectedSymbol?.coin, dialog);
+    showMarginModeDialog(selectedSymbol?.coin, intl, dialog);
   };
 
   return (

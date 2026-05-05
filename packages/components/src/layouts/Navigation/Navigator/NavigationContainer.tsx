@@ -14,9 +14,6 @@ import {
   DefaultTheme,
   NavigationContainer as RNNavigationContainer,
 } from '@react-navigation/native';
-import { useMMKVDevTools } from '@rozenite/mmkv-plugin';
-import { useNetworkActivityDevTools } from '@rozenite/network-activity-plugin';
-import { useReactNavigationDevTools } from '@rozenite/react-navigation-plugin';
 
 import { useSplitMainView } from '@onekeyhq/components/src/hooks/useSplitView';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
@@ -87,10 +84,21 @@ const useUpdateRootViewBackgroundColor = (
 };
 
 const useNativeDevTools =
-  platformEnv.isNative && platformEnv.isDev
+  __DEV__ && platformEnv.isNative
     ? ({ ref }: { ref: RefObject<NavigationContainerRef<any>> }) => {
+        const {
+          useReactNavigationDevTools,
+        } = require('@rozenite/react-navigation-plugin');
+        const {
+          useNetworkActivityDevTools,
+        } = require('@rozenite/network-activity-plugin');
+        const { useMMKVDevTools } = require('@rozenite/mmkv-plugin');
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         useReactNavigationDevTools({ ref });
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         useNetworkActivityDevTools();
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         useMMKVDevTools({
           storages: [mmkvStorageInstance],
         });
@@ -200,6 +208,35 @@ export const switchTab = (route: ETabRoutes) => {
 };
 
 /**
+ * Atomically remove all routes above the Main route (Modal, FullScreenPush, etc.)
+ * using CommonActions.reset. No transition animation, but avoids the native
+ * UITabBarController window-nil race condition where RNSScreenStack retries
+ * exhaust when goBack() is called on a stack inside a detached tab view.
+ *
+ * Prefer this over sequential goBack() calls when you need to dismiss multiple
+ * overlay routes and the intermediate animation is not important.
+ */
+export function resetAboveMainRoute() {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) {
+    return;
+  }
+  const mainRoutes = state.routes.filter(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
+    return;
+  }
+  rootNavigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: mainRoutes,
+      index: mainRoutes.length - 1,
+    }),
+  );
+}
+
+/**
  * Async version of switchTab that serializes overlay dismiss and tab switch.
  *
  * When an overlay (Modal/FullScreenPush) is above Main, this function:
@@ -297,35 +334,6 @@ export const popModalPagesOnNative = (maxRetryTimes = 10) => {
     popModalPagesOnNative(maxRetryTimes - 1);
   }
 };
-
-/**
- * Atomically remove all routes above the Main route (Modal, FullScreenPush, etc.)
- * using CommonActions.reset. No transition animation, but avoids the native
- * UITabBarController window-nil race condition where RNSScreenStack retries
- * exhaust when goBack() is called on a stack inside a detached tab view.
- *
- * Prefer this over sequential goBack() calls when you need to dismiss multiple
- * overlay routes and the intermediate animation is not important.
- */
-export function resetAboveMainRoute() {
-  const state = rootNavigationRef.current?.getRootState();
-  if (!state) {
-    return;
-  }
-  const mainRoutes = state.routes.filter(
-    (route) => route.name === ERootRoutes.Main,
-  );
-  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
-    return;
-  }
-  rootNavigationRef.current?.dispatch(
-    CommonActions.reset({
-      ...state,
-      routes: mainRoutes,
-      index: mainRoutes.length - 1,
-    }),
-  );
-}
 
 /**
  * Atomically remove ScanQrCodeModal and ActionCenter (FullScreenPush) routes

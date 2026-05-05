@@ -66,9 +66,11 @@ import {
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
+  MenuBarTrayListItem,
   ResetAppListItem,
   ResetPinListItem,
   ThemeListItem,
+  UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
@@ -345,6 +347,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
           ],
+          [
+            platformEnv.isDesktopMac
+              ? {
+                  icon: 'DockOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_menu_bar_tray,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_menu_bar_tray_desc,
+                  }),
+                  renderElement: <MenuBarTrayListItem />,
+                }
+              : undefined,
+          ],
         ],
       },
       platformEnv.isWebDappMode
@@ -432,6 +448,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.settings_btc_multiple_addresses_description,
                   }),
                   renderElement: <BTCFreshAddressListItem />,
+                },
+              ],
+              [
+                {
+                  icon: 'GasOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__desc,
+                  }),
+                  renderElement: <UseGasAccountByDefaultListItem />,
                 },
               ],
             ],

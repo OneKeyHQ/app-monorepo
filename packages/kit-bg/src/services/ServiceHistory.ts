@@ -1,7 +1,6 @@
 import { isNil, unionBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
 import {
   backgroundClass,
@@ -27,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
+import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -1239,6 +1239,71 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async clearLocalHistoryPendingTxs() {
     return this.backgroundApi.simpleDb.localHistory.clearLocalHistoryPendingTxs();
+  }
+
+  @backgroundMethod()
+  public async clearLocalHistoryPendingTxByTxId(params: {
+    accountId?: string;
+    networkId: string;
+    txid?: string;
+    accountAddress?: string;
+  }) {
+    const { accountId, networkId, txid } = params;
+    if (!networkId || !txid) {
+      return false;
+    }
+
+    let accountAddress = params.accountAddress;
+    let xpub: string | undefined;
+    if (accountId) {
+      try {
+        [accountAddress, xpub] = await Promise.all([
+          this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          }),
+          this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          }),
+        ]);
+      } catch (_e) {
+        // fall back to the caller-provided account address
+      }
+    }
+
+    if (!accountAddress && !xpub) {
+      return false;
+    }
+
+    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
+      networkId,
+      accountAddress: accountAddress ?? '',
+      xpub,
+    });
+    const shouldIgnoreTxIdCase = networkUtils.isEvmNetwork({ networkId });
+    const txidForCompare = shouldIgnoreTxIdCase ? txid.toLowerCase() : txid;
+    const pendingTxsToClear = localHistoryPendingTxs.filter((tx) => {
+      const pendingTxId = tx.decodedTx.txid;
+      return (
+        (shouldIgnoreTxIdCase ? pendingTxId?.toLowerCase() : pendingTxId) ===
+        txidForCompare
+      );
+    });
+    if (!pendingTxsToClear.length) {
+      return false;
+    }
+
+    await simpleDb.localHistory.batchUpdateLocalHistoryTxs([
+      {
+        networkId,
+        accountAddress: accountAddress ?? '',
+        xpub,
+        confirmedTxs: pendingTxsToClear,
+      },
+    ]);
+    appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    return true;
   }
 
   @backgroundMethod()

@@ -77,8 +77,7 @@ export function NotificationRegisterDaily() {
       return;
     }
     noop(locale, currencyInfo, hideValue);
-    console.log('NotificationRegisterDaily:', locale, currencyInfo, hideValue);
-    void backgroundApiProxy.serviceNotification.updateClientBasicAppInfo();
+    void backgroundApiProxy.serviceNotification.updateClientBasicAppInfoDebounced();
   }, [locale, currencyInfo, hideValue]);
 
   return <></>;

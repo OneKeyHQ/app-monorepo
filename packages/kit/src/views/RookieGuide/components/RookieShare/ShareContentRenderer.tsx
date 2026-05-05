@@ -15,9 +15,11 @@ import type { IRookieShareData } from '@onekeyhq/shared/types/rookieGuide';
 import {
   BACKGROUND_GRADIENT_COLORS,
   CANVAS_CONFIG,
-  DEFAULT_FOOTER_TEXT,
+  DEFAULT_DOWNLOAD_SUBTITLE,
+  DEFAULT_QR_CAPTION,
   DEFAULT_REFERRAL_LABEL,
   ONEKEY_LOGO_URL,
+  resolveFooterCtaText,
 } from './constants';
 
 interface IShareContentRendererProps {
@@ -25,8 +27,19 @@ interface IShareContentRendererProps {
   onImagesReady?: () => void;
 }
 
-const { size, card, badge, fonts, footer, logo, qrCode, spacing } =
-  CANVAS_CONFIG;
+const {
+  size,
+  card,
+  badge,
+  fonts,
+  footer,
+  logo,
+  qrCode,
+  referralPill,
+  spacing,
+} = CANVAS_CONFIG;
+
+const SHARE_IMAGE_COUNT = 2;
 
 export function ShareContentRenderer({
   data,
@@ -36,23 +49,19 @@ export function ShareContentRenderer({
     data;
 
   const imageLoadCountRef = useRef(0);
-  // badge image + logo = 2
-  const expectedImageCount = 2;
 
   const handleImageLoad = useCallback(() => {
     imageLoadCountRef.current += 1;
-    if (onImagesReady && imageLoadCountRef.current >= expectedImageCount) {
+    if (onImagesReady && imageLoadCountRef.current >= SHARE_IMAGE_COUNT) {
       onImagesReady();
     }
   }, [onImagesReady]);
 
   useEffect(() => {
     imageLoadCountRef.current = 0;
-  }, [data]);
+  }, [imageUrl]);
 
-  const referralLabel = referralCode
-    ? `${DEFAULT_REFERRAL_LABEL} ${referralCode}`
-    : DEFAULT_REFERRAL_LABEL;
+  const line1Text = resolveFooterCtaText(referralCode, footerText);
 
   return (
     <YStack
@@ -73,7 +82,7 @@ export function ShareContentRenderer({
         left={0}
       />
 
-      {/* Content card - centered vertically above footer */}
+      {/* Content card */}
       <YStack
         position="absolute"
         left={card.x}
@@ -95,7 +104,6 @@ export function ShareContentRenderer({
           shadowRadius={card.shadowBlur / 2}
           elevation={8}
         >
-          {/* Badge image */}
           <Image
             source={{ uri: imageUrl }}
             width={badge.width}
@@ -104,9 +112,8 @@ export function ShareContentRenderer({
             onError={handleImageLoad}
           />
 
-          <Stack height={spacing.cardContentGap} />
+          <Stack height={spacing.cardBadgeTitleGap} />
 
-          {/* Title */}
           <SizableText
             fontSize={fonts.title.size}
             fontWeight="500"
@@ -118,10 +125,9 @@ export function ShareContentRenderer({
             {title}
           </SizableText>
 
-          {/* Subtitle */}
           {subtitle ? (
             <>
-              <Stack height={spacing.cardContentGap} />
+              <Stack height={spacing.cardTitleSubtitleGap} />
               <SizableText
                 fontSize={fonts.subtitle.size}
                 fontWeight="500"
@@ -145,13 +151,14 @@ export function ShareContentRenderer({
         right={0}
         height={footer.height}
         backgroundColor={footer.backgroundColor}
+        borderTopWidth={footer.borderTopWidth}
+        borderTopColor={footer.borderTopColor}
       >
         <XStack
           flex={1}
           alignItems="center"
           paddingHorizontal={footer.paddingX}
         >
-          {/* Logo */}
           <Image
             source={{ uri: ONEKEY_LOGO_URL }}
             width={logo.size}
@@ -160,38 +167,87 @@ export function ShareContentRenderer({
             onError={handleImageLoad}
           />
 
-          {/* Footer text */}
           <YStack
             flex={1}
             marginLeft={spacing.footerLogoTextGap}
             justifyContent="center"
+            gap={spacing.footerTextLineGap}
           >
             <SizableText
-              fontSize={fonts.footerText.size}
+              fontSize={fonts.footerCta.size}
               fontWeight="500"
-              color={fonts.footerText.color}
+              color={fonts.footerCta.color}
+              lineHeight={fonts.footerCta.size * fonts.footerCta.lineHeight}
               numberOfLines={1}
             >
-              {footerText || DEFAULT_FOOTER_TEXT}
+              {line1Text}
             </SizableText>
-            <SizableText
-              fontSize={fonts.referralText.size}
-              fontWeight="500"
-              color={fonts.referralText.color}
-              numberOfLines={1}
-            >
-              {referralLabel}
-            </SizableText>
+
+            {referralCode ? (
+              <XStack alignItems="center" gap={spacing.footerReferralInlineGap}>
+                <SizableText
+                  fontSize={fonts.referralLabel.size}
+                  fontWeight="500"
+                  color={fonts.referralLabel.color}
+                  lineHeight={
+                    fonts.referralLabel.size * fonts.referralLabel.lineHeight
+                  }
+                >
+                  {DEFAULT_REFERRAL_LABEL}
+                </SizableText>
+                <Stack
+                  backgroundColor={referralPill.backgroundColor}
+                  borderRadius={referralPill.borderRadius}
+                  paddingHorizontal={referralPill.paddingX}
+                  paddingVertical={referralPill.paddingY}
+                >
+                  <SizableText
+                    fontFamily="$monoMedium"
+                    fontSize={fonts.referralCode.size}
+                    color={fonts.referralCode.color}
+                    letterSpacing={fonts.referralCode.letterSpacing}
+                    lineHeight={
+                      fonts.referralCode.size * fonts.referralCode.lineHeight
+                    }
+                  >
+                    {referralCode}
+                  </SizableText>
+                </Stack>
+              </XStack>
+            ) : (
+              <SizableText
+                fontSize={fonts.referralLabel.size}
+                fontWeight="500"
+                color={fonts.referralLabel.color}
+                lineHeight={
+                  fonts.referralLabel.size * fonts.referralLabel.lineHeight
+                }
+              >
+                {DEFAULT_DOWNLOAD_SUBTITLE}
+              </SizableText>
+            )}
           </YStack>
 
-          {/* QR Code */}
           {referralUrl ? (
-            <QRCode
-              value={referralUrl}
-              size={qrCode.size - 10}
-              padding={5}
-              logoBackgroundColor="white"
-            />
+            <YStack alignItems="center" gap={spacing.qrCaptionGap}>
+              <QRCode
+                value={referralUrl}
+                size={qrCode.size - 10}
+                padding={5}
+                enableLinearGradient
+                linearGradient={[qrCode.color, qrCode.color]}
+                logoBackgroundColor="white"
+              />
+              <SizableText
+                fontSize={fonts.qrCaption.size}
+                fontWeight="600"
+                color={fonts.qrCaption.color}
+                letterSpacing={fonts.qrCaption.letterSpacing}
+                lineHeight={fonts.qrCaption.size * fonts.qrCaption.lineHeight}
+              >
+                {DEFAULT_QR_CAPTION}
+              </SizableText>
+            </YStack>
           ) : null}
         </XStack>
       </Stack>
