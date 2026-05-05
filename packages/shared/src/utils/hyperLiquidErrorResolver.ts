@@ -386,7 +386,11 @@ function extractFromWrappedMessage(
 
   const prefixMatch = /^Hyperliquid API error \d+:\s*(.+)$/i.exec(message);
   if (!prefixMatch?.[1]) {
-    return undefined;
+    const apiRequestErrorMatch =
+      /(?:^|:\s*)ApiRequestError:\s*(?:Order\s+\d+:\s*)?(.+)$/i.exec(message);
+    return apiRequestErrorMatch?.[1]
+      ? normalizeExtractedBusinessMessage(apiRequestErrorMatch[1])
+      : undefined;
   }
 
   const parts = prefixMatch[1]
@@ -407,6 +411,13 @@ function extractFromWrappedMessage(
   }
 
   return undefined;
+}
+
+function normalizeExtractedBusinessMessage(
+  message: string,
+): string | undefined {
+  const normalized = message.replace(/\s+asset=\S+\s*$/i, '').trim();
+  return normalized || undefined;
 }
 
 /**

@@ -57,6 +57,14 @@ describe('hyperLiquidErrorResolver', () => {
     ).toBe('Invalid order: reduce only, no position');
   });
 
+  it('extracts order business messages from ApiRequestError wrappers', () => {
+    expect(
+      extractHyperLiquidErrorMessage(
+        'Failed to place market order open: ApiRequestError: Order 0: Price too far from oracle asset=110029',
+      ),
+    ).toBe('Price too far from oracle');
+  });
+
   it('does not reclassify regular errors without HyperLiquid payloads', () => {
     const error = new Error('Top level message');
     Object.assign(error, {
