@@ -197,7 +197,7 @@ jobs:
       # ~12 heavy tests, peaking around 4 GiB — well under the heap limit.
       # The patched @react-native-harness/cli accepts jest's --shard=k/n.
       - name: Run Harness Tests (Android, shard 1/6)
-        timeout-minutes: 15
+        timeout-minutes: 20
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
@@ -205,7 +205,7 @@ jobs:
         run: yarn harness:test:android --shard=1/6
 
       - name: Run Harness Tests (Android, shard 2/6)
-        timeout-minutes: 15
+        timeout-minutes: 20
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
@@ -213,7 +213,7 @@ jobs:
         run: yarn harness:test:android --shard=2/6
 
       - name: Run Harness Tests (Android, shard 3/6)
-        timeout-minutes: 15
+        timeout-minutes: 20
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
@@ -221,7 +221,7 @@ jobs:
         run: yarn harness:test:android --shard=3/6
 
       - name: Run Harness Tests (Android, shard 4/6)
-        timeout-minutes: 15
+        timeout-minutes: 20
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
@@ -229,7 +229,7 @@ jobs:
         run: yarn harness:test:android --shard=4/6
 
       - name: Run Harness Tests (Android, shard 5/6)
-        timeout-minutes: 15
+        timeout-minutes: 20
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
@@ -237,7 +237,7 @@ jobs:
         run: yarn harness:test:android --shard=5/6
 
       - name: Run Harness Tests (Android, shard 6/6)
-        timeout-minutes: 15
+        timeout-minutes: 20
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
