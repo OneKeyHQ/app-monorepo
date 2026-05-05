@@ -109,6 +109,22 @@ describe('output/logger', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('keeps command output writes behind OutputFormatter except interactive hardware prompts', () => {
+    const allowedDirectWriteFiles = new Set([
+      'apps/cli/src/commands/auth/hardware-login-command.ts',
+      'apps/cli/src/commands/device/hardware-sdk.ts',
+    ]);
+    const pattern = /process\.(stdout|stderr)\.write\(/;
+    const offenders = trackedSourceFiles(['apps/cli/src/commands'])
+      .filter((filePath) => !filePath.includes('__tests__/'))
+      .filter((filePath) => !allowedDirectWriteFiles.has(filePath))
+      .filter((filePath) =>
+        pattern.test(fs.readFileSync(path.join(repoRoot(), filePath), 'utf-8')),
+      );
+
+    expect(offenders).toEqual([]);
+  });
+
   it('keeps runtime source free of telemetry SDK integrations', () => {
     const pattern = /Sentry\.init|mixpanel|prometheus|datadog/;
     const offenders = trackedSourceFiles([

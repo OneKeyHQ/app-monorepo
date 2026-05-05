@@ -1,7 +1,12 @@
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
-import { normalizeCliTopLevelError } from '../cli-error-boundary';
+import {
+  emitCliTopLevelError,
+  normalizeCliTopLevelError,
+  resolveCliErrorOutputFormat,
+  resolveCliErrorOutputMode,
+} from '../cli-error-boundary';
 import {
   CLI_ERROR_CODES,
   LockError,
@@ -125,6 +130,40 @@ describe('CLI top-level exit code boundary', () => {
       code: CLI_ERROR_CODES.UNKNOWN_ERROR,
       exitCode: 2,
     });
+  });
+
+  it('defaults top-level error formatting to text on TTY and JSON off TTY', () => {
+    expect(resolveCliErrorOutputFormat([], true)).toBe('text');
+    expect(resolveCliErrorOutputFormat([], false)).toBe('json');
+    expect(resolveCliErrorOutputFormat(['--json'], true)).toBe('json');
+    expect(resolveCliErrorOutputMode([], true)).toBe('human');
+  });
+
+  it('writes top-level human errors to stderr in TTY mode', () => {
+    const originalExitCode = process.exitCode;
+    let stdout = '';
+    let stderr = '';
+
+    try {
+      emitCliTopLevelError(
+        {
+          code: 'commander.missingMandatoryOptionValue',
+          message: "error: required option '--amount <amount>' not specified",
+        },
+        {
+          argv: ['transfer', '--to', '0x2222'],
+          isTTY: true,
+          stdout: { write: (chunk) => (stdout += String(chunk)) },
+          stderr: { write: (chunk) => (stderr += String(chunk)) },
+        },
+      );
+
+      expect(stdout).toBe('');
+      expect(stderr).toContain('Error [PARAM_MISSING_REQUIRED]');
+      expect(stderr).toContain('PARAM_MISSING_REQUIRED');
+    } finally {
+      process.exitCode = originalExitCode;
+    }
   });
 
   it('emits UNKNOWN_COMMAND JSON from a real CLI subprocess', () => {

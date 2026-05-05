@@ -1,5 +1,4 @@
-import punycode from 'punycode';
-
+import { toASCII, toUnicode } from 'punycode/';
 import validator from 'validator';
 
 import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
@@ -295,10 +294,7 @@ export const containsPunycode = (url: string) => {
   const { hostname } = new URL(validatedUrl);
   // V8 normalizes IDN to punycode (xn--), Hermes may keep unicode.
   // Compare both directions to detect non-ASCII hostnames on either engine.
-  return (
-    hostname !== punycode.toUnicode(hostname) ||
-    hostname !== punycode.toASCII(hostname)
-  );
+  return hostname !== toUnicode(hostname) || hostname !== toASCII(hostname);
 };
 
 function buildUrl({

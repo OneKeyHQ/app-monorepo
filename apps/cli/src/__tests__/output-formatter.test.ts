@@ -18,6 +18,48 @@ describe('detectOutputMode', () => {
     expect(detectOutputMode({ interactive: true })).toBe('human');
   });
 
+  it('defaults to human output when stdout is a TTY', () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      process.stdout,
+      'isTTY',
+    );
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+
+    try {
+      expect(detectOutputMode({})).toBe('human');
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(process.stdout, 'isTTY', originalDescriptor);
+      } else {
+        delete (process.stdout as Partial<typeof process.stdout>).isTTY;
+      }
+    }
+  });
+
+  it('defaults to agent output when stdout is not a TTY', () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      process.stdout,
+      'isTTY',
+    );
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value: false,
+    });
+
+    try {
+      expect(detectOutputMode({})).toBe('agent');
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(process.stdout, 'isTTY', originalDescriptor);
+      } else {
+        delete (process.stdout as Partial<typeof process.stdout>).isTTY;
+      }
+    }
+  });
+
   it('quiet takes precedence over json', () => {
     expect(detectOutputMode({ quiet: true, json: true })).toBe('quiet');
   });

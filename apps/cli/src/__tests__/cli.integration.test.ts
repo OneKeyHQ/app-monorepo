@@ -46,6 +46,23 @@ function runResult(...args: string[]) {
   };
 }
 
+function runResultWithEnv(env: Partial<NodeJS.ProcessEnv>, ...args: string[]) {
+  const result = spawnSync(BIN, args, {
+    encoding: 'utf-8',
+    env: {
+      ...process.env,
+      ...env,
+    },
+    timeout: 10_000,
+  });
+
+  return {
+    status: result.status,
+    stdout: (result.stdout ?? '').trim(),
+    stderr: (result.stderr ?? '').trim(),
+  };
+}
+
 type IMemoryKeychainStorage = {
   delete(account: string): Promise<void>;
   get(account: string): Promise<Buffer | null>;
@@ -325,6 +342,58 @@ describe('onekey CLI (integration)', () => {
     expect(result.status).not.toBe(0);
     expect(parsed.ok).toBe(false);
     expect(parsed.error.code).toMatch(/^(AUTH_|SEC_)/);
+  });
+
+  it('checks auth before transfer command option validation', () => {
+    const homeDir = mkdtempSync(join(tmpdir(), 'onekey-cli-auth-first-'));
+    try {
+      const result = runResultWithEnv(
+        { HOME: homeDir },
+        'transfer',
+        '--to',
+        '0x2222',
+      );
+
+      expect(result.status).toBe(4);
+      expect(stripDebugOutput(result.stderr)).toBe('');
+
+      const parsed = JSON.parse(extractJson(result.stdout)) as {
+        ok: boolean;
+        error: { code: string; message: string };
+      };
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error.code).toBe('AUTH_NO_WALLET');
+      expect(parsed.error.message).toBe(
+        'This command requires an authenticated wallet.',
+      );
+    } finally {
+      rmSync(homeDir, { recursive: true, force: true });
+    }
+  });
+
+  it('checks auth before swap command option validation', () => {
+    const homeDir = mkdtempSync(join(tmpdir(), 'onekey-cli-swap-auth-first-'));
+    try {
+      const result = runResultWithEnv(
+        { HOME: homeDir },
+        'swap',
+        'quote',
+        '--chain',
+        'eth',
+      );
+
+      expect(result.status).toBe(4);
+      expect(stripDebugOutput(result.stderr)).toBe('');
+
+      const parsed = JSON.parse(extractJson(result.stdout)) as {
+        ok: boolean;
+        error: { code: string; message: string };
+      };
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error.code).toBe('AUTH_NO_WALLET');
+    } finally {
+      rmSync(homeDir, { recursive: true, force: true });
+    }
   });
 
   it('shows dedicated help for auth status', () => {

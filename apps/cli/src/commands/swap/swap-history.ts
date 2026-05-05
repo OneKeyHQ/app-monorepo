@@ -1,6 +1,7 @@
 import { listPending } from '../../core';
 import { resolveChain } from '../../core/chain-resolver';
 import { AppError } from '../../errors';
+import { requireAuthenticatedCommand } from '../command-guards';
 
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
@@ -17,6 +18,8 @@ export function registerSwapHistoryCommand(parent: Command): void {
       const output = globalOpts._outputFormatter as OutputFormatter;
 
       try {
+        await requireAuthenticatedCommand();
+
         if (options.chain) {
           resolveChain(options.chain);
         }

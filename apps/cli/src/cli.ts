@@ -62,7 +62,7 @@ program.exitOverride((error) => {
 });
 program.configureOutput({
   writeErr: (str) => {
-    if (/^error:\s*unknown command/i.test(str.trim())) {
+    if (/^error:\s*/i.test(str.trim())) {
       return;
     }
     process.stderr.write(str);

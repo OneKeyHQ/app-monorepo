@@ -1,7 +1,13 @@
-import { CLI_ERROR_CODES, mapToExitCode } from './errors';
+import {
+  CLI_ERROR_CODES,
+  ERROR_CODES,
+  getExitCode,
+  mapToExitCode,
+} from './errors';
 import { formatError } from './output/format';
+import { formatHumanError } from './output/human-formatter';
 
-import type { ICliErrorCode, ICliExitCode } from './errors';
+import type { ICliErrorCode } from './errors';
 import type { ICliOutputFormat } from './output/format';
 
 type IErrorWithCode = Error & {
@@ -13,9 +19,11 @@ type IWritableStreamLike = {
   write: (chunk: string) => unknown;
 };
 
+type ICliTopLevelErrorOutputMode = ICliOutputFormat | 'human' | 'quiet';
+
 export type INormalizedCliTopLevelError = {
-  code: ICliErrorCode;
-  exitCode: ICliExitCode;
+  code: string;
+  exitCode: number;
   message: string;
 };
 
@@ -23,6 +31,7 @@ export type IEmitCliTopLevelErrorOptions = {
   argv?: readonly string[];
   format?: ICliOutputFormat;
   isTTY?: boolean;
+  stderr?: IWritableStreamLike;
   stdout?: IWritableStreamLike;
 };
 
@@ -30,12 +39,33 @@ const CLI_ERROR_CODE_VALUES: ReadonlySet<string> = new Set(
   Object.values(CLI_ERROR_CODES),
 );
 
+const APP_ERROR_CODE_VALUES: ReadonlySet<string> = new Set(
+  Object.values(ERROR_CODES).map((entry) => entry.code),
+);
+
+const COMMANDER_MISSING_PARAM_CODES: ReadonlySet<string> = new Set([
+  'commander.missingArgument',
+  'commander.missingMandatoryOptionValue',
+  'commander.optionMissingArgument',
+]);
+
+const COMMANDER_INVALID_PARAM_CODES: ReadonlySet<string> = new Set([
+  'commander.conflictingOption',
+  'commander.excessArguments',
+  'commander.invalidArgument',
+  'commander.unknownOption',
+]);
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
 function isCliErrorCode(value: unknown): value is ICliErrorCode {
   return typeof value === 'string' && CLI_ERROR_CODE_VALUES.has(value);
+}
+
+function isAppErrorCode(value: unknown): value is string {
+  return typeof value === 'string' && APP_ERROR_CODE_VALUES.has(value);
 }
 
 function getErrorWithCode(error: unknown): IErrorWithCode | undefined {
@@ -57,6 +87,22 @@ function trimCommanderErrorPrefix(message: string): string {
 
 function isCommanderUnknownCommand(error: IErrorWithCode): boolean {
   return error.code === 'commander.unknownCommand';
+}
+
+function getCommanderParamErrorCode(error: IErrorWithCode): string | undefined {
+  if (typeof error.code !== 'string') {
+    return undefined;
+  }
+
+  if (COMMANDER_MISSING_PARAM_CODES.has(error.code)) {
+    return ERROR_CODES.PARAM_MISSING_REQUIRED.code;
+  }
+
+  if (COMMANDER_INVALID_PARAM_CODES.has(error.code)) {
+    return ERROR_CODES.PARAM_INVALID_COMMAND.code;
+  }
+
+  return undefined;
 }
 
 export function getCommanderPassthroughExitCode(
@@ -100,11 +146,33 @@ export function normalizeCliTopLevelError(
     };
   }
 
+  if (errorWithCode) {
+    const code = getCommanderParamErrorCode(errorWithCode);
+    if (code) {
+      const message =
+        trimCommanderErrorPrefix(errorWithCode.message) || 'Invalid command';
+      return {
+        code,
+        exitCode: getExitCode(code),
+        message,
+      };
+    }
+  }
+
   if (errorWithCode && isCliErrorCode(errorWithCode.code)) {
     const code = errorWithCode.code;
     return {
       code,
       exitCode: mapToExitCode(code),
+      message: errorWithCode.message || code,
+    };
+  }
+
+  if (errorWithCode && isAppErrorCode(errorWithCode.code)) {
+    const code = errorWithCode.code;
+    return {
+      code,
+      exitCode: getExitCode(code),
       message: errorWithCode.message || code,
     };
   }
@@ -117,11 +185,32 @@ export function normalizeCliTopLevelError(
   };
 }
 
-export function resolveCliErrorOutputFormat(
+function getTopLevelErrorSuggestion(code: string): string {
+  if (code === CLI_ERROR_CODES.UNKNOWN_COMMAND) {
+    return 'Run: onekey --help';
+  }
+
+  if (code.startsWith('PARAM_')) {
+    return 'Check the input parameters and retry';
+  }
+
+  return 'Check the error details and retry';
+}
+
+export function resolveCliErrorOutputMode(
   argv: readonly string[] = process.argv.slice(2),
-): ICliOutputFormat {
+  isTTY = process.stdout.isTTY === true,
+): ICliTopLevelErrorOutputMode {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+
+    if (arg === '--quiet') {
+      return 'quiet';
+    }
+
+    if (arg === '--interactive') {
+      return 'human';
+    }
 
     if (arg === '--format') {
       const value = argv[index + 1];
@@ -139,7 +228,18 @@ export function resolveCliErrorOutputFormat(
     }
   }
 
-  return 'json';
+  return isTTY ? 'human' : 'json';
+}
+
+export function resolveCliErrorOutputFormat(
+  argv: readonly string[] = process.argv.slice(2),
+  isTTY = process.stdout.isTTY === true,
+): ICliOutputFormat {
+  const mode = resolveCliErrorOutputMode(argv, isTTY);
+  if (mode === 'json') {
+    return 'json';
+  }
+  return 'text';
 }
 
 export function emitCliTopLevelError(
@@ -147,11 +247,32 @@ export function emitCliTopLevelError(
   options: IEmitCliTopLevelErrorOptions = {},
 ): INormalizedCliTopLevelError {
   const normalized = normalizeCliTopLevelError(error);
-  const format =
-    options.format ?? resolveCliErrorOutputFormat(options.argv ?? undefined);
+  const mode =
+    options.format ??
+    resolveCliErrorOutputMode(options.argv ?? undefined, options.isTTY);
   const stdout = options.stdout ?? process.stdout;
+  const stderr = options.stderr ?? process.stderr;
 
-  stdout.write(`${formatError(normalized.code, normalized.message, format)}\n`);
+  if (mode === 'json') {
+    stdout.write(
+      `${formatError(normalized.code, normalized.message, 'json')}\n`,
+    );
+  } else if (mode === 'quiet') {
+    stderr.write(`${normalized.code}: ${normalized.message}\n`);
+  } else if (mode === 'human') {
+    stderr.write(
+      `${formatHumanError({
+        code: normalized.code,
+        message: normalized.message,
+        suggestion: getTopLevelErrorSuggestion(normalized.code),
+      })}\n`,
+    );
+  } else {
+    stderr.write(
+      `${formatError(normalized.code, normalized.message, 'text')}\n`,
+    );
+  }
+
   process.exitCode = normalized.exitCode;
 
   return normalized;
