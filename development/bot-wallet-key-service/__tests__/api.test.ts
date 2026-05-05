@@ -235,43 +235,28 @@ describe('Service v1 HTTP API', () => {
       spy.mockRestore();
     });
 
-    it('soft timing assertion: stddev/mean of compare time < 30%', async () => {
-      const { keyId, accessToken } = await registerKey(
-        srv.url,
-        FIXTURE_KEY_BASE64,
-      );
+    it('uses fixed-length timingSafeEqual for wrong tokens', async () => {
+      const { cryptoBridge } = await import('../src/crypto-bridge');
+      const spy = jest.spyOn(cryptoBridge, 'timingSafeEqual');
+      const { keyId } = await registerKey(srv.url, FIXTURE_KEY_BASE64);
       const wrongToken = 'B'.repeat(43);
-      const samples = 50; // smaller for CI sanity
-      const correctTimes: number[] = [];
-      const wrongTimes: number[] = [];
-      for (let i = 0; i < samples; i += 1) {
-        const t1 = process.hrtime.bigint();
-        await httpJson(`${srv.url}/v1/bot-wallet-keys/${keyId}`, {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        correctTimes.push(Number(process.hrtime.bigint() - t1));
 
-        const t2 = process.hrtime.bigint();
-        await httpJson(`${srv.url}/v1/bot-wallet-keys/${keyId}`, {
+      try {
+        const res = await httpJson(`${srv.url}/v1/bot-wallet-keys/${keyId}`, {
           method: 'GET',
           headers: { Authorization: `Bearer ${wrongToken}` },
         });
-        wrongTimes.push(Number(process.hrtime.bigint() - t2));
+
+        expect(res.status).toBe(401);
+        expect(res.json()).toEqual({ error: 'UNAUTHORIZED' });
+        expect(res.body).not.toContain(FIXTURE_KEY_BASE64);
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy.mock.calls[0][0].byteLength).toBe(32);
+        expect(spy.mock.calls[0][1].byteLength).toBe(32);
+      } finally {
+        spy.mockRestore();
       }
-      // Soft assertion: the noise of HTTP roundtrip dominates timingSafeEqual,
-      // so we just check the population isn't pathologically skewed.
-      const stddev = (xs: number[]) => {
-        const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
-        const variance =
-          xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length;
-        return { mean, std: Math.sqrt(variance) };
-      };
-      const correct = stddev(correctTimes);
-      const wrong = stddev(wrongTimes);
-      expect(correct.std / correct.mean).toBeLessThan(1.0);
-      expect(wrong.std / wrong.mean).toBeLessThan(1.0);
-    }, 20_000);
+    });
   });
 
   // --- AC4: POST /v1/bot-wallet-keys/:keyId/revoke ---
