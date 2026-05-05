@@ -1465,11 +1465,11 @@ function inferTpsl(params: {
 }
 
 /**
- * Get the effective price used for size/margin calculations in trigger mode.
+ * Get the reference price used for trigger order panel calculations.
  *
- * - Market trigger: uses triggerPrice (the price at which the order activates)
+ * - Market trigger: uses current mid/mark price; triggerPrice is only the activation condition
  * - Limit trigger: uses executionPrice (the limit price for the resulting order)
- * - Fallback: uses midPrice
+ * - Fallback: uses triggerPrice, then midPrice
  */
 function getTriggerEffectivePrice(params: {
   triggerOrderType: ETriggerOrderType;
@@ -1485,6 +1485,13 @@ function getTriggerEffectivePrice(params: {
     const execBN = new BigNumber(executionPrice);
     if (execBN.isFinite() && execBN.gt(0)) {
       return execBN;
+    }
+  }
+
+  if (!isLimitTrigger && midPrice) {
+    const midBN = new BigNumber(midPrice);
+    if (midBN.isFinite() && midBN.gt(0)) {
+      return midBN;
     }
   }
 
