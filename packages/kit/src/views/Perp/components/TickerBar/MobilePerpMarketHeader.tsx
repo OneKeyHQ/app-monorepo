@@ -18,6 +18,7 @@ import { useConnectionStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/
 import {
   usePerpsActiveAssetCtxAtom,
   useSpotActiveAssetCtxAtom,
+  useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -51,6 +52,7 @@ function MobilePerpMarketHeader() {
   const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const hasError = connectionState.reconnectCount > 3;
   const isReady = connectionState.isConnected && !hasError;
@@ -134,6 +136,7 @@ function MobilePerpMarketHeader() {
         spotAssetCtx?.coin === coin
           ? (spotAssetCtx?.baseName ?? spotAssetCtx?.coin)
           : coin,
+        spotMarketCaps,
       );
       if (!marketCap) {
         return '--';
@@ -174,6 +177,7 @@ function MobilePerpMarketHeader() {
     spotAssetCtx?.coin,
     spotCtx?.circulatingSupply,
     spotCtx?.totalSupply,
+    spotMarketCaps,
   ]);
 
   const priceMetaContent = useMemo(() => {

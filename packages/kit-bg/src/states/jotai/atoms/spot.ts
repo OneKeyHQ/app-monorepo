@@ -105,6 +105,15 @@ export const {
   initialValue: {},
 });
 
+export type ISpotExternalMarketCaps = Record<string, string>;
+export const {
+  target: spotExternalMarketCapsAtom,
+  use: useSpotExternalMarketCapsAtom,
+} = globalAtom<ISpotExternalMarketCaps>({
+  name: EAtomNames.spotExternalMarketCapsAtom,
+  initialValue: {},
+});
+
 export interface ISpotAssetCtxEntry {
   markPx: string;
   prevDayPx?: string;

@@ -30,6 +30,7 @@ import {
   spotAssetCtxsMapAtom,
   usePerpTokenFavoritesPersistAtom,
   usePerpsFavoritesOrderPersistAtom,
+  useSpotExternalMarketCapsAtom,
   useSpotTokenFavoritesPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -1108,6 +1109,7 @@ const SpotTokenSelectorRowInner = memo(
   }) => {
     // Use pair name (@107 or PURR/USDC) as key — matches universe.name
     const ctx = useSpotAssetCtxByPair(spotUniverse.name);
+    const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
     const markPx = ctx?.markPx || '0';
     const prevDayPx = Number(ctx?.prevDayPx || 0);
     const markPxNum = Number(markPx);
@@ -1142,6 +1144,7 @@ const SpotTokenSelectorRowInner = memo(
           circulatingSupply: ctx?.circulatingSupply,
         },
         spotUniverse.baseName,
+        spotMarketCaps,
       );
       if (!marketCap) {
         return undefined;
@@ -1153,7 +1156,13 @@ const SpotTokenSelectorRowInner = memo(
         return undefined;
       }
       return `$${formatted}`;
-    }, [ctx?.circulatingSupply, markPx, markPxNum, spotUniverse.baseName]);
+    }, [
+      ctx?.circulatingSupply,
+      markPx,
+      markPxNum,
+      spotMarketCaps,
+      spotUniverse.baseName,
+    ]);
 
     const contextValue: ITokenSelectorRowContextValue = useMemo(
       () => ({

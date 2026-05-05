@@ -27,6 +27,7 @@ import {
 import {
   useSpotActiveAssetAtom,
   useSpotActiveAssetCtxAtom,
+  useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -385,9 +386,11 @@ TickerBarMarketCapView.displayName = 'TickerBarMarketCapView';
 
 function TickerBarMarketCap() {
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const marketCap = getSpotMarketCapValue(
     spotAssetCtx?.ctx,
     spotAssetCtx?.baseName ?? spotAssetCtx?.coin,
+    spotMarketCaps,
   );
   const formattedMarketCap = marketCap
     ? formatDisplayNumber(NUMBER_FORMATTER.marketCap(marketCap))

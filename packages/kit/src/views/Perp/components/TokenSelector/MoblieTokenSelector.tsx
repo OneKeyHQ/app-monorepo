@@ -39,6 +39,7 @@ import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   useSpotAssetCtxsMapAtom,
+  useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -207,6 +208,7 @@ function MobileTokenSelectorModal({
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const dynamicTabs = useMemo(() => dynamicTabsRaw ?? [], [dynamicTabsRaw]);
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
@@ -472,7 +474,11 @@ function MobileTokenSelectorModal({
       const change24hPercent =
         prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
       const volume24h = Number(ctx?.dayNtlVlm || 0);
-      const marketCapValue = getSpotMarketCapValue(ctx, u.baseName);
+      const marketCapValue = getSpotMarketCapValue(
+        ctx,
+        u.baseName,
+        spotMarketCaps,
+      );
       const marketCap = marketCapValue ? Number(marketCapValue) : undefined;
       return {
         item: {
@@ -547,6 +553,7 @@ function MobileTokenSelectorModal({
   }, [
     spotUniverses,
     spotPriceMap,
+    spotMarketCaps,
     tokenSearchAliases,
     selectorConfig?.field,
     selectorConfig?.direction,
@@ -615,7 +622,11 @@ function MobileTokenSelectorModal({
         case 'volume24h':
           return Number(ctx?.dayNtlVlm || 0);
         case 'marketCap': {
-          const marketCapValue = getSpotMarketCapValue(ctx, universe.baseName);
+          const marketCapValue = getSpotMarketCapValue(
+            ctx,
+            universe.baseName,
+            spotMarketCaps,
+          );
           return marketCapValue ? Number(marketCapValue) : undefined;
         }
         case 'fundingRate':
@@ -714,6 +725,7 @@ function MobileTokenSelectorModal({
     selectorConfig?.field,
     spotSortedList,
     spotPriceMap,
+    spotMarketCaps,
     searchQuery,
     visibleTabs,
   ]);

@@ -129,6 +129,43 @@ describe('getSpotMarketCapValue', () => {
     ).toBe('99');
   });
 
+  test('uses external market cap override for mapped display symbols', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '80000',
+          circulatingSupply: '21000000',
+        },
+        'UBTC',
+        { btc: '1690000000000' },
+      ),
+    ).toBe('1690000000000');
+
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '25',
+          circulatingSupply: '100000000000',
+        },
+        'AVAX0',
+        { avax: '15000000000' },
+      ),
+    ).toBe('15000000000');
+  });
+
+  test('falls back to circulatingSupply when override is invalid', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '2',
+          circulatingSupply: '3',
+        },
+        'UETH',
+        { eth: '0' },
+      ),
+    ).toBe('6');
+  });
+
   test('suppresses known stablecoin placeholder supplies', () => {
     expect(
       getSpotMarketCapValue(

@@ -1616,12 +1616,46 @@ export function formatPerpsCompactUsd(value: number): string {
 }
 
 const SPOT_MARKET_CAP_SUPPRESSED_TOKENS = new Set([
+  'AAVE0',
+  'AVAX0',
+  'AXL',
+  'AZTEC',
+  'BASED',
+  'BNB0',
+  'BZEC',
+  'DIME',
+  'EX',
+  'FEUSD',
+  'HMT',
+  'HPL',
+  'KHYPE',
+  'LINK0',
+  'LMTS',
+  'LTHREE',
+  'MNT',
+  'MON',
+  'MOVE',
+  'PEG',
+  'PENGU',
+  'QONE',
+  'REI',
+  'SEDA',
+  'SEI',
+  'SLAY',
+  'SOLV',
+  'SOON',
+  'SPX',
+  'STABLE',
+  'THBILL',
   'USDE',
   'USDH',
-  'USDXL',
-  'FEUSD',
+  'USDHL',
   'USDT',
   'USDT0',
+  'USDXL',
+  'USH',
+  'USR',
+  'XAUT',
 ]);
 
 function isSpotMarketCapSuppressedToken(tokenName?: string): boolean {
@@ -1637,6 +1671,33 @@ function isSpotMarketCapSuppressedToken(tokenName?: string): boolean {
   );
 }
 
+type ISpotMarketCapOverrides = Record<
+  string,
+  string | number | null | undefined
+>;
+
+function getSpotMarketCapOverrideValue(
+  tokenName?: string,
+  marketCapOverrides?: ISpotMarketCapOverrides,
+): string | undefined {
+  if (!tokenName || !marketCapOverrides) {
+    return undefined;
+  }
+
+  const baseName = tokenName.split('/')[0]?.toUpperCase();
+  if (!baseName) {
+    return undefined;
+  }
+
+  const displayKey = getSpotTokenDisplayName(baseName).toLowerCase();
+  const value = marketCapOverrides[displayKey];
+  const marketCap = new BigNumber(value ?? '0');
+  if (!marketCap.isFinite() || marketCap.lte(0)) {
+    return undefined;
+  }
+  return marketCap.toFixed();
+}
+
 function getSpotMarketCapValue(
   spotCtx:
     | {
@@ -1648,7 +1709,16 @@ function getSpotMarketCapValue(
     | null
     | undefined,
   tokenName?: string,
+  marketCapOverrides?: ISpotMarketCapOverrides,
 ): string | undefined {
+  const overrideValue = getSpotMarketCapOverrideValue(
+    tokenName,
+    marketCapOverrides,
+  );
+  if (overrideValue) {
+    return overrideValue;
+  }
+
   if (isSpotMarketCapSuppressedToken(tokenName)) {
     return undefined;
   }
@@ -1811,6 +1881,22 @@ const SPOT_TOKEN_DISPLAY_MAP: Record<string, string> = {
   HBNB: 'BNB',
   HSEI: 'SEI',
 };
+
+const SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP: Record<string, string> =
+  {
+    bitcoin: 'btc',
+    ethereum: 'eth',
+    solana: 'sol',
+    fartcoin: 'fartcoin',
+    'pump-fun': 'pump',
+    bonk: 'bonk',
+    plasma: 'xpl',
+    doublezero: '2z',
+    monad: 'mon',
+    ethena: 'ena',
+    zcash: 'zec',
+    'avalanche-2': 'avax',
+  };
 /* cspell:enable */
 
 function getSpotTokenDisplayName(rawName: string): string {
@@ -1887,6 +1973,7 @@ export {
   formatSpotPairDisplayName,
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,
+  SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP,
   SPOT_MIN_VOLUME_STRICT,
   SPOT_SELECTOR_MIN_VOLUME,
   formatHlSize,
@@ -1941,6 +2028,7 @@ export default {
   formatSpotPairDisplayName,
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,
+  SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP,
   SPOT_MIN_VOLUME_STRICT,
   SPOT_SELECTOR_MIN_VOLUME,
   getValidSpotPriceDecimals,

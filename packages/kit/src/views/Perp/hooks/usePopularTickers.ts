@@ -5,7 +5,10 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { useSpotAssetCtxsMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotAssetCtxsMapAtom,
+  useSpotExternalMarketCapsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   formatSpotPairDisplayName,
   getSpotMarketCapValue,
@@ -43,6 +46,7 @@ export function usePopularTickers(): IPopularTickerItem[] {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
   const [spotPriceMap] = useSpotAssetCtxsMapAtom();
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const mode = activeTradeInstrument.mode;
 
   // Must not read from search-filtered atom — popular tickers would disappear
@@ -101,7 +105,7 @@ export function usePopularTickers(): IPopularTickerItem[] {
           const volume24h = new BigNumber(ctx?.dayNtlVlm ?? '0');
           const hotScore = volume24h.toNumber();
           const marketCap = new BigNumber(
-            getSpotMarketCapValue(ctx, asset.baseName) ?? '0',
+            getSpotMarketCapValue(ctx, asset.baseName, spotMarketCaps) ?? '0',
           ).toNumber();
 
           return {
@@ -172,5 +176,5 @@ export function usePopularTickers(): IPopularTickerItem[] {
 
     scored.sort((a, b) => b.hotScore - a.hotScore);
     return scored.slice(0, POPULAR_TICKER_COUNT);
-  }, [allAssetCtxs, mode, spotPriceMap, taggedUniverse]);
+  }, [allAssetCtxs, mode, spotMarketCaps, spotPriceMap, taggedUniverse]);
 }

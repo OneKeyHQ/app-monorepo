@@ -45,6 +45,7 @@ import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   usePerpsActiveAssetCtxAtom,
+  useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -327,6 +328,7 @@ function BasePerpTokenSelectorContent({
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const dynamicTabs: IPerpDynamicTab[] = useMemo(
     () => dynamicTabsRaw ?? [],
     [dynamicTabsRaw],
@@ -700,7 +702,11 @@ function BasePerpTokenSelectorContent({
       const change24hPercent =
         prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
       const volume24h = Number(ctx?.dayNtlVlm || 0);
-      const marketCapValue = getSpotMarketCapValue(ctx, u.baseName);
+      const marketCapValue = getSpotMarketCapValue(
+        ctx,
+        u.baseName,
+        spotMarketCaps,
+      );
       const marketCap = marketCapValue ? Number(marketCapValue) : undefined;
       return {
         item: {
@@ -772,6 +778,7 @@ function BasePerpTokenSelectorContent({
     selectorConfig?.field,
     selectorConfig?.direction,
     spotPriceSnapshot,
+    spotMarketCaps,
   ]);
 
   // Layer 2: filter — cheap O(n); no sort computation.
@@ -839,7 +846,11 @@ function BasePerpTokenSelectorContent({
         case 'volume24h':
           return Number(ctx?.dayNtlVlm || 0);
         case 'marketCap': {
-          const marketCapValue = getSpotMarketCapValue(ctx, universe.baseName);
+          const marketCapValue = getSpotMarketCapValue(
+            ctx,
+            universe.baseName,
+            spotMarketCaps,
+          );
           return marketCapValue ? Number(marketCapValue) : undefined;
         }
         case 'fundingRate':
@@ -939,6 +950,7 @@ function BasePerpTokenSelectorContent({
     selectorConfig?.direction,
     selectorConfig?.field,
     spotPriceSnapshot,
+    spotMarketCaps,
     visibleTabs,
   ]);
 
