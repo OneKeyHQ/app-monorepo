@@ -63,5 +63,53 @@ export default {
     'packages/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useWalletBoundReferralCode\\.test\\.tsx',
     'packages/kit/src/views/Swap/hooks/useSwapIncognitoRecipientInput\\.test\\.ts',
     'packages/kit/src/views/Swap/pages/components/SwapReviewDialog\\.test\\.tsx',
+    // ---------------------------------------------------------------------
+    // Fourth batch (added after CI run #25385669566 surfaced these once the
+    // V8 heap OOM was unblocked by 6-shard splitting). All five tests pass
+    // under `yarn test` (Node Jest) but fail in the on-device harness for
+    // the same root causes the previous batches were skipped — they need to
+    // be rewritten to be RN-harness compatible. Tracked as TODO follow-up.
+    // ---------------------------------------------------------------------
+    //
+    // useUniversalBorrowHooks: the test file exceeds the harness 180s
+    //   per-file timeout (DEFAULT_TEST_FILE_TIMEOUT_MS in
+    //   @react-native-harness/jest). It exercises a full borrow flow with
+    //   many awaited service calls; needs to be either split into smaller
+    //   test files or moved to the regular Jest path.
+    'packages/kit/src/views/Borrow/hooks/useUniversalBorrowHooks\\.test\\.tsx',
+    //
+    // healthCheck: relies on per-test isolation of __SEGMENT_MANIFEST__ /
+    //   eager-fallback module registry. The harness reuses one Android app
+    //   process across tests, so global state leaks between cases —
+    //   "expected true to be false", "expected 11 to be 10". Same root
+    //   cause flagged in PR #11377 ("global-state isolation broken in
+    //   harness"); this is a different test file with the same problem.
+    'apps/mobile/src/splitBundle/__tests__/healthCheck\\.test\\.ts',
+    //
+    // useBtcMetadata: relies on `jest.mocked(useTokenDetail).mockReturnValue`
+    //   which the harness runtime does not provide
+    //   (`mockedUseTokenDetail.mockReturnValue is not a function`). Same
+    //   `jest.mocked()` helper missing flagged for useSearchModalData /
+    //   botWallet in PR #11377.
+    'packages/kit/src/views/Market/MarketDetailV2/hooks/useBtcMetadata\\.test\\.ts',
+    //
+    // swapBalanceUtils: the test passes function-typed mocks (a thenable /
+    //   `toSorted`-shaped function) through the harness bridge, which
+    //   serializes via JSON and rejects non-serializable values
+    //   ("Object should be serializable"). The mock therefore never
+    //   reaches the device, so the assertion sees the unmocked code path
+    //   and yields `{isSufficient:true}` instead of `{isSufficient:false}`.
+    //   Needs the test to mock at module level (importable mock module)
+    //   instead of inline `mockReturnValue`.
+    'packages/kit/src/views/Swap/utils/swapBalanceUtils\\.test\\.ts',
+    //
+    // sentry/index.native: uses vitest API (`vi.fn()`) and
+    //   `jest.isolateModules()`. The harness explicitly does not support
+    //   `jest.isolateModules` ("[harness-compat] jest.isolateModules() is
+    //   not supported in harness mode, running inline") and `vi.fn()` is
+    //   not a Jest global; both manifest as "expected vi.fn() to be
+    //   called 1 times, but got 0 times". Test must be ported to plain
+    //   `jest.fn()` and avoid module isolation.
+    'packages/shared/src/modules3rdParty/sentry/index\\.native\\.test\\.ts',
   ],
 };
