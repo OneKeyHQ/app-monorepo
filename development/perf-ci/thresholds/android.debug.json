@@ -1,0 +1,8 @@
+{
+  "_comment": "Thresholds for Android Emulator Debug perf guard. Metrics: tokensStartMs (Home:refresh:start:tokens timestamp), tokensSpanMs (done-start), functionCallCount (#lines in function_call.log). Values are absolute; trigger when median > threshold (strategy=median).",
+  "_baseline_note": "Computed from sample sessions perf-mkmsibyg-ajmw6t / perf-mkmsjcg3-466c61 / perf-mkmske89-t3z39n with +10% tolerance.",
+  "tokensStartMs": 14965,
+  "tokensSpanMs": 8467,
+  "functionCallCount": 1784,
+  "strategy": "median"
+}

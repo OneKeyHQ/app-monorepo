@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -14,10 +16,12 @@ const useShowMobileBottomTabBar = platformEnv.isNative
       return media.md;
     };
 
-export default function TabBar({
+export default function NavigationBar({
   ...props
 }: BottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
+  bottomMenu: ReactElement;
+  webPageTabBar: ReactElement;
 }) {
   const isShowMobileBottomTabBar = useShowMobileBottomTabBar();
   const { gtMd } = useMedia();
@@ -26,7 +30,7 @@ export default function TabBar({
     return null;
   }
 
-  if (platformEnv.isNativeAndroid || isShowMobileBottomTabBar) {
+  if (isShowMobileBottomTabBar) {
     return <MobileBottomTabBar {...props} />;
   }
   return <DesktopLeftSideBar {...props} />;

@@ -17,12 +17,15 @@ export type IOptions = {
   startupThrottleTime?: number;
   stopWaitTimes?: number;
   autoRestart?: number;
+  supportedSystems?: string[];
+  unsupportedSystemLogLevel?: 'error' | 'info';
 };
 
 const defaultOptions: IOptions = {
   startupThrottleTime: 0,
   stopWaitTimes: 10,
   autoRestart: 2,
+  unsupportedSystemLogLevel: 'error',
 } as const;
 
 export default abstract class BaseProcess {
@@ -36,7 +39,13 @@ export default abstract class BaseProcess {
 
   launchThrottle: ReturnType<typeof setTimeout> | null;
 
-  supportedSystems = ['mac-x64', 'win-x64', 'linux-arm64', 'linux-x64'];
+  supportedSystems = [
+    'mac-arm64',
+    'mac-x64',
+    'win-x64',
+    'linux-arm64',
+    'linux-x64',
+  ];
 
   stopped = false;
 
@@ -53,10 +62,17 @@ export default abstract class BaseProcess {
       ...defaultOptions,
       ...options,
     };
+    if (options.supportedSystems) {
+      this.supportedSystems = options.supportedSystems;
+    }
 
     const { system } = this.getPlatformInfo();
     if (!this.isSystemSupported(system)) {
-      logger.error('Unsupported system:', system);
+      if (this.options.unsupportedSystemLogLevel === 'info') {
+        logger.info('Unsupported system:', system);
+      } else {
+        logger.error('Unsupported system:', system);
+      }
     }
   }
 
@@ -64,6 +80,13 @@ export default abstract class BaseProcess {
 
   async start(params: string[] = []) {
     const { system, ext } = this.getPlatformInfo();
+    if (!this.isSystemSupported(system)) {
+      logger.info(
+        `Skipping process ${this.processName}, unsupported system: ${system}`,
+      );
+      return;
+    }
+
     if (this.launchThrottle) {
       logger.debug('Throttling launch, cancel process');
       return;
@@ -107,17 +130,16 @@ export default abstract class BaseProcess {
     // library search path for macOS
     processEnv.DYLD_LIBRARY_PATH = processEnv.DYLD_LIBRARY_PATH
       ? `${processEnv.DYLD_LIBRARY_PATH}:${processDir}`
-      : `${processDir}`;
+      : processDir;
     // library search path for Linux
     processEnv.LD_LIBRARY_PATH = processEnv.LD_LIBRARY_PATH
       ? `${processEnv.LD_LIBRARY_PATH}:${processDir}`
-      : `${processDir}`;
+      : processDir;
 
     logger.info([
       'Starting process:',
       `- Path: ${processPath}`,
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      `- Params: ${params}`,
+      `- Params: ${params.join(' ')}`,
       `- CWD: ${processDir}`,
     ]);
     this.process = spawn(processPath, params, {
@@ -205,6 +227,11 @@ export default abstract class BaseProcess {
 
   isSystemSupported(system: string) {
     return this.supportedSystems.includes(system);
+  }
+
+  isCurrentSystemSupported() {
+    const { system } = this.getPlatformInfo();
+    return this.isSystemSupported(system);
   }
 
   getPlatformInfo() {

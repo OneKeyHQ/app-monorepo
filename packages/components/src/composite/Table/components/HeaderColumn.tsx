@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { SizableText } from '../../../primitives';
+import { useSortIcon } from '../hooks';
 import { getNextSortOrder } from '../utils';
 
 import { Column } from './Column';
@@ -25,6 +26,7 @@ function HeaderColumn<T>({
 }: IHeaderColumnProps<T>) {
   const {
     title,
+    renderTitle,
     dataIndex,
     columnWidth = 40,
     align,
@@ -33,7 +35,9 @@ function HeaderColumn<T>({
   } = column;
   const events = onHeaderRow?.(column, index);
   const enableSortType = !!events?.onSortTypeChange;
-  const [sortOrder, setSortOrder] = useState<ETableSortType | undefined>();
+  const [sortOrder, setSortOrder] = useState<ETableSortType | undefined>(
+    events?.initialSortOrder,
+  );
 
   useEffect(() => {
     if (selectedColumnName !== dataIndex) {
@@ -67,9 +71,16 @@ function HeaderColumn<T>({
   }, [dataIndex, enableSortType, events, onChangeSelectedName, sortOrder]);
 
   const cursor = enableSortType ? 'pointer' : undefined;
-  const showSortIcon = enableSortType;
+  const showSortIcon = enableSortType && !renderTitle;
   const currentSortOrder =
     dataIndex === selectedColumnName ? sortOrder : undefined;
+
+  const { renderSortIcon: renderInlineSortIcon } = useSortIcon({
+    showSortIcon: enableSortType && !!renderTitle,
+    order: currentSortOrder,
+    cursor,
+    disabledSorts: events?.disableSort,
+  });
 
   const textAlign = useMemo(() => {
     if (align === 'right') {
@@ -77,6 +88,24 @@ function HeaderColumn<T>({
     }
     return undefined;
   }, [align]);
+
+  let titleContent;
+  if (renderTitle) {
+    titleContent = renderTitle(renderInlineSortIcon());
+  } else if (typeof title === 'string') {
+    titleContent = (
+      <SizableText
+        color="$textSubdued"
+        size="$bodySmMedium"
+        textAlign={textAlign}
+        {...titleProps}
+      >
+        {title}
+      </SizableText>
+    );
+  } else {
+    titleContent = title;
+  }
 
   return (
     <Column
@@ -91,14 +120,7 @@ function HeaderColumn<T>({
       disabledSorts={events?.disableSort}
       {...(columnProps as IXStackProps)}
     >
-      <SizableText
-        color="$textSubdued"
-        size="$bodySmMedium"
-        textAlign={textAlign}
-        {...titleProps}
-      >
-        {title}
-      </SizableText>
+      {titleContent}
     </Column>
   );
 }

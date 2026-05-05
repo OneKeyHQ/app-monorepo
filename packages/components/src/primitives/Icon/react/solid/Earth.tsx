@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgEarth = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10m-7.462 5a.75.75 0 0 0 .671-.415l.498-.995a.75.75 0 0 0-.253-.958l-2.232-1.5a.75.75 0 0 0-.37-.126l-1.404-.09a.75.75 0 0 0-.577.218l-.433.431a.75.75 0 0 0-.094.948l1.435 2.153a.75.75 0 0 0 .624.334zm-6.133-6.802a.75.75 0 0 1-1.121.261L5.261 8.934a.704.704 0 0 1-.204-.911 8 8 0 0 1 8.152-3.932c.41.062.654.473.553.875l-.652 2.599a.75.75 0 0 1-.544.544l-3.227.812a.75.75 0 0 0-.487.39z"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m-1.998 12 2 3h3l1-2-2.948-1.981-1.943-.124zm1.997-10a8 8 0 0 0-7.227 4.565L8.001 11l1.005-1.995L13 8l.943-3.762A8 8 0 0 0 12 4Z"
       clipRule="evenodd"
     />
   </Svg>

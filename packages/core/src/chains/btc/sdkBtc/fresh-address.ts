@@ -85,7 +85,7 @@ export async function transformAddress({
 
     if (derivedAddress.addresses[relativePath] !== firstAddress.name) {
       throw new OneKeyInternalError(
-        `transformAddress: derived address not match, xpub: ${xpub}, path: ${firstAddress.path}, address: ${firstAddress.name}, generatedAddress: ${derivedAddress.addresses[0]}`,
+        `transformAddress: derived address not match, xpub: ${xpub}, path: ${firstAddress.path}, address: ${firstAddress.name}, generatedAddress: ${derivedAddress.addresses[relativePath]}, addressEncoding: ${addressEncoding}`,
       );
     }
 
@@ -156,7 +156,7 @@ export async function getLocalUsedAddressFromLocalPendingTxs({
   );
 
   const sortedEntries = Object.entries(localUsedAddressesMap)
-    .sort(([addressA], [addressB]) => addressA.localeCompare(addressB))
+    .toSorted(([addressA], [addressB]) => addressA.localeCompare(addressB))
     .map(([address, txIds]) => `${address}:${txIds.join(',')}`);
 
   const serializedEntries = sortedEntries.join('|');

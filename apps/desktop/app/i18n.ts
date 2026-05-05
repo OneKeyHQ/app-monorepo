@@ -17,7 +17,7 @@ let globalMessages: Record<ETranslations, string> = {} as unknown as Record<
   ETranslations,
   string
 >;
-const getLocale = () => {
+export const getLocale = () => {
   const locales = Object.keys(LOCALES) as ILocaleSymbol[];
   const storeLocale = store.getLanguage();
   logger.info('store locale >>>> ', storeLocale);

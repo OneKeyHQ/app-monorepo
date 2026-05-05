@@ -14,6 +14,7 @@ export { useTradingViewMessageHandler } from './useTradingViewMessageHandler';
 export type {
   IKLineDataRequest,
   ILayoutUpdateData,
+  IMarksTimeRange,
   IMessageHandlerContext,
   IMessageHandlerParams,
   IMessageHandler,

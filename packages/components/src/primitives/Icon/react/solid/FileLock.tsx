@@ -1,18 +1,19 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFileLock = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
-      d="M7 2h5v5a3 3 0 0 0 3 3h5v9a3 3 0 0 1-3 3h-5.127a3.5 3.5 0 0 0 .627-2v-2a3.5 3.5 0 0 0-1.025-2.474A4.5 4.5 0 0 0 4 12.646V5a3 3 0 0 1 3-3"
-    />
-    <Path fill="currentColor" d="M14 2.586 19.414 8H15a1 1 0 0 1-1-1z" />
-    <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M10 16.268V16a3 3 0 1 0-6 0v.268A2 2 0 0 0 3 18v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2a2 2 0 0 0-1-1.732M6 16h2a1 1 0 1 0-2 0m3 2H5v2h4z"
+      d="M7 13a3 3 0 0 1 3 3h1v6H3v-6h1a3 3 0 0 1 3-3m0 2a1 1 0 0 0-1 1h2a1 1 0 0 0-1-1"
       clipRule="evenodd"
     />
+    <Path d="M12 10h8v12h-7v-8h-1.416A5 5 0 0 0 4 12V2h8z" />
+    <Path d="M19.414 8H14V2.586z" />
   </Svg>
 );
 export default SvgFileLock;

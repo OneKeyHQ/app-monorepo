@@ -9,10 +9,8 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
@@ -26,13 +24,11 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
-  usePerpsCommonConfigPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   APP_STORE_LINK,
   BRIDGE_STATUS_URL,
-  EXT_RATE_URL,
   PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -40,7 +36,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  ECloudBackupRoutes,
   EDAppConnectionModal,
   ELiteCardRoutes,
   EModalKeyTagRoutes,
@@ -50,31 +45,37 @@ import {
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { getOneKeyExtensionStoreUrl } from '@onekeyhq/shared/src/utils/extensionStoreUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
-import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
-import { showApiEndpointDialog } from '../../components/ApiEndpointDialog';
 
 import {
   AutoLockListItem,
   BTCFreshAddressListItem,
   BiologyAuthListItem,
-  CleanDataListItem,
+  ChangeOrSetPasswordListItem,
   ClearAppCacheListItem,
+  ClearPendingTransactionsListItem,
   CurrencyListItem,
   DesktopBluetoothListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
+  MenuBarTrayListItem,
+  ResetAppListItem,
+  ResetPinListItem,
   ThemeListItem,
+  UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
-import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
-import { OneKeyIdTabItem } from './OneKeyIdTabItem';
+// import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
+// import { OneKeyIdTabItem } from './OneKeyIdTabItem';
 import { SubSearchSettings } from './SubSettings';
 
 import type { RouteProp } from '@react-navigation/native';
@@ -83,12 +84,17 @@ export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
   subtitle?: string;
+  keywords?: string[];
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
   };
   onPress?: (navigation?: ReturnType<typeof useAppNavigation>) => void;
+  /** Route within the SettingModal navigator for direct navigation from universal search */
+  settingRoute?: EModalSettingRoutes;
   renderElement?: React.ReactElement<any>;
+  /** If true, shows ArrowTopRightOutline icon instead of drill-in arrow for external links */
+  isExternalLink?: boolean;
 }
 
 export enum ESettingsTabNames {
@@ -149,25 +155,24 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
-  const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn } = useOneKeyAuth();
-  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [settings] = useSettingsPersistAtom();
 
-  const { cloudBackupFeatureInfo, goToPageBackupList, startBackup } =
-    useCloudBackup();
+  const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
+
+  const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
   return useMemo(
     () => [
       // OneKey ID tab with custom rendering
-      {
-        name: ESettingsTabNames.OneKeyID,
-        icon: 'PeopleSolid',
-        title: 'OneKey ID',
-        renderTabItem: OneKeyIdTabItem,
-        Component: OneKeyIdSubSettings,
-        configs: [],
-      },
+      // {
+      //   name: ESettingsTabNames.OneKeyID,
+      //   icon: 'PeopleSolid' as const,
+      //   title: 'OneKey ID',
+      //   renderTabItem: OneKeyIdTabItem,
+      //   Component: OneKeyIdSubSettings,
+      //   configs: [],
+      // },
       platformEnv.isWebDappMode
         ? undefined
         : {
@@ -190,25 +195,23 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       },
                     }
                   : null,
-                isPrimeAvailable
-                  ? {
-                      // OneKey Cloud
-                      icon: 'CloudOutline',
-                      title: intl.formatMessage({
-                        id: ETranslations.global_onekey_cloud,
-                      }),
-                      onPress: (navigation) => {
-                        defaultLogger.prime.subscription.primeEntryClick({
-                          featureName: EPrimeFeatures.OneKeyCloud,
-                          entryPoint: 'settingsPage',
-                        });
+                {
+                  // OneKey Cloud
+                  icon: 'CloudOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_onekey_cloud,
+                  }),
+                  onPress: (navigation) => {
+                    defaultLogger.prime.subscription.primeEntryClick({
+                      featureName: EPrimeFeatures.OneKeyCloud,
+                      entryPoint: 'settingsPage',
+                    });
 
-                        navigation?.pushModal(EModalRoutes.PrimeModal, {
-                          screen: EPrimePages.PrimeCloudSync,
-                        });
-                      },
-                    }
-                  : undefined,
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeCloudSync,
+                    });
+                  },
+                },
               ],
               [
                 !platformEnv.isWebDappMode
@@ -324,6 +327,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingNotifications,
                   onPress: (
                     navigation?: ReturnType<typeof useAppNavigation>,
                   ) => {
@@ -343,19 +347,33 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
           ],
+          [
+            platformEnv.isDesktopMac
+              ? {
+                  icon: 'DockOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_menu_bar_tray,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_menu_bar_tray_desc,
+                  }),
+                  renderElement: <MenuBarTrayListItem />,
+                }
+              : undefined,
+          ],
         ],
       },
-      {
-        name: ESettingsTabNames.Wallet,
-        icon: 'WalletSolid',
-        title: intl.formatMessage({
-          id: ETranslations.global_wallet,
-        }),
-        configs: [
-          [
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            name: ESettingsTabNames.Wallet,
+            icon: 'WalletSolid',
+            title: intl.formatMessage({
+              id: ETranslations.global_wallet,
+            }),
+            configs: [
+              [
+                {
                   icon: 'ContactsOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_address_book,
@@ -364,28 +382,39 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     void onPressAddressBook(navigation);
                   },
                 },
-          ],
-          [
-            !platformEnv.isWeb
-              ? {
-                  icon: 'RefreshCcwOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_account_sync_modal_title,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.push(
-                      EModalSettingRoutes.SettingAlignPrimaryAccount,
-                    );
-                  },
-                }
-              : undefined,
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
+              ],
+              [
+                !platformEnv.isWeb
+                  ? {
+                      icon: 'RefreshCcwOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.settings_account_sync_modal_title,
+                      }),
+                      settingRoute:
+                        EModalSettingRoutes.SettingAlignPrimaryAccount,
+                      onPress: (navigation) => {
+                        navigation?.push(
+                          EModalSettingRoutes.SettingAlignPrimaryAccount,
+                        );
+                      },
+                    }
+                  : undefined,
+                {
                   icon: 'LabOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_customize_transaction,
                   }),
+                  keywords: [
+                    intl.formatMessage({
+                      id: ETranslations.global_customize_nonce,
+                    }),
+                    'nonce',
+                    intl.formatMessage({
+                      id: ETranslations.global_hex_data_title,
+                    }),
+                    'hex',
+                  ],
+                  settingRoute: EModalSettingRoutes.SettingCustomTransaction,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomizeTransaction();
                     navigation?.push(
@@ -393,39 +422,24 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     );
                   },
                 },
-          ],
-          [
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
+              ],
+              [
+                {
                   icon: 'BranchesOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_derivation_path,
                   }),
+                  settingRoute:
+                    EModalSettingRoutes.SettingAccountDerivationModal,
                   onPress: (navigation) => {
                     navigation?.push(
                       EModalSettingRoutes.SettingAccountDerivationModal,
                     );
                   },
                 },
-          ],
-          [
-            !perpConfigCommon.disablePerp && !perpConfigCommon.usePerpWeb
-              ? {
-                  icon: 'BrowserOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.perp_setting_interface,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.push(EModalSettingRoutes.SettingPerpUserConfig);
-                  },
-                }
-              : null,
-          ],
-          [
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
+              ],
+              [
+                {
                   icon: 'FlashCardSolid',
                   title: intl.formatMessage({
                     id: ETranslations.settings_btc_multiple_addresses,
@@ -435,9 +449,21 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   }),
                   renderElement: <BTCFreshAddressListItem />,
                 },
-          ],
-        ],
-      },
+              ],
+              [
+                {
+                  icon: 'GasOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__desc,
+                  }),
+                  renderElement: <UseGasAccountByDefaultListItem />,
+                },
+              ],
+            ],
+          },
       {
         name: ESettingsTabNames.Security,
         icon: 'Shield2CheckSolid',
@@ -473,34 +499,14 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       ? ETranslations.global_change_passcode
                       : ETranslations.global_set_passcode,
                   }),
-                  onPress: async () => {
-                    if (isPasswordSet) {
-                      const oldEncodedPassword =
-                        await backgroundApiProxy.servicePassword.promptPasswordVerify(
-                          {
-                            reason: EReasonForNeedPassword.Security,
-                          },
-                        );
-                      const dialog = Dialog.show({
-                        title: intl.formatMessage({
-                          id: ETranslations.global_change_passcode,
-                        }),
-                        renderContent: (
-                          <PasswordUpdateContainer
-                            oldEncodedPassword={oldEncodedPassword.password}
-                            onUpdateRes={async (data) => {
-                              if (data) {
-                                await dialog.close();
-                              }
-                            }}
-                          />
-                        ),
-                        showFooter: false,
-                      });
-                    } else {
-                      void backgroundApiProxy.servicePassword.promptPasswordVerify();
-                    }
-                  },
+                  renderElement: <ChangeOrSetPasswordListItem />,
+                },
+            platformEnv.isWebDappMode || !isKeylessWalletExistsLocal
+              ? undefined
+              : {
+                  icon: 'InputOutline',
+                  title: intl.formatMessage({ id: ETranslations.reset_pin }),
+                  renderElement: <ResetPinListItem />,
                 },
           ],
           [
@@ -511,6 +517,22 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_protection,
                   }),
+                  keywords: [
+                    intl.formatMessage({
+                      id: ETranslations.settings_token_risk_reminder,
+                    }),
+                    intl.formatMessage({
+                      id: ETranslations.settings_protection_allowlist_title,
+                    }),
+                    intl.formatMessage({
+                      id: ETranslations.settings_create_transactions,
+                    }),
+                    intl.formatMessage({
+                      id: ETranslations.settings_create_remove_wallets,
+                    }),
+                    'allowlist',
+                  ],
+                  settingRoute: EModalSettingRoutes.SettingProtectModal,
                   onPress: (navigation) => {
                     navigation?.push(EModalSettingRoutes.SettingProtectModal);
                   },
@@ -535,6 +557,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_signature_record,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingSignatureRecordModal,
                   onPress: (navigation) => {
                     navigation?.push(
                       EModalSettingRoutes.SettingSignatureRecordModal,
@@ -549,6 +572,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.setting_floating_icon,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingFloatingIconModal,
                   onPress: (navigation) => {
                     navigation?.push(
                       EModalSettingRoutes.SettingFloatingIconModal,
@@ -581,11 +605,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               renderElement: <ClearAppCacheListItem />,
             },
             {
+              icon: 'ClockTimeHistoryOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_clear_pending_transactions,
+              }),
+              renderElement: <ClearPendingTransactionsListItem />,
+            },
+          ],
+          [
+            {
               icon: 'FolderDeleteOutline',
               title: intl.formatMessage({
-                id: ETranslations.settings_clear_data,
+                id: ETranslations.settings_reset_app,
               }),
-              renderElement: <CleanDataListItem />,
+              renderElement: <ResetAppListItem />,
             },
           ],
         ],
@@ -605,6 +638,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.custom_network_add_network_action_text,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingCustomNetwork,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomRPC();
                     navigation?.push(EModalSettingRoutes.SettingCustomNetwork);
@@ -615,6 +649,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.custom_rpc_title,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingCustomRPC,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomRPC();
                     navigation?.push(EModalSettingRoutes.SettingCustomRPC);
@@ -636,6 +671,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       title: intl.formatMessage({
                         id: ETranslations.settings_hardware_bridge_status,
                       }),
+                      isExternalLink: true,
                       onPress: () => {
                         openUrlExternal(BRIDGE_STATUS_URL);
                       },
@@ -648,6 +684,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_export_network_config_label,
                   }),
+                  settingRoute:
+                    EModalSettingRoutes.SettingExportCustomNetworkConfig,
                   onPress: (navigation) => {
                     navigation?.push(
                       EModalSettingRoutes.SettingExportCustomNetworkConfig,
@@ -681,7 +719,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 id: ETranslations.settings_help_center,
               }),
               onPress: () => {
-                openUrlExternal(helpCenterUrl);
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  openUrlInDiscovery({ url: helpCenterUrl });
+                } else {
+                  openUrlExternal(helpCenterUrl);
+                }
               },
             },
             {
@@ -701,12 +743,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_rate_app,
                   }),
+                  isExternalLink: true,
                   onPress: () => {
                     if (platformEnv.isExtension) {
-                      let url = EXT_RATE_URL.chrome;
-                      if (platformEnv.isExtFirefox) url = EXT_RATE_URL.firefox;
                       window.open(
-                        url,
+                        getOneKeyExtensionStoreUrl(),
                         intl.formatMessage({
                           id: ETranslations.settings_rate_app,
                         }),
@@ -726,8 +767,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_user_agreement,
               }),
-              onPress: (navigation) => {
-                openUrlExternal(userAgreementUrl);
+              onPress: () => {
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  openUrlInDiscovery({ url: userAgreementUrl });
+                } else {
+                  openUrlExternal(userAgreementUrl);
+                }
               },
             },
             {
@@ -735,8 +780,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_privacy_policy,
               }),
-              onPress: (navigation) => {
-                openUrlExternal(privacyPolicyUrl);
+              onPress: () => {
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  openUrlInDiscovery({ url: privacyPolicyUrl });
+                } else {
+                  openUrlExternal(privacyPolicyUrl);
+                }
               },
             },
           ],
@@ -817,9 +866,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       cloudBackupFeatureInfo?.supportCloudBackup,
       cloudBackupFeatureInfo?.icon,
       cloudBackupFeatureInfo?.title,
-      isPrimeAvailable,
-      perpConfigCommon.disablePerp,
-      perpConfigCommon.usePerpWeb,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,
@@ -830,6 +876,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
+      isKeylessWalletExistsLocal,
       startBackup,
       onPressAddressBook,
       helpCenterUrl,

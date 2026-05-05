@@ -74,10 +74,11 @@ describe('OffchainMessage.createOffChainMessage', () => {
       expect(detected.type).toBe(EOffChainMessageType.STANDARD);
       if (detected.header && 'applicationDomain' in detected.header) {
         const domainBytes = detected.header.applicationDomain;
-        const decoder = new TextDecoder();
-        const decodedDomain = decoder.decode(
+        // Use Buffer.toString instead of TextDecoder for cross-engine compat
+        // (Hermes may not expose TextDecoder as a bare global after poly-filling)
+        const decodedDomain = Buffer.from(
           domainBytes.slice(0, customDomain.length),
-        );
+        ).toString('utf-8');
         expect(decodedDomain).toBe(customDomain);
       }
     });

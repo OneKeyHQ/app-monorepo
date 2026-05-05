@@ -8,9 +8,9 @@ import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
+import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
-import { useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 
 function MobileBrowserContent({
   id,
@@ -29,7 +29,7 @@ function MobileBrowserContent({
     [tab?.id, activeTabId],
   );
 
-  useNotifyTabBarDisplay(!!activeTabId);
+  const { customReceiveHandler } = useDiscoveryMessageHandler();
 
   const initCaptureViewRef = useCallback(
     ($ref: any) => {
@@ -61,6 +61,7 @@ function MobileBrowserContent({
                 setBackEnabled={setBackEnabled}
                 setForwardEnabled={setForwardEnabled}
                 onScroll={onScroll}
+                customReceiveHandler={customReceiveHandler}
               />
             </Stack>
           </ViewShot>
@@ -68,7 +69,7 @@ function MobileBrowserContent({
       </>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab?.id, tab?.url, tab?.siteMode, isActive]);
+  }, [tab?.id, tab?.url, tab?.siteMode, isActive, customReceiveHandler]);
   return <>{content}</>;
 }
 

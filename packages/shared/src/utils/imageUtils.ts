@@ -18,11 +18,11 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 
-import appGlobals from '../appGlobals';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import bufferUtils from './bufferUtils';
+import { getImageEmbedBridge } from './imageUtils.embedBridge';
 
 import type {
   Action as ExpoImageManipulatorAction,
@@ -83,7 +83,7 @@ function convertToBlackAndWhiteImageBase64(
   mime: string,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return appGlobals.$webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(
+    return getImageEmbedBridge().convertToBlackAndWhiteImageBase64(
       colorImageBase64,
       mime,
     );
@@ -164,7 +164,7 @@ function htmlImageToCanvas({
   canvas.width = width;
 
   const ctx = canvas.getContext('2d');
-  if (ctx == null) {
+  if (ctx === null || ctx === undefined) {
     throw new OneKeyLocalError('2D context is null');
   }
 
@@ -269,7 +269,7 @@ async function applyRoundedCorners({
   }
 
   if (platformEnv.isNative) {
-    return appGlobals.$webembedApiProxy.imageUtils.applyRoundedCorners({
+    return getImageEmbedBridge().applyRoundedCorners({
       base64,
       width,
       height,
@@ -814,7 +814,8 @@ async function getBase64FromImageUriWeb(
     const blob = await response.blob();
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
-      // eslint-disable-next-line spellcheck/spell-checker
+
+      // oxlint-disable-next-line @cspell/spellchecker
       reader.onloadend = async () => {
         let readerResult = reader.result as string;
 
@@ -828,7 +829,7 @@ async function getBase64FromImageUriWeb(
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-  } catch (error) {
+  } catch (_error) {
     return undefined;
   }
 }
@@ -873,7 +874,7 @@ async function getUriFromRequiredImageSource(
       `isNil=${isNil(source).toString()}`,
       `isObject=${isObject(source) ? Object.keys(source).join(',') : 'false'}`,
     );
-  } catch (error) {
+  } catch (_error) {
     // ignore
   }
 
@@ -881,7 +882,7 @@ async function getUriFromRequiredImageSource(
     if (isNumber(source)) {
       try {
         logFn?.('(native) ImageSource number', source.toString());
-      } catch (error) {
+      } catch (_error) {
         // ignore
       }
     }
@@ -1005,7 +1006,7 @@ async function base64ImageToBitmap({
   height: number;
 }): Promise<string> {
   if (platformEnv.isNative) {
-    return appGlobals.$webembedApiProxy.imageUtils.base64ImageToBitmap({
+    return getImageEmbedBridge().base64ImageToBitmap({
       base64,
       width,
       height,
@@ -1058,7 +1059,7 @@ async function processImageBlur({
   height: number;
 }> {
   if (platformEnv.isNative) {
-    return appGlobals.$webembedApiProxy.imageUtils.processImageBlur({
+    return getImageEmbedBridge().processImageBlur({
       base64Data,
       blurRadius,
       overlayOpacity,
@@ -1123,6 +1124,24 @@ async function processImageBlur({
   }
 }
 
+function base64ImageToBlob(base64String: string) {
+  const arr = base64String.split(',');
+  if (!arr[0] || !arr[1]) {
+    throw new OneKeyLocalError('Invalid base64 string');
+  }
+  const mime = arr[0].match(/:(.*?);/)?.[1];
+  if (!mime) {
+    throw new OneKeyLocalError('Invalid mime type');
+  }
+  const data = atob(arr[1]);
+  let n = data.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = data.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+}
+
 export default {
   resizeImage,
   processImageBlur,
@@ -1137,4 +1156,5 @@ export default {
   getBase64ImageFromUrl,
   applyRoundedCorners,
   prepareImageForCrop,
+  base64ImageToBlob,
 };

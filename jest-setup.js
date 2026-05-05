@@ -1,10 +1,17 @@
 /* eslint-disable no-undef */
 // require('react-native-reanimated').setUpTests();
 
+// Reset process.exitCode between tests. The monorepo-wide unittest runs CLI
+// command tests (apps/cli/src/__tests__/*.test.ts) that set process.exitCode
+// while asserting non-zero exit codes; without this hook the last such value
+// leaks into Node's final exit code and breaks the CI unittest job even when
+// every test passes.
+afterEach(() => {
+  process.exitCode = 0;
+});
+
 // FIX:     ReferenceError: self is not defined
 globalThis.self = globalThis.self || globalThis;
-
-const MockMMKV = require('./apps/desktop/app/libs/react-native-mmkv-mock');
 
 class LocalStorageMock {
   constructor() {
@@ -34,6 +41,8 @@ globalThis.addEventListener = jest.fn;
 globalThis.fetch = require('node-fetch');
 globalThis.WebSocket = require('isomorphic-ws');
 
+const MockMMKV = require('./apps/desktop/app/libs/react-native-mmkv-mock');
+
 if (typeof structuredClone === 'undefined') {
   globalThis.structuredClone = require('@ungap/structured-clone').default;
 }
@@ -42,16 +51,12 @@ jest.mock('react-native-zip-archive', () => ({
   zip: jest.fn(),
 }));
 
-jest.mock('react-native-file-logger', () => ({
-  FileLogger: {
-    configure: jest.fn(),
+jest.mock('@onekeyfe/react-native-native-logger', () => ({
+  NativeLogger: {
     write: jest.fn(),
-  },
-  LogLevel: {
-    Debug: 0,
-    Info: 1,
-    Warning: 2,
-    Error: 3,
+    getLogDirectory: jest.fn(() => ''),
+    getLogFilePaths: jest.fn(() => Promise.resolve([])),
+    deleteLogFiles: jest.fn(() => Promise.resolve()),
   },
 }));
 
@@ -73,6 +78,34 @@ jest.mock('@sentry/react-native', () => ({
 
 jest.mock('expo-localization', () => ({
   locale: '',
+}));
+
+jest.mock('expo-device', () => ({
+  deviceType: null,
+  DeviceType: {
+    UNKNOWN: 0,
+    PHONE: 1,
+    TABLET: 2,
+    DESKTOP: 3,
+    TV: 4,
+  },
+  brand: null,
+  manufacturer: null,
+  modelName: null,
+  designName: null,
+  productName: null,
+  deviceYearClass: null,
+  totalMemory: null,
+  supportedCpuArchitectures: null,
+  osName: null,
+  osVersion: null,
+  osBuildId: null,
+  osInternalBuildId: null,
+  osBuildFingerprint: null,
+  platformApiLevel: null,
+  deviceName: null,
+  modelId: null,
+  isDevice: false,
 }));
 
 jest.mock('react-native-mmkv', () => ({

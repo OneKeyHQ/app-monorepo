@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgWalletCard = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 8V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1M3 8h18M3 8v3m18-3v3m0 0v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6m18 0h-6a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2H3"
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h16v-6h-4v2H8v-2H4zm0-8h6v2h4v-2h6V9H4zm0-3h16V6H4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

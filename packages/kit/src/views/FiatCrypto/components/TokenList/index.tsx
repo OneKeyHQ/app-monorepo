@@ -1,4 +1,4 @@
-import { type FC, useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,6 +9,7 @@ import {
   NumberSizeableText,
   SearchBar,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
@@ -25,30 +26,35 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
+import type {
+  IFiatCryptoToken,
+  IFiatCryptoType,
+} from '@onekeyhq/shared/types/fiatCrypto';
 
 import { useGetNetwork } from '../NetworkContainer';
 import { TokenDataContext } from '../TokenDataContainer';
 
 type ITokenListProps = {
   items: IFiatCryptoToken[];
+  type: IFiatCryptoType;
+  isLoading?: boolean;
   onPress?: (params: {
     token: IFiatCryptoToken;
     realAccountId?: string;
   }) => void;
 };
 
-const keyExtractor = (item: unknown) => {
-  const address = (item as IFiatCryptoToken).address;
-  const networkId = (item as IFiatCryptoToken).networkId;
-  return `${networkId}--${address || 'main'}`;
-};
+function keyExtractor(item: IFiatCryptoToken): string {
+  return `${item.name}-${item.networkId}--${item.address || 'main'}`;
+}
 
 const ListItemFiatToken = ({
   item,
+  type,
   onPress,
 }: {
   item: IFiatCryptoToken;
+  type: IFiatCryptoType;
   onPress?: (params: {
     token: IFiatCryptoToken;
     realAccountId?: string;
@@ -94,7 +100,6 @@ const ListItemFiatToken = ({
           networkId: item.networkId,
           deriveType,
         });
-      console.log('dbAccount', dbAccount);
       onPress?.({ token: item, realAccountId: dbAccount.id });
     } catch {
       setLoading(true);
@@ -127,6 +132,52 @@ const ListItemFiatToken = ({
     }
   }, [onPress, item, networkId, account, accountId, createAddress]);
 
+  const renderRightContent = useCallback(() => {
+    if (loading) {
+      return (
+        <XStack alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
+            {intl.formatMessage({
+              id: ETranslations.global_creating_address,
+            })}
+          </SizableText>
+          <Spinner size="small" />
+        </XStack>
+      );
+    }
+    if (type === 'buy') {
+      if (item.popular) {
+        return (
+          <Badge badgeType="info" badgeSize="sm">
+            {intl.formatMessage({ id: ETranslations.global_popular })}
+          </Badge>
+        );
+      }
+      return null;
+    }
+    return (
+      <>
+        {item.balanceParsed ? (
+          <NumberSizeableText size="$bodyLgMedium" formatter="balance">
+            {item.balanceParsed}
+          </NumberSizeableText>
+        ) : null}
+        {item.fiatValue ? (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="balance"
+            color="$textSubdued"
+            formatterOptions={{
+              currency: symbol,
+            }}
+          >
+            {item.fiatValue}
+          </NumberSizeableText>
+        ) : null}
+      </>
+    );
+  }, [intl, item, loading, symbol, type]);
+
   const renderItem = useCallback(
     ({ disableDefaultBehavior }: { disableDefaultBehavior?: boolean }) => {
       return (
@@ -153,42 +204,11 @@ const ListItemFiatToken = ({
             }
             secondary={item.name}
           />
-          <YStack alignItems="flex-end">
-            {loading ? (
-              <XStack alignItems="center">
-                <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
-                  {intl.formatMessage({
-                    id: ETranslations.global_creating_address,
-                  })}
-                </SizableText>
-                <Spinner size="small" />
-              </XStack>
-            ) : (
-              <YStack alignItems="flex-end">
-                {item.balanceParsed ? (
-                  <NumberSizeableText size="$bodyLgMedium" formatter="balance">
-                    {item.balanceParsed}
-                  </NumberSizeableText>
-                ) : null}
-                {item.fiatValue ? (
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    formatter="balance"
-                    color="$textSubdued"
-                    formatterOptions={{
-                      currency: symbol,
-                    }}
-                  >
-                    {item.fiatValue}
-                  </NumberSizeableText>
-                ) : null}
-              </YStack>
-            )}
-          </YStack>
+          <YStack alignItems="flex-end">{renderRightContent()}</YStack>
         </ListItem>
       );
     },
-    [handlePress, intl, item, loading, network?.logoURI, network?.name, symbol],
+    [handlePress, item, network?.logoURI, network?.name, renderRightContent],
   );
 
   if (
@@ -215,7 +235,12 @@ const ListItemFiatToken = ({
   return renderItem({});
 };
 
-export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
+export function TokenList({
+  items,
+  type,
+  isLoading,
+  onPress,
+}: ITokenListProps) {
   const [text, setText] = useState('');
   const onChangeText = useCallback((value: string) => {
     setText(value.trim());
@@ -226,7 +251,7 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
     return items.filter(
       (o) =>
         o.name.toLowerCase().includes(key) ||
-        o.symbol.toLowerCase().includes(text),
+        o.symbol.toLowerCase().includes(key),
     );
   }, [items, text]);
   const intl = useIntl();
@@ -244,24 +269,37 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
         />
       </Stack>
       <Stack flex={1}>
-        <ListView
-          estimatedItemSize={60}
-          data={data}
-          renderItem={({ item }) => (
-            <ListItemFiatToken item={item} onPress={onPress} />
-          )}
-          keyExtractor={keyExtractor}
-          ListFooterComponent={<Stack h={bottom || '$2'} />}
-          ListEmptyComponent={
-            <Empty
-              title={intl.formatMessage({
-                id: ETranslations.global_no_results,
-              })}
-              icon="SearchOutline"
-            />
-          }
-        />
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, index) => (
+            <ListItem key={index}>
+              <Skeleton w="$10" h="$10" borderRadius="$full" />
+              <YStack flex={1} gap="$1">
+                <Skeleton.BodyLg w={120} />
+                <Skeleton.BodyMd w={80} />
+              </YStack>
+            </ListItem>
+          ))
+        ) : (
+          <ListView
+            useFlashList
+            estimatedItemSize={72}
+            data={data}
+            renderItem={({ item }) => (
+              <ListItemFiatToken item={item} type={type} onPress={onPress} />
+            )}
+            keyExtractor={keyExtractor}
+            ListFooterComponent={<Stack h={bottom || '$2'} />}
+            ListEmptyComponent={
+              <Empty
+                title={intl.formatMessage({
+                  id: ETranslations.global_no_results,
+                })}
+                illustration="QuestionMark"
+              />
+            }
+          />
+        )}
       </Stack>
     </Stack>
   );
-};
+}

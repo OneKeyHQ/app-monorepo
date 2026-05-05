@@ -431,7 +431,7 @@ export default function Detail() {
             estimatedItemSize="$16"
             ListEmptyComponent={
               <Empty
-                icon="SearchOutline"
+                illustration="QuestionMark"
                 title={intl.formatMessage({
                   id: ETranslations.backup_no_data,
                 })}

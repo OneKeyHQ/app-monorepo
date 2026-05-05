@@ -136,7 +136,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         } else {
           finalMessage = unsignedMsg.message;
         }
-      } catch (e) {
+      } catch (_e) {
         finalMessage = unsignedMsg.message;
       }
     }

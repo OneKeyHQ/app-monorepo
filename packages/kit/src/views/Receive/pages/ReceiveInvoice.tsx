@@ -46,32 +46,35 @@ function ReceiveInvoice() {
   useEffect(() => {
     if (!paymentHash || !networkId || !accountId) return;
     const { serviceLightning } = backgroundApiProxy;
-    timerRef.current = setInterval(() => {
-      serviceLightning
-        .fetchSpecialInvoice({
-          paymentHash,
-          accountId,
-          networkId,
-        })
-        .then((res) => {
-          if (res.is_paid) {
-            Toast.success({
-              title: intl.formatMessage({
-                id: ETranslations.ln_payment_received_label,
-              }),
-            });
-            clearInterval(timerRef.current);
-            setTimeout(() => {
-              navigation.popStack();
-              navigation.popStack();
-            }, 500);
-          }
-        })
-        .catch((e) => {
-          // ignore because it's normal to fail when invoice is not paid
-          console.error(e);
-        });
-    }, timerUtils.getTimeDurationMs({ seconds: 5 }));
+    timerRef.current = setInterval(
+      () => {
+        serviceLightning
+          .fetchSpecialInvoice({
+            paymentHash,
+            accountId,
+            networkId,
+          })
+          .then((res) => {
+            if (res.is_paid) {
+              Toast.success({
+                title: intl.formatMessage({
+                  id: ETranslations.ln_payment_received_label,
+                }),
+              });
+              clearInterval(timerRef.current);
+              setTimeout(() => {
+                navigation.popStack();
+                navigation.popStack();
+              }, 500);
+            }
+          })
+          .catch((e) => {
+            // ignore because it's normal to fail when invoice is not paid
+            console.error(e);
+          });
+      },
+      timerUtils.getTimeDurationMs({ seconds: 5 }),
+    );
 
     return () => {
       if (timerRef.current) {

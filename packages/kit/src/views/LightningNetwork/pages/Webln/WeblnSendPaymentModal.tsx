@@ -118,7 +118,7 @@ function WeblnSendPaymentModal() {
           amount:
             lnUnit === ELightningUnit.BTC
               ? chainValueUtils.convertBtcToSats(formValue.amount ?? 0)
-              : formValue.amount ?? 0,
+              : (formValue.amount ?? 0),
         };
         const transfersInfo: ITransferInfo[] = [
           {

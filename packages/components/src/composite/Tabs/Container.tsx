@@ -19,42 +19,64 @@ import { XStack, YStack } from '../../primitives';
 
 import { TabsContext, TabsScrollContext } from './context';
 import { TabBar } from './TabBar';
-import { startViewTransition } from './utils';
 
 import type { LayoutChangeEvent } from 'react-native';
 import type {
   CollapsibleProps,
   TabBarProps,
 } from 'react-native-collapsible-tab-view';
+import type { SharedValue } from 'react-native-reanimated';
 import type { WindowScrollerChildProps } from 'react-virtualized';
+
+const overflowYScrollStyle = { overflowY: 'scroll' } as const;
+const scrollSnapStyle = { scrollSnapType: 'x' } as const;
+const childDivStyle = {
+  width: '100%',
+  flexShrink: 0,
+  scrollSnapAlign: 'center',
+} as const;
 
 export function ContainerChild({
   children,
   listContainerRef,
   containerWidth,
+  focusedTab,
+  tabNames,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
   containerWidth: number | string | undefined;
+  focusedTab: SharedValue<string>;
+  tabNames: (string | null)[];
 }) {
+  useAnimatedReaction(
+    () => focusedTab.value,
+    (tabName) => {
+      const focusedIndex = tabNames.findIndex((name) => name === tabName);
+      if (focusedIndex > -1 && listContainerRef.current) {
+        listContainerRef.current.childNodes.forEach((element, index) => {
+          if (element) {
+            (
+              (element as HTMLDivElement).style as unknown as {
+                contentVisibility: 'hidden' | 'visible';
+              }
+            ).contentVisibility = focusedIndex === index ? 'visible' : 'hidden';
+          }
+        });
+      }
+    },
+  );
   return (
     <TabsScrollContext.Provider value={props}>
       <XStack
         ref={listContainerRef as any}
         width={containerWidth || props.width}
         overflow="hidden"
-        style={{ scrollSnapType: 'x' }}
+        style={scrollSnapStyle}
       >
         {Children.map(children, (child, index) => {
           return (
-            <div
-              style={{
-                width: '100%',
-                flexShrink: 0,
-                scrollSnapAlign: 'center',
-              }}
-              key={index}
-            >
+            <div style={childDivStyle} key={index}>
               {child}
             </div>
           );
@@ -73,22 +95,68 @@ export interface ITabContainerRef {
   setIndex: (index: number) => void;
   getFocusedTab: () => string;
   getCurrentIndex: () => number;
+  syncCurrentPage: () => void;
 }
+
+export interface ITabContainerProps {
+  renderHeader?: () => React.ReactNode;
+  renderTabBar?: (props: TabBarProps<string>) => React.ReactNode;
+  /**
+   * Slot rendered below the sticky TabBar and above the virtualized tab
+   * content. Scrolls with the page flow (non-sticky) and slides behind the
+   * TabBar when the user scrolls down. Use this for per-tab banners that must
+   * not live inside the virtualized list's CellMeasurer cache.
+   */
+  renderSubHeader?: () => React.ReactNode;
+  onIndexChange?: (index: number) => void;
+  onTabChange?: (data: {
+    prevIndex: number;
+    index: number;
+    prevTabName: string;
+    tabName: string;
+  }) => void;
+  width?: number | string;
+  initialTabName?: string;
+  allowHeaderOverscroll?: boolean;
+  disableScroll?: boolean;
+  /** Only used on native Android, ignored on web */
+  useNativeHeaderAnimation?: boolean;
+}
+
 interface ITabContainerRefProps {
-  ref: React.RefObject<ITabContainerRef>;
+  ref?: React.RefObject<ITabContainerRef>;
 }
 
 export function Container({
   children,
   renderHeader,
   renderTabBar = renderDefaultTabBar,
+  renderSubHeader,
   onIndexChange,
   onTabChange,
   width: containerWidth,
   ref: containerRef,
   initialTabName,
-  ...props
-}: PropsWithChildren<CollapsibleProps> & ITabContainerRefProps) {
+  disableScroll,
+}: PropsWithChildren<CollapsibleProps> &
+  ITabContainerRefProps &
+  Pick<
+    ITabContainerProps,
+    'disableScroll' | 'useNativeHeaderAnimation' | 'renderSubHeader'
+  >) {
+  const getTabContentHeight = useCallback((element: Element | null) => {
+    const htmlElement = element as HTMLElement | null;
+    if (!htmlElement) {
+      return 0;
+    }
+
+    return Math.max(
+      htmlElement.scrollHeight || 0,
+      htmlElement.clientHeight || 0,
+      htmlElement.getBoundingClientRect().height || 0,
+    );
+  }, []);
+
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
   const tabNames = useMemo(() => {
@@ -107,13 +175,16 @@ export function Container({
     initialTabName || tabNames[0] || '',
   );
   const scrollTabElementDict = useMemo(() => {
-    return tabNames.reduce((acc, name) => {
-      acc[name] = {
-        element: null,
-        height: 0,
-      };
-      return acc;
-    }, {} as { [key: string]: { element: HTMLElement | null; height: number } });
+    return tabNames.reduce(
+      (acc, name) => {
+        acc[name] = {
+          element: null,
+          height: 0,
+        };
+        return acc;
+      },
+      {} as { [key: string]: { element: HTMLElement | null; height: number } },
+    );
   }, [tabNames]);
   const scrollTabElementsRef = useRef<{
     [key: string]: {
@@ -157,21 +228,22 @@ export function Container({
         if (resizeObserverRef.current) {
           resizeObserverRef.current.disconnect();
         }
-        const height =
-          scrollTabElementsRef.current?.[focusedTab.value]?.element
-            ?.clientHeight;
+        const height = getTabContentHeight(
+          scrollTabElementsRef.current?.[focusedTab.value]?.element ?? null,
+        );
 
         if (height) {
-          (
-            listContainerRef.current as HTMLElement
-          ).style.maxHeight = `${height}px`;
+          (listContainerRef.current as HTMLElement).style.height =
+            `${height}px`;
           setTimeout(() => {
             resizeObserverRef.current = new ResizeObserver((entries) => {
               const entry = entries[0];
-              if (entry && entry.contentRect.height) {
-                (
-                  listContainerRef.current as HTMLElement
-                ).style.maxHeight = `${entry.contentRect.height}px`;
+              const borderBoxHeight = getTabContentHeight(
+                (entry?.target as HTMLElement) ?? null,
+              );
+              if (borderBoxHeight) {
+                (listContainerRef.current as HTMLElement).style.height =
+                  `${borderBoxHeight}px`;
               } else {
                 // When quickly removing and adding observer nodes, ResizeObserver API has a delay
                 // and there's a chance it won't get the current node height, so we need delayed retries
@@ -194,7 +266,7 @@ export function Container({
         }
       }
     },
-    [focusedTab],
+    [focusedTab, getTabContentHeight],
   );
 
   useLayoutEffect(() => {
@@ -239,25 +311,28 @@ export function Container({
         isSwitchingTabRef.current = true;
         const index = tabNames.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
-        startViewTransition(() => {
-          updateListContainerHeight();
-          const width = scrollElement?.clientWidth || 0;
-          listContainerRef.current?.scrollTo({
-            left: width * index,
-            behavior: 'instant',
-          });
 
-          if (stickyHeaderHeight.current > 0) {
-            if ((scrollElement?.scrollTop || 0) >= stickyHeaderHeight.current) {
-              scrollTop = Math.max(scrollTop, stickyHeaderHeight.current);
-              scrollElement?.scrollTo({
-                top: scrollTop,
-                behavior: 'instant',
-              });
-            }
-          }
-          isSwitchingTabRef.current = false;
+        // Execute DOM updates synchronously instead of inside startViewTransition.
+        // startViewTransition's callback runs asynchronously and gets aborted when
+        // a new transition starts during rapid switching, which causes scrollTo
+        // to never execute and the tab switch to visually fail.
+        updateListContainerHeight();
+        const width = scrollElement?.clientWidth || 0;
+        listContainerRef.current?.scrollTo({
+          left: width * index,
+          behavior: 'instant',
         });
+
+        if (stickyHeaderHeight.current > 0) {
+          if ((scrollElement?.scrollTop || 0) >= stickyHeaderHeight.current) {
+            scrollTop = Math.max(scrollTop, stickyHeaderHeight.current);
+            scrollElement?.scrollTo({
+              top: scrollTop,
+              behavior: 'instant',
+            });
+          }
+        }
+        isSwitchingTabRef.current = false;
       }
     },
   );
@@ -316,6 +391,9 @@ export function Container({
     getCurrentIndex: () => {
       return tabNames.findIndex((name) => name === focusedTab.value);
     },
+    syncCurrentPage: () => {
+      // no-op on web, only needed for native PagerView
+    },
   }));
 
   return (
@@ -323,9 +401,7 @@ export function Container({
       flex={1}
       className="onekey-tabs-container"
       position="relative"
-      style={{
-        overflowY: 'scroll',
-      }}
+      style={disableScroll ? undefined : overflowYScrollStyle}
       ref={ref as React.RefObject<HTMLDivElement>}
     >
       {scrollElement ? (
@@ -351,14 +427,7 @@ export function Container({
                 <>
                   <YStack
                     position="relative"
-                    width={containerWidth ? undefined : width}
-                    style={
-                      containerWidth
-                        ? {
-                            width: containerWidth,
-                          }
-                        : undefined
-                    }
+                    width={containerWidth || width}
                     onLayout={handlerStickyHeaderLayout}
                   >
                     {renderHeader?.({
@@ -373,6 +442,7 @@ export function Container({
                     onTabPress,
                     containerWidth,
                   } as any)}
+                  {renderSubHeader?.()}
                   <ContainerChild
                     containerWidth={containerWidth}
                     height={height}
@@ -383,6 +453,8 @@ export function Container({
                     onChildScroll={onChildScroll}
                     registerChild={registerChild}
                     listContainerRef={listContainerRef as any}
+                    focusedTab={focusedTab}
+                    tabNames={tabNames}
                   >
                     {children}
                   </ContainerChild>

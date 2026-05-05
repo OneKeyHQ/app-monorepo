@@ -10,7 +10,7 @@ function countObjectDepth(source: unknown, maxDepth = 5, depth = 0): number {
     return currentDepth;
   }
 
-  if (source == null) {
+  if (source === null || source === undefined) {
     return currentDepth;
   }
 
@@ -70,7 +70,7 @@ export function stringifyFunc(...args: any[]): string {
           );
         }
       });
-    } catch (error) {
+    } catch (_error) {
       console.warn(
         `Arg nesting too deep. This will affect the performance of logging. Try reducing the level of nesting for the parameter objects.`,
         argsNew,

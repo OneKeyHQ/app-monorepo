@@ -240,6 +240,26 @@ export function getStakingActionLabel({
       return appLocale.intl.formatMessage({
         id: ETranslations.global_withdraw,
       });
+    case EEarnLabels.Supply:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.defi_supply,
+      });
+    case EEarnLabels.Borrow:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.global_borrow,
+      });
+    case EEarnLabels.Repay:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.defi_repay,
+      });
+    case EEarnLabels.Sell:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.global_sell,
+      });
+    case EEarnLabels.Buy:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.global_buy,
+      });
     default:
       return appLocale.intl.formatMessage({
         id: ETranslations.global_unknown,
@@ -362,6 +382,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       address: unsignedTx.swapInfo.receivingAddress,
       tags: [],
       networkId: unsignedTx.swapInfo.receiver.accountInfo.networkId,
+      highlight: true,
     };
 
     components.push(receiveAddressComponent);
@@ -388,6 +409,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       address: action.to,
       tags: [],
       isNavigable: showInteractWithContract,
+      highlight: !showInteractWithContract,
     };
 
     components.push(toAddressComponent);

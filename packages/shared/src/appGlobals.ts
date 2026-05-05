@@ -12,7 +12,7 @@ import type { IOffscreenApi } from '@onekeyhq/kit-bg/src/offscreens/instance/IOf
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebembedApi';
 import type { Analytics } from '@onekeyhq/shared/src/analytics';
-import type { DefaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IDefaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IAppDeviceInfo } from './appDeviceInfo/types';
 import type { AppEventBusClass } from './eventBus/appEventBus';
@@ -28,7 +28,8 @@ export type IAppGlobals = {
   $offscreenApiProxy: IOffscreenApi;
   $webembedApiProxy: IWebembedApi;
   $navigationRef: React.RefObject<NavigationContainerRef<any>>;
-  $defaultLogger?: DefaultLogger;
+  $tabletMainViewNavigationRef: React.RefObject<NavigationContainerRef<any>>;
+  $defaultLogger?: IDefaultLogger;
   $Toast?: IToast;
   $appStorage?: IAppStorage;
   $appEventBus?: AppEventBusClass;
@@ -67,6 +68,7 @@ const appGlobals: IAppGlobals = {
   $offscreenApiProxy: undefined!,
   $webembedApiProxy: undefined!,
   $navigationRef: undefined!,
+  $tabletMainViewNavigationRef: undefined!,
   extJsBridgeUiToBg: undefined!,
   extJsBridgeOffscreenToBg: undefined!,
 };

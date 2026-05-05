@@ -1,6 +1,7 @@
 import type { DependencyList } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import { Keyboard, Platform } from 'react-native';
 import { withTiming } from 'react-native-reanimated';
 
@@ -81,15 +82,58 @@ export const useKeyboardEvent = (
   },
   deps: DependencyList = [],
 ) => {
+  const isFocused = useIsFocused();
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
+
   useEffect(() => {
     const showSubscription = Keyboard.addListener(
       KEYBOARD_SHOW_EVENT_NAME,
-      keyboardWillShow,
+      (e) => {
+        if (!isFocusedRef.current) return;
+        keyboardWillShow(e);
+      },
     );
 
     const hideSubscription = Keyboard.addListener(
       KEYBOARD_HIDE_EVENT_NAME,
-      keyboardWillHide,
+      (e) => {
+        if (!isFocusedRef.current) return;
+        keyboardWillHide(e);
+      },
+    );
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+};
+
+// Version without useIsFocused — for components rendered outside NavigationContainer
+export const useKeyboardEventWithoutNavigation = (
+  {
+    keyboardWillShow = noop,
+    keyboardWillHide = noop,
+  }: {
+    keyboardWillShow?: KeyboardEventListener;
+    keyboardWillHide?: KeyboardEventListener;
+  },
+  deps: DependencyList = [],
+) => {
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      KEYBOARD_SHOW_EVENT_NAME,
+      (e) => {
+        keyboardWillShow(e);
+      },
+    );
+
+    const hideSubscription = Keyboard.addListener(
+      KEYBOARD_HIDE_EVENT_NAME,
+      (e) => {
+        keyboardWillHide(e);
+      },
     );
     return () => {
       showSubscription.remove();

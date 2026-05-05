@@ -24,10 +24,12 @@ export function useTokenManagement({
   networkId,
   accountId,
   indexedAccountId,
+  enabled = true,
 }: {
   networkId: string;
   accountId: string;
   indexedAccountId?: string;
+  enabled?: boolean;
 }) {
   const intl = useIntl();
   const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
@@ -39,6 +41,13 @@ export function useTokenManagement({
     isLoading: isLoadingLocalData,
   } = usePromiseResult(
     async () => {
+      if (!enabled) {
+        return {
+          sectionTokens: [],
+          addedTokens: [],
+          customTokens: [],
+        };
+      }
       const pair: {
         accountId: string;
         networkId: string;
@@ -189,6 +198,7 @@ export function useTokenManagement({
       };
     },
     [
+      enabled,
       isAllNetwork,
       indexedAccountId,
       tokenList.tokens,

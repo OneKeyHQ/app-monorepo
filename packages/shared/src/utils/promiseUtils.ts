@@ -1,8 +1,11 @@
 import { isArray, isEmpty, isFunction, isNil, isPlainObject } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IOneKeyError } from '../errors/types/errorTypes';
+
+export const PROMISE_CONCURRENCY_LIMIT = platformEnv.isNative ? 8 : 10;
 
 export const createDelayPromise = <T>(
   delay: number,
@@ -139,10 +142,37 @@ export function isPromiseObject(obj: any) {
 }
 
 export async function promiseAllSettledEnhanced<T>(
-  promises: Promise<T>[],
-  options?: { continueOnError?: boolean },
+  promisesOrFactories: Promise<T>[] | (() => Promise<T>)[],
+  options?: { continueOnError?: boolean; concurrency?: number },
 ): Promise<(T | null)[]> {
-  if (!options?.continueOnError) {
+  const { continueOnError, concurrency } = options ?? {};
+
+  // When concurrency is set and items are task factories, execute in batches
+  if (
+    concurrency &&
+    concurrency > 0 &&
+    promisesOrFactories.length > 0 &&
+    typeof promisesOrFactories[0] === 'function'
+  ) {
+    const factories = promisesOrFactories as (() => Promise<T>)[];
+    const results: (T | null)[] = [];
+    for (let i = 0; i < factories.length; i += concurrency) {
+      const batch = factories.slice(i, i + concurrency).map((fn) => fn());
+      if (continueOnError) {
+        const settled = await Promise.allSettled(batch);
+        results.push(
+          ...settled.map((r) => (r.status === 'fulfilled' ? r.value : null)),
+        );
+      } else {
+        const settled = await Promise.all(batch);
+        results.push(...settled);
+      }
+    }
+    return results;
+  }
+
+  const promises = promisesOrFactories as Promise<T>[];
+  if (!continueOnError) {
     return Promise.all(promises);
   }
 
@@ -153,20 +183,24 @@ export async function promiseAllSettledEnhanced<T>(
 }
 
 export class PromiseTarget<T> {
+  // IMPORTANT: Declare _resolveFn and _rejectFn BEFORE ready!
+  // This fixes a class field initialization order issue where rspack/SWC
+  // would initialize _resolveFn to undefined AFTER the Promise executor
+  // had already set it, causing the Promise to never resolve.
+  _resolveFn: ((value: T) => void) | undefined;
+
+  _rejectFn: ((error: Error | IOneKeyError) => void) | undefined;
+
   ready = new Promise<T>((resolve, reject) => {
     this._resolveFn = resolve;
     this._rejectFn = reject;
   });
-
-  _resolveFn: ((value: T) => void) | undefined;
 
   resolveTarget(value: T, delay = 0) {
     setTimeout(() => {
       this._resolveFn?.(value);
     }, delay);
   }
-
-  _rejectFn: ((error: Error | IOneKeyError) => void) | undefined;
 
   rejectTarget(error: Error | IOneKeyError) {
     setTimeout(() => {

@@ -7,7 +7,9 @@ import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
 
 import { galleryScreenList } from './pages/Gallery';
 
-const TabDeveloper = LazyLoadRootTabPage(() => import('./pages/TabDeveloper'));
+const TabDeveloper = LazyLoadRootTabPage(
+  () => import(/* webpackPrefetch: true */ './pages/TabDeveloper'),
+);
 const DevHome = LazyLoadPage(() => import('./pages/DevHome'));
 const DevHomeStack1 = LazyLoadPage(() => import('./pages/DevHomeStack1'));
 const DevHomeStack2 = LazyLoadPage(() => import('./pages/DevHomeStack2'));

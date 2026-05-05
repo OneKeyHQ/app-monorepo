@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDownloadSquare = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm6 11a1 1 0 1 1 0-2h6a1 1 0 1 1 0 2zm5.707-5.293-2 2a1 1 0 0 1-1.414 0l-2-2a1 1 0 1 1 1.414-1.414l.293.293V8a1 1 0 1 1 2 0v2.586l.293-.293a1 1 0 1 1 1.414 1.414"
+      d="M21 21H3V3h18zM8 15v2h8v-2zm3-8v3.586l-1-1L8.586 11 12 14.414 15.414 11 14 9.586l-1 1V7z"
       clipRule="evenodd"
     />
   </Svg>

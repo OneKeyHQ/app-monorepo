@@ -4,7 +4,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
 import { get, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Button, Dialog, Stack, Toast, XStack } from '@onekeyhq/components';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -34,13 +35,13 @@ import type {
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
+  EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
@@ -55,6 +56,79 @@ import {
 import { usePrepareUSBConnectForFirmwareUpdate } from './usePrepareUSBConnectForFirmwareUpdate';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+
+// ---------------------------------------------------------------------------
+// Third-party vendor helpers (Ledger today; Trezor would add sibling helpers
+// here, NOT modify these). Kept as plain module-level functions so the
+// useDeviceConnect hook stays focused on the OneKey path.
+// ---------------------------------------------------------------------------
+
+async function verifyLedgerDevice(
+  device: SearchDevice,
+): Promise<IFirmwareVerifyResult> {
+  // Third-party devices do not go through OneKey firmware verify /
+  // bootloader checks; return a synthetic verified result.
+  return {
+    verified: true,
+    device,
+    payload: {
+      deviceType: device.deviceType,
+      data: '',
+      cert: '',
+      signature: '',
+    },
+    result: {
+      message: '',
+    },
+  };
+}
+
+async function createLedgerHwWallet({
+  device,
+  vendor,
+  actions,
+  navigation,
+  hardwareTransportType,
+  isSoftwareWalletOnlyUser,
+}: {
+  device: SearchDevice;
+  vendor: EHardwareVendor;
+  actions: ReturnType<typeof useAccountSelectorActions>;
+  navigation: ReturnType<typeof useAppNavigation>;
+  hardwareTransportType: EHardwareTransportType | undefined;
+  isSoftwareWalletOnlyUser: boolean;
+}): Promise<void> {
+  try {
+    navigation.push(EOnboardingPages.FinalizeWalletSetup);
+
+    const params: IDBCreateHwWalletParamsBase & {
+      vendor?: EHardwareVendor;
+    } = {
+      device,
+      hideCheckingDeviceLoading: true,
+      features: {
+        device_id: device.deviceId || '',
+        vendor,
+      } as IOneKeyDeviceFeatures,
+      isFirmwareVerified: true,
+      defaultIsTemp: true,
+      vendor,
+    };
+    await actions.current.createHWWalletWithoutHidden(params);
+
+    await trackHardwareWalletConnection({
+      status: 'success',
+      deviceType: device.deviceType,
+      features: params.features,
+      hardwareTransportType,
+      isSoftwareWalletOnlyUser,
+    });
+  } catch (error) {
+    errorToastUtils.toastIfError(error);
+    navigation.pop();
+    throw error;
+  }
+}
 
 export function useDeviceConnect({
   setCurrentDevice,
@@ -240,9 +314,7 @@ export function useDeviceConnect({
     [navigation],
   );
 
-  const requestsUrl = useHelpLink({ path: 'requests/new' });
-
-  const handleNotActivatedDevicePress = useCallback(
+  const _handleNotActivatedDevicePress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
       const dialog = Dialog.show({
         icon: 'WalletCryptoOutline',
@@ -304,7 +376,7 @@ export function useDeviceConnect({
                         flex={1}
                         size="large"
                         $gtMd={{ size: 'medium' } as any}
-                        onPress={() => Linking.openURL(requestsUrl)}
+                        onPress={() => showIntercom()}
                       >
                         {intl.formatMessage({
                           id: ETranslations.global_contact_us,
@@ -340,7 +412,7 @@ export function useDeviceConnect({
         showFooter: false,
       });
     },
-    [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl],
+    [handleRestoreWalletPress, handleSetupNewWalletPress, intl],
   );
 
   // Shared device connection handler
@@ -348,6 +420,14 @@ export function useDeviceConnect({
     async (device: SearchDevice, tabValue: EConnectDeviceChannel) => {
       // Ensure all scanning and polling activities are stopped before connecting
       console.log('handleDeviceConnect: Starting device connection process');
+
+      // Third-party vendor short-circuit: skip OneKey-specific verify
+      // (firmware verify, bootloader check, etc.).
+      const deviceVendor = (device as SearchDevice & { vendor?: string })
+        ?.vendor;
+      if (deviceVendor === EHardwareVendor.ledger) {
+        return verifyLedgerDevice(device);
+      }
 
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'ConnectHWWallet',
@@ -768,10 +848,25 @@ export function useDeviceConnect({
     async ({
       device,
       isFirmwareVerified,
+      vendor,
     }: {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
+      vendor?: EHardwareVendor;
     }) => {
+      // For third-party vendor devices (Ledger), skip OneKey SDK
+      // connection/features flow and create wallet directly.
+      if (vendor === EHardwareVendor.ledger) {
+        return createLedgerHwWallet({
+          device,
+          vendor,
+          actions,
+          navigation,
+          hardwareTransportType,
+          isSoftwareWalletOnlyUser,
+        });
+      }
+
       await ensureActiveConnection(device);
       const currentDevice = getActiveDevice() ?? device;
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
@@ -822,6 +917,10 @@ export function useDeviceConnect({
       createHwWallet,
       closeDialogAndReturn,
       intl,
+      navigation,
+      actions,
+      hardwareTransportType,
+      isSoftwareWalletOnlyUser,
     ],
   );
   return useMemo(

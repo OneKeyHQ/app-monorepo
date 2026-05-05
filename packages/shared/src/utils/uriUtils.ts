@@ -9,6 +9,7 @@ import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
+import platformEnv from '../platformEnv';
 
 import type {
   EOneKeyDeepLinkPath,
@@ -68,14 +69,29 @@ function getOriginFromUrl({ url }: { url: string }): string {
 function safeParseURL(url: string): URL | null {
   try {
     return new URL(url);
-  } catch (e) {
+  } catch (_e) {
     return null;
   }
 }
 
+export function appendUtmSourceToUrl({
+  url,
+  utmSource,
+}: {
+  url: string;
+  utmSource: string;
+}) {
+  const parsedUrl = safeParseURL(url);
+  if (!parsedUrl) {
+    return url;
+  }
+  parsedUrl.searchParams.set('utm_source', utmSource);
+  return parsedUrl.toString();
+}
+
 function isProtocolSupportedOpenInApp(dappUrl: string) {
   return PROTOCOLS_SUPPORTED_TO_OPEN.some((protocol) =>
-    dappUrl.toLowerCase().startsWith(`${protocol.toLowerCase()}`),
+    dappUrl.toLowerCase().startsWith(protocol.toLowerCase()),
   );
 }
 
@@ -87,7 +103,22 @@ enum EDAppOpenActionEnum {
 function parseDappRedirect(
   url: string,
   allowedUrls: string[],
+  options?: { isTopFrame?: boolean },
 ): { action: EDAppOpenActionEnum } {
+  // allow iframe ad
+  const isTopFrame = options?.isTopFrame ?? true;
+  const protocolMatch = url.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:/);
+  const protocol = protocolMatch ? protocolMatch[0].toLowerCase() : '';
+  if (isTopFrame === false && protocol === 'data:') {
+    return { action: EDAppOpenActionEnum.ALLOW };
+  }
+
+  // eslint-disable-next-line no-script-url
+  if (protocol === 'javascript:') {
+    console.log('====>>>>>>>reject javascript: navigate: ', url);
+    return { action: EDAppOpenActionEnum.DENY };
+  }
+
   const parsedUrl = safeParseURL(url);
   if (process.env.NODE_ENV !== 'production') {
     if (
@@ -141,13 +172,35 @@ export function parseUrl(url: string): IUrlValue | null {
       }
     }
     const urlObject = new URL(formatUrl);
+    let { hostname, pathname } = urlObject;
+    let { origin } = urlObject;
+    // Normalize for non-standard protocols where hostname may be empty.
+    // Hermes URL parser returns hostname='' and pathname='//host/path'
+    // for custom schemes like onekey-wallet://host/path, whereas V8
+    // correctly parses hostname='host' and pathname='/path'.
+    if (!hostname && pathname.startsWith('//')) {
+      const pathWithoutPrefix = pathname.slice(2);
+      const slashIndex = pathWithoutPrefix.indexOf('/');
+      if (slashIndex >= 0) {
+        hostname = pathWithoutPrefix.slice(0, slashIndex);
+        pathname = pathWithoutPrefix.slice(slashIndex);
+      } else {
+        hostname = pathWithoutPrefix;
+        pathname = '/';
+      }
+    }
+    // Normalize origin for non-http schemes. V8 returns the string 'null'
+    // for opaque origins, Hermes may return the scheme + authority.
+    if (origin && !origin.startsWith('http') && origin !== 'null') {
+      origin = 'null';
+    }
     return {
       url,
-      hostname: urlObject.hostname,
-      origin: urlObject.origin,
-      pathname: urlObject.pathname,
+      hostname,
+      origin,
+      pathname,
       urlSchema: urlObject.protocol.replace(/(:)$/, ''),
-      urlPathList: `${urlObject.hostname}${urlObject.pathname}`
+      urlPathList: `${hostname}${pathname}`
         .replace(/^\/\//, '')
         .split('/')
         .filter((x) => x?.length > 0),
@@ -165,14 +218,14 @@ export function parseUrl(url: string): IUrlValue | null {
         return paramList;
       }, {}),
     };
-  } catch (e) {
+  } catch (_e) {
     return null;
   }
 }
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
-// eslint-disable-next-line spellcheck/spell-checker
+// oxlint-disable-next-line @cspell/spellchecker
 // check the ens format 元宇宙.bnb / diamondgs198.x
 export const addressIsEnsFormat = (address: string) => {
   const parts = address.split('.');
@@ -186,12 +239,39 @@ export function isValidDeepLink(url: string) {
 }
 
 export const validateUrl = (url: string): string => {
+  // In development mode, allow HTTP localhost URLs
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const parsedUrl = new URL(url);
+      if (
+        parsedUrl.protocol === 'http:' &&
+        ['localhost', '127.0.0.1'].includes(parsedUrl.hostname)
+      ) {
+        return url;
+      }
+    } catch {
+      // Continue with normal validation
+    }
+  }
+
   // Extract host/path part from URL if it has a protocol
   let urlWithoutProtocol = url;
   if (url.includes('://')) {
     try {
       const parsedUrl = new URL(url);
-      const pathname = parsedUrl.pathname === '/' ? '' : parsedUrl.pathname;
+      // Normalize pathname: strip root-only "/" so the reconstructed URL
+      // doesn't contain a bare slash after host.
+      let pathname = parsedUrl.pathname === '/' ? '' : parsedUrl.pathname;
+      // Hermes URL parser may append a trailing "/" that V8 does not.
+      // Only strip on native to avoid changing semantics on web/desktop
+      // where trailing slashes can be meaningful (e.g. directory URLs).
+      if (
+        platformEnv.isNative &&
+        pathname.length > 1 &&
+        pathname.endsWith('/')
+      ) {
+        pathname = pathname.slice(0, -1);
+      }
       urlWithoutProtocol =
         parsedUrl.host + pathname + parsedUrl.search + parsedUrl.hash;
     } catch {
@@ -213,8 +293,12 @@ export const containsPunycode = (url: string) => {
   const validatedUrl = validateUrl(url);
   if (!validatedUrl) return false;
   const { hostname } = new URL(validatedUrl);
-  const unicodeHostname = punycode.toUnicode(hostname);
-  return hostname !== unicodeHostname;
+  // V8 normalizes IDN to punycode (xn--), Hermes may keep unicode.
+  // Compare both directions to detect non-ASCII hostnames on either engine.
+  return (
+    hostname !== punycode.toUnicode(hostname) ||
+    hostname !== punycode.toASCII(hostname)
+  );
 };
 
 function buildUrl({
@@ -226,7 +310,8 @@ function buildUrl({
   protocol?: string;
   hostname?: string;
   path?: string;
-  query?: Record<string, string>;
+  // URLSearchParams coerces `undefined` to the string "undefined"; filter those out.
+  query?: Record<string, string | number | boolean | null | undefined>;
 }) {
   // eslint-disable-next-line no-param-reassign
   protocol = protocol.replace(/:+$/, '');
@@ -247,7 +332,14 @@ function buildUrl({
 
   let search = '';
   if (query) {
-    search = new URLSearchParams(query).toString();
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      params.set(key, String(value));
+    });
+    search = params.toString();
   }
 
   if (path && !protocol && !hostname) {
@@ -284,7 +376,7 @@ function safeGetWalletConnectOrigin(proposal: WalletKitTypes.SessionProposal) {
   try {
     const { origin } = new URL(proposal.params.proposer.metadata.url);
     return origin;
-  } catch (err) {
+  } catch (_err) {
     try {
       const key = `${proposal.params.proposer.metadata.name}--${proposal.params.proposer.metadata.description}`;
       const nameToUrl = NameToUrlMapForInvalidDapp[key];
@@ -312,6 +404,7 @@ export default {
   safeGetWalletConnectOrigin,
   parseUrl,
   safeParseURL,
+  appendUtmSourceToUrl,
   isUrlWithoutProtocol,
   ensureHttpsPrefix,
 };

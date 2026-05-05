@@ -383,10 +383,7 @@ function SendReplaceTxContainer() {
   );
 
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
-    usePreCheckFeeInfo({
-      accountId,
-      networkId,
-    });
+    usePreCheckFeeInfo();
 
   const renderOriginalFee = useCallback(
     () => (
@@ -744,6 +741,8 @@ function SendReplaceTxContainer() {
       // fee info pre-check
       if (sendSelectedFeeInfo) {
         const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
+          accountId,
+          networkId,
           feeAmount: sendSelectedFeeInfo.totalNative,
           feeSymbol: sendSelectedFeeInfo.feeInfo.common.nativeSymbol,
           encodedTx: newUnsignedTxs[0].encodedTx,

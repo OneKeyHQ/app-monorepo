@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsModalPage } from '@onekeyhq/components';
+import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useSettingsAtom,
@@ -48,6 +48,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -128,6 +129,12 @@ export function useSwapQuote() {
   );
 
   const swapSlippageRef = useRef(slippageItem);
+  const slippageKeyLastRef = useRef(slippageItem.key);
+  const slippageCustomValueLastRef = useRef<number | undefined>(
+    slippageItem.key === ESwapSlippageSegmentKey.CUSTOM
+      ? slippageItem.value
+      : undefined,
+  );
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   if (
@@ -282,6 +289,47 @@ export function useSwapQuote() {
     swapApproveAllowanceSelectOpen,
     swapSlippageDialogOpening,
   ]);
+
+  // Re-quote when slippage is changed via the settings dialog (not via the main
+  // slippage dialog which is handled by the flag === 'save' mechanism above).
+  // Only re-quote on mode changes (AUTO <-> CUSTOM) or custom value changes.
+  // Auto-suggested value changes in AUTO mode must NOT trigger re-quote (infinite loop).
+  useEffect(() => {
+    const prevKey = slippageKeyLastRef.current;
+    const prevCustomValue = slippageCustomValueLastRef.current;
+
+    // Always update refs so comparisons stay correct on next run
+    slippageKeyLastRef.current = slippageItem.key;
+    slippageCustomValueLastRef.current =
+      slippageItem.key === ESwapSlippageSegmentKey.CUSTOM
+        ? slippageItem.value
+        : undefined;
+
+    // Defer to the slippage dialog's close handler to avoid double re-quotes
+    if (swapSlippageDialogOpening.status) {
+      return;
+    }
+
+    const keyChanged = prevKey !== slippageItem.key;
+    const customValueChanged =
+      slippageItem.key === ESwapSlippageSegmentKey.CUSTOM &&
+      prevCustomValue !== slippageItem.value;
+
+    if (!keyChanged && !customValueChanged) {
+      return;
+    }
+
+    void quoteAction(
+      slippageItem,
+      activeAccountRef.current?.address,
+      activeAccountRef.current?.accountInfo?.account?.id,
+      undefined,
+      undefined,
+      ESwapQuoteKind.SELL,
+      undefined,
+      swapToAddressInfoRef.current.address,
+    );
+  }, [slippageItem, swapSlippageDialogOpening.status, quoteAction]);
 
   useEffect(() => {
     if (
@@ -529,26 +577,14 @@ export function useSwapQuote() {
       if (swapShouldRefreshRef.current) {
         return;
       }
-      setSwapManualSelectQuoteProviders({
-        protocol: data.approvedSwapInfo.protocol,
-        quoteId: data.approvedSwapInfo?.quoteId,
-        info: {
-          provider: data.approvedSwapInfo.provider,
-          providerName: data.approvedSwapInfo.providerName,
-        },
-        fromTokenInfo: {
-          networkId: data.approvedSwapInfo.fromToken.networkId,
-          contractAddress: data.approvedSwapInfo.fromToken.contractAddress,
-          symbol: data.approvedSwapInfo.fromToken.symbol,
-          decimals: data.approvedSwapInfo.fromToken.decimals,
-        },
-        toTokenInfo: {
-          networkId: data.approvedSwapInfo.toToken.networkId,
-          contractAddress: data.approvedSwapInfo.toToken.contractAddress,
-          symbol: data.approvedSwapInfo.toToken.symbol,
-          decimals: data.approvedSwapInfo.toToken.decimals,
-        },
-      });
+      setSwapManualSelectQuoteProviders(
+        buildSwapManualProviderSelectionIntent({
+          info: {
+            provider: data.approvedSwapInfo.provider,
+            providerName: data.approvedSwapInfo.providerName,
+          },
+        }),
+      );
       const { approvedSwapInfo, enableFilled } = data;
       const {
         fromToken: fromTokenInfo,
@@ -695,7 +731,7 @@ export function useSwapQuote() {
     swapQuoteMixEventAction,
   ]);
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {

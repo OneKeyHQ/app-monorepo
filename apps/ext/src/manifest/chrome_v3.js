@@ -1,6 +1,10 @@
 const isDev = process.env.NODE_ENV !== 'production';
 
+const {
+  KEYLESS_WEB_TAB_URL_PATTERNS,
+} = require('../../../../packages/shared/src/keylessWallet/keylessWebTabUrlPatterns');
 const excludeMatches = require('../content-script/excludeMatches');
+
 const common = require('./common');
 
 module.exports = {
@@ -105,13 +109,13 @@ module.exports = {
   },
   'permissions': [
     'offscreen',
-    'identity',
     // 'https://dapp-server.onekey.so/*', // allow CORS requests in firefox
     // 'http://localhost:8545/',
     // 'https://*.infura.io/',
     // '*://*.onekeycn.com/*',
     // '*://*.onekeytest.com/*',
     // '*://*.eth/',
+    'identity',
     'activeTab',
     'storage',
     'unlimitedStorage',
@@ -124,17 +128,5 @@ module.exports = {
     'sidePanel',
     'contextMenus',
   ],
-  // OAuth2 configuration for chrome.identity.getAuthToken
-  // Required for CHROME_GET_AUTH_TOKEN method
-  // The client_id should be a Chrome Extension type OAuth client from Google Cloud Console
-  'oauth2': {
-    'client_id':
-      process.env.GOOGLE_CHROME_EXTENSION_CLIENT_ID ||
-      '244450898872-foi2b6mtfqus1ed46hu5j03abne6b04s.apps.googleusercontent.com',
-    'scopes': [
-      'openid',
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/userinfo.profile',
-    ],
-  },
+  'host_permissions': KEYLESS_WEB_TAB_URL_PATTERNS,
 };

@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBatteryEmpty = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M2 8a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm17 1h2a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2z"
+      fillRule="evenodd"
+      d="M20 8h3v8h-3v3H1V5h19zM3 17h15V7H3zm17-3h1v-4h-1z"
+      clipRule="evenodd"
     />
   </Svg>
 );

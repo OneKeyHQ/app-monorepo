@@ -6,6 +6,7 @@ import { InputAccessoryView } from 'react-native';
 import {
   Badge,
   Button,
+  Dialog,
   Icon,
   Input,
   SizableText,
@@ -29,6 +30,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import {
+  CONTEXTUAL_ARTICLE_IDS,
+  buildHelpUrl,
+  openGuideUrl,
+} from '../../Guide/perpGuideData';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
@@ -125,6 +131,7 @@ const LeverageContent = memo(
                 }}
                 InputComponentStyle={{
                   p: 0,
+                  h: platformEnv.isNativeAndroid ? 54 : undefined,
                 }}
                 fontSize={
                   platformEnv.isNativeAndroid ? 34 : getFontSize('$heading5xl')
@@ -139,7 +146,11 @@ const LeverageContent = memo(
                 addOns={[
                   {
                     renderContent: (
-                      <XStack alignItems="center" pr="$1">
+                      <XStack
+                        alignItems="center"
+                        pr="$1"
+                        h={platformEnv.isNativeAndroid ? 36 : 24}
+                      >
                         <Icon name="CrossedSmallOutline" size="$5" />
                       </XStack>
                     ),
@@ -194,6 +205,31 @@ const LeverageContent = memo(
               </SizableText>
             </XStack>
           </YStack>
+          <XStack
+            gap="$1"
+            alignItems="center"
+            justifyContent="flex-start"
+            onPress={() => {
+              void dialogInstance.close();
+              setTimeout(() => {
+                openGuideUrl(
+                  buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.leverage}`),
+                );
+              }, 150);
+            }}
+            cursor="default"
+          >
+            <Icon name="QuestionmarkOutline" size="$3.5" color="$iconSubdued" />
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              hoverStyle={{ color: '$text' }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_guide_article_basic_concepts,
+              })}
+            </SizableText>
+          </XStack>
           <TradingGuardWrapper>
             <Button
               onPress={handleConfirm}
@@ -236,12 +272,15 @@ export const LeverageAdjustModal = memo(
         1;
       const maxLeverage = currentToken?.universe?.maxLeverage || 25;
 
-      dialog.show({
+      const DialogInstance =
+        platformEnv.isNativeAndroid || !dialog ? Dialog : dialog;
+
+      DialogInstance.show({
         title: intl.formatMessage({
           id: ETranslations.perp_trading_adjust_leverage,
         }),
         disableDrag: true,
-        dismissOnOverlayPress: false,
+        dismissOnOverlayPress: true,
         renderContent: (
           <PerpsProviderMirror>
             <LeverageContent
@@ -262,18 +301,18 @@ export const LeverageAdjustModal = memo(
     return (
       <Badge
         borderRadius="$2"
-        bg="$bgSubdued"
+        bg={isMobile ? '$bgSubdued' : '$bgStrong'}
         onPress={showLeverageDialog}
         px="$3.5"
         h={isMobile ? 32 : 30}
         alignItems="center"
+        cursor="default"
         hoverStyle={{
           bg: '$bgStrongHover',
         }}
         pressStyle={{
           bg: '$bgStrongActive',
         }}
-        cursor="pointer"
         gap="$1"
       >
         {isMobile ? null : (

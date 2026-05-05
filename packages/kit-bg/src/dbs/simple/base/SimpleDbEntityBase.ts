@@ -32,11 +32,17 @@ abstract class SimpleDbEntityBase<T> {
   // localStorage.getItem may return null if data not exists
   cachedRawData: T | undefined | null;
 
+  private cachedRawDataPromise:
+    | Promise<T | undefined | null>
+    | undefined
+    | null = null;
+
   updatedAt = 0;
 
   @backgroundMethod()
   clearRawDataCache() {
     this.cachedRawData = null;
+    this.cachedRawDataPromise = null;
   }
 
   @backgroundMethod()
@@ -44,42 +50,50 @@ abstract class SimpleDbEntityBase<T> {
     if (this.enableCache && !isNil(this.cachedRawData)) {
       return Promise.resolve(this.cachedRawData);
     }
-    dbPerfMonitor.logSimpleDbCall('getRawData', this.entityName);
-    const savedDataStr = await this.appStorage.getItem(this.entityKey);
-    let updatedAt = 0;
-    // @ts-ignore
-    let data: T | undefined | null;
-    if (isString(savedDataStr)) {
-      try {
-        const savedData = JSON.parse(
-          savedDataStr,
-        ) as ISimpleDbEntitySavedData<T>;
-        data = savedData?.data;
-        updatedAt = savedData?.updatedAt;
-      } catch (err) {
-        console.error(err);
-        data = null;
-      }
-    } else {
-      const savedDataObj = savedDataStr as unknown as
-        | {
-            data: T | undefined;
-            updatedAt: number;
-          }
-        | undefined
-        | null;
-      if (!isNil(savedDataObj?.updatedAt) || !isNil(savedDataObj?.data)) {
-        updatedAt = savedDataObj?.updatedAt;
-        data = savedDataObj?.data;
+    if (this.cachedRawDataPromise) {
+      return this.cachedRawDataPromise;
+    }
+    this.cachedRawDataPromise = (async () => {
+      dbPerfMonitor.logSimpleDbCall('getRawData', this.entityName);
+      const savedDataStr = await this.appStorage.getItem(this.entityKey);
+      let updatedAt = 0;
+      // @ts-ignore
+      let data: T | undefined | null;
+      if (isString(savedDataStr)) {
+        try {
+          const savedData = JSON.parse(
+            savedDataStr,
+          ) as ISimpleDbEntitySavedData<T>;
+          data = savedData?.data;
+          updatedAt = savedData?.updatedAt;
+        } catch (err) {
+          console.error(err);
+          data = null;
+        }
       } else {
-        data = savedDataObj as any;
+        const savedDataObj = savedDataStr as unknown as
+          | {
+              data: T | undefined;
+              updatedAt: number;
+            }
+          | undefined
+          | null;
+        if (!isNil(savedDataObj?.updatedAt) || !isNil(savedDataObj?.data)) {
+          updatedAt = savedDataObj?.updatedAt;
+          data = savedDataObj?.data;
+        } else {
+          data = savedDataObj as any;
+        }
       }
-    }
-    this.updatedAt = updatedAt ?? 0;
-    if (this.enableCache) {
-      this.cachedRawData = data;
-    }
-    return data;
+      this.updatedAt = updatedAt ?? 0;
+      if (this.enableCache) {
+        this.cachedRawData = data;
+      }
+      return data;
+    })().finally(() => {
+      this.cachedRawDataPromise = null;
+    });
+    return this.cachedRawDataPromise;
   }
 
   @backgroundMethod()
@@ -103,6 +117,7 @@ abstract class SimpleDbEntityBase<T> {
       if (this.enableCache) {
         this.cachedRawData = data;
       }
+      this.cachedRawDataPromise = null;
       const savedData: ISimpleDbEntitySavedData<T> = {
         data,
         updatedAt,

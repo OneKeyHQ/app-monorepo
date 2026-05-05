@@ -1,7 +1,7 @@
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const process = require('process');
-const { execSync } = require('child_process');
 
 function getPatchTargets(patchesDir) {
   // Read all files in the patches directory
@@ -55,7 +55,9 @@ function removeNodeModule(pkgName) {
         try {
           execSync(`rm -rf "${pkgPath}"`);
         } catch (shellErr) {
-          throw new Error(`Shell rm failed: ${shellErr.message}`);
+          throw new Error(`Shell rm failed: ${shellErr.message}`, {
+            cause: shellErr,
+          });
         }
       }
 

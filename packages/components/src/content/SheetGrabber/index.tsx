@@ -1,6 +1,6 @@
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
-import { Stack } from '../../primitives';
+import { Stack } from '../../primitives/Stack';
 
 export type ISheetGrabberProps = GetProps<typeof Stack>;
 export function SheetGrabber(props: ISheetGrabberProps) {

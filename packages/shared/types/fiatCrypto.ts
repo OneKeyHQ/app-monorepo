@@ -22,6 +22,7 @@ export type IFiatCryptoToken = {
   balance?: string;
   balanceParsed?: string;
   fiatValue?: string;
+  popular?: boolean;
 };
 
 export type IGetTokensListParams = {

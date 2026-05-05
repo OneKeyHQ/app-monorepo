@@ -5,7 +5,10 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { AirGapUR } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
+// OneKeyRequestDeviceQR is loaded dynamically to keep qr-wallet-sdk out of
+// the eager startup bundle.  It is only needed when the user initiates a
+// QR-based address verification flow.
+// import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
 import {
   NotImplemented,
   OneKeyErrorAirGapInvalidQrCode,
@@ -232,8 +235,10 @@ export abstract class KeyringQrBase extends KeyringBase {
     params: IPrepareQrAccountsParams,
     {
       indexes,
+      customFullPath,
     }: {
       indexes: number[];
+      customFullPath?: string;
     },
   ): Promise<ICoreApiGetAddressItem[]> {
     const ret: ICoreApiGetAddressItem[] = [];
@@ -246,11 +251,15 @@ export abstract class KeyringQrBase extends KeyringBase {
       walletId: this.walletId,
     });
 
-    const fullPath = accountUtils.buildPathFromTemplate({
-      template: params.deriveInfo.template,
-      index: indexes[0],
-    });
+    const fullPath =
+      customFullPath ??
+      accountUtils.buildPathFromTemplate({
+        template: params.deriveInfo.template,
+        index: indexes[0],
+      });
 
+    const { OneKeyRequestDeviceQR } =
+      await import('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR');
     const requestQR = new OneKeyRequestDeviceQR({
       requestId: generateUUID(),
       xfp: wallet.xfp || '',

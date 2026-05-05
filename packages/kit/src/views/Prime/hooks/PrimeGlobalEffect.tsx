@@ -19,7 +19,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady/GlobalJotaiReady';
 
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
 
@@ -124,9 +123,11 @@ function PrimeGlobalEffectAfterAuthReady() {
     void autoRefreshPrimeUserInfo();
   }, [autoRefreshPrimeUserInfo]);
 
+  const isUserLoggedIn = user.isLoggedIn;
+  const isUserLoggedInOnServer = user.isLoggedInOnServer;
   useEffect(() => {
     void (async () => {
-      if (user.isLoggedIn && !user.isLoggedInOnServer) {
+      if (isUserLoggedIn && !isUserLoggedInOnServer) {
         const accessToken =
           await backgroundApiProxy.simpleDb.prime.getAuthToken();
         if (accessToken) {
@@ -139,7 +140,7 @@ function PrimeGlobalEffectAfterAuthReady() {
         }
       }
     })();
-  }, [user.isLoggedIn, user.isLoggedInOnServer]);
+  }, [isUserLoggedIn, isUserLoggedInOnServer]);
 
   useEffect(() => {
     void (async () => {
@@ -239,9 +240,5 @@ function PrimeGlobalEffectView() {
 }
 
 export function PrimeGlobalEffect() {
-  return (
-    <GlobalJotaiReady>
-      <PrimeGlobalEffectView />
-    </GlobalJotaiReady>
-  );
+  return <PrimeGlobalEffectView />;
 }

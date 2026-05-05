@@ -19,7 +19,7 @@ import {
   ThemeableStack,
   updateHeightWhenKeyboardHide,
   updateHeightWhenKeyboardShown,
-  useKeyboardEvent,
+  useKeyboardEventWithoutNavigation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
@@ -47,7 +47,7 @@ const useSafeKeyboardAnimationStyle = platformEnv.isNative
         flex: 1,
         bottom: keyboardHeightValue.value,
       }));
-      useKeyboardEvent({
+      useKeyboardEventWithoutNavigation({
         keyboardWillShow: (event: KeyboardEvent) => {
           keyboardHeightValue.value = updateHeightWhenKeyboardShown(
             event?.endCoordinates?.height

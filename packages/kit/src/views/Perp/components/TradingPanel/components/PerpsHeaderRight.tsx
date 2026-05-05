@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   DebugRenderTracker,
-  Divider,
   Icon,
   IconButton,
   SizableText,
@@ -12,7 +11,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import {
   usePerpsActiveOpenOrdersAtom,
@@ -20,6 +18,7 @@ import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllMidsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
@@ -29,13 +28,16 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsActiveOrderBookOptionsAtom,
+  usePerpsComputedAccountValueAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
-import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
+import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
@@ -93,11 +95,11 @@ function DebugButton() {
 
 function DepositButton() {
   const { gtSm } = useMedia();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const accountValue = accountSummary?.accountValue;
+  const [computedValue] = usePerpsComputedAccountValueAtom();
+  const accountValue = computedValue?.accountValue;
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showPortfolio } = useShowPortfolio();
 
   if (!activeAccount?.accountAddress) {
     return null;
@@ -109,9 +111,7 @@ function DepositButton() {
       borderRadius="$full"
       size="medium"
       variant={isEmptyAccount ? 'primary' : 'secondary'}
-      onPress={async () => {
-        await showDepositWithdrawModal('deposit');
-      }}
+      onPress={showPortfolio}
       alignItems="center"
       justifyContent="center"
       flexDirection="row"
@@ -119,7 +119,7 @@ function DepositButton() {
       px="$3"
       h={gtSm ? 30 : 28}
       bg={isEmptyAccount ? '$brand8' : '$bgStrong'}
-      cursor="pointer"
+      cursor="default"
     >
       {isEmptyAccount ? (
         <>
@@ -130,30 +130,12 @@ function DepositButton() {
         </>
       ) : (
         <>
-          <Icon name="WalletOutline" size="$4" />
-          {gtSm ? (
-            <PerpsAccountNumberValue
-              value={accountValue ?? ''}
-              skeletonWidth={60}
-              textSize="$bodySmMedium"
-            />
-          ) : null}
-          <Divider
-            borderWidth={0.33}
-            borderBottomWidth={12}
-            borderColor="$borderSubdued"
+          <Icon name="ChartLine2Outline" size="$4" />
+          <PerpsAccountNumberValue
+            value={accountValue ?? ''}
+            skeletonWidth={60}
+            textSize="$bodySmMedium"
           />
-          {gtSm ? (
-            <SizableText size="$bodySmMedium" color="$text">
-              {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-            </SizableText>
-          ) : (
-            <PerpsAccountNumberValue
-              value={accountValue ?? ''}
-              skeletonWidth={60}
-              textSize="$bodySmMedium"
-            />
-          )}
         </>
       )}
     </Badge>
@@ -172,12 +154,19 @@ export function PerpsHeaderRight() {
       <WalletConnectionForWeb tabRoute={ETabRoutes.Perp} />
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
       <DepositButton />
-      {gtMd ? (
-        <>
-          <GiftAction source="Perps" copyAsUrl />
-          <PerpSettingsButton testID="perp-header-settings-button" />
-        </>
-      ) : null}
+      {(() => {
+        if (platformEnv.isWebDappMode) return null;
+        if (gtMd) {
+          return (
+            <>
+              <PerpsActivityCenterAction copyAsUrl />
+              <PerpGuidePopover />
+              <PerpSettingsButton testID="perp-header-settings-button" />
+            </>
+          );
+        }
+        return null;
+      })()}
     </XStack>
   );
   return (

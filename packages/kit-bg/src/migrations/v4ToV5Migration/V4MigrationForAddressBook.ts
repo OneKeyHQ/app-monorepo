@@ -27,10 +27,7 @@ export class V4MigrationForAddressBook extends V4MigrationManagerBase {
       return;
     }
 
-    const password =
-      await this.backgroundApi.serviceV4Migration.getMigrationPasswordV5();
-
-    v4items = v4items.sort((a, b) => a.createAt - b.createAt);
+    v4items = v4items.toSorted((a, b) => a.createAt - b.createAt);
 
     const { networkIds: allNetworkIds } =
       await this.backgroundApi.serviceNetwork.getAllNetworkIds();
@@ -80,9 +77,6 @@ export class V4MigrationForAddressBook extends V4MigrationManagerBase {
       );
     }
 
-    await this.backgroundApi.serviceAddressBook.bulkSetItemsWithUniq(
-      v5items,
-      password,
-    );
+    await this.backgroundApi.serviceAddressBook.bulkSetItemsWithUniq(v5items);
   }
 }

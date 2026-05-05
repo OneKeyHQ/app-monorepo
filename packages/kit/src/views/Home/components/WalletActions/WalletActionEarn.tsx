@@ -41,7 +41,11 @@ export function WalletActionEarn(props: {
       await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol: symbolInfo?.symbol,
         filterNetworkId: networkId,
+        includeWithdrawOnly: true,
       });
+    if (!Array.isArray(protocolList) || !protocolList.length) {
+      return undefined;
+    }
     const aprItems = protocolList
       .map((o) => Number(o.provider.aprWithoutFee))
       .filter((n) => Number(n) > 0);

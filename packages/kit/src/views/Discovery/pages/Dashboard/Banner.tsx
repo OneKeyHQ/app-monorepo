@@ -42,7 +42,6 @@ export function DashboardBanner({
             sortIndex: undefined,
           },
           useSystemBrowser: item.useSystemBrowser,
-          shouldPopNavigation: false,
           enterMethod: EEnterMethod.banner,
         });
       }

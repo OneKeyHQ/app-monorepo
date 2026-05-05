@@ -34,6 +34,7 @@ import {
   IMPL_NOSTR,
   IMPL_SCDO,
   IMPL_SOL,
+  IMPL_STELLAR,
   IMPL_SUI,
   IMPL_TBTC,
   IMPL_TON,
@@ -45,9 +46,11 @@ import {
   OneKeyLocalError,
   VaultKeyringNotDefinedError,
 } from '@onekeyhq/shared/src/errors';
+import { ThirdPartyChainNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { VaultFactory } from './base/VaultFactory';
 
@@ -59,7 +62,10 @@ export async function createKeyringInstance(vault: VaultBase) {
   const { walletId } = vault;
 
   let keyring: KeyringBase | null = null;
-  const keyringMap = vault.keyringMap as Record<string, typeof KeyringBaseMock>;
+  const keyringMap = vault.keyringMap as unknown as Record<
+    string,
+    typeof KeyringBaseMock
+  >;
 
   const checkKeyringClassExists = (
     keyringClass: typeof KeyringBaseMock,
@@ -84,8 +90,50 @@ export async function createKeyringInstance(vault: VaultBase) {
     keyring = new keyringMap.qr(vault);
   }
   if (walletId.startsWith('hw-')) {
-    checkKeyringClassExists(keyringMap.hw);
-    keyring = new keyringMap.hw(vault);
+    // Exhaustive switch: adding a new EHardwareVendor without handling it
+    // here will fail to compile (the `never` assertion in `default`).
+    const vendor = vault.options.hardwareVendor;
+    const resolveChainName = async (): Promise<string | undefined> => {
+      try {
+        const network = await vault.getNetwork();
+        return network?.name;
+      } catch {
+        return undefined;
+      }
+    };
+    switch (vendor) {
+      case EHardwareVendor.ledger:
+        if (!keyringMap.hwLedger) {
+          throw new ThirdPartyChainNotSupported({
+            vendor: 'Ledger',
+            chain: await resolveChainName(),
+            payload: {},
+          });
+        }
+        keyring = new keyringMap.hwLedger(vault);
+        break;
+      case EHardwareVendor.trezor:
+        if (!keyringMap.hwTrezor) {
+          throw new ThirdPartyChainNotSupported({
+            vendor: 'Trezor',
+            chain: await resolveChainName(),
+            payload: {},
+          });
+        }
+        keyring = new keyringMap.hwTrezor(vault);
+        break;
+      case EHardwareVendor.onekey:
+      case undefined:
+        checkKeyringClassExists(keyringMap.hw);
+        keyring = new keyringMap.hw(vault);
+        break;
+      default: {
+        const _exhaustive: never = vendor;
+        throw new OneKeyInternalError(
+          `Unknown hardware vendor: ${String(_exhaustive)}`,
+        );
+      }
+    }
   }
   if (walletId === WALLET_TYPE_WATCHING) {
     checkKeyringClassExists(keyringMap.watching);
@@ -161,6 +209,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_BFC]: () => import('./impls/bfc/Vault') as any,
     [IMPL_NEO]: () => import('./impls/neo/Vault') as any,
     [IMPL_AGGREGATE]: () => import('./impls/aggregate/Vault') as any,
+    [IMPL_STELLAR]: () => import('./impls/stellar/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

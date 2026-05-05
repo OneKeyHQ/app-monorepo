@@ -6,11 +6,9 @@ import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsModalPage } from '../../hocs';
-import { useThemeValue } from '../../hooks';
+import { useIsOverlayPage } from '../../hocs';
+import { useTheme } from '../../hooks';
 import HeaderSearchBar from '../Navigation/Header/HeaderSearchBar';
-
-import { PageHeaderDivider } from './PageHeaderDivider';
 
 import type {
   IModalNavigationOptions,
@@ -22,7 +20,8 @@ export type IPageHeaderProps = IStackNavigationOptions &
 
 const usePageHeaderReloadOptions = () => {
   const intl = useIntl();
-  const searchTextColor = useThemeValue('text');
+  const theme = useTheme();
+  const searchTextColor = theme.text.val;
   const reload = useCallback(
     (props: IPageHeaderProps) => {
       if (!props) {
@@ -81,35 +80,29 @@ function PageHeader(props: IPageHeaderProps) {
     }
   }, [navigation, reloadOptions]);
 
-  const isModal = useIsModalPage();
+  const isModal = useIsOverlayPage();
   const { headerSearchBarOptions } = props;
 
   if (reloadOptions.headerShown === false) {
     return null;
   }
   // Android & Web HeaderSearchBar in packages/components/src/layouts/Navigation/Header/HeaderView.tsx
-  return (
-    <>
-      {platformEnv.isNativeIOS && headerSearchBarOptions ? (
-        <HeaderSearchBar
-          autoFocus={headerSearchBarOptions?.autoFocus}
-          placeholder={headerSearchBarOptions?.placeholder}
-          onChangeText={headerSearchBarOptions?.onChangeText}
-          onSearchTextChange={headerSearchBarOptions?.onSearchTextChange}
-          onBlur={headerSearchBarOptions?.onBlur}
-          onFocus={headerSearchBarOptions?.onFocus}
-          isModalScreen={isModal}
-          onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
-          addOns={headerSearchBarOptions?.addOns}
-          searchBarInputValue={headerSearchBarOptions?.searchBarInputValue}
-        />
-      ) : null}
-      {isModal || platformEnv.isNativeIOSPad ? null : <PageHeaderDivider />}
-    </>
-  );
+  return platformEnv.isNativeIOS && headerSearchBarOptions ? (
+    <HeaderSearchBar
+      autoFocus={headerSearchBarOptions?.autoFocus}
+      placeholder={headerSearchBarOptions?.placeholder}
+      onChangeText={headerSearchBarOptions?.onChangeText}
+      onSearchTextChange={headerSearchBarOptions?.onSearchTextChange}
+      onBlur={headerSearchBarOptions?.onBlur}
+      onFocus={headerSearchBarOptions?.onFocus}
+      isModalScreen={isModal}
+      onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
+      addOns={headerSearchBarOptions?.addOns}
+      searchBarInputValue={headerSearchBarOptions?.searchBarInputValue}
+    />
+  ) : null;
 }
 
 PageHeader.usePageHeaderReloadOptions = usePageHeaderReloadOptions;
 
 export { PageHeader };
-export * from './PageHeaderDivider';

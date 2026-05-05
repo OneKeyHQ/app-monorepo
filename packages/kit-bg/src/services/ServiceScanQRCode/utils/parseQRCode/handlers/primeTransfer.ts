@@ -14,7 +14,7 @@ export default async function (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   options?: IQRCodeHandlerParseOptions,
 ): Promise<{ type: EQRCodeHandlerType; data: IPrimeTransferValue } | null> {
-  if (!value || !value.startsWith(`${TRANSFER_DEEPLINK_URL}`)) {
+  if (!value || !value.startsWith(TRANSFER_DEEPLINK_URL)) {
     return null;
   }
 
@@ -34,7 +34,7 @@ export default async function (
         server,
       },
     };
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }

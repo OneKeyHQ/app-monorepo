@@ -1,44 +1,79 @@
-import type { PropsWithChildren } from 'react';
+import { type PropsWithChildren, forwardRef, useMemo } from 'react';
 
 import { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 
 import { TabBar, TabBarItem } from './TabBar';
+import { TabsDraggableFlatList } from './TabsDraggableFlatList';
 
 import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
 
-const Container = ({
-  children,
-  pagerProps,
-  headerContainerStyle,
-  ...props
-}: PropsWithChildren<CollapsibleProps>) => {
-  return (
-    <NativeTabs.Container
-      headerContainerStyle={{
-        shadowOpacity: 0,
-        elevation: 0,
-        ...(headerContainerStyle as any),
-      }}
-      pagerProps={
-        {
+interface IExtendedContainerProps extends CollapsibleProps {
+  useNativeHeaderAnimation?: boolean;
+  /**
+   * Web-only: slot between the sticky TabBar and tab content. On native, the
+   * equivalent should live inside each tab list's ListHeaderComponent, so the
+   * prop is accepted for API parity and ignored here.
+   */
+  renderSubHeader?: () => React.ReactNode;
+}
+
+const renderTabBarDefault = (tabProps: any) => <TabBar {...tabProps} />;
+
+const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
+  (
+    {
+      children,
+      pagerProps,
+      headerContainerStyle,
+      renderSubHeader: _renderSubHeader,
+      ...props
+    },
+    ref,
+  ) => {
+    const mergedHeaderContainerStyle = useMemo(
+      () =>
+        ({
+          shadowOpacity: 0,
+          elevation: 0,
+          ...(headerContainerStyle as Record<string, unknown>),
+        }) as typeof headerContainerStyle,
+      [headerContainerStyle],
+    );
+
+    const mergedPagerProps = useMemo(
+      () =>
+        ({
           scrollSensitivity: 4,
           ...pagerProps,
-        } as any
-      }
-      renderTabBar={(tabProps: any) => <TabBar {...tabProps} />}
-      {...props}
-    >
-      {children}
-    </NativeTabs.Container>
-  );
-};
+        }) as typeof pagerProps,
+      [pagerProps],
+    );
+
+    return (
+      <NativeTabs.Container
+        ref={ref}
+        headerContainerStyle={mergedHeaderContainerStyle}
+        pagerProps={mergedPagerProps}
+        renderTabBar={renderTabBarDefault}
+        {...props}
+      >
+        {children}
+      </NativeTabs.Container>
+    );
+  },
+);
+Container.displayName = 'NativeTabsContainer';
 
 export const Tabs = {
   ...NativeTabs,
   Container,
   TabBar,
   TabBarItem,
+  DraggableFlatList: TabsDraggableFlatList,
 };
 
 export * from './hooks';
 export { startViewTransition } from './utils';
+export { CollapsibleTabContext } from './CollapsibleTabContext';
+export { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper';
+export { useFocusedTab } from './useFocusedTab';

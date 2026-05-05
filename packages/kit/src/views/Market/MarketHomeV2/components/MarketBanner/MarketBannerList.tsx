@@ -1,113 +1,96 @@
-import { ScrollView, Stack, XStack, useMedia } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { ReactNode } from 'react';
+import { memo } from 'react';
+
+import {
+  ScrollGuard,
+  ScrollView,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 
 import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
+import { useMarketBannerList } from './useMarketBannerList';
 import { useToMarketBannerDetail } from './useToMarketBannerDetail';
 
-const BANNER_ITEM_WIDTH = 128;
-const BANNER_GAP = 12;
-
-function MarketBannerListSkeleton({ compact }: { compact?: boolean }) {
-  if (compact) {
-    return (
+function BannerContainerMobile({ children }: { children: ReactNode }) {
+  return (
+    <ScrollGuard>
       <ScrollView
         horizontal
+        bounces={false}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           py: '$2',
           px: '$4',
-          gap: BANNER_GAP,
+          gap: '$3',
         }}
       >
-        {[0, 1, 2].map((i) => (
-          <Stack key={i} h={118} w={BANNER_ITEM_WIDTH}>
-            <MarketBannerItemSkeleton compact={compact} />
-          </Stack>
-        ))}
+        {children}
       </ScrollView>
-    );
-  }
+    </ScrollGuard>
+  );
+}
 
+function BannerContainerDesktop({ children }: { children: ReactNode }) {
   return (
-    <XStack gap="$3" px="$4" py="$2">
-      {[0, 1, 2].map((i) => (
-        <Stack key={i} flex={1}>
-          <MarketBannerItemSkeleton compact={compact} />
-        </Stack>
-      ))}
+    <XStack pt="$4" pb="$2" px="$5" gap="$3" overflow="scroll">
+      {children}
     </XStack>
   );
 }
 
-export function MarketBannerList() {
+function MarketBannerListSkeletonComponent({
+  isSmallScreen,
+}: {
+  isSmallScreen: boolean;
+}) {
+  const skeletonCount = isSmallScreen ? 3 : 7;
+  const skeletonItems = Array.from({ length: skeletonCount }, (_, i) => (
+    <MarketBannerItemSkeleton key={i} />
+  ));
+
+  if (isSmallScreen) {
+    return <BannerContainerMobile>{skeletonItems}</BannerContainerMobile>;
+  }
+
+  return <BannerContainerDesktop>{skeletonItems}</BannerContainerDesktop>;
+}
+
+const MarketBannerListSkeleton = memo(MarketBannerListSkeletonComponent);
+
+function MarketBannerListComponent() {
   const toMarketBannerDetail = useToMarketBannerDetail();
-  const { sm, md } = useMedia();
+  const { md } = useMedia();
+  const { bannerList, isLoading, isFetched } = useMarketBannerList();
 
-  const { result: bannerList, isLoading } = usePromiseResult(
-    async () => {
-      const data =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketBannerList();
-      return data;
-    },
-    [],
-    {
-      watchLoading: true,
-    },
-  );
+  // md = true when screen width <= 767px (small screen)
+  const isSmallScreen = md;
 
-  const bannerLength = bannerList?.length ?? 0;
-  const isSmallScreen = bannerLength > 3 ? md : sm;
-  const useCompactLayout = isSmallScreen && bannerLength >= 3;
-
-  if (isLoading) {
-    return <MarketBannerListSkeleton compact={sm} />;
+  // Only show skeleton on initial load (before first fetch completes).
+  // Skip skeleton on re-fetch to avoid header height flicker when
+  // navigating back with no banners.
+  if (isLoading && !isFetched) {
+    return <MarketBannerListSkeleton isSmallScreen={isSmallScreen} />;
   }
 
   if (!bannerList || bannerList.length === 0) {
     return null;
   }
 
-  const bannerCount = bannerList.length;
-  const useScrollView = isSmallScreen && bannerCount >= 3;
-  const itemWidth =
-    bannerCount === 1
-      ? '100%'
-      : `calc((100% - ${(bannerCount - 1) * BANNER_GAP}px) / ${bannerCount})`;
-
   const bannerItems = bannerList.map((item) => (
-    <Stack
+    <MarketBannerItem
       key={item._id}
-      {...(useScrollView ? { w: BANNER_ITEM_WIDTH } : { width: itemWidth })}
-    >
-      <MarketBannerItem
-        item={item}
-        onPress={toMarketBannerDetail}
-        compact={useCompactLayout}
-      />
-    </Stack>
+      item={item}
+      onPress={toMarketBannerDetail}
+    />
   ));
 
-  if (useScrollView) {
-    return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          pt: '$2',
-          px: '$4',
-          gap: BANNER_GAP,
-        }}
-      >
-        {bannerItems}
-      </ScrollView>
-    );
+  if (isSmallScreen) {
+    return <BannerContainerMobile>{bannerItems}</BannerContainerMobile>;
   }
 
-  return (
-    <XStack pt="$2" px="$4" gap="$3" justifyContent="space-between">
-      {bannerItems}
-    </XStack>
-  );
+  return <BannerContainerDesktop>{bannerItems}</BannerContainerDesktop>;
 }
+
+export const MarketBannerList = memo(MarketBannerListComponent);

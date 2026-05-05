@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
@@ -416,35 +417,35 @@ function TxFeeContainer(props: IProps) {
         if (txFee.gas && !isEmpty(txFee.gas)) {
           customFeeInfo.gas = {
             ...txFee.gas[sendSelectedFee.presetIndex],
-            ...(customFee?.gas ?? {}),
+            ...customFee?.gas,
           };
         }
 
         if (txFee.gasEIP1559 && !isEmpty(txFee.gasEIP1559)) {
           customFeeInfo.gasEIP1559 = {
             ...txFee.gasEIP1559[sendSelectedFee.presetIndex],
-            ...(customFee?.gasEIP1559 ?? {}),
+            ...customFee?.gasEIP1559,
           };
         }
 
         if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
           customFeeInfo.feeUTXO = {
             ...txFee.feeUTXO[sendSelectedFee.presetIndex],
-            ...(customFee?.feeUTXO ?? {}),
+            ...customFee?.feeUTXO,
           };
         }
 
         if (txFee.feeSol && !isEmpty(txFee.feeSol)) {
           customFeeInfo.feeSol = {
             ...txFee.feeSol[sendSelectedFee.presetIndex],
-            ...(customFee?.feeSol ?? {}),
+            ...customFee?.feeSol,
           };
         }
 
         if (txFee.feeCkb && !isEmpty(txFee.feeCkb)) {
           customFeeInfo.feeCkb = {
             ...txFee.feeCkb[sendSelectedFee.presetIndex],
-            ...(customFee?.feeCkb ?? {}),
+            ...customFee?.feeCkb,
           };
         }
 
@@ -468,7 +469,7 @@ function TxFeeContainer(props: IProps) {
         if (txFee.feeBudget && !isEmpty(txFee.feeBudget)) {
           customFeeInfo.feeBudget = {
             ...txFee.feeBudget[sendSelectedFee.presetIndex],
-            ...(customFee?.feeBudget ?? {}),
+            ...customFee?.feeBudget,
           };
         }
 
@@ -569,7 +570,7 @@ function TxFeeContainer(props: IProps) {
         if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
           customFeeInfo.feeUTXO = {
             ...txFee.feeUTXO[sendSelectedFee.presetIndex],
-            ...(customFee?.feeUTXO ?? {}),
+            ...customFee?.feeUTXO,
           };
         }
 
@@ -760,11 +761,19 @@ function TxFeeContainer(props: IProps) {
             new BigNumber(0),
           );
           specialGasLimit = new BigNumber(baseGasLimit ?? 0)
-            .times(allRoutesLength.plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP))
+            .times(
+              allRoutesLength
+                .plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                .plus(BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP),
+            )
             .toFixed();
         } else {
           specialGasLimit = new BigNumber(baseGasLimit ?? 0)
-            .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+            .times(
+              new BigNumber(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP).plus(
+                BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
+              ),
+            )
             .toFixed();
         }
       }

@@ -12,6 +12,6 @@
 "NSCameraUsageDescription" = "カメラを使用してQRコードをスキャンします。";
 "NSFaceIDUsageDescription" = "Face IDを使用して認証し、ウォレットを解除します。";
 "NSMicrophoneUsageDescription" = "ビデオを録画するためにマイクを使用します。";
-"NSPhotoLibraryAddUsageDescription" = "QRコードの画像を保存するためにフォトライブラリを使用します。";
+"NSPhotoLibraryAddUsageDescription" = "画像を保存するためにフォトライブラリを使用します。";
 "NSPhotoLibraryUsageDescription" = "QRコードの画像を読み取るためにフォトライブラリを使用します。";
 "NSLocalNetworkUsageDescription" = "このアプリは、使用するネットワーク上のデバイスを発見し、接続することができます。";

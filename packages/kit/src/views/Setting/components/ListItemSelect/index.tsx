@@ -25,6 +25,7 @@ export function ListItemSelect<T>({
       subtitle={opt.subtitle}
       onPress={() => onChange?.(opt.value)}
       disabled={opt.disabled}
+      nativePressableStyle={{ flexShrink: 0 }}
     >
       {value === opt.value ? (
         <ListItem.IconButton

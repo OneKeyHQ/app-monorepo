@@ -5,6 +5,8 @@ import { SystemDiskFullError } from '../errors';
 import errorUtils from '../errors/utils/errorUtils';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { IndexedDBPromised } from '../IndexedDBPromised';
+import platformEnv from '../platformEnv';
+import resetUtils from '../utils/resetUtils';
 
 import WebStorageLegacy from './WebStorageLegacy';
 
@@ -134,6 +136,12 @@ class WebStorage implements AsyncStorageStatic {
   // localforage = localforage;
 
   checkDiskFull(payload?: any) {
+    if (platformEnv.isWebDappMode) {
+      return;
+    }
+    if (resetUtils.getIsResetting()) {
+      return;
+    }
     if (globalThis.$onekeySystemDiskIsFull) {
       appEventBus.emit(EAppEventBusNames.ShowSystemDiskFullWarning, undefined);
       console.error('WebStorage==>checkDiskFull ', payload);
@@ -159,6 +167,11 @@ class WebStorage implements AsyncStorageStatic {
     const indexed = await this.indexed;
     return indexed.getAllKeys(this.tableName) as unknown as readonly string[];
     // return localforage.keys();
+  }
+
+  async getAllEntries(): Promise<Map<string, any>> {
+    const indexed = await this.indexed;
+    return indexed.getAllEntries(this.tableName);
   }
 
   async getItem(

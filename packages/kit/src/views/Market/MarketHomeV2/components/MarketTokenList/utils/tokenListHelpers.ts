@@ -3,7 +3,21 @@ import BigNumber from 'bignumber.js';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
+import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
+
+// Helper function to check if token is native and get normalized address for matching
+// Only uses fallback address length check when isNative field is not present (undefined)
+// This ensures online data with isNative field won't use fallback logic
+export function getNativeTokenInfo(
+  isNativeField: boolean | undefined,
+  address: string | undefined,
+) {
+  const isNative =
+    isNativeField !== undefined ? isNativeField : (address?.length ?? 0) < 30;
+  const normalizedAddress = isNative ? '' : (address ?? '').toLowerCase();
+  return { isNative, normalizedAddress };
+}
 
 // Mapping of column keys to token fields, shared by multiple hooks
 // These map API sort parameters to component token properties
@@ -12,6 +26,17 @@ export const SORT_MAP: Record<string, keyof IMarketToken> = {
   mc: 'marketCap',
   v24hUSD: 'turnover',
 };
+
+export function shouldShowStockSubtitleForTokens(
+  items: Array<Pick<IMarketToken, 'stock'>>,
+) {
+  if (items.length === 0) {
+    return false;
+  }
+
+  const stockCount = items.filter((item) => !!item.stock).length;
+  return stockCount > items.length / 10;
+}
 
 const ONE_HOUR = 60 * 60 * 1000;
 const ONE_DAY = 24 * ONE_HOUR;
@@ -24,6 +49,16 @@ export interface ITokenAgeInfo {
   amount: number;
   unit: ITokenAgeUnit;
 }
+
+const TIME_RANGE_FIELD_SUFFIX_MAP: Record<
+  IMarketTimeRangeValue,
+  '5m' | '1h' | '4h' | '24h'
+> = {
+  '5m': '5m',
+  '1h': '1h',
+  '4h': '4h',
+  '24h': '24h',
+};
 
 export function getNetworkLogoUri(chainOrNetworkId: string): string {
   const networks = getPresetNetworks();
@@ -48,6 +83,20 @@ function safeNumber(value: string | undefined, fallback = 0): number {
   }
 }
 
+function getMetricValueByTimeRange(
+  item: IMarketTokenListItem,
+  timeRange: IMarketTimeRangeValue | undefined,
+  baseKey: 'priceChange' | 'trade' | 'buy' | 'sell' | 'uniqueWallet' | 'volume',
+  suffix: 'Percent' | 'Count' | '',
+) {
+  const fieldSuffix = TIME_RANGE_FIELD_SUFFIX_MAP[timeRange ?? '24h'];
+  const selectedKey =
+    `${baseKey}${fieldSuffix}${suffix}` as keyof IMarketTokenListItem;
+  const fallbackKey = `${baseKey}24h${suffix}` as keyof IMarketTokenListItem;
+
+  return item[selectedKey] ?? item[fallbackKey];
+}
+
 /**
  * Convert raw api item to component token shape
  */
@@ -57,10 +106,12 @@ export function transformApiItemToToken(
     chainId,
     networkLogoUri,
     sortIndex,
+    timeRange,
   }: {
     chainId: string;
     networkLogoUri: string;
     sortIndex?: number;
+    timeRange?: IMarketTimeRangeValue;
   },
 ): IMarketToken {
   // Use token's own networkId to get network logo, fallback to passed chainId
@@ -69,20 +120,52 @@ export function transformApiItemToToken(
     ? getNetworkLogoUri(item.networkId)
     : networkLogoUri;
 
+  const priceChange = safeNumber(
+    getMetricValueByTimeRange(item, timeRange, 'priceChange', 'Percent') as
+      | string
+      | undefined,
+  );
+  const transactions = safeNumber(
+    getMetricValueByTimeRange(item, timeRange, 'trade', 'Count') as
+      | string
+      | undefined,
+  );
+  const uniqueTraders = safeNumber(
+    getMetricValueByTimeRange(item, timeRange, 'uniqueWallet', '') as
+      | string
+      | undefined,
+  );
+  const turnover = safeNumber(
+    getMetricValueByTimeRange(item, timeRange, 'volume', '') as
+      | string
+      | undefined,
+  );
+  const buyCount = safeNumber(
+    getMetricValueByTimeRange(item, timeRange, 'buy', 'Count') as
+      | string
+      | undefined,
+  );
+  const sellCount = safeNumber(
+    getMetricValueByTimeRange(item, timeRange, 'sell', 'Count') as
+      | string
+      | undefined,
+  );
+
   return {
     id: `${item.address}${item.name}${tokenNetworkLogoUri}${item.symbol}`,
     name: item.name,
     symbol: item.symbol,
     address: item.address,
     price: safeNumber(item.price),
-    change24h: safeNumber(item.priceChange24hPercent),
+    change24h: priceChange,
     marketCap: safeNumber(item.marketCap),
     liquidity: safeNumber(item.liquidity),
-    transactions: safeNumber(item.trade24hCount),
-    uniqueTraders: safeNumber(item.uniqueWallet24h),
+    transactions,
+    uniqueTraders,
     holders: item.holders || 0,
-    turnover: safeNumber(item.volume24h),
+    turnover,
     tokenImageUri: item.logoUrl || '',
+    tokenImageUris: item.logoUrls,
     decimals: item.decimals,
     networkLogoUri: tokenNetworkLogoUri,
     networkId: tokenNetworkId,
@@ -93,9 +176,10 @@ export function transformApiItemToToken(
     sortIndex,
     isNative: item.isNative,
     communityRecognized: item.communityRecognized,
+    stock: item.stock,
     walletInfo: {
-      buy: safeNumber(item.buy24hCount),
-      sell: safeNumber(item.sell24hCount),
+      buy: buyCount,
+      sell: sellCount,
     },
   };
 }

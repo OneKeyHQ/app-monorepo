@@ -92,7 +92,6 @@ export function BookmarksSection() {
       handleWebSite({
         webSite,
         dApp,
-        shouldPopNavigation: false,
         enterMethod: EEnterMethod.bookmark,
       });
     },

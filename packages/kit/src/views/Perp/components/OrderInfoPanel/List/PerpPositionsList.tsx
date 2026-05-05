@@ -4,13 +4,30 @@ import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import {
+  ScrollView,
+  SizableText,
+  Tooltip,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActivePositionAtom,
+  usePerpsActivePositionLengthAtom,
+  usePositionFilterByCurrentTokenAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAssetAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
+import { MobilePositionsListHeader } from '../Components/MobilePositionsListHeader';
+import { PerpPositionsEmptyState } from '../Components/PerpPositionsEmptyState';
 import { PositionRow } from '../Components/PositionsRow';
+import { calcCellAlign, getColumnStyle } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -31,6 +48,9 @@ function PerpPositionsList({
   const [currentUser] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [filterByCurrentToken] = usePositionFilterByCurrentTokenAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [positions] = usePerpsActivePositionAtom();
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
     noop(currentUser?.accountAddress);
@@ -44,7 +64,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_token_selector_asset,
         }),
-        width: 120,
+        width: 110,
         align: 'left',
       },
       {
@@ -52,7 +72,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_position_position_size,
         }),
-        minWidth: 140,
+        minWidth: 120,
         align: 'left',
         flex: 1,
       },
@@ -127,12 +147,13 @@ function PerpPositionsList({
       },
       {
         key: 'closeAll',
-        title: `${intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.perp_position_close,
-        })}`,
-        minWidth: 100,
+        }),
+        minWidth: 80,
         align: 'right',
         flex: 1,
+        fixed: positionsLength > 0,
         ...(positionsLength > 0 && {
           onPress: () => showCloseAllPositionsDialog(),
         }),
@@ -147,38 +168,139 @@ function PerpPositionsList({
       ),
     [columnsConfig],
   );
-  const mockedPositions = useMemo<{ index: number }[]>(() => {
-    return Array.from({ length: positionsLength }, (_, index) => {
-      return {
-        index,
-      };
-    });
-  }, [positionsLength]);
 
-  const renderPositionRow = (item: { index: number }, _index: number) => {
-    return (
-      <PositionRow
-        mockedPosition={item}
-        isMobile={isMobile}
-        cellMinWidth={totalMinWidth}
-        columnConfigs={columnsConfig}
-        handleViewTpslOrders={handleViewTpslOrders}
-      />
-    );
-  };
+  // Generate mocked positions with correct original indices
+  const mockedPositions = useMemo<{ index: number }[]>(() => {
+    if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
+      // No filter: use sequential indices
+      return Array.from(
+        { length: positions.activePositions.length },
+        (_, index) => ({
+          index,
+        }),
+      );
+    }
+    // Filter active: preserve original indices from unfiltered array
+    return positions.activePositions
+      .map((p, originalIndex) => ({ position: p, originalIndex }))
+      .filter((item) => item.position.position.coin === activeAsset.coin)
+      .map((item) => ({ index: item.originalIndex }));
+  }, [
+    positions.activePositions,
+    isMobile,
+    filterByCurrentToken,
+    activeAsset?.coin,
+  ]);
+
+  const renderPositionRow = (
+    item: { index: number },
+    _index: number,
+    renderMode?: 'full' | 'left' | 'right',
+    isHovered?: boolean,
+    onHoverChange?: (index: number | null) => void,
+  ) => (
+    <PositionRow
+      mockedPosition={item}
+      isMobile={isMobile}
+      cellMinWidth={totalMinWidth}
+      columnConfigs={columnsConfig}
+      handleViewTpslOrders={handleViewTpslOrders}
+      renderMode={renderMode}
+      isHovered={isHovered}
+      onHoverChange={onHoverChange}
+    />
+  );
   const actions = useHyperliquidActions();
+  const listViewDebugRenderTrackerProps = useMemo(
+    (): IDebugRenderTrackerProps => ({
+      name: 'PerpPositionsList',
+      position: 'top-left',
+    }),
+    [],
+  );
+
+  const renderDesktopHeaderCell = (column: IColumnConfig, index: number) => (
+    <XStack
+      key={`${column.key}-${index}`}
+      {...getColumnStyle(column)}
+      justifyContent={calcCellAlign(column.align) as any}
+      cursor="default"
+    >
+      {column.tooltip ? (
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            <SizableText
+              size="$bodySmMedium"
+              borderBottomWidth="$px"
+              borderTopWidth={0}
+              borderLeftWidth={0}
+              borderRightWidth={0}
+              borderBottomColor="$border"
+              borderStyle="dashed"
+              cursor="help"
+              color="$textSubdued"
+              textAlign={column.align || 'left'}
+            >
+              {column.title}
+            </SizableText>
+          }
+          renderContent={column.tooltip}
+        />
+      ) : (
+        <SizableText
+          size="$bodySmMedium"
+          borderBottomWidth="$px"
+          borderBottomColor="transparent"
+          color="$textSubdued"
+          textAlign={column.align || 'left'}
+        >
+          {column.title}
+        </SizableText>
+      )}
+    </XStack>
+  );
+
+  if (!isMobile && mockedPositions.length === 0) {
+    return (
+      <YStack flex={1} width="100%">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator
+          nestedScrollEnabled
+          contentContainerStyle={{
+            minWidth: totalMinWidth,
+            flexGrow: 1,
+          }}
+        >
+          <XStack
+            flex={1}
+            py="$2"
+            pl="$5"
+            pr="$3"
+            display="flex"
+            minWidth={totalMinWidth}
+            width="100%"
+            borderBottomWidth="$px"
+            borderBottomColor="$borderSubdued"
+            bg="$bgSubtle"
+          >
+            {columnsConfig.map(renderDesktopHeaderCell)}
+          </XStack>
+        </ScrollView>
+        <YStack flex={1} width="100%">
+          <PerpPositionsEmptyState />
+        </YStack>
+      </YStack>
+    );
+  }
+
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
         await actions.current.refreshAllPerpsData();
       }}
-      listViewDebugRenderTrackerProps={useMemo(
-        (): IDebugRenderTrackerProps => ({
-          name: 'PerpPositionsList',
-          position: 'top-left',
-        }),
-        [],
-      )}
+      listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
       useTabsList={useTabsList}
       disableListScroll={disableListScroll}
       currentListPage={currentListPage}
@@ -189,12 +311,20 @@ function PerpPositionsList({
       data={mockedPositions}
       isMobile={isMobile}
       renderRow={renderPositionRow}
+      ListEmptyComponent={<PerpPositionsEmptyState isMobile={isMobile} />}
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_position_empty,
       })}
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_position_empty_desc,
       })}
+      ListHeaderComponent={
+        isMobile ? (
+          <MobilePositionsListHeader
+            totalPositionCount={positions.activePositions.length}
+          />
+        ) : null
+      }
     />
   );
 }

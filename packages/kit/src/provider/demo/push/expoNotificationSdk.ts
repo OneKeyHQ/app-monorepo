@@ -20,13 +20,13 @@ addNotificationResponseReceivedListener(async (event, ...others) => {
 });
 
 setNotificationHandler({
-  handleNotification: async ({ request }) =>
+  handleNotification: async ({ request: _request }) =>
     ({
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
       priority: AndroidNotificationPriority.DEFAULT,
-    } as NotificationBehavior),
+    }) as NotificationBehavior,
 });
 
 const sdk: IDemoNotificationSdk = {

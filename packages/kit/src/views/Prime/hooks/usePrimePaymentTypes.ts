@@ -11,13 +11,21 @@ import type {
 
 export type ISubscriptionPeriod = 'P1Y' | 'P1M';
 
+export type IPackageFreeTrial = {
+  periodIso: string; // e.g. "P3D"
+  periodNumber: number; // e.g. 3
+  periodUnit: 'day' | 'week' | 'month' | 'year';
+};
+
 export type IPackage = {
   subscriptionPeriod: ISubscriptionPeriod;
+  currencyCode: string;
   pricePerMonth: number;
   pricePerMonthString: string;
   pricePerYear: number;
   pricePerYearString: string;
   priceTotalPerYearString: string;
+  freeTrial?: IPackageFreeTrial;
 };
 
 export type IRevenueCatCustomerInfoWeb = CustomerInfoWeb;
@@ -37,6 +45,7 @@ export type IUsePrimePayment = {
     primeUserEmail: string;
     subscriptionPeriod: ISubscriptionPeriod;
     locale: string;
+    currency?: string;
     mode: 'dev' | 'prod';
     featureName?: string;
   };
@@ -54,11 +63,13 @@ export type IUsePrimePayment = {
         subscriptionPeriod,
         email,
         locale,
+        currency,
         featureName,
       }: {
         subscriptionPeriod: ISubscriptionPeriod;
         email: string;
         locale?: string;
+        currency?: string;
         featureName?: EPrimeFeatures;
       }) => Promise<PurchaseResult>)
     | undefined;

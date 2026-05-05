@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
@@ -78,15 +77,13 @@ export class AptosClient {
     ]);
   }
 
-  getTransactions(
-    query?: PaginationArgs | undefined,
-  ): Promise<TransactionResponse[]> {
+  getTransactions(query?: PaginationArgs): Promise<TransactionResponse[]> {
     return this.aptos.transaction.getTransactions({ options: query });
   }
 
   getAccountTransactions(
     accountAddress: AccountAddressInput,
-    query?: PaginationArgs | undefined,
+    query?: PaginationArgs,
   ): Promise<TransactionResponse[]> {
     return this.proxyRequest<TransactionResponse[]>('getAccountTransactions', [
       accountAddress,
@@ -96,7 +93,7 @@ export class AptosClient {
 
   getAccountResources(
     accountAddress: AccountAddressInput,
-    query?: { ledgerVersion?: (number | bigint) | undefined } | undefined,
+    query?: { ledgerVersion?: (number | bigint) | undefined },
   ): Promise<MoveResource[]> {
     return this.proxyRequest('getAccountResources', [accountAddress, query]);
   }

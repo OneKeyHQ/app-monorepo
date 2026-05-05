@@ -69,6 +69,7 @@ export function createOneKeyAppKit(options: CreateAppKit) {
     // node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js getDefaultMetaData()
     metadata,
     sdkVersion: CoreHelperUtil.generateSdkVersion(
+      // @ts-ignore
       options.adapters ?? [],
       'html',
       PACKAGE_VERSION,

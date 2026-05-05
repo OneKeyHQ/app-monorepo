@@ -18,6 +18,10 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -262,6 +266,7 @@ function BulkRevokeItem(props: IProps) {
           <XStack alignItems="center" gap="$3" flex={1}>
             <View
               animation="quick"
+              animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '180deg' : '0deg'}
               transformOrigin="center"
             >
@@ -314,6 +319,7 @@ function BulkRevokeItem(props: IProps) {
       <Accordion.HeightAnimator animation="quick">
         <Accordion.Content
           animation="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgSubdued"
           padding="$0"

@@ -2,10 +2,6 @@ import { useCallback, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
@@ -53,6 +49,7 @@ export const usePortfolioAction = ({
       accountId,
       networkId,
       indexedAccountId,
+      btcOnlyTaproot: true,
     });
   }, [accountId, networkId, indexedAccountId]);
 
@@ -65,13 +62,12 @@ export const usePortfolioAction = ({
   const signMessage = useEarnSignMessage();
 
   const handleListaCheckAction = useCallback(
-    async ({
-      stakedSymbol: actionStakedSymbol,
-      rewardSymbol: actionRewardSymbol,
-    }: {
-      stakedSymbol?: string;
-      rewardSymbol?: string;
-    } = {}) => {
+    async (
+      _: {
+        stakedSymbol?: string;
+        rewardSymbol?: string;
+      } = {},
+    ) => {
       setLoading(true);
       try {
         await signMessage({
@@ -235,7 +231,7 @@ export const usePortfolioAction = ({
             actionData: actionIcon,
           });
         }
-      } catch (error) {
+      } catch (_error) {
         showClaimWithKycDialog({
           actionData: actionIcon,
         });

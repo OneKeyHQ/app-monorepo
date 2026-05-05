@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 
@@ -7,6 +9,7 @@ export interface ICardTitleProps {
   description: string;
   showChevron?: boolean;
   onPress?: () => void;
+  badge?: ReactNode;
 }
 
 export function CardTitle({
@@ -15,6 +18,7 @@ export function CardTitle({
   description,
   showChevron = true,
   onPress,
+  badge,
 }: ICardTitleProps) {
   return (
     <YStack gap="$1">
@@ -29,6 +33,7 @@ export function CardTitle({
           <SizableText size="$headingMd" letterSpacing={-0.32}>
             {title}
           </SizableText>
+          {badge}
         </XStack>
         {showChevron ? (
           <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />

@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgArrowPathUp = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M13 21h-2a2 2 0 0 1-2-2v-9H5.568a.5.5 0 0 1-.385-.82l5.665-6.797a1.5 1.5 0 0 1 2.304 0l5.665 6.797a.5.5 0 0 1-.384.82H15v9a2 2 0 0 1-2 2Z"
+      fillRule="evenodd"
+      d="M21.204 11H16v11H8V11H2.796L12 .481zm-14-2H10v11h4V9h2.796L12 3.519z"
+      clipRule="evenodd"
     />
   </Svg>
 );

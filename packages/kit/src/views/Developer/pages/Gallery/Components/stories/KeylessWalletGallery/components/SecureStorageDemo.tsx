@@ -101,9 +101,8 @@ export const SecureStorageDemo = () => {
           size="small"
           onPress={async () => {
             try {
-              const result = await secureStorage.getSecureItem(
-                secureStorageKey,
-              );
+              const result =
+                await secureStorage.getSecureItem(secureStorageKey);
               setSecureStorageResult(
                 result !== null
                   ? `✅ Get success: ${result}`

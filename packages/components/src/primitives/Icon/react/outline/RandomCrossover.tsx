@@ -1,14 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRandomCrossover = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 18h1.172a2 2 0 0 0 1.414-.586l9.828-9.828A2 2 0 0 1 16.828 7H19M3 6h1.172a2 2 0 0 1 1.414.586L8 9m11 8h-2.172a2 2 0 0 1-1.414-.586L14 15m4-11 3 3-3 3m0 4 3 3-3 3"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M22.414 17 18 21.414 16.586 20l2-2h-3l-3-3L14 13.586 16.414 16h2.172l-2-2L18 12.586z" />
+    <Path d="M22.414 7 18 11.414 16.586 10l2-2h-2.172l-11 11H2v-2h2.586l11-11h3l-2-2L18 2.586zm-13 2L8 10.414 4.586 7H2V5h3.414z" />
   </Svg>
 );
 export default SvgRandomCrossover;

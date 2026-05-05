@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { isNaN, isNil, isNumber } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
@@ -6,7 +5,9 @@ import type {
   IDBAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
+  BOT_WALLET_ID_PREFIX,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
@@ -16,6 +17,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import appCrypto from '../appCrypto';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import {
@@ -36,10 +38,61 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { OneKeyInternalError } from '../errors';
 
+import bufferUtils from './bufferUtils';
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
+import type { IBotWalletParsedId } from '../../types/botWallet';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
+
+const HD_WALLET_HASH_SALT = '4863FBE1-7B9B-4006-91D0-24212CCCC375';
+
+function parseBotWalletId(walletId: string): IBotWalletParsedId | undefined {
+  if (!walletId.startsWith(BOT_WALLET_ID_PREFIX)) {
+    return undefined;
+  }
+  const rest = walletId.slice(BOT_WALLET_ID_PREFIX.length);
+  const lastSep = rest.lastIndexOf('--');
+  if (lastSep < 0) {
+    return undefined;
+  }
+  const parentId = rest.slice(0, lastSep);
+  const indexStr = rest.slice(lastSep + 2);
+  if (!parentId || !/^\d+$/.test(indexStr)) {
+    return undefined;
+  }
+  const index = Number.parseInt(indexStr, 10);
+  if (!Number.isSafeInteger(index)) {
+    return undefined;
+  }
+  return { parentId, index };
+}
+
+function extractBotWalletIdPrefix(value: string): string | undefined {
+  if (!value.startsWith(BOT_WALLET_ID_PREFIX)) {
+    return undefined;
+  }
+
+  let searchFrom = value.length;
+  while (searchFrom > BOT_WALLET_ID_PREFIX.length) {
+    const separatorIndex = value.lastIndexOf(
+      SEPERATOR,
+      searchFrom - SEPERATOR.length,
+    );
+    if (separatorIndex < BOT_WALLET_ID_PREFIX.length) {
+      return undefined;
+    }
+
+    const candidate = value.slice(0, separatorIndex);
+    if (parseBotWalletId(candidate)) {
+      return candidate;
+    }
+
+    searchFrom = separatorIndex;
+  }
+
+  return undefined;
+}
 
 function getWalletIdFromAccountId({
   accountId,
@@ -50,8 +103,12 @@ function getWalletIdFromAccountId({
   external--60--0xf588ff00613814c3f86efc57059121c74eb237f1
   hd-1--m/44'/118'/0'/0/0
   hw-da2fb055-f3c8-4b55-922e-a04a6fea29cf--m/44'/0'/0'
-  hw-f5f9b539-2879-4811-bac2-8d143b08adef-mg2PbFeAMoms9Z7f5by1MscdP3RAhbrLUJ--m/49'/0'/0'
+  hw-f5f9b539-2879-4811-bac2-8d143b08adef-mg2PbFeAMoms9Z7f5by1mscDP3RABHbrLUJ--m/49'/0'/0'
   */
+  const botWalletId = extractBotWalletIdPrefix(accountId);
+  if (botWalletId) {
+    return botWalletId;
+  }
   return accountId.split(SEPERATOR)[0] || '';
 }
 
@@ -252,6 +309,18 @@ function isHwOrQrWallet({
   return isHwWallet({ walletId }) || isQrWallet({ walletId });
 }
 
+function isIndexedAccountWallet({
+  walletId,
+}: {
+  walletId: string | undefined;
+}): boolean {
+  return (
+    isHdWallet({ walletId }) ||
+    isHwWallet({ walletId }) ||
+    isQrWallet({ walletId })
+  );
+}
+
 function isHwHiddenWallet({
   wallet,
 }: {
@@ -259,9 +328,9 @@ function isHwHiddenWallet({
 }): boolean {
   return Boolean(
     wallet &&
-      (isHwWallet({ walletId: wallet.id }) ||
-        isQrWallet({ walletId: wallet.id })) &&
-      wallet.passphraseState,
+    (isHwWallet({ walletId: wallet.id }) ||
+      isQrWallet({ walletId: wallet.id })) &&
+    wallet.passphraseState,
   );
 }
 
@@ -416,6 +485,15 @@ function isImportedAccount({ accountId }: { accountId: string }): boolean {
   return isImportedWallet({ walletId });
 }
 
+function isOwnAccount({ accountId }: { accountId: string }): boolean {
+  return (
+    isHdAccount({ accountId }) ||
+    isHwAccount({ accountId }) ||
+    isQrAccount({ accountId }) ||
+    isImportedAccount({ accountId })
+  );
+}
+
 function buildHDAccountId({
   networkImpl,
   walletId,
@@ -483,6 +561,30 @@ function parseAccountId({ accountId }: { accountId: string }): {
   usedPath: string | undefined;
   idSuffix: string | undefined;
 } {
+  const botWalletId = extractBotWalletIdPrefix(accountId);
+  if (botWalletId) {
+    const tail = accountId.startsWith(`${botWalletId}${SEPERATOR}`)
+      ? accountId.slice(botWalletId.length + SEPERATOR.length)
+      : undefined;
+    let usedPath: string | undefined;
+    let idSuffix: string | undefined;
+
+    if (tail) {
+      const nextSeparatorIndex = tail.indexOf(SEPERATOR);
+      if (nextSeparatorIndex >= 0) {
+        usedPath = tail.slice(0, nextSeparatorIndex);
+        idSuffix = tail.slice(nextSeparatorIndex + SEPERATOR.length);
+      } else {
+        usedPath = tail;
+      }
+    }
+
+    return {
+      walletId: botWalletId,
+      usedPath,
+      idSuffix,
+    };
+  }
   const arr = accountId.split(SEPERATOR);
   return {
     walletId: arr[0],
@@ -499,11 +601,13 @@ function parseIndexedAccountId({
   walletId: string;
   index: number;
 } {
-  const arr = indexedAccountId.split(SEPERATOR);
-  const index = Number(arr[arr.length - 1]);
-  const walletIdArr = arr.slice(0, -1);
+  const lastSeparatorIndex = indexedAccountId.lastIndexOf(SEPERATOR);
+  const walletId = indexedAccountId.slice(0, lastSeparatorIndex);
+  const index = Number(
+    indexedAccountId.slice(lastSeparatorIndex + SEPERATOR.length),
+  );
   return {
-    walletId: walletIdArr.join(''),
+    walletId,
     index,
   };
 }
@@ -581,7 +685,7 @@ function buildAccountLocalAssetsKey({
   accountAddress,
   xpub,
 }: {
-  networkId: string;
+  networkId?: string;
   accountAddress?: string;
   xpub?: string;
 }): string {
@@ -589,7 +693,11 @@ function buildAccountLocalAssetsKey({
     throw new OneKeyInternalError('accountAddress or xpub is required');
   }
 
-  return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
+  if (networkId) {
+    return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
+  }
+
+  return ((xpub || accountAddress) ?? '').toLowerCase();
 }
 
 function isAccountCompatibleWithNetwork({
@@ -691,6 +799,30 @@ function isOthersWallet({ walletId }: { walletId: string }): boolean {
     walletId === WALLET_TYPE_EXTERNAL ||
     walletId === WALLET_TYPE_IMPORTED
   );
+}
+
+// A wallet is considered deprecated-or-mocked when it still has a DB record
+// but is no longer user-facing. Hardware wallets are marked `isMocked=true`
+// on removal (OneKey keeps the metadata so re-connecting the device restores
+// account names / ordering); `deprecated=true` covers the stale-device
+// variant (same connection, different deviceId). Both forms are "zombie"
+// wallets that callers should treat as if the wallet is gone (OK-51091).
+function isWalletDeprecatedOrMocked(wallet: IDBWallet | undefined): boolean {
+  if (!wallet) return false;
+  return !!(wallet.isMocked || wallet.deprecated);
+}
+
+function hasNoUsableWallet({
+  wallet,
+  account,
+}: {
+  wallet: IDBWallet | undefined;
+  account: { id: string } | undefined;
+}): boolean {
+  if (!wallet) return true;
+  if (isWalletDeprecatedOrMocked(wallet)) return true;
+  if (isOthersWallet({ walletId: wallet.id ?? '' }) && !account) return true;
+  return false;
 }
 
 function isOthersAccount({
@@ -967,10 +1099,18 @@ function isEnabledBtcFreshAddress({
     return false;
   }
   if (accountId) {
-    return isHdAccount({ accountId }) || isHwAccount({ accountId });
+    return (
+      isHdAccount({ accountId }) ||
+      isHwAccount({ accountId }) ||
+      isQrAccount({ accountId })
+    );
   }
   if (walletId) {
-    return isHdWallet({ walletId }) || isHwWallet({ walletId });
+    return (
+      isHdWallet({ walletId }) ||
+      isHwWallet({ walletId }) ||
+      isQrWallet({ walletId })
+    );
   }
   return false;
 }
@@ -983,6 +1123,29 @@ function buildKeylessWalletId({
   return `${WALLET_TYPE_HD}-keyless-${sharePackSetId}`;
 }
 
+function buildHdWalletHash({ mnemonic }: { mnemonic: string }): string {
+  const text = `${mnemonic}--${HD_WALLET_HASH_SALT}`;
+  return bufferUtils.bytesToHex(
+    appCrypto.hash.sha256Sync(bufferUtils.toBuffer(text, 'utf8')),
+  );
+}
+
+async function buildKeylessWalletIdV2({
+  ownerId,
+  xfp,
+}: {
+  ownerId: string;
+  xfp: string;
+}): Promise<string> {
+  const hash = await appCrypto.hash.sha256(
+    Buffer.from(
+      `${ownerId}__E9590EE9-3A3D-43A1-8DE8-886AD1F02786__${xfp}`,
+      'utf-8',
+    ),
+  );
+  return `${WALLET_TYPE_HD}-keyless-${bufferUtils.bytesToHex(hash)}`;
+}
+
 function isKeylessWallet({
   walletId,
 }: {
@@ -991,6 +1154,11 @@ function isKeylessWallet({
   return Boolean(
     walletId && walletId?.startsWith(`${WALLET_TYPE_HD}-keyless-`),
   );
+}
+
+function isKeylessAccount({ accountId }: { accountId: string }): boolean {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isKeylessWallet({ walletId });
 }
 
 function getKeylessWalletPackSetId({ walletId }: { walletId: string }): string {
@@ -1003,6 +1171,33 @@ function getKeylessWalletPackSetId({ walletId }: { walletId: string }): string {
   return packSetId;
 }
 
+// ---- Bot Wallet ID utilities ----
+
+function buildBotWalletId({
+  parentKeylessWalletId,
+  index,
+}: {
+  parentKeylessWalletId: string;
+  index: number;
+}): string {
+  return `${BOT_WALLET_ID_PREFIX}${parentKeylessWalletId}--${index}`;
+}
+
+function isBotWallet({
+  walletId,
+}: {
+  walletId: string | undefined | null;
+}): boolean {
+  return Boolean(walletId && walletId.startsWith(BOT_WALLET_ID_PREFIX));
+}
+
+function isBotAccount({ accountId }: { accountId: string }): boolean {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isBotWallet({ walletId });
+}
+
+// ---- End Bot Wallet ID utilities ----
+
 function buildKeylessDevicePackKey({
   packSetId,
 }: {
@@ -1011,13 +1206,108 @@ function buildKeylessDevicePackKey({
   return `OneKey_Keyless__${packSetId}`;
 }
 
+function buildKeylessMnemonicPasswordKey({
+  ownerId,
+}: {
+  ownerId: string;
+}): string {
+  return `OneKey_Keyless_MnemonicPwd__${ownerId}`;
+}
+
+function buildKeylessRefreshTokenKey({ ownerId }: { ownerId: string }): string {
+  return `OneKey_Keyless_RefreshToken__${ownerId}`;
+}
+
+function buildKeylessTokenKey({ ownerId }: { ownerId: string }): string {
+  return `OneKey_Keyless_Token__${ownerId}`;
+}
+
+async function hashKeylessSocialUserId({
+  socialUserId,
+}: {
+  socialUserId: string;
+}): Promise<string> {
+  return bufferUtils.bytesToHex(
+    await appCrypto.hash.sha256(
+      Buffer.from(
+        `${socialUserId}98635F65-A052-4EF1-B84B-AF749D08DCF4`,
+        'utf-8',
+      ),
+    ),
+  );
+}
+
+const validDeriveTypesList: IAccountDeriveTypes[] = [
+  'default',
+  'ledgerLive',
+  'BIP86',
+  'BIP84',
+  'BIP44',
+  'kaspaOfficial',
+] as const satisfies IAccountDeriveTypes[];
+
+function normalizeDeriveType(
+  deriveType: string,
+): IAccountDeriveTypes | undefined {
+  if (!deriveType) return undefined;
+  const lowerDeriveType = deriveType.toLowerCase();
+  return validDeriveTypesList.find((t) => t.toLowerCase() === lowerDeriveType);
+}
+
+function isValidDeriveType(deriveType: string): boolean {
+  return normalizeDeriveType(deriveType) !== undefined;
+}
+
+function countMatchingPrefix(str1: string, str2: string): number {
+  let count = 0;
+  for (let i = 0; i < str1.length; i += 1) {
+    if (str1[i] !== str2[i]) break;
+    count += 1;
+  }
+  return count;
+}
+
+function countMatchingSuffix(str1: string, str2: string): number {
+  let count = 0;
+  for (let i = 1; i <= str1.length; i += 1) {
+    if (str1[str1.length - i] !== str2[str2.length - i]) break;
+    count += 1;
+  }
+  return count;
+}
+
+// Detects address poisoning attacks where scammers create addresses
+// with matching prefix/suffix to trick users into copying wrong addresses
+function isSimilarAddress(address1: string, address2: string): boolean {
+  // Must be different addresses of same length with valid input
+  if (
+    !address1 ||
+    !address2 ||
+    address1 === address2 ||
+    address1.length !== address2.length
+  ) {
+    return false;
+  }
+
+  const SIMILARITY_THRESHOLD = 8;
+  const prefixMatch = countMatchingPrefix(address1, address2);
+  const suffixMatch = countMatchingSuffix(address1, address2);
+
+  return prefixMatch + suffixMatch >= SIMILARITY_THRESHOLD;
+}
+
 export default {
   URL_ACCOUNT_ID,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
 
   getKeylessWalletPackSetId,
   buildKeylessDevicePackKey,
+  buildKeylessMnemonicPasswordKey,
+  buildKeylessRefreshTokenKey,
+  buildKeylessTokenKey,
   buildKeylessWalletId,
+  buildHdWalletHash,
+  buildKeylessWalletIdV2,
   buildAccountValueKey,
   parseAccountValueKey,
   buildUtxoAddressRelPath,
@@ -1036,11 +1326,20 @@ export default {
   buildExternalAccountId,
   buildAllNetworkIndexedAccountIdFromAccountId,
 
+  hasNoUsableWallet,
+  isWalletDeprecatedOrMocked,
   isKeylessWallet,
+  isKeylessAccount,
+  isBotWallet,
+  isBotAccount,
+  buildBotWalletId,
+  parseBotWalletId,
+  hashKeylessSocialUserId,
   isHdWallet,
   isQrWallet,
   isHwWallet,
   isHwOrQrWallet,
+  isIndexedAccountWallet,
   isHwHiddenWallet,
   isWatchingWallet,
   isImportedWallet,
@@ -1052,6 +1351,7 @@ export default {
   isExternalAccount,
   isWatchingAccount,
   isImportedAccount,
+  isOwnAccount,
   isAllNetworkMockAccount,
   isAllNetworkMockAddress,
   isAccountCompatibleWithNetwork,
@@ -1061,6 +1361,9 @@ export default {
   isTonMnemonicCredentialId,
   isValidWalletXfp,
   isEnabledBtcFreshAddress,
+  isValidDeriveType,
+  normalizeDeriveType,
+  isSimilarAddress,
 
   parseAccountId,
   parseIndexedAccountId,

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { ThemeProvider } from '@react-navigation/native';
 
+import { useTheme } from '../../../hooks';
 import { makeRootModalStackOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -30,7 +31,13 @@ export function RootModalNavigator<RouteName extends string>({
   config,
   pageType,
 }: IModalNavigatorProps<RouteName> & { pageType?: EPageType }) {
-  const screenOptions = useMemo(() => makeRootModalStackOptions(), []);
+  const theme = useTheme();
+  const bgColor = theme.bgApp.val;
+
+  const screenOptions = useMemo(
+    () => makeRootModalStackOptions({ bgColor }),
+    [bgColor],
+  );
 
   const modalComponents = useMemo(
     () =>

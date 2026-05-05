@@ -6,7 +6,7 @@ export type IScanQrCodeModalParamList = {
   [EScanQrCodeModalPages.ScanQrCodeStack]: {
     callback: (params: {
       value: string;
-      popNavigation: () => void;
+      popNavigation: boolean;
     }) => Promise<{ progress?: number }>;
     qrWalletScene?: boolean;
     showProTutorial?: boolean;

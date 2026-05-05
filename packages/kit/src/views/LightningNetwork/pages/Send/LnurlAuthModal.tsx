@@ -20,7 +20,7 @@ import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import {
   DAppAccountListStandAloneItem,
-  DAppAccountListStandAloneItemForHomeScene,
+  DAppAccountListStandAloneItemReadonly,
 } from '../../../DAppConnection/components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../../../DAppConnection/components/DAppRequestContent';
 import {
@@ -244,7 +244,10 @@ function LnurlAuthModal() {
             urlSecurityInfo={urlSecurityInfo}
           >
             {isSendFlow ? (
-              <DAppAccountListStandAloneItemForHomeScene />
+              <DAppAccountListStandAloneItemReadonly
+                accountId={accountId}
+                networkId={networkId}
+              />
             ) : (
               <DAppAccountListStandAloneItem readonly />
             )}

@@ -23,6 +23,16 @@ interface IReward {
   perp?: IRewardBalance[];
 }
 
+export interface IWithdrawAddress {
+  _id: string;
+  networkId: string;
+  userId: string;
+  __v: number;
+  address: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface IInviteSummary {
   faqs: Array<{
     q: string;
@@ -30,10 +40,10 @@ export interface IInviteSummary {
   }>;
   inviteUrl: string;
   inviteCode: string;
-  withdrawAddresses: {
-    networkId: string;
-    address: string;
-  }[];
+  isSuspended?: boolean;
+  suspensionNotice?: string;
+  suspensionContactLabel?: string;
+  withdrawAddresses: IWithdrawAddress[];
   enabledNetworks: string[];
   totalRewards: string;
   levelPercent: string;
@@ -171,6 +181,50 @@ export interface IPerpsRecordsResponse {
   total: number;
 }
 
+export interface IPerpsInviteItem {
+  _id: string;
+  address: string;
+  invitationTime: string;
+  inviteCode: string;
+  inviteCodeRemark: string;
+  firstTradeTime: string;
+  volume: string;
+  volumeFiatValue: string;
+  fee: string;
+  feeFiatValue: string;
+  reward: string;
+  rewardFiatValue: string;
+  hasUndistributed: boolean;
+  token: IRewardToken;
+}
+
+export interface IPerpsInvitesResponse {
+  total: number;
+  cursor: string | null;
+  items: IPerpsInviteItem[];
+}
+
+export type IPerpsInvitesSortBy =
+  | 'volume'
+  | 'fee'
+  | 'reward'
+  | 'invitationTime'
+  | 'firstTradeTime';
+
+export type IPerpsInvitesSortOrder = 'asc' | 'desc';
+
+export interface IPerpsInvitesParams {
+  tab: 'undistributed' | 'total';
+  timeRange?: EExportTimeRange;
+  startTime?: number;
+  endTime?: number;
+  inviteCode?: string;
+  hideZeroVolume?: boolean;
+  sortBy?: IPerpsInvitesSortBy;
+  sortOrder?: IPerpsInvitesSortOrder;
+  cursor?: string;
+}
+
 export interface IEarnPositionItem {
   key: string;
   networkId: string;
@@ -254,6 +308,18 @@ export interface IInvitePostConfig {
     unit: string;
   };
   friendDiscount: {
+    amount: number;
+    unit: string;
+  };
+  inviteeDiscount: {
+    amount: number;
+    unit: string;
+  };
+  inviterRebate: {
+    amount: number;
+    unit: string;
+  };
+  theirDiscount: {
     amount: number;
     unit: string;
   };
@@ -354,6 +420,7 @@ export interface IInviteCodeItem {
   code: string;
   note: string;
   isPrimary: boolean;
+  isCustomCode: boolean;
   _id: string;
   createdAt: string;
   updatedAt: string;
@@ -365,6 +432,8 @@ export interface IInviteCodeListItem {
   code: string;
   note: string;
   isPrimary: boolean;
+  isCustomCode: boolean;
+  status?: string;
   createdAt: string;
   createdDate: string;
   salesOrders: number;
@@ -385,6 +454,23 @@ export interface IUpdateInviteCodeNoteResponse {
   success: boolean;
 }
 
+export interface IEditInviteCodeParams {
+  originalCode: string;
+  code?: string;
+  note?: string;
+}
+
+export interface IEditInviteCodeResponse {
+  userId: string;
+  code: string;
+  note: string;
+  isPrimary: boolean;
+  isCustomCode: boolean;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Export functionality types
 export enum EExportSubject {
   HardwareSales = 'HardwareSales',
@@ -397,6 +483,7 @@ export enum EExportTimeRange {
   OneMonth = '1month',
   ThreeMonths = '3months',
   SixMonths = '6months',
+  Custom = 'custom',
 }
 
 export enum EExportTab {
@@ -409,6 +496,8 @@ export interface IExportInviteDataParams {
   timeRange: EExportTimeRange;
   inviteCode?: string;
   tab?: EExportTab;
+  startTime?: number;
+  endTime?: number;
 }
 
 // API returns CSV string directly
@@ -463,3 +552,242 @@ export interface IBatchCheckWalletParams {
 
 // Response is a map where key is "networkId:address" and value is boolean
 export type IBatchCheckWalletResponse = Record<string, boolean>;
+
+// V2 batch check - includes bind window status
+export interface IBatchCheckWalletV2Item {
+  bound: boolean;
+  bindable: boolean;
+  reason?: string; // 'already_bound' | 'exceeded_bind_window'
+}
+export type IBatchCheckWalletV2Response = Record<
+  string,
+  IBatchCheckWalletV2Item
+>;
+
+// Check single wallet - extended response
+export interface ICheckWalletBindStatusResponse {
+  data: boolean;
+  bindable: boolean;
+  reason?: string;
+}
+
+// Creation records
+export interface IWalletCreationRecordItem {
+  address: string;
+  networkId: string;
+  walletCreatedAt?: string;
+}
+
+export interface IWalletDevUnbindParams {
+  address: string;
+  walletCreatedAt?: string;
+}
+
+export interface IWalletDevUnbindResponse {
+  deletedBundles: number;
+  creationRecord?: {
+    updated: boolean;
+  };
+}
+
+// Hardware records types
+export interface IHardwareRecordHistoryItem {
+  type: string;
+  eventLabel: string;
+  timestamp: string;
+  descriptionLabel: string;
+}
+
+export interface IHardwareRecordItem {
+  _id: string;
+  orderNumber: string;
+  itemUniqueId: string;
+  inviteCode: string;
+  inviteCodeRemark: string;
+  orderAmount: string;
+  orderAmountFiatValue: string;
+  rebateAmount: string;
+  rebateAmountFiatValue: string;
+  token: {
+    networkId: string;
+    address: string;
+    logoURI: string;
+    name: string;
+    symbol: string;
+  };
+  status: string;
+  statusLabel: string;
+  orderPlacedAt: string;
+  rewardConfirmedAt: string;
+  rewardDistributedAt: string | null;
+  refundedAt: string | null;
+  history: IHardwareRecordHistoryItem[];
+}
+
+export interface IHardwareRecordsResponse {
+  total: number;
+  items: IHardwareRecordItem[];
+  cursor?: string;
+}
+
+// Perps cumulative rewards response
+export interface IPerpsCumulativeRewardsParams {
+  timeRange?: EExportTimeRange;
+  startTime?: number;
+  endTime?: number;
+  inviteCode?: string;
+}
+
+export interface IPerpsCumulativeRewardsResponse {
+  undistributedReward: string;
+  undistributedRewardFiatValue: string;
+  totalReward: string;
+  totalRewardFiatValue: string;
+  totalVolume: string;
+  totalVolumeFiatValue: string;
+  totalFee: string;
+  totalFeeFiatValue: string;
+  invitedAddresses: number;
+  walletCount: number;
+  token: IRewardToken;
+}
+
+// Redemption code types
+export interface IRedemptionCodeRedeemParams {
+  code: string;
+}
+
+export interface IRedemptionCodeRedeemError {
+  code: number;
+  message: string;
+  messageId?: string;
+}
+
+export interface IRedemptionCodeRedeemResponse {
+  success: boolean;
+  error?: IRedemptionCodeRedeemError;
+  upgradeInfo?: {
+    fromLevel?: number;
+    toLevel?: number;
+    fromLevelLabel?: string;
+    toLevelLabel?: string;
+    toLevelIcon?: string;
+  };
+}
+
+// Redemption center records types
+export interface IRedemptionRecordMetadata {
+  previousLevel?: number;
+  newLevel?: number;
+}
+
+export interface IRedemptionRecordItem {
+  _id: string;
+  type: string;
+  code: string;
+  metadata?: IRedemptionRecordMetadata;
+  redeemedAt: string;
+  title: string;
+  description: string;
+  status: 'success' | 'pending';
+}
+
+export interface IRedemptionRecordsResponse {
+  total: number;
+  items: IRedemptionRecordItem[];
+}
+
+// BTC reward (cbBTC redemption) types
+export enum EBtcRewardStatus {
+  Wait = 'wait',
+  PendingPayout = 'pendingPayout',
+  PayoutInProgress = 'payoutInProgress',
+  Paid = 'paid',
+  Rejected = 'rejected',
+}
+
+export enum EBtcRewardErrorCode {
+  Unknown = -1,
+  InvalidCode = 100_300,
+  InvalidOrder = 100_301,
+  InvalidAddress = 100_302,
+  CommitFailed = 100_303,
+  CodeNotFound = 100_304,
+}
+
+export interface IBtcRewardError {
+  code: EBtcRewardErrorCode;
+  message: string;
+}
+
+export type IBtcRewardResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: IBtcRewardError };
+
+export interface IBtcRewardVerifyCodeParams {
+  code: string;
+}
+
+export interface IBtcRewardVerifyCodeData {
+  codeId: string;
+  batchName: string;
+  rewardUsd: number;
+}
+
+export interface IBtcRewardVerifyVoucherParams {
+  codeId: string;
+  // Shopify order number (# prefix) or offline / dealer voucher code.
+  // Server dispatches by prefix.
+  voucherCode: string;
+}
+
+export interface IBtcRewardVerifyVoucherData {
+  voucherSource: string;
+  displayTitle: string;
+  quotaRemaining: number;
+}
+
+export interface IBtcRewardCommitParams {
+  codeId: string;
+  voucherCode: string;
+  walletAddress: string;
+}
+
+export interface IBtcRewardCommitData {
+  codeId: string;
+  btcAmount: string;
+  btcPriceUsd: string;
+  payoutEligibleAt: string;
+}
+
+export interface IBtcRewardHistoryParams {
+  walletAddress: string;
+  current?: number;
+  pageSize?: number;
+  status?: EBtcRewardStatus;
+}
+
+export interface IBtcRewardHistoryItem {
+  code: string;
+  batchName: string;
+  rewardUsd: number;
+  voucherCode: string;
+  voucherSource: string;
+  walletAddress: string;
+  btcAmount: string;
+  btcPriceUsd: string;
+  status: EBtcRewardStatus;
+  submittedAt: string;
+  payoutEligibleAt: string;
+  // Status-conditional fields. OAS marks them required but the value is an
+  // empty string when not applicable (paidAt/txHash empty unless paid;
+  // rejectReason empty unless rejected).
+  paidAt: string;
+  txHash: string;
+  rejectReason: string;
+}
+
+export interface IBtcRewardHistoryResponse {
+  total: number;
+  data: IBtcRewardHistoryItem[];
+}

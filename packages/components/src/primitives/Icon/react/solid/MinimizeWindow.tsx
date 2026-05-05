@@ -7,9 +7,9 @@ const SvgMinimizeWindow = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M9 13a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-3a3 3 0 0 1 3-3z" />
-    <Path d="M20 6a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v4a1 1 0 1 1-2 0V6a3 3 0 0 1 3-3h13a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-4a1 1 0 1 1 0-2h4a1 1 0 0 0 1-1z" />
-    <Path d="M14 12a1 1 0 0 1-1-1V8a1 1 0 1 1 2 0v.586l1.293-1.293a1 1 0 1 1 1.414 1.414L16.414 10H17a1 1 0 1 1 0 2z" />
+    <Path d="M12 22H2v-9h10z" />
+    <Path d="M22 16h-8v-2h6V5H5v6H3V3h19z" />
+    <Path d="m18.414 8-2 2H18v2h-5V7h2v1.586l2-2z" />
   </Svg>
 );
 export default SvgMinimizeWindow;

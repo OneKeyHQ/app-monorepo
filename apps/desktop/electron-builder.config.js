@@ -1,5 +1,11 @@
 /* eslint-disable no-template-curly-in-string */
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
+const {
+  baseFiles,
+  macExcludePrebuilds,
+  winExcludePrebuilds,
+  linuxExcludePrebuilds,
+} = require('./electron-builder-files.config');
 const DLLs = require('./electron-dll.config');
 const { getPath } = require('./scripts/utils');
 
@@ -29,10 +35,16 @@ module.exports = {
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
+    'files': [...baseFiles, ...macExcludePrebuilds],
+    'x64ArchFiles': '*',
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/mac-${arch}',
         'to': 'bin/bridge',
+      },
+      {
+        'from': 'resources/icons/Assets.car',
+        'to': 'Assets.car',
       },
     ],
     'icon': 'app/build/static/images/icons/512x512.png',
@@ -54,7 +66,10 @@ module.exports = {
       'OneKey_Desktop_DeveloperId.provisionprofile',
     ),
     'extendInfo': {
+      'CFBundleIconName': 'OneKeyLogo',
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
+      'NSMicrophoneUsageDescription':
+        'Please allow OneKey to use your microphone',
       'NSBluetoothAlwaysUsageDescription':
         'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
       'NSBluetoothPeripheralUsageDescription':
@@ -62,6 +77,7 @@ module.exports = {
     },
   },
   'win': {
+    'files': [...baseFiles, ...winExcludePrebuilds],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/win-${arch}',
@@ -75,6 +91,7 @@ module.exports = {
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
   'linux': {
+    'files': [...baseFiles, ...linuxExcludePrebuilds],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/linux-${arch}',
@@ -85,6 +102,6 @@ module.exports = {
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',
-    'target': [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
+    'target': ['AppImage'],
   },
 };

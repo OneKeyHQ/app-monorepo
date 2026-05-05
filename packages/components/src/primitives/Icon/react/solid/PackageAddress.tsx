@@ -1,15 +1,19 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPackageAddress = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
-      d="M5 6a1 1 0 0 1 1-1h2v3a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V5h2a1 1 0 0 1 1 1v3a1 1 0 1 0 2 0V6a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h6a1 1 0 1 0 0-2H6a1 1 0 0 1-1-1z"
+      fillRule="evenodd"
+      d="M15.414 13.414a4 4 0 0 1 5.657 5.657L18.243 21.9l-2.829-2.828a4 4 0 0 1 0-5.657Zm4.243 1.414a2 2 0 0 0-2.829 2.83l1.415 1.413 1.414-1.414a2 2 0 0 0 0-2.829"
+      clipRule="evenodd"
     />
-    <Path
-      fill="currentColor"
-      d="M21.07 13.414a4 4 0 1 0-5.656 5.657l2.121 2.121a1 1 0 0 0 1.414 0l2.122-2.12a4 4 0 0 0 0-5.658Z"
-    />
+    <Path d="M8 9h8V3h5v7.912a6 6 0 0 0-7 9.573l.515.515H3V3h5z" />
+    <Path d="M14 7h-4V3h4z" />
   </Svg>
 );
 export default SvgPackageAddress;

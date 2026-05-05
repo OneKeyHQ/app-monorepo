@@ -55,7 +55,7 @@ export function EmptyNoWalletView() {
   return (
     <Empty
       mt="$24"
-      icon="WalletOutline"
+      illustration="WalletAdd"
       title={intl.formatMessage({
         id: ETranslations.global_no_wallet,
       })}

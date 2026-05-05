@@ -2,6 +2,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IExchangeFilter } from '@onekeyhq/shared/types/exchange';
 import type {
   IAccountToken,
   IToken,
@@ -45,6 +46,7 @@ export type ITokenSelectorParamList = {
   indexedAccountId?: string;
   activeAccountId?: string;
   activeNetworkId?: string;
+  forceShowActiveAccountTokenList?: boolean;
   tokens?: ITokenData;
   onSelect: (token: IToken) => void | Promise<void>;
   closeAfterSelect?: boolean;
@@ -70,6 +72,9 @@ export type ITokenSelectorParamList = {
   hideZeroBalanceTokens?: boolean;
   keepDefaultZeroBalanceTokens?: boolean;
   enableNetworkAfterSelect?: boolean;
+  exchangeFilter?: IExchangeFilter;
+  hideBalanceAndValue?: boolean;
+  onSwitchNetwork?: () => void | Promise<void>;
 };
 
 export type IAggregateTokenSelectorParams = {
@@ -83,6 +88,8 @@ export type IAggregateTokenSelectorParams = {
   closeAfterSelect?: boolean;
   enableNetworkAfterSelect?: boolean;
   hideZeroBalanceTokens?: boolean;
+  exchangeFilter?: IExchangeFilter;
+  hideBalanceAndValue?: boolean;
 };
 
 export type IAssetSelectorParamList = {

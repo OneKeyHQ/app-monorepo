@@ -7,11 +7,15 @@ import {
   Stack,
   Tabs,
   YStack,
-  useIsModalPage,
+  useIsIpadModalPage,
+  useIsOverlayPage,
   useMedia,
+  useSplitSubView,
+  useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { IDeferredPromise } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import { MarketDetailLinks } from './MarketDetailLinks';
@@ -46,7 +50,7 @@ function BasicTokenDetailTabs({
   coinGeckoId: string;
 }) {
   const intl = useIntl();
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const { md: mdMedia, gtMd: gtMdMedia } = useMedia();
   const md = isModalPage ? true : mdMedia;
 
@@ -112,6 +116,18 @@ function BasicTokenDetailTabs({
     [coinGeckoId, defer, intl, md, token],
   );
 
+  const pageWidth = useTabContainerWidth();
+  const isIpadModalPage = useIsIpadModalPage();
+  const isSplitSubView = useSplitSubView();
+  const resolvedTabWidth =
+    typeof pageWidth === 'number' &&
+    (isIpadModalPage || isSplitSubView || platformEnv.isNative)
+      ? pageWidth
+      : undefined;
+  const containerKey = useMemo(
+    () => `${tabConfigs.length}-${resolvedTabWidth ?? 'auto'}`,
+    [resolvedTabWidth, tabConfigs.length],
+  );
   return (
     <Tabs.Container
       containerStyle={{
@@ -119,6 +135,7 @@ function BasicTokenDetailTabs({
         ...(md ? { marginTop: 20 } : undefined),
         ...(isModalPage ? { marginTop: 20 } : undefined),
       }}
+      width={resolvedTabWidth}
       renderHeader={() => (
         <YStack
           bg="$bgApp"
@@ -132,11 +149,13 @@ function BasicTokenDetailTabs({
         </YStack>
       )}
       renderTabBar={(props) => <Tabs.TabBar {...props} />}
-      key={tabConfigs.length}
+      key={containerKey}
     >
       {tabConfigs.map((tab) => (
         <Tabs.Tab key={tab.title} name={tab.title}>
-          <Tabs.ScrollView>{tab.page}</Tabs.ScrollView>
+          <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+            {tab.page}
+          </Tabs.ScrollView>
         </Tabs.Tab>
       ))}
     </Tabs.Container>

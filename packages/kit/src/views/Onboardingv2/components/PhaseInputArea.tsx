@@ -42,7 +42,6 @@ import {
   XStack,
   useForm,
   useKeyboardEvent,
-  useKeyboardState,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -167,8 +166,8 @@ function SuggestionList({
 }
 
 function PageFooter({
-  suggestions,
-  updateInputValue,
+  suggestions: _suggestions,
+  updateInputValue: _updateInputValue,
   onConfirm,
 }: {
   suggestions: string[];
@@ -241,6 +240,7 @@ function BasicPhaseInput(
   const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFocusable] = useState(false);
+  const { gtMd } = useMedia();
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -359,7 +359,7 @@ function BasicPhaseInput(
     autoCorrect: false,
     spellCheck: false,
     autoComplete: 'off',
-    size: 'large',
+    size: gtMd ? 'medium' : 'large',
     leftAddOnProps: {
       label: `${index + 1}`,
       pr: '$0',
@@ -499,9 +499,8 @@ export function PhaseInputArea({
     const mnemonicEncoded = await servicePassword.encodeSensitiveText({
       text: mnemonic,
     });
-    const { mnemonicType } = await serviceAccount.validateMnemonic(
-      mnemonicEncoded,
-    );
+    const { mnemonicType } =
+      await serviceAccount.validateMnemonic(mnemonicEncoded);
     const result = { mnemonic: mnemonicEncoded, mnemonicType };
     onConfirm?.(result);
     return result;
@@ -572,8 +571,6 @@ export function PhaseInputArea({
     },
   }));
 
-  const { isVisible } = useKeyboardState?.() || { isVisible: true };
-
   const watched = useWatch({ control: form.control });
   const hasFilledPhrases = useMemo(
     () => compact(Object.values(watched)).length > 0,
@@ -625,7 +622,12 @@ export function PhaseInputArea({
       <Form form={form}>
         <XStack flexWrap="wrap" m="$-1">
           {Array.from({ length: phraseLengthNumber }).map((_, index) => (
-            <Stack key={index} flexBasis="50%" p="$1">
+            <Stack
+              key={index}
+              flexBasis="50%"
+              $gtMd={{ flexBasis: '33.3333%' }}
+              p="$1"
+            >
               <Form.Field name={`phrase${index + 1}`}>
                 <PhaseInput
                   index={index}
@@ -671,9 +673,9 @@ export function PhaseInputArea({
         ) : null}
       </HeightTransition>
       {FooterComponent}
-      {isVisible ? (
+      {platformEnv.isNative ? (
         <Portal.Body container={Portal.Constant.SUGGESTION_LIST}>
-          {isVisible ? (
+          {suggestions.length > 0 ? (
             <SuggestionList
               suggestions={suggestions}
               onPressItem={updateInputValue}

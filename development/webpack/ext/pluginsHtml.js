@@ -1,11 +1,14 @@
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path');
-const InterpolateHtmlPlugin = require('react-dev-utils/InterpolateHtmlPlugin');
+
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 const lodash = require('lodash');
-const indexHtmlParameter = require('../../indexHtmlParameter');
+const InterpolateHtmlPlugin = require('react-dev-utils/InterpolateHtmlPlugin');
+
 const developmentConsts = require('../../developmentConsts');
-const devUtils = require('./devUtils');
+const indexHtmlParameter = require('../../indexHtmlParameter');
 const { isDev } = require('../constant');
+
+const devUtils = require('./devUtils');
 
 const platform = developmentConsts.platforms.ext;
 

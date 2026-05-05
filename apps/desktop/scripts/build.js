@@ -1,30 +1,21 @@
 require('../../../development/env');
 
-const path = require('path');
 const childProcess = require('child_process');
+const path = require('path');
+
 const { build } = require('esbuild');
 const glob = require('glob');
-const fs = require('fs');
+
 const pkg = require('../app/package.json');
 
-// Add passport-desktop-win32-x64-msvc dependency for Windows
-if (process.platform === 'win32') {
-  pkg.dependencies = pkg.dependencies || {};
-  pkg.dependencies['passport-desktop-win32-x64-msvc'] = '0.1.2';
-
-  // Write back to package.json file
-  const packageJsonPath = path.join(__dirname, '..', 'app', 'package.json');
-  fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
-}
-
+const isProduction = process.env.NODE_ENV === 'production';
+console.log('building for', isProduction ? 'production' : 'development');
 const electronSource = path.join(__dirname, '..', 'app');
 
 const gitRevision = childProcess
   .execSync('git rev-parse HEAD')
   .toString()
   .trim();
-
-const isProduction = process.env.NODE_ENV === 'production';
 
 const hrstart = process.hrtime();
 
@@ -35,7 +26,9 @@ const serviceFiles = glob
 
 console.log('process.env.NODE_ENV', process.env.NODE_ENV);
 console.log('process.env.DESK_CHANNEL', process.env.DESK_CHANNEL);
+console.log('process.env.COMMITHASH', process.env.COMMITHASH);
 console.log('process.env.SNAP', process.env.SNAP);
+console.log('process.env.FLATPAK', process.env.FLATPAK);
 console.log('process.env.BUILD_NUMBER', process.env.BUILD_NUMBER);
 console.log('process.env.BUILD_TIME', process.env.BUILD_TIME);
 console.log('process.env.VERSION', process.env.VERSION);
@@ -48,6 +41,7 @@ build({
   platform: 'node',
   bundle: true,
   target: 'node16',
+  loader: { '.text-js': 'text' },
   drop: isProduction ? ['console', 'debugger'] : [],
   // Help esbuild locate missing dependencies.
   alias: {
@@ -62,7 +56,7 @@ build({
     ),
     'react-native-mmkv': path.join(
       __dirname,
-      '../../desktop/app/libs/react-native-mmkv-mock',
+      '../../desktop/app/libs/react-native-mmkv-desktop-main',
     ),
     '@sentry/react-native': path.join(
       __dirname,
@@ -105,8 +99,12 @@ build({
     'process.env.SENTRY_DSN_DESKTOP': JSON.stringify(
       process.env.SENTRY_DSN_DESKTOP || '',
     ),
-    'process.env.APPIMAGE': JSON.stringify(process.env.APPIMAGE || ''),
+    // APPIMAGE is intentionally NOT defined here. It is a runtime env set by
+    // the AppImage launcher and read (via bracket notation) by electron-updater
+    // and our canAutoInstallAppImage guard. AppImage BUILD detection is done
+    // via DESK_CHANNEL=appImage instead (see release-desktop-all.yml).
     'process.env.SNAP': JSON.stringify(process.env.SNAP || ''),
+    'process.env.FLATPAK': JSON.stringify(process.env.FLATPAK || ''),
     'process.env.SENTRY_DSN_MAS': JSON.stringify(
       process.env.SENTRY_DSN_MAS || '',
     ),
@@ -123,9 +121,31 @@ build({
     'process.env.SENTRY_DSN_WEB': JSON.stringify(
       process.env.SENTRY_DSN_WEB || '',
     ),
+    'process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION': JSON.stringify(
+      (
+        process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+          ? process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true'
+          : process.env.NODE_ENV !== 'production'
+      )
+        ? 'true'
+        : 'false',
+    ),
   },
 })
   .then(() => {
+    // Copy static assets (recovery.html) to dist
+    const fs = require('fs');
+    const recoveryHtmlSrc = path.join(electronSource, 'recovery.html');
+    const recoveryHtmlDst = path.join(
+      __dirname,
+      '..',
+      'app/dist',
+      'recovery.html',
+    );
+    if (fs.existsSync(recoveryHtmlSrc)) {
+      fs.copyFileSync(recoveryHtmlSrc, recoveryHtmlDst);
+      console.log('[Electron Build] Copied recovery.html to dist');
+    }
     const hrend = process.hrtime(hrstart);
     console.log(
       '[Electron Build] Finished in %dms',

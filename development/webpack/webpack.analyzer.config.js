@@ -1,4 +1,5 @@
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+
 const {
   ENABLE_ANALYZER_HTML_REPORT,
   ENABLE_ANALYZER,

@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBezierMouse = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16 6v1a1 1 0 0 0 1 1h1m-2-2V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-1m-2-2H8M6 8v8m2 2h2m8-10v2M5 20h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1M5 8h2a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1m8.115 4.497 6.452 1.844a.5.5 0 0 1 .1.92l-2.731 1.472a.5.5 0 0 0-.203.203l-1.471 2.731a.5.5 0 0 1-.921-.1l-1.844-6.452a.5.5 0 0 1 .618-.618"
+      fillRule="evenodd"
+      d="M9 5h6V3h6v6h-2v6h2v6h-6v-2H9v2H3v-6h2V9H3V3h6zM5 19h2v-2H5zm12 0h2v-2h-2zM9 9H7v6h2v2h6v-2h2V9h-2V7H9zM5 7h2V5H5zm12 0h2V5h-2z"
+      clipRule="evenodd"
     />
   </Svg>
 );

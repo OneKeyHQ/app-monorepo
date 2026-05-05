@@ -21,11 +21,10 @@ import type {
   ICoinSelectOutput,
   ICoinSelectResult,
 } from '@onekeyfe/coinselect';
-import type {
-  ICoinSelectResult as ICoinSelectResultWitness,
-  IUtxo,
-} from '@onekeyfe/coinselect/witness';
 import type { Network } from 'bitcoinjs-lib';
+
+type ICoinSelectResultWitness = ReturnType<typeof coinSelectWitness>;
+type IUtxo = Parameters<typeof coinSelectWitness>[0]['utxos'][number];
 
 export type ICoinSelectAlgorithm =
   | 'auto'
@@ -41,6 +40,8 @@ export type ICoinSelectOptions = {
   algorithm?: ICoinSelectAlgorithm;
 };
 
+export type ICoinSelectSortingStrategy = 'bip69' | 'none' | 'random';
+
 export type ICoinSelectWithWitnessOptions = {
   inputsForCoinSelect: IInputsForCoinSelect;
   outputsForCoinSelect: IOutputsForCoinSelect;
@@ -52,6 +53,7 @@ export type ICoinSelectWithWitnessOptions = {
   };
   txType: ICoinSelectPaymentType;
   skipUtxoSelection?: boolean;
+  sortingStrategy?: ICoinSelectSortingStrategy;
 };
 
 function utxoScore(x: ICoinSelectInput, feeRate: number) {
@@ -65,7 +67,7 @@ function sortUtxo({
   utxos: ICoinSelectInput[];
   feeRate: number;
 }) {
-  return utxos.concat().sort((a, b) => {
+  return utxos.concat().toSorted((a, b) => {
     if (a.forceSelect) {
       return -1;
     }
@@ -188,6 +190,7 @@ export function coinSelectWithWitness(
     network,
     changeAddress,
     txType,
+    sortingStrategy,
   } = params;
   const coinselectParams = {
     utxos: inputsForCoinSelect.map((u) => ({
@@ -201,6 +204,7 @@ export function coinSelectWithWitness(
     network,
     changeAddress,
     txType,
+    sortingStrategy,
   };
   try {
     return coinSelectWitness(coinselectParams);

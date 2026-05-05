@@ -1,4 +1,3 @@
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import type { IToken } from '@onekeyhq/shared/types/token';

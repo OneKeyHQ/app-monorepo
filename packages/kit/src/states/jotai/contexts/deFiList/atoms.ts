@@ -17,23 +17,6 @@ export {
   withDeFiListProvider,
 };
 
-export const { atom: deFiListOverviewAtom, use: useDeFiListOverviewAtom } =
-  contextAtom<{
-    totalValue: string;
-    totalDebt: string;
-    netWorth: string;
-    chains: string[];
-    protocolCount: number;
-    positionCount: number;
-  }>({
-    totalValue: '0',
-    totalDebt: '0',
-    netWorth: '0',
-    chains: [],
-    protocolCount: 0,
-    positionCount: 0,
-  });
-
 export const { atom: deFiListProtocolsAtom, use: useDeFiListProtocolsAtom } =
   contextAtom<{
     protocols: IDeFiProtocol[];
@@ -58,3 +41,6 @@ export const { atom: deFiListStateAtom, use: useDeFiListStateAtom } =
     isRefreshing: true,
     initialized: false,
   });
+
+export const { atom: deFiListSlicedAtom, use: useDeFiListSlicedAtom } =
+  contextAtom<boolean>(true);

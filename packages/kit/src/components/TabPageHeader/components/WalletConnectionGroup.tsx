@@ -1,8 +1,8 @@
-import { type ReactNode, memo, useMemo, useState } from 'react';
+import { type ReactNode, memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, useMedia } from '@onekeyhq/components';
+import { SizableText, Spinner, XStack, useMedia } from '@onekeyhq/components';
 import {
   AccountSelectorActiveAccountHome,
   AccountSelectorTriggerHome,
@@ -17,8 +17,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useIsAccountSelectorSyncLoading,
+} from '../../../states/jotai/contexts/accountSelector';
+import { AllNetworksManagerTrigger } from '../../AccountSelector/AllNetworksManagerTrigger';
 
 function AccountSelectorTriggerWithSpotlight({
   isFocus,
@@ -79,13 +84,19 @@ export function WalletConnectionGroup({
   showNetworkSelector = true,
   showAccountInfo = true,
 }: IWalletConnectionGroupProps) {
-  const { gtMd } = useMedia();
+  const { md } = useMedia();
+  const isMobileLayout = md || platformEnv.isNative;
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet, network, account },
   } = useActiveAccount({
     num: 0,
   });
   const [isFocus, setIsFocus] = useState(false);
+
+  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
+    wallet,
+    account,
+  });
 
   const isNonBackedUpWallet = useMemo(() => {
     return wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped;
@@ -110,7 +121,74 @@ export function WalletConnectionGroup({
   }
 
   const shouldShowNetworkSelector =
-    showNetworkSelector && tabRoute === ETabRoutes.Home && gtMd;
+    showNetworkSelector && tabRoute === ETabRoutes.Home;
+
+  const renderNetworkSelectorTrigger = useCallback(
+    (size?: 'small' | 'large') => {
+      if (!shouldShowNetworkSelector || isNonBackedUpWallet) {
+        return null;
+      }
+
+      if (
+        network?.isAllNetworks &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+      ) {
+        return <AllNetworksManagerTrigger num={0} unifiedMode />;
+      }
+      return (
+        <NetworkSelectorTriggerHome
+          num={0}
+          size={size}
+          recordNetworkHistoryEnabled
+          hideOnNoAccount
+          unifiedMode
+        />
+      );
+    },
+    [
+      network?.isAllNetworks,
+      shouldShowNetworkSelector,
+      isNonBackedUpWallet,
+      wallet?.id,
+    ],
+  );
+
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
+
+  if (
+    !platformEnv.isWebDappMode &&
+    hasNoUsableWallet &&
+    tabRoute === ETabRoutes.Home
+  ) {
+    if (isSyncLoading) {
+      return <Spinner size="small" />;
+    }
+    return null;
+  }
+
+  if (isMobileLayout) {
+    return (
+      <XStack flex={1} ai="center" jc="space-between">
+        <XStack gap="$3" ai="center">
+          <MemoizedAccountSelectorTriggerWithSpotlight
+            isFocus={isFocus}
+            linkNetworkId={linkNetworkId}
+            hideAddress={hideAddress}
+          />
+          {showAccountInfo && !isNonBackedUpWallet ? (
+            <AccountSelectorActiveAccountHome
+              num={0}
+              showAccountAddress={false}
+              showCopyButton={tabRoute === ETabRoutes.Home}
+              showCreateAddressButton={false}
+              showNoAddressTip={false}
+            />
+          ) : null}
+        </XStack>
+        {renderNetworkSelectorTrigger('small')}
+      </XStack>
+    );
+  }
 
   return (
     <XStack gap="$3" ai="center">
@@ -119,13 +197,7 @@ export function WalletConnectionGroup({
         linkNetworkId={linkNetworkId}
         hideAddress={hideAddress}
       />
-      {shouldShowNetworkSelector && !isNonBackedUpWallet ? (
-        <NetworkSelectorTriggerHome
-          num={0}
-          recordNetworkHistoryEnabled
-          hideOnNoAccount
-        />
-      ) : null}
+      {renderNetworkSelectorTrigger()}
       {showAccountInfo && !isNonBackedUpWallet ? (
         <AccountSelectorActiveAccountHome
           num={0}

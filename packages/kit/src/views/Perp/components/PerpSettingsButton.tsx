@@ -8,17 +8,21 @@ type IPerpSettingsButtonProps = Omit<IIconButtonProps, 'icon' | 'onPress'>;
 export function PerpSettingsButton({
   size = 'small',
   variant = 'tertiary',
+  showGuideEntry = false,
   ...rest
-}: IPerpSettingsButtonProps) {
+}: IPerpSettingsButtonProps & {
+  showGuideEntry?: boolean;
+}) {
   const content = (
     <PerpSettingsPopover
+      showGuideEntry={showGuideEntry}
       renderTrigger={
         <IconButton
           icon="DotHorOutline"
           size={size}
           variant={variant}
           iconColor="$iconSubdued"
-          cursor="pointer"
+          cursor="default"
           {...rest}
         />
       }

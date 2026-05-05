@@ -156,9 +156,9 @@ function permissionRequired() {
 }
 
 function bindThis() {
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // oxlint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   return function <T extends Function>(
-    // eslint-disable-next-line @typescript-eslint/ban-types
     target: object,
     propertyKey: string,
     descriptor: TypedPropertyDescriptor<T>,

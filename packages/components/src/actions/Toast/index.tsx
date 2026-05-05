@@ -1,9 +1,9 @@
 import type { RefObject } from 'react';
-import { createRef, useEffect } from 'react';
+import { createRef, useCallback, useEffect, useMemo } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
-import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { ToastProvider } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -12,21 +12,32 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../hocs';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
-import { Icon, View, XStack, YStack } from '../../primitives';
+import { usePageWidth } from '../../hooks/usePage';
+import { useMedia } from '../../hooks/useStyle';
+import {
+  Icon,
+  Image,
+  SizableText,
+  View,
+  XStack,
+  YStack,
+} from '../../primitives';
 import { Spinner } from '../../primitives/Spinner/Spinner';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
-import { showMessage } from './showMessage';
+import { dismissToast, showMessage } from './showMessage';
 
 import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IToastMessageOptions } from './type';
 import type { IPortalManager } from '../../hocs';
-import type { ISizableTextProps } from '../../primitives';
+import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
 
 export interface IToastProps {
   toastId?: string;
   title: string;
   message?: string;
+  icon?: IKeyOfIcons;
+  imageUri?: string;
   duration?: number;
   actionsAlign?: 'left' | 'right';
   actions?: JSX.Element | JSX.Element[];
@@ -47,12 +58,21 @@ export interface IToastBaseProps extends IToastProps {
   position?: IToastMessageOptions['position'];
 }
 
+export interface IToastNotificationProps extends IToastBaseProps {
+  onPress?: () => void;
+  iconImageUri?: string;
+}
+
 const iconMap = {
   success: <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />,
   error: <Icon name="ErrorSolid" color="$iconCritical" size="$5" />,
   info: <Icon name="InfoCircleSolid" color="$iconInfo" size="$5" />,
   warning: <Icon name="ErrorSolid" color="$iconCaution" size="$5" />,
   loading: <Spinner size="small" />,
+};
+
+const underlineTextPropsStatic = {
+  color: '$textSubdued' as const,
 };
 
 function RenderLines({
@@ -82,9 +102,7 @@ function RenderLines({
           color={color}
           textTransform="none"
           userSelect="none"
-          underlineTextProps={{
-            color: '$textSubdued',
-          }}
+          underlineTextProps={underlineTextPropsStatic}
           size={size}
           wordWrap="break-word"
           translationId={line as ETranslations}
@@ -94,6 +112,14 @@ function RenderLines({
     </YStack>
   );
 }
+
+const platformWebOverflowStyle = {
+  overflow: 'hidden' as const,
+};
+
+const platformAndroidPaddingStyle = {
+  paddingTop: '$0.5' as const,
+};
 
 export function ToastContent({
   title,
@@ -112,7 +138,8 @@ export function ToastContent({
   actions?: IToastProps['actions'];
   actionsAlign?: 'left' | 'right';
 }) {
-  const { height, width } = useWindowDimensions();
+  const { height } = useWindowDimensions();
+  const pageWidth = usePageWidth();
   const media = useMedia();
   useEffect(
     () => () => {
@@ -120,25 +147,25 @@ export function ToastContent({
     },
     [onClose],
   );
+  const platformNativeStyle = useMemo(
+    () => ({
+      maxHeight: height - 200,
+      width: Math.min(pageWidth, 640) - 64,
+    }),
+    [height, pageWidth],
+  );
   return (
     <YStack
       flex={1}
       maxWidth={maxWidth}
       maxHeight={height - 100}
-      $platform-native={{
-        maxHeight: height - 200,
-        width: media.md ? width - 64 : 640,
-      }}
-      $platform-web={{
-        overflow: 'hidden',
-      }}
+      $platform-native={platformNativeStyle}
+      $platform-web={platformWebOverflowStyle}
     >
       <XStack gap={icon ? '$2' : 0}>
         {icon ? (
           <View
-            $platform-android={{
-              paddingTop: '$0.5',
-            }}
+            $platform-android={platformAndroidPaddingStyle}
             width="$5.5"
             height="$5.5"
           >
@@ -156,7 +183,7 @@ export function ToastContent({
           {message ? (
             <RenderLines
               color="$textSubdued"
-              size={media.md ? '$bodySm' : '$bodyMd'}
+              size={media.gtMd ? '$bodyMd' : '$bodySm'}
             >
               {message}
             </RenderLines>
@@ -182,18 +209,19 @@ export function ToastContent({
 }
 
 const toastIdMap = new Map<string, [number, number]>();
-function toastMessage({
-  toastId,
+
+const handleToastId = ({
   title,
-  message,
-  duration = 5000,
-  haptic,
-  preset = 'custom',
-  actions,
-  actionsAlign = 'right',
-  position,
+  toastId,
+  duration = 0,
   onClose,
-}: IToastBaseProps) {
+}: {
+  toastId?: string;
+  title: string;
+  message?: string;
+  duration?: number;
+  onClose?: () => void;
+}) => {
   const handleClose = () => {
     if (toastId) {
       toastIdMap.delete(toastId);
@@ -220,6 +248,39 @@ function toastMessage({
     }
     toastIdMap.set(toastId, [Date.now(), duration + 500]);
   }
+  return handleClose;
+};
+function toastMessage({
+  toastId,
+  title,
+  message,
+  icon,
+  duration = 5000,
+  haptic,
+  preset = 'custom',
+  actions,
+  actionsAlign = 'right',
+  position,
+  onClose,
+}: IToastBaseProps) {
+  const handleClose = handleToastId({ title, toastId, duration, onClose });
+  if (!handleClose) return;
+  const hapticColorMap: Record<string, ColorTokens> = {
+    success: '$iconSuccess',
+    error: '$iconCritical',
+    warning: '$iconCaution',
+    info: '$iconInfo',
+  };
+  // eslint-disable-next-line react-perf/jsx-no-jsx-as-prop
+  const iconElement = icon ? (
+    <Icon
+      name={icon}
+      color={hapticColorMap[haptic ?? ''] ?? '$iconCritical'}
+      size="$5"
+    />
+  ) : (
+    iconMap[haptic as keyof typeof iconMap]
+  );
   return showMessage({
     renderContent: (props) => (
       <ToastContent
@@ -227,9 +288,128 @@ function toastMessage({
         title={title}
         maxWidth={props?.width}
         message={message}
-        icon={iconMap[haptic as keyof typeof iconMap]}
+        icon={iconElement}
         actions={actions}
         actionsAlign={actionsAlign}
+      />
+    ),
+    toastId,
+    duration,
+    haptic,
+    preset,
+    position,
+  });
+}
+
+function ToastNotificationContent({
+  title,
+  message,
+  icon,
+  iconImageUri,
+  imageUri,
+  onClose,
+  onPress,
+}: IToastNotificationProps) {
+  const pageWidth = usePageWidth();
+  useEffect(
+    () => () => {
+      onClose?.();
+    },
+    [onClose],
+  );
+  const handlePress = useCallback(() => {
+    onPress?.();
+  }, [onPress]);
+  const iconImageSource = useMemo(
+    () => (iconImageUri ? { uri: iconImageUri } : undefined),
+    [iconImageUri],
+  );
+  const IconElement = useMemo(() => {
+    if (iconImageUri && iconImageSource) {
+      return <Image source={iconImageSource} size={18} />;
+    }
+    return (
+      <Icon size={18} name={icon || 'SpeakerPromoteOutline'} color="$icon" />
+    );
+  }, [iconImageUri, iconImageSource, icon]);
+  const imageSource = useMemo(
+    () => (imageUri ? { uri: imageUri } : undefined),
+    [imageUri],
+  );
+  const platformNativeWidthStyle = useMemo(
+    () => ({
+      width: Math.min(pageWidth, 640) - 64,
+    }),
+    [pageWidth],
+  );
+  return (
+    <XStack
+      gap="$2"
+      cursor="pointer"
+      onPress={handlePress}
+      flex={1}
+      $platform-native={platformNativeWidthStyle}
+    >
+      <XStack
+        bg="$bgStrong"
+        borderRadius="$full"
+        ai="center"
+        jc="center"
+        w={28}
+        h={28}
+      >
+        {IconElement}
+      </XStack>
+      <YStack flex={1} gap={2} flexShrink={1} minWidth={0}>
+        <SizableText size="$headingSm" numberOfLines={2} flexShrink={1}>
+          {title}
+        </SizableText>
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={3}
+          flexShrink={1}
+        >
+          {message}
+        </SizableText>
+      </YStack>
+      {imageUri && imageSource ? (
+        <Image borderRadius="$1" size="$12" source={imageSource} />
+      ) : null}
+    </XStack>
+  );
+}
+
+function toastNotification({
+  toastId,
+  title,
+  message,
+  icon,
+  iconImageUri,
+  imageUri,
+  duration = 5000,
+  haptic,
+  preset = 'custom',
+  actions,
+  actionsAlign = 'right',
+  position,
+  onPress,
+  onClose,
+}: IToastNotificationProps) {
+  const handleClose = handleToastId({ title, toastId, duration, onClose });
+  if (!handleClose) return;
+  return showMessage({
+    renderContent: (_props) => (
+      <ToastNotificationContent
+        onClose={handleClose}
+        title={title}
+        imageUri={imageUri}
+        message={message}
+        icon={icon}
+        iconImageUri={iconImageUri}
+        actions={actions}
+        actionsAlign={actionsAlign}
+        onPress={onPress}
       />
     ),
     duration,
@@ -260,6 +440,9 @@ export const Toast = {
   loading: (props: IToastProps) => {
     return toastMessage({ haptic: 'loading', ...props });
   },
+  notification: (props: IToastNotificationProps) => {
+    return toastNotification({ haptic: 'info', preset: 'none', ...props });
+  },
   /* show custom view on Toast */
   show: ({
     onClose,
@@ -275,6 +458,7 @@ export const Toast = {
         }
       | undefined;
 
+    // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
     const handleClose = (extra?: { flag?: string }) =>
       new Promise<void>((resolve) => {
         // Remove the React node after the animation has finished.
@@ -316,6 +500,10 @@ export const Toast = {
     return r;
   },
   Close: ShowToasterClose,
+  dismiss: (id: string) => {
+    toastIdMap.delete(id);
+    dismissToast(id);
+  },
 };
 export type IToast = typeof Toast;
 

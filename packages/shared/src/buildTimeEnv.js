@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/prefer-global-this */
 // used in babel config so must be commonjs format
 // can only access "process.env" here as it would be shared between buildtime and runtime
 const isJest =
@@ -19,6 +18,10 @@ const isExtEdge = process.env.EXT_CHANNEL === 'edge';
 
 const isE2E = process.env.E2E_MODE === 'true';
 
+const enablePerfMonitor = process.env.PERF_MONITOR_ENABLED === '1';
+const enableNativeBackgroundThread =
+  process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true';
+
 module.exports = {
   isJest,
   isDev,
@@ -32,4 +35,6 @@ module.exports = {
   isExtFirefox,
   isExtEdge,
   isE2E,
+  enablePerfMonitor,
+  enableNativeBackgroundThread,
 };

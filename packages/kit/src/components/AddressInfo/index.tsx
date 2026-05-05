@@ -1,10 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { Badge, Dialog, Stack, XStack } from '@onekeyhq/components';
-import type {
-  IDBAccount,
-  IDBIndexedAccount,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -54,13 +51,12 @@ function SwitchHomeAccountButton({
             },
           ), // `Switch primary account to ${walletAccountName}`,
           onConfirm: async () => {
-            let account: IDBAccount | undefined;
             let indexedAccount: IDBIndexedAccount | undefined;
 
-            // eslint-disable-next-line prefer-const
-            account = await backgroundApiProxy.serviceAccount.getDBAccountSafe({
-              accountId: accountId || '',
-            });
+            const account =
+              await backgroundApiProxy.serviceAccount.getDBAccountSafe({
+                accountId: accountId || '',
+              });
 
             if (account) {
               indexedAccount =
@@ -85,10 +81,16 @@ function SwitchHomeAccountButton({
             navigation.popStack();
             navigation.popStack();
             navigation.popStack();
-            navigation.navigate(ERootRoutes.Main, {
-              screen: ETabRoutes.Home,
-              params: {},
-            });
+            navigation.navigate(
+              ERootRoutes.Main,
+              {
+                screen: ETabRoutes.Home,
+                params: {},
+              },
+              {
+                pop: true,
+              },
+            );
 
             setTimeout(async () => {
               await actions.current.confirmAccountSelect({

@@ -60,7 +60,7 @@ export function formatDateFns(date: Date | string, _format?: string) {
     return fnsFormat(parsedDate, _format ?? 'PPp', {
       locale: parseToDateFnsLocale(locale),
     });
-  } catch (error) {
+  } catch (_error) {
     return '-';
   }
 }
@@ -140,11 +140,14 @@ export function formatDistanceStrict(
   date: Date | number,
   baseDate: Date | number,
   addSuffix?: boolean,
+  roundingMethod?: 'floor' | 'ceil' | 'round',
+  localeSymbol?: ILocaleSymbol,
 ) {
-  const locale = appLocale.getLocale();
+  const locale = localeSymbol ?? appLocale.getLocale();
   const distance = fnsFormatDistanceStrict(date, baseDate, {
     locale: parseToDateFnsLocale(locale),
     addSuffix,
+    roundingMethod,
   });
 
   return distance ?? '';
@@ -198,12 +201,12 @@ export function formatDuration(duration: Duration, zero?: boolean) {
 
 export function formatRelativeDate(date: Date) {
   const formatRelativeLocale: Record<string, string> = {
-    yesterday: `${appLocale.intl.formatMessage({
+    yesterday: appLocale.intl.formatMessage({
       id: ETranslations.global_date_yesterday,
-    })}`,
-    today: `${appLocale.intl.formatMessage({
+    }),
+    today: appLocale.intl.formatMessage({
       id: ETranslations.global_date_today,
-    })}`,
+    }),
     other: 'yyyy/LL/dd',
   };
 
@@ -233,9 +236,9 @@ export function formatTime(date: Date | string, options?: IFormatDateOptions) {
 
   if (options?.hideSeconds) {
     formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
-  }
-
-  if (options?.hideMilliseconds) {
+    // Also hide milliseconds when hiding seconds
+    formatTemplate = formatTemplate.replace('.SSS', '');
+  } else if (options?.hideMilliseconds) {
     formatTemplate = formatTemplate.replace('.SSS', '');
   }
 

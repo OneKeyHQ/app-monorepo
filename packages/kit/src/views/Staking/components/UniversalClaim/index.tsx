@@ -13,7 +13,6 @@ import {
   SizableText,
   Stack,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -84,7 +83,6 @@ export const UniversalClaim = ({
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
@@ -155,8 +153,8 @@ export const UniversalClaim = ({
       }
       const isOverflowDecimals = Boolean(
         decimals &&
-          Number(decimals) > 0 &&
-          countDecimalPlaces(value) > decimals,
+        Number(decimals) > 0 &&
+        countDecimalPlaces(value) > decimals,
       );
       if (isOverflowDecimals) {
         setAmountValue((oldValue) => oldValue);
@@ -307,7 +305,6 @@ export const UniversalClaim = ({
                       onPrimaryPress: () => {
                         if (alert.button?.data?.link) {
                           handleOpenWebSite({
-                            switchToMultiTabBrowser: gtMd,
                             navigation,
                             useCurrentWindow: false,
                             webSite: {

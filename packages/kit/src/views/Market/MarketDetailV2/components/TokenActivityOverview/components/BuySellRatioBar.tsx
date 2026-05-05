@@ -3,15 +3,17 @@ import { Stack, View } from '@onekeyhq/components';
 interface IBuySellRatioBarProps {
   buyPercentage: number;
   isLoading?: boolean;
+  noData?: boolean;
 }
 
 export function BuySellRatioBar({
   buyPercentage,
   isLoading,
+  noData,
 }: IBuySellRatioBarProps) {
   const sellPercentage = 100 - buyPercentage;
 
-  if (isLoading) {
+  if (isLoading || noData) {
     return (
       <Stack
         flexDirection="row"

@@ -6,7 +6,7 @@ function checkWindowsHelloAvailability(callback: (result: boolean) => void) {
   try {
     const isAvailable = Passport.available();
     callback(isAvailable);
-  } catch (error) {
+  } catch (_error) {
     callback(false);
   }
 }
@@ -22,7 +22,8 @@ function requestVerificationAsync(
       });
     } else {
       callback({
-        error: '',
+        error:
+          verification === VerificationResult.Canceled ? 'user_cancel' : '',
         success: false,
       });
     }

@@ -57,6 +57,7 @@ function BasicTradeOrBuy({
           hiddenIfDisabled
           showButtonStyle
           size="small"
+          label={intl.formatMessage({ id: ETranslations.global_buy })}
           networkId={networkId}
           accountId={accountId}
           walletType={wallet?.type}

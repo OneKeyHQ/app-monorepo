@@ -3,31 +3,47 @@ import { useCallback, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Toast } from '@onekeyhq/components';
+import { Toast, resetOnboardingModal } from '@onekeyhq/components';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IKeylessPendingLogin } from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IConnectExternalWalletPayload } from '@onekeyhq/shared/types/analytics/onboarding';
-import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
+import type {
+  IConnectToWalletOptions,
+  IExternalConnectionInfo,
+} from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import useAppNavigation from '../useAppNavigation';
-import { closeOnboardingPages } from '../usePageNavigation';
+
+import keylessWebPendingLoginCache from './keylessWebPendingLoginCache';
+
+function hasAuthorizedAddresses(
+  addresses: Record<string, string> | undefined,
+): boolean {
+  return Object.values(addresses || {}).some((value) =>
+    value
+      ?.split(',')
+      ?.map((item) => item.trim())
+      ?.some(Boolean),
+  );
+}
 
 export function useConnectExternalWallet() {
   const [jotaiLoading, setJotaiLoading] =
     useOnboardingConnectWalletLoadingAtom();
   const [localLoading, setLocalLoading] = useState(false);
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
 
@@ -97,7 +113,10 @@ export function useConnectExternalWallet() {
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const connectToWallet = useCallback(
-    async (connectionInfo: IExternalConnectionInfo) => {
+    async (
+      connectionInfo: IExternalConnectionInfo,
+      options?: IConnectToWalletOptions,
+    ) => {
       try {
         const beforeConnectInfo = getExternalWalletConnectionDetails({
           externalConnectionInfo: connectionInfo,
@@ -118,22 +137,46 @@ export function useConnectExternalWallet() {
         const connectResult =
           await backgroundApiProxy.serviceDappSide.connectExternalWallet({
             connectionInfo,
+            connectToWalletOptions: options,
           });
-        if (
-          !loadingRef.current &&
-          Object.keys(connectResult?.accountInfo?.addresses || {}).length === 0
-        ) {
-          Toast.error({
-            title: `${intl.formatMessage({
-              id: ETranslations.feedback_connection_request_denied,
-            })}`,
-          });
-          return;
+
+        // if (
+        //   !loadingRef.current &&
+        //   Object.keys(connectResult?.accountInfo?.addresses || {}).length === 0
+        // ) {
+        //   Toast.error({
+        //     title: intl.formatMessage({
+        //       id: ETranslations.feedback_connection_request_denied,
+        //     }),
+        //   });
+        //   return false;
+
+        const hasAuthorizedAddress = hasAuthorizedAddresses(
+          connectResult?.accountInfo?.addresses,
+        );
+        if (!hasAuthorizedAddress) {
+          if (!options?.suppressDeniedToast) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.feedback_connection_request_denied,
+              }),
+            });
+          }
+          if (options?.allowEmptyAuthorizedAddresses) {
+            return false;
+          }
+          throw new OneKeyLocalError(
+            'External wallet has no authorized account',
+          );
         }
+
         const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
           connectResult,
         });
         const account = r?.accounts?.[0];
+        if (!account) {
+          throw new OneKeyLocalError('Failed to create external account');
+        }
         const usedNetworkId = accountUtils.getAccountCompatibleNetwork({
           account,
           networkId: account.createAtNetwork || selectedAccount.networkId,
@@ -144,9 +187,13 @@ export function useConnectExternalWallet() {
           walletId: WALLET_TYPE_EXTERNAL,
           othersWalletAccountId: account.id,
         });
-        navigation.popStack();
+        // Atomically drop OnboardingModal (the wallet-add sub-page sits
+        // inside it) in one reset dispatch. Avoids the popStack() animated
+        // dismiss that causes the iOS RNSScreenStack window=NIL retry storm,
+        // and preserves any non-onboarding parent overlay (LiteCard, KeyTag,
+        // Swap, Perp, etc.) the user may have come from.
+        resetOnboardingModal();
         await timerUtils.wait(150);
-        await closeOnboardingPages();
         await dialogRef.current?.close();
 
         let finalConnectionInfo: IExternalConnectionInfo;
@@ -174,6 +221,7 @@ export function useConnectExternalWallet() {
           },
           isSoftwareWalletOnlyUser,
         });
+        return true;
       } finally {
         hideLoading();
       }
@@ -182,11 +230,60 @@ export function useConnectExternalWallet() {
       actions,
       hideLoading,
       intl,
-      navigation,
       selectedAccount.networkId,
       showLoading,
       isSoftwareWalletOnlyUser,
     ],
+  );
+
+  const connectToWalletForKeylessSilently = useCallback(
+    async (
+      connectionInfo: IExternalConnectionInfo,
+      options?: {
+        provider?: EOAuthSocialLoginProvider;
+        nonce?: string;
+      },
+    ) => {
+      const cachedPendingLogin = options?.provider
+        ? keylessWebPendingLoginCache.readKeylessPendingLogin()
+        : undefined;
+
+      let webKeylessPendingLogin: IKeylessPendingLogin | undefined =
+        cachedPendingLogin;
+
+      if (options?.provider) {
+        const shouldReusePendingLogin =
+          cachedPendingLogin?.provider === options.provider &&
+          (!options.nonce || cachedPendingLogin?.nonce === options.nonce);
+
+        if (!shouldReusePendingLogin) {
+          keylessWebPendingLoginCache.clearKeylessPendingLogin({
+            nonce: cachedPendingLogin?.nonce,
+          });
+          webKeylessPendingLogin =
+            keylessWebPendingLoginCache.createKeylessPendingLogin({
+              provider: options.provider,
+              nonce: options.nonce || `silent-${Date.now()}`,
+            });
+        }
+      }
+
+      const connected = await connectToWallet(connectionInfo, {
+        allowEmptyAuthorizedAddresses: true,
+        suppressDeniedToast: true,
+        skipDisconnectConnector: true,
+        webKeylessPendingLogin,
+      });
+
+      if (connected) {
+        keylessWebPendingLoginCache.clearKeylessPendingLogin({
+          nonce: webKeylessPendingLogin?.nonce,
+        });
+      }
+
+      return connected;
+    },
+    [connectToWallet],
   );
 
   const connectToWalletWithDialog = useCallback(
@@ -202,6 +299,7 @@ export function useConnectExternalWallet() {
 
   return {
     connectToWallet,
+    connectToWalletForKeylessSilently,
     connectToWalletWithDialog,
     localLoading,
     loading,

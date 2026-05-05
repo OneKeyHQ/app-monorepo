@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_ALLNETWORKS,
   IMPL_EVM,
@@ -320,6 +321,11 @@ class ServiceAllNetwork extends ServiceBase {
       string,
       Promise<Record<string, IAccountDeriveInfo>>
     >();
+    // Reuse EVM account address info across EVM networks (same address format).
+    const evmAccountAddressInfoCache = new Map<
+      string,
+      Promise<{ address: string; account: INetworkAccount }>
+    >();
 
     let enabledNetworks: Record<string, boolean> = {};
     let disabledNetworks: Record<string, boolean> = {};
@@ -338,6 +344,21 @@ class ServiceAllNetwork extends ServiceBase {
       const impl = networkUtils.getNetworkImpl({ networkId: realNetworkId });
       const isNftEnabled = enableNFTNetworkIds.includes(realNetworkId);
       const isDeFiEnabled = enableDeFiNetworkIdsMap[realNetworkId];
+      const shouldProcessByNetworkEnabled =
+        !networksEnabledOnly ||
+        isEnabledNetworksInAllNetworks({
+          networkId: realNetworkId,
+          isTestnet: n.isTestnet,
+          disabledNetworks,
+          enabledNetworks,
+        });
+      const shouldProcessByCategory =
+        (!params.nftEnabledOnly || isNftEnabled) &&
+        (!params.DeFiEnabledOnly || isDeFiEnabled);
+
+      if (!shouldProcessByNetworkEnabled || !shouldProcessByCategory) {
+        return;
+      }
 
       const appendAccountInfo = (accountInfo: IAllNetworkAccountInfo) => {
         if (
@@ -382,6 +403,7 @@ class ServiceAllNetwork extends ServiceBase {
       const shouldFilterNotEqualGlobalDeriveTypeAccount =
         !includingNotEqualGlobalDeriveTypeAccount &&
         isAllNetwork &&
+        !accountUtils.isOthersAccount({ accountId }) &&
         !(
           networkUtils
             .getDefaultDeriveTypeVisibleNetworks()
@@ -438,14 +460,35 @@ class ServiceAllNetwork extends ServiceBase {
           if (isMatched) {
             perf.markStart('getAccountAddressForApi');
             let theMatchedNetworkAccount: INetworkAccount | undefined;
-            ({ address: apiAddress, account: theMatchedNetworkAccount } =
-              await this.backgroundApi.serviceAccount.getAccountAddressInfoForApi(
-                {
+            let accountAddressInfoPromise: Promise<{
+              address: string;
+              account: INetworkAccount;
+            }>;
+            if (impl === IMPL_EVM) {
+              const cachedPromise = evmAccountAddressInfoCache.get(a.id);
+              if (cachedPromise) {
+                accountAddressInfoPromise = cachedPromise;
+              } else {
+                accountAddressInfoPromise =
+                  this.backgroundApi.serviceAccount.getAccountAddressInfoForApi(
+                    {
+                      dbAccount: a,
+                      accountId: a.id,
+                      networkId: getNetworkIdsMap().eth,
+                    },
+                  );
+                evmAccountAddressInfoCache.set(a.id, accountAddressInfoPromise);
+              }
+            } else {
+              accountAddressInfoPromise =
+                this.backgroundApi.serviceAccount.getAccountAddressInfoForApi({
                   dbAccount: a,
                   accountId: a.id,
                   networkId: realNetworkId,
-                },
-              ));
+                });
+            }
+            ({ address: apiAddress, account: theMatchedNetworkAccount } =
+              await accountAddressInfoPromise);
             perf.markEnd('getAccountAddressForApi');
 
             // TODO pass dbAccount for better performance
@@ -530,10 +573,28 @@ class ServiceAllNetwork extends ServiceBase {
   async updateAllNetworksState(params: {
     disabledNetworks?: Record<string, boolean>;
     enabledNetworks?: Record<string, boolean>;
+    // Optional context so bg can prime the UnifiedNetworkSelector's SWR
+    // cache (swrKeys.unifiedNetworkSelectorMeta) for this account — the
+    // next modal open then reflects the new enabled/disabled state from
+    // frame 0 instead of flashing the pre-update snapshot. The context
+    // is additive: callers that don't supply it retain the old behavior.
+    cacheContext?: {
+      walletId?: string;
+      accountId?: string;
+    };
   }) {
     await this.backgroundApi.simpleDb.allNetworks.updateAllNetworksState(
       params,
     );
+    const { cacheContext } = params;
+    if (cacheContext?.walletId) {
+      void this.backgroundApi.serviceNetwork.primeUnifiedNetworkSelectorMetaCache(
+        {
+          walletId: cacheContext.walletId,
+          accountId: cacheContext.accountId,
+        },
+      );
+    }
   }
 
   @backgroundMethod()

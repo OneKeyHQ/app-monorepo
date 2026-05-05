@@ -40,4 +40,5 @@ describe('Kaspa Address Tests', () => {
   });
 });
 
+// oxlint-disable-next-line unicorn/require-module-specifiers
 export {};

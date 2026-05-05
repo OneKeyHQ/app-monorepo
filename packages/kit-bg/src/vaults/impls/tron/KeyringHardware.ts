@@ -106,7 +106,9 @@ export class KeyringHardware extends KeyringHardwareBase {
           },
         });
 
-        console.log('tron-buildAddressesInfo', publicKeys);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('tron-buildAddressesInfo', publicKeys);
+        }
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
@@ -211,7 +213,10 @@ export class KeyringHardware extends KeyringHardwareBase {
             receiverAddress: utils.address.fromHex(receiverAddress),
             ...(lock ? { lock } : null),
             ...(resource === 'BANDWIDTH' ? null : { resource: 1 }),
-            lockPeriod: lockPeriod != null ? lockPeriod : undefined,
+            lockPeriod:
+              lockPeriod !== null && lockPeriod !== undefined
+                ? lockPeriod
+                : undefined,
           },
         };
 

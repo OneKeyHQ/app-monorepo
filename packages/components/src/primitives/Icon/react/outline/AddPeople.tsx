@@ -1,13 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAddPeople = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M19 17h3v2h-3v3h-2v-3h-3v-2h3v-3h2zm-7-5a8.7 8.7 0 0 1 3.388.666l-.776 1.844A6.7 6.7 0 0 0 12 14c-3.23 0-5.611 2.091-6.32 5H12v2H3.401l.103-1.094C3.916 15.521 7.242 12 12 12" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M14 13.25a8 8 0 0 0-2-.25c-3.391 0-5.964 2.014-7.017 4.863C4.573 18.968 5.518 20 6.697 20H11m7-5v3m0 0v3m0-3h-3m3 0h3M15.5 6.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"
+      fillRule="evenodd"
+      d="M12 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9m0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5"
+      clipRule="evenodd"
     />
   </Svg>
 );

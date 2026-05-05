@@ -90,8 +90,7 @@ function SendConfirmFromDApp() {
         dappDomain: $sourceInfo.origin,
         action: 'SendTxn',
         network: networkId,
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        failReason: error ? `${error?.message ?? error}` : undefined,
+        failReason: error ? (error?.message ?? String(error)) : undefined,
       });
     },
     [$sourceInfo, networkId],
@@ -129,7 +128,7 @@ function SendConfirmFromDApp() {
           if (encodedTxWithFee === '') {
             feeInfoEditable = false;
           } else {
-            feeInfoEditable = true;
+            feeInfoEditable = feeInfoEditable && true; // Keep false if Soroban
             newEncodedTx = encodedTxWithFee;
           }
         }
@@ -150,6 +149,7 @@ function SendConfirmFromDApp() {
             signOnly,
             useFeeInTx,
             feeInfoEditable,
+            gasAccountScenario: 'dapp',
             onSuccess: (result) => sendConfirmCallback(result, undefined),
             onFail: (error) => sendConfirmCallback(null, error),
             // @ts-ignore

@@ -146,17 +146,20 @@ function ApprovalDetails() {
       if (!isMountedRef.current) return;
 
       const isSelectAll = _isSelectAll === true;
-      const selectedAllTokens = approval.approvals.reduce((acc, item) => {
-        acc[
-          approvalUtils.buildSelectedTokenKey({
-            accountId: approval.accountId,
-            networkId: approval.networkId,
-            contractAddress: approval.contractAddress,
-            tokenAddress: item.tokenAddress,
-          })
-        ] = isSelectAll;
-        return acc;
-      }, {} as Record<string, boolean>);
+      const selectedAllTokens = approval.approvals.reduce(
+        (acc, item) => {
+          acc[
+            approvalUtils.buildSelectedTokenKey({
+              accountId: approval.accountId,
+              networkId: approval.networkId,
+              contractAddress: approval.contractAddress,
+              tokenAddress: item.tokenAddress,
+            })
+          ] = isSelectAll;
+          return acc;
+        },
+        {} as Record<string, boolean>,
+      );
       setSelectedTokens(selectedAllTokens);
     },
     [

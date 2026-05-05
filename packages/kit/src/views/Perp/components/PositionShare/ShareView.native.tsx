@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
 
-import { useWindowDimensions } from 'react-native';
-
-import { Stack } from '@onekeyhq/components';
+import { Stack, usePageWidth } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ShareContentRenderer } from './ShareContentRenderer';
 
@@ -14,6 +13,8 @@ interface IShareViewProps extends IShareReferralInfo {
   isReferralReady?: boolean;
 }
 
+const IPAD_SHARE_IMAGE_SIZE = 350;
+
 export function ShareView({
   data,
   config,
@@ -21,9 +22,14 @@ export function ShareView({
   referralDisplayText,
   isReferralReady,
 }: IShareViewProps) {
-  const { width: screenWidth } = useWindowDimensions();
+  const pageWidth = usePageWidth();
 
-  const displaySize = useMemo(() => screenWidth * 0.85, [screenWidth]);
+  const displaySize = useMemo(() => {
+    if (platformEnv.isNativeIOSPad) {
+      return IPAD_SHARE_IMAGE_SIZE;
+    }
+    return pageWidth * 0.85;
+  }, [pageWidth]);
 
   return (
     <Stack

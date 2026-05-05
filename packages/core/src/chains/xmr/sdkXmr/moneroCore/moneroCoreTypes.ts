@@ -1,5 +1,7 @@
-export interface IMoneroCoreInstance
-  extends Record<string, WebAssembly.ExportValue | ArrayBuffer> {
+export interface IMoneroCoreInstance extends Record<
+  string,
+  WebAssembly.ExportValue | ArrayBuffer
+> {
   generate_key_image: (
     txPublicKey: string,
     privateViewKey: string,

@@ -66,6 +66,7 @@ export interface IDisplayComponentAddress {
   label: string;
   address: string;
   tags: {
+    key?: string;
     value: string;
     displayType: IBadgeType;
     icon?: IKeyOfIcons;
@@ -74,6 +75,7 @@ export interface IDisplayComponentAddress {
   isNavigable?: boolean;
   networkId?: string;
   showAccountName?: boolean;
+  highlight?: boolean;
 }
 
 export interface IDisplayComponentAmount {

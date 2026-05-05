@@ -1,11 +1,5 @@
-import {
-  Icon,
-  Image,
-  SizableText,
-  Skeleton,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 
@@ -39,6 +33,7 @@ function MobileTabListPinnedItem({
         onLongPress(id);
       }}
       animation="quick"
+      animateOnly={ANIMATE_ONLY_TRANSFORM}
       pressStyle={{
         scale: 0.95,
       }}

@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFistBump = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12.002 6V4M8.149 7.404 6.863 5.872m9.001 1.532 1.286-1.532M2 19h5.352a3 3 0 0 0 2.976-2.628l.25-2A3 3 0 0 0 7.603 11H7.5l-.704-.47a2.162 2.162 0 0 0-3.206.996L3 13H2m20 6h-5.35a3 3 0 0 1-2.977-2.628l-.25-2A3 3 0 0 1 16.399 11h.101l.705-.47a2.162 2.162 0 0 1 3.206.996l.59 1.474h1"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M4.83 9.262a3.16 3.16 0 0 1 2.52.436l.46.307a4 4 0 0 1 3.76 4.491l-.25 2A4 4 0 0 1 7.352 20H1v-2h6.352a2 2 0 0 0 1.984-1.752l.25-2A2 2 0 0 0 7.602 12H7.5a1 1 0 0 1-.555-.168l-.704-.47a1.163 1.163 0 0 0-1.723.536l-.59 1.473A1 1 0 0 1 3 14H1v-2h1.323l.338-.845a3.16 3.16 0 0 1 2.17-1.893Zm11.82.436a3.163 3.163 0 0 1 4.689 1.456l.338.846H23v2h-2a1 1 0 0 1-.929-.629l-.589-1.473a1.162 1.162 0 0 0-1.723-.536l-.704.47A1 1 0 0 1 16.5 12h-.102a2 2 0 0 0-1.984 2.248l.25 2 .031.185A2 2 0 0 0 16.648 18H23v2h-6.352a4 4 0 0 1-3.968-3.504l-.25-2a4 4 0 0 1 3.759-4.491zM9.556 7.527 8.023 8.812l-2.57-3.064 1.532-1.285zm9.001-1.779-2.572 3.064-1.532-1.285 2.571-3.064zM13 7h-2V3h2z" />
   </Svg>
 );
 export default SvgFistBump;

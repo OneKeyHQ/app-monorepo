@@ -1,5 +1,6 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { ERROR_MESSAGES, ERROR_PATTERNS, TOAST_CONFIGS } from './config';
 import { EErrorType } from './types';
@@ -14,7 +15,11 @@ export interface IWithToastOptions<T = unknown> {
 
 function identifyError(errorMessage: string): EErrorType | null {
   for (const [errorType, keywords] of Object.entries(ERROR_PATTERNS)) {
-    if (keywords.some((keyword) => errorMessage.includes(keyword))) {
+    // Require all keywords to match (reduces false positives), case-insensitive
+    const lowerMessage = errorMessage.toLowerCase();
+    if (
+      keywords.every((keyword) => lowerMessage.includes(keyword.toLowerCase()))
+    ) {
       return errorType as EErrorType;
     }
   }
@@ -37,7 +42,23 @@ async function handleError(error: unknown): Promise<void> {
   if (errorType) {
     switch (errorType) {
       case EErrorType.INVALID_AGENT: {
-        void backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+        defaultLogger.perp.agentLifeCycle.trackReason({
+          reason: 'runtime_invalid_agent_error',
+          statusDetails: {
+            errorMessage,
+          },
+        });
+        // Pass isEnableTradingTrigger to trigger full agent re-creation if needed
+        void backgroundApiProxy.serviceHyperliquid
+          .checkPerpsAccountStatus({ isEnableTradingTrigger: true })
+          .catch((e: unknown) => {
+            defaultLogger.perp.agentLifeCycle.trackReason({
+              reason: 'runtime_invalid_agent_recovery_failed',
+              statusDetails: {
+                errorMessage: e instanceof Error ? e.message : String(e),
+              },
+            });
+          });
         break;
       }
       default:
@@ -97,7 +118,14 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     if (loadingTimer) clearTimeout(loadingTimer);
     if (loadingToast) loadingToast.close();
 
-    void handleError(error);
+    void handleError(error).catch((e: unknown) => {
+      defaultLogger.perp.agentLifeCycle.trackReason({
+        reason: 'runtime_handle_error_failed',
+        statusDetails: {
+          errorMessage: e instanceof Error ? e.message : String(e),
+        },
+      });
+    });
     throw error;
   }
 }

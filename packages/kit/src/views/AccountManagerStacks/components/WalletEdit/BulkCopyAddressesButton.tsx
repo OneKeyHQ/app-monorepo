@@ -44,13 +44,10 @@ export function BulkCopyAddressesButton({
             featureName: EPrimeFeatures.BulkCopyAddresses,
             entryPoint: 'walletEdit',
           });
-          // FullModal can cause hierarchy issues
-          navigation?.pushModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeFeatures,
+          navigation?.pushFullModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeDashboard,
             params: {
-              showAllFeatures: false,
-              selectedFeature: EPrimeFeatures.BulkCopyAddresses,
-              selectedSubscriptionPeriod: 'P1Y',
+              fromFeature: EPrimeFeatures.BulkCopyAddresses,
               networkId,
             },
           });
@@ -130,7 +127,7 @@ export function BulkCopyAddressesButton({
       extra={
         isPrimeUser ? null : (
           <Badge badgeSize="sm" badgeType="default">
-            <Badge.Text>
+            <Badge.Text size="$bodySmMedium">
               {intl.formatMessage({
                 id: ETranslations.prime_status_prime,
               })}

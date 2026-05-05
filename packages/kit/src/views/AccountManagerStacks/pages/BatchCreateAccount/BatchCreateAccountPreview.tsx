@@ -153,10 +153,25 @@ function BatchCreateAccountPreviewPage({
   const [normalSelectedIndexes, setNormalSelectedIndexes] = useState<{
     [pathIndex: number]: boolean;
   }>({});
+  const [deselectedExistingIndexes, setDeselectedExistingIndexes] = useState<{
+    [pathIndex: number]: true;
+  }>({});
+  const deselectedExistingAccountsRef = useRef<{
+    [pathIndex: number]: IBatchCreateAccount;
+  }>({});
+  const deselectedExistingIndexesRef = useRef<{
+    [pathIndex: number]: true;
+  }>({});
   const selectedIndexesCount = useMemo(
     () => Object.values(normalSelectedIndexes).filter(Boolean).length,
     [normalSelectedIndexes],
   );
+  const deselectedExistingCount = useMemo(
+    () => Object.values(deselectedExistingIndexes).filter(Boolean).length,
+    [deselectedExistingIndexes],
+  );
+  // Keep ref in sync with state to avoid stale closures
+  deselectedExistingIndexesRef.current = deselectedExistingIndexes;
 
   const pageSize = 10;
   const minPage = 1;
@@ -212,6 +227,9 @@ function BatchCreateAccountPreviewPage({
       setPage(minPage);
       setAdvancedExcludedIndexes({});
       setNormalSelectedIndexes({});
+      setDeselectedExistingIndexes({});
+      deselectedExistingIndexesRef.current = {};
+      deselectedExistingAccountsRef.current = {};
       setFrom(values.from);
       setCount(values.count);
       setDeriveType(values.deriveType);
@@ -315,11 +333,18 @@ function BatchCreateAccountPreviewPage({
 
   useEffect(() => {
     if (networkId) {
-      // reset deriveType after network changed
+      // Both normalSelectedIndexes and deselectedExistingIndexes are kept
+      // global across network/deriveType changes (OK-51089). The user's
+      // intent — add at index 6, remove at index 3 — is wallet-level: add
+      // creates indexedAccounts, remove drops indexedAccounts which
+      // cascades to all networks under the wallet. So when the user
+      // switches networks the same checked pattern is what they expect to
+      // see, not a fresh canvas.
       setDeriveType(undefined);
       setResult([]);
       // DeriveTypeSelectorFormInput shouldResetDeriveTypeWhenNetworkChanged will handle this internally
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [networkId, setResult]);
 
   const buildBalanceMapKey = useCallback(
@@ -356,7 +381,7 @@ function BatchCreateAccountPreviewPage({
             // Process the balances here
             balancesToUpdate[buildBalanceMapKey({ account })] =
               balances.balanceParsed;
-          } catch (error) {
+          } catch (_error) {
             //
           }
         }),
@@ -385,15 +410,51 @@ function BatchCreateAccountPreviewPage({
       val: ICheckedState;
       accountsToSelect: IBatchCreateAccount[];
     }) => {
+      // Handle existing accounts deselection (for removal)
+      setDeselectedExistingIndexes((v) => {
+        const keysToRemove = new Set<number>();
+        const keysToAdd: Array<{
+          pathIndex: number;
+          account: IBatchCreateAccount;
+        }> = [];
+        for (const a of accountsToSelect) {
+          if (a.existsInDb) {
+            const pathIndex = a.pathIndex ?? -1;
+            if (val) {
+              keysToRemove.add(pathIndex);
+            } else {
+              keysToAdd.push({ pathIndex, account: a });
+            }
+          }
+        }
+        const newValue = Object.fromEntries(
+          Object.entries(v).filter(([k]) => !keysToRemove.has(Number(k))),
+        ) as typeof v;
+        const newRef = Object.fromEntries(
+          Object.entries(deselectedExistingAccountsRef.current).filter(
+            ([k]) => !keysToRemove.has(Number(k)),
+          ),
+        ) as typeof deselectedExistingAccountsRef.current;
+        for (const { pathIndex, account } of keysToAdd) {
+          newValue[pathIndex] = true;
+          newRef[pathIndex] = account;
+        }
+        deselectedExistingAccountsRef.current = newRef;
+        return newValue;
+      });
+
+      // Handle new accounts selection (for creation)
       if (isAdvancedMode) {
         if (val === true) {
           setAdvancedExcludedIndexes((v) => {
-            for (const a of accountsToSelect) {
-              if (!a.existsInDb) {
-                delete v[a.pathIndex ?? -1];
-              }
-            }
-            return { ...v };
+            const keysToRemove = new Set(
+              accountsToSelect
+                .filter((a) => !a.existsInDb)
+                .map((a) => a.pathIndex ?? -1),
+            );
+            return Object.fromEntries(
+              Object.entries(v).filter(([k]) => !keysToRemove.has(Number(k))),
+            ) as typeof v;
           });
         }
         if (val === false) {
@@ -521,12 +582,20 @@ function BatchCreateAccountPreviewPage({
 
   const totalCount = useMemo<number>(() => {
     if (!isAdvancedMode) {
-      return selectedIndexesCount;
+      return selectedIndexesCount + deselectedExistingCount;
     }
     return (
-      countInt - Object.values(advanceExcludedIndexes).filter(Boolean).length
+      countInt -
+      Object.values(advanceExcludedIndexes).filter(Boolean).length -
+      deselectedExistingCount
     );
-  }, [advanceExcludedIndexes, countInt, isAdvancedMode, selectedIndexesCount]);
+  }, [
+    advanceExcludedIndexes,
+    countInt,
+    deselectedExistingCount,
+    isAdvancedMode,
+    selectedIndexesCount,
+  ]);
 
   const totalCountEstimate = useMemo(() => {
     if (totalCount > 0) {
@@ -551,6 +620,9 @@ function BatchCreateAccountPreviewPage({
   const getAccountCheckedState = useCallback(
     (account: IBatchCreateAccount) => {
       const pathIndex = account.pathIndex ?? -1;
+      if (account.existsInDb) {
+        return deselectedExistingIndexes[pathIndex] !== true;
+      }
       let checkedState: ICheckedState = false;
       if (isAdvancedMode) {
         checkedState = true;
@@ -560,12 +632,14 @@ function BatchCreateAccountPreviewPage({
       } else {
         checkedState = normalSelectedIndexes[pathIndex] ?? false;
       }
-      if (account.existsInDb) {
-        checkedState = 'indeterminate';
-      }
       return checkedState;
     },
-    [advanceExcludedIndexes, isAdvancedMode, normalSelectedIndexes],
+    [
+      advanceExcludedIndexes,
+      deselectedExistingIndexes,
+      isAdvancedMode,
+      normalSelectedIndexes,
+    ],
   );
 
   const columns = useMemo(
@@ -595,7 +669,6 @@ function BatchCreateAccountPreviewPage({
                 flex: 1,
                 pointerEvents: 'none',
               }}
-              disabled={account.existsInDb}
               value={checkedState}
               label={String((account.pathIndex ?? 0) + 1)}
               labelProps={
@@ -622,7 +695,7 @@ function BatchCreateAccountPreviewPage({
         align: 'left',
         dataIndex: 'address',
         columnProps: {
-          flexGrow: 6,
+          flexGrow: 5,
           flexBasis: 0,
         },
         render: (_: any, account: IBatchCreateAccount) => (
@@ -650,9 +723,9 @@ function BatchCreateAccountPreviewPage({
         ),
       },
       {
-        title: intl.formatMessage({
+        title: `${intl.formatMessage({
           id: ETranslations.global_generate_amount_balance,
-        }),
+        })}${network?.symbol ? ` (${network.symbol})` : ''}`,
         titleProps: {
           size: '$bodyMd',
           color: '$textDisabled',
@@ -660,7 +733,7 @@ function BatchCreateAccountPreviewPage({
         align: 'right',
         dataIndex: 'balance',
         columnProps: {
-          flexGrow: 2,
+          flexGrow: 3,
           flexBasis: 0,
         },
         render: (_: any, account: IBatchCreateAccount) => (
@@ -671,7 +744,7 @@ function BatchCreateAccountPreviewPage({
               textAlign: 'right',
               wordBreak: 'break-all',
             }}
-            formatterOptions={{ tokenSymbol: network?.symbol }}
+            formatterOptions={{ tokenSymbol: undefined }}
           >
             {balanceMap[buildBalanceMapKey({ account })] ?? '-'}
           </NumberSizeableText>
@@ -698,12 +771,10 @@ function BatchCreateAccountPreviewPage({
     (account: IBatchCreateAccount) => ({
       onPress: () => {
         const checkedState: ICheckedState = getAccountCheckedState(account);
-        if (checkedState !== 'indeterminate') {
-          selectCheckBox({
-            val: !checkedState,
-            accountsToSelect: [account],
-          });
-        }
+        selectCheckBox({
+          val: !checkedState,
+          accountsToSelect: [account],
+        });
       },
     }),
     [getAccountCheckedState, selectCheckBox],
@@ -749,7 +820,7 @@ function BatchCreateAccountPreviewPage({
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslations.send_preview_button,
+          id: ETranslations.global_manage_accounts,
         })}
         dismissOnOverlayPress={false}
         headerRight={headerRight}
@@ -816,68 +887,105 @@ function BatchCreateAccountPreviewPage({
             }
             setPreviewError('');
 
-            let advancedParams:
-              | IBatchBuildAccountsAdvancedFlowParams
-              | undefined;
-            let normalParams: IBatchBuildAccountsNormalFlowParams | undefined;
-            if (isAdvancedMode) {
-              advancedParams = {
-                walletId,
-                networkId,
-                deriveType,
-                fromIndex: beginIndex,
-                toIndex: endIndex,
-                excludedIndexes: advanceExcludedIndexes,
-                saveToDb: true,
-                hideCheckingDeviceLoading: true,
-                showUIProgress: true,
-              };
-            } else {
-              normalParams = {
-                walletId,
-                networkId,
-                deriveType,
-                indexes: Object.entries(normalSelectedIndexes)
-                  .filter(([, v]) => v)
-                  .map(([k]) => parseInt(k, 10)),
-                saveToDb: true,
-                hideCheckingDeviceLoading: true,
-                showUIProgress: true,
-              };
-            }
-            if (!normalParams && !advancedParams) {
-              throw new OneKeyLocalError(
-                'startBatchCreateAccountsFlow params is undefined',
-              );
+            const accountsToRemove = Object.values(
+              deselectedExistingAccountsRef.current,
+            );
+
+            const hasNewAccounts =
+              isAdvancedMode ||
+              Object.values(normalSelectedIndexes).some(Boolean);
+
+            if (!hasNewAccounts && accountsToRemove.length === 0) {
+              return;
             }
 
-            showBatchCreateAccountProcessingDialog({
-              navigation,
-            });
-            await timerUtils.wait(600);
-
-            try {
-              const result =
-                await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
-                  isAdvancedMode
-                    ? {
-                        mode: 'advanced',
-                        saveToCache: true,
-                        params: checkIsDefined(advancedParams),
-                      }
-                    : {
-                        mode: 'normal',
-                        saveToCache: true,
-                        params: checkIsDefined(normalParams),
-                      },
-                );
-
-              if (result?.accountsForCreate) {
-                setEditMode(false);
+            // Remove deselected existing accounts by their indexedAccount
+            if (accountsToRemove.length > 0) {
+              for (const account of accountsToRemove) {
+                if (account.indexedAccountId) {
+                  const indexedAccount =
+                    await backgroundApiProxy.serviceAccount.getIndexedAccount({
+                      id: account.indexedAccountId,
+                    });
+                  await backgroundApiProxy.serviceAccount.removeAccount({
+                    indexedAccount,
+                  });
+                }
               }
-            } catch (error) {
-              console.log(error);
-              throw error;
+            }
+
+            // Create new accounts if any selected
+            if (hasNewAccounts) {
+              let advancedParams:
+                | IBatchBuildAccountsAdvancedFlowParams
+                | undefined;
+              let normalParams: IBatchBuildAccountsNormalFlowParams | undefined;
+              if (isAdvancedMode) {
+                advancedParams = {
+                  walletId,
+                  networkId,
+                  deriveType,
+                  fromIndex: beginIndex,
+                  toIndex: endIndex,
+                  excludedIndexes: {
+                    ...advanceExcludedIndexes,
+                    ...deselectedExistingIndexes,
+                  },
+                  saveToDb: true,
+                  hideCheckingDeviceLoading: true,
+                  showUIProgress: true,
+                };
+              } else {
+                normalParams = {
+                  walletId,
+                  networkId,
+                  deriveType,
+                  indexes: Object.entries(normalSelectedIndexes)
+                    .filter(([, v]) => v)
+                    .map(([k]) => parseInt(k, 10)),
+                  saveToDb: true,
+                  hideCheckingDeviceLoading: true,
+                  showUIProgress: true,
+                };
+              }
+              if (!normalParams && !advancedParams) {
+                throw new OneKeyLocalError(
+                  'startBatchCreateAccountsFlow params is undefined',
+                );
+              }
+
+              showBatchCreateAccountProcessingDialog({
+                navigation,
+              });
+              await timerUtils.wait(600);
+
+              try {
+                const result =
+                  await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
+                    isAdvancedMode
+                      ? {
+                          mode: 'advanced',
+                          saveToCache: true,
+                          params: checkIsDefined(advancedParams),
+                        }
+                      : {
+                          mode: 'normal',
+                          saveToCache: true,
+                          params: checkIsDefined(normalParams),
+                        },
+                  );
+
+                if (result?.accountsForCreate) {
+                  setEditMode(false);
+                }
+              } catch (error) {
+                console.log(error);
+                throw error;
+              }
+            } else {
+              // Only removals, navigate back
+              setEditMode(false);
+              navigation.pop();
             }
           }}
         >
@@ -905,41 +1013,23 @@ function BatchCreateAccountPreviewPage({
                   id: ETranslations.global_generate_amount_select,
                 })}
                 value={(() => {
-                  const notExistAccounts = accounts.filter(
-                    (account) => !account.existsInDb,
-                  );
+                  let allChecked = true;
+                  let allUnchecked = true;
 
-                  if (notExistAccounts.length === 0) {
-                    return 'indeterminate';
+                  for (const account of accounts) {
+                    const state = getAccountCheckedState(account);
+                    if (state) {
+                      allUnchecked = false;
+                    } else {
+                      allChecked = false;
+                    }
                   }
 
-                  // advanced mode
-                  if (isAdvancedMode) {
-                    const excludedAccounts = notExistAccounts.filter(
-                      (account) =>
-                        advanceExcludedIndexes?.[account.pathIndex ?? -1] ===
-                        true,
-                    );
-                    if (excludedAccounts.length === 0) {
-                      return true;
-                    }
-                    if (excludedAccounts.length === notExistAccounts.length) {
-                      return false;
-                    }
-                    return 'indeterminate';
-                  }
-
-                  // normal mode
-                  const selectedAccounts = notExistAccounts.filter(
-                    (account) =>
-                      normalSelectedIndexes[account.pathIndex ?? -1] === true,
-                  );
-                  if (selectedAccounts.length === 0) {
+                  if (accounts.length === 0) {
                     return false;
                   }
-                  if (selectedAccounts.length === notExistAccounts.length) {
-                    return true;
-                  }
+                  if (allChecked) return true;
+                  if (allUnchecked) return false;
                   return 'indeterminate';
                 })()}
               />

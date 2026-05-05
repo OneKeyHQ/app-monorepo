@@ -49,6 +49,7 @@ export type ISelectProps<
   placeholder?: string;
   title: string;
   value?: T;
+  open?: boolean;
   onChange?: (value: T) => void;
   onOpenChange?: (isOpen: boolean) => void;
   renderTrigger?: ISelectTriggerProps['renderTrigger'];

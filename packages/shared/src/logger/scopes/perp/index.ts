@@ -1,6 +1,7 @@
 import { BaseScope } from '../../base/baseScope';
 import { EScopeName } from '../../types';
 
+import { AgentLifeCycleScene } from './scenes/agentLifeCycle';
 import { CommonScene } from './scenes/common';
 import { PerpDepositScene } from './scenes/deposit';
 import { HyperLiquidScene } from './scenes/hyperliquid';
@@ -12,6 +13,8 @@ export class PerpScope extends BaseScope {
   common = this.createScene('common', CommonScene);
 
   hyperliquid = this.createScene('hyperliquid', HyperLiquidScene);
+
+  agentLifeCycle = this.createScene('agentLifeCycle', AgentLifeCycleScene);
 
   deposit = this.createScene('deposit', PerpDepositScene);
 

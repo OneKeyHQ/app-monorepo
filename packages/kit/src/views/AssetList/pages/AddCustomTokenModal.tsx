@@ -30,6 +30,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalAssetListRoutes,
   IModalAssetListParamList,
@@ -130,7 +131,7 @@ function AddCustomTokenModal() {
 
   const isAllNetwork = networkUtils.isAllNetwork({ networkId });
 
-  const { result: allNetworksState, run: refreshAllNetworkState } =
+  const { result: allNetworksState, run: _refreshAllNetworkState } =
     usePromiseResult(
       async () => {
         if (isAllNetwork) {
@@ -324,7 +325,7 @@ function AddCustomTokenModal() {
             },
           });
         } else {
-          const tokenInfo: IAccountToken = {
+          let tokenInfo: IAccountToken = {
             ...searchedTokenRef.current,
             address: searchedTokenRef.current?.address,
             symbol,
@@ -335,11 +336,15 @@ function AddCustomTokenModal() {
             isNative: searchedTokenRef.current?.isNative ?? false,
             $key: `${selectedNetworkIdValue}_${contractAddress}`,
           };
-          await backgroundApiProxy.serviceCustomToken.activateToken({
-            accountId: accountIdForNetwork,
-            networkId: selectedNetworkIdValue,
-            token: tokenInfo,
-          });
+          const { token: activatedToken } =
+            await backgroundApiProxy.serviceCustomToken.activateToken({
+              accountId: accountIdForNetwork,
+              networkId: selectedNetworkIdValue,
+              token: tokenInfo,
+            });
+          if (activatedToken) {
+            tokenInfo = activatedToken;
+          }
           const accountXpubOrAddress =
             await backgroundApiProxy.serviceAccount.getAccountXpubOrAddress({
               accountId: accountIdForNetwork,
@@ -381,6 +386,11 @@ function AddCustomTokenModal() {
       } finally {
         setIsLoading(false);
       }
+      defaultLogger.account.wallet.addCustomToken({
+        network: selectedNetworkIdValue,
+        tokenSymbol: symbol,
+        tokenAddress: contractAddress,
+      });
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.address_book_add_address_toast_add_success,

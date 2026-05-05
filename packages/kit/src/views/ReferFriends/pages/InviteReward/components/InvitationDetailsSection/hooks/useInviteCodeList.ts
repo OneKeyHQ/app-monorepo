@@ -19,7 +19,7 @@ export function useInviteCodeList() {
         return data;
       }
 
-      const sortedItems = [...(data.items ?? [])].sort((a, b) => {
+      const sortedItems = [...(data.items ?? [])].toSorted((a, b) => {
         const aTime = new Date(a.createdAt).getTime() || 0;
         const bTime = new Date(b.createdAt).getTime() || 0;
         return aTime - bTime;
@@ -40,8 +40,8 @@ export function useInviteCodeList() {
     },
   );
 
-  const refetch = useCallback(() => {
-    void run();
+  const refetch = useCallback(async () => {
+    await run();
   }, [run]);
 
   return {

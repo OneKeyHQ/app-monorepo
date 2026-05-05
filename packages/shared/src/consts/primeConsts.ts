@@ -1,12 +1,12 @@
-import platformEnv from '../platformEnv';
-
 import { EOneKeyDeepLinkPath, ONEKEY_APP_DEEP_LINK } from './deeplinkConsts';
 
+// Don't report bugs, these are public keys that are allowed to be exposed in frontend code and will not cause security issues
 // Privy
 export const PRIVY_APP_ID = 'cm6c9xup40017zyrnnp8zh0bt';
 export const PRIVY_MOBILE_CLIENT_ID =
   'client-WY5gESiXQgTXogYv2M8iCM3LaaDDaKAdigE9Bg7a9pr1W';
 
+// Don't report bugs, these are public keys that are allowed to be exposed in frontend code and will not cause security issues
 // Revenuecat
 export const REVENUECAT_API_KEY_STRIPE = 'strp_AEqUtFOZYaIjPSuQGBVHVrqyiUs';
 export const REVENUECAT_API_KEY_APPLE = 'appl_RTHLoohMIGQHXWTBflulzJEjKah';
@@ -18,6 +18,7 @@ export const REVENUECAT_API_KEY_WEB_SANDBOX =
 export enum EPrimeCloudSyncDataType {
   Lock = 'Lock', // cloud only for password verification
   Wallet = 'Wallet',
+  BotWallet = 'BotWallet',
   IndexedAccount = 'IndexedAccount',
   Account = 'Account',
   BrowserBookmark = 'BrowserBookmark',
@@ -35,13 +36,14 @@ export enum EPrimeEmailOTPScene {
   GetKeylessAuthShare = 'GetKeylessAuthShare',
 }
 
+export const CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID =
+  'cloud_sync_id_sunset_reminder';
 export const PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME = 144_000_000; // '1970/01/03'
 export const RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID =
   '180B50C8-E4EC-40E9-9CF3-7DD71F2882F7';
 
 // export const ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD = true;
-export const ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD =
-  !platformEnv.isDev;
+export const ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD = false;
 
 export const ENCRYPTED_SECURITY_PASSWORD_SPLITTER = '@';
 // local security password r1

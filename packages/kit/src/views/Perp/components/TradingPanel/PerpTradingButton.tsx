@@ -11,9 +11,11 @@ import {
   Toast,
   XStack,
   YStack,
+  resetToRoute,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -23,13 +25,23 @@ import {
   usePerpsActiveAccountStatusAtom,
   usePerpsCommonConfigPersistAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
+import { showHyperliquidTermsDialog } from '../HyperliquidTerms';
 
 const sharedButtonProps = {
   size: 'medium',
@@ -54,6 +66,7 @@ export function PerpTradingButton({
   isNoEnoughMargin: boolean;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
@@ -61,8 +74,25 @@ export function PerpTradingButton({
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
+  const [tradingMode] = useTradingModeAtom();
   const { midPrice } = useTradingPrice();
   const themeVariant = useThemeVariant();
+  const isSpot = tradingMode === 'spot';
+
+  const handleConnectWallet = useCallback(async () => {
+    if (platformEnv.isWebDappMode) {
+      navigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.ConnectWalletOptions,
+      });
+    } else {
+      resetToRoute(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.GetStarted,
+        },
+      });
+    }
+  }, [navigation]);
   const isAccountLoading = useMemo<boolean>(() => {
     return (
       perpsAccountLoading.enableTradingLoading ||
@@ -74,6 +104,11 @@ export function PerpTradingButton({
   ]);
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const enableTrading = useCallback(async () => {
+    const didAcceptTerms = await showHyperliquidTermsDialog();
+    if (!didAcceptTerms) {
+      return;
+    }
+
     const status = await backgroundApiProxy.serviceHyperliquid.enableTrading();
     if (
       status?.details?.activatedOk === false &&
@@ -117,7 +152,9 @@ export function PerpTradingButton({
       });
     if (isNoEnoughMargin)
       return intl.formatMessage({
-        id: ETranslations.perp_trading_button_no_enough_margin,
+        id: isSpot
+          ? ETranslations.dexmarket_insufficient_balance
+          : ETranslations.perp_trading_button_no_enough_margin,
       });
     if (isMinimumOrderNotMet)
       return intl.formatMessage(
@@ -125,13 +162,13 @@ export function PerpTradingButton({
           id: ETranslations.perp_size_least,
         },
         {
-          num: '$10',
+          amount: '$10',
         },
       );
     return intl.formatMessage({
       id: ETranslations.perp_trade_button_place_order,
     });
-  }, [isSubmitting, isNoEnoughMargin, isMinimumOrderNotMet, intl]);
+  }, [isSpot, isSubmitting, isNoEnoughMargin, isMinimumOrderNotMet, intl]);
 
   const isLong = useMemo(() => formData.side === 'long', [formData.side]);
   const buttonStyles = useMemo(() => {
@@ -247,7 +284,7 @@ export function PerpTradingButton({
     );
   }
 
-  if (!perpsAccount?.accountAddress) {
+  if (!perpsAccount?.accountAddress || perpsAccountStatus.accountNotSupport) {
     const canCreateAddress = perpsAccountStatus.canCreateAddress;
     if (canCreateAddress) {
       const createAddressAccount = {
@@ -268,9 +305,13 @@ export function PerpTradingButton({
       );
     }
     return (
-      <Button {...sharedButtonProps} disabled>
+      <Button
+        {...sharedButtonProps}
+        variant="primary"
+        onPress={handleConnectWallet}
+      >
         {intl.formatMessage({
-          id: ETranslations.perp_trade_button_account_unsupported,
+          id: ETranslations.global_connect_wallet,
         })}
       </Button>
     );

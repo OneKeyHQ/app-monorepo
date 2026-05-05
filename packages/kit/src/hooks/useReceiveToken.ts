@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -27,6 +28,7 @@ function useReceiveToken({
   tokenListState,
   isMultipleDerive,
   indexedAccountId,
+  exchangeSource,
 }: {
   accountId: string;
   networkId: string;
@@ -39,9 +41,14 @@ function useReceiveToken({
     initialized: boolean;
   };
   isMultipleDerive?: boolean;
+  exchangeSource?: EExchangeId;
 }) {
   const intl = useIntl();
-  const { vaultSettings, account, network } = useAccountData({
+  const {
+    vaultSettings,
+    account: _account,
+    network,
+  } = useAccountData({
     networkId,
     accountId,
   });
@@ -198,6 +205,7 @@ function useReceiveToken({
                 walletId,
                 token: t,
                 indexedAccountId,
+                exchangeSource,
               });
               return;
             }
@@ -208,6 +216,7 @@ function useReceiveToken({
               walletId,
               token: t,
               indexedAccountId,
+              exchangeSource,
             });
           },
         };
@@ -235,6 +244,7 @@ function useReceiveToken({
       vaultSettings?.isSingleToken,
       vaultSettings?.mergeDeriveAssetsEnabled,
       walletId,
+      exchangeSource,
     ],
   );
 

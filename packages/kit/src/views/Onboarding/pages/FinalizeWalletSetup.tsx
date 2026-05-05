@@ -15,6 +15,7 @@ import {
   Stack,
   usePreventRemove,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -26,6 +27,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -59,6 +61,7 @@ function FinalizeWalletSetupPage({
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
+  const isKeylessWallet = route?.params?.isKeylessWallet;
   const [onboardingError, setOnboardingError] = useState<
     IOneKeyError | undefined
   >(undefined);
@@ -80,8 +83,15 @@ function FinalizeWalletSetupPage({
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
+  const createdWalletRef = useRef(wallet);
 
   const actions = useAccountSelectorActions();
+  useEffect(() => {
+    if (wallet?.id) {
+      createdWalletRef.current = wallet;
+    }
+  }, [wallet]);
+
   const steps: Record<EFinalizeWalletSetupSteps, string> = {
     [EFinalizeWalletSetupSteps.CreatingWallet]: intl.formatMessage({
       id: ETranslations.onboarding_finalize_creating_wallet,
@@ -95,6 +105,7 @@ function FinalizeWalletSetupPage({
     [EFinalizeWalletSetupSteps.Ready]: intl.formatMessage({
       id: ETranslations.onboarding_finalize_ready,
     }),
+    [EFinalizeWalletSetupSteps.ConnectingDevice]: '', // Hardware-only pre-step, not shown in v1
   };
 
   const created = useRef(false);
@@ -122,10 +133,12 @@ function FinalizeWalletSetupPage({
                 setCurrentStep(EFinalizeWalletSetupSteps.Ready);
                 return;
               }
-              await actions.current.createHDWallet({
+              const createdWalletResult = await actions.current.createHDWallet({
                 mnemonic,
                 isWalletBackedUp,
+                isKeylessWallet,
               });
+              createdWalletRef.current = createdWalletResult.wallet;
             },
           });
           created.current = true;
@@ -139,7 +152,15 @@ function FinalizeWalletSetupPage({
         throw error;
       }
     })();
-  }, [actions, intl, mnemonic, mnemonicType, popPage, isWalletBackedUp]);
+  }, [
+    actions,
+    intl,
+    mnemonic,
+    mnemonicType,
+    popPage,
+    isWalletBackedUp,
+    isKeylessWallet,
+  ]);
 
   useEffect(() => {
     const fn = (
@@ -195,8 +216,39 @@ function FinalizeWalletSetupPage({
   }, [popPage]);
 
   const handleWalletSetupReadyInner = useCallback(async () => {
+    const referralWallet = createdWalletRef.current ?? wallet;
+    const referralWalletId = referralWallet?.id;
+    // Report wallet creation time to server before checking bind status
+    // so the server has the record when evaluating the 14-day window
+    if (referralWalletId) {
+      const walletCreatedAt = buildWalletCreatedAtISOString();
+      try {
+        await backgroundApiProxy.serviceReferralCode.cacheWalletCreationRecordTimestamp(
+          {
+            walletId: referralWalletId,
+            walletCreatedAt,
+          },
+        );
+        const info =
+          await backgroundApiProxy.serviceReferralCode.getReferralCodeWalletInfo(
+            { walletId: referralWalletId },
+          );
+        if (info) {
+          await backgroundApiProxy.serviceReferralCode.recordWalletCreation([
+            {
+              address: info.address,
+              networkId: info.networkId,
+              walletCreatedAt,
+            },
+          ]);
+        }
+      } catch {
+        // Startup migration will retry with the cached creation timestamp.
+      }
+    }
+
     const needBondReferralCode = await getReferralCodeBondStatus({
-      walletId: wallet?.id,
+      walletId: referralWalletId,
       skipIfTimeout: true,
     });
 
@@ -275,6 +327,7 @@ function FinalizeWalletSetupPage({
               <Stack
                 key="CheckRadioSolid"
                 animation="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={
                   platformEnv.isNativeAndroid
                     ? undefined
@@ -291,6 +344,7 @@ function FinalizeWalletSetupPage({
                 key="spinner"
                 size="large"
                 animation="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 exitStyle={
                   platformEnv.isNativeAndroid
                     ? undefined
@@ -307,6 +361,7 @@ function FinalizeWalletSetupPage({
           <Stack
             key={currentStep}
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={{
               opacity: 0,
               x: 12,
@@ -333,7 +388,7 @@ function FinalizeWalletSetupPage({
           onConfirm={() => {
             closePage();
             bindWalletInviteCode({
-              wallet,
+              wallet: createdWalletRef.current ?? wallet,
             });
           }}
           onCancelText={intl.formatMessage({

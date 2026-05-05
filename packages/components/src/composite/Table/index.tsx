@@ -1,14 +1,16 @@
 import type { RefObject } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   getTokenValue,
+  useThemeName,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
@@ -31,6 +33,7 @@ import type {
 } from 'react-native';
 
 const DEFAULT_ROW_HEIGHT = 60;
+const defaultEstimatedListSize = { width: 370, height: 525 };
 
 const renderContent = (text?: string) => (
   <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
@@ -67,6 +70,8 @@ function TableRow<T>({
   scrollAtRef?: RefObject<number>;
 }) {
   const { md } = useMedia();
+  const themeName = useThemeName();
+  const isDarkMode = themeName?.includes('dark');
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
   const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
   const isDragging = pressStyle && isActive;
@@ -85,6 +90,23 @@ function TableRow<T>({
       onRowEvents?.onPress?.();
     }
   }, [getTimeDiff, onRowEvents]);
+
+  const handleContextMenu = useCallback(
+    (e: { preventDefault: () => void; clientX?: number; clientY?: number }) => {
+      if (onRowEvents?.onContextMenu) {
+        e.preventDefault();
+        onRowEvents.onContextMenu(
+          e.clientX !== null &&
+            e.clientX !== undefined &&
+            e.clientY !== null &&
+            e.clientY !== undefined
+            ? { x: e.clientX, y: e.clientY }
+            : undefined,
+        );
+      }
+    },
+    [onRowEvents],
+  );
 
   const handleLongPress = useCallback(() => {
     if (platformEnv.isNative) {
@@ -111,23 +133,42 @@ function TableRow<T>({
   const nativeScaleAnimationProps: IXStackProps = platformEnv.isNativeIOS
     ? {
         scale: isDragging ? 0.9 : 1,
-        animateOnly: ['transform'],
+        animateOnly: ANIMATE_ONLY_TRANSFORM,
         animation: 'quick',
       }
     : {};
 
-  return (
+  // On native, use Pressable for scroll-vs-tap disambiguation (same as ListItem).
+  const useNativePressable =
+    platformEnv.isNative && !!onRowEvents?.onPress && !showSkeleton;
+
+  // Track native press state for visual feedback (bg='$bgActive').
+  const [nativePressed, setNativePressed] = useState(false);
+  const handleNativePressIn = useCallback(() => setNativePressed(true), []);
+  const handleNativePressOut = useCallback(() => setNativePressed(false), []);
+
+  const content = (
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
-      bg={isDragging ? '$bgActive' : '$bgApp'}
+      bg="$bgApp"
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
-      onPress={handlePress}
-      onLongPress={md ? handleLongPress : undefined}
+      onPress={!useNativePressable ? handlePress : undefined}
+      onLongPress={!useNativePressable && md ? handleLongPress : undefined}
+      {...(!platformEnv.isNative && {
+        onContextMenu: handleContextMenu as any,
+      })}
+      {...(!platformEnv.isNative &&
+        draggable && {
+          cursor: isDragging ? 'grabbing' : 'grab',
+        })}
       {...nativeScaleAnimationProps}
-      {...(itemPressStyle as IXStackProps)}
+      {...(!useNativePressable ? (itemPressStyle as IXStackProps) : undefined)}
       {...(rowProps as IXStackProps)}
+      {...(nativePressed || (isDragging && isDarkMode)
+        ? { bg: '$bgActive' }
+        : undefined)}
     >
       {columns.map((column) => {
         if (!column) {
@@ -163,6 +204,22 @@ function TableRow<T>({
       })}
     </XStack>
   );
+
+  if (useNativePressable) {
+    return (
+      <Pressable
+        onPress={handlePress}
+        onLongPress={md ? handleLongPress : undefined}
+        onPressIn={handleNativePressIn}
+        onPressOut={handleNativePressOut}
+        unstable_pressDelay={50}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return content;
 }
 
 function TableHeaderRow<T>({
@@ -176,7 +233,22 @@ function TableHeaderRow<T>({
   rowProps?: ITableProps<T>['rowProps'];
   headerRowProps?: ITableProps<T>['headerRowProps'];
 }) {
-  const [selectedColumnName, setSelectedColumnName] = useState('');
+  const initialSelectedColumn = useMemo(() => {
+    if (!onHeaderRow) return '';
+    for (let i = 0; i < columns.length; i += 1) {
+      const col = columns[i];
+      if (col) {
+        const ev = onHeaderRow(col, i);
+        if (ev?.initialSortOrder) {
+          return col.dataIndex;
+        }
+      }
+    }
+    return '';
+  }, [columns, onHeaderRow]);
+  const [selectedColumnName, setSelectedColumnName] = useState(
+    initialSelectedColumn,
+  );
   return (
     <XStack
       {...(rowProps as IXStackProps)}
@@ -216,11 +288,12 @@ function BasicTable<T>({
   onDragEnd,
   showHeader = true,
   estimatedItemSize = DEFAULT_ROW_HEIGHT,
-  estimatedListSize = { width: 370, height: 525 },
+  estimatedListSize = defaultEstimatedListSize,
   stickyHeader = true,
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
   draggable = false,
+  tabIntegrated,
   onEndReached,
   onEndReachedThreshold,
   scrollEnabled = true,
@@ -317,29 +390,66 @@ function BasicTable<T>({
   }, [estimatedItemSize]);
 
   const renderSortableItem = useCallback(
-    ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => (
-      <TableRow
-        pressStyle={!showSkeleton}
-        isActive={isActive}
-        draggable={draggable}
-        dataSet={dragProps}
-        showSkeleton={showSkeleton}
-        drag={drag}
-        scrollAtRef={scrollAtRef}
-        item={item}
-        index={index}
-        columns={columns}
-        onRow={showSkeleton ? undefined : onRow}
-        rowProps={rowProps}
-      />
-    ),
+    ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => {
+      const row = (
+        <TableRow
+          pressStyle={!showSkeleton}
+          isActive={isActive}
+          draggable={draggable}
+          dataSet={dragProps}
+          showSkeleton={showSkeleton}
+          drag={drag}
+          scrollAtRef={scrollAtRef}
+          item={item}
+          index={index}
+          columns={columns}
+          onRow={showSkeleton ? undefined : onRow}
+          rowProps={rowProps}
+        />
+      );
+      if (platformEnv.isNative) {
+        return (
+          <SortableListView.ShadowDecorator>
+            {row}
+          </SortableListView.ShadowDecorator>
+        );
+      }
+      return row;
+    },
     [columns, draggable, onRow, rowProps, showSkeleton],
   );
+  // On native, when tabIntegrated the header row MUST be inside the list
+  // (as ListHeaderComponent) so it participates in the collapsible tab scroll.
+  // On web, the header must stay outside the list because SortableListView uses
+  // absolute positioning for items, which would overlap ListHeaderComponent.
+  const effectiveStickyHeader =
+    stickyHeader && (!tabIntegrated || !platformEnv.isNative);
+
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: itemSize || DEFAULT_ROW_HEIGHT,
+      offset: index * (itemSize || DEFAULT_ROW_HEIGHT),
+      index,
+    }),
+    [itemSize],
+  );
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <>
+        {TableHeaderComponent}
+        {effectiveStickyHeader ? null : headerRow}
+      </>
+    ),
+    [TableHeaderComponent, effectiveStickyHeader, headerRow],
+  );
+
   const list = useMemo(
     () =>
       draggable ? (
         <SortableListView
           enabled
+          tabIntegrated={tabIntegrated}
           useFlashList={useFlashList}
           scrollEnabled={scrollEnabled}
           ref={listViewRef as any}
@@ -352,18 +462,9 @@ function BasicTable<T>({
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={renderSortableItem}
-          getItemLayout={(_, index) => ({
-            length: itemSize || DEFAULT_ROW_HEIGHT,
-            offset: index * (itemSize || DEFAULT_ROW_HEIGHT),
-            index,
-          })}
+          getItemLayout={getItemLayout}
           renderPlaceholder={renderPlaceholder}
-          ListHeaderComponent={
-            <>
-              {TableHeaderComponent}
-              {stickyHeader ? null : headerRow}
-            </>
-          }
+          ListHeaderComponent={listHeaderComponent}
           onDragBegin={handleDragBegin}
           onDragEnd={onDragEnd}
           keyExtractor={keyExtractor}
@@ -388,12 +489,7 @@ function BasicTable<T>({
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={handleRenderItem}
-          ListHeaderComponent={
-            <>
-              {TableHeaderComponent}
-              {stickyHeader ? null : headerRow}
-            </>
-          }
+          ListHeaderComponent={listHeaderComponent}
           ListFooterComponent={TableFooterComponent}
           ListEmptyComponent={TableEmptyComponent}
           extraData={extraData}
@@ -412,10 +508,9 @@ function BasicTable<T>({
       handleScroll,
       dataSource,
       renderSortableItem,
+      getItemLayout,
       renderPlaceholder,
-      TableHeaderComponent,
-      stickyHeader,
-      headerRow,
+      listHeaderComponent,
       handleDragBegin,
       onDragEnd,
       keyExtractor,
@@ -428,11 +523,11 @@ function BasicTable<T>({
       useFlashList,
       estimatedItemSize,
       handleRenderItem,
-      itemSize,
+      tabIntegrated,
     ],
   );
 
-  return stickyHeader ? (
+  return effectiveStickyHeader ? (
     <YStack flex={1}>
       {headerRow}
       {list}
@@ -506,6 +601,7 @@ function TableSkeleton<T>({
 
 export const Table = withStaticProperties(BasicTable, {
   Row: TableRow,
+  HeaderRow: TableHeaderRow,
   Skeleton: TableSkeleton,
   SkeletonRow: TableSkeletonRow,
 });

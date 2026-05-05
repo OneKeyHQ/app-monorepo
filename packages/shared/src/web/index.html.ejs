@@ -17,6 +17,7 @@
       content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.00001, viewport-fit=cover"
     />
     <title>OneKey</title>
+    <meta name="theme-color" content="#ffffff" />
       <% if ( isDev ) { %>
         <script
         <% if ( platform === 'ext'  ) { %>
@@ -53,11 +54,13 @@
           }
         </script>
       <% } %>
-      <script>
-        if (typeof window.$$onekeyStartupTimeAt === 'undefined') {
-          window.$$onekeyStartupTimeAt = Date.now();
-        }
-      </script>
+      <% if ( platform !== 'ext' ) { %>
+        <script>
+          if (typeof window.$$onekeyStartupTimeAt === 'undefined') {
+            window.$$onekeyStartupTimeAt = Date.now();
+          }
+        </script>
+      <% } %>
   </head>
 
   <!-- html template copy from node_modules/@expo/webpack-config/web-default/index.html -->
@@ -127,16 +130,18 @@
       <% } %>
     </div>
 
-    <script>
-      (()=>{
-        const rootElement = document.getElementById('root');
-        if (rootElement) {
-          rootElement.setAttribute('data-html-render-time', Date.now().toString());
-        }
-      })();
-    </script>
+    <% if ( platform !== 'ext' ) { %>
+      <script>
+        (()=>{
+          const rootElement = document.getElementById('root');
+          if (rootElement) {
+            rootElement.setAttribute('data-html-render-time', Date.now().toString());
+          }
+        })();
+      </script>
+    <% } %>
 
-    <% if ( platform !== 'web-embed' ) { %>
+    <% if ( platform !== 'web-embed' && platform !== 'web' ) { %>
       <img
         width='80'
         class="onekey-index-html-preload-image"

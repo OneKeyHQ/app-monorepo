@@ -10,7 +10,6 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "strict": true,
-    // "exactOptionalPropertyTypes": true,
     "noImplicitAny": true,
     "strictPropertyInitialization": true,
     "target": "es2020",
@@ -23,10 +22,10 @@
     "noUnusedLocals": false,
     "experimentalDecorators": true,
     "useDefineForClassFields": true,
-    "types": ["node", "chrome", "jest", "web", "w3c-web-usb"],
+    "types": ["node", "chrome", "jest", "web", "w3c-web-usb", "w3c-web-hid"],
     "typeRoots": ["node_modules/@types", "./@types"]
   },
   "include": ["**/*.ts", "**/*.tsx", "apps/web-embed/index.js", "apps/web-embed/src/views/WebEmbedWebviewAgentCardano/index.tsx"],
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", ".worktree", ".claude/worktrees"],
   "extends": "expo/tsconfig.base"
 }

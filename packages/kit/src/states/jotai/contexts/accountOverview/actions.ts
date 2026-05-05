@@ -8,11 +8,14 @@ import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  accountDeFiOverviewAtom,
   accountOverviewStateAtom,
   accountWorthAtom,
   allNetworksStateAtom,
   approvalsInfoAtom,
+  buildOverviewOwnerKey,
   contextAtomMethod,
+  overviewDeFiDataStateAtom,
   walletStatusAtom,
   walletTopBannersAtom,
 } from './atoms';
@@ -77,7 +80,11 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
   );
 
   updateApprovalsInfo = contextAtomMethod(
-    (get, set, payload: { hasRiskApprovals?: boolean }) => {
+    (
+      get,
+      set,
+      payload: { hasRiskApprovals?: boolean; riskApprovalsCount?: number },
+    ) => {
       set(approvalsInfoAtom(), {
         ...get(approvalsInfoAtom()),
         ...payload,
@@ -110,6 +117,84 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateAccountDeFiOverview = contextAtomMethod(
+    (
+      get,
+      set,
+      value: {
+        overview: {
+          totalValue: number;
+          totalDebt: number;
+          totalReward: number;
+          netWorth: number;
+        };
+        merge?: boolean;
+        currency?: string;
+        accountId?: string;
+        networkId?: string;
+        isReady?: boolean;
+      },
+    ) => {
+      const overview = get(accountDeFiOverviewAtom());
+
+      if (value.merge) {
+        const newOverview = {
+          totalValue: new BigNumber(overview.totalValue)
+            .plus(value.overview.totalValue)
+            .toNumber(),
+          totalDebt: new BigNumber(overview.totalDebt ?? 0)
+            .plus(value.overview.totalDebt ?? 0)
+            .toNumber(),
+          netWorth: new BigNumber(overview.netWorth ?? 0)
+            .plus(value.overview.netWorth ?? 0)
+            .toNumber(),
+          totalReward: new BigNumber(overview.totalReward ?? 0)
+            .plus(value.overview.totalReward ?? 0)
+            .toNumber(),
+          currency: overview.currency,
+          accountId: value.accountId ?? overview.accountId,
+          networkId: value.networkId ?? overview.networkId,
+        };
+        set(accountDeFiOverviewAtom(), newOverview);
+      } else {
+        set(accountDeFiOverviewAtom(), {
+          ...value.overview,
+          currency: value.currency ?? overview.currency,
+          accountId: value.accountId ?? overview.accountId,
+          networkId: value.networkId ?? overview.networkId,
+        });
+      }
+
+      // Auto-set DeFi state when readiness is explicitly provided
+      if ('isReady' in value) {
+        set(overviewDeFiDataStateAtom(), {
+          ownerKey: buildOverviewOwnerKey(
+            value.accountId ?? overview.accountId,
+            value.networkId ?? overview.networkId,
+          ),
+          isReady: value.isReady,
+        });
+      }
+    },
+  );
+
+  updateOverviewDeFiDataState = contextAtomMethod(
+    (
+      get,
+      set,
+      value: {
+        accountId?: string;
+        networkId?: string;
+        isReady?: boolean;
+      },
+    ) => {
+      set(overviewDeFiDataStateAtom(), {
+        ownerKey: buildOverviewOwnerKey(value.accountId, value.networkId),
+        isReady: value.isReady,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -126,6 +211,8 @@ export function useAccountOverviewActions() {
   const updateApprovalsInfo = actions.updateApprovalsInfo.use();
   const updateWalletStatus = actions.updateWalletStatus.use();
   const updateWalletTopBanners = actions.updateWalletTopBanners.use();
+  const updateAccountDeFiOverview = actions.updateAccountDeFiOverview.use();
+  const updateOverviewDeFiDataState = actions.updateOverviewDeFiDataState.use();
 
   return useRef({
     updateAllNetworksState,
@@ -134,5 +221,7 @@ export function useAccountOverviewActions() {
     updateApprovalsInfo,
     updateWalletStatus,
     updateWalletTopBanners,
+    updateAccountDeFiOverview,
+    updateOverviewDeFiDataState,
   });
 }

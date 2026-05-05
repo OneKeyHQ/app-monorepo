@@ -51,8 +51,8 @@ function Upgrade() {
           >
             <Stack
               bg="$bgSubdued"
-              width="$10"
-              height="$10"
+              width="$9"
+              height="$9"
               borderRadius="$2.5"
               borderCurve="continuous"
             />
@@ -60,8 +60,8 @@ function Upgrade() {
               colors={['rgba(58, 222, 0, 0.09)', 'rgba(0, 225, 157, 0.09)']}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
-              px="$2"
-              py="$2"
+              px="$1.5"
+              py="$1.5"
               borderRadius="$2.5"
               borderCurve="continuous"
               alignItems="center"
@@ -118,8 +118,10 @@ function Upgrade() {
   return (
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.global_upgrade })}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       contentContainerProps={{
+        mx: '$pagePadding',
         px: '$4',
         py: '$2',
         $gtMd: {

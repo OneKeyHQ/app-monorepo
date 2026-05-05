@@ -1,7 +1,6 @@
 import { cloneDeep, isEqual } from 'lodash';
 
 import { ECloudBackupProviderType } from '../cloudBackup/cloudBackupTypes';
-import stringUtils from '../utils/stringUtils';
 
 import keylessWalletUtils from './keylessWalletUtils';
 

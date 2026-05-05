@@ -14,6 +14,7 @@ export interface IDiscoveryBanner {
   useSystemBrowser: boolean;
   title?: string;
   theme?: 'light' | 'dark';
+  isAd?: boolean;
   takeEffect?: {
     start: number;
     end: number;
@@ -65,6 +66,7 @@ export interface IDApp {
   origins?: string[];
   _id?: string;
   isExactUrl?: boolean;
+  isAd?: boolean;
 }
 
 export interface IDAppTag {
@@ -78,6 +80,16 @@ export interface IDiscoveryListParams {
   limit?: number;
   category: string;
   network?: string;
+}
+
+export enum ETranslateEngine {
+  standard = 'standard',
+  ai = 'ai',
+}
+
+export enum ETranslateDisplayMode {
+  replace = 'replace',
+  bilingual = 'bilingual',
 }
 
 export enum EHostSecurityLevel {

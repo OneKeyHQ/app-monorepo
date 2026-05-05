@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
@@ -14,18 +15,26 @@ import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveAccountSummaryAtom,
+  useSpotActiveOpenOrdersAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
+import { SpotBalanceList } from './List/SpotBalanceList';
 
-const tabNameToTranslationKey: Record<string, string> = {
+const tabNameToTranslationKey: Record<string, ETranslations> = {
   'Positions': ETranslations.perp_position_title,
   'Open Orders': ETranslations.perp_open_orders_title,
   'Trades History': ETranslations.perp_trades_history_title,
   'Account': ETranslations.perp_account_history,
+  'Balances': ETranslations.perp_holdings_tokens,
 };
 
 function TabBarItem({
@@ -39,10 +48,32 @@ function TabBarItem({
 }) {
   const intl = useIntl();
 
-  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [perpOpenOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
+  const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
   const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [{ balances }] = useSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+
+  const holdingsCount = useMemo(() => {
+    // Mirrors the spot+perps USDC merge in SpotBalanceList — count non-USDC
+    // spot rows once and add 1 if either side has any USDC.
+    const nonUsdcSpotCount = balances.filter(
+      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
+    ).length;
+    const hasSpotUsdc = balances.some(
+      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
+    );
+    const hasPerpsUsdc =
+      !!accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0);
+    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
+  }, [accountSummary?.totalRawUsd, balances]);
 
   const tabCount = useMemo(() => {
+    if (name === 'Balances') {
+      return holdingsCount > 0 ? `(${holdingsCount})` : '';
+    }
     if (name === 'Trades History') {
       return '';
     }
@@ -53,15 +84,15 @@ function TabBarItem({
       return `(${openOrdersLength})`;
     }
     return '';
-  }, [positionsLength, openOrdersLength, name]);
+  }, [holdingsCount, positionsLength, openOrdersLength, name]);
 
   const translationKey = tabNameToTranslationKey[name];
-  let tabTitle = translationKey;
-  if (translationKey.startsWith('perp.')) {
-    tabTitle = intl.formatMessage({
-      id: translationKey as ETranslations,
-    });
-  }
+  const tabTitle = intl.formatMessage({
+    id: translationKey,
+  });
+
+  const displayTitle =
+    name === 'Balances' ? `${tabTitle}${tabCount}` : `${tabTitle} ${tabCount}`;
 
   return (
     <DebugRenderTracker
@@ -75,9 +106,8 @@ function TabBarItem({
         borderBottomWidth={isFocused ? '$0.5' : '$0'}
         borderBottomColor="$borderActive"
         onPress={() => onPress(name)}
-        cursor="pointer"
       >
-        <SizableText size="$headingXs">{`${tabTitle} ${tabCount}`}</SizableText>
+        <SizableText size="$bodyMdMedium">{displayTitle.trim()}</SizableText>
       </XStack>
     </DebugRenderTracker>
   );
@@ -95,6 +125,7 @@ function PerpOrderInfoPanel() {
       ref={tabsRef as any}
       headerHeight={80}
       initialTabName="Positions"
+      disableScroll={!platformEnv.isNative}
       onTabChange={async (tab) => {
         if (tab.tabName === 'Account') {
           void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
@@ -104,7 +135,12 @@ function PerpOrderInfoPanel() {
         <Tabs.TabBar
           {...props}
           renderItem={({ name, isFocused, onPress }) => (
-            <TabBarItem name={name} isFocused={isFocused} onPress={onPress} />
+            <TabBarItem
+              key={name}
+              name={name}
+              isFocused={isFocused}
+              onPress={onPress}
+            />
           )}
           containerStyle={{
             borderRadius: 0,
@@ -115,6 +151,9 @@ function PerpOrderInfoPanel() {
         />
       )}
     >
+      <Tabs.Tab name="Balances">
+        <SpotBalanceList />
+      </Tabs.Tab>
       <Tabs.Tab name="Positions">
         <PerpPositionsList handleViewTpslOrders={handleViewTpslOrders} />
       </Tabs.Tab>

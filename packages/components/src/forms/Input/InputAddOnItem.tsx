@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 
 import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Tooltip } from '../../actions/Tooltip';
 import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
@@ -65,8 +66,20 @@ export const InputAddOnItem = XStack.styleable<IExtraProps, any, any>(
               },
               focusable: !(disabled || loading),
               focusVisibleStyle: sharedStyles.focusVisibleStyle,
+              ...(platformEnv.isNative
+                ? undefined
+                : {
+                    onKeyDown: (e: KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onPress?.(e as any);
+                      }
+                    },
+                  }),
             })}
           {...rest}
+          tabIndex={platformEnv.isNative ? undefined : rest.tabIndex}
+          focusable={platformEnv.isNative ? false : rest.focusable}
         >
           {renderContent || (
             <>

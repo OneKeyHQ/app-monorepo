@@ -91,7 +91,7 @@ export default function List() {
           }
           ListEmptyComponent={
             <Empty
-              icon="SearchOutline"
+              illustration="QuestionMark"
               title={intl.formatMessage({ id: ETranslations.backup_no_data })}
               description={intl.formatMessage({
                 id: platformEnv.isNativeAndroid

@@ -1,6 +1,5 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IExportKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -14,6 +13,7 @@ import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 
 export function AccountExportPrivateKeyButton({
   testID,
@@ -63,7 +63,7 @@ export function AccountExportPrivateKeyButton({
               },
             );
           if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
-          await navigateToBackupWalletReminderPage({
+          navigateToBackupWalletReminderPage({
             walletId: wallet?.id ?? '',
             accountName: accountName ?? '',
             isWalletBackedUp: wallet?.backuped ?? false,

@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgShareScreen = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M2 7a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3zm9.293.793a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1-1.414 1.414L13 10.914V15.5a1 1 0 1 1-2 0v-4.586l-1.293 1.293a1 1 0 0 1-1.414-1.414z"
+      d="M22 20H2V4h20zM7.586 11.5 9 12.914l2-2V16.5h2v-5.586l2 2 1.414-1.414L12 7.086z"
       clipRule="evenodd"
     />
   </Svg>

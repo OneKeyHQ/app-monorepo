@@ -1,5 +1,7 @@
-/* eslint-disable no-undef */
+// oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this */
+/* eslint-disable no-undef */
+
 console.log('================ cross-crypto (web)');
 
 if (process.env.NODE_ENV !== 'production') {

@@ -32,7 +32,6 @@ export function TrendingSection({
       handleWebSite({
         webSite,
         dApp,
-        shouldPopNavigation: false,
         enterMethod: EEnterMethod.trending,
       });
     },

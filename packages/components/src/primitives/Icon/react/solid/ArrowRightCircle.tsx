@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgArrowRightCircle = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12s4.477 10 10 10 10-4.477 10-10m-8.414 1-1.293 1.293a1 1 0 0 0 1.414 1.414L16 13.414a2 2 0 0 0 0-2.828l-2.293-2.293a1 1 0 1 0-1.414 1.414L13.586 11H8a1 1 0 1 0 0 2z"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m-.414 7 2 2H7v2h6.586l-2 2L13 16.414 17.414 12 13 7.586z"
       clipRule="evenodd"
     />
   </Svg>

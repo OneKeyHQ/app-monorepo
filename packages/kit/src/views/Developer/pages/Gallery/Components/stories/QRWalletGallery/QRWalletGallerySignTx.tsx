@@ -8,14 +8,8 @@ import { networks as BitcoinJsNetworks, Psbt } from 'bitcoinjs-lib';
 import { isEqual } from 'lodash';
 
 import { Button, Dialog, Input, QRCode } from '@onekeyhq/components';
-import {
-  buildPsbt,
-  decodedPsbt,
-} from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
-import { packUnsignedTxForSignEvm } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
-import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   AirGapEthSignRequestEvm,
   EAirGapDataTypeEvm,
@@ -26,6 +20,17 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 // import type { FeeMarketEIP1559TxData } from '@ethereumjs/tx';
+
+// Core functions loaded dynamically to avoid kit->core value import
+async function loadCoreBtcProviderUtils() {
+  return import('@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils');
+}
+async function loadCoreEvmSdk() {
+  return import('@onekeyhq/core/src/chains/evm/sdkEvm');
+}
+async function loadCoreTypes() {
+  return import('@onekeyhq/core/src/types');
+}
 
 const txShared = {
   to: '0x02bA7fd1b0aCdd0E4F8c6DA7C4bA8Fd7F963bA50',
@@ -53,7 +58,8 @@ export function QRWalletGallerySignTx() {
   return (
     <>
       <Button
-        onPress={() => {
+        onPress={async () => {
+          const { packUnsignedTxForSignEvm } = await loadCoreEvmSdk();
           const { digest, serializedTx, serializedTxWithout0x } =
             packUnsignedTxForSignEvm({
               encodedTx,
@@ -83,7 +89,8 @@ export function QRWalletGallerySignTx() {
             // dataType: KeystoneEthereumSDK.DataType.transaction, // legacy tx
             dataType: EAirGapDataTypeEvm.typedTransaction, // EIP-1559 tx
             path: "m/44'/60'/0'/0/0",
-            // eslint-disable-next-line spellcheck/spell-checker
+
+            // oxlint-disable-next-line @cspell/spellchecker
             // xfp: 'caeff70f',
             xfp: 'aaaff70f', // master fingerprint, should save to wallet
             chainId: 1,
@@ -169,6 +176,8 @@ export function QRWalletGallerySignTx() {
             ],
             'fee': '5744',
           };
+          const { buildPsbt, decodedPsbt } = await loadCoreBtcProviderUtils();
+          const { EAddressEncodings } = await loadCoreTypes();
           const psbt2 = await buildPsbt({
             network: BitcoinJsNetworks.bitcoin,
             unsignedTx: { encodedTx: tx as IEncodedTxBtc },
@@ -267,7 +276,7 @@ export function QRWalletGallerySignTx() {
           const r = signature.slice(0, 64);
           const s = signature.slice(64, 64 + 64);
           const v = signature.slice(64 + 64);
-
+          console.log(`r: ${r}, s: ${s} v: ${v}`);
           // const typedTx = TransactionFactory.fromTxData({
           //   ...txShared,
           //   type: txShared.type,

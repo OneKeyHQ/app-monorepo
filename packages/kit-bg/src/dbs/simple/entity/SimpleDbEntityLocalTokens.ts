@@ -267,6 +267,10 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       riskyTokenList: rawData?.riskyTokenList?.[key] ?? [],
       tokenListMap: rawData?.tokenListMap?.[key] ?? {},
       tokenListValue: rawData?.tokenListValue?.[key] ?? '0',
+      hasCache: Object.prototype.hasOwnProperty.call(
+        rawData?.tokenList ?? {},
+        key,
+      ),
     };
 
     perf.done();

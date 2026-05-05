@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton } from '@onekeyhq/components';
+import { Button, IconButton } from '@onekeyhq/components';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type {
   IChainValue,
@@ -20,6 +20,7 @@ import type { IAddressPluginProps } from '../types';
 export type IScanPluginProps = IAddressPluginProps & {
   networkId: string;
   onScanResult?: (result: IQRCodeHandlerParseResult<IChainValue>) => void;
+  display?: 'icon' | 'button';
 };
 
 export function ScanPlugin({
@@ -27,8 +28,8 @@ export function ScanPlugin({
   testID,
   disabled,
   onScanResult,
-  onInputTypeChange,
   networkId,
+  display = 'icon',
 }: IScanPluginProps) {
   const { start } = useScanQrCode();
   const intl = useIntl();
@@ -42,21 +43,38 @@ export function ScanPlugin({
         EQRCodeHandlerNames.sui,
         EQRCodeHandlerNames.lightningNetwork,
       ],
-      autoHandleResult: false,
+      autoExecuteParsedAction: false,
     })) as IQRCodeHandlerParseResult<IChainValue>;
     console.log('scaned result', result);
-    onChange?.(
-      result.type === EQRCodeHandlerType.UNKNOWN ||
+    onChange?.({
+      text:
+        result.type === EQRCodeHandlerType.UNKNOWN ||
         result?.data?.network?.id !== networkId
-        ? result.raw
-        : result?.data?.address,
-    );
-    onInputTypeChange?.(EInputAddressChangeType.Scan);
+          ? result.raw
+          : result?.data?.address,
+      inputType: EInputAddressChangeType.Scan,
+    });
 
     setTimeout(() => {
       onScanResult?.(result);
     }, 120);
-  }, [networkId, onChange, onInputTypeChange, onScanResult, start]);
+  }, [networkId, onChange, onScanResult, start]);
+
+  if (display === 'button') {
+    return (
+      <Button
+        size="small"
+        variant="secondary"
+        icon="ScanSolid"
+        disabled={disabled}
+        onPress={disabled ? undefined : onPress}
+        testID={testID}
+      >
+        {intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}
+      </Button>
+    );
+  }
+
   return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}

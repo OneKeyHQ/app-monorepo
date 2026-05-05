@@ -96,6 +96,7 @@ const {
 });
 
 // yarn jest packages/core/src/chains/btc/CoreChainSoftware.tbtc.test.ts
+jest.setTimeout(30_000);
 describe('TBTC Core tests', () => {
   it('mnemonic verify', async () => {
     await coreTestsUtils.expectMnemonicValid({

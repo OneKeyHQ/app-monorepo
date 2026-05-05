@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import MobileDetect from 'mobile-detect';
 import { Platform } from 'react-native';
 
@@ -36,7 +37,30 @@ export type IAppChannel =
   | 'win'
   | 'winStore'
   | 'linux'
-  | 'linuxSnap';
+  | 'linuxSnap'
+  | 'linuxFlatpak';
+export type INativeRuntimeKind = 'main' | 'background';
+
+/**
+ * Cross-platform runtime role used by the app event bus to decide how to route
+ * an event between processes:
+ *   - Main:       a foreground process (UI). May coexist with siblings (ext
+ *                 popup + side panel + expand tab). Talks to a single
+ *                 background via `sendToBackground`.
+ *   - Background: the singleton service process. Fans out events to every
+ *                 foreground via `broadcastToForegrounds`.
+ *   - Standalone: single-process runtime with no IPC (current desktop / web).
+ *                 When desktop/web later adopt service workers, simply remap
+ *                 them to Main / Background here.
+ *
+ * `INativeRuntimeKind` is the native-only ancestor of this concept; the new
+ * enum is the cross-platform generalization.
+ */
+export enum ERuntimeRole {
+  Main = 'main',
+  Background = 'background',
+  Standalone = 'standalone',
+}
 
 export type IPlatformEnv = {
   mobileDetectInfo: MobileDetect | undefined;
@@ -62,6 +86,7 @@ export type IPlatformEnv = {
   isProduction?: boolean;
   /** e2e mode */
   isE2E?: boolean;
+  enableNativeBackgroundThread?: boolean;
 
   /** running in the browsers */
   isWeb?: boolean;
@@ -78,15 +103,25 @@ export type IPlatformEnv = {
   isExtension?: boolean;
   /** running in mobile APP */
   isNative?: boolean;
+  nativeRuntimeKind?: INativeRuntimeKind;
+  isNativeMainThread?: boolean;
+  isNativeBackgroundThread?: boolean;
+  /** Cross-platform runtime role for app event bus routing. See ERuntimeRole. */
+  runtimeRole: ERuntimeRole;
 
   isDesktopLinux?: boolean;
   isDesktopLinuxSnap?: boolean;
+  isDesktopLinuxFlatpak?: boolean;
+  isDesktopStore?: boolean;
+  /** windows */
   isDesktopWin?: boolean;
   isDesktopWinMsStore?: boolean;
   /** macos arm64 & x86 */
   isDesktopMac?: boolean;
   /** macos arm64 only */
   isDesktopMacArm64?: boolean;
+  /** desktop platforms with custom title bar (Mac, Win, Linux) */
+  isDesktopWithCustomTitleBar?: boolean;
   /** macos for appStore */
   isMas?: boolean;
 
@@ -151,6 +186,7 @@ const {
   isExtFirefox,
   isExtEdge,
   isE2E,
+  enableNativeBackgroundThread,
 }: {
   isJest: boolean;
   isDev: boolean;
@@ -164,6 +200,7 @@ const {
   isExtFirefox: boolean;
   isExtEdge: boolean;
   isE2E: boolean;
+  enableNativeBackgroundThread: boolean;
 } = require('./buildTimeEnv.js');
 
 const desktopDeskChannel = globalThis?.desktopApi?.deskChannel || '';
@@ -171,12 +208,18 @@ const desktopArch = globalThis?.desktopApi?.arch || '';
 const desktopPlatform = globalThis?.desktopApi?.platform || '';
 const desktopChannel = globalThis?.desktopApi?.channel || '';
 
+const isMas = isDesktop && globalThis?.desktopApi?.isMas;
 const isDesktopMac = isDesktop && desktopPlatform === 'darwin';
 const isDesktopMacArm64 = isDesktopMac && desktopArch === 'arm64';
 const isDesktopWin = isDesktop && desktopPlatform === 'win32';
 const isDesktopWinMsStore = isDesktopWin && desktopDeskChannel === 'ms-store';
 const isDesktopLinux = isDesktop && desktopPlatform === 'linux';
 const isDesktopLinuxSnap = isDesktopLinux && desktopChannel === 'snap';
+const isDesktopLinuxFlatpak = isDesktopLinux && desktopChannel === 'flatpak';
+const isDesktopStore =
+  isMas || isDesktopWinMsStore || isDesktopLinuxSnap || isDesktopLinuxFlatpak;
+const isDesktopWithCustomTitleBar =
+  isDesktopMac || isDesktopWin || isDesktopLinux;
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
@@ -189,7 +232,14 @@ const androidChannel = ANDROID_CHANNEL;
 const isNativeAndroidGooglePlay =
   isNativeAndroid && androidChannel === 'google';
 const isNativeAndroidHuawei = isNativeAndroid && androidChannel === 'huawei';
-const isMas = isDesktop && globalThis?.desktopApi?.isMas;
+const nativeRuntimeGlobal = globalThis as typeof globalThis & {
+  __ONEKEY_RUNTIME_KIND__?: INativeRuntimeKind;
+};
+const nativeRuntimeKind = isNative
+  ? (nativeRuntimeGlobal.__ONEKEY_RUNTIME_KIND__ ?? 'main')
+  : undefined;
+const isNativeBackgroundThread = isNative && nativeRuntimeKind === 'background';
+const isNativeMainThread = isNative && !isNativeBackgroundThread;
 
 // for platform building by file extension
 const getAppPlatform = (): IAppPlatform | undefined => {
@@ -227,6 +277,7 @@ const getAppChannel = (): IAppChannel | undefined => {
   if (isDesktopMacArm64) return 'macosARM';
   if (isDesktopMac) return 'macosX86';
   if (isDesktopLinuxSnap) return 'linuxSnap';
+  if (isDesktopLinuxFlatpak) return 'linuxFlatpak';
   if (isDesktopLinux) return 'linux';
 };
 
@@ -389,8 +440,8 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
-// Desktop (Electron) now supports WebUSB directly through Chromium, no need for bridge
-const isSupportWebUSB = isExtension || isWeb || isDesktop;
+// Desktop (Electron) supports WebUSB through Chromium, except Linux which uses Bridge due to udev permission issues
+const isSupportWebUSB = isExtension || isWeb || (isDesktop && !isDesktopLinux);
 
 const isSupportDesktopBle = isDesktopMac || isDesktopWin;
 
@@ -456,6 +507,22 @@ export const supportAutoUpdate: boolean =
 
 export const isAppleStoreEnv = isMas || isNativeIOSStore || isNativeIOSPadStore;
 
+const computeRuntimeRole = (): ERuntimeRole => {
+  if (isExtensionBackground) return ERuntimeRole.Background;
+  if (isExtensionUi || isExtensionOffscreen) return ERuntimeRole.Main;
+  if (isNative && enableNativeBackgroundThread) {
+    return isNativeBackgroundThread
+      ? ERuntimeRole.Background
+      : ERuntimeRole.Main;
+  }
+  if (isWebEmbed) return ERuntimeRole.Main;
+  // desktop / web (currently single-process) and native dev without
+  // enableNativeBackgroundThread fall through to standalone — no IPC.
+  return ERuntimeRole.Standalone;
+};
+
+const runtimeRole: ERuntimeRole = computeRuntimeRole();
+
 const platformEnv: IPlatformEnv = {
   mobileDetectInfo,
   isNewRouteMode: true,
@@ -475,6 +542,7 @@ const platformEnv: IPlatformEnv = {
   isDev,
   isProduction,
   isE2E,
+  enableNativeBackgroundThread,
 
   isWeb,
   isWebDappMode,
@@ -487,6 +555,10 @@ const platformEnv: IPlatformEnv = {
   isDesktop,
   isExtension,
   isNative,
+  nativeRuntimeKind,
+  isNativeMainThread,
+  isNativeBackgroundThread,
+  runtimeRole,
 
   isDesktopMac,
   isDesktopWin,
@@ -494,6 +566,9 @@ const platformEnv: IPlatformEnv = {
   isDesktopMacArm64,
   isDesktopLinux,
   isDesktopLinuxSnap,
+  isDesktopLinuxFlatpak,
+  isDesktopWithCustomTitleBar,
+  isDesktopStore,
   isMas,
 
   isExtFirefox,

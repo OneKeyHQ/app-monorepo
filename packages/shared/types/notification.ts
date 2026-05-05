@@ -136,17 +136,16 @@ export type INotificationPushRegisterParams = {
 export type INotificationPushSettings = {
   pushEnabled?: boolean;
   accountActivityPushEnabled?: boolean;
+  priceAlertsEnabled?: boolean;
+  perpsEnabled?: boolean;
   announcementEnabled?: boolean;
+  dailyUpdateEnabled?: boolean;
   maxAccount?: number;
   supportedNetworks?: {
     networkId: string;
     impl: string;
     chainId: string;
   }[];
-  // announcementEnabled?: boolean;
-  // coinPriceAlertEnabled?: boolean;
-  // coinVolatilityAlertEnabled?: boolean;
-  // presetCoinsVolatilityAlertEnabled?: boolean;
 };
 export type INotificationPushTopic =
   | {
@@ -203,6 +202,12 @@ export enum ENotificationPushMessageMode {
   openInBrowser = 3,
   openInApp = 4,
   openInDapp = 5,
+  command = 6,
+}
+
+export enum ENotificationCommand {
+  openRewardDistributionHistoryModal = 'openRewardDistributionHistoryModal',
+  openHardwareSalesOrder = 'openHardwareSalesOrder',
 }
 // /notification/v1/message/ack
 export type INotificationPushMessageAckParams = {

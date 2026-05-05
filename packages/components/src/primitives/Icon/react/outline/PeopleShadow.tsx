@@ -1,13 +1,22 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPeopleShadow = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 3a3.5 3.5 0 1 1 0 7m5.5 10h.5c1.105 0 2.03-.918 1.68-1.966-.688-2.06-2.43-3.728-4.68-4.525M9 10a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7m-7.68 8.034C2.29 15.125 5.362 13 9 13s6.71 2.125 7.68 5.034C17.03 19.082 16.105 20 15 20H3c-1.105 0-2.03-.918-1.68-1.966"
+      fillRule="evenodd"
+      d="M7.5 12c3.47 0 6.64 2.857 6.997 7.93l.076 1.07H.427l.076-1.07C.86 14.857 4.029 12 7.5 12m0 2c-2.006 0-4.262 1.505-4.872 5h9.744c-.61-3.495-2.866-5-4.872-5"
+      clipRule="evenodd"
+    />
+    <Path d="M13.849 12.595c2.005-.942 4.333-.763 6.208.52 1.881 1.286 3.214 3.613 3.44 6.815l.075 1.07H17v-2h4.371c-.369-2.1-1.335-3.478-2.442-4.235-1.293-.884-2.869-.999-4.23-.36z" />
+    <Path
+      fillRule="evenodd"
+      d="M7.5 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m9-2a4 4 0 1 1 0 8 4 4 0 0 1 0-8m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -10,7 +10,7 @@ import type { IServerAccountTokenItem } from '@onekeyhq/shared/types/serverToken
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
-import { getMinAmount, getTransactionTypeFromTxInfo } from '../utils';
+import { getTransactionTypeFromTxInfo } from '../utils';
 
 import VaultDotSubCommon from './VaultDotSubCommon';
 
@@ -175,9 +175,8 @@ class VaultDotSubAssetHubKusama extends VaultDotSubCommon {
 
     const accountHex = u8aToHex(decodeAddress(context.accountAddress));
     const queries = assetIds.map((assetId) => [assetId, accountHex] as const);
-    const balances = await context.apiPromise.query.assets.account.multi(
-      queries,
-    );
+    const balances =
+      await context.apiPromise.query.assets.account.multi(queries);
 
     const tokens: IServerAccountTokenItem[] = [];
     balances.forEach((balanceOption, index) => {

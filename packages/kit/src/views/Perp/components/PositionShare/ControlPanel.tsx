@@ -17,6 +17,7 @@ interface IControlPanelProps {
   config: IShareConfig;
   onChange: (config: IShareConfig) => void;
   onSaveImage: () => void;
+  onShareImage: () => void;
   onCopyLink: () => void;
   onShareToX: () => void;
   isLoading?: boolean;
@@ -27,6 +28,7 @@ export function ControlPanel({
   config,
   onChange,
   onSaveImage,
+  onShareImage,
   onCopyLink,
   onShareToX,
   isLoading,
@@ -73,9 +75,9 @@ export function ControlPanel({
                   px="$7"
                   py="$2"
                   alignItems="center"
-                  cursor="pointer"
                   bg="$bgApp"
                   justifyContent="center"
+                  cursor="default"
                 >
                   <Badge.Text size="$bodySmMedium" color="$text">
                     {label}
@@ -93,7 +95,6 @@ export function ControlPanel({
             title={intl.formatMessage({
               id: ETranslations.perps_share_position_btn_save_img,
             })}
-            cursor="pointer"
             icon="DownloadOutline"
             size="large"
             onPress={onSaveImage}
@@ -104,6 +105,7 @@ export function ControlPanel({
             borderColor="$borderSubdued"
             hoverStyle={{ borderColor: '$borderHover' }}
             bg="$bgApp"
+            cursor="default"
           />
           <SizableText size="$bodySm" color="$text">
             {intl.formatMessage({
@@ -111,15 +113,40 @@ export function ControlPanel({
             })}
           </SizableText>
         </YStack>
+        {isMobile ? (
+          <YStack gap="$1" alignItems="center">
+            <IconButton
+              title={intl.formatMessage({
+                id: ETranslations.explore_share,
+              })}
+              icon="ShareOutline"
+              size="large"
+              onPress={onShareImage}
+              disabled={isLoading}
+              iconSize="$6"
+              borderRadius="$4"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              hoverStyle={{ borderColor: '$borderHover' }}
+              bg="$bgApp"
+              cursor="default"
+            />
+            <SizableText size="$bodySm" color="$text">
+              {intl.formatMessage({
+                id: ETranslations.explore_share,
+              })}
+            </SizableText>
+          </YStack>
+        ) : null}
         <YStack gap="$1" alignItems="center">
           <IconButton
             title={intl.formatMessage({
               id: ETranslations.perps_share_position_btn_copy_link,
             })}
-            cursor="pointer"
             icon="LinkOutline"
             size="large"
             onPress={onCopyLink}
+            onPressDebounce={500}
             disabled={isLoading}
             iconSize="$6"
             borderRadius="$4"
@@ -127,6 +154,7 @@ export function ControlPanel({
             borderColor="$borderSubdued"
             hoverStyle={{ borderColor: '$borderHover' }}
             bg="$bgApp"
+            cursor="default"
           />
           <SizableText size="$bodySm" color="$text">
             {intl.formatMessage({
@@ -140,7 +168,6 @@ export function ControlPanel({
               id: ETranslations.perps_share_position_btn_Share_on_x,
             })}
             size="large"
-            cursor="pointer"
             icon="Xbrand"
             onPress={onShareToX}
             disabled={isLoading}
@@ -150,6 +177,7 @@ export function ControlPanel({
             borderColor="$borderSubdued"
             hoverStyle={{ borderColor: '$borderHover' }}
             bg="$bgApp"
+            cursor="default"
           />
           <SizableText size="$bodySm" color="$text">
             X

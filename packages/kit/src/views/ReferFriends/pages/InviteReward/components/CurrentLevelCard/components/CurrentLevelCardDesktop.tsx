@@ -20,7 +20,7 @@ export function CurrentLevelCardDesktop(props: ICurrentLevelCardProps) {
   const { levelIcon, levelLabel, commissionRates } = useCurrentLevelCard(props);
 
   return (
-    <YStack px="$5" pb="$5" $platform-native={{ pb: '$8' }}>
+    <YStack px="$pagePadding" pb="$5" $platform-native={{ pb: '$8' }}>
       <XStack
         borderRadius="$3"
         borderWidth="$px"

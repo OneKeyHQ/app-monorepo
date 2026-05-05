@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChartColumnar3 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth={2}
-      d="M9.33 20v-5H5a1 1 0 0 0-1 1v4zm0 0h5.33m-5.33 0v-9.5a1 1 0 0 1 1-1h4.33V20m0 0V5a1 1 0 0 1 1-1h3.33a1 1 0 0 1 1 1v15zM2 20h20"
+      fillRule="evenodd"
+      d="M20.99 19H23v2H1v-2h2v-5h5.33V8.5h5.33V3h7.33zM5 19h3.33v-3H5zm5.33 0h3.33v-8.5h-3.33zm5.33 0h3.33V5h-3.33z"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -55,11 +55,8 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     // hd
     if (this.isKeyringHd()) {
-      if (
-        accountUtils.isKeylessWallet({
-          walletId: checkIsDefined(this.walletId),
-        })
-      ) {
+      const isKeyless = false;
+      if (isKeyless) {
         const { mnemonic } =
           await this.backgroundApi.serviceKeylessWallet.revealKeylessWalletMnemonic(
             {

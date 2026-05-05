@@ -1,12 +1,7 @@
 import { useIntl } from 'react-intl';
 import { Path, Svg } from 'react-native-svg';
 
-import {
-  Button,
-  SizableText,
-  Stack,
-  useThemeValue,
-} from '@onekeyhq/components';
+import { Button, SizableText, Stack, useTheme } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IDiveInContentProps {
@@ -15,7 +10,8 @@ interface IDiveInContentProps {
 
 export const DiveInContent = ({ onReload }: IDiveInContentProps) => {
   const intl = useIntl();
-  const defaultColor = useThemeValue('neutral6');
+  const theme = useTheme();
+  const defaultColor = theme.neutral6.val;
 
   return (
     <Stack

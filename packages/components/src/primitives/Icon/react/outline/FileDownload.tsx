@@ -1,14 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFileDownload = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M7.5 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.172a2 2 0 0 1 1.414.586l4.828 4.828A2 2 0 0 1 19 9.828V19a2 2 0 0 1-2 2h-.5M13 3.5V7a2 2 0 0 0 2 2h3.5M12 14v6m0 0 2.5-2.5M12 20l-2.5-2.5"
+      fillRule="evenodd"
+      d="M20 8.586V22h-4v-2h2V10h-6V4H6v16h2v2H4V2h9.414zM14 8h2.586L14 5.414z"
+      clipRule="evenodd"
     />
+    <Path d="m13 17.586 1.5-1.5 1.414 1.414L12 21.414 8.086 17.5 9.5 16.086l1.5 1.5V13h2z" />
   </Svg>
 );
 export default SvgFileDownload;

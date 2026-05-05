@@ -1,14 +1,19 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCodeInsert = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7m4-14h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3m0-14V2.5M16 5v14m0 0v2.5m-8-12 2.5 2.5L8 14.5"
+      fillRule="evenodd"
+      d="M17 4h5v16h-5v2h-2V2h2zm0 14h3V6h-3z"
+      clipRule="evenodd"
     />
+    <Path d="M13 6H4v12h9v2H2V4h11z" />
+    <Path d="M11.914 12 8 15.914 6.586 14.5l2.5-2.5-2.5-2.5L8 8.086z" />
   </Svg>
 );
 export default SvgCodeInsert;

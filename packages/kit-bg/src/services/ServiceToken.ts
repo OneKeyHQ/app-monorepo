@@ -20,10 +20,18 @@ import {
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type {
+  IBinancePreOrderParams,
+  IBinancePreOrderResponse,
+  IBinanceSupportedAssets,
+} from '@onekeyhq/shared/types/exchange';
 import type {
   IAccountToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
+  IFetchTokenDetailBatchParams,
+  IFetchTokenDetailBatchResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
   ISearchTokensParams,
@@ -147,6 +155,7 @@ class ServiceToken extends ServiceBase {
         getAccountAddressFn: async () => accountAddress,
       });
 
+    /* eslint-disable prefer-const */
     let [
       customTokens,
       hiddenTokens,
@@ -192,6 +201,7 @@ class ServiceToken extends ServiceBase {
       }),
       this.backgroundApi.serviceToken.getAllAggregateTokenInfo(),
     ]);
+    /* eslint-enable prefer-const */
 
     if (aggregateCustomTokens?.length > 0) {
       aggregateCustomTokens.forEach((t) => {
@@ -507,6 +517,48 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async fetchTokensDetailsBatch(
+    params: IFetchTokenDetailBatchParams,
+  ): Promise<IFetchTokenDetailBatchResp> {
+    const { accountId, networkId, contractList, queries } = params;
+
+    if (!queries.length) {
+      return [];
+    }
+
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{
+      data: IFetchTokenDetailBatchResp;
+    }>(
+      '/wallet/v1/account/token/search-batch',
+      {
+        networkId,
+        contractList,
+        queries,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+
+    const result = resp.data.data ?? [];
+
+    return result.map((item) => ({
+      ...item,
+      tokens: item.tokens.map((token) => ({
+        ...token,
+        info: {
+          ...token.info,
+          networkId,
+        },
+      })),
+    }));
+  }
+
+  @backgroundMethod()
   public async fetchTokenInfoOnly(params: {
     networkId: string;
     tokenAddress: string;
@@ -590,10 +642,12 @@ class ServiceToken extends ServiceBase {
     accountId,
     networkId,
     tokenIdOnNetwork,
+    tokenInfoOnly,
   }: {
     networkId: string;
     accountId: string;
     tokenIdOnNetwork?: string;
+    tokenInfoOnly?: boolean;
   }) {
     let tokenAddress = tokenIdOnNetwork;
 
@@ -609,6 +663,7 @@ class ServiceToken extends ServiceBase {
       accountId,
       networkId,
       tokenIdOnNetwork: tokenAddress ?? '',
+      tokenInfoOnly,
     });
   }
 
@@ -617,8 +672,9 @@ class ServiceToken extends ServiceBase {
     accountId: string;
     networkId: string;
     tokenIdOnNetwork: string;
+    tokenInfoOnly?: boolean;
   }) {
-    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const { accountId, networkId, tokenIdOnNetwork, tokenInfoOnly } = params;
     const localToken = await this.backgroundApi.simpleDb.localTokens.getToken({
       networkId,
       tokenIdOnNetwork,
@@ -645,7 +701,7 @@ class ServiceToken extends ServiceBase {
     try {
       let tokensDetails: IFetchTokenDetailItem[] = [];
 
-      if (accountId === '') {
+      if (accountId === '' || tokenInfoOnly) {
         tokensDetails = [
           await this.fetchTokenInfoOnly({
             networkId,
@@ -822,6 +878,7 @@ class ServiceToken extends ServiceBase {
       tokenList,
       smallBalanceTokenList,
       riskyTokenList,
+      hasCache: localTokens.hasCache,
       accountId,
       networkId,
     };
@@ -982,7 +1039,7 @@ class ServiceToken extends ServiceBase {
   }: {
     networkId: string;
     accountId: string;
-    aggregateTokenMap: Record<string, ITokenFiat>;
+    aggregateTokenMap: Record<string, Record<string, ITokenFiat>>;
   }) {
     return this.backgroundApi.simpleDb.aggregateToken.updateAggregateTokenMap({
       networkId,
@@ -1091,6 +1148,39 @@ class ServiceToken extends ServiceBase {
   @backgroundMethod()
   public async clearLastActiveTabNameData() {
     return this.backgroundApi.simpleDb.aggregateToken.clearLastActiveTabNameData();
+  }
+
+  // ---- Binance Connect ----
+
+  @backgroundMethod()
+  public async getBinanceSupportedAssets(): Promise<IBinanceSupportedAssets> {
+    return this._getBinanceSupportedAssetsMemo();
+  }
+
+  _getBinanceSupportedAssetsMemo = memoizee(
+    async (): Promise<IBinanceSupportedAssets> => {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{ data: IBinanceSupportedAssets }>(
+        '/wallet/v1/exchange/binance/supported-assets',
+      );
+      return resp.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
+    },
+  );
+
+  @backgroundMethod()
+  public async createBinancePreOrder(
+    params: IBinancePreOrderParams,
+  ): Promise<IBinancePreOrderResponse> {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{ data: IBinancePreOrderResponse }>(
+      '/wallet/v1/exchange/binance/pre-order',
+      params,
+    );
+    return resp.data.data;
   }
 }
 

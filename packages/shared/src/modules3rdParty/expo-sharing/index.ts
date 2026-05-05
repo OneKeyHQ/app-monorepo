@@ -3,7 +3,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { SharingOptions } from 'expo-sharing';
 
 const mock = {
-  shareAsync: async (url: string, _options: SharingOptions = {}) => {
+  shareAsync: async (_url: string, _options: SharingOptions = {}) => {
     throw new OneKeyLocalError('Function not implemented.');
   },
   isAvailableAsync: async () => {

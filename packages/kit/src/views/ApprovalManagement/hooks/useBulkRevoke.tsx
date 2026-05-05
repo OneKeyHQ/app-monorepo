@@ -170,6 +170,7 @@ function useBulkRevoke() {
             <ListItem
               mx="$0"
               drillIn
+              nativePressableStyle={{ flexShrink: 0 }}
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
               icon="HandPinchOutline"
@@ -190,6 +191,7 @@ function useBulkRevoke() {
             <ListItem
               mx="$0"
               drillIn
+              nativePressableStyle={{ flexShrink: 0 }}
               icon="FlashOutline"
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
@@ -203,12 +205,10 @@ function useBulkRevoke() {
                       contractMap,
                     });
                   } else {
-                    navigation.pushModal(EModalRoutes.PrimeModal, {
-                      screen: EPrimePages.PrimeFeatures,
+                    navigation.pushFullModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeDashboard,
                       params: {
-                        showAllFeatures: false,
-                        selectedFeature: EPrimeFeatures.BulkRevoke,
-                        selectedSubscriptionPeriod: 'P1Y',
+                        fromFeature: EPrimeFeatures.BulkRevoke,
                       },
                     });
                   }

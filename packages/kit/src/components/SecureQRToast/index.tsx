@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import type { IQRCodeProps, IShowToasterProps } from '@onekeyhq/components';
 import {
@@ -14,9 +13,9 @@ import {
   Toast,
   XStack,
   YStack,
+  usePageWidth,
 } from '@onekeyhq/components';
-import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -57,13 +56,13 @@ const SecureQRToastBase = ({
     onConfirm?.();
   }, [onConfirm]);
 
-  const { width } = useWindowDimensions();
+  const pageWidth = usePageWidth();
   return (
     <YStack
       p="$5"
       tabIndex={-1}
       // Web platform needs specified width, but native can inherit parent width
-      w={platformEnv.isNative ? '100%' : width - 40}
+      w={platformEnv.isNative ? '100%' : pageWidth - 40}
       $gtMd={
         platformEnv.isNative
           ? undefined
@@ -95,6 +94,7 @@ const SecureQRToastBase = ({
             <Stack
               ai="center"
               animation="slow"
+              animateOnly={ANIMATE_ONLY_OPACITY}
               exitStyle={{
                 opacity: 0,
               }}
@@ -133,15 +133,22 @@ const SecureQRToastBase = ({
             onPress={() => {
               console.log('SecureQRToastContent', value, valueUr);
               if (valueUr) {
-                const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
-                console.log(qrcodeDetails);
-                if (
-                  valueUr &&
-                  qrcodeDetails.single?.startsWith('ur:onekey-app-call-device/')
-                ) {
-                  const data = OneKeyRequestDeviceQR.fromUR(valueUr);
-                  console.log(data);
-                }
+                void (async () => {
+                  const { airGapUrUtils: lazyAirGapUrUtils } =
+                    await import('@onekeyhq/qr-wallet-sdk');
+                  const qrcodeDetails = lazyAirGapUrUtils.urToQrcode(valueUr);
+                  console.log(qrcodeDetails);
+                  if (
+                    qrcodeDetails.single?.startsWith(
+                      'ur:onekey-app-call-device/',
+                    )
+                  ) {
+                    const { OneKeyRequestDeviceQR: LazyOneKeyRequestDeviceQR } =
+                      await import('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR');
+                    const data = LazyOneKeyRequestDeviceQR.fromUR(valueUr);
+                    console.log(data);
+                  }
+                })();
               }
             }}
           >
@@ -170,8 +177,12 @@ const SecureQRToastBase = ({
             onPress={() => {
               console.log('SecureQRToastContent', value, valueUr);
               if (valueUr) {
-                const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
-                console.log(qrcodeDetails);
+                void (async () => {
+                  const { airGapUrUtils: lazyAirGapUrUtils2 } =
+                    await import('@onekeyhq/qr-wallet-sdk');
+                  const qrcodeDetails = lazyAirGapUrUtils2.urToQrcode(valueUr);
+                  console.log(qrcodeDetails);
+                })();
               }
             }}
           >

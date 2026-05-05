@@ -12,11 +12,11 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   isDualScreenDevice,
-  isSpanning,
+  isRawSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import {
-  FileLogger,
   LogLevel,
+  NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
@@ -25,40 +25,67 @@ import platformEnv from '../../platformEnv';
 
 import type { IUtilsType } from './types';
 
-const NATIVE_LOG_DIR_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs`;
+const NATIVE_LOG_DIR_PATH = NativeLogger.getLogDirectory();
 const NATIVE_LOG_ZIP_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs_zip`;
-
-void FileLogger.configure({
-  captureConsole: false,
-  dailyRolling: true,
-  formatter: (_, msg: string) => msg,
-  maximumFileSize: 1024 * 1024 * 20,
-  maximumNumberOfFiles: 3,
-  logsDirectory: NATIVE_LOG_DIR_PATH,
-  logLevel: LogLevel.Info,
-});
 
 const consoleFunc = (msg: string) => {
   if (platformEnv.isDev) {
     // eslint-disable-next-line no-console
     console.log(msg);
   }
-  FileLogger.write(LogLevel.Info, msg);
+  // No JS-side dedup/truncation here — handled natively in OneKeyLog
+  // (iOS: OneKeyLog.swift, Android: OneKeyLog.kt — dedup + rate-limit + truncate at 4096 chars)
+  NativeLogger.write(LogLevel.Info, msg);
 };
 
 const getLogFilePath = async (filename: string) => {
   if (!RNFS) {
     throw new OneKeyLocalError('RNFS is not available');
   }
-  const isExist = await RNFS.exists(NATIVE_LOG_ZIP_PATH);
-  if (!isExist) {
-    await RNFS.mkdir(NATIVE_LOG_ZIP_PATH);
+
+  try {
+    const isExist = await RNFS.exists(NATIVE_LOG_ZIP_PATH);
+    if (!isExist) {
+      await RNFS.mkdir(NATIVE_LOG_ZIP_PATH);
+    }
+    const filepath = await zip(
+      NATIVE_LOG_DIR_PATH,
+      `${NATIVE_LOG_ZIP_PATH}/${filename}.zip`,
+    );
+    return platformEnv.isNativeAndroid ? `file://${filepath}` : filepath;
+  } catch (error) {
+    // If zip fails, return the latest log file from NATIVE_LOG_DIR_PATH
+    console.error(
+      'Failed to zip logs, falling back to latest log file:',
+      error,
+    );
+
+    const dirExists = await RNFS.exists(NATIVE_LOG_DIR_PATH);
+    if (!dirExists) {
+      throw new OneKeyLocalError('Log directory does not exist');
+    }
+
+    const files = await RNFS.readDir(NATIVE_LOG_DIR_PATH);
+    if (files.length === 0) {
+      throw new OneKeyLocalError('No log files found');
+    }
+
+    // Sort files by modification time (newest first)
+    const sortedFiles = files
+      .filter((file) => file.isFile())
+      .toSorted((a, b) => {
+        const timeA = new Date(a.mtime || 0).getTime();
+        const timeB = new Date(b.mtime || 0).getTime();
+        return timeB - timeA;
+      });
+
+    if (sortedFiles.length === 0) {
+      throw new OneKeyLocalError('No log files found');
+    }
+
+    const latestFile = sortedFiles[0].path;
+    return platformEnv.isNativeAndroid ? `file://${latestFile}` : latestFile;
   }
-  const filepath = await zip(
-    NATIVE_LOG_DIR_PATH,
-    `${NATIVE_LOG_ZIP_PATH}/${filename}.zip`,
-  );
-  return platformEnv.isNativeAndroid ? `file://${filepath}` : filepath;
 };
 
 const getDeviceInfo = () =>
@@ -68,15 +95,31 @@ const getDeviceInfo = () =>
     `isDevice: ${isDevice ? 1 : 0}`,
     `deviceType: ${deviceType ?? ''}`,
     `isDualScreenDevice: ${isDualScreenDevice() ? 1 : 0}`,
-    `isSpanning: ${isSpanning() ? 1 : 0}`,
+    `isSpanning: ${isRawSpanning() ? 1 : 0}`,
     `arch: ${supportedCpuArchitectures?.join(',') ?? ''}`,
     `Version Hash: ${process.env.COMMITHASH || ''}`,
     `Memory: ${totalMemory ?? 0}`,
     `appPlatform: ${platformEnv.appPlatform ?? ''}`,
     `appChannel: ${platformEnv.appChannel ?? ''}`,
     `buildNumber: ${platformEnv.buildNumber ?? ''}`,
+    `bundleVersion: ${platformEnv.bundleVersion ?? ''}`,
     `version: ${platformEnv.version ?? ''}`,
   ].join(',');
 
-const utils: IUtilsType = { getDeviceInfo, getLogFilePath, consoleFunc };
+/** Flush pending dedup repeat summary in native OneKeyLog before log export. */
+const flushPendingRepeat = () => {
+  // Guard: flushPendingRepeat may not exist in older native-logger versions
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  if (typeof (NativeLogger as any).flushPendingRepeat === 'function') {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    (NativeLogger as any).flushPendingRepeat();
+  }
+};
+
+const utils: IUtilsType = {
+  getDeviceInfo,
+  getLogFilePath,
+  consoleFunc,
+  flushPendingRepeat,
+};
 export default utils;

@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 
-import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
 import { useIntl } from 'react-intl';
 
+import { resetToRoute } from '@onekeyhq/components';
 import type {
   IDBDevice,
   IDBWallet,
@@ -12,7 +12,6 @@ import type {
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type { AirGapUR, IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import {
   OneKeyErrorAirGapDeviceMismatch,
   OneKeyErrorAirGapWalletMismatch,
@@ -23,7 +22,9 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EOnboardingPages,
   EOnboardingPagesV2,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -92,7 +93,16 @@ export function useCreateQrWallet() {
       }
       if (isOnboardingV2 || isOnboarding) {
         if (isOnboardingV2) {
-          navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
+          // Use resetToRoute to atomically replace overlay routes
+          // (including the scan modal) with the target route.
+          // navigation.push() fails on iOS because popScanModalPages
+          // goBack() triggers a window-nil freeze (OK-51748).
+          resetToRoute(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
+            params: {
+              screen: EOnboardingPagesV2.FinalizeWalletSetup,
+            },
+          });
         } else {
           navigation.push(EOnboardingPages.FinalizeWalletSetup);
         }
@@ -117,7 +127,7 @@ export function useCreateQrWallet() {
       const scanResult = await startScan({
         handlers: [EQRCodeHandlerNames.animation],
         qrWalletScene: true,
-        autoHandleResult: false,
+        autoExecuteParsedAction: false,
       });
       const fullURText = scanResult.raw?.trim();
       console.log('startScan:', fullURText);
@@ -133,6 +143,10 @@ export function useCreateQrWallet() {
       const urScanResult =
         scanResult as IQRCodeHandlerParseResult<IAnimationValue>;
       const qrcode = urScanResult?.data?.fullData || urScanResult?.raw || '';
+      const [{ airGapUrUtils }, { InvalidSchemeError }] = await Promise.all([
+        import('@onekeyhq/qr-wallet-sdk'),
+        import('@ngraveio/bc-ur/dist/errors'),
+      ]);
       let ur: AirGapUR | undefined;
       try {
         ur = await airGapUrUtils.qrcodeToUr(qrcode);
@@ -190,8 +204,9 @@ export function useCreateQrWallet() {
             walletId,
             networkId,
             indexedAccountId,
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
             appQrCodeModalTitle: appLocale.intl.formatMessage({
-              // eslint-disable-next-line spellcheck/spell-checker
+              // oxlint-disable-next-line @cspell/spellchecker
               id: ETranslations.scan_to_create_an_address,
             }),
           },

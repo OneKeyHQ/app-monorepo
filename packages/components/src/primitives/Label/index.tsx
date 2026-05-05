@@ -14,6 +14,7 @@ export type ILabelProps = Omit<GetProps<typeof TMLabel>, 'variant'> & {
 export const Label = styled(TMLabel, {
   unstyled: true,
   color: '$text',
+  allowFontScaling: false,
   variants: {
     variant: {
       ':string': (variant, { font }) => {

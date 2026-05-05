@@ -69,25 +69,17 @@ export class CloudSyncFlowManagerAddressBook extends CloudSyncFlowManagerBase<
   }): Promise<boolean> {
     const { payload, item } = params;
 
-    const password =
-      await this.backgroundApi.servicePassword.getCachedPassword();
-    if (!password) {
-      return false;
-    }
-
     const existingAddressBookItem =
       await this.backgroundApi.serviceAddressBook.findItem({
         networkImpl: payload.networkImpl,
         address: payload.addressBookItem.address,
-        password,
       });
 
     if (item.isDeleted) {
-      if (existingAddressBookItem && password) {
+      if (existingAddressBookItem) {
         await this.backgroundApi.serviceAddressBook.removeItemFn(
           existingAddressBookItem,
           {
-            password,
             // avoid infinite loop sync
             skipSaveLocalSyncItem: true,
             skipEventEmit: true,
@@ -95,7 +87,7 @@ export class CloudSyncFlowManagerAddressBook extends CloudSyncFlowManagerBase<
         );
       }
     } else {
-      if (existingAddressBookItem && password) {
+      if (existingAddressBookItem) {
         await this.backgroundApi.serviceAddressBook.updateItemFn(
           {
             ...existingAddressBookItem,
@@ -103,18 +95,16 @@ export class CloudSyncFlowManagerAddressBook extends CloudSyncFlowManagerBase<
             id: existingAddressBookItem.id,
           },
           {
-            password,
             // avoid infinite loop sync
             skipSaveLocalSyncItem: true,
             skipEventEmit: true,
           },
         );
       }
-      if (!existingAddressBookItem && password) {
+      if (!existingAddressBookItem) {
         await this.backgroundApi.serviceAddressBook.addItemFn(
           payload.addressBookItem,
           {
-            password,
             // avoid infinite loop sync
             skipSaveLocalSyncItem: true,
             skipEventEmit: true,
@@ -130,15 +120,9 @@ export class CloudSyncFlowManagerAddressBook extends CloudSyncFlowManagerBase<
     payload: ICloudSyncPayloadAddressBook;
   }): Promise<IAddressItem | undefined> {
     const { payload } = params;
-    const password =
-      await this.backgroundApi.servicePassword.getCachedPassword();
-    if (!password) {
-      return undefined;
-    }
     const item = await this.backgroundApi.serviceAddressBook.findItem({
       networkImpl: payload.networkImpl,
       address: payload.addressBookItem.address,
-      password,
     });
     return cloneDeep(item);
   }

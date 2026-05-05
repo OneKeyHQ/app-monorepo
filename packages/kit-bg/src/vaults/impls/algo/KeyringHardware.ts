@@ -103,7 +103,9 @@ export class KeyringHardware extends KeyringHardwareBase {
           },
         });
 
-        console.log('algo-buildAddressesInfo', addresses);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('algo-buildAddressesInfo', addresses);
+        }
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < addresses.length; i += 1) {

@@ -5,7 +5,6 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
-  Divider,
   Form,
   Input,
   Popover,
@@ -17,10 +16,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { UseFormReturn } from '@onekeyhq/components';
-import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isTaprootAddress } from '@onekeyhq/shared/src/utils/btcUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -65,7 +64,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           if (validation.isValid) {
             return checkNetworkId;
           }
-        } catch (error) {
+        } catch (_error) {
           // eslint-disable-next-line no-continue
           continue;
         }

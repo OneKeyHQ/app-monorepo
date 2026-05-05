@@ -105,8 +105,13 @@ export function useSearchPopover({
     }, 200);
   }, [setIsPopoverOpen]);
 
+  // Debounce refreshLocalData to prevent excessive re-renders of SearchPopover animation
+  // which can cause stack overflow on iOS Hermes engine when scale animation triggers rapidly
   useEffect(() => {
-    void refreshLocalData?.();
+    const timer = setTimeout(() => {
+      void refreshLocalData?.();
+    }, 50);
+    return () => clearTimeout(timer);
   }, [refreshLocalData, isPopoverOpen]);
 
   const handleSearchBarPress = useCallback(() => {

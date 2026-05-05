@@ -227,7 +227,7 @@ export default function NFTDetails() {
             owner: accountAddress,
           },
         });
-      } catch (e) {
+      } catch (_e) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.update_download_failed,

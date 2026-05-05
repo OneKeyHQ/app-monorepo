@@ -22,13 +22,14 @@ const parseLightingAddress = (emailAddress: string) => {
     // remove invisible characters %EF%B8%8F
     name = name.replace(/[^ -~]+/g, '');
     host = host.replace(/[^ -~]+/g, '');
-    // eslint-disable-next-line spellcheck/spell-checker
+
+    // oxlint-disable-next-line @cspell/spellchecker
     return `https://${host}/.well-known/lnurlp/${name}`;
   }
   return null;
 };
 
-const parseLnurl = (lnurl: string) => {
+const _parseLnurl = (lnurl: string) => {
   try {
     const decodedUrl = bech32Decode(lnurl);
     return new URL(decodedUrl);
@@ -72,3 +73,8 @@ export const findLnurl = memoizee(
     maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
   },
 );
+
+export const isReusableLightningRecipient = (input?: string): boolean => {
+  if (!input) return false;
+  return isLightningAddress(input) || !!findLnurl(input);
+};

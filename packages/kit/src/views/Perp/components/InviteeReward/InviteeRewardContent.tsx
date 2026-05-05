@@ -2,18 +2,20 @@ import { useIntl } from 'react-intl';
 
 import type { useInTabDialog } from '@onekeyhq/components';
 import {
-  Alert,
+  Button,
   Divider,
+  Empty,
   ScrollView,
   SizableText,
-  Toast,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
@@ -23,6 +25,37 @@ import { RewardSummaryCard } from './components/RewardSummaryCard';
 interface IInviteeRewardContentProps {
   walletAddress: string;
   isMobile?: boolean;
+}
+
+function NoWalletEmptyState() {
+  const intl = useIntl();
+  const toOnBoardingPage = useToOnBoardingPage();
+
+  return (
+    <YStack flex={1} jc="center" ai="center" py="$10">
+      <Empty
+        icon="WalletOutline"
+        title={intl.formatMessage({
+          id: ETranslations.referral_apply_code_no_wallet,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.referral_apply_code_no_wallet_desc,
+        })}
+      />
+      <Button
+        mt="$5"
+        onPress={() => {
+          void toOnBoardingPage();
+        }}
+      >
+        {intl.formatMessage({
+          id: platformEnv.isWebDappMode
+            ? ETranslations.global_connect_wallet
+            : ETranslations.global_create_wallet,
+        })}
+      </Button>
+    </YStack>
+  );
 }
 
 export function InviteeRewardContent({
@@ -43,6 +76,10 @@ export function InviteeRewardContent({
     [walletAddress],
     { watchLoading: true },
   );
+
+  if (!walletAddress) {
+    return <NoWalletEmptyState />;
+  }
 
   const content = (
     <YStack gap="$5">
@@ -90,17 +127,10 @@ export async function showInviteeRewardDialog(
 ) {
   const selectedAccount = await perpsActiveAccountAtom.get();
 
-  const walletAddress = selectedAccount.accountAddress;
-
-  if (!walletAddress) {
-    console.error('[InviteeRewardModal] Missing required parameters');
-    Toast.error({
-      title: 'Please select a valid account first',
-    });
-    return;
-  }
+  const walletAddress = selectedAccount?.accountAddress ?? '';
 
   const dialogInTabRef = dialogInTab.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.perps_trade_reward,
     }),

@@ -7,10 +7,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionAmount } from '../../components/TransactionAmount';
+import { TransactionRelativeTime } from '../../components/TransactionRelativeTime';
 import { useTransactionItemData } from '../../hooks/useTransactionItemData';
 
 import { useTransactionsLayoutSmall } from './useTransactionsLayoutSmall';
@@ -21,7 +21,6 @@ interface ITransactionItemSmallProps {
 
 function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
   const { styles } = useTransactionsLayoutSmall();
-  const [settingsPersistAtom] = useSettingsPersistAtom();
   const {
     baseToken,
     quoteToken,
@@ -31,7 +30,6 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
     typeText,
     price,
     value,
-    formattedTime,
   } = useTransactionItemData({ item });
 
   return (
@@ -50,9 +48,11 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
             {typeText}
           </SizableText>
 
-          <SizableText size="$bodySm" color="$textSubdued">
-            {formattedTime}
-          </SizableText>
+          <TransactionRelativeTime
+            timestamp={item.timestamp}
+            size="$bodySm"
+            color="$textSubdued"
+          />
         </YStack>
       </XStack>
 
@@ -73,7 +73,7 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
           autoFormatter="price-marketCap"
           formatterOptions={{
             capAtMaxT: true,
-            currency: settingsPersistAtom.currencyInfo.symbol,
+            currency: '$',
           }}
         >
           {value}
@@ -86,7 +86,7 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
           autoFormatter="price-marketCap"
           formatterOptions={{
             capAtMaxT: true,
-            currency: settingsPersistAtom.currencyInfo.symbol,
+            currency: '$',
           }}
         >
           {price}

@@ -148,7 +148,7 @@ function BaseSectionList<T>(
           ? reloadSectionHeaderIndex(index)
           : null,
       )
-      .filter((index) => index != null);
+      .filter((index) => index !== null && index !== undefined);
   }, [reloadSectionHeaderIndex, stickySectionHeadersEnabled, reloadSections]);
 
   const ref = useRef<IListViewRef<T>>(null);
@@ -172,6 +172,7 @@ function BaseSectionList<T>(
         viewPosition,
       });
     },
+    // oxlint-disable-next-line no-misused-spread
     ...ref.current,
   }));
   const renderSectionAndItem = useCallback(

@@ -3,11 +3,16 @@ import type { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
 
 export type IAddressPluginProps = {
-  onChange?: (text: string) => void;
+  onChange?: ({
+    text,
+    inputType,
+  }: {
+    text: string;
+    inputType: EInputAddressChangeType;
+  }) => void;
   onActiveAccountChange?: (
     activeAccount: IAccountSelectorActiveAccountInfo,
   ) => void;
-  onInputTypeChange?: (type: EInputAddressChangeType) => void;
   onExtraDataChange?: ({
     memo,
     note,

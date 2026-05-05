@@ -40,7 +40,7 @@ function TokenDetailsTabToolbar(props: IProps) {
   const [settings] = useSettingsPersistAtom();
 
   const sortedTokensByFiatValue = useMemo(() => {
-    let sortedTokens = tokens?.sort((a, b) => {
+    let sortedTokens = tokens?.toSorted((a, b) => {
       const aKey = `${
         a.accountId ||
         tokenAccountMap[`${a.networkId || ''}_${a.address}`] ||

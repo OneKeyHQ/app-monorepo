@@ -8,7 +8,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -68,6 +67,7 @@ function EditItemPage() {
           }),
         });
         appEventBus.emit(EAppEventBusNames.AddressBookUpdate, undefined);
+        addressBookParams?.onSaveSuccess?.();
         navigation.pop();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
@@ -75,7 +75,7 @@ function EditItemPage() {
         setIsSubmitLoading(false);
       }
     },
-    [intl, navigation],
+    [addressBookParams, intl, navigation],
   );
 
   const onRemove = useCallback(
@@ -123,15 +123,9 @@ function EditItemPage() {
       if (isCreateMode) {
         return { ...defaultValues, ...addressBookParams };
       }
-      const { password } =
-        await backgroundApiProxy.servicePassword.promptPasswordVerify();
-      if (!password) {
-        throw new OneKeyLocalError('No password');
-      }
       const addressBookItem =
         await backgroundApiProxy.serviceAddressBook.findItemById({
           id: addressBookParams.id,
-          password,
         });
       return {
         ...addressBookItem,
@@ -158,7 +152,7 @@ function EditItemPage() {
           ? ETranslations.address_book_add_address_title
           : ETranslations.address_book_edit_address_title,
       })}
-      disabledAddressEdit={!isCreateMode}
+      lockRoutingFields={!isCreateMode}
       item={item}
       onSubmit={onSubmit}
       onRemove={isCreateMode ? undefined : onRemove}

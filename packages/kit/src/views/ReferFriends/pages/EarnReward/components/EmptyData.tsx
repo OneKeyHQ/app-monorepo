@@ -8,7 +8,7 @@ export function EmptyData() {
   return (
     <Empty
       mt="$5"
-      icon="GiftOutline"
+      illustration="ShakeHands"
       title={intl.formatMessage({
         id: ETranslations.referral_referred_empty,
       })}

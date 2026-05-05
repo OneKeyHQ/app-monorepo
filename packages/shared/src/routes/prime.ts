@@ -1,6 +1,6 @@
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 import type { EOnboardingV2KeylessWalletCreationMode } from './onboardingv2';
 import type {
   IE2EESocketUserInfo,
@@ -24,16 +24,21 @@ export enum EPrimePages {
   PrimeTransferPreview = 'PrimeTransferPreview',
   OneKeyId = 'OneKeyId',
   KeylessWallet = 'KeylessWallet',
+  PrimeMyOrders = 'PrimeMyOrders',
 }
 
 export enum EPrimeFeatures {
   OneKeyCloud = 'OneKeyCloud',
   BulkCopyAddresses = 'BulkCopyAddresses',
+  BulkSend = 'BulkSend',
   BulkRevoke = 'BulkRevoke',
   DeviceManagement = 'DeviceManagement',
   CloudTransfer = 'CloudTransfer',
   Notifications = 'Notifications',
   HistoryExport = 'HistoryExport',
+  DAppTranslate = 'DAppTranslate',
+  BlockaidSiteScan = 'BlockaidSiteScan',
+  ExtendedHistory = 'ExtendedHistory',
 }
 
 export type IPrimeParamList = {
@@ -71,4 +76,5 @@ export type IPrimeParamList = {
   [EPrimePages.KeylessWallet]: {
     mode?: EOnboardingV2KeylessWalletCreationMode;
   };
+  [EPrimePages.PrimeMyOrders]: undefined;
 };

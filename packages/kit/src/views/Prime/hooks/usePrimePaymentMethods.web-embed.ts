@@ -1,8 +1,10 @@
+/* oxlint-disable import-js/order */
 import { useCallback, useMemo } from 'react';
 
 // load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
+
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
 import { useSearchParams } from 'react-router-dom';
@@ -34,19 +36,23 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const params = useMemo(() => {
     const apiKey = searchParams.get('apiKey') || '';
+    const isSandboxKey = searchParams.get('isSandboxKey') === '1';
     const primeUserId = searchParams.get('primeUserId') || '';
     const primeUserEmail = searchParams.get('primeUserEmail') || '';
     const subscriptionPeriod = (searchParams.get('subscriptionPeriod') ||
       '') as ISubscriptionPeriod;
     const locale = searchParams.get('locale') || 'en';
     const mode = (searchParams.get('mode') || 'prod') as 'dev' | 'prod';
+    const currency = searchParams.get('currency') || undefined;
     const featureName = searchParams.get('featureName') || '';
     return {
       apiKey,
+      isSandboxKey,
       primeUserId,
       primeUserEmail,
       subscriptionPeriod,
       locale,
+      currency,
       mode,
       featureName,
     };
@@ -104,21 +110,22 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       throw new OneKeyLocalError('PrimeAuth Not ready');
     }
 
-    const offerings = await Purchases.getSharedInstance().getOfferings({
-      currency: 'USD',
-    });
+    const { offerings, targetOffering } =
+      await primePaymentUtils.fetchWebTargetOffering({
+        purchases: Purchases.getSharedInstance(),
+        isSandboxKey: params.isSandboxKey,
+        currency: params.currency,
+      });
 
     const packages: IPackage[] =
-      offerings?.current?.availablePackages?.map((p) => {
-        const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
+      targetOffering?.availablePackages?.map((p) => {
+        const {
+          normalPeriodDuration,
+          currentPrice,
+          defaultSubscriptionOption,
+        } = p.rcBillingProduct;
 
-        let currency = '';
-        currency = primePaymentUtils.extractCurrencySymbol(
-          currentPrice.formattedPrice,
-          {
-            useShortUSSymbol: true,
-          },
-        );
+        const currencyCode = currentPrice.currency || '';
 
         const pricePerMonthBN =
           normalPeriodDuration === 'P1M'
@@ -130,11 +137,15 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
+          currencyCode,
           pricePerYear: Number(pricePerYear),
-          pricePerYearString: `${currency}${pricePerYear}`,
+          pricePerYearString: `${pricePerYear} ${currencyCode}`,
           pricePerMonth: Number(pricePerMonth),
-          pricePerMonthString: `${currency}${pricePerMonth}`,
-          priceTotalPerYearString: `${currency}${pricePerYear}`,
+          pricePerMonthString: `${pricePerMonth} ${currencyCode}`,
+          priceTotalPerYearString: `${pricePerYear} ${currencyCode}`,
+          freeTrial: primePaymentUtils.extractWebFreeTrial(
+            defaultSubscriptionOption?.trial,
+          ),
         };
       }) || [];
 
@@ -144,24 +155,27 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     });
 
     return packages;
-  }, [initSdk, isReady]);
+  }, [initSdk, isReady, params.currency, params.isSandboxKey]);
 
   const purchasePackageWeb = useCallback(
     async ({
       subscriptionPeriod,
       email,
       locale,
+      currency,
       featureName,
     }: {
       subscriptionPeriod: string;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
+      currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
       console.log('purchasePackageWeb77632723>>>>>>', {
         subscriptionPeriod,
         email,
         locale,
+        currency,
         featureName,
       });
 
@@ -185,20 +199,23 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           'purchasePackageWeb77632723>>>>>> getOfferings',
           typeof Purchases.getSharedInstance().getOfferings,
         );
-        const offerings = await Purchases.getSharedInstance().getOfferings({
-          currency: 'USD',
-        });
+        const { offerings, targetOffering } =
+          await primePaymentUtils.fetchWebTargetOffering({
+            purchases: Purchases.getSharedInstance(),
+            isSandboxKey: params.isSandboxKey,
+            currency,
+          });
         console.log('purchasePackageWeb77632723>>>>>> offerings', {
           offerings,
         });
 
-        if (!offerings.current) {
+        if (!targetOffering) {
           throw new OneKeyLocalError(
             'purchasePaywallPackage ERROR: No offerings',
           );
         }
 
-        const paywallPackage = offerings.current.availablePackages.find(
+        const paywallPackage = targetOffering.availablePackages.find(
           (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
         );
 
@@ -221,9 +238,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         };
         // TODO check package user is Matched to id
         // TODO check if user has already purchased
-        const purchase = await Purchases.getSharedInstance().purchase(
-          purchaseParams,
-        );
+        const purchase =
+          await Purchases.getSharedInstance().purchase(purchaseParams);
 
         primePaymentUtils.trackPrimeSubscriptionSuccess({
           paywallPackage,
@@ -246,7 +262,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         // void backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [initSdk, isReady],
+    [initSdk, isReady, params.isSandboxKey],
   );
 
   return {

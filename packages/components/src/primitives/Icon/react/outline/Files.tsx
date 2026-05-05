@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFiles = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M17 18v1a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h1m7-3h-5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8m-5-5 5 5m-5-5v3a2 2 0 0 0 2 2h3"
+      fillRule="evenodd"
+      d="M21 7.586V19h-3v3H4V5h3V2h8.414zM6 20h10v-1H7V7H6zm3-3h10V9h-5V4H9zm7-10h1.586L16 5.414z"
+      clipRule="evenodd"
     />
   </Svg>
 );

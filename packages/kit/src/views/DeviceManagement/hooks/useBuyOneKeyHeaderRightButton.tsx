@@ -5,13 +5,9 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { EModalDeviceManagementRoutes } from '@onekeyhq/shared/src/routes/deviceManagement';
 
-export function useBuyOneKeyHeaderRightButton(
-  params?:
-    | {
-        inDeviceManagementStack?: boolean;
-      }
-    | undefined,
-) {
+export function useBuyOneKeyHeaderRightButton(params?: {
+  inDeviceManagementStack?: boolean;
+}) {
   const navigation = useAppNavigation();
 
   const toOneKeyHardwareWalletPage = useCallback(() => {

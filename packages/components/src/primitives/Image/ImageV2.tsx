@@ -20,6 +20,11 @@ import type {
   ImageStyle,
 } from 'expo-image';
 
+const fullSizeStyle = {
+  width: '100%' as const,
+  height: '100%' as const,
+};
+
 export function ImageV2({
   style: defaultStyle,
   animated,
@@ -119,10 +124,7 @@ export function ImageV2({
     return (
       <ImageComponent
         source={resolvedSource}
-        style={{
-          width: '100%',
-          height: '100%',
-        }}
+        style={fullSizeStyle}
         onError={handleError}
         onLoad={handleLoad}
         onLoadEnd={handleLoadEnd}
@@ -144,16 +146,19 @@ export function ImageV2({
     resolvedSource,
   ]);
 
+  const containerStyle = useMemo(
+    () => ({
+      overflow: 'hidden' as const,
+      display: 'flex' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      ...style,
+    }),
+    [style],
+  );
+
   return (
-    <YStack
-      style={{
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...style,
-      }}
-    >
+    <YStack style={containerStyle}>
       {content}
 
       {isLoading ? (

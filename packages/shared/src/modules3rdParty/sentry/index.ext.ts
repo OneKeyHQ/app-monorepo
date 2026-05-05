@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import type { ComponentType } from 'react';
 
 import * as Sentry from '@sentry/react';
@@ -29,6 +28,7 @@ export const initSentry = () => {
   });
 };
 
+// oxlint-disable-next-line import/export -- re-export from third-party module
 export * from '@sentry/react';
 
 export * from './basicOptions';

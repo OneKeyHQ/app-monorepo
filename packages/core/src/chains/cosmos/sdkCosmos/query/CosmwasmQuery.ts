@@ -48,9 +48,9 @@ export class CosmwasmQuery implements IQuery {
     );
 
     return axios
-      .get<{ data: unknown }>(
-        `/cosmwasm/wasm/v1/contract/${contractAddress}/smart/${queryBase64}`,
-      )
+      .get<{
+        data: unknown;
+      }>(`/cosmwasm/wasm/v1/contract/${contractAddress}/smart/${queryBase64}`)
       .then((i) => i.data.data);
   }
 
@@ -91,7 +91,7 @@ export class CosmwasmQuery implements IQuery {
           let balance: BigNumber;
           try {
             balance = new BigNumber(get(result, 'balance', '0'));
-          } catch (error) {
+          } catch (_error) {
             balance = new BigNumber(0);
           }
           return {

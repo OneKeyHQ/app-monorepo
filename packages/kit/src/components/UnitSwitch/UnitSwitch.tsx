@@ -16,14 +16,7 @@ function UnitSwitch(props: ISegmentControlProps) {
     [onChange, selectedValue],
   );
   return (
-    <SegmentControl
-      segmentControlItemStyleProps={{
-        px: 5,
-        py: 2.5,
-      }}
-      {...props}
-      onChange={handleChange}
-    />
+    <SegmentControl {...props} value={selectedValue} onChange={handleChange} />
   );
 }
 

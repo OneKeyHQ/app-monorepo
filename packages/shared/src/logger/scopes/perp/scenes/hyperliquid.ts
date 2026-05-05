@@ -3,6 +3,7 @@ import type {
   IApiRequestError,
   IApiRequestResult,
   ICancelResponse,
+  IModifyResponse,
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
@@ -18,19 +19,31 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToServer } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export interface IHyperLiquidAccountContext {
   accountAddress: string | null;
   exchangeAccountAddress: string | null;
 }
 
-export interface IHyperLiquidLogParams<TRequest, TResponse>
-  extends IHyperLiquidAccountContext {
+export interface IHyperLiquidLogParams<
+  TRequest,
+  TResponse,
+> extends IHyperLiquidAccountContext {
   request: TRequest;
   response?: TResponse;
   error?: Record<string, unknown>;
   extra?: Record<string, unknown>;
+  isFirstTime?: boolean;
+}
+
+function stripSensitiveFields<TRequest, TResponse>(
+  params: IHyperLiquidLogParams<TRequest, TResponse>,
+) {
+  const { accountAddress, exchangeAccountAddress, ...rest } = params;
+  void accountAddress;
+  void exchangeAccountAddress;
+  return rest;
 }
 
 export interface IHyperLiquidOrderRequestPayload {
@@ -50,7 +63,7 @@ export class HyperLiquidScene extends BaseScene {
       IApiRequestResult | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -60,7 +73,7 @@ export class HyperLiquidScene extends BaseScene {
       { success: true } | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -70,7 +83,7 @@ export class HyperLiquidScene extends BaseScene {
       ISuccessResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -80,7 +93,7 @@ export class HyperLiquidScene extends BaseScene {
       IApiRequestResult | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -90,7 +103,7 @@ export class HyperLiquidScene extends BaseScene {
       IApiRequestResult | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -100,7 +113,7 @@ export class HyperLiquidScene extends BaseScene {
       IApiRequestResult | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -110,7 +123,7 @@ export class HyperLiquidScene extends BaseScene {
       IOrderResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -120,7 +133,17 @@ export class HyperLiquidScene extends BaseScene {
       IOrderResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public perpTermsAgree() {
+    return {};
+  }
+
+  @LogToServer()
+  public perpTermsReject() {
+    return {};
   }
 
   @LogToServer()
@@ -130,7 +153,7 @@ export class HyperLiquidScene extends BaseScene {
       IOrderResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -140,11 +163,21 @@ export class HyperLiquidScene extends BaseScene {
       IOrderResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
   public setPositionTpsl(
+    params: IHyperLiquidLogParams<
+      IHyperLiquidOrderRequestPayload,
+      IOrderResponse | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public orderTrigger(
     params: IHyperLiquidLogParams<
       IHyperLiquidOrderRequestPayload,
       IOrderResponse | IApiErrorResponse
@@ -160,7 +193,17 @@ export class HyperLiquidScene extends BaseScene {
       ICancelResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public modifyOrder(
+    params: IHyperLiquidLogParams<
+      { oid: number; order: IOrderParams },
+      IModifyResponse | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -170,13 +213,79 @@ export class HyperLiquidScene extends BaseScene {
       { success: true } | IApiErrorResponse
     >,
   ) {
+    return stripSensitiveFields(params);
+  }
+
+  // ============ Referral Binding Flow Logs ============
+
+  /**
+   * Log referral promotion checkbox user interaction
+   */
+  @LogToServer()
+  @LogToLocal()
+  public referralCheckboxInteraction(params: {
+    userAddress: string;
+    isChecked: boolean;
+    action: 'shown' | 'checked' | 'unchecked';
+  }) {
+    const { userAddress, ...rest } = params;
+    void userAddress;
+    return rest;
+  }
+
+  /**
+   * Log referral binding flow step
+   */
+  @LogToLocal()
+  public referralBindingStep(params: {
+    step:
+      | 'start'
+      | 'build_typed_data'
+      | 'sign_message'
+      | 'submit_request'
+      | 'complete'
+      | 'error';
+    userAddress: string;
+    message?: string;
+    error?: string;
+  }) {
+    return params;
+  }
+
+  /**
+   * Log referral binding result to server
+   */
+  @LogToServer()
+  public referralBindingResult(params: {
+    userAddress: string;
+    success: boolean;
+    referralCode: string;
+    errorMessage?: string;
+  }) {
+    const { userAddress, ...rest } = params;
+    void userAddress;
+    return rest;
+  }
+
+  /**
+   * Log referral promotion condition check
+   */
+  @LogToLocal({ level: 'info' })
+  public referralConditionCheck(params: {
+    userAddress: string;
+    condition: string;
+    passed: boolean;
+    reason?: string;
+  }) {
     return params;
   }
 }
 
 export type IHyperLiquidOrderAction =
   | 'placeOrder'
+  | 'placeSpotOrder'
   | 'orderOpen'
+  | 'orderTrigger'
   | 'ordersClose'
   | 'multiOrder'
   | 'setPositionTpsl';
@@ -206,6 +315,9 @@ export function dispatchHyperLiquidOrderLog({
       break;
     case 'setPositionTpsl':
       scene.setPositionTpsl(payload);
+      break;
+    case 'orderTrigger':
+      scene.orderTrigger(payload);
       break;
     case 'placeOrder':
     default:

@@ -51,6 +51,9 @@ function fixAxiosAbortCancelError(error: unknown) {
 }
 
 let lastToastErrorInstance: IOneKeyError | undefined;
+let lastToastErrorCode: number | string | undefined;
+let lastToastTimestamp = 0;
+const TOAST_DEDUPLICATE_WINDOW_MS = 5000;
 function showToastOfError(error: IOneKeyError | unknown | undefined) {
   fixAxiosAbortCancelError(error);
   const err = error as IOneKeyError | undefined;
@@ -60,6 +63,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       // ignore auto toast errors
       EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
       EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+      EOneKeyErrorClassNames.OAuthLoginCancelError,
       EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
       EOneKeyErrorClassNames.PasswordPromptDialogCancel,
       EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
@@ -72,6 +76,8 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       // use Dialog instead of Toast, check GlobalErrorHandlerContainer
       EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
       EOneKeyErrorClassNames.DeviceNotFound,
+      // IncorrectPinError is handled inline in VerifyPinPage
+      EOneKeyErrorClassNames.IncorrectPinError,
     ].includes(err?.className)
   ) {
     return;
@@ -89,16 +95,25 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   }
   const isTriggered = err?.$$autoToastErrorTriggered;
   const isSameError = lastToastErrorInstance === err;
+  // Deduplicate by errorCode within a time window — collapse parallel requests
+  // hitting the same error, but allow legitimate recurring errors after the window expires
+  const isSameErrorCode =
+    err?.code !== undefined &&
+    err?.code === lastToastErrorCode &&
+    Date.now() - lastToastTimestamp < TOAST_DEDUPLICATE_WINDOW_MS;
   // TODO log error to file if developer mode on
   if (
     err &&
     err?.autoToast &&
     !isTriggered &&
     !isSameError &&
+    !isSameErrorCode &&
     !shouldMuteToast
   ) {
     err.$$autoToastErrorTriggered = true;
     lastToastErrorInstance = err;
+    lastToastErrorCode = err?.code;
+    lastToastTimestamp = Date.now();
     void (async () => {
       const diagnosticText = await buildDiagnosticText(err);
 
@@ -124,7 +139,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       appEventBus.emit(EAppEventBusNames.ShowToast, {
         errorCode: err?.code,
         httpStatusCode,
-        method: 'error',
+        method: 'error' as const,
         title: err?.message ?? 'Error',
         requestId: err?.requestId,
         diagnosticText,
@@ -143,7 +158,10 @@ function toastIfError(error: unknown) {
 
     if (e) {
       // handle autoToast error by BackgroundApiProxyBase
-      e.autoToast = true;
+      // Respect explicit autoToast set by error creator (e.g. 5xx interceptor)
+      if (typeof e.autoToast !== 'boolean') {
+        e.autoToast = true;
+      }
     }
   }
 }

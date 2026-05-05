@@ -1,11 +1,8 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 
 import { CommunityRecognizedBadge } from '../../../Market/components/CommunityRecognizedBadge';
@@ -28,6 +25,7 @@ const SwapProSearchTokenListItem = ({
 }: ISwapProSearchTokenListItemProps) => {
   const {
     logoUrl,
+    logoUrls,
     network,
     symbol,
     name,
@@ -45,7 +43,12 @@ const SwapProSearchTokenListItem = ({
         onPress(item);
       }}
       renderAvatar={
-        <MarketTokenIcon uri={logoUrl} size="lg" networkId={network} />
+        <MarketTokenIcon
+          uri={logoUrl}
+          uris={logoUrls}
+          size="lg"
+          networkId={network}
+        />
       }
     >
       <ListItem.Text

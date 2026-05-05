@@ -44,7 +44,7 @@ const ScanQRCodeGallery = () => {
   const [map] = useAllTokenListMapAtom();
   const openScanQrCodeModal = useCallback(
     async (values: {
-      autoHandleResult: boolean;
+      autoExecuteParsedAction: boolean;
       qrWalletScene?: boolean;
       showProTutorial?: boolean;
     }) => {
@@ -60,7 +60,7 @@ const ScanQRCodeGallery = () => {
           },
         });
         console.log(result);
-      } catch (e) {
+      } catch (_e) {
         console.log('用户取消扫描');
       }
     },
@@ -75,7 +75,9 @@ const ScanQRCodeGallery = () => {
           title: '命令式弹出 Modal(自动处理)',
           element: (
             <Button
-              onPress={() => openScanQrCodeModal({ autoHandleResult: true })}
+              onPress={() =>
+                openScanQrCodeModal({ autoExecuteParsedAction: true })
+              }
             >
               打开
             </Button>
@@ -88,7 +90,7 @@ const ScanQRCodeGallery = () => {
             <Button
               onPress={() =>
                 openScanQrCodeModal({
-                  autoHandleResult: false,
+                  autoExecuteParsedAction: false,
                   qrWalletScene: true,
                   showProTutorial: false,
                 })
@@ -105,7 +107,7 @@ const ScanQRCodeGallery = () => {
             <Button
               onPress={() =>
                 openScanQrCodeModal({
-                  autoHandleResult: false,
+                  autoExecuteParsedAction: false,
                   qrWalletScene: true,
                   showProTutorial: true,
                 })

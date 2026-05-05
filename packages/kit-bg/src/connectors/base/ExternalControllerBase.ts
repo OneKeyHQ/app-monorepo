@@ -1,6 +1,7 @@
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 import type { IWalletConnectChainInfo } from '@onekeyhq/shared/src/walletConnect/types';
 import type {
+  IConnectToWalletOptions,
   IExternalConnectWalletResult,
   IExternalConnectionInfo,
   IExternalConnector,
@@ -96,8 +97,10 @@ export abstract class ExternalControllerBase {
 
   abstract connectWallet({
     connector,
+    connectToWalletOptions,
   }: {
     connector: IExternalConnector;
+    connectToWalletOptions?: IConnectToWalletOptions;
   }): Promise<IExternalConnectWalletResult>;
 
   abstract addEventListeners({

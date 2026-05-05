@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgIceCream2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M11 1a6 6 0 0 0-6 6v8a3 3 0 0 0 3 3h1v2a3 3 0 1 0 6 0v-2h1a3 3 0 0 0 3-3V7a6 6 0 0 0-6-6zM7.002 13.095 7 13.097V15a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-3.492c-.416.267-.889.526-1.352.684l-.144.046c-1.275.377-2.329.098-3.173-.222q-.18-.07-.349-.139l-.2-.082c-.731-.3-1.227-.503-1.764-.495a2 2 0 0 0-.234.016c-.423.054-.931.27-1.461.625a7.2 7.2 0 0 0-1.321 1.154M13 18h-2v2a1 1 0 1 0 2 0z"
+      d="M15 1a4 4 0 0 1 4 4v13h-4v2a3 3 0 1 1-6 0v-2H5V5a4 4 0 0 1 4-4zm-4 19a1 1 0 1 0 2 0v-2h-2zm-1.216-8.684c-.451.058-1 .3-1.568.698A7.2 7.2 0 0 0 7 13.097V16h10v-4.492c-.46.294-.988.58-1.496.73-1.456.43-2.625.006-3.522-.36l-.2-.083c-.835-.343-1.364-.56-1.998-.479"
       clipRule="evenodd"
     />
   </Svg>

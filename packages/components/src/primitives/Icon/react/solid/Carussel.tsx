@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCarussel = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M6.17 5A3 3 0 0 1 9 3h6c1.306 0 2.418.835 2.83 2H19a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-1.17A3 3 0 0 1 15 21H9a3 3 0 0 1-2.83-2H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM6 7H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h1zm12 10h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-1z"
+      d="M18 5h4v14h-4v2H6v-2H2V5h4V3h12zM4 17h2V7H4zm14 0h2V7h-2z"
       clipRule="evenodd"
     />
   </Svg>

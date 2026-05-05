@@ -30,8 +30,7 @@ export class IndexedDBStoreIndexPromised<
     StoreName
   >,
   Mode extends IDBTransactionMode = 'readonly',
-> implements IDBPIndex<DBTypes, TxStores, StoreName, IndexName, Mode>
-{
+> implements IDBPIndex<DBTypes, TxStores, StoreName, IndexName, Mode> {
   index: IDBIndex;
 
   objectStore: IndexedDBObjectStorePromised<DBTypes, TxStores, StoreName, Mode>;

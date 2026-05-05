@@ -1,3 +1,5 @@
+import type { IMarketStockInfo } from './marketV2';
+
 export interface IMarketCategory {
   categoryId: string;
   coingeckoIds: string[];
@@ -244,6 +246,8 @@ export interface IMarketWatchListItemV2 {
   contractAddress: string;
   sortIndex?: number;
   isNative?: boolean;
+  // Perps watchlist: coin name (e.g. "BTC", "ETH"). When set, chainId/contractAddress are empty.
+  perpsCoin?: string;
 }
 
 export interface IMarketWatchListDataV2 {
@@ -257,9 +261,14 @@ export interface IMarketSearchV2Token {
   address: string;
   network: string;
   logoUrl: string;
+  logoUrls?: string[];
   isNative: boolean;
   decimals: number;
   liquidity: string;
   volume_24h: string;
+  volume24h?: string;
+  marketCap?: string;
+  priceChange24hPercent?: string;
   communityRecognized?: boolean;
+  stock?: IMarketStockInfo;
 }

@@ -1,15 +1,24 @@
+import { BigNumber } from 'bignumber.js';
+import { selectAtom } from 'jotai/utils';
+
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import {
   computeMaxTradeSize,
+  getTriggerEffectivePrice,
   resolveTradingSizeBN,
   sanitizeManualSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IConnectionState,
   IPerpOrderBookTickOptionPersist,
 } from '@onekeyhq/shared/types/hyperliquid/types';
-import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EPerpsSizeInputMode,
+  ETriggerOrderType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 const {
   Provider: ProviderJotaiContextHyperliquid,
@@ -51,8 +60,17 @@ export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
     assetCtxsByDex: [],
   });
 
+export const {
+  atom: perpsTokenSearchAliasesAtom,
+  use: usePerpsTokenSearchAliasesAtom,
+} = contextAtom<ITokenSearchAliases | undefined>(undefined);
+
 export const { atom: l2BookAtom, use: useL2BookAtom } =
   contextAtom<HL.IBook | null>(null);
+
+export const { atom: bboAtom, use: useBboAtom } = contextAtom<HL.IWsBbo | null>(
+  null,
+);
 
 // TODO remove
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
@@ -70,6 +88,54 @@ export const {
 export const { atom: subscriptionActiveAtom, use: useSubscriptionActiveAtom } =
   contextAtom<boolean>(false);
 
+export type IActiveTradeInstrument =
+  | {
+      mode: 'perp';
+      coin: string;
+      assetId: number | undefined;
+      universe: HL.IPerpsUniverse | undefined;
+    }
+  | {
+      mode: 'spot';
+      coin: string;
+      assetId: number | undefined;
+      universe: HL.ISpotUniverse | undefined;
+    };
+
+export const {
+  atom: activeTradeInstrumentAtom,
+  use: useActiveTradeInstrumentAtom,
+} = contextAtom<IActiveTradeInstrument>({
+  mode: 'perp',
+  coin: '',
+  assetId: undefined,
+  universe: undefined,
+});
+
+export interface ITradeRouteViewState {
+  routeFocused: boolean;
+  tokenSelectorOpen: boolean;
+  tokenSelectorTab: string;
+  infoPanelTab: string;
+  favoritesBarSpotActive: boolean;
+}
+
+export const {
+  atom: tradeRouteViewStateAtom,
+  use: useTradeRouteViewStateAtom,
+} = contextAtom<ITradeRouteViewState>({
+  routeFocused: false,
+  tokenSelectorOpen: false,
+  tokenSelectorTab: 'all',
+  infoPanelTab: 'Positions',
+  favoritesBarSpotActive: false,
+});
+
+export type IBBOPriceMode =
+  | null
+  | { type: 'counterparty'; level: number }
+  | { type: 'queue'; level: number };
+
 export interface ITradingFormData {
   side: 'long' | 'short';
   type: 'market' | 'limit';
@@ -78,6 +144,9 @@ export interface ITradingFormData {
   sizeInputMode: EPerpsSizeInputMode;
   sizePercent: number;
   leverage?: number;
+
+  // BBO limit price mode
+  bboPriceMode?: IBBOPriceMode;
 
   // Take Profit / Stop Loss
   hasTpsl: boolean;
@@ -91,6 +160,13 @@ export interface ITradingFormData {
   tpValue?: string;
   slType?: 'price' | 'percentage';
   slValue?: string;
+
+  // ── Standalone Trigger Order Fields ──
+  orderMode: 'standard' | 'trigger';
+  triggerOrderType?: ETriggerOrderType;
+  triggerPrice?: string;
+  executionPrice?: string;
+  triggerReduceOnly?: boolean;
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
@@ -102,6 +178,7 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     sizeInputMode: EPerpsSizeInputMode.MANUAL,
     sizePercent: 0,
     leverage: 1,
+    bboPriceMode: null,
     hasTpsl: false,
     tpTriggerPx: '',
     tpGainPercent: '',
@@ -111,6 +188,12 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     tpValue: '',
     slType: 'price',
     slValue: '',
+    // Standalone trigger defaults
+    orderMode: 'standard',
+    triggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
+    triggerPrice: '',
+    executionPrice: '',
+    triggerReduceOnly: true,
   });
 
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
@@ -134,6 +217,16 @@ export const {
   const activePositions = get(perpsActivePositionAtom());
   return activePositions?.activePositions?.length ?? 0;
 });
+
+export const {
+  atom: positionFilterByCurrentTokenAtom,
+  use: usePositionFilterByCurrentTokenAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: orderFilterByCurrentTokenAtom,
+  use: useOrderFilterByCurrentTokenAtom,
+} = contextAtom<boolean>(false);
 
 export type IPerpsActiveOpenOrdersAtom = {
   accountAddress: string | undefined;
@@ -168,10 +261,13 @@ export const {
 >((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
   const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
-  return filteredOpenOrders.reduce((acc, order, index) => {
-    acc[order.coin] = [...(acc[order.coin] || []), index];
-    return acc;
-  }, {} as { [coin: string]: number[] });
+  return filteredOpenOrders.reduce(
+    (acc, order, index) => {
+      acc[order.coin] = [...(acc[order.coin] || []), index];
+      return acc;
+    },
+    {} as { [coin: string]: number[] },
+  );
 });
 
 export const perpsOpenOrdersByCoinAtomCache = new Map<
@@ -214,6 +310,7 @@ export const { atom: perpsLedgerUpdatesAtom, use: usePerpsLedgerUpdatesAtom } =
 export interface ITradingFormEnv {
   markPrice?: string;
   availableToTrade?: Array<number | string>;
+  maxTradeSzs?: Array<number | string>;
   leverageValue?: number;
   fallbackLeverage?: number;
   szDecimals?: number;
@@ -232,13 +329,54 @@ export const {
   const mode = form.sizeInputMode ?? EPerpsSizeInputMode.MANUAL;
   const percent = form.sizePercent ?? 0;
 
-  const price = form.type === 'limit' ? form.price : '';
+  // In trigger mode, use trigger effective price for size/margin computations
+  let price: string;
+  if (form.orderMode === 'trigger' && form.triggerOrderType) {
+    const triggerEffective = getTriggerEffectivePrice({
+      triggerOrderType: form.triggerOrderType,
+      triggerPrice: form.triggerPrice,
+      executionPrice: form.executionPrice,
+      midPrice: env.markPrice,
+    });
+    price = triggerEffective.gt(0) ? triggerEffective.toFixed() : '';
+  } else {
+    price = form.type === 'limit' ? form.price : '';
+  }
+
+  // Trigger orders don't lock margin at placement, so slider max = balance × leverage / price
+  let effectiveMaxTradeSzs = env.maxTradeSzs;
+  if (form.orderMode === 'trigger') {
+    const effectivePrice = price
+      ? new BigNumber(price)
+      : new BigNumber(env.markPrice ?? 0);
+    const leverageBN = new BigNumber(
+      env.leverageValue ?? env.fallbackLeverage ?? 1,
+    );
+    const availableIdx = form.side === 'long' ? 0 : 1;
+    const balanceBN = new BigNumber(env.availableToTrade?.[availableIdx] ?? 0);
+    const markPxBN = new BigNumber(env.markPrice ?? 0);
+    if (
+      effectivePrice.gt(0) &&
+      leverageBN.gt(0) &&
+      balanceBN.gt(0) &&
+      markPxBN.gt(0)
+    ) {
+      // Produce tokens-at-markPrice so computeMaxTradeSize converts correctly
+      const triggerMaxTokens = balanceBN
+        .multipliedBy(leverageBN)
+        .dividedBy(markPxBN);
+      effectiveMaxTradeSzs = [
+        form.side === 'long' ? triggerMaxTokens.toFixed() : '0',
+        form.side === 'short' ? triggerMaxTokens.toFixed() : '0',
+      ];
+    }
+  }
 
   const maxSizeBN = computeMaxTradeSize({
     side: form.side,
     price,
     markPrice: env.markPrice,
-    availableToTrade: env.availableToTrade,
+    maxTradeSzs: effectiveMaxTradeSzs,
     leverageValue: env.leverageValue,
     fallbackLeverage: env.fallbackLeverage,
     szDecimals: env.szDecimals,
@@ -251,7 +389,7 @@ export const {
     side: form.side,
     price,
     markPrice: env.markPrice,
-    availableToTrade: env.availableToTrade,
+    maxTradeSzs: effectiveMaxTradeSzs,
     leverageValue: env.leverageValue,
     fallbackLeverage: env.fallbackLeverage,
     szDecimals: env.szDecimals,
@@ -276,3 +414,78 @@ export const {
     sliderEnabled: maxSizeBN.isFinite() && maxSizeBN.gte(0),
   };
 });
+
+// Field-by-field equality for IPerpsAssetCtx (all primitive strings + one string[] | null).
+// Used by selectAtom to return the previous reference when data is unchanged,
+// which causes Jotai to skip the notification chain → derived atoms not
+// re-evaluated → row components not re-rendered.
+function isPerpsCtxEqual(
+  a: HL.IPerpsAssetCtx | null,
+  b: HL.IPerpsAssetCtx | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (
+    a.markPx !== b.markPx ||
+    a.midPx !== b.midPx ||
+    a.funding !== b.funding ||
+    a.openInterest !== b.openInterest ||
+    a.prevDayPx !== b.prevDayPx ||
+    a.dayNtlVlm !== b.dayNtlVlm ||
+    a.oraclePx !== b.oraclePx ||
+    a.premium !== b.premium ||
+    a.dayBaseVlm !== b.dayBaseVlm
+  ) {
+    return false;
+  }
+  // impactPxs: string[] | null
+  const ai = a.impactPxs;
+  const bi = b.impactPxs;
+  if (ai === bi) return true;
+  if (!ai || !bi || ai.length !== bi.length) return false;
+  for (let i = 0; i < ai.length; i += 1) {
+    if (ai[i] !== bi[i]) return false;
+  }
+  return true;
+}
+
+export const perpsCtxByCoinAtomCache = new Map<
+  string,
+  ReturnType<typeof contextAtomComputed<HL.IPerpsAssetCtx | null>>
+>();
+
+function getOrCreateCtxByCoinAtom(dexIndex: number, assetId: number) {
+  const key = `${dexIndex}-${assetId}`;
+  let entry = perpsCtxByCoinAtomCache.get(key);
+  if (!entry) {
+    const ctxIndex = dexIndex === 1 ? assetId - XYZ_ASSET_ID_OFFSET : assetId;
+    // selectAtom passes prevSlice to the selector. Returning prevSlice when
+    // fields are unchanged makes Jotai's Object.is check pass, so the derived
+    // atom's value stays the same reference → dependents skip re-evaluation.
+    const selectedAtom = selectAtom(
+      perpsAllAssetCtxsAtom(),
+      (
+        { assetCtxsByDex }: { assetCtxsByDex: HL.IPerpsAssetCtx[][] },
+        prevCtx?: HL.IPerpsAssetCtx | null,
+      ) => {
+        const newCtx = assetCtxsByDex?.[dexIndex]?.[ctxIndex] ?? null;
+        if (prevCtx !== undefined && isPerpsCtxEqual(prevCtx, newCtx)) {
+          return prevCtx;
+        }
+        return newCtx;
+      },
+    );
+    entry = contextAtomComputed((get) => get(selectedAtom));
+    perpsCtxByCoinAtomCache.set(key, entry);
+  }
+  return entry;
+}
+
+export function usePerpsCtxByCoin(
+  dexIndex: number,
+  assetId: number,
+): HL.IPerpsAssetCtx | null {
+  const { use } = getOrCreateCtxByCoinAtom(dexIndex, assetId);
+  const [ctx] = use();
+  return ctx;
+}

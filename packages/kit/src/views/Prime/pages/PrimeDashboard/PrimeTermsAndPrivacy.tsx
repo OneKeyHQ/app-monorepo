@@ -30,8 +30,9 @@ export function PrimeTermsAndPrivacy() {
           }}
           size="$bodyMd"
           color="$textInteractive"
+          textDecorationLine="underline"
         >
-          {chunks[0]}
+          {chunks[0]} ↗
         </SizableText>
       ) : (
         <Anchor
@@ -39,7 +40,6 @@ export function PrimeTermsAndPrivacy() {
           size="$bodyMd"
           color="$textInteractive"
           target="_blank"
-          textDecorationLine="none"
         >
           {chunks}
         </Anchor>
@@ -58,7 +58,12 @@ export function PrimeTermsAndPrivacy() {
   );
 
   return (
-    <SizableText size="$bodyMd" color="$textSubdued">
+    <SizableText
+      size="$bodyMd"
+      color="$textSubdued"
+      textAlign="center"
+      $gtMd={{ textAlign: 'left' }}
+    >
       {intl.formatMessage(
         { id: ETranslations.prime_agree_to_terms_privacy },
         {

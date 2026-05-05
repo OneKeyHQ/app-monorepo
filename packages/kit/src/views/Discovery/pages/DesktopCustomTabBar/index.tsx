@@ -1,36 +1,36 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
   Divider,
-  ESectionLayoutType,
   Icon,
-  MIN_SIDEBAR_WIDTH,
   SizableText,
-  SortableSectionList,
+  SortableListView,
   Stack,
   XStack,
   useShortcuts,
 } from '@onekeyhq/components';
 import type {
-  ISectionLayoutItem,
-  ISortableSectionListRef,
+  IActionListSection,
+  ISortableListViewRef,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import { useBrowserSubmenu } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/BrowserSubmenuColumn/BrowserSubmenuContext';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
-import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { INewBrowserTabPosition } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -54,12 +54,14 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 const TIMESTAMP_DIFF_MULTIPLIER = 2;
 
-function DesktopCustomTabBar() {
+// Persist the last active tab ID across component mount/unmount cycles
+// so that returning to MultiTabBrowser restores the previously viewed dApp.
+let savedActiveTabId = '';
+
+function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
   const intl = useIntl();
-  const [{ isCollapsed }] = useAppSideBarStatusAtom();
-  // register desktop shortcuts for browser tab
+  const isCollapsed = !(isExpanded ?? false);
   useDiscoveryShortcuts();
-  // register desktop new window event
   useDesktopNewWindow();
 
   const navigation =
@@ -78,27 +80,99 @@ function DesktopCustomTabBar() {
   const { addOrUpdateBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
 
-  const { result, setResult, run } = usePromiseResult(async () => {
-    const unpinnedTabs = (tabs ?? []).filter((t) => !t.isPinned);
-    unpinnedTabs.reverse();
-    const pinnedTabs = (tabs ?? []).filter((t) => t.isPinned);
+  const { reportPopoverOpen } = useBrowserSubmenu();
+  // Guard against unbalanced onOpenChange calls from the ActionList.
+  // Without this, a duplicate open / missing close would leak the popover
+  // count in BrowserSubmenuColumn and the sidebar would never collapse again.
+  const newTabMenuOpenRef = useRef(false);
+  const handleNewTabMenuOpenChange = useCallback(
+    (isOpen: boolean) => {
+      if (isOpen && !newTabMenuOpenRef.current) {
+        newTabMenuOpenRef.current = true;
+        reportPopoverOpen(true);
+      } else if (!isOpen && newTabMenuOpenRef.current) {
+        newTabMenuOpenRef.current = false;
+        reportPopoverOpen(false);
+      }
+    },
+    [reportPopoverOpen],
+  );
+  useEffect(
+    () => () => {
+      if (newTabMenuOpenRef.current) {
+        newTabMenuOpenRef.current = false;
+        reportPopoverOpen(false);
+      }
+    },
+    [reportPopoverOpen],
+  );
+  const [{ newBrowserTabPosition }] = useSettingsPersistAtom();
+  const currentTabPosition = newBrowserTabPosition ?? 'bottom';
+  const newTabPositionSections = useMemo<IActionListSection[]>(() => {
+    const options = [
+      {
+        value: 'top' as INewBrowserTabPosition,
+        labelId: 'global_top' as ETranslations,
+        icon: 'ArrowTopOutline' as const,
+      },
+      {
+        value: 'bottom' as INewBrowserTabPosition,
+        labelId: 'global_bottom' as ETranslations,
+        icon: 'ArrowBottomOutline' as const,
+      },
+    ];
+    return [
+      {
+        title: intl.formatMessage({
+          id: 'settings_browser_new_tab_position' as ETranslations,
+        }),
+        items: options.map(({ value, labelId, icon }) => ({
+          label: intl.formatMessage({ id: labelId }),
+          icon,
+          extra:
+            currentTabPosition === value ? (
+              <Icon name="CheckRadioSolid" color="$iconActive" size="$5" />
+            ) : null,
+          onPress: () => {
+            void backgroundApiProxy.serviceSetting.setNewBrowserTabPosition(
+              value,
+            );
+          },
+          testID: `browser-sidebar-new-tab-position-${value}`,
+        })),
+      },
+    ];
+  }, [currentTabPosition, intl]);
+
+  const { pinnedTabs, unpinnedTabs } = useMemo(() => {
+    const allTabs = tabs ?? [];
     return {
-      unpinnedTabs,
-      pinnedTabs,
+      pinnedTabs: allTabs.filter((t) => t.isPinned),
+      unpinnedTabs: allTabs.filter((t) => !t.isPinned),
     };
   }, [tabs]);
 
-  const scrollViewRef = useRef<ISortableSectionListRef<any>>(null);
+  const scrollViewRef = useRef<ISortableListViewRef<any>>(null);
   const previousTabsLength = usePrevious(tabs?.length);
   useEffect(() => {
     if (previousTabsLength && tabs?.length > previousTabsLength) {
-      scrollViewRef.current?.scrollToLocation({
-        sectionIndex: 0,
-        itemIndex: result?.pinnedTabs?.length ?? 0,
-        animated: true,
-      });
+      if (unpinnedTabs.length > 0) {
+        if (currentTabPosition === 'top') {
+          scrollViewRef.current?.scrollToOffset({
+            offset: 0,
+            animated: true,
+          });
+        } else {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }
+      }
     }
-  }, [previousTabsLength, tabs?.length, result?.pinnedTabs]);
+  }, [
+    previousTabsLength,
+    tabs?.length,
+    unpinnedTabs.length,
+    currentTabPosition,
+  ]);
 
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
@@ -132,24 +206,36 @@ function DesktopCustomTabBar() {
     [addOrUpdateBrowserBookmark, removeBrowserBookmark],
   );
 
-  const handleDisconnect = useCallback(
-    async (url: string | undefined) => {
-      const { origin } = new URL(url ?? '');
-      if (origin) {
-        await backgroundApiProxy.serviceDApp.disconnectWebsite({
-          origin,
-          storageType: 'injectedProvider',
-          entry: 'Browser',
-        });
-        setTimeout(() => run(), 200);
-      }
-    },
-    [run],
-  );
+  const handleDisconnect = useCallback(async (url: string | undefined) => {
+    const { origin } = new URL(url ?? '');
+    if (origin) {
+      await backgroundApiProxy.serviceDApp.disconnectWebsite({
+        origin,
+        storageType: 'injectedProvider',
+        entry: 'Browser',
+      });
+    }
+  }, []);
+
+  const [isDiscoveryFocused, setIsDiscoveryFocused] = useState(false);
+  useListenTabFocusState(ETabRoutes.Discovery, setIsDiscoveryFocused);
+
+  // Use a ref so the useListenTabFocusState callback (captured on mount)
+  // always reads the current activeTabId value.
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
 
   useListenTabFocusState(ETabRoutes.MultiTabBrowser, (isFocus: boolean) => {
     if (!isFocus) {
+      // Save active tab before clearing so it can be restored when returning
+      if (activeTabIdRef.current) {
+        savedActiveTabId = activeTabIdRef.current;
+      }
       setCurrentWebTab('');
+    } else if (savedActiveTabId) {
+      // Restore the previously active tab when MultiTabBrowser regains focus
+      setCurrentWebTab(savedActiveTabId);
+      savedActiveTabId = '';
     }
   });
 
@@ -166,43 +252,22 @@ function DesktopCustomTabBar() {
     };
   }, [handleCloseTab, activeTabId]);
 
-  // For dApp connection state update
-  useEffect(() => {
-    const fn = () => setTimeout(() => run(), 200);
-    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, fn);
-    };
-  }, [run]);
-
   const onTabPress = useCallback(
     (id: string) => {
+      // Clear saved tab so the restore callback won't overwrite this explicit selection
+      savedActiveTabId = '';
       navigation.switchTab(ETabRoutes.MultiTabBrowser);
       setCurrentWebTab(id);
     },
     [setCurrentWebTab, navigation],
   );
 
-  const sections = useMemo(
-    () => [{ data: result?.pinnedTabs }, { data: result?.unpinnedTabs }],
-    [result?.pinnedTabs, result?.unpinnedTabs],
-  );
-
   const handleShortcuts = useCallback(
     (eventName: EShortcutEvents) => {
       switch (eventName) {
-        case EShortcutEvents.TabPin8:
-          if (result?.pinnedTabs?.length) {
-            const id =
-              result?.pinnedTabs?.[Number(eventName.match(/\d+/)?.[0]) - 6]?.id;
-            if (id) {
-              navigation.switchTab(ETabRoutes.MultiTabBrowser);
-              setCurrentWebTab(id);
-            }
-          }
-          break;
         case EShortcutEvents.ReOpenLastClosedTab:
           if (reOpenLastClosedTab()) {
+            savedActiveTabId = '';
             navigation.switchTab(ETabRoutes.MultiTabBrowser);
           }
           break;
@@ -210,118 +275,224 @@ function DesktopCustomTabBar() {
           break;
       }
     },
-    [navigation, reOpenLastClosedTab, result?.pinnedTabs, setCurrentWebTab],
+    [navigation, reOpenLastClosedTab],
   );
 
   useShortcuts(undefined, handleShortcuts);
 
-  const ITEM_HEIGHT = useMemo(() => (isCollapsed ? 36 : 32), [isCollapsed]);
+  const ITEM_HEIGHT = 36;
 
-  const layoutList = useMemo(() => {
-    let offset = 0;
-    const layouts: { offset: number; length: number; index: number }[] = [];
-    layouts.push({ offset, length: 0, index: layouts.length });
-    sections?.[0]?.data?.forEach(() => {
-      layouts.push({ offset, length: ITEM_HEIGHT, index: layouts.length });
-      offset += ITEM_HEIGHT;
-    });
-    layouts.push({ offset, length: 0, index: layouts.length });
-    layouts.push({ offset, length: 0, index: layouts.length });
-    layouts.push({ offset, length: 17 + ITEM_HEIGHT, index: layouts.length });
-    offset += 17 + ITEM_HEIGHT;
-    sections?.[1]?.data?.forEach(() => {
-      layouts.push({ offset, length: ITEM_HEIGHT, index: layouts.length });
-      offset += ITEM_HEIGHT;
-    });
-    layouts.push({ offset, length: 0, index: layouts.length });
-    offset += 0;
-    return layouts;
-  }, [ITEM_HEIGHT, sections]);
-  const onDragEnd = useCallback(
+  const onPinnedDragEnd = useCallback(
     (dragResult: {
-      sections: {
-        data?: any[];
-      }[];
-      from?: {
-        sectionIndex: number;
-        itemIndex: number;
-      };
+      data: IWebTab[];
+      dragItem: IWebTab;
+      prevItem: IWebTab | undefined;
+      nextItem: IWebTab | undefined;
     }) => {
-      const pinnedTabs = (dragResult?.sections?.[0]?.data ?? []) as IWebTab[];
-      const unpinnedTabs = (dragResult?.sections?.[1]?.data ?? []) as IWebTab[];
-      pinnedTabs?.forEach?.((item) => (item.isPinned = true));
-      unpinnedTabs?.forEach?.((item) => (item.isPinned = false));
-      const reloadTimeStamp = () => {
-        if (!dragResult?.from) {
-          return;
-        }
-        const fromItem =
-          sections?.[dragResult?.from?.sectionIndex]?.data?.[
-            dragResult?.from?.itemIndex
-          ];
-        let fromItemIndex: number | undefined;
-        let fromSectionData: IWebTab[] | undefined;
-        dragResult?.sections?.forEach((section) => {
-          section?.data?.forEach((item, index) => {
-            if (item === fromItem) {
-              fromItemIndex = index;
-              fromSectionData = section?.data;
-            }
-          });
-        });
+      const {
+        data: reorderedPinned,
+        dragItem,
+        prevItem,
+        nextItem,
+      } = dragResult;
+      reorderedPinned.forEach((item) => (item.isPinned = true));
 
-        if (
-          !fromSectionData ||
-          fromSectionData.length === 1 ||
-          !fromItem ||
-          fromItemIndex === undefined
-        ) {
-          return;
-        }
+      const beforeTimestamp = prevItem?.timestamp;
+      const afterTimestamp = nextItem?.timestamp;
+      if (!beforeTimestamp && afterTimestamp) {
+        dragItem.timestamp = afterTimestamp - TIMESTAMP_DIFF_MULTIPLIER;
+      } else if (!afterTimestamp && beforeTimestamp) {
+        dragItem.timestamp = beforeTimestamp + TIMESTAMP_DIFF_MULTIPLIER;
+      } else if (beforeTimestamp && afterTimestamp) {
+        dragItem.timestamp = Math.round((beforeTimestamp + afterTimestamp) / 2);
+      }
 
-        const beforeTimestamp =
-          fromItemIndex === 0
-            ? undefined
-            : fromSectionData?.[fromItemIndex - 1]?.timestamp;
-        const afterTimestamp =
-          fromItemIndex === fromSectionData.length - 1
-            ? undefined
-            : fromSectionData?.[fromItemIndex + 1]?.timestamp;
-        const isPinnedDiff = fromItem.isPinned ? 1 : -1;
-        if (!beforeTimestamp && afterTimestamp) {
-          fromItem.timestamp =
-            afterTimestamp + isPinnedDiff * -TIMESTAMP_DIFF_MULTIPLIER;
-        } else if (!afterTimestamp && beforeTimestamp) {
-          fromItem.timestamp =
-            beforeTimestamp + isPinnedDiff * TIMESTAMP_DIFF_MULTIPLIER;
-        } else if (beforeTimestamp && afterTimestamp) {
-          fromItem.timestamp = Math.round(
-            (beforeTimestamp + afterTimestamp) / 2,
-          );
-        }
-      };
-      reloadTimeStamp();
-      setResult({ pinnedTabs, unpinnedTabs });
       setTimeout(() => {
-        setTabsByIds({ pinnedTabs, unpinnedTabs });
+        setTabsByIds({ pinnedTabs: reorderedPinned, unpinnedTabs });
       }, 0);
       defaultLogger.discovery.browser.tabDragSorting();
     },
-    [setTabsByIds, setResult, sections],
+    [setTabsByIds, unpinnedTabs],
+  );
+
+  const onDragEnd = useCallback(
+    (dragResult: {
+      data: IWebTab[];
+      dragItem: IWebTab;
+      prevItem: IWebTab | undefined;
+      nextItem: IWebTab | undefined;
+    }) => {
+      const {
+        data: reorderedUnpinned,
+        dragItem,
+        prevItem,
+        nextItem,
+      } = dragResult;
+      reorderedUnpinned.forEach((item) => (item.isPinned = false));
+
+      const beforeTimestamp = prevItem?.timestamp;
+      const afterTimestamp = nextItem?.timestamp;
+      if (!beforeTimestamp && afterTimestamp) {
+        dragItem.timestamp = afterTimestamp - TIMESTAMP_DIFF_MULTIPLIER;
+      } else if (!afterTimestamp && beforeTimestamp) {
+        dragItem.timestamp = beforeTimestamp + TIMESTAMP_DIFF_MULTIPLIER;
+      } else if (beforeTimestamp && afterTimestamp) {
+        dragItem.timestamp = Math.round((beforeTimestamp + afterTimestamp) / 2);
+      }
+
+      setTimeout(() => {
+        setTabsByIds({ pinnedTabs, unpinnedTabs: reorderedUnpinned });
+      }, 0);
+      defaultLogger.discovery.browser.tabDragSorting();
+    },
+    [setTabsByIds, pinnedTabs],
   );
 
   return (
-    <Stack
-      testID="sideabr-browser-section"
-      flex={1}
-      width={isCollapsed ? MIN_SIDEBAR_WIDTH / 2 : undefined}
-    >
+    <Stack testID="sidebar-browser-section" flex={1}>
       <HandleRebuildBrowserData />
-      <SortableSectionList
-        mx="$-3"
-        px="$3"
+      {/* Fixed top area: buttons + pinned tabs + divider */}
+      <Stack flexShrink={0}>
+        <DesktopTabItem
+          size="small"
+          key="HomeButton"
+          selected={isDiscoveryFocused}
+          label={
+            isCollapsed
+              ? ''
+              : intl.formatMessage({
+                  id: ETranslations.global_home,
+                })
+          }
+          icon="HomeDoor2Outline"
+          testID="browser-bar-home"
+          tabBarStyle={isCollapsed ? { justifyContent: 'center' } : undefined}
+          onPress={(e) => {
+            e.stopPropagation();
+            navigation.switchTab(ETabRoutes.Discovery);
+          }}
+        />
+        <DesktopTabItem
+          size="small"
+          key="AddTabButton"
+          label={
+            isCollapsed
+              ? ''
+              : intl.formatMessage({
+                  id: ETranslations.explore_new_tab,
+                })
+          }
+          icon="PlusSmallOutline"
+          showTooltip={false}
+          testID="browser-bar-add"
+          tabBarStyle={isCollapsed ? { justifyContent: 'center' } : undefined}
+          onPress={(e) => {
+            e.stopPropagation();
+            if (platformEnv.isDesktop) {
+              savedActiveTabId = '';
+              addBrowserHomeTab();
+              navigation.switchTab(ETabRoutes.MultiTabBrowser);
+            } else {
+              navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                screen: EDiscoveryModalRoutes.SearchModal,
+              });
+            }
+          }}
+        />
+        {pinnedTabs.length > 0 ? (
+          <Stack height={pinnedTabs.length * ITEM_HEIGHT} overflow="hidden">
+            <SortableListView
+              data={pinnedTabs}
+              scrollEnabled={false}
+              renderItem={({
+                item: t,
+                dragProps,
+              }: {
+                item: IWebTab;
+                dragProps?: Record<string, any>;
+                index: number;
+              }) => (
+                <Stack dataSet={dragProps}>
+                  <DesktopCustomTabBarItem
+                    id={t.id}
+                    key={t.id}
+                    onPress={onTabPress}
+                    isCollapse={isCollapsed}
+                    onBookmarkPress={handleBookmarkPress}
+                    onPinnedPress={handlePinnedPress}
+                    onClose={handleCloseTab}
+                    onDisconnect={handleDisconnect}
+                    testID={`tab-list-stack-pinned-${t.id}`}
+                  />
+                </Stack>
+              )}
+              keyExtractor={(item) => item.id}
+              getItemLayout={(__, index) => ({
+                length: ITEM_HEIGHT,
+                offset: ITEM_HEIGHT * index,
+                index,
+              })}
+              onDragEnd={onPinnedDragEnd}
+            />
+          </Stack>
+        ) : null}
+        {unpinnedTabs.length > 0 ? (
+          <XStack
+            group="sidebarBrowserDivider"
+            alignItems="center"
+            px="$2"
+            py="$2"
+            width="100%"
+          >
+            <Divider testID="pin-tab-divider" width="$5" />
+            {!isCollapsed ? (
+              <XStack
+                position="absolute"
+                px="1"
+                group="sidebarClearButton"
+                alignItems="center"
+                userSelect="none"
+                right="$0"
+                top="50%"
+                bg="$bgApp"
+                opacity={0}
+                $group-sidebarBrowserDivider-hover={{
+                  opacity: 1,
+                }}
+                style={{
+                  containerType: 'normal',
+                  transform: platformEnv.isNative ? '' : 'translateY(-50%)',
+                }}
+                onPress={() => {
+                  void closeAllWebTabs({ navigation });
+                }}
+              >
+                <Icon
+                  flexShrink={0}
+                  color="$iconSubdued"
+                  name="ArrowBottomOutline"
+                  size="$3"
+                />
+                <SizableText
+                  pl="$1"
+                  color="$textSubdued"
+                  size="$bodySmMedium"
+                  numberOfLines={1}
+                  $group-sidebarClearButton-hover={{
+                    color: '$text',
+                  }}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_clear })}
+                </SizableText>
+              </XStack>
+            ) : null}
+          </XStack>
+        ) : null}
+      </Stack>
+      {/* Scrollable area: unpinned tabs */}
+      <SortableListView
         ref={scrollViewRef}
-        sections={sections}
+        data={unpinnedTabs}
         renderItem={({
           item: t,
           dragProps,
@@ -340,105 +511,42 @@ function DesktopCustomTabBar() {
               onPinnedPress={handlePinnedPress}
               onClose={handleCloseTab}
               onDisconnect={handleDisconnect}
-              testID={`tab-list-stack-pinned-${t.id}`}
+              testID={`tab-list-stack-${t.id}`}
             />
           </Stack>
         )}
-        keyExtractor={(item) => `${(item as { id: number }).id}`}
-        getItemLayout={(__, index) => layoutList[index]}
-        stickySectionHeadersEnabled={false}
-        SectionSeparatorComponent={null}
+        keyExtractor={(item) => item.id}
+        getItemLayout={(__, index) => ({
+          length: ITEM_HEIGHT,
+          offset: ITEM_HEIGHT * index,
+          index,
+        })}
         onDragEnd={onDragEnd}
-        allowCrossSection
-        getItemDragDisabled={(layoutItem) => {
-          // Disable dragging for section headers (which includes the new tab button)
-          return (
-            (layoutItem as ISectionLayoutItem).type ===
-            ESectionLayoutType.Header
-          );
-        }}
-        renderSectionHeader={({ index }) =>
-          index === 1 ? (
-            <>
-              <XStack
-                group="sidebarBrowserDivider"
-                alignItems="center"
-                p="$2"
-                px={isCollapsed ? '$0' : '$2'}
-              >
-                <Divider testID="pin-tab-divider" />
-                {tabs.filter((x) => !x.isPinned).length > 0 ? (
-                  <XStack
-                    position="absolute"
-                    px="1"
-                    group="sidebarClearButton"
-                    alignItems="center"
-                    userSelect="none"
-                    right="$0"
-                    top="50%"
-                    bg="$bgSidebar"
-                    opacity={0}
-                    $group-sidebarBrowserDivider-hover={{
-                      opacity: 1,
-                    }}
-                    style={{
-                      containerType: 'normal',
-                      transform: platformEnv.isNative ? '' : 'translateY(-50%)',
-                    }}
-                    onPress={() => {
-                      void closeAllWebTabs({ navigation });
-                    }}
-                  >
-                    <Icon
-                      flexShrink={0}
-                      color="$iconSubdued"
-                      name="ArrowBottomOutline"
-                      size="$3"
-                    />
-                    <SizableText
-                      pl="$1"
-                      color="$textSubdued"
-                      size="$bodySmMedium"
-                      numberOfLines={1}
-                      $group-sidebarClearButton-hover={{
-                        color: '$text',
-                      }}
-                    >
-                      {intl.formatMessage({ id: ETranslations.global_clear })}
-                    </SizableText>
-                  </XStack>
-                ) : null}
-              </XStack>
-              <DesktopTabItem
-                size="small"
-                key="AddTabButton"
-                label={
-                  isCollapsed
-                    ? ''
-                    : intl.formatMessage({
-                        id: ETranslations.explore_new_tab,
-                      })
-                }
-                shortcutKey={EShortcutEvents.NewTab2}
-                icon="PlusSmallOutline"
-                testID="browser-bar-add"
-                onPress={(e) => {
-                  e.stopPropagation();
-
-                  if (platformEnv.isDesktop) {
-                    addBrowserHomeTab();
-                    navigation.switchTab(ETabRoutes.MultiTabBrowser);
-                  } else {
-                    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                      screen: EDiscoveryModalRoutes.SearchModal,
-                    });
-                  }
-                }}
-              />
-            </>
-          ) : null
-        }
+        contentContainerStyle={{ pb: '$2' }}
       />
+      {!isCollapsed ? (
+        <XStack flexShrink={0} justifyContent="flex-end" px="$2" pb="$3">
+          <ActionList
+            title=""
+            placement="top-end"
+            sections={newTabPositionSections}
+            onOpenChange={handleNewTabMenuOpenChange}
+            renderTrigger={
+              <Stack
+                p="$1"
+                borderRadius="$2"
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                cursor="default"
+                testID="browser-sidebar-more"
+                onPress={() => {}}
+              >
+                <Icon name="SettingsOutline" size="$5" color="$iconSubdued" />
+              </Stack>
+            }
+          />
+        </XStack>
+      ) : null}
     </Stack>
   );
 }

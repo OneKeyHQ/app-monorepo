@@ -1,0 +1,150 @@
+name: build-desktop-renderer
+
+# Reusable workflow: builds the desktop renderer (webpack) once on ubuntu,
+# then uploads the artifact for downstream platform-specific packaging jobs.
+
+on:
+  workflow_call:
+    inputs:
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: string
+        default: 'false'
+      build_number:
+        description: "Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided."
+        required: false
+        type: string
+        default: ''
+      build_bundle_version:
+        description: "Bundle version from upstream CI. Auto-generated if not provided."
+        required: false
+        type: string
+        default: ''
+    outputs:
+      build_number:
+        description: "Build number generated during renderer build"
+        value: ${{ jobs.build-renderer.outputs.build_number }}
+      build_bundle_version:
+        description: "Bundle version generated during renderer build"
+        value: ${{ jobs.build-renderer.outputs.build_bundle_version }}
+      build_app_version:
+        description: "App version from package.json"
+        value: ${{ jobs.build-renderer.outputs.build_app_version }}
+    secrets:
+      COVALENT_KEY:
+        required: true
+      SENTRY_TOKEN:
+        required: true
+      SENTRY_DSN_REACT_NATIVE:
+        required: true
+      SENTRY_DSN_WEB:
+        required: true
+      SENTRY_DSN_DESKTOP:
+        required: true
+      SENTRY_DSN_MAS:
+        required: true
+      SENTRY_DSN_SNAP:
+        required: true
+      SENTRY_DSN_WINMS:
+        required: true
+      SENTRY_DSN_EXT:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_ENV: production
+  YARN_ENABLE_GLOBAL_CACHE: true
+  ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}
+
+jobs:
+  build-renderer:
+    runs-on: ubuntu-24.04
+    outputs:
+      build_number: ${{ steps.export-metadata.outputs.build_number }}
+      build_bundle_version: ${{ steps.export-metadata.outputs.build_bundle_version }}
+      build_app_version: ${{ steps.export-metadata.outputs.build_app_version }}
+    strategy:
+      matrix:
+        node-version: [24.x]
+    steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          env_file_name: '.env'
+          sentry_project: 'desktop'
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Override build_number from caller
+        if: ${{ inputs.build_number != '' }}
+        run: |
+          echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
+
+      - name: Override build_bundle_version from caller
+        if: ${{ inputs.build_bundle_version != '' }}
+        run: |
+          echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn install --immutable
+
+      - name: Build Renderer
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          cd apps/desktop
+          npx cross-env NODE_ENV=production yarn clean:build
+          npx cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build
+          node scripts/finalize-renderer-assets.js
+
+      - name: Export build metadata
+        id: export-metadata
+        run: |
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
+          echo "build_app_version=$BUILD_APP_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Upload Renderer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-renderer-${{ github.sha }}
+          path: |
+            ./apps/desktop/app/build/
+          retention-days: 1

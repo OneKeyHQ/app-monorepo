@@ -68,6 +68,16 @@ function OneKeyWalletConnectionOptions({
   // Check if mobile (small screen)
   const isMobile = media.md;
 
+  const handleExtensionPress = useCallback(async () => {
+    const connectionInfo = getOneKeyConnectionInfo();
+    if (!connectionInfo) {
+      console.warn('OneKey wallet not detected');
+      return;
+    }
+
+    void connectToWalletWithDialog(connectionInfo);
+  }, [connectToWalletWithDialog, getOneKeyConnectionInfo]);
+
   // Get subtitle text
   const getSubtitleText = () => {
     if (isOneKeyInstalled) {
@@ -82,16 +92,6 @@ function OneKeyWalletConnectionOptions({
       id: ETranslations.wallet_onekey_wallet_without_description,
     });
   };
-
-  const handleExtensionPress = useCallback(async () => {
-    const connectionInfo = getOneKeyConnectionInfo();
-    if (!connectionInfo) {
-      console.warn('OneKey wallet not detected');
-      return;
-    }
-
-    void connectToWalletWithDialog(connectionInfo);
-  }, [connectToWalletWithDialog, getOneKeyConnectionInfo]);
 
   const handleConnectHardwarePress = useCallback(() => {
     appNavigation.pushModal(EModalRoutes.OnboardingModal, {

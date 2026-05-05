@@ -330,9 +330,10 @@ export default function DesktopApiProxyTestDevSettings() {
 
   const testSecureGetItem = useCallback(async () => {
     try {
-      const value = await globalThis.desktopApiProxy.storage.secureGetItemAsync(
-        'test_secure_key',
-      );
+      const value =
+        await globalThis.desktopApiProxy.storage.secureGetItemAsync(
+          'test_secure_key',
+        );
       Dialog.debugMessage({
         debugMessage: { secureValue: value },
       });

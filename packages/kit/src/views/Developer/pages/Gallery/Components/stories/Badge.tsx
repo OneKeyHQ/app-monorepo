@@ -14,6 +14,7 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
@@ -204,7 +205,11 @@ function SwapProviderItem({
                 Route
               </SizableText>
 
-              <Stack animation="quick" rotate={showRoute ? '90deg' : '0deg'}>
+              <Stack
+                animation="quick"
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
+                rotate={showRoute ? '90deg' : '0deg'}
+              >
                 <Icon
                   name="ChevronRightSmallOutline"
                   size="$5"

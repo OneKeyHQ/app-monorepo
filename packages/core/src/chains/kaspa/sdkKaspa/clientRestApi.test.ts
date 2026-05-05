@@ -25,4 +25,5 @@ describe('Kaspa Rest API Client Tests', () => {
   });
 });
 
+// oxlint-disable-next-line unicorn/require-module-specifiers
 export {};

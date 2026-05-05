@@ -9,7 +9,7 @@ const SvgOnekeyLite = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M5 4a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3zm2 6.5a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2zM6 15a1 1 0 0 1 1-1h4a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1"
+      d="M20 4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM7 14a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2zm0-3.5a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2z"
       clipRule="evenodd"
     />
   </Svg>

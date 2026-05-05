@@ -93,6 +93,7 @@ function ShouldUpdateBridge({
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_view_tutorial,
         })}
+        confirmButtonProps={{ iconAfter: 'ArrowTopRightOutline' }}
       />
     </Stack>
   );
@@ -119,6 +120,7 @@ function ShouldUpdateByWeb() {
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_visit_website,
         })}
+        confirmButtonProps={{ iconAfter: 'ArrowTopRightOutline' }}
       />
     </Stack>
   );
@@ -145,6 +147,7 @@ function HowToUpdateFullResource() {
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_view_tutorial,
         })}
+        confirmButtonProps={{ iconAfter: 'ArrowTopRightOutline' }}
       />
     </Stack>
   );

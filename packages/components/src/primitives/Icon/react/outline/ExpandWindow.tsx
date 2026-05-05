@@ -9,9 +9,11 @@ const SvgExpandWindow = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M6 5a1 1 0 0 0-1 1v4a1 1 0 1 1-2 0V6a3 3 0 0 1 3-3h13a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-4a1 1 0 1 1 0-2h4a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1zm8 4a1 1 0 1 1 0-2h3a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0v-.586l-1.293 1.293a1 1 0 0 1-1.414-1.414L14.586 9zM2 16a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3zm3-1a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1z"
+      d="M12 22H2v-9h10zm-8-2h6v-5H4z"
       clipRule="evenodd"
     />
+    <Path d="M22 16h-8v-2h6V5H5v6H3V3h19z" />
+    <Path d="M18 12h-2v-1.586l-2 2L12.586 11l2-2H13V7h5z" />
   </Svg>
 );
 export default SvgExpandWindow;

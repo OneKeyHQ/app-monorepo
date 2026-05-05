@@ -9,6 +9,7 @@ import {
   useHyperliquidActions,
   usePerpsActiveOpenOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useSpotActiveOpenOrdersAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
@@ -17,13 +18,23 @@ import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
 interface ICancelAllOrdersContentProps {
   onClose?: () => void;
+  filterByCoin?: string;
 }
 
-function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
+function CancelAllOrdersContent({
+  onClose,
+  filterByCoin,
+}: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
-  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders: perpOpenOrders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const ordersToProcess = useMemo(() => {
+    const all = [...perpOpenOrders, ...spotOpenOrders];
+    return filterByCoin ? all.filter((o) => o.coin === filterByCoin) : all;
+  }, [perpOpenOrders, spotOpenOrders, filterByCoin]);
 
   const handleConfirm = useCallback(async () => {
     if (isSubmitting) return;
@@ -33,9 +44,9 @@ function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
       await actions.current.ensureTradingEnabled();
       const symbolsMetaMap =
         await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
-          coins: openOrders.map((o) => o.coin),
+          coins: ordersToProcess.map((o) => o.coin),
         });
-      const ordersToCancel = openOrders
+      const ordersToCancel = ordersToProcess
         .map((order) => {
           const tokenInfo = symbolsMetaMap[order.coin];
           if (!tokenInfo || isNil(tokenInfo?.assetId)) {
@@ -62,7 +73,7 @@ function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [actions, isSubmitting, onClose, openOrders]);
+  }, [actions, isSubmitting, onClose, ordersToProcess]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -99,8 +110,9 @@ function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
   );
 }
 
-export function showCancelAllOrdersDialog() {
+export function showCancelAllOrdersDialog(filterByCoin?: string) {
   const dialogInstance = Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_cacenl_all_order_title,
     }),
@@ -110,6 +122,7 @@ export function showCancelAllOrdersDialog() {
           onClose={() => {
             void dialogInstance.close();
           }}
+          filterByCoin={filterByCoin}
         />
       </PerpsProviderMirror>
     ),

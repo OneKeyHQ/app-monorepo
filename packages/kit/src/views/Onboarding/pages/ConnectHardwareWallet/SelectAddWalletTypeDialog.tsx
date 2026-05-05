@@ -41,6 +41,7 @@ export function SelectAddWalletTypeDialogContent({
             id: ETranslations.global_standard_wallet_desc,
           })}
           onPress={onAddStandardWalletPress}
+          nativePressableStyle={{ flexShrink: 0 }}
         >
           <ListItem.DrillIn />
         </ListItem>
@@ -64,6 +65,7 @@ export function SelectAddWalletTypeDialogContent({
             id: ETranslations.global_hidden_wallet_desc,
           })}
           onPress={onAddHiddenWalletPress}
+          nativePressableStyle={{ flexShrink: 0 }}
         >
           <ListItem.DrillIn />
         </ListItem>

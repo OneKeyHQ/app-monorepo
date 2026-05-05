@@ -29,7 +29,7 @@ export enum EShortcutEvents {
   PinOrUnpinTab = 'PinOrUnpinTab',
   ChangeCurrentTabUrl = 'ChangeCurrentTabUrl',
   ReOpenLastClosedTab = 'ReOpenLastClosedTab',
-  TabPin8 = 'TabPin8',
+  TabDeveloper = 'TabDeveloper',
 }
 
 export const shortcutsMap: Record<
@@ -109,17 +109,17 @@ export const shortcutsMap: Record<
     keys: [shortcutsKeys.CmdOrCtrl, '6'],
     desc: 'Refer a Friend Tab',
   },
-  [EShortcutEvents.TabMyOneKey]: {
-    keys: [shortcutsKeys.CmdOrCtrl, '7'],
-    desc: 'My OneKey Tab',
-  },
   [EShortcutEvents.TabBrowser]: {
-    keys: [shortcutsKeys.CmdOrCtrl, '8'],
+    keys: [shortcutsKeys.CmdOrCtrl, '7'],
     desc: 'Browser Tab',
   },
-  [EShortcutEvents.TabPin8]: {
+  [EShortcutEvents.TabMyOneKey]: {
+    keys: [shortcutsKeys.CmdOrCtrl, '8'],
+    desc: 'My OneKey Tab',
+  },
+  [EShortcutEvents.TabDeveloper]: {
     keys: [shortcutsKeys.CmdOrCtrl, '9'],
-    desc: 'Pin Tab 8',
+    desc: 'Developer Tab',
   },
   [EShortcutEvents.ViewHistory]: {
     keys: [shortcutsKeys.CmdOrCtrl, 'Y'],

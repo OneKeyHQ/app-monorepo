@@ -21,7 +21,7 @@ import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 
 import {
   DAppAccountListStandAloneItem,
-  DAppAccountListStandAloneItemForHomeScene,
+  DAppAccountListStandAloneItemReadonly,
 } from '../../../DAppConnection/components/DAppAccountList';
 import {
   DAppRequestFooter,
@@ -107,7 +107,7 @@ function LnurlWithdrawModal() {
       const amountSats =
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertBtcToSats(formValue.amount ?? 0)
-          : formValue.amount ?? 0;
+          : (formValue.amount ?? 0);
 
       const amount = new BigNumber(amountSats).toNumber();
       try {
@@ -180,7 +180,10 @@ function LnurlWithdrawModal() {
             urlSecurityInfo={urlSecurityInfo}
           >
             {isSendFlow ? (
-              <DAppAccountListStandAloneItemForHomeScene />
+              <DAppAccountListStandAloneItemReadonly
+                accountId={accountId}
+                networkId={networkId}
+              />
             ) : (
               <DAppAccountListStandAloneItem readonly />
             )}

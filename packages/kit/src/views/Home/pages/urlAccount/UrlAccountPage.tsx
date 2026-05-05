@@ -1,15 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  NavBackButton,
-  Page,
-  SizableText,
-  Spinner,
-  Stack,
-} from '@onekeyhq/components';
+import { Page, SizableText, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -19,9 +13,12 @@ import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useJotaiContextRootStore } from '@onekeyhq/kit/src/states/jotai/utils/useJotaiContextRootStore';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -36,6 +33,16 @@ import { UrlAccountAutoReplaceHistory } from './UrlAccountAutoReplaceHistory';
 import { getPrevUrlAccount, urlAccountNavigation } from './urlAccountUtils';
 
 const sceneName = EAccountSelectorSceneName.homeUrlAccount;
+
+function useUrlAccountOverviewContextStoreInitData() {
+  const data = useMemo(
+    () => ({
+      storeName: EJotaiContextStoreNames.urlAccountOverview,
+    }),
+    [],
+  );
+  return data;
+}
 
 function UrlAccountPage() {
   return (
@@ -110,7 +117,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         }
       };
 
-      // eslint-disable-next-line spellcheck/spell-checker
+      // oxlint-disable-next-line @cspell/spellchecker
       // not full url like: /0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
       if (!routeAddress && networkId) {
         routeAddress = networkId;
@@ -215,15 +222,6 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
     isCurrentSelectedAccountNotUrlAccount,
   ]);
 
-  const backToHomePage = useCallback(() => {
-    urlAccountNavigation.replaceHomePage(navigation);
-  }, [navigation]);
-
-  const renderHeaderLeft = useCallback(
-    () => <NavBackButton onPress={backToHomePage} />,
-    [backToHomePage],
-  );
-
   if (urlAccountStatus === 'invalid') {
     return (
       <Page>
@@ -256,8 +254,13 @@ export function UrlAccountPageContainer() {
   useDebugComponentRemountLog({
     name: 'URLAccountMount:  UrlAccountPageContainer',
   });
+  useEffect(() => {
+    defaultLogger.app.router.pageMounted('UrlAccountPageContainer');
+  }, []);
+  const data = useUrlAccountOverviewContextStoreInitData();
+  const store = useJotaiContextRootStore(data);
   return (
-    <ProviderJotaiContextAccountOverview>
+    <ProviderJotaiContextAccountOverview store={store}>
       <AccountSelectorProviderMirror
         config={{
           sceneName,
@@ -275,8 +278,10 @@ export function UrlAccountLanding() {
   useDebugComponentRemountLog({
     name: 'URLAccountMount:  UrlAccountLanding',
   });
+  const data = useUrlAccountOverviewContextStoreInitData();
+  const store = useJotaiContextRootStore(data);
   return (
-    <ProviderJotaiContextAccountOverview>
+    <ProviderJotaiContextAccountOverview store={store}>
       <AccountSelectorProviderMirror
         config={{
           sceneName,

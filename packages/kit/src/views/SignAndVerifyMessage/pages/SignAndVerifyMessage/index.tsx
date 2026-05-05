@@ -295,7 +295,6 @@ function SignAndVerifyMessage() {
         <YStack p="$5" pt="$2" gap="$5">
           <SegmentControl
             value={action}
-            fullWidth
             onChange={(v) => {
               const newAction = v as ESignAndVerifyAction;
               setAction(newAction);

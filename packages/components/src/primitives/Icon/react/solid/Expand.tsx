@@ -7,11 +7,9 @@ const SvgExpand = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M13 4a1 1 0 0 1 1-1h5a2 2 0 0 1 2 2v5a1 1 0 1 1-2 0V6.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L17.586 5H14a1 1 0 0 1-1-1m-9 9a1 1 0 0 1 1 1v3.586l4.293-4.293a1 1 0 0 1 1.414 1.414L6.414 19H10a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2v-5a1 1 0 0 1 1-1"
-      clipRule="evenodd"
-    />
+    <Path d="M12 22H2v-9h10z" />
+    <Path d="M22 16h-8v-2h6V5H5v6H3V3h19z" />
+    <Path d="M18 12h-2v-1.586l-2 2L12.586 11l2-2H13V7h5z" />
   </Svg>
 );
 export default SvgExpand;

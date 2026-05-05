@@ -34,6 +34,18 @@ const NostrSignEventModal = LazyLoadPage(
   () => import('../pages/NostrSignEventModal'),
 );
 
+const CosmosEnigmaUnlockModal = LazyLoadPage(
+  () => import('../pages/CosmosEnigmaUnlockModal'),
+);
+
+const RiskWhiteListModal = LazyLoadPage(
+  () => import('../pages/RiskWhiteListModal'),
+);
+
+const ClipboardPermissionModal = LazyLoadPage(
+  () => import('../pages/ClipboardPermissionModal'),
+);
+
 // Custom Network
 const SettingCustomNetworkModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNetwork'),
@@ -51,6 +63,7 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.ConnectionModal,
     component: ConnectionModal,
+    dismissOnOverlayPress: false,
   },
   {
     name: EDAppConnectionModal.ConnectionList,
@@ -87,5 +100,17 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.NostrSignEventModal,
     component: NostrSignEventModal,
+  },
+  {
+    name: EDAppConnectionModal.CosmosEnigmaUnlockModal,
+    component: CosmosEnigmaUnlockModal,
+  },
+  {
+    name: EDAppConnectionModal.RiskWhiteListModal,
+    component: RiskWhiteListModal,
+  },
+  {
+    name: EDAppConnectionModal.ClipboardPermissionModal,
+    component: ClipboardPermissionModal,
   },
 ];

@@ -171,7 +171,7 @@ function BaseSortableSectionList<T>(
           ? reloadSectionHeaderIndex(index)
           : null,
       )
-      .filter((index) => index != null);
+      .filter((index) => index !== null && index !== undefined);
   }, [reloadSectionHeaderIndex, stickySectionHeadersEnabled, reloadSections]);
 
   const ref = useRef<ISortableListViewRef<T>>(null);
@@ -195,6 +195,7 @@ function BaseSortableSectionList<T>(
         viewPosition,
       });
     },
+    // oxlint-disable-next-line no-misused-spread
     ...ref?.current,
   }));
   const renderSectionAndItem = useCallback(

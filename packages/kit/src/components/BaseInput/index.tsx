@@ -12,12 +12,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { LayoutChangeEvent } from 'react-native';
 
-const useAutoSize = (value?: string) => {
+const useAutoSize = (value?: string, numberOfLines = 2) => {
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const [minHeight, setMinHeight] = useState<number | undefined>(undefined);
   const initHeightRef = useRef(0);
-
-  const numberOfLines = 2;
 
   useEffect(() => {
     const element = textAreaRef.current;
@@ -37,9 +35,9 @@ const useAutoSize = (value?: string) => {
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     if (!initHeightRef.current) {
       initHeightRef.current = e.nativeEvent.layout.height;
-      // fix missing numberOfLines on iOS & Web.
+      // Use initial layout height as minHeight on iOS & Web
+      // (TextArea sizeVariant already accounts for numberOfLines)
       if (!platformEnv.isNativeAndroid) {
-        initHeightRef.current *= numberOfLines;
         setMinHeight(initHeightRef.current);
       }
     }
@@ -55,9 +53,19 @@ const useAutoSize = (value?: string) => {
 
 export type IBaseInputProps = {
   extension?: React.ReactNode;
+  numberOfLines?: number;
 } & ComponentProps<typeof TextArea>;
 function BaseInput(props: IBaseInputProps) {
-  const { disabled, error, editable, size, extension, value, ...rest } = props;
+  const {
+    disabled,
+    error,
+    editable,
+    size,
+    extension,
+    value,
+    numberOfLines: numberOfLinesProp = 2,
+    ...rest
+  } = props;
 
   const sharedStyles = getSharedInputStyles({
     disabled,
@@ -66,8 +74,10 @@ function BaseInput(props: IBaseInputProps) {
     size,
   });
 
-  const { minHeight, textAreaRef, numberOfLines, onLayout } =
-    useAutoSize(value);
+  const { minHeight, textAreaRef, numberOfLines, onLayout } = useAutoSize(
+    value,
+    numberOfLinesProp,
+  );
 
   return (
     <Group borderRadius={sharedStyles.borderRadius} disabled={disabled}>
@@ -76,7 +86,7 @@ function BaseInput(props: IBaseInputProps) {
           ref={textAreaRef as any}
           value={value}
           onLayout={onLayout}
-          borderBottomWidth={0}
+          borderBottomWidth={extension ? 0 : undefined}
           error={error}
           numberOfLines={numberOfLines}
           multiline
@@ -93,7 +103,7 @@ function BaseInput(props: IBaseInputProps) {
         <Group.Item>
           <Stack
             px={sharedStyles.px}
-            py={size === 'large' ? '$3.5' : '$2.5'}
+            py={size === 'large' ? '$3.5' : '$1.5'}
             borderWidth={sharedStyles.borderWidth}
             bg={sharedStyles.backgroundColor}
             borderTopWidth={0}

@@ -1,19 +1,11 @@
+import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
-import { IconButton, Tooltip } from '@onekeyhq/components/src/actions';
+import { Tooltip } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
-import {
-  EPortalContainerConstantName,
-  Portal,
-} from '@onekeyhq/components/src/hocs';
-import {
-  useSafeAreaInsets,
-  useShortcuts,
-} from '@onekeyhq/components/src/hooks';
+import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
   Icon,
@@ -21,13 +13,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
-import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
-import {
-  MAX_SIDEBAR_WIDTH,
-  MIN_SIDEBAR_WIDTH,
-} from '@onekeyhq/components/src/utils/sidebar';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import { TMPopover, useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -35,28 +23,56 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
-import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { switchTab } from '../../Navigator/NavigationContainer';
 
+import { BrowserSubmenuColumn } from './BrowserSubmenuColumn';
 import { DesktopTabItem } from './DesktopTabItem';
+import { MenuHamburger } from './Menu';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs';
-import type {
-  NavigationRoute,
-  NavigationState,
-  ParamListBase,
-} from '@react-navigation/routers';
-import type { MotiTransition } from 'moti';
-import type { GestureResponderEvent } from 'react-native';
+import type { NavigationState } from '@react-navigation/routers';
+import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
+
+// Estimated height per tab item (icon ~40px + gap + label ~16-30px + padding 12px)
+const ESTIMATED_TAB_ITEM_HEIGHT = 70;
+
+const TAB_BAR_STYLE_WIDTH_40 = { width: 40 };
+const TAB_BAR_STYLE_ARRAY_WIDTH_40 = [{ width: 40 }];
+const ENTER_EXIT_STYLE = { scale: 0.95, opacity: 0 };
+const OVERFLOW_ANIMATION: [
+  'quick',
+  { opacity: { overshootClamping: boolean } },
+] = ['quick', { opacity: { overshootClamping: true } }];
+const PLATFORM_WEB_SHADOW_STYLE = {
+  outlineColor: '$neutral3',
+  outlineStyle: 'solid',
+  outlineWidth: '$px',
+  boxShadow:
+    '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
+} as const;
+const HOVER_STYLE_BG_HOVER = { bg: '$bgHover' } as const;
+const PRESS_STYLE_BG_ACTIVE = { bg: '$bgActive' } as const;
+const PLATFORM_WEB_APP_REGION_DRAG = { 'app-region': 'drag' } as const;
+
+let lastBrowserRoute: string = ETabRoutes.Discovery;
+
+function DesktopWinSidebarTop() {
+  return (
+    <XStack h={52} ai="center" jc="center" px="$4" className="app-region-drag">
+      <XStack className="app-region-no-drag">
+        <MenuHamburger />
+      </XStack>
+    </XStack>
+  );
+}
 
 function TabItemView({
-  isCollapse,
   isActive,
   route,
   onPress,
@@ -69,16 +85,14 @@ function TabItemView({
   onPressOut?: () => void;
   options: BottomTabNavigationOptions & {
     actionList?: IActionListSection[];
-    shortcutKey?: EShortcutEvents;
     tabbarOnPress?: () => void;
     onPressWhenSelected?: () => void;
     trackId?: string;
     collapseTabBarLabel?: string;
     hideOnTabBar?: boolean;
   };
-  isCollapse?: boolean;
 }) {
-  useMemo(() => {
+  useEffect(() => {
     // @ts-expect-error
     const activeIcon = options?.tabBarIcon?.(true) as IKeyOfIcons;
     // @ts-expect-error
@@ -88,8 +102,15 @@ function TabItemView({
   }, [options]);
 
   const [isContainerHovered, setIsContainerHovered] = useState(false);
+  const handleHoverIn = useCallback(() => {
+    setIsContainerHovered(true);
+  }, []);
+  const handleHoverOut = useCallback(() => {
+    setIsContainerHovered(false);
+  }, []);
   const handlePress = useCallback(
     (event: GestureResponderEvent) => {
+      setIsContainerHovered(false);
       const press = (options.tabbarOnPress ?? onPress) as (
         event: GestureResponderEvent,
       ) => void | undefined;
@@ -99,216 +120,442 @@ function TabItemView({
     [onPress, onPressOut, options],
   );
 
+  const tabBarStyleMemo = useMemo(
+    () =>
+      options.tabBarStyle
+        ? [options.tabBarStyle, TAB_BAR_STYLE_WIDTH_40]
+        : TAB_BAR_STYLE_ARRAY_WIDTH_40,
+    [options.tabBarStyle],
+  );
+
   const contentMemo = useMemo(
     () =>
       options.hideOnTabBar ? null : (
         <YStack
-          ai={isCollapse ? 'center' : undefined}
-          gap={isCollapse ? '$0.5' : undefined}
-          pt={isCollapse ? 6 : undefined}
-          pb={isCollapse ? 6 : undefined}
+          className="sidebar-tab-item"
+          w="100%"
+          ai="center"
+          gap="$0.5"
+          pt={6}
+          pb={6}
           onPress={handlePress}
-          onHoverIn={() => {
-            if (isCollapse) {
-              setIsContainerHovered(true);
-            }
-          }}
-          onHoverOut={() => {
-            if (isCollapse) {
-              setIsContainerHovered(false);
-            }
-          }}
+          onHoverIn={handleHoverIn}
+          onHoverOut={handleHoverOut}
         >
           <DesktopTabItem
-            isContainerHovered={isCollapse ? isContainerHovered : false}
+            isContainerHovered={isContainerHovered}
             onPress={handlePress}
             onPressWhenSelected={options.onPressWhenSelected}
             trackId={options.trackId}
             aria-current={isActive ? 'page' : undefined}
             selected={isActive}
-            shortcutKey={options.shortcutKey}
-            tabBarStyle={[
-              options.tabBarStyle,
-              isCollapse ? { width: 36 } : undefined,
-            ]}
+            tabBarStyle={tabBarStyleMemo}
             // @ts-expect-error
             icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
-            label={
-              (isCollapse ? '' : options.tabBarLabel ?? route.name) as string
-            }
+            label=""
             actionList={options.actionList}
             testID={route.name.toLowerCase()}
           />
-          {isCollapse ? (
-            <SizableText
-              size="$bodyXsMedium"
-              cursor="default"
-              color="$text"
-              textAlign="center"
-            >
-              {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
-            </SizableText>
-          ) : null}
+          <SizableText
+            size="$bodyXsMedium"
+            cursor="default"
+            color="$text"
+            textAlign="center"
+            numberOfLines={2}
+            wordWrap="break-word"
+            maxWidth="100%"
+          >
+            {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
+          </SizableText>
         </YStack>
       ),
     [
       handlePress,
+      handleHoverIn,
+      handleHoverOut,
       isActive,
-      isCollapse,
       isContainerHovered,
       options,
       route.name,
+      tabBarStyleMemo,
     ],
   );
 
   return contentMemo;
 }
 
-function MoreTabItemView({
-  routes,
-  navigation,
-  state,
-  descriptors,
-}: {
-  routes: NavigationRoute<ParamListBase, string>[];
-  navigation: BottomTabBarProps['navigation'];
-  state: BottomTabBarProps['state'];
-  descriptors: BottomTabBarProps['descriptors'];
-}) {
-  const intl = useIntl();
-  const [isHovered, setIsHovered] = useState(false);
-  const showTooltipRef = useRef(isHovered);
-  showTooltipRef.current = isHovered;
-  const closeTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleHoverIn = useCallback(() => {
-    if (showTooltipRef.current) {
-      if (closeTooltipTimer.current) {
-        clearTimeout(closeTooltipTimer.current);
+const isRouteActive = (
+  route: NavigationState['routes'][0],
+  focusedRouteName: string | undefined,
+  extraConfigName: string | undefined,
+) =>
+  route.name === focusedRouteName ||
+  (route.name === ETabRoutes.Discovery && focusedRouteName === extraConfigName);
+
+function useTabAction(navigation: BottomTabBarProps['navigation']) {
+  return useCallback(
+    (
+      route: NavigationState['routes'][0],
+      isActive: boolean,
+      options?: {
+        tabbarOnPress?: () => void;
+        onPressWhenSelected?: () => void;
+        callback?: () => void;
+      },
+    ) => {
+      if (options?.tabbarOnPress) {
+        options.tabbarOnPress();
+        options?.callback?.();
+        return;
       }
-    } else {
-      showTooltipTimer.current = setTimeout(() => {
-        setIsHovered(true);
-      }, 250);
-    }
-  }, []);
-  const dismissTooltip = useCallback(() => {
-    setIsHovered(false);
-  }, []);
-  const handleHoverOut = useCallback(() => {
-    if (showTooltipRef.current) {
-      closeTooltipTimer.current = setTimeout(() => {
-        dismissTooltip();
-      }, 300);
-    } else if (showTooltipTimer.current) {
-      clearTimeout(showTooltipTimer.current);
-    }
-  }, [dismissTooltip]);
 
-  const routeNames = useMemo(() => {
-    return routes.map((route) => route.name);
-  }, [routes]);
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
 
-  const focusRouteName = useMemo(() => {
-    return state.routes[state.index].name;
-  }, [state.routes, state.index]);
-
-  const isFocusedRouteNames = useMemo(() => {
-    return routeNames.includes(focusRouteName);
-  }, [routeNames, focusRouteName]);
-
-  const routesElements = useMemo(() => {
-    return routes.map((route) => {
-      const focus = focusRouteName === route.name;
-      const { options } = descriptors[route.key] as {
-        options: {
-          tabbarOnPress?: () => void;
-        };
-      };
-      const onPress = () => {
-        const event = navigation.emit({
-          type: 'tabPress',
-          target: route.key,
-          canPreventDefault: true,
+      if (route.name === 'Swap') {
+        defaultLogger.swap.enterSwap.enterSwap({
+          enterFrom: ESwapSource.TAB,
         });
-        if (!focus && !event.defaultPrevented) {
-          switchTab(route.name as ETabRoutes);
-          if (route.name === ETabRoutes.Market) {
-            appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
-              from: EEnterWay.HomeTab,
-            });
-          }
-        }
-      };
+      }
 
-      return (
-        <TabItemView
-          key={route.key}
-          route={route}
-          onPress={onPress}
-          onPressOut={dismissTooltip}
-          isActive={focus}
-          options={options}
-          isCollapse={false}
+      if (isActive) {
+        options?.onPressWhenSelected?.();
+      } else if (!event.defaultPrevented) {
+        switchTab(route.name as ETabRoutes);
+        if (route.name === ETabRoutes.Market) {
+          appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+            from: EEnterWay.HomeTab,
+          });
+        }
+      }
+      options?.callback?.();
+    },
+    [navigation],
+  );
+}
+
+function SidebarBottomItem({
+  route,
+  isActive,
+  options,
+  onPress,
+}: {
+  route: NavigationState['routes'][0];
+  isActive: boolean;
+  options: BottomTabNavigationOptions & {
+    collapseTabBarLabel?: string;
+  };
+  onPress: () => void;
+}) {
+  // @ts-expect-error tabBarIcon returns icon name string, not ReactNode
+  const iconName = options?.tabBarIcon?.(isActive) as IKeyOfIcons;
+  const label =
+    options.collapseTabBarLabel ??
+    (typeof options.tabBarLabel === 'string'
+      ? options.tabBarLabel
+      : undefined) ??
+    route.name;
+
+  const renderTriggerMemo = useMemo(
+    () => (
+      <YStack
+        p="$2"
+        borderRadius="$2"
+        bg={isActive ? '$bgActive' : undefined}
+        hoverStyle={HOVER_STYLE_BG_HOVER}
+        pressStyle={PRESS_STYLE_BG_ACTIVE}
+        cursor="default"
+        onPress={onPress}
+      >
+        <Icon
+          name={iconName}
+          size="$6"
+          color={isActive ? '$iconActive' : '$iconSubdued'}
         />
-      );
-    });
-  }, [routes, focusRouteName, descriptors, dismissTooltip, navigation]);
+      </YStack>
+    ),
+    [isActive, onPress, iconName],
+  );
 
   return (
     <Tooltip
-      open={isHovered}
+      placement="right"
+      renderTrigger={renderTriggerMemo}
+      renderContent={label}
+    />
+  );
+}
+
+function OverflowMenuItem({
+  route,
+  isActive,
+  options,
+  onPress,
+}: {
+  route: NavigationState['routes'][0];
+  isActive: boolean;
+  options: BottomTabNavigationOptions & {
+    collapseTabBarLabel?: string;
+  };
+  onPress: () => void;
+}) {
+  // @ts-expect-error tabBarIcon returns icon name string, not ReactNode
+  const iconName = options?.tabBarIcon?.(isActive) as IKeyOfIcons;
+  const label =
+    options.collapseTabBarLabel ??
+    (typeof options.tabBarLabel === 'string'
+      ? options.tabBarLabel
+      : undefined) ??
+    route.name;
+
+  return (
+    <XStack
+      px="$3"
+      py="$2"
+      gap="$2.5"
+      ai="center"
+      borderRadius="$2"
+      bg={isActive ? '$bgActive' : undefined}
+      cursor="default"
+      userSelect="none"
+      hoverStyle={HOVER_STYLE_BG_HOVER}
+      pressStyle={PRESS_STYLE_BG_ACTIVE}
+      onPress={onPress}
+    >
+      <Icon
+        name={iconName}
+        size="$5"
+        color={isActive ? '$iconActive' : '$iconSubdued'}
+      />
+      <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+        {label}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function OverflowMenuItemWithHandler({
+  route,
+  isActive,
+  options,
+  handleTabPress,
+  setIsOpen,
+}: {
+  route: NavigationState['routes'][0];
+  isActive: boolean;
+  options: BottomTabNavigationOptions & {
+    collapseTabBarLabel?: string;
+  };
+  handleTabPress: (
+    route: NavigationState['routes'][0],
+    isActive: boolean,
+    options?: {
+      tabbarOnPress?: () => void;
+      onPressWhenSelected?: () => void;
+      callback?: () => void;
+    },
+  ) => void;
+  setIsOpen: (value: boolean) => void;
+}) {
+  const handlePress = useCallback(() => {
+    handleTabPress(route, isActive, {
+      tabbarOnPress: (options as { tabbarOnPress?: () => void }).tabbarOnPress,
+      onPressWhenSelected: (options as { onPressWhenSelected?: () => void })
+        .onPressWhenSelected,
+      callback: () => setIsOpen(false),
+    });
+  }, [handleTabPress, route, isActive, options, setIsOpen]);
+
+  return (
+    <OverflowMenuItem
+      route={route}
+      isActive={isActive}
+      options={options}
+      onPress={handlePress}
+    />
+  );
+}
+
+function OverflowMoreButton({
+  overflowRoutes,
+  isAnyOverflowActive,
+  state,
+  descriptors,
+  navigation,
+  extraConfig,
+}: {
+  overflowRoutes: NavigationState['routes'];
+  isAnyOverflowActive: boolean;
+  state: NavigationState;
+  descriptors: BottomTabBarProps['descriptors'];
+  navigation: BottomTabBarProps['navigation'];
+  extraConfig?: ITabNavigatorExtraConfig<string>;
+}) {
+  const intl = useIntl();
+  const [isHovered, setIsHovered] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleTabPress = useTabAction(navigation);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const handleHoverIn = useCallback(() => {
+    setIsHovered(true);
+    clearTimer();
+    timerRef.current = setTimeout(() => setIsOpen(true), 150);
+  }, [clearTimer]);
+
+  const handleHoverOut = useCallback(() => {
+    setIsHovered(false);
+    clearTimer();
+    timerRef.current = setTimeout(() => setIsOpen(false), 200);
+  }, [clearTimer]);
+
+  const handlePopoverOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setIsOpen(false);
+      setIsHovered(false);
+    }
+  }, []);
+
+  const handleContentHoverIn = useCallback(() => {
+    clearTimer();
+    setIsOpen(true);
+  }, [clearTimer]);
+
+  useEffect(() => () => clearTimer(), [clearTimer]);
+
+  const moreLabel = intl.formatMessage({ id: ETranslations.global_more });
+
+  return (
+    <TMPopover
+      offset={8}
       placement="right-start"
-      offset={{ mainAxis: 6, crossAxis: -28 }}
-      renderTrigger={
+      open={isOpen}
+      onOpenChange={handlePopoverOpenChange}
+    >
+      <TMPopover.Trigger asChild>
         <YStack
-          userSelect="none"
+          w="100%"
+          ai="center"
           gap="$0.5"
-          py="$1.5"
+          pt={6}
+          pb={6}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >
-          <YStack
-            p="$2"
-            borderRadius="$2"
-            hoverStyle={{ bg: '$bgHover' }}
-            bg={isFocusedRouteNames ? '$bgActive' : undefined}
-          >
-            <Icon
-              name="DotHorSolid"
-              size="$5"
-              color={isFocusedRouteNames ? '$iconActive' : '$iconSubdued'}
-            />
-          </YStack>
+          <DesktopTabItem
+            isContainerHovered={isHovered || isOpen}
+            selected={isAnyOverflowActive}
+            tabBarStyle={TAB_BAR_STYLE_WIDTH_40}
+            icon={isAnyOverflowActive ? 'DotHorSolid' : 'DotHorOutline'}
+            label=""
+            showTooltip={false}
+            testID="tab-more"
+          />
           <SizableText
-            flex={1}
-            numberOfLines={1}
+            size="$bodyXsMedium"
             cursor="default"
             color="$text"
             textAlign="center"
-            size="$bodyXsMedium"
+            numberOfLines={1}
           >
-            {intl.formatMessage({
-              id: ETranslations.global_more,
-            })}
+            {moreLabel}
           </SizableText>
         </YStack>
-      }
-      renderContent={
-        <YStack
-          minWidth={180}
-          onHoverIn={handleHoverIn}
-          onHoverOut={handleHoverOut}
-          pb="$1"
-        >
-          <SizableText size="$headingSm" pb="$1" pl="$2.5">
-            {intl.formatMessage({
-              id: ETranslations.global_more,
-            })}
-          </SizableText>
-          {routesElements}
+      </TMPopover.Trigger>
+      <TMPopover.Content
+        trapFocus={false}
+        unstyled
+        w={200}
+        p={0}
+        bg="$bg"
+        borderRadius="$3"
+        enterStyle={ENTER_EXIT_STYLE}
+        exitStyle={ENTER_EXIT_STYLE}
+        animation={OVERFLOW_ANIMATION}
+        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+        onHoverIn={handleContentHoverIn}
+        onHoverOut={handleHoverOut}
+        $platform-web={PLATFORM_WEB_SHADOW_STYLE}
+      >
+        <YStack p="$1">
+          {overflowRoutes.map((route) => {
+            const currentFocusedRouteName = state.routes[state.index]?.name;
+            const isActive = isRouteActive(
+              route,
+              currentFocusedRouteName,
+              extraConfig?.name,
+            );
+            const { options } = descriptors[route.key];
+
+            return (
+              <OverflowMenuItemWithHandler
+                key={route.key}
+                route={route}
+                isActive={isActive}
+                options={options}
+                handleTabPress={handleTabPress}
+                setIsOpen={setIsOpen}
+              />
+            );
+          })}
         </YStack>
-      }
+      </TMPopover.Content>
+    </TMPopover>
+  );
+}
+
+function VisibleTabItemView({
+  route,
+  isActive,
+  options,
+  handleTabPress,
+}: {
+  route: NavigationState['routes'][0];
+  isActive: boolean;
+  options: BottomTabNavigationOptions & {
+    actionList?: IActionListSection[];
+    tabbarOnPress?: () => void;
+    onPressWhenSelected?: () => void;
+    trackId?: string;
+    collapseTabBarLabel?: string;
+    hideOnTabBar?: boolean;
+  };
+  handleTabPress: (
+    route: NavigationState['routes'][0],
+    isActive: boolean,
+  ) => void;
+}) {
+  const handlePress = useCallback(() => {
+    // When clicking the Discovery sidebar icon, restore the last
+    // active browser route (Discovery or MultiTabBrowser) so that
+    // switching to another tab and back preserves the dApp page.
+    if (
+      route.name === ETabRoutes.Discovery &&
+      !isActive &&
+      lastBrowserRoute !== ETabRoutes.Discovery
+    ) {
+      switchTab(lastBrowserRoute as ETabRoutes);
+    } else {
+      handleTabPress(route, isActive);
+    }
+  }, [route, isActive, handleTabPress]);
+
+  return (
+    <TabItemView
+      route={route}
+      onPress={handlePress}
+      isActive={isActive}
+      options={options}
     />
   );
 }
@@ -318,332 +565,197 @@ export function DesktopLeftSideBar({
   state,
   descriptors,
   extraConfig,
+  bottomMenu,
+  webPageTabBar,
 }: BottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
+  bottomMenu: ReactElement;
+  webPageTabBar: ReactElement;
 }) {
-  const intl = useIntl();
   const { routes } = state;
-  const [{ isCollapsed: isCollapse }, setAppSideBarStatus] =
-    useAppSideBarStatusAtom();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
-  const [isHovering, setIsHovering] = useState(false);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleTabPress = useTabAction(navigation);
 
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
 
-  const routesNotHidden = useMemo(() => {
-    return routes.filter((route) => {
+  // Current focused route for browser submenu
+  const focusedRouteName = state.routes[state.index]?.name;
+
+  // Track last active browser route (Discovery or MultiTabBrowser)
+  useEffect(() => {
+    if (focusedRouteName === ETabRoutes.Discovery) {
+      lastBrowserRoute = ETabRoutes.Discovery;
+    } else if (extraConfig?.name && focusedRouteName === extraConfig.name) {
+      lastBrowserRoute = extraConfig.name;
+    }
+  }, [focusedRouteName, extraConfig?.name]);
+
+  const [maxVisibleCount, setMaxVisibleCount] = useState(0);
+  const handleTabsContainerLayout = useCallback((event: LayoutChangeEvent) => {
+    const height = event.nativeEvent.layout.height;
+    if (height <= 0) return;
+    const count = Math.floor(height / ESTIMATED_TAB_ITEM_HEIGHT);
+    setMaxVisibleCount((prev) => (prev === count ? prev : count));
+  }, []);
+
+  const { visibleRoutes, overflowRoutes, deviceRoute } = useMemo(() => {
+    let currentDeviceRoute: (typeof routes)[0] | undefined;
+    const validRoutes = routes.filter((route) => {
       const { options } = descriptors[route.key] as {
         options: {
           hiddenIcon?: boolean;
+          hideOnTabBar?: boolean;
         };
       };
-      return !options.hiddenIcon;
-    });
-  }, [routes, descriptors]);
-
-  const tabs = useMemo(() => {
-    const inMoreActionRoutes: NavigationRoute<ParamListBase, string>[] = [];
-    let filteredRoutes: NavigationRoute<ParamListBase, string>[] = [];
-    if (isCollapse) {
-      for (let index = 0; index < routesNotHidden.length; index += 1) {
-        const route = routesNotHidden[index];
-        const { options } = descriptors[route.key] as {
-          options: {
-            inMoreAction?: boolean;
-          };
-        };
-        if (options.inMoreAction) {
-          inMoreActionRoutes.push(route);
-        } else {
-          filteredRoutes.push(route);
-        }
+      if (options.hiddenIcon || options.hideOnTabBar) {
+        return false;
       }
-    } else {
-      filteredRoutes = routesNotHidden;
-    }
-
-    const newRoutes = filteredRoutes.map((route) => {
-      const focusRoute = state.routes[state.index];
-      const focus = focusRoute.name === route.name;
-      const { options } = descriptors[route.key];
-      const onPress = () => {
-        const event = navigation.emit({
-          type: 'tabPress',
-          target: route.key,
-          canPreventDefault: true,
-        });
-        if (route.name === 'Swap') {
-          defaultLogger.swap.enterSwap.enterSwap({
-            enterFrom: ESwapSource.TAB,
-          });
-        }
-        if (!focus && !event.defaultPrevented) {
-          switchTab(route.name as ETabRoutes);
-          if (route.name === ETabRoutes.Market) {
-            appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
-              from: EEnterWay.HomeTab,
-            });
-          }
-        }
-      };
-
+      if (route.name === ETabRoutes.DeviceManagement) {
+        currentDeviceRoute = route;
+        return false;
+      }
       if (isShowWebTabBar && route.name === extraConfig?.name) {
-        return (
-          <YStack flex={1} key={route.key}>
-            <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
-          </YStack>
-        );
+        return false;
       }
-
-      return (
-        <TabItemView
-          key={route.key}
-          route={route}
-          onPress={onPress}
-          isActive={focus}
-          options={options}
-          isCollapse={isCollapse}
-        />
-      );
+      return true;
     });
 
-    if (inMoreActionRoutes.length > 0) {
-      newRoutes.splice(
-        newRoutes.length - 2,
-        0,
-        <MoreTabItemView
-          key="more-tab-item"
-          routes={inMoreActionRoutes}
-          navigation={navigation}
-          state={state}
-          descriptors={descriptors}
-        />,
-      );
+    if (maxVisibleCount === 0 || validRoutes.length <= maxVisibleCount) {
+      return {
+        visibleRoutes: validRoutes,
+        overflowRoutes: [] as typeof validRoutes,
+        deviceRoute: currentDeviceRoute,
+      };
     }
-    return newRoutes;
+    const visibleCount = Math.max(0, maxVisibleCount - 1);
+    return {
+      visibleRoutes: validRoutes.slice(0, visibleCount),
+      overflowRoutes: validRoutes.slice(visibleCount),
+      deviceRoute: currentDeviceRoute,
+    };
   }, [
-    isCollapse,
-    routesNotHidden,
+    routes,
     descriptors,
-    state,
     isShowWebTabBar,
     extraConfig?.name,
-    navigation,
+    maxVisibleCount,
   ]);
 
-  const handleHoverIn = useCallback(() => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-    }
-    hoverTimerRef.current = setTimeout(() => {
-      setIsHovering(true);
-    }, 200); // 200ms delay to prevent quick hover triggers
-  }, []);
+  const isAnyOverflowActive = useMemo(() => {
+    return overflowRoutes.some((route) =>
+      isRouteActive(route, focusedRouteName, extraConfig?.name),
+    );
+  }, [overflowRoutes, focusedRouteName, extraConfig?.name]);
 
-  const handleHoverOut = useCallback(() => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
-    }
-    setIsHovering(false);
-  }, []);
+  const isDeviceActive = deviceRoute
+    ? isRouteActive(deviceRoute, focusedRouteName, extraConfig?.name)
+    : false;
 
-  const handleToggleCollapse = useCallback(() => {
-    defaultLogger.app.page.navigationToggle();
-    setAppSideBarStatus((prev) => ({
-      ...prev,
-      isCollapsed: !prev.isCollapsed,
-    }));
-    setIsHovering(false);
-  }, [setAppSideBarStatus, setIsHovering]);
-
-  useShortcuts(EShortcutEvents.SideBar, handleToggleCollapse);
-
-  // Cleanup timer on unmount to prevent memory leak
-  useEffect(
-    () => () => {
-      if (hoverTimerRef.current) {
-        clearTimeout(hoverTimerRef.current);
-      }
-    },
-    [],
+  const containerStyle = useMemo(
+    () => ({
+      backgroundColor: theme.bgSidebar.val,
+      paddingTop: top,
+      zIndex: 2,
+    }),
+    [theme.bgSidebar.val, top],
   );
 
+  const handleDevicePress = useCallback(() => {
+    if (!deviceRoute) return;
+    handleTabPress(deviceRoute, isDeviceActive);
+    const { trackId } = descriptors[deviceRoute.key].options as {
+      trackId?: string;
+    };
+    if (trackId) {
+      defaultLogger.app.page.tabBarClick(trackId);
+    }
+  }, [deviceRoute, isDeviceActive, handleTabPress, descriptors]);
+
   return (
-    <MotiView
-      testID="Desktop-AppSideBar-Container"
-      animate={{ width: isCollapse ? MIN_SIDEBAR_WIDTH : MAX_SIDEBAR_WIDTH }}
-      transition={
-        {
-          duration: 200,
-          type: 'timing',
-        } as MotiTransition
-      }
-      style={{
-        backgroundColor: theme.bgSidebar.val,
-        paddingTop: top,
-        borderRightColor: theme.neutral4.val,
-        borderRightWidth: StyleSheet.hairlineWidth,
-        zIndex: 2,
-      }}
-    >
-      {platformEnv.isDesktopMac ? (
-        // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
-        <XStack
-          $platform-web={{
-            'app-region': 'drag',
-          }}
-          h={52}
-          ai="center"
-          jc="flex-end"
-          px="$4"
-        />
-      ) : null}
-      <YStack
-        position="relative"
-        flex={1}
-        testID="Desktop-AppSideBar-Content-Container"
-      >
-        <MotiView
-          animate={{
-            width: isCollapse ? MIN_SIDEBAR_WIDTH : MAX_SIDEBAR_WIDTH,
-          }}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            bottom: 0,
-          }}
-          transition={
-            {
-              duration: 120,
-              type: 'timing',
-            } as MotiTransition
-          }
-        >
+    <XStack testID="Desktop-AppSideBar-Container" style={containerStyle}>
+      <YStack w={MIN_SIDEBAR_WIDTH}>
+        {/* eslint-disable no-nested-ternary */}
+        {platformEnv.isDesktopMac ? (
+          // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
+          <XStack
+            $platform-web={PLATFORM_WEB_APP_REGION_DRAG}
+            h={52}
+            ai="center"
+            jc="flex-end"
+            px="$4"
+          />
+        ) : platformEnv.isDesktopWin || platformEnv.isDesktopLinux ? (
+          <DesktopWinSidebarTop />
+        ) : (
+          <MenuHamburger />
+        )}
+        {/* eslint-enable no-nested-ternary */}
+        <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
           <YStack flex={1}>
-            {!platformEnv.isDesktopMac && !platformEnv.isNativeIOSPad ? (
-              <XStack
-                ai="center"
-                jc={isCollapse ? 'center' : 'flex-start'}
-                px="$4"
-                py="$3"
-              >
+            {!platformEnv.isDesktopWithCustomTitleBar &&
+            !platformEnv.isNativeIOSPad ? (
+              <XStack ai="center" jc="center" px="$4" py="$3">
                 <Icon
                   name="OnekeyLogoIllus"
                   width={28}
                   height={28}
                   color="$text"
                 />
-                <MotiView
-                  animate={{
-                    opacity: isCollapse ? 0 : 1,
-                    width: isCollapse ? 0 : 62,
-                    marginLeft: isCollapse ? 0 : 12,
-                  }}
-                  transition={{
-                    opacity: {
-                      duration: isCollapse ? 0 : 200,
-                      type: 'timing',
-                      delay: isCollapse ? 0 : 100,
-                    },
-                    width: {
-                      duration: isCollapse ? 0 : 200,
-                      type: 'timing',
-                    },
-                    marginLeft: {
-                      duration: isCollapse ? 0 : 200,
-                      type: 'timing',
-                    },
-                  }}
-                  style={{
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Icon
-                    name="OnekeyTextOnlyIllus"
-                    width={62}
-                    height={28}
-                    color="$text"
-                  />
-                </MotiView>
               </XStack>
             ) : null}
             <YStack
               flex={1}
-              pt={isCollapse ? 0 : '$3'}
               px="$3"
-              alignItems={isCollapse ? 'center' : undefined}
+              alignItems="center"
+              onLayout={handleTabsContainerLayout}
             >
-              {tabs}
-            </YStack>
-            <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
-          </YStack>
-        </MotiView>
-      </YStack>
-      <YStack
-        testID="Desktop-AppSideBar-Separator"
-        position="absolute"
-        onHoverIn={handleHoverIn}
-        onHoverOut={handleHoverOut}
-        onPress={handleToggleCollapse}
-        cursor="pointer"
-        zIndex={1000}
-        right={-8}
-        top={0}
-        bottom={0}
-        width={16}
-      >
-        {isHovering ? (
-          <>
-            <YStack
-              position="absolute"
-              left={8}
-              top={0}
-              bottom={0}
-              width={1.5}
-              bg="$borderStrong"
-              pointerEvents="none"
-              animation="quick"
-              enterStyle={{
-                opacity: 0,
-              }}
-              opacity={1}
-            />
-            <YStack ai="center" jc="center" width="100%" mt="$24">
-              <Tooltip
-                open
-                placement="right"
-                renderTrigger={
-                  <IconButton
-                    aria-label="Toggle sidebar"
-                    icon={
-                      isCollapse
-                        ? 'ChevronRightSmallOutline'
-                        : 'ChevronLeftSmallOutline'
-                    }
-                    cursor="pointer"
-                    size="small"
-                    bg="$bgApp"
-                    elevation={5}
+              {visibleRoutes.map((route) => {
+                const isActive = isRouteActive(
+                  route,
+                  focusedRouteName,
+                  extraConfig?.name,
+                );
+                return (
+                  <VisibleTabItemView
+                    key={route.key}
+                    route={route}
+                    isActive={isActive}
+                    options={descriptors[route.key].options}
+                    handleTabPress={handleTabPress}
                   />
-                }
-                renderContent={
-                  <Tooltip.Text shortcutKey={EShortcutEvents.SideBar}>
-                    {intl.formatMessage({
-                      id: isCollapse
-                        ? ETranslations.shortcut_expand_sidebar
-                        : ETranslations.shortcut_collapse_sidebar,
-                    })}
-                  </Tooltip.Text>
-                }
-              />
+                );
+              })}
+              {overflowRoutes.length > 0 ? (
+                <OverflowMoreButton
+                  overflowRoutes={overflowRoutes}
+                  isAnyOverflowActive={isAnyOverflowActive}
+                  state={state}
+                  descriptors={descriptors}
+                  navigation={navigation}
+                  extraConfig={extraConfig}
+                />
+              ) : null}
             </YStack>
-          </>
-        ) : null}
+            {deviceRoute ? (
+              <YStack px="$3" pb="$2" alignItems="center">
+                <SidebarBottomItem
+                  route={deviceRoute}
+                  isActive={isDeviceActive}
+                  options={descriptors[deviceRoute.key].options}
+                  onPress={handleDevicePress}
+                />
+              </YStack>
+            ) : null}
+            {bottomMenu}
+          </YStack>
+        </YStack>
       </YStack>
-    </MotiView>
+      <BrowserSubmenuColumn
+        webPageTabBar={webPageTabBar}
+        focusedRouteName={focusedRouteName}
+        multiTabBrowserRouteName={extraConfig?.name}
+      />
+    </XStack>
   );
 }

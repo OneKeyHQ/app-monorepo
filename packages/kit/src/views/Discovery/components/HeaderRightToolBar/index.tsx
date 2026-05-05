@@ -188,12 +188,15 @@ function AccountSelectorPopoverContent({
     return null;
   }
 
-  const availableNetworksMap = accountsInfo.reduce((acc, account) => {
-    if (Array.isArray(account.availableNetworkIds)) {
-      acc[account.num] = { networkIds: account.availableNetworkIds };
-    }
-    return acc;
-  }, {} as Record<number, { networkIds: string[] }>);
+  const availableNetworksMap = accountsInfo.reduce(
+    (acc, account) => {
+      if (Array.isArray(account.availableNetworkIds)) {
+        acc[account.num] = { networkIds: account.availableNetworkIds };
+      }
+      return acc;
+    },
+    {} as Record<number, { networkIds: string[] }>,
+  );
 
   return (
     <AccountSelectorProviderMirror

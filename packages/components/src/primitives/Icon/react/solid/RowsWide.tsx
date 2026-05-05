@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRowsWide = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M2 7a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v4H2zm0 6v4a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-4z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M22 13v7H2v-7zm0-2H2V4h20z" />
   </Svg>
 );
 export default SvgRowsWide;

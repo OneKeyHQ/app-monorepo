@@ -15,14 +15,23 @@ export function TransactionRow({
   isLoading,
 }: ITransactionRowProps) {
   const intl = useIntl();
-  const buyPercentage = totalCount > 0 ? (buyCount / totalCount) * 100 : 0;
+  const buyPercentage =
+    totalCount !== undefined && totalCount > 0 && buyCount !== undefined
+      ? (buyCount / totalCount) * 100
+      : 0;
+
+  // Show "--" when loading OR when data is undefined (field doesn't exist)
+  const showTotalPlaceholder = isLoading || totalCount === undefined;
+  const showBuyPlaceholder = isLoading || buyCount === undefined;
+  const showSellPlaceholder = isLoading || sellCount === undefined;
+  const noData = buyCount === undefined || sellCount === undefined;
 
   return (
     <Stack gap="$2">
       <Stack flexDirection="row" alignItems="center" gap="$2">
         <SizableText size="$bodyMdMedium">
           {label}:{' '}
-          {isLoading ? (
+          {showTotalPlaceholder ? (
             '--'
           ) : (
             <NumberSizeableText size="$bodyMdMedium" formatter="marketCap">
@@ -31,7 +40,11 @@ export function TransactionRow({
           )}
         </SizableText>
       </Stack>
-      <BuySellRatioBar buyPercentage={buyPercentage} isLoading={isLoading} />
+      <BuySellRatioBar
+        buyPercentage={buyPercentage}
+        isLoading={isLoading}
+        noData={noData}
+      />
       <Stack flexDirection="row" justifyContent="space-between">
         <Stack flexDirection="row" gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -41,7 +54,7 @@ export function TransactionRow({
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
             (
-            {isLoading ? (
+            {showBuyPlaceholder ? (
               '--'
             ) : (
               <NumberSizeableText
@@ -64,7 +77,7 @@ export function TransactionRow({
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
             (
-            {isLoading ? (
+            {showSellPlaceholder ? (
               '--'
             ) : (
               <NumberSizeableText

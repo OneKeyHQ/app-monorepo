@@ -29,6 +29,7 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
+import type { WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
 // /onboarding/auto_typing
@@ -61,16 +62,28 @@ export function WebViewWebEmbed({
 
   useEffect(() => {
     async function getApiKey() {
-      const devSettings =
-        await backgroundApiProxy.serviceDevSetting.getDevSetting();
-      let apiKey = REVENUECAT_API_KEY_WEB;
-      if (devSettings?.settings?.usePrimeSandboxPayment) {
-        apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
+      try {
+        const devSettings =
+          await backgroundApiProxy.serviceDevSetting.getDevSetting();
+        let apiKey = REVENUECAT_API_KEY_WEB;
+        if (devSettings?.settings?.usePrimeSandboxPayment) {
+          apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
+        }
+        if (!apiKey) {
+          defaultLogger.app.webembed.webEmbedRevenuecatApiKey({
+            hasKey: false,
+            error: 'No REVENUECAT api key found',
+          });
+          throw new OneKeyLocalError('No REVENUECAT api key found');
+        }
+        defaultLogger.app.webembed.webEmbedRevenuecatApiKey({ hasKey: true });
+        setRevenuecatApiKey(apiKey);
+      } catch (error) {
+        defaultLogger.app.webembed.webEmbedRevenuecatApiKey({
+          hasKey: false,
+          error: String(error),
+        });
       }
-      if (!apiKey) {
-        throw new OneKeyLocalError('No REVENUECAT api key found');
-      }
-      setRevenuecatApiKey(apiKey);
     }
     void getApiKey();
   }, []);
@@ -78,6 +91,12 @@ export function WebViewWebEmbed({
   const webEmbedAppSettings = useMemo<
     IWebEmbedOnekeyAppSettings | undefined
   >(() => {
+    defaultLogger.app.webembed.webEmbedAppSettingsResolved({
+      hasSettings: true,
+      hasTheme: !!themeVariant,
+      hasLocale: !!localeVariant,
+      hasApiKey: !!revenuecatApiKey,
+    });
     if (!themeVariant || !localeVariant || !revenuecatApiKey) {
       return undefined;
     }
@@ -120,26 +139,36 @@ export function WebViewWebEmbed({
 
   const nativeWebviewSource = useMemo(() => {
     if (remoteUrl) {
+      defaultLogger.app.webembed.webEmbedWebViewSource({
+        remoteUrl,
+      });
       return undefined;
     }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
     if (webEmbedPath) {
       return {
-        uri: webEmbedPath,
+        uri: `file://${webEmbedPath}/index.html`,
       };
     }
     // Android
     if (platformEnv.isNativeAndroid) {
+      defaultLogger.app.webembed.webEmbedWebViewSource({
+        nativeUri: 'file:///android_asset/web-embed/index.html',
+      });
       return {
         uri: 'file:///android_asset/web-embed/index.html',
       };
     }
     // iOS
     if (platformEnv.isNativeIOS) {
+      defaultLogger.app.webembed.webEmbedWebViewSource({
+        nativeUri: 'web-embed/index.html',
+      });
       return {
         uri: 'web-embed/index.html',
       };
     }
+    defaultLogger.app.webembed.webEmbedWebViewSource({});
     return undefined;
   }, [remoteUrl]);
 
@@ -196,6 +225,30 @@ export function WebViewWebEmbed({
     }
   }, []);
 
+  const handleError = useCallback((event: WebViewErrorEvent) => {
+    const { code, description, url } = event?.nativeEvent || {};
+    defaultLogger.app.webembed.webViewOnError({
+      code: code || 0,
+      description: description || 'unknown',
+      url: url || 'unknown',
+    });
+  }, []);
+
+  const allowFileAccessByUrl = useMemo(() => {
+    const webEmbedPath = BundleUpdate.getWebEmbedPath();
+    return !!webEmbedPath || undefined;
+  }, []);
+
+  const iosAllowingReadAccessToURL = useMemo(() => {
+    if (platformEnv.isNativeIOS) {
+      const webEmbedPath = BundleUpdate.getWebEmbedPath();
+      if (webEmbedPath) {
+        return `file://${webEmbedPath}/`;
+      }
+    }
+    return undefined;
+  }, []);
+
   const webview = useMemo(() => {
     if (!webEmbedAppSettings) {
       return null;
@@ -221,6 +274,9 @@ export function WebViewWebEmbed({
 
     return (
       <WebView
+        allowFileAccess={allowFileAccessByUrl}
+        allowFileAccessFromFileURLs={allowFileAccessByUrl}
+        allowingReadAccessToURL={iosAllowingReadAccessToURL}
         pullToRefreshEnabled={false}
         useGeckoView={false}
         // *** use remote url
@@ -230,6 +286,7 @@ export function WebViewWebEmbed({
         onWebViewRef={onWebViewRef}
         customReceiveHandler={customReceiveHandler}
         onMessage={handleMessage}
+        onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
             const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
@@ -253,22 +310,33 @@ export function WebViewWebEmbed({
       />
     );
   }, [
-    customReceiveHandler,
-    handleMessage,
+    webEmbedAppSettings,
     hashRoutePath,
     hashRouteQueryParams,
+    devSettingsPersistAtom.enabled,
+    devSettingsPersistAtom.settings?.disableWebEmbedApi,
+    allowFileAccessByUrl,
+    iosAllowingReadAccessToURL,
+    remoteUrl,
     nativeWebviewSource,
     onWebViewRef,
-    remoteUrl,
-    webEmbedAppSettings,
-    devSettingsPersistAtom,
+    customReceiveHandler,
+    handleMessage,
+    handleError,
   ]);
 
   useEffect(() => {
+    const jsBridge = webviewRef?.current?.jsBridge;
+    defaultLogger.app.webembed.webEmbedBridgeEffect({
+      isNative: !!platformEnv.isNative,
+      hasBridge: !!jsBridge,
+      hasWebview: !!webview,
+      hasSettings: !!webEmbedAppSettings,
+      bridgeGlobalOnMessageEnabled: jsBridge?.globalOnMessageEnabled,
+    });
     if (!platformEnv.isNative) {
       return;
     }
-    const jsBridge = webviewRef?.current?.jsBridge;
     if (!jsBridge) {
       return;
     }
@@ -282,6 +350,13 @@ export function WebViewWebEmbed({
     backgroundApiProxy.connectWebEmbedBridge(
       jsBridge as unknown as JsBridgeBase,
     );
+    return () => {
+      // Reset BG's canonical `isWebEmbedApiReady` alongside disconnecting the
+      // bridge. Without this, the next mount could see a stale BG ready and
+      // dispatch calls before the new page replays its `webEmbedApiReady`.
+      void backgroundApiProxy.serviceDApp.markWebEmbedApiNotReady();
+      backgroundApiProxy.connectWebEmbedBridge(null);
+    };
   }, [webviewRef, webview, webEmbedAppSettings]);
 
   const webviewUrlOrUri = useMemo(() => {
@@ -310,6 +385,7 @@ export function WebViewWebEmbed({
       width={debugViewSize.width}
       height={debugViewSize.height}
       borderWidth={debugViewSize.borderWidth}
+      overflow="hidden"
       top={top}
       left="5%"
       position="absolute"

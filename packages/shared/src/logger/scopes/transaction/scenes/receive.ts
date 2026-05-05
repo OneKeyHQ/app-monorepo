@@ -1,5 +1,9 @@
+import type { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
+
+export type IReceiveExchangeSource = EExchangeId | 'others';
 
 export class ReceiveScene extends BaseScene {
   @LogToServer()
@@ -16,6 +20,20 @@ export class ReceiveScene extends BaseScene {
       walletType,
       isSuccess,
       failedReason,
+    };
+  }
+
+  @LogToServer()
+  public clickExchangeEntry({
+    exchangeSource,
+    walletType,
+  }: {
+    exchangeSource: IReceiveExchangeSource;
+    walletType: string | undefined;
+  }) {
+    return {
+      exchangeSource,
+      walletType,
     };
   }
 }

@@ -1,7 +1,6 @@
 import { isNil, unionBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
 import {
   backgroundClass,
@@ -9,6 +8,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
@@ -17,8 +20,13 @@ import {
   isAccountCompatibleWithTx,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
+import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -27,11 +35,13 @@ import type {
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchHistoryTxDetailsParams,
+  IFetchTransferRecipientsResp,
   IFetchTxDetailsParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
   IServerFetchAccountHistoryDetailParams,
+  ITransferRecipient,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
@@ -53,6 +63,7 @@ import ServiceBase from './ServiceBase';
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+import type { IAccountDeriveTypes } from '../vaults/types';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
@@ -72,14 +83,14 @@ class ServiceHistory extends ServiceBase {
       targetCurrency,
       currencyMap,
       excludeTestNetwork,
-      limit,
+      limit: _limit,
     } = params;
     let dbAccount;
     try {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
         accountId,
       });
-    } catch (error) {
+    } catch (_error) {
       dbAccount = undefined;
     }
     const [accountAddress, xpub] = await Promise.all([
@@ -125,9 +136,8 @@ class ServiceHistory extends ServiceBase {
         xpub: account.accountXpub,
       }));
 
-      localHistoryPendingTxs = await this.getAccountsLocalHistoryPendingTxs(
-        allNetworksParams,
-      );
+      localHistoryPendingTxs =
+        await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
     } else {
       localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
         networkId,
@@ -145,14 +155,16 @@ class ServiceHistory extends ServiceBase {
     const pendingTxs: IAccountHistoryTx[] = [];
 
     // Fetch details of locally pending transactions
-    const onChainHistoryTxsDetails = await Promise.all(
-      localHistoryPendingTxs.map((tx) =>
-        this.fetchHistoryTxDetails({
-          accountId: tx.decodedTx.accountId,
-          networkId: tx.decodedTx.networkId,
-          txid: tx.decodedTx.txid,
-        }),
+    const onChainHistoryTxsDetails = await promiseAllSettledEnhanced(
+      localHistoryPendingTxs.map(
+        (tx) => () =>
+          this.fetchHistoryTxDetails({
+            accountId: tx.decodedTx.accountId,
+            networkId: tx.decodedTx.networkId,
+            txid: tx.decodedTx.txid,
+          }),
       ),
+      { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
     );
 
     for (const localHistoryPendingTx of localHistoryPendingTxs) {
@@ -222,9 +234,8 @@ class ServiceHistory extends ServiceBase {
         xpub: account.accountXpub,
       }));
 
-      localHistoryConfirmedTxs = await this.getAccountsLocalHistoryConfirmedTxs(
-        allNetworksParams,
-      );
+      localHistoryConfirmedTxs =
+        await this.getAccountsLocalHistoryConfirmedTxs(allNetworksParams);
     } else {
       localHistoryConfirmedTxs = await this.getAccountLocalHistoryConfirmedTxs({
         networkId,
@@ -261,44 +272,46 @@ class ServiceHistory extends ServiceBase {
     let confirmedTxsToSave: IAccountHistoryTx[] = [];
 
     if (isAllNetworks) {
-      const allNetworksParams = await Promise.all(
-        accounts.map(async (account) => {
-          const filteredPendingTxs = pendingTxs.filter((tx) =>
-            isAccountCompatibleWithTx({ account, tx }),
-          );
-          let pendingTxsToModify: IAccountHistoryTx[] = [];
-          try {
-            pendingTxsToModify = await this.getPendingTxsToModify({
-              accountId: account.accountId,
-              networkId: account.networkId,
-              pendingTxs: filteredPendingTxs,
-            });
-          } catch (error) {
-            console.error(
-              `Failed to get pendingTxsToUpdate for account ${account.accountId}:`,
-              error,
+      const allNetworksParams = (
+        await promiseAllSettledEnhanced(
+          accounts.map((account) => async () => {
+            const filteredPendingTxs = pendingTxs.filter((tx) =>
+              isAccountCompatibleWithTx({ account, tx }),
             );
-            pendingTxsToModify = [];
-          }
-          return {
-            networkId: account.networkId,
-            accountAddress: account.apiAddress,
-            xpub: account.accountXpub,
-            pendingTxs: filteredPendingTxs,
-            confirmedTxs: mergedConfirmedTxs.filter((tx) =>
-              isAccountCompatibleWithTx({ account, tx }),
-            ),
-            onChainHistoryTxs: onChainHistoryTxs.filter((tx) =>
-              isAccountCompatibleWithTx({ account, tx }),
-            ),
-            pendingTxsToModify,
-          };
-        }),
-      );
+            let pendingTxsToModify: IAccountHistoryTx[] = [];
+            try {
+              pendingTxsToModify = await this.getPendingTxsToModify({
+                accountId: account.accountId,
+                networkId: account.networkId,
+                pendingTxs: filteredPendingTxs,
+              });
+            } catch (error) {
+              console.error(
+                `Failed to get pendingTxsToUpdate for account ${account.accountId}:`,
+                error,
+              );
+              pendingTxsToModify = [];
+            }
+            return {
+              networkId: account.networkId,
+              accountAddress: account.apiAddress,
+              xpub: account.accountXpub,
+              pendingTxs: filteredPendingTxs,
+              confirmedTxs: mergedConfirmedTxs.filter((tx) =>
+                isAccountCompatibleWithTx({ account, tx }),
+              ),
+              onChainHistoryTxs: onChainHistoryTxs.filter((tx) =>
+                isAccountCompatibleWithTx({ account, tx }),
+              ),
+              pendingTxsToModify,
+            };
+          }),
+          { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+        )
+      ).filter(Boolean);
 
-      const updateResult = await this.batchUpdateLocalHistoryTxs(
-        allNetworksParams,
-      );
+      const updateResult =
+        await this.batchUpdateLocalHistoryTxs(allNetworksParams);
       finalPendingTxs = updateResult.allFinalPendingTxs;
       confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
     } else {
@@ -337,7 +350,7 @@ class ServiceHistory extends ServiceBase {
     let result = unionBy(
       [
         ...finalPendingTxs,
-        ...[...confirmedTxsToSave, ...onChainHistoryTxs].sort(
+        ...[...confirmedTxsToSave, ...onChainHistoryTxs].toSorted(
           (b, a) =>
             (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
             (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -355,6 +368,7 @@ class ServiceHistory extends ServiceBase {
     }
 
     const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
+    const accountsWithChangedConfirmedTxs = new Set<string>(); // accountId_networkId
     const changedPendingTxInfos: IChangedPendingTxInfo[] = [];
     localHistoryPendingTxs.forEach((tx) => {
       const txInResult = finalPendingTxs.find((item) => item.id === tx.id);
@@ -371,6 +385,19 @@ class ServiceHistory extends ServiceBase {
             status: confirmedTx.decodedTx.status,
           });
         }
+      }
+    });
+
+    // Find accounts with new on-chain confirmed transactions
+    // (transactions that are on-chain but not in local confirmed history)
+    onChainHistoryTxs.forEach((tx) => {
+      const txInLocalConfirmed = localHistoryConfirmedTxs.find(
+        (item) => item.id === tx.id,
+      );
+      if (!txInLocalConfirmed) {
+        accountsWithChangedConfirmedTxs.add(
+          `${tx.decodedTx.accountId}_${tx.decodedTx.networkId}`,
+        );
       }
     });
 
@@ -398,6 +425,27 @@ class ServiceHistory extends ServiceBase {
       addressMap,
       accountsWithChangedPendingTxs: Array.from(
         accountsWithChangedPendingTxs,
+      ).map((item) => {
+        const [a, n] = item.split('_');
+        return {
+          accountId: a,
+          networkId: n,
+        };
+      }),
+      accountsWithChangedConfirmedTxs: Array.from(
+        accountsWithChangedConfirmedTxs,
+      ).map((item) => {
+        const [a, n] = item.split('_');
+        return {
+          accountId: a,
+          networkId: n,
+        };
+      }),
+      accountsWithChangedTxs: Array.from(
+        new Set([
+          ...accountsWithChangedPendingTxs,
+          ...accountsWithChangedConfirmedTxs,
+        ]),
       ).map((item) => {
         const [a, n] = item.split('_');
         return {
@@ -452,7 +500,7 @@ class ServiceHistory extends ServiceBase {
       const result = unionBy(
         [
           ...localHistoryPendingTxs,
-          ...localHistoryConfirmedTxs.sort(
+          ...localHistoryConfirmedTxs.toSorted(
             (b, a) =>
               (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -490,17 +538,16 @@ class ServiceHistory extends ServiceBase {
     ]);
 
     const localHistoryConfirmedTxs =
-      await this.getAccountLocalHistoryPendingTxs({
-        networkId,
-        accountAddress,
-        xpub,
-      });
-    const localHistoryPendingTxs =
       await this.getAccountLocalHistoryConfirmedTxs({
         networkId,
         accountAddress,
         xpub,
       });
+    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
+      networkId,
+      accountAddress,
+      xpub,
+    });
 
     const result = unionBy(
       [...localHistoryPendingTxs, ...localHistoryConfirmedTxs],
@@ -544,9 +591,8 @@ class ServiceHistory extends ServiceBase {
       xpub: account.accountXpub,
     }));
 
-    const allNetworksPendingTxs = await this.getAccountsLocalHistoryPendingTxs(
-      allNetworksParams,
-    );
+    const allNetworksPendingTxs =
+      await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
 
     return allNetworksPendingTxs;
   }
@@ -649,6 +695,26 @@ class ServiceHistory extends ServiceBase {
         finalPendingTxs = pendingTxs;
       }
 
+      // For fast-confirming chains (e.g. Solana), fetchHistoryTxDetails may be
+      // slower than fetchAccountOnChainHistory. When on-chain history already
+      // contains a confirmed tx that matches a local pending tx by ID, we must
+      // filter it out of finalPendingTxs so that accountsWithChangedPendingTxs
+      // detection fires and the pending record is cleaned from simpleDb.
+      const onChainMatchedPendingTxs: IAccountHistoryTx[] = [];
+      finalPendingTxs = finalPendingTxs.filter((tx) => {
+        const matched = onChainHistoryTxs.find(
+          (onChainTx) =>
+            onChainTx.id === tx.id ||
+            (onChainTx.decodedTx.originalTxId &&
+              onChainTx.decodedTx.originalTxId === tx.decodedTx.txid),
+        );
+        if (matched) {
+          onChainMatchedPendingTxs.push(tx);
+          return false;
+        }
+        return true;
+      });
+
       allNonceHasBeenUsedTxs.push(...nonceHasBeenUsedTxs);
       allFinalPendingTxs.push(...finalPendingTxs);
       allConfirmedTxsToSave.push(...confirmedTxsToSave);
@@ -657,7 +723,11 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountAddress,
         xpub,
-        confirmedTxs: [...confirmedTxs, ...nonceHasBeenUsedTxs],
+        confirmedTxs: [
+          ...confirmedTxs,
+          ...nonceHasBeenUsedTxs,
+          ...onChainMatchedPendingTxs,
+        ],
         confirmedTxsToSave: finalConfirmedTxs,
         confirmedTxsToRemove,
         pendingTxsToModify,
@@ -832,6 +902,122 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async fetchTransferRecipients(params: {
+    accountId: string;
+    networkId: string;
+    limit?: number;
+  }): Promise<{
+    supported: boolean;
+    data: ITransferRecipient[];
+    lastUsedDeriveType?: string;
+  }> {
+    const { accountId, networkId, limit = 10 } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+
+    // For merge-derive chains (BTC/LTC) one user-facing account owns
+    // multiple xpubs; the /transfer-recipient API is xpub-scoped so we must
+    // call it once per xpub and merge, otherwise the result only reflects
+    // the derive type of the currently-selected address (OK-52897).
+    const xpubEntries =
+      await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
+        {
+          accountId,
+          networkId,
+        },
+      );
+
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const headers =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
+
+    const callOnce = async (xpub: string | undefined, perCallLimit: number) => {
+      try {
+        const resp = await client.get<{ data: IFetchTransferRecipientsResp }>(
+          '/wallet/v1/account/transfer-recipient',
+          {
+            params: {
+              networkId,
+              accountAddress,
+              limit: perCallLimit,
+              xpub,
+            },
+            headers,
+          },
+        );
+        const { supported, data } = resp.data.data;
+        return { supported: supported ?? true, data: data ?? [] };
+      } catch (error) {
+        console.error('Failed to fetch transfer recipients:', error);
+        return { supported: false, data: [] as ITransferRecipient[] };
+      }
+    };
+
+    if (xpubEntries.length <= 1) {
+      return callOnce(xpubEntries[0]?.xpub, limit);
+    }
+
+    // Each xpub requests the full limit so that addresses concentrated
+    // on a single derive path aren't truncated (e.g. all 20 recent sends
+    // via Native SegWit). The response per xpub is small (~20 addresses).
+    const settled = await promiseAllSettledEnhanced(
+      xpubEntries.map((entry) => async () => ({
+        deriveType: entry.deriveType,
+        ...(await callOnce(entry.xpub, limit)),
+      })),
+      { continueOnError: true, concurrency: xpubEntries.length },
+    );
+    const responses = settled.filter(
+      (
+        r,
+      ): r is {
+        deriveType: IAccountDeriveTypes;
+        supported: boolean;
+        data: ITransferRecipient[];
+      } => !!r,
+    );
+
+    // A single derive-path returning supported=true is enough to mark the
+    // whole query as supported; the merged list is deduped by lowercase
+    // address and sorted by most-recent time.
+    const anySupported = responses.some((r) => r.supported);
+    const seenIndex = new Map<string, number>();
+    const merged: ITransferRecipient[] = [];
+    // Track which derive type produced the newest record overall,
+    // so the Accounts tab can default to it (e.g. user last sent via Taproot).
+    let newestTime = 0;
+    let newestDeriveType: string | undefined;
+    for (const r of responses) {
+      for (const item of r.data) {
+        if (item.time > newestTime) {
+          newestTime = item.time;
+          newestDeriveType = r.deriveType;
+        }
+        const key = item.address.toLowerCase();
+        const existingIdx = seenIndex.get(key);
+        if (existingIdx === undefined) {
+          seenIndex.set(key, merged.length);
+          merged.push(item);
+        } else if (item.time > (merged[existingIdx].time ?? 0)) {
+          merged[existingIdx] = item;
+        }
+      }
+    }
+    merged.sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
+    return {
+      supported: anySupported,
+      data: merged.slice(0, limit),
+      lastUsedDeriveType: newestDeriveType,
+    };
+  }
+
+  @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
       const { accountId, networkId, txid, withUTXOs } = params;
@@ -852,7 +1038,7 @@ class ServiceHistory extends ServiceBase {
         ]);
         accountAddress = a;
         xpub = x;
-      } catch (e) {
+      } catch (_e) {
         // pass
       }
 
@@ -936,7 +1122,7 @@ class ServiceHistory extends ServiceBase {
       ]);
       accountAddress = a;
       xpub = x;
-    } catch (e) {
+    } catch (_e) {
       // pass
     }
 
@@ -1053,6 +1239,71 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async clearLocalHistoryPendingTxs() {
     return this.backgroundApi.simpleDb.localHistory.clearLocalHistoryPendingTxs();
+  }
+
+  @backgroundMethod()
+  public async clearLocalHistoryPendingTxByTxId(params: {
+    accountId?: string;
+    networkId: string;
+    txid?: string;
+    accountAddress?: string;
+  }) {
+    const { accountId, networkId, txid } = params;
+    if (!networkId || !txid) {
+      return false;
+    }
+
+    let accountAddress = params.accountAddress;
+    let xpub: string | undefined;
+    if (accountId) {
+      try {
+        [accountAddress, xpub] = await Promise.all([
+          this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          }),
+          this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          }),
+        ]);
+      } catch (_e) {
+        // fall back to the caller-provided account address
+      }
+    }
+
+    if (!accountAddress && !xpub) {
+      return false;
+    }
+
+    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
+      networkId,
+      accountAddress: accountAddress ?? '',
+      xpub,
+    });
+    const shouldIgnoreTxIdCase = networkUtils.isEvmNetwork({ networkId });
+    const txidForCompare = shouldIgnoreTxIdCase ? txid.toLowerCase() : txid;
+    const pendingTxsToClear = localHistoryPendingTxs.filter((tx) => {
+      const pendingTxId = tx.decodedTx.txid;
+      return (
+        (shouldIgnoreTxIdCase ? pendingTxId?.toLowerCase() : pendingTxId) ===
+        txidForCompare
+      );
+    });
+    if (!pendingTxsToClear.length) {
+      return false;
+    }
+
+    await simpleDb.localHistory.batchUpdateLocalHistoryTxs([
+      {
+        networkId,
+        accountAddress: accountAddress ?? '',
+        xpub,
+        confirmedTxs: pendingTxsToClear,
+      },
+    ]);
+    appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    return true;
   }
 
   @backgroundMethod()
@@ -1243,6 +1494,10 @@ class ServiceHistory extends ServiceBase {
       xpub,
       pendingTxs: [newHistoryTx],
     });
+
+    if (replaceTxInfo) {
+      appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    }
 
     // refresh BTC fresh address for HD or HW accounts if needed
     void this.backgroundApi.serviceFreshAddress.syncBTCFreshAddressByAccountId({

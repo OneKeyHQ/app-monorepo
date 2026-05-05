@@ -37,6 +37,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
@@ -105,6 +106,10 @@ class ServiceDApp extends ServiceBase {
   private existingWindowId: number | null | undefined = null;
 
   private isAlignPrimaryAccountProcessing = false;
+
+  // Temporary store for sensitive clipboard text to avoid logging through
+  // openModal's params pipeline (logger + console.log serialize all params)
+  private clipboardTextStore = new Map<string, string>();
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -214,7 +219,7 @@ class ServiceDApp extends ServiceBase {
         });
         this.existingWindowId = extensionWindow.id;
       }
-    } else {
+    } else if (appGlobals.$navigationRef?.current) {
       const doOpenModal = () =>
         appGlobals.$navigationRef.current?.navigate(
           modalParams.screen,
@@ -223,6 +228,13 @@ class ServiceDApp extends ServiceBase {
       console.log('modalParams: ', modalParams);
       // TODO remove timeout after dapp request queue implemented.
       doOpenModal();
+    } else {
+      // Background thread: no navigation ref available.
+      // Relay navigation to main thread via app event bus.
+      appEventBus.emit(EAppEventBusNames.NavigateModalFromBackgroundThread, {
+        screen: modalParams.screen,
+        params: modalParams.params,
+      });
     }
   };
 
@@ -257,6 +269,62 @@ class ServiceDApp extends ServiceBase {
     });
 
     return result;
+  }
+
+  @backgroundMethod()
+  async openRiskWhiteListModal(request: IJsBridgeMessagePayload) {
+    const result = await this.openModal({
+      request,
+      screens: [
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.RiskWhiteListModal,
+      ],
+      params: {
+        url: request.origin,
+      },
+      fullScreen: false,
+    });
+    return result;
+  }
+
+  @backgroundMethod()
+  async openClipboardPermissionModal(
+    request: IJsBridgeMessagePayload,
+    clipboardType: 'read' | 'write',
+    textToWrite?: string,
+  ) {
+    // Store sensitive text in memory map instead of passing through
+    // openModal params, which get logged by dappOpenModal logger and console.log
+    let textNonce: string | undefined;
+    if (textToWrite !== undefined) {
+      textNonce = generateUUID();
+      this.clipboardTextStore.set(textNonce, textToWrite);
+    }
+
+    try {
+      const result = await this.openModal({
+        request,
+        screens: [
+          EModalRoutes.DAppConnectionModal,
+          EDAppConnectionModal.ClipboardPermissionModal,
+        ],
+        params: {
+          clipboardType,
+          ...(textNonce ? { textNonce } : {}),
+        },
+        fullScreen: false,
+      });
+      return result;
+    } finally {
+      if (textNonce) {
+        this.clipboardTextStore.delete(textNonce);
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async getClipboardTextToWrite(nonce: string) {
+    return this.clipboardTextStore.get(nonce);
   }
 
   @backgroundMethod()
@@ -767,7 +835,7 @@ class ServiceDApp extends ServiceBase {
       }
       item.availableNetworksMap = networksMap;
     }
-    const sortedList = allConnectedList.sort((a, b) => {
+    const sortedList = allConnectedList.toSorted((a, b) => {
       const aTime = a.updatedAt ?? 0;
       const bTime = b.updatedAt ?? 0;
       return bTime - aTime;
@@ -1088,9 +1156,8 @@ class ServiceDApp extends ServiceBase {
 
     const deriveType = params.deriveType;
 
-    const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
-      origin,
-    );
+    const connectedAccountsInfo =
+      await this.findInjectedAccountByOrigin(origin);
     if (
       !connectedAccountsInfo ||
       !connectedAccountsInfo.length ||
@@ -1179,9 +1246,8 @@ class ServiceDApp extends ServiceBase {
       isOthersWallet,
       deriveType,
     } = params;
-    const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
-      origin,
-    );
+    const connectedAccountsInfo =
+      await this.findInjectedAccountByOrigin(origin);
     if (
       !connectedAccountsInfo ||
       !connectedAccountsInfo.length ||
@@ -1293,6 +1359,19 @@ class ServiceDApp extends ServiceBase {
     return Promise.resolve(privateProvider?.isWebEmbedApiReady);
   }
 
+  // Flip BG's canonical `isWebEmbedApiReady` back to false when the WebView
+  // host tears down. Without this, the flag stays sticky-true from the first
+  // mount, and `checkBackgroundWebEmbedReady` on the main thread can promote a
+  // stale BG ready into the next mount before that page has actually replayed
+  // its `webEmbedApiReady` handshake.
+  @backgroundMethod()
+  markWebEmbedApiNotReady() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.webEmbedApiNotReady() ?? Promise.resolve();
+  }
+
   @backgroundMethod()
   callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
     const privateProvider = this.backgroundApi.providers.$private as
@@ -1391,7 +1470,8 @@ class ServiceDApp extends ServiceBase {
     const deriveType =
       (networkUtils.isBTCNetwork(connectedAccountInfo.networkId)
         ? connectedAccountInfo.deriveType
-        : globalDeriveType ?? homeAccountSelectorInfo?.deriveType) ?? 'default';
+        : (globalDeriveType ?? homeAccountSelectorInfo?.deriveType)) ??
+      'default';
     try {
       networkAccountWithHomeAccountSelectorInfo =
         await serviceAccount.getNetworkAccount({
@@ -1404,7 +1484,7 @@ class ServiceDApp extends ServiceBase {
             ? homeAccountSelectorInfo?.othersWalletAccountId
             : undefined,
         });
-    } catch (e) {
+    } catch (_e) {
       // void this.disconnectWebsite({
       //   origin,
       //   storageType,
@@ -1616,7 +1696,7 @@ class ServiceDApp extends ServiceBase {
         othersWalletAccountId: accountId,
         networkId: autoChangeToAccountMatchedNetwork
           ? networkId
-          : homeAccountSelectorInfo?.networkId ?? '',
+          : (homeAccountSelectorInfo?.networkId ?? ''),
         walletId,
         focusedWallet,
         deriveType,

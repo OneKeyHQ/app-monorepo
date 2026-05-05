@@ -6,12 +6,13 @@
  * example: yarn debug:hardware-sdk -v 0.2.40
  */
 const { exec, execSync } = require('child_process');
+
 const argv = require('minimist')(process.argv.slice(2));
 
 const LIB_VERSION = argv.v || 'latest';
 
 // Check whether yalc is installed
-exec('which yalc', (error, stdout, stderr) => {
+exec('which yalc', (error) => {
   if (error) {
     // If yalc is not installed, run the installation command
     console.log('yalc not installed, start installing...');
@@ -49,7 +50,7 @@ function addLibrary() {
  * install yalc
  */
 function installYalc() {
-  exec('npm install -g yalc', (error, stdout, stderr) => {
+  exec('npm install -g yalc', (error) => {
     if (error) {
       console.error(`An error occurred while executing the command: ${error}`);
       return;

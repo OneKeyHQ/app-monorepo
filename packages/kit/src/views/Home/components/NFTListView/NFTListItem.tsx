@@ -14,7 +14,6 @@ import {
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
@@ -25,7 +24,7 @@ type IProps = {
 };
 
 function BasicNFTListItem(props: IProps) {
-  const { nft, onPress, flexBasis, isAllNetworks } = props;
+  const { nft, onPress, isAllNetworks } = props;
   const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
   const { network } = useAccountData({ networkId: nft.networkId });
 

@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+
+# Strip AI tool attribution lines from commit messages.
+# Removes: "Generated with ...", "via ...", "Co-Authored-By: Claude/Happy/..."
+# This hook runs after the user edits the commit message.
+
+MSG_FILE="$1"
+
+if [ -f "$MSG_FILE" ]; then
+  # Remove attribution lines and trailing blank lines
+  sed -i.bak \
+    -e '/^Generated with /d' \
+    -e '/^via \[/d' \
+    -e '/^Co-Authored-By:/d' \
+    "$MSG_FILE"
+  rm -f "${MSG_FILE}.bak"
+
+  # Remove trailing blank lines
+  # (perl is more portable than GNU sed for this on macOS)
+  perl -i -0777 -pe 's/\n+\z/\n/' "$MSG_FILE"
+fi

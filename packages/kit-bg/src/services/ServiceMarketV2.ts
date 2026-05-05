@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -16,10 +17,13 @@ import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioResponse,
   IMarketAccountTokenTransactionsResponse,
+  IMarketBannerItem,
   IMarketBannerListResponse,
   IMarketBannerTokenListResponse,
   IMarketBasicConfigResponse,
   IMarketChainsResponse,
+  IMarketPerpsTokenListData,
+  IMarketPerpsTokenListResponse,
   IMarketTokenBatchListResponse,
   IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
@@ -27,13 +31,39 @@ import type {
   IMarketTokenListItem,
   IMarketTokenListResponse,
   IMarketTokenSecurityBatchResponse,
+  IMarketTokenTopLiquidityItem,
+  IMarketTokenTopLiquidityResponse,
   IMarketTokenTransactionsResponse,
 } from '@onekeyhq/shared/types/marketV2';
 import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
+import {
+  devSettingsPersistAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
+import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
+import { MOCK_MARKET_BANNER_LIST } from './ServiceMarketV2.const';
+import { resolveMarketTokenDetailRequestTokenAddress } from './utils/marketTokenDetailUtils';
+
+type IMarketTokenListRequestParams = {
+  networkId: string;
+  sortBy?: string;
+  sortType?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+  minLiquidity?: number;
+  maxLiquidity?: number;
+  type?: string;
+  timeFrame?: string;
+};
+
+type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
+  page: number;
+  limit: number;
+};
 
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
@@ -52,6 +82,10 @@ class ServiceMarketV2 extends ServiceBase {
     seconds: 30,
   });
 
+  private _marketTokenListCacheTTL = timerUtils.getTimeDurationMs({
+    seconds: 20,
+  });
+
   private _cleanExpiredMarketTokenBatchCache() {
     const now = Date.now();
     for (const [key, value] of this._marketTokenBatchCache) {
@@ -61,20 +95,88 @@ class ServiceMarketV2 extends ServiceBase {
     }
   }
 
+  private _normalizeMarketTokenListParams({
+    page = 1,
+    limit = 20,
+    ...rest
+  }: IMarketTokenListRequestParams): INormalizedMarketTokenListRequestParams {
+    return {
+      ...rest,
+      page,
+      limit,
+    };
+  }
+
+  private async _fetchMarketTokenListFromApi({
+    networkId,
+    sortBy,
+    sortType,
+    page,
+    limit,
+    minLiquidity,
+    maxLiquidity,
+    type,
+    timeFrame,
+  }: INormalizedMarketTokenListRequestParams) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenListResponse;
+    }>('/utility/v2/market/token/list', {
+      params: {
+        networkId,
+        sortBy,
+        sortType,
+        page,
+        limit,
+        minLiquidity,
+        maxLiquidity,
+        type,
+        timeFrame,
+        currency: 'usd',
+      },
+    });
+    const { data } = response.data;
+    return data;
+  }
+
+  private memoizedFetchMarketTokenList = memoizee(
+    async (params: INormalizedMarketTokenListRequestParams) =>
+      this._fetchMarketTokenListFromApi(params),
+    {
+      maxAge: this._marketTokenListCacheTTL,
+      promise: true,
+    },
+  );
+
   @backgroundMethod()
   async fetchMarketTokenDetailByTokenAddress(
     tokenAddress: string,
     networkId: string,
   ) {
+    const settings = await settingsPersistAtom.get();
+    const selectedCurrencyId = settings.currencyInfo?.id ?? 'usd';
     const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestTokenAddress =
+      await resolveMarketTokenDetailRequestTokenAddress({
+        tokenAddress,
+        networkId,
+        getNativeTokenAddress: (params) =>
+          this.backgroundApi.serviceToken.getNativeTokenAddress(params),
+      });
+    const params: Record<string, string> = {
+      tokenAddress: requestTokenAddress,
+      networkId,
+      currency: 'usd',
+    };
+    // When the user has selected a non-USD currency, request a converted price
+    if (selectedCurrencyId !== 'usd') {
+      params.convertCurrency = selectedCurrencyId;
+    }
     const response = await client.get<IMarketTokenDetailResponse>(
       '/utility/v2/market/token/detail',
-      {
-        params: {
-          tokenAddress,
-          networkId,
-        },
-      },
+      { params },
     );
     return response.data;
   }
@@ -132,22 +234,11 @@ class ServiceMarketV2 extends ServiceBase {
     limit = 20,
     minLiquidity,
     maxLiquidity,
-  }: {
-    networkId: string;
-    sortBy?: string;
-    sortType?: 'asc' | 'desc';
-    page?: number;
-    limit?: number;
-    minLiquidity?: number;
-    maxLiquidity?: number;
-  }) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IMarketTokenListResponse;
-    }>('/utility/v2/market/token/list', {
-      params: {
+    type,
+    timeFrame,
+  }: IMarketTokenListRequestParams) {
+    return this.memoizedFetchMarketTokenList(
+      this._normalizeMarketTokenListParams({
         networkId,
         sortBy,
         sortType,
@@ -155,10 +246,10 @@ class ServiceMarketV2 extends ServiceBase {
         limit,
         minLiquidity,
         maxLiquidity,
-      },
-    });
-    const { data } = response.data;
-    return data;
+        type,
+        timeFrame,
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -193,6 +284,7 @@ class ServiceMarketV2 extends ServiceBase {
         interval: innerInterval,
         timeFrom,
         timeTo,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -220,6 +312,7 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
+        currency: 'usd',
         ...(cursor !== undefined && { cursor }),
         ...(limit !== undefined && { limit }),
       },
@@ -255,6 +348,7 @@ class ServiceMarketV2 extends ServiceBase {
           accountAddress,
           tokenAddress,
           networkId,
+          currency: 'usd',
           ...(cursor !== undefined && { cursor }),
           ...(timeFrom !== undefined && { timeFrom }),
           ...(timeTo !== undefined && { timeTo }),
@@ -288,6 +382,7 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -295,14 +390,42 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchMarketTokenTopLiquidity({
+    tokenAddress,
+    networkId,
+  }: {
+    tokenAddress: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenTopLiquidityResponse | IMarketTokenTopLiquidityItem[];
+    }>('/utility/v1/market/token/top-liquidity', {
+      params: {
+        tokenAddress,
+        networkId,
+      },
+    });
+    const { data } = response.data;
+    if (Array.isArray(data)) {
+      return { list: data };
+    }
+    return data ?? { list: [] };
+  }
+
+  @backgroundMethod()
   async fetchMarketTokenListBatch({
     tokenAddressList,
+    skipCache = false,
   }: {
     tokenAddressList: {
       contractAddress: string;
       chainId: string;
       isNative: boolean;
     }[];
+    skipCache?: boolean;
   }) {
     // Clean expired cache entries periodically
     this._cleanExpiredMarketTokenBatchCache();
@@ -318,6 +441,11 @@ class ServiceMarketV2 extends ServiceBase {
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
       tokenIndexMap.set(cacheKey, index);
+
+      if (skipCache) {
+        missingTokens.push(token);
+        return;
+      }
 
       const cached = this._marketTokenBatchCache.get(cacheKey);
       if (cached && now - cached.timestamp < this._marketTokenBatchCacheTTL) {
@@ -338,15 +466,37 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketTokenBatchListResponse;
-    }>('/utility/v2/market/token/list/batch', {
-      tokenAddressList: missingTokens,
-    });
+    }>(
+      '/utility/v2/market/token/list/batch',
+      {
+        tokenAddressList: missingTokens,
+        currency: 'usd',
+      },
+      {
+        headers: { 'x-onekey-request-currency': 'usd' },
+      },
+    );
 
     const { data } = response.data;
 
-    // Update cache and merge results
+    if (!data?.list) {
+      console.error(
+        '[ServiceMarketV2] fetchMarketTokenListBatch: unexpected empty response',
+        {
+          requestIds: missingTokens.map(
+            (t) => `${t.chainId}:${t.contractAddress}`,
+          ),
+        },
+      );
+      return { list: cachedResults };
+    }
+
+    // Update cache and merge results using positional index (API preserves
+    // request order). Cache keys use the request-side chainId:contractAddress
+    // to stay consistent with the lookup keys built above.
     data.list.forEach((item, apiIndex) => {
       const token = missingTokens[apiIndex];
+      if (!token) return;
       const cacheKey = `${
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
@@ -462,7 +612,11 @@ class ServiceMarketV2 extends ServiceBase {
     skipEventEmit,
     callerName,
   }: {
-    items: Array<{ chainId: string; contractAddress: string }>;
+    items: Array<{
+      chainId: string;
+      contractAddress: string;
+      perpsCoin?: string;
+    }>;
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
     callerName: string;
@@ -495,14 +649,17 @@ class ServiceMarketV2 extends ServiceBase {
   async getMarketWatchListItemV2({
     chainId,
     contractAddress,
+    perpsCoin,
   }: {
     chainId: string;
     contractAddress: string;
+    perpsCoin?: string;
   }): Promise<IMarketWatchListItemV2 | undefined> {
     return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListItemV2(
       {
         chainId,
         contractAddress,
+        perpsCoin,
       },
     );
   }
@@ -540,18 +697,25 @@ class ServiceMarketV2 extends ServiceBase {
       return [];
     }
 
-    const tokenAddressList = watchlistData.data.map((item) => ({
+    // Filter out perps items — they don't have chainId/contractAddress for batch lookup
+    // Also filter out items with empty chainId to avoid server validation errors
+    const spotItems = watchlistData.data.filter(
+      (item) => !item.perpsCoin && item.chainId?.trim(),
+    );
+    const tokenAddressList = spotItems.map((item) => ({
       chainId: item.chainId,
       contractAddress: item.contractAddress,
       isNative: item.isNative ?? false,
     }));
 
     let tokenDetails: IMarketTokenBatchListResponse = { list: [] };
+    let batchSucceeded = false;
 
     try {
       tokenDetails = await this.fetchMarketTokenListBatch({
         tokenAddressList,
       });
+      batchSucceeded = true;
     } catch (error) {
       console.error(
         '[ServiceMarketV2] buildWatchlistTokensForNotification fetchMarketTokenListBatch error:',
@@ -559,8 +723,7 @@ class ServiceMarketV2 extends ServiceBase {
       );
     }
 
-    const watchlistItems: IMarketWatchListItemV2[] = watchlistData.data;
-    const tokens: INotificationWatchlistToken[] = watchlistItems.map(
+    const tokens: INotificationWatchlistToken[] = spotItems.map(
       (item, index) => {
         const detail = tokenDetails.list[index];
 
@@ -574,7 +737,10 @@ class ServiceMarketV2 extends ServiceBase {
       },
     );
 
-    return tokens;
+    // Only filter out symbol-less tokens when batch succeeded;
+    // if batch failed, return all entries to avoid wiping server-side watchlist.
+    // Note: empty networkId is already filtered out at the spotItems stage above.
+    return batchSucceeded ? tokens.filter((t) => t.symbol) : tokens;
   }
 
   private _fetchMarketTokenSecurityCached = memoizee(
@@ -621,10 +787,12 @@ class ServiceMarketV2 extends ServiceBase {
     accountAddress,
     networkId,
     tokenAddress,
+    xpub,
   }: {
     accountAddress: string;
     networkId: string;
     tokenAddress: string;
+    xpub?: string;
   }) {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -638,6 +806,8 @@ class ServiceMarketV2 extends ServiceBase {
           networkId,
           accountAddress,
           tokenAddress,
+          xpub,
+          currency: 'usd',
         },
       });
 
@@ -671,8 +841,18 @@ class ServiceMarketV2 extends ServiceBase {
   );
 
   @backgroundMethod()
-  async fetchMarketBannerList() {
+  async fetchMarketBannerList(): Promise<IMarketBannerItem[]> {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (devSettings.enabled && devSettings.settings?.enableMockMarketBanner) {
+      return MOCK_MARKET_BANNER_LIST;
+    }
     return this.memoizedFetchMarketBannerList();
+  }
+
+  @backgroundMethod()
+  async clearMarketBannerCache(): Promise<void> {
+    // memoizee's clear() is synchronous, returns void
+    void this.memoizedFetchMarketBannerList.clear();
   }
 
   @backgroundMethod()
@@ -682,9 +862,160 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketBannerTokenListResponse;
-    }>(`/utility/v2/market/banner/token-list/${tokenListId}`);
+    }>(
+      `/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`,
+      { params: { currency: 'usd' } },
+    );
     const { data } = response.data;
     return data.list;
+  }
+
+  @backgroundMethod()
+  async fetchMarketBannerPerpsTokenList({
+    tokenListId,
+  }: {
+    tokenListId: string;
+  }): Promise<IMarketPerpsTokenListData> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<IMarketPerpsTokenListResponse>(
+      `/utility/v2/market/banner/perps-token-list/${encodeURIComponent(tokenListId)}`,
+    );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketPerpsTokenList(params?: {
+    category?: string;
+  }): Promise<IMarketPerpsTokenListData> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<IMarketPerpsTokenListResponse>(
+      '/utility/v2/market/perps/token-list',
+      {
+        params: params?.category ? { category: params.category } : undefined,
+      },
+    );
+    return response.data.data;
+  }
+
+  // ── Perps Favorites Bidirectional Sync ──
+
+  @backgroundMethod()
+  async syncToPerpsAtom({
+    coin,
+    action,
+  }: {
+    coin: string;
+    action: 'add' | 'remove';
+  }) {
+    try {
+      const current = await perpTokenFavoritesPersistAtom.get();
+      const hasCoin = current.favorites.includes(coin);
+
+      if (action === 'add' && !hasCoin) {
+        await perpTokenFavoritesPersistAtom.set({
+          ...current,
+          favorites: [...current.favorites, coin],
+        });
+      } else if (action === 'remove' && hasCoin) {
+        await perpTokenFavoritesPersistAtom.set({
+          ...current,
+          favorites: current.favorites.filter((f) => f !== coin),
+        });
+      }
+    } catch (error) {
+      defaultLogger.cloudSync.market.syncToPerpsAtomFailed(coin, action, error);
+    }
+  }
+
+  @backgroundMethod()
+  async syncToMarketWatchList({
+    coin,
+    action,
+  }: {
+    coin: string;
+    action: 'add' | 'remove';
+  }) {
+    try {
+      const existing =
+        await this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListItemV2(
+          { chainId: '', contractAddress: '', perpsCoin: coin },
+        );
+
+      if (action === 'add' && !existing) {
+        await this.addMarketWatchListV2({
+          watchList: [{ chainId: '', contractAddress: '', perpsCoin: coin }],
+          callerName: 'syncToMarketWatchList',
+        });
+      } else if (action === 'remove' && existing) {
+        await this.removeMarketWatchListV2({
+          items: [{ chainId: '', contractAddress: '', perpsCoin: coin }],
+          callerName: 'syncToMarketWatchList',
+        });
+      }
+    } catch (error) {
+      defaultLogger.cloudSync.market.syncToMarketWatchListFailed(
+        coin,
+        action,
+        error,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async reconcilePerpsFavorites() {
+    try {
+      const [watchListData, perpsFavorites] = await Promise.all([
+        this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2(),
+        perpTokenFavoritesPersistAtom.get(),
+      ]);
+
+      const marketPerpsCoins = new Set(
+        watchListData.data
+          .filter((item) => !!item.perpsCoin)
+          .map((item) => item.perpsCoin ?? ''),
+      );
+      const perpsCoins = new Set(perpsFavorites.favorites);
+
+      // Market has but Perps doesn't
+      const missingInPerps = [...marketPerpsCoins].filter(
+        (c) => !perpsCoins.has(c),
+      );
+      // Perps has but Market doesn't
+      const missingInMarket = [...perpsCoins].filter(
+        (c) => !marketPerpsCoins.has(c),
+      );
+
+      if (missingInPerps.length === 0 && missingInMarket.length === 0) {
+        return;
+      }
+
+      // Sync missing items to Perps atom
+      if (missingInPerps.length > 0) {
+        const current = await perpTokenFavoritesPersistAtom.get();
+        const existingSet = new Set(current.favorites);
+        const toAdd = missingInPerps.filter((c) => !existingSet.has(c));
+        if (toAdd.length > 0) {
+          await perpTokenFavoritesPersistAtom.set({
+            ...current,
+            favorites: [...current.favorites, ...toAdd],
+          });
+        }
+      }
+
+      // Sync missing items to Market watchlist
+      if (missingInMarket.length > 0) {
+        await this.addMarketWatchListV2({
+          watchList: missingInMarket.map((coin) => ({
+            chainId: '',
+            contractAddress: '',
+            perpsCoin: coin,
+          })),
+          callerName: 'reconcilePerpsFavorites',
+        });
+      }
+    } catch (error) {
+      defaultLogger.cloudSync.market.reconcilePerpsFavoritesFailed(error);
+    }
   }
 }
 

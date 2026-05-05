@@ -1,12 +1,12 @@
 import axios from 'axios';
 import timeoutSignal from 'timeout-signal';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IJsonRpcResponsePro } from '@onekeyhq/shared/types/request';
 
 import {
   AxiosResponseError,
   JsonRPCResponseError,
+  OneKeyLocalError,
   ResponseError,
 } from '../errors';
 
@@ -158,7 +158,7 @@ class JsonRPCRequest {
             return {
               result: res,
             };
-          } catch (error) {
+          } catch (_error) {
             // pass
           }
         }),
@@ -169,7 +169,7 @@ class JsonRPCRequest {
     return Promise.all(
       jsonResponses
         // @ts-ignore
-        .sort(({ id: idA }, { id: idB }) => idA - idB)
+        .toSorted(({ id: idA }, { id: idB }) => idA - idB)
         // @ts-ignore
         .map((resp) =>
           // @ts-ignore

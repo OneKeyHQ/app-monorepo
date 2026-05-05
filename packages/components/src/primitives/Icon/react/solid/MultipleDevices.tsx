@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgMultipleDevices = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path fill="currentColor" d="M17 17a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2z" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M19 19h-3v-2h3z" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v2.17c1.165.413 2 1.524 2 2.83v8a3 3 0 0 1-3 3h-5a3 3 0 0 1-2.236-1H4a3 3 0 0 1-3-3v-2a1 1 0 0 1 1-1h1zm11 13a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-5a1 1 0 0 0-1 1zm-2-2v2H4a1 1 0 0 1-1-1v-1z"
+      d="M21 3v5h2v14H12v-1H1v-6h2V3zm-7 17h7V10h-7zM3 19h9v-2H3z"
       clipRule="evenodd"
     />
   </Svg>

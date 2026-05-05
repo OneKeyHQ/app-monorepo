@@ -52,3 +52,6 @@ include ':app'
 
 includeBuild(expoAutolinking.reactNativeGradlePlugin)
 includeBuild("build-logic")
+
+// Stub module for @onekeyfe/react-native-app-update flavor isolation
+include ':app-update-noop'

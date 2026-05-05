@@ -57,6 +57,9 @@ const shouldLocalDbDebuggerRule: Record<string, number> = {
 let IS_ENABLED = false;
 
 function updateIsEnabled() {
+  if (platformEnv.isExtensionBackground) {
+    return;
+  }
   IS_ENABLED =
     platformEnv.isDev ||
     Boolean(
@@ -70,6 +73,9 @@ updateIsEnabled();
 
 let settings: IOneKeyDBPerfMonitorSettings | undefined = (() => {
   if (!IS_ENABLED) {
+    return undefined;
+  }
+  if (platformEnv.isExtensionBackground) {
     return undefined;
   }
   const savedSettings = syncStorage?.getObject(
@@ -95,6 +101,9 @@ function getSettings() {
 
 function updateSettings(newSettings: Partial<IOneKeyDBPerfMonitorSettings>) {
   if (!IS_ENABLED) {
+    return undefined;
+  }
+  if (platformEnv.isExtensionBackground) {
     return undefined;
   }
   settings = merge(settings, newSettings, {
@@ -186,7 +195,7 @@ function sortMapData(data: { [key: string]: number }) {
     [key: string]: number;
   }> = {};
   Object.keys(data)
-    .sort()
+    .toSorted()
     .forEach((key) => {
       sortedResult[key] = data[key];
     });
@@ -248,9 +257,12 @@ function logResult({ autoReset, isWarning, muteLog }: ILogResultParams = {}) {
         resetData();
       } else {
         clearTimeout(resetTimer);
-        resetTimer = setTimeout(() => {
-          resetData();
-        }, resetThreshold - (now - resetStartTime));
+        resetTimer = setTimeout(
+          () => {
+            resetData();
+          },
+          resetThreshold - (now - resetStartTime),
+        );
       }
     }
   }
@@ -310,13 +322,13 @@ function toastWarningAndReset(key: string) {
       indexedDBResult[key] >= generalDebuggerRule[key]
     ) {
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
 
     if (shouldDbTxCreatedDebuggerRule[key]) {
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
     resetData();
@@ -364,7 +376,7 @@ function logLocalDbCall(method: string, table: string, params: any[]) {
     ) {
       logResult();
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
   }
@@ -415,7 +427,7 @@ function logAppStorageCall(method: string, key: string) {
     ) {
       logResult();
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
   }
@@ -477,7 +489,7 @@ function logIndexedDBCreateTx() {
         );
       };
     }
-  } catch (e) {
+  } catch (_e) {
     //
   }
 }

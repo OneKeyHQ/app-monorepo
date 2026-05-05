@@ -456,5 +456,6 @@ function RiskTokenManager() {
 const RiskTokenManagerWithProvider = memo(
   withTokenListProvider(RiskTokenManager),
 );
+RiskTokenManagerWithProvider.displayName = 'RiskTokenManagerWithProvider';
 
 export default RiskTokenManagerWithProvider;

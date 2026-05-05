@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/prefer-global-this */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import safeStringify from 'fast-safe-stringify';
@@ -91,6 +90,7 @@ export default function PageWebEmbedPrimePurchase() {
     primeUserEmail,
     subscriptionPeriod,
     locale,
+    currency,
     mode,
     featureName,
   } = webEmbedQueryParams || {};
@@ -120,6 +120,7 @@ export default function PageWebEmbedPrimePurchase() {
         subscriptionPeriod,
         email: primeUserEmail,
         locale,
+        currency,
         featureName: validFeatureName,
       });
 
@@ -157,6 +158,7 @@ export default function PageWebEmbedPrimePurchase() {
     apiKey,
     purchasePackageWeb,
     locale,
+    currency,
     featureName,
   ]);
 

@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  Divider,
   Icon,
   SectionList,
   SizableText,
@@ -21,7 +20,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IMetaDataObject } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
-import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ECloudBackupRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -170,17 +168,6 @@ export default function BackupDeviceList<T>({
         />
       )}
       estimatedItemSize="$16"
-      // ListFooterComponent={
-      //   !hasData && ListEmptyComponent ? null : (
-      //     <>
-      //       <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$3">
-      //         {intl.formatMessage({
-      //           id: ETranslations.backup_onekey_doesnt_back_up_hardware_wallets,
-      //         })}
-      //       </SizableText>
-      //     </>
-      //   )
-      // }
       ListEmptyComponent={ListEmptyComponent}
       {...(restProps as any)}
     />

@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useIsMounted } from './useIsMounted';
@@ -40,6 +41,13 @@ export type IPromiseResultOptions<T> = {
   // automatically revalidate when the browser regains a network connection
   revalidateOnReconnect?: boolean;
   testID?: string;
+  /**
+   * When set, enables stale-while-revalidate:
+   * - On mount: sync-reads cached value from MMKV as initResult
+   * - On success: writes fresh result to MMKV cache
+   * - The real async request always fires (cache never blocks)
+   */
+  swrKey?: string;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -47,6 +55,12 @@ export type IUsePromiseResultReturn<T> = {
   setResult: React.Dispatch<React.SetStateAction<T | undefined>>;
   isLoading: boolean | undefined;
   run: (config?: IRunnerConfig) => Promise<void>;
+  // Pause future polling ticks until deps change (or set back to false). The
+  // current run still completes; only the scheduled next tick is skipped.
+  // Returns true when calling setStopPolling(false) resurrected a paused
+  // polling chain and triggered a fresh run, so callers can avoid issuing a
+  // duplicate run().
+  setStopPolling: (stop: boolean) => boolean;
 };
 
 export type IUsePromiseResultReturnWithInitValue<T> =
@@ -96,9 +110,45 @@ export function usePromiseResult<T>(
     return removeSubscription;
   }, [resetDefer, resolveDefer]);
 
+  // --- SWR: resolve initial value from sync cache ---
+  const swrKey = options.swrKey;
+  const swrKeyRef = useRef(swrKey);
+  swrKeyRef.current = swrKey;
+  const swrCacheEntry = useMemo(() => {
+    if (!swrKey) return undefined;
+    return swrCacheUtils.getWithTimestamp<T>(swrKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swrKey]);
+  // swrKey cache hit always has higher priority than initResult.
+  const effectiveInitResult =
+    swrCacheEntry !== undefined ? swrCacheEntry.data : options.initResult;
+
   const [result, setResult] = useState<T | undefined>(
-    options.initResult as any,
+    effectiveInitResult as any,
   );
+
+  // When `swrKey` identifies cross-account/wallet scope (e.g. walletId or
+  // networkId baked into the key), switching scope would leave `result`
+  // holding the previous scope's data until the async revalidation lands,
+  // causing a flash of wrong-identity data. Sync state during render so
+  // the new scope's cached value (or its initResult) becomes visible
+  // immediately. `useState` initializer only runs on mount, so we cannot
+  // rely on `effectiveInitResult` alone.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevSwrKey, setPrevSwrKey] = useState(swrKey);
+  if (swrKey !== prevSwrKey) {
+    setPrevSwrKey(swrKey);
+    if (swrKey !== undefined) {
+      setResult(
+        (swrCacheEntry !== undefined
+          ? swrCacheEntry.data
+          : options.initResult) as any,
+      );
+    } else {
+      // key→undefined: no cache to read, reset to default
+      setResult(options.initResult as any);
+    }
+  }
   const isEmptyResultRef = useRef<boolean>(true);
 
   if (platformEnv.isNative) {
@@ -126,6 +176,11 @@ export function usePromiseResult<T>(
   };
   const isDepsChangedOnBlur = useRef(false);
   const nonceRef = useRef(0);
+
+  // The polling continuation in the finally-block reads this synchronously,
+  // so a ref is enough — no consumer reacts to the flag via React state, and
+  // adding a state would only churn renders without changing behavior.
+  const stopPollingRef = useRef(false);
 
   const isEffectValid = useRef(true);
 
@@ -190,17 +245,44 @@ export function usePromiseResult<T>(
             setLoadingTrue();
             nonceRef.current += 1;
             const requestNonce = nonceRef.current;
+            // Capture swrKey at dispatch time. If it changes mid-flight (e.g.
+            // user switches wallet/account), we must NOT write this result
+            // into the new scope's cache slot — that would cross-pollute
+            // cached balances between accounts.
+            const capturedSwrKey = swrKeyRef.current;
             const { r, nonce } = await methodWithNonce({
               nonce: requestNonce,
             });
             if (shouldSetState(config) && nonceRef.current === nonce) {
               setResult(r);
+              // Only persist if (1) swrKey is still the one we dispatched
+              // under, and (2) the result is defined — writing `undefined`
+              // would later override the caller's explicit initResult on
+              // next mount.
+              if (
+                capturedSwrKey &&
+                capturedSwrKey === swrKeyRef.current &&
+                r !== undefined
+              ) {
+                swrCacheUtils.set(capturedSwrKey, r);
+              }
             }
           }
         } catch (err) {
-          if (shouldSetState(config) && undefinedResultIfError) {
+          // AbortError is expected when IndexedDB transactions are cancelled
+          // (e.g., when component unmount or tab switches during search)
+          // Treat it as a non-critical error and don't re-throw
+          const isAbortError =
+            typeof DOMException !== 'undefined' &&
+            err instanceof DOMException &&
+            err.name === 'AbortError';
+
+          if (
+            shouldSetState(config) &&
+            (undefinedResultIfError || isAbortError)
+          ) {
             setResult(undefined);
-          } else {
+          } else if (!isAbortError) {
             throw err;
           }
         } finally {
@@ -212,11 +294,15 @@ export function usePromiseResult<T>(
           }
           if (
             pollingInterval &&
-            pollingNonceRef.current === config?.pollingNonce
+            pollingNonceRef.current === config?.pollingNonce &&
+            !stopPollingRef.current
           ) {
             await timerUtils.wait(pollingInterval);
             await defer.promise;
-            if (pollingNonceRef.current === config?.pollingNonce) {
+            if (
+              pollingNonceRef.current === config?.pollingNonce &&
+              !stopPollingRef.current
+            ) {
               if (shouldSetState(config)) {
                 void run({
                   triggerByDeps: true,
@@ -252,6 +338,25 @@ export function usePromiseResult<T>(
   const runRef = useRef(run);
   runRef.current = run;
 
+  const setStopPolling = useCallback((stop: boolean) => {
+    const wasStopped = stopPollingRef.current;
+    stopPollingRef.current = stop;
+    // Stopped → not stopped: the previous polling chain already exited via
+    // the finally-block guard once stopPollingRef flipped true, so clearing
+    // the flag alone won't bring it back. Bump the nonce and run with it —
+    // mirrors the runnerDeps effect — so the loop actually resumes; the
+    // bump also invalidates any stale queued tick that might still race.
+    if (wasStopped && !stop && optionsRef.current.pollingInterval) {
+      pollingNonceRef.current += 1;
+      void runRef.current({
+        triggerByDeps: true,
+        pollingNonce: pollingNonceRef.current,
+      });
+      return true;
+    }
+    return false;
+  }, []);
+
   const runnerDeps = useMemo(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => [...deps, optionsRef.current.pollingInterval],
@@ -262,6 +367,10 @@ export function usePromiseResult<T>(
   const prevPollingInterval = usePrevious(optionsRef.current.pollingInterval);
   useEffect(() => {
     const callback = () => {
+      // Deps changed (or polling interval changed) means the input is no
+      // longer the one the server-side stop applied to — auto-resume so the
+      // next attempt actually fires.
+      stopPollingRef.current = false;
       runAtRef.current = Date.now();
       pollingNonceRef.current += 1;
       void runRef.current({
@@ -293,7 +402,11 @@ export function usePromiseResult<T>(
     void runRef.current({ pollingNonce: pollingNonceRef.current });
   }, [runRef]);
 
-  const { isRawInternetReachable: isInternetReachable } = useNetInfo();
+  // Most callers don't need reconnect revalidation. Avoid subscribing them
+  // to global network polling updates, which can cause periodic rerenders.
+  const { isRawInternetReachable: isInternetReachable } = useNetInfo(
+    !!options.revalidateOnReconnect,
+  );
   const prevIsInternetReachableRef = useRef(isInternetReachable);
 
   useEffect(() => {
@@ -313,6 +426,18 @@ export function usePromiseResult<T>(
         resetDefer();
       }
 
+      // On native, defer focus-recovery re-execution until the JS thread is
+      // idle so the first render frame after tab switch can paint without
+      // being blocked by data fetching across 40+ hooks.
+      const idleHandles: ReturnType<typeof requestIdleCallback>[] = [];
+      const scheduleRun = () => {
+        if (platformEnv.isNative) {
+          idleHandles.push(requestIdleCallback(runWithPollingNonce));
+        } else {
+          runWithPollingNonce();
+        }
+      };
+
       // By employing a hack to simulate the recovery from a network disconnection and subsequently make a new network request.
       if (
         platformEnv.isNative &&
@@ -320,7 +445,7 @@ export function usePromiseResult<T>(
         isEmptyResultRef.current &&
         optionsRef.current.revalidateOnReconnect
       ) {
-        runWithPollingNonce();
+        scheduleRun();
       }
 
       if (
@@ -328,11 +453,17 @@ export function usePromiseResult<T>(
         isFocusedRefValue &&
         optionsRef.current.revalidateOnFocus
       ) {
-        runWithPollingNonce();
+        scheduleRun();
       } else if (isFocusedRefValue && isDepsChangedOnBlur.current) {
-        runWithPollingNonce();
+        scheduleRun();
       }
       prevFocusedRef.current = isFocusedRefValue;
+
+      return () => {
+        if (platformEnv.isNative) {
+          idleHandles.forEach(cancelIdleCallback);
+        }
+      };
     }
   }, [isFocusedRefValue, resetDefer, resolveDefer, runWithPollingNonce]);
 
@@ -342,7 +473,7 @@ export function usePromiseResult<T>(
     };
   }, []);
 
-  return { result, isLoading, run, setResult };
+  return { result, isLoading, run, setResult, setStopPolling };
 }
 
 export const useAsyncCall = usePromiseResult;

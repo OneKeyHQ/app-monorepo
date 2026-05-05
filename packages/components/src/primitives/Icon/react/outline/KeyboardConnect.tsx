@@ -1,20 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgKeyboardConnect = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M7.01 18H5v-2h2.01zM15 18H9v-2h6zm4.01 0H17v-2h2.01zm-12-4H5v-2h2.01zm4 0H9v-2h2.01zm4 0H13v-2h2.01zm4 0H17v-2h2.01z" />
     <Path
-      fill="currentColor"
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeWidth={0.75}
-      d="M5.125 13a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm12 0a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm-4 0a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm-4 0a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm-4 4a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm12 0a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Z"
-    />
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10 17h4M6 9V7a2 2 0 0 1 2-2h8.5A1.5 1.5 0 0 0 18 3.5V3M4 9h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2"
+      fillRule="evenodd"
+      d="M19 6H7v2h16v14H1V8h4V4h12V2h2zM3 20h18V10H3z"
+      clipRule="evenodd"
     />
   </Svg>
 );

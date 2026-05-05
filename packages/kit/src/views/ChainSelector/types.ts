@@ -9,6 +9,7 @@ export type IPureChainSelectorSectionListItem = {
   title?: string;
   data: IServerNetworkMatch[];
   isUnavailable?: boolean;
+  totalValue?: string;
 };
 
 export const CELL_HEIGHT = 48;

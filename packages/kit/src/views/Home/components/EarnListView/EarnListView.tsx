@@ -6,7 +6,6 @@ import { Button } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Recommended } from '../../../Earn/components/Recommended';
@@ -19,9 +18,12 @@ function EarnListView() {
     return (
       <Recommended
         withHeader={false}
+        disableHorizontalBleed
         recommendedItemContainerProps={{
           bg: '$bgSubdued',
           borderColor: '$neutral3',
+          hoverStyle: { bg: '$bgHover' },
+          pressStyle: { bg: '$bgActive' },
         }}
       />
     );
@@ -49,6 +51,7 @@ function EarnListView() {
   return (
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.earn_title })}
+      headerContainerProps={{ px: '$pagePadding' }}
       headerActions={
         <Button
           size="small"
@@ -62,13 +65,6 @@ function EarnListView() {
             id: ETranslations.global_view_more,
           })}
         </Button>
-      }
-      contentContainerProps={
-        platformEnv.isNative
-          ? {
-              mx: '$-5',
-            }
-          : undefined
       }
       content={renderContent()}
       plainContentContainer

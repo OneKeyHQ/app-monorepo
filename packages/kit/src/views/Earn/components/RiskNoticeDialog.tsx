@@ -46,7 +46,7 @@ function RiskNoticeDialogContent({
         persistNoShow()
           .then(() => onConfirm())
           .then(() => resolve())
-          .catch(() => reject());
+          .catch(() => reject(new Error('Risk notice confirmation failed')));
       }),
     [onConfirm, networkId, providerName, address, operationType, checkboxState],
   );

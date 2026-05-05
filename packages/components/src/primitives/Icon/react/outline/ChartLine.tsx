@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChartLine = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9 5v14m-5.996-8L3 19M21 8v11m-6.002-5v5"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="m4.005 10.001-.006 10-2-.002.006-10zM10 20H8V4h2zm5.998 0h-2v-7h2zM22 20h-2V7h2z" />
   </Svg>
 );
 export default SvgChartLine;

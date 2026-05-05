@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCallCancel = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M20.707 4.707a1 1 0 0 0-1.414-1.414l-8.456 8.456a12 12 0 0 1-1.049-1.444c-.135-.218-.118-.56.149-.827a2.83 2.83 0 0 0 .708-2.81l-.46-1.53A3 3 0 0 0 7.313 3H6.001C4.38 3 2.91 4.344 3.13 6.12a16.94 16.94 0 0 0 4.162 9.173l-4 4a1 1 0 1 0 1.414 1.414l16-16ZM17.881 20.87a16.9 16.9 0 0 1-7.592-2.916l3.661-3.66a.73.73 0 0 0 .573-.23 2.83 2.83 0 0 1 2.809-.709l1.53.46a3 3 0 0 1 2.139 2.873V18c0 1.619-1.344 3.09-3.12 2.87"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M21.414 4 4 21.414 2.586 20l4.707-4.707A16.94 16.94 0 0 1 3 4V3h6.544l1.586 5.285L9.536 9.88c.375.665.81 1.291 1.3 1.87L20 2.586zM21 14.456V21h-1c-3.61 0-6.959-1.125-9.712-3.045l3.616-3.616q.108.064.218.126l1.593-1.594z" />
   </Svg>
 );
 export default SvgCallCancel;

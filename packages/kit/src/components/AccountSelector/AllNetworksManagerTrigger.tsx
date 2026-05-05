@@ -1,22 +1,12 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import {
-  Icon,
-  SizableText,
-  Skeleton,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -26,27 +16,44 @@ import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hoo
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { NetworkAvatarBase } from '../NetworkAvatar';
 
+import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelectorTrigger';
+
+const MAX_DISPLAY_NETWORKS = 2;
+
 function AllNetworksManagerTrigger({
   num,
-  containerProps,
   showSkeleton,
+  unifiedMode = false,
 }: {
   num: number;
   containerProps?: ComponentProps<typeof Stack>;
   showSkeleton?: boolean;
+  unifiedMode?: boolean;
 }) {
-  const intl = useIntl();
   const navigation = useAppNavigation();
   const {
     activeAccount: { network, wallet, account, indexedAccount },
   } = useActiveAccount({ num });
+
+  const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
+    num,
+  });
+
+  const shouldEnableCompatQuery =
+    Boolean(network?.id) &&
+    networkUtils.isAllNetwork({ networkId: network?.id }) &&
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' });
+
+  // SWR cache in usePromiseResult provides instant cold-start data,
+  // so deferHeavyWorkUntilUIIdle is no longer needed here.
+  const compatQueryWalletId = shouldEnableCompatQuery ? (wallet?.id ?? '') : '';
 
   const {
     enabledNetworksCompatibleWithWalletId,
     enabledNetworksWithoutAccount,
     run,
   } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-    walletId: wallet?.id ?? '',
+    walletId: compatQueryWalletId,
     networkId: network?.id,
     indexedAccountId: indexedAccount?.id,
     filterNetworksWithoutAccount: true,
@@ -54,7 +61,11 @@ function AllNetworksManagerTrigger({
 
   useEffect(() => {
     const refresh = async () => {
-      await run({ alwaysSetState: true });
+      try {
+        await run({ alwaysSetState: true });
+      } catch {
+        // silently ignore refresh errors
+      }
     };
     appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
@@ -65,6 +76,13 @@ function AllNetworksManagerTrigger({
   }, [run]);
 
   const handleOnPress = useCallback(() => {
+    if (unifiedMode) {
+      showUnifiedNetworkSelector({
+        recordNetworkHistoryEnabled: true,
+        defaultTab: 'portfolio',
+      });
+      return;
+    }
     navigation.pushModal(EModalRoutes.ChainSelectorModal, {
       screen: EChainSelectorPages.AllNetworksManager,
       params: {
@@ -77,13 +95,24 @@ function AllNetworksManagerTrigger({
         },
       },
     });
-  }, [navigation, wallet?.id, account?.id, indexedAccount?.id, run]);
+  }, [
+    navigation,
+    wallet?.id,
+    account?.id,
+    indexedAccount?.id,
+    run,
+    unifiedMode,
+    showUnifiedNetworkSelector,
+  ]);
+
+  if (!wallet) {
+    return null;
+  }
 
   if (
     !networkUtils.isAllNetwork({ networkId: network?.id }) ||
     accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
   ) {
-    // TODO: Remove this after the native Android layout reset fixed.
     if (platformEnv.isNativeAndroid) {
       return <Stack height={5} />;
     }
@@ -96,108 +125,100 @@ function AllNetworksManagerTrigger({
     !enabledNetworksCompatibleWithWalletId ||
     enabledNetworksCompatibleWithWalletId.length === 0
   ) {
-    return (
-      <Stack py="$1">
-        <Skeleton.BodyMd />
-      </Stack>
-    );
+    return <Stack h={36} />;
   }
 
   return (
-    <YStack alignSelf="flex-start" ml="$-1">
-      <XStack
-        borderRadius="$2"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        p="$1"
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-        focusable
-        focusVisibleStyle={{
-          outlineWidth: 2,
-          outlineColor: '$focusRing',
-          outlineStyle: 'solid',
-        }}
-        userSelect="none"
-        onPress={handleOnPress}
-        gap="$1"
-      >
-        <XStack my="$-0.5">
-          {enabledNetworksCompatibleWithWalletId
-            ?.slice(0, 3)
-            .map((item, index) => (
-              <Stack
-                key={index}
-                borderWidth={2}
-                borderColor="$bgApp"
-                borderRadius="$full"
-                zIndex={index}
-                {...(index !== 0 && {
-                  ml: '$-2',
-                })}
-              >
-                <NetworkAvatarBase logoURI={item?.logoURI} size="$5" />
-              </Stack>
-            ))}
-          {enabledNetworksCompatibleWithWalletId.length > 3 ? (
-            <XStack
-              px="$1"
-              py="$0.5"
-              bg="$gray5"
-              borderRadius="$full"
-              ml="$-2"
-              zIndex={999}
+    <XStack
+      borderRadius="$2"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusable
+      focusVisibleStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
+      userSelect="none"
+      onPress={handleOnPress}
+      alignItems="center"
+    >
+      <XStack alignItems="center">
+        {enabledNetworksCompatibleWithWalletId
+          ?.slice(0, MAX_DISPLAY_NETWORKS)
+          .map((item, index) => (
+            <Stack
+              key={index}
               borderWidth={2}
               borderColor="$bgApp"
-            >
-              <SizableText size="$bodySm">
-                +{enabledNetworksCompatibleWithWalletId.length - 3}
-              </SizableText>
-            </XStack>
-          ) : null}
-        </XStack>
-        <XStack>
-          <SizableText size="$bodyMd">
-            {intl.formatMessage(
-              { id: ETranslations.global_count_networks },
-              {
-                count: enabledNetworksCompatibleWithWalletId.length,
-              },
-            )}
-          </SizableText>
-          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
-        </XStack>
-        {enabledNetworksWithoutAccount.length > 0 ? (
-          <Stack
-            position="absolute"
-            right="$0"
-            top="$0"
-            alignItems="flex-end"
-            w="$3"
-            pointerEvents="none"
-          >
-            <Stack
-              bg="$bgApp"
               borderRadius="$full"
-              borderWidth={2}
-              borderColor="$transparent"
+              zIndex={index}
+              {...(index !== 0 && {
+                ml: '$-2',
+              })}
             >
-              <Stack
-                px="$1"
-                borderRadius="$full"
-                bg="$caution10"
-                minWidth="$2"
-                height="$2"
-                alignItems="center"
-                justifyContent="center"
+              <NetworkAvatarBase
+                logoURI={item?.logoURI}
+                size="$6"
+                networkName={item?.name}
+                isCustomNetwork={item?.isCustomNetwork}
               />
             </Stack>
-          </Stack>
+          ))}
+        {enabledNetworksCompatibleWithWalletId.length > MAX_DISPLAY_NETWORKS ? (
+          <XStack
+            px="$1"
+            bg="$gray5"
+            borderRadius="$full"
+            ml="$-2"
+            zIndex={999}
+            borderWidth={2}
+            borderColor="$bgApp"
+            alignItems="center"
+            justifyContent="center"
+            h={28}
+          >
+            <SizableText size="$bodySm">
+              +
+              {enabledNetworksCompatibleWithWalletId.length -
+                MAX_DISPLAY_NETWORKS}
+            </SizableText>
+          </XStack>
         ) : null}
       </XStack>
-    </YStack>
+      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      {enabledNetworksWithoutAccount.length > 0 ? (
+        <Stack
+          position="absolute"
+          right="$0"
+          top="$0"
+          alignItems="flex-end"
+          w="$3"
+          pointerEvents="none"
+        >
+          <Stack
+            bg="$bgApp"
+            borderRadius="$full"
+            borderWidth={2}
+            borderColor="$transparent"
+          >
+            <Stack
+              px="$1"
+              borderRadius="$full"
+              bg="$caution10"
+              minWidth="$2"
+              height="$2"
+              alignItems="center"
+              justifyContent="center"
+            />
+          </Stack>
+        </Stack>
+      ) : null}
+    </XStack>
   );
 }
 

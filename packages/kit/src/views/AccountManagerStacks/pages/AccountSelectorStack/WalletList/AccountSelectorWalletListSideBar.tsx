@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
@@ -27,6 +28,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
+import { BOT_WALLET_STATUS_DEACTIVATED } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -39,6 +41,10 @@ import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute
 
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
+import {
+  buildGroupedAccountSelectorWallets,
+  getWalletChildrenLength,
+} from './walletListUtils';
 
 import type { IAccountSelectorWalletInfo } from '../../../type';
 
@@ -87,13 +93,17 @@ export function AccountSelectorWalletListSideBar({
   hideNonBackedUpWallet,
 }: IWalletListProps) {
   const { serviceAccount } = backgroundApiProxy;
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
   const actions = useAccountSelectorActions();
   const route = useAccountSelectorRoute();
   // const linkNetwork = route.params?.linkNetwork;
   const isEditableRouteParams = route.params?.editable;
   const { selectedAccount } = useSelectedAccount({ num });
   const focusWalletChanged = useRef<boolean>(false);
+
+  // Detect connected hardware wallets via WebUSB
+  // Note: connectedDevices reference is stable - only changes when device list actually changes
+  const { connectedDevices } = useHardwareWalletConnectStatus();
 
   const [layoutRefreshTS, setLayoutRefreshTS] = useState(0);
   useEffect(() => {
@@ -136,18 +146,44 @@ export function AccountSelectorWalletListSideBar({
         ignoreNonBackedUpWallets: hideNonBackedUpWallet,
       });
 
-      const wallets = r.wallets.map((wallet) => {
-        const isQrWallet = accountUtils.isQrWallet({
-          walletId: wallet.id,
-        });
+      const botWalletEntries = await Promise.all(
+        r.wallets.map(async (wallet) => {
+          const isBotWallet = accountUtils.isBotWallet({ walletId: wallet.id });
+          if (!isBotWallet) {
+            return {
+              wallet,
+              isBotWallet,
+              isBotDeactivated: false,
+            };
+          }
 
-        const badge = isQrWallet ? 'QR' : undefined;
+          const meta =
+            await backgroundApiProxy.serviceAccount.getBotWalletMetadata(
+              wallet.id,
+            );
+          if (!meta?.visible) {
+            return null;
+          }
 
-        return {
-          ...wallet,
-          badge,
-        };
-      });
+          return {
+            wallet,
+            isBotWallet,
+            isBotDeactivated: meta.status === BOT_WALLET_STATUS_DEACTIVATED,
+          };
+        }),
+      );
+
+      const filteredWalletEntries = botWalletEntries.filter(
+        (
+          entry,
+        ): entry is {
+          wallet: IDBWallet;
+          isBotWallet: boolean;
+          isBotDeactivated: boolean;
+        } => Boolean(entry),
+      );
+
+      const wallets = buildGroupedAccountSelectorWallets(filteredWalletEntries);
 
       return {
         wallets,
@@ -167,16 +203,23 @@ export function AccountSelectorWalletListSideBar({
   });
 
   useEffect(() => {
-    const walletCount = wallets.length;
+    const walletCount = wallets.reduce(
+      (count, wallet) => count + 1 + (wallet.botWallets?.length ?? 0),
+      0,
+    );
     if (walletCount > 0) {
       const hwWalletCount = wallets.filter(
         (wallet) => wallet.type === 'hw',
+      ).length;
+      const keylessWalletCount = wallets.filter(
+        (wallet) => wallet.isKeyless,
       ).length;
       const appWalletCount = walletCount - hwWalletCount;
       analytics.updateUserProfile({
         walletCount,
         hwWalletCount,
         appWalletCount,
+        keylessWalletCount,
       });
     }
   }, [wallets]);
@@ -187,13 +230,19 @@ export function AccountSelectorWalletListSideBar({
       hideNonBackedUpWallet &&
       !focusWalletChanged.current
     ) {
-      const backedUpWalletsMap = walletsResult.wallets.reduce((acc, wallet) => {
-        acc[wallet.id] = wallet;
-        wallet.hiddenWallets?.forEach((hiddenWallet) => {
-          acc[hiddenWallet.id] = hiddenWallet;
-        });
-        return acc;
-      }, {} as Record<string, IDBWallet>);
+      const backedUpWalletsMap = walletsResult.wallets.reduce(
+        (acc, wallet) => {
+          acc[wallet.id] = wallet;
+          wallet.hiddenWallets?.forEach((hiddenWallet) => {
+            acc[hiddenWallet.id] = hiddenWallet;
+          });
+          wallet.botWallets?.forEach((botWallet) => {
+            acc[botWallet.id] = botWallet;
+          });
+          return acc;
+        },
+        {} as Record<string, IDBWallet>,
+      );
 
       if (
         !backedUpWalletsMap[selectedAccount.focusedWallet ?? ''] &&
@@ -289,9 +338,9 @@ export function AccountSelectorWalletListSideBar({
   );
 
   const getHiddenWalletsLength = useCallback(
-    (wallet: IDBWallet) => {
+    (wallet: IAccountSelectorWalletInfo): number => {
       noop(reloadWalletsHook);
-      let _hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
+      let _hiddenWalletsLength = getWalletChildrenLength(wallet);
 
       if (shouldShowCreateHiddenWalletButtonFn({ wallet })) {
         _hiddenWalletsLength += 1; // show create hidden wallet button
@@ -322,7 +371,40 @@ export function AccountSelectorWalletListSideBar({
   const listViewRef =
     useRef<ISortableListViewRef<IAccountSelectorWalletInfo>>(null);
 
+  // Pre-compute wallet connection status map for stable reference
+  const walletConnectionMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    wallets.forEach((wallet) => {
+      // Deprecated wallets should not show connection status
+      if (wallet.deprecated) {
+        map.set(wallet.id, false);
+        return;
+      }
+      // Hidden wallets (passphrase wallets) should never show connection status
+      if (accountUtils.isHwHiddenWallet({ wallet })) {
+        map.set(wallet.id, false);
+        return;
+      }
+
+      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
+      const deviceId = wallet.associatedDeviceInfo?.deviceId;
+      const isConnected =
+        isHwWallet && deviceId ? connectedDevices.has(deviceId) : false;
+      map.set(wallet.id, isConnected);
+    });
+    return map;
+  }, [wallets, connectedDevices]);
+
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
+  const shouldHideWalletList =
+    walletsResult !== undefined &&
+    wallets.length === 0 &&
+    !isEditableRouteParams;
+
+  if (shouldHideWalletList) {
+    return null;
+  }
+
   return (
     <Stack
       testID="account-selector-wallet-list"
@@ -330,6 +412,7 @@ export function AccountSelectorWalletListSideBar({
       $gtMd={{
         w: '$32',
       }}
+      pt={platformEnv.isNativeAndroid ? top : undefined}
       bg="$bgSubdued"
       borderRightWidth={StyleSheet.hairlineWidth}
       borderRightColor="$neutral3"
@@ -370,7 +453,7 @@ export function AccountSelectorWalletListSideBar({
             borderCurve="continuous"
           />
         )}
-        keyExtractor={(item) => `${item.id}`}
+        keyExtractor={(item) => item.id}
         data={wallets as IAccountSelectorWalletInfo[]}
         onDragEnd={async (result) => {
           if (!walletsResult) {
@@ -388,25 +471,24 @@ export function AccountSelectorWalletListSideBar({
           });
         }}
         extraData={[selectedAccount.focusedWallet, reloadWalletsHook]}
-        renderItem={({ item, drag, dragProps }) => {
-          return (
-            <Stack pb="$3" dataSet={dragProps}>
-              <WalletListItem
-                key={item.id}
-                wallet={item}
-                focusedWallet={selectedAccount.focusedWallet}
-                onWalletPress={onWalletPress}
-                onWalletLongPress={drag}
-                testID={`wallet-${item.id}`}
-                badge={item.badge}
-                isEditMode={isEditableRouteParams}
-                shouldShowCreateHiddenWalletButtonFn={
-                  shouldShowCreateHiddenWalletButtonFn
-                }
-              />
-            </Stack>
-          );
-        }}
+        renderItem={({ item, drag, dragProps }) => (
+          <Stack pb="$3" dataSet={dragProps}>
+            <WalletListItem
+              key={item.id}
+              wallet={item}
+              focusedWallet={selectedAccount.focusedWallet}
+              onWalletPress={onWalletPress}
+              onWalletLongPress={drag}
+              testID={`wallet-${item.id}`}
+              badge={item.badge}
+              isEditMode={isEditableRouteParams}
+              shouldShowCreateHiddenWalletButtonFn={
+                shouldShowCreateHiddenWalletButtonFn
+              }
+              isConnected={walletConnectionMap.get(item.id) ?? false}
+            />
+          </Stack>
+        )}
       />
       {/* Others */}
       {isEditableRouteParams ? (
@@ -414,7 +496,7 @@ export function AccountSelectorWalletListSideBar({
           p="$2"
           borderTopWidth={StyleSheet.hairlineWidth}
           borderTopColor="$borderSubdued"
-          mb={bottom}
+          mb={Math.max(bottom, 8)}
         >
           <AccountSelectorCreateWalletButton />
           {/* <OthersWalletItem onWalletPress={onWalletPress} num={num} /> */}

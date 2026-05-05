@@ -20,6 +20,7 @@ import {
 import type { ICosmosProtoMsgsOrWithAminoMsgs } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos/ITxMsgBuilder';
 import type {
   ICosmosStdFee,
+  IDecodedTxExtraCosmos,
   IEncodedTxCosmos,
 } from '@onekeyhq/core/src/chains/cosmos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -48,6 +49,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import type {
   IInternalDappTxParams,
   IStakeTxCosmosAmino,
@@ -67,6 +69,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientCosmos } from './sdkCosmos/ClientCosmos';
+import { SecretNetworkEncryption } from './sdkCosmos/SecretNetworkEncryption';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -280,10 +283,10 @@ export default class VaultCosmos extends VaultBase {
   override async buildInternalDappEncodedTx(
     params: IInternalDappTxParams,
   ): Promise<IEncodedTxCosmos> {
-    return TransactionWrapper.fromAminoSignDoc(
-      params.internalDappTx as IStakeTxCosmosAmino,
-      undefined,
-    ).toObject();
+    return TransactionWrapper.fromAminoSignDoc({
+      signDoc: params.internalDappTx as IStakeTxCosmosAmino,
+      msg: undefined,
+    }).toObject();
   }
 
   private _getTransactionTypeByMessage(
@@ -379,11 +382,14 @@ export default class VaultCosmos extends VaultBase {
     const fee = getFee(txWrapper);
     const sequence = getSequence(txWrapper);
 
-    let feePrice = '0.01';
+    let feePrice = '0';
     if (fee?.gas_limit) {
-      feePrice = new BigNumber(fee?.amount[0]?.amount ?? '1')
-        .div(fee?.gas_limit)
-        .toFixed(6);
+      const feeAmount = new BigNumber(fee?.amount[0]?.amount ?? '0');
+      if (feeAmount.isZero()) {
+        feePrice = '0';
+      } else {
+        feePrice = feeAmount.div(fee?.gas_limit).toFixed(6);
+      }
     }
 
     const result: IDecodedTx = {
@@ -415,6 +421,17 @@ export default class VaultCosmos extends VaultBase {
     return result;
   }
 
+  override buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraCosmos | null> {
+    if (!onChainHistoryTx.memo) return Promise.resolve(null);
+    return Promise.resolve({
+      memo: onChainHistoryTx.memo,
+    });
+  }
+
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
@@ -428,10 +445,25 @@ export default class VaultCosmos extends VaultBase {
     throw new OneKeyInternalError();
   }
 
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    const newEncodedTx = params.encodedTx as IEncodedTxCosmos;
+    if (newEncodedTx.signOptions?.preferNoSetFee) {
+      return Promise.resolve('');
+    }
+    return newEncodedTx;
+  }
+
   private async _attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxCosmos;
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxCosmos> {
+    if (params.encodedTx.signOptions?.preferNoSetFee) {
+      return params.encodedTx;
+    }
+
     const { gas, common } = params.feeInfo;
     const { gasPrice: price, gasLimit: limit } = gas ?? {};
 
@@ -474,6 +506,13 @@ export default class VaultCosmos extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
+    if (
+      (params.unsignedTx?.encodedTx as unknown as IEncodedTxCosmos | undefined)
+        ?.signOptions?.preferNoSetFee
+    ) {
+      return params.unsignedTx;
+    }
+
     if (!params.unsignedTx || !params.feeInfo) {
       throw new OneKeyInternalError('unsignedTx and feeInfo are required');
     }
@@ -599,6 +638,67 @@ export default class VaultCosmos extends VaultBase {
       responseTime: Math.floor(performance.now() - start),
       bestBlockNumber,
     };
+  }
+
+  private _enigmaUtils: SecretNetworkEncryption | null = null;
+
+  async getEnigmaSeed(params: { password: string }): Promise<Uint8Array> {
+    const keyring = this.keyring as {
+      getEnigmaSeed?: (p: { password: string }) => Promise<Uint8Array>;
+    };
+    if (!keyring.getEnigmaSeed) {
+      throw new OneKeyInternalError(
+        'Enigma encryption is not supported for this wallet type',
+      );
+    }
+    return keyring.getEnigmaSeed(params);
+  }
+
+  async getOrCreateEnigmaUtils(params: {
+    password: string;
+  }): Promise<SecretNetworkEncryption> {
+    if (this._enigmaUtils) {
+      return this._enigmaUtils;
+    }
+
+    const seed = await this.getEnigmaSeed(params);
+
+    const fetchConsensusIoPubKey = async (): Promise<Uint8Array> => {
+      const customRpc =
+        await this.backgroundApi.simpleDb.customRpc.getCustomRpcForNetwork(
+          this.networkId,
+        );
+      if (customRpc?.enabled && customRpc.rpc) {
+        // Custom RPC: direct call
+        const client = new ClientCosmos({ url: customRpc.rpc });
+        const result = await client.fetchConsensusIoPubKey();
+        return Uint8Array.from(Buffer.from(result.key, 'base64'));
+      }
+      // Default: OneKey backend proxy
+      const [result] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+          key: string;
+        }>({
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'GET',
+                url: '/registration/v1beta1/tx-key',
+                params: {},
+              },
+            },
+          ],
+        });
+      return Uint8Array.from(Buffer.from(result.key, 'base64'));
+    };
+
+    this._enigmaUtils = new SecretNetworkEncryption(
+      seed,
+      fetchConsensusIoPubKey,
+    );
+    return this._enigmaUtils;
   }
 
   override async broadcastTransactionFromCustomRpc(

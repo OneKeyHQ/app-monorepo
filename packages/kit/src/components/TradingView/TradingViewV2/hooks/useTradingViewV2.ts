@@ -31,7 +31,7 @@ export async function fetchTradingViewV2Data({
 
     return data;
   } catch (error) {
-    console.error('Failed to fetch kine data:', error);
+    console.error('Failed to fetch kline data:', error);
     return null;
   }
 }
@@ -78,7 +78,7 @@ export async function fetchTradingViewV2DataWithSlicing({
 
     return mergedData;
   } catch (error) {
-    console.error('Failed to fetch sliced kine data:', error);
+    console.error('Failed to fetch sliced kline data:', error);
     return null;
   }
 }

@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFinder = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M6 3h5.917a47 47 0 0 0-1.665 9.942A1 1 0 0 0 11.25 14h2a1 1 0 1 0 0-2h-.928c.252-3.066.814-6.03 1.674-9H18a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3m3 6a1 1 0 0 0-2 0v1a1 1 0 1 0 2 0zm8 0a1 1 0 1 0-2 0v1a1 1 0 1 0 2 0zm-8.445 5.668a1 1 0 0 0-1.11 1.664C9.02 17.382 10.466 18 12 18s2.98-.619 4.555-1.668a1 1 0 0 0-1.11-1.664C14.02 15.618 12.966 16 12 16s-2.02-.381-3.445-1.332"
+      d="M11.917 3a47 47 0 0 0-1.665 9.942L10.19 14h4.06v-2h-1.928a45.5 45.5 0 0 1 1.674-9H21v18H3V3zm3.528 11.668C14.02 15.618 12.966 16 12 16s-2.02-.381-3.445-1.332l-.832-.555-1.11 1.664.832.555C9.02 17.382 10.466 18 12 18s2.98-.619 4.555-1.668l.832-.555-1.11-1.664zM7 11h2V8H7zm8 0h2V8h-2z"
       clipRule="evenodd"
     />
   </Svg>

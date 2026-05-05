@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
@@ -10,17 +10,13 @@ import { Linking, StyleSheet } from 'react-native';
 
 import type { IPageScreenProps, IYStackProps } from '@onekeyhq/components';
 import {
-  Accordion,
   Button,
   Dialog,
   EVideoResizeMode,
   Empty,
   HeightTransition,
-  Icon,
   IconButton,
-  Image,
   LottieView,
-  Page,
   Popover,
   SegmentControl,
   SizableText,
@@ -31,10 +27,15 @@ import {
   YStack,
   useMedia,
   usePopoverContext,
+  useThemeName,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  HARDWARE_BRIDGE_DOWNLOAD_URL,
+  HARDWARE_TROUBLESHOOTING_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
   BridgeTimeoutError,
@@ -52,7 +53,7 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -68,10 +69,10 @@ import {
 } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { ConnectionTroubleShootingAccordion } from '../../../components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
@@ -80,8 +81,7 @@ import { HyperlinkText } from '../../../components/HyperlinkText';
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingPage } from '../components/Layout';
 import {
   EBluetoothStatus,
   useDesktopBluetoothStatusPolling,
@@ -94,6 +94,8 @@ import {
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
+
+const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
 
 enum EConnectionStatus {
   init = 'init',
@@ -120,6 +122,7 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
 interface IDeviceConnectionProps {
   tabValue: EConnectDeviceChannel;
   deviceTypeItems: EDeviceType[];
+  vendor?: EHardwareVendor;
   connectDevice: (
     item: IConnectYourDeviceItem,
     innerTabValue: EConnectDeviceChannel,
@@ -130,9 +133,11 @@ interface IDeviceConnectionProps {
 function useDeviceConnection({
   tabValue,
   onDeviceSelect,
+  vendor,
 }: {
   tabValue: EConnectDeviceChannel;
   onDeviceSelect?: (item: IConnectYourDeviceItem) => Promise<void> | void;
+  vendor?: EHardwareVendor;
 }) {
   const intl = useIntl();
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
@@ -275,7 +280,7 @@ function useDeviceConnection({
           return;
         }
 
-        const sortedDevices = response.payload.sort((a, b) =>
+        const sortedDevices = response.payload.toSorted((a, b) =>
           natsort({ insensitive: true })(
             a.name || a.connectId || a.deviceId || a.uuid,
             b.name || b.connectId || b.deviceId || b.uuid,
@@ -306,8 +311,9 @@ function useDeviceConnection({
       undefined, // pollIntervalRate
       undefined, // pollInterval
       undefined, // maxTryCount
+      vendor,
     );
-  }, [deviceScanner, intl, tabValue]);
+  }, [deviceScanner, intl, tabValue, vendor]);
 
   const stopScan = useCallback(() => {
     isSearchingRef.current = false;
@@ -340,8 +346,9 @@ function useDeviceConnection({
         title: item.name,
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
+        ...(vendor ? { vendor } : {}),
       })),
-    [searchedDevices],
+    [searchedDevices, vendor],
   );
 
   const handleDeviceSelect = useCallback(
@@ -451,42 +458,19 @@ function ConnectionIndicatorTitle({ children }: { children: React.ReactNode }) {
   return <SizableText size="$bodyMdMedium">{children}</SizableText>;
 }
 
-function connectionIndicatorFooter({
+function ConnectionIndicatorFooter({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <YStack
-      pt="$5"
-      pb="$2"
-      gap="$2"
-      animation="quick"
-      animateOnly={['opacity']}
-      enterStyle={{
-        opacity: 0,
-      }}
-    >
-      {platformEnv.isWeb ? (
-        <Image
-          source={require('@onekeyhq/kit/assets/onboarding/radial-gradient.png')}
-          position="absolute"
-          left="50%"
-          bottom="0"
-          style={{
-            transform: [{ translateX: '-50%' }, { translateY: '50%' }],
-          }}
-          width={520}
-          height={226}
-          zIndex={0}
-        />
-      ) : null}
+    <YStack pt="$5" pb="$2" gap="$2">
       {children}
     </YStack>
   );
 }
 
-function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
+function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
   const [showHelper, setShowHelper] = useState(false);
   const intl = useIntl();
 
@@ -519,60 +503,32 @@ function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
           borderRadius="$2.5"
           borderCurve="continuous"
           overflow="hidden"
+          p="$4"
+          gap="$4"
         >
-          <Accordion type="single" collapsible>
-            <Accordion.Item value="0">
-              <Accordion.Trigger
-                unstyled
-                flexDirection="row"
-                alignItems="center"
-                borderWidth={0}
-                m="0"
-                px="$5"
-                py="$2"
-                bg="$transparent"
-                hoverStyle={{
-                  bg: '$bgHover',
-                }}
-                focusVisibleStyle={{
-                  outlineColor: '$focusRing',
-                  outlineStyle: 'solid',
-                  outlineWidth: 2,
-                  outlineOffset: 2,
-                }}
-              >
-                {({ open }: { open: boolean }) => (
-                  <>
-                    <SizableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      flex={1}
-                      textAlign="left"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.troubleshooting_show_helper_cta_label,
-                      })}
-                    </SizableText>
-                    <Icon
-                      name={open ? 'MinusSmallOutline' : 'PlusSmallOutline'}
-                      size="$5"
-                      color="$iconSubdued"
-                    />
-                  </>
-                )}
-              </Accordion.Trigger>
-              <Accordion.HeightAnimator animation="quick">
-                <Accordion.Content
-                  unstyled
-                  animation="quick"
-                  enterStyle={{ opacity: 0, filter: 'blur(4px)' }}
-                  exitStyle={{ opacity: 0, filter: 'blur(4px)' }}
-                >
-                  <ConnectionTroubleShootingAccordion connectionType={type} />
-                </Accordion.Content>
-              </Accordion.HeightAnimator>
-            </Accordion.Item>
-          </Accordion>
+          <SizableText size="$bodyMd" color="$textSubdued" textAlign="left">
+            {intl.formatMessage({
+              id: ETranslations.troubleshooting_show_helper_cta_label,
+            })}
+          </SizableText>
+          <YStack gap="$2">
+            <Button
+              icon="OpenOutline"
+              onPress={() => {
+                void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.self_troubleshooting })}
+            </Button>
+            <Button
+              icon="HelpSupportOutline"
+              onPress={() => {
+                void showIntercom();
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.settings_contact_us })}
+            </Button>
+          </YStack>
         </YStack>
       ) : null}
     </>
@@ -600,7 +556,7 @@ function ConnectionIndicatorRoot({ children }: { children: React.ReactNode }) {
       borderCurve="continuous"
       bg="$bgSubdued"
       animation="quick"
-      animateOnly={['opacity', 'transform']}
+      animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
       enterStyle={{
         opacity: 0,
         x: 24,
@@ -616,7 +572,7 @@ export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
   Card: ConnectionIndicatorCard,
   Content: ConnectionIndicatorContent,
   Title: ConnectionIndicatorTitle,
-  Footer: connectionIndicatorFooter,
+  Footer: ConnectionIndicatorFooter,
 });
 
 function BluetoothCard({
@@ -765,8 +721,9 @@ function USBOrBLEConnectionIndicator({
   tabValue,
   deviceTypeItems,
   connectDevice,
+  vendor,
 }: IDeviceConnectionProps) {
-  const themeVariant = useThemeVariant();
+  const themeVariant = useThemeName() as 'light' | 'dark';
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
@@ -776,6 +733,7 @@ function USBOrBLEConnectionIndicator({
   const deviceConnection = useDeviceConnection({
     tabValue,
     onDeviceSelect: async (item) => connectDevice(item, tabValue),
+    vendor,
   });
 
   const {
@@ -892,6 +850,7 @@ function USBOrBLEConnectionIndicator({
       return;
     }
 
+    // OneKey: auto-start listing
     const timeoutId = setTimeout(
       () => {
         void (platformEnv.isNative ? startBLEConnection() : listingDevice());
@@ -899,7 +858,13 @@ function USBOrBLEConnectionIndicator({
       platformEnv.isNative ? 120 : 0,
     );
     return () => clearTimeout(timeoutId);
-  }, [listingDevice, hardwareTransportType, tabValue, startBLEConnection]);
+  }, [
+    listingDevice,
+    hardwareTransportType,
+    tabValue,
+    startBLEConnection,
+    vendor,
+  ]);
 
   useEffect(
     () => () => {
@@ -1009,6 +974,7 @@ function BluetoothConnectionIndicator({
   deviceTypeItems,
   tabValue,
   connectDevice,
+  vendor,
 }: IDeviceConnectionProps) {
   const intl = useIntl();
   const isFocused = useIsFocused();
@@ -1020,6 +986,7 @@ function BluetoothConnectionIndicator({
   const deviceConnection = useDeviceConnection({
     tabValue,
     onDeviceSelect: async (item) => connectDevice(item, tabValue),
+    vendor,
   });
 
   const { devicesData, scanDevice, stopScan, handleDeviceSelect } =
@@ -1229,7 +1196,7 @@ function ConnectYourDevicePage({
   IOnboardingParamListV2,
   EOnboardingPagesV2.ConnectYourDevice
 >) {
-  const { deviceType: deviceTypeItems } = routeParams?.params || {};
+  const { deviceType: deviceTypeItems, vendor } = routeParams?.params || {};
   console.log('deviceTypeItems', deviceTypeItems);
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
@@ -1282,6 +1249,18 @@ function ConnectYourDevicePage({
       }
       const connectId = item.device.connectId ?? '';
       try {
+        // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
+        if (item.vendor === EHardwareVendor.ledger) {
+          navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+            deviceData: {
+              ...item,
+              vendor: item.vendor,
+            },
+            isFirmwareVerified: true,
+          });
+          return;
+        }
+
         if (
           item.device?.commType === 'electron-ble' ||
           item.device?.commType === 'ble'
@@ -1330,60 +1309,65 @@ function ConnectYourDevicePage({
   );
 
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header
-          title={intl.formatMessage({
-            id: ETranslations.onboarding_connect_your_device,
-          })}
-        />
-        <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent>
-            <XStack alignItems="center" gap="$4">
-              {tabOptions.length > 1 ? (
-                <SegmentControl
-                  fullWidth
-                  value={tabValue}
-                  onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-                  options={tabOptions}
+    <OnboardingPage
+      headerTitle={intl.formatMessage({
+        id: ETranslations.onboarding_connect_your_device,
+      })}
+      scrollable
+      alignTop
+      narrow
+      contentContainerProps={{ gap: '$5' }}
+    >
+      {vendor === EHardwareVendor.ledger ? (
+        <LedgerConnectionFlow />
+      ) : (
+        <>
+          <XStack alignItems="center" gap="$4">
+            {tabOptions.length > 1 ? (
+              <SegmentControl
+                fullWidth
+                value={tabValue}
+                onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+                options={tabOptions}
+              />
+            ) : null}
+            {isSupportedQRCode ? (
+              <YStack ml="auto">
+                <Popover
+                  title={intl.formatMessage({
+                    id: ETranslations.global_advanced,
+                  })}
+                  renderTrigger={
+                    <IconButton variant="tertiary" icon="DotHorOutline" />
+                  }
+                  renderContent={
+                    <QRWalletConnect
+                      navigateToCreateQRWallet={navigateToCreateQRWallet}
+                    />
+                  }
                 />
-              ) : null}
-              {isSupportedQRCode ? (
-                <YStack ml="auto">
-                  <Popover
-                    title={intl.formatMessage({
-                      id: ETranslations.global_advanced,
-                    })}
-                    renderTrigger={
-                      <IconButton variant="tertiary" icon="DotHorOutline" />
-                    }
-                    renderContent={
-                      <QRWalletConnect
-                        navigateToCreateQRWallet={navigateToCreateQRWallet}
-                      />
-                    }
-                  />
-                </YStack>
-              ) : null}
-            </XStack>
-            {tabValue === EConnectDeviceChannel.usbOrBle ? (
-              <USBOrBLEConnectionIndicator
-                tabValue={tabValue}
-                deviceTypeItems={deviceTypeItems}
-                connectDevice={connectDevice}
-              />
+              </YStack>
             ) : null}
-            {tabValue === EConnectDeviceChannel.bluetooth ? (
-              <BluetoothConnectionIndicator
-                tabValue={tabValue}
-                deviceTypeItems={deviceTypeItems}
-                connectDevice={connectDevice}
-              />
-            ) : null}
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
-      </OnboardingLayout>
-    </Page>
+          </XStack>
+          {tabValue === EConnectDeviceChannel.usbOrBle ? (
+            <USBOrBLEConnectionIndicator
+              tabValue={tabValue}
+              deviceTypeItems={deviceTypeItems}
+              connectDevice={connectDevice}
+              vendor={vendor}
+            />
+          ) : null}
+          {tabValue === EConnectDeviceChannel.bluetooth ? (
+            <BluetoothConnectionIndicator
+              tabValue={tabValue}
+              deviceTypeItems={deviceTypeItems}
+              connectDevice={connectDevice}
+              vendor={vendor}
+            />
+          ) : null}
+        </>
+      )}
+    </OnboardingPage>
   );
 }
 

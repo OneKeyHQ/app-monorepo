@@ -22,7 +22,6 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { BabylonTrackingAlert } from '../../components/BabylonTrackingAlert';
 import {
@@ -40,9 +39,6 @@ import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useEarnSignMessage } from '../../hooks/useEarnSignMessage';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
-import { useHandleStake, useHandleWithdraw } from './useHandleActions';
-import { useHandleClaim } from './useHandleClaim';
-
 const ProtocolDetailsPage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
@@ -51,7 +47,7 @@ const ProtocolDetailsPage = () => {
   const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
     route.params;
   const appNavigation = useAppNavigation();
-  const [stakeLoading, setStakeLoading] = useState(false);
+  const [stakeLoading, _] = useState(false);
   const { result: earnAccount, run: refreshAccount } = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceStaking.getEarnAccount({
@@ -98,8 +94,6 @@ const ProtocolDetailsPage = () => {
   const { isEventActive, effectiveTime } = useEarnEventActive(
     result?.provider.eventEndTime,
   );
-  const handleWithdraw = useHandleWithdraw();
-  const handleStake = useHandleStake();
 
   const { result: trackingResp, run: refreshTracking } = usePromiseResult(
     async () => {
@@ -165,17 +159,18 @@ const ProtocolDetailsPage = () => {
     // });
   }, []);
 
-  const handleClaim = useHandleClaim({
-    accountId: earnAccount?.accountId,
-    networkId,
-  });
-  const onClaim = useCallback(
-    async (params?: {
-      amount: string;
-      claimTokenAddress?: string;
-      isReward?: boolean;
-      isMorphoClaim?: boolean;
-    }) => {
+  // const handleClaim = useHandleClaim({
+  //   accountId: earnAccount?.accountId,
+  //   networkId,
+  // });
+  const onClaim = useCallback(async () =>
+    //   params?: {
+    //   amount: string;
+    //   claimTokenAddress?: string;
+    //   isReward?: boolean;
+    //   isMorphoClaim?: boolean;
+    // }
+    {
       // if (!result) return;
       // const { amount, claimTokenAddress, isReward, isMorphoClaim } =
       //   params ?? {};
@@ -205,9 +200,7 @@ const ProtocolDetailsPage = () => {
       //     tags: [buildLocalTxStatusSyncId(result)],
       //   },
       // });
-    },
-    [],
-  );
+    }, []);
 
   const onPortfolioDetails = useMemo(
     () =>

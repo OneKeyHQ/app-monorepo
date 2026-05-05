@@ -98,6 +98,7 @@ const UserOptions = () => {
               })}
               drillIn
               onPress={onBackup}
+              nativePressableStyle={{ flexShrink: 0 }}
               renderIcon={
                 <Stack bg="$bgStrong" p="$2" borderRadius="$3">
                   <Icon name="FolderUploadOutline" size="$6" color="$icon" />
@@ -112,6 +113,7 @@ const UserOptions = () => {
               })}
               drillIn
               onPress={onImport}
+              nativePressableStyle={{ flexShrink: 0 }}
               renderIcon={
                 <Stack bg="$bgStrong" p="$2" borderRadius="$3">
                   <Icon name="FolderDownloadOutline" size="$6" color="$icon" />

@@ -26,7 +26,11 @@ export type IHyperlinkTextProps = {
     string,
     string | ReactElement | ((v: string) => ReactElement | string)
   >;
-  autoHandleResult?: boolean;
+  /**
+   * Whether a recognized URL should trigger built-in navigation/action side
+   * effects immediately, instead of returning parsed data for the caller.
+   */
+  autoExecuteParsedAction?: boolean;
   urlTextProps?: ISizableTextProps;
   actionTextProps?: ISizableTextProps;
   underlineTextProps?: ISizableTextProps;
@@ -36,9 +40,15 @@ export type IHyperlinkTextProps = {
   scoped?: boolean;
 } & ISizableTextProps;
 
-const defaultIntl = createIntl({
-  locale: '',
-});
+let defaultIntl: ReturnType<typeof createIntl> | undefined;
+function getDefaultIntl() {
+  if (!defaultIntl) {
+    defaultIntl = createIntl({
+      locale: '',
+    });
+  }
+  return defaultIntl;
+}
 
 export function HyperlinkText({
   translationId,
@@ -47,7 +57,8 @@ export function HyperlinkText({
   onAction,
   children,
   values,
-  autoHandleResult = true,
+  // HyperlinkText is action-oriented, so auto execution is enabled by default.
+  autoExecuteParsedAction = true,
   urlTextProps,
   actionTextProps,
   underlineTextProps,
@@ -70,7 +81,7 @@ export function HyperlinkText({
     [basicTextProps.fontSize, basicTextProps.size],
   );
 
-  const theIntl = scoped ? defaultIntl : intl;
+  const theIntl = scoped ? getDefaultIntl() : intl;
 
   const text = useMemo(
     () =>
@@ -108,6 +119,7 @@ export function HyperlinkText({
                 return (
                   <SizableText
                     {...basicTextProps}
+                    textDecorationLine="underline"
                     {...urlTextProps}
                     cursor="pointer"
                     hoverStyle={{ bg: '$bgHover' }}
@@ -125,13 +137,14 @@ export function HyperlinkText({
                             EQRCodeHandlerNames.updatePreview,
                           ],
                           qrWalletScene: false,
-                          autoHandleResult,
+                          autoExecuteParsedAction,
                           defaultHandler: openUrlExternal,
                         });
                       }
                     }}
                   >
                     {isLinkString ? chunks : link}
+                    {autoExecuteParsedAction ? ' ↗' : null}
                   </SizableText>
                 );
               },
@@ -193,7 +206,7 @@ export function HyperlinkText({
       onAction,
       urlTextProps,
       parseQRCode,
-      autoHandleResult,
+      autoExecuteParsedAction,
       scriptFontSize,
       subscriptsTextProps,
       underlineTextProps,

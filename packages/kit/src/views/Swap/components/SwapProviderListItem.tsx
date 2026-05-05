@@ -199,9 +199,10 @@ const SwapProviderListItem = ({
       }
     }
     if (providerResult.toAmount) {
-      return `${numberFormat(providerResult.toAmount, formatter)} ${
-        toToken?.symbol ?? 'unknown'
-      }`;
+      const toAmountBN = new BigNumber(providerResult.toAmount);
+      return `${numberFormat(providerResult.toAmount, {
+        formatter: toAmountBN.gte(1_000_000) ? 'marketCap' : 'balance',
+      })} ${toToken?.symbol ?? 'unknown'}`;
     }
     return '';
   }, [

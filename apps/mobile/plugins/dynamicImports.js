@@ -1,24 +1,28 @@
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable import/no-dynamic-require */
-const path = require('path');
-const fs = require('fs-extra');
 const crypto = require('crypto');
+const path = require('path');
 
+const { default: generate } = require('@babel/generator');
 const parser = require('@babel/parser');
 const { default: traverse } = require('@babel/traverse');
-const { default: generate } = require('@babel/generator');
+const fs = require('fs-extra');
+
 const { fileToIdMap } = require('./map');
 
-const baseJSBundle = require(path.resolve(
-  __dirname,
-  '../../../node_modules',
-  'metro/src/DeltaBundler/Serializers/baseJSBundle',
-));
-const bundleToString = require(path.resolve(
-  __dirname,
-  '../../../node_modules',
-  'metro/src/lib/bundleToString',
-));
+const baseJSBundle = require(
+  path.resolve(
+    __dirname,
+    '../../../node_modules',
+    'metro/src/DeltaBundler/Serializers/baseJSBundle',
+  ),
+);
+const bundleToString = require(
+  path.resolve(
+    __dirname,
+    '../../../node_modules',
+    'metro/src/lib/bundleToString',
+  ),
+);
 
 const getContentHash = (content) => {
   const md5 = crypto.createHash('md5');
@@ -65,7 +69,7 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
     const asyncTypes = [...value.inverseDependencies].map((absolutePath) => {
       const moduleId = fileToIdMap.get(absolutePath);
       const val = graph.dependencies.get(absolutePath);
-      for (const [k, v] of val.dependencies) {
+      for (const [, v] of val.dependencies) {
         if (v.absolutePath === key) {
           const chunkModuleId = findAllocationById(moduleId);
           if (chunkModuleId && v.data.data.asyncType === null) {
@@ -100,9 +104,9 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
   );
 
   const allocation = () => {
-    for (const [key, val] of map) val.modules.length = 0;
+    for (const [_key, val] of map) val.modules.length = 0;
     for (const [moduleId, moduleCode] of modules) {
-      for (const [key, val] of map) {
+      for (const [, val] of map) {
         if (val.moduleIds.has(moduleId)) {
           val.modules.push([moduleId, moduleCode]);
           break;
@@ -116,7 +120,7 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
   for (const [key, val] of map) {
     if (key !== mainModuleId) {
       const totalByteLength = val.modules.reduce(
-        (b, [moduleId, moduleCode]) => b + Buffer.byteLength(moduleCode),
+        (b, [, moduleCode]) => b + Buffer.byteLength(moduleCode),
         0,
       );
       if (totalByteLength < minSize) {

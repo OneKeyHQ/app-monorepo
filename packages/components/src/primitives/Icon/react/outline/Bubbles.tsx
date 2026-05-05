@@ -1,11 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBubbles = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeWidth={2}
-      d="M13 8A5 5 0 1 1 3 8a5 5 0 0 1 10 0Zm5 9.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Zm3-8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z"
+      fillRule="evenodd"
+      d="M14.5 13a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9m0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M8 2a6 6 0 1 1 0 12A6 6 0 0 1 8 2m0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8m10.5 2a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7m0 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3"
+      clipRule="evenodd"
     />
   </Svg>
 );

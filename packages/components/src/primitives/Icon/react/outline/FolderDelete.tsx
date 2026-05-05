@@ -1,13 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFolderDelete = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth={2}
-      d="M3 11V6a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.664.89l1.11 1.665a1 1 0 0 0 .831.445H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8m-4-4-2 2m0 0-2 2m2-2-2-2m2 2 2 2"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="m8.414 15-2 2 2 2L7 20.414l-2-2-2 2L1.586 19l2-2-2-2L3 13.586l2 2 2-2z" />
+    <Path d="M12.535 6H22v14H10v-2h10V8h-8.535l-2-3H4v7H2V3h8.535z" />
   </Svg>
 );
 export default SvgFolderDelete;

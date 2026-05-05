@@ -4,8 +4,13 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
+import {
+  EAppSyncStorageKeys,
+  EDevSettingSyncStorageKeys,
+} from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import {
@@ -32,6 +37,11 @@ class ServiceDevSetting extends ServiceBase {
     const devSettings = await devSettingsPersistAtom.get();
     appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_developer_mode_enabled,
+      !!devSettings.enabled,
+    );
+    // Also write to the dedicated dev-setting MMKV instance for native code access
+    devSettingSyncStorage.set(
+      EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
       !!devSettings.enabled,
     );
   }
@@ -82,6 +92,36 @@ class ServiceDevSetting extends ServiceBase {
       ...prev,
       ...values,
     }));
+  }
+
+  @backgroundMethod()
+  public async isSkipBundleGPGVerificationAllowed(): Promise<boolean> {
+    // desktop keeps env-gated behavior in main process; native uses module API.
+    // UI/background should use a unified capability check from BundleUpdate.
+    return BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false);
+  }
+
+  @backgroundMethod()
+  public async setSkipBundleGPGVerification(enabled: boolean) {
+    if (!(await this.isSkipBundleGPGVerificationAllowed())) {
+      return;
+    }
+    devSettingSyncStorage.set(
+      EDevSettingSyncStorageKeys.onekey_bundle_skip_gpg_verification,
+      enabled,
+    );
+  }
+
+  @backgroundMethod()
+  public async getSkipBundleGPGVerification(): Promise<boolean> {
+    if (!(await this.isSkipBundleGPGVerificationAllowed())) {
+      return false;
+    }
+    return (
+      devSettingSyncStorage.getBoolean(
+        EDevSettingSyncStorageKeys.onekey_bundle_skip_gpg_verification,
+      ) ?? false
+    );
   }
 
   @backgroundMethod()

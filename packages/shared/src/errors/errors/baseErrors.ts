@@ -24,9 +24,9 @@ import type {
 export class OneKeyWeb3RpcError<T = IOneKeyJsError> extends Web3RpcError<T> {}
 
 export class OneKeyError<
-    I18nInfoT = IOneKeyErrorI18nInfo | any,
-    DataT = IOneKeyJsError | any,
-  >
+  I18nInfoT = IOneKeyErrorI18nInfo | any,
+  DataT = IOneKeyJsError | any,
+>
   extends OneKeyWeb3RpcError<DataT>
   implements IOneKeyError<I18nInfoT, DataT>
 {

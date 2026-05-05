@@ -105,19 +105,18 @@ abstract class ProviderApiBase {
   );
 
   async _getConnectedNetworkName(request: IJsBridgeMessagePayload) {
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
     if (!networks?.[0]) {
       return null;
     }
     let networkName = '';
     if (request.origin) {
-      const prevNetworkId = this.connectedNetworkCache[`${request.origin}`];
+      const prevNetworkId = this.connectedNetworkCache[request.origin];
       if (prevNetworkId && prevNetworkId !== networks?.[0]?.id) {
         networkName = networks?.[0]?.name;
       }
-      this.connectedNetworkCache[`${request.origin}`] = networks?.[0]?.id;
+      this.connectedNetworkCache[request.origin] = networks?.[0]?.id;
     }
     return networkName;
   }

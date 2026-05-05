@@ -1,8 +1,13 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty, uniqBy } from 'lodash';
 
-import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
+import {
+  onVisibilityStateChange,
+  useMedia,
+  useScrollContentTabBarOffset,
+  useTabIsRefreshingFocused,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
@@ -18,6 +23,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -28,9 +34,11 @@ import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
@@ -57,6 +65,11 @@ function TxHistoryListContainer(
 
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
+  // Outer-route focus: false when user is on Market/Swap (Home tab inactive),
+  // when a modal is presented above Home, or when the app is locked. Combined
+  // below with `isFocused` (inner Home-tab) so app-resume only refreshes when
+  // the user is actually looking at this list.
+  const isRouteFocused = useRouteIsFocused();
 
   const {
     updateSearchKey,
@@ -177,7 +190,7 @@ function TxHistoryListContainer(
       let r: {
         allAccounts: IAllNetworkAccountInfo[];
         txs: IAccountHistoryTx[];
-        accountsWithChangedPendingTxs: {
+        accountsWithChangedTxs: {
           accountId: string;
           networkId: string;
         }[];
@@ -186,7 +199,7 @@ function TxHistoryListContainer(
       } = {
         allAccounts: [],
         txs: [],
-        accountsWithChangedPendingTxs: [],
+        accountsWithChangedTxs: [],
         addressMap: {},
         hasMoreOnChainHistory: false,
       };
@@ -219,9 +232,9 @@ function TxHistoryListContainer(
         resp.forEach((item) => {
           r.txs = [...r.txs, ...item.txs];
           r.allAccounts = [...r.allAccounts, ...item.allAccounts];
-          r.accountsWithChangedPendingTxs = [
-            ...r.accountsWithChangedPendingTxs,
-            ...item.accountsWithChangedPendingTxs,
+          r.accountsWithChangedTxs = [
+            ...r.accountsWithChangedTxs,
+            ...item.accountsWithChangedTxs,
           ];
           r.addressMap = { ...r.addressMap, ...item.addressMap };
           if (item.hasMoreOnChainHistory) {
@@ -230,7 +243,7 @@ function TxHistoryListContainer(
         });
 
         r.txs = r.txs
-          .sort(
+          .toSorted(
             (b, a) =>
               (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -275,9 +288,9 @@ function TxHistoryListContainer(
         accountId,
         networkId: network.id,
       });
-      if (r.accountsWithChangedPendingTxs.length > 0) {
+      if (r.accountsWithChangedTxs.length > 0) {
         appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-          accounts: r.accountsWithChangedPendingTxs,
+          accounts: r.accountsWithChangedTxs,
         });
       }
       isManualRefresh.current = false;
@@ -302,6 +315,7 @@ function TxHistoryListContainer(
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+      revalidateOnFocus: true,
     },
   );
 
@@ -337,7 +351,7 @@ function TxHistoryListContainer(
         );
         accountHistoryTxs = resp
           .flat()
-          .sort(
+          .toSorted(
             (b, a) =>
               (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -400,6 +414,29 @@ function TxHistoryListContainer(
     }
   }, [isHeaderRefreshing, run]);
 
+  const lastVisibilityRefreshAtRef = useRef(0);
+  const handleRefreshOnVisibilityActive = useCallback(() => {
+    const now = Date.now();
+    if (
+      now - lastVisibilityRefreshAtRef.current <
+      POLLING_INTERVAL_FOR_HISTORY
+    ) {
+      return;
+    }
+    lastVisibilityRefreshAtRef.current = now;
+    isManualRefresh.current = true;
+    void run({ alwaysSetState: true });
+  }, [run]);
+
+  useEffect(() => {
+    const removeSubscription = onVisibilityStateChange((visible) => {
+      if (visible && isFocused && isRouteFocused) {
+        handleRefreshOnVisibilityActive();
+      }
+    });
+    return removeSubscription;
+  }, [handleRefreshOnVisibilityActive, isFocused, isRouteFocused]);
+
   useEffect(() => {
     const refresh = () => {
       if (isFocused) {
@@ -439,6 +476,20 @@ function TxHistoryListContainer(
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
 
+  const tabBarHeight = useScrollContentTabBarOffset();
+
+  // On native, the Alert renders inside the list header so it sits below the
+  // sticky TabBar and scrolls with the list. On web, the same Alert renders
+  // via Tabs.Container's `renderSubHeader` slot so its height changes cannot
+  // invalidate the virtualized list's CellMeasurer cache mid-scroll.
+  const listHeaderComponent = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <NotificationEnableAlert scene="txHistory" />
+      ) : null,
+    [],
+  );
+
   return (
     <TxHistoryListView
       plainMode={plainMode}
@@ -455,17 +506,18 @@ function TxHistoryListContainer(
       accountId={account?.id}
       networkId={network?.id}
       indexedAccountId={indexedAccount?.id}
-      isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
-      tableLayout={tableLayout ?? media.gtLg}
+      tableLayout={tableLayout ?? media.gtMd}
       listViewStyleProps={{
         contentContainerStyle: {
           mt: '$3',
+          pb: tabBarHeight,
         },
       }}
       tokenMap={allTokenListMap}
       emptyTitle={emptyTitle}
       emptyDescription={emptyDescription}
+      ListHeaderComponent={listHeaderComponent}
     />
   );
 }

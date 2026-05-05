@@ -18,6 +18,11 @@ import type { GestureResponderEvent, ViewStyle } from 'react-native';
 
 export type ICheckedState = CheckedState;
 
+const focusVisibleStyle = {
+  outlineOffset: 2,
+  outlineColor: '$focusRing',
+} as any;
+
 export type ICheckboxProps = IFormFieldProps<
   ICheckedState,
   Omit<TMCheckboxProps, 'size' | 'onCheckedChange' | 'checked' | 'value'> & {
@@ -94,12 +99,7 @@ function RawCheckbox({
         borderRadius="$1"
         alignItems="center"
         justifyContent="center"
-        focusVisibleStyle={
-          {
-            outlineOffset: 2,
-            outlineColor: '$focusRing',
-          } as any
-        }
+        focusVisibleStyle={focusVisibleStyle}
         hitSlop={NATIVE_HIT_SLOP}
         maxHeight="$5"
         {...(checkboxProps as IYStackProps)}

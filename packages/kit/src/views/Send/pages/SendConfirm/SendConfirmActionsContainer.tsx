@@ -98,10 +98,7 @@ function SendConfirmActionsContainer(props: IProps) {
   ).result;
 
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
-    usePreCheckFeeInfo({
-      accountId,
-      networkId,
-    });
+    usePreCheckFeeInfo();
 
   const handleOnConfirm = useCallback(async () => {
     const { serviceSend } = backgroundApiProxy;
@@ -159,6 +156,8 @@ function SendConfirmActionsContainer(props: IProps) {
     // fee info pre-check
     if (sendSelectedFeeInfo) {
       const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
+        accountId,
+        networkId,
         feeAmount: sendSelectedFeeInfo.feeInfos?.[0]?.totalNative,
         feeSymbol:
           sendSelectedFeeInfo.feeInfos?.[0]?.feeInfo?.common?.nativeSymbol,

@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgShredder = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 13h18M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4M6 17v2m4-2v4m4-4v2m4-2v4"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M11 22H9v-6h2zm8 0h-2v-6h2zM7 20H5v-4h2zm8 0h-2v-4h2zm7-6H2v-2h20zm-2-4h-2V4H6v6H4V2h16z" />
   </Svg>
 );
 export default SvgShredder;

@@ -85,7 +85,7 @@ class ServiceSignature extends ServiceBase {
           }
           return match;
         })
-        .sort((a, b) => b.createdAt - a.createdAt);
+        .toSorted((a, b) => b.createdAt - a.createdAt);
     }
     return items;
   }
@@ -147,7 +147,7 @@ class ServiceSignature extends ServiceBase {
           }
           return match;
         })
-        .sort((a, b) => b.createdAt - a.createdAt);
+        .toSorted((a, b) => b.createdAt - a.createdAt);
     }
     return items;
   }
@@ -264,7 +264,7 @@ class ServiceSignature extends ServiceBase {
           }
           return match;
         })
-        .sort((a, b) => b.createdAt - a.createdAt);
+        .toSorted((a, b) => b.createdAt - a.createdAt);
     }
     return items;
   }

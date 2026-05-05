@@ -1,4 +1,4 @@
-import type { ICosmosStdSignDoc } from './sdkCosmos';
+import type { ICosmosStdSignDoc, ISignOptions } from './sdkCosmos';
 import type { ICosmosProtoMsgsOrWithAminoMsgs } from './sdkCosmos/ITxMsgBuilder';
 
 export interface ICosmosCoin {
@@ -26,6 +26,7 @@ export interface IEncodedTxCosmos {
   mode: string;
   msg: ICosmosProtoMsgsOrWithAminoMsgs | undefined;
   signDoc: ICosmosStdSignDoc | ICosmosSignDocHex;
+  signOptions?: ISignOptions;
 }
 
 export interface IDecodedTxExtraCosmos {

@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCornerDownLeft = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M20 5v6a4 4 0 0 1-4 4H4.75m2.75-4-3.293 3.293a1 1 0 0 0 0 1.414L7.5 19"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M21 16H6.414l3 3L8 20.414 2.586 15 8 9.586 9.414 11l-3 3H19V4h2z" />
   </Svg>
 );
 export default SvgCornerDownLeft;

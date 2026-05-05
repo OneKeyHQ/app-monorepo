@@ -1,0 +1,150 @@
+name: Cache Refresh
+
+# Purpose:
+# Refresh the setup-node yarn cache across Linux, macOS, and Windows to ensure CI/CD pipelines use up-to-date dependencies
+#
+# How it works:
+# 1. Automatically triggers when package.json changes on x branch (dependency updates)
+# 2. Can also be manually triggered from GitHub UI
+# 3. Runs in parallel on ubuntu-24.04, macos-26, and windows-2025 (same versions as other workflows)
+# 4. Uses actions/setup-node's cache: 'yarn' feature to create/update cache for each OS
+# 5. Runs yarn install to install all dependencies, which updates the cache content
+# 6. GitHub Actions automatically saves the updated cache for other workflows to use
+#
+# Why this is needed:
+# - Prevents cache expiration from causing dependency installation failures in other workflows
+# - Ensures all CI jobs use consistent, up-to-date dependency versions
+# - Reduces first-run time for other workflows (cache is pre-warmed)
+#
+# Triggers:
+# - Automatic: When package.json is modified and pushed to x branch
+# - Manual: Via GitHub Actions UI
+#
+# How to manually trigger:
+# 1. Go to GitHub Actions page
+# 2. Select "Cache Refresh" workflow
+# 3. Click "Run workflow" button
+# 4. Select x branch and run
+
+on:
+  # Manual trigger: Allow running this workflow manually from GitHub UI
+  workflow_dispatch:
+
+  # Auto trigger: Run when package.json changes on x branch
+  push:
+    branches:
+      - x
+    paths:
+      - 'package.json'
+
+# Cancel currently running workflows from the same group
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Enable Yarn global cache for better performance
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  refresh-cache:
+    # Job name: Refresh Node.js and Yarn cache for multiple operating systems
+    name: Refresh setup-node yarn cache (${{ matrix.os }})
+
+    # Runner: Use OS from matrix strategy
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        # OS matrix: Create cache for Linux, macOS, and Windows
+        # Using the same OS versions as other workflows in this project
+        os: [ubuntu-24.04, macos-26, windows-2025]
+        # Node.js version matrix: Create cache for version 24.x
+        node-version: [24.x]
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: x  # Explicitly checkout x branch
+          lfs: true  # Enable Git LFS support
+
+      # Step 2: Setup Node.js environment and enable Yarn cache
+      # This step will:
+      # - Install specified Node.js version
+      # - Check for existing yarn cache
+      # - Restore cache if it exists
+      # - Prepare to create new cache if not exists or expired
+      - name: Setup Node.js ${{ matrix.node-version }} with Yarn cache
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'  # Enable Yarn caching
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      # Step 3: Get Yarn cache directory path
+      # For logging and debugging purposes
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        shell: bash
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      # Step 4: Install dependencies to refresh cache
+      # This step will:
+      # - Download and install all dependencies from package.json
+      # - Update cache files in .yarn/cache directory
+      # - GitHub Actions will auto-save updated cache at job end
+      - name: Install dependencies (refresh cache)
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          echo "Installing dependencies to refresh yarn cache..."
+          yarn install --immutable
+          echo "✅ Dependencies installed successfully"
+          echo "📦 Cache will be automatically saved by setup-node action"
+
+      # Step 5: Display cache statistics
+      - name: Display cache statistics
+        shell: bash
+        run: |
+          echo "=== Yarn Cache Statistics ==="
+          echo "Cache directory: ${{ steps.yarn-cache-dir-path.outputs.dir }}"
+          if [ -d "${{ steps.yarn-cache-dir-path.outputs.dir }}/cache" ]; then
+            echo "Cache size: $(du -sh ${{ steps.yarn-cache-dir-path.outputs.dir }}/cache | cut -f1)"
+            echo "Number of cached packages: $(find ${{ steps.yarn-cache-dir-path.outputs.dir }}/cache -type f | wc -l)"
+          else
+            echo "Cache directory not found (using global cache)"
+          fi
+          echo "============================="
+
+      # Step 6: Verify dependency integrity
+      - name: Verify dependency integrity
+        shell: bash
+        run: |
+          echo "Verifying installed dependencies..."
+          yarn install --immutable --immutable-cache --check-cache
+          echo "✅ All dependencies verified successfully"
+
+# Important Notes:
+# 1. Separate caches are created for each operating system (Linux, macOS, Windows)
+#
+# 2. Cache key is automatically generated by setup-node based on:
+#    - OS version (ubuntu-24.04, macos-26, or windows-2025)
+#    - Node.js version (24.x)
+#    - Hash of yarn.lock file
+#
+# 3. A new cache is automatically created when yarn.lock changes
+#
+# 4. GitHub Actions has a 10GB cache limit per repository, old caches are auto-cleaned
+#
+# 5. Caches expire automatically after 7 days of no use
+#
+# 6. This workflow auto-runs when package.json changes on x branch
+#
+# 7. Can also be manually triggered when cache is about to expire or after major dependency updates
+#
+# 8. All three OS jobs run in parallel to minimize refresh time

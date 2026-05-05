@@ -32,6 +32,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapMainLand]: {
     importFromToken?: ISwapToken;
     importToToken?: ISwapToken;
+    fromAmount?: string;
     importNetworkId?: string;
     swapTabSwitchType?: ESwapTabSwitchType;
     importDeriveType?: IAccountDeriveTypes;
@@ -40,6 +41,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapTokenSelect]: {
     type: ESwapDirectionType;
     storeName: EJotaiContextStoreNames;
+    autoSearch?: boolean;
   };
   [EModalSwapRoutes.SwapNetworkSelect]: {
     setCurrentSelectNetwork: (network: ISwapNetwork) => void;
@@ -61,7 +63,6 @@ export type IModalSwapParamList = {
     storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.SwapToAnotherAddress]: {
-    address?: string;
     storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.TokenRiskReminder]: {

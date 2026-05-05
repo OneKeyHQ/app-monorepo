@@ -1,15 +1,18 @@
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgTag = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M7.5 6a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 11.172V5a2 2 0 0 1 2-2h6.172a2 2 0 0 1 1.414.586l7.75 7.75a2 2 0 0 1 0 2.828l-6.172 6.172a2 2 0 0 1-2.828 0l-7.75-7.75A2 2 0 0 1 3 11.172Z"
+      fillRule="evenodd"
+      d="M22.414 12 12 22.414l-10-10V2h10.414zM4 11.586l8 8L19.586 12l-8-8H4z"
+      clipRule="evenodd"
     />
-    <Circle cx={7.5} cy={7.5} r={1.5} fill="currentColor" />
   </Svg>
 );
 export default SvgTag;

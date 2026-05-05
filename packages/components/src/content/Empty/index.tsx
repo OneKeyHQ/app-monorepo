@@ -3,13 +3,19 @@ import type {
   YStackProps,
 } from '@onekeyhq/components/src/shared/tamagui';
 
-import { Button, Icon, SizableText, YStack } from '../../primitives';
+import { Button } from '../../primitives/Button';
+import { Icon } from '../../primitives/Icon';
+import { Illustration } from '../../primitives/Illustration';
+import { SizableText } from '../../primitives/SizeableText';
+import { YStack } from '../../primitives/Stack';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
+import type { IIllustrationName } from '../../primitives/Illustration';
 
 interface IEmptyProps extends YStackProps {
   icon?: IKeyOfIcons;
   iconProps?: IIconProps;
+  illustration?: IIllustrationName;
   title?: React.ReactNode;
   titleProps?: SizableTextProps;
   description?: React.ReactNode;
@@ -25,6 +31,7 @@ export function Empty(props: IEmptyProps) {
   const {
     icon,
     iconProps,
+    illustration,
     title,
     titleProps,
     description,
@@ -35,6 +42,7 @@ export function Empty(props: IEmptyProps) {
   } = props;
   return (
     <YStack p="$5" alignItems="center" justifyContent="center" {...rest}>
+      {illustration ? <Illustration name={illustration} mb="$2" /> : null}
       {icon ? (
         <Icon
           name={icon}

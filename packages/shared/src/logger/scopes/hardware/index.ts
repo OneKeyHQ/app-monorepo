@@ -1,6 +1,7 @@
 import { BaseScope } from '../../base/baseScope';
 import { EScopeName } from '../../types';
 
+import { HardwareConnectionScene } from './scenes/connection';
 import { HardwareHomeScreenScene } from './scenes/homescreen';
 import { HardwareLiteCardScene } from './scenes/litecard';
 import { HardwareSDKScene } from './scenes/sdk';
@@ -16,4 +17,6 @@ export class HardwareScope extends BaseScope {
   verify = this.createScene('verify', HardwareVerifyScene);
 
   liteCard = this.createScene('liteCard', HardwareLiteCardScene);
+
+  connection = this.createScene('connection', HardwareConnectionScene);
 }

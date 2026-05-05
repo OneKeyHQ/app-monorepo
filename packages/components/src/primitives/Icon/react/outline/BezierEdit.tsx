@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBezierEdit = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16 6v1a1 1 0 0 0 1 1h1m-2-2V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-1m-2-2H8M6 8v8m2 2h2m8-10v2M5 20h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1M5 8h2a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1m9 9.667V20h2.333l3.5-3.5a1.65 1.65 0 1 0-2.333-2.333z"
+      fillRule="evenodd"
+      d="M9 5h6V3h6v6h-2v2h-2V9h-2V7H9v2H7v6h2v2h2v2H9v2H3v-6h2V9H3V3h6zM5 19h2v-2H5zM5 7h2V5H5zm12 0h2V5h-2zm-.207 6.46a2.65 2.65 0 1 1 3.747 3.747L16.747 21H13v-3.747zm2.333 1.414a.65.65 0 0 0-.919 0L15 18.081V19h.919l3.207-3.207.084-.102a.65.65 0 0 0-.084-.817"
+      clipRule="evenodd"
     />
   </Svg>
 );

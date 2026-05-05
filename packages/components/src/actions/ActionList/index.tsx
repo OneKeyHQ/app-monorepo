@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
-import { type GestureResponderEvent } from 'react-native';
+import { Dimensions, type GestureResponderEvent } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -28,6 +28,7 @@ import {
   Icon,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '../../primitives';
@@ -43,6 +44,7 @@ export interface IActionListItemProps {
   icon?: IKeyOfIcons;
   iconProps?: IIconProps;
   label: string;
+  renderLabel?: () => ReactNode;
   extra?: ReactNode;
   description?: string;
   descriptionNumberOfLines?: number;
@@ -50,6 +52,7 @@ export interface IActionListItemProps {
   onPress?: (close: () => void) => void | Promise<boolean | void>;
   onClose?: () => void;
   disabled?: boolean;
+  extraInteractiveWhenDisabled?: boolean;
   testID?: string;
   trackID?: string;
   shortcutKeys?: string[] | EShortcutEvents;
@@ -58,6 +61,27 @@ export interface IActionListItemProps {
 
 // Duration to prevent rapid re-triggering of the action list
 const PROCESSING_RESET_DELAY = 350;
+const FALLBACK_MODAL_NAVIGATOR_CONTEXT = { portalId: '' };
+const FALLBACK_PAGE_CONTEXT = { footerRef: { current: null } as any };
+
+const ACTION_LIST_ITEM_MD = { py: '$2.5', borderRadius: '$3' } as const;
+const ACTION_LIST_ICON_MD = { size: '$6' } as const;
+const ACTION_LIST_TEXT_MD = { size: '$bodyLg' } as const;
+const ACTION_LIST_HOVER_STYLE = { bg: '$bgHover' } as const;
+const ACTION_LIST_PRESS_STYLE = { bg: '$bgActive' } as const;
+const ACTION_LIST_ENABLED_STYLE = {
+  hoverStyle: ACTION_LIST_HOVER_STYLE,
+  pressStyle: ACTION_LIST_PRESS_STYLE,
+} as const;
+const ACTION_LIST_CONTENT_STYLE = {
+  p: '$1',
+  $md: { p: '$3', pt: '$0' },
+} as const;
+const ACTION_LIST_FLOATING_PANEL_PROPS = { width: '$56' } as const;
+const ACTION_LIST_MD_HEADING = {
+  size: '$headingSm',
+  paddingVertical: '$2.5',
+} as const;
 
 export function ActionListSkeletonItem() {
   return (
@@ -83,17 +107,23 @@ export function ActionListItem(
     icon,
     iconProps,
     label,
+    renderLabel,
     extra,
     description,
     descriptionNumberOfLines,
     onPress,
     destructive,
     disabled,
+    extraInteractiveWhenDisabled,
     onClose,
     testID,
     shortcutKeys,
     isLoading,
   } = props;
+  const isActionDisabled = Boolean(disabled);
+  const shouldKeepExtraInteractive = Boolean(
+    isActionDisabled && extraInteractiveWhenDisabled,
+  );
 
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
@@ -129,25 +159,13 @@ export function ActionListItem(
       py="$1.5"
       borderWidth={0}
       borderRadius="$2"
-      $md={{
-        py: '$2.5',
-        borderRadius: '$3',
-      }}
+      $md={ACTION_LIST_ITEM_MD}
       borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
-      disabled={disabled}
+      disabled={shouldKeepExtraInteractive ? false : disabled}
       aria-disabled={disabled}
-      {...(!disabled && {
-        hoverStyle: { bg: '$bgHover' },
-        pressStyle: { bg: '$bgActive' },
-        // focusable: true,
-        // focusVisibleStyle: {
-        //   outlineColor: '$focusRing',
-        //   outlineStyle: 'solid',
-        //   outlineWidth: 2,
-        // },
-      })}
-      onPress={isLoading ? undefined : sharedOnPress}
+      {...(!disabled && ACTION_LIST_ENABLED_STYLE)}
+      onPress={isLoading || isActionDisabled ? undefined : sharedOnPress}
       testID={testID}
     >
       <XStack jc="space-between" flex={1} alignItems="center">
@@ -156,24 +174,28 @@ export function ActionListItem(
             name={icon}
             size="$5"
             mr="$3"
-            $md={{ size: '$6' }}
+            $md={ACTION_LIST_ICON_MD}
             color={destructive ? '$iconCritical' : '$icon'}
             {...iconProps}
           />
         ) : null}
         <YStack gap="$0.5" flex={1}>
           <XStack>
-            <SizableText
-              flex={1}
-              textAlign="left"
-              size="$bodyMd"
-              width="100%"
-              flexShrink={1}
-              $md={{ size: '$bodyLg' }}
-              color={destructive ? '$textCritical' : '$text'}
-            >
-              {label}
-            </SizableText>
+            {renderLabel ? (
+              renderLabel()
+            ) : (
+              <SizableText
+                flex={1}
+                textAlign="left"
+                size="$bodyMd"
+                width="100%"
+                flexShrink={1}
+                $md={ACTION_LIST_TEXT_MD}
+                color={destructive ? '$textCritical' : '$text'}
+              >
+                {label}
+              </SizableText>
+            )}
 
             {platformEnv.isDesktop && keys?.length ? (
               <Shortcut>
@@ -206,8 +228,10 @@ export interface IActionListSection {
   items: IActionListItemProps[];
 }
 
-export interface IActionListProps
-  extends Omit<IPopoverProps, 'renderContent' | 'open' | 'onOpenChange'> {
+export interface IActionListProps extends Omit<
+  IPopoverProps,
+  'renderContent' | 'open' | 'onOpenChange'
+> {
   items?: IActionListItemProps[];
   sections?: IActionListSection[];
   onOpenChange?: (isOpen: boolean) => void;
@@ -284,6 +308,9 @@ function BasicActionList({
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
       trackActionListToggle(openStatus);
+      if (!openStatus) {
+        setAsyncItems(null);
+      }
     },
     [onOpenChange, setOpenStatus, trackActionListToggle],
   );
@@ -314,17 +341,21 @@ function BasicActionList({
     renderItemsAsync,
   ]);
 
-  const renderActionListItem = (item: IActionListItemProps) => (
-    <ActionListItem
-      onPress={item.onPress}
-      key={item.label}
-      disabled={item.disabled}
-      {...item}
-      onClose={() => {
-        handleActionListClose();
-        item.onClose?.();
-      }}
-    />
+  const renderActionListItem = useCallback(
+    (item: IActionListItemProps) => (
+      <ActionListItem
+        onPress={item.onPress}
+        key={item.label}
+        disabled={item.disabled}
+        {...item}
+        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+        onClose={() => {
+          handleActionListClose();
+          item.onClose?.();
+        }}
+      />
+    ),
+    [handleActionListClose],
   );
 
   const trigger = useMemo(() => {
@@ -335,50 +366,66 @@ function BasicActionList({
     );
   }, [disabled, renderTrigger, handleActionListOpen]);
 
-  if (renderItemsAsync && !asyncItems) {
-    return trigger;
-  }
+  const renderContentMemo = useMemo(
+    () => (
+      <YStack {...ACTION_LIST_CONTENT_STYLE}>
+        {items?.map(renderActionListItem)}
+        {sections?.map((section, sectionIdx) => (
+          <YStack key={sectionIdx}>
+            {sectionIdx > 0 && section.items.length > 0 ? (
+              <Divider mx="$2" my="$1" />
+            ) : null}
+            {section.title ? (
+              <Heading
+                size="$headingXs"
+                $md={ACTION_LIST_MD_HEADING}
+                py="$1.5"
+                px="$2"
+                color="$textSubdued"
+              >
+                {section.title}
+              </Heading>
+            ) : null}
+            {section.items.map(renderActionListItem)}
+          </YStack>
+        ))}
+
+        {/* custom render items */}
+        {renderItems?.({
+          handleActionListClose,
+          handleActionListOpen,
+        })}
+
+        {/* custom async render items - show skeleton while loading */}
+        {renderItemsAsync && !asyncItems ? (
+          <>
+            <ActionListSkeletonItem />
+            <ActionListSkeletonItem />
+          </>
+        ) : (
+          asyncItems
+        )}
+      </YStack>
+    ),
+    [
+      items,
+      sections,
+      renderActionListItem,
+      renderItems,
+      renderItemsAsync,
+      asyncItems,
+      handleActionListClose,
+      handleActionListOpen,
+    ],
+  );
+
   return (
     <Popover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
-      renderContent={
-        <YStack p="$1" $md={{ p: '$3', pt: '$0' }}>
-          {items?.map(renderActionListItem)}
-          {sections?.map((section, sectionIdx) => (
-            <YStack key={sectionIdx}>
-              {sectionIdx > 0 && section.items.length > 0 ? (
-                <Divider mx="$2" my="$1" />
-              ) : null}
-              {section.title ? (
-                <Heading
-                  size="$headingXs"
-                  $md={{ size: '$headingSm', paddingVertical: '$2.5' }}
-                  py="$1.5"
-                  px="$2"
-                  color="$textSubdued"
-                >
-                  {section.title}
-                </Heading>
-              ) : null}
-              {section.items.map(renderActionListItem)}
-            </YStack>
-          ))}
-
-          {/* custom render items */}
-          {renderItems?.({
-            handleActionListClose,
-            handleActionListOpen,
-          })}
-
-          {/* custom async render items */}
-          {asyncItems}
-        </YStack>
-      }
-      floatingPanelProps={{
-        width: '$56',
-      }}
+      renderContent={renderContentMemo}
+      floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}
       {...props}
       renderTrigger={trigger}
     />
@@ -390,6 +437,7 @@ type IShowActionListParams = Omit<
   'renderTrigger' | 'defaultOpen'
 > & {
   onClose?: () => void;
+  triggerPosition?: { x: number; y: number };
 };
 const showActionList = (
   props: IShowActionListParams,
@@ -401,32 +449,102 @@ const showActionList = (
     | undefined,
 ) => {
   const { modalNavigatorContext, pageContextValue } = contexts || {};
+  const { triggerPosition, ...restProps } = props;
   dismissKeyboard();
-  const ref = Portal.Render(
-    Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-    <ModalNavigatorContext.Provider
-      value={modalNavigatorContext || { portalId: '' }}
-    >
-      <PageContext.Provider
-        value={pageContextValue || { footerRef: { current: null } as any }}
+
+  // eslint-disable-next-line react-perf/jsx-no-jsx-as-prop
+  const triggerElement =
+    triggerPosition && !platformEnv.isNative ? (
+      <Stack width={1} height={1} />
+    ) : null;
+
+  // Use let so the destroy callback can reference it after assignment
+  // eslint-disable-next-line prefer-const
+  let ref: { destroy: () => void };
+
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+  const handleOpenChange = (isOpen: boolean) => {
+    restProps.onOpenChange?.(isOpen);
+    if (!isOpen) {
+      setTimeout(() => {
+        restProps.onClose?.();
+      });
+      // delay the destruction of the reference to allow for the completion of the animation transition.
+      setTimeout(() => {
+        ref.destroy();
+      }, 500);
+    }
+  };
+
+  // For context menu positioning: compute the optimal placement direction
+  // based on viewport boundaries, like native OS context menus that flip
+  // at screen edges. Keep allowFlip disabled to prevent Floating UI from
+  // recalculating placement during close animation.
+  let contextMenuPlacement:
+    | 'bottom-start'
+    | 'bottom-end'
+    | 'top-start'
+    | 'top-end' = 'bottom-start';
+  if (triggerPosition && !platformEnv.isNative) {
+    const { height: windowHeight, width: windowWidth } =
+      Dimensions.get('window');
+    const ESTIMATED_MENU_HEIGHT = 200;
+    const ESTIMATED_MENU_WIDTH = 224; // $56 = 56 * 4 = 224px
+    const EDGE_PADDING = 8;
+
+    const spaceBelow = windowHeight - triggerPosition.y - EDGE_PADDING;
+    const spaceRight = windowWidth - triggerPosition.x - EDGE_PADDING;
+
+    const vertical = spaceBelow >= ESTIMATED_MENU_HEIGHT ? 'bottom' : 'top';
+    const horizontal = spaceRight >= ESTIMATED_MENU_WIDTH ? 'start' : 'end';
+    contextMenuPlacement =
+      `${vertical}-${horizontal}` as typeof contextMenuPlacement;
+  }
+
+  const contextMenuProps =
+    triggerPosition && !platformEnv.isNative
+      ? { placement: contextMenuPlacement, allowFlip: false }
+      : {};
+
+  const actionList = (
+    <BasicActionList
+      {...restProps}
+      {...contextMenuProps}
+      defaultOpen
+      renderTrigger={triggerElement}
+      onOpenChange={handleOpenChange}
+    />
+  );
+
+  // Wrap in a fixed-position container at cursor coordinates for context menu positioning
+  const content =
+    triggerPosition && !platformEnv.isNative ? (
+      <Stack
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+        style={{
+          position: 'fixed' as const,
+          left: triggerPosition.x,
+          top: triggerPosition.y,
+          width: 0,
+          height: 0,
+        }}
       >
-        <BasicActionList
-          {...props}
-          defaultOpen
-          renderTrigger={null}
-          onOpenChange={(isOpen) => {
-            props.onOpenChange?.(isOpen);
-            if (!isOpen) {
-              setTimeout(() => {
-                props.onClose?.();
-              });
-              // delay the destruction of the reference to allow for the completion of the animation transition.
-              setTimeout(() => {
-                ref.destroy();
-              }, 500);
-            }
-          }}
-        />
+        {actionList}
+      </Stack>
+    ) : (
+      actionList
+    );
+
+  const modalCtxValue =
+    modalNavigatorContext || FALLBACK_MODAL_NAVIGATOR_CONTEXT;
+  const pageCtxValue = pageContextValue || FALLBACK_PAGE_CONTEXT;
+  ref = Portal.Render(
+    Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+    // oxlint-disable-next-line react/jsx-no-constructed-context-values -- imperative Portal.Render, not a component render
+    <ModalNavigatorContext.Provider value={modalCtxValue}>
+      {/* oxlint-disable-next-line react/jsx-no-constructed-context-values */}
+      <PageContext.Provider value={pageCtxValue}>
+        {content}
       </PageContext.Provider>
     </ModalNavigatorContext.Provider>,
   );
@@ -444,11 +562,14 @@ function ActionListFrame(props: IActionListProps) {
 
   const modalNavigatorContext = useModalNavigatorContext();
   const pageContextValue = usePageContext();
-  const contexts = {
-    modalNavigatorContext,
-    pageContextValue,
-  };
-  const handleActionListOpen = () => {
+  const contexts = useMemo(
+    () => ({
+      modalNavigatorContext,
+      pageContextValue,
+    }),
+    [modalNavigatorContext, pageContextValue],
+  );
+  const handleActionListOpen = useCallback(() => {
     if (isProcessing.current) return;
 
     isProcessing.current = true;
@@ -456,7 +577,7 @@ function ActionListFrame(props: IActionListProps) {
     setTimeout(() => {
       isProcessing.current = false;
     }, PROCESSING_RESET_DELAY);
-  };
+  }, [popoverProps, contexts]);
 
   if (gtMd) {
     return <BasicActionList {...props} />;

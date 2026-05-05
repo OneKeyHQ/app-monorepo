@@ -3,6 +3,7 @@ import {
   DEFAULT_VERIFY_STRING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
@@ -39,7 +40,7 @@ async function legacyDbExists(): Promise<boolean> {
   try {
     const databases = await globalThis.indexedDB.databases();
     return databases.some((db) => db.name === LEGACY_INDEXED_DB_NAME);
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
@@ -111,6 +112,9 @@ async function migrateBackupedDataToBucket({
   accountBucket,
   backupAccountBucket,
 }: ICheckCurrentDBIsMigratedToBucketResult) {
+  if (platformEnv.isWebDappMode) {
+    return;
+  }
   if (isMigrated) {
     console.log(
       'migrateBackupedDataToBucket skipped:  bucketDB is migrated already',

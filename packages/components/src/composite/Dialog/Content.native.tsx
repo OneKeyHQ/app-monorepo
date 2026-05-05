@@ -5,10 +5,12 @@ import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Spinner, Stack, YStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
 
 import type { IDialogContentProps } from './type';
 import type { LayoutChangeEvent, View } from 'react-native';
 
+const exitStyleConst = { opacity: 0 } as const;
 const MAX_ANIMATION_DURATION = 550;
 export function Content({
   children,
@@ -123,6 +125,7 @@ export function Content({
               <Stack
                 bg="$bg"
                 animation="medium"
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 position="absolute"
                 top={0}
                 left={0}
@@ -132,9 +135,7 @@ export function Content({
                 alignContent="center"
                 justifyContent="center"
                 flex={1}
-                exitStyle={{
-                  opacity: 0,
-                }}
+                exitStyle={exitStyleConst}
               >
                 <Spinner size="large" />
               </Stack>

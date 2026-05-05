@@ -120,7 +120,9 @@ export function makeModalScreenOptions(info: {
   };
 }
 
-export function makeRootModalStackOptions(): IStackNavigationOptions {
+export function makeRootModalStackOptions(params?: {
+  bgColor?: string;
+}): IStackNavigationOptions {
   const options: IStackNavigationOptions = {
     headerShown: false,
   };
@@ -129,6 +131,11 @@ export function makeRootModalStackOptions(): IStackNavigationOptions {
     // animation gets a little stuck
     options.animation = 'none';
   }
+
+  if (params?.bgColor) {
+    options.contentStyle = { backgroundColor: params.bgColor };
+  }
+
   return options;
 }
 
@@ -173,9 +180,9 @@ export function makeOnboardingScreenOptions(): IStackNavigationOptions {
   const options: IStackNavigationOptions = {
     headerShown: false,
     presentation: 'card',
-    gestureEnabled: false,
+    gestureEnabled: platformEnv.isNativeIOS,
     gestureDirection: 'horizontal',
-    animation: 'slide_from_left',
+    animation: 'slide_from_right',
   };
   if (platformEnv.isNativeAndroid) {
     options.animation = 'none';

@@ -263,9 +263,8 @@ class ProviderApiBtc extends ProviderApiBase {
     const defaultNetwork = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId: getNetworkIdsMap().btc,
     });
-    const defaultChain = await networkUtils.getBtcDappNetworkName(
-      defaultNetwork,
-    );
+    const defaultChain =
+      await networkUtils.getBtcDappNetworkName(defaultNetwork);
     try {
       const networks =
         await this.backgroundApi.serviceDApp.getConnectedNetworks({
@@ -353,6 +352,58 @@ class ProviderApiBtc extends ProviderApiBase {
       unconfirmed: 0,
       total: balance,
     };
+  }
+
+  @providerApiMethod()
+  public async getBalanceV2(request: IJsBridgeMessagePayload) {
+    const { accountInfo: { networkId, accountId } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    const { balance } =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
+      });
+    return {
+      available: balance,
+      unavailable: 0,
+      total: balance,
+    };
+  }
+
+  @providerApiMethod()
+  public async getBitcoinUtxos(
+    request: IJsBridgeMessagePayload,
+    params?: { cursor?: number; size?: number },
+  ) {
+    const { accountInfo: { networkId, accountId } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    const { utxoList } =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
+        withUTXOList: true,
+      });
+
+    const mappedUtxos =
+      utxoList?.map((it) => {
+        const bn = new BigNumber(it.value ?? 0);
+        const satoshis = bn.isNaN() ? 0 : bn.toNumber();
+
+        return {
+          txid: it.txid,
+          vout: it.vout,
+          pubkey: it.txPubkey,
+          satoshis,
+          scriptPk: it.scriptPublicKey,
+        };
+      }) ?? [];
+
+    const { cursor = 0, size = mappedUtxos.length } = params ?? {};
+    return mappedUtxos.slice(cursor, cursor + size);
   }
 
   @providerApiMethod()

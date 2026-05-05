@@ -12,9 +12,8 @@ import { EDemoRootRoutes } from './Routes';
 import type { ERootModalRoutes, IDemoRootModalParamList } from './Modal/Routes';
 
 function useDemoAppNavigation<
-  P extends
-    | IPageNavigationProp<any>
-    | IModalNavigationProp<any> = IPageNavigationProp<any>,
+  P extends IPageNavigationProp<any> | IModalNavigationProp<any> =
+    IPageNavigationProp<any>,
 >() {
   const navigation = useNavigation<P>();
 

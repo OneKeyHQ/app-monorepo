@@ -2,7 +2,7 @@ import { Button, Page, Toast, YStack } from '@onekeyhq/components';
 import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 export default function PageV4MigrationDevSettings() {
-  const [_, setV4migrationData] = useV4migrationPersistAtom();
+  const [, setV4migrationData] = useV4migrationPersistAtom();
   return (
     <Page scrollEnabled>
       <Page.Header title="V4MigrationDevSettings" />
@@ -17,7 +17,7 @@ export default function PageV4MigrationDevSettings() {
 
         <Button
           onPress={() => {
-            setV4migrationData((v) => ({
+            setV4migrationData(() => ({
               v4migrationAutoStartDisabled: false,
               v4migrationAutoStartCount: 0,
               downgradeWarningConfirmed: false,

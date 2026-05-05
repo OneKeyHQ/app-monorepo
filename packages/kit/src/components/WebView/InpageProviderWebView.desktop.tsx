@@ -36,6 +36,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onPageFaviconUpdated,
       onLoadEnd,
       onDomReady,
+      onOpenWindow,
+      onShouldStartLoadWithRequest,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -119,6 +121,15 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       return null;
     }, [displayProgressBar, isSpinnerLoading, progress, showProgress]);
 
+    const handleNewWindow = useCallback(
+      (e: { url?: string }) => {
+        if (onOpenWindow && e.url) {
+          onOpenWindow({ nativeEvent: { targetUrl: e.url } });
+        }
+      },
+      [onOpenWindow],
+    );
+
     return (
       <Stack flex={1}>
         {progressLoading}
@@ -144,6 +155,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onPageTitleUpdated={onPageTitleUpdated}
           onPageFaviconUpdated={onPageFaviconUpdated}
           onDomReady={onDomReady}
+          onNewWindow={onOpenWindow ? handleNewWindow : undefined}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         />
       </Stack>
     );

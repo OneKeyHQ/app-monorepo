@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { BigNumber } from 'bignumber.js';
 
 import {
+  useActiveTradeInstrumentAtom,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingFormComputedAtom,
@@ -13,22 +14,29 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { calculateLiquidationPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  calculateLiquidationPrice,
+  computeMaxTradeSize,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { useTradingPrice } from './useTradingPrice';
+import { useOrderPrice } from './useOrderPrice';
 
 export function useLiquidationPrice(
   overrideSide?: 'long' | 'short',
 ): BigNumber | null {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
-  const { midPriceBN } = useTradingPrice();
   const { coin, margin } = activeAsset;
+
+  const effectiveSide = overrideSide || formData.side;
+  const { price: orderReferencePrice } = useOrderPrice(effectiveSide);
 
   const stableAccountValues = useMemo(
     () => ({
@@ -42,20 +50,6 @@ export function useLiquidationPrice(
     ],
   );
 
-  const referencePrice = useMemo(() => {
-    if (formData.type === 'limit' && formData.price) {
-      return new BigNumber(formData.price);
-    }
-    if (formData.type === 'market') {
-      return midPriceBN;
-    }
-    return new BigNumber(0);
-  }, [formData.type, formData.price, midPriceBN]);
-
-  const totalValue = useMemo(() => {
-    return tradingComputed.computedSizeBN.multipliedBy(referencePrice);
-  }, [tradingComputed.computedSizeBN, referencePrice]);
-
   const leverage = useMemo(() => {
     return (
       activeAssetData?.leverage?.value || activeAsset?.universe?.maxLeverage
@@ -67,18 +61,72 @@ export function useLiquidationPrice(
       ?.position;
   }, [perpsPositions, coin]);
 
-  const effectiveSide = overrideSide || formData.side;
-
   const liquidationPrice: BigNumber | null = useMemo(() => {
+    if (activeTradeInstrument.mode === 'spot') {
+      return null;
+    }
     if (!leverage || !activeAssetData?.leverage.type) return null;
 
-    const positionSize = tradingComputed.computedSizeBN;
-    if (positionSize.isZero()) return null;
+    const isTriggerMode = formData.orderMode === 'trigger';
+    if (isTriggerMode && formData.triggerReduceOnly) {
+      return null;
+    }
+
+    let positionSize = tradingComputed.computedSizeBN;
+    let referencePrice = orderReferencePrice;
+
+    if (isTriggerMode) {
+      const isLimitTrigger =
+        formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+      const rawTriggerPrice = isLimitTrigger
+        ? formData.executionPrice?.trim()
+        : formData.triggerPrice?.trim();
+
+      if (!rawTriggerPrice) {
+        return null;
+      }
+
+      const triggerReferencePrice = new BigNumber(rawTriggerPrice);
+      if (!triggerReferencePrice.isFinite() || triggerReferencePrice.lte(0)) {
+        return null;
+      }
+
+      const previewMaxSize = computeMaxTradeSize({
+        side: effectiveSide,
+        price: triggerReferencePrice.toFixed(),
+        markPrice: activeAssetCtx?.ctx?.markPrice,
+        maxTradeSzs: activeAssetData?.maxTradeSzs,
+        leverageValue: activeAssetData?.leverage?.value,
+        fallbackLeverage: activeAsset?.universe?.maxLeverage,
+        szDecimals: activeAsset?.universe?.szDecimals,
+      });
+
+      if (!previewMaxSize.isFinite() || previewMaxSize.lte(0)) {
+        return null;
+      }
+
+      positionSize = positionSize.lte(previewMaxSize)
+        ? positionSize
+        : previewMaxSize;
+      referencePrice = triggerReferencePrice;
+    }
+
+    if (
+      !positionSize.isFinite() ||
+      positionSize.lte(0) ||
+      !referencePrice.isFinite() ||
+      referencePrice.lte(0)
+    ) {
+      return null;
+    }
+
+    const totalValue = positionSize.multipliedBy(referencePrice);
 
     // Use unified function - it will automatically choose the optimal calculation path
     const _liquidationPrice = calculateLiquidationPrice({
       totalValue,
       referencePrice,
+      clampToCurrentMark: !isTriggerMode,
       markPrice: activeAssetCtx?.ctx?.markPrice
         ? new BigNumber(activeAssetCtx.ctx.markPrice)
         : undefined,
@@ -103,18 +151,26 @@ export function useLiquidationPrice(
     });
     return _liquidationPrice?.gt(0) ? _liquidationPrice : null;
   }, [
+    activeTradeInstrument.mode,
     activeAsset?.universe?.maxLeverage,
     activeAssetCtx?.ctx?.markPrice,
     activeAssetData?.leverage.type,
     currentCoinPosition,
     effectiveSide,
+    formData.executionPrice,
+    formData.orderMode,
+    formData.triggerOrderType,
+    formData.triggerPrice,
+    formData.triggerReduceOnly,
+    orderReferencePrice,
     tradingComputed.computedSizeBN,
     leverage,
+    activeAsset?.universe?.szDecimals,
+    activeAssetData?.maxTradeSzs,
+    activeAssetData?.leverage?.value,
     margin?.marginTiers,
-    referencePrice,
     stableAccountValues.crossAccountValue,
     stableAccountValues.crossMaintenanceMarginUsed,
-    totalValue,
   ]);
 
   return liquidationPrice;

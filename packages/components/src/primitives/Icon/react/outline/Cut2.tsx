@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCut2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m7 14 4.833-2m0 0 .167-.069m-.167.069.167.069M11.833 12 7 10m5 1.931L21.5 8l-2.03-1.69a2 2 0 0 0-2.117-.28l-4.191 1.934A2 2 0 0 0 12 9.78zm0 0v.138m0 0v2.151a2 2 0 0 0 1.162 1.816l4.19 1.934a2 2 0 0 0 2.119-.28L21.5 16zM9 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm0 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+      fillRule="evenodd"
+      d="M6 3a4 4 0 0 1 2.934 6.718l2.066.854V7.86l7.654-3.533.487.404 4.27 3.56-8.963 3.708 8.963 3.709-4.27 3.56-.487.404L11 16.14v-2.713l-2.066.855a4 4 0 1 1-2.269-1.226l2.553-1.057-2.553-1.056A4 4 0 1 1 6 3m0 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7-.14 5.345 2.466 1.243-1.036L13 13.565zm0-5.72v1.295l6.587-2.727-1.242-1.035zM6 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+      clipRule="evenodd"
     />
   </Svg>
 );

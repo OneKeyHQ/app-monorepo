@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPeopleTogether = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M3.5 7a4 4 0 1 1 8 0 4 4 0 0 1-8 0m9 0a4 4 0 1 1 8 0 4 4 0 0 1-8 0m-5 5c2.87 0 5.594 1.98 6.607 5.613.53 1.9-1.09 3.387-2.753 3.387H3.646C1.983 21 .362 19.513.892 17.613 1.906 13.981 4.63 12 7.5 12m8.534 5.076c-.487-1.748-1.326-3.227-2.404-4.374A6.2 6.2 0 0 1 16.5 12c2.871 0 5.594 1.98 6.608 5.613.53 1.9-1.09 3.387-2.753 3.387H15.33a4.49 4.49 0 0 0 .703-3.924Z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M7.499 12c3.47 0 6.64 2.857 6.997 7.93l.075 1.07H.426L.5 19.93C.859 14.857 4.028 12 7.499 12m8.999 0c3.47 0 6.64 2.857 6.998 7.93l.075 1.07h-6.995l-.085-1.21c-.207-2.937-1.265-5.38-2.863-7.09a6.2 6.2 0 0 1 2.87-.7M7.499 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8m9 0a4 4 0 1 1 0 8 4 4 0 0 1 0-8" />
   </Svg>
 );
 export default SvgPeopleTogether;

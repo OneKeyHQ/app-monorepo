@@ -10,11 +10,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
+import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 
 import { TabSettingsListItem, TabSettingsSection } from '../Tab/ListItem';
 import { useIsTabNavigator } from '../Tab/useIsTabNavigator';
 
 function KeylessWalletPageView() {
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
   const isTabNavigator = useIsTabNavigator();
 
   // TODO: Get actual keyless wallet enabled state from API
@@ -46,6 +48,10 @@ function KeylessWalletPageView() {
     // TODO: Navigate to keys & recovery page
     console.log('Keys & Recovery');
   }, []);
+
+  if (!isKeylessWalletEnabled) {
+    return null;
+  }
 
   return (
     <Page scrollEnabled>

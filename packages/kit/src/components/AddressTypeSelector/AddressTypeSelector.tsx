@@ -123,7 +123,7 @@ function AddressTypeSelectorContent(
     closePopover,
     doubleConfirm,
     confirmText,
-    refreshOnOpen,
+    refreshOnOpen: _refreshOnOpen,
   } = props;
 
   const intl = useIntl();
@@ -548,46 +548,45 @@ function AddressTypeSelector(props: IProps) {
     );
 
     if (networkAccountsWithAccountId.length === 0) {
+      setTokenMap(undefined);
       return;
     }
 
     setIsFetchingTokenMap(true);
 
-    const resp = await Promise.all(
-      networkAccountsWithAccountId.map((networkAccount) =>
-        backgroundApiProxy.serviceToken.fetchAccountTokens({
-          accountId: networkAccount.account?.id ?? '',
-          mergeTokens: true,
-          networkId,
-          flag: 'address-type-selector',
-          indexedAccountId,
-        }),
-      ),
-    );
+    try {
+      const resp = await Promise.all(
+        networkAccountsWithAccountId.map((networkAccount) =>
+          backgroundApiProxy.serviceToken.fetchAccountTokens({
+            accountId: networkAccount.account?.id ?? '',
+            mergeTokens: true,
+            networkId,
+            flag: 'address-type-selector',
+            indexedAccountId,
+          }),
+        ),
+      );
 
-    const { tokenListMap } = getMergedDeriveTokenData({
-      data: resp,
-      mergeDeriveAssetsEnabled: true,
-    });
-    setTokenMap(tokenListMap);
-
-    setIsFetchingTokenMap(false);
+      const { tokenListMap } = getMergedDeriveTokenData({
+        data: resp,
+        mergeDeriveAssetsEnabled: false,
+      });
+      setTokenMap(tokenListMap);
+    } finally {
+      setIsFetchingTokenMap(false);
+    }
   }, [networkAccounts, networkId, indexedAccountId]);
 
   useEffect(() => {
-    if (!tokenMapProp && !refreshOnOpen) {
-      void fetchTokenMap();
-    } else {
+    if (tokenMapProp) {
       setTokenMap(tokenMapProp);
+      return;
     }
-  }, [
-    tokenMapProp,
-    networkAccounts,
-    networkId,
-    indexedAccountId,
-    fetchTokenMap,
-    refreshOnOpen,
-  ]);
+
+    if (!refreshOnOpen) {
+      void fetchTokenMap();
+    }
+  }, [tokenMapProp, fetchTokenMap, refreshOnOpen]);
 
   useEffect(() => {
     const fn = () => {
@@ -650,12 +649,12 @@ function AddressTypeSelector(props: IProps) {
 
   if (isSelectorDisabled) {
     return showTriggerWhenDisabled
-      ? renderSelectorTrigger ?? (
+      ? (renderSelectorTrigger ?? (
           <AddressTypeSelectorTrigger
             activeDeriveInfo={activeDeriveInfo}
             disableSelector={isSelectorDisabled}
           />
-        )
+        ))
       : null;
   }
 

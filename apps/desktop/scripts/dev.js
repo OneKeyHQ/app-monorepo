@@ -1,5 +1,5 @@
-const path = require('path');
 const { execSync } = require('child_process');
+const path = require('path');
 
 const projectRoot = path.join(__dirname, '..');
 
@@ -11,7 +11,7 @@ function checkPort() {
       const status = execSync('lsof -i:3001', {});
       if (!status) return;
     }
-  } catch (e) {
+  } catch (_e) {
     return;
   }
 

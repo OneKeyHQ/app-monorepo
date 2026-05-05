@@ -1,14 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgUndock = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M14 7h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-5M5 5l5.25 5.25M4 10V4.75A.75.75 0 0 1 4.75 4H10"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M22 22H6v-9h2v7h12V8h-7V6h9z" />
+    <Path d="M11 5H6.414l5.25 5.25-1.414 1.414L5 6.414V11H3V3h8z" />
   </Svg>
 );
 export default SvgUndock;

@@ -1,16 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCompass = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeWidth={2}
-      d="M15.931 17.305a2 2 0 0 0 1.374-1.373l3.2-11.201a1 1 0 0 0-1.236-1.237l-11.2 3.2a2 2 0 0 0-1.374 1.374l-3.2 11.201a1 1 0 0 0 1.236 1.237l11.2-3.2Z"
+      fillRule="evenodd"
+      d="M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6m0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2"
+      clipRule="evenodd"
     />
     <Path
-      stroke="currentColor"
-      strokeWidth={2}
-      d="M14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"
+      fillRule="evenodd"
+      d="m17.962 17.274-.153.535-.535.153-15.73 4.494 4.494-15.73.153-.535.535-.153 15.73-4.494zM7.809 7.81 4.456 19.543 16.19 16.19l3.353-11.734z"
+      clipRule="evenodd"
     />
   </Svg>
 );

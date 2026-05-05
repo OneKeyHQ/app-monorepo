@@ -40,20 +40,20 @@ const MarginModeSelector = ({
 
   const handlePress = () => {
     if (disabled) return;
-    showMarginModeDialog(selectedSymbol?.coin, dialog);
+    showMarginModeDialog(selectedSymbol?.coin, intl, dialog);
   };
 
   return (
     <XStack
-      cursor="pointer"
       onPress={handlePress}
       disabled={disabled}
       height={isMobile ? 32 : 30}
-      bg="$bgSubdued"
+      bg={isMobile ? '$bgSubdued' : '$bgStrong'}
       borderRadius="$2"
       alignItems="center"
       justifyContent="space-between"
       px="$3"
+      cursor="default"
       hoverStyle={{
         bg: '$bgStrongHover',
       }}
@@ -63,11 +63,7 @@ const MarginModeSelector = ({
     >
       <SizableText size="$bodyMdMedium">{currentModeLabel}</SizableText>
 
-      <Icon
-        name="ChevronTriangleDownSmallOutline"
-        color="$iconSubdued"
-        size="$4"
-      />
+      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
     </XStack>
   );
 };

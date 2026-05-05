@@ -3,10 +3,12 @@ import {
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
 } from '@onekeyhq/shared/src/consts/perp';
+import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IMarginTableMap as IMarginTablesMap,
   IPerpsUniverse,
-  IPerpsUniverseRaw,
+  ISpotToken,
+  ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IHyperLiquidErrorLocaleItem,
@@ -14,6 +16,8 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+
+import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp';
 
 export type IHyperliquidCustomSettings = {
   hideNavBar?: boolean;
@@ -47,8 +51,24 @@ export interface ISimpleDbPerpData {
   configVersion?: string;
   tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
   hyperliquidTermsAccepted?: boolean;
+  perpOrderOpenFlags?: Record<string, boolean>; // user address -> whether orderOpen has succeeded
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
+  abstractionModeUsers?: Record<string, string>; // user address -> EHyperLiquidAbstractionMode
+  referralBannerSnoozedUntil?: Record<string, number>; // user address -> timestamp until which the banner is snoozed
+  referralBannerCache?: Record<
+    string,
+    {
+      shouldShow: boolean;
+      reason: string;
+      cachedAt: number;
+    }
+  >; // user address -> cached eligibility result
+  perpsSharePromptShown?: boolean; // whether the once-per-app Perps share prompt has been shown
+  tokenSearchAliases?: ITokenSearchAliases; // token search aliases from server
+  tokenSelectorTabs?: IPerpDynamicTab[]; // dynamic token selector tabs from server
+  spotTokens?: ISpotToken[]; // all spot tokens metadata
+  spotUniverses?: ISpotUniverse[]; // spot trading pairs with resolved names
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -68,6 +88,33 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       (prevConfig): ISimpleDbPerpData => ({
         ...prevConfig,
         hyperliquidTermsAccepted: termsAccepted,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async isFirstPerpOrderOpen(userAddress: string): Promise<boolean> {
+    const key = userAddress.toLowerCase();
+    if (!key) {
+      return true;
+    }
+    const config = await this.getPerpData();
+    return !config.perpOrderOpenFlags?.[key];
+  }
+
+  @backgroundMethod()
+  async markPerpOrderOpen(userAddress: string) {
+    const key = userAddress.toLowerCase();
+    if (!key) {
+      return;
+    }
+    await this.setPerpData(
+      (prevConfig): ISimpleDbPerpData => ({
+        ...prevConfig,
+        perpOrderOpenFlags: {
+          ...prevConfig?.perpOrderOpenFlags,
+          [key]: true,
+        },
       }),
     );
   }
@@ -166,7 +213,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       (prevConfig): ISimpleDbPerpData => ({
         ...prevConfig,
         hyperliquidCustomSettings: {
-          ...(prevConfig?.hyperliquidCustomSettings ?? {}),
+          ...prevConfig?.hyperliquidCustomSettings,
           ...settings,
         },
       }),
@@ -191,7 +238,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   }) {
     await this.setPerpData((prevConfig): ISimpleDbPerpData => {
       const nextOptions = {
-        ...(prevConfig?.hyperliquidOrderBookTickOptions ?? {}),
+        ...prevConfig?.hyperliquidOrderBookTickOptions,
       };
       if (!option) {
         delete nextOptions[symbol];
@@ -219,7 +266,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         tradingUniverse: prev?.tradingUniverse,
         marginTablesMap: prev?.marginTablesMap,
         tradingviewDisplayPriceScale: {
-          ...(prev?.tradingviewDisplayPriceScale || {}),
+          ...prev?.tradingviewDisplayPriceScale,
           [symbol]: priceScale,
         },
       }),
@@ -256,9 +303,138 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       (prev): ISimpleDbPerpData => ({
         ...prev,
         dexAbstractionEnabledUsers: {
-          ...(prev?.dexAbstractionEnabledUsers ?? {}),
+          ...prev?.dexAbstractionEnabledUsers,
           [userAddress.toLowerCase()]: enabled,
         },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getUserAbstractionMode(
+    userAddress: string,
+  ): Promise<string | undefined> {
+    const config = await this.getPerpData();
+    const addr = userAddress.toLowerCase();
+    // New field takes priority
+    const mode = config.abstractionModeUsers?.[addr];
+    if (mode) return mode;
+    // Runtime migration: legacy boolean → dexAbstraction mode
+    if (config.dexAbstractionEnabledUsers?.[addr] === true) {
+      return 'dexAbstraction';
+    }
+    return undefined;
+  }
+
+  @backgroundMethod()
+  async setUserAbstractionMode(userAddress: string, mode: string) {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        abstractionModeUsers: {
+          ...prev?.abstractionModeUsers,
+          [userAddress.toLowerCase()]: mode,
+        },
+        // Dual-write legacy field only for dexAbstraction; leave untouched for other modes
+        ...(mode === 'dexAbstraction'
+          ? {
+              dexAbstractionEnabledUsers: {
+                ...prev?.dexAbstractionEnabledUsers,
+                [userAddress.toLowerCase()]: true,
+              },
+            }
+          : {}),
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getReferralBannerSnoozedUntil(userAddress: string): Promise<number> {
+    const config = await this.getPerpData();
+    return config.referralBannerSnoozedUntil?.[userAddress.toLowerCase()] ?? 0;
+  }
+
+  @backgroundMethod()
+  async setReferralBannerSnoozedUntil(
+    userAddress: string,
+    snoozedUntil: number,
+  ): Promise<void> {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        referralBannerSnoozedUntil: {
+          ...prev?.referralBannerSnoozedUntil,
+          [userAddress.toLowerCase()]: snoozedUntil,
+        },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getReferralBannerCache(
+    userAddress: string,
+  ): Promise<{ shouldShow: boolean; reason: string; cachedAt: number } | null> {
+    const config = await this.getPerpData();
+    return config.referralBannerCache?.[userAddress.toLowerCase()] ?? null;
+  }
+
+  @backgroundMethod()
+  async setReferralBannerCache(
+    userAddress: string,
+    cache: { shouldShow: boolean; reason: string; cachedAt: number },
+  ): Promise<void> {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        referralBannerCache: {
+          ...prev?.referralBannerCache,
+          [userAddress.toLowerCase()]: cache,
+        },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getPerpsSharePromptShown(): Promise<boolean> {
+    const config = await this.getPerpData();
+    return config.perpsSharePromptShown ?? false;
+  }
+
+  @backgroundMethod()
+  async setPerpsSharePromptShown(shown: boolean): Promise<void> {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        perpsSharePromptShown: shown,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getSpotMeta(): Promise<{
+    tokens: ISpotToken[];
+    universes: ISpotUniverse[];
+  }> {
+    const config = await this.getPerpData();
+    return {
+      tokens: config.spotTokens || [],
+      universes: config.spotUniverses || [],
+    };
+  }
+
+  @backgroundMethod()
+  async setSpotMeta({
+    tokens,
+    universes,
+  }: {
+    tokens: ISpotToken[];
+    universes: ISpotUniverse[];
+  }) {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        spotTokens: tokens,
+        spotUniverses: universes,
       }),
     );
   }

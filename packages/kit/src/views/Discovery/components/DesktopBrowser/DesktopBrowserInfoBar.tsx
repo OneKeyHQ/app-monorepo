@@ -16,6 +16,10 @@ function DesktopBrowserInfoBar({
   isPinned,
   onPinnedPress,
   onSearch,
+  isTranslated,
+  onTranslate,
+  onRetranslate,
+  onTestAITranslateError,
 }: IWebTab & {
   goBack: () => void;
   goForward: () => void;
@@ -26,6 +30,10 @@ function DesktopBrowserInfoBar({
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
   onSearch: (url: string) => void;
+  isTranslated?: boolean;
+  onTranslate?: () => void;
+  onRetranslate?: () => void;
+  onTestAITranslateError?: (testFlag: string) => void;
 }) {
   return (
     <HeaderLeftToolBar
@@ -42,6 +50,10 @@ function DesktopBrowserInfoBar({
       isPinned={isPinned}
       onPinnedPress={onPinnedPress}
       onSearch={onSearch}
+      isTranslated={isTranslated}
+      onTranslate={onTranslate}
+      onRetranslate={onRetranslate}
+      onTestAITranslateError={onTestAITranslateError}
     />
   );
 }

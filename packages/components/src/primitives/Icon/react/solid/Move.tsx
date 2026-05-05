@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgMove = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M13.414 2.5a2 2 0 0 0-2.828 0L8.293 4.793a1 1 0 0 0 1.414 1.414L11 4.914V11H4.914l1.293-1.293a1 1 0 0 0-1.414-1.414L2.5 10.586a2 2 0 0 0 0 2.828l2.293 2.293a1 1 0 0 0 1.414-1.414L4.914 13H11v6.086l-1.293-1.293a1 1 0 0 0-1.414 1.414l2.293 2.293a2 2 0 0 0 2.828 0l2.293-2.293a1 1 0 0 0-1.414-1.414L13 19.086V13h6.085l-1.292 1.293a1 1 0 0 0 1.414 1.414l2.293-2.293a2 2 0 0 0 0-2.828l-2.293-2.293a1 1 0 0 0-1.414 1.414L19.086 11H13V4.914l1.293 1.293a1 1 0 0 0 1.414-1.414z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M16.414 6 15 7.414l-2-2V11h5.586l-2-2L18 7.586 22.414 12 18 16.414 16.586 15l2-2H13v5.586l2-2L16.414 18 12 22.414 7.586 18 9 16.586l2 2V13H5.414l2 2L6 16.414 1.586 12 6 7.586 7.414 9l-2 2H11V5.414l-2 2L7.586 6 12 1.586z" />
   </Svg>
 );
 export default SvgMove;

@@ -258,6 +258,12 @@ export const UI_REQUEST = {
   FIRMWARE_PROGRESS: 'ui-firmware-progress',
 } as const;
 
+export enum EHardwareVendor {
+  onekey = 'onekey',
+  ledger = 'ledger',
+  trezor = 'trezor',
+}
+
 export enum EOneKeyDeviceMode {
   bootloader = 'bootloader',
   notInitialized = 'notInitialized',
@@ -281,6 +287,7 @@ export enum EFirmwareUpdateTipMessages {
   FirmwareEraseSuccess = 'FirmwareEraseSuccess',
 
   SelectDeviceInBootloaderForWebDevice = 'SelectDeviceInBootloaderForWebDevice',
+  SwitchFirmwareReconnectDevice = 'SwitchFirmwareReconnectDevice',
 
   // Touch & Pro only
   CheckLatestUiResource = 'CheckLatestUiResource',
@@ -423,6 +430,7 @@ export interface IConnectYourDeviceItem {
   src: ImageSourcePropType;
   opacity?: number;
   device: SearchDevice | KnownDevice | undefined;
+  vendor?: EHardwareVendor;
 }
 
 export interface IFirmwareVerifyResult {

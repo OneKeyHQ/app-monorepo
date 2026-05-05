@@ -8,6 +8,7 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -49,6 +50,7 @@ const SwapAccountAddressContainer = ({
           <XStack
             key="network-component"
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={{
               opacity: 0,
               x: 8,
@@ -107,18 +109,18 @@ const SwapAccountAddressContainer = ({
           placement="bottom-start"
           networkId={
             type === ESwapDirectionType.FROM
-              ? fromToken?.networkId ?? ''
-              : toToken?.networkId ?? ''
+              ? (fromToken?.networkId ?? '')
+              : (toToken?.networkId ?? '')
           }
           indexedAccountId={
             type === ESwapDirectionType.FROM
-              ? activeAccount.indexedAccount?.id ?? ''
-              : activeToAccount.indexedAccount?.id ?? ''
+              ? (activeAccount.indexedAccount?.id ?? '')
+              : (activeToAccount.indexedAccount?.id ?? '')
           }
           walletId={
             type === ESwapDirectionType.FROM
-              ? activeAccount.wallet?.id ?? ''
-              : activeToAccount.wallet?.id ?? ''
+              ? (activeAccount.wallet?.id ?? '')
+              : (activeToAccount.wallet?.id ?? '')
           }
           activeDeriveType={
             type === ESwapDirectionType.FROM

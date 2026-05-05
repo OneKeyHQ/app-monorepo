@@ -32,7 +32,7 @@ export function ScanCamera({
       setIsFocus(false);
       setTimeout(() => {
         navigation.dispatch(data.action);
-      }, 350);
+      }, 80);
     },
     [navigation],
   );

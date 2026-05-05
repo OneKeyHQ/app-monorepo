@@ -3,31 +3,48 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
+import {
+  notifyTabNavigation,
+  notifyTabNavigationEnd,
+  tryDispatchTranslateMessage,
+} from '@onekeyhq/kit/src/components/WebView/translateBridge';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import {
   homeTab,
   useBrowserAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
+import {
+  BITREFILL_BRIDGE_SCRIPT,
+  isBitrefillEmbedUrl,
+} from '../../utils/bitrefillUtils';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
 
 import type { IWebTab } from '../../types';
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   WebView as ReactNativeWebview,
+  WebViewMessageEvent,
   WebViewNavigation,
   WebViewProps,
 } from 'react-native-webview';
-import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  ShouldStartLoadRequest,
+  WebViewNavigationEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {
     isCurrent: boolean;
     setBackEnabled: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled: Dispatch<SetStateAction<boolean>>;
+    customReceiveHandler?: IJsBridgeReceiveHandler;
   };
 
 function WebContent({
@@ -40,12 +57,15 @@ function WebContent({
   setForwardEnabled,
   onScroll,
   siteMode,
+  customReceiveHandler,
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
   const [progress, setProgress] = useState(5);
   const [showBlockAccessView, setShowBlockAccessView] = useState(false);
   const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
+  const [{ fiatPaySiteWhitelist }] =
+    useSettingsFiatPaySiteWhitelistPersistAtom();
   const { onNavigation, gotoSite, validateWebviewSrc } =
     useBrowserAction().current;
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
@@ -57,7 +77,7 @@ function WebContent({
   };
 
   const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {
-    // const { hostname } = new URL(nativeEvent.url);
+    notifyTabNavigation(id);
 
     if (
       nativeEvent.url !== url &&
@@ -72,7 +92,19 @@ function WebContent({
     if (nativeEvent.loading) {
       return;
     }
+    notifyTabNavigationEnd(id);
     changeNavigationInfo({ ...nativeEvent });
+    // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
+    if (isBitrefillEmbedUrl(nativeEvent.url)) {
+      const webview = webviewRefs[id]?.innerRef as
+        | ReactNativeWebview
+        | undefined;
+      try {
+        webview?.injectJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
+      } catch {
+        // best-effort injection
+      }
+    }
   };
 
   const onNavigationStateChange = useCallback(
@@ -106,9 +138,12 @@ function WebContent({
   );
 
   const onShouldStartLoadWithRequest = useCallback(
-    (navigationStateChangeEvent: WebViewNavigation) => {
-      const { url: navUrl } = navigationStateChangeEvent;
-      const validateState = validateWebviewSrc(navUrl);
+    (navigationStateChangeEvent: ShouldStartLoadRequest) => {
+      const { url: navUrl, isTopFrame } = navigationStateChangeEvent;
+      const validateState = validateWebviewSrc({
+        url: navUrl,
+        isTopFrame,
+      });
       if (validateState === EValidateUrlEnum.Valid) {
         return true;
       }
@@ -121,6 +156,13 @@ function WebContent({
       return false;
     },
     [validateWebviewSrc],
+  );
+
+  const handleMessage = useCallback(
+    (event: WebViewMessageEvent) => {
+      tryDispatchTranslateMessage(id, event.nativeEvent.data);
+    },
+    [id],
   );
 
   useBackHandler(
@@ -139,7 +181,10 @@ function WebContent({
         key={url}
         siteMode={siteMode}
         androidLayerType={androidLayerType}
+        pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
+        mediaPermissionWhitelist={fiatPaySiteWhitelist}
+        customReceiveHandler={customReceiveHandler}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
@@ -157,7 +202,10 @@ function WebContent({
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
           const { targetUrl } = e.nativeEvent;
-          const validateState = validateWebviewSrc(targetUrl);
+          const validateState = validateWebviewSrc({
+            url: targetUrl,
+            isTopFrame: true,
+          });
           if (validateState === EValidateUrlEnum.ValidDeeplink) {
             handleDeepLinkUrl({ url: targetUrl });
           } else {
@@ -168,6 +216,7 @@ function WebContent({
           }
         }}
         allowpopups
+        onMessage={handleMessage}
         onLoadStart={onLoadStart}
         onLoadEnd={onLoadEnd as any}
         onScroll={onScroll}
@@ -176,7 +225,16 @@ function WebContent({
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, siteMode, gotoSite, showHome, androidLayerType, url],
+    [
+      androidLayerType,
+      fiatPaySiteWhitelist,
+      gotoSite,
+      id,
+      showHome,
+      siteMode,
+      url,
+      customReceiveHandler,
+    ],
   );
 
   const progressBar = useMemo(() => {

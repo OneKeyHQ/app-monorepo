@@ -10,7 +10,9 @@ export type ISortableColumn =
   | EInviteCodeListTableColumn.CUMULATIVE_REWARDS
   | EInviteCodeListTableColumn.CREATED_AT;
 
-export function useSortableData(items: IInviteCodeListItem[] | undefined) {
+export function useSortableData<T extends IInviteCodeListItem>(
+  items: T[] | undefined,
+) {
   const [sortBy, setSortBy] = useState<ISortableColumn | undefined>(undefined);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
     undefined,
@@ -22,7 +24,7 @@ export function useSortableData(items: IInviteCodeListItem[] | undefined) {
       return items || [];
     }
 
-    const sorted = [...items].sort((a, b) => {
+    const sorted = [...items].toSorted((a, b) => {
       let aValue: string | number = a[sortBy];
       let bValue: string | number = b[sortBy];
 

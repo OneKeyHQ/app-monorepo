@@ -1,19 +1,13 @@
-import { memo, useCallback, useContext, useMemo } from 'react';
+import { memo, useCallback, useContext, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Checkbox, Divider, Stack, Toast } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import ChainSelectorTooltip from '../ChainSelectorTooltip';
+import DottedLine from '../DottedLine';
 
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 
@@ -26,22 +20,16 @@ function NetworkListHeader() {
     enabledNetworks,
     setNetworksState,
     searchKey,
-    isCreatingEnabledAddresses,
-    isCreatingMissingAddresses,
-    setIsCreatingMissingAddresses,
+    setMissingAddressCount,
   } = useContext(AllNetworksManagerContext);
 
-  const {
-    enabledNetworksCompatibleWithWalletId,
-    enabledNetworksWithoutAccount,
-    run,
-  } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-    walletId: walletId ?? '',
-    indexedAccountId,
-    filterNetworksWithoutAccount: true,
-  });
-
-  const { createAddress } = useAccountSelectorCreateAddress();
+  const { enabledNetworksWithoutAccount, run } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: walletId ?? '',
+      indexedAccountId,
+      filterNetworksWithoutAccount: true,
+      enabledNetworks,
+    });
 
   const isAllNetworksEnabled = useMemo(() => {
     if (enabledNetworks.length > 0) {
@@ -59,127 +47,73 @@ function NetworkListHeader() {
     );
   }, [networks.mainNetworks]);
 
-  const handleCreateMissingAddresses = useCallback(async () => {
-    setIsCreatingMissingAddresses(true);
+  useEffect(() => {
+    setMissingAddressCount(enabledNetworksWithoutAccount.length);
+  }, [enabledNetworksWithoutAccount.length, setMissingAddressCount]);
 
-    const enabledNetworksWithoutAccountTemp: {
-      networkId: string;
-      deriveType: IAccountDeriveTypes;
-    }[] = [];
+  const enabledNetworkIds = useMemo(
+    () => enabledNetworks.map((network) => network.id).join(','),
+    [enabledNetworks],
+  );
 
-    for (const network of enabledNetworksWithoutAccount) {
-      enabledNetworksWithoutAccountTemp.push({
-        networkId: network.id,
-        deriveType:
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: network.id,
-          }),
-      });
-    }
-
-    try {
-      await createAddress({
-        num: 0,
-        account: {
-          walletId,
-          indexedAccountId,
-          networkId: getNetworkIdsMap().onekeyall,
-          deriveType: 'default',
-        },
-        customNetworks: enabledNetworksWithoutAccountTemp,
-      });
-    } catch (error) {
-      setIsCreatingMissingAddresses(false);
-      return;
-    }
-
-    Toast.success({
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_toast_address_generated,
-      }),
-    });
+  useEffect(() => {
     void run();
-    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-    setIsCreatingMissingAddresses(false);
-  }, [
-    createAddress,
-    enabledNetworksWithoutAccount,
-    indexedAccountId,
-    intl,
-    run,
-    setIsCreatingMissingAddresses,
-    walletId,
-  ]);
+  }, [enabledNetworkIds, run]);
+
+  const handleToggleAll = useCallback(() => {
+    if (isAllNetworksEnabled) {
+      setNetworksState({
+        enabledNetworks: {},
+        disabledNetworks: toggleAllNetworks,
+      });
+    } else {
+      setNetworksState({
+        enabledNetworks: toggleAllNetworks,
+        disabledNetworks: {},
+      });
+    }
+  }, [isAllNetworksEnabled, setNetworksState, toggleAllNetworks]);
 
   return (
-    <Stack mt="$4">
-      {enabledNetworksWithoutAccount.length > 0 ? (
-        <Stack px="$5" pb="$5">
-          <Alert
-            type="warning"
-            title={intl.formatMessage(
-              {
-                id: ETranslations.network_enabled_but_no_address_notice,
-              },
-              {
-                count: enabledNetworksCompatibleWithWalletId.length,
-              },
-            )}
-            action={{
-              primary: intl.formatMessage({
-                id: isCreatingMissingAddresses
-                  ? ETranslations.global_creating_address
-                  : ETranslations.global_create,
-              }),
-              isPrimaryLoading: isCreatingMissingAddresses,
-              isPrimaryDisabled:
-                isCreatingMissingAddresses || isCreatingEnabledAddresses,
-              onPrimaryPress: handleCreateMissingAddresses,
-            }}
-          />
-        </Stack>
-      ) : null}
+    <Stack mt="$4" pb="$3">
       {searchKey?.trim() ? null : (
-        <>
-          <ListItem
-            h="$12"
-            py="$0"
-            title={intl.formatMessage({
-              id: ETranslations.global_select_all,
-            })}
-            onPress={() => {
-              if (isAllNetworksEnabled) {
-                setNetworksState({
-                  enabledNetworks: {},
-                  disabledNetworks: toggleAllNetworks,
-                });
-              } else {
-                setNetworksState({
-                  enabledNetworks: toggleAllNetworks,
-                  disabledNetworks: {},
-                });
+        <XStack
+          px="$5"
+          py="$2"
+          justifyContent="space-between"
+          alignItems="center"
+        >
+          <Stack flex={1} mr="$2" alignItems="flex-start" overflow="hidden">
+            <ChainSelectorTooltip
+              renderContent={intl.formatMessage({
+                id: ETranslations.network_selection_performance_tip,
+              })}
+              renderTrigger={
+                <Stack maxWidth="100%">
+                  <SizableText size="$bodyLgMedium">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.network_view_assets_from_n_networks,
+                      },
+                      { count: enabledNetworks.length },
+                    )}
+                  </SizableText>
+                  <DottedLine mt={1} />
+                </Stack>
               }
-            }}
-          >
-            <Checkbox
-              value={isAllNetworksEnabled}
-              onChange={() => {
-                if (isAllNetworksEnabled) {
-                  setNetworksState({
-                    enabledNetworks: {},
-                    disabledNetworks: toggleAllNetworks,
-                  });
-                } else {
-                  setNetworksState({
-                    enabledNetworks: toggleAllNetworks,
-                    disabledNetworks: {},
-                  });
-                }
-              }}
             />
-          </ListItem>
-          <Divider m="$5" />
-        </>
+          </Stack>
+          <Button
+            flexShrink={0}
+            size="media"
+            variant="tertiary"
+            onPress={handleToggleAll}
+          >
+            {isAllNetworksEnabled
+              ? intl.formatMessage({ id: ETranslations.global_deselect_all })
+              : intl.formatMessage({ id: ETranslations.global_select_all })}
+          </Button>
+        </XStack>
       )}
     </Stack>
   );

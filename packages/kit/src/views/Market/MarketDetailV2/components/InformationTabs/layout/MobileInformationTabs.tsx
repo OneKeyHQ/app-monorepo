@@ -2,9 +2,16 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Tabs, YStack } from '@onekeyhq/components';
+import {
+  HeaderScrollGestureWrapper,
+  Tabs,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -12,6 +19,7 @@ import {
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
+import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
 import { Portfolio } from '../components/Portfolio';
 import { TransactionsHistory } from '../components/TransactionsHistory';
@@ -26,15 +34,33 @@ import type {
 } from 'react-native-collapsible-tab-view';
 
 function MobileInformationTabsHeader(props: TabBarProps<string>) {
-  const { tabNames } = props;
+  const { tabNames, focusedTab, onTabPress } = props;
   const firstTabName = useMemo(() => {
     return tabNames[0];
   }, [tabNames]);
+
+  const handleTabPress = useCallback(
+    (tabName: string) => {
+      // Prevent default "press active tab to collapse header" behavior.
+      if (tabName === focusedTab.value) {
+        return;
+      }
+      onTabPress?.(tabName);
+    },
+    [focusedTab, onTabPress],
+  );
+
   return (
-    <YStack bg="$bgApp" pointerEvents="box-none">
-      <Tabs.TabBar {...props} />
-      <StickyHeader firstTabName={firstTabName} />
-    </YStack>
+    <HeaderScrollGestureWrapper panActiveOffsetY={[-4, 4]} scrollScale={1}>
+      <YStack bg="$bgApp" pointerEvents="box-none">
+        <Tabs.TabBar
+          {...props}
+          textSize="$bodyMdMedium"
+          onTabPress={handleTabPress}
+        />
+        <StickyHeader firstTabName={firstTabName} />
+      </YStack>
+    </HeaderScrollGestureWrapper>
   );
 }
 
@@ -43,15 +69,17 @@ export function MobileInformationTabs({
   onScrollEnd,
   portfolioData,
   isRefreshing,
+  tokenLogoUrl,
 }: {
   renderHeader: CollapsibleProps['renderHeader'];
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  tokenLogoUrl?: string;
 }) {
   const intl = useIntl();
-  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
-  const { handleTabChange } = useBottomTabAnalytics();
+  const { tokenAddress, networkId, tokenDetail, isNative, isStockToken } =
+    useTokenDetail();
   const { accountAddress } = useNetworkAccountAddress(networkId);
 
   const holdersTabName = useMemo(() => {
@@ -68,37 +96,60 @@ export function MobileInformationTabs({
     return baseTitle;
   }, [intl, tokenDetail?.holders]);
 
+  const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
+  const tabContainerWidth = useTabContainerWidth();
+
   const tabs = useMemo(() => {
-    // Check if current network supports holders tab
-    const shouldShowHoldersTab = isHoldersTabSupported(networkId);
-    // Check if there's an account address available
-    const shouldShowPortfolioTab = !!accountAddress;
+    // Check if current network supports holders tab (not available for native tokens)
+    const shouldShowHoldersTab = !isNative && isHoldersTabSupported(networkId);
+    // BTC network doesn't show transactions tab
+    const shouldShowTransactionsTab = !isBTCNetwork;
+    const shouldShowLiquidityPoolsTab = !isNative && !isStockToken;
 
     const items = [
-      <Tabs.Tab
-        key="transactions"
-        name={intl.formatMessage({
-          id: ETranslations.dexmarket_details_transactions,
-        })}
-      >
-        <TransactionsHistory
-          tokenAddress={tokenAddress}
-          networkId={networkId}
-          onScrollEnd={onScrollEnd}
-        />
-      </Tabs.Tab>,
-      shouldShowPortfolioTab && (
+      shouldShowTransactionsTab && (
         <Tabs.Tab
-          key="portfolio"
+          key="transactions"
           name={intl.formatMessage({
-            id: ETranslations.dexmarket_details_myposition,
+            id: ETranslations.dexmarket_details_transactions,
           })}
         >
-          <Portfolio
-            portfolioData={portfolioData}
-            isRefreshing={!!isRefreshing}
-            accountAddress={accountAddress}
+          <TransactionsHistory
+            tokenAddress={tokenAddress}
+            networkId={networkId}
+            onScrollEnd={onScrollEnd}
           />
+        </Tabs.Tab>
+      ),
+      <Tabs.Tab
+        key="portfolio"
+        name={intl.formatMessage({
+          id: ETranslations.dexmarket_details_myposition,
+        })}
+      >
+        <Portfolio
+          portfolioData={portfolioData}
+          isRefreshing={!!isRefreshing}
+          accountAddress={accountAddress}
+          tokenLogoUrl={tokenLogoUrl}
+        />
+      </Tabs.Tab>,
+      shouldShowLiquidityPoolsTab && (
+        <Tabs.Tab
+          key="liquidityPools"
+          name={intl.formatMessage({
+            id: ETranslations.global_liquidity,
+          })}
+        >
+          <Tabs.ScrollView>
+            <TokenLiquidityPools
+              showTitle={false}
+              variant="mobile"
+              px="$0"
+              pt="$0"
+              pb="$20"
+            />
+          </Tabs.ScrollView>
         </Tabs.Tab>
       ),
       shouldShowHoldersTab && (
@@ -117,19 +168,31 @@ export function MobileInformationTabs({
     accountAddress,
     portfolioData,
     isRefreshing,
+    isNative,
+    isBTCNetwork,
+    tokenLogoUrl,
+    isStockToken,
   ]);
+
+  const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
+  const { handleTabChange } = useBottomTabAnalytics(tabKeys);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <MobileInformationTabsHeader {...props} />;
   }, []);
 
-  if (!tokenAddress || !networkId) {
+  // Generate unique key based on tabs composition
+  const tabsKey = useMemo(() => tabKeys.join('-'), [tabKeys]);
+
+  // Hide entire component if no networkId
+  if (!networkId) {
     return null;
   }
 
   return (
     <Tabs.Container
-      key={tabs.length}
+      key={tabsKey}
+      width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
       headerContainerStyle={{
         width: '100%',
         shadowColor: 'transparent',

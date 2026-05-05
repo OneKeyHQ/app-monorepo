@@ -8,6 +8,9 @@ import {
   Stack,
   Toast,
   ToastContent,
+  resetAboveMainRoute,
+  resetScanModalRoute,
+  resetToRoute,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -32,6 +35,7 @@ import {
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
   EOnboardingPages,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -158,8 +162,27 @@ const useParseQRCode = () => {
 
       const closeScanPage = async () => {
         if (popNavigation) {
-          popNavigation();
-          await timerUtils.wait(platformEnv.isNative ? 1200 : 250);
+          if (options?.autoExecuteParsedAction) {
+            // Atomically remove all overlay routes (scan modal, ActionCenter,
+            // FullScreenPush, etc.) via CommonActions.reset instead of
+            // sequential goBack() calls. This avoids the native
+            // UITabBarController window-nil race condition where
+            // RNSScreenStack retries exhaust on stacks inside detached tab
+            // views (OK-50182).
+            resetAboveMainRoute();
+            // Wait for modal dismiss to complete before opening new modal.
+            // Web needs more time for CSS transition to finish (backdrop issue OK-52532).
+            await timerUtils.wait(platformEnv.isNative ? 100 : 300);
+          } else {
+            // Atomically remove ScanQrCodeModal and ActionCenter routes,
+            // preserving caller routes (e.g. onboarding). This avoids
+            // goBack() animated dismiss which causes RNSScreenStack
+            // window=NIL and blocks Fabric commits on the underlying page.
+            resetScanModalRoute();
+            if (!platformEnv.isNativeIOS) {
+              await timerUtils.wait(100);
+            }
+          }
         }
       };
 
@@ -168,7 +191,8 @@ const useParseQRCode = () => {
         options,
       );
 
-      if (!options?.autoHandleResult) {
+      // Manual mode: close scanner overlays and return parsed data to caller.
+      if (!options?.autoExecuteParsedAction) {
         if (
           result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
           (result.type === EQRCodeHandlerType.ANIMATION_CODE &&
@@ -178,6 +202,7 @@ const useParseQRCode = () => {
         }
         return result;
       }
+      // Auto-execution mode: run built-in route/action side effects by type.
       switch (result.type) {
         case EQRCodeHandlerType.REWARD_CENTER: {
           await closeScanPage();
@@ -193,21 +218,37 @@ const useParseQRCode = () => {
         }
         case EQRCodeHandlerType.URL_ACCOUNT: {
           const urlAccountData = result.data as IUrlAccountValue;
-          await closeScanPage();
-          void urlAccountNavigation.pushUrlAccountPage(navigation, {
-            networkId: urlAccountData.networkId,
-            address: urlAccountData.address,
-          });
+          if (popNavigation) {
+            // pushUrlAccountPage uses navigateFromOverlayToTab() which
+            // atomically removes all overlay routes (scan modal +
+            // ActionCenter) via reset, then switches tab and pushes
+            // UrlAccountPage directly. This avoids the native
+            // UITabBarController window-nil race.
+            void urlAccountNavigation.pushUrlAccountPage(navigation, {
+              networkId: urlAccountData.networkId,
+              address: urlAccountData.address,
+            });
+          } else {
+            void urlAccountNavigation.pushUrlAccountPageLanding(navigation, {
+              networkId: urlAccountData.networkId,
+              address: urlAccountData.address,
+            });
+          }
           break;
         }
         case EQRCodeHandlerType.MARKET_DETAIL:
           {
             const { coinGeckoId } = result.data as IMarketDetailValue;
             if (coinGeckoId) {
-              await closeScanPage();
-              void marketNavigation.pushDetailPageFromDeeplink(navigation, {
-                coinGeckoId,
-              });
+              if (popNavigation) {
+                void marketNavigation.pushDetailPageFromOverlay(navigation, {
+                  coinGeckoId,
+                });
+              } else {
+                void marketNavigation.pushDetailPageFromDeeplink(navigation, {
+                  coinGeckoId,
+                });
+              }
             }
           }
           break;
@@ -227,7 +268,13 @@ const useParseQRCode = () => {
           {
             const primeTransferData = result.data as IPrimeTransferValue;
             await closeScanPage();
-            await timerUtils.wait(600);
+            if (platformEnv.isNative) {
+              await new Promise<void>((resolve) => {
+                requestIdleCallback(() => resolve());
+              });
+            } else {
+              await timerUtils.wait(600);
+            }
             navigation.pushModal(EModalRoutes.PrimeModal, {
               screen: EPrimePages.PrimeTransfer,
               params: {
@@ -365,12 +412,19 @@ const useParseQRCode = () => {
                         variant="primary"
                         size="small"
                         onPressIn={async () => {
-                          await closeScanPage();
                           await toast.close();
-                          navigation.pushModal(EModalRoutes.OnboardingModal, {
-                            screen: EOnboardingPages.ConnectYourDevice,
+                          // Use resetToRoute to atomically replace all
+                          // overlay routes (scan modal, etc.) with the
+                          // target route in a single dispatch. This avoids
+                          // the stale navigation reference after
+                          // resetAboveMainRoute() (OK-51748).
+                          resetToRoute(ERootRoutes.Modal, {
+                            screen: EModalRoutes.OnboardingModal,
                             params: {
-                              channel: EConnectDeviceChannel.qr,
+                              screen: EOnboardingPages.ConnectYourDevice,
+                              params: {
+                                channel: EConnectDeviceChannel.qr,
+                              },
                             },
                           });
                         }}

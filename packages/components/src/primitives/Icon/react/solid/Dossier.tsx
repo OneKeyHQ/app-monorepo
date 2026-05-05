@@ -1,12 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDossier = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M2 7a3 3 0 0 1 3-3h3v6h14v7a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3z"
-    />
-    <Path fill="currentColor" d="M10 4h5v4h-5zm7 0h2a3 3 0 0 1 3 3v1h-5z" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M8 10h14v10H2V4h6z" />
+    <Path d="M15 8h-5V4h5zm7 0h-5V4h5z" />
   </Svg>
 );
 export default SvgDossier;

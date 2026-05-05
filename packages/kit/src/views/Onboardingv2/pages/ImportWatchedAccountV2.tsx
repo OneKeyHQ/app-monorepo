@@ -1,5 +1,4 @@
-import type { RefObject } from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +11,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
@@ -19,17 +19,12 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import { PhaseInputArea } from '../components/PhaseInputArea';
-
-import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
 
 export default function ImportWatchedAccountV2() {
   const navigation = useAppNavigation();
   const [selected, setSelected] = useState<'address' | 'publicKey'>('address');
   const { gtMd } = useMedia();
-  const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [address, setAddress] = useState('');
@@ -126,7 +121,7 @@ export default function ImportWatchedAccountV2() {
                 <YStack
                   key="address"
                   animation="quick"
-                  animateOnly={['opacity']}
+                  animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,
                   }}
@@ -135,7 +130,6 @@ export default function ImportWatchedAccountV2() {
                   <TextAreaInput
                     allowPaste
                     allowClear
-                    allowSecureTextEye
                     size="large"
                     numberOfLines={5}
                     value={address}
@@ -152,7 +146,7 @@ export default function ImportWatchedAccountV2() {
                 <YStack
                   key="publicKey"
                   animation="quick"
-                  animateOnly={['opacity']}
+                  animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,
                   }}
@@ -161,7 +155,6 @@ export default function ImportWatchedAccountV2() {
                   <TextAreaInput
                     allowPaste
                     allowClear
-                    allowSecureTextEye
                     size="large"
                     numberOfLines={5}
                     value={publicKey}

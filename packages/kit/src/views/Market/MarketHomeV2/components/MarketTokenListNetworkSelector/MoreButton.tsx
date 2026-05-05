@@ -1,5 +1,5 @@
 import type { FC, ReactNode } from 'react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,12 +8,16 @@ import type { IButtonProps, IPopoverProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { NetworksSearchPanel } from './NetworksSearchPanel';
+import {
+  NETWORKS_SEARCH_PANEL_MAX_HEIGHT,
+  NetworksSearchPanel,
+} from './NetworksSearchPanel';
 
 import type { INetworksSearchPanelProps } from './NetworksSearchPanel';
 
 interface IMoreButtonProps
-  extends Omit<IButtonProps, 'children'>,
+  extends
+    Omit<IButtonProps, 'children'>,
     Omit<INetworksSearchPanelProps, 'networkId'> {
   selectedNetworkId?: string;
   customTrigger?: (isOpen: boolean, onPress: () => void) => ReactNode;
@@ -31,14 +35,34 @@ const MoreButton: FC<IMoreButtonProps> = ({
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleNetworkSelect = (network: IServerNetwork) => {
-    onNetworkSelect?.(network);
-    setIsOpen(false);
-  };
+  const handleNetworkSelect = useCallback(
+    (network: IServerNetwork) => {
+      onNetworkSelect?.(network);
+      setIsOpen(false);
+    },
+    [onNetworkSelect],
+  );
 
   const handleToggle = () => {
     setIsOpen(!isOpen);
   };
+
+  const renderContent = useCallback(
+    ({
+      isOpen: isContentOpen,
+    }: {
+      isOpen?: boolean;
+      closePopover: () => void;
+    }) => (
+      <NetworksSearchPanel
+        isOpen={isContentOpen}
+        networks={networks}
+        networkId={selectedNetworkId}
+        onNetworkSelect={handleNetworkSelect}
+      />
+    ),
+    [handleNetworkSelect, networks, selectedNetworkId],
+  );
 
   const renderTrigger = () => {
     if (customTrigger) {
@@ -71,14 +95,9 @@ const MoreButton: FC<IMoreButtonProps> = ({
       placement={placement}
       floatingPanelProps={{
         maxWidth: 384,
+        maxHeight: NETWORKS_SEARCH_PANEL_MAX_HEIGHT,
       }}
-      renderContent={
-        <NetworksSearchPanel
-          networks={networks}
-          networkId={selectedNetworkId}
-          onNetworkSelect={handleNetworkSelect}
-        />
-      }
+      renderContent={renderContent}
       renderTrigger={renderTrigger()}
     />
   );

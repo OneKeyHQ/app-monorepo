@@ -24,12 +24,16 @@ export type IToken = {
   order?: number;
   networkId?: string;
   networkName?: string;
+  networkShortName?: string;
   accountId?: string;
   mergeAssets?: boolean;
 
   // for aggregate token
   isAggregateToken?: boolean;
   commonSymbol?: string;
+
+  // for defi
+  defiMarked?: boolean;
 };
 
 export type ITokenFiat = {
@@ -85,6 +89,7 @@ export type IFetchAccountTokensParams = {
   customTokensRawData?: ICustomTokenDBStruct;
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
+  excludeDeFiMarkedTokens?: boolean;
 };
 
 export type ITokenData = {
@@ -119,6 +124,17 @@ export type IFetchTokenDetailParams = {
   withCheckInscription?: boolean;
 };
 
+export type IFetchTokenDetailBatchQuery = {
+  accountAddress: string;
+};
+
+export type IFetchTokenDetailBatchParams = {
+  accountId: string;
+  networkId: string;
+  contractList: string[];
+  queries: IFetchTokenDetailBatchQuery[];
+};
+
 export type ISearchTokensParams = {
   accountId: string;
   networkId: string;
@@ -134,6 +150,13 @@ export type IFetchTokenDetailResp = IAccountToken[];
 export type IFetchTokenDetailItem = {
   info: IToken;
 } & ITokenFiat;
+
+export type IFetchTokenDetailBatchItem = {
+  accountAddress: string;
+  tokens: IFetchTokenDetailItem[];
+};
+
+export type IFetchTokenDetailBatchResp = IFetchTokenDetailBatchItem[];
 
 /**
  * dApp add custom token route params

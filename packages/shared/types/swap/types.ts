@@ -117,6 +117,7 @@ export interface ISwapInitParams {
   importToToken?: ISwapToken;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
+  fromAmount?: string;
 }
 
 // token & network
@@ -151,6 +152,17 @@ export interface ISwapTokenBase {
   speedSwapDefaultAmount?: number[];
 }
 
+export interface IFreeFeeTokenItem {
+  networkId: string;
+  contractAddress: string;
+  symbol: string;
+}
+
+export interface IFreeFeeObject {
+  tokenList: IFreeFeeTokenItem[];
+  tag: string;
+}
+
 export interface ISwapToken extends ISwapTokenBase {
   balanceParsed?: string;
   price?: string;
@@ -164,6 +176,8 @@ export interface ISwapToken extends ISwapTokenBase {
 
   isPopular?: boolean;
   isWrapped?: boolean;
+
+  freeFeeObject?: IFreeFeeObject;
 }
 
 export interface ISwapTokenCatch {
@@ -213,12 +227,14 @@ export interface IFetchTokenDetailParams {
   accountNetworkId?: string;
   xpub?: string;
   withCheckInscription?: boolean;
+  currency?: string;
 }
 
 export interface ISwapAutoSlippageSuggestedValue {
   value: number;
   from: string;
   to: string;
+  eventId: string;
 }
 
 // quote
@@ -286,6 +302,7 @@ export interface ISwapApproveTransaction {
 export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
+  incognito?: boolean;
   slippagePercentage: number;
   autoSlippage?: boolean;
   blockNumber?: number;
@@ -347,7 +364,18 @@ export interface IQuoteTip {
   icon?: string;
   title?: string;
   detail?: string;
+  showCancelButton?: boolean;
   link?: string;
+  showCheckbox?: boolean;
+  checkboxLabel?: string;
+  priceImpact?: number;
+  priceImpactLoss?: number;
+  type?: EQuoteShowTipType;
+}
+
+export enum EQuoteShowTipType {
+  PRICE_IMPACT = 'priceImpact',
+  TRADE_UNKNOWN = 'tradeUnknown',
 }
 
 export interface IFetchLimitMarketPrice {
@@ -499,6 +527,7 @@ export interface IFetchSwapQuoteParams {
   toToken: ISwapToken;
   fromTokenAmount?: string;
   receivingAddress?: string;
+  incognito?: boolean;
   userAddress?: string;
   slippagePercentage: number;
   autoSlippage?: boolean;
@@ -619,10 +648,12 @@ export interface IQuoteResultFeeOtherFeeInfo {
 }
 export interface IFetchQuoteFee {
   percentageFee: number; // oneKey fee percentage
+  percentOriginFee?: number;
   protocolFees?: number;
   estimatedFeeFiatValue?: number;
   otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
   isFreeNetworkFee?: boolean;
+  costSavings?: string;
 }
 
 export enum ESwapApproveAllowanceType {
@@ -651,6 +682,7 @@ export interface ISwapState {
   noConnectWallet?: boolean;
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
+  isWaitingAutoSlippage?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
@@ -727,10 +759,18 @@ export interface ISwapQuoteEventInfo {
   eventId: string;
 }
 
+export interface ISwapQuoteEventError {
+  isStock?: boolean;
+  isMarketOpen?: boolean;
+  errorMessage?: string;
+  eventId?: string;
+}
+
 export type ISwapQuoteEventData =
   | ISwapQuoteEventAutoSlippage
   | ISwapQuoteEventQuoteResult
-  | ISwapQuoteEventInfo;
+  | ISwapQuoteEventInfo
+  | ISwapQuoteEventError;
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
@@ -773,6 +813,14 @@ export interface IOKXTransactionObject {
   randomKeyAccount?: string[];
   signatureData?: string[];
 }
+
+export interface ILMTronObject {
+  from: string;
+  to: string;
+  value: string;
+  data: string;
+}
+
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
   tx?: ITransaction;
@@ -780,6 +828,7 @@ export interface IFetchBuildTxResponse {
   swftOrder?: IFetchBuildTxOrderResponse;
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
   OKXTxObject?: IOKXTransactionObject;
+  LMTronObject?: ILMTronObject;
   ctx?: any;
   tronTxData?: IEncodedTxTron;
   xrpTxData?: IEncodedTxXrp;
@@ -885,6 +934,7 @@ export interface IFetchSwapTxHistoryStatusResponse {
   state: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
+  stateDetail?: string;
   crossChainReceiveTxHash?: string;
   gasFee?: string;
   gasFeeFiatValue?: string;
@@ -908,6 +958,7 @@ export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
+  stateDetail?: string;
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;
@@ -1013,7 +1064,23 @@ export interface ISpeedSwapConfig {
   provider: string;
   speedConfig: ISwapProSpeedConfig;
   speedDefaultSelectToken?: ISwapTokenBase;
-  supportSpeedSwap: boolean;
+  supportSpeedSwap?: boolean;
+  onlySupportCrossChain: boolean;
+  onlySupportSingleChain: boolean;
+}
+
+export interface IFetchSpeedCheckResult {
+  errorMessage?: string;
+  isStock?: boolean;
+  protocol: string;
+  spenderAddress: string;
+  info: {
+    provider: string;
+    providerName: string;
+    providerLogo?: string;
+  };
+  fromTokenInfo?: ISwapTokenBase;
+  toTokenInfo?: ISwapTokenBase;
 }
 
 export enum ESwapLimitOrderStatus {
@@ -1092,6 +1159,8 @@ export interface ISwapNativeTokenReserveGas {
 
 export const SwapPercentageInputStage = [25, 50, 100];
 export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
+export const SwapLimitPriceInputStageBuyForNative = [0, -20, -50];
+export const SwapLimitPriceInputStageSellForNative = [0, 20, 50, 100];
 
 export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
 
@@ -1099,6 +1168,8 @@ export const SwapBuildShouldFallBackNetworkIds = ['tron--0x2b6653dc'];
 
 export const SwapAmountInputAccessoryViewID =
   'swap-amount-input-accessory-view';
+export const SwapLimitPriceInputAccessoryViewID =
+  'swap-limit-price-input-accessory-view';
 
 export const ChainFlipLogo =
   'https://uni.onekey-asset.com/static/logo/chainFlip_logo.png';

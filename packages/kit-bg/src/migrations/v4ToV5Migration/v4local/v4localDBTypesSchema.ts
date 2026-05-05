@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import type {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,

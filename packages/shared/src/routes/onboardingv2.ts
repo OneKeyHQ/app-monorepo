@@ -1,5 +1,12 @@
+import type { IKeylessWalletDetailsInfo } from '@onekeyhq/kit-bg/src/dbs/local/types';
+
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
-import type { IConnectYourDeviceItem } from '../../types/device';
+import type {
+  EHardwareVendor,
+  IConnectYourDeviceItem,
+} from '../../types/device';
+import type { EOAuthSocialLoginProvider } from '../consts/authConsts';
+import type { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
 import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
@@ -19,9 +26,15 @@ export enum EOnboardingV2KeylessWalletCreationMode {
   View = 'View',
 }
 
+export enum EOnboardingV2OneKeyIDLoginMode {
+  KeylessCreateOrRestore = 'KeylessCreateOrRestore',
+  KeylessResetPin = 'KeylessResetPin',
+  KeylessVerifyPinOnly = 'KeylessVerifyPinOnly',
+}
+
 export enum EOnboardingPagesV2 {
   GetStarted = 'GetStarted',
-  AddExistingWallet = 'AddExistingWallet',
+  CreateNewWallet = 'CreateNewWallet',
   CreateOrImportWallet = 'CreateOrImportWallet',
   FinalizeWalletSetup = 'FinalizeWalletSetup',
   PickYourDevice = 'PickYourDevice',
@@ -41,6 +54,13 @@ export enum EOnboardingPagesV2 {
   ImportKeyTag = 'ImportKeyTag',
   KeylessWalletRecovery = 'KeylessWalletRecovery',
   KeylessWalletCreation = 'KeylessWalletCreation',
+  OneKeyIDLogin = 'OneKeyIDLogin',
+  CreatePin = 'CreatePin',
+  ConfirmPin = 'ConfirmPin',
+  VerifyPin = 'VerifyPin',
+  ResetPinGuide = 'ResetPinGuide',
+  NewPinCreated = 'NewPinCreated',
+  CreatePasscode = 'CreatePasscode',
 }
 interface IVerifyRecoveryPhraseParams {
   mnemonic: string;
@@ -49,25 +69,33 @@ interface IVerifyRecoveryPhraseParams {
   accountName?: string;
 }
 
+export type IOnboardingAutoConnectOrigin = string;
+
 export type IOnboardingParamListV2 = {
-  [EOnboardingPagesV2.GetStarted]: {
+  [EOnboardingPagesV2.GetStarted]: undefined;
+  [EOnboardingPagesV2.CreateNewWallet]: {
     fromExt?: boolean;
+    autoConnectOrigin?: IOnboardingAutoConnectOrigin;
+    autoLoginKeylessProvider?: EOAuthSocialLoginProvider;
+    autoConnectNonce?: string;
   };
-  [EOnboardingPagesV2.AddExistingWallet]: undefined;
-  [EOnboardingPagesV2.CreateOrImportWallet]: {
-    fullOptions?: boolean;
-  };
+  [EOnboardingPagesV2.CreateOrImportWallet]: undefined;
   [EOnboardingPagesV2.FinalizeWalletSetup]: {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;
     isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
+    shouldAutoResetKeylessPinAfterRestore?: boolean;
     isFirmwareVerified?: boolean;
     deviceData?: IConnectYourDeviceItem;
     keylessPackSetId?: string;
+    keylessOwnerId?: string;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
   };
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {
     deviceType: EDeviceType[];
+    vendor?: EHardwareVendor;
   };
   [EOnboardingPagesV2.ConnectQRCode]: undefined;
   [EOnboardingPagesV2.CheckAndUpdate]: {
@@ -111,4 +139,24 @@ export type IOnboardingParamListV2 = {
     email?: string;
     mode?: EOnboardingV2KeylessWalletCreationMode;
   };
+  [EOnboardingPagesV2.OneKeyIDLogin]: {
+    mode: EOnboardingV2OneKeyIDLoginMode;
+    provider?: EOAuthSocialLoginProvider;
+  };
+  [EOnboardingPagesV2.CreatePin]: {
+    action?: EKeylessFinalizeAction;
+  };
+  [EOnboardingPagesV2.ConfirmPin]: {
+    action?: EKeylessFinalizeAction;
+  };
+  [EOnboardingPagesV2.CreatePasscode]: {
+    action?: EKeylessFinalizeAction;
+    mnemonic?: string;
+    isWalletBackedUp?: boolean;
+  };
+  [EOnboardingPagesV2.VerifyPin]: {
+    mode?: EOnboardingV2OneKeyIDLoginMode;
+  };
+  [EOnboardingPagesV2.ResetPinGuide]: undefined;
+  [EOnboardingPagesV2.NewPinCreated]: undefined;
 };

@@ -5,15 +5,28 @@ import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
 const EarnHome = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/EarnHome'),
+  () => import(/* webpackPrefetch: true */ '../../../views/Earn/EarnHome'),
 );
 
 const EarnProtocols = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnProtocols'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Earn/pages/EarnProtocols'
+    ),
 );
 
 const EarnProtocolDetails = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnProtocolDetails'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Earn/pages/EarnProtocolDetails'
+    ),
+);
+
+const BorrowReserveDetails = LazyLoadRootTabPage(
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Borrow/pages/ReserveDetails'
+    ),
 );
 
 export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
@@ -38,6 +51,18 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: EarnProtocolDetails,
     exact: true,
     rewrite: '/earn/:network/:symbol/:provider',
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.BorrowReserveDetails,
+    component: BorrowReserveDetails,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.BorrowReserveDetailsShare,
+    component: BorrowReserveDetails,
+    exact: true,
+    rewrite: '/borrow/:networkId/:symbol/:provider',
     headerShown: !platformEnv.isNative,
   },
 ];

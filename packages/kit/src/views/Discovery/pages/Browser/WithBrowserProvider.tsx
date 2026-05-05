@@ -1,4 +1,7 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { DiscoveryBrowserProviderMirror } from '../../components/DiscoveryBrowserProviderMirror';
+import { useMemoryPressureHandler } from '../../hooks/useMemoryPressureHandler.desktop';
 import { usePendingDiscoveryUrl } from '../../hooks/usePendingDiscoveryUrl';
 
 /**
@@ -14,6 +17,12 @@ function PendingUrlHandler<T extends object>({
 }): JSX.Element {
   // Handle pending URL to open in Discovery browser
   usePendingDiscoveryUrl();
+
+  // Handle memory pressure events (desktop only)
+  if (platformEnv.isDesktop) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useMemoryPressureHandler();
+  }
 
   return <Component {...props} />;
 }

@@ -1,6 +1,7 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniq, uniqBy } from 'lodash';
+import pLimit from 'p-limit';
 
 import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
 import { getCoreChainApiScopeByImpl } from '@onekeyhq/core/src/instance/coreChainApi';
@@ -25,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/consts/networkConsts';
 import { IMPL_BTC, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -32,7 +34,6 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   IDetectedNetwork,
   IDetectedNetworkGroupItem,
@@ -40,6 +41,10 @@ import type {
 import networkDetectUtils from '@onekeyhq/shared/src/utils/networkDetectUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -117,10 +122,13 @@ class ServiceNetwork extends ServiceBase {
       // TODO save to simpleDB
       const excludeTestNetwork = params?.excludeTestNetwork ?? false;
       const uniqByImpl = params?.uniqByImpl ?? false;
-      const excludeNetworkIds = params?.excludeNetworkIds ?? [];
-      if (params.excludeAllNetworkItem) {
-        excludeNetworkIds.push(getNetworkIdsMap().onekeyall);
-      }
+      // DO NOT mutate params/excludeNetworkIds. This function is memoized and input mutation
+      // will cause cache misses (and potentially wrong cached results).
+      const excludeNetworkIdsFromParams = params?.excludeNetworkIds ?? [];
+      const excludeNetworkIds = [
+        ...excludeNetworkIdsFromParams,
+        ...(params.excludeAllNetworkItem ? [getNetworkIdsMap().onekeyall] : []),
+      ];
       const presetNetworks = getPresetNetworks();
       perf.markEnd('getPresetNetworks');
 
@@ -183,7 +191,8 @@ class ServiceNetwork extends ServiceBase {
 
       perf.markStart('filterNetworks-excludeNetworkIds');
       if (excludeNetworkIds?.length) {
-        networks = networks.filter((n) => !excludeNetworkIds.includes(n.id));
+        const excludeSet = new Set(excludeNetworkIds);
+        networks = networks.filter((n) => !excludeSet.has(n.id));
       }
       perf.markEnd('filterNetworks-excludeNetworkIds');
 
@@ -267,7 +276,7 @@ class ServiceNetwork extends ServiceBase {
   }): Promise<IServerNetwork | undefined> {
     try {
       return await this.getNetwork({ networkId, code });
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -321,8 +330,7 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async getVaultSettings({ networkId }: { networkId: string }) {
-    const settings = await getVaultSettings({ networkId });
-    return settings;
+    return this._getVaultSettingsByNetworkId(networkId);
   }
 
   @backgroundMethod()
@@ -589,12 +597,15 @@ class ServiceNetwork extends ServiceBase {
       useDefaultPinnedNetworks,
     );
     networkIds = networkIds.filter((id) => id !== getNetworkIdsMap().onekeyall);
-    const networkIdsIndex = networkIds.reduce((result, item, index) => {
-      result[item] = index;
-      return result;
-    }, {} as Record<string, number>);
+    const networkIdsIndex = networkIds.reduce(
+      (result, item, index) => {
+        result[item] = index;
+        return result;
+      },
+      {} as Record<string, number>,
+    );
     const resp = await this.getNetworksByIds({ networkIds });
-    const sorted = resp.networks.sort(
+    const sorted = resp.networks.toSorted(
       (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
     );
     return sorted;
@@ -798,20 +809,56 @@ class ServiceNetwork extends ServiceBase {
     return deriveTypes;
   }
 
+  private _getVaultSettingsByNetworkId = memoizee(
+    async (networkId: string) => getVaultSettings({ networkId }),
+    { max: 1024 },
+  );
+
+  private async _getNetworkVaultSettingsByNetworkIds(networkIds: string[]) {
+    const uniqueNetworkIds = uniq(networkIds).filter(
+      (networkId) => !networkUtils.isAllNetwork({ networkId }),
+    );
+    if (uniqueNetworkIds.length === 0) {
+      return [];
+    }
+
+    const { networks } = await this.getAllNetworks();
+    const limit = pLimit(8);
+
+    const uniqueNetworkIdsSet = new Set(uniqueNetworkIds);
+    const includedNetworks = networks.filter((network) =>
+      uniqueNetworkIdsSet.has(network.id),
+    );
+
+    const result = await Promise.all(
+      includedNetworks.map((network) =>
+        limit(async () => ({
+          network,
+          vaultSetting: await this._getVaultSettingsByNetworkId(network.id),
+        })),
+      ),
+    );
+    return result;
+  }
+
   private _getNetworkVaultSettings = memoizee(
     async () => {
       const { networks } = await this.getAllNetworks();
+      const limit = pLimit(8);
       const result = await Promise.all(
-        networks.map(async (network) => {
-          const vault = await vaultFactory.getChainOnlyVault({
-            networkId: network.id,
-          });
-          const vaultSetting = await vault.getVaultSettings();
-          return {
-            network,
-            vaultSetting,
-          };
-        }),
+        networks.map((network) =>
+          limit(async () => {
+            // `vault.getVaultSettings()` ultimately reads from `getVaultSettings({ networkId })`,
+            // so avoid creating/destroying dozens of vault instances just to fetch static settings.
+            const vaultSetting = await this._getVaultSettingsByNetworkId(
+              network.id,
+            );
+            return {
+              network,
+              vaultSetting,
+            };
+          }),
+        ),
       );
       return result;
     },
@@ -996,9 +1043,11 @@ class ServiceNetwork extends ServiceBase {
       };
     }
 
-    const availableNetworkIds: string[] = (
-      await this.getImportedAccountEnabledNetworks()
-    ).map((network) => network.id);
+    const availableNetworkIds = new Set(
+      (await this.getImportedAccountEnabledNetworks()).map(
+        (network) => network.id,
+      ),
+    );
 
     const { groupedByImpl } =
       await networkDetectUtils.detectNetworkByPrivateKey({
@@ -1008,8 +1057,8 @@ class ServiceNetwork extends ServiceBase {
     results = results
       .map((item) => {
         item.networks = item.networks
-          .filter((network) => availableNetworkIds.includes(network.networkId))
-          .sort((a, b) => {
+          .filter((network) => availableNetworkIds.has(network.networkId))
+          .toSorted((a, _b) => {
             if (
               [
                 presetNetworksMap.eth.id,
@@ -1143,13 +1192,9 @@ class ServiceNetwork extends ServiceBase {
     walletId?: string;
     networkIds?: string[];
   }) {
-    let networkVaultSettings = await this._getNetworkVaultSettings();
-    if (networkIds) {
-      const networkIdsSet = new Set<string>(networkIds);
-      networkVaultSettings = networkVaultSettings.filter((o) =>
-        networkIdsSet.has(o.network.id),
-      );
-    }
+    let networkVaultSettings = networkIds?.length
+      ? await this._getNetworkVaultSettingsByNetworkIds(networkIds)
+      : await this._getNetworkVaultSettings();
 
     networkVaultSettings = networkVaultSettings.filter(
       (o) => !networkUtils.isAllNetwork({ networkId: o.network.id }),
@@ -1199,6 +1244,24 @@ class ServiceNetwork extends ServiceBase {
               .map((o) => o.network.id);
             networkIdsIncompatible =
               networkIdsIncompatible.concat(nonBtcNetworks);
+          }
+
+          // Filter by third-party vendor (e.g. Ledger).
+          // OneKey's own devices fall through — `isThirdParty` is false there
+          // and the whitelist doesn't apply to them.
+          const walletVendor = walletDevice.vendor;
+          if (walletVendor && getVendorProfile(walletVendor).isThirdParty) {
+            const networksNotSupportedByVendor = networkVaultSettings
+              .filter(
+                (o) =>
+                  !o.vaultSetting.supportedThirdPartyVendors?.includes(
+                    walletVendor,
+                  ),
+              )
+              .map((o) => o.network.id);
+            networkIdsIncompatible = networkIdsIncompatible.concat(
+              networksNotSupportedByVendor,
+            );
           }
         }
       } else if (isHdWallet) {
@@ -1321,16 +1384,13 @@ class ServiceNetwork extends ServiceBase {
     useDefaultPinnedNetworks?: boolean;
   }> {
     if (clearCache) {
-      await this._getNetworkVaultSettings.clear();
+      void this._getNetworkVaultSettings.clear();
+      void this._getVaultSettingsByNetworkId.clear();
     }
 
-    let networkVaultSettings = await this._getNetworkVaultSettings();
-    if (networkIds) {
-      const networkIdsSet = new Set<string>(networkIds);
-      networkVaultSettings = networkVaultSettings.filter((o) =>
-        networkIdsSet.has(o.network.id),
-      );
-    }
+    let networkVaultSettings = networkIds?.length
+      ? await this._getNetworkVaultSettingsByNetworkIds(networkIds)
+      : await this._getNetworkVaultSettings();
 
     networkVaultSettings = networkVaultSettings.filter(
       (o) => !networkUtils.isAllNetwork({ networkId: o.network.id }),
@@ -1464,6 +1524,7 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async clearNetworkVaultSettingsCache() {
     void this._getNetworkVaultSettings.clear();
+    void this._getVaultSettingsByNetworkId.clear();
   }
 
   @backgroundMethod()
@@ -1490,22 +1551,14 @@ class ServiceNetwork extends ServiceBase {
     if (!data) {
       return;
     }
-
-    // filter out all network
-    const filteredData = Object.fromEntries(
-      Object.entries(data).filter(
-        ([networkId]) => !networkUtils.isAllNetwork({ networkId }),
-      ),
-    );
-
     return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
-      filteredData,
+      data,
     );
   }
 
   @backgroundMethod()
   async updateRecentNetwork({ networkId }: { networkId: string }) {
-    if (!networkId || networkUtils.isAllNetwork({ networkId })) {
+    if (!networkId) {
       return;
     }
     const timestamp = Date.now();
@@ -1526,11 +1579,62 @@ class ServiceNetwork extends ServiceBase {
     });
   }
 
+  // Prime the SWR cache used by UnifiedNetworkSelector's Portfolio tab so
+  // that after the user mutates enabled/disabled networks (via the "完成"
+  // button), the next cold open paints the new state directly from MMKV
+  // instead of flashing the previously cached allNetworksState for a
+  // frame before revalidation lands. Same assumption as recent-networks:
+  // bg shares the UI's MMKV instance.
+  //
+  // We aggregate the same shape that UnifiedNetworkSelector's
+  // `usePromiseResult(... swrKey: swrKeys.unifiedNetworkSelectorMeta)`
+  // returns — allNetworksState + allNetworks + compatibleNetworks.
+  @backgroundMethod()
+  async primeUnifiedNetworkSelectorMetaCache({
+    walletId,
+    accountId,
+  }: {
+    walletId: string;
+    accountId?: string;
+  }) {
+    if (!walletId) return;
+    try {
+      const [allNetworksStateResp, { networks: allNetworks }] =
+        await Promise.all([
+          this.backgroundApi.serviceAllNetwork.getAllNetworksState(),
+          this.getAllNetworks(),
+        ]);
+
+      const compatibleNetworks =
+        await this.getChainSelectorNetworksCompatibleWithAccountId({
+          accountId,
+          walletId,
+          networkIds: allNetworks.map((network) => network.id),
+          excludeTestNetwork: true,
+        });
+
+      swrCacheUtils.set(
+        swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }),
+        {
+          allNetworksState: {
+            enabledNetworks: allNetworksStateResp.enabledNetworks,
+            disabledNetworks: allNetworksStateResp.disabledNetworks,
+          },
+          allNetworks,
+          compatibleNetworks,
+        },
+      );
+    } catch {
+      // Best-effort — fall back to UI-side revalidation on miss.
+    }
+  }
+
   @backgroundMethod()
   async sortChainSelectorNetworksByValue({
     walletId,
     chainSelectorNetworks,
     accountNetworkValues,
+    localDeFiOverview,
   }: {
     walletId: string;
     chainSelectorNetworks: {
@@ -1541,11 +1645,18 @@ class ServiceNetwork extends ServiceBase {
       allNetworkItem?: IServerNetwork;
     };
     accountNetworkValues: Record<string, string>;
+    localDeFiOverview: Record<
+      string,
+      {
+        netWorth: number;
+      }
+    >;
   }) {
-    if (isEmpty(accountNetworkValues)) {
+    if (isEmpty(accountNetworkValues) && isEmpty(localDeFiOverview)) {
       return {
         chainSelectorNetworks,
         formattedAccountNetworkValues: {},
+        accountDeFiOverview: {},
       };
     }
 
@@ -1555,6 +1666,7 @@ class ServiceNetwork extends ServiceBase {
     > = {};
 
     const formattedAccountNetworkValues: Record<string, string> = {};
+    const allAccountValues: Record<string, string> = {};
 
     const deriveTypeRawData =
       await this.backgroundApi.simpleDb.accountSelector.getRawData();
@@ -1570,7 +1682,7 @@ class ServiceNetwork extends ServiceBase {
       ];
 
       const deriveType: IAccountDeriveTypes =
-        (_deriveType as IAccountDeriveTypes) || 'default';
+        accountUtils.normalizeDeriveType(_deriveType) ?? 'default';
 
       if (!networkInfoMap[networkId]) {
         const [globalDeriveType, vaultSettings] = await Promise.all([
@@ -1595,12 +1707,23 @@ class ServiceNetwork extends ServiceBase {
             deriveType.toLowerCase())
       ) {
         if (isNil(formattedAccountNetworkValues[networkId])) {
+          allAccountValues[networkId] = new BigNumber(
+            localDeFiOverview[networkId]?.netWorth ?? 0,
+          )
+            .plus(value)
+            .toFixed();
           formattedAccountNetworkValues[networkId] = value;
         } else {
           formattedAccountNetworkValues[networkId] = new BigNumber(
             formattedAccountNetworkValues[networkId],
           )
             .plus(value)
+            .toFixed();
+          allAccountValues[networkId] = new BigNumber(
+            allAccountValues[networkId],
+          )
+            .plus(value)
+            .plus(localDeFiOverview[networkId]?.netWorth ?? 0)
             .toFixed();
         }
       }
@@ -1609,7 +1732,7 @@ class ServiceNetwork extends ServiceBase {
     // if network in frequentlyUsedItems do not has value or value is less than 1 usd, remove it from frequentlyUsedItems
     let frequentlyUsedItems = chainSelectorNetworks.frequentlyUsedItems.filter(
       (item) => {
-        return new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(
+        return new BigNumber(allAccountValues[item.id] ?? '0').gt(
           NETWORK_SHOW_VALUE_THRESHOLD_USD,
         );
       },
@@ -1618,7 +1741,7 @@ class ServiceNetwork extends ServiceBase {
     // check if any network in mainnetItems has non-zero value, add it to frequentlyUsedItems
     for (const item of chainSelectorNetworks.mainnetItems) {
       if (
-        new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(
+        new BigNumber(allAccountValues[item.id] ?? '0').gt(
           NETWORK_SHOW_VALUE_THRESHOLD_USD,
         )
       ) {
@@ -1630,14 +1753,16 @@ class ServiceNetwork extends ServiceBase {
       return {
         chainSelectorNetworks,
         formattedAccountNetworkValues,
+        accountDeFiOverview: localDeFiOverview,
+        zeroValue: true,
       };
     }
 
     // uniq frequentlyUsedItems and sort by value
-    frequentlyUsedItems = uniqBy(frequentlyUsedItems, 'id').sort((a, b) => {
-      return new BigNumber(
-        formattedAccountNetworkValues[b.id] ?? '0',
-      ).comparedTo(new BigNumber(formattedAccountNetworkValues[a.id] ?? '0'));
+    frequentlyUsedItems = uniqBy(frequentlyUsedItems, 'id').toSorted((a, b) => {
+      return new BigNumber(allAccountValues[b.id] ?? '0').comparedTo(
+        new BigNumber(allAccountValues[a.id] ?? '0'),
+      );
     });
 
     return {
@@ -1646,6 +1771,7 @@ class ServiceNetwork extends ServiceBase {
         frequentlyUsedItems,
       },
       formattedAccountNetworkValues,
+      accountDeFiOverview: localDeFiOverview,
     };
   }
 

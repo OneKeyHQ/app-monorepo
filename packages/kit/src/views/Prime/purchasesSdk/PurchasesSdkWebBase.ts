@@ -91,9 +91,8 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
       };
       // TODO check package user is Matched to onekeyUserId
       // TODO check if user has already purchased
-      const purchase = await Purchases.getSharedInstance().purchase(
-        purchaseParams,
-      );
+      const purchase =
+        await Purchases.getSharedInstance().purchase(purchaseParams);
       // test credit card
       // https://docs.stripe.com/testing#testing-interactively
       // Mastercard: 5555555555554444

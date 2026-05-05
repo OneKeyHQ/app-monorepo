@@ -10,6 +10,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -70,7 +71,11 @@ function AutoRiskControlContent() {
                     id: ETranslations.earn_disclaimer,
                   })}
                 </SizableText>
-                <YStack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                <YStack
+                  animation="quick"
+                  animateOnly={ANIMATE_ONLY_TRANSFORM}
+                  rotate={open ? '180deg' : '0deg'}
+                >
                   <Icon
                     name="ChevronDownSmallOutline"
                     color="$iconSubdued"

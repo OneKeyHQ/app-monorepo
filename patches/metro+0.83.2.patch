@@ -34,3 +34,21 @@ index 0870a4c..606db94 100644
      throw new Error(
        `'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`,
      );
+diff --git a/node_modules/metro/src/Server.js b/node_modules/metro/src/Server.js
+index 6adc6d1..91b940e 100644
+--- a/node_modules/metro/src/Server.js
++++ b/node_modules/metro/src/Server.js
+@@ -887,6 +887,13 @@ class Server {
+       );
+       bundlePerfLogger.point("serializingBundle_end");
+       const bundleCode = typeof bundle === "string" ? bundle : bundle.code;
++      // Release the dependency graph for modulesOnly bundles (e.g. harness
++      // test files) immediately after serialization.  These one-shot bundles
++      // are never requested again, so keeping their graph in memory only
++      // causes linear memory growth until OOM.
++      if (serializerOptions.modulesOnly) {
++        await this._bundler.endGraph(graphId);
++      }
+       return {
+         numModifiedFiles: delta.reset
+           ? delta.added.size + revision.prepend.length

@@ -18,6 +18,8 @@ export interface IBrowserBookmark {
   url: string;
   logo: string | undefined;
   sortIndex: number | undefined;
+  titleMatch?: IFuseResultMatch;
+  urlMatch?: IFuseResultMatch;
 }
 
 export interface IBrowserRiskWhiteList {
@@ -130,3 +132,8 @@ export interface IMobileTabListEventProps {
   onShare: () => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
 }
+
+export {
+  ETranslateEngine,
+  ETranslateDisplayMode,
+} from '@onekeyhq/shared/types/discovery';

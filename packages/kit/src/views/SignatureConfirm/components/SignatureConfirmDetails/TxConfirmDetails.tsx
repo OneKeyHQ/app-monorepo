@@ -45,7 +45,7 @@ function TxConfirmDetails(props: IProps) {
         swapTx.swapInfo.sender.accountInfo.networkId !==
         swapTx.swapInfo.receiver.accountInfo.networkId
       );
-    } catch (e) {
+    } catch (_e) {
       return false;
     }
   }, [unsignedTxs]);

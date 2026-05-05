@@ -16,6 +16,7 @@ export type IRenderPaginationParams = {
   currentIndex: number;
   goToNextIndex: () => void;
   gotToPrevIndex: () => void;
+  goToIndex: (index: number) => void;
 };
 export type ISwiperProps<T> = Omit<
   IListViewProps<T>,

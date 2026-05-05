@@ -375,10 +375,8 @@ export type IV4EncodedTx =
   | IV4EncodedTxFil
   | IV4EncodedTxKaspa
   | IV4EncodedTxLightning
-  | IV4EncodedTxNear
   | IV4EncodedTxNexa
   | IV4EncodedTxNostor
-  | IV4EncodedTxSol
   | IV4EncodedTxSui
   | IV4EncodedTxTron
   | IV4EncodedTxXrp

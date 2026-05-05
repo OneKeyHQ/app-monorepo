@@ -1,7 +1,7 @@
 import type { BrowserWindow } from 'electron';
 
 const checkWindowProgressBar = (window: BrowserWindow | undefined) => {
-  if (!window || window.setProgressBar === undefined) {
+  if (!window || window.isDestroyed() || window.setProgressBar === undefined) {
     return false;
   }
   return true;

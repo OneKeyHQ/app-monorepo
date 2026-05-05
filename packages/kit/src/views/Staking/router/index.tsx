@@ -13,6 +13,10 @@ const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
 );
 
+const ManagePosition = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ManagePosition'),
+);
+
 const ProtocolDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetails'),
 );
@@ -21,8 +25,13 @@ const ProtocolDetailsV2 = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetailsV2'),
 );
 
-const ManagePosition = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/ManagePosition'),
+const BorrowManagePosition = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowManagePosition'),
+);
+
+const BorrowTokenSelectModal = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Borrow/pages/modal/BorrowTokenSelectModal'),
 );
 
 const Withdraw = LazyLoad(
@@ -57,6 +66,22 @@ const HistoryList = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/HistoryList'),
 );
 
+const BorrowHistoryList = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowHistoryList'),
+);
+
+const BorrowReserveDetails = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Borrow/pages/ReserveDetails'),
+);
+
+const EarnTokenSelectModal = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/EarnTokenSelect'),
+);
+
+const EarnAssetSearchModal = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnAssetSearch'),
+);
+
 export const StakingModalRouter: IModalFlowNavigatorConfig<
   EModalStakingRoutes | EModalAssetDetailRoutes,
   IModalStakingParamList & IModalAssetDetailsParamList
@@ -83,6 +108,19 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.ManagePosition,
     component: ManagePosition,
     exact: true,
+  },
+  {
+    name: EModalStakingRoutes.BorrowManagePosition,
+    component: BorrowManagePosition,
+    exact: true,
+  },
+  {
+    name: EModalStakingRoutes.BorrowTokenSelect,
+    component: BorrowTokenSelectModal,
+  },
+  {
+    name: EModalStakingRoutes.BorrowReserveDetails,
+    component: BorrowReserveDetails,
   },
   {
     name: EModalStakingRoutes.Stake,
@@ -119,6 +157,18 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.HistoryList,
     component: HistoryList,
+  },
+  {
+    name: EModalStakingRoutes.BorrowHistoryList,
+    component: BorrowHistoryList,
+  },
+  {
+    name: EModalStakingRoutes.EarnTokenSelect,
+    component: EarnTokenSelectModal,
+  },
+  {
+    name: EModalStakingRoutes.EarnAssetSearch,
+    component: EarnAssetSearchModal,
   },
   ...(ModalAssetDetailsStack as IModalFlowNavigatorConfig<
     EModalStakingRoutes | EModalAssetDetailRoutes,

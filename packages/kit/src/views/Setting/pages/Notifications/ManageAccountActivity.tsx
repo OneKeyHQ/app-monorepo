@@ -25,6 +25,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
@@ -314,7 +318,7 @@ function AccountAccordionItemContainer({
   const toggleAccountSwitch = useCallback(
     (value: boolean, dbAccount: IDBAccount | IDBIndexedAccount) => {
       saveAccountNotificationSettings((prevSettings) => {
-        const newSettings = cloneDeep({ ...(prevSettings ?? {}) });
+        const newSettings = cloneDeep({ ...prevSettings });
         const newValue = value;
 
         if (newValue) {
@@ -449,12 +453,17 @@ function WalletAccordionItem({
           <>
             <XStack
               animation="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY}
               flex={1}
               alignItems="center"
               gap="$3"
               opacity={isWalletEnabled ? 1 : 0.5}
             >
-              <YStack animation="quick" rotate={open ? '180deg' : '0deg'}>
+              <YStack
+                animation="quick"
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
+                rotate={open ? '180deg' : '0deg'}
+              >
                 <Icon
                   name="ChevronBottomOutline"
                   color={open ? '$iconActive' : '$iconSubdued'}
@@ -493,6 +502,7 @@ function WalletAccordionItem({
           // bg="$transparent"
           bg="$bgDefault"
           animation="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{
             opacity: 0,
           }}
@@ -560,7 +570,7 @@ function WalletAccordionItemContainer({
   const toggleWalletSwitch = useCallback(
     (value: boolean) => {
       saveAccountNotificationSettings((prevSettings) => {
-        const newSettings = cloneDeep({ ...(prevSettings ?? {}) });
+        const newSettings = cloneDeep({ ...prevSettings });
         const newValue = value;
 
         if (newValue && newSettings?.[wallet.id]?.accounts) {

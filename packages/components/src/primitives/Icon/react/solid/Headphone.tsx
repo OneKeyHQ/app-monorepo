@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgHeadphone = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M5 12a7 7 0 0 1 14 0v1h-1a3 3 0 0 0-3 3v2a3 3 0 1 0 6 0v-6a9 9 0 0 0-8-8.945V3h-1a9 9 0 0 0-9 9v6a3 3 0 1 0 6 0v-2a3 3 0 0 0-3-3H5z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M13 3v.055A9 9 0 0 1 21 12v9h-6v-8h4v-1a7 7 0 1 0-14 0v1h4v8H3v-9a9 9 0 0 1 9-9z" />
   </Svg>
 );
 export default SvgHeadphone;

@@ -1,9 +1,12 @@
-/* eslint-disable react/destructuring-assignment, react/state-in-constructor */
-// eslint-disable-next-line max-classes-per-file
+/* eslint-disable react/destructuring-assignment, react/state-in-constructor, max-classes-per-file */
 import { PureComponent } from 'react';
 
 import { SafeAreaView, Text } from 'react-native';
 
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 type IErrorBoundaryProps = {
@@ -29,6 +32,10 @@ class ErrorBoundaryBase extends PureComponent<
     // eslint-disable-next-line react/no-unused-state
     this.setState({ error });
     captureException(error);
+    NativeLogger.write(
+      LogLevel.Error,
+      `[ErrorBoundary] ${error?.message || error}\n${errorInfo?.componentStack?.slice(0, 500) || ''}`,
+    );
   }
 
   override render() {

@@ -2,6 +2,7 @@ import type {
   IBip39RevealableSeed,
   IBip39RevealableSeedEncryptHex,
 } from '@onekeyhq/core/src/secret';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -23,6 +24,7 @@ import type {
   IQrWalletAirGapAccountsInfo,
 } from '@onekeyhq/shared/types/account';
 import type {
+  EHardwareVendor,
   IDeviceHomeScreen,
   IHardwareGetPubOrAddressExtraInfo,
   IOneKeyDeviceFeatures,
@@ -64,8 +66,8 @@ export type IDBBaseObjectWithName = IDBBaseObject & {
 };
 export type IDBContext = {
   id: string; // DB_MAIN_CONTEXT_ID
-  nextHD: number;
-  nextWalletNo: number;
+  nextHD: number; // HD wallet counter: used to generate HD wallet ID (hd-{nextHD}) and default wallet name (Wallet {nextHD})
+  nextWalletNo: number; // Global wallet number counter: used for sorting and displaying all wallet types (HD/HW/QR use auto-increment, Imported/Watching/External/Keyless use fixed numbers)
   verifyString: string;
   networkOrderChanged?: boolean;
   backupUUID: string; // deprecated
@@ -133,6 +135,14 @@ export type IDBWalletNextIdKeys =
   | 'accountGlobalNum'
   | 'hiddenWalletNum';
 export type IDBWalletNextIds = Partial<Record<IDBWalletNextIdKeys, number>>;
+export type IKeylessWalletDetailsInfo = {
+  keylessOwnerId: string;
+  // Because there was a bug in the earlier version of the program, if a user logged in with the same email address using both Google and Apple, the Keyless Providers field would become permanently fixed to the first provider used.
+  // This means that for some of our older users, this specific field might be inaccurate, as it never updated during subsequent logins.
+  keylessProvider: EOAuthSocialLoginProvider;
+  avatarProvider?: EOAuthSocialLoginProvider;
+  socialUserIdHash: string;
+};
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
@@ -155,6 +165,9 @@ export type IDBWallet = IDBBaseObjectWithName & {
   dbIndexedAccounts?: IDBIndexedAccount[]; // readonly field
   isTemp?: boolean;
   isMocked?: boolean;
+  isKeyless?: boolean;
+  keylessDetails?: string; // JSON.stringify(keylessDetailsInfo)
+  keylessDetailsInfo?: IKeylessWalletDetailsInfo; // readonly field
   passphraseState?: string;
   walletNo: number;
   walletOrderSaved?: number; // db field
@@ -175,6 +188,11 @@ export type IDBCreateHDWalletParams = {
   walletHash: string;
   walletXfp: string;
   avatar?: IAvatarInfo;
+  isKeylessWallet?: boolean;
+  keylessDetailsInfo?: IKeylessWalletDetailsInfo;
+  skipAddHDNextIndexedAccount?: boolean;
+  overrideWalletId?: string;
+  applyRestoreSyncPolicy?: boolean;
 };
 export type IDBCreateKeylessWalletParams = {
   password: string;
@@ -192,11 +210,16 @@ export type IDBCreateHwWalletParamsBase = {
   defaultIsTemp?: boolean;
   isMockedStandardHwWallet?: boolean;
   isAttachPinMode?: boolean;
+  vendor?: EHardwareVendor;
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
   xfp?: string;
   getFirstEvmAddressFn?: () => Promise<string | null>;
+  /** Returning anything other than `'match'` forces a fresh dbDeviceId. */
+  verifySeedMatchFn?: (
+    matchedDevice: IDBDevice,
+  ) => Promise<'match' | 'mismatch' | 'unknown'>;
   fillingXfpByCallingSdk?: boolean;
   transportType?: EHardwareTransportType; // Transport type used for this connection
 };
@@ -216,6 +239,7 @@ export type IDBSetWalletNameAndAvatarParams = {
   shouldCheckDuplicate?: boolean;
   skipSaveLocalSyncItem?: boolean; // avoid infinite loop sync
   skipEmitEvent?: boolean;
+  applyRestoreSyncPolicy?: boolean;
 };
 export type IDBRemoveWalletParams = {
   walletId: string;
@@ -226,6 +250,7 @@ type IDBSetAccountNameParamsBase = {
   shouldCheckDuplicate?: boolean;
   skipEventEmit?: boolean;
   skipSaveLocalSyncItem?: boolean; // avoid infinite loop sync
+  applyRestoreSyncPolicy?: boolean;
 };
 export type IDBSetAccountNameParams = IDBSetAccountNameParamsBase & {
   accountId?: string;
@@ -291,7 +316,8 @@ export type IDBUtxoAccount = IDBBaseAccount & {
   xpub: string;
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
-  // eslint-disable-next-line spellcheck/spell-checker
+
+  // oxlint-disable-next-line @cspell/spellchecker
   addresses: Record<string, string>; // { "0/0": "xxxx" }
   customAddresses?: Record<string, string>; // for btc dynamic custom address
 };
@@ -354,6 +380,8 @@ export type IDBAddAccountDerivationParams = {
 export type IDBDeviceSettings = {
   inputPinOnSoftware?: boolean;
   inputPinOnSoftwareSupport?: boolean;
+  chainFingerprints?: Record<string, string>;
+  vendor?: EHardwareVendor;
 };
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string; // TODO rename to featuresRaw
@@ -377,6 +405,9 @@ export type IDBDevice = IDBBaseObjectWithName & {
   // New fields for USB/BLE connection support
   usbConnectId?: string; // USB connection ID (serial number)
   bleConnectId?: string; // BLE connection ID (MAC address)
+
+  // Runtime field — populated by refillDeviceInfo() from settings.vendor, not a DB column
+  vendor?: EHardwareVendor;
 };
 export type IDBUpdateDeviceSettingsParams = {
   dbDeviceId: string;
@@ -470,7 +501,8 @@ export enum EIndexedDBBucketNames {
   // credential = 'credential', // credential, context
   // wallet = 'wallet', // wallet, device
   account = 'account_local-db_onekey-bucket', // account
-  backupAccount = `${INDEXED_BUCKET_NAME_BACKUP_PREFIX}account_local-db_onekey-bucket`, // account
+  // NOTE: Using inline string instead of template literal for SWC/Rspack compatibility
+  backupAccount = 'backup-account_local-db_onekey-bucket', // account
   address = 'address_local-db_onekey-bucket', // address to account map
   archive = 'archive_local-db_onekey-bucket', // connected site, signed message, signed transaction
 

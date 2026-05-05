@@ -6,7 +6,10 @@ import {
   ETonSendMode,
   genAddressFromAddress,
 } from '@onekeyhq/core/src/chains/ton/sdkTon';
-import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
+import type {
+  IDecodedTxExtraTon,
+  IEncodedTxTon,
+} from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
@@ -35,6 +38,7 @@ import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
 } from '@onekeyhq/shared/types/fee';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EDecodedTxActionType,
@@ -291,6 +295,16 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraTon | null> {
+    const comment = onChainHistoryTx.sends?.[0]?.comment;
+    if (!comment) return Promise.resolve(null);
+    return Promise.resolve({ memo: comment });
+  }
+
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
@@ -451,7 +465,8 @@ export default class Vault extends VaultBase {
         body: Buffer.from(
           serializeUnsignedTx.signingMessage.toBoc({ idx: false }),
         ).toString('base64'),
-        // eslint-disable-next-line spellcheck/spell-checker
+
+        // oxlint-disable-next-line @cspell/spellchecker
         ignore_chksig: true,
         init_code: serializeUnsignedTx.init_code
           ? Buffer.from(

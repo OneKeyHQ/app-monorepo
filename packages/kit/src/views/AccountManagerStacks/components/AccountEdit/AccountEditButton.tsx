@@ -14,6 +14,7 @@ import type {
   IDBUtxoAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -84,9 +85,9 @@ function AccountEditButtonView({
     () =>
       Boolean(
         account &&
-          !indexedAccount &&
-          account?.id &&
-          accountUtils.isImportedAccount({ accountId: account?.id }),
+        !indexedAccount &&
+        account?.id &&
+        accountUtils.isImportedAccount({ accountId: account?.id }),
       ),
     [account, indexedAccount],
   );
@@ -95,9 +96,9 @@ function AccountEditButtonView({
     () =>
       Boolean(
         account &&
-          !indexedAccount &&
-          account?.id &&
-          accountUtils.isWatchingAccount({ accountId: account?.id }),
+        !indexedAccount &&
+        account?.id &&
+        accountUtils.isWatchingAccount({ accountId: account?.id }),
       ),
     [account, indexedAccount],
   );
@@ -174,6 +175,13 @@ function AccountEditButtonView({
       if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
         showExportPublicKey = false;
       }
+      // Third-party HW (Ledger) — no unified verify-and-confirm public key flow
+      if (
+        wallet?.associatedDeviceInfo?.vendor &&
+        getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty
+      ) {
+        showExportPublicKey = false;
+      }
       return {
         showExportPrivateKey: false,
         showExportPublicKey,
@@ -191,6 +199,7 @@ function AccountEditButtonView({
     isImportedAccount,
     isWatchingAccount,
     wallet?.id,
+    wallet?.associatedDeviceInfo?.vendor,
   ]);
 
   const renderItems = useCallback(

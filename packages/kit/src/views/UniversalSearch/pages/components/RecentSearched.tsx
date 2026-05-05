@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatTokenSymbolForDisplay } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EUniversalSearchType,
   type IIUniversalRecentSearchItem,
@@ -36,18 +37,27 @@ function SearchTextItem({
 
   const text = useMemo(() => {
     const itemText = item.text;
+    let result: string;
     switch (searchType) {
       case EUniversalSearchType.MarketToken:
-        return itemText.toUpperCase();
+      case EUniversalSearchType.V2MarketToken:
+        result = formatTokenSymbolForDisplay(itemText);
+        break;
       case EUniversalSearchType.Address:
-        return accountUtils.shortenAddress({
+        result = accountUtils.shortenAddress({
           address: itemText,
           leadingLength: 6,
           trailingLength: 6,
         });
+        break;
       default:
-        return itemText;
+        result = itemText;
     }
+    // Truncate to 20 characters max
+    if (result.length > 20) {
+      return `${result.slice(0, 17)}...`;
+    }
+    return result;
   }, [item.text, searchType]);
   return (
     <Button
@@ -90,8 +100,10 @@ export function RecentSearched({
     actions.current.clearAllRecentSearch();
   }, [actions]);
 
-  return recentSearch.length &&
-    filterTypes?.includes(EUniversalSearchType.MarketToken) ? (
+  const shouldShowRecentSearch =
+    recentSearch.length > 0 && !!filterTypes?.length;
+
+  return shouldShowRecentSearch ? (
     <YStack px="$5" pb="$5">
       <XStack jc="space-between" pt="$5">
         <SizableText size="$headingSm" color="$textSubdued">

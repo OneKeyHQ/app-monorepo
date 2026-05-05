@@ -14,13 +14,12 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
+import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 // import PrimeLoginEmailDialogV2 from '../../views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2';
-
-import { getSupabaseClient } from './supabase/getSupabaseClient';
 
 const EmailOTPDialog = LazyLoadPage(
   () => import('@onekeyhq/kit/src/components/OneKeyAuth/EmailOTPDialog'),
@@ -33,9 +32,7 @@ const EmailOTPDialog = LazyLoadPage(
 
 const PrimeLoginEmailDialogV2 = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2'
-    ),
+    import('@onekeyhq/kit/src/views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2'),
   0,
   true,
   <Stack>
@@ -47,6 +44,7 @@ export function useOneKeyAuthMethods() {
   const [user] = usePrimePersistAtom();
 
   const {
+    signInWithSocialLogin,
     signOut: supabaseSignOut,
     getAccessToken,
     isReady,
@@ -94,6 +92,7 @@ export function useOneKeyAuthMethods() {
       supabaseSignInWithOtp,
       supabaseVerifyOtp,
       supabaseSignOut,
+      signInWithSocialLogin,
     };
   }, [
     getAccessToken,
@@ -105,6 +104,7 @@ export function useOneKeyAuthMethods() {
     supabaseSignInWithOtp,
     supabaseVerifyOtp,
     supabaseSignOut,
+    signInWithSocialLogin,
   ]);
 }
 
@@ -168,12 +168,6 @@ export function useOneKeyAuth() {
             onClose: onCancelFirstStepFn,
             renderContent: (
               <PrimeLoginEmailDialogV2
-                title={intl.formatMessage({
-                  id: ETranslations.prime_signup_login,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.prime_onekeyid_continue_description,
-                })}
                 onComplete={() => {
                   isClosedByNextStep = true;
                   void loginDialog.close();
@@ -186,7 +180,7 @@ export function useOneKeyAuth() {
         }
       });
     },
-    [intl, logout, toOneKeyIdPage],
+    [logout, toOneKeyIdPage],
   );
 
   const sendEmailOTP = useCallback(

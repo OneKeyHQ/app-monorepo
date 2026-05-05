@@ -11,6 +11,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
@@ -94,6 +95,8 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
   qrAccountEnabled: true,
 
+  supportedThirdPartyVendors: [EHardwareVendor.ledger],
+
   publicKeyExportEnabled: true,
 
   supportExportedSecretKeys: [
@@ -154,6 +157,7 @@ const settings: IVaultSettings = {
   stakingResultPollingInterval: 60,
   createAllDeriveTypeAccountsByDefault: true,
   enabledInternalSignAndVerify: true,
+  nativeBatchTransferEnabled: true,
 };
 
 export default Object.freeze(settings);

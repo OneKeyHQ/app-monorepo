@@ -12,10 +12,12 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAccountSelectorTrigger } from '../../../components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { ReviewControl } from '../../../components/ReviewControl';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
@@ -38,6 +40,10 @@ export function MarketTradeButton({
 
   const { onSwap, onStaking, onBuy, onSell, canStaking } =
     useMarketTradeActions(token);
+  const { showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
   const network = useMarketTradeNetwork(token);
   const networkId = useMarketTradeNetworkId(network, token.symbol);
 
@@ -156,58 +162,66 @@ export function MarketTradeButton({
         <Skeleton width="100%" height={38} />
       ) : (
         <>
-          <XStack gap="$2.5" flex={1}>
-            <Button
-              flex={1}
-              variant="primary"
-              onPress={handleSwap}
-              disabled={actionDisabled}
-            >
-              {intl.formatMessage({ id: ETranslations.global_trade })}
+          {platformEnv.isWeb && actionDisabled ? (
+            <Button flex={1} variant="primary" onPress={showAccountSelector}>
+              {intl.formatMessage({ id: ETranslations.global_connect })}
             </Button>
-            {canStaking ? (
-              <Button
-                flex={1}
-                variant="secondary"
-                onPress={handleStaking}
-                disabled={actionDisabled}
-              >
-                {intl.formatMessage({ id: ETranslations.global_earn })}
-              </Button>
-            ) : null}
-            {show.buy ? (
-              <ReviewControl>
+          ) : (
+            <>
+              <XStack gap="$2.5" flex={1}>
                 <Button
                   flex={1}
-                  variant="secondary"
-                  onPress={handleBuy}
+                  variant="primary"
+                  onPress={handleSwap}
                   disabled={actionDisabled}
                 >
-                  {intl.formatMessage({ id: ETranslations.global_buy })}
+                  {intl.formatMessage({ id: ETranslations.global_trade })}
                 </Button>
-              </ReviewControl>
-            ) : null}
-          </XStack>
-          {show.sell ? (
-            <ReviewControl>
-              <ActionList
-                disabled={actionDisabled}
-                title={token.symbol.toUpperCase() || ''}
-                renderTrigger={
-                  <IconButton
-                    title={intl.formatMessage({
-                      id: ETranslations.global_more,
-                    })}
-                    icon="DotVerSolid"
-                    variant="tertiary"
-                    iconSize="$5"
+                {canStaking ? (
+                  <Button
+                    flex={1}
+                    variant="secondary"
+                    onPress={handleStaking}
                     disabled={actionDisabled}
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_earn })}
+                  </Button>
+                ) : null}
+                {show.buy ? (
+                  <ReviewControl>
+                    <Button
+                      flex={1}
+                      variant="secondary"
+                      onPress={handleBuy}
+                      disabled={actionDisabled}
+                    >
+                      {intl.formatMessage({ id: ETranslations.global_buy })}
+                    </Button>
+                  </ReviewControl>
+                ) : null}
+              </XStack>
+              {show.sell ? (
+                <ReviewControl>
+                  <ActionList
+                    disabled={actionDisabled}
+                    title={token.symbol.toUpperCase() || ''}
+                    renderTrigger={
+                      <IconButton
+                        title={intl.formatMessage({
+                          id: ETranslations.global_more,
+                        })}
+                        icon="DotVerSolid"
+                        variant="tertiary"
+                        iconSize="$5"
+                        disabled={actionDisabled}
+                      />
+                    }
+                    sections={sections}
                   />
-                }
-                sections={sections}
-              />
-            </ReviewControl>
-          ) : null}
+                </ReviewControl>
+              ) : null}
+            </>
+          )}
         </>
       )}
     </XStack>

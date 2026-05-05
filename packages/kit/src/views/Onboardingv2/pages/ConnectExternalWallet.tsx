@@ -1,5 +1,4 @@
 import { useRoute } from '@react-navigation/core';
-import { useIntl } from 'react-intl';
 
 import {
   Heading,
@@ -10,7 +9,6 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -190,8 +188,6 @@ export function ConnectWallet() {
       }),
     [impl],
   );
-  const intl = useIntl();
-
   return (
     <Page>
       <OnboardingLayout>

@@ -4,13 +4,18 @@ import { BigNumber } from 'bignumber.js';
 
 import { Toast } from '@onekeyhq/components';
 import {
+  useActiveTradeInstrumentAtom,
   useHyperliquidActions,
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { useOrderPrice } from './useOrderPrice';
 import { useTradingPrice } from './useTradingPrice';
 
 interface IUseOrderConfirmOptions {
@@ -27,14 +32,17 @@ export function useOrderConfirm(
   options?: IUseOrderConfirmOptions,
 ): IUseOrderConfirmReturn {
   const [formData] = useTradingFormAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
 
+  const longOrderPrice = useOrderPrice('long');
+  const shortOrderPrice = useOrderPrice('short');
+
   const handleConfirm = useCallback(
     async (overrideSide?: 'long' | 'short') => {
-      if (activeAsset?.assetId === undefined) {
+      if (activeTradeInstrument?.assetId === undefined) {
         Toast.error({
           title: 'Order Failed',
           message: 'Token information not available',
@@ -46,10 +54,108 @@ export function useOrderConfirm(
         ? { ...formData, side: overrideSide }
         : { ...formData };
 
-      // Reset form before placing order
+      const side = formDataSnapshot.side;
+
+      if (
+        activeTradeInstrument.mode === 'spot' &&
+        formDataSnapshot.orderMode === 'trigger'
+      ) {
+        Toast.error({
+          title: 'Order Failed',
+          message: 'Trigger orders are not supported in spot mode',
+        });
+        return;
+      }
+
+      // Trigger mode: validate, snapshot, and submit (no TP/SL, no standard price validation)
+      if (formDataSnapshot.orderMode === 'trigger') {
+        const triggerOrderType =
+          formDataSnapshot.triggerOrderType ?? ETriggerOrderType.TRIGGER_MARKET;
+        const tp = formDataSnapshot.triggerPrice?.trim();
+        if (!tp || new BigNumber(tp).lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Trigger price is required',
+          });
+          return;
+        }
+        const isLimitTrigger =
+          triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+        if (isLimitTrigger) {
+          const ep = formDataSnapshot.executionPrice?.trim();
+          if (!ep || new BigNumber(ep).lte(0)) {
+            Toast.error({
+              title: 'Order Failed',
+              message: 'Execution price is required',
+            });
+            return;
+          }
+        }
+        if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Market price unavailable, please try again',
+          });
+          return;
+        }
+        if (new BigNumber(tp).eq(midPriceBN)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Trigger price must differ from current price',
+          });
+          return;
+        }
+        hyperliquidActions.current.resetTradingForm();
+        try {
+          await hyperliquidActions.current.submitOrder({
+            assetId: activeTradeInstrument.assetId,
+            formData: formDataSnapshot,
+            price: '0', // not used for trigger orders
+          });
+          options?.onSuccess?.();
+        } catch (error) {
+          options?.onError?.(error);
+        }
+        return;
+      }
+
+      const orderPrice = side === 'long' ? longOrderPrice : shortOrderPrice;
+
+      if (orderPrice.error) {
+        Toast.error({
+          title: 'Order Failed',
+          message: 'Price data is not available. Please try again.',
+        });
+        return;
+      }
+
+      // Use the price from useOrderPrice
+      let effectivePrice: string;
+      if (formDataSnapshot.type === 'market') {
+        if (!midPrice) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Market price is not available. Please try again.',
+          });
+          return;
+        }
+        effectivePrice = midPrice;
+      } else if (activeTradeInstrument.mode === 'spot') {
+        const szDec = activeTradeInstrument.universe?.baseSzDecimals ?? 0;
+        effectivePrice = formatSpotPriceToValid(
+          orderPrice.price.toFixed(),
+          szDec,
+        );
+      } else {
+        effectivePrice = formatPriceToSignificantDigits(orderPrice.price);
+      }
+
       hyperliquidActions.current.resetTradingForm();
 
-      let effectiveFormData = formDataSnapshot;
+      let effectiveFormData = {
+        ...formDataSnapshot,
+        price: effectivePrice,
+      };
 
       const {
         tpValue,
@@ -67,7 +173,6 @@ export function useOrderConfirm(
 
         let calculatedTpTriggerPx: BigNumber | null = null;
         let calculatedSlTriggerPx: BigNumber | null = null;
-        const side = effectiveFormData.side;
 
         if (tpValue) {
           const _tpValue = new BigNumber(tpValue);
@@ -117,19 +222,14 @@ export function useOrderConfirm(
       }
 
       try {
-        if (effectiveFormData.type === 'market') {
-          await hyperliquidActions.current.orderOpen({
-            assetId: activeAsset.assetId,
-            formData: effectiveFormData,
-            price: midPrice || '0',
-          });
-        } else {
-          await hyperliquidActions.current.orderOpen({
-            assetId: activeAsset.assetId,
-            formData: effectiveFormData,
-            price: effectiveFormData.price || '0',
-          });
-        }
+        await hyperliquidActions.current.submitOrder({
+          assetId: activeTradeInstrument.assetId,
+          formData: effectiveFormData,
+          price:
+            effectiveFormData.type === 'market'
+              ? midPrice || '0'
+              : effectivePrice || '0',
+        });
 
         options?.onSuccess?.();
       } catch (error) {
@@ -139,10 +239,12 @@ export function useOrderConfirm(
     [
       midPrice,
       midPriceBN,
-      activeAsset.assetId,
+      activeTradeInstrument,
       formData,
       hyperliquidActions,
       options,
+      longOrderPrice,
+      shortOrderPrice,
     ],
   );
 

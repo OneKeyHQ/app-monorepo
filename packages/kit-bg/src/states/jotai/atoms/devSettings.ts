@@ -13,6 +13,14 @@ export interface IApiEndpointConfig {
   enabled: boolean;
 }
 
+// Test account for dev login testing
+export interface ITestAccount {
+  id: string;
+  email: string;
+  otp: string;
+  name?: string;
+}
+
 export interface IDevSettings {
   // enable test endpoint
   enableTestEndpoint?: boolean;
@@ -34,10 +42,12 @@ export interface IDevSettings {
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
   allowAddSameHDWallet?: boolean;
-  // allow create keyless wallet on web platform (mock cloud backup info)
-  allowCreateKeylessWalletOnWeb?: boolean;
   // allow delete keyless key (device key and auth key)
   allowDeleteKeylessKey?: boolean;
+  // show Keyless-related debug dialogs/logs in UI (dev only)
+  enableKeylessDebugInfo?: boolean;
+  // enable BotWallet management entry for Keyless wallet
+  enableBotWalletFeature?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
@@ -66,6 +76,20 @@ export interface IDevSettings {
   // Force IP Table strict mode: always use IP even if runtime.selections is empty
   // Fallback to first available IP from config when no selection exists
   forceIpTableStrict?: boolean;
+  // Enable mock market banner data for UI testing
+  enableMockMarketBanner?: boolean;
+  // Test accounts for OneKey ID login testing
+  testAccounts?: ITestAccount[];
+  // Ignore server bundle update info (prevents rollback when dev-switching bundles)
+  ignoreServerBundleUpdate?: boolean;
+  // Allow watching accounts to pass through bulk-send pre-flight validation.
+  // Submission remains blocked; this only lets QA walk through the UI flow
+  // (e.g. BTC 200+ split cases that need high balances) without a signer.
+  allowBulkSendWatchingAccount?: boolean;
+  // Disable custom User-Agent injection (debug only).
+  // When true, buildCustomUA() returns null, all call sites fall back to
+  // the runtime default UA.
+  disableCustomUA?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -91,6 +115,8 @@ export const {
       webviewDebuggingEnabled: false,
       strictSignatureAlert: false,
       enableAnalyticsRequest: false,
+      enableKeylessDebugInfo: false,
+      enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
       showPerformanceMonitor: true,

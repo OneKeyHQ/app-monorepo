@@ -72,6 +72,9 @@ export function useDAppNotifyChangesBase({
       return;
     }
     backgroundApiProxy.connectBridge(jsBridge as unknown as JsBridgeBase);
+    return () => {
+      backgroundApiProxy.connectBridge(null);
+    };
   }, [isFocused, tabId]);
 
   // sent accountChanged notification
@@ -109,7 +112,7 @@ export function useDAppNotifyChangesBase({
         return;
       }
       // @ts-expect-error
-      if (innerRef.__dy) {
+      if (innerRef.__domReady) {
         notifyChanges(url, 'immediately');
       } else {
         const timer = setTimeout(() => {

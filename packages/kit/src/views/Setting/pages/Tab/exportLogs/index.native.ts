@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { prepareLoggerExport } from '@onekeyhq/shared/src/logger/exportSupport';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ELogUploadStage,
@@ -12,8 +13,8 @@ import {
   type ILogUploadResponse,
 } from '@onekeyhq/shared/src/logger/types';
 import utils from '@onekeyhq/shared/src/logger/utils';
-import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -47,6 +48,7 @@ export const exportLogs = async (filename: string) => {
     });
   }
   await waitAsync(1000);
+  await prepareLoggerExport();
   const logFilePath = await utils.getLogFilePath(filename);
   console.log('logFilePath', logFilePath);
   const Share = await getShareModule();
@@ -87,6 +89,7 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(1000);
+  await prepareLoggerExport();
 
   const filePath = await utils.getLogFilePath(baseName);
   if (!filePath) {
@@ -105,7 +108,13 @@ export const collectLogDigest = async (
   }
   const stat = await RNFS.stat(normalizedPath);
   const sizeBytes = Number(stat.size ?? 0);
-  const sha256 = await BundleUpdate.getSha256FromFilePath(normalizedPath);
+  // Keep prior "empty string on failure" semantics for ILogDigest consumers.
+  let sha256 = '';
+  try {
+    sha256 = await RNFS.hash(normalizedPath, 'sha256');
+  } catch {
+    sha256 = '';
+  }
   return {
     sizeBytes,
     sha256,
@@ -161,21 +170,21 @@ export const uploadLogBundle = async ({
   let fileSystemModule: typeof import('expo-file-system/legacy') | undefined;
   try {
     fileSystemModule = await import('expo-file-system/legacy');
-  } catch (error) {
+  } catch (_error) {
     fileSystemModule = undefined;
   }
 
   if (fileSystemModule?.createUploadTask) {
     try {
+      const mainPathHeaders = await withCustomUAHeaders(uploadUrl, {
+        ...headers,
+        'content-type': digest.bundle.mimeType ?? 'application/octet-stream',
+      });
       const uploadTask = fileSystemModule.createUploadTask(
         uploadUrl,
         digest.bundle.filePath,
         {
-          headers: {
-            ...headers,
-            'content-type':
-              digest.bundle.mimeType ?? 'application/octet-stream',
-          },
+          headers: mainPathHeaders,
           httpMethod: 'POST',
           uploadType: fileSystemModule.FileSystemUploadType.BINARY_CONTENT,
         },
@@ -228,10 +237,15 @@ export const uploadLogBundle = async ({
     delete fallbackHeaders['content-type'];
     delete fallbackHeaders['Content-Type'];
 
+    const finalFallbackHeaders = await withCustomUAHeaders(
+      uploadUrl,
+      fallbackHeaders,
+    );
+
     try {
       const response = await fetch(uploadUrl, {
         method: 'POST',
-        headers: fallbackHeaders as any,
+        headers: finalFallbackHeaders as any,
         body: form,
       });
       httpStatus = response.status;
@@ -259,7 +273,7 @@ export const uploadLogBundle = async ({
   let payload: IServerPayload | undefined;
   try {
     payload = JSON.parse(text) as typeof payload;
-  } catch (error) {
+  } catch (_error) {
     payload = {
       code: httpStatus,
       message: text,

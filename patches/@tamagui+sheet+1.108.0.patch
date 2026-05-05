@@ -1,0 +1,123 @@
+diff --git a/node_modules/@tamagui/sheet/dist/cjs/SheetImplementationCustom.native.js b/node_modules/@tamagui/sheet/dist/cjs/SheetImplementationCustom.native.js
+index 6ad6b6b..e64275a 100644
+--- a/node_modules/@tamagui/sheet/dist/cjs/SheetImplementationCustom.native.js
++++ b/node_modules/@tamagui/sheet/dist/cjs/SheetImplementationCustom.native.js
+@@ -141,7 +141,7 @@ var hiddenSize = 10000.1, SheetImplementationCustom = (0, import_core.themeable)
+   function stopSpring() {
+     animatedNumber.stop(), scrollBridge.onFinishAnimate && (scrollBridge.onFinishAnimate(), scrollBridge.onFinishAnimate = void 0);
+   }
+-  var hasntMeasured = at.current === hiddenSize, animateTo = (0, import_core.useEvent)(function(position2) {
++  var hasntMeasured = at.current === hiddenSize, hasInitiallyAnimated = (0, import_react.useRef)(false), animateTo = (0, import_core.useEvent)(function(position2) {
+     if (frameSize !== 0) {
+       var toValue = isHidden || position2 === -1 ? screenSize : positions[position2];
+       if (at.current !== toValue) {
+@@ -152,10 +152,15 @@ var hiddenSize = 10000.1, SheetImplementationCustom = (0, import_core.themeable)
+           }, function() {
+             isHidden || (toValue = positions[position2], at.current = toValue, animatedNumber.setValue(toValue, _object_spread({
+               type: "spring"
+-            }, animationConfig)));
++            }, animationConfig)), hasInitiallyAnimated.current = true);
+           });
+           return;
+         }
++        if (hasFit && hasInitiallyAnimated.current) {
++          animatedNumber.setValue(toValue, { type: "timing", duration: 200 });
++          return;
++        }
++        hasInitiallyAnimated.current = true;
+         animatedNumber.setValue(toValue, _object_spread({
+           type: "spring"
+         }, animationConfig));
+@@ -235,11 +240,18 @@ var hiddenSize = 10000.1, SheetImplementationCustom = (0, import_core.themeable)
+     frameSize,
+     positions,
+     setPosition
+-  ]), handleAnimationViewLayout = (0, import_react.useCallback)(function(e) {
++  ]), fitDebounceRef = (0, import_react.useRef)(null), handleAnimationViewLayout = (0, import_react.useCallback)(function(e) {
+     var _e_nativeEvent, next = Math.min((_e_nativeEvent = e.nativeEvent) === null || _e_nativeEvent === void 0 ? void 0 : _e_nativeEvent.layout.height, import_react_native.Dimensions.get("window").height);
+-    next && setFrameSize(next);
++    if (!next) return;
++    if (hasFit && hasInitiallyAnimated.current) {
++      fitDebounceRef.current && clearTimeout(fitDebounceRef.current);
++      fitDebounceRef.current = setTimeout(function() { setFrameSize(next); }, 32);
++      return;
++    }
++    setFrameSize(next);
+   }, [
+-    keyboardIsVisible
++    keyboardIsVisible,
++    hasFit
+   ]), handleMaxContentViewLayout = (0, import_react.useCallback)(function(e) {
+     var _e_nativeEvent, next = Math.min((_e_nativeEvent = e.nativeEvent) === null || _e_nativeEvent === void 0 ? void 0 : _e_nativeEvent.layout.height, import_react_native.Dimensions.get("window").height);
+     next && setMaxContentSize(next);
+diff --git a/node_modules/@tamagui/sheet/src/SheetImplementationCustom.tsx b/node_modules/@tamagui/sheet/src/SheetImplementationCustom.tsx
+index 29ac50b..a8b2f43 100644
+--- a/node_modules/@tamagui/sheet/src/SheetImplementationCustom.tsx
++++ b/node_modules/@tamagui/sheet/src/SheetImplementationCustom.tsx
+@@ -163,6 +163,7 @@ export const SheetImplementationCustom = themeable(
+     }
+ 
+     const hasntMeasured = at.current === hiddenSize
++    const hasInitiallyAnimated = useRef(false)
+ 
+     const animateTo = useEvent((position: number) => {
+       if (frameSize === 0) return
+@@ -194,11 +195,24 @@ export const SheetImplementationCustom = themeable(
+               type: 'spring',
+               ...animationConfig,
+             })
++            hasInitiallyAnimated.current = true
+           }
+         )
+         return
+       }
+ 
++      // After initial open animation, use timing instead of spring for
++      // fit-mode re-measurements. Spring overshoot causes layout feedback
++      // loops when content changes dynamically.
++      if (hasFit && hasInitiallyAnimated.current) {
++        animatedNumber.setValue(toValue, {
++          type: 'timing',
++          duration: 200,
++        })
++        return
++      }
++
++      hasInitiallyAnimated.current = true
+       animatedNumber.setValue(toValue, {
+         type: 'spring',
+         ...animationConfig,
+@@ -342,6 +356,8 @@ export const SheetImplementationCustom = themeable(
+       })
+     }, [disableDrag, isShowingInnerSheet, animateTo, frameSize, positions, setPosition])
+ 
++    const fitDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
++
+     const handleAnimationViewLayout = useCallback(
+       (e: LayoutChangeEvent) => {
+         // avoid bugs where it grows forever for whatever reason
+@@ -350,9 +366,23 @@ export const SheetImplementationCustom = themeable(
+           Dimensions.get('window').height
+         )
+         if (!next) return
++
++        // In fit mode, debounce layout updates after initial measurement
++        // to let content settle before recalculating sheet position.
++        // This prevents oscillation when content changes dynamically.
++        if (hasFit && hasInitiallyAnimated.current) {
++          if (fitDebounceRef.current) {
++            clearTimeout(fitDebounceRef.current)
++          }
++          fitDebounceRef.current = setTimeout(() => {
++            setFrameSize(next)
++          }, 32)
++          return
++        }
++
+         setFrameSize(next)
+       },
+-      [keyboardIsVisible]
++      [keyboardIsVisible, hasFit]
+     )
+ 
+     const handleMaxContentViewLayout = useCallback(

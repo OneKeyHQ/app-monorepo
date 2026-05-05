@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPencil = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m13.5 6 2.086-2.086a2 2 0 0 1 2.828 0l1.672 1.672a2 2 0 0 1 0 2.828L18 10.5M13.5 6 3.293 16.207a1 1 0 0 0-.293.707V21h4.086a1 1 0 0 0 .707-.293L18 10.5M13.5 6l4.5 4.5"
+      fillRule="evenodd"
+      d="M22.414 7.5 7.914 22H2v-5.914l14.5-14.5zM4 16.914V20h3.086l9.5-9.5L13.5 7.414zM14.914 6 18 9.086 19.586 7.5 16.5 4.414z"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -1,15 +1,20 @@
-const webpack = require('webpack');
 const fs = require('fs');
 const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-const webpackManifestPlugin = require('webpack-manifest-plugin');
-const ProgressBarPlugin = require('progress-bar-webpack-plugin');
-const notifier = require('node-notifier');
 const { exit } = require('process');
-const { createResolveExtensions } = require('./utils');
+
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const notifier = require('node-notifier');
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
+const webpack = require('webpack');
+const webpackManifestPlugin = require('webpack-manifest-plugin');
+
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
+const { createResolveExtensions } = require('./utils');
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
+
+const CANVASKIT_WASM_TEST =
+  /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -45,6 +50,7 @@ const baseResolve = ({ platform, configName, basePath }) => ({
   alias: {
     'react-native$': 'react-native-web',
     'react-native-aes-crypto': false,
+    'react-native-cloud-fs': false,
     'react-native/Libraries/Components/View/ViewStylePropTypes$':
       'react-native-web/dist/exports/View/ViewStylePropTypes',
     'react-native/Libraries/EventEmitter/RCTDeviceEventEmitter$':
@@ -73,14 +79,14 @@ const baseResolve = ({ platform, configName, basePath }) => ({
     ),
   },
   fallback: {
-    'crypto': require.resolve(
-      '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js',
-    ),
+    'crypto':
+      require.resolve('@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js'),
     stream: require.resolve('stream-browserify'),
     path: false,
     https: false,
     http: false,
     net: false,
+    dgram: false,
     zlib: false,
     tls: false,
     child_process: false,
@@ -102,6 +108,15 @@ const basePlugins = [
         ONEKEY_PROXY: JSON.stringify(ONEKEY_PROXY),
         NODE_ENV: JSON.stringify(NODE_ENV),
         TAMAGUI_TARGET: JSON.stringify('web'),
+        PERF_MONITOR_ENABLED: JSON.stringify(
+          process.env.PERF_MONITOR_ENABLED || '',
+        ),
+        PERF_FUNCTION_THRESHOLD_MS: JSON.stringify(
+          process.env.PERF_FUNCTION_THRESHOLD_MS || '',
+        ),
+        PERF_FUNCTION_WARN_MS: JSON.stringify(
+          process.env.PERF_FUNCTION_WARN_MS || '',
+        ),
       },
     },
   }),
@@ -161,10 +176,12 @@ module.exports = ({ platform, basePath, configName }) => {
         ? 'static/media/[name].[ext]'
         : 'static/media/[name].[hash][ext]',
       uniqueName: 'web',
-      filename: isDev ? '[name].bundle.js' : '[name].[chunkhash:10].bundle.js',
+      filename: isDev
+        ? '[name].bundle.js'
+        : '[name].[contenthash:10].bundle.js',
       chunkFilename: isDev
         ? 'static/js/[name].chunk.js'
-        : 'static/js/[name].[chunkhash:10].chunk.js',
+        : 'static/js/[name].[contenthash:10].chunk.js',
     },
     plugins: [
       new HtmlWebpackPlugin({
@@ -207,16 +224,18 @@ module.exports = ({ platform, basePath, configName }) => {
       new webpackManifestPlugin.WebpackManifestPlugin({
         fileName: 'asset-manifest.json',
         publicPath: './',
-        filter: ({ path }) => {
+        filter: ({ path: assetPath }) => {
           if (
-            path.match(
+            assetPath.match(
               /(apple-touch-startup-image|apple-touch-icon|chrome-icon|precache-manifest)/,
             )
           ) {
             return false;
           }
           // Remove compressed versions and service workers
-          return !(path.endsWith('.gz') || path.endsWith('worker.js'));
+          return !(
+            assetPath.endsWith('.gz') || assetPath.endsWith('worker.js')
+          );
         },
         generate: (seed, files, entrypoints) => {
           const manifestFiles = files.reduce((manifest, file) => {
@@ -248,8 +267,21 @@ module.exports = ({ platform, basePath, configName }) => {
         },
         {
           'oneOf': [
+            // cspell:ignore emscripten Skia skia's
+            // Canvaskit ships a prebuilt wasm loaded at runtime by emscripten;
+            // emit it as a URL asset so react-native-skia's LoadSkiaWeb can
+            // fetch it via locateFile (see OrbShader.tsx). Must come before
+            // the generic .wasm rule and must be excluded there — otherwise
+            // both rules match and webpack tries to parse the wasm as a
+            // module. Mirrors the same rule in rspack.base.config.ts.
+            {
+              test: CANVASKIT_WASM_TEST,
+              type: 'asset/resource',
+              generator: { filename: 'static/canvaskit/[name][ext]' },
+            },
             {
               test: /\.wasm$/,
+              exclude: CANVASKIT_WASM_TEST,
               type: 'webassembly/async',
             },
             {
@@ -291,7 +323,7 @@ module.exports = ({ platform, basePath, configName }) => {
             },
             {
               test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
-              exclude: [/react-native-logs/],
+
               use: useBabelLoader,
               resolve: { fullySpecified: false },
             },
@@ -312,7 +344,7 @@ module.exports = ({ platform, basePath, configName }) => {
                 // @react-aria packages
                 /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
               ],
-              exclude: [/react-native-logs/],
+
               use: useBabelLoader,
               resolve: { fullySpecified: false },
             },

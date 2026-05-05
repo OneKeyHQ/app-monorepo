@@ -1,19 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBrowser = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 11h18M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2"
+      fillRule="evenodd"
+      d="M6 7a1 1 0 1 1 0 2 1 1 0 0 1 0-2m0 .5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1M9 7a1 1 0 1 1 0 2 1 1 0 0 1 0-2m0 .5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1m3-.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2m0 .5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1"
+      clipRule="evenodd"
     />
     <Path
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth={0.5}
-      d="M6 8.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm3 0a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm3 0a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h16v-6H4zm0-8h16V6H4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

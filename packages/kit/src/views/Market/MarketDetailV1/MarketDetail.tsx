@@ -13,7 +13,7 @@ import {
   XStack,
   YStack,
   useDeferredPromise,
-  useIsModalPage,
+  useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -25,12 +25,12 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { Currency } from '../../../components/Currency';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { MarketDetailOverview } from '../components/MarketDetailOverview';
 import { MarketTokenIcon } from '../components/MarketTokenIcon';
-import { MarketTokenPrice } from '../components/MarketTokenPrice';
 import { MarketTradeButton } from '../components/MarketTradeButton';
 import { PriceChangePercentage } from '../components/PriceChangePercentage';
 import { TokenDetailTabs } from '../components/TokenDetailTabs';
@@ -55,7 +55,7 @@ function TokenDetailHeader({
 }) {
   const { gtMd: gtMdMedia } = useMedia();
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
 
   const {
     activeAccount: { account },
@@ -75,8 +75,7 @@ function TokenDetailHeader({
   );
   const {
     name,
-    symbol,
-    stats: { performance, currentPrice, lastUpdated },
+    stats: { performance, currentPrice },
   } = token;
   return (
     <YStack
@@ -89,13 +88,7 @@ function TokenDetailHeader({
           {name}
         </SizableText>
         <XStack ai="center" jc="space-between" pt="$2">
-          <MarketTokenPrice
-            size="$heading3xl"
-            price={currentPrice}
-            tokenName={name}
-            tokenSymbol={symbol}
-            lastUpdated={lastUpdated}
-          />
+          <Currency size="$heading3xl">{currentPrice}</Currency>
         </XStack>
         <PriceChangePercentage pt="$0.5" width="100%">
           {performance.priceChangePercentage24h}
@@ -143,7 +136,7 @@ function MarketDetail({
   const { token: coinGeckoId } = route.params;
   const { gtMd: gtMdMedia } = useMedia();
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
 
   const gtMd = isModalPage ? false : gtMdMedia;
 

@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
 import { Section } from '@onekeyhq/kit/src/components/Section';
+import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -185,6 +186,9 @@ function SourceCodeLink({
 
 function SecurityContent() {
   const intl = useIntl();
+  const [config] = usePrimeCloudSyncPersistAtom();
+  const isKeylessMode =
+    !!config.isCloudSyncEnabledKeyless && !config.isCloudSyncEnabled;
 
   const defaultItemProps = {
     icon: 'CheckRadioSolid' as IIconProps['name'],
@@ -198,9 +202,13 @@ function SecurityContent() {
       }),
     },
     {
-      title: intl.formatMessage({
-        id: ETranslations.prime_cloud_sync_security_feature_two,
-      }),
+      title: isKeylessMode
+        ? intl.formatMessage({
+            id: ETranslations.keyless_security_key_derivation__title,
+          })
+        : intl.formatMessage({
+            id: ETranslations.prime_cloud_sync_security_feature_two,
+          }),
     },
     {
       title: intl.formatMessage({
@@ -208,9 +216,13 @@ function SecurityContent() {
       }),
     },
     {
-      title: intl.formatMessage({
-        id: ETranslations.prime_cloud_sync_security_feature_four,
-      }),
+      title: isKeylessMode
+        ? intl.formatMessage({
+            id: ETranslations.keyless_security_wallet_based_key__title,
+          })
+        : intl.formatMessage({
+            id: ETranslations.prime_cloud_sync_security_feature_four,
+          }),
     },
     {
       title: intl.formatMessage({
@@ -230,16 +242,20 @@ function SecurityContent() {
 
         <SizableText color="$textSubdued">
           {intl.formatMessage({
-            id: ETranslations.prime_end_to_end_encryption_protection_description,
+            id: isKeylessMode
+              ? ETranslations.keyless_e2e_encryption__desc
+              : ETranslations.prime_end_to_end_encryption_protection_description,
           })}
         </SizableText>
       </YStack>
 
       <Alert
-        type="warning"
+        type={isKeylessMode ? 'info' : 'warning'}
         icon="MessageExclamationOutline"
         description={intl.formatMessage({
-          id: ETranslations.prime_password_as_key_warning,
+          id: isKeylessMode
+            ? ETranslations.keyless_wallet_is_encryption_key__msg
+            : ETranslations.prime_password_as_key_warning,
         })}
       />
 

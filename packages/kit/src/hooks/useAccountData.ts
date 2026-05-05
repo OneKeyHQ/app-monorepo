@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -45,6 +47,19 @@ export function useAccountData<T extends IUseAccountDataResult>({
     noop(info);
   }
 
+  const fallbackResult = useMemo<IUseAccountDataResult>(
+    () => ({
+      account: undefined,
+      network: undefined,
+      wallet: undefined,
+      vaultSettings: undefined,
+      deriveType: undefined,
+      deriveInfo: undefined,
+      addressType: undefined,
+    }),
+    [],
+  );
+
   const { result, isLoading, run } = usePromiseResult<IUseAccountDataResult>(
     async () => {
       let deriveType: IAccountDeriveTypes | undefined;
@@ -90,7 +105,7 @@ export function useAccountData<T extends IUseAccountDataResult>({
           ]);
           addressType = addressTypeResp.typeKey
             ? intl.formatMessage({ id: addressTypeResp.typeKey })
-            : addressTypeResp.type ?? '';
+            : (addressTypeResp.type ?? '');
 
           deriveType = deriveResp.deriveType;
           deriveInfo = deriveResp.deriveInfo;
@@ -114,7 +129,7 @@ export function useAccountData<T extends IUseAccountDataResult>({
 
           addressType = addressTypeResp.typeKey
             ? intl.formatMessage({ id: addressTypeResp.typeKey })
-            : addressTypeResp.type ?? '';
+            : (addressTypeResp.type ?? '');
 
           deriveType = deriveTypeResp;
           deriveInfo = deriveInfoResp?.item;
@@ -134,18 +149,12 @@ export function useAccountData<T extends IUseAccountDataResult>({
     },
     [accountId, intl, networkId, serviceAccount, serviceNetwork, walletId],
     {
-      initResult: {
-        account: undefined,
-        network: undefined,
-        wallet: undefined,
-        vaultSettings: undefined,
-        deriveType: undefined,
-        deriveInfo: undefined,
-        addressType: undefined,
-      },
+      initResult: fallbackResult,
       ...options,
     },
   );
+
+  const resolvedResult = result ?? fallbackResult;
 
   const {
     account,
@@ -155,7 +164,7 @@ export function useAccountData<T extends IUseAccountDataResult>({
     deriveType,
     deriveInfo,
     addressType,
-  } = result;
+  } = resolvedResult;
   return {
     account,
     wallet,

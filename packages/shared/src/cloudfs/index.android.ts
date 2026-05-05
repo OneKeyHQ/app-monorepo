@@ -18,15 +18,20 @@ export async function isAvailable(): Promise<boolean> {
 export async function loginIfNeeded(
   showSignInDialog: boolean,
 ): Promise<boolean> {
-  const signedIn = await GoogleSignin.isSignedIn();
-  if (signedIn) {
+  const hasPreviousSignIn = GoogleSignin.hasPreviousSignIn();
+  if (hasPreviousSignIn) {
     try {
-      return await RNCloudFs.loginIfNeeded();
-    } catch (error) {
-      // debugLogger.cloudBackup.error(error);
+      GoogleSignin.configure(GoogleSignInConfigure);
+      const response = await GoogleSignin.signInSilently();
+      if (response.type === 'success') {
+        return await RNCloudFs.loginIfNeeded();
+      }
+    } catch (_error) {
+      // debugLogger.cloudBackup.error(_error);
       return Promise.resolve(false);
     }
-  } else if (showSignInDialog) {
+  }
+  if (showSignInDialog) {
     GoogleSignin.configure(GoogleSignInConfigure);
     await GoogleSignin.signIn();
     return RNCloudFs.loginIfNeeded();

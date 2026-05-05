@@ -1,5 +1,6 @@
 require('./env');
 const path = require('path');
+
 const developmentConsts = require('./developmentConsts');
 const envExposedToClient = require('./envExposedToClient');
 
@@ -81,6 +82,8 @@ function normalizeConfig({ platform, config }) {
     isNative,
     isExtChrome,
     isExtFirefox,
+    enablePerfMonitor,
+    enableNativeBackgroundThread,
   } = require('../packages/shared/src/buildTimeEnv');
 
   config.plugins = [
@@ -99,7 +102,9 @@ function normalizeConfig({ platform, config }) {
         ],
       },
     ],
-    [
+    // Skip transform-define in harness mode so platformEnv properties remain
+    // as runtime accesses (allowing tests to mock platform values).
+    process.env.RN_HARNESS !== 'true' && [
       'transform-define',
       {
         // override runtime env with buildtime env
@@ -115,6 +120,8 @@ function normalizeConfig({ platform, config }) {
         'platformEnv.isNative': isNative,
         'platformEnv.isExtChrome': isExtChrome,
         'platformEnv.isExtFirefox': isExtFirefox,
+        'platformEnv.enableNativeBackgroundThread':
+          enableNativeBackgroundThread,
       },
     ],
     /*
@@ -141,6 +148,7 @@ function normalizeConfig({ platform, config }) {
         'extensions': ['.text-js'],
       },
     ],
+    enablePerfMonitor && [fullPath('./babel-plugins/rn-heartbeat')],
     /* FIX:
        TypeError: undefined is not an object. (evaluating 'this._callListeners.bind')
        And Don't remove any plugin here, it will cause other error.

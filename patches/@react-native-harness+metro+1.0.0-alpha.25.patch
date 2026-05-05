@@ -1,0 +1,18 @@
+diff --git a/node_modules/@react-native-harness/metro/dist/resolvers/resolver.js b/node_modules/@react-native-harness/metro/dist/resolvers/resolver.js
+index a12f80a..9616583 100644
+--- a/node_modules/@react-native-harness/metro/dist/resolvers/resolver.js
++++ b/node_modules/@react-native-harness/metro/dist/resolvers/resolver.js
+@@ -21,7 +21,12 @@ const createHarnessEntryPointResolver = (harnessConfig) => {
+                 filePath: require.resolve('@react-native-harness/runtime/entry-point'),
+             };
+         }
+-        if (typeof moduleName === 'string') {
++        // Only resolve non-relative module names to avoid intercepting
++        // require('./') or require('../foo') from unrelated packages.
++        // Relative paths like './' resolve differently depending on the
++        // importing module's location, but require.resolve uses process.cwd()
++        // which can accidentally match the entry point.
++        if (typeof moduleName === 'string' && !moduleName.startsWith('.')) {
+             try {
+                 const resolvedModuleName = require.resolve(moduleName, {
+                     paths: [process.cwd()],

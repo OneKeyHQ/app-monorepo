@@ -13,9 +13,7 @@ const BulkRevoke = LazyLoadPage(() => import('../pages/BulkRevoke'));
 
 const TxConfirm = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirm'
-    ),
+    import('@onekeyhq/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirm'),
 );
 
 export const ModalApprovalManagementStack: IModalFlowNavigatorConfig<

@@ -41,6 +41,16 @@ export const cleanupHardwareSDKInstance = async (): Promise<void> => {
         HardwareSDK.dispose();
       }
 
+      if (HardwareLowLevelSDK) {
+        if (typeof HardwareLowLevelSDK.removeAllListeners === 'function') {
+          // @ts-expect-error
+          HardwareLowLevelSDK.removeAllListeners();
+        }
+        if (typeof HardwareLowLevelSDK.dispose === 'function') {
+          HardwareLowLevelSDK.dispose();
+        }
+      }
+
       // Clear SDK references
       HardwareSDK = undefined as any;
       HardwareLowLevelSDK = undefined as any;
@@ -91,7 +101,10 @@ const createHardwareSDKInstance = async (params: {
     if (!platformEnv.isNative) {
       let connectSrc = generateConnectSrc();
       if (platformEnv.isDesktop) {
-        const { sdkConnectSrc } = globalThis.ONEKEY_DESKTOP_GLOBALS ?? {};
+        const desktopGlobals =
+          globalThis.ONEKEY_DESKTOP_GLOBALS_GETTER?.() ??
+          globalThis.ONEKEY_DESKTOP_GLOBALS;
+        const { sdkConnectSrc } = desktopGlobals ?? {};
         if (sdkConnectSrc) {
           connectSrc = sdkConnectSrc;
         }

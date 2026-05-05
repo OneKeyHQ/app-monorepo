@@ -56,6 +56,11 @@ export const useHandleClaim = ({
       if (!accountId) return;
       const provider = protocolInfo?.provider || '';
       const vault = protocolInfo?.vault || '';
+      const claimTokenAddressForRequest = earnUtils.isMorphoProvider({
+        providerName: provider,
+      })
+        ? claimTokenAddress
+        : undefined;
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,
@@ -71,7 +76,7 @@ export const useHandleClaim = ({
           symbol,
           provider,
           stakingInfo,
-          claimTokenAddress,
+          claimTokenAddress: claimTokenAddressForRequest,
           portfolioSymbol:
             portfolioSymbol || tokenInfo?.token?.symbol || undefined,
           portfolioRewardSymbol,
@@ -121,7 +126,7 @@ export const useHandleClaim = ({
           amount: claimAmount,
           symbol,
           provider,
-          claimTokenAddress,
+          claimTokenAddress: claimTokenAddressForRequest,
           stakingInfo,
           protocolVault: vault,
           vault,
@@ -151,7 +156,7 @@ export const useHandleClaim = ({
         amount: claimAmount,
         symbol,
         provider,
-        claimTokenAddress,
+        claimTokenAddress: claimTokenAddressForRequest,
         stakingInfo,
         protocolVault: vault,
         vault,

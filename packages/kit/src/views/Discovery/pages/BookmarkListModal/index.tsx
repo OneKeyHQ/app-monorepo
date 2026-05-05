@@ -181,7 +181,6 @@ function BookmarkListModal() {
           sortIndex: undefined,
         },
         enterMethod: EEnterMethod.bookmark,
-        shouldPopNavigation: true,
       });
     },
     [handleWebSite],
@@ -221,7 +220,7 @@ function BookmarkListModal() {
         <SortableListView
           data={dataSource}
           enabled={isEditing}
-          keyExtractor={(item) => `${item.url}`}
+          keyExtractor={(item) => item.url}
           getItemLayout={(_, index) => ({
             length: CELL_HEIGHT,
             offset: index * CELL_HEIGHT,

@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgGarage = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M7 19v-4m10 4v-4M7 15h10M7 15v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M3.992 8.421l7-4.083a2 2 0 0 1 2.016 0l7 4.083A2 2 0 0 1 21 10.15V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6.851a2 2 0 0 1 .992-1.728Z"
+      fillRule="evenodd"
+      d="m21.485 8.126.515.285V20H2V8.411l.515-.285L12 2.856zM4 9.588V18h2v-8h12v8h2V9.588l-8-4.444zM8 16v2h8v-2zm0-2h8v-2H8z"
+      clipRule="evenodd"
     />
   </Svg>
 );

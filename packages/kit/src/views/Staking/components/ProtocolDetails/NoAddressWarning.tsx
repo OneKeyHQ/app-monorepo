@@ -62,7 +62,7 @@ export function NoAddressWarning({
         networkId,
       });
       accountName = account.name;
-    } catch (e) {
+    } catch (_e) {
       if (indexedAccountId) {
         const indexedAccount = await serviceAccount.getIndexedAccount({
           id: indexedAccountId,

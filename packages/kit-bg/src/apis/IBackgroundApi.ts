@@ -1,9 +1,6 @@
 // import type only here to avoid cycle-deps error
 
-import type {
-  EAppEventBusNames,
-  IAppEventBusPayload,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import type { LocalDbBase } from '../dbs/local/LocalDbBase';
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
@@ -45,10 +42,12 @@ import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
+import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
 import type ServiceIpTable from '../services/ServiceIpTable';
+import type ServiceKeylessCloudSync from '../services/ServiceKeylessCloudSync';
 import type ServiceKeylessWallet from '../services/ServiceKeylessWallet/ServiceKeylessWallet';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
@@ -66,12 +65,14 @@ import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServiceOneKeyID from '../services/ServiceOneKeyID';
 import type ServicePassword from '../services/ServicePassword';
+import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
+import type ServiceRookieGuide from '../services/ServiceRookieGuide';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
@@ -122,16 +123,17 @@ export interface IBackgroundApiBridge {
   getAtomStates: () => Promise<{ states: Record<EAtomNames, any> }>;
 
   // **** eventBus
-  emitEvent<T extends EAppEventBusNames>(
+  emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
+    originNodeId?: string,
   ): Promise<boolean>;
 
   // **** webview bridge
   bridge: JsBridgeBase | null;
   bridgeExtBg: JsBridgeExtBackground | null;
-  connectBridge(bridge: JsBridgeBase): void;
-  connectWebEmbedBridge(bridge: JsBridgeBase): void;
+  connectBridge(bridge: JsBridgeBase | null): void;
+  connectWebEmbedBridge(bridge: JsBridgeBase | null): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
   // **** dapp provider api
@@ -182,6 +184,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceNotification: ServiceNotification;
   servicePrime: ServicePrime;
   servicePrimeCloudSync: ServicePrimeCloudSync;
+  serviceKeylessCloudSync: ServiceKeylessCloudSync;
   serviceQrWallet: ServiceQrWallet;
   serviceAccountProfile: ServiceAccountProfile;
   serviceFreshAddress: ServiceFreshAddress;
@@ -196,6 +199,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
   serviceAppUpdate: ServiceAppUpdate;
+  servicePendingInstallTask: ServicePendingInstallTask;
   serviceSpotlight: ServiceSpotlight;
   serviceMarket: ServiceMarket;
   serviceMarketV2: ServiceMarketV2;
@@ -223,6 +227,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   servicePrimeTransfer: ServicePrimeTransfer;
   serviceHyperliquid: ServiceHyperliquid;
   serviceHyperliquidExchange: ServiceHyperliquidExchange;
+  serviceHyperliquidReferral: ServiceHyperliquidReferral;
   serviceHyperliquidWallet: ServiceHyperliquidWallet;
   serviceHyperliquidSubscription: ServiceHyperliquidSubscription;
 
@@ -231,4 +236,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceIpTable: ServiceIpTable;
   serviceNetworkDoctor: ServiceNetworkDoctor;
   serviceOneKeyID: ServiceOneKeyID;
+  serviceRookieGuide: ServiceRookieGuide;
 }

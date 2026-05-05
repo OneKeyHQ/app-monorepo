@@ -1,6 +1,9 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EMPTY_NATIVE_TOKEN_ADDRESS,
+  SolanaUSDC,
+} from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_SOL,
   IMPL_SOL,
@@ -8,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
@@ -50,6 +54,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
   qrAccountEnabled: true,
+
+  supportedThirdPartyVendors: [EHardwareVendor.ledger],
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
@@ -111,6 +117,17 @@ const settings: IVaultSettings = {
             },
           },
         },
+        [EEarnProviderEnum.Kamino]: {
+          supportedSymbols: ['USDC'],
+          configs: {
+            'USDC': {
+              enabled: true,
+              tokenAddress: SolanaUSDC,
+              displayProfit: true,
+              claimWithTx: true,
+            },
+          },
+        },
       },
     },
   },
@@ -118,6 +135,7 @@ const settings: IVaultSettings = {
   maxRetryBroadcastTxCount: 5,
   minRetryBroadcastTxInterval: timerUtils.getTimeDurationMs({ seconds: 1 }),
   enabledInternalSignAndVerify: true,
+  nativeBatchTransferEnabled: true,
 };
 
 export default Object.freeze(settings);

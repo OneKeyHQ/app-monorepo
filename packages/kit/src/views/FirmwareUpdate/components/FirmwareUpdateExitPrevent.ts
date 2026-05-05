@@ -28,6 +28,12 @@ export function FirmwareUpdateExitPrevent({
   const message = intl.formatMessage({
     id: ETranslations.update_quit_update_desc,
   });
+  const continueUpdateText = intl.formatMessage({
+    id: ETranslations.update_continue_update,
+  });
+  const cancelUpdateText = intl.formatMessage({
+    id: ETranslations.update_cancel_update,
+  });
 
   const onConfirmCallback = useCallback(() => {
     void backgroundApiProxy.serviceHardware.cancel({});
@@ -42,6 +48,8 @@ export function FirmwareUpdateExitPrevent({
     title,
     message,
     onConfirm: onConfirmCallback,
+    onConfirmText: cancelUpdateText,
+    onCancelText: continueUpdateText,
   });
 
   // Prevent App exit

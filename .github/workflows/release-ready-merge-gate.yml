@@ -1,0 +1,43 @@
+name: release-ready-merge-gate
+
+on:
+  pull_request:
+    branches:
+      - 'release/*'
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
+      - edited
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  release-ready-merge-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate release-ready label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const baseRef = pr?.base?.ref ?? '';
+            const labels = Array.isArray(pr?.labels) ? pr.labels : [];
+
+            if (!baseRef.startsWith('release/')) {
+              core.info(`Skipping merge gate because base ref '${baseRef}' does not target a release branch.`);
+              return;
+            }
+
+            const hasReleaseReadyLabel = labels.some((label) => label?.name === 'release-ready');
+
+            if (hasReleaseReadyLabel) {
+              core.info('Skipping merge gate because the release-ready label is present.');
+              return;
+            }
+
+            core.setFailed('PRs targeting release/* must have the release-ready label before merge.');

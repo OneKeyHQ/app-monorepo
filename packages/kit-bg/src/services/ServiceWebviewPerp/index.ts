@@ -6,6 +6,8 @@ export type {
   IHyperliquidLedgerUpdate,
   IHyperliquidVaultEquity,
   IHyperliquidMaxBuilderFee,
+  IHyperliquidUserFeesResponse,
   IHyperliquidApproveBuilderFeeRequest,
   IHyperliquidExchangeResponse,
+  IPerpDynamicTab,
 } from './ServiceWebviewPerp';

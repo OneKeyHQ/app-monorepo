@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+.card {
+  @apply bg-dark-panel border border-dark-border rounded-lg p-4 shadow-md;
+}
+
+.timeline-track {
+  position: relative;
+  min-height: 120px;
+  min-width: 900px;
+}
+
+.timeline-bar {
+  position: absolute;
+  height: 18px;
+  border-radius: 6px;
+  opacity: 0.9;
+}
+
+.timeline-bar:hover {
+  opacity: 1;
+  outline: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.flame-bar {
+  position: absolute;
+  height: 18px;
+  border-radius: 4px;
+  opacity: 0.92;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.flame-bar .label {
+  display: block;
+  font-size: 11px;
+  padding-left: 4px;
+  padding-right: 4px;
+  line-height: 18px;
+  color: #0f1024;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.flame-bar:hover {
+  opacity: 1;
+  outline: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.sparkline {
+  min-height: 120px;
+}
+
+.grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}

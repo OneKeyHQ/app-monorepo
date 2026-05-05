@@ -59,6 +59,8 @@ const SwapProTokenSelector = ({
         size="$headingLg"
         color="$text"
         numberOfLines={1}
+        ellipsizeMode="tail"
+        maxWidth="$40"
         flexShrink={1}
       >
         {swapProTokenSelect?.symbol}

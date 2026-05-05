@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IFill,
   IHex,
@@ -13,12 +14,17 @@ import type {
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
+import {
+  EHyperLiquidAbstractionMode,
+  EPerpUserType,
+  ETriggerOrderType,
+} from '@onekeyhq/shared/types/hyperliquid';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
+import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 // #region Active Account
@@ -71,6 +77,107 @@ export const {
   initialValue: undefined,
 });
 
+// #region Abstraction Mode
+export const {
+  target: perpsAbstractionModeAtom,
+  use: usePerpsAbstractionModeAtom,
+} = globalAtom<
+  | {
+      accountAddress: IHex | undefined;
+      mode: EHyperLiquidAbstractionMode | undefined;
+    }
+  | undefined
+>({
+  name: EAtomNames.perpsAbstractionModeAtom,
+  initialValue: undefined,
+});
+// #endregion
+
+// #region Spot Balances
+export interface ISpotBalanceItem {
+  coin: string;
+  token: number;
+  total: string;
+  hold: string;
+  entryNtl: string;
+}
+export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
+  globalAtom<
+    | {
+        accountAddress: IHex | undefined;
+        balances: ISpotBalanceItem[];
+        spotTotalUsd: string | undefined;
+      }
+    | undefined
+  >({
+    name: EAtomNames.perpsSpotBalancesAtom,
+    initialValue: undefined,
+  });
+// #endregion
+
+export const {
+  target: perpsComputedAccountValueAtom,
+  use: usePerpsComputedAccountValueAtom,
+} = globalAtomComputedR<{
+  accountValue: string | undefined;
+  withdrawable: string | undefined;
+  isLoading: boolean;
+}>({
+  read: (get) => {
+    const modeData = get(perpsAbstractionModeAtom.atom());
+    const summary = get(perpsActiveAccountSummaryAtom.atom());
+    const spotData = get(perpsSpotBalancesAtom.atom());
+
+    const mode = modeData?.mode;
+
+    // Mode unknown or DEFAULT → use existing clearinghouse value as fallback, mark loading
+    // DEFAULT is treated like disabled (spot+perps) until auto-correction sets it to unified
+    if (!mode || mode === EHyperLiquidAbstractionMode.DEFAULT) {
+      return {
+        accountValue: summary?.accountValue,
+        withdrawable: summary?.withdrawable,
+        isLoading: true,
+      };
+    }
+
+    const isUnified =
+      mode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+      mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+
+    if (isUnified) {
+      // Unified/portfolio: all values from spotState
+      // Per HL docs: "Individual perp dex user states are not meaningful"
+      if (!spotData?.spotTotalUsd) {
+        // Spot data not yet loaded — return undefined for skeleton screen
+        return {
+          accountValue: undefined,
+          withdrawable: undefined,
+          isLoading: true,
+        };
+      }
+      // Withdrawable = USDC available (total - hold)
+      const usdcBalance = spotData.balances?.find((b) => b.token === 0);
+      const usdcWithdrawable = usdcBalance
+        ? new BigNumber(usdcBalance.total).minus(usdcBalance.hold).toFixed()
+        : '0';
+      return {
+        accountValue: spotData.spotTotalUsd,
+        withdrawable: usdcWithdrawable,
+        isLoading: false,
+      };
+    }
+
+    // disabled / dexAbstraction: account value = spot + perps clearinghouse
+    const perpsValue = new BigNumber(summary?.accountValue || '0');
+    const spotValue = new BigNumber(spotData?.spotTotalUsd || '0');
+    return {
+      accountValue: spotValue.plus(perpsValue).toFixed(),
+      withdrawable: summary?.withdrawable,
+      isLoading: !spotData?.spotTotalUsd,
+    };
+  },
+});
+
 export const {
   target: perpsActiveAccountMmrAtom,
   use: usePerpsActiveAccountMmrAtom,
@@ -106,6 +213,7 @@ export type IPerpsActiveAccountStatusDetails = {
   referralCodeOk: boolean;
   builderFeeOk: boolean;
   internalRebateBoundOk: boolean;
+  abstractionOk: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {
@@ -133,21 +241,41 @@ export const {
   read: (get) => {
     const status = get(perpsActiveAccountStatusInfoAtom.atom());
     const account = get(perpsActiveAccountAtom.atom());
+    const abstractionMode = get(perpsAbstractionModeAtom.atom());
     const details: IPerpsActiveAccountStatusDetails | undefined =
       status?.accountAddress &&
       status?.accountAddress?.toLowerCase() ===
         account.accountAddress?.toLowerCase()
         ? status.details
         : undefined;
+
+    // statusInfo.abstractionOk is stale until checkPerpsAccountStatus() reruns,
+    // prefer WS-pushed mode so canTrade reacts immediately (OK-52729)
+    let abstractionOk = details?.abstractionOk;
+    if (
+      abstractionMode &&
+      abstractionMode.accountAddress?.toLowerCase() ===
+        account.accountAddress?.toLowerCase()
+    ) {
+      abstractionOk =
+        abstractionMode.mode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+        abstractionMode.mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+    }
+
     const canTrade =
       account?.accountAddress &&
       details?.agentOk &&
       details?.builderFeeOk &&
       details?.referralCodeOk &&
       details?.activatedOk &&
-      details?.internalRebateBoundOk;
+      details?.internalRebateBoundOk &&
+      abstractionOk;
+    const isReadOnlyAccount = account?.accountId
+      ? accountUtils.isWatchingAccount({ accountId: account.accountId })
+      : false;
     const accountNotSupport =
-      !account?.accountAddress && !account?.indexedAccountId;
+      (!account?.accountAddress && !account?.indexedAccountId) ||
+      isReadOnlyAccount;
     const canCreateAddress =
       !account?.accountAddress && !!account?.indexedAccountId;
     return {
@@ -245,6 +373,15 @@ export const {
   initialValue: undefined,
 });
 
+// #region Trading Mode
+export type ITradingMode = 'perp' | 'spot';
+export const { target: tradingModeAtom, use: useTradingModeAtom } =
+  globalAtom<ITradingMode>({
+    name: EAtomNames.tradingModeAtom,
+    initialValue: 'perp',
+  });
+// #endregion
+
 // Token Selector Config (Persisted)
 export const {
   target: perpTokenSelectorConfigPersistAtom,
@@ -256,6 +393,35 @@ export const {
     field: 'volume24h',
     direction: 'desc',
     activeTab: 'all',
+  },
+});
+
+// Token Selector Dynamic Tabs (from server config)
+// null = not loaded yet, [] = loaded but server returned no tabs
+export const {
+  target: perpTokenSelectorTabsAtom,
+  use: usePerpTokenSelectorTabsAtom,
+} = globalAtom<IPerpDynamicTab[] | null>({
+  name: EAtomNames.perpTokenSelectorTabsAtom,
+  initialValue: null,
+});
+
+export type IPerpFavoritesDisplayMode = 'price' | 'percent';
+
+export interface IPerpTokenFavorites {
+  favorites: string[];
+  displayMode: IPerpFavoritesDisplayMode;
+}
+
+export const {
+  target: perpTokenFavoritesPersistAtom,
+  use: usePerpTokenFavoritesPersistAtom,
+} = globalAtom<IPerpTokenFavorites>({
+  name: EAtomNames.perpTokenFavoritesPersistAtom,
+  persist: true,
+  initialValue: {
+    favorites: [],
+    displayMode: 'price',
   },
 });
 
@@ -278,6 +444,7 @@ export const {
 // #region Settings & Config
 export interface IPerpsCommonConfigPersistAtom {
   perpConfigCommon: IPerpCommonConfig;
+  perpConfigLoaded?: boolean;
 }
 export const {
   target: perpsCommonConfigPersistAtom,
@@ -287,8 +454,9 @@ export const {
   persist: true,
   initialValue: {
     perpConfigCommon: {
-      disablePerp: true, // Default to hide perps tab, will be overridden by server config
+      disablePerp: true, // Default to hide perps tab, gated by perpConfigLoaded
     },
+    perpConfigLoaded: false,
   },
 });
 
@@ -383,6 +551,9 @@ export const {
 
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
+  showTradeMarks: boolean;
+  showChartLines: boolean;
+  lastTriggerOrderType: ETriggerOrderType;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -392,6 +563,9 @@ export const {
   persist: true,
   initialValue: {
     skipOrderConfirm: false,
+    showTradeMarks: true,
+    showChartLines: true,
+    lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
   },
 });
 
@@ -427,6 +601,7 @@ export const {
 export interface IPerpsNetworkStatus {
   connected: boolean | undefined;
   lastMessageAt: number | null;
+  pingMs?: number | null;
 }
 
 export const {
@@ -512,3 +687,38 @@ export const {
   name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
   initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
 });
+
+export interface IPerpsLayoutState {
+  orderBook?: {
+    visible: boolean;
+  };
+  chartExpanded?: boolean;
+  resetAt?: number;
+}
+
+export const DEFAULT_PERPS_LAYOUT_STATE: IPerpsLayoutState = {
+  orderBook: { visible: true },
+  chartExpanded: false,
+};
+
+export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
+  globalAtom<IPerpsLayoutState>({
+    name: EAtomNames.perpsLayoutStateAtom,
+    persist: true,
+    initialValue: DEFAULT_PERPS_LAYOUT_STATE,
+  });
+
+// #region Footer Ticker
+export type IPerpsFooterTickerMode = 'popular' | 'favorites' | 'none';
+
+export const {
+  target: perpsFooterTickerModePersistAtom,
+  use: usePerpsFooterTickerModePersistAtom,
+} = globalAtom<{ mode: IPerpsFooterTickerMode }>({
+  name: EAtomNames.perpsFooterTickerModePersistAtom,
+  persist: true,
+  initialValue: {
+    mode: 'popular',
+  },
+});
+// #endregion

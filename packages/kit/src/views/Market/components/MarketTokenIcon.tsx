@@ -6,10 +6,12 @@ import type { ITokenProps } from '../../../components/Token';
 
 function BasicMarketTokenIcon({
   uri,
+  uris,
   size,
   networkId,
 }: {
   uri: string;
+  uris?: string[];
   size: ITokenProps['size'];
   networkId?: string;
 }) {
@@ -17,6 +19,7 @@ function BasicMarketTokenIcon({
     <Token
       size={size}
       tokenImageUri={uri}
+      tokenImageUris={uris}
       networkId={networkId}
       showNetworkIcon={Boolean(networkId)}
     />

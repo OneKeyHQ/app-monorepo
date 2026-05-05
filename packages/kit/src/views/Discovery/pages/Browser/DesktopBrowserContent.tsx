@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
@@ -11,6 +12,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -18,6 +20,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
+import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
@@ -150,6 +153,7 @@ function BasicFind({ id }: { id: string }) {
           top="$2.5"
           zIndex={100_000}
           animation="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{
             opacity: 0,
             y: -20,
@@ -233,11 +237,86 @@ function BasicDesktopBrowserContent({
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
 
+  // Memory Cleanup - Aggressively release all resources when tab is closed
+  useEffect(() => {
+    return () => {
+      if (platformEnv.isDesktop) {
+        const webview = webviewRefs[id]?.innerRef as any;
+        if (webview) {
+          try {
+            // Step 1: Clear all JavaScript timers and intervals to prevent memory leaks
+            // This addresses the major cause of OOM crashes in long-running DApp sessions
+            if (typeof webview.executeJavaScript === 'function') {
+              void webview.executeJavaScript(`
+                try {
+                  // Clear all intervals and timeouts
+                  const maxId = setTimeout(() => {}, 0);
+                  for (let i = 0; i < maxId; i++) {
+                    clearInterval(i);
+                    clearTimeout(i);
+                  }
+
+                  // Cancel all animation frames
+                  let rafId = requestAnimationFrame(() => {});
+                  while (rafId--) {
+                    cancelAnimationFrame(rafId);
+                  }
+
+                  console.log('[Memory Cleanup] Cleared all timers and intervals for tab');
+                } catch (e) {
+                  console.error('[Memory Cleanup] Failed to clear timers:', e);
+                }
+              `);
+            }
+
+            // Step 2: Stop all media playback (audio/video) to release resources
+            if (typeof webview.stop === 'function') {
+              webview.stop();
+            }
+
+            // Step 3: Close DevTools to release GPU memory
+            if (typeof webview.closeDevTools === 'function') {
+              webview.closeDevTools();
+            }
+
+            // Step 4: Clear browsing data and caches
+            if (typeof webview.clearHistory === 'function') {
+              webview.clearHistory();
+            }
+
+            // Note: Do NOT call session.clearCache() or session.clearStorageData() here.
+            // All webviews share the same session (partition="persist:onekey"),
+            // so clearing session cache would destroy cache for all other open tabs.
+
+            console.log(
+              `[Memory Cleanup] Released all resources for tab: ${id}`,
+            );
+          } catch (error) {
+            console.error(
+              `[Memory Cleanup] Failed to cleanup tab ${id}:`,
+              error,
+            );
+          }
+        }
+
+        // Step 6: Remove webview reference to allow garbage collection
+        delete webviewRefs[id];
+      }
+    };
+  }, [id]);
+
+  const { customReceiveHandler } = useDiscoveryMessageHandler();
+
   return (
     <Freeze key={id} freeze={!isActive}>
       {platformEnv.isDesktop ? <Find id={id} /> : null}
       {tab?.url ? (
-        <WebContent id={id} url={tab.url} isCurrent={isActive} />
+        <WebContent
+          id={id}
+          url={tab.url}
+          isCurrent={isActive}
+          customReceiveHandler={customReceiveHandler}
+        />
       ) : (
         <DashboardContent />
       )}

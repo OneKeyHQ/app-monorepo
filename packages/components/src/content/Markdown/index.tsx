@@ -4,7 +4,8 @@ import RNMarkdown from 'react-native-markdown-display';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 
-import { SizableText, Stack, XStack, YStack } from '../../primitives';
+import { SizableText } from '../../primitives/SizeableText';
+import { Stack, XStack, YStack } from '../../primitives/Stack';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { ASTNode, MarkdownProps } from 'react-native-markdown-display';
@@ -12,6 +13,8 @@ import type { ASTNode, MarkdownProps } from 'react-native-markdown-display';
 function hasParents(parents: ASTNode[], type: string) {
   return parents.findIndex((el) => el.type === type) > -1;
 }
+
+const gtMdStyle = { h: '$5' } as const;
 
 const basicRules: MarkdownProps['rules'] = {
   heading1: (node, children) => (
@@ -58,7 +61,7 @@ const basicRules: MarkdownProps['rules'] = {
       return (
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         <XStack key={node.key} gap="$2">
-          <Stack ai="center" jc="center" w="$4.5" h="$6" $gtMd={{ h: '$5' }}>
+          <Stack ai="center" jc="center" w="$4.5" h="$6" $gtMd={gtMdStyle}>
             <Stack bg="$textDisabled" w={5} h={5} borderRadius="$full" />
           </Stack>
           <Stack flexShrink={1}>{children}</Stack>
@@ -120,7 +123,7 @@ export function Markdown({ children }: { children: string }) {
           color: '$text',
           size: gtMd ? '$bodyMd' : '$bodyLg',
         } as ISizableTextProps,
-      } as MarkdownProps['style']),
+      }) as MarkdownProps['style'],
     [gtMd],
   );
   return (

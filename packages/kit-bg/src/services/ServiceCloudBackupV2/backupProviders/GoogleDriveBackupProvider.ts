@@ -142,18 +142,18 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
       // isCloudFsAvailable = await RNCloudFs.isAvailable();
 
       GoogleSignin.configure(GoogleSignInConfigure);
-      const isSignedIn = await GoogleSignin.isSignedIn();
-
-      // if (!isSignedIn) {
-      //   await GoogleSignin.signInSilently();
-      //   isSignedIn = await GoogleSignin.isSignedIn();
-      // }
-
-      if (isSignedIn) {
-        userInfo = await GoogleSignin.getCurrentUser();
-        email = userInfo?.user?.email || '';
-
-        // await RNCloudFs.loginIfNeeded();
+      const isPreviousSignedIn = GoogleSignin.hasPreviousSignIn();
+      if (isPreviousSignedIn) {
+        try {
+          const response = await GoogleSignin.signInSilently();
+          if (response.type === 'success') {
+            userInfo = GoogleSignin.getCurrentUser();
+            email = userInfo?.user?.email || '';
+          }
+        } catch (error) {
+          // signInSilently failed, return empty account info
+          console.log('GoogleSignin.signInSilently failed:', error);
+        }
       }
     }
 

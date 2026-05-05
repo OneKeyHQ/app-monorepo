@@ -15,7 +15,7 @@ export type ISubscription = {
 export class MarketSubscriptionTracker {
   private subscriptions: ISubscription[] = [];
 
-  private static readonly DATA_COUNT_THRESHOLD = 10;
+  private static readonly DATA_COUNT_THRESHOLD = 100;
 
   addSubscription({
     address,

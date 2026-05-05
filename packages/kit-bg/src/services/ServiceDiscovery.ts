@@ -1,7 +1,4 @@
-import { sha256 } from '@noble/hashes/sha256';
-import { bytesToHex } from '@noble/hashes/utils';
 import { isNil, isNumber } from 'lodash';
-import { LRUCache } from 'lru-cache';
 import WebViewCleaner from 'react-native-webview-cleaner';
 
 import type {
@@ -27,6 +24,10 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -47,16 +48,6 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
-  private signedMessageCache: LRUCache<string, boolean>;
-
-  constructor({ backgroundApi }: { backgroundApi: any }) {
-    super({ backgroundApi });
-    this.signedMessageCache = new LRUCache<string, boolean>({
-      max: 100,
-      ttl: timerUtils.getTimeDurationMs({ minute: 60 }),
-    });
-  }
-
   @backgroundMethod()
   async fetchHistoryData(page = 1, pageSize = 15) {
     const start = (page - 1) * pageSize;
@@ -71,7 +62,7 @@ class ServiceDiscovery extends ServiceBase {
     return Promise.all(
       data.map(async (i) => ({
         ...i,
-        logo: await this.buildWebsiteIconUrl(i.url),
+        logo: i.logo || (await this.buildWebsiteIconUrl(i.url)),
       })),
     );
   }
@@ -178,7 +169,7 @@ class ServiceDiscovery extends ServiceBase {
         return await this._checkUrlSecurityInScript(params);
       }
       return await this._checkUrlSecurity(params);
-    } catch (e) {
+    } catch (_e) {
       return {
         host: url,
         level: EHostSecurityLevel.Unknown,
@@ -206,6 +197,12 @@ class ServiceDiscovery extends ServiceBase {
   _checkUrlSecurity = memoizee(
     async (params: { url: string; from: 'app' | 'script' }) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
+      let authToken = '';
+      try {
+        authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+      } catch {
+        // ignore auth token errors, proceed without it
+      }
       const res = await client.get<{ data: IHostSecurity }>(
         '/utility/v1/discover/check-host',
         {
@@ -214,6 +211,7 @@ class ServiceDiscovery extends ServiceBase {
             from: params.from,
           },
           timeout: 5000,
+          headers: authToken ? { 'X-Onekey-Request-Token': authToken } : {},
         },
       );
       return res.data.data;
@@ -229,25 +227,28 @@ class ServiceDiscovery extends ServiceBase {
       const result = await this._checkUrlSecurity(params);
       // Directly accessing the URL might be blocked by browser security policies,
       //  so it needs to be converted to a base64 image
-      const baseImages = await Promise.allSettled([
-        result?.dapp?.logo
-          ? imageUtils.getBase64ImageFromUrl(result.dapp.logo)
-          : Promise.resolve(''),
-        ...(result?.dapp?.origins?.length
-          ? result.dapp.origins.map((origin) =>
-              imageUtils.getBase64ImageFromUrl(origin.logo),
-            )
-          : []),
-      ]);
+      const baseImages = await promiseAllSettledEnhanced(
+        [
+          result?.dapp?.logo
+            ? () => imageUtils.getBase64ImageFromUrl(result.dapp!.logo)
+            : () => Promise.resolve(''),
+          ...(result?.dapp?.origins?.length
+            ? result.dapp.origins.map(
+                (origin) => () => imageUtils.getBase64ImageFromUrl(origin.logo),
+              )
+            : []),
+        ],
+        { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+      );
 
-      if (result?.dapp?.logo && baseImages[0].status === 'fulfilled') {
-        result.dapp.logo = baseImages[0].value as string;
+      if (result?.dapp?.logo && baseImages[0]) {
+        result.dapp.logo = baseImages[0] as string;
       }
       if (result?.dapp?.origins?.length && baseImages.length > 1) {
         result.dapp.origins.forEach((origin, index) => {
           const imageResult = baseImages[index + 1];
-          if (origin && imageResult && imageResult.status === 'fulfilled') {
-            origin.logo = imageResult.value as string;
+          if (origin && imageResult) {
+            origin.logo = imageResult as string;
           }
         });
       }
@@ -265,22 +266,36 @@ class ServiceDiscovery extends ServiceBase {
       | {
           generateIcon?: boolean;
           sliceCount?: number;
+          keyword?: string;
         }
       | undefined,
   ): Promise<IBrowserBookmark[]> {
-    const { generateIcon, sliceCount } = options ?? {};
+    const { generateIcon, sliceCount, keyword } = options ?? {};
     const data =
       await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
     let dataSource = data?.data ?? [];
+    if (keyword) {
+      const fuse = buildFuse(dataSource, { keys: ['title', 'url'] });
+      dataSource = fuse.search(keyword).map((i) => ({
+        ...i.item,
+        titleMatch: i.matches?.find((v) => v.key === 'title'),
+        urlMatch: i.matches?.find((v) => v.key === 'url'),
+      }));
+    }
     if (isNumber(sliceCount)) {
       dataSource = dataSource.slice(0, sliceCount);
     }
-    const bookmarks = await Promise.all(
-      dataSource.map(async (i) => ({
-        ...i,
-        logo: generateIcon ? await this.buildWebsiteIconUrl(i.url) : undefined,
-      })),
-    );
+    const bookmarks = (
+      await promiseAllSettledEnhanced(
+        dataSource.map((i) => async () => ({
+          ...i,
+          logo: generateIcon
+            ? await this.buildWebsiteIconUrl(i.url).catch(() => undefined)
+            : undefined,
+        })),
+        { concurrency: PROMISE_CONCURRENCY_LIMIT },
+      )
+    ).filter(Boolean);
 
     return bookmarks;
   }
@@ -326,7 +341,7 @@ class ServiceDiscovery extends ServiceBase {
     let dataSource: IBrowserHistory[] = data?.data ?? [];
     if (keyword) {
       const fuse = buildFuse(dataSource, { keys: ['title', 'url'] });
-      dataSource = fuse.search(options?.keyword ?? 'uniswap').map((i) => ({
+      dataSource = fuse.search(keyword).map((i) => ({
         ...i.item,
         titleMatch: i.matches?.find((v) => v.key === 'title'),
         urlMatch: i.matches?.find((v) => v.key === 'url'),
@@ -338,7 +353,9 @@ class ServiceDiscovery extends ServiceBase {
     const histories = await Promise.all(
       dataSource.map(async (i) => ({
         ...i,
-        logo: generateIcon ? await this.buildWebsiteIconUrl(i.url) : undefined,
+        logo: generateIcon
+          ? i.logo || (await this.buildWebsiteIconUrl(i.url))
+          : i.logo,
       })),
     );
 
@@ -485,42 +502,6 @@ class ServiceDiscovery extends ServiceBase {
       });
     }
     return this.getBrowserBookmarks();
-  }
-
-  @backgroundMethod()
-  async postSignTypedDataMessage(params: {
-    networkId: string;
-    accountId: string;
-    origin: string;
-    typedData: string;
-  }) {
-    const { networkId, accountId, origin, typedData } = params;
-
-    const cacheKey = bytesToHex(
-      sha256(`${networkId}__${accountId}__${origin}__${typedData}`),
-    );
-
-    if (this.signedMessageCache.has(cacheKey)) {
-      return;
-    }
-
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    try {
-      await client.post('/wallet/v1/network/sign-typed-data', {
-        accountAddress,
-        networkId,
-        data: JSON.parse(typedData),
-        origin,
-      });
-      this.signedMessageCache.set(cacheKey, true);
-    } catch {
-      // ignore error
-    }
   }
 }
 

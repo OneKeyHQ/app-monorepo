@@ -11,13 +11,13 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { useCurrency } from '../../Currency';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import {
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
+  useHyperLiquidKlineSource,
   useTradingViewV2WebSocket,
 } from './hooks';
 import {
@@ -25,6 +25,7 @@ import {
   useTradingViewMessageHandler,
 } from './messageHandlers';
 
+import type { IMarksTimeRange } from './messageHandlers';
 import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
@@ -38,15 +39,16 @@ interface IBaseTradingViewV2Props {
   onPanesCountChange?: (count: number) => void;
   dataSource?: 'websocket' | 'polling';
   accountAddress?: string;
+  onTouchScroll?: (deltaY: number) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
+  const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
-  const currencyInfo = useCurrency();
 
   const {
     tokenAddress = '',
@@ -56,6 +58,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPanesCountChange,
     dataSource,
     accountAddress,
+    onTouchScroll,
+    ...stackStyle
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
@@ -66,22 +70,37 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPanesCountChange,
     accountAddress,
     tokenSymbol: symbol,
+    marksTimeRange,
+    onTouchScroll,
   });
 
-  const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
-    additionalParams: {
-      symbol,
+  const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
+    useHyperLiquidKlineSource(networkId, tokenAddress);
+  const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
+  const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
+
+  const additionalParams = useMemo(() => {
+    return {
       decimal: decimal?.toString(),
       networkId,
       address: tokenAddress,
-    },
+      symbol: chartSymbol,
+      type: 'market',
+      storageNamespace: useHyperLiquid ? 'market-hyperliquid' : 'market',
+      ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
+    };
+  }, [chartSymbol, decimal, networkId, tokenAddress, useHyperLiquid]);
+
+  const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
+    additionalParams,
   });
 
+  // Disable OneKey data hooks when using HyperLiquid source
   useAutoKLineUpdate({
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && dataSource !== 'websocket',
+    enabled: isVisible && dataSource !== 'websocket' && !isHyperLiquidSource,
   });
 
   useAutoTokenDetailUpdate({
@@ -91,14 +110,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     enabled: isVisible,
   });
 
-  // Enhanced WebSocket connection for real-time market data
   useTradingViewV2WebSocket({
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && dataSource === 'websocket',
+    enabled: isVisible && dataSource === 'websocket' && !isHyperLiquidSource,
     chartType: '1m',
-    currency: currencyInfo.id,
   });
 
   // Load marks on page enter and refresh when swap transaction succeeds
@@ -107,18 +124,26 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
     const refreshMarks = () => {
       const now = Math.floor(Date.now() / 1000);
+
+      // Use the tracked time range if available, otherwise default to recent period
+      const timeRange = marksTimeRange.current || {
+        min: now - 86_400 * 30, // Default: 30 days
+        max: now,
+      };
+
       void fetchAndSendAccountMarks({
         accountAddress,
         tokenAddress,
         networkId,
-        from: now - 86_400,
-        to: now,
-        tokenSymbol: symbol,
+        from: timeRange.min,
+        to: timeRange.max,
+        symbol: chartSymbol,
         webRef,
       });
     };
 
-    // Load marks when page becomes visible
+    // Reset time range when token/account changes, then load marks
+    marksTimeRange.current = null;
     refreshMarks();
 
     const handleSwapSuccess = (payload: {
@@ -166,7 +191,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         handleSwapSuccess,
       );
     };
-  }, [isVisible, accountAddress, tokenAddress, networkId, symbol, webRef]);
+  }, [isVisible, accountAddress, tokenAddress, networkId, chartSymbol, webRef]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
@@ -206,7 +231,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   return (
-    <Stack position="relative" flex={1}>
+    <Stack position="relative" flex={1} {...stackStyle}>
       {webView}
 
       {platformEnv.isNativeIOS ? (

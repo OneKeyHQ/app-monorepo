@@ -1,7 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-  <path fill="currentColor"
-    d="M5 6a1 1 0 0 1 1-1h2a1 1 0 0 0 0-2H6a3 3 0 0 0-3 3v2a1 1 0 0 0 2 0V6Zm11-3a1 1 0 1 0 0 2h2a1 1 0 0 1 1 1v2a1 1 0 1 0 2 0V6a3 3 0 0 0-3-3h-2ZM5 16a1 1 0 1 0-2 0v2a3 3 0 0 0 3 3h2a1 1 0 1 0 0-2H6a1 1 0 0 1-1-1v-2Zm16 0a1 1 0 1 0-2 0v2a1 1 0 0 1-1 1h-2a1 1 0 1 0 0 2h2a3 3 0 0 0 3-3v-2Z" />
-  <path fill="currentColor" fill-rule="evenodd"
-    d="M12.91 8.836a1 1 0 0 0-1.82 0l-2.5 5.5a1 1 0 0 0 1.82.828l.416-.914h2.348l.416.914a1 1 0 0 0 1.82-.828l-2.5-5.5Zm-.645 3.414h-.53l.265-.583.265.583Z"
-    clip-rule="evenodd" />
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+  <path d="M5 19h4v2H3v-6h2v4Zm16 2h-6v-2h4v-4h2v6Z"/>
+  <path fill-rule="evenodd" d="m13.04 8 2.907 7.818c.022.06.04.12.053.182h-2.063l-.425-1.143h-3.024L10.063 16H8c.013-.061.03-.122.053-.182L10.96 8h2.078Zm-1.701 4.571h1.322L12 10.794l-.661 1.777Z" clip-rule="evenodd"/>
+  <path d="M9 5H5v4H3V3h6v2Zm12 4h-2V5h-4V3h6v6Z"/>
 </svg>

@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { pbkdf2 as pbkdf2ByNode, pbkdf2Sync as pbkdf2ByNodeSync } from 'crypto';
 
 import {
@@ -255,11 +254,13 @@ function pbkdf2SyncV2(params: IPbkdf2Params): Buffer {
     });
   // TODO while timeout
   // TODO while loop will block pbkdf2 execution, causing it to never resolve, while loop will also continue indefinitely, suggest using worker to execute pbkdf2, main thread while waiting
+  // oxlint-disable-next-line no-unmodified-loop-condition -- result and error are set asynchronously by the promise callbacks above
   while (!result && !error) {
     // do nothing, just wait for the promise to resolve
     console.log('pbkdf2SyncV2: waiting for the promise to resolve');
   }
   if (error) {
+    // oxlint-disable-next-line no-throw-literal
     throw error;
   }
   if (!result) {

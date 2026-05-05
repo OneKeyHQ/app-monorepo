@@ -2,21 +2,9 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  Divider,
-  Page,
-  SizableText,
-  Stack,
-  Switch,
-  Toast,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, Page, Toast, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -28,12 +16,10 @@ import { useBackupToggleDialog } from '../../components/useBackupToggleDialog';
 export default function Home() {
   const intl = useIntl();
   const backupToggleDialog = useBackupToggleDialog();
-  const [{ isEnabled, isInProgress }] = useCloudBackupPersistAtom();
+  const [{ isInProgress }] = useCloudBackupPersistAtom();
   const [submitError, setSubmitError] = useState('');
 
-  const navigation = useAppNavigation();
-
-  const backupNowOnPress = useCallback(async () => {
+  const _backupNowOnPress = useCallback(async () => {
     await backupToggleDialog.maybeShow(true);
     setSubmitError('');
     try {
@@ -52,7 +38,7 @@ export default function Home() {
     });
   }, [backupToggleDialog]);
 
-  const renderBackupStatus = useCallback(() => {
+  const _renderBackupStatus = useCallback(() => {
     if (isInProgress) {
       return (
         <Button disabled bg="transparent" p="0" loading>

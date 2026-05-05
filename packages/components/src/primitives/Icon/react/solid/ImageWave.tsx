@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgImageWave = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path fill="currentColor" d="M17.5 9a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M15 6.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M6 3h11.99c1.66 0 3 1.34 3 3v12c0 1.66-1.34 3-3 3H6c-1.66 0-3-1.34-3-3V6c0-1.66 1.34-3 3-3m12 2H6c-.55 0-1 .45-1 1v6.22l1.27-.95.02-.02a2.99 2.99 0 0 1 3.86.45c1.47 1.58 2.94 2.75 4.85 2.75 1.7 0 2.86-.56 4-1.62V6c0-.55-.45-1-1-1"
+      d="M21 21H3V3h18zM5 5v7.214l1.268-.95.022-.014a3 3 0 0 1 3.862.455c1.468 1.581 2.942 2.75 4.848 2.75 1.704 0 2.855-.557 4-1.62V5z"
       clipRule="evenodd"
     />
   </Svg>

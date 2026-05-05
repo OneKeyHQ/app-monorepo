@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { CKDPriv, CKDPub, revealableSeedFromMnemonic, verify } from '.';
 
@@ -12,7 +13,7 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { decryptAsync, encryptAsync } from './encryptors/aes256';
-import { sha256 } from './hash';
+import { sha256, sha512Pro as sha512Async } from './hash';
 
 import type { ICurveName } from '../types';
 
@@ -600,7 +601,7 @@ function publicKeyToString(curveName: ICurveName, publicKey: Buffer): string {
 test('Empty buffer not allowed', () => {
   expect(() => {
     verify('secp256k1', Buffer.from(''), Buffer.from(''), Buffer.from(''));
-  }).toThrow(new Error('Curve call ERROR: Buffer is empty'));
+  }).toThrow('Curve call ERROR: Buffer is empty');
 });
 
 test('Child index is not int', async () => {
@@ -654,7 +655,18 @@ test('Normal encryption/decryption', async () => {
 });
 
 test('Incorrect password', async () => {
-  const encrypted = await encryptAsync({ password, data: Buffer.from('1111') });
+  // Use fixed salt/IV to make the test deterministic.
+  // AES-CBC has no authentication, so with random salt/IV there is a ~1/256
+  // chance that garbage plaintext has valid PKCS7 padding and decryption
+  // "succeeds" instead of throwing, making the test flaky.
+  const customSalt = Buffer.alloc(32, 0xaa);
+  const customIv = Buffer.alloc(16, 0xbb);
+  const encrypted = await encryptAsync({
+    password,
+    data: Buffer.from('1111'),
+    customSalt,
+    customIv,
+  });
   await expect(
     decryptAsync({
       password: password + password,
@@ -696,7 +708,6 @@ test('sha256', async () => {
 });
 
 test('sha512Async - iterations = 1 (默认值) 无 iterationSalt', async () => {
-  const { sha512Pro: sha512Async } = await import('./hash');
   const testData = 'hello world';
   const result = await sha512Async({ data: testData });
 
@@ -711,14 +722,12 @@ test('sha512Async - iterations = 1 (默认值) 无 iterationSalt', async () => {
 });
 
 test('sha512Async - iterations = 0 应该抛出错误', async () => {
-  const { sha512Pro: sha512Async } = await import('./hash');
   await expect(
     sha512Async({ data: 'test data', iterations: 0 }),
   ).rejects.toThrow('iterations must be greater than 0');
 });
 
 test('sha512Async - iterations = 5 无 iterationSalt', async () => {
-  const { sha512Pro: sha512Async } = await import('./hash');
   const testData = 'hello world';
   const iterations = 5;
 
@@ -732,7 +741,6 @@ test('sha512Async - iterations = 5 无 iterationSalt', async () => {
 });
 
 test('sha512Async - iterations = 1 有 iterationSalt', async () => {
-  const { sha512Pro: sha512Async } = await import('./hash');
   const testData = 'test data';
   const iterationSalt = 'salt123';
 
@@ -742,7 +750,6 @@ test('sha512Async - iterations = 1 有 iterationSalt', async () => {
 });
 
 test('sha512Async - iterations = 3 有 iterationSalt', async () => {
-  const { sha512Pro: sha512Async } = await import('./hash');
   const testData = 'test data';
   const iterations = 3;
   const iterationSalt = 'salt123';
@@ -769,12 +776,10 @@ test('sha512Async - iterations = 3 有 iterationSalt', async () => {
 });
 
 test('sha512Async - 空数据应该抛出错误', async () => {
-  const { sha512Pro: sha512Async } = await import('./hash');
   await expect(sha512Async({ data: '' })).rejects.toThrow('data is required');
 });
 
 test('sha512Async - 相同输入产生相同输出', async () => {
-  const { sha512Pro: sha512Async } = await import('./hash');
   const testData = 'consistent data';
   const iterations = 2;
   const iterationSalt = 'consistent salt';

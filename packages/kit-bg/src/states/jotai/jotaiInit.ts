@@ -2,9 +2,12 @@ import { cloneDeep, isNil, isPlainObject } from 'lodash';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import localDb from '../../dbs/local/localDb';
-import dbBackupTools from '../../services/ServiceDBBackup/dbBackupTools';
+// Side-effect import: starts localDb IndexedDB initialization in background
+// localDb is NOT needed for jotai atom reads (they use separate OneKeyGlobalStates IndexedDB)
+import '../../dbs/local/localDb';
 
 import { EAtomNames } from './atomNames';
 import {
@@ -20,23 +23,80 @@ import type { IJotaiWritableAtomPro } from './types';
 
 function checkAtomNameMatched(key: string, value: string) {
   if (key !== value) {
-    // const isNotificationsPersistAtom =
-    //   key === 'notificationsPersistAtom' && value === 'notificationsAtom';
-    // if (isNotificationsPersistAtom) {
-    //   return;
-    // }
     throw new OneKeyLocalError(
       `Atom name not matched with key: key=${key} value=${value}`,
     );
   }
 }
 
-export async function jotaiInit() {
-  console.log('jotaiInit wait localDb ready');
-  await localDb.readyDb;
-  console.log('jotaiInit wait localDb ready done');
+// Preload all atom storage values from IndexedDB
+async function preloadAtomStorageValues() {
+  // Batch read: single IndexedDB transaction instead of 104 individual ones
+  if ('getAllEntries' in onekeyJotaiStorage) {
+    const batchMap = await onekeyJotaiStorage.getAllEntries();
+    // batchMap is null when underlying storage doesn't support batch read (e.g., mobile native)
+    if (batchMap) {
+      const storageMap = new Map<string, any>();
+      for (const name of Object.values(EAtomNames)) {
+        const key = buildJotaiStorageKey(name);
+        const value = batchMap.get(key);
+        storageMap.set(key, value);
+      }
+      return storageMap;
+    }
+  }
 
-  const allAtoms = await import('./atoms');
+  // Fallback: individual reads (extension UI mock storage, mobile native storage)
+  const storageMap = new Map<string, any>();
+  await Promise.all(
+    Object.values(EAtomNames).map(async (name) => {
+      const key = buildJotaiStorageKey(name);
+      const value = await onekeyJotaiStorage.getItem(key, undefined);
+      storageMap.set(key, value);
+    }),
+  );
+  return storageMap;
+}
+
+/**
+ * Proactive one-time migration: AsyncStorage → MMKV per-key.
+ * Reads all EAtomNames keys — non-persist ones return null from
+ * AsyncStorage and are simply skipped (not written to MMKV).
+ */
+async function migrateToMMKVIfNeeded() {
+  if (!platformEnv.isNative) return;
+  if (!('migrateFromAsyncStorage' in onekeyJotaiStorage)) return;
+
+  const allKeys = Object.values(EAtomNames).map((name) =>
+    buildJotaiStorageKey(name),
+  );
+  const probeKey = buildJotaiStorageKey(EAtomNames.settingsPersistAtom);
+  await (
+    onekeyJotaiStorage as {
+      migrateFromAsyncStorage: (keys: string[], probe: string) => Promise<void>;
+    }
+  ).migrateFromAsyncStorage(allKeys, probeKey);
+}
+
+export async function jotaiInit() {
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('jotaiInit start');
+  }
+
+  // Native: proactively migrate AsyncStorage → MMKV per-key before reading.
+  // Must complete before preloadAtomStorageValues() so MMKV has all data.
+  await migrateToMMKVIfNeeded();
+
+  // Parallelize: import atoms + preload all storage values at the same time
+  const [allAtoms, preloadedStorage] = await Promise.all([
+    import('./atoms'),
+    preloadAtomStorageValues(),
+  ]);
+
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('jotaiInit atoms imported & storage preloaded');
+  }
+
   const atoms: { [key: string]: JotaiCrossAtom<any> } = {};
   Object.entries(allAtoms).forEach(([key, value]) => {
     if (value instanceof JotaiCrossAtom && value.name) {
@@ -52,7 +112,9 @@ export async function jotaiInit() {
       throw new OneKeyLocalError(`Atom not defined: ${key}`);
     }
   });
-  // console.log('allAtoms : ', allAtoms, atoms, EAtomNames);
+
+  // Pause per-atom broadcasts during batch init — flush once at the end.
+  appGlobals.$jotaiBgSync?.pauseBroadcast?.();
 
   await Promise.all(
     Object.entries(atoms).map(async ([key, value]) => {
@@ -73,20 +135,25 @@ export async function jotaiInit() {
         return;
       }
 
-      let storageValue = await onekeyJotaiStorage.getItem(
-        storageKey,
-        undefined,
-      );
+      // Use preloaded storage value instead of individual reads
+      let storageValue = preloadedStorage.get(storageKey);
       // save initValue to storage if storageValue is undefined
       if (isNil(storageValue)) {
-        // initFrom backup
+        // initFrom backup (only for settingsPersistAtom on first launch)
         if (
           isNil(storageValue) &&
           storageKey === buildJotaiStorageKey(EAtomNames.settingsPersistAtom) &&
           isPlainObject(initValue)
         ) {
+          // Lazy import dbBackupTools — only needed on first launch
+          // Ensure localDb is ready before reading backup metadata
+          const { default: localDbLazy } =
+            await import('../../dbs/local/localDb');
+          await localDbLazy.readyDb;
+          const { default: dbBackupToolsLazy } =
+            await import('../../services/ServiceDBBackup/dbBackupTools');
           const backupedInstanceMeta =
-            await dbBackupTools.getBackupedInstanceMeta();
+            await dbBackupToolsLazy.getBackupedInstanceMeta();
           if (backupedInstanceMeta) {
             const initValueToUpdate = cloneDeep(
               initValue || {},
@@ -141,6 +208,13 @@ export async function jotaiInit() {
       }
     }),
   );
+
+  // Flush all batched broadcasts in one go.
+  await appGlobals.$jotaiBgSync?.flushBroadcast?.();
+
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('jotaiInit done');
+  }
 
   globalJotaiStorageReadyHandler.resolveReady(true);
 

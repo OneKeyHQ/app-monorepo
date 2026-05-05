@@ -3,6 +3,7 @@ import type { IDBAccountAddressesMap } from '@onekeyhq/kit-bg/src/dbs/local/type
 import type { WalletConnectDappSideProvider } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnect/WalletConnectDappSideProvider';
 
 import type { Emitter } from '../src/eventBus/WagmiEventEmitter';
+import type { IKeylessPendingLogin } from '../src/keylessWallet/keylessWebTypes';
 import type {
   IWalletConnectConnectToWalletParams,
   IWalletConnectPeerMeta,
@@ -127,12 +128,10 @@ export type IExternalConnectorBase<TProvider = any> = {
   disconnect(): Promise<void>;
   getAccounts(): Promise<readonly Address[]>;
   getChainId(): Promise<number>;
-  getProvider(
-    parameters?: { chainId?: number | undefined } | undefined,
-  ): Promise<TProvider>;
-  getClient?(
-    parameters?: { chainId?: number | undefined } | undefined,
-  ): Promise<Client>;
+  getProvider(parameters?: {
+    chainId?: number | undefined;
+  }): Promise<TProvider>;
+  getClient?(parameters?: { chainId?: number | undefined }): Promise<Client>;
   isAuthorized(): Promise<boolean>;
   switchChain?(parameters: {
     addEthereumChainParameter?:
@@ -144,17 +143,16 @@ export type IExternalConnectorBase<TProvider = any> = {
   onAccountsChanged(accounts: string[]): void;
   onChainChanged(chainId: string): void;
   onConnect?(connectInfo: ProviderConnectInfo): void;
-  onDisconnect(error?: Error | undefined): void;
+  onDisconnect(error?: Error): void;
   onMessage?(message: ProviderMessage): void;
 
   emitter: Emitter<ConnectorEventMap>;
   uid: string;
   connectionInfo: IExternalConnectionInfo;
-  connect(
-    parameters?:
-      | { chainId?: number | undefined; isReconnecting?: boolean | undefined }
-      | undefined,
-  ): Promise<IExternalConnectResult>;
+  connect(parameters?: {
+    chainId?: number | undefined;
+    isReconnecting?: boolean | undefined;
+  }): Promise<IExternalConnectResult>;
 };
 
 export type IExternalWalletProviderEvm = IEvaluate<
@@ -203,4 +201,11 @@ export type IExternalConnectWalletResult = {
   connectionInfo: IExternalConnectionInfo;
   accountInfo: IExternalConnectAccountInfo;
   notSupportedNetworkIds: string[] | undefined;
+};
+
+export type IConnectToWalletOptions = {
+  allowEmptyAuthorizedAddresses?: boolean;
+  suppressDeniedToast?: boolean;
+  skipDisconnectConnector?: boolean;
+  webKeylessPendingLogin?: IKeylessPendingLogin;
 };

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type {
@@ -21,6 +22,8 @@ export function useCurrentLevelCard(
     {
       initResult: undefined,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }), // Auto refresh every 1 minute
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
 
@@ -81,6 +84,8 @@ export function useCurrentLevelCard(
           },
         }));
       }
+
+      commissionRates = sortCommissionRateItems(commissionRates);
     }
 
     return {

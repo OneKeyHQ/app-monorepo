@@ -2,7 +2,7 @@ import { Base64 } from 'js-base64';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
 export const base64Encode = function (arraybuffer: ArrayBuffer): string {
   const uint8Array = new Uint8Array(arraybuffer);
@@ -15,7 +15,7 @@ export const base64Decode = function (base64: string): Uint8Array {
 };
 
 const isContextSupportWebAuth = Boolean(
-  platformEnv.isExtChrome && globalThis?.navigator?.credentials,
+  platformEnv.isExtension && globalThis?.navigator?.credentials,
 );
 
 const isUserVerifyingPlatformAuthenticatorAvailable = async () => {
@@ -39,11 +39,15 @@ const isCMA = async () => {
 export const isSupportWebAuth = async () => {
   let isSupport = false;
   if (!platformEnv.isE2E && isContextSupportWebAuth) {
-    isSupport =
-      (await isUserVerifyingPlatformAuthenticatorAvailable()) &&
-      (await isCMA());
+    const isUvPaaAvailable =
+      await isUserVerifyingPlatformAuthenticatorAvailable();
+    const isConditionalMediationAvailable = await isCMA();
+    isSupport = isUvPaaAvailable && isConditionalMediationAvailable;
   }
-  return isSupport && !!navigator?.credentials;
+
+  const finalSupport = isSupport && !!navigator?.credentials;
+
+  return finalSupport;
 };
 
 export const verifiedWebAuth = async (credId: string) => {
@@ -68,6 +72,14 @@ export const verifiedWebAuth = async (credId: string) => {
   try {
     return await navigator.credentials.get(getCredentialOptions);
   } catch (e) {
+    if (
+      e instanceof DOMException &&
+      (e.name === 'NotAllowedError' || e.name === 'AbortError')
+    ) {
+      const cancelError = new Error('');
+      cancelError.name = BIOLOGY_AUTH_CANCEL_ERROR;
+      throw cancelError;
+    }
     return undefined;
   }
 };
@@ -120,7 +132,7 @@ export const registerWebAuth = async (credId?: string) => {
     if (cred) {
       return cred.id;
     }
-  } catch (e) {
+  } catch (_e) {
     return undefined;
   }
 };

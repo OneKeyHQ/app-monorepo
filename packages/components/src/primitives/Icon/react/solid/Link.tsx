@@ -1,13 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgLink = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M12.379 3.207a3 3 0 0 1 4.242 0l4.172 4.172a3 3 0 0 1 0 4.242l-2.086 2.086a1 1 0 0 1-1.414-1.414l2.086-2.086a1 1 0 0 0 0-1.414l-4.172-4.171a1 1 0 0 0-1.414 0l-2.086 2.085a1 1 0 1 1-1.414-1.414zm3.328 5.086a1 1 0 0 1 0 1.414l-6 6a1 1 0 0 1-1.414-1.414l6-6a1 1 0 0 1 1.414 0m-9 2a1 1 0 0 1 0 1.414l-2.086 2.086a1 1 0 0 0 0 1.414l-.703.704.703-.704 4.172 4.172a1 1 0 0 0 1.414 0l2.086-2.086a1 1 0 0 1 1.414 1.414l-2.086 2.086a3 3 0 0 1-4.242 0l-4.172-4.171a3 3 0 0 1 0-4.243l2.086-2.086a1 1 0 0 1 1.414 0"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="m7.414 11-3.5 3.5L9.5 20.086l3.5-3.5L14.414 18 9.5 22.914 1.086 14.5 6 9.586z" />
+    <Path d="M16.414 9 9 16.414 7.586 15 15 7.586z" />
+    <Path d="M22.914 9.5 18 14.414 16.586 13l3.5-3.5L14.5 3.914l-3.5 3.5L9.586 6 14.5 1.086z" />
   </Svg>
 );
 export default SvgLink;

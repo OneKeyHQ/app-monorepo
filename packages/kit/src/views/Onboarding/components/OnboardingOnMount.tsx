@@ -132,7 +132,7 @@ function OnboardingOnMountCmp() {
             return;
           }
         }
-      } catch (error) {
+      } catch (_error) {
         //
       }
 
@@ -142,10 +142,12 @@ function OnboardingOnMountCmp() {
       const { isOnboardingDone } =
         await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
       // dapp mode auto onboarding is conflict with url account landing page
-      if (!isOnboardingDone && !platformEnv.isWebDappMode) {
-        void toOnBoardingPage({
-          isFullModal: true,
-        });
+      if (
+        !isOnboardingDone &&
+        !platformEnv.isWebDappMode &&
+        !platformEnv.isExtensionUiSidePanel
+      ) {
+        void toOnBoardingPage();
       }
     },
     [

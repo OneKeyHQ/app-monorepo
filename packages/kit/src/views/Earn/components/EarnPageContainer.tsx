@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import type { IBreadcrumbProps } from '@onekeyhq/components';
+import type { IBreadcrumbProps, IScrollViewProps } from '@onekeyhq/components';
 import {
   Breadcrumb,
   NavBackButton,
@@ -12,10 +12,11 @@ import {
 } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { EARN_PAGE_MAX_WIDTH } from '../EarnConfig';
+import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 
 import type { RefreshControlProps } from 'react-native';
 
@@ -30,8 +31,10 @@ interface IEarnPageContainerProps {
   showBackButton?: boolean;
   footer?: React.ReactNode;
   customHeaderRightItems?: React.ReactNode;
-  maxWidth?: number | string;
+  contentContainerStyle?: IScrollViewProps['contentContainerStyle'];
   disableMaxWidth?: boolean;
+  showTabPageHeader?: boolean;
+  showBodyTitle?: boolean;
 }
 
 export function EarnPageContainer({
@@ -45,8 +48,10 @@ export function EarnPageContainer({
   footer,
   header,
   customHeaderRightItems,
-  maxWidth,
+  contentContainerStyle,
   disableMaxWidth,
+  showTabPageHeader = true,
+  showBodyTitle = false,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -76,34 +81,56 @@ export function EarnPageContainer({
     [breadcrumbProps, media],
   );
   const showHeader = useMemo(() => header, [header]);
-  const containerMaxWidth = useMemo(() => {
-    if (disableMaxWidth) return undefined;
-    if (maxWidth !== undefined) return maxWidth;
-    return EARN_PAGE_MAX_WIDTH;
-  }, [disableMaxWidth, maxWidth]);
+
+  // In WebDapp mode, always use TabPageHeader for consistent mobile layout
+  const shouldShowTabPageHeader =
+    platformEnv.isWebDappMode || showTabPageHeader;
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={sceneName}
-        tabRoute={tabRoute}
-        customHeaderLeftItems={customHeaderLeft}
-        customHeaderRightItems={customHeaderRightItems}
-      />
+      {shouldShowTabPageHeader ? (
+        <TabPageHeader
+          sceneName={sceneName}
+          tabRoute={tabRoute}
+          customHeaderLeftItems={customHeaderLeft}
+          customHeaderRightItems={customHeaderRightItems}
+        />
+      ) : (
+        <YStack mx="$pagePadding" mt="$2" mb="$1">
+          <Page.Header headerShown={false} />
+          <LegacyUniversalSearchInput size="medium" initialTab="dapp" />
+        </YStack>
+      )}
       <Page.Body>
         <ScrollView
-          contentContainerStyle={{ py: '$6' }}
+          contentContainerStyle={{
+            py: media.gtMd ? '$6' : 0,
+            ...contentContainerStyle,
+          }}
           refreshControl={refreshControl}
         >
-          <YStack w="100%" mx="auto" maxWidth={containerMaxWidth}>
+          <Page.Container
+            padded={false}
+            layout={disableMaxWidth ? 'full' : 'regular'}
+          >
             {showBreadcrumb || showHeader ? (
-              <XStack px="$3" pb="$5" gap="$5" ai="center">
+              <XStack
+                px="$pagePadding"
+                pb={showBreadcrumb && showBodyTitle && pageTitle ? '$6' : '$5'}
+                gap="$5"
+                ai="center"
+              >
                 {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}
                 {showHeader ? header : null}
               </XStack>
             ) : null}
+            {showBreadcrumb && showBodyTitle && pageTitle ? (
+              <XStack px="$pagePadding" pb="$5" gap="$3" ai="center">
+                {pageTitle}
+              </XStack>
+            ) : null}
             {children}
-          </YStack>
+          </Page.Container>
         </ScrollView>
       </Page.Body>
       {footer}

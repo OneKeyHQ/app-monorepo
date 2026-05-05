@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgEditList = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M3.002 4a1 1 0 0 1 1-1h16a1 1 0 0 1 0 2h-16a1 1 0 0 1-1-1m0 4a1 1 0 0 1 1-1h6.5a1 1 0 0 1 0 2h-6.5a1 1 0 0 1-1-1M4 11a1 1 0 1 0 0 2h3.002a1 1 0 1 0 0-2zm15.258-2.293a3 3 0 0 0-4.242 0l-7.721 7.721a1 1 0 0 0-.293.707V21a1 1 0 0 0 1 1h3.865a1 1 0 0 0 .707-.293l7.72-7.72a3 3 0 0 0 0-4.244z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M22.414 11.865 12.28 22H7v-5.28L17.135 6.587l5.28 5.28ZM8.002 11v2H3v-2zM11.5 9H3V7h8.5zM21 5H3V3h18z" />
   </Svg>
 );
 export default SvgEditList;

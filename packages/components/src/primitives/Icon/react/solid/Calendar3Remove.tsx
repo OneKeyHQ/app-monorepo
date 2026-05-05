@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCalendar3Remove = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M8 2a1 1 0 0 1 1 1v1h6V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1m2.455 7.543a1 1 0 0 0-1.414 1.414l1.545 1.545-1.543 1.543a1 1 0 1 0 1.414 1.414L12 13.916l1.543 1.543a1 1 0 0 0 1.414-1.414l-1.543-1.543 1.545-1.545a1 1 0 0 0-1.414-1.414L12 11.088z"
+      d="M9 2v2h6V2h2v2h4v17H3V4h4V2zm3 9.088L9.748 8.836 8.334 10.25l2.252 2.252-2.25 2.25 1.414 1.414 2.25-2.25 2.25 2.25 1.414-1.414-2.25-2.25 2.252-2.252-1.414-1.414z"
       clipRule="evenodd"
     />
   </Svg>

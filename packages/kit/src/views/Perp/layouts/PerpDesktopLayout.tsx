@@ -1,14 +1,21 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   IconButton,
   ScrollView,
+  SizableText,
   Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
+import { FavoritesBar } from '../components/FavoritesBar/FavoritesBar.web';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
@@ -21,41 +28,123 @@ import {
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
 function PerpDesktopLayout() {
+  const intl = useIntl();
   const { gtXl } = useMedia();
-  const [isOrderBookVisible, setIsOrderBookVisible] = useState(true);
-  return (
-    <ScrollView flex={1}>
-      <YStack bg="$bgApp">
-        <PerpTips />
-        <PerpTickerBar />
-        <XStack flex={1}>
-          <YStack
-            flex={1}
-            borderRightWidth="$px"
-            borderRightColor="$borderSubdued"
-            width="75%"
+  const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
+
+  const layout = PERP_LAYOUT_CONFIG.desktop;
+  // Reset chartExpanded on mount to stay in sync with iframe state
+  useEffect(() => {
+    setLayoutState((prev) =>
+      prev.chartExpanded ? { ...prev, chartExpanded: false } : prev,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const chartExpanded = layoutState.chartExpanded ?? false;
+  const showOrderBook =
+    gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
+  const tradingWidth = layout.widths.trading;
+  const toggleOrderBook = useCallback(() => {
+    setLayoutState((prev) => ({
+      ...prev,
+      orderBook: { visible: !(prev.orderBook?.visible ?? true) },
+    }));
+  }, [setLayoutState]);
+
+  const tradingPanel = useMemo(() => {
+    return (
+      <YStack
+        h={layout.marketContentHeight}
+        minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
+        maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
+        w={tradingWidth}
+        borderLeftWidth="$px"
+        borderLeftColor="$borderSubdued"
+      >
+        <ScrollView h="100%" contentContainerStyle={{ pb: '$4' }}>
+          <PerpTradingPanel />
+        </ScrollView>
+      </YStack>
+    );
+  }, [layout.marketContentHeight, tradingWidth]);
+
+  const accountPanel = useMemo(() => {
+    return (
+      <YStack
+        minHeight={layout.bottomPanelHeight}
+        alignSelf="stretch"
+        minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
+        maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
+        w={tradingWidth}
+        borderLeftWidth="$px"
+        borderLeftColor="$borderSubdued"
+      >
+        <XStack h={layout.bottomPanelHeaderHeight} alignItems="center">
+          <XStack
+            py="$3"
+            ml="$5"
+            mr="$2"
+            borderBottomWidth="$0.5"
+            borderBottomColor="$borderActive"
           >
-            {/* Charts Section */}
-            <XStack
-              flex={7}
-              borderBottomWidth="$px"
-              borderBottomColor="$borderSubdued"
-            >
-              <YStack flex={1} minHeight={600} position="relative">
-                <YStack flex={1} pr={6}>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_account_overview,
+              })}
+            </SizableText>
+          </XStack>
+        </XStack>
+        <ScrollView flex={1} contentContainerStyle={{ pb: '$4' }}>
+          <PerpAccountPanel />
+          <PerpAccountDebugInfo />
+        </ScrollView>
+      </YStack>
+    );
+  }, [
+    intl,
+    layout.bottomPanelHeaderHeight,
+    layout.bottomPanelHeight,
+    tradingWidth,
+  ]);
+  return (
+    <ScrollView
+      flex={1}
+      scrollEnabled={!chartExpanded}
+      contentContainerStyle={chartExpanded ? { flexGrow: 1 } : undefined}
+    >
+      <YStack flex={chartExpanded ? 1 : undefined}>
+        <PerpTips />
+        {chartExpanded ? null : <FavoritesBar />}
+
+        <YStack
+          flex={chartExpanded ? 1 : undefined}
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+        >
+          <PerpTickerBar />
+
+          <XStack
+            h={chartExpanded ? undefined : layout.marketContentHeight}
+            flex={chartExpanded ? 1 : undefined}
+            overflow="hidden"
+          >
+            <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
+              <XStack flex={1} overflow="hidden">
+                <YStack flex={1} position="relative">
                   <PerpCandles />
-                </YStack>
-                {gtXl ? (
+
                   <Stack
+                    display={gtXl && !chartExpanded ? 'flex' : 'none'}
                     position="absolute"
                     top="50%"
-                    right={isOrderBookVisible ? -4 : 3.5}
+                    right={showOrderBook ? -4 : 3.5}
                     zIndex={2}
                     marginTop={-2}
                   >
                     <IconButton
                       icon={
-                        isOrderBookVisible
+                        showOrderBook
                           ? 'ChevronRightSmallSolid'
                           : 'ChevronLeftSmallSolid'
                       }
@@ -68,42 +157,66 @@ function PerpDesktopLayout() {
                       p="$0"
                       h={30}
                       w={16}
+                      cursor="default"
                       hoverStyle={{
                         borderColor: '$border',
                       }}
                       pressStyle={{
                         borderColor: '$border',
                       }}
-                      cursor="pointer"
-                      onPress={() => setIsOrderBookVisible((prev) => !prev)}
+                      onPress={toggleOrderBook}
                     />
                   </Stack>
-                ) : null}
-              </YStack>
-
-              {gtXl && isOrderBookVisible ? (
-                <YStack
-                  borderLeftWidth="$px"
-                  borderLeftColor="$borderSubdued"
-                  w={250}
-                >
-                  <PerpOrderBook />
                 </YStack>
-              ) : null}
-            </XStack>
-            {/* Positions Section */}
-            <YStack flex={1} overflow="hidden">
+
+                {showOrderBook ? (
+                  <YStack
+                    borderLeftWidth="$px"
+                    borderLeftColor="$borderSubdued"
+                    w={layout.widths.orderBook}
+                    h="100%"
+                    overflow="hidden"
+                  >
+                    <XStack
+                      h={layout.panelHeaderHeight}
+                      alignItems="center"
+                      borderBottomWidth="$px"
+                      borderBottomColor="$borderSubdued"
+                      px="$2"
+                    >
+                      <SizableText size="$bodyMdMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.perps_order_book,
+                        })}
+                      </SizableText>
+                    </XStack>
+                    <YStack flex={1} overflow="hidden">
+                      <PerpOrderBook />
+                    </YStack>
+                  </YStack>
+                ) : null}
+              </XStack>
+            </YStack>
+
+            <YStack display={chartExpanded ? 'none' : 'flex'}>
+              {tradingPanel}
+            </YStack>
+          </XStack>
+
+          <XStack
+            display={chartExpanded ? 'none' : 'flex'}
+            h={layout.bottomPanelHeight}
+            borderTopWidth="$px"
+            borderTopColor="$borderSubdued"
+            overflow="hidden"
+            alignItems="stretch"
+          >
+            <YStack flex={1} h="100%">
               <PerpOrderInfoPanel />
             </YStack>
-          </YStack>
-          <YStack minWidth={300} gap="$4" width="25%">
-            <PerpTradingPanel />
-            <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
-              <PerpAccountPanel />
-              <PerpAccountDebugInfo />
-            </YStack>
-          </YStack>
-        </XStack>
+            {accountPanel}
+          </XStack>
+        </YStack>
       </YStack>
     </ScrollView>
   );

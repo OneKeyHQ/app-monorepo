@@ -12,6 +12,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
@@ -34,6 +35,7 @@ import type {
   IProxyResponse,
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import {
@@ -47,11 +49,95 @@ import ServiceBase from './ServiceBase';
 import type { IDBUtxoAccount } from '../dbs/local/types';
 import type BTCVault from '../vaults/impls/btc/Vault';
 
+// Shape of `/wallet/v1/account/badges` response after local mapping.
+// Declared at module level so the xpub fan-out merge helper can be a
+// pure function (easier to test, no class coupling).
+type IAccountBadgeResult = {
+  isScam: boolean;
+  isContract: boolean;
+  isCex: boolean;
+  interacted: EAddressInteractionStatus;
+  addressLabel?: string;
+  badges: IAddressBadge[];
+  similarAddress?: string;
+};
+
+function emptyAccountBadgeResult(): IAccountBadgeResult {
+  return {
+    isScam: false,
+    isContract: false,
+    isCex: false,
+    interacted: EAddressInteractionStatus.UNKNOWN,
+    badges: [],
+  };
+}
+
+// Merge multiple /badges responses (one per xpub on merge-derive chains)
+// into a single result. Semantics:
+//   - any-true wins for boolean risk flags (a scam/contract/cex match on
+//     ANY derive path is significant)
+//   - `interacted` is escalated from UNKNOWN → NOT_INTERACTED → INTERACTED
+//     so we never demote a positive interaction on one path with a
+//     negative on another
+//   - `addressLabel` / `similarAddress` take the first non-empty response
+//   - badges come only from responses whose own `interacted` matches the
+//     merged status, so xpub-scoped "First transfer" / "Transferred" badges
+//     cannot coexist in the final array (OK-53278). Address-scoped static
+//     labels (OKX / Scam / CEX / ...) are present in every response, so they
+//     still surface through the matching subset.
+function mergeAccountBadgeResults(
+  responses: IAccountBadgeResult[],
+): IAccountBadgeResult {
+  const merged = emptyAccountBadgeResult();
+
+  for (const r of responses) {
+    merged.isScam = merged.isScam || r.isScam;
+    merged.isContract = merged.isContract || r.isContract;
+    merged.isCex = merged.isCex || r.isCex;
+
+    if (r.interacted === EAddressInteractionStatus.INTERACTED) {
+      merged.interacted = EAddressInteractionStatus.INTERACTED;
+    } else if (
+      merged.interacted === EAddressInteractionStatus.UNKNOWN &&
+      r.interacted === EAddressInteractionStatus.NOT_INTERACTED
+    ) {
+      merged.interacted = EAddressInteractionStatus.NOT_INTERACTED;
+    }
+
+    if (!merged.addressLabel && r.addressLabel) {
+      merged.addressLabel = r.addressLabel;
+    }
+    if (!merged.similarAddress && r.similarAddress) {
+      merged.similarAddress = r.similarAddress;
+    }
+  }
+
+  const seenBadgeKeys = new Set<string>();
+  for (const r of responses) {
+    if (r.interacted === merged.interacted) {
+      for (const badge of r.badges) {
+        const key = `${badge.type ?? ''}:${badge.label ?? ''}`;
+        if (!seenBadgeKeys.has(key)) {
+          seenBadgeKeys.add(key);
+          merged.badges.push(badge);
+        }
+      }
+    }
+  }
+
+  return merged;
+}
+
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
+
+  private _pendingBadgeRequests = new Map<
+    string,
+    Promise<IAccountBadgeResult>
+  >();
 
   _fetchAccountDetailsControllers: AbortController[] = [];
 
@@ -159,11 +245,13 @@ class ServiceAccountProfile extends ServiceBase {
     fromAddress,
     toAddress,
     checkInteraction,
+    xpub,
   }: {
     fromAddress?: string;
     networkId: string;
     toAddress: string;
     checkInteraction?: boolean;
+    xpub?: string;
   }): Promise<{
     isScam: boolean;
     isContract: boolean;
@@ -171,6 +259,7 @@ class ServiceAccountProfile extends ServiceBase {
     interacted: EAddressInteractionStatus;
     addressLabel?: string;
     badges: IAddressBadge[];
+    similarAddress?: string;
   }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
@@ -195,6 +284,7 @@ class ServiceAccountProfile extends ServiceBase {
           fromAddress,
           toAddress,
           checkInteraction,
+          xpub,
         },
       });
       const {
@@ -204,6 +294,7 @@ class ServiceAccountProfile extends ServiceBase {
         isScam,
         isCex,
         badges,
+        similarAddress,
       } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
@@ -221,6 +312,7 @@ class ServiceAccountProfile extends ServiceBase {
         interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
         addressLabel,
         badges: badges ?? [],
+        similarAddress,
       };
     } catch {
       return {
@@ -233,50 +325,139 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
+  // Dedup concurrent in-flight badge requests for the same address
+  private async fetchBadgesDeduped({
+    networkId,
+    accountId,
+    toAddress,
+    checkInteractionStatus,
+  }: {
+    networkId: string;
+    accountId?: string;
+    toAddress: string;
+    checkInteractionStatus?: boolean;
+  }): Promise<IAccountBadgeResult> {
+    const dedupKey = `${networkId}:${accountId ?? ''}:${toAddress.toLowerCase()}:${checkInteractionStatus ? '1' : '0'}`;
+
+    const pending = this._pendingBadgeRequests.get(dedupKey);
+    if (pending) {
+      return pending;
+    }
+
+    const request = this._fetchBadgesUncached({
+      networkId,
+      accountId,
+      toAddress,
+      checkInteractionStatus,
+    })
+      .then((r) => {
+        this._pendingBadgeRequests.delete(dedupKey);
+        return r;
+      })
+      .catch((err) => {
+        this._pendingBadgeRequests.delete(dedupKey);
+        throw err;
+      });
+
+    this._pendingBadgeRequests.set(dedupKey, request);
+    return request;
+  }
+
+  private async _fetchBadgesUncached({
+    networkId,
+    accountId,
+    toAddress,
+    checkInteractionStatus,
+  }: {
+    networkId: string;
+    accountId?: string;
+    toAddress: string;
+    checkInteractionStatus?: boolean;
+  }): Promise<IAccountBadgeResult> {
+    const { serviceAccount } = this.backgroundApi;
+    let fromAddress: string | undefined;
+    if (accountId) {
+      const acc = await serviceAccount.getAccount({
+        networkId,
+        accountId,
+      });
+      fromAddress = acc.address;
+    }
+
+    // Only fan-out across multiple xpubs when interaction status is needed.
+    // Scam/CEX/contract badges are address-scoped and don't need xpub fan-out.
+    const xpubEntries =
+      checkInteractionStatus && accountId
+        ? await serviceAccount.safeGetAccountXpubsForAllDeriveTypes({
+            accountId,
+            networkId,
+          })
+        : [];
+
+    if (xpubEntries.length > 1) {
+      const settled = await promiseAllSettledEnhanced(
+        xpubEntries.map(
+          (entry) => () =>
+            this.getAddressAccountBadge({
+              networkId,
+              fromAddress,
+              toAddress,
+              xpub: entry.xpub,
+            }),
+        ),
+        { continueOnError: true, concurrency: xpubEntries.length },
+      );
+      const responses = settled.filter((r): r is IAccountBadgeResult => !!r);
+      return responses.length
+        ? mergeAccountBadgeResults(responses)
+        : emptyAccountBadgeResult();
+    }
+
+    return this.getAddressAccountBadge({
+      networkId,
+      fromAddress,
+      toAddress,
+      xpub: xpubEntries[0]?.xpub,
+    });
+  }
+
   private async checkAccountBadges({
     networkId,
     accountId,
     toAddress,
+    fromAddress,
     checkInteractionStatus,
     checkAddressContract,
     result,
   }: {
     accountId?: string;
+    fromAddress?: string;
     checkInteractionStatus?: boolean;
     checkAddressContract?: boolean;
     networkId: string;
     toAddress: string;
     result: IAddressQueryResult;
   }): Promise<void> {
-    let fromAddress: string | undefined;
-    if (accountId) {
-      const acc = await this.backgroundApi.serviceAccount.getAccount({
-        networkId,
-        accountId,
-      });
-      fromAddress = acc.address;
-    }
-    // For BTC network with fresh address enabled, skip interaction check
-    let checkInteraction: boolean | undefined;
-    if (networkUtils.isBTCNetwork(networkId)) {
-      const enableBTCFreshAddress =
-        await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
-      if (enableBTCFreshAddress) {
-        checkInteraction = false;
-      }
-    }
+    const merged = await this.fetchBadgesDeduped({
+      networkId,
+      accountId,
+      toAddress,
+      checkInteractionStatus,
+    });
 
-    const { isContract, interacted, addressLabel, isScam, isCex, badges } =
-      await this.getAddressAccountBadge({
-        networkId,
-        fromAddress,
-        toAddress,
-        checkInteraction,
-      });
+    const {
+      isContract,
+      interacted,
+      addressLabel,
+      isScam,
+      isCex,
+      badges,
+      similarAddress,
+    } = merged;
     if (
       checkInteractionStatus &&
-      toAddress.toLowerCase() !== fromAddress &&
-      fromAddress
+      fromAddress &&
+      toAddress.toLowerCase() !== fromAddress.toLowerCase()
     ) {
       result.addressInteractionStatus = interacted;
     }
@@ -287,6 +468,7 @@ class ServiceAccountProfile extends ServiceBase {
     result.isScam = isScam;
     result.isCex = isCex;
     result.addressBadges = badges;
+    result.similarAddress = similarAddress;
   }
 
   private async verifyCannotSendToSelf({
@@ -328,6 +510,8 @@ class ServiceAccountProfile extends ServiceBase {
     skipValidateAddress,
     enableAddressDeriveInfo,
     walletAccountItem,
+    ignoreSimilarAddressInAddressBook,
+    enableCheckSimilarAddressInAddressBook,
   }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
@@ -347,7 +531,7 @@ class ServiceAccountProfile extends ServiceBase {
         address = displayAddress;
         result.validAddress = address;
       }
-    } catch (e) {
+    } catch (_e) {
       // noop
     }
 
@@ -386,38 +570,34 @@ class ServiceAccountProfile extends ServiceBase {
     }
     if (enableAddressBook && resolveAddress) {
       try {
-        const password =
-          await this.backgroundApi.servicePassword.getCachedPassword();
-        if (password) {
-          // handleAddressBookName
-          const addressBookItem =
-            await this.backgroundApi.serviceAddressBook.findItem({
-              networkId: !networkUtils.isEvmNetwork({ networkId })
-                ? networkId
-                : undefined,
-              address: resolveAddress,
-              password,
-            });
-          result.addressBookId = addressBookItem?.id;
-          result.isAllowListed = addressBookItem?.isAllowListed;
-          result.addressNote = addressBookItem?.note;
-          result.addressMemo = addressBookItem?.memo;
-          if (addressBookItem?.name) {
-            result.addressBookName = `${appLocale.intl.formatMessage({
-              id: ETranslations.global_contact,
-            })} / ${addressBookItem?.name}`;
-          }
+        // handleAddressBookName
+        const addressBookItem =
+          await this.backgroundApi.serviceAddressBook.findItem({
+            networkId: !networkUtils.isEvmNetwork({ networkId })
+              ? networkId
+              : undefined,
+            address: resolveAddress,
+          });
+        result.addressBookId = addressBookItem?.id;
+        result.isAllowListed = addressBookItem?.isAllowListed;
+        result.addressNote = addressBookItem?.note;
+        result.addressMemo = addressBookItem?.memo;
+        if (addressBookItem?.name) {
+          result.addressBookName = `${appLocale.intl.formatMessage({
+            id: ETranslations.address_book_title,
+          })} / ${addressBookItem?.name}`;
         }
       } catch (e) {
         console.error(e);
       }
     }
 
-    if (enableWalletName && resolveAddress) {
+    if ((enableWalletName || enableAllowListValidation) && resolveAddress) {
       let walletAccountItems: {
         walletName: string;
         accountName: string;
         accountId: string;
+        walletId?: string;
       }[] = [];
 
       try {
@@ -478,15 +658,9 @@ class ServiceAccountProfile extends ServiceBase {
               accountUtils.isWatchingAccount({ accountId: item.accountId }) ||
               accountUtils.isOthersAccount({ accountId: item.accountId })
             ) {
-              const ownAccountItem = walletAccountItems.find((a) => {
-                const accountParams = { accountId: a.accountId };
-                return (
-                  accountUtils.isHdAccount(accountParams) ||
-                  accountUtils.isHwAccount(accountParams) ||
-                  accountUtils.isQrAccount(accountParams) ||
-                  accountUtils.isImportedAccount(accountParams)
-                );
-              });
+              const ownAccountItem = walletAccountItems.find((a) =>
+                accountUtils.isOwnAccount({ accountId: a.accountId }),
+              );
               if (ownAccountItem) {
                 item = ownAccountItem;
               }
@@ -500,6 +674,7 @@ class ServiceAccountProfile extends ServiceBase {
         result.accountName = item.accountName;
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
         result.walletAccountId = item.accountId;
+        result.walletId = item.walletId;
         if (enableAddressDeriveInfo) {
           const account =
             await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
@@ -523,29 +698,141 @@ class ServiceAccountProfile extends ServiceBase {
       resolveAddress &&
       (enableAddressContract || (enableAddressInteractionStatus && accountId))
     ) {
+      let senderAddress: string | undefined;
+      if (accountId) {
+        try {
+          const acc = await this.backgroundApi.serviceAccount.getAccount({
+            networkId,
+            accountId,
+          });
+          senderAddress = acc.address;
+        } catch {
+          // non-fatal
+        }
+      }
       await this.checkAccountBadges({
         networkId,
         accountId,
         toAddress: resolveAddress,
+        fromAddress: senderAddress,
         checkAddressContract: enableAddressContract,
         checkInteractionStatus: Boolean(
           enableAddressInteractionStatus && accountId,
         ),
         result,
       });
+
+      // For EVM networks, override interaction status with transfer-recipient data
+      // so that cross-chain transfers are recognized as "previously transferred"
+      // Skip if badges API already confirmed interaction
+      if (
+        enableAddressInteractionStatus &&
+        accountId &&
+        networkUtils.isEvmNetwork({ networkId }) &&
+        result.addressInteractionStatus !== EAddressInteractionStatus.INTERACTED
+      ) {
+        try {
+          const targetLower = resolveAddress.toLowerCase();
+          let isInRecipients = false;
+
+          // Use evm--1 (not current networkId) because the backend aggregates
+          // all EVM chain transfer recipients under evm--1. This ensures an
+          // address transferred to on Arbitrum is recognized as "interacted"
+          // when sending on Ethereum mainnet (consistent with useRecentRecipientsData).
+          const { data: recipients } =
+            await this.backgroundApi.serviceHistory.fetchTransferRecipients({
+              accountId,
+              networkId: 'evm--1',
+              limit: 10,
+            });
+          isInRecipients = recipients.some(
+            (r) => r.address.toLowerCase() === targetLower,
+          );
+
+          if (!isInRecipients) {
+            // Scope to current networkId instead of onekeyall to avoid
+            // loading all-network history on every address input change
+            const localTxs =
+              await this.backgroundApi.serviceHistory.getAccountsLocalHistoryTxs(
+                {
+                  accountId,
+                  networkId,
+                  excludeTestNetwork: true,
+                },
+              );
+            for (const tx of localTxs) {
+              const decodedTx = tx.decodedTx;
+              if (!decodedTx) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
+              // Skip failed/dropped transactions to avoid false interaction status
+              if (
+                decodedTx.status === EDecodedTxStatus.Failed ||
+                decodedTx.status === EDecodedTxStatus.Dropped
+              ) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
+              const actions = decodedTx.actions;
+              if (!actions) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
+              for (const action of actions) {
+                const sends = action.assetTransfer?.sends;
+                if (sends?.some((s) => s.to?.toLowerCase() === targetLower)) {
+                  isInRecipients = true;
+                  break;
+                }
+              }
+              if (isInRecipients) break;
+            }
+          }
+
+          if (isInRecipients) {
+            result.addressInteractionStatus =
+              EAddressInteractionStatus.INTERACTED;
+            // Only override interaction status, never filter out warning/critical
+            // badges — those may indicate phishing/sanctioned addresses
+          }
+        } catch {
+          // Keep original badges API result on failure
+        }
+      }
+
+      if (result.similarAddress && ignoreSimilarAddressInAddressBook) {
+        if (result.addressBookId) {
+          result.similarAddress = undefined;
+        }
+      }
+    }
+
+    if (
+      !result.similarAddress &&
+      !result.addressBookId &&
+      !result.walletAccountId &&
+      enableCheckSimilarAddressInAddressBook
+    ) {
+      const addressBookItems =
+        await this.backgroundApi.serviceAddressBook.getItemsByNetwork({
+          networkId: !networkUtils.isEvmNetwork({ networkId })
+            ? networkId
+            : undefined,
+        });
+      for (const item of addressBookItems) {
+        if (accountUtils.isSimilarAddress(item.address, resolveAddress)) {
+          result.similarAddress = item.address;
+          break;
+        }
+      }
     }
 
     // Check if address is in allowlist
     if (enableAllowListValidation) {
       // Skip allowlist check if it's user's own account
       if (result.walletAccountId) {
-        const accountParams = { accountId: result.walletAccountId };
-        const isOwnAccount =
-          accountUtils.isHdAccount(accountParams) ||
-          accountUtils.isHwAccount(accountParams) ||
-          accountUtils.isQrAccount(accountParams) ||
-          accountUtils.isImportedAccount(accountParams);
-        if (isOwnAccount) {
+        if (accountUtils.isOwnAccount({ accountId: result.walletAccountId })) {
           return result;
         }
       }
@@ -689,12 +976,15 @@ class ServiceAccountProfile extends ServiceBase {
       if (!currencyInfo) {
         throw new OneKeyLocalError('Currency not found');
       }
-      usdValue = Object.entries(value).reduce((acc, [n, v]) => {
-        acc[n] = new BigNumber(v)
-          .div(new BigNumber(currencyInfo.value))
-          .toFixed();
-        return acc;
-      }, {} as Record<string, string>);
+      usdValue = Object.entries(value).reduce(
+        (acc, [n, v]) => {
+          acc[n] = new BigNumber(v)
+            .div(new BigNumber(currencyInfo.value))
+            .toFixed();
+          return acc;
+        },
+        {} as Record<string, string>,
+      );
     }
 
     const usdAccountValue = {
@@ -725,6 +1015,11 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     await simpleDb.accountValue.updateAllNetworkAccountValue(usdAccountValue);
+
+    // Check DEPOSIT task for rookie guide (fire-and-forget)
+    void this.backgroundApi.serviceRookieGuide.checkAndRecordDepositTask(
+      params.accountId,
+    );
   }
 
   @backgroundMethod()
@@ -848,6 +1143,9 @@ class ServiceAccountProfile extends ServiceBase {
     accountId?: string;
   }) {
     if (walletId) {
+      if (accountUtils.isKeylessWallet({ walletId })) {
+        return ERequestWalletTypeEnum.KEYLESS_WALLET;
+      }
       if (accountUtils.isHdWallet({ walletId })) {
         return ERequestWalletTypeEnum.HD;
       }
@@ -869,6 +1167,9 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
     if (accountId) {
+      if (accountUtils.isKeylessAccount({ accountId })) {
+        return ERequestWalletTypeEnum.KEYLESS_WALLET;
+      }
       if (accountUtils.isHdAccount({ accountId })) {
         return ERequestWalletTypeEnum.HD;
       }

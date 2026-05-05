@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -8,11 +8,13 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
 
+import { TIME_RANGE_TO_API_MAP } from '../../../types';
 import {
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
+import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
 
 interface IUseMarketTokenListParams {
@@ -20,6 +22,9 @@ interface IUseMarketTokenListParams {
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
+  type?: string;
+  timeRange?: IMarketTimeRangeValue;
+  pollingInterval?: number;
 }
 
 export function useMarketTokenList({
@@ -27,7 +32,13 @@ export function useMarketTokenList({
   initialSortBy = 'v24hUSD',
   initialSortType = 'desc',
   pageSize = 20,
+  type,
+  timeRange,
+  pollingInterval = timerUtils.getTimeDurationMs({ seconds: 60 }),
 }: IUseMarketTokenListParams) {
+  const timeFrame = timeRange ? TIME_RANGE_TO_API_MAP[timeRange] : undefined;
+  const timeRangeRef = useRef(timeRange);
+  timeRangeRef.current = timeRange;
   // Get minLiquidity from market config
   const { minLiquidity } = useMarketBasicConfig();
   const { trackNetworkLoading } = useNetworkLoadingAnalytics();
@@ -59,6 +70,31 @@ export function useMarketTokenList({
 
   // For API calls, use empty string when "All Networks" is selected
   const apiNetworkId = isAllNetworks ? '' : networkId;
+  const currentQueryKey = useMemo(
+    () =>
+      JSON.stringify({
+        apiNetworkId,
+        sortBy,
+        sortType,
+        pageSize,
+        minLiquidity,
+        type,
+        timeFrame,
+        networkId,
+      }),
+    [
+      apiNetworkId,
+      sortBy,
+      sortType,
+      pageSize,
+      minLiquidity,
+      type,
+      timeFrame,
+      networkId,
+    ],
+  );
+  const currentQueryKeyRef = useRef(currentQueryKey);
+  currentQueryKeyRef.current = currentQueryKey;
 
   const {
     result: apiResult,
@@ -77,20 +113,32 @@ export function useMarketTokenList({
           page: 1,
           limit: pageSize,
           minLiquidity,
+          type,
+          timeFrame,
         });
       return {
         list: response.list,
         total: response.total,
       };
     },
-    [hasNetworkId, apiNetworkId, sortBy, sortType, pageSize, minLiquidity],
+    [
+      hasNetworkId,
+      apiNetworkId,
+      sortBy,
+      sortType,
+      pageSize,
+      minLiquidity,
+      type,
+      timeFrame,
+    ],
     {
       watchLoading: hasNetworkId,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),
+      pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
   );
+
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
 
   useEffect(() => {
@@ -102,6 +150,7 @@ export function useMarketTokenList({
       transformApiItemToToken(item, {
         chainId: networkId,
         networkLogoUri,
+        timeRange: timeRangeRef.current,
       }),
     );
 
@@ -122,7 +171,7 @@ export function useMarketTokenList({
     setHasReachedEnd(false);
     // Don't clear data immediately to avoid UI flicker
     // The data will be replaced when new API result arrives
-  }, [networkId, sortBy, sortType]);
+  }, [networkId, sortBy, sortType, type, timeFrame]);
 
   // Handle network switching - separate effect to track networkId changes specifically
   useEffect(() => {
@@ -157,6 +206,7 @@ export function useMarketTokenList({
     }
 
     const nextPage = currentPage + 1;
+    const requestQueryKey = currentQueryKeyRef.current;
 
     setIsLoadingMore(true);
 
@@ -170,7 +220,13 @@ export function useMarketTokenList({
           page: nextPage,
           limit: pageSize,
           minLiquidity,
+          type,
+          timeFrame,
         });
+
+      if (currentQueryKeyRef.current !== requestQueryKey) {
+        return;
+      }
 
       if (response?.list?.length > 0) {
         // Transform new data
@@ -178,6 +234,7 @@ export function useMarketTokenList({
           transformApiItemToToken(item, {
             chainId: networkId,
             networkLogoUri,
+            timeRange: timeRangeRef.current,
           }),
         );
 
@@ -208,6 +265,8 @@ export function useMarketTokenList({
     sortType,
     pageSize,
     minLiquidity,
+    type,
+    timeFrame,
     trackNetworkLoading,
     networkLogoUri,
   ]);

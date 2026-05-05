@@ -1,5 +1,6 @@
-const fs = require('fs-extra');
 const path = require('path');
+
+const fs = require('fs-extra');
 
 const root = path.join(__dirname, '..');
 const webBuildDir = path.join(root, 'web-build');
@@ -18,7 +19,9 @@ async function postBuild() {
       // Move web-build to app/build
       await fs.move(webBuildDir, appBuildDir);
     } else {
-      console.error(`Error: Source directory ${webBuildDir} does not exist. Webpack build might have failed.`);
+      console.error(
+        `Error: Source directory ${webBuildDir} does not exist. Webpack build might have failed.`,
+      );
       process.exit(1);
     }
 
@@ -38,4 +41,3 @@ async function postBuild() {
 }
 
 postBuild();
-

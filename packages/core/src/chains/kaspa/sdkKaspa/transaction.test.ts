@@ -125,7 +125,7 @@ describe('Kaspa transaction Tests', () => {
         new BigNumber(sendAmount),
       );
       utxos = selectUTXOsRes.utxos;
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
 
@@ -393,4 +393,5 @@ describe('Kaspa transaction Tests', () => {
   });
 });
 
+// oxlint-disable-next-line unicorn/require-module-specifiers
 export {};

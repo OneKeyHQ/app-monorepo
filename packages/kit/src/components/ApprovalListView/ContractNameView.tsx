@@ -9,9 +9,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
-
-import { useContractMapAtom } from '../../states/jotai/contexts/approvalList';
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 
 import { useApprovalListViewContext } from './ApprovalListViewContext';
 
@@ -21,30 +19,16 @@ type IProps = {
   nameStyleProps?: ISizableTextProps;
   isRiskContract?: boolean;
   isInactiveApproval?: boolean;
+  contract?: IAddressInfo;
 };
 
 function ContractNameView(props: IProps) {
-  const {
-    address,
-    networkId,
-    nameStyleProps,
-    isInactiveApproval,
-    isRiskContract,
-  } = props;
+  const { nameStyleProps, isInactiveApproval, isRiskContract, contract } =
+    props;
 
   const { hideRiskBadge } = useApprovalListViewContext();
 
   const intl = useIntl();
-
-  const [{ contractMap }] = useContractMapAtom();
-
-  const contract =
-    contractMap[
-      approvalUtils.buildContractMapKey({
-        networkId,
-        contractAddress: address,
-      })
-    ];
 
   return (
     <XStack alignItems="center" gap="$1">

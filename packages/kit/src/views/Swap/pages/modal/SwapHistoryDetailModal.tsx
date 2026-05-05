@@ -319,7 +319,6 @@ const SwapHistoryDetailModal = () => {
       </XStack>
     );
   }, [fromTxExplorer, intl, onViewInBrowser, txHistory]);
-
   const renderSwapDate = useCallback(() => {
     const { created } = txHistory?.date ?? {};
     const dateObj = new Date(created ?? 0);
@@ -334,12 +333,25 @@ const SwapHistoryDetailModal = () => {
   const renderSwapProvider = useCallback(
     () => (
       <XStack alignItems="center" gap="$1">
-        <Image
-          source={{ uri: txHistory?.swapInfo.provider.providerLogo ?? '' }}
-          w="$5"
-          h="$5"
-          borderRadius="$1"
-        />
+        <Stack position="relative" w="$5" h="$5">
+          <Image
+            source={{ uri: txHistory?.swapInfo.provider.providerLogo ?? '' }}
+            w="$5"
+            h="$5"
+            borderRadius="$1"
+          />
+          <Stack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            borderRadius="$1"
+            borderWidth="$px"
+            borderColor="$borderSubdued"
+            pointerEvents="none"
+          />
+        </Stack>
         <SizableText size="$bodyLg" color="$textSubdued">
           {txHistory?.swapInfo.provider.providerName ?? ''}
         </SizableText>
@@ -400,6 +412,7 @@ const SwapHistoryDetailModal = () => {
       txHistory?.swapInfo.instantRate,
     ],
   );
+
   const renderSwapHistoryDetails = useCallback(() => {
     if (!txHistory) {
       return null;
@@ -535,26 +548,7 @@ const SwapHistoryDetailModal = () => {
                 }
               />
             ) : null}
-            {txHistory?.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd ? (
-              <InfoItem
-                disabledCopy
-                label={intl.formatMessage({
-                  id: ETranslations.provider_ios_popover_onekey_fee,
-                })}
-                renderContent={
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    formatter="value"
-                    formatterOptions={{
-                      currency: '$',
-                    }}
-                  >
-                    {txHistory?.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd}
-                  </NumberSizeableText>
-                }
-              />
-            ) : null}
+
             {txHistory?.swapInfo?.surplus ? (
               <InfoItem
                 disabledCopy

@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const prettier = require('prettier');
+
 const lodash = require('lodash');
+const prettier = require('prettier');
 
 const base = path.resolve(__dirname, './react');
 const dirs = fs.readdirSync(base);
@@ -57,8 +58,6 @@ const typesTemplate = `
   export type IKeyOfIcons = keyof typeof icons;
   export default icons;
 `;
-fs.writeFileSync(
-  path.resolve(__dirname, `./Icons.tsx`),
-  prettier.format(typesTemplate, { parser: 'typescript' }),
-  'utf8',
-);
+prettier.format(typesTemplate, { parser: 'typescript' }).then((formatted) => {
+  fs.writeFileSync(path.resolve(__dirname, `./Icons.tsx`), formatted, 'utf8');
+});

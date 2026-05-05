@@ -5,7 +5,6 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Icon,
   Image,
   NumberSizeableText,
@@ -26,7 +25,6 @@ import {
 import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap';
 
 import PreSwapInfoItem from './PreSwapInfoItem';
-import { ProtocolFeeComparisonList } from './ProtocolFeeComparisonList';
 
 interface IPreSwapInfoGroupProps {
   preSwapData: ISwapPreSwapData;
@@ -41,7 +39,6 @@ const PreSwapInfoGroup = ({
   const [settings] = useSettingsPersistAtom();
   const [swapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
 
-  const serviceFee = Number(preSwapData?.fee?.percentageFee ?? 0.3);
   const networkFeeLevelArray = useMemo(() => {
     const feeArray = [
       ESwapNetworkFeeLevel.LOW,
@@ -83,21 +80,6 @@ const PreSwapInfoGroup = ({
     }
     return undefined;
   }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
-  const fee = useMemo(() => {
-    if (
-      new BigNumber(preSwapData?.fee?.percentageFee ?? '0').isZero() ||
-      new BigNumber(preSwapData?.fee?.percentageFee ?? '0').isNaN()
-    ) {
-      return (
-        <Badge badgeSize="sm" badgeType="info">
-          {intl.formatMessage({
-            id: ETranslations.swap_stablecoin_0_fee,
-          })}
-        </Badge>
-      );
-    }
-    return `${preSwapData?.fee?.percentageFee ?? '-'}%`;
-  }, [intl, preSwapData?.fee?.percentageFee]);
 
   const networkFeeLevelLabel = useMemo(() => {
     if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW) {
@@ -169,12 +151,25 @@ const PreSwapInfoGroup = ({
           id: ETranslations.swap_page_provider_provider,
         })}
         value={
-          <XStack gap="$2">
-            <Image
-              source={{ uri: preSwapData?.providerInfo?.providerLogo ?? '' }}
-              size="$5"
-              borderRadius="$1"
-            />
+          <XStack gap="$2" alignItems="center">
+            <Stack position="relative" w="$5" h="$5">
+              <Image
+                source={{ uri: preSwapData?.providerInfo?.providerLogo ?? '' }}
+                size="$5"
+                borderRadius="$1"
+              />
+              <Stack
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                borderRadius="$1"
+                borderWidth="$px"
+                borderColor="$borderSubdued"
+                pointerEvents="none"
+              />
+            </Stack>
             <SizableText size="$bodyMd">
               {preSwapData?.providerInfo?.providerName ?? ''}
             </SizableText>
@@ -217,35 +212,7 @@ const PreSwapInfoGroup = ({
           }
         />
       ) : null}
-      <PreSwapInfoItem
-        title={intl.formatMessage({
-          id: ETranslations.provider_ios_popover_wallet_fee,
-        })}
-        value={fee}
-        popoverContent={
-          <Stack gap="$4">
-            <Stack gap="$1">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.provider_ios_popover_onekey_fee_content,
-                  },
-                  { num: `${serviceFee}%` },
-                )}
-              </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.provider_ios_popover_onekey_fee_content_2,
-                  },
-                  { num: `${serviceFee}%` },
-                )}
-              </SizableText>
-            </Stack>
-            <ProtocolFeeComparisonList serviceFee={serviceFee} />
-          </Stack>
-        }
-      />
+
       {preSwapData.supportNetworkFeeLevel ? (
         <PreSwapInfoItem
           title={intl.formatMessage({

@@ -49,7 +49,7 @@ export class MintScanQuery implements IQuery {
         `/v2/assets/${chain}/cw20`,
       );
       return resp.data.assets;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -103,7 +103,7 @@ export class MintScanQuery implements IQuery {
         `/v2/assets/${chain}`,
       );
       return resp.data.assets;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -120,7 +120,7 @@ export class MintScanQuery implements IQuery {
         `/v1/${chain}/wasm/contracts/${contracts}`,
       );
       return resp.data.contract;
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
   }
@@ -134,7 +134,7 @@ export class MintScanQuery implements IQuery {
         `/v1/relayer/${chain}/paths`,
       );
       return resp.data.sendable;
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
   }
@@ -154,7 +154,7 @@ export class MintScanQuery implements IQuery {
         `/v1/${chain}/account/${address}/txs?limit=${limit}&from=${from}`,
       );
       return resp.data;
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
   }

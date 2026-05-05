@@ -3,11 +3,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import HomePageContainer from '../pages/HomePageContainer';
 import { urlAccountLandingRewrite } from '../pages/urlAccount/urlAccountUtils';
 
-const HomePageContainer = LazyLoadPage(
-  () => import('../pages/HomePageContainer'),
-);
+// Home tab is eagerly imported — it's always the first screen, lazy-loading
+// only adds a Suspense frame that delays first meaningful paint.
 
 const UrlAccountPageContainer = LazyLoadPage(async () => {
   const { UrlAccountPageContainer: UrlAccountPageContainerModule } =
@@ -16,18 +16,32 @@ const UrlAccountPageContainer = LazyLoadPage(async () => {
 });
 
 const UrlAccountLanding = LazyLoadPage(async () => {
-  const { UrlAccountLanding: UrlAccountLandingModule } = await import(
-    '../pages/urlAccount/UrlAccountPage'
-  );
+  const { UrlAccountLanding: UrlAccountLandingModule } =
+    await import('../pages/urlAccount/UrlAccountPage');
   return { default: UrlAccountLandingModule };
 });
 
 const ReferralLanding = LazyLoadPage(async () => {
-  const { ReferralLandingPage } = await import(
-    '../pages/referralLanding/ReferralLandingPage'
-  );
+  const { ReferralLandingPage } =
+    await import('../pages/referralLanding/ReferralLandingPage');
   return { default: ReferralLandingPage };
 });
+
+const BulkSendAddressesInput = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAddressesInput'),
+);
+
+const BulkSendAmountsInput = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAmountsInput'),
+);
+
+const BulkSendProcess = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendProcess'),
+);
+
+const ApprovalListPage = LazyLoadPage(
+  () => import('../pages/ApprovalListPage'),
+);
 
 export const urlAccountRoutes = [
   {
@@ -86,5 +100,27 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: ReferralLanding,
     rewrite: referralLandingRewriteCodeOnly,
     exact: true,
+  },
+  {
+    name: ETabHomeRoutes.TabHomeBulkSendAddressesInput,
+    component: BulkSendAddressesInput,
+    exact: true,
+    rewrite: '/bulk-send-addresses',
+  },
+  {
+    name: ETabHomeRoutes.TabHomeBulkSendAmountsInput,
+    component: BulkSendAmountsInput,
+    rewrite: '/bulk-send-amounts',
+  },
+  {
+    name: ETabHomeRoutes.TabHomeBulkSendProcess,
+    component: BulkSendProcess,
+    rewrite: '/bulk-send-process',
+  },
+  {
+    name: ETabHomeRoutes.TabHomeApprovalList,
+    component: ApprovalListPage,
+    exact: true,
+    rewrite: '/approval-list',
   },
 ];

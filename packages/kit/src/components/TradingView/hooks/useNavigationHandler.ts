@@ -30,7 +30,7 @@ export const useNavigationHandler = (): IUseNavigationHandlerReturn => {
       }
 
       return true;
-    } catch (error) {
+    } catch (_error) {
       // If URL parsing fails, allow the request
       console.log('Failed to parse URL, allowing navigation:', event.url);
       return true;

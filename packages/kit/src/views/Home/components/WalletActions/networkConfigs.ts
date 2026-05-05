@@ -1,10 +1,9 @@
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   TRON_SCAN_STAKING_URL,
   TRON_SCAN_VOTE_URL,
-} from '@onekeyhq/core/src/chains/tron/constants';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   openUrlExternal,
@@ -15,18 +14,43 @@ import type { INetworkWalletActionsConfig } from './types';
 
 const networkIds = getNetworkIdsMap();
 
+const isExtPopupOrSidePanel =
+  platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
+
 export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
-  mainActions: ['send', 'receive', 'swap'],
-  moreActions: ['buy', 'sell', 'explorer', 'copy', 'sign', 'reward', 'export'],
+  mainActions: isExtPopupOrSidePanel
+    ? ['send', 'receive', 'swap']
+    : ['send', 'receive', 'buy'],
+  moreActions: isExtPopupOrSidePanel
+    ? [
+        'buy',
+        'explorer',
+        'copy',
+        'approvals',
+        'bulkSend',
+        'sign',
+        'reward',
+        'export',
+      ]
+    : [
+        'swap',
+        'explorer',
+        'copy',
+        'approvals',
+        'bulkSend',
+        'sign',
+        'reward',
+        'export',
+      ],
   moreActionGroups: [
     {
       type: 'trading',
-      actions: ['buy', 'sell'],
+      actions: isExtPopupOrSidePanel ? ['buy'] : ['swap'],
       order: 1,
     },
     {
       type: 'tools',
-      actions: ['explorer', 'copy', 'sign', 'reward'],
+      actions: ['explorer', 'copy', 'approvals', 'bulkSend', 'sign', 'reward'],
       order: 2,
     },
     {
@@ -45,10 +69,10 @@ export const detailedNetworkConfigs: Record<
     mainActions: ['send', 'receive', 'staking'],
     moreActions: [
       'buy',
-      'sell',
       'swap',
       'explorer',
       'copy',
+      'bulkSend',
       'sign',
       'vote',
       'reward',
@@ -57,12 +81,12 @@ export const detailedNetworkConfigs: Record<
     moreActionGroups: [
       {
         type: 'trading',
-        actions: ['buy', 'sell', 'swap'],
+        actions: ['buy', 'swap'],
         order: 1,
       },
       {
         type: 'tools',
-        actions: ['explorer', 'copy', 'sign', 'vote', 'reward'],
+        actions: ['explorer', 'copy', 'bulkSend', 'sign', 'vote', 'reward'],
         order: 2,
       },
       {
@@ -73,13 +97,13 @@ export const detailedNetworkConfigs: Record<
     ],
     actionCustomization: {
       staking: {
-        label: appLocale.intl.formatMessage({
-          id: ETranslations.wallet_tron_trx_staking,
-        }),
+        labelId: ETranslations.wallet_tron_trx_staking,
         onPress: () => {
           if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({
-              url: TRON_SCAN_STAKING_URL,
+            setTimeout(() => {
+              openUrlInDiscovery({
+                url: TRON_SCAN_STAKING_URL,
+              });
             });
           } else {
             openUrlExternal(TRON_SCAN_STAKING_URL);
@@ -87,13 +111,13 @@ export const detailedNetworkConfigs: Record<
         },
       },
       vote: {
-        label: appLocale.intl.formatMessage({
-          id: ETranslations.wallet_tron_votes_management,
-        }),
+        labelId: ETranslations.wallet_tron_votes_management,
         onPress: () => {
           if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({
-              url: TRON_SCAN_VOTE_URL,
+            setTimeout(() => {
+              openUrlInDiscovery({
+                url: TRON_SCAN_VOTE_URL,
+              });
             });
           } else {
             openUrlExternal(TRON_SCAN_VOTE_URL);

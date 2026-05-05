@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,24 +28,36 @@ import SwapProLimitPriceValue from './SwapProLimitPriceValue';
 import { SwapProSlippageSetting } from './SwapProSlippageSetting';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
 
+import type { ITradeType } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+
 interface ISwapProTradingPanelProps {
   swapProConfig: ISwapProSpeedConfig;
   balanceLoading: boolean;
   configLoading: boolean;
+  supportSpeedSwap: boolean;
+  onlySupportCrossChain: boolean;
   isMev: boolean;
   onSwapProActionClick: () => void;
   hasEnoughBalance: boolean;
   handleSelectAccountClick: () => void;
   cleanInputAmount: () => void;
+  onBalanceMax: () => void;
+  onSelectPercentageStage: (stage: number) => void;
+  limitPriceUseMarketPrice: { value: string; change: boolean };
 }
 
 const SwapProTradingPanel = ({
+  supportSpeedSwap,
+  onlySupportCrossChain,
   swapProConfig,
   balanceLoading,
   isMev,
   configLoading,
+  onBalanceMax,
   onSwapProActionClick,
   handleSelectAccountClick,
+  onSelectPercentageStage,
+  limitPriceUseMarketPrice,
   hasEnoughBalance,
   cleanInputAmount,
 }: ISwapProTradingPanelProps) => {
@@ -79,6 +91,23 @@ const SwapProTradingPanel = ({
     [intl, swapProTokenSupportLimit],
   );
 
+  const onTypeSelected = useCallback(
+    (value: ESwapProTradeType) => {
+      if (value === swapProTradeType) return;
+      cleanInputAmount();
+      setSwapProTradeType(value);
+    },
+    [cleanInputAmount, setSwapProTradeType, swapProTradeType],
+  );
+
+  const onDirectionSelected = useCallback(
+    (value: ITradeType) => {
+      if (!value || value === swapProDirection) return;
+      setSwapProDirection(value);
+    },
+    [setSwapProDirection, swapProDirection],
+  );
+
   useSwapProActionsQuote();
 
   return (
@@ -86,38 +115,38 @@ const SwapProTradingPanel = ({
       <TradeTypeSelector
         value={swapProDirection}
         size="small"
-        onChange={(value) => {
-          if (value) {
-            cleanInputAmount();
-            setSwapProDirection(value);
-          }
-        }}
+        onChange={onDirectionSelected}
       />
       <YStack gap="$2">
         <SwapProTradeTypeSelector
           currentSelect={swapProTradeType}
-          onSelectTradeType={(value) => {
-            if (value === swapProTradeType) return;
-            cleanInputAmount();
-            setSwapProTradeType(value);
-          }}
+          onSelectTradeType={onTypeSelected}
           selectItems={selectTradeTypeItems}
         />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
-          <SwapProLimitPriceValue />
+          <SwapProLimitPriceValue
+            externalTokenPrice={limitPriceUseMarketPrice}
+          />
         ) : null}
         <SwapProInputContainer
           isLoading={configLoading}
           defaultTokens={swapProConfig.defaultTokens}
           defaultLimitTokens={swapProConfig.defaultLimitTokens}
           cleanInputAmount={cleanInputAmount}
+          onSelectPercentageStage={onSelectPercentageStage}
         />
       </YStack>
       <YStack>
-        {/* <SwapProToTotalValue /> */}
-        <SwapProTradeInfoGroup balanceLoading={balanceLoading} />
+        <SwapProTradeInfoGroup
+          balanceLoading={balanceLoading}
+          onBalanceMax={onBalanceMax}
+          defaultTokens={swapProConfig.defaultTokens}
+          defaultLimitTokens={swapProConfig.defaultLimitTokens}
+        />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
-        <SwapProSlippageSetting isMEV={isMev} />
+        {swapProTradeType === ESwapProTradeType.MARKET ? (
+          <SwapProSlippageSetting isMEV={isMev} />
+        ) : null}
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>
             <LimitExpirySelect
@@ -179,6 +208,8 @@ const SwapProTradingPanel = ({
         onSwapProActionClick={onSwapProActionClick}
         hasEnoughBalance={hasEnoughBalance}
         balanceLoading={balanceLoading}
+        supportSpeedSwap={supportSpeedSwap}
+        onlySupportCrossChain={onlySupportCrossChain}
       />
     </YStack>
   );

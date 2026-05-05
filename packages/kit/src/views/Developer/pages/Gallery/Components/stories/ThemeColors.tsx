@@ -83,7 +83,7 @@ const ThemeColorsGallery = () => {
         } else if (typeof value === 'object' && value !== null) {
           try {
             colorValue = JSON.stringify(value);
-          } catch (e) {
+          } catch (_e) {
             colorValue = String(value);
           }
         } else {

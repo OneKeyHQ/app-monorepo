@@ -51,16 +51,19 @@ function getObjectDiff(
     }
   | undefined {
   if (isPlainObject(a) && isPlainObject(b)) {
-    return Object.keys(b).reduce((acc, key) => {
-      if (a[key] !== b[key]) {
-        acc[key] = [a[key], b[key]];
-        const diff = getObjectDiff(a[key], b[key]);
-        if (diff && !isEmpty(diff)) {
-          acc[key].push(diff);
+    return Object.keys(b).reduce(
+      (acc, key) => {
+        if (a[key] !== b[key]) {
+          acc[key] = [a[key], b[key]];
+          const diff = getObjectDiff(a[key], b[key]);
+          if (diff && !isEmpty(diff)) {
+            acc[key].push(diff);
+          }
         }
-      }
-      return acc;
-    }, {} as { [key: string]: any[] });
+        return acc;
+      },
+      {} as { [key: string]: any[] },
+    );
   }
   // 'not-both-plain-object': [a, b],
   return undefined;

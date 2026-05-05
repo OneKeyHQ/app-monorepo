@@ -181,6 +181,7 @@ class ProviderApiTon extends ProviderApiBase {
             'App manifest not found',
           );
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return res.json();
       },
     );
@@ -293,21 +294,30 @@ class ProviderApiTon extends ProviderApiBase {
         'Incorrect validUntil',
       );
     }
-    if (validUntil != null && validUntil < Date.now() / 1000) {
+    if (
+      validUntil !== null &&
+      validUntil !== undefined &&
+      validUntil < Date.now() / 1000
+    ) {
       throw new Web3RpcError(
         TonResponseError.BadRequest,
         'Transaction has expired',
       );
     }
 
-    if (encodedTx.network != null && typeof encodedTx.network !== 'string') {
+    if (
+      encodedTx.network !== null &&
+      encodedTx.network !== undefined &&
+      typeof encodedTx.network !== 'string'
+    ) {
       throw new Web3RpcError(
         TonResponseError.BadRequest,
         'Wrong network format',
       );
     }
     if (
-      encodedTx.network != null &&
+      encodedTx.network !== null &&
+      encodedTx.network !== undefined &&
       // @ts-expect-error
       encodedTx.network === ETonNetwork.Testnet
     ) {
@@ -318,7 +328,8 @@ class ProviderApiTon extends ProviderApiBase {
     }
 
     if (
-      encodedTx.network != null &&
+      encodedTx.network !== null &&
+      encodedTx.network !== undefined &&
       // @ts-expect-error
       encodedTx.network !== ETonNetwork.Mainnet
     ) {
@@ -338,7 +349,7 @@ class ProviderApiTon extends ProviderApiBase {
           'Address is required',
         );
       }
-      if (message.amount == null) {
+      if (message.amount === null || message.amount === undefined) {
         throw new Web3RpcError(
           TonResponseError.BadRequest,
           'Amount is required',

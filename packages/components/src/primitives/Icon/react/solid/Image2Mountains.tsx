@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgImage2Mountains = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path fill="currentColor" d="M14.25 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M14.25 7a2 2 0 1 1 0 4 2 2 0 0 1 0-4" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M6 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3zm8.707 10.293L19 17.586V6a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v7.586l2.293-2.293a1 1 0 0 1 1.414 0L12 14.586l1.293-1.293a1 1 0 0 1 1.414 0"
+      d="M21 3v18H3V3zM5 5v8.586l3-3 4 4 2-2 5 5V5z"
       clipRule="evenodd"
     />
   </Svg>

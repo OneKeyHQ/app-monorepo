@@ -24,6 +24,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getSearchTypeTrackingName } from '@onekeyhq/shared/src/logger/scopes/universalSearch/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -31,7 +32,10 @@ import type {
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
+import type {
+  IUniversalSearchBatchResult,
+  IUniversalSearchResultItem,
+} from '@onekeyhq/shared/types/search';
 import {
   ESearchStatus,
   EUniversalSearchType,
@@ -51,13 +55,16 @@ import {
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 import { MarketWatchListProviderMirrorV2 } from '../../Market/MarketWatchListProviderMirrorV2';
+import { MarketTableHeader } from '../components/MarketTableHeader';
 import {
   UniversalSearchAccountAssetItem,
   UniversalSearchAddressItem,
   UniversalSearchDappItem,
-  UniversalSearchMarketTokenItem,
+  UniversalSearchPerpItem,
+  UniversalSearchSettingsItem,
   UniversalSearchV2MarketTokenItem,
 } from '../components/SearchResultItems';
+import { useSettingsSearch } from '../hooks/useSettingsSearch';
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
@@ -65,35 +72,55 @@ import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 interface IUniversalSection {
   tabIndex: number;
   title: string;
+  type: EUniversalSearchType;
   data: IUniversalSearchResultItem[];
   sliceData?: IUniversalSearchResultItem[];
   showMore?: boolean;
 }
 
-const getSearchTypes = () => {
+const SEARCH_DEBOUNCE_MS = 300;
+
+const getSearchTypes = (): EUniversalSearchType[] => {
   return [
-    EUniversalSearchType.Address,
-    EUniversalSearchType.MarketToken,
+    !platformEnv.isWebDappMode && EUniversalSearchType.Address,
     EUniversalSearchType.V2MarketToken,
     // Hide AccountAssets search in WebDapp mode
     !platformEnv.isWebDappMode && EUniversalSearchType.AccountAssets,
-    EUniversalSearchType.Dapp,
+    !platformEnv.isWebDappMode && EUniversalSearchType.Dapp,
+    EUniversalSearchType.Perp,
   ].filter(Boolean);
 };
+
+const PRIMARY_SEARCH_TYPES: EUniversalSearchType[] = [
+  EUniversalSearchType.V2MarketToken,
+  EUniversalSearchType.Perp,
+];
 
 const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
   const tabMapping: Record<EUniversalSearchType, number> = {
     [EUniversalSearchType.Address]: 1, // Wallets tab
     [EUniversalSearchType.V2MarketToken]: 2, // Market tab
-    [EUniversalSearchType.MarketToken]: 3, // Tokens tab
+    [EUniversalSearchType.Perp]: 3, // Perp tab (after Market)
+    [EUniversalSearchType.MarketToken]: 0, // Legacy Tokens tab is hidden
     // In WebDapp mode, My Assets tab is hidden
     [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 4,
     // DApps tab index changes based on whether My Assets tab is shown
     [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 4 : 5,
+    // Settings tab is last
+    [EUniversalSearchType.Settings]: platformEnv.isWebDappMode ? 5 : 6,
   };
 
   return tabMapping[searchType];
 };
+
+const DEFAULT_SLICE_LIMIT = 5;
+const MARKET_SLICE_LIMIT = 3;
+const MARKET_TAB_INDEX = getTabIndexForSearchType(
+  EUniversalSearchType.V2MarketToken,
+);
+const PRIORITIZED_SECONDARY_TAB_INDEX = getTabIndexForSearchType(
+  EUniversalSearchType.Perp,
+);
 
 const SkeletonItem = () => (
   <XStack py="$2" alignItems="center">
@@ -122,6 +149,8 @@ function ListEmptyComponent() {
     </YStack>
   );
 }
+
+const isMarketSection = (tabIndex: number) => tabIndex === MARKET_TAB_INDEX;
 
 export function UniversalSearch({
   filterTypes,
@@ -156,28 +185,36 @@ export function UniversalSearch({
     setIsFocusInMarketTab(isFocus);
   });
 
+  const searchSettings = useSettingsSearch();
+
   const tabTitles = useMemo(() => {
     return [
       intl.formatMessage({
         id: ETranslations.global_all,
       }),
-      intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_wallets,
-      }),
+      !platformEnv.isWebDappMode &&
+        intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_wallets,
+        }),
       intl.formatMessage({
         id: ETranslations.global_market,
       }),
       intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_tokens,
+        id: ETranslations.global_perp,
       }),
       // Include My Assets tab only when not in WebDapp mode
       !platformEnv.isWebDappMode &&
         intl.formatMessage({
           id: ETranslations.global_universal_search_tabs_my_assets,
         }),
-      intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_dapps,
-      }),
+      !platformEnv.isWebDappMode &&
+        intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_dapps,
+        }),
+      !platformEnv.isWeb &&
+        intl.formatMessage({
+          id: ETranslations.global_settings,
+        }),
     ].filter(Boolean);
   }, [intl]);
 
@@ -235,23 +272,23 @@ export function UniversalSearch({
   ]);
 
   const fetchRecommendList = useCallback(async () => {
-    const searchResultSections: {
-      title: string;
-      data: IUniversalSearchResultItem[];
-    }[] = [];
+    const searchResultSections: IUniversalSection[] = [];
 
     const result =
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
-        searchTypes: [EUniversalSearchType.MarketToken],
+        searchTypes: [EUniversalSearchType.V2MarketToken],
       });
-    if (result?.[EUniversalSearchType.MarketToken]?.items) {
+
+    if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
       searchResultSections.push({
+        tabIndex: MARKET_TAB_INDEX,
+        type: EUniversalSearchType.V2MarketToken,
         title: intl.formatMessage({ id: ETranslations.market_trending }),
-        data: result?.[EUniversalSearchType.MarketToken]
-          ?.items as IUniversalSearchResultItem[],
+        data: result[EUniversalSearchType.V2MarketToken]
+          .items as IUniversalSearchResultItem[],
       });
     }
-    setRecommendSections(searchResultSections as IUniversalSection[]);
+    setRecommendSections(searchResultSections);
   }, [intl]);
 
   useEffect(() => {
@@ -259,166 +296,300 @@ export function UniversalSearch({
   }, [fetchRecommendList]);
 
   const searchInputRef = useRef<string>('');
+  const getSearchInput = useCallback(() => searchInputRef.current, []);
 
-  const handleTextChange = useDebouncedCallback(async (val: string) => {
-    console.log('[universalSearch] handleTextChange: ', val);
-    const input = val?.trim?.() || '';
-    if (input) {
-      searchInputRef.current = input;
-      const result =
-        await backgroundApiProxy.serviceUniversalSearch.universalSearch({
-          input,
-          networkId: activeAccount?.network?.id,
-          accountId: activeAccount?.account?.id,
-          indexedAccountId: activeAccount?.indexedAccount?.id,
-          searchTypes: getSearchTypes(),
-          tokenListCache: shouldUseTokensCacheData
-            ? allTokenList?.tokens
-            : undefined,
-          tokenListCacheMap: shouldUseTokensCacheData
-            ? allTokenListMap
-            : undefined,
-          aggregateTokenListCacheMap: shouldUseTokensCacheData
-            ? aggregateTokenListMap
-            : undefined,
-        });
-      const generateDataFn = (data: IUniversalSearchResultItem[]) => {
-        return {
-          data,
-          sliceData: data.slice(0, 5),
-          showMore: data.length > 5,
-        };
+  const getDeferredSearchTypes = useCallback(
+    () =>
+      getSearchTypes().filter((type) => !PRIMARY_SEARCH_TYPES.includes(type)),
+    [],
+  );
+
+  const buildSectionData = useCallback((data: IUniversalSearchResultItem[]) => {
+    return {
+      data,
+      sliceData: data.slice(0, DEFAULT_SLICE_LIMIT),
+      showMore: data.length > DEFAULT_SLICE_LIMIT,
+    };
+  }, []);
+
+  const buildDappSectionData = useCallback(
+    (data: IUniversalSearchResultItem[]) => {
+      const googleSearchIndex = data.findIndex(
+        (item) =>
+          item.type === EUniversalSearchType.Dapp &&
+          isGoogleSearchItem(item.payload?.dappId),
+      );
+
+      if (googleSearchIndex === -1) {
+        return buildSectionData(data);
+      }
+
+      const googleSearchItem = data[googleSearchIndex];
+      const otherResults = data.filter(
+        (_, index) => index !== googleSearchIndex,
+      );
+      const slicedOtherResults = otherResults.slice(0, DEFAULT_SLICE_LIMIT);
+
+      return {
+        data,
+        sliceData: [...slicedOtherResults, googleSearchItem],
+        showMore: otherResults.length > DEFAULT_SLICE_LIMIT,
       };
+    },
+    [buildSectionData],
+  );
 
-      // Special function for dApp results to handle Google search item
-      const generateDappDataFn = (data: IUniversalSearchResultItem[]) => {
-        const googleSearchIndex = data.findIndex(
-          (item) =>
-            item.type === EUniversalSearchType.Dapp &&
-            isGoogleSearchItem(item.payload?.dappId),
-        );
-
-        if (googleSearchIndex === -1) {
-          // No Google search item, use normal logic
-          return generateDataFn(data);
-        }
-
-        // Separate Google search item from other results
-        const googleSearchItem = data[googleSearchIndex];
-        const otherResults = data.filter(
-          (_, index) => index !== googleSearchIndex,
-        );
-
-        // Take first 5 non-Google results + always include Google search item
-        const slicedOtherResults = otherResults.slice(0, 5);
-        const sliceData = [...slicedOtherResults, googleSearchItem];
-
-        return {
-          data,
-          sliceData,
-          showMore: otherResults.length > 5, // Only count non-Google items for showMore
-        };
-      };
-
+  const buildSearchResultSections = useCallback(
+    ({
+      result,
+      input,
+      includeSettings,
+    }: {
+      result: IUniversalSearchBatchResult;
+      input: string;
+      includeSettings?: boolean;
+    }): IUniversalSection[] => {
       const searchResultSections: IUniversalSection[] = [];
+
       if (result?.[EUniversalSearchType.Address]?.items?.length) {
-        const data = result?.[EUniversalSearchType.Address]
-          ?.items as IUniversalSearchResultItem[];
+        const data = result[EUniversalSearchType.Address]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Address),
+          type: EUniversalSearchType.Address,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_wallets,
           }),
-          ...generateDataFn(data),
+          ...buildSectionData(data),
         });
       }
 
-      // Show V2 market tokens
       if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
-        const data = result?.[EUniversalSearchType.V2MarketToken]
-          ?.items as IUniversalSearchResultItem[];
+        const data = result[EUniversalSearchType.V2MarketToken]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(
             EUniversalSearchType.V2MarketToken,
           ),
+          type: EUniversalSearchType.V2MarketToken,
           title: intl.formatMessage({
             id: ETranslations.global_market,
           }),
-          ...generateDataFn(data),
+          data,
+          sliceData: data.slice(0, MARKET_SLICE_LIMIT),
+          showMore: data.length > MARKET_SLICE_LIMIT,
         });
       }
 
-      if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
-        const data = result?.[EUniversalSearchType.MarketToken]
-          ?.items as IUniversalSearchResultItem[];
+      if (result?.[EUniversalSearchType.Perp]?.items?.length) {
+        const data = result[EUniversalSearchType.Perp]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(EUniversalSearchType.MarketToken),
+          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Perp),
+          type: EUniversalSearchType.Perp,
           title: intl.formatMessage({
-            id: ETranslations.global_universal_search_tabs_tokens,
+            id: ETranslations.global_perp,
           }),
-          ...generateDataFn(data),
+          ...buildSectionData(data),
         });
       }
 
       if (result?.[EUniversalSearchType.AccountAssets]?.items?.length) {
-        const data = result?.[EUniversalSearchType.AccountAssets]
-          ?.items as IUniversalSearchResultItem[];
+        const data = result[EUniversalSearchType.AccountAssets]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(
             EUniversalSearchType.AccountAssets,
           ),
+          type: EUniversalSearchType.AccountAssets,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_my_assets,
           }),
-          ...generateDataFn(data),
+          ...buildSectionData(data),
         });
       }
 
       if (result?.[EUniversalSearchType.Dapp]?.items?.length) {
-        const data = result?.[EUniversalSearchType.Dapp]
-          ?.items as IUniversalSearchResultItem[];
+        const data = result[EUniversalSearchType.Dapp]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Dapp),
+          type: EUniversalSearchType.Dapp,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_dapps,
           }),
-          ...generateDappDataFn(data),
+          ...buildDappSectionData(data),
         });
       }
 
-      setSections(searchResultSections);
-      setSearchStatus(ESearchStatus.done);
+      if (includeSettings) {
+        const settingsResults = platformEnv.isWeb ? [] : searchSettings(input);
+        if (settingsResults.length > 0) {
+          const data = settingsResults as IUniversalSearchResultItem[];
+          searchResultSections.push({
+            tabIndex: getTabIndexForSearchType(EUniversalSearchType.Settings),
+            type: EUniversalSearchType.Settings,
+            title: intl.formatMessage({
+              id: ETranslations.global_settings,
+            }),
+            ...buildSectionData(data),
+          });
+        }
+      }
 
-      // Track search event for analytics
-      // Exclude Google search item from result count
-      const resultCount = searchResultSections.reduce((sum, section) => {
-        const count = section.data.filter(
+      return searchResultSections.toSorted((a, b) => a.tabIndex - b.tabIndex);
+    },
+    [buildDappSectionData, buildSectionData, intl, searchSettings],
+  );
+
+  const mergeSearchResultSections = useCallback(
+    (
+      primarySections: IUniversalSection[],
+      deferredSections: IUniversalSection[],
+    ): IUniversalSection[] => {
+      const sectionMap = new Map<number, IUniversalSection>();
+      primarySections.forEach((section) => {
+        sectionMap.set(section.tabIndex, section);
+      });
+      deferredSections.forEach((section) => {
+        sectionMap.set(section.tabIndex, section);
+      });
+      return Array.from(sectionMap.values()).toSorted(
+        (a, b) => a.tabIndex - b.tabIndex,
+      );
+    },
+    [],
+  );
+
+  const logSearchAnalytics = useCallback(
+    (input: string, searchResultSections: IUniversalSection[]) => {
+      const filteredSections = searchResultSections.map((section) => ({
+        type: section.type,
+        count: section.data.filter(
           (item) =>
             !(
               item.type === EUniversalSearchType.Dapp &&
               isGoogleSearchItem(item.payload?.dappId)
             ),
-        ).length;
-        return sum + count;
-      }, 0);
+        ).length,
+      }));
+      const resultCount = filteredSections.reduce((sum, s) => sum + s.count, 0);
+      const exposedTypes = filteredSections
+        .filter((s) => s.count > 0)
+        .map((s) => `${getSearchTypeTrackingName(s.type)}:${s.count}`)
+        .join(',');
       defaultLogger.universalSearch.search.universalSearchQuery({
         searchText: input,
         resultCount,
+        exposedTypes,
       });
+    },
+    [],
+  );
+
+  const isSearchResultStale = useCallback((input: string) => {
+    return searchInputRef.current !== input;
+  }, []);
+
+  const handleTextChange = useDebouncedCallback(async (val: string) => {
+    console.log('[universalSearch] handleTextChange: ', val);
+    const input = val?.trim?.() || '';
+    if (input) {
+      const deferredSearchTypes = getDeferredSearchTypes();
+      let primarySections: IUniversalSection[] = [];
+      const searchParams = {
+        input,
+        networkId: activeAccount?.network?.id,
+        accountId: activeAccount?.account?.id,
+        indexedAccountId: activeAccount?.indexedAccount?.id,
+        tokenListCache: shouldUseTokensCacheData
+          ? allTokenList?.tokens
+          : undefined,
+        tokenListCacheMap: shouldUseTokensCacheData
+          ? allTokenListMap
+          : undefined,
+        aggregateTokenListCacheMap: shouldUseTokensCacheData
+          ? aggregateTokenListMap
+          : undefined,
+      };
+      try {
+        const primaryResult =
+          await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+            ...searchParams,
+            searchTypes: PRIMARY_SEARCH_TYPES,
+          });
+        if (isSearchResultStale(input)) {
+          return;
+        }
+
+        primarySections = buildSearchResultSections({
+          result: primaryResult,
+          input,
+        });
+
+        if (primarySections.length > 0) {
+          setSections(primarySections);
+          setSearchStatus(ESearchStatus.done);
+        }
+
+        const deferredResult =
+          await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+            ...searchParams,
+            searchTypes: deferredSearchTypes,
+          });
+        if (isSearchResultStale(input)) {
+          return;
+        }
+
+        const deferredSections = buildSearchResultSections({
+          result: deferredResult,
+          input,
+          includeSettings: true,
+        });
+        const mergedSections = mergeSearchResultSections(
+          primarySections,
+          deferredSections,
+        );
+        setSections(mergedSections);
+        setSearchStatus(ESearchStatus.done);
+        logSearchAnalytics(input, mergedSections);
+      } catch (error) {
+        if (isSearchResultStale(input)) {
+          return;
+        }
+        console.error('[universalSearch] search failed', error);
+        if (primarySections.length > 0) {
+          setSections(primarySections);
+          setSearchStatus(ESearchStatus.done);
+          logSearchAnalytics(input, primarySections);
+          return;
+        }
+        setSections([]);
+        setSearchStatus(ESearchStatus.done);
+      }
     } else {
+      setSections([]);
+      searchInputRef.current = '';
       setSearchStatus(ESearchStatus.init);
     }
-  }, 1200);
+  }, SEARCH_DEBOUNCE_MS);
 
   const handleChangeText = useCallback((val: string) => {
     console.log('[universalSearch] handleChangeText');
     setSearchValue(val); // Update search value state immediately
-    setSearchStatus(ESearchStatus.loading);
+    searchInputRef.current = val.trim();
+    if (val.trim()) {
+      setSearchStatus(ESearchStatus.loading);
+    } else {
+      setSections([]);
+      setSearchStatus(ESearchStatus.init);
+    }
   }, []);
 
   const handleSearchTextFill = useCallback(
     (text: string) => {
       setSearchValue(text);
+      searchInputRef.current = text.trim();
       // Set loading status to show skeleton screen
       setSearchStatus(ESearchStatus.loading);
       // Trigger search with the filled text
@@ -430,11 +601,29 @@ export function UniversalSearch({
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
       return (
-        <XStack bg="$bgApp" h="$9" ai="center">
-          <SizableText px="$5" size="$headingSm" color="$textSubdued">
-            {section.title}
-          </SizableText>
-        </XStack>
+        <YStack bg="$bgApp">
+          <XStack h="$9" ai="center">
+            <SizableText px="$5" size="$headingSm" color="$textSubdued">
+              {section.title}
+            </SizableText>
+          </XStack>
+        </YStack>
+      );
+    },
+    [],
+  );
+
+  const renderRecommendSectionHeader = useCallback(
+    ({ section }: { section: IUniversalSection }) => {
+      return (
+        <YStack bg="$bgApp">
+          <XStack h="$9" ai="center">
+            <SizableText px="$5" size="$headingSm" color="$textSubdued">
+              {section.title}
+            </SizableText>
+          </XStack>
+          {isMarketSection(section.tabIndex) ? <MarketTableHeader /> : null}
+        </YStack>
       );
     },
     [],
@@ -473,71 +662,105 @@ export function UniversalSearch({
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: IUniversalSearchResultItem }) => {
+    ({
+      item,
+      section,
+      index,
+    }: {
+      item: IUniversalSearchResultItem;
+      section: IUniversalSection;
+      index: number;
+    }) => {
       switch (item.type) {
         case EUniversalSearchType.Address:
           return (
             <UniversalSearchAddressItem
               item={item}
               contextNetworkId={activeAccount?.network?.id}
-            />
-          );
-        case EUniversalSearchType.MarketToken:
-          return (
-            <UniversalSearchMarketTokenItem
-              item={item}
-              searchStatus={searchStatus}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.V2MarketToken:
           return (
-            <UniversalSearchV2MarketTokenItem
-              item={item}
-              searchStatus={searchStatus}
-            />
+            <>
+              {index === 0 &&
+              isMarketSection(section.tabIndex) &&
+              searchStatus !== ESearchStatus.init ? (
+                <MarketTableHeader />
+              ) : null}
+              <UniversalSearchV2MarketTokenItem
+                item={item}
+                isTrending={searchStatus === ESearchStatus.init}
+                getSearchInput={getSearchInput}
+              />
+            </>
           );
         case EUniversalSearchType.AccountAssets:
           return (
             <UniversalSearchAccountAssetItem
               item={item}
               allAggregateTokenMap={allAggregateTokenMap}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.Dapp:
           return (
             <UniversalSearchDappItem
               item={item}
-              getSearchInput={() => searchInputRef.current}
+              getSearchInput={getSearchInput}
+            />
+          );
+        case EUniversalSearchType.Perp:
+          return (
+            <UniversalSearchPerpItem
+              item={item}
+              getSearchInput={getSearchInput}
+            />
+          );
+        case EUniversalSearchType.Settings:
+          return (
+            <UniversalSearchSettingsItem
+              item={item}
+              getSearchInput={getSearchInput}
             />
           );
         default:
           return null;
       }
     },
-    [activeAccount?.network?.id, searchStatus, allAggregateTokenMap],
+    [
+      activeAccount?.network?.id,
+      searchStatus,
+      allAggregateTokenMap,
+      getSearchInput,
+    ],
   );
 
   const keyExtractor = useCallback(
-    (item: IUniversalSearchResultItem, index: number) => {
-      switch (item.type) {
+    (item: IUniversalSearchResultItem, index: number): string => {
+      const { type, payload } = item;
+      switch (type) {
         case EUniversalSearchType.Address:
-          return `${item.type}-${
-            item.payload.account?.id || item.payload.wallet?.id || index
-          }`;
-        case EUniversalSearchType.MarketToken:
-          return `${item.type}-${item.payload.coingeckoId || index}`;
+          return `${type}-${
+            payload.account?.id ??
+            payload.indexedAccount?.id ??
+            payload.wallet?.id ??
+            index
+          }-${payload.network?.id ?? ''}`;
         case EUniversalSearchType.V2MarketToken:
-          return `${item.type}-${
-            item.payload.address || item.payload.symbol
-          }-${index}`;
+          return `${type}-${payload.address ?? payload.symbol}-${index}`;
         case EUniversalSearchType.AccountAssets:
-          return `${item.type}-${
-            item.payload.token.address || item.payload.token.symbol
+          return `${type}-${
+            payload.token.address ?? payload.token.symbol
           }-${index}`;
         case EUniversalSearchType.Dapp:
-          return `${item.type}-${item.payload.dappId || index}`;
+          return `${type}-${payload.dappId ?? index}`;
+        case EUniversalSearchType.Perp:
+          return `${type}-${payload.name}-${index}`;
+        case EUniversalSearchType.Settings:
+          return `${type}-${payload.title}-${index}`;
         default:
-          return `${index}`;
+          return String(index);
       }
     },
     [],
@@ -553,23 +776,30 @@ export function UniversalSearch({
       // When focused in Market tab, prioritize market section
       if (isFocusInMarketTab) {
         const marketSection = sectionsWithSliceData.find(
-          (section) => section.tabIndex === 2, // market tab index
+          (section) => section.tabIndex === MARKET_TAB_INDEX,
         );
-        const tokenSection = sectionsWithSliceData.find(
-          (section) => section.tabIndex === 3,
+        const prioritizedSecondarySection = sectionsWithSliceData.find(
+          (section) => section.tabIndex === PRIORITIZED_SECONDARY_TAB_INDEX,
         );
         const otherSections = sectionsWithSliceData.filter(
-          (section) => section.tabIndex !== 2 && section.tabIndex !== 3,
+          (section) =>
+            section.tabIndex !== MARKET_TAB_INDEX &&
+            section.tabIndex !== PRIORITIZED_SECONDARY_TAB_INDEX,
         );
 
         return marketSection
-          ? [marketSection, tokenSection, ...otherSections].filter(Boolean)
+          ? [
+              marketSection,
+              prioritizedSecondarySection,
+              ...otherSections,
+            ].filter(Boolean)
           : sectionsWithSliceData;
       }
 
       return sectionsWithSliceData;
     }
-    return sections.filter((i) => i.title === filterType);
+    const filtered = sections.filter((i) => i.title === filterType);
+    return filtered;
   }, [filterType, isInAllTab, sections, isFocusInMarketTab]);
 
   const renderResult = useCallback(() => {
@@ -577,7 +807,8 @@ export function UniversalSearch({
       case ESearchStatus.init:
         return (
           <SectionList
-            renderSectionHeader={renderSectionHeader}
+            stickySectionHeadersEnabled
+            renderSectionHeader={renderRecommendSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
@@ -623,7 +854,7 @@ export function UniversalSearch({
               renderSectionFooter={renderSectionFooter}
               ListEmptyComponent={
                 <Empty
-                  icon="SearchOutline"
+                  illustration="QuestionMark"
                   title={intl.formatMessage({
                     id: ETranslations.global_no_results,
                   })}
@@ -646,6 +877,7 @@ export function UniversalSearch({
   }, [
     searchStatus,
     renderSectionHeader,
+    renderRecommendSectionHeader,
     recommendSections,
     renderItem,
     keyExtractor,
@@ -672,7 +904,9 @@ export function UniversalSearch({
             autoFocus
             value={searchValue}
             placeholder={intl.formatMessage({
-              id: ETranslations.global_universal_search_placeholder,
+              id: platformEnv.isWebDappMode
+                ? ETranslations.global_search
+                : ETranslations.global_search_everything,
             })}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}

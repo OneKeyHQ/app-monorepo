@@ -28,7 +28,7 @@ export function ReferAFriendIntroPhase({
           id: ETranslations.referral_intro_p1_desc_bullet1,
         },
         {
-          amount: `${postConfig.commissionRate.amount}${postConfig.commissionRate.unit}`,
+          amount: `${postConfig.commissionRate?.amount ?? ''}${postConfig.commissionRate?.unit ?? ''}`,
         },
       ),
     },
@@ -39,7 +39,7 @@ export function ReferAFriendIntroPhase({
           id: ETranslations.referral_intro_p1_desc_bullet2,
         },
         {
-          amount: `${postConfig.friendDiscount.unit}${postConfig.friendDiscount.amount}`,
+          amount: `${postConfig.friendDiscount?.unit ?? ''}${postConfig.friendDiscount?.amount ?? ''}`,
         },
       ),
     },
@@ -49,7 +49,7 @@ export function ReferAFriendIntroPhase({
     <YStack gap="$5">
       <InviteCodeStepImage step={1} />
 
-      <Stack maxWidth={480} mx="auto" gap="$10" px="$5">
+      <Stack maxWidth={480} mx="auto" gap="$10">
         <ReferralBenefitsList
           title={intl.formatMessage(
             {
@@ -58,11 +58,12 @@ export function ReferAFriendIntroPhase({
             {
               amount: (
                 <SizableText
-                  key="reward-amount"
+                  // `react-intl` may return an array of nodes; ensure the element has a stable key.
+                  key="referral_reward_amount"
                   size="$heading2xl"
                   color="$textSuccess"
                 >
-                  {`${postConfig.referralReward.unit}${postConfig.referralReward.amount}`}
+                  {`${postConfig.referralReward?.unit ?? ''}${postConfig.referralReward?.amount ?? ''}`}
                 </SizableText>
               ),
             },

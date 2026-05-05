@@ -23,6 +23,7 @@ import {
 import { IconButton } from '../IconButton';
 
 import type {
+  IButtonProps,
   IKeyOfIcons,
   ISizableTextProps,
   IStackProps,
@@ -47,6 +48,8 @@ type IAlertActionProps = {
   isSecondaryLoading?: boolean;
   isPrimaryDisabled?: boolean;
   isSecondaryDisabled?: boolean;
+  primaryVariant?: IButtonProps['variant'];
+  secondaryVariant?: IButtonProps['variant'];
 };
 
 interface IAlertContext {
@@ -72,6 +75,7 @@ export type IAlertProps = PropsWithChildren<
     onClose?: () => void;
     icon?: IKeyOfIcons;
     action?: IAlertActionProps;
+    actionLayout?: 'horizontal' | 'vertical';
   } & IStackProps
 >;
 
@@ -120,13 +124,20 @@ const AlertFrame = styled(XStack, {
     },
     fullBleed: {
       true: {
-        paddingHorizontal: '$5',
+        paddingHorizontal: '$pagePadding',
         borderLeftWidth: 0,
         borderRightWidth: 0,
         borderRadius: 0,
       },
     },
-  },
+    actionLayout: {
+      horizontal: {},
+      vertical: {
+        flexDirection: 'column',
+        alignItems: 'stretch',
+      },
+    },
+  } as const,
 });
 
 const AlertIcon = (props: { children: any }) => {
@@ -162,6 +173,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
     fullBleed,
     titleNumberOfLines,
     action,
+    actionLayout,
     onClose: onCloseProp,
     children,
     ...rest
@@ -186,6 +198,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
       ref={ref}
       type={type}
       fullBleed={fullBleed}
+      actionLayout={actionLayout}
       {...(rest as IYStackProps)}
     >
       {icon ? (
@@ -195,7 +208,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
           </AlertIcon>
         </Stack>
       ) : null}
-      <YStack flex={1} gap="$1">
+      <YStack flex={actionLayout === 'vertical' ? undefined : 1} gap="$1">
         {title ? (
           <SizableText
             size="$bodyMdMedium"
@@ -232,6 +245,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
         <XStack gap="$4" alignItems="center">
           <Button
             size="small"
+            variant={action.primaryVariant}
             onPress={action.onPrimaryPress}
             loading={action.isPrimaryLoading}
             disabled={action.isPrimaryDisabled}
@@ -241,7 +255,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
           {action.secondary ? (
             <Button
               size="small"
-              variant="tertiary"
+              variant={action.secondaryVariant ?? 'tertiary'}
               onPress={action.onSecondaryPress}
               loading={action.isSecondaryLoading}
               disabled={action.isSecondaryDisabled}

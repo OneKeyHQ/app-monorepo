@@ -1,23 +1,19 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgMagicBox = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M15 15H9v-2h6z" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M9 14a1 1 0 0 1 1-1h4a1 1 0 1 1 0 2h-4a1 1 0 0 1-1-1"
+      d="M20.372 4.657 17.766 9H20v13H4V9h11.434l3.223-5.372 1.715 1.03ZM6 20h12v-9H6z"
       clipRule="evenodd"
     />
-    <Path
-      fill="currentColor"
-      d="M11.85 3.075a.5.5 0 0 0 .224-.224l.478-.957a.5.5 0 0 1 .894 0l.479.957a.5.5 0 0 0 .223.224l.957.478a.5.5 0 0 1 0 .894l-.957.478a.5.5 0 0 0-.223.224l-.479.957a.5.5 0 0 1-.894 0l-.478-.957a.5.5 0 0 0-.224-.224l-.956-.478a.5.5 0 0 1 0-.894zM6.517 4.741a.5.5 0 0 0 .223-.223l.312-.624a.5.5 0 0 1 .894 0l.312.624a.5.5 0 0 0 .224.223l.623.312a.5.5 0 0 1 0 .894l-.623.312a.5.5 0 0 0-.224.223l-.312.624a.5.5 0 0 1-.894 0l-.312-.624a.5.5 0 0 0-.223-.223l-.623-.312a.5.5 0 0 1 0-.894z"
-    />
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M19.524 4.148a1 1 0 0 1 .328 1.376L17.712 9H19a1 1 0 0 1 1 1v9a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-9a1 1 0 0 1 1-1h10.364l2.784-4.524a1 1 0 0 1 1.376-.328M6 11v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-8z"
-      clipRule="evenodd"
-    />
+    <Path d="m8.328 4.672 1.658.828-1.658.828L7.5 7.986l-.828-1.658L5.014 5.5l1.658-.828.828-1.658zm5.567-1.869.1.202.202.1 1.79.895-1.79.895-.202.1-.1.202L13 6.987l-.895-1.79-.1-.202-.202-.1L10.013 4l1.79-.895.202-.1.1-.202.895-1.79z" />
   </Svg>
 );
 export default SvgMagicBox;

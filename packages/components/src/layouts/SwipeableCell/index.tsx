@@ -1,4 +1,10 @@
-import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 import type { ComponentType, ForwardedRef } from 'react';
 
 import { Animated } from 'react-native';
@@ -26,6 +32,66 @@ type ISwipeableSwipeDirection = 'left' | 'right';
 
 type ISwipeableSwipeProgress = Animated.AnimatedInterpolation<string | number>;
 
+function SwipeableCellItem({
+  item,
+  index,
+  itemList,
+  isRightDirection,
+  progress,
+  close,
+}: {
+  item: ISwipeableCellItemProps;
+  index: number;
+  itemList: Array<ISwipeableCellItemProps>;
+  isRightDirection: boolean;
+  progress: ISwipeableSwipeProgress;
+  close?: () => void;
+}) {
+  const x = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      itemList
+        .slice(
+          isRightDirection ? index : 0,
+          isRightDirection ? itemList.length : index + 1,
+        )
+        .map((_item) => _item.width)
+        .reduce((previous, current) => previous + current, 0) *
+        (isRightDirection ? 1 : -1),
+      0,
+    ],
+  });
+  const animatedStyle = useMemo(
+    () => ({
+      zIndex: isRightDirection ? index : itemList.length - index,
+      transform: [
+        {
+          translateX: x,
+        },
+      ],
+    }),
+    [isRightDirection, index, itemList.length, x],
+  );
+  const handlePress = useCallback(() => {
+    item.onPress({ close });
+  }, [item, close]);
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Stack
+        bg={item.backgroundColor}
+        w={item.width}
+        h="100%"
+        justifyContent="center"
+        alignItems="center"
+        onPress={handlePress}
+      >
+        <SizableText color="white">{item.title}</SizableText>
+      </Stack>
+    </Animated.View>
+  );
+}
+
 function SwipeableCellContainer({
   close,
   progress,
@@ -39,46 +105,17 @@ function SwipeableCellContainer({
 }) {
   return (
     <XStack>
-      {itemList.map((item, index) => {
-        const x = progress.interpolate({
-          inputRange: [0, 1],
-          outputRange: [
-            itemList
-              .slice(
-                isRightDirection ? index : 0,
-                isRightDirection ? itemList.length : index + 1,
-              )
-              .map((_item) => _item.width)
-              .reduce((previous, current) => previous + current, 0) *
-              (isRightDirection ? 1 : -1),
-            0,
-          ],
-        });
-        return (
-          <Animated.View
-            key={index}
-            style={{
-              zIndex: isRightDirection ? index : itemList.length - index,
-              transform: [
-                {
-                  translateX: x,
-                },
-              ],
-            }}
-          >
-            <Stack
-              bg={item.backgroundColor}
-              w={item.width}
-              h="100%"
-              justifyContent="center"
-              alignItems="center"
-              onPress={() => item.onPress({ close })}
-            >
-              <SizableText color="white">{item.title}</SizableText>
-            </Stack>
-          </Animated.View>
-        );
-      })}
+      {itemList.map((item, index) => (
+        <SwipeableCellItem
+          key={index}
+          item={item}
+          index={index}
+          itemList={itemList}
+          isRightDirection={isRightDirection}
+          progress={progress}
+          close={close}
+        />
+      ))}
     </XStack>
   );
 }

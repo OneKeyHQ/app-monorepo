@@ -4,6 +4,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { StyleSheet } from 'react-native';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Skeleton } from '../Skeleton';
 import { Stack } from '../Stack';
@@ -18,6 +19,10 @@ import type { ImageErrorEventData, ImageSource, ImageStyle } from 'expo-image';
 const getRandomRetryTimes = () => {
   return Math.floor(Math.random() * 3) * 1000;
 };
+
+// Disable GIF autoplay by default on Android to prevent OOM issues
+// when rendering many animated images in lists (e.g., NFT history)
+const DEFAULT_AUTOPLAY = !platformEnv.isNativeAndroid;
 
 export function ImageV2({
   style: defaultStyle,
@@ -62,6 +67,7 @@ export function ImageV2({
     onLoadEnd,
     onLoadStart,
     onDisplay,
+    autoplay,
     ...imageProps
   } = restProps;
   const retryTimesLimit = useRef<number>(defaultRetryTimes || 1);
@@ -97,21 +103,20 @@ export function ImageV2({
     [onError, reFetchImage],
   );
 
+  const fallbackStyle = useMemo(
+    () => ({
+      overflow: 'hidden' as const,
+      display: 'flex' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      ...style,
+    }),
+    [style],
+  );
+
   if (!image) {
     if (hasError || isEmptyResolvedSource(source as ImageSource | null)) {
-      return (
-        <Stack
-          style={{
-            overflow: 'hidden',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...style,
-          }}
-        >
-          {fallback}
-        </Stack>
-      );
+      return <Stack style={fallbackStyle}>{fallback}</Stack>;
     }
     return skeleton || <Skeleton width={style.width} height={style.height} />;
   }
@@ -126,6 +131,7 @@ export function ImageV2({
         onLoadEnd={onLoadEnd}
         onDisplay={onDisplay}
         onLoadStart={onLoadStart}
+        autoplay={autoplay ?? DEFAULT_AUTOPLAY}
         {...(imageProps as any)}
       />
     );
@@ -140,6 +146,7 @@ export function ImageV2({
       onLoadEnd={onLoadEnd}
       onDisplay={onDisplay}
       onLoadStart={onLoadStart}
+      autoplay={autoplay ?? DEFAULT_AUTOPLAY}
       {...(imageProps as any)}
     />
   );

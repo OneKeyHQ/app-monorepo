@@ -101,6 +101,13 @@ export class WalletActionsScene extends BaseScene {
   }
 
   @LogToServer()
+  public actionApprovals(
+    params: Omit<IWalletActionBaseParams, 'isSoftwareWalletOnlyUser'>,
+  ) {
+    return params;
+  }
+
+  @LogToServer()
   public actionStaking(params: IWalletActionBaseParams) {
     return params;
   }
@@ -136,6 +143,23 @@ export class WalletActionsScene extends BaseScene {
       networkName,
       details,
     };
+  }
+
+  @LogToServer()
+  public zeroNativeBalanceDialog({
+    action,
+    networkId,
+    tokenSymbol,
+    walletType,
+    sendFlowId,
+  }: {
+    action: 'shown' | 'receive' | 'buy' | 'continue';
+    networkId: string;
+    tokenSymbol: string;
+    walletType: string;
+    sendFlowId?: string;
+  }) {
+    return { action, networkId, tokenSymbol, walletType, sendFlowId };
   }
 
   @LogToServer()

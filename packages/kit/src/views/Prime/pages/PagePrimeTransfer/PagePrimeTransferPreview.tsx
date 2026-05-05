@@ -30,7 +30,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EPrimePages,
@@ -107,12 +106,12 @@ function PreviewItem({
       onSelect?.(itemId);
     } else {
       Toast.error({
-        title: appLocale.intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.transfer_web_only_supports_watch_only_transfer,
         }),
       });
     }
-  }, [itemId, onSelect, selectedItemMapInfo]);
+  }, [itemId, onSelect, selectedItemMapInfo, intl]);
 
   return (
     <Stack
@@ -229,9 +228,13 @@ function WalletList({
     const _importedAccounts = Object.values(data.privateData.importedAccounts);
     const _watchingAccounts = Object.values(data.privateData.watchingAccounts);
     return {
-      wallets: _wallets.sort((a, b) => walletSortFn(a, b)),
-      importedAccounts: _importedAccounts.sort((a, b) => accountSortFn(a, b)),
-      watchingAccounts: _watchingAccounts.sort((a, b) => accountSortFn(a, b)),
+      wallets: _wallets.toSorted((a, b) => walletSortFn(a, b)),
+      importedAccounts: _importedAccounts.toSorted((a, b) =>
+        accountSortFn(a, b),
+      ),
+      watchingAccounts: _watchingAccounts.toSorted((a, b) =>
+        accountSortFn(a, b),
+      ),
     };
   }, [data]);
 
@@ -365,9 +368,9 @@ export default function PagePrimeTransferPreview() {
         (acc, wallet) => {
           const shouldDisabled = Boolean(
             platformEnv.isWebDappMode &&
-              accountUtils.isHdWallet({
-                walletId: wallet?.id || '',
-              }),
+            accountUtils.isHdWallet({
+              walletId: wallet?.id || '',
+            }),
           );
           acc[wallet.id] = {
             checked: !shouldDisabled,
@@ -388,9 +391,9 @@ export default function PagePrimeTransferPreview() {
         (acc, account) => {
           const shouldDisabled = Boolean(
             platformEnv.isWebDappMode &&
-              accountUtils.isImportedAccount({
-                accountId: account?.id || '',
-              }),
+            accountUtils.isImportedAccount({
+              accountId: account?.id || '',
+            }),
           );
 
           acc[account.id] = {
@@ -408,13 +411,16 @@ export default function PagePrimeTransferPreview() {
       ),
       watchingAccount: Object.values(
         transferData?.privateData?.watchingAccounts || {},
-      ).reduce((acc, account) => {
-        acc[account.id] = {
-          checked: true,
-          disabled: false,
-        };
-        return acc;
-      }, {} as { [id: string]: { checked: boolean; disabled: boolean } }),
+      ).reduce(
+        (acc, account) => {
+          acc[account.id] = {
+            checked: true,
+            disabled: false,
+          };
+          return acc;
+        },
+        {} as { [id: string]: { checked: boolean; disabled: boolean } },
+      ),
     };
   }, [
     transferData?.privateData?.wallets,
@@ -545,6 +551,11 @@ export default function PagePrimeTransferPreview() {
           // exitTransferFlow();
           // await timerUtils.wait(1000);
 
+          // Delay to ensure the dialog is closed before proceeding
+          if (platformEnv.isNative) {
+            await timerUtils.wait(350);
+          }
+
           await backgroundApiProxy.servicePrimeTransfer.initImportProgress({
             selectedTransferData,
           });
@@ -578,7 +589,7 @@ export default function PagePrimeTransferPreview() {
           console.error(error);
           await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
           Toast.error({
-            title: appLocale.intl.formatMessage({
+            title: intl.formatMessage({
               id: ETranslations.global_an_error_occurred,
             }),
             message: (error as Error)?.message || 'Unknown error',
@@ -609,7 +620,7 @@ export default function PagePrimeTransferPreview() {
                 await startImport();
               } else {
                 Toast.error({
-                  title: appLocale.intl.formatMessage({
+                  title: intl.formatMessage({
                     id: ETranslations.auth_error_passcode_incorrect,
                   }),
                 });

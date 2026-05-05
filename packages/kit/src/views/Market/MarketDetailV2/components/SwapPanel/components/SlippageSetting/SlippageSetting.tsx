@@ -75,7 +75,7 @@ export function SlippageSetting({
       justifyContent="space-between"
       alignItems="center"
       userSelect="none"
-      cursor="pointer"
+      cursor="default"
     >
       <InfoItemLabel
         title={intl.formatMessage({
@@ -86,7 +86,17 @@ export function SlippageSetting({
         })}
       />
 
-      <XStack onPress={onSlippageHandleClick} alignItems="center" gap="$1">
+      <XStack
+        onPress={onSlippageHandleClick}
+        alignItems="center"
+        gap="$1"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        borderRadius="$2"
+        px="$1"
+        py="$0.5"
+        cursor="default"
+      >
         {isMEV ? (
           <Icon name="ShieldCheckDoneSolid" size="$5" color="$iconSuccess" />
         ) : null}
@@ -101,7 +111,12 @@ export function SlippageSetting({
         >
           {displaySlippageText}
         </SizableText>
-        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+        <Icon
+          name="ChevronRightSmallOutline"
+          size="$5"
+          color="$iconSubdued"
+          cursor="default"
+        />
       </XStack>
     </XStack>
   );

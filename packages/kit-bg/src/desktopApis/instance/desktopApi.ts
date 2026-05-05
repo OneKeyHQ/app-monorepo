@@ -4,6 +4,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { DESKTOP_API_MESSAGE_TYPE } from '../base/consts';
 import { JsBridgeDesktopApiOfMain } from '../base/JsBridgeDesktopApiOfMain';
+import DesktopApiAppleAuth from '../DesktopApiAppleAuth';
 import DesktopApiAppUpdate from '../DesktopApiAppUpdate';
 import DesktopApiBluetooth from '../DesktopApiBluetooth';
 import DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
@@ -83,6 +84,10 @@ class DesktopApi implements IDesktopApi {
       desktopApi: this,
     },
   );
+
+  appleAuth: DesktopApiAppleAuth = new DesktopApiAppleAuth({
+    desktopApi: this,
+  });
 }
 
 const desktopApi = new DesktopApi();
@@ -107,8 +112,7 @@ function desktopApiSetup() {
     receiveHandler: async (payload) => {
       const msg = payload.data as IDesktopApiMessagePayload | undefined;
       if (msg && msg.type === DESKTOP_API_MESSAGE_TYPE) {
-        const result = await callDesktopApiMethod(msg);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        const result: unknown = await callDesktopApiMethod(msg);
         return result;
       }
     },

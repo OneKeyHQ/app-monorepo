@@ -1,0 +1,300 @@
+import type {
+  ComponentProps,
+  ForwardRefExoticComponent,
+  RefAttributes,
+} from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
+
+import { useFocusEffect } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
+import { type TextInput } from 'react-native';
+
+import {
+  Button,
+  HeightTransition,
+  Input,
+  Keyboard,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { MultipleClickStack } from '../../../components/MultipleClickStack';
+import { KeylessOnboardingDebugPanel } from '../pages/KeylessOnboardingDebugPanel';
+
+import {
+  OnboardingIconBadge,
+  OnboardingPage,
+  OnboardingSidebar,
+} from './Layout';
+
+interface IPinInputLayoutProps {
+  title: string;
+  description?: string | React.ReactNode;
+  descriptionColor?: '$textSubdued' | '$textCaution';
+  buttonText: string;
+  secondaryButtonText?: string;
+  onSecondaryButtonPress?: () => void;
+  value: string;
+  onChange: (pin: string) => void;
+  onSubmit: () => void;
+  isSubmitDisabled?: boolean;
+  isInputDisabled?: boolean;
+  errorMessage?: string;
+  isLoading?: boolean;
+  placeholder?: string;
+  onClose?: () => Promise<void>;
+  onUnmounted?: () => void;
+  onEnableInput?: () => void;
+  onTitleMultipleClick?: () => void;
+  isVerifyPinPage?: boolean;
+  onAutoInputPin?: () => void;
+  showInputSkeleton?: boolean;
+}
+
+export interface IPinInputLayoutRef {
+  focus: () => void;
+}
+
+const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
+  (
+    {
+      title,
+      description,
+      descriptionColor = '$textSubdued',
+      buttonText,
+      secondaryButtonText,
+      onSecondaryButtonPress,
+      value,
+      onChange,
+      onSubmit,
+      isSubmitDisabled = false,
+      isInputDisabled = false,
+      errorMessage,
+      isLoading,
+      placeholder = '••••',
+      onClose,
+      onUnmounted,
+      onEnableInput,
+      onTitleMultipleClick,
+      isVerifyPinPage,
+      onAutoInputPin,
+      showInputSkeleton = false,
+    },
+    ref,
+  ) => {
+    const intl = useIntl();
+    const inputRef = useRef<TextInput>(null);
+    const { gtMd } = useMedia();
+    const prevShowInputSkeletonRef = useRef(showInputSkeleton);
+
+    useImperativeHandle(ref, () => ({
+      focus: () => {
+        inputRef.current?.focus();
+      },
+    }));
+
+    useFocusEffect(
+      useCallback(() => {
+        // Skip auto-focus if skeleton is showing
+        if (showInputSkeleton) {
+          return;
+        }
+        const timer = setTimeout(
+          () => {
+            inputRef.current?.focus();
+          },
+          platformEnv.isNative ? 500 : 300,
+        );
+        return () => clearTimeout(timer);
+      }, [showInputSkeleton]),
+    );
+
+    // Focus when skeleton transitions from shown to hidden
+    useEffect(() => {
+      if (prevShowInputSkeletonRef.current && !showInputSkeleton) {
+        const timer = setTimeout(
+          () => {
+            inputRef.current?.focus();
+          },
+          platformEnv.isNative ? 100 : 50,
+        );
+        return () => clearTimeout(timer);
+      }
+      prevShowInputSkeletonRef.current = showInputSkeleton;
+    }, [showInputSkeleton]);
+
+    const handleChangeText = useCallback(
+      (text: string) => {
+        onChange(text.replace(/[^0-9]/g, ''));
+      },
+      [onChange],
+    );
+
+    const handleSubmitEditing = useCallback(() => {
+      if (!isSubmitDisabled) {
+        onSubmit();
+      }
+    }, [isSubmitDisabled, onSubmit]);
+
+    const submitButtonProps = useMemo<ComponentProps<typeof Button>>(
+      () => ({
+        onPress: onSubmit,
+        loading: isLoading,
+        disabled: isSubmitDisabled || isLoading,
+      }),
+      [isSubmitDisabled, isLoading, onSubmit],
+    );
+
+    return (
+      <OnboardingPage
+        onUnmounted={onUnmounted}
+        onClose={() => {
+          void onClose?.();
+        }}
+        contentContainerProps={{
+          $gtMd: { minHeight: 600, flexDirection: 'row' },
+        }}
+      >
+        <YStack
+          w="100%"
+          $md={{
+            flex: 1,
+          }}
+          $gtMd={{
+            flexDirection: 'row',
+            alignSelf: 'flex-start',
+          }}
+        >
+          <YStack flex={1}>
+            <YStack gap="$2" mb="$5" $gtMd={{ mb: '$12' }}>
+              <MultipleClickStack onPress={onTitleMultipleClick}>
+                <SizableText size="$heading4xl">{title}</SizableText>
+              </MultipleClickStack>
+              <MultipleClickStack onPress={onEnableInput}>
+                <SizableText size="$bodyLg" color={descriptionColor}>
+                  {description}
+                </SizableText>
+              </MultipleClickStack>
+            </YStack>
+
+            <YStack
+              mb="$6"
+              $md={{
+                flex: 1,
+              }}
+            >
+              {/* Input Form */}
+              <HeightTransition initialHeight={50}>
+                <YStack gap="$2">
+                  {showInputSkeleton ? (
+                    <Skeleton h={50} w="100%" radius={12} />
+                  ) : (
+                    <Input
+                      ref={inputRef}
+                      size="large"
+                      placeholder={placeholder}
+                      textAlign="center"
+                      fontSize={platformEnv.isNative ? 20 : 24}
+                      h={50}
+                      maxLength={4}
+                      keyboardType="number-pad"
+                      secureTextEntry
+                      value={value}
+                      error={!!errorMessage}
+                      disabled={isInputDisabled}
+                      onChangeText={handleChangeText}
+                      onSubmitEditing={handleSubmitEditing}
+                    />
+                  )}
+                  {errorMessage ? (
+                    <SizableText size="$bodySm" color="$textCritical">
+                      {errorMessage}
+                    </SizableText>
+                  ) : null}
+                </YStack>
+              </HeightTransition>
+
+              <KeylessOnboardingDebugPanel
+                isVerifyPinPage={isVerifyPinPage}
+                onAutoInputPin={onAutoInputPin}
+                onForceEnableInput={onEnableInput}
+              />
+            </YStack>
+
+            {/* Submit Button */}
+            <Keyboard.StickyView>
+              <XStack
+                gap="$2"
+                $md={{
+                  pb: '$5',
+                }}
+              >
+                {secondaryButtonText && onSecondaryButtonPress ? (
+                  <Button
+                    size="large"
+                    variant="secondary"
+                    flexGrow={1}
+                    flexBasis={0}
+                    onPress={onSecondaryButtonPress}
+                  >
+                    {secondaryButtonText}
+                  </Button>
+                ) : null}
+                <Button
+                  size="large"
+                  variant={isSubmitDisabled ? 'secondary' : 'primary'}
+                  flexGrow={1}
+                  flexBasis={0}
+                  {...submitButtonProps}
+                >
+                  {buttonText}
+                </Button>
+              </XStack>
+            </Keyboard.StickyView>
+          </YStack>
+          {gtMd ? (
+            <OnboardingSidebar>
+              <OnboardingIconBadge icon="InfoSimpleSolid" />
+              <YStack gap="$4">
+                <SizableText size="$bodyLg">
+                  {intl.formatMessage({
+                    id: ETranslations.create_pin_recovery_role__desc,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyLg">
+                  {intl.formatMessage({
+                    id: ETranslations.create_pin_dual_factor__desc,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyLg">
+                  {intl.formatMessage({
+                    id: ETranslations.create_pin_keep_safe__desc,
+                  })}
+                </SizableText>
+              </YStack>
+            </OnboardingSidebar>
+          ) : null}
+        </YStack>
+      </OnboardingPage>
+    );
+  },
+);
+
+PinInputLayout.displayName = 'PinInputLayout';
+
+export { PinInputLayout };
+export type IPinInputLayoutComponent = ForwardRefExoticComponent<
+  IPinInputLayoutProps & RefAttributes<IPinInputLayoutRef>
+>;

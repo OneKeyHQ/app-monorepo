@@ -1,7 +1,9 @@
-const fse = require('fs-extra');
 const fs = require('fs');
 const path = require('path');
+
 const cheerio = require('cheerio');
+const fse = require('fs-extra');
+
 const devUtils = require('./devUtils');
 
 function doTaskInFolder({ folder }) {
@@ -110,7 +112,7 @@ class HtmlLazyScriptPlugin {
   }
 
   apply(compiler) {
-    compiler.hooks.done.tap('HtmlLazyScriptPlugin', (compilation, callback) => {
+    compiler.hooks.done.tap('HtmlLazyScriptPlugin', (_compilation) => {
       console.log(`\n${this.config.name}: HtmlLazyScriptPlugin >>>>>>>> `);
       doTask();
       console.log(`\n${this.config.name}: HtmlLazyScriptPlugin DONE !!!!! `);

@@ -1,6 +1,5 @@
 export enum EDemoTabRoutes {
   Home = 'home',
-  Me = 'me',
   Tabs = 'tabs',
   Developer = 'developer',
 }

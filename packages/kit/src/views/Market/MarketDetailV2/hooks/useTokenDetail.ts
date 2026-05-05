@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
+
 import {
   useIsNativeAtom,
   useNetworkIdAtom,
+  usePerpsInfoAtom,
   useTokenAddressAtom,
   useTokenDetailAtom,
   useTokenDetailLoadingAtom,
@@ -14,8 +17,17 @@ export function useTokenDetail() {
   const [networkId] = useNetworkIdAtom();
   const [isNative] = useIsNativeAtom();
   const [websocketConfig] = useTokenDetailWebsocketAtom();
+  const [perpsInfo] = usePerpsInfoAtom();
 
-  const isReady = !isLoading && !!tokenDetail;
+  const isReady = useMemo(
+    () => !isLoading && !!tokenDetail,
+    [isLoading, tokenDetail],
+  );
+
+  const isStockToken = useMemo(
+    () => !!tokenDetail?.stock?.underlyingAssetTicker,
+    [tokenDetail?.stock?.underlyingAssetTicker],
+  );
 
   return {
     tokenDetail,
@@ -24,6 +36,8 @@ export function useTokenDetail() {
     networkId,
     isNative,
     websocketConfig,
+    perpsInfo,
     isReady,
+    isStockToken,
   };
 }

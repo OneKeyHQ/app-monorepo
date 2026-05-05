@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCloseQuote = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="#0F1419"
-      d="M5.004 4a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3v5a1 1 0 0 0 1.351.936h.002l.002-.001.006-.002.016-.007a3 3 0 0 0 .21-.09 7 7 0 0 0 .528-.27c.428-.24.998-.613 1.569-1.149 1.154-1.082 2.316-2.832 2.316-5.417V7a3 3 0 0 0-3-3zm11 0a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3v5a1 1 0 0 0 1.351.936h.002l.002-.001.006-.002.016-.007a3 3 0 0 0 .21-.09 8.2 8.2 0 0 0 2.098-1.42c1.153-1.081 2.315-2.83 2.315-5.416V7a3 3 0 0 0-3-3z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M11 4v9c0 2.585-1.162 4.335-2.316 5.417a8.2 8.2 0 0 1-1.569 1.15c-.671.378-1.394.606-2.115.876V14H2V4zm11.005 0v9c0 2.585-1.162 4.335-2.316 5.417a8.2 8.2 0 0 1-1.569 1.15c-.671.378-1.394.605-2.115.875L16 14h-3l.005-10z" />
   </Svg>
 );
 export default SvgCloseQuote;

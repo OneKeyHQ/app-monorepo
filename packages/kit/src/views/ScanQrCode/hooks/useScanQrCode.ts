@@ -27,7 +27,9 @@ export default function useScanQrCode() {
   const parseQRCode = useParseQRCode();
   const start = useCallback(
     async ({
-      autoHandleResult = false,
+      // Keep manual mode by default so the caller can decide what to do with
+      // the parsed result.
+      autoExecuteParsedAction = false,
       handlers,
       account,
       network,
@@ -47,7 +49,7 @@ export default function useScanQrCode() {
               callback: async ({ value, popNavigation }) => {
                 if (value?.length > 0) {
                   const parseValue = await parseQRCode.parse(value, {
-                    autoHandleResult,
+                    autoExecuteParsedAction,
                     handlers,
                     account,
                     network,

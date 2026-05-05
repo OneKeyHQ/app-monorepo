@@ -56,4 +56,6 @@ export type ISortableListViewProps<T> = Omit<
     ListFooterComponentStyle?: StackStyle;
     onDragEnd?: (params: IDragEndParamsWithItem<T>) => void;
     getItemDragDisabled?: (item: T, index: number) => boolean;
+    // Whether this list is integrated inside a collapsible tab container (native only)
+    tabIntegrated?: boolean;
   };

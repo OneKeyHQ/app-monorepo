@@ -34,12 +34,13 @@ import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
 import type { ImageURISource } from 'react-native';
 
-type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs';
+type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
 export type ITokenProps = {
   isNFT?: boolean;
   fallbackIcon?: IKeyOfIcons;
   size?: ITokenSize;
   tokenImageUri?: ImageURISource['uri'];
+  tokenImageUris?: string[];
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
   networkId?: string;
@@ -59,12 +60,14 @@ const sizeMap: Record<
   md: { tokenImageSize: '$8', chainImageSize: '$4', fallbackIconSize: '$6' },
   sm: { tokenImageSize: '$6', chainImageSize: '$3', fallbackIconSize: '$6' },
   xs: { tokenImageSize: '$5', chainImageSize: '$2.5', fallbackIconSize: '$5' },
+  xxs: { tokenImageSize: '$4', chainImageSize: '$2', fallbackIconSize: '$4' },
 };
 
 export function Token({
   isNFT,
   size,
   tokenImageUri,
+  tokenImageUris,
   networkImageUri,
   networkId,
   showNetworkIcon,
@@ -97,39 +100,60 @@ export function Token({
   }, [tokenImageUri]);
 
   const resolvedBg =
-    bgProp ?? (themeVariant === 'light' ? undefined : '$neutral6Dark');
+    bgProp ?? (themeVariant === 'light' ? '$bgApp' : '$neutral6Dark');
   const shouldShowBorder = themeVariant === 'dark';
 
-  const tokenImage = (
-    <Image
-      size={tokenImageSize}
-      borderRadius={borderRadius}
-      source={source}
-      bg={resolvedBg}
-      borderWidth={shouldShowBorder ? '$px' : undefined}
-      borderColor={shouldShowBorder ? '$neutral2Dark' : undefined}
-      fallback={
-        <Stack
-          bg="$gray5"
-          ai="center"
-          jc="center"
-          borderRadius={borderRadius}
-          w={tokenImageSize}
-          h={tokenImageSize}
-        >
-          <Icon
-            size={fallbackIconSize}
-            name={fallbackIconName}
-            color="$iconSubdued"
-          />
-        </Stack>
-      }
-      skeleton={
-        <Skeleton w={tokenImageSize} h={tokenImageSize} radius="round" />
-      }
-      {...rest}
-    />
+  const fallbackElement = useMemo(
+    () => (
+      <Stack
+        bg="$gray5"
+        ai="center"
+        jc="center"
+        borderRadius={borderRadius}
+        w={tokenImageSize}
+        h={tokenImageSize}
+      >
+        <Icon
+          size={fallbackIconSize}
+          name={fallbackIconName}
+          color="$iconSubdued"
+        />
+      </Stack>
+    ),
+    [borderRadius, tokenImageSize, fallbackIconSize, fallbackIconName],
   );
+
+  const skeletonElement = useMemo(
+    () => (
+      <Skeleton
+        w={rest.w ?? tokenImageSize}
+        h={rest.h ?? tokenImageSize}
+        radius="round"
+      />
+    ),
+    [rest.w, rest.h, tokenImageSize],
+  );
+
+  const sharedImageProps = {
+    size: tokenImageSize,
+    borderRadius: borderRadius as IImageProps['borderRadius'],
+    bg: resolvedBg,
+    borderWidth: shouldShowBorder ? ('$px' as const) : undefined,
+    borderColor: shouldShowBorder ? ('$neutral2Dark' as const) : undefined,
+    fallback: fallbackElement,
+    skeleton: skeletonElement,
+    ...rest,
+  };
+
+  const tokenImage =
+    tokenImageUris && tokenImageUris.length > 0 ? (
+      <Image.WithFallbackSources
+        sources={tokenImageUris}
+        {...sharedImageProps}
+      />
+    ) : (
+      <Image source={source} {...sharedImageProps} />
+    );
 
   if (networkImageUri) {
     return (

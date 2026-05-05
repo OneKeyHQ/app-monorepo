@@ -2,22 +2,23 @@ import type { ComponentProps, FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { TextArea } from '@onekeyhq/components';
 import {
   Badge,
+  Button,
   Form,
   Icon,
   IconButton,
   Select,
+  SizableText,
   Spinner,
   Stack,
   XStack,
   useFormContext,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type {
@@ -29,6 +30,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IAddressBadge,
@@ -42,6 +44,7 @@ import {
 
 import { AddressBadge } from '../AddressBadge';
 import { BaseInput } from '../BaseInput';
+import { WalletAvatarById } from '../WalletAvatar';
 
 import { AddressInputContext } from './AddressInputContext';
 import { renderAddressInputHyperlinkText } from './AddressInputHyperlinkText';
@@ -49,6 +52,11 @@ import { useIsEnableTransferAllowList } from './hooks';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
+import {
+  getAddressQueryResolvedAddress,
+  getAddressValidateTranslationId,
+  queryAddressWithFallback,
+} from './utils';
 
 import type { IScanPluginProps } from './plugins/scan';
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
@@ -114,7 +122,10 @@ export type IAddressInputValue = {
     message?: string;
     translationId?: ETranslations;
   };
+  similarAddress?: string;
 };
+
+type IAddressInputActionsLayout = 'default' | 'recipient';
 
 type IAddressInputProps = Omit<
   ComponentProps<typeof TextArea>,
@@ -126,6 +137,7 @@ type IAddressInputProps = Omit<
   placeholder?: string;
   name?: string;
   autoError?: boolean;
+  actionsLayout?: IAddressInputActionsLayout;
   // plugins options for control button display
   clipboard?: boolean;
   scan?: { sceneName: EAccountSelectorSceneName };
@@ -158,7 +170,10 @@ type IAddressInputProps = Omit<
   }) => void;
 
   hideNonBackedUpWallet?: boolean;
+  ignoreSimilarAddressInAddressBook?: boolean;
+  enableCheckSimilarAddressInAddressBook?: boolean;
   onScanResult?: IScanPluginProps['onScanResult'];
+  hasQuickSelectMatches?: boolean;
 };
 
 export type IAddressQueryResult = {
@@ -168,6 +183,7 @@ export type IAddressQueryResult = {
   accountName?: string;
   walletAccountName?: string;
   walletAccountId?: string; // accountId or indexedAccountId
+  walletId?: string;
   addressBookId?: string;
   addressBookName?: string;
   resolveAddress?: string;
@@ -185,6 +201,7 @@ export type IAddressQueryResult = {
   addressDeriveType?: IAccountDeriveTypes;
   addressNote?: string;
   addressMemo?: string;
+  similarAddress?: string;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -212,19 +229,31 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   }
   if (result) {
     return (
-      <XStack gap="$2" my="$-1" flex={1} flexWrap="wrap">
+      <XStack gap="$2" mb="$1" flex={1} flexWrap="wrap" overflow="hidden">
         {result.walletAccountName ? (
-          <Badge badgeType="success" badgeSize="sm" mx="$0.5">
-            {result.walletAccountName}
+          <Badge badgeType="success" badgeSize="sm" maxWidth="100%">
+            <XStack gap="$1.5" alignItems="center" maxWidth="100%">
+              {result.walletId ? (
+                <WalletAvatarById walletId={result.walletId} size="$4" />
+              ) : null}
+              <Badge.Text numberOfLines={1}>
+                {result.walletAccountName}
+              </Badge.Text>
+            </XStack>
           </Badge>
         ) : null}
         {result.addressBookName ? (
-          <Badge badgeType="success" badgeSize="sm" mx="$0.5">
-            {result.addressBookName}
+          <Badge badgeType="success" badgeSize="sm" maxWidth="100%">
+            <XStack gap="$1.5" alignItems="center" maxWidth="100%">
+              <Icon name="BookOpenOutline" size="$4" color="$textSuccess" />
+              <Badge.Text numberOfLines={1}>
+                {result.addressBookName}
+              </Badge.Text>
+            </XStack>
           </Badge>
         ) : null}
         {result.resolveAddress ? (
-          <Stack mx="$0.5">
+          <Stack>
             <ResolvedAddress
               value={result.resolveAddress}
               options={result.resolveOptions ?? []}
@@ -232,8 +261,12 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <XStack mx="$0.5" gap="$1" flexWrap="wrap" flexShrink={1}>
-          {result.addressBadges?.map((badge) => (
+        {/* Label badges (OKX, CEX, etc.) stay inside the input.
+            Interaction badges (Transferred, First transfer) are rendered
+            below the input by AddressInputWarnings. */}
+        {result.addressBadges
+          ?.filter((badge) => badge.type === 'default' || badge.type === 'info')
+          .map((badge) => (
             <AddressBadge
               key={badge.label}
               title={badge.label}
@@ -242,7 +275,6 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
               icon={badge.icon}
             />
           ))}
-        </XStack>
       </XStack>
     );
   }
@@ -253,6 +285,13 @@ export const createValidateAddressRule =
   ({ defaultErrorMessage }: { defaultErrorMessage: string }) =>
   (value: IAddressInputValue) => {
     if (value.pending) {
+      return;
+    }
+    // Empty input is the pristine / cleared state — don't surface an
+    // "invalid address" message here. Callers must gate their submit
+    // button on `value.resolved` (or equivalent) since the form will
+    // now report isValid=true for empty input.
+    if (!value.raw?.trim()) {
       return;
     }
     if (!value.resolved) {
@@ -268,49 +307,89 @@ function AddressInputWarnings({
   queryResult: IAddressQueryResult;
   networkId: string;
 }) {
+  const intl = useIntl();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
-
-  const isShowTransferredAddressAddWarning = useMemo(
-    () =>
-      !isEnableTransferAllowList &&
-      queryResult?.input?.length &&
-      !queryResult?.addressBookId &&
-      !queryResult?.walletAccountId &&
-      queryResult?.addressInteractionStatus ===
-        EAddressInteractionStatus.INTERACTED,
-    [
-      isEnableTransferAllowList,
-      queryResult?.addressBookId,
-      queryResult?.addressInteractionStatus,
-      queryResult?.input?.length,
-      queryResult?.walletAccountId,
-    ],
-  );
   const navigation = useAppNavigation();
-  const onAction = useCallback(
-    (actionId: string) => {
-      if (actionId === 'to_edit_address_book_page') {
-        navigation.pushModal(EModalRoutes.AddressBookModal, {
-          screen: EModalAddressBookRoutes.EditItemModal,
-          params: {
-            address: queryResult?.input ?? '',
-            networkId,
-            isAllowListed: isEnableTransferAllowList,
-          },
-        });
-      }
-    },
-    [isEnableTransferAllowList, navigation, networkId, queryResult?.input],
+
+  // Interaction badges use semantic types (success/warning/critical),
+  // while label badges (OKX, CEX) use "default" or "info" type.
+  const interactionBadges = useMemo(
+    () =>
+      (queryResult?.addressBadges ?? []).filter(
+        (badge) => badge.type !== 'default' && badge.type !== 'info',
+      ),
+    [queryResult?.addressBadges],
   );
-  return isShowTransferredAddressAddWarning ? (
-    <HyperlinkText
-      pt="$1.5"
-      translationId={ETranslations.send_transferred_address_add}
-      onAction={onAction}
-      color="$textSubdued"
-      size="$bodyMd"
-    />
-  ) : null;
+
+  const showAddToAddressBook = useMemo(() => {
+    // Don't show if already in address book or wallet
+    if (queryResult?.addressBookId || queryResult?.walletAccountId)
+      return false;
+    // Show for transferred addresses (add to address book guidance)
+    if (
+      queryResult?.addressInteractionStatus ===
+      EAddressInteractionStatus.INTERACTED
+    )
+      return true;
+    // Show for first-transfer addresses when allowlist is enabled
+    // (user needs to add to address book to send)
+    if (
+      isEnableTransferAllowList &&
+      queryResult?.addressInteractionStatus ===
+        EAddressInteractionStatus.NOT_INTERACTED
+    )
+      return true;
+    return false;
+  }, [
+    queryResult?.addressBookId,
+    queryResult?.walletAccountId,
+    queryResult?.addressInteractionStatus,
+    isEnableTransferAllowList,
+  ]);
+
+  const onAddToAddressBook = useCallback(() => {
+    navigation.pushModal(EModalRoutes.AddressBookModal, {
+      screen: EModalAddressBookRoutes.EditItemModal,
+      params: {
+        address: queryResult?.input ?? '',
+        networkId,
+        isAllowListed: isEnableTransferAllowList,
+      },
+    });
+  }, [isEnableTransferAllowList, navigation, networkId, queryResult?.input]);
+
+  if (interactionBadges.length === 0 && !showAddToAddressBook) {
+    return null;
+  }
+
+  return (
+    <Stack pt="$1.5" gap="$2">
+      {interactionBadges.length > 0 || showAddToAddressBook ? (
+        <XStack gap="$2" alignItems="center" flexWrap="wrap">
+          {interactionBadges.map((badge) => (
+            <AddressBadge
+              key={badge.label}
+              title={badge.label}
+              badgeType={badge.type}
+              content={badge.tip}
+              icon={badge.icon}
+            />
+          ))}
+          {showAddToAddressBook ? (
+            <Button
+              variant="tertiary"
+              size="small"
+              onPress={onAddToAddressBook}
+            >
+              {intl.formatMessage({
+                id: ETranslations.add_to_address_book__action,
+              })}
+            </Button>
+          ) : null}
+        </XStack>
+      ) : null}
+    </Stack>
+  );
 }
 
 export function AddressInput(props: IAddressInputProps) {
@@ -320,6 +399,7 @@ export function AddressInput(props: IAddressInputProps) {
     onChange,
     networkId,
     placeholder,
+    actionsLayout = 'default',
     clipboard = true,
     scan = { sceneName: EAccountSelectorSceneName.home },
     contacts,
@@ -336,16 +416,22 @@ export function AddressInput(props: IAddressInputProps) {
     onExtraDataChange,
     disabled: disabledFromProps,
     onScanResult,
+    ignoreSimilarAddressInAddressBook,
+    enableCheckSimilarAddressInAddressBook,
+    hasQuickSelectMatches: _hasQuickSelectMatches,
     ...rest
   } = props;
   const intl = useIntl();
+  const { width: screenWidth } = useWindowDimensions();
   const disabled =
     disabledFromProps ?? (rest.editable !== undefined ? !rest.editable : false);
+  const { testID } = rest;
   const [inputText, setInputText] = useState<string>(value?.raw ?? '');
   const { setError, clearErrors, watch } = useFormContext();
   const [loading, setLoading] = useState(false);
   const textRef = useRef('');
-  const rawAddress = watch([name, 'raw'].join('.'));
+  const fieldValue = watch(name);
+  const rawAddress = fieldValue?.raw;
 
   const [queryResult, setQueryResult] = useState<IAddressQueryResult>({});
   const [refreshNum, setRefreshNum] = useState(1);
@@ -365,14 +451,6 @@ export function AddressInput(props: IAddressInputProps) {
     setQueryResult((prev) => ({ ...prev, resolveAddress: text }));
   }, []);
 
-  const handleInputTypeChange = useCallback(
-    (type: EInputAddressChangeType) => {
-      inputTypeRef.current = type;
-      onInputTypeChange?.(type);
-    },
-    [onInputTypeChange],
-  );
-
   const handleActiveAccountChange = useCallback(
     (activeAccount: IAccountSelectorActiveAccountInfo) => {
       if (activeAccount.wallet && activeAccount.account) {
@@ -387,21 +465,36 @@ export function AddressInput(props: IAddressInputProps) {
   );
 
   const onChangeText = useCallback(
-    (text: string) => {
-      if (textRef.current !== text) {
-        textRef.current = text;
-        setInputText(text);
-        onChange?.({ raw: text, pending: text.length > 0 });
+    ({
+      text,
+      inputType,
+    }: {
+      text: string;
+      inputType: EInputAddressChangeType;
+    }) => {
+      const normalizedText = stringUtils.stripLineBreaks(text);
+      inputTypeRef.current = inputType;
+      if (textRef.current !== normalizedText) {
+        textRef.current = normalizedText;
+        setInputText(normalizedText);
+        onInputTypeChange?.(inputType);
+        onChange?.({
+          raw: normalizedText,
+          pending: normalizedText.length > 0,
+        });
       }
     },
-    [onChange],
+    [onChange, onInputTypeChange],
   );
 
   const onRefresh = useCallback(() => setRefreshNum((prev) => prev + 1), []);
 
   useEffect(() => {
     if (rawAddress && textRef.current !== rawAddress) {
-      onChangeText(rawAddress);
+      onChangeText({
+        text: rawAddress,
+        inputType: EInputAddressChangeType.Manual,
+      });
     }
   }, [rawAddress, onChangeText]);
 
@@ -423,8 +516,7 @@ export function AddressInput(props: IAddressInputProps) {
           inputTypeRef.current = undefined;
         }
 
-        const result =
-          await backgroundApiProxy.serviceAccountProfile.queryAddress(params);
+        const result = await queryAddressWithFallback(params);
         if (result.input === textRef.current) {
           setQueryResult(result);
         }
@@ -448,6 +540,8 @@ export function AddressInput(props: IAddressInputProps) {
       enableVerifySendFundToSelf,
       enableAddressContract,
       enableAllowListValidation,
+      ignoreSimilarAddressInAddressBook,
+      enableCheckSimilarAddressInAddressBook,
     });
   }, [
     inputText,
@@ -462,6 +556,8 @@ export function AddressInput(props: IAddressInputProps) {
     enableAllowListValidation,
     refreshNum,
     queryAddress,
+    ignoreSimilarAddressInAddressBook,
+    enableCheckSimilarAddressInAddressBook,
   ]);
 
   // When focus state changes, re-query address validation
@@ -484,6 +580,7 @@ export function AddressInput(props: IAddressInputProps) {
         enableVerifySendFundToSelf,
         enableAddressContract,
         enableAllowListValidation,
+        ignoreSimilarAddressInAddressBook,
       });
     }
     prevIsFocused.current = isFocused;
@@ -501,24 +598,8 @@ export function AddressInput(props: IAddressInputProps) {
     refreshNum,
     queryAddress,
     isFocused,
+    ignoreSimilarAddressInAddressBook,
   ]);
-
-  const getValidateMessage = useCallback(
-    (status?: Exclude<IAddressValidateStatus, 'valid'>) => {
-      if (!status) return;
-      const message: Record<
-        Exclude<IAddressValidateStatus, 'valid'>,
-        ETranslations
-      > = {
-        'unknown': ETranslations.send_check_request_error,
-        'prohibit-send-to-self': ETranslations.send_cannot_send_to_self,
-        'invalid': ETranslations.send_address_invalid,
-        'address-not-allowlist': ETranslations.send_address_not_allowlist_error,
-      } as const;
-      return message[status];
-    },
-    [],
-  );
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
@@ -526,44 +607,73 @@ export function AddressInput(props: IAddressInputProps) {
       clearErrors(name);
       onChange?.({
         raw: queryResult.input,
-        resolved:
-          queryResult.resolveAddress ??
-          queryResult.validAddress ??
-          queryResult.input?.trim(),
+        resolved: getAddressQueryResolvedAddress(queryResult),
         pending: false,
         isContract: queryResult.isContract,
+        similarAddress: queryResult.similarAddress,
       });
     } else {
-      const translationId = getValidateMessage(queryResult.validStatus);
+      const translationId = getAddressValidateTranslationId(
+        queryResult.validStatus,
+      );
       onChange?.({
         raw: queryResult.input,
         pending: false,
         validateError: {
           type: queryResult.validStatus,
           translationId,
-          message: intl.formatMessage({ id: translationId }),
+          message: translationId
+            ? intl.formatMessage({ id: translationId })
+            : undefined,
         },
         isContract: queryResult.isContract,
+        similarAddress: queryResult.similarAddress,
       });
     }
-  }, [
-    queryResult,
-    intl,
-    clearErrors,
-    setError,
-    name,
-    onChange,
-    getValidateMessage,
-  ]);
+  }, [queryResult, intl, clearErrors, setError, name, onChange]);
 
-  const AddressInputExtension = useMemo(
-    () => (
+  const handleClear = useCallback(() => {
+    onChangeText({ text: '', inputType: EInputAddressChangeType.Manual });
+  }, [onChangeText]);
+
+  const AddressInputExtension = useMemo(() => {
+    const isRecipientLayout = actionsLayout === 'recipient';
+    const hasContent = inputText.trim().length > 0;
+    const actionDisplay = isRecipientLayout ? 'button' : 'icon';
+    const actionGap = isRecipientLayout ? '$2' : '$6';
+    const showSelector = !isRecipientLayout && (contacts || accountSelector);
+
+    const clearButton =
+      actionDisplay === 'button' ? (
+        <Button
+          size="small"
+          variant="secondary"
+          icon="BroomOutline"
+          disabled={disabled}
+          onPress={disabled ? undefined : handleClear}
+          testID={testID ? `${testID}-clear` : undefined}
+        >
+          {intl.formatMessage({ id: ETranslations.global_clear })}
+        </Button>
+      ) : (
+        <IconButton
+          title={intl.formatMessage({ id: ETranslations.global_clear })}
+          variant="tertiary"
+          icon="BroomOutline"
+          disabled={disabled}
+          onPress={disabled ? undefined : handleClear}
+          testID={testID ? `${testID}-clear` : undefined}
+        />
+      );
+
+    return (
       <XStack
         justifyContent="space-between"
         flexWrap="nowrap"
-        alignItems="center"
+        alignItems={isRecipientLayout ? 'flex-end' : 'center'}
+        gap="$2"
       >
-        <XStack gap="$2" flex={1}>
+        <XStack gap="$2" flex={1} minWidth={0}>
           <AddressInputBadgeGroup
             loading={loading}
             result={queryResult}
@@ -572,67 +682,107 @@ export function AddressInput(props: IAddressInputProps) {
             networkId={networkId}
           />
         </XStack>
-        <XStack gap="$6">
-          {clipboard ? (
-            <ClipboardPlugin
-              onInputTypeChange={handleInputTypeChange}
-              onChange={onChangeText}
-              disabled={disabled}
-              testID={rest.testID ? `${rest.testID}-clip` : undefined}
-            />
-          ) : null}
-          {scan ? (
-            <ScanPlugin
-              networkId={networkId}
-              onInputTypeChange={handleInputTypeChange}
-              onScanResult={onScanResult}
-              onChange={onChangeText}
-              disabled={disabled}
-              testID={rest.testID ? `${rest.testID}-scan` : undefined}
-            />
-          ) : null}
-          {contacts || accountSelector ? (
-            <SelectorPlugin
-              disabled={disabled}
-              onInputTypeChange={handleInputTypeChange}
-              onChange={onChangeText}
-              onActiveAccountChange={handleActiveAccountChange}
-              networkId={networkId}
-              accountId={accountId}
-              num={accountSelector?.num}
-              currentAddress={inputText}
-              clearNotMatch={accountSelector?.clearNotMatch}
-              onBeforeAccountSelectorOpen={
-                accountSelector?.onBeforeAccountSelectorOpen
-              }
-              onExtraDataChange={onExtraDataChange}
-              testID={rest.testID ? `${rest.testID}-selector` : undefined}
-            />
-          ) : null}
+        <XStack gap={actionGap}>
+          {(() => {
+            if (isRecipientLayout) {
+              return hasContent ? (
+                clearButton
+              ) : (
+                <>
+                  {scan ? (
+                    <ScanPlugin
+                      display={actionDisplay}
+                      networkId={networkId}
+                      onScanResult={onScanResult}
+                      onChange={onChangeText}
+                      disabled={disabled}
+                      testID={testID ? `${testID}-scan` : undefined}
+                    />
+                  ) : null}
+                  {clipboard ? (
+                    <ClipboardPlugin
+                      display={actionDisplay}
+                      onChange={onChangeText}
+                      disabled={disabled}
+                      testID={testID ? `${testID}-clip` : undefined}
+                    />
+                  ) : null}
+                </>
+              );
+            }
+            // Default layout: empty state shows the action cluster
+            // (clipboard / scan / account selector). Non-empty state collapses
+            // to the clear button alone — the selector is hidden so it
+            // doesn't float next to committed address content (OK-53255,
+            // matching the recipient layout used by the Send flow).
+            if (hasContent) {
+              return clearButton;
+            }
+            return (
+              <>
+                {clipboard ? (
+                  <ClipboardPlugin
+                    display={actionDisplay}
+                    onChange={onChangeText}
+                    disabled={disabled}
+                    testID={testID ? `${testID}-clip` : undefined}
+                  />
+                ) : null}
+                {scan ? (
+                  <ScanPlugin
+                    display={actionDisplay}
+                    networkId={networkId}
+                    onScanResult={onScanResult}
+                    onChange={onChangeText}
+                    disabled={disabled}
+                    testID={testID ? `${testID}-scan` : undefined}
+                  />
+                ) : null}
+                {showSelector ? (
+                  <SelectorPlugin
+                    disabled={disabled}
+                    onChange={onChangeText}
+                    onActiveAccountChange={handleActiveAccountChange}
+                    networkId={networkId}
+                    accountId={accountId}
+                    num={accountSelector?.num}
+                    currentAddress={inputText}
+                    clearNotMatch={accountSelector?.clearNotMatch}
+                    onBeforeAccountSelectorOpen={
+                      accountSelector?.onBeforeAccountSelectorOpen
+                    }
+                    onExtraDataChange={onExtraDataChange}
+                    testID={testID ? `${testID}-selector` : undefined}
+                  />
+                ) : null}
+              </>
+            );
+          })()}
         </XStack>
       </XStack>
-    ),
-    [
-      loading,
-      queryResult,
-      setResolveAddress,
-      onRefresh,
-      networkId,
-      clipboard,
-      handleInputTypeChange,
-      onChangeText,
-      disabled,
-      rest.testID,
-      scan,
-      onScanResult,
-      contacts,
-      accountSelector,
-      handleActiveAccountChange,
-      accountId,
-      inputText,
-      onExtraDataChange,
-    ],
-  );
+    );
+  }, [
+    loading,
+    queryResult,
+    setResolveAddress,
+    onRefresh,
+    networkId,
+    clipboard,
+    onChangeText,
+    disabled,
+    testID,
+    scan,
+    onScanResult,
+    contacts,
+    accountSelector,
+    handleActiveAccountChange,
+    accountId,
+    inputText,
+    onExtraDataChange,
+    actionsLayout,
+    handleClear,
+    intl,
+  ]);
 
   const getAddressInputPlaceholder = useMemo(() => {
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
@@ -648,9 +798,13 @@ export function AddressInput(props: IAddressInputProps) {
     <>
       <BaseInput
         value={inputText}
-        onChangeText={onChangeText}
+        onChangeText={(text) =>
+          onChangeText({ text, inputType: EInputAddressChangeType.Manual })
+        }
         placeholder={placeholder ?? getAddressInputPlaceholder}
         extension={AddressInputExtension}
+        numberOfLines={screenWidth <= 768 ? 3 : 2}
+        {...(screenWidth <= 768 && { minHeight: 64 })}
         {...rest}
       />
       <AddressInputWarnings queryResult={queryResult} networkId={networkId} />
@@ -668,7 +822,19 @@ export function AddressInputField(
     accountId,
     name,
     hideNonBackedUpWallet,
+    hasQuickSelectMatches,
   } = props;
+  const { trigger, watch } = useFormContext();
+  const toValue = watch(name) as IAddressInputValue | undefined;
+
+  // Re-validate when match status changes to toggle error/hint
+  useEffect(() => {
+    if (!toValue?.raw?.trim()) {
+      return;
+    }
+    void trigger(name);
+  }, [hasQuickSelectMatches, trigger, name, toValue?.raw]);
+
   const contextValue = useMemo(
     () => ({
       name,
@@ -679,11 +845,27 @@ export function AddressInputField(
     [accountId, hideNonBackedUpWallet, name, networkId],
   );
 
+  // Show hint when: has matches, has input, not resolved, not pending
+  const showHint =
+    hasQuickSelectMatches &&
+    !!toValue?.raw?.trim() &&
+    !toValue?.resolved &&
+    !toValue?.pending;
+
+  const hintDescription = showHint ? (
+    <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued">
+      {intl.formatMessage({
+        id: ETranslations.msg__enter_a_full_address_or_choose_below,
+      })}
+    </SizableText>
+  ) : undefined;
+
   return (
     <AddressInputContext.Provider value={contextValue}>
       <Form.Field
         label={intl.formatMessage({ id: ETranslations.global_recipient })}
         name={name}
+        description={hintDescription}
         renderErrorMessage={
           enableAllowListValidation
             ? renderAddressInputHyperlinkText
@@ -695,7 +877,30 @@ export function AddressInputField(
             if (value.pending) {
               return;
             }
+            // When input is empty, treat as "no error" (no red border).
+            // The Next button is already hidden via toResolved check.
+            if (!value.raw?.trim()) {
+              return;
+            }
             if (!value.resolved) {
+              // Always show critical errors regardless of quick-select state
+              if (
+                value.validateError?.type === 'address-not-allowlist' ||
+                value.validateError?.type === 'prohibit-send-to-self'
+              ) {
+                return (
+                  value.validateError.translationId ||
+                  value.validateError.message ||
+                  intl.formatMessage({
+                    id: ETranslations.send_address_invalid,
+                  })
+                );
+              }
+              // When quick select has matches, keep generic validation errors
+              // hidden and show the contextual hint text instead.
+              if (hasQuickSelectMatches) {
+                return;
+              }
               return enableAllowListValidation
                 ? // Use translationId for error message formatting if available, otherwise use direct message
                   value.validateError?.translationId ||

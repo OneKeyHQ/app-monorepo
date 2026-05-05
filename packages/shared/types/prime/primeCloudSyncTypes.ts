@@ -12,7 +12,9 @@ import type {
 import type { IServerNetwork } from '..';
 import type { EPrimeCloudSyncDataType } from '../../src/consts/primeConsts';
 import type { IAvatarInfo } from '../../src/utils/emojiUtils';
+import type { IBotWalletMetadata, IBotWalletStatus } from '../botWallet';
 import type { IDBCustomRpc } from '../customRpc';
+import type { IKeylessCloudSyncCredential } from '../keylessCloudSync';
 import type { IMarketWatchListItemV2 } from '../market';
 import type { ICloudSyncCustomToken } from '../token';
 
@@ -23,6 +25,7 @@ export type ICloudSyncServerDiffItem = {
   serverPayload:
     | ICloudSyncPayloadLock
     | ICloudSyncPayloadWallet
+    | ICloudSyncPayloadBotWallet
     | ICloudSyncPayloadAccount
     | ICloudSyncPayloadIndexedAccount
     | ICloudSyncPayloadBrowserBookmark
@@ -34,6 +37,7 @@ export type ICloudSyncServerDiffItem = {
     | undefined;
   record:
     | IDBWallet
+    | ICloudSyncBotWalletRecord
     | IDBAccount
     | IDBIndexedAccount
     | IBrowserBookmark
@@ -52,6 +56,7 @@ export type IStartServerSyncFlowParams = {
   throwError?: boolean;
   callerName?: string;
   noDebounceUpload?: boolean;
+  forceSync?: boolean;
 };
 
 export type ICloudSyncServerItem = {
@@ -78,10 +83,57 @@ export type ICloudSyncServerItemByDownloaded = {
   // updatedAt: string;
   // userId: string;
 };
+
+export type ICloudSyncCheckServerStatusPostData = {
+  localData: {
+    key: string;
+    dataTimestamp: number | undefined;
+    dataType: EPrimeCloudSyncDataType;
+  }[];
+  onlyCheckLocalDataType: EPrimeCloudSyncDataType[];
+  nonce: number;
+  pwdHash: string | undefined;
+};
+
+export type ICloudSyncCheckServerStatusResult = {
+  deleted: string[];
+  diff: ICloudSyncServerItem[];
+  updated: ICloudSyncServerItem[];
+  obsoleted: string[];
+  pwdHash: string;
+  serverTime: number;
+};
+
+export type ICloudSyncDownloadPostData = {
+  start?: number;
+  limit?: number;
+  includeDeleted?: boolean;
+};
+
+export type ICloudSyncDownloadResult = {
+  nonce: number; // TODO add nonce here
+  serverData: ICloudSyncServerItemByDownloaded[];
+  pwdHash: string;
+};
+
+export type ICloudSyncUploadPostData = {
+  localData: ICloudSyncServerItem[];
+  nonce: number;
+  pwdHash: string;
+  lock?: ICloudSyncServerItem | null | undefined;
+};
+
+export type ICloudSyncUploadResult = {
+  nonce: number;
+  created: number;
+  updated: number;
+};
+
 export type ICloudSyncCredential = {
   primeAccountSalt: string;
   securityPasswordR1: string;
   masterPasswordUUID: string; // pwdHash
+  keylessCredential?: IKeylessCloudSyncCredential;
 };
 export type ICloudSyncCredentialForLock = Omit<
   ICloudSyncCredential,
@@ -91,6 +143,7 @@ export type ICloudSyncCredentialForLock = Omit<
 };
 export type ICloudSyncDBRecord =
   | IDBWallet
+  | ICloudSyncBotWalletRecord
   | IDBAccount
   | IDBIndexedAccount
   | IBrowserBookmark
@@ -101,6 +154,7 @@ export type ICloudSyncDBRecord =
   | ICloudSyncCustomToken; // CustomToken
 export type ICloudSyncDBRecords =
   | IDBWallet[]
+  | ICloudSyncBotWalletRecord[]
   | IDBAccount[]
   | IDBIndexedAccount[]
   | IBrowserBookmark[]
@@ -119,6 +173,20 @@ export type ICloudSyncTargetWallet = ICloudSyncTargetBase & {
   dataType: EPrimeCloudSyncDataType.Wallet;
   wallet: IDBWallet & ICloudSyncPayloadDbWalletFields;
   dbDevice: IDBDevice | undefined;
+};
+
+export type ICloudSyncBotWalletRecord = {
+  walletId: string;
+  metadata: IBotWalletMetadata;
+};
+
+export type ICloudSyncTargetBotWallet = ICloudSyncTargetBase & {
+  dataType: EPrimeCloudSyncDataType.BotWallet;
+  walletId: string;
+  parentKeylessWalletId: string;
+  walletHash: string | undefined;
+  metadata: IBotWalletMetadata;
+  wallet: (IDBWallet & ICloudSyncPayloadDbWalletFields) | undefined;
 };
 
 export type ICloudSyncTargetIndexedAccount = ICloudSyncTargetBase & {
@@ -172,6 +240,7 @@ export type ICloudSyncTargetAddressBook = ICloudSyncTargetBase & {
 
 export interface ICloudSyncTargetMap {
   [EPrimeCloudSyncDataType.Wallet]: ICloudSyncTargetWallet;
+  [EPrimeCloudSyncDataType.BotWallet]: ICloudSyncTargetBotWallet;
   [EPrimeCloudSyncDataType.Account]: ICloudSyncTargetAccount;
   [EPrimeCloudSyncDataType.IndexedAccount]: ICloudSyncTargetIndexedAccount;
   [EPrimeCloudSyncDataType.Lock]: ICloudSyncTargetLock;
@@ -194,6 +263,10 @@ export type ICloudSyncKeyInfoWallet = ICloudSyncKeyInfoBase & {
   // walletType: IDBWalletType;
   // walletHash: string | undefined;
   // hwDeviceId: string | undefined;
+};
+export type ICloudSyncKeyInfoBotWallet = ICloudSyncKeyInfoBase & {
+  dataType: EPrimeCloudSyncDataType.BotWallet;
+  payload: ICloudSyncPayloadBotWallet;
 };
 export type ICloudSyncKeyInfoAccount = ICloudSyncKeyInfoBase & {
   dataType: EPrimeCloudSyncDataType.Account;
@@ -240,6 +313,7 @@ export type ICloudSyncKeyInfoAddressBook = ICloudSyncKeyInfoBase & {
 
 export interface ICloudSyncKeyInfoMap {
   [EPrimeCloudSyncDataType.Wallet]: ICloudSyncKeyInfoWallet;
+  [EPrimeCloudSyncDataType.BotWallet]: ICloudSyncKeyInfoBotWallet;
   [EPrimeCloudSyncDataType.Account]: ICloudSyncKeyInfoAccount;
   [EPrimeCloudSyncDataType.IndexedAccount]: ICloudSyncKeyInfoIndexedAccount;
   [EPrimeCloudSyncDataType.Lock]: ICloudSyncKeyInfoLock;
@@ -264,6 +338,19 @@ export type ICloudSyncPayloadWallet = {
   hwDeviceId: string | undefined;
   passphraseState: string | undefined;
   walletType: IDBWalletType | undefined;
+};
+
+export type ICloudSyncPayloadBotWallet = {
+  walletId: string;
+  parentKeylessWalletId: string;
+  walletHash: string | undefined;
+  name: string;
+  avatar: IAvatarInfo | undefined;
+  index: number;
+  visible: boolean;
+  status: IBotWalletStatus;
+  deactivatedAt?: number;
+  createdAt: number;
 };
 export type ICloudSyncPayloadAccount = {
   name: string;
@@ -308,6 +395,7 @@ export type ICloudSyncPayloadAddressBook = {
 
 export type ICloudSyncPayload =
   | ICloudSyncPayloadWallet
+  | ICloudSyncPayloadBotWallet
   | ICloudSyncPayloadAccount
   | ICloudSyncPayloadIndexedAccount
   | ICloudSyncPayloadLock
@@ -320,6 +408,7 @@ export type ICloudSyncPayload =
 
 export interface ICloudSyncPayloadMap {
   [EPrimeCloudSyncDataType.Wallet]: ICloudSyncPayloadWallet;
+  [EPrimeCloudSyncDataType.BotWallet]: ICloudSyncPayloadBotWallet;
   [EPrimeCloudSyncDataType.Account]: ICloudSyncPayloadAccount;
   [EPrimeCloudSyncDataType.IndexedAccount]: ICloudSyncPayloadIndexedAccount;
   [EPrimeCloudSyncDataType.Lock]: ICloudSyncPayloadLock;
@@ -345,6 +434,10 @@ export type ICloudSyncRawDataJson =
   | (ICloudSyncRawDataJsonBase & {
       dataType: EPrimeCloudSyncDataType.Wallet;
       payload: ICloudSyncPayloadWallet;
+    })
+  | (ICloudSyncRawDataJsonBase & {
+      dataType: EPrimeCloudSyncDataType.BotWallet;
+      payload: ICloudSyncPayloadBotWallet;
     })
   | (ICloudSyncRawDataJsonBase & {
       dataType: EPrimeCloudSyncDataType.Account;

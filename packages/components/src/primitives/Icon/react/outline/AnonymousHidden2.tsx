@@ -1,17 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAnonymousHidden2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M9.5 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3m5 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5 10v10.057a1 1 0 0 0 1.581.814l1.003-.717a2 2 0 0 1 1.95-.21l2.072.887a1 1 0 0 0 .788 0l2.072-.888a2 2 0 0 1 1.95.211l1.003.716A1 1 0 0 0 19 20.058V10a7 7 0 1 0-14 0Z"
-    />
-    <Path
-      fill="currentColor"
-      d="M11 10.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m5 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"
+      fillRule="evenodd"
+      d="M12 2a8 8 0 0 1 8 8v12.517l-4.5-1.93-3.5 1.5-3.5-1.5-4.5 1.93V10a8 8 0 0 1 8-8m0 2a6 6 0 0 0-6 6v9.483l2.5-1.07 3.5 1.5 3.5-1.5 2.5 1.07V10a6 6 0 0 0-6-6"
+      clipRule="evenodd"
     />
   </Svg>
 );

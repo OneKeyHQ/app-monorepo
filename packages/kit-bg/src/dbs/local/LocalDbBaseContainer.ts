@@ -1,14 +1,15 @@
 import { cloneDeep, isString } from 'lodash';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import indexedUtils from './indexed/indexedDBUtils';
 import { ELocalDBStoreNames } from './localDBStoreNames';
+import { EIndexedDBBucketNames } from './types';
 
 import type {
-  EIndexedDBBucketNames,
   IDBAccount,
   IDBDevice,
   IDBIndexedAccount,
@@ -55,8 +56,13 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     //   'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
     // );
     if (!isString(bucketName)) {
-      debugger;
+      // throw new Error('bucketName is required');
     }
+
+    if (bucketName === EIndexedDBBucketNames.account) {
+      await appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded();
+    }
+
     const db = await this.readyDb;
     // TODO default to readOnly: true
     return db.withTransaction(bucketName, task, options);

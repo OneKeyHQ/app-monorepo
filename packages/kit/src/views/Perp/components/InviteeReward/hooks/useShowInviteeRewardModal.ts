@@ -17,7 +17,7 @@ export function useShowInviteeRewardModal() {
   const dialogInTab = useInTabDialog();
   const { bindWalletInviteCode, getReferralCodeBondStatus } =
     useWalletBoundReferralCode({
-      entry: gtMd ? 'tab' : 'modal',
+      entry: 'tab',
     });
 
   const showModal = useCallback(async () => {

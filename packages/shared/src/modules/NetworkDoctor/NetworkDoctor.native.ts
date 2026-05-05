@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
@@ -395,9 +394,8 @@ export class NetworkDoctor {
     const startTime = Date.now();
     const hostname = this.targetDomain ?? '';
     try {
-      const { getIpAddressesForHostname } = await import(
-        'react-native-dns-lookup'
-      );
+      const { getIpAddressesForHostname } =
+        await import('react-native-dns-lookup');
       const ips = await getIpAddressesForHostname(hostname);
 
       const result = {
@@ -444,7 +442,7 @@ export class NetworkDoctor {
         resolved = true;
         try {
           socket.destroy();
-        } catch (e) {
+        } catch (_e) {
           // ignore socket destroy errors
         }
 
@@ -808,8 +806,8 @@ export class NetworkDoctor {
           log.status && log.status >= 200 && log.status < 300
             ? '✓'
             : log.status
-            ? '✗'
-            : '?';
+              ? '✗'
+              : '?';
         const statusText = log.status ? `${log.status}` : 'NO_STATUS';
         const durationText = log.duration ? `${log.duration}ms` : 'N/A';
 

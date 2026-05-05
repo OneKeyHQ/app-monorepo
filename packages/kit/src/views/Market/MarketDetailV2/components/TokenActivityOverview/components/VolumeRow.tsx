@@ -1,7 +1,6 @@
 import { useIntl } from 'react-intl';
 
 import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BuySellRatioBar } from './BuySellRatioBar';
@@ -16,21 +15,30 @@ export function VolumeRow({
   isLoading,
 }: IVolumeRowProps) {
   const intl = useIntl();
-  const buyPercentage = totalVolume > 0 ? (buyVolume / totalVolume) * 100 : 0;
-  const [settingsPersistAtom] = useSettingsPersistAtom();
+  const buyPercentage =
+    totalVolume !== undefined && totalVolume > 0 && buyVolume !== undefined
+      ? (buyVolume / totalVolume) * 100
+      : 0;
+
+  // Show "--" when loading OR when data is undefined (field doesn't exist)
+  const showTotalPlaceholder = isLoading || totalVolume === undefined;
+  const showBuyPlaceholder = isLoading || buyVolume === undefined;
+  const showSellPlaceholder = isLoading || sellVolume === undefined;
+  const noData = buyVolume === undefined || sellVolume === undefined;
+
   return (
     <Stack gap="$2">
       <Stack flexDirection="row" alignItems="center" gap="$2">
         <SizableText size="$bodyMdMedium">
           {label}:{' '}
-          {isLoading ? (
+          {showTotalPlaceholder ? (
             '--'
           ) : (
             <NumberSizeableText
               formatter="marketCap"
               size="$bodyMdMedium"
               formatterOptions={{
-                currency: settingsPersistAtom.currencyInfo.symbol,
+                currency: '$',
               }}
             >
               {totalVolume}
@@ -38,11 +46,15 @@ export function VolumeRow({
           )}
         </SizableText>
       </Stack>
-      <BuySellRatioBar buyPercentage={buyPercentage} isLoading={isLoading} />
+      <BuySellRatioBar
+        buyPercentage={buyPercentage}
+        isLoading={isLoading}
+        noData={noData}
+      />
       <Stack flexDirection="row" justifyContent="space-between">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.global_buy })} (
-          {isLoading ? (
+          {showBuyPlaceholder ? (
             '--'
           ) : (
             <NumberSizeableText
@@ -50,7 +62,7 @@ export function VolumeRow({
               size="$bodyMd"
               color="$textSubdued"
               formatterOptions={{
-                currency: settingsPersistAtom.currencyInfo.symbol,
+                currency: '$',
               }}
             >
               {buyVolume}
@@ -60,7 +72,7 @@ export function VolumeRow({
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.global_sell })} (
-          {isLoading ? (
+          {showSellPlaceholder ? (
             '--'
           ) : (
             <NumberSizeableText
@@ -68,7 +80,7 @@ export function VolumeRow({
               size="$bodyMd"
               color="$textSubdued"
               formatterOptions={{
-                currency: settingsPersistAtom.currencyInfo.symbol,
+                currency: '$',
               }}
             >
               {sellVolume}

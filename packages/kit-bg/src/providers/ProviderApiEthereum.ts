@@ -21,6 +21,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isKeylessWebAutoConnectOriginAllowed } from '@onekeyhq/shared/src/keylessWallet/keylessWebUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EVM_SAFE_RPC_METHODS } from '@onekeyhq/shared/src/rpcCache/constants';
 import { RpcCache } from '@onekeyhq/shared/src/rpcCache/RpcCache';
@@ -259,10 +260,21 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async eth_requestAccounts(request: IJsBridgeMessagePayload) {
+  async eth_requestAccounts(
+    request: IJsBridgeMessagePayload,
+    params?: Record<string, unknown>,
+  ) {
+    const _requestOneKeyKeylessAccount = params?.requestOneKeyKeylessAccount;
+
     return this.semaphore.runExclusive(async () => {
       const accounts = await this.eth_accounts(request);
       if (accounts && accounts.length) {
+        return accounts;
+      }
+      const isAllowedKeylessOrigin = isKeylessWebAutoConnectOriginAllowed(
+        request.origin,
+      );
+      if (_requestOneKeyKeylessAccount && isAllowedKeylessOrigin) {
         return accounts;
       }
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
@@ -301,9 +313,22 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     _permissions: Record<string, unknown>,
   ) {
+    const _requestOneKeyKeylessAccount =
+      _permissions?.requestOneKeyKeylessAccount;
+
     defaultLogger.discovery.dapp.dappRequest({ request });
-    await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    const accounts = await this.eth_accounts(request);
+    const isAllowedKeylessOrigin = isKeylessWebAutoConnectOriginAllowed(
+      request.origin,
+    );
+    let accounts = await this.eth_accounts(request);
+    if (
+      !accounts.length ||
+      !_requestOneKeyKeylessAccount ||
+      !isAllowedKeylessOrigin
+    ) {
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      accounts = await this.eth_accounts(request);
+    }
     const chainId = await this.eth_chainId(request);
 
     const id = request.id?.toString() ?? generateUUID();
@@ -357,9 +382,8 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_chainId(request: IJsBridgeMessagePayload) {
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
     if (!isNil(networks?.[0]?.chainId)) {
       return hexUtils.hexlify(Number(networks?.[0]?.chainId), {
         removeZeros: true,
@@ -371,9 +395,8 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async net_version(request: IJsBridgeMessagePayload) {
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
     if (!isNil(networks?.[0]?.chainId)) {
       return networks?.[0]?.chainId;
     }
@@ -672,7 +695,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     ...messages: any[]
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    console.log('eth_signTypedData_v1', messages, request);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('eth_signTypedData_v1', messages, request);
+    }
     return this.eth_signTypedData(request, ...messages);
   }
 
@@ -685,7 +710,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
-    console.log('eth_signTypedData_v3', messages, request);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('eth_signTypedData_v3', messages, request);
+    }
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
@@ -718,14 +745,16 @@ class ProviderApiEthereum extends ProviderApiBase {
           hyperLiquidApproveAgentTypedData?.primaryType ===
             'HyperliquidTransaction:ApproveAgent';
 
-        console.log(
-          'hyperliquid——eth_signTypedData_v4',
-          messages?.[0],
-          hyperLiquidApproveAgentTypedData,
-          isHyperLiquidApproveAgentMessage,
-        );
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(
+            'hyperliquid——eth_signTypedData_v4',
+            messages?.[0],
+            hyperLiquidApproveAgentTypedData,
+            isHyperLiquidApproveAgentMessage,
+          );
+        }
       }
-    } catch (e) {
+    } catch (_e) {
       // eslint-disable-next-line no-empty
     }
 
@@ -733,7 +762,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
-    console.log('eth_signTypedData_v4', messages, request);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('eth_signTypedData_v4', messages, request);
+    }
     const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {

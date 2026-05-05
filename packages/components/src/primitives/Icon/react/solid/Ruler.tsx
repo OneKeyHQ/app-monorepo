@@ -1,11 +1,20 @@
-import Svg, { Path } from 'react-native-svg';
+import Svg, { G, Path, Defs, ClipPath } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRuler = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M13.878 2.707a3 3 0 0 1 4.243 0l3.172 3.172a3 3 0 0 1 0 4.242L10.12 21.293a3 3 0 0 1-4.243 0l-3.17-3.173a3 3 0 0 1 0-4.242l1.379-1.38 1.957 1.958a1 1 0 0 0 1.414-1.414L5.5 11.086 7.586 9l2.957 2.957a1 1 0 0 0 1.414-1.414L9 7.586 11.086 5.5l1.957 1.957a1 1 0 1 0 1.414-1.414L12.5 4.086z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <G clipPath="url(#a)">
+      <Path d="m11.5 3.086 3.5-3.5L22.414 7 7 22.414-.414 15l3.5-3.5 2.664 2.664 1.414-1.414L4.5 10.086 6.586 8l3.664 3.664 1.414-1.414L8 6.586 10.086 4.5l2.664 2.664 1.414-1.414z" />
+    </G>
+    <Defs>
+      <ClipPath id="a">
+        <Path d="M0 0h24v24H0z" />
+      </ClipPath>
+    </Defs>
   </Svg>
 );
 export default SvgRuler;

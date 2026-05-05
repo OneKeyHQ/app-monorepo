@@ -1,6 +1,7 @@
-import { useThemeValue } from './useStyle';
+import { useTheme } from './useStyle';
 
 export const useSelectionColor = () => {
-  const selectionColor = useThemeValue('bgPrimaryActive');
+  const theme = useTheme();
+  const selectionColor = theme.bgPrimaryActive.val;
   return selectionColor;
 };

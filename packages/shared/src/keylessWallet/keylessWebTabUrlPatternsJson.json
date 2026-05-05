@@ -1,0 +1,8 @@
+{
+  "basePatterns": [
+    "https://app.onekey.so/*",
+    "https://app.onekeytest.com/*",
+    "https://1key.so/*"
+  ],
+  "localDevPatterns": ["http://localhost/*", "http://127.0.0.1/*"]
+}

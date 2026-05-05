@@ -14,7 +14,7 @@ export interface IOtpInputProps {
   onFilled?: (text: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
-  blurOnFilled?: boolean;
+
   hideStick?: boolean;
   focusStickBlinkingDuration?: number;
   secureTextEntry?: boolean;

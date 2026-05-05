@@ -1,8 +1,8 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -13,8 +13,40 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import { TxHistoryListContainer } from '../../pages/TxHistoryContainer';
 import { RichBlock } from '../RichBlock';
 
-function RecentHistory() {
+function RecentHistoryTitle() {
   const intl = useIntl();
+  const handleNavigateToHistory = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.SwitchWalletHomeTab, {
+      id: EHomeWalletTab.History,
+    });
+  }, []);
+
+  return (
+    <XStack
+      alignItems="center"
+      gap="$1"
+      onPress={handleNavigateToHistory}
+      cursor="pointer"
+      hoverStyle={{ opacity: 0.8 }}
+      pressStyle={{ opacity: 0.6 }}
+    >
+      <SizableText size="$headingXl" color="$text">
+        {intl.formatMessage({
+          id: ETranslations.wallet_recent_transaction_history_title,
+        })}
+      </SizableText>
+      <Icon name="ChevronRightOutline" color="$iconSubdued" size="$5" />
+    </XStack>
+  );
+}
+
+type IRecentHistoryProps = {
+  hideTitle?: boolean;
+};
+
+const RecentHistory = memo(({ hideTitle }: IRecentHistoryProps) => {
+  const intl = useIntl();
+
   const renderContent = useCallback(() => {
     return (
       <TxHistoryListContainer
@@ -32,33 +64,13 @@ function RecentHistory() {
   }, [intl]);
   return (
     <RichBlock
-      title={intl.formatMessage({
-        id: ETranslations.wallet_recent_transaction_history_title,
-      })}
-      titleProps={{
-        color: '$text',
-      }}
-      headerActions={
-        <Button
-          size="small"
-          variant="tertiary"
-          iconAfter="ChevronRightSmallOutline"
-          color="$textSubdued"
-          iconProps={{ color: '$iconSubdued' }}
-          onPress={() => {
-            appEventBus.emit(EAppEventBusNames.SwitchWalletHomeTab, {
-              id: EHomeWalletTab.History,
-            });
-          }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_all,
-          })}
-        </Button>
-      }
+      title={hideTitle ? undefined : <RecentHistoryTitle />}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
+      plainContentContainer
     />
   );
-}
+});
+RecentHistory.displayName = 'RecentHistory';
 
-export { RecentHistory };
+export { RecentHistory, RecentHistoryTitle };

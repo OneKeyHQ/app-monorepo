@@ -58,7 +58,91 @@ type IProps = DefaultNavigatorOptions<
   StackRouterOptions &
   IModalNavigationConfig;
 
+function ModalRouteWrapper({
+  routeIndex,
+  stackChildrenRefList,
+  children,
+  style,
+}: {
+  routeIndex: number;
+  stackChildrenRefList: React.MutableRefObject<TamaguiElement[]>;
+  children: React.ReactNode;
+  style: any;
+}) {
+  const refCallback = useCallback(
+    (ref: TamaguiElement | null) => {
+      if (ref) {
+        stackChildrenRefList.current[routeIndex] = ref;
+      }
+    },
+    [routeIndex, stackChildrenRefList],
+  );
+  return (
+    <Stack ref={refCallback} flex={1} bg="$bg" style={style}>
+      {children}
+    </Stack>
+  );
+}
+
 const backdropId = 'app-modal-stacks-backdrop';
+
+const backdropStyle = {
+  opacity: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  transition: 'opacity .25s cubic-bezier(0.4, 0, 0.2, 1)',
+  willChange: 'opacity',
+};
+
+const dragRegionStyle = {
+  WebkitAppRegion: 'drag',
+} as any;
+
+const modalStyleGtMd = {
+  transition:
+    'opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+  willChange: 'opacity, transform',
+};
+
+const modalStyleMd = {
+  transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+  willChange: 'transform',
+};
+
+const routeStyleFirst = {
+  transform: [{ translateX: 0 }],
+  transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+  willChange: 'transform',
+  shadowColor: 'black',
+  shadowOpacity: 0.3,
+  shadowRadius: 10,
+  shadowOffset: { width: -5, height: 0 },
+};
+
+const containerGtMdStyle = {
+  justifyContent: 'center',
+  alignItems: 'center',
+} as const;
+
+const modalScreenGtMdStyle = {
+  width: '90%',
+  height: '90%',
+  maxWidth: '$160',
+  maxHeight: '$160',
+  borderRadius: '$4',
+  outlineWidth: '$px',
+  outlineStyle: 'solid',
+  outlineColor: '$borderSubdued',
+} as const;
+
+const routeStyleNonFirst = {
+  transform: [{ translateX: 640 }],
+  transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+  willChange: 'transform',
+  shadowColor: 'black',
+  shadowOpacity: 0.3,
+  shadowRadius: 10,
+  shadowOffset: { width: -5, height: 0 },
+};
 function WebModalNavigator({
   initialRouteName,
   children,
@@ -152,23 +236,30 @@ function WebModalNavigator({
             newIndex >= 1 ? 1 : 0;
         }
 
+        const bounceIn =
+          'opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        const easeOut =
+          'opacity .2s cubic-bezier(0, 0, 0.2, 1), transform .2s cubic-bezier(0, 0, 0.2, 1)';
+
         MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
-          const transform = media.gtMd
-            ? {
-                translateY: `${
-                  newIndex < index ? screenHeight : -30 * (newIndex - index)
-                }px`,
-                scale: `${1 - 0.05 * (newIndex - index)}`,
-              }
-            : {
-                translateY: `${newIndex < index ? screenHeight : 0}px`,
-                scale: '1',
-              };
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          element.style.transform = Object.entries(transform)
-            .map(([key, value]) => `${key}(${value})`)
-            .join(' ');
+          const isHidden = newIndex < index;
+          if (media.gtMd) {
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.transition = isHidden ? easeOut : bounceIn;
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.opacity = isHidden ? '0' : '1';
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.transform = isHidden
+              ? 'scale(0.95)'
+              : `translateY(${-30 * (newIndex - index)}px) scale(${1 - 0.05 * (newIndex - index)})`;
+          } else {
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.transform = `translateY(${isHidden ? screenHeight : 0}px)`;
+          }
         });
       },
     );
@@ -180,27 +271,68 @@ function WebModalNavigator({
   useLayoutEffect(() => {
     const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
     if (element) {
-      (
-        element as HTMLElement
-      ).style.transform = `translateY(${screenHeight}px)`;
+      const el = element as HTMLElement;
+      if (media.gtMd) {
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0.95)';
+      } else {
+        el.style.transform = `translateY(${screenHeight}px)`;
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const contentVisibilityTimersRef = useRef<ReturnType<typeof setTimeout>[]>(
+    [],
+  );
   useEffect(() => {
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const listener = navigation.addListener('state', () => {
       const newIndex = navigation?.getState?.().index ?? 0;
+
+      // Clear pending contentVisibility timers to avoid stale updates
+      contentVisibilityTimersRef.current.forEach((timer) =>
+        clearTimeout(timer),
+      );
+      contentVisibilityTimersRef.current = [];
+
       stackChildrenRefList.current.forEach((element, routeIndex) => {
+        if (!element) return;
         const transform =
           routeIndex <= newIndex ? 'translateX(0px)' : 'translateX(640px)';
         // @ts-expect-error
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         element.style.transform = transform;
+
+        if (!platformEnv.isNative) {
+          if (routeIndex === newIndex) {
+            // Show current route immediately to avoid white flash
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.contentVisibility = '';
+          } else {
+            // Delay hiding non-current routes until slide animation completes
+            const timer = setTimeout(() => {
+              const currentIndex = navigation?.getState?.().index ?? 0;
+              if (routeIndex !== currentIndex) {
+                // @ts-expect-error
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                element.style.contentVisibility = 'hidden';
+              }
+            }, 500);
+            contentVisibilityTimersRef.current.push(timer);
+          }
+        }
       });
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return listener;
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      listener?.();
+      contentVisibilityTimersRef.current.forEach((timer) =>
+        clearTimeout(timer),
+      );
+      contentVisibilityTimersRef.current = [];
+    };
   }, [navigation]);
 
   const stopPropagation = useCallback((e: GestureResponderEvent) => {
@@ -224,31 +356,33 @@ function WebModalNavigator({
     isPagePressIn.current = true;
   }, []);
 
+  const backdropRefCallback = useCallback((ref: TamaguiElement | null) => {
+    if (ref) {
+      MODAL_ANIMATED_BACKDROP_VIEW_REF = ref;
+    }
+  }, []);
+
+  const modalScreenRefCallback = useCallback(
+    (ref: TamaguiElement | null) => {
+      if (ref) {
+        MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
+      }
+    },
+    [currentRouteIndex],
+  );
+
   state.routes.forEach((route, routeIndex) => {
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const { render } = routeDescriptor;
     routeDescriptor.render = () => (
-      <Stack
-        ref={(ref) => {
-          if (ref) {
-            stackChildrenRefList.current[routeIndex] = ref;
-          }
-        }}
-        flex={1}
-        bg="$bg"
-        style={{
-          transform: [{ translateX: routeIndex !== 0 ? 640 : 0 }],
-          transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-          willChange: 'transform',
-          shadowColor: 'black',
-          shadowOpacity: 0.3,
-          shadowRadius: 10,
-          shadowOffset: { width: -5, height: 0 },
-        }}
+      <ModalRouteWrapper
+        routeIndex={routeIndex}
+        stackChildrenRefList={stackChildrenRefList}
+        style={routeIndex !== 0 ? routeStyleNonFirst : routeStyleFirst}
       >
         {render()}
-      </Stack>
+      </ModalRouteWrapper>
     );
   });
 
@@ -271,10 +405,7 @@ function WebModalNavigator({
         <>
           <Stack
             flex={1}
-            $gtMd={{
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
+            $gtMd={containerGtMdStyle}
             onPress={platformEnv.isNative ? handleBackdropClick : undefined}
             onPressIn={
               platformEnv.isNative ? undefined : onPageContainerPressIn
@@ -286,26 +417,13 @@ function WebModalNavigator({
             {hasModalRoute && !isExistBackdrop ? (
               <YStack
                 testID={backdropId}
-                ref={(ref) => {
-                  if (ref) {
-                    MODAL_ANIMATED_BACKDROP_VIEW_REF = ref;
-                  }
-                }}
+                ref={backdropRefCallback}
                 fullscreen
-                style={{
-                  opacity: 0,
-                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                  transition: 'opacity .25s cubic-bezier(0.4, 0, 0.2, 1)',
-                  willChange: 'opacity',
-                }}
+                style={backdropStyle}
               >
                 {platformEnv.isDesktopMac ? (
                   <XStack
-                    style={
-                      {
-                        WebkitAppRegion: 'drag',
-                      } as any
-                    }
+                    style={dragRegionStyle}
                     position="absolute"
                     top={0}
                     h={48}
@@ -327,25 +445,9 @@ function WebModalNavigator({
               height="100%"
               borderTopStartRadius="$6"
               borderTopEndRadius="$6"
-              $gtMd={{
-                width: '90%',
-                height: '90%',
-                maxWidth: '$160',
-                maxHeight: '$160',
-                borderRadius: '$4',
-                outlineWidth: '$px',
-                outlineStyle: 'solid',
-                outlineColor: '$borderSubdued',
-              }}
-              ref={(ref) => {
-                if (ref) {
-                  MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
-                }
-              }}
-              style={{
-                transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-                willChange: 'transform',
-              }}
+              $gtMd={modalScreenGtMdStyle}
+              ref={modalScreenRefCallback}
+              style={media.gtMd ? modalStyleGtMd : modalStyleMd}
             >
               <StackView
                 {...rest}

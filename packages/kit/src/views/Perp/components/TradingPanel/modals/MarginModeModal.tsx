@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,11 +17,13 @@ import {
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
+
+import type { IntlShape } from 'react-intl';
 
 type IMarginMode = 'isolated' | 'cross';
 
@@ -79,7 +81,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         borderRadius="$3"
         bg="$bgSubdued"
         onPress={() => setSelectedMode('cross')}
-        cursor="pointer"
+        cursor="default"
       >
         <XStack alignItems="center" gap="$3">
           <Checkbox value={selectedMode === 'cross'} />
@@ -100,7 +102,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         borderRadius="$3"
         bg="$bgSubdued"
         onPress={() => setSelectedMode('isolated')}
-        cursor="pointer"
+        cursor="default"
       >
         <XStack alignItems="center" gap="$3">
           <Checkbox value={selectedMode === 'isolated'} />
@@ -132,20 +134,23 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
 
 export function showMarginModeDialog(
   symbolCoin: string,
+  intl: IntlShape,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
-  const title = `${
-    parseDexCoin(symbolCoin).displayName
-  } ${appLocale.intl.formatMessage({
+  const title = `${parseDexCoin(symbolCoin).displayName} ${intl.formatMessage({
     id: ETranslations.perp_trade_margin_type,
   })}`;
 
-  const DialogInstance = dialog || Dialog;
+  const DialogInstance =
+    platformEnv.isNativeAndroid || !dialog ? Dialog : dialog;
+
   const dialogInstance = DialogInstance.show({
     title,
-    floatingPanelProps: {
-      width: 400,
-    },
+    floatingPanelProps: platformEnv.isNativeAndroid
+      ? undefined
+      : {
+          width: 400,
+        },
     renderContent: (
       <PerpsProviderMirror>
         <MarginModeContent

@@ -20,12 +20,15 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountMmrAtom,
   usePerpsActiveAccountSummaryAtom,
+  usePerpsComputedAccountValueAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { useShowPortfolio } from '../../../hooks/useShowPortfolio';
+import { getPortfolioTitle } from '../../Portfolio/PerpPortfolioModal';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
@@ -48,18 +51,14 @@ export function PerpAccountDebugInfo() {
 function PerpAccountMMRView() {
   const [{ mmrPercent }] = usePerpsActiveAccountMmrAtom();
   const intl = useIntl();
-  if (mmrPercent) {
-    // return (
-    //   <XStack justifyContent="space-between">
-    //     <SizableText size="$bodySm" color="$textSubdued" cursor="default">
-    //       Cross Margin Ratio
-    //     </SizableText>
-    //     <SizableText size="$bodySmMedium" color="$textSubdued">
-    //       {mmrPercent}%
-    //     </SizableText>
-    //   </XStack>
-    // );
+  const mmrColor = (() => {
+    const pct = parseFloat(mmrPercent ?? '0');
+    if (pct <= 40) return '$green11';
+    if (pct <= 70) return '$yellow11';
+    return '$red11';
+  })();
 
+  if (mmrPercent) {
     return (
       <XStack justifyContent="space-between">
         <Tooltip
@@ -81,10 +80,7 @@ function PerpAccountMMRView() {
             </DashText>
           }
         />
-        <SizableText
-          size="$bodySmMedium"
-          color={parseFloat(mmrPercent) <= 50 ? '$green11' : '$red11'}
-        >
+        <SizableText size="$bodySmMedium" color={mmrColor}>
           {mmrPercent}%
         </SizableText>
       </XStack>
@@ -95,11 +91,13 @@ function PerpAccountMMRView() {
 
 function PerpAccountPanel() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [computedValue] = usePerpsComputedAccountValueAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
   const dialogInTab = useInTabDialog();
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const { showPortfolio } = useShowPortfolio();
 
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
@@ -122,22 +120,14 @@ function PerpAccountPanel() {
   }, [accountSummary?.totalUnrealizedPnl]);
 
   const content = (
-    <YStack flex={1} gap="$4" pt="$4" px="$2.5">
-      {/* Header */}
-      <XStack justifyContent="space-between" alignItems="center">
-        <SizableText size="$headingSm">
-          {intl.formatMessage({
-            id: ETranslations.perp_trade_account_overview,
-          })}
-        </SizableText>
-      </XStack>
+    <YStack flex={1} gap="$4" px="$2.5" pb="$4">
       <YStack flex={1} gap="$2.5">
         {/* Available Balance */}
         <XStack justifyContent="space-between">
           <Tooltip
             placement="top"
             renderContent={intl.formatMessage({
-              id: ETranslations.perp_account_panel_account_value_tooltip,
+              id: ETranslations.perp_portfolio_value_tooltip,
             })}
             renderTrigger={
               <DashText
@@ -148,18 +138,18 @@ function PerpAccountPanel() {
                 dashThickness={0.5}
               >
                 {intl.formatMessage({
-                  id: ETranslations.perp_account_panel_account_value,
+                  id: ETranslations.perp_portfolio_value,
                 })}
               </DashText>
             }
           />
           <PerpsAccountNumberValue
-            value={accountSummary?.accountValue ?? ''}
+            value={computedValue?.accountValue ?? ''}
             skeletonWidth={70}
           />
         </XStack>
         <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+          <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_account_unrealized_pnl,
             })}
@@ -169,13 +159,13 @@ function PerpAccountPanel() {
           </SizableText>
         </XStack>
         <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+          <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_account_panel_withrawable_value,
             })}
           </SizableText>
           <PerpsAccountNumberValue
-            value={accountSummary?.withdrawable ?? ''}
+            value={computedValue?.withdrawable ?? ''}
             skeletonWidth={60}
           />
         </XStack>
@@ -216,7 +206,6 @@ function PerpAccountPanel() {
             <XStack gap="$1" alignItems="center">
               <SizableText
                 size="$bodySmMedium"
-                cursor="pointer"
                 onPress={() => {
                   copyText(userAddress ?? '');
                 }}
@@ -233,7 +222,6 @@ function PerpAccountPanel() {
                 icon="OpenOutline"
                 color="$iconSubdued"
                 variant="tertiary"
-                cursor="pointer"
                 iconSize="$3.5"
                 onPress={() => {
                   if (userAddress) {
@@ -250,11 +238,12 @@ function PerpAccountPanel() {
       </YStack>
       {/* Action Buttons */}
       {userAddress ? (
-        <XStack gap="$2.5">
+        <XStack gap="$2.5" alignItems="center">
           <Button
             borderRadius="$full"
             flex={1}
             size="medium"
+            h={36}
             variant="secondary"
             onPress={() =>
               showDepositWithdrawDialog(
@@ -271,11 +260,17 @@ function PerpAccountPanel() {
               {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
             </SizableText>
           </Button>
-          <Button
+          <IconButton
             borderRadius="$full"
-            flex={1}
             size="medium"
+            h={36}
+            w={36}
             variant="secondary"
+            icon="AlignTopOutline"
+            iconSize="$4.5"
+            title={intl.formatMessage({
+              id: ETranslations.perp_trade_withdraw,
+            })}
             onPress={() =>
               showDepositWithdrawDialog(
                 {
@@ -284,13 +279,18 @@ function PerpAccountPanel() {
                 dialogInTab,
               )
             }
-            alignItems="center"
-            justifyContent="center"
-          >
-            <SizableText size="$bodySmMedium" textAlign="center">
-              {intl.formatMessage({ id: ETranslations.perp_trade_withdraw })}
-            </SizableText>
-          </Button>
+          />
+          <IconButton
+            borderRadius="$full"
+            size="medium"
+            h={36}
+            w={36}
+            variant="secondary"
+            icon="ChartLine2Outline"
+            iconSize="$4.5"
+            title={getPortfolioTitle(intl)}
+            onPress={showPortfolio}
+          />
         </XStack>
       ) : null}
     </YStack>

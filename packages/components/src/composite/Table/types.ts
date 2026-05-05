@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import type { IListViewProps } from '../../layouts';
 import type { ISortableListViewProps } from '../../layouts/SortableListView';
@@ -10,7 +10,10 @@ export enum ETableSortType {
 }
 
 export interface ITableColumn<T> {
-  title: string;
+  title: ReactNode;
+  // When provided, renders the title with an inline sort icon instead of
+  // the default external sort icon rendered by Column.
+  renderTitle?: (sortIcon: ReactNode) => ReactNode;
   dataIndex: string;
   titleProps?: ISizableTextProps;
   columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
@@ -44,6 +47,8 @@ export interface ITableProps<T> {
   headerRowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   // Whether the column can be dragged to reorder. default value is false
   draggable?: boolean;
+  // Whether this table is integrated inside a collapsible tab container (native only)
+  tabIntegrated?: boolean;
   onDragBegin?: ISortableListViewProps<T>['onDragBegin'];
   onDragEnd?: ISortableListViewProps<T>['onDragEnd'];
   keyExtractor: (item: T, index: number) => string;
@@ -55,6 +60,7 @@ export interface ITableProps<T> {
         onPress?: () => void;
         onSortTypeChange?: (sortOrder: 'asc' | 'desc' | undefined) => void;
         disableSort?: ETableSortType[];
+        initialSortOrder?: ETableSortType;
       }
     | undefined;
   onRow?: (
@@ -64,6 +70,7 @@ export interface ITableProps<T> {
     | {
         onPress?: () => void;
         onLongPress?: () => void;
+        onContextMenu?: (position?: { x: number; y: number }) => void;
       }
     | undefined;
   // Infinite scroll support

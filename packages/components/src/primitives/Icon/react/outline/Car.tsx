@@ -1,13 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCar = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M8 14H5v-2h3zm11 0h-3v-2h3z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m2 10.5 3.401-4.676A2 2 0 0 1 7.018 5h9.944a2 2 0 0 1 1.635.85L22 10.685M2 10.5H1m1 0V17a2 2 0 1 0 4 0h12a2 2 0 1 0 4 0v-6.314m0 0h1M6 13h2m8 0h2"
+      fillRule="evenodd"
+      d="M20.868 9H23v2h-1v9h-6v-2H8v2H2v-9H1V9h2.132l3.333-5h11.07zM4 11.303V18h2v-2h12v2h2v-6.697L16.465 6h-8.93z"
+      clipRule="evenodd"
     />
   </Svg>
 );

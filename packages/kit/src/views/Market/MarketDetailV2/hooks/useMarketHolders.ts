@@ -67,7 +67,7 @@ export function useMarketHolders({
                 percentage = percentageValue.toFixed(2);
               }
             }
-          } catch (error) {
+          } catch (_error) {
             // Keep percentage as undefined on error
           }
         }

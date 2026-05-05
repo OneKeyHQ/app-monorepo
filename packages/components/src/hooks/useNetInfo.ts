@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { healthCheckRequest } from '@onekeyhq/shared/src/request/helpers/healthCheckRequest';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 
 import { buildDeferredPromise } from './useDeferredPromise';
 import {
@@ -45,6 +47,8 @@ class NetInfo {
   };
 
   isFetching = false;
+
+  pendingRefresh = false;
 
   pollingTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -103,10 +107,20 @@ class NetInfo {
     } = this.configuration;
 
     try {
+      // atoms may not be wired yet during early bootstrap; in that case ping
+      // without app headers so we don't flash a false offline state.
+      let headers: Record<string, string> | undefined;
+      try {
+        const baseHeaders = await getRequestHeaders();
+        headers = await withCustomUAHeaders(reachabilityUrl, baseHeaders);
+      } catch {
+        headers = undefined;
+      }
       const response = await healthCheckRequest({
         url: reachabilityUrl,
         method: reachabilityMethod as 'GET' | 'POST',
         timeout: reachabilityRequestTimeout,
+        headers,
       });
 
       this.updateState({
@@ -117,28 +131,56 @@ class NetInfo {
       this.updateState({ isInternetReachable: false });
     } finally {
       this.isFetching = false;
+      this.clearPolling();
       const { reachabilityShortTimeout, reachabilityLongTimeout } =
         this.configuration;
-      this.pollingTimeoutId = setTimeout(
-        () => {
+      if (this.pendingRefresh) {
+        this.pendingRefresh = false;
+        this.pollingTimeoutId = setTimeout(() => {
           void this.fetch();
-        },
-        this.prevIsInternetReachable
-          ? reachabilityLongTimeout
-          : reachabilityShortTimeout,
-      );
+        }, reachabilityShortTimeout);
+      } else {
+        this.pollingTimeoutId = setTimeout(
+          () => {
+            void this.fetch();
+          },
+          this.prevIsInternetReachable
+            ? reachabilityLongTimeout
+            : reachabilityShortTimeout,
+        );
+      }
     }
   }
 
-  async start() {
-    void this.fetch();
+  isIdle() {
+    return !this.pollingTimeoutId && !this.isFetching && !this.pendingRefresh;
   }
 
-  async refresh() {
+  private clearPolling() {
     if (this.pollingTimeoutId) {
       clearTimeout(this.pollingTimeoutId);
+      this.pollingTimeoutId = null;
+    }
+  }
+
+  private triggerFetch(clearPending: boolean) {
+    this.clearPolling();
+    if (this.isFetching) {
+      this.pendingRefresh = true;
+      return;
+    }
+    if (clearPending) {
+      this.pendingRefresh = false;
     }
     void this.fetch();
+  }
+
+  start() {
+    this.triggerFetch(true);
+  }
+
+  refresh() {
+    this.triggerFetch(false);
   }
 }
 
@@ -147,34 +189,81 @@ export const globalNetInfo = new NetInfo({
 });
 
 export const configureNetInfo = (configuration: IReachabilityConfiguration) => {
+  const urlChanged =
+    globalNetInfo.configuration.reachabilityUrl !==
+    configuration.reachabilityUrl;
   globalNetInfo.configure(configuration);
-  void globalNetInfo.start();
+  if (urlChanged || globalNetInfo.isIdle()) {
+    globalNetInfo.start();
+  }
 };
 
 export const refreshNetInfo = () => {
-  void globalNetInfo.refresh();
+  globalNetInfo.refresh();
 };
 
-export const useNetInfo = () => {
+const buildReachabilityState = (
+  isInternetReachable: boolean | null,
+): IReachabilityState & {
+  isRawInternetReachable: boolean | null;
+} => ({
+  isInternetReachable: isInternetReachable ?? true,
+  isRawInternetReachable: isInternetReachable,
+});
+
+const mergeReachabilityState = (
+  prevState: IReachabilityState & {
+    isRawInternetReachable: boolean | null;
+  },
+  nextState: IReachabilityState & {
+    isRawInternetReachable: boolean | null;
+  },
+) => {
+  if (
+    prevState.isInternetReachable === nextState.isInternetReachable &&
+    prevState.isRawInternetReachable === nextState.isRawInternetReachable
+  ) {
+    return prevState;
+  }
+
+  return nextState;
+};
+
+export const useNetInfo = (enabled = true) => {
   const [reachabilityState, setReachabilityState] = useState<
     IReachabilityState & {
       isRawInternetReachable: boolean | null;
     }
   >(() => {
     const { isInternetReachable } = globalNetInfo.currentState();
-    return {
-      isInternetReachable: isInternetReachable ?? true,
-      isRawInternetReachable: isInternetReachable,
-    };
+    return buildReachabilityState(isInternetReachable);
   });
+
   useEffect(() => {
-    const remove = globalNetInfo.addEventListener(({ isInternetReachable }) => {
-      setReachabilityState({
-        isInternetReachable: isInternetReachable ?? true,
-        isRawInternetReachable: isInternetReachable,
-      });
-    });
+    const { isInternetReachable } = globalNetInfo.currentState();
+    setReachabilityState((prevState) =>
+      mergeReachabilityState(
+        prevState,
+        buildReachabilityState(isInternetReachable),
+      ),
+    );
+
+    if (!enabled) {
+      return undefined;
+    }
+
+    const remove = globalNetInfo.addEventListener(
+      ({ isInternetReachable: nextInternetReachable }) => {
+        setReachabilityState((prevState) =>
+          mergeReachabilityState(
+            prevState,
+            buildReachabilityState(nextInternetReachable),
+          ),
+        );
+      },
+    );
     return remove;
-  }, []);
+  }, [enabled]);
+
   return reachabilityState;
 };

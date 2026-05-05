@@ -7,10 +7,6 @@ const FiatCryptoBuyModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/Buy'),
 );
 
-const FiatCryptoSellModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/Sell'),
-);
-
 const DeriveTypesAddress = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
@@ -23,10 +19,6 @@ export const ModalFiatCryptoRouter: IModalFlowNavigatorConfig<
   {
     name: EModalFiatCryptoRoutes.BuyModal,
     component: FiatCryptoBuyModal,
-  },
-  {
-    name: EModalFiatCryptoRoutes.SellModal,
-    component: FiatCryptoSellModal,
   },
   {
     name: EModalFiatCryptoRoutes.DeriveTypesAddress,

@@ -10,7 +10,7 @@ This script creates corresponding performance tracking files for each `.ts` and 
 
 1. **Create Ready Files**: Create a `.perfReady.ts` or `.perfReady.tsx` file for each file
 2. **Record Start Time**: Record performance tracking start time in the ready file and store it in `globalThis` for React Native startup analysis
-3. **Add Import Statements**: Add `/* eslint-disable import/order */` and import ready file at the beginning of the original file
+3. **Add Import Statements**: Add `/* eslint-disable import-js/order */` and import ready file at the beginning of the original file
 4. **Add End Code**: Add performance tracking end code and log output at the end of the original file to measure React Native startup timing
 
 This approach ensures:

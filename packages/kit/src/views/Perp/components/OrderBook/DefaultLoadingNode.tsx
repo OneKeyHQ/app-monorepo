@@ -9,71 +9,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import type { IOrderBookVariant } from './types';
 
-const DESKTOP_ROW_HEIGHT = 18;
 const MOBILE_ROW_HEIGHT = 12;
-
-const DESKTOP_ROW_WIDTHS = [
-  '100%',
-  '95%',
-  '90%',
-  '85%',
-  '80%',
-  '75%',
-  '72%',
-  '68%',
-  '66%',
-  '62%',
-  '57%',
-  '52%',
-  '48%',
-  '44%',
-  '40%',
-  '36%',
-  '32%',
-  '28%',
-  '100%',
-  '28%',
-  '32%',
-  '36%',
-  '40%',
-  '44%',
-  '48%',
-  '52%',
-  '57%',
-  '62%',
-  '66%',
-  '68%',
-  '72%',
-  '75%',
-  '80%',
-  '85%',
-  '90%',
-  '95%',
-  '100%',
-];
-
-const MOBILE_ROWS: { width: string; height: number }[] = [
-  { width: '100%', height: MOBILE_ROW_HEIGHT },
-  { width: '92%', height: MOBILE_ROW_HEIGHT },
-  { width: '85%', height: MOBILE_ROW_HEIGHT },
-  { width: '78%', height: MOBILE_ROW_HEIGHT },
-  { width: '72%', height: MOBILE_ROW_HEIGHT },
-  { width: '65%', height: MOBILE_ROW_HEIGHT },
-  { width: '58%', height: MOBILE_ROW_HEIGHT },
-  { width: '50%', height: MOBILE_ROW_HEIGHT },
-  { width: '100%', height: MOBILE_ROW_HEIGHT },
-  { width: '50%', height: MOBILE_ROW_HEIGHT },
-  { width: '58%', height: MOBILE_ROW_HEIGHT },
-  { width: '65%', height: MOBILE_ROW_HEIGHT },
-  { width: '72%', height: MOBILE_ROW_HEIGHT },
-  { width: '78%', height: MOBILE_ROW_HEIGHT },
-  { width: '85%', height: MOBILE_ROW_HEIGHT },
-  { width: '92%', height: MOBILE_ROW_HEIGHT },
-  { width: '100%', height: MOBILE_ROW_HEIGHT },
-];
+const WEB_ORDER_BOOK_HEADER_SIDE_PADDING = 8;
 
 const MOBILE_HORIZONTAL_WIDTHS = [
   '6.4%',
@@ -170,16 +111,24 @@ export function DefaultLoadingNode({
               {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
             </SizableText>
             <SizableText fontSize={10} lineHeight={12} color="$textSubdued">
-              ({symbol ?? '—'})
+              ({symbol ? parseDexCoin(symbol).displayName : '—'})
             </SizableText>
           </YStack>
         </XStack>
 
         <YStack gap="$1.5" flex={1}>
-          <Skeleton w="100%" h={MOBILE_ROW_HEIGHT} radius="round" />
-          <Skeleton w="80%" h={MOBILE_ROW_HEIGHT} radius="round" />
-          <Skeleton w="60%" h={MOBILE_ROW_HEIGHT} radius="round" />
-          <Skeleton w="40%" h={MOBILE_ROW_HEIGHT} radius="round" />
+          <XStack w="100%" h={MOBILE_ROW_HEIGHT}>
+            <Skeleton w="100%" h="100%" radius="round" />
+          </XStack>
+          <XStack w="80%" h={MOBILE_ROW_HEIGHT}>
+            <Skeleton w="100%" h="100%" radius="round" />
+          </XStack>
+          <XStack w="60%" h={MOBILE_ROW_HEIGHT}>
+            <Skeleton w="100%" h="100%" radius="round" />
+          </XStack>
+          <XStack w="40%" h={MOBILE_ROW_HEIGHT}>
+            <Skeleton w="100%" h="100%" radius="round" />
+          </XStack>
         </YStack>
       </YStack>
     );
@@ -188,7 +137,7 @@ export function DefaultLoadingNode({
   return (
     <YStack flex={1} w="100%" gap="$2">
       <XStack>
-        <Stack w="33%" ai="flex-start">
+        <Stack w="33%" ai="flex-start" pl={WEB_ORDER_BOOK_HEADER_SIDE_PADDING}>
           <SizableText
             fontSize={12}
             lineHeight={24}
@@ -216,7 +165,7 @@ export function DefaultLoadingNode({
             {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
           </SizableText>
         </Stack>
-        <Stack w="37%" ai="flex-end">
+        <Stack w="37%" ai="flex-end" pr={WEB_ORDER_BOOK_HEADER_SIDE_PADDING}>
           <SizableText
             fontSize={12}
             lineHeight={24}

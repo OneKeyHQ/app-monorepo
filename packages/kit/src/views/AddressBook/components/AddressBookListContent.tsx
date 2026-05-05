@@ -1,5 +1,4 @@
-import { type FC, useEffect, useMemo } from 'react';
-import { useCallback, useState } from 'react';
+import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -21,6 +20,7 @@ import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AccountAvatar } from '../../../components/AccountAvatar';
 
@@ -58,7 +58,7 @@ const buildSections = (items: IAddressNetworkExtendMatch[]) => {
     Object.entries(result)
       .map((o) => ({ title: o[0], data: o[1] }))
       // pin up btc, evm to top, other impl sort by create time
-      .sort((a, b) => getSectionIndex(a) - getSectionIndex(b))
+      .toSorted((a, b) => getSectionIndex(a) - getSectionIndex(b))
   );
 };
 
@@ -115,7 +115,13 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
             color="$textSubdued"
             match={item.addressMatch}
           >
-            {item.address}
+            {item.memo || item.note
+              ? `${item.address} · ${accountUtils.shortenAddress({
+                  address: item.memo || item.note,
+                  leadingLength: 6,
+                  trailingLength: 4,
+                })}`
+              : item.address}
           </MatchSizeableText>
         }
       />
@@ -137,9 +143,9 @@ const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
   const navigation = useAppNavigation();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="SearchDocument"
       title={intl.formatMessage({
-        id: ETranslations.address_book_no_results_title,
+        id: ETranslations.address_book_no_results_title_migration,
       })}
       description={intl.formatMessage({
         id: ETranslations.address_book_empty_description,
@@ -165,7 +171,7 @@ const RenderNoSearchResult = () => {
   const intl = useIntl();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="SearchDocument"
       title={intl.formatMessage({
         id: ETranslations.address_book_no_results_title,
       })}

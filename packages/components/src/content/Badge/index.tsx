@@ -1,3 +1,5 @@
+import { SizableText } from '@tamagui/text';
+
 import {
   createStyledContext,
   styled,
@@ -5,7 +7,7 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { SizableText, XStack } from '../../primitives';
+import { XStack } from '../../primitives/Stack';
 
 import type { IXStackProps } from '../../primitives';
 
@@ -61,9 +63,7 @@ const BadgeFrame = styled(XStack, {
 const BadgeText = styled(SizableText, {
   name: 'BadgeText',
   allowFontScaling: false,
-  style: {
-    wordBreak: 'break-all',
-  },
+  numberOfLines: 1,
   context: BadgeContext,
   variants: {
     badgeSize: {

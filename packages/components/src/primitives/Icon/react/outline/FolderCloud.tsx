@@ -1,21 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFolderCloud = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 10V6a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.664.89l1.11 1.665a1 1 0 0 0 .831.445H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-5"
+      fillRule="evenodd"
+      d="M5.25 12.5c1.319 0 2.492.602 3.269 1.538A3.5 3.5 0 0 1 8 21H5.25a4.25 4.25 0 0 1 0-8.5m0 2a2.25 2.25 0 0 0 0 4.5H8a1.5 1.5 0 0 0 0-3h-.562l-.294-.46A2.24 2.24 0 0 0 5.25 14.5"
+      clipRule="evenodd"
     />
-    <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M2 16.75A3.25 3.25 0 0 0 5.25 20H8a2.5 2.5 0 0 0 0-5h-.011A3.25 3.25 0 0 0 2 16.75Z"
-    />
+    <Path d="M12.535 6H22v14h-9v-2h7V8h-8.535l-2-3H4v6H2V3h8.535z" />
   </Svg>
 );
 export default SvgFolderCloud;

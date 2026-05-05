@@ -1,8 +1,20 @@
 import type { ReactElement } from 'react';
-import { isValidElement, useMemo } from 'react';
+import {
+  isValidElement,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { isString } from 'lodash';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type {
   IImageFallbackProps,
@@ -18,6 +30,7 @@ import {
   Stack,
   withStaticProperties,
 } from '@onekeyhq/components';
+import { startViewTransition } from '@onekeyhq/components/src/composite/Tabs/utils';
 import type {
   IDBAccount,
   IDBExternalAccount,
@@ -35,6 +48,10 @@ import { WalletAvatar } from '../WalletAvatar';
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
 import type { ImageStyle } from 'react-native';
+
+// Module-level cache to track shown avatar sources (persists across component instances)
+const shownAvatarSourcesCache = new Set<string>();
+const SHOWN_AVATAR_SOURCES_CACHE_LIMIT = 500;
 
 const VARIANT_SIZE = {
   'default': {
@@ -227,11 +244,12 @@ function BasicAccountAvatar({
 
   const renderLoading = useMemo(
     () =>
-      loading || loadingProps ? (
+      loading ??
+      (loadingProps ? (
         <Image.Loading {...loadingProps} />
       ) : (
         <DefaultImageLoading w={containerSize} h={containerSize} />
-      ),
+      )),
     [containerSize, loading, loadingProps],
   );
 
@@ -279,6 +297,83 @@ function BasicAccountAvatar({
     src,
   ]);
 
+  // Generate a stable key for animation based on source
+  const getSourceKey = useCallback((imgSource: typeof uriSource) => {
+    if (isValidElement(imgSource)) {
+      return 'element';
+    }
+    const imgSrc = imgSource as IImageProps['source'];
+    if (imgSrc && typeof imgSrc === 'object' && 'uri' in imgSrc) {
+      return imgSrc.uri ?? '';
+    }
+    return String(imgSrc);
+  }, []);
+
+  const sourceKey = useMemo(
+    () => getSourceKey(uriSource),
+    [getSourceKey, uriSource],
+  );
+
+  // Track displayed source for view transition animation
+  const [displayedSource, setDisplayedSource] = useState(uriSource);
+  const [displayedKey, setDisplayedKey] = useState(sourceKey);
+  const prevSourceKeyRef = useRef(sourceKey);
+
+  // Stable cache key based on address (not URI which may vary)
+  const stableAddressKey =
+    address ||
+    indexedAccount?.idHash ||
+    indexedAccount?.id ||
+    (account || dbAccount)?.address ||
+    '';
+
+  // Decide animation ONCE at mount, based on address (not URI)
+  // Using lazy initialization to ensure decision is made only once per instance
+  const shouldAnimateRef = useRef<boolean | undefined>(undefined);
+  if (shouldAnimateRef.current === undefined && stableAddressKey) {
+    const isFirstGlobalAppearance =
+      !shownAvatarSourcesCache.has(stableAddressKey);
+    shouldAnimateRef.current = isFirstGlobalAppearance;
+    if (isFirstGlobalAppearance) {
+      if (shownAvatarSourcesCache.size >= SHOWN_AVATAR_SOURCES_CACHE_LIMIT) {
+        shownAvatarSourcesCache.clear();
+      }
+      shownAvatarSourcesCache.add(stableAddressKey);
+    }
+  }
+
+  // Use startViewTransition when source changes
+  useLayoutEffect(() => {
+    if (sourceKey !== prevSourceKeyRef.current) {
+      prevSourceKeyRef.current = sourceKey;
+      startViewTransition(() => {
+        setDisplayedSource(uriSource);
+        setDisplayedKey(sourceKey);
+      });
+    }
+  }, [sourceKey, uriSource]);
+
+  // Animation controlled by shared value for precise timing
+  const opacity = useSharedValue(shouldAnimateRef.current === true ? 0 : 1);
+  const hasTriggeredAnimationRef = useRef(false);
+
+  // Trigger fade-in animation when displayedKey becomes non-empty for the first time
+  useLayoutEffect(() => {
+    if (
+      displayedKey &&
+      shouldAnimateRef.current === true &&
+      !hasTriggeredAnimationRef.current
+    ) {
+      hasTriggeredAnimationRef.current = true;
+      shouldAnimateRef.current = false;
+      opacity.value = withTiming(1, { duration: 200 });
+    }
+  }, [displayedKey, opacity]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
   return (
     <Stack
       w={containerSize}
@@ -286,22 +381,27 @@ function BasicAccountAvatar({
       justifyContent="center"
       alignItems="center"
     >
-      {isValidElement(uriSource) ? (
-        uriSource
+      {isValidElement(displayedSource) ? (
+        displayedSource
       ) : (
-        <Image
-          size={containerSize}
-          source={uriSource as IImageProps['source']}
-          style={
-            {
-              borderCurve: 'continuous',
-            } as ImageStyle
-          }
-          borderRadius={size === 'small' ? '$1' : '$2'}
-          {...restProps}
-          skeleton={renderLoading}
-          fallback={renderFallback}
-        />
+        <Animated.View
+          style={[{ width: '100%', height: '100%' }, animatedStyle]}
+        >
+          <Image
+            size={containerSize}
+            source={displayedSource as IImageProps['source']}
+            style={
+              {
+                borderCurve: 'continuous',
+              } as ImageStyle
+            }
+            bg="$bgStrong"
+            borderRadius={size === 'small' ? '$1' : '$2'}
+            {...restProps}
+            skeleton={renderLoading}
+            fallback={renderFallback}
+          />
+        </Animated.View>
       )}
 
       {wallet ? (

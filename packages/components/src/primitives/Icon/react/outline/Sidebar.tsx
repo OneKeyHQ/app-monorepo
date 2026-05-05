@@ -1,19 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgSidebar = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M11 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h6m0-14h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8m0-14v14"
+      fillRule="evenodd"
+      d="M7 14a1.25 1.25 0 1 1 0 2.5A1.25 1.25 0 0 1 7 14m0 .75a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1m0-4a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m0 .75a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1m0-4A1.25 1.25 0 1 1 7 10a1.25 1.25 0 0 1 0-2.5m0 .75a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1"
+      clipRule="evenodd"
     />
     <Path
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth={0.75}
-      d="M6.125 8.75a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm0 3.25a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm0 3.25a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Z"
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h6V6H4zm8 0h8V6h-8z"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -82,7 +82,7 @@ class ProviderApiWebln extends ProviderApiBase {
         return { enabled: true };
       }
       throw web3Errors.provider.unauthorized();
-    } catch (e) {
+    } catch (_e) {
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
       const accountsInfo = await this._getAccountsInfo(request);
       return { enabled: accountsInfo.length > 0 };
@@ -197,7 +197,9 @@ class ProviderApiWebln extends ProviderApiBase {
           accountId: accountId ?? '',
           networkId: networkId ?? '',
         });
-      console.log('webln.signMessage: ', message, signature);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('webln.signMessage: ', message, signature);
+      }
 
       return JSON.parse(signature as any) as ISignMessageResponse;
     } catch (e) {

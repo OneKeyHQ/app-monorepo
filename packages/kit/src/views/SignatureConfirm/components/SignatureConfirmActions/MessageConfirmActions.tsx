@@ -1,14 +1,21 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Checkbox, Page, Toast, usePageUnMounted } from '@onekeyhq/components';
+import {
+  Checkbox,
+  Page,
+  Stack,
+  Toast,
+  usePageUnMounted,
+} from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -23,6 +30,8 @@ import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureConfirm';
+
+import { useHyperliquidReferralPromotion } from '../../hooks/useHyperliquidReferralPromotion';
 
 type IProps = {
   accountId: string;
@@ -73,6 +82,76 @@ function MessageConfirmActions(props: IProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [continueOperate, setContinueOperate] = useState(false);
 
+  // Get user address for referral promotion check
+  const { result: accountAddress } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      }),
+    [networkId, accountId],
+  );
+
+  const {
+    shouldShowReferralCheckbox,
+    isReferralChecked,
+    setIsReferralChecked,
+    bindReferralCodeAfterSign,
+  } = useHyperliquidReferralPromotion({
+    origin: sourceInfo?.origin ?? '',
+    accountId,
+    userAddress: accountAddress ?? '',
+    unsignedMessage: unsignedMessage.message,
+  });
+
+  // Log when referral checkbox is shown
+  const hasLoggedShownRef = useRef(false);
+  useEffect(() => {
+    if (
+      shouldShowReferralCheckbox &&
+      accountAddress &&
+      !hasLoggedShownRef.current
+    ) {
+      hasLoggedShownRef.current = true;
+      void backgroundApiProxy.serviceHyperliquidReferral.logReferralCheckboxInteraction(
+        {
+          userAddress: accountAddress,
+          isChecked: isReferralChecked,
+          action: 'shown',
+        },
+      );
+    }
+  }, [shouldShowReferralCheckbox, accountAddress, isReferralChecked]);
+
+  // Handler for referral checkbox change with logging
+  const handleReferralCheckboxChange = useCallback(
+    (checked: boolean | 'indeterminate') => {
+      const isChecked = !!checked;
+      setIsReferralChecked(isChecked);
+      if (accountAddress) {
+        void backgroundApiProxy.serviceHyperliquidReferral.logReferralCheckboxInteraction(
+          {
+            userAddress: accountAddress,
+            isChecked,
+            action: isChecked ? 'checked' : 'unchecked',
+          },
+        );
+        // Snooze banner when user unchecks the checkbox, clear snooze when re-checked
+        if (!isChecked) {
+          void backgroundApiProxy.serviceHyperliquidReferral.snoozeReferralBanner(
+            { userAddress: accountAddress },
+          );
+        } else {
+          void backgroundApiProxy.simpleDb.perp.setReferralBannerSnoozedUntil(
+            accountAddress,
+            0,
+          );
+        }
+      }
+    },
+    [setIsReferralChecked, accountAddress],
+  );
+
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -100,16 +179,16 @@ function MessageConfirmActions(props: IProps) {
           unsignedMessage.type === EMessageTypesEth.ETH_SIGN ||
           unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN
         ) {
-          validateSignMessageData(unsignedMessage, network?.impl);
+          await validateSignMessageData(unsignedMessage, network?.impl);
         }
         if (unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V1) {
-          validateTypedSignMessageDataV1(unsignedMessage, network?.impl);
+          await validateTypedSignMessageDataV1(unsignedMessage, network?.impl);
         }
         if (
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4
         ) {
-          validateTypedSignMessageDataV3V4(
+          await validateTypedSignMessageDataV3V4(
             unsignedMessage,
             networkUtils.getNetworkChainId({ networkId }),
             network?.impl,
@@ -130,11 +209,27 @@ function MessageConfirmActions(props: IProps) {
           networkId,
           accountId,
         });
+
+        // Bind referral code BEFORE resolving dappApprove
+        // This ensures the referral binding completes before the window closes
+        if (isReferralChecked && shouldShowReferralCheckbox) {
+          try {
+            await bindReferralCodeAfterSign();
+          } catch (e) {
+            // Silent failure - don't affect signing result
+            console.warn(
+              '[HyperliquidReferral] Failed to bind referral code:',
+              e,
+            );
+          }
+        }
+
         void dappApprove.resolve({
           result,
         });
         isSubmitted.current = true;
         onSuccess?.(result);
+
         try {
           await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
             networkId,
@@ -172,6 +267,9 @@ function MessageConfirmActions(props: IProps) {
       onSuccess,
       intl,
       navigation,
+      isReferralChecked,
+      shouldShowReferralCheckbox,
+      bindReferralCodeAfterSign,
     ],
   );
 
@@ -248,18 +346,29 @@ function MessageConfirmActions(props: IProps) {
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
       >
-        {showTakeRiskAlert ? (
-          <Checkbox
-            label={intl.formatMessage({
-              id: ETranslations.dapp_connect_proceed_at_my_own_risk,
-            })}
-            value={continueOperate}
-            onChange={(checked) => {
-              setContinueOperate(!!checked);
-              setContinueOperateLocal(!!checked);
-            }}
-          />
-        ) : null}
+        <Stack gap="$3" flexShrink={1}>
+          {showTakeRiskAlert ? (
+            <Checkbox
+              label={intl.formatMessage({
+                id: ETranslations.dapp_connect_proceed_at_my_own_risk,
+              })}
+              value={continueOperate}
+              onChange={(checked) => {
+                setContinueOperate(!!checked);
+                setContinueOperateLocal(!!checked);
+              }}
+            />
+          ) : null}
+          {shouldShowReferralCheckbox ? (
+            <Checkbox
+              label={intl.formatMessage({
+                id: ETranslations.wallet_use_onekey_hl_discount,
+              })}
+              value={isReferralChecked}
+              onChange={handleReferralCheckboxChange}
+            />
+          ) : null}
+        </Stack>
       </Page.FooterActions>
     </Page.Footer>
   );

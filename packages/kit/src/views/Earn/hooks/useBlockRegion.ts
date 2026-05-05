@@ -15,6 +15,7 @@ export const useBlockRegion = () => {
     },
     [],
     {
+      watchLoading: true,
       revalidateOnFocus: true,
     },
   );

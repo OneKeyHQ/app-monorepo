@@ -1,24 +1,23 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
-
+import { Stack, useIsDesktopModeUIInTabPages } from '@onekeyhq/components';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
-import { withAccountOverviewProvider } from '../../../states/jotai/contexts/accountOverview';
+import { ProviderJotaiContextAccountOverview } from '../../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
   useSelectedAccount,
   useSelectedAccountsAtom,
 } from '../../../states/jotai/contexts/accountSelector';
+import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import { OnboardingOnMount } from '../../Onboarding/components';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
-import { useAutoRedirectToMarket } from '../hooks/useAutoRedirectToMarket';
 
 import { HomePageView } from './HomePageView';
 
@@ -56,14 +55,9 @@ function SelectedAccountsMapTest() {
 
 function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
-
-  useFocusEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
-  });
+  const isDesktopModeUI = useIsDesktopModeUIInTabPages();
 
   useDebugComponentRemountLog({ name: 'HomePageContainer' });
-
-  useAutoRedirectToMarket();
 
   if (isHide) {
     return null;
@@ -71,35 +65,61 @@ function HomePageContainer() {
   const sceneName = EAccountSelectorSceneName.home;
   return (
     <TabletHomeContainer>
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName,
-          sceneUrl: '',
-        }}
-        enabledNum={[0]}
+      <Stack
+        flex={1}
+        className="HomeRootTabPageContainer"
+        bg={isDesktopModeUI ? '$bgSubdued' : '$bgApp'}
       >
-        <HomePageView
-          key={sceneName}
-          sceneName={sceneName}
-          onPressHide={() => setIsHide((v) => !v)}
-        />
-        <DAppConnectExtensionFloatingTrigger />
-        <OnboardingOnMount />
-        <NotificationRegisterDaily />
-        <BTCFreshAddressProvider />
-        {/* <UrlAccountAutoReplaceHistory num={0} /> */}
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName,
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+        >
+          <HomePageView
+            key={sceneName}
+            sceneName={sceneName}
+            onPressHide={() => setIsHide((v) => !v)}
+          />
+          <DAppConnectExtensionFloatingTrigger />
+          <OnboardingOnMount />
+          <NotificationRegisterDaily />
+          <BTCFreshAddressProvider />
+          {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
-        {process.env.NODE_ENV !== 'production' ? (
-          <>
-            <SelectedAccountsMapTest />
-            <SelectedAccountTest />
-            <ActiveAccountTest />
-            <EmptyRenderTest />
-          </>
-        ) : null}
-      </AccountSelectorProviderMirror>
+          {process.env.NODE_ENV !== 'production' ? (
+            <>
+              <SelectedAccountsMapTest />
+              <SelectedAccountTest />
+              <ActiveAccountTest />
+              <EmptyRenderTest />
+            </>
+          ) : null}
+        </AccountSelectorProviderMirror>
+      </Stack>
     </TabletHomeContainer>
   );
 }
 
-export default withAccountOverviewProvider(HomePageContainer);
+function useHomeAccountOverviewContextStoreInitData() {
+  const data = useMemo(
+    () => ({
+      storeName: EJotaiContextStoreNames.homeAccountOverview,
+    }),
+    [],
+  );
+  return data;
+}
+
+function HomePageContainerWithOverviewProvider() {
+  const data = useHomeAccountOverviewContextStoreInitData();
+  const store = useJotaiContextRootStore(data);
+  return (
+    <ProviderJotaiContextAccountOverview store={store}>
+      <HomePageContainer />
+    </ProviderJotaiContextAccountOverview>
+  );
+}
+
+export default HomePageContainerWithOverviewProvider;

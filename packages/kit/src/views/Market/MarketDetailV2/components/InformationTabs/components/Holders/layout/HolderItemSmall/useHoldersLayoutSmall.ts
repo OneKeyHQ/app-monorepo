@@ -1,7 +1,7 @@
 export const useHoldersLayoutSmall = () => {
   const styles = {
     address: {
-      width: 170,
+      flex: 1,
     },
     percentage: {
       width: '$14',

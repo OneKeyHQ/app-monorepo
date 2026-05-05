@@ -9,6 +9,7 @@ import {
   Image,
   ListView,
   Page,
+  SizableText,
   Skeleton,
   Stack,
   Switch,
@@ -25,6 +26,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItem } from '../../../components/ListItem';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+
+const strongTextPlain = (chunks: string[]) => chunks.join('');
+const strongTextRich = (chunks: React.ReactNode[]) => (
+  <SizableText color="$text">{chunks}</SizableText>
+);
 
 function EmptyGuide() {
   return (
@@ -103,7 +109,7 @@ function DefaultWalletSettingsModal() {
 
               const currentOrigin = new URL(tab.url).origin;
               resolve(currentOrigin);
-            } catch (e) {
+            } catch (_e) {
               resolve(''); // Return empty string on error instead of rejecting
             }
           },
@@ -151,9 +157,12 @@ function DefaultWalletSettingsModal() {
               id: ETranslations.explore_default_wallet_canceled,
             }),
         message: isDefaultWallet
-          ? intl.formatMessage({
-              id: ETranslations.explore_set_default_wallet_description,
-            })
+          ? intl.formatMessage(
+              {
+                id: ETranslations.explore_set_default_wallet_description,
+              },
+              { strong: strongTextPlain },
+            )
           : intl.formatMessage({
               id: ETranslations.explore_default_wallet_canceled_desc,
             }),
@@ -164,7 +173,7 @@ function DefaultWalletSettingsModal() {
       setTimeout(() => {
         void run({ alwaysSetState: true });
       }, 200);
-    } catch (error) {
+    } catch (_error) {
       // Still try to refresh the data even if context menu update fails
       setTimeout(() => {
         void run({ alwaysSetState: true });
@@ -186,9 +195,12 @@ function DefaultWalletSettingsModal() {
           title: intl.formatMessage({
             id: ETranslations.explore_default_wallet_set,
           }),
-          message: intl.formatMessage({
-            id: ETranslations.explore_set_default_wallet_description,
-          }),
+          message: intl.formatMessage(
+            {
+              id: ETranslations.explore_set_default_wallet_description,
+            },
+            { strong: strongTextPlain },
+          ),
         });
       }
       await refreshContextMenu(origin);
@@ -263,9 +275,13 @@ function DefaultWalletSettingsModal() {
       <Page.Body>
         <ListItem
           title={intl.formatMessage({ id: ETranslations.explore_set_default })}
-          subtitle={intl.formatMessage({
-            id: ETranslations.explore_set_default_wallet_description,
-          })}
+          subtitle={intl.formatMessage(
+            { id: ETranslations.explore_set_default_wallet_description },
+            { strong: strongTextRich },
+          )}
+          subtitleProps={{
+            maxWidth: '$96',
+          }}
         >
           <Switch
             size={ESwitchSize.small}

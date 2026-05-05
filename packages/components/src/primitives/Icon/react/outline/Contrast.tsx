@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgContrast = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M12 20a8 8 0 1 0 0-16zm10-8c0 5.523-4.477 10-10 10q-.562 0-1.11-.061C5.89 21.386 2 17.148 2 12s3.89-9.386 8.89-9.939A10 10 0 0 1 12 2c5.523 0 10 4.477 10 10"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10q-.563 0-1.11-.06C5.889 21.386 2 17.148 2 12s3.889-9.386 8.89-9.94Q11.437 2 12 2m0 18a8 8 0 1 0 0-16z"
       clipRule="evenodd"
     />
   </Svg>

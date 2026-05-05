@@ -1,5 +1,5 @@
 import type { CompositionEvent } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -57,21 +57,20 @@ export function SearchBar({
   const onChangeTextCallback = useCallback(
     (text: string) => {
       onChangeText?.(text);
-      // This is a simple solution to support pinyin composition on iOS.
       if (platformEnv.isNative) {
         onSearchTextChange?.(text.replaceAll(NATIVE_COMPOSITION_SPACE, ''));
       } else {
-        // on Web
         if (compositionLockRef.current) {
-          // During composition, skip search callback to avoid multiple triggers
-          // The final value will be handled in compositionEnd
+          if (controlledValue !== undefined && !onChangeText) {
+            onSearchTextChange?.(text);
+          }
           return;
         }
         searchTextRef.current = text;
         onSearchTextChange?.(text);
       }
     },
-    [onChangeText, onSearchTextChange],
+    [onChangeText, onSearchTextChange, controlledValue],
   );
   const onChangeTextDebounced = useDebouncedCallback(
     onChangeTextCallback,
@@ -88,7 +87,6 @@ export function SearchBar({
       if (controlledValue === undefined) {
         setInternalValue(text);
         if (!text) {
-          // onChangeTextCallback('');
           onChangeTextDebounced('');
         } else {
           onChangeTextDebounced(text);
@@ -113,19 +111,44 @@ export function SearchBar({
       compositionLockRef.current = false;
       const target = e.target as HTMLInputElement;
       const finalValue = target?.value || '';
-      // Update ref to maintain state consistency
       searchTextRef.current = finalValue;
       onSearchTextChange?.(finalValue);
-      onChangeText?.(finalValue);
     },
-    [onSearchTextChange, onChangeText],
+    [onSearchTextChange],
   );
   const intl = useIntl();
+
+  const clearAddOns = useMemo(
+    () => [
+      {
+        iconName: 'XCircleOutline' as const,
+        onPress: handleClearValue,
+        testID: `${testID || ''}-clear`,
+      },
+    ],
+    [handleClearValue, testID],
+  );
+
+  const resolvedContainerProps = useMemo(
+    () => ({
+      w: '100%' as const,
+      borderRadius: '$full' as const,
+      bg: '$bgStrong' as const,
+      borderColor: '$transparent' as const,
+      overflow: 'hidden' as const,
+      ...containerProps,
+    }),
+    [containerProps],
+  );
+
   return (
     <Input
       ref={inputRef}
       autoFocus={resolvedAutoFocus}
       selectTextOnFocus={selectTextOnFocus}
+      // Disable autofill to prevent iOS UIKeyboardTaskQueue deadlock when focusing programmatically
+      textContentType="none"
+      autoComplete="off"
       value={value}
       onChangeText={handleChange}
       leftIconName="SearchOutline"
@@ -138,24 +161,11 @@ export function SearchBar({
       {...rest}
       {...(value?.length &&
         !rest.addOns?.length && {
-          addOns: [
-            {
-              iconName: 'XCircleOutline',
-              onPress: handleClearValue,
-              testID: `${testID || ''}-clear`,
-            },
-          ],
+          addOns: clearAddOns,
         })}
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}
-      containerProps={{
-        w: '100%',
-        borderRadius: '$full',
-        bg: '$bgStrong',
-        borderColor: '$transparent',
-        overflow: 'hidden',
-        ...containerProps,
-      }}
+      containerProps={resolvedContainerProps}
     />
   );
 }

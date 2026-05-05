@@ -30,7 +30,7 @@ const defaultPromiseRejectionHandler = (id: string, error: Error) => {
 
   const warning =
     `Possible Unhandled Promise Rejection (id: ${id}): ${message || ''}` +
-    `\n${stack == null ? '' : stack}`;
+    `\n${stack === null || stack === undefined ? '' : stack}`;
   console.warn(warning);
 };
 

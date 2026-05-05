@@ -25,10 +25,13 @@ import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EHardwareCallContext,
@@ -44,6 +47,7 @@ import {
   EPasswordPromptType,
   EPasswordVerifyStatus,
   PASSCODE_LENGTH,
+  PASSCODE_REGEX,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
 } from '@onekeyhq/shared/types/password';
@@ -60,6 +64,7 @@ import {
   passwordAtom,
   passwordBiologyAuthInfoAtom,
   passwordPersistAtom,
+  passwordPersistManualLockStateAtom,
   passwordPromptPromiseTriggerAtom,
 } from '../../states/jotai/atoms/password';
 import webembedApiProxy from '../../webembeds/instance/webembedApiProxy';
@@ -67,6 +72,14 @@ import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthUtils } from './biologyAuthUtils';
+
+function unrefTimeout(
+  timeout: ReturnType<typeof setTimeout> | null | undefined,
+) {
+  (
+    timeout as ReturnType<typeof setTimeout> & { unref?: () => void }
+  )?.unref?.();
+}
 
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
@@ -78,6 +91,16 @@ export default class ServicePassword extends ServiceBase {
 
   private cachedPasswordTimeOutObject: ReturnType<typeof setTimeout> | null =
     null;
+
+  private cachedPrfMasterKeyHex: string | null = null;
+
+  private cachedPrfMasterKeyTimeOutObject: ReturnType<
+    typeof setTimeout
+  > | null = null;
+
+  private readonly PRF_MASTER_KEY_CACHE_DURATION_MS = 5 * 60 * 1000;
+
+  private skipPrfCacheFlag = false;
 
   private passwordPromptTTL: number = timerUtils.getTimeDurationMs({
     minute: 5,
@@ -198,10 +221,46 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async clearCachedPassword() {
     this.cachedPassword = undefined;
-    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
-
-    // TODO clear cached sync credential only when app is locked
+    // Clear sync credential caches on lock screen (security invariant).
+    // For keyless mode, credentials can be re-read from storage without password.
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+    void this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache();
+    await this.clearCachedPrfMasterKey();
+  }
+
+  // PRF master key cache (stored in background memory, auto-cleared by timer)
+  @backgroundMethod()
+  async getCachedPrfMasterKey(): Promise<string | null> {
+    if (this.skipPrfCacheFlag) {
+      return null;
+    }
+    return this.cachedPrfMasterKeyHex;
+  }
+
+  @backgroundMethod()
+  async setCachedPrfMasterKey(hex: string): Promise<void> {
+    if (this.cachedPrfMasterKeyTimeOutObject) {
+      clearTimeout(this.cachedPrfMasterKeyTimeOutObject);
+    }
+    this.cachedPrfMasterKeyHex = hex;
+    this.cachedPrfMasterKeyTimeOutObject = setTimeout(() => {
+      void this.clearCachedPrfMasterKey();
+    }, this.PRF_MASTER_KEY_CACHE_DURATION_MS);
+    unrefTimeout(this.cachedPrfMasterKeyTimeOutObject);
+  }
+
+  @backgroundMethod()
+  async clearCachedPrfMasterKey(): Promise<void> {
+    this.cachedPrfMasterKeyHex = null;
+    if (this.cachedPrfMasterKeyTimeOutObject) {
+      clearTimeout(this.cachedPrfMasterKeyTimeOutObject);
+      this.cachedPrfMasterKeyTimeOutObject = null;
+    }
+  }
+
+  @backgroundMethod()
+  async setSkipPrfCache(skip: boolean): Promise<void> {
+    this.skipPrfCacheFlag = skip;
   }
 
   async setCachedPassword({ password }: { password: string }): Promise<string> {
@@ -214,6 +273,7 @@ export default class ServicePassword extends ServiceBase {
     this.cachedPasswordTimeOutObject = setTimeout(() => {
       void this.clearCachedPassword();
     }, this.cachedPasswordTTL);
+    unrefTimeout(this.cachedPasswordTimeOutObject);
 
     void (async () => {
       const prevPasswordRaw = prevPassword
@@ -246,7 +306,13 @@ export default class ServicePassword extends ServiceBase {
     this.cachedPasswordTimeOutObject = setTimeout(() => {
       void this.clearCachedPassword();
     }, this.cachedPasswordTTL);
+    unrefTimeout(this.cachedPasswordTimeOutObject);
     return this.cachedPassword;
+  }
+
+  @backgroundMethod()
+  async hasCachedPassword(): Promise<boolean> {
+    return !!this.cachedPassword;
   }
 
   @backgroundMethod()
@@ -276,9 +342,10 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // biologyAuth&WebAuth ------------------------------
+
   async saveBiologyAuthPassword(password: string): Promise<void> {
     ensureSensitiveTextEncoded(password);
-    /* The password also needs to be stored when the system closes the fingerprint identification, 
+    /* The password also needs to be stored when the system closes the fingerprint identification,
        so that the user can open the system fingerprint identification later
     */
     // const { isSupport } = await passwordBiologyAuthInfoAtom.get();
@@ -308,7 +375,7 @@ export default class ServicePassword extends ServiceBase {
       const pwd = await biologyAuthUtils.getPassword();
       ensureSensitiveTextEncoded(pwd);
       return pwd;
-    } catch (e) {
+    } catch (_e) {
       await this.setBiologyAuthEnable(false);
       throw new OneKeyErrors.BiologyAuthFailed();
     }
@@ -319,6 +386,12 @@ export default class ServicePassword extends ServiceBase {
     enable: boolean,
     skipAuth?: boolean,
   ): Promise<void> {
+    // TODO(biologyAuth-debug): temporary log to diagnose biometric disappearing
+    defaultLogger.setting.page.biologyAuthDebug('setBiologyAuthEnable', {
+      enable,
+      skipAuth: !!skipAuth,
+      stack: new Error('trace').stack?.split('\n').slice(1, 6).join(' | '),
+    });
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
@@ -343,28 +416,54 @@ export default class ServicePassword extends ServiceBase {
   async validatePasswordValidRules({
     password,
     passwordMode,
+    skipLengthCheck,
   }: {
     passwordMode: EPasswordMode;
     password: string;
-  }): Promise<void> {
+    skipLengthCheck?: boolean;
+  }): Promise<{ shouldFixPasscodeMode?: boolean }> {
     ensureSensitiveTextEncoded(password);
     const realPassword = await decodePasswordAsync({
       password,
     });
     // **** length matched
     if (
+      !skipLengthCheck &&
       passwordMode === EPasswordMode.PASSWORD &&
       (realPassword.length < PASSWORD_MIN_LENGTH ||
         realPassword.length > PASSWORD_MAX_LENGTH)
     ) {
       throw new OneKeyErrors.PasswordStrengthValidationFailed();
     }
-    if (passwordMode === EPasswordMode.PASSCODE) {
+    if (!skipLengthCheck && passwordMode === EPasswordMode.PASSCODE) {
       if (realPassword.length !== PASSCODE_LENGTH) {
         throw new OneKeyErrors.PasswordStrengthValidationFailed();
       }
     }
+
+    if (!realPassword.length) {
+      throw new OneKeyErrors.PasswordStrengthValidationFailed();
+    }
     // **** other rules ....
+
+    // Check if password might be a passcode:
+    // 1. Must be on mobile platform
+    // 2. Must be exactly 6 digits
+    // 3. Must match regex pattern (only digits)
+    const isPasscodeModeMaybe =
+      platformEnv.isNative &&
+      realPassword.length === PASSCODE_LENGTH &&
+      realPassword.replace(PASSCODE_REGEX, '') === realPassword;
+
+    // Determine if passwordMode needs to be fixed:
+    // If detected as passcode but passwordMode is PASSWORD, need to fix to PASSCODE
+    // If detected as not passcode but passwordMode is PASSCODE, validation would have failed above
+    const shouldFixPasscodeMode =
+      isPasscodeModeMaybe && passwordMode === EPasswordMode.PASSWORD;
+
+    return {
+      shouldFixPasscodeMode,
+    };
   }
 
   async validatePasswordSame({
@@ -402,10 +501,16 @@ export default class ServicePassword extends ServiceBase {
     if (newPassword) {
       ensureSensitiveTextEncoded(newPassword);
     }
+    let validateResult:
+      | {
+          shouldFixPasscodeMode?: boolean;
+        }
+      | undefined;
     if (!newPassword) {
-      await this.validatePasswordValidRules({
+      validateResult = await this.validatePasswordValidRules({
         password,
         passwordMode,
+        skipLengthCheck: true,
       });
     } else {
       await this.validatePasswordValidRules({
@@ -419,6 +524,17 @@ export default class ServicePassword extends ServiceBase {
     }
     if (!skipDBVerify) {
       await localDb.verifyPassword({ password });
+      if (!newPassword && validateResult?.shouldFixPasscodeMode) {
+        const { isPasscodeModeFixed } = await passwordPersistAtom.get();
+        if (!isPasscodeModeFixed) {
+          // Fix passwordMode to PASSCODE when detected password is actually a passcode
+          await passwordPersistAtom.set((prev) => ({
+            ...prev,
+            isPasscodeModeFixed: true,
+            passwordMode: EPasswordMode.PASSCODE,
+          }));
+        }
+      }
     }
   }
 
@@ -503,8 +619,8 @@ export default class ServicePassword extends ServiceBase {
       passwordMode,
     });
     let masterPasswordUpdateRollback: (() => Promise<void>) | undefined;
+    let keylessDataUpdateRollback: (() => Promise<void>) | undefined;
     try {
-      await this.backgroundApi.serviceAddressBook.updateHash(newPassword);
       await this.saveBiologyAuthPassword(newPassword);
       await this.setCachedPassword({ password: newPassword });
       await this.setPasswordSetStatus(true, passwordMode);
@@ -515,22 +631,21 @@ export default class ServicePassword extends ServiceBase {
             newPasscode: newPassword,
           },
         ));
-      // update v5 db password
+      ({ rollback: keylessDataUpdateRollback } =
+        await this.backgroundApi.serviceKeylessWallet.updateKeylessDataPasscode(
+          {
+            oldPassword,
+            newPassword,
+          },
+        ));
       await localDb.updatePassword({ oldPassword, newPassword });
-      // update v4 db password
       await this.backgroundApi.serviceV4Migration.updateV4Password({
         oldPassword,
         newPassword,
       });
-      await this.backgroundApi.serviceAddressBook.finishUpdateHash();
+      await timerUtils.wait(2000);
       return newPassword;
     } catch (e) {
-      try {
-        await this.backgroundApi.serviceAddressBook.rollback(oldPassword);
-      } catch (rollbackError) {
-        console.error(rollbackError);
-      }
-
       try {
         await this.rollbackPassword(oldPassword);
       } catch (rollbackError) {
@@ -539,6 +654,12 @@ export default class ServicePassword extends ServiceBase {
 
       try {
         await masterPasswordUpdateRollback?.();
+      } catch (rollbackError) {
+        console.error(rollbackError);
+      }
+
+      try {
+        await keylessDataUpdateRollback?.();
       } catch (rollbackError) {
         console.error(rollbackError);
       }
@@ -570,6 +691,9 @@ export default class ServicePassword extends ServiceBase {
       password: verifyingPassword,
     });
     if (verifyingPassword) {
+      void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
+    }
+    if (verifyingPassword) {
       void (async () => {
         try {
           await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
@@ -600,12 +724,32 @@ export default class ServicePassword extends ServiceBase {
         } finally {
           this._mergeDuplicateHDWalletsExecuted = true;
         }
+        try {
+          await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(
+            { password: verifyingPassword },
+          );
+        } catch (e) {
+          console.error(e);
+        }
+        if (!this._migrateRemoveHashExecuted) {
+          try {
+            await this.backgroundApi.serviceAddressBook.migrateRemoveHash({
+              password: verifyingPassword,
+            });
+          } catch (e) {
+            console.error('Address book migration error', e);
+          } finally {
+            this._migrateRemoveHashExecuted = true;
+          }
+        }
       })();
     }
     return verifyingPassword;
   }
 
   _mergeDuplicateHDWalletsExecuted = false;
+
+  _migrateRemoveHashExecuted = false;
 
   // ui ------------------------------
   promptPasswordVerifyMutex = new Semaphore(1);
@@ -644,33 +788,41 @@ export default class ServicePassword extends ServiceBase {
         const cachedPassword = await this.getCachedPassword();
         if (cachedPassword) {
           ensureSensitiveTextEncoded(cachedPassword);
-          return Promise.resolve({
+          return {
             password: cachedPassword,
-          });
+          };
         }
       }
 
       const isPasswordSet = await this.checkPasswordSet();
       this.clearPasswordPromptTimeout();
-      const res = new Promise((resolve, reject) => {
-        const promiseId = this.backgroundApi.servicePromise.createCallback({
-          resolve,
-          reject,
+      // Skip PRF master key cache whenever the password dialog is shown,
+      // forcing a real WebAuthn interaction for biometric verification.
+      // Don't clear the cache — user may cancel and cache should remain valid.
+      await this.setSkipPrfCache(true);
+      try {
+        const res = new Promise((resolve, reject) => {
+          const promiseId = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
+          });
+          void this.showPasswordPromptDialog({
+            idNumber: promiseId,
+            type: isPasswordSet
+              ? EPasswordPromptType.PASSWORD_VERIFY
+              : EPasswordPromptType.PASSWORD_SETUP,
+            dialogProps: options?.dialogProps,
+          });
         });
-        void this.showPasswordPromptDialog({
-          idNumber: promiseId,
-          type: isPasswordSet
-            ? EPasswordPromptType.PASSWORD_VERIFY
-            : EPasswordPromptType.PASSWORD_SETUP,
-          dialogProps: options?.dialogProps,
-        });
-      });
-      const result = await (res as Promise<IPasswordRes>);
-      ensureSensitiveTextEncoded(result.password);
+        const result = await (res as Promise<IPasswordRes>);
+        ensureSensitiveTextEncoded(result.password);
 
-      // wait PromptPasswordDialog close animation
-      await timerUtils.wait(600);
-      return result;
+        // wait PromptPasswordDialog close animation
+        await timerUtils.wait(600);
+        return result;
+      } finally {
+        await this.setSkipPrfCache(false);
+      }
     });
   }
 
@@ -758,6 +910,7 @@ export default class ServicePassword extends ServiceBase {
     this.passwordPromptTimeout = setTimeout(() => {
       void this.cancelPasswordPromptDialog(params.idNumber);
     }, this.passwordPromptTTL);
+    unrefTimeout(this.passwordPromptTimeout);
   }
 
   @backgroundMethod()
@@ -811,7 +964,13 @@ export default class ServicePassword extends ServiceBase {
   // lock ---------------------------
   @backgroundMethod()
   async unLockApp() {
-    await passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
+    const { manualLocking: isManualLocking } =
+      await passwordPersistManualLockStateAtom.get();
+    if (isManualLocking) {
+      await passwordPersistManualLockStateAtom.set(() => ({
+        manualLocking: false,
+      }));
+    }
     await passwordAtom.set((v) => ({
       ...v,
       unLock: true,
@@ -829,8 +988,7 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async lockApp(options?: { manual: boolean }) {
-    const { manual = true } = options || {};
-    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
+    const { manual = false } = options || {};
     const isFirmwareUpdateRunning =
       await firmwareUpdateWorkflowRunningAtom.get();
     if (isFirmwareUpdateRunning) {
@@ -841,9 +999,12 @@ export default class ServicePassword extends ServiceBase {
     }
     await this.clearCachedPassword();
     if (manual) {
-      await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
+      await passwordPersistManualLockStateAtom.set(() => ({
+        manualLocking: true,
+      }));
     }
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
+    appEventBus.emit(EAppEventBusNames.LockApp, undefined);
   }
 
   @backgroundMethod()

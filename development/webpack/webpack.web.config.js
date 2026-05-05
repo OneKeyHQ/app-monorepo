@@ -1,13 +1,17 @@
-const { merge } = require('webpack-merge');
-const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
+const path = require('path');
 
+const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
+const { merge } = require('webpack-merge');
 const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
-const baseConfig = require('./webpack.base.config');
+const { InjectManifest } = require('workbox-webpack-plugin');
+
+const babelTools = require('../babelTools');
+
+const { ENABLE_ANALYZER, NODE_ENV } = require('./constant');
 const analyzerConfig = require('./webpack.analyzer.config');
+const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
 const productionConfig = require('./webpack.prod.config');
-const babelTools = require('../babelTools');
-const { ENABLE_ANALYZER, NODE_ENV } = require('./constant');
 
 const webConfig = {
   plugins: [new DuplicatePackageCheckerPlugin()],
@@ -30,7 +34,19 @@ module.exports = ({
           output: {
             crossOriginLoading: 'anonymous',
           },
-          plugins: [new SubresourceIntegrityPlugin()],
+          plugins: [
+            new SubresourceIntegrityPlugin(),
+            new InjectManifest({
+              swSrc: path.join(basePath, 'src/service-worker.js'),
+              swDest: 'service-worker.js',
+              exclude: [
+                /\.map$/,
+                /asset-manifest\.json$/,
+                /LICENSE/,
+                /index\.html$/,
+              ],
+            }),
+          ],
         },
       );
     case 'development':

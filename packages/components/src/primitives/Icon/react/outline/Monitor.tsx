@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgMonitor = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M18 20c-1.886-.649-3.903-1-6-1s-4.114.351-6 1m-1-4h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2"
+      fillRule="evenodd"
+      d="M17.904 3.676 14.916 6H22v15H2V6h7.085L6.097 3.676l1.227-1.58L12 5.733l4.677-3.635zM4 19h16V8H4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

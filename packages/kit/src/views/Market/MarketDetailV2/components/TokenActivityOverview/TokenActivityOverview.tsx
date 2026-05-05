@@ -35,11 +35,20 @@ const defaultTimeRangeConfigs: Array<{
   },
 ];
 
-export function TokenActivityOverview() {
+export function TokenActivityOverview({
+  pl,
+  pr,
+  px = '$5',
+}: {
+  pl?: string;
+  pr?: string;
+  px?: string;
+}) {
   const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
   const { tokenDetail, isLoading } = useTokenDetail();
-  const needShowLoading = isLoading && !tokenDetail?.buy1mCount;
+  // Only show loading on first load (no tokenDetail yet), not on subsequent refreshes
+  const needShowLoading = isLoading && !tokenDetail;
 
   const timeRangeOptions = useMemo(() => {
     const availableOptions = [
@@ -74,10 +83,11 @@ export function TokenActivityOverview() {
   const { buys, sells, buyVolume, sellVolume, totalVolume } =
     formatTokenActivityData(tokenDetail, selectedTimeRange);
 
-  const totalTransactions = buys + sells;
+  const totalTransactions =
+    buys !== undefined && sells !== undefined ? buys + sells : undefined;
 
   return (
-    <Stack gap="$5" px="$5" py="$4">
+    <Stack gap="$3" pl={pl ?? px} pr={pr ?? px} pt="$3" pb="$4">
       <TimeRangeSelector
         options={timeRangeOptions}
         value={selectedTimeRange}

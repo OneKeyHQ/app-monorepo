@@ -5,6 +5,7 @@ import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeC
 import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
+import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCredential,
   ICloudSyncDBRecord,
@@ -157,8 +158,14 @@ export abstract class CloudSyncFlowManagerBase<
     return sha512ProSync({ data: rawKey });
   }
 
-  async getSyncCredential() {
-    return this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+  async getSyncCredential({
+    keylessCloudSyncCredential,
+  }: {
+    keylessCloudSyncCredential?: IKeylessCloudSyncCredential | null;
+  } = {}) {
+    return this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe({
+      keylessCloudSyncCredential,
+    });
   }
 
   async timeNow() {
@@ -313,14 +320,19 @@ export abstract class CloudSyncFlowManagerBase<
   async buildExistingSyncItemsInfo({
     tx,
     targets,
-    useCreateGenesisTime,
+    useCreateGenesisTime: shouldUseCreateGenesisTime,
+    buildSyncItemDataTime,
     onExistingSyncItemsInfo,
   }: {
-    tx?: ILocalDBTransaction;
+    tx: ILocalDBTransaction | undefined;
     targets: Array<ICloudSyncTargetMap[T]>;
     useCreateGenesisTime?: (params: {
       target: ICloudSyncTargetMap[T];
     }) => Promise<boolean>;
+    buildSyncItemDataTime?: (params: {
+      target: ICloudSyncTargetMap[T];
+      existingSyncItem: IDBCloudSyncItem | undefined;
+    }) => Promise<number | undefined>;
     onExistingSyncItemsInfo: (
       existingSyncItemsInfo: IExistingSyncItemsInfo<T>,
     ) => Promise<void>;
@@ -329,41 +341,169 @@ export abstract class CloudSyncFlowManagerBase<
     const existingSyncItems: IDBCloudSyncItem[] = [];
     const existingSyncItemsInfo: IExistingSyncItemsInfo<T> = {};
 
-    const syncCredential = await this.getSyncCredential();
+    let keylessCloudSyncCredential: IKeylessCloudSyncCredential | null = null;
+
+    if (tx) {
+      keylessCloudSyncCredential =
+        await this.backgroundApi.localDb.txGetKeylessCloudSyncCredential({
+          tx,
+        });
+    }
+
+    // Asynchronously fetching sync credentials may cause the transaction to commit prematurely, leading to the failure of subsequent database transaction operations.
+    // Failed to execute 'get' on 'IDBObjectStore': The transaction has finished.
+    const syncCredential = await this.getSyncCredential({
+      keylessCloudSyncCredential,
+    });
     const canSyncWithoutServer = cloudSyncUtils.canSyncWithoutServer(
       this.dataType,
     );
 
+    const shouldSync =
+      canSyncWithoutServer ||
+      (await this.backgroundApi.servicePrimeCloudSync.isCloudSyncIsAvailable());
+
+    if (!buildSyncItemDataTime) {
+      for (const target of targets) {
+        let existingSyncItem: IDBCloudSyncItem | undefined;
+
+        if (shouldSync) {
+          if (tx) {
+            existingSyncItem = await this.txGetSyncItem({
+              tx,
+              shouldDecrypt: true,
+              target,
+              syncCredential,
+            });
+          } else {
+            existingSyncItem = await this.getSyncItem({
+              // tx,
+              shouldDecrypt: true,
+              target,
+              syncCredential,
+            });
+          }
+        }
+
+        if (
+          existingSyncItem?.rawDataJson &&
+          existingSyncItem?.rawDataJson.dataType === this.dataType &&
+          existingSyncItem?.rawDataJson.payload
+        ) {
+          const syncPayload = existingSyncItem?.rawDataJson.payload;
+
+          if (target.targetId) {
+            existingSyncItemsInfo[target.targetId] = {
+              syncPayload: syncPayload as any,
+              syncItem: existingSyncItem,
+              target,
+            };
+          }
+          existingSyncItems.push(existingSyncItem);
+        } else if (
+          canSyncWithoutServer &&
+          existingSyncItem &&
+          existingSyncItem.rawData
+        ) {
+          try {
+            const rawDataJson = JSON.parse(
+              existingSyncItem.rawData,
+            ) as ICloudSyncRawDataJson;
+            if (rawDataJson.payload) {
+              if (target.targetId) {
+                existingSyncItemsInfo[target.targetId] = {
+                  syncPayload: rawDataJson.payload as any,
+                  syncItem: existingSyncItem,
+                  target,
+                };
+              }
+              existingSyncItems.push(existingSyncItem);
+            }
+          } catch (error) {
+            console.error('parse rawData error', error);
+          }
+        } else {
+          const newSyncItem = await this.buildSyncItem({
+            syncCredential,
+            target,
+            dataTime: await (async () => {
+              if (shouldUseCreateGenesisTime) {
+                if (await shouldUseCreateGenesisTime({ target })) {
+                  console.log(
+                    'useCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
+                    PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+                  );
+                  return PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME;
+                }
+              }
+              return this.timeNow();
+            })(),
+          });
+          if (newSyncItem) {
+            newSyncItems.push(newSyncItem);
+          }
+        }
+      }
+
+      await onExistingSyncItemsInfo(existingSyncItemsInfo);
+
+      return {
+        existingSyncItemsInfo,
+        existingSyncItems,
+        newSyncItems,
+      };
+    }
+
+    const targetSyncStateList: Array<{
+      target: ICloudSyncTargetMap[T];
+      existingSyncItem: IDBCloudSyncItem | undefined;
+    }> = [];
+
     for (const target of targets) {
       let existingSyncItem: IDBCloudSyncItem | undefined;
+      let decryptedSyncItem: IDBCloudSyncItem | undefined;
+
+      if (tx) {
+        existingSyncItem = await this.txGetSyncItem({
+          tx,
+          shouldDecrypt: false,
+          target,
+          syncCredential,
+        });
+      } else {
+        existingSyncItem = await this.getSyncItem({
+          // tx,
+          shouldDecrypt: false,
+          target,
+          syncCredential,
+        });
+      }
 
       if (
-        canSyncWithoutServer ||
-        (await this.backgroundApi.servicePrimeCloudSync.isCloudSyncIsAvailable())
+        shouldSync &&
+        existingSyncItem &&
+        existingSyncItem.dataType === this.dataType
       ) {
-        if (tx) {
-          existingSyncItem = await this.txGetSyncItem({
-            tx,
-            shouldDecrypt: true,
-            target,
+        try {
+          const { dbItem } = await cloudSyncItemBuilder.decryptSyncItem({
+            item: {
+              ...existingSyncItem,
+            },
             syncCredential,
           });
-        } else {
-          existingSyncItem = await this.getSyncItem({
-            // tx,
-            shouldDecrypt: true,
-            target,
-            syncCredential,
-          });
+          decryptedSyncItem = dbItem;
+        } catch (error) {
+          errorUtils.autoPrintErrorIgnore(error);
         }
       }
 
       if (
-        existingSyncItem?.rawDataJson &&
-        existingSyncItem?.rawDataJson.dataType === this.dataType &&
-        existingSyncItem?.rawDataJson.payload
+        existingSyncItem &&
+        decryptedSyncItem?.rawDataJson &&
+        decryptedSyncItem?.rawDataJson.dataType === this.dataType &&
+        decryptedSyncItem?.rawDataJson.payload
       ) {
-        const syncPayload = existingSyncItem?.rawDataJson.payload;
+        const syncPayload = decryptedSyncItem.rawDataJson.payload;
 
         if (target.targetId) {
           existingSyncItemsInfo[target.targetId] = {
@@ -372,7 +512,6 @@ export abstract class CloudSyncFlowManagerBase<
             target,
           };
         }
-        existingSyncItems.push(existingSyncItem);
       } else if (
         canSyncWithoutServer &&
         existingSyncItem &&
@@ -390,35 +529,70 @@ export abstract class CloudSyncFlowManagerBase<
                 target,
               };
             }
-            existingSyncItems.push(existingSyncItem);
           }
         } catch (error) {
           console.error('parse rawData error', error);
         }
+      }
+
+      targetSyncStateList.push({
+        target,
+        existingSyncItem,
+      });
+    }
+
+    await onExistingSyncItemsInfo(existingSyncItemsInfo);
+
+    for (const { target, existingSyncItem } of targetSyncStateList) {
+      if (existingSyncItem) {
+        const updatedDataTime = await buildSyncItemDataTime({
+          target,
+          existingSyncItem,
+        });
+
+        if (updatedDataTime !== undefined) {
+          const updatedSyncItem = await this.buildSyncItem({
+            syncCredential,
+            target,
+            dataTime: updatedDataTime,
+          });
+          if (updatedSyncItem) {
+            newSyncItems.push(updatedSyncItem);
+          } else {
+            existingSyncItems.push(existingSyncItem);
+          }
+        } else {
+          existingSyncItems.push(existingSyncItem);
+        }
       } else {
+        const dataTime = await buildSyncItemDataTime({
+          target,
+          existingSyncItem: undefined,
+        });
+
         const newSyncItem = await this.buildSyncItem({
           syncCredential,
           target,
-          dataTime: await (async () => {
-            if (useCreateGenesisTime) {
-              if (await useCreateGenesisTime({ target })) {
-                console.log(
-                  'useCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
-                  PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
-                );
-                return PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME;
+          dataTime:
+            dataTime ??
+            (await (async () => {
+              if (shouldUseCreateGenesisTime) {
+                if (await shouldUseCreateGenesisTime({ target })) {
+                  console.log(
+                    'useCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
+                    PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+                  );
+                  return PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME;
+                }
               }
-            }
-            return this.timeNow();
-          })(),
+              return this.timeNow();
+            })()),
         });
         if (newSyncItem) {
           newSyncItems.push(newSyncItem);
         }
       }
     }
-
-    await onExistingSyncItemsInfo(existingSyncItemsInfo);
 
     return {
       existingSyncItemsInfo,
@@ -505,13 +679,15 @@ export abstract class CloudSyncFlowManagerBase<
     // }
     for (const item of items) {
       try {
-        const shouldSync =
-          forceSync ||
-          (syncCredential &&
-            cloudSyncItemBuilder.canLocalItemSyncToScene({
-              item,
-              syncCredential,
-            }));
+        let shouldSync =
+          syncCredential &&
+          cloudSyncItemBuilder.canLocalItemSyncToScene({
+            item,
+            syncCredential,
+          });
+        if (forceSync) {
+          shouldSync = true;
+        }
         if (item.dataType === this.dataType && shouldSync) {
           // TODO performance issue of decrypting in the loop
           const decryptedItem = await cloudSyncItemBuilder.decryptSyncItem({
@@ -537,7 +713,8 @@ export abstract class CloudSyncFlowManagerBase<
               //     });
               //   }
               // }
-              if (target) {
+              // Mirror the isSupportSync gate used on the upload side.
+              if (target && (await this.isSupportSync(target))) {
                 const keyInfo = await this.buildSyncKeyAndPayload({
                   target,
                   callerName: 'syncToScene',

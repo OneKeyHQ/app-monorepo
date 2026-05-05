@@ -1,7 +1,11 @@
 import { memo } from 'react';
-import type { ComponentProps, ComponentType } from 'react';
+import type { ComponentType } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import {
+  Spinner,
+  Stack,
+  useIsDesktopModeUIInTabPages,
+} from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -20,20 +24,31 @@ export function LazyLoadPage<
   unStyle?: boolean,
   fallback?: React.ReactNode,
 ): ComponentType<IExtractComponentProps<T>> {
+  const defaultFallback = (
+    <Stack flex={1} alignItems="center" justifyContent="center">
+      <Spinner size="large" />
+    </Stack>
+  );
   const LazyLoadComponent = LazyLoad<IExtractComponentProps<T>>(
     factory as () => Promise<{
       default: ComponentType<IExtractComponentProps<T>>;
     }>,
     delayMs,
-    fallback,
+    fallback ?? defaultFallback,
   );
   function LazyLoadPageContainer(props: IExtractComponentProps<T>) {
+    const isDesktopModeUI = useIsDesktopModeUIInTabPages();
+
     if (unStyle) {
       return <LazyLoadComponent {...props} />;
     }
 
     return (
-      <Stack flex={1} className="LazyLoadPageContainer" bg="$bgApp">
+      <Stack
+        flex={1}
+        className="LazyLoadPageContainer"
+        bg={isDesktopModeUI ? '$bgSubdued' : '$bgApp'}
+      >
         <LazyLoadComponent {...props} />
       </Stack>
     );

@@ -1,14 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgHighlight = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M14 21h7m-.414-15.914-1.672-1.672a2 2 0 0 0-2.828 0l-12.5 12.5A2 2 0 0 0 3 17.328V21h3.672a2 2 0 0 0 1.414-.586l12.5-12.5a2 2 0 0 0 0-2.828"
+      fillRule="evenodd"
+      d="M22.414 7.5 7.914 22H2v-5.914l14.5-14.5zM4 16.914V20h3.086l12.5-12.5L16.5 4.414z"
+      clipRule="evenodd"
     />
+    <Path d="M22 22h-9v-2h9z" />
   </Svg>
 );
 export default SvgHighlight;

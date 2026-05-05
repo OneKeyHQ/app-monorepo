@@ -1,12 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDisk2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth={2}
-      d="M9 4v3a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4m5 3.828V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10.172a2 2 0 0 1 1.414.586l1.828 1.828A2 2 0 0 1 20 7.828ZM15 14a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+      fillRule="evenodd"
+      d="M12 10a4 4 0 1 1 0 8 4 4 0 0 1 0-8m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M21 6.586V21H3V3h14.414zM5 19h14V7.414L16.586 5H16v4H8V5H5zm5-12h4V5h-4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

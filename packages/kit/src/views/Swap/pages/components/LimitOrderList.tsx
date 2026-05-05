@@ -34,7 +34,7 @@ import LimitOrderCancelDialog from './LimitOrderCancelDialog';
 interface ILimitOrderListProps {
   onClickCell: (item: IFetchLimitOrderRes) => void;
   isLoading?: boolean;
-  filterToken?: ISwapToken;
+  filterToken?: ISwapToken[];
   type: 'open' | 'history';
 }
 
@@ -132,18 +132,22 @@ const LimitOrderList = ({
     if (filterToken) {
       filteredData = filteredData.filter(
         (order) =>
-          equalTokenNoCaseSensitive({
-            token1: order.fromTokenInfo,
-            token2: filterToken,
-          }) ||
-          equalTokenNoCaseSensitive({
-            token1: order.toTokenInfo,
-            token2: filterToken,
-          }),
+          filterToken.some((t) =>
+            equalTokenNoCaseSensitive({
+              token1: t,
+              token2: order.fromTokenInfo,
+            }),
+          ) ||
+          filterToken.some((t) =>
+            equalTokenNoCaseSensitive({
+              token1: t,
+              token2: order.toTokenInfo,
+            }),
+          ),
       );
     }
     return (
-      filteredData?.sort((a, b) => {
+      filteredData?.toSorted((a, b) => {
         const aDate = new BigNumber(a.createdAt).toNumber();
         const bDate = new BigNumber(b.createdAt).toNumber();
         return bDate - aDate;
@@ -208,7 +212,7 @@ const LimitOrderList = ({
       )}
       ListEmptyComponent={
         <Empty
-          icon="SearchMenuOutline"
+          illustration="Orders"
           title={intl.formatMessage({
             id: ETranslations.Limit_order_history_empty,
           })}

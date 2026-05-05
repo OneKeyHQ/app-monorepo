@@ -30,7 +30,7 @@ import {
 
 import {
   DAppAccountListStandAloneItem,
-  DAppAccountListStandAloneItemForHomeScene,
+  DAppAccountListStandAloneItemReadonly,
 } from '../../../DAppConnection/components/DAppAccountList';
 import {
   DAppRequestFooter,
@@ -93,6 +93,11 @@ function LnurlPayRequestModal() {
       comment: '',
     },
   });
+  const amountValue = useFormReturn.watch('amount');
+  const isAmountEmpty = useMemo(
+    () => !String(amountValue ?? '').trim(),
+    [amountValue],
+  );
 
   const commentAllowedLength = useMemo(() => {
     if (
@@ -124,7 +129,7 @@ function LnurlPayRequestModal() {
       const amountSats =
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertBtcToSats(formValue.amount ?? 0)
-          : formValue.amount ?? 0;
+          : (formValue.amount ?? 0);
 
       const amount = new BigNumber(amountSats).times(1000).toNumber(); // convert to millisatoshis
       try {
@@ -242,7 +247,10 @@ function LnurlPayRequestModal() {
             urlSecurityInfo={urlSecurityInfo}
           >
             {routeParams.isSendFlow ? (
-              <DAppAccountListStandAloneItemForHomeScene />
+              <DAppAccountListStandAloneItemReadonly
+                accountId={accountId}
+                networkId={networkId}
+              />
             ) : (
               <DAppAccountListStandAloneItem readonly />
             )}
@@ -278,7 +286,7 @@ function LnurlPayRequestModal() {
             }}
             confirmButtonProps={{
               loading: isLoading,
-              disabled: !continueOperate,
+              disabled: !continueOperate || isAmountEmpty,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

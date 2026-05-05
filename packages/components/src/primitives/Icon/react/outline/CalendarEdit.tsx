@@ -1,13 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCalendarEdit = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M11 20H6a2 2 0 0 1-2-2V9m0 0V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2M4 9h16m0 0v2M8 5V3m8 2V3m-1 18h1.172a2 2 0 0 0 1.414-.586L21 17a1.414 1.414 0 1 0-2-2l-3.414 3.414A2 2 0 0 0 15 19.828z"
+      fillRule="evenodd"
+      d="m23.414 16-6 6H14v-3.414l6-6zM16 19.414V20h.586l4-4-.586-.586z"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M9 4h6V2h2v2h4v7h-2v-1H5v9h7v2H3V4h4V2h2zM5 8h14V6H5z"
+      clipRule="evenodd"
     />
   </Svg>
 );

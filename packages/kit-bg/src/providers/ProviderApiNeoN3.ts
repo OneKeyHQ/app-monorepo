@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { tx, u, wallet } from '@cityofzion/neon-core';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';

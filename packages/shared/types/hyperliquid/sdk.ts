@@ -13,6 +13,20 @@ export type IWsUserNonFundingLedgerUpdates =
 export type IWsOpenOrders = HL.OpenOrdersWsEvent;
 export type IWsAllDexsClearinghouseState = HL.AllDexsClearinghouseStateWsEvent;
 export type IWsAllDexsAssetCtxs = HL.AllDexsAssetCtxsWsEvent;
+export type IWsBbo = HL.BboWsEvent;
+
+// Spot WebSocket event types
+export type IWsSpotState = HL.SpotStateWsEvent;
+export type IWsSpotAssetCtxs = HL.SpotAssetCtxsWsEvent;
+export type IWsActiveSpotAssetCtx = HL.ActiveSpotAssetCtxWsEvent;
+export type ISpotBalance = IWsSpotState['spotState']['balances'][number];
+export type IEventSpotStateParameters = HL.SpotStateWsParameters;
+export type IEventSpotAssetCtxsParameters = Record<string, never>;
+export type IEventActiveSpotAssetCtxParameters =
+  HL.ActiveSpotAssetCtxWsParameters;
+
+// Abstraction query types
+export type IUserAbstractionResponse = HL.UserAbstractionResponse;
 
 export type IHyperliquidEventTarget = EventTarget;
 
@@ -47,6 +61,22 @@ export type IPerpsActiveAssetData = Omit<IActiveAssetData, 'user'> & {
   assetId: number | undefined;
 };
 export type IAllPerpMetasResponse = HL.AllPerpMetasResponse;
+
+// Spot info types
+export type ISpotMetaResponse = HL.SpotMetaResponse;
+export type ISpotMetaAndAssetCtxsResponse = HL.SpotMetaAndAssetCtxsResponse;
+export type ISpotClearinghouseStateResponse = HL.SpotClearinghouseStateResponse;
+export type ISpotToken = ISpotMetaResponse['tokens'][number];
+export type ISpotUniverseRaw = ISpotMetaResponse['universe'][number];
+export type ISpotUniverse = ISpotUniverseRaw & {
+  assetId: number;
+  baseName: string;
+  quoteName: string;
+  displayName: string;
+  baseSzDecimals: number;
+};
+export type ISpotAssetCtx = IWsSpotAssetCtxs[number];
+
 export type IMarginTable = HL.MarginTableResponse;
 export type IMarginTableMap = Partial<Record<number, IMarginTable>>;
 
@@ -55,6 +85,7 @@ export type IPerpsFrontendOrder = HL.OpenOrdersWsEvent['orders'][number];
 export type IOrderParams = HL.OrderParameters['orders'][number];
 export type IOrderResponse = HL.OrderSuccessResponse;
 export type ICancelResponse = HL.CancelSuccessResponse;
+export type IModifyResponse = HL.ModifySuccessResponse;
 export type ITIF = 'Gtc' | 'Ioc' | 'Alo';
 
 // Account and asset states
@@ -66,7 +97,7 @@ export type IPerpsClearinghouseState = HL.ClearinghouseStateResponse;
 export type IInfoClient = HL.InfoClient;
 export type IExchangeClient = HL.ExchangeClient;
 export type ISubscriptionClient = HL.SubscriptionClient;
-export type IPerpsSubscription = HL.WebSocketSubscription;
+export type IPerpsSubscription = HL.ISubscription;
 export type IHttpTransport = HL.HttpTransport;
 export type IWebSocketTransport = HL.WebSocketTransport;
 
@@ -81,6 +112,9 @@ export type IFill = HL.UserFillsResponse[number];
 export type IUserFees = HL.UserFeesResponse;
 export type IUserRole = HL.UserRoleResponse;
 export type IPortfolio = HL.PortfolioResponse;
+export type IPortfolioMetrics = IPortfolio[number][1];
+export type IUserNonFundingLedgerUpdatesResponse =
+  HL.UserNonFundingLedgerUpdatesResponse;
 export type IReferral = HL.ReferralResponse;
 
 // Request types
@@ -95,6 +129,7 @@ export type IWsAllMidsParameters = HL.AllMidsWsParameters;
 export type IEventActiveAssetCtxParameters = HL.ActiveAssetCtxWsParameters;
 export type IEventActiveAssetDataParameters = HL.ActiveAssetDataWsParameters;
 export type IEventL2BookParameters = HL.L2BookWsParameters;
+export type IEventBboParameters = HL.BboWsParameters;
 export type IEventWebData2Parameters = HL.WebData2WsParameters;
 export type IEventUserFillsParameters = HL.UserFillsWsParameters;
 export type IEventUserNonFundingLedgerUpdatesParameters =
@@ -119,6 +154,7 @@ export type ISignature = unknown;
 
 export type IPerpsSubscriptionParams = {
   [ESubscriptionType.L2_BOOK]: IEventL2BookParameters;
+  [ESubscriptionType.BBO]: IEventBboParameters;
   [ESubscriptionType.USER_FILLS]: IEventUserFillsParameters;
   [ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES]: IEventUserNonFundingLedgerUpdatesParameters;
 
@@ -132,6 +168,9 @@ export type IPerpsSubscriptionParams = {
   [ESubscriptionType.OPEN_ORDERS]: IEventOpenOrdersParameters;
   [ESubscriptionType.ALL_DEXS_ASSET_CTXS]: IEventAllDexsAssetCtxsParameters;
   [ESubscriptionType.TWAP_STATES]: IEventTwapStatesParameters;
+  [ESubscriptionType.SPOT_STATE]: IEventSpotStateParameters;
+  [ESubscriptionType.SPOT_ASSET_CTXS]: IEventSpotAssetCtxsParameters;
+  [ESubscriptionType.ACTIVE_SPOT_ASSET_CTX]: IEventActiveSpotAssetCtxParameters;
 };
 
 export type IWebSocketTransportOptions = HL.WebSocketTransportOptions;

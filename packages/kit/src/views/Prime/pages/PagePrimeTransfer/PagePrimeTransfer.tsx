@@ -2,17 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import axios from 'axios';
 import { noop } from 'lodash';
-import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  Icon,
-  Page,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -29,7 +20,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
-import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
@@ -37,7 +27,6 @@ import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent'
 import { PrimeTransferHome } from './components/PrimeTransferHome';
 
 export default function PagePrimeTransfer() {
-  const intl = useIntl();
   const [primeTransferAtom] = usePrimeTransferAtom();
   const navigation = useAppNavigation();
   const { exitTransferFlow, disableExitPrevention } = usePrimeTransferExit();
@@ -46,6 +35,7 @@ export default function PagePrimeTransfer() {
   const routeParamsCode = route.params?.code;
   const routeParamsServer = route.params?.server;
   const routeParamsTransferType = route.params?.transferType;
+  const routeParamsBotWalletId = route.params?.botWalletId;
   const routeParamsDefaultTab = route.params?.defaultTab;
 
   const initialCode = routeParamsCode || '';
@@ -64,25 +54,30 @@ export default function PagePrimeTransfer() {
     }
   }, [primeTransferAtom.status, initialCode]);
 
+  const isBotWalletExport = !!routeParamsBotWalletId;
+
   const { result } = usePromiseResult(async () => {
     noop(primeTransferAtom.websocketEndpointUpdatedAt);
-    const serverConfig =
-      await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
+    const serverConfig = isBotWalletExport
+      ? undefined
+      : await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
     const endpoint =
-      await backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint();
+      await backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint({
+        forceOfficialServer: isBotWalletExport,
+      });
     // remove last slash
     const endpointWithoutLastSlash = endpoint.replace(/\/+$/, '');
     return {
       endpoint: endpointWithoutLastSlash,
       serverConfig,
     };
-  }, [primeTransferAtom.websocketEndpointUpdatedAt]);
+  }, [primeTransferAtom.websocketEndpointUpdatedAt, isBotWalletExport]);
 
   useEffect(() => {
     if (!result?.endpoint) {
       return;
     }
-    noop(result.serverConfig?.serverType);
+    noop(result?.serverConfig?.serverType);
     // TODO show websocket connection status by global atom
     void backgroundApiProxy.servicePrimeTransfer.initWebSocket({
       endpoint: result.endpoint,
@@ -101,7 +96,7 @@ export default function PagePrimeTransfer() {
       // Disconnect WebSocket
       void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
     };
-  }, [result?.endpoint, result?.serverConfig?.serverType]);
+  }, [result?.endpoint, result?.serverConfig?.serverType, isBotWalletExport]);
 
   useEffect(() => {
     if (platformEnv.isExtension) {
@@ -147,6 +142,7 @@ export default function PagePrimeTransfer() {
           autoConnect={!!routeParamsCode}
           autoConnectCustomServer={routeParamsServer || undefined}
           defaultTab={routeParamsDefaultTab}
+          botWalletId={routeParamsBotWalletId}
         />
       );
     }
@@ -158,6 +154,7 @@ export default function PagePrimeTransfer() {
         <>
           <PrimeTransferDirection
             remotePairingCode={remotePairingCode}
+            botWalletId={routeParamsBotWalletId}
             transferType={routeParamsTransferType}
           />
         </>
@@ -167,6 +164,7 @@ export default function PagePrimeTransfer() {
   }, [
     routeParamsCode,
     routeParamsServer,
+    routeParamsBotWalletId,
     routeParamsDefaultTab,
     routeParamsTransferType,
     primeTransferAtom.status,

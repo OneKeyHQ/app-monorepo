@@ -1,15 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgLayers2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="m3.57 13-.416.203c-1.497.73-1.497 2.864 0 3.595l7.97 3.887a2 2 0 0 0 1.753 0l7.97-3.887c1.497-.73 1.497-2.865 0-3.595L20.43 13l-7.554 3.685a2 2 0 0 1-1.754 0z"
-    />
-    <Path
-      fill="currentColor"
-      d="M12.877 3.315a2 2 0 0 0-1.754 0L3.154 7.203c-1.497.73-1.497 2.864 0 3.595l7.97 3.887a2 2 0 0 0 1.753 0l7.97-3.887c1.497-.73 1.497-2.865 0-3.595z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M23.118 15.144 12.06 21.288 1 15.144l3.44-1.912 7.56 4.2 7.618-4.232z" />
+    <Path d="M23.06 9 12 15.144.941 9l11.06-6.144z" />
   </Svg>
 );
 export default SvgLayers2;

@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgVideoClip = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm3-1a1 1 0 0 0-1 1v1h2V5zm11 0v2h2V6a1 1 0 0 0-1-1zm2 4h-2v2h2zm0 4h-2v2.444h2zm0 4.444h-2V19h1a1 1 0 0 0 1-1zM15 13v-2H9v2zm-8 6v-2H5v1a1 1 0 0 0 1 1zm-2-4h2v-2H5zm0-4h2V9H5z"
+      d="M21 21H3V3h18zM5 19h2v-2H5zm12 0h2v-1.556h-2zm0-3.556h2V13h-2zM5 15h2v-2H5zm4-2h6v-2H9zm-4-2h2V9H5zm12 0h2V9h-2zM5 7h2V5H5zm12 0h2V5h-2z"
       clipRule="evenodd"
     />
   </Svg>

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OneKey Performance Dashboard</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body class="bg-dark-bg text-slate-100 min-h-screen">
+    <div class="max-w-7xl mx-auto p-6 space-y-6">
+      <header
+        class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <h1 class="text-2xl font-semibold">OneKey Performance Dashboard</h1>
+          <p class="text-sm text-slate-400">
+            Session timelines, slow functions, memory & FPS
+          </p>
+        </div>
+        <div class="flex items-center gap-3 text-sm text-slate-300">
+          <a
+            class="inline-flex items-center gap-1 px-3 py-2 rounded border border-dark-border hover:bg-dark-hover"
+            href="https://www.speedscope.app/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open speedscope.app
+          </a>
+          <button
+            id="refreshSessions"
+            class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition"
+          >
+            Refresh sessions
+          </button>
+        </div>
+      </header>
+
+      <section
+        class="bg-dark-panel border border-dark-border rounded-lg p-4 shadow-md space-y-4"
+      >
+        <div class="grid gap-3 md:grid-cols-3 md:items-end">
+          <div>
+            <label class="text-xs uppercase tracking-wide text-slate-400"
+              >Session</label
+            >
+            <select
+              id="sessionSelect"
+              class="w-full mt-1 bg-dark-bg border border-dark-border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-slate-500"
+            ></select>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              id="reloadSession"
+              class="px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-500 transition text-sm"
+            >
+              Load session
+            </button>
+            <button
+              id="exportSpeedscope"
+              class="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 transition text-sm"
+            >
+              Export speedscope.json
+            </button>
+            <button
+              id="exportRaw"
+              class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition text-sm"
+            >
+              Download raw JSON
+            </button>
+          </div>
+          <div class="text-sm text-slate-300 space-y-1">
+            <p>
+              Use the timeline to spot slow calls and correlate with memory /
+              FPS.
+            </p>
+            <p>Filter slow functions by module or duration below.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid gap-3 md:grid-cols-4" aria-label="meta cards">
+        <div class="card">
+          <div class="text-xs text-slate-400">Platform</div>
+          <div id="metaPlatform" class="text-lg font-semibold">-</div>
+        </div>
+        <div class="card">
+          <div class="text-xs text-slate-400">Start time</div>
+          <div id="metaStart" class="text-lg font-semibold">-</div>
+        </div>
+        <div class="card">
+          <div class="text-xs text-slate-400">Events</div>
+          <div id="metaEvents" class="text-lg font-semibold">-</div>
+        </div>
+        <div class="card">
+          <div class="text-xs text-slate-400">Functions</div>
+          <div id="metaFunctions" class="text-lg font-semibold">-</div>
+        </div>
+      </section>
+
+      <section class="grid gap-4 md:grid-cols-2">
+        <div class="card h-full">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs text-slate-400">Memory (heapUsed / RSS)</div>
+              <div class="text-lg font-semibold" id="memorySummary">-</div>
+            </div>
+            <div class="text-xs text-slate-400" id="memoryCount">- pts</div>
+          </div>
+          <div id="memorySparkline" class="mt-3 sparkline"></div>
+        </div>
+        <div class="card h-full">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs text-slate-400">FPS</div>
+              <div class="text-lg font-semibold" id="fpsSummary">-</div>
+            </div>
+            <div class="text-xs text-slate-400" id="fpsCount">- pts</div>
+          </div>
+          <div id="fpsSparkline" class="mt-3 sparkline"></div>
+        </div>
+      </section>
+
+      <section class="card space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-xs text-slate-400">Timeline</div>
+            <div class="text-lg font-semibold">
+              Function calls (flame) with memory/FPS context
+            </div>
+          </div>
+          <div class="flex items-center gap-3 text-xs text-slate-400">
+            <div id="timelineSpan">-</div>
+          </div>
+        </div>
+        <div class="text-xs text-slate-400">
+          Ctrl + Mouse Wheel to zoom, Shift + Wheel (or trackpad horizontal
+          scroll) to pan
+        </div>
+        <div id="functionTrackWrapper" class="overflow-x-auto">
+          <div
+            id="timelineAxis"
+            class="relative h-6 mb-2 text-[11px] text-slate-400"
+          ></div>
+          <div
+            class="text-[11px] text-slate-400 mb-1 flex items-center gap-2 px-1"
+          >
+            <span class="inline-flex items-center gap-1">
+              <span class="module-pin example"></span>
+              Module loads
+            </span>
+            <span class="inline-flex items-center gap-1">
+              <span class="flame-bar example"></span>
+              Function calls
+            </span>
+            <span class="inline-flex items-center gap-1">
+              <span class="mark-pin example"></span>
+              Marks
+            </span>
+            <span class="inline-flex items-center gap-1">
+              <span class="metric-line example metric-line--memory"></span>
+              Memory
+            </span>
+            <span class="inline-flex items-center gap-1">
+              <span class="metric-line example metric-line--fps"></span>
+              FPS
+            </span>
+          </div>
+          <div id="moduleTrack" class="timeline-track module-track"></div>
+          <div id="markTrack" class="timeline-track mark-track"></div>
+          <div id="memoryTrack" class="timeline-track metric-track"></div>
+          <div id="fpsTrack" class="timeline-track metric-track"></div>
+          <div id="functionTrack" class="timeline-track"></div>
+        </div>
+        <div class="flex flex-col gap-3">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs text-slate-400">Function modules</div>
+              <div class="flex items-center gap-2 text-xs text-slate-300">
+                <button
+                  id="moduleSelectAll"
+                  class="px-2 py-1 rounded border border-dark-border hover:bg-dark-hover"
+                  type="button"
+                >
+                  All
+                </button>
+                <button
+                  id="moduleSelectNone"
+                  class="px-2 py-1 rounded border border-dark-border hover:bg-dark-hover"
+                  type="button"
+                >
+                  None
+                </button>
+                <span id="moduleSelectedCount" class="text-slate-400">-</span>
+              </div>
+            </div>
+            <div
+              id="moduleLegend"
+              class="flex flex-wrap gap-2 text-xs text-slate-300"
+            ></div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-400 mb-1">Module load paths</div>
+            <div
+              id="moduleLoadLegend"
+              class="flex flex-wrap gap-2 text-xs text-slate-300"
+            ></div>
+          </div>
+        </div>
+        <div
+          id="selectionDetails"
+          class="text-sm text-slate-200 bg-dark-bg border border-dark-border rounded p-3 mt-2 hidden"
+        >
+          <div class="flex items-center justify-between">
+            <div class="font-semibold" id="selTitle"></div>
+            <div class="text-xs text-slate-400" id="selTiming"></div>
+          </div>
+          <div class="text-xs text-slate-400" id="selFile"></div>
+          <div class="mt-2 text-xs text-slate-300" id="selStack"></div>
+        </div>
+      </section>
+
+      <section class="card space-y-3">
+        <div
+          class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
+        >
+          <div>
+            <div class="text-xs text-slate-400">Slow functions</div>
+            <div class="text-lg font-semibold">
+              Filter by module or threshold
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2 text-sm">
+            <select
+              id="moduleFilter"
+              class="bg-dark-bg border border-dark-border rounded px-3 py-2"
+            >
+              <option value="all">All modules</option>
+            </select>
+            <input
+              id="durationThreshold"
+              type="number"
+              min="0"
+              placeholder="Duration >= ms"
+              class="bg-dark-bg border border-dark-border rounded px-3 py-2 w-36"
+            />
+            <button
+              id="applyFilter"
+              class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-slate-400 border-b border-dark-border">
+              <tr>
+                <th class="py-2 pr-4 text-left">#</th>
+                <th class="py-2 pr-4 text-left">Function</th>
+                <th class="py-2 pr-4 text-left">Module</th>
+                <th class="py-2 pr-4 text-right">Max (ms)</th>
+                <th class="py-2 pr-4 text-right">P95 (ms)</th>
+                <th class="py-2 pr-4 text-right">Avg (ms)</th>
+                <th class="py-2 pr-4 text-right">Count</th>
+              </tr>
+            </thead>
+            <tbody id="slowFunctionsBody"></tbody>
+          </table>
+        </div>
+        <div
+          class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between text-sm"
+        >
+          <div id="slowFunctionsPagerInfo" class="text-xs text-slate-400">
+            -
+          </div>
+          <div class="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+            <span class="text-slate-400">Page size</span>
+            <select
+              id="slowPageSize"
+              class="bg-dark-bg border border-dark-border rounded px-2 py-1"
+            >
+              <option value="20">20</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+            <button
+              id="slowPrev"
+              class="px-2 py-1 rounded border border-dark-border hover:bg-dark-hover"
+              type="button"
+            >
+              Prev
+            </button>
+            <button
+              id="slowNext"
+              class="px-2 py-1 rounded border border-dark-border hover:bg-dark-hover"
+              type="button"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card space-y-3">
+        <div
+          class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+        >
+          <div>
+            <div class="text-xs text-slate-400">Repeated calls</div>
+            <div class="text-lg font-semibold">
+              Potential redundant invocations
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            <select
+              id="repeatMode"
+              class="bg-dark-bg border border-dark-border rounded px-3 py-2"
+            >
+              <option value="rapid" selected>Rapid repeats (&lt; 100ms)</option>
+              <option value="overall">All repeats (session total)</option>
+            </select>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-slate-400 border-b border-dark-border">
+              <tr>
+                <th class="py-2 pr-4 text-left">Function</th>
+                <th class="py-2 pr-4 text-left">File</th>
+                <th id="repeatCountHeader" class="py-2 pr-4 text-right">
+                  Rapid calls
+                </th>
+                <th class="py-2 pr-4 text-right">Total (ms)</th>
+              </tr>
+            </thead>
+            <tbody id="repeatCallsBody"></tbody>
+          </table>
+        </div>
+        <div
+          class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between text-sm"
+        >
+          <div id="repeatCallsPagerInfo" class="text-xs text-slate-400">-</div>
+          <div class="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+            <span class="text-slate-400">Page size</span>
+            <select
+              id="repeatPageSize"
+              class="bg-dark-bg border border-dark-border rounded px-2 py-1"
+            >
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+            <button
+              id="repeatPrev"
+              class="px-2 py-1 rounded border border-dark-border hover:bg-dark-hover"
+              type="button"
+            >
+              Prev
+            </button>
+            <button
+              id="repeatNext"
+              class="px-2 py-1 rounded border border-dark-border hover:bg-dark-hover"
+              type="button"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card space-y-3">
+        <div
+          class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+        >
+          <div>
+            <div class="text-xs text-slate-400">Key Marks</div>
+            <div class="text-lg font-semibold">Important timing milestones</div>
+          </div>
+          <button
+            id="loadKeyMarks"
+            class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition text-sm"
+          >
+            Load Key Marks
+          </button>
+        </div>
+        <div id="keyMarksContent" class="text-sm">
+          <div class="text-slate-500">Click "Load Key Marks" to analyze</div>
+        </div>
+      </section>
+
+      <section class="card space-y-3">
+        <div
+          class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+        >
+          <div>
+            <div class="text-xs text-slate-400">Home Refresh Analysis</div>
+            <div class="text-lg font-semibold">
+              Hotspots during token refresh
+            </div>
+          </div>
+          <button
+            id="loadHomeRefresh"
+            class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition text-sm"
+          >
+            Analyze Home Refresh
+          </button>
+        </div>
+        <div id="homeRefreshContent" class="text-sm">
+          <div class="text-slate-500">
+            Click "Analyze Home Refresh" to see hotspots
+          </div>
+        </div>
+      </section>
+
+      <section class="card space-y-3">
+        <div
+          class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+        >
+          <div>
+            <div class="text-xs text-slate-400">JS Block Events</div>
+            <div class="text-lg font-semibold">
+              Main thread blocking (jsblock:main)
+            </div>
+          </div>
+          <button
+            id="loadJsBlock"
+            class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition text-sm"
+          >
+            Load JS Blocks
+          </button>
+        </div>
+        <div id="jsBlockContent" class="text-sm">
+          <div class="text-slate-500">
+            Click "Load JS Blocks" to analyze main thread blocks
+          </div>
+        </div>
+      </section>
+
+      <section class="card space-y-3">
+        <div
+          class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+        >
+          <div>
+            <div class="text-xs text-slate-400">Low FPS Windows</div>
+            <div class="text-lg font-semibold">
+              Periods with FPS below threshold
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            <input
+              id="fpsThreshold"
+              type="number"
+              min="1"
+              max="60"
+              value="10"
+              placeholder="FPS threshold"
+              class="bg-dark-bg border border-dark-border rounded px-3 py-2 w-24"
+            />
+            <button
+              id="loadLowFps"
+              class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition"
+            >
+              Load Low FPS
+            </button>
+          </div>
+        </div>
+        <div id="lowFpsContent" class="text-sm">
+          <div class="text-slate-500">
+            Click "Load Low FPS" to analyze frame drops
+          </div>
+        </div>
+      </section>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

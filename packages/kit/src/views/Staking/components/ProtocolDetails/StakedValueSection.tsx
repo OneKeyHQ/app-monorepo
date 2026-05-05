@@ -33,15 +33,12 @@ type IStakedValueInfoProps = {
 function StakedValueInfo({
   value = 0,
   stakedNumber = 0,
-  availableNumber = 0,
   tokenSymbol,
   shouldRegisterBeforeStake,
-  provider,
   stakeButtonProps,
   withdrawButtonProps,
   registerButtonProps,
 }: IStakedValueInfoProps) {
-  const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
   const media = useMedia();
   const [

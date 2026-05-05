@@ -1,5 +1,4 @@
-import { StackActions } from '@react-navigation/native';
-import { isNil } from 'lodash';
+import { CommonActions, StackActions } from '@react-navigation/native';
 
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
@@ -10,9 +9,16 @@ import {
 } from '../../types/notification';
 import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import { ETranslations } from '../locale';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
-import { EModalAssetDetailRoutes, EModalRoutes } from '../routes';
+import {
+  EModalAssetDetailRoutes,
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+  ETabReferFriendsRoutes,
+  ETabRoutes,
+} from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
@@ -58,6 +64,25 @@ type IGetEarnAccountFunc = (params: {
   account: INetworkAccount;
 } | null>;
 
+const popToMainRoute = async () => {
+  const state = appGlobals.$navigationRef.current?.getRootState();
+  if (!state) return;
+  const mainRoutes = state.routes.filter(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
+    return;
+  }
+  appGlobals.$navigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: mainRoutes,
+      index: mainRoutes.length - 1,
+    }),
+  );
+  await timerUtils.wait(100);
+};
+
 export async function navigateToNotificationDetailByLocalParams({
   payload,
   localParams: originalLocalParams,
@@ -80,32 +105,127 @@ export async function navigateToNotificationDetailByLocalParams({
     targetParams = targetParams.params;
   }
 
-  if (targetParams.networkId) {
-    const accountInfos = await getEarnAccount({
-      accountId: localParams.accountId || '',
-      networkId: targetParams.networkId,
-      indexedAccountId: localParams.indexedAccountId || '',
-    });
-    if (accountInfos) {
-      localParams.accountId = accountInfos?.accountId || localParams.accountId;
-      localParams.indexedAccountId =
-        accountInfos?.account.indexedAccountId || localParams.indexedAccountId;
-    }
-  }
-  // Replace template variables in targetParams values with localParams values
-  for (const [key, value] of Object.entries(targetParams)) {
-    if (typeof value === 'string' && value.includes('{')) {
-      targetParams[key] = value.replace(/\{local_(\w+)\}/g, (match, param) => {
-        return localParams[param as keyof typeof localParams] || match;
+  if (targetParams) {
+    if (targetParams?.networkId) {
+      const accountInfos = await getEarnAccount({
+        accountId: localParams.accountId || '',
+        networkId: targetParams.networkId,
+        indexedAccountId: localParams.indexedAccountId || '',
       });
+      if (accountInfos) {
+        localParams.accountId =
+          accountInfos?.accountId || localParams.accountId;
+        localParams.indexedAccountId =
+          accountInfos?.account.indexedAccountId ||
+          localParams.indexedAccountId;
+      }
+    }
+    // Replace template variables in targetParams values with localParams values
+    for (const [key, value] of Object.entries(targetParams)) {
+      if (typeof value === 'string' && value.includes('{')) {
+        targetParams[key] = value.replace(
+          /\{local_(\w+)\}/g,
+          (match, param) => {
+            return localParams[param as keyof typeof localParams] || match;
+          },
+        );
+        // Remove params with unresolved template variables
+        if (
+          typeof targetParams[key] === 'string' &&
+          targetParams[key].includes('{local_')
+        ) {
+          delete targetParams[key];
+        }
+      }
     }
   }
-  if (screen === ERootRoutes.Main) {
-    if (appGlobals.$navigationRef.current?.canGoBack()) {
-      appGlobals.$navigationRef.current?.goBack?.();
+  // Handle Market/Earn tab redirection for native platforms
+  // On native, Market and Earn are sub-tabs within Discovery, not separate tabs
+  // Returns a function that performs the redirection when called
+  const createNativeTabRedirection = () => {
+    let tab:
+      | ETranslations.global_browser
+      | ETranslations.global_earn
+      | ETranslations.global_market
+      | undefined;
+    if (platformEnv.isNative) {
+      if (navigationParams?.screen === ETabRoutes.Market) {
+        navigationParams.screen = ETabRoutes.Discovery;
+        tab = ETranslations.global_market;
+      } else if (navigationParams?.screen === ETabRoutes.Earn) {
+        navigationParams.screen = ETabRoutes.Discovery;
+        tab = ETranslations.global_earn;
+      }
     }
-    await timerUtils.wait(350);
-    appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
+    // Return a function that emits the event after navigation completes
+    return () => {
+      if (tab) {
+        setTimeout(() => {
+          appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+            tab,
+          });
+        }, 150);
+      }
+    };
+  };
+
+  if (screen === ERootRoutes.Main) {
+    // On native, ReferFriends is a modal, not a tab
+    if (
+      platformEnv.isNative &&
+      navigationParams?.screen === ETabRoutes.ReferFriends
+    ) {
+      const subScreen = navigationParams?.params?.screen;
+      const modalScreen =
+        subScreen === ETabReferFriendsRoutes.TabInviteReward
+          ? EModalReferFriendsRoutes.InviteReward
+          : EModalReferFriendsRoutes.ReferAFriend;
+      appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
+        screen: EModalRoutes.ReferFriendsModal,
+        params: { screen: modalScreen },
+      });
+      return;
+    }
+
+    if (
+      appGlobals.$tabletMainViewNavigationRef?.current &&
+      navigationParams?.screen &&
+      !navigationParams?.params?.screen
+    ) {
+      const redirectTab = createNativeTabRedirection();
+      appGlobals.$tabletMainViewNavigationRef.current.navigate(
+        screen,
+        navigationParams,
+        {
+          pop: true,
+        },
+      );
+      requestIdleCallback(() => {
+        appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
+          pop: true,
+        });
+      });
+      // Execute tab redirection after navigation
+      redirectTab();
+    } else {
+      await popToMainRoute();
+      await timerUtils.wait(350);
+      const redirectTab = createNativeTabRedirection();
+      appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
+        pop: true,
+      });
+      // Execute tab redirection after navigation
+      redirectTab();
+    }
+  } else if (screen === ERootRoutes.Modal) {
+    let rootNavigator = appGlobals.$navigationRef.current;
+    const rootState = appGlobals.$navigationRef.current?.getRootState();
+    if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Modal) {
+      while (rootNavigator?.getParent()) {
+        rootNavigator = rootNavigator.getParent();
+      }
+    }
+    rootNavigator?.navigate(screen, navigationParams);
   } else {
     appGlobals.$navigationRef.current?.dispatch(
       StackActions.push(screen, navigationParams),
@@ -128,6 +248,14 @@ export function parseNotificationPayload(
   mode: ENotificationPushMessageMode,
   payload: string | undefined,
   fallbackHandler: () => void,
+  extras?: {
+    params?: {
+      coin?: string;
+      type?: string;
+      [key: string]: any;
+    };
+    [key: string]: any;
+  },
 ) {
   switch (mode) {
     case ENotificationPushMessageMode.page:
@@ -135,8 +263,9 @@ export function parseNotificationPayload(
         const payloadObj = JSON.parse(payload || '');
         appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
           payload: payloadObj,
+          extras,
         });
-      } catch (error) {
+      } catch (_error) {
         fallbackHandler();
       }
       break;
@@ -146,7 +275,7 @@ export function parseNotificationPayload(
         appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
           payload: payloadObj,
         });
-      } catch (error) {
+      } catch (_error) {
         fallbackHandler();
       }
 
@@ -166,6 +295,26 @@ export function parseNotificationPayload(
         EAppEventBusNames.ShowNotificationInDappPage,
         payload as string,
       );
+      break;
+    case ENotificationPushMessageMode.command:
+      try {
+        const { action, data } = JSON.parse(payload || '{}') as {
+          action?: string;
+          data?: Record<string, unknown>;
+        };
+        if (!action) {
+          fallbackHandler();
+          return;
+        }
+        // Merge extras.params with data, extras.params takes precedence for orderId etc.
+        const mergedData = { ...data, ...extras?.params };
+        appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
+          action,
+          data: mergedData,
+        });
+      } catch (_error) {
+        fallbackHandler();
+      }
       break;
     default:
       break;
@@ -266,7 +415,12 @@ async function navigateToNotificationDetail({
   }
 
   if (mode) {
-    parseNotificationPayload(mode, payload, showFallbackUpdateDialog);
+    parseNotificationPayload(
+      mode,
+      payload,
+      showFallbackUpdateDialog,
+      message?.extras,
+    );
     return;
   }
 
@@ -314,21 +468,7 @@ async function navigateToNotificationDetail({
   }
 }
 
-function formatBadgeNumber(badgeNumber: number | undefined) {
-  if (isNil(badgeNumber)) {
-    return '';
-  }
-  if (!badgeNumber || badgeNumber <= 0) {
-    return '';
-  }
-  if (badgeNumber > 99) {
-    return '99+';
-  }
-  return badgeNumber.toString();
-}
-
 export default {
   convertWebPermissionToEnum,
   navigateToNotificationDetail,
-  formatBadgeNumber,
 };

@@ -126,6 +126,15 @@ export class SimpleDb {
     return value;
   }
 
+  get swapProSelectToken() {
+    const SimpleDbEntitySwapProSelectToken = (
+      require('../entity/SimpleDbEntitySwapProSelectToken') as unknown as typeof import('../entity/SimpleDbEntitySwapProSelectToken')
+    ).SimpleDbEntitySwapProSelectToken;
+    const value = new SimpleDbEntitySwapProSelectToken();
+    Object.defineProperty(this, 'swapProSelectToken', { value });
+    return value;
+  }
+
   get localTokens() {
     const SimpleDbEntityLocalTokens = (
       require('../entity/SimpleDbEntityLocalTokens') as unknown as typeof import('../entity/SimpleDbEntityLocalTokens')
@@ -351,6 +360,15 @@ export class SimpleDb {
     return value;
   }
 
+  get botWallet() {
+    const SimpleDbEntityBotWallet = (
+      require('../entity/SimpleDbEntityBotWallet') as unknown as typeof import('../entity/SimpleDbEntityBotWallet')
+    ).SimpleDbEntityBotWallet;
+    const value = new SimpleDbEntityBotWallet();
+    Object.defineProperty(this, 'botWallet', { value });
+    return value;
+  }
+
   get babylonSync() {
     const SimpleDbEntityBabylonSync = (
       require('../entity/SimpleDbEntityBabylonSync') as unknown as typeof import('../entity/SimpleDbEntityBabylonSync')
@@ -510,6 +528,24 @@ export class SimpleDb {
     ).SimpleDbEntityDeFi;
     const value = new SimpleDbEntityDeFi();
     Object.defineProperty(this, 'deFi', { value });
+    return value;
+  }
+
+  get marketTokenPreference() {
+    const SimpleDbEntityMarketTokenPreference = (
+      require('../entity/SimpleDbEntityMarketTokenPreference') as unknown as typeof import('../entity/SimpleDbEntityMarketTokenPreference')
+    ).SimpleDbEntityMarketTokenPreference;
+    const value = new SimpleDbEntityMarketTokenPreference();
+    Object.defineProperty(this, 'marketTokenPreference', { value });
+    return value;
+  }
+
+  get rookieGuide() {
+    const SimpleDbEntityRookieGuide = (
+      require('../entity/SimpleDbEntityRookieGuide') as unknown as typeof import('../entity/SimpleDbEntityRookieGuide')
+    ).SimpleDbEntityRookieGuide;
+    const value = new SimpleDbEntityRookieGuide();
+    Object.defineProperty(this, 'rookieGuide', { value });
     return value;
   }
 }

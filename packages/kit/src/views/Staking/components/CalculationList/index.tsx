@@ -4,6 +4,7 @@ import type {
   IYStackProps,
 } from '@onekeyhq/components';
 import { Popover, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 
 function CalculationList({ children }: IYStackProps) {
   return <YStack gap="$4">{children}</YStack>;
@@ -13,6 +14,7 @@ function CalculationListItem({ children, ...rest }: IXStackProps) {
   return (
     <XStack
       animation="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
       enterStyle={{ opacity: 0 }}
       justifyContent="space-between"
       alignItems="center"

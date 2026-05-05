@@ -1,11 +1,6 @@
-import { NativeModules } from 'react-native';
+import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 
-const BundleUpdateModule = NativeModules.BundleUpdateModule;
-
-const jsBundlePath: string =
-  BundleUpdateModule && BundleUpdateModule.jsBundlePath
-    ? BundleUpdateModule.jsBundlePath()
-    : '';
+const jsBundlePath: string = ReactNativeBundleUpdate.getJsBundlePath() || '';
 
 export const getJsBundlePath = () => {
   return jsBundlePath;
@@ -19,6 +14,8 @@ export const useJsBundle = () => {
   return !!getJsBundlePath();
 };
 
+// eslint-disable-next-line react-hooks/rules-of-hooks
+// oxlint-disable-next-line eslint-plugin-react-hooks/rules-of-hooks
 export const useJsBundleAsync = async () => {
   return Promise.resolve(useJsBundle());
 };

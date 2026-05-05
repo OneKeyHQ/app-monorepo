@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAuthKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
@@ -8,7 +8,6 @@ import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWa
 
 import {
   ECreationStepId,
-  type ICreationStep,
   type IKeylessShareCardProps,
 } from './keylessOnboardingTypes';
 import { KeylessShareCard } from './KeylessShareCard';

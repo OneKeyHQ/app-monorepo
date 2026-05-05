@@ -5,7 +5,7 @@ import { AppScene } from './scenes/app';
 import { FirmwareScene } from './scenes/firmware';
 
 export class UpdateScope extends BaseScope {
-  protected override scopeName = EScopeName.app;
+  protected override scopeName = EScopeName.update;
 
   app = this.createScene('app', AppScene);
 

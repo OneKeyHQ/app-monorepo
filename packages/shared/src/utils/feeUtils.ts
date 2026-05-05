@@ -45,7 +45,7 @@ export function calculateSolTotalFee({
 }) {
   return new BigNumber(computeUnitPrice)
     .times(computeUnitLimit)
-    .shiftedBy(-computeUnitPriceDecimals)
+    .shiftedBy(-new BigNumber(computeUnitPriceDecimals).toNumber())
     .plus(baseFee)
     .shiftedBy(-feeInfo.common.feeDecimals)
     .toFixed();
@@ -313,7 +313,7 @@ export function calculateTotalFeeNative({
 }) {
   const { common } = feeInfo;
   return new BigNumber(amount)
-    .plus(withoutBaseFee ? 0 : common?.baseFee ?? 0)
+    .plus(withoutBaseFee ? 0 : (common?.baseFee ?? 0))
     .shiftedBy(
       common?.feeDecimals ??
         nilError('calculateTotalFeeNative ERROR: info.feeDecimals missing'),

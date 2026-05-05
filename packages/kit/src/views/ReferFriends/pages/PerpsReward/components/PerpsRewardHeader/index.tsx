@@ -1,0 +1,1 @@
+export { PerpsRewardHeader } from './PerpsRewardHeader';

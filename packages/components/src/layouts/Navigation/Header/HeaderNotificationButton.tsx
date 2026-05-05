@@ -1,3 +1,5 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SizableText, Stack } from '../../../primitives';
 
 import HeaderIconButton from './HeaderIconButton';
@@ -30,6 +32,7 @@ function HeaderNotificationButton({
         icon="BellOutline"
         iconSize={iconSize}
         title={title}
+        onPress={platformEnv.isNative ? onPress : undefined}
       />
       {showBadge ? (
         <Stack

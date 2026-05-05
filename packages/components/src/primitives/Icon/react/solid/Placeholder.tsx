@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPlaceholder = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M6 5a1 1 0 0 0-1 1 1 1 0 0 1-2 0 3 3 0 0 1 3-3 1 1 0 0 1 0 2m3.5-1a1 1 0 0 1 1-1h3a1 1 0 1 1 0 2h-3a1 1 0 0 1-1-1M17 4a1 1 0 0 1 1-1 3 3 0 0 1 3 3 1 1 0 1 1-2 0 1 1 0 0 0-1-1 1 1 0 0 1-1-1M4 9.5a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0v-3a1 1 0 0 1 1-1m16 0a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0v-3a1 1 0 0 1 1-1M4 17a1 1 0 0 1 1 1 1 1 0 0 0 1 1 1 1 0 1 1 0 2 3 3 0 0 1-3-3 1 1 0 0 1 1-1m16 0a1 1 0 0 1 1 1 3 3 0 0 1-3 3 1 1 0 1 1 0-2 1 1 0 0 0 1-1 1 1 0 0 1 1-1M9.5 20a1 1 0 0 1 1-1h3a1 1 0 1 1 0 2h-3a1 1 0 0 1-1-1"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M5 19h2v2H3v-4h2zm9.5 2h-5v-2h5zm6.5 0h-4v-2h2v-2h2zM5 14.5H3v-5h2zm16 0h-2v-5h2zM7 5H5v2H3V3h4zm14 2h-2V5h-2V3h4zm-6.5-2h-5V3h5z" />
   </Svg>
 );
 export default SvgPlaceholder;

@@ -7,6 +7,7 @@ import {
   SizableText,
   Stack,
   ThemeableStack,
+  useTheme,
 } from '@onekeyhq/components';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -19,7 +20,9 @@ export function Welcome({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-
+  const theme = useTheme();
+  const bgAppColor = theme.bgApp.val;
+  const transparentColor = theme.transparent.val;
   return (
     <Stack flex={1}>
       <ThemeableStack fullscreen alignItems="center" justifyContent="center">
@@ -43,7 +46,7 @@ export function Welcome({
           left="$0"
           right="$0"
           bottom="$0"
-          colors={['transparent', '$bgApp']}
+          colors={[transparentColor, bgAppColor]}
           $platform-native={{
             display: 'none',
           }}

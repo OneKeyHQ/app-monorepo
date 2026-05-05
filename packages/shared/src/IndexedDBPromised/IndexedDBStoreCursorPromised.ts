@@ -24,18 +24,20 @@ declare type ICursorKey<
   DBTypes extends DBSchema | unknown,
   StoreName extends StoreNames<DBTypes>,
   IndexName extends IndexNames<DBTypes, StoreName> | unknown,
-> = IndexName extends IndexNames<DBTypes, StoreName>
-  ? IndexKey<DBTypes, StoreName, IndexName>
-  : StoreKey<DBTypes, StoreName>;
+> =
+  IndexName extends IndexNames<DBTypes, StoreName>
+    ? IndexKey<DBTypes, StoreName, IndexName>
+    : StoreKey<DBTypes, StoreName>;
 declare type ICursorSource<
   DBTypes extends DBSchema | unknown,
   TxStores extends ArrayLike<StoreNames<DBTypes>>,
   StoreName extends StoreNames<DBTypes>,
   IndexName extends IndexNames<DBTypes, StoreName> | unknown,
   Mode extends IDBTransactionMode = 'readonly',
-> = IndexName extends IndexNames<DBTypes, StoreName>
-  ? IDBPIndex<DBTypes, TxStores, StoreName, IndexName, Mode>
-  : IDBPObjectStore<DBTypes, TxStores, StoreName, Mode>;
+> =
+  IndexName extends IndexNames<DBTypes, StoreName>
+    ? IDBPIndex<DBTypes, TxStores, StoreName, IndexName, Mode>
+    : IDBPObjectStore<DBTypes, TxStores, StoreName, Mode>;
 
 export class IndexedDBStoreCursorPromised<
   DBTypes extends DBSchema | unknown = unknown,
@@ -48,8 +50,13 @@ export class IndexedDBStoreCursorPromised<
     StoreName
   >,
   Mode extends IDBTransactionMode = 'readonly',
-> implements IDBPCursorWithValue<DBTypes, TxStores, StoreName, IndexName, Mode>
-{
+> implements IDBPCursorWithValue<
+  DBTypes,
+  TxStores,
+  StoreName,
+  IndexName,
+  Mode
+> {
   static async openCursor<
     DBTypes extends DBSchema | unknown = unknown,
     TxStores extends ArrayLike<StoreNames<DBTypes>> = ArrayLike<

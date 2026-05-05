@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useMemo } from 'react';
-
-import { useIntl } from 'react-intl';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
-  Badge,
+  HeaderScrollGestureWrapper,
   Icon,
   NavBackButton,
   Page,
@@ -11,43 +9,136 @@ import {
   Tabs,
   XStack,
   YStack,
-  useIsNativeTablet,
-  useOrientation,
+  isNativeTablet,
+  useIsSplitView,
 } from '@onekeyhq/components';
-import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import {
-  getHyperliquidTokenImageUrl,
-  parseDexCoin,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useMobileTabTouchScrollBridge } from '../../../hooks/useMobileTabTouchScrollBridge';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { PerpCandles } from '../components/PerpCandles';
+import PerpMarketFooter from '../components/PerpMarketFooter';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
+import {
+  FavoriteButton,
+  TradingModeBadge,
+} from '../components/TokenSelector/PerpTokenSelectorRow';
+import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
-import { GetTradingButtonStyleProps } from '../utils/styleUtils';
+
+const IOS_CHART_HEIGHT = 500;
+const IOS_CHART_BOTTOM_OVERLAP = 56;
+
+function useNativeGestureTouchScrollGuard({
+  onTouchScroll,
+  releaseDelayMs = 80,
+}: {
+  onTouchScroll: (deltaY: number) => void;
+  releaseDelayMs?: number;
+}) {
+  const isNativeGestureActiveRef = useRef(false);
+  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (releaseTimerRef.current) {
+        clearTimeout(releaseTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const handleGestureActiveChange = useCallback(
+    (active: boolean) => {
+      if (releaseTimerRef.current) {
+        clearTimeout(releaseTimerRef.current);
+        releaseTimerRef.current = null;
+      }
+
+      if (active) {
+        isNativeGestureActiveRef.current = true;
+        return;
+      }
+
+      releaseTimerRef.current = setTimeout(() => {
+        isNativeGestureActiveRef.current = false;
+        releaseTimerRef.current = null;
+      }, releaseDelayMs);
+    },
+    [releaseDelayMs],
+  );
+
+  const handleTouchScroll = useCallback(
+    (deltaY: number) => {
+      if (isNativeGestureActiveRef.current) {
+        return;
+      }
+      onTouchScroll(deltaY);
+    },
+    [onTouchScroll],
+  );
+
+  return {
+    handleGestureActiveChange,
+    handleTouchScroll,
+  };
+}
+
+function MobilePerpCandlesTouchBridge() {
+  const rawTouchScroll = useMobileTabTouchScrollBridge();
+  const { handleGestureActiveChange, handleTouchScroll } =
+    useNativeGestureTouchScrollGuard({
+      onTouchScroll: rawTouchScroll,
+    });
+
+  return (
+    <YStack mb={-IOS_CHART_BOTTOM_OVERLAP}>
+      <MobilePerpMarketHeader />
+      <HeaderScrollGestureWrapper
+        panActiveOffsetY={[-4, 4]}
+        panFailOffsetX={[-40, 40]}
+        excludeRightEdgeRatio={0.1}
+        scrollScale={1}
+        simultaneousWithNativeGesture
+        cancelChildTouches={false}
+        onGestureActiveChange={handleGestureActiveChange}
+      >
+        <YStack h={IOS_CHART_HEIGHT} overflow="hidden">
+          <PerpCandles onTouchScroll={handleTouchScroll} />
+        </YStack>
+      </HeaderScrollGestureWrapper>
+    </YStack>
+  );
+}
+
+function MobilePerpCandlesStatic() {
+  return (
+    <YStack>
+      <MobilePerpMarketHeader />
+      <YStack flex={1} minHeight={500}>
+        <PerpCandles />
+      </YStack>
+    </YStack>
+  );
+}
 
 function MobilePerpMarket() {
-  const intl = useIntl();
-  const actionsRef = useHyperliquidActions();
-  const [currentToken] = usePerpsActiveAssetAtom();
-  const { coin } = currentToken;
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const { baseName, displayName, mode } = useActiveTradeDisplay();
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
-  const longButtonStyle = GetTradingButtonStyleProps('long');
-  const shortButtonStyle = GetTradingButtonStyleProps('short');
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
@@ -60,9 +151,14 @@ function MobilePerpMarket() {
   }, [navigation]);
 
   const renderHeaderTitle = useCallback(() => {
-    const parsedCoin = coin ? parseDexCoin(coin) : null;
-    const displayCoin = parsedCoin?.displayName || coin || '';
-    const pairLabel = displayCoin ? `${displayCoin}USD` : '--';
+    let pairLabel: string;
+    if (mode === 'spot') {
+      pairLabel = displayName || '--';
+    } else if (displayName) {
+      pairLabel = `${displayName}USDC`;
+    } else {
+      pairLabel = '--';
+    }
     return (
       <XStack alignItems="center" gap="$2">
         <NavBackButton
@@ -74,35 +170,36 @@ function MobilePerpMarket() {
           alignItems="center"
           gap="$2"
           onPress={onPressTokenSelector}
-          cursor="pointer"
           hoverStyle={{ opacity: 0.8 }}
           pressStyle={{ opacity: 0.6 }}
+          cursor="default"
         >
           <Token
             size="sm"
             borderRadius="$full"
             bg={themeVariant === 'light' ? undefined : '$bgInverse'}
             tokenImageUri={
-              displayCoin ? getHyperliquidTokenImageUrl(displayCoin) : undefined
+              baseName ? getHyperliquidTokenImageUrl(baseName) : undefined
             }
             fallbackIcon="CryptoCoinOutline"
           />
           <SizableText size="$headingLg">{pairLabel}</SizableText>
-          <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
-            <SizableText color="$textSubdued" fontSize={11}>
-              {intl.formatMessage({
-                id: ETranslations.perp_label_perp,
-              })}
-            </SizableText>
-          </Badge>
+          <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
       </XStack>
     );
-  }, [coin, themeVariant, onPressTokenSelector, onPageGoBack, intl]);
+  }, [
+    baseName,
+    displayName,
+    mode,
+    onPageGoBack,
+    onPressTokenSelector,
+    themeVariant,
+  ]);
 
-  const isTablet = useIsNativeTablet();
-  const isLandscape = useOrientation();
+  const isTablet = isNativeTablet();
+  const isLandscape = useIsSplitView();
   useEffect(() => {
     if (isTablet && isLandscape) {
       return;
@@ -114,23 +211,28 @@ function MobilePerpMarket() {
     };
   }, [isLandscape, isTablet]);
 
-  const pageHeader = useMemo(
-    () => <Page.Header headerLeft={renderHeaderTitle} />,
-    [renderHeaderTitle],
-  );
-
-  const marketHeaderContent = useMemo(
+  const renderHeaderRight = useCallback(
     () => (
-      <YStack>
-        <MobilePerpMarketHeader />
-
-        <YStack flex={1} minHeight={500}>
-          <PerpCandles />
-        </YStack>
-      </YStack>
+      <FavoriteButton
+        coin={activeTradeInstrument.coin}
+        iconSize="$5"
+        isSpot={mode === 'spot'}
+      />
     ),
-    [],
+    [activeTradeInstrument.coin, mode],
   );
+
+  const pageHeader = useMemo(
+    () => (
+      <Page.Header
+        headerLeft={renderHeaderTitle}
+        headerRight={renderHeaderRight}
+      />
+    ),
+    [renderHeaderTitle, renderHeaderRight],
+  );
+
+  const marketHeaderContent = useMemo(() => <MobilePerpCandlesStatic />, []);
 
   const orderBookContent = useMemo(
     () => (
@@ -141,64 +243,26 @@ function MobilePerpMarket() {
     [],
   );
 
-  const pageFooter = useMemo(() => {
-    return (
-      <Page.Footer
-        onCancelText={intl.formatMessage({
-          id: ETranslations.perp_trade_long,
-        })}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.perp_trade_short,
-        })}
-        cancelButtonProps={{
-          flex: 1,
-          padding: 0,
-          height: 38,
-          borderRadius: '$2',
-          bg: longButtonStyle.bg,
-          hoverStyle: longButtonStyle.hoverStyle,
-          pressStyle: longButtonStyle.pressStyle,
-          color: longButtonStyle.textColor,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-        confirmButtonProps={{
-          flex: 1,
-          padding: 0,
-          height: 38,
-          borderRadius: '$2',
-          bg: shortButtonStyle.bg,
-          hoverStyle: shortButtonStyle.hoverStyle,
-          pressStyle: shortButtonStyle.pressStyle,
-          color: shortButtonStyle.textColor,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-        onCancel={(close) => {
-          actionsRef.current.updateTradingForm({ side: 'long' });
-          close();
-        }}
-        onConfirm={(close) => {
-          actionsRef.current.updateTradingForm({ side: 'short' });
-          close();
-        }}
-      />
-    );
-  }, [intl, actionsRef, longButtonStyle, shortButtonStyle]);
+  const pageFooter = useMemo(() => <PerpMarketFooter />, []);
 
-  if (platformEnv.isNativeAndroid) {
+  if (platformEnv.isNativeIOS) {
     return (
       <Page>
         {pageHeader}
         <Page.Body p="$0">
-          <YStack flex={1} bg="$bgApp" gap="$1.5">
+          <YStack flex={1} bg="$bgApp">
             <Tabs.Container
               initialTabName="orderbook"
-              renderHeader={() => marketHeaderContent}
+              renderHeader={() => <MobilePerpCandlesTouchBridge />}
               renderTabBar={() => null}
             >
               <Tabs.Tab name="orderbook">
-                <Tabs.ScrollView>{orderBookContent}</Tabs.ScrollView>
+                <Tabs.ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
+                >
+                  <YStack>{orderBookContent}</YStack>
+                </Tabs.ScrollView>
               </Tabs.Tab>
             </Tabs.Container>
           </YStack>

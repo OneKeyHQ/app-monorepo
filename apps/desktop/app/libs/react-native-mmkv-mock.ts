@@ -1,12 +1,14 @@
 // Mock for react-native-mmkv
 // In-memory storage implementation for MMKV interface
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 class MMKV {
   private storage: Map<string, boolean | string | number | ArrayBuffer>;
 
   private listeners: Set<(changedKey: string) => void>;
 
-  constructor(options: { id: string }) {
+  constructor(_: { id: string }) {
     this.storage = new Map();
     this.listeners = new Set();
   }
@@ -41,8 +43,7 @@ class MMKV {
   }
 
   recrypt(_key: string | undefined): void {
-    // eslint-disable-next-line no-restricted-syntax
-    throw new Error('Method not implemented.');
+    throw new OneKeyLocalError('Method not implemented.');
   }
 
   remove(key: string): boolean {

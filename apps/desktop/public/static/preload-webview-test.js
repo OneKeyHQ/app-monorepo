@@ -163,7 +163,7 @@ try {
   // Test 3: Process execution
   totalTests++;
   try {
-    const { exec } = require('child_process');
+    require('child_process');
     console.log(`  🚨 CRITICAL RISK: Can execute processes!`);
     securityScore++;
   } catch (error) {
@@ -293,7 +293,7 @@ try {
       console.groupCollapsed(
         `📋 All Environment Variables (${allKeys.length} total)`,
       );
-      allKeys.sort().forEach((key) => {
+      allKeys.toSorted().forEach((key) => {
         const value = envVars[key];
         const isSensitive = sensitiveKeys.includes(key);
         const displayValue =

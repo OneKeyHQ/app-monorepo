@@ -112,7 +112,7 @@ const PasswordDemoGallery = () => {
                   try {
                     const res = await verifiedPasswordWebAuth();
                     Toast.success({ title: res ? '解锁成功' : '请输入密码' });
-                  } catch (e) {
+                  } catch (_e) {
                     Toast.error({ title: '请输入密码' });
                   }
                 }}

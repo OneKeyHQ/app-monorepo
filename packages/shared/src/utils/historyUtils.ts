@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
 import { EOnChainHistoryTxStatus } from '../../types/history';
@@ -13,6 +12,7 @@ import { TX_RISKY_LEVEL_SPAM } from '../walletConnect/constant';
 
 import { formatDate } from './dateUtils';
 
+import type { ICurrencyItem } from '../../types/currency';
 import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
@@ -195,7 +195,7 @@ export function getHistoryTxDetailInfo({
 
 // sort history
 export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
-  return txs.sort(
+  return txs.toSorted(
     (b, a) =>
       (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
       (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -353,7 +353,7 @@ export function checkIsLowValueReceiveTx({
 
 export function checkIsScamTx({ tx }: { tx: IAccountHistoryTx }) {
   return (
-    tx.decodedTx.riskyLevel && tx.decodedTx.riskyLevel > TX_RISKY_LEVEL_SPAM
+    tx.decodedTx.riskyLevel && tx.decodedTx.riskyLevel >= TX_RISKY_LEVEL_SPAM
   );
 }
 

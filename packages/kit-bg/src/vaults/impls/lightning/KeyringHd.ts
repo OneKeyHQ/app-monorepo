@@ -75,9 +75,8 @@ export class KeyringHd extends KeyringHdBase {
 
     console.log('nativeSegwitAccounts', nativeSegwitAccounts);
 
-    const client = await this.backgroundApi.serviceLightning.getLnClient(
-      isTestnet,
-    );
+    const client =
+      await this.backgroundApi.serviceLightning.getLnClient(isTestnet);
     for (const account of nativeSegwitAccounts) {
       if (!account.address) {
         throw new OneKeyInternalError('No address');

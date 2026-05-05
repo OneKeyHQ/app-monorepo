@@ -1,0 +1,149 @@
+# Publish Workflow
+
+Finalizes a release by recording it in `RELEASES.json` and committing the tracking file. This creates the audit trail and provides the commit SHA for triggering CI.
+
+## Pre-flight Checks
+
+### 1. Detect release branch
+
+Use the **Release Branch Detection** logic from SKILL.md:
+
+1. If already on a `release/v*` branch → use it directly
+2. Otherwise → find the latest `release/v*` from remote (excluding `mock` branches)
+3. Confirm with the user before proceeding
+
+If not on the release branch, offer to switch:
+
+> "You're on `$current_branch`, but the release branch is `$RELEASE_BRANCH`. Switch now? (y/n)"
+
+If yes, run `git checkout $RELEASE_BRANCH`.
+
+### 2. Working tree clean
+
+```bash
+git status --porcelain
+```
+
+Only `RELEASES.json` may have changes (or nothing — both are fine).
+
+## Step 1: Collect Release Information
+
+### Record current HEAD (before RELEASES.json commit)
+
+```bash
+commit_sha=$(git rev-parse HEAD)
+short_sha=$(git rev-parse --short HEAD)
+```
+
+This is the last code-change commit. It becomes the `commit` field in RELEASES.json and the baseline for the next diff-check.
+
+### Included PRs
+
+Determine the baseline (last release commit from RELEASES.json, or App Shell tag `v${VERSION}` for first release):
+
+```bash
+git log $base_sha..$commit_sha --oneline
+```
+
+Extract PR numbers from commit messages (handles both merge and squash formats):
+
+```bash
+git log $base_sha..$commit_sha --format="%s" | grep -oE '#[0-9]+' | sort -u
+```
+
+### Sequence number
+
+If `RELEASES.json` exists and has entries: `seq = last_entry.seq + 1`
+If first release: `seq = 1`
+
+### Release notes
+
+Ask the user:
+
+> "Please provide release notes, or press Enter to auto-generate from PR titles:"
+
+If the user skips, auto-generate by joining PR titles:
+
+```
+Fix swap page crash (#1234), Add token search (#1256)
+```
+
+## Step 2: Update RELEASES.json
+
+Read the existing file (or initialize `[]` if first release). Append a new entry:
+
+```json
+{
+  "seq": 3,
+  "commit": "abc1234def5678...",
+  "date": "2026-03-15T10:30:00Z",
+  "prs": ["#1234", "#1256", "#1260"],
+  "notes": "Fix swap page crash, add token search, fix discovery banner width"
+}
+```
+
+Field details:
+- **seq**: auto-incremented
+- **commit**: full SHA of the last code commit (before this RELEASES.json update)
+- **date**: ISO 8601 UTC, current time
+- **prs**: array of PR number strings with `#` prefix
+- **notes**: user-provided or auto-generated
+
+Write the updated JSON with 2-space indentation.
+
+## Step 3: Create branch, commit, and open PR
+
+Never push directly to the release branch. Create a PR instead.
+
+### Create a branch and commit
+
+```bash
+release_branch_name="chore/release-${seq}"
+git checkout -b "$release_branch_name"
+git add RELEASES.json
+git commit -m "chore: release #$seq"
+git push origin "$release_branch_name"
+```
+
+### Create PR targeting the release branch
+
+```bash
+gh pr create \
+  --base "$RELEASE_BRANCH" \
+  --title "chore: release #$seq" \
+  --body "$(cat <<'EOF'
+## Summary
+- Record release #$seq in RELEASES.json
+- Commit: $short_sha
+- PRs included: $pr_list
+
+## Release Notes
+$notes
+EOF
+)"
+```
+
+After PR is created, switch back to the release branch:
+
+```bash
+git checkout "$RELEASE_BRANCH"
+```
+
+After the PR is merged, the release is finalized.
+
+## Step 4: Output
+
+```
+=== Release #$seq PR Created ===
+
+📦 Commit: $short_sha ($RELEASE_BRANCH)
+📋 PRs: #1234, #1256, #1260
+📝 Notes: $notes
+🔗 PR: $pr_url
+
+Merge the PR, then trigger CI build via workflow_dispatch on branch: $RELEASE_BRANCH
+
+Next step: /1k-bundle-release sync (sync changes to x)
+```
+
+Note: The `commit` SHA in RELEASES.json refers to a release-branch commit. After sync (rebase), this SHA will NOT exist on `x` — this is expected. All RELEASES.json-based diffs must be run on the release branch.

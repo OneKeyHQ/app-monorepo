@@ -2,7 +2,7 @@ import os from 'os';
 import path from 'path';
 
 import * as Sentry from '@sentry/electron/main';
-import { app, shell, systemPreferences } from 'electron';
+import { Menu, app, shell, systemPreferences } from 'electron';
 import logger from 'electron-log/main';
 import si from 'systeminformation';
 
@@ -10,6 +10,7 @@ import type { IDesktopSystemInfo } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import type { IMacBundleInfo } from '@onekeyhq/desktop/app/libs/utils';
 import {
+  getBackgroundColor,
   getMacAppId,
   parseContentPList,
 } from '@onekeyhq/desktop/app/libs/utils';
@@ -18,6 +19,56 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
+
+export type IMenuItemType = 'normal' | 'separator' | 'submenu';
+
+export type IMenuItemRole =
+  | 'about'
+  | 'hide'
+  | 'unhide'
+  | 'quit'
+  | 'undo'
+  | 'redo'
+  | 'cut'
+  | 'copy'
+  | 'paste'
+  | 'delete'
+  | 'selectall'
+  | 'reload'
+  | 'forcereload'
+  | 'toggledevtools'
+  | 'resetzoom'
+  | 'zoomin'
+  | 'zoomout'
+  | 'togglefullscreen'
+  | 'minimize'
+  | 'zoom'
+  | 'front'
+  | 'help';
+
+export interface IMenuItem {
+  label: string;
+  submenu: IMenu | null;
+  type: IMenuItemType;
+  role: IMenuItemRole | null;
+  accelerator: string | null;
+  icon: string | null;
+  // cspell:ignore sublabel
+  sublabel: string;
+  toolTip: string;
+  enabled: boolean;
+  visible: boolean;
+  checked: boolean;
+  acceleratorWorksWhenHidden: boolean;
+  registerAccelerator: boolean;
+  commandId: number;
+  userAccelerator: string | null;
+}
+
+export interface IMenu {
+  groupsMap: Record<string, unknown>;
+  items: IMenuItem[];
+}
 
 class DesktopApiSystem {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
@@ -74,6 +125,40 @@ class DesktopApiSystem {
 
   async getSystemInfo(): Promise<IDesktopSystemInfo> {
     return this._getSystemInfoInternal();
+  }
+
+  async getPerfMemoryUsage(): Promise<{ rss?: number } | null> {
+    try {
+      if (typeof app.getAppMetrics === 'function') {
+        const metrics = app.getAppMetrics();
+        let workingSetKbTotal = 0;
+        for (const m of metrics) {
+          const ws = m?.memory?.workingSetSize;
+          if (typeof ws === 'number' && Number.isFinite(ws) && ws > 0) {
+            workingSetKbTotal += ws;
+          }
+        }
+        if (workingSetKbTotal > 0) {
+          return { rss: workingSetKbTotal * 1024 };
+        }
+      }
+
+      if (typeof process.getProcessMemoryInfo === 'function') {
+        const info = await process.getProcessMemoryInfo();
+        const residentSetKb = info?.residentSet;
+        if (
+          typeof residentSetKb === 'number' &&
+          Number.isFinite(residentSetKb) &&
+          residentSetKb > 0
+        ) {
+          return { rss: residentSetKb * 1024 };
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return null;
   }
 
   async reload(): Promise<void> {
@@ -208,6 +293,76 @@ class DesktopApiSystem {
     disableAllShortcuts?: boolean;
   }): Promise<void> {
     store.setDisableKeyboardShortcuts(params);
+  }
+
+  async getApplicationMenu(): Promise<IMenu> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return JSON.parse(
+      JSON.stringify(Menu.getApplicationMenu(), (key: string, value: any) =>
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        key !== 'commandsMap' && key !== 'menu' ? value : undefined,
+      ),
+    );
+  }
+
+  private getMenuItemByCommandId(
+    id: number,
+    menuToSearch: Electron.Menu | null,
+  ): Electron.MenuItem | undefined {
+    if (!menuToSearch) return undefined;
+
+    for (const item of menuToSearch.items) {
+      if (item.submenu) {
+        const submenuItem = this.getMenuItemByCommandId(id, item.submenu);
+        if (submenuItem) return submenuItem;
+      } else if ((item as any).commandId === id) {
+        return item;
+      }
+    }
+    return undefined;
+  }
+
+  async executeMenuCommand(commandId: number): Promise<void> {
+    const menu = Menu.getApplicationMenu();
+    if (!menu) return;
+
+    const item = this.getMenuItemByCommandId(commandId, menu);
+    if (item) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      item.click(
+        undefined as any,
+        globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.() as any,
+        undefined as any,
+      );
+    }
+  }
+
+  async getMenuItemIcon(commandId: number): Promise<string | null> {
+    const menu = Menu.getApplicationMenu();
+    if (!menu) return null;
+
+    const item = this.getMenuItemByCommandId(commandId, menu);
+    if (item && item.icon && typeof item.icon !== 'string') {
+      return item.icon.toDataURL();
+    }
+    return null;
+  }
+
+  async changeTheme(theme: 'light' | 'dark'): Promise<void> {
+    store.setTheme(theme);
+    const safelyBrowserWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
+    safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(theme));
+    if (process.platform === 'win32') {
+      try {
+        safelyBrowserWindow?.setTitleBarOverlay({
+          symbolColor: theme === 'dark' ? '#ffffff' : '#000000',
+          color: '#00000000',
+        });
+      } catch {
+        // noop
+      }
+    }
   }
 }
 

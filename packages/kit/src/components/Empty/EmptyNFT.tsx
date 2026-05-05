@@ -10,7 +10,7 @@ function EmptyNFT() {
     <Empty
       h={platformEnv.isNativeAndroid ? 300 : undefined}
       testID="Wallet-No-NFT-Empty"
-      icon="AiImagesOutline"
+      illustration="Nft"
       title={intl.formatMessage({ id: ETranslations.nft_no_nfts })}
       description={intl.formatMessage({ id: ETranslations.nft_no_nfts_found })}
     />

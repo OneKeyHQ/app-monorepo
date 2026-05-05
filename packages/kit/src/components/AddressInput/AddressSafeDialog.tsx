@@ -18,25 +18,6 @@ function Content({ intl }: { intl: IntlShape }) {
     <YStack gap="$6">
       <XStack gap="$2">
         <XStack>
-          <Icon name="FileLockOutline" size="$6" />
-        </XStack>
-        <YStack gap="$3" flexShrink={1}>
-          <SizableText size="$headingMd">
-            {intl.formatMessage({
-              id: ETranslations.address_book_encrypted_storage_title,
-            })}
-          </SizableText>
-          <YStack flexShrink={1}>
-            <SizableText color="$textSubdued" size="$bodyMd" flexShrink={1}>
-              {intl.formatMessage({
-                id: ETranslations.address_book_encrypted_storage_description,
-              })}
-            </SizableText>
-          </YStack>
-        </YStack>
-      </XStack>
-      <XStack gap="$2">
-        <XStack>
           <Icon name="ShieldCheckDoneOutline" size="$6" />
         </XStack>
         <YStack gap="$3" flexShrink={1}>
@@ -63,9 +44,6 @@ export const showAddressSafeNotificationDialog = async ({
         id: ETranslations.address_book_title,
       }),
       icon: 'ShieldKeyholeOutline',
-      description: intl.formatMessage({
-        id: ETranslations.address_book_dialog_subtitle,
-      }),
       tone: 'default',
       showConfirmButton: true,
       showCancelButton: false,

@@ -1,13 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Page,
-  useIsNativeTablet,
+  isNativeTablet,
+  useIsSplitView,
   useMedia,
-  useOrientation,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -27,20 +27,32 @@ import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
-import { useAutoRefreshTokenDetail } from './hooks';
+import { BtcMetadataProvider, useAutoRefreshTokenDetail } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 
 function MarketDetail({
   route,
-}: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
-  const { tokenAddress, network, isNative, disableTrade } = route.params;
+}: IPageScreenProps<
+  ITabMarketParamList,
+  ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
+>) {
+  const params = route.params as
+    | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
+    | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
+
+  const network = params.network;
+  const isNative = params.isNative;
+  const disableTrade = params.disableTrade;
+  // For MarketNativeDetail route, tokenAddress is undefined, use empty string
+  const tokenAddress = 'tokenAddress' in params ? params.tokenAddress : '';
+
   // Convert shortcode back to full networkId if needed
   // network is a shortcode like 'bsc', convert it to 'evm--56'
   const networkId =
     networkUtils.getNetworkIdFromShortCode({ shortCode: network }) || network;
   const isNativeBoolean =
-    typeof isNative === 'string' ? isNative === 'true' : isNative ?? false;
+    typeof isNative === 'string' ? isNative === 'true' : (isNative ?? false);
 
   // Track market entry analytics
   useMarketEnterAnalytics();
@@ -56,25 +68,45 @@ function MarketDetail({
   const media = useMedia();
 
   return (
-    <Page>
-      <MarketDetailHeader />
+    <BtcMetadataProvider>
+      <Page>
+        <MarketDetailHeader />
 
-      <Page.Body>
-        {media.gtLg && !platformEnv.isNative ? (
-          <DesktopLayout />
-        ) : (
-          <MobileLayout disableTrade={disableTrade} />
-        )}
-      </Page.Body>
-    </Page>
+        <Page.Body>
+          {media.gtLg && !platformEnv.isNative ? (
+            <DesktopLayout />
+          ) : (
+            <MobileLayout disableTrade={disableTrade} />
+          )}
+        </Page.Body>
+      </Page>
+    </BtcMetadataProvider>
   );
 }
 
 function MarketDetailV2(
-  props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
+  props: IPageScreenProps<
+    ITabMarketParamList,
+    ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
+  >,
 ) {
-  const isLandscape = useOrientation();
-  const isTablet = useIsNativeTablet();
+  const { navigation } = props;
+  const isLandscape = useIsSplitView();
+  const isTablet = isNativeTablet();
+
+  useLayoutEffect(() => {
+    if (!platformEnv.isNativeIOS) {
+      return;
+    }
+    navigation.setOptions({
+      gestureEnabled: true,
+      fullScreenGestureEnabled: false,
+      gestureResponseDistance: {
+        start: 20,
+      },
+    });
+  }, [navigation]);
+
   useFocusEffect(
     useCallback(() => {
       if (platformEnv.isExtension || (isTablet && isLandscape)) {

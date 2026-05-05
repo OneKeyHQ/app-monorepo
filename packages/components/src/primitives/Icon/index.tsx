@@ -1,12 +1,12 @@
-import { forwardRef, useEffect, useState } from 'react';
+import { forwardRef, useEffect, useMemo, useState } from 'react';
 
 import {
   type GetProps,
   styled,
+  useTheme,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 
-import { useThemeValue } from '../../hooks/useStyle';
 import { OptimizationView } from '../../optimization';
 
 import ICON_CONFIG from './Icons';
@@ -94,22 +94,26 @@ function IconLoader({
     });
   }, [name]);
 
+  const placeholderStyle = useMemo(
+    () => ({
+      width: props.width,
+      height: props.height,
+    }),
+    [props.width, props.height],
+  );
+
   const Svg = ComponentMaps[name];
   return Svg ? (
     <Svg {...props} />
   ) : (
-    <OptimizationView
-      style={{
-        width: props.width,
-        height: props.height,
-      }}
-    />
+    <OptimizationView style={placeholderStyle} />
   );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function BasicIconContainer({ name, style }: IIconContainerProps, _: any) {
-  const defaultColor = useThemeValue('icon');
+  const theme = useTheme();
+  const defaultColor = theme.icon.val;
   if (!name) {
     return null;
   }
@@ -172,6 +176,32 @@ const BasicIcon = styled(IconContainer, {
 
 const loadIcons = (...names: IKeyOfIcons[]) =>
   Promise.all(names.map((name) => loadIcon(name)));
+
+/**
+ * Pre-warm critical icon segment loading. Call at JS entry (before React mount)
+ * so segments start loading early and icons are ready by first render.
+ */
+export function warmCriticalIcons() {
+  const names: IKeyOfIcons[] = [
+    'ArrowTopOutline',
+    'ArrowBottomOutline',
+    'DotHorOutline',
+    'SearchOutline',
+    'BellOutline',
+    'DotGridOutline',
+  ];
+  for (const name of names) {
+    if (!ComponentMaps[name] && ICON_CONFIG[name]) {
+      void ICON_CONFIG[name]().then((module: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (module?.default) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          ComponentMaps[name] = module.default as typeof Svg;
+        }
+      });
+    }
+  }
+}
 
 export const Icon = withStaticProperties(BasicIcon, {
   prefetch: loadIcons,

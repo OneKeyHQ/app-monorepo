@@ -46,6 +46,8 @@ export interface INetworkExplorerConfig {
   token?: string;
 }
 
+export type { ICurrencyItem, ICurrencyType } from './currency';
+
 export type IServerNetwork = {
   id: string; // networkId like evm--1
   impl: string;
@@ -99,7 +101,7 @@ export enum EHomeTab {
   NFT = 'nft',
   HISTORY = 'history',
   TOOLS = 'tools',
-  APPROVALS = 'approvals',
+  DEFI = 'defi',
 }
 
 export enum EAssetType {

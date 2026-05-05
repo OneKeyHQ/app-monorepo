@@ -1,16 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAutoFlash = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M19.566 9H13.5a.5.5 0 0 1-.5-.5V2.401a.5.5 0 0 0-.916-.277L4.018 14.223a.5.5 0 0 0 .416.777H10.5a.5.5 0 0 1 .5.5v6.099a.5.5 0 0 0 .916.277l8.066-12.099A.5.5 0 0 0 19.566 9Z"
-    />
-    <Path
-      fill="currentColor"
-      d="M15.909 21.46a1 1 0 0 0 1.682 1.08zM21.25 15l.978-.21a1 1 0 0 0-1.82-.33zm.522 7.21a1 1 0 1 0 1.956-.42zm-4.18.33 4.5-7-1.683-1.08-4.5 7 1.682 1.08Zm2.68-7.33 1.5 7 1.956-.42-1.5-7zM18 21.5h4v-2h-4z"
+      fillRule="evenodd"
+      d="M14 7.547h7.722L10 23.559v-7.637H2.225L14 .55zm-7.724 6.375H12v3.518l5.78-7.893H12V6.449zM23.5 23h-2.1l-.28-1.5h-3.36L16.8 23h-2.402l5.802-9h1.35zm-4.454-3.5h1.645l-.41-1.92z"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -19,6 +19,17 @@ import type {
   ISubscriptionPeriod,
 } from '../../hooks/usePrimePaymentTypes';
 
+const AUTO_RENEW_TEXT_IDS = {
+  trial: {
+    month: ETranslations.prime_subscription_auto_renew_price_after_trial_month,
+    year: ETranslations.prime_subscription_auto_renew_price_after_trial_year,
+  },
+  normal: {
+    month: ETranslations.prime_subscription_auto_renew_price_month,
+    year: ETranslations.prime_subscription_auto_renew_price_year,
+  },
+} as const;
+
 function PrimeSubscriptionPlanItem({
   selected,
   periodDuration,
@@ -41,9 +52,8 @@ function PrimeSubscriptionPlanItem({
   return (
     <YStack
       bg="$bg"
-      pl="$5"
-      pr="$4"
-      py="$5"
+      px="$3.5"
+      py="$3"
       borderWidth={2}
       borderColor={selected ? '$borderActive' : '$borderSubdued'}
       borderRadius="$3"
@@ -65,33 +75,35 @@ function PrimeSubscriptionPlanItem({
           </Badge.Text>
         </Badge>
       ) : null}
-      <SizableText size="$headingLg" mr="$2">
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
         {title}
       </SizableText>
-
-      <XStack flex={1} justifyContent="space-between" alignItems="center">
-        <SizableText size="$headingLg">
-          {intl.formatMessage(
-            {
-              id: ETranslations.prime_prime_price_per_month,
-            },
-            {
-              price: pricePerMonthString,
-            },
-          )}
-        </SizableText>
-
-        <SizableText ml="$2" size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage(
-            {
-              id: ETranslations.prime_prime_price_per_year,
-            },
-            {
-              price: priceTotalPerYearString,
-            },
-          )}
-        </SizableText>
-      </XStack>
+      <SizableText
+        size="$headingLg"
+        mt="$0.5"
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+      >
+        {intl.formatMessage(
+          {
+            id: ETranslations.prime_prime_price_per_month,
+          },
+          {
+            price: pricePerMonthString,
+          },
+        )}
+      </SizableText>
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage(
+          {
+            id: ETranslations.prime_prime_price_per_year,
+          },
+          {
+            price: priceTotalPerYearString,
+          },
+        )}
+      </SizableText>
     </YStack>
   );
 }
@@ -114,31 +126,17 @@ export function PrimeSubscriptionPlans({
       (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
     );
     const isMonthly = selectedPackage?.subscriptionPeriod === 'P1M';
-    let text = intl.formatMessage(
-      {
-        id: ETranslations.prime_subscription_auto_renew_price_year,
-      },
-      {
-        price: selectedPackage?.pricePerYearString,
-      },
-    );
-    if (isMonthly) {
-      text = intl.formatMessage(
-        {
-          id: ETranslations.prime_subscription_auto_renew_price_month,
-        },
-        {
-          price: selectedPackage?.pricePerMonthString,
-        },
-      );
-    }
+    const hasFreeTrial = Boolean(selectedPackage?.freeTrial);
+    const price = isMonthly
+      ? selectedPackage?.pricePerMonthString
+      : selectedPackage?.pricePerYearString;
+    const id =
+      AUTO_RENEW_TEXT_IDS[hasFreeTrial ? 'trial' : 'normal'][
+        isMonthly ? 'month' : 'year'
+      ];
     return (
-      <SizableText
-        size="$bodyMd"
-        // textAlign={gtMd ? 'left' : 'center'}
-        // alignSelf={gtMd ? 'flex-start' : 'center'}
-      >
-        {text}
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({ id }, { price })}
       </SizableText>
     );
   }, [intl, packages, selectedSubscriptionPeriod]);
@@ -146,32 +144,35 @@ export function PrimeSubscriptionPlans({
   if (!packages?.length) {
     return (
       <Theme name="dark">
-        <YStack gap="$2.5">
-          <Skeleton width="100%" height={100} />
-          <Skeleton width="100%" height={100} />
-        </YStack>
+        <XStack gap="$2.5">
+          <Skeleton flex={1} height={100} />
+          <Skeleton flex={1} height={100} />
+        </XStack>
       </Theme>
     );
   }
 
   return (
-    <YStack gap="$2.5">
-      {packages?.map((p) => {
-        const selected = selectedSubscriptionPeriod === p.subscriptionPeriod;
-        return (
-          <PrimeSubscriptionPlanItem
-            key={p.subscriptionPeriod}
-            selected={selected}
-            periodDuration={p.subscriptionPeriod}
-            pricePerMonthString={p.pricePerMonthString}
-            priceTotalPerYearString={p.priceTotalPerYearString}
-            onPress={() => {
-              onSubscriptionPeriodSelected(p.subscriptionPeriod);
-            }}
-          />
-        );
-      })}
-      <Stack>{autoRenewText}</Stack>
+    <YStack>
+      <XStack gap="$2.5">
+        {packages?.map((p) => {
+          const selected = selectedSubscriptionPeriod === p.subscriptionPeriod;
+          return (
+            <PrimeSubscriptionPlanItem
+              key={p.subscriptionPeriod}
+              flex={1}
+              selected={selected}
+              periodDuration={p.subscriptionPeriod}
+              pricePerMonthString={p.pricePerMonthString}
+              priceTotalPerYearString={p.priceTotalPerYearString}
+              onPress={() => {
+                onSubscriptionPeriodSelected(p.subscriptionPeriod);
+              }}
+            />
+          );
+        })}
+      </XStack>
+      <Stack mt="$1.5">{autoRenewText}</Stack>
     </YStack>
   );
 }

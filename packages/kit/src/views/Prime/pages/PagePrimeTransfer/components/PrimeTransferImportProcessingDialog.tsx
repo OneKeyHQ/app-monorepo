@@ -56,8 +56,8 @@ function PrimeTransferImportProcessingDialogContent({
     // return false;
     return Boolean(
       importProgress &&
-        !importProgress.isImporting &&
-        importProgress.current >= importProgress.total,
+      !importProgress.isImporting &&
+      importProgress.current >= importProgress.total,
     );
   }, [importProgress]);
 
@@ -82,9 +82,16 @@ function PrimeTransferImportProcessingDialogContent({
   ]);
 
   const isFlowEnded = isDone || isCancelled || hasError;
-  const progressPercentage = importProgress
-    ? Math.ceil((importProgress.current / importProgress.total) * 100)
-    : 0;
+  let progressPercentage = 0;
+  if (importProgress) {
+    if (importProgress.total > 0) {
+      progressPercentage = Math.ceil(
+        (importProgress.current / importProgress.total) * 100,
+      );
+    } else {
+      progressPercentage = importProgress.isImporting ? 0 : 100;
+    }
+  }
 
   useEffect(() => {
     const cb = async (
@@ -205,7 +212,7 @@ function PrimeTransferImportProcessingDialogContent({
                         ? `${importProgress?.current || 0}/${
                             importProgress?.total || 0
                           } ${progressPercentage}%`
-                        : importProgress?.current ?? 0,
+                        : (importProgress?.current ?? 0),
                     },
                   )} ${progressPercentage}%`;
                 }

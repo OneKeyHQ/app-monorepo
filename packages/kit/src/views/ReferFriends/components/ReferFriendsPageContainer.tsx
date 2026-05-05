@@ -4,7 +4,7 @@ import { YStack, useMedia } from '@onekeyhq/components';
 import type { IYStackProps } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const REFER_FRIENDS_PAGE_MAX_WIDTH = 1280;
+export const REFER_FRIENDS_PAGE_MAX_WIDTH = 1140;
 
 export function ReferFriendsPageContainer({
   children,

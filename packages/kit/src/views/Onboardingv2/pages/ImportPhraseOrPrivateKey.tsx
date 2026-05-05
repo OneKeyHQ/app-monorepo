@@ -5,26 +5,28 @@ import { useRoute } from '@react-navigation/core';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import Animated, {
-  useAnimatedReaction,
-  useSharedValue,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import type { IInputRef, ITextAreaInputProps } from '@onekeyhq/components';
 import {
   Button,
   HeightTransition,
   Icon,
-  Page,
   Portal,
   SegmentControl,
   SizableText,
+  Stack,
   TextAreaInput,
   XStack,
   YStack,
+  useKeyboardEvent,
   useMedia,
   useReanimatedKeyboardAnimation,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
+import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -37,7 +39,12 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import useScanQrCode from '../../ScanQrCode/hooks/useScanQrCode';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  OnboardingHeading,
+  OnboardingIconBadge,
+  OnboardingPage,
+  OnboardingSidebar,
+} from '../components/Layout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
 
 import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
@@ -54,16 +61,35 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   const { start: startScanQrCode } = useScanQrCode();
   const [encrypted, setEncrypted] = useState(true);
   const inputRef = useRef<IInputRef>(null);
+  const encryptedRef = useRef(encrypted);
+  encryptedRef.current = encrypted;
 
   const privateKeyRef = useRef(privateKey);
   privateKeyRef.current = privateKey;
   const selectionRef = useRef({ start: 0, end: 0 });
 
+  // Wrap startScanQrCode to force native TextInput refresh after scan.
+  // On native, controlled TextInput may not visually update after modal
+  // dismiss. setNativeProps forces the native view to sync with React state.
+  const wrappedStartScanQrCode = useCallback(
+    async (params: IQRCodeHandlerParseOutsideOptions) => {
+      const result = await startScanQrCode(params);
+      if (result?.raw && platformEnv.isNative) {
+        requestAnimationFrame(() => {
+          const displayText = encryptedRef.current
+            ? '•'.repeat(result.raw.length)
+            : result.raw;
+          inputRef.current?.setNativeProps?.({ text: displayText });
+        });
+      }
+      return result;
+    },
+    [startScanQrCode],
+  );
+
   const handleSelectionChange = useCallback(
     (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
-      const selection = e.nativeEvent.selection;
-      console.log('handleSelectionChange', selection);
-      selectionRef.current = selection;
+      selectionRef.current = e.nativeEvent.selection;
     },
     [],
   );
@@ -77,6 +103,9 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
 
   const updatePrivateKey = useCallback(
     (text: string) => {
+      // Update ref immediately so subsequent onChangeText calls
+      // (before re-render) see the latest value
+      privateKeyRef.current = text;
       setPrivateKey(text);
       onChangeText?.(text);
     },
@@ -86,6 +115,13 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   const handleChangeText = useCallback(
     (text: string) => {
       if (encrypted) {
+        // Bulk replacement (scan / paste via addon): the text contains no '•'
+        // characters, so it was injected programmatically rather than typed.
+        if (!text.includes('•')) {
+          updatePrivateKey(text);
+          return;
+        }
+
         // Find non-asterisk characters in text and merge with actual privateKey
         const selection = selectionRef.current;
         let newPrivateKey = privateKeyRef.current;
@@ -123,12 +159,8 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
             privateKeyRef.current.slice(0, selectionStart) +
             privateKeyRef.current.slice(selectionStart + removedCount);
         } else {
-          // Text was replaced - replace characters at selection position
-          const replacedText = text.slice(selection.start, selection.end);
-          newPrivateKey =
-            privateKeyRef.current.slice(0, selection.start) +
-            replacedText +
-            privateKeyRef.current.slice(selection.end);
+          // Same length - no change needed
+          return;
         }
 
         updatePrivateKey(newPrivateKey);
@@ -139,17 +171,27 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
     [encrypted, updatePrivateKey],
   );
 
+  // Custom eye toggle addon - avoids native secureTextEntry which conflicts
+  // with manual '•' masking on multiline TextArea inputs
+  const eyeToggleAddOn = useMemo(
+    () => [
+      {
+        iconName: (encrypted ? 'EyeOffOutline' : 'EyeOutline') as IKeyOfIcons,
+        onPress: () => setEncrypted((v) => !v),
+      },
+    ],
+    [encrypted],
+  );
+
   return (
     <TextAreaInput
       ref={inputRef as RefObject<TextInput>}
       allowPaste
-      // allowClear
       allowScan
-      allowSecureTextEye // TextAreaInput not support allowSecureTextEye
+      addOns={eyeToggleAddOn}
       onSelectionChange={handleSelectionChange}
       clearClipboardOnPaste
-      onSecureTextEntryChange={setEncrypted}
-      startScanQrCode={startScanQrCode}
+      startScanQrCode={wrappedStartScanQrCode}
       size="large"
       numberOfLines={5}
       value={formattedValue}
@@ -163,6 +205,33 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
     />
   );
 }
+
+type IFaqItem = {
+  titleId: ETranslations;
+  descriptionId: ETranslations;
+};
+
+const phraseFaqs: ReadonlyArray<IFaqItem> = [
+  {
+    titleId: ETranslations.faq_recovery_phrase,
+    descriptionId: ETranslations.faq_recovery_phrase_explaination,
+  },
+  {
+    titleId: ETranslations.faq_recovery_phrase_safe_store,
+    descriptionId: ETranslations.faq_recovery_phrase_safe_store_desc,
+  },
+];
+
+const privateKeyFaqs: ReadonlyArray<IFaqItem> = [
+  {
+    titleId: ETranslations.faq_private_key,
+    descriptionId: ETranslations.faq_private_key_desc,
+  },
+  {
+    titleId: ETranslations.faq_recovery_phrase_safe_store,
+    descriptionId: ETranslations.faq_recovery_phrase_safe_store_desc,
+  },
+];
 
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
@@ -182,6 +251,11 @@ export default function ImportPhraseOrPrivateKey() {
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState('');
+
+  const sidebarFaqs =
+    selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase
+      ? phraseFaqs
+      : privateKeyFaqs;
 
   const handleConfirm = async () => {
     if (selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase) {
@@ -226,15 +300,26 @@ export default function ImportPhraseOrPrivateKey() {
   };
 
   const { height } = useReanimatedKeyboardAnimation();
-  const keyboardHeight = useSharedValue<number>(0);
-
-  useAnimatedReaction(
-    () => height.get(),
-    (value) => {
-      const v = Math.abs(value);
-      keyboardHeight.value = v;
-    },
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(
+    selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase,
   );
+  useKeyboardEvent({
+    keyboardWillShow: () => setIsKeyboardVisible(true),
+    keyboardWillHide: () => setIsKeyboardVisible(false),
+  });
+
+  // The root layout adds pb: safeAreaBottom + 10 which creates a gap below
+  // the footer when keyboard is up. Compensate by translating down half that
+  // distance so the footer content is vertically centered.
+  const rootBottomPadding = safeAreaBottom + 10;
+  const footerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: height.value < 0 ? height.value + rootBottomPadding / 2 : 0,
+      },
+    ],
+  }));
 
   const renderHardwarePhrasesWarningTag = useCallback(
     (chunks: ReactNode[]) => (
@@ -259,18 +344,16 @@ export default function ImportPhraseOrPrivateKey() {
     [navigation],
   );
 
-  const { start: startScanQrCode } = useScanQrCode();
-
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header
-          title={intl.formatMessage({
-            id: ETranslations.import_phrase_or_private_key,
-          })}
-        />
-        <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent gap="$5">
+    <OnboardingPage scrollable>
+      <YStack $gtMd={{ flexDirection: 'row' }}>
+        <YStack gap="$8" $gtMd={{ flex: 1, gap: '$12' }}>
+          <OnboardingHeading>
+            {intl.formatMessage({
+              id: ETranslations.global_import_wallet,
+            })}
+          </OnboardingHeading>
+          <YStack gap="$5">
             <SegmentControl
               value={selected}
               fullWidth
@@ -334,7 +417,7 @@ export default function ImportPhraseOrPrivateKey() {
                 <YStack
                   key="privateKey"
                   animation="quick"
-                  animateOnly={['opacity']}
+                  animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,
                     filter: 'blur(4px)',
@@ -348,37 +431,65 @@ export default function ImportPhraseOrPrivateKey() {
                 </YStack>
               )}
             </HeightTransition>
-            <Animated.View
-              style={{
-                height: keyboardHeight,
-              }}
-            />
             {gtMd ? (
               <Button size="large" variant="primary" onPress={handleConfirm}>
                 {intl.formatMessage({ id: ETranslations.global_confirm })}
               </Button>
             ) : null}
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
-        {!gtMd ? (
-          <OnboardingLayout.Footer>
+          </YStack>
+        </YStack>
+        {gtMd ? (
+          <OnboardingSidebar>
+            <OnboardingIconBadge icon="DotHorSolid" />
+            <YStack gap="$6">
+              {sidebarFaqs.map((item) => (
+                <YStack key={item.titleId} gap="$1">
+                  <SizableText size="$bodyLgMedium">
+                    {intl.formatMessage({ id: item.titleId })}
+                  </SizableText>
+                  <SizableText size="$bodyLg" color="$textSubdued">
+                    {intl.formatMessage({ id: item.descriptionId })}
+                  </SizableText>
+                </YStack>
+              ))}
+            </YStack>
+          </OnboardingSidebar>
+        ) : null}
+      </YStack>
+      {!gtMd ? (
+        <XStack
+          mt="auto"
+          minHeight="$6"
+          justifyContent="center"
+          alignItems="center"
+        >
+          {platformEnv.isNative ? (
             <YStack>
-              <Animated.View style={{ transform: [{ translateY: height }] }}>
+              <Animated.View style={footerAnimatedStyle}>
                 <YStack>
+                  {isKeyboardVisible ? (
+                    <Stack
+                      mx="$-5"
+                      borderTopWidth={StyleSheet.hairlineWidth}
+                      borderColor="$borderSubdued"
+                    />
+                  ) : null}
                   <XStack
                     bg="$bgApp"
                     alignItems="center"
                     justifyContent="center"
-                    pt="$5"
+                    pt="$3"
+                    pb={500}
+                    mb={-500}
                   >
-                    <YStack w="100%">
-                      {platformEnv.isNative ? (
+                    <YStack w="100%" gap="$3">
+                      <HeightTransition>
                         <XStack onPress={noop}>
                           <Portal.Container
                             name={Portal.Constant.SUGGESTION_LIST}
                           />
                         </XStack>
-                      ) : null}
+                      </HeightTransition>
                       <Button
                         size="large"
                         variant="primary"
@@ -395,9 +506,23 @@ export default function ImportPhraseOrPrivateKey() {
                 </YStack>
               </Animated.View>
             </YStack>
-          </OnboardingLayout.Footer>
-        ) : null}
-      </OnboardingLayout>
-    </Page>
+          ) : (
+            <YStack w="100%" pb="$5">
+              <Button
+                size="large"
+                variant="primary"
+                onPress={handleConfirm}
+                loading={isConfirming}
+                w="100%"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_confirm,
+                })}
+              </Button>
+            </YStack>
+          )}
+        </XStack>
+      ) : null}
+    </OnboardingPage>
   );
 }

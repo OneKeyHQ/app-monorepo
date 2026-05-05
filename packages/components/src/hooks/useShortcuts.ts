@@ -10,21 +10,16 @@ export const useShortcuts = (
 ) => {
   useEffect(() => {
     if (platformEnv.isDesktop) {
-      const handleCallback = (_: unknown, e: EShortcutEvents) => {
+      const handleCallback = (e: EShortcutEvents) => {
         if (eventName === undefined || e === eventName) {
           callback(e);
         }
       };
-      globalThis.desktopApi.addIpcEventListener(
-        ipcMessageKeys.APP_SHORCUT,
+      const unsubscribe = globalThis.desktopApi.addIpcEventListener(
+        ipcMessageKeys.APP_SHORTCUT,
         handleCallback,
       );
-      return () => {
-        globalThis.desktopApi.removeIpcEventListener(
-          ipcMessageKeys.APP_SHORCUT,
-          handleCallback,
-        );
-      };
+      return unsubscribe;
     }
   }, [callback, eventName]);
 };

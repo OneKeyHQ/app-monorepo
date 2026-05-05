@@ -1,13 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCreditCardPlus = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M20 16h3v2h-3v3h-2v-3h-3v-2h3v-3h2z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M19 14v3m0 0v3m0-3h-3m3 0h3M3 10v7a2 2 0 0 0 2 2h7m-9-9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3z"
+      fillRule="evenodd"
+      d="M22 11H4v7h9v2H2V4h20zM4 9h16V6H4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

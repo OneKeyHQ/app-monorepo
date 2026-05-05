@@ -88,6 +88,12 @@ export type IImageV2Props = Omit<
      * @default true
      */
     canRetry?: boolean;
+    /** Whether to autoplay animated images (GIF, WebP)
+     * @default true
+     * @platform android
+     * @platform ios
+     */
+    autoplay?: boolean;
   };
 
 export type IImageProps = IImageV2Props;

@@ -8,7 +8,7 @@ export class PerpTokenSelectorScene extends BaseScene {
   public perpTokenSelectorSearch(params: {
     query: string;
     resultCount: number;
-    activeTab: 'all' | 'hip3';
+    activeTab: string;
     sortField: string;
     sortDirection: string;
   }) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -71,6 +75,7 @@ export function SearchView({
                   <XStack>
                     <YStack
                       animation="quick"
+                      animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={open ? '180deg' : '0deg'}
                       left="$2"
                     >
@@ -87,6 +92,7 @@ export function SearchView({
             <Accordion.HeightAnimator animation="quick">
               <Accordion.Content
                 animation="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 exitStyle={{ opacity: 0 }}
                 px={0}
                 pb={0}
@@ -98,7 +104,9 @@ export function SearchView({
                     <TabSettingsListGrid
                       key={config.item.title}
                       item={config.item}
-                      titleMatch={config.matches?.[0]}
+                      titleMatch={config.matches?.find(
+                        (m) => m.key === 'title',
+                      )}
                     />
                   ))}
                 </TabSettingsSection>
@@ -111,7 +119,7 @@ export function SearchView({
   ) : (
     <YStack flex={1} ai="center" jc="center">
       <Empty
-        icon="SearchOutline"
+        illustration="SearchDocument"
         title={intl.formatMessage({
           id: ETranslations.global_no_results,
         })}

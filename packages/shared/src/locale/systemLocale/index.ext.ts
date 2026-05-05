@@ -31,7 +31,7 @@ const methods: ISystemLocaleMethods = {
         } else {
           resolve();
         }
-      } catch (error) {
+      } catch (_error) {
         resolve();
       }
     }),

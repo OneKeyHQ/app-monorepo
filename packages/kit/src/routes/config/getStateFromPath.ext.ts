@@ -2,10 +2,11 @@
 
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable @typescript-eslint/no-empty-object-type */
+/* oxlint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable no-param-reassign */
 /* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
-/* eslint-disable import/order */
+/* eslint-disable import-js/order */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable no-plusplus */
 /* eslint-disable prefer-template */
@@ -20,20 +21,22 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable prefer-const */
 /* eslint-disable no-cond-assign */
-import type {
-  InitialState,
-  NavigationState,
-  ParamListBase,
-  PartialState,
-} from '@react-navigation/routers';
+import {  arrayStartsWith, findFocusedRoute, getPatternParts, isArrayEqual, validatePathConfig } from '@react-navigation/core';
 import escape from 'escape-string-regexp';
 import * as queryString from 'query-string';
 
 
 // ---CHANGED Begin----: import from core instead of relative path
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import type { PathConfig, PathConfigMap, PatternPart } from '@react-navigation/core';
-import {  arrayStartsWith, findFocusedRoute, getPatternParts, isArrayEqual, validatePathConfig } from '@react-navigation/core';
+import type {
+  InitialState,
+  NavigationState,
+  ParamListBase,
+  PartialState,
+} from '@react-navigation/routers';
+
 // ---CHANGED end----
 
 type Options<ParamList extends {}> = {
@@ -183,7 +186,7 @@ export function getStateFromPath<ParamList extends {}>(
     result = current;
   }
 
-  if (current == null || result == null) {
+  if ((current === null || current === undefined) || (result === null || result === undefined)) {
     return undefined;
   }
 
@@ -254,7 +257,7 @@ function getSortedNormalizedConfigs(
         createNormalizedConfigs(key, screens, initialRoutes, [], [], [])
       )
     )
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       // Sort config from most specific to least specific:
       // - more segments
       // - static segments
@@ -280,12 +283,12 @@ function getSortedNormalizedConfigs(
 
       for (let i = 0; i < Math.max(a.segments.length, b.segments.length); i++) {
         // if b is longer, b gets higher priority
-        if (a.segments[i] == null) {
+        if (a.segments[i] === null || a.segments[i] === undefined) {
           return 1;
         }
 
         // if a is longer, a gets higher priority
-        if (b.segments[i] == null) {
+        if (b.segments[i] === null || b.segments[i] === undefined) {
           return -1;
         }
 
@@ -416,9 +419,9 @@ const matchAgainstConfigs = (remaining: string, configs: RouteConfig[]) => {
 
                     return null;
                   })
-                  .filter((it) => it != null)
+                  .filter((it) => it !== null && it !== undefined)
                   .map(([key, value]) => {
-                    if (value == null) {
+                    if (value === null || value === undefined) {
                       return [key, undefined];
                     }
 
@@ -472,7 +475,7 @@ const createNormalizedConfigs = (
     // it can have `path` property and
     // it could have `screens` prop which has nested configs
     if (typeof config.path === 'string') {
-      if (config.exact && config.path == null) {
+      if (config.exact && (config.path === null || config.path === undefined)) {
         throw new OneKeyLocalError(
           `Screen '${screen}' doesn't specify a 'path'. A 'path' needs to be specified when specifying 'exact: true'. If you don't want this screen in the URL, specify it as empty string, e.g. \`path: ''\`.`
         );
@@ -601,7 +604,7 @@ const createConfigItem = (
           }
         : null
     )
-    .filter((it) => it != null);
+    .filter((it) => it !== null && it !== undefined);
 
   return {
     screen,
@@ -705,6 +708,7 @@ const createNestedStateObject = (
   if (routes.length > 0) {
     let nestedState = state;
 
+    // oxlint-disable-next-line no-unmodified-loop-condition -- ParsedRoute is a type cast, not a loop variable
     while ((route = routes.shift() as ParsedRoute)) {
       initialRoute = findInitialRoute(route.name, parentScreens, initialRoutes);
 

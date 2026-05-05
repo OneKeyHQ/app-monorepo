@@ -1,23 +1,14 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  IconButton,
-  SizableText,
-  Stack,
-  Tooltip,
-  XStack,
-  useClipboard,
-} from '@onekeyhq/components';
+import { useClipboard } from '@onekeyhq/components';
 import type {
   IActionListItemProps,
   IPropsWithTestId,
 } from '@onekeyhq/components';
-import {
-  DesktopTabItem,
-  DesktopTabItemImage,
-} from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import { Tooltip } from '@onekeyhq/components/src/actions';
+import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -83,11 +74,13 @@ function DesktopCustomTabBarItem({
   const { handleRenameTab } = useBrowserOptionsAction();
   const { activeTabId } = useActiveTabId();
   const isActive = activeTabId === id;
-  const closeTab = useCallback(() => {
-    if (tab?.id) {
-      onClose?.(tab?.id);
+  const closeOrUnpinTab = useCallback(() => {
+    if (tab?.isPinned) {
+      onPinnedPress(tab.id, false);
+    } else if (tab?.id) {
+      onClose?.(tab.id);
     }
-  }, [onClose, tab?.id]);
+  }, [tab?.isPinned, tab?.id, onPinnedPress, onClose]);
   const actionListItems = useMemo(
     () =>
       [
@@ -184,7 +177,7 @@ function DesktopCustomTabBarItem({
                 id: ETranslations.explore_close_tab,
               }),
               icon: 'CrossedLargeOutline',
-              onPress: closeTab,
+              onPress: closeOrUnpinTab,
               testID: `action-list-item-close`,
             },
           ].filter(Boolean) as IActionListItemProps[],
@@ -205,7 +198,7 @@ function DesktopCustomTabBarItem({
       onClose,
       copyText,
       handleRenameTab,
-      closeTab,
+      closeOrUnpinTab,
       isHomeTab,
     ],
   );
@@ -213,13 +206,23 @@ function DesktopCustomTabBarItem({
     return (tab?.customTitle?.length ?? 0) > 0 ? tab?.customTitle : tab?.title;
   }, [tab?.customTitle, tab?.title]);
 
+  const closeButtonTitle = useMemo(
+    () =>
+      tab?.isPinned ? (
+        <Tooltip.Text shortcutKey={EShortcutEvents.PinOrUnpinTab}>
+          {intl.formatMessage({ id: ETranslations.explore_unpin })}
+        </Tooltip.Text>
+      ) : undefined,
+    [tab?.isPinned, intl],
+  );
+
   const tabItem = useMemo(() => {
     return (
       <DesktopTabItem
         hideCloseButton={isCollapse}
         size="small"
         showAvatar={!isHomeTab}
-        icon={isHomeTab ? 'Ai3StarOutline' : undefined}
+        icon={isHomeTab ? 'EarthOutline' : undefined}
         shortcutKey={shortcutKey}
         key={id}
         selected={isActive}
@@ -229,21 +232,12 @@ function DesktopCustomTabBarItem({
         testID={testID}
         id={id}
         actionList={actionListItems}
-        onClose={closeTab}
+        onClose={closeOrUnpinTab}
+        closeButtonIcon={tab?.isPinned ? 'ThumbtackOutline' : undefined}
+        closeButtonTitle={closeButtonTitle}
+        alwaysShowCloseButton={!!tab?.isPinned}
         tabBarStyle={
-          isCollapse
-            ? {
-                alignItems: 'center',
-                justifyContent: 'center',
-              }
-            : undefined
-        }
-        tabBarItemStyle={
-          isCollapse
-            ? {
-                height: 36,
-              }
-            : undefined
+          isCollapse ? { justifyContent: 'center' as const } : undefined
         }
       />
     );
@@ -255,82 +249,18 @@ function DesktopCustomTabBarItem({
     isActive,
     label,
     tab?.favicon,
+    tab?.isPinned,
     testID,
     actionListItems,
-    closeTab,
+    closeOrUnpinTab,
+    closeButtonTitle,
     onPress,
   ]);
-
-  const [showTooltip, setShowTooltip] = useState(false);
-  const showTooltipRef = useRef(showTooltip);
-  showTooltipRef.current = showTooltip;
-  const showTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleHoverIn = useCallback(() => {
-    if (showTooltipRef.current) {
-      if (closeTooltipTimer.current) {
-        clearTimeout(closeTooltipTimer.current);
-      }
-    } else {
-      showTooltipTimer.current = setTimeout(() => {
-        setShowTooltip(true);
-      }, 250);
-    }
-  }, []);
-  const handleHoverOut = useCallback(() => {
-    if (showTooltipRef.current) {
-      closeTooltipTimer.current = setTimeout(() => {
-        setShowTooltip(false);
-      }, 250);
-    } else if (showTooltipTimer.current) {
-      clearTimeout(showTooltipTimer.current);
-    }
-  }, []);
 
   if (!tab) {
     return null;
   }
 
-  if (isCollapse) {
-    return (
-      <Tooltip
-        open={showTooltip}
-        placement="right"
-        renderContent={
-          <XStack
-            gap="$2"
-            onHoverIn={handleHoverIn}
-            onHoverOut={handleHoverOut}
-          >
-            <IconButton
-              size="small"
-              icon="CrossedSmallOutline"
-              variant="tertiary"
-              focusVisibleStyle={undefined}
-              title={
-                <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
-                  {intl.formatMessage({
-                    id: ETranslations.global_close,
-                  })}
-                </Tooltip.Text>
-              }
-              onPress={closeTab}
-            />
-            <DesktopTabItemImage avatarSrc={tab?.favicon} selected={isActive} />
-            <SizableText size="$bodyMd" numberOfLines={1}>
-              {label}
-            </SizableText>
-          </XStack>
-        }
-        renderTrigger={
-          <Stack onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
-            {tabItem}
-          </Stack>
-        }
-      />
-    );
-  }
   return tabItem;
 }
 

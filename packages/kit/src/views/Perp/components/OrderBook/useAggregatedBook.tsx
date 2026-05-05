@@ -1,7 +1,6 @@
 import BigNumber from 'bignumber.js';
 
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { formatWithPrecision } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { type ITickParam } from './tickSizeUtils';
@@ -55,7 +54,11 @@ const withDisplayFields = (
     displayCumSize: formatOrderBookValue(level.cumSize, variant),
   }));
 
-// Aggregates in 1 iteration using BigNumber for precision
+// Aggregates levels by tick size in one pass.
+// Size/cumSize tracking uses native Number — display-only values with ≤8 significant
+// digits, no precision loss. BigNumber is kept only for price tick rounding because
+// native floor/ceil can silently misalign on IEEE 754 boundary values (e.g.
+// 40.93 * 100 = 4092.9999... in float64), which BigNumber handles correctly.
 export function aggregateLevels(
   levels: IOBLevel[],
   maxLevelsPerSide: number,
@@ -71,8 +74,8 @@ export function aggregateLevels(
     };
   }
 
-  let cumSizeBN = new BigNumber(0);
-  let maxSizeBN = new BigNumber(0);
+  let cumSize = 0;
+  let maxSize = 0;
   let currLevel: IOBLevel = {
     price: '0',
     size: '0',
@@ -80,15 +83,13 @@ export function aggregateLevels(
   };
   const aggregatedLevels: IOBLevel[] = [currLevel];
 
-  // Pre-compute BigNumber tick factors for fast path rounding
   const tickSizeBN = new BigNumber(tickSize);
   const invTickSizeBN = new BigNumber(1).dividedBy(tickSizeBN);
 
   for (let i = 0; i < levels.length; i += 1) {
     const level = levels[i];
-    const levelSizeBN = new BigNumber(level.size);
-    cumSizeBN = cumSizeBN.plus(levelSizeBN);
-    // Fast path: avoid validation and duplicate toFixed
+    const levelSize = parseFloat(level.size);
+    cumSize += levelSize;
     const roundedPrice =
       roundingMode === 'floor'
         ? floorToTickFast(
@@ -105,22 +106,22 @@ export function aggregateLevels(
     if (currLevel.price === '0' || roundedPrice === currLevel.price) {
       // Add to current level.
       currLevel.price = roundedPrice;
-      const currLevelSizeBN = new BigNumber(currLevel.size).plus(levelSizeBN);
-      currLevel.size = formatWithPrecision(currLevelSizeBN, sizeDecimals);
-      currLevel.cumSize = formatWithPrecision(cumSizeBN, sizeDecimals);
+      currLevel.size = (parseFloat(currLevel.size) + levelSize).toFixed(
+        sizeDecimals,
+      );
+      currLevel.cumSize = cumSize.toFixed(sizeDecimals);
     } else {
       // Create and push new level.
       currLevel = {
         price: roundedPrice,
         size: level.size,
-        cumSize: formatWithPrecision(cumSizeBN, sizeDecimals),
+        cumSize: cumSize.toFixed(sizeDecimals),
       };
       aggregatedLevels.push(currLevel);
     }
 
-    // Update largest level size using BigNumber comparison.
-    if (maxSizeBN.isLessThan(levelSizeBN)) {
-      maxSizeBN = levelSizeBN;
+    if (levelSize > maxSize) {
+      maxSize = levelSize;
     }
 
     // Exit if reached max levels.
@@ -131,7 +132,7 @@ export function aggregateLevels(
 
   return {
     aggregatedLevels,
-    maxSize: formatWithPrecision(maxSizeBN, sizeDecimals),
+    maxSize: maxSize.toFixed(sizeDecimals),
   };
 }
 
@@ -144,7 +145,7 @@ function getMaxSizeFromPrefix(
     Math.max(count - 1, 0),
     Math.max(prefixMaxSizes.length - 1, 0),
   );
-  return prefixMaxSizes[idx] ?? formatWithPrecision(0, sizeDecimals);
+  return prefixMaxSizes[idx] ?? (0).toFixed(sizeDecimals);
 }
 
 function sumAndSlice(
@@ -176,25 +177,28 @@ function sumAndSlice(
   };
 }
 
-// Convert HL.IBookLevel to IOBLevel format using BigNumber for precision
+// Convert HL.IBookLevel to IOBLevel format.
+// Native Number is used instead of BigNumber throughout: HL price/size values are
+// standard decimal strings well within float64 precision, and this is display-only
+// formatting with no financial arithmetic. BigNumber would add 10-50x overhead
+// with zero precision benefit here.
 function convertHLBookLevelsToIOBLevels(
   levels: IBookLevel[],
   priceDecimals: number,
   sizeDecimals: number,
 ): { levels: IOBLevel[]; prefixMaxSizes: string[] } {
-  let cumSizeBN = new BigNumber(0);
-  let runningMaxSizeBN = new BigNumber(0);
+  let cumSize = 0;
+  let runningMax = 0;
   const prefixMaxSizes: string[] = [];
   const converted: IOBLevel[] = levels.map((level) => {
-    const priceBN = new BigNumber(level.px);
-    const sizeBN = new BigNumber(level.sz);
-    cumSizeBN = cumSizeBN.plus(sizeBN);
-    runningMaxSizeBN = BigNumber.maximum(sizeBN, runningMaxSizeBN);
-    prefixMaxSizes.push(runningMaxSizeBN.toFixed(sizeDecimals));
+    const size = parseFloat(level.sz);
+    cumSize += size;
+    if (size > runningMax) runningMax = size;
+    prefixMaxSizes.push(runningMax.toFixed(sizeDecimals));
     return {
-      price: formatWithPrecision(priceBN, priceDecimals),
-      size: formatWithPrecision(sizeBN, sizeDecimals),
-      cumSize: formatWithPrecision(cumSizeBN, sizeDecimals),
+      price: parseFloat(level.px).toFixed(priceDecimals),
+      size: size.toFixed(sizeDecimals),
+      cumSize: cumSize.toFixed(sizeDecimals),
     };
   });
   return { levels: converted, prefixMaxSizes };

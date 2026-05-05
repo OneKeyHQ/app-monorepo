@@ -40,16 +40,26 @@ function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
   const portfolioTabName = intl.formatMessage({
     id: ETranslations.dexmarket_details_myposition,
   });
+  const liquidityPoolsTabName = intl.formatMessage({
+    id: ETranslations.global_liquidity,
+  });
 
   let currentHeader = transactionsHeader;
   if (focusedTab === portfolioTabName) {
     currentHeader = portfolioHeader;
+  } else if (focusedTab === liquidityPoolsTabName) {
+    return null;
   } else if (focusedTab !== firstTabName) {
     currentHeader = holdersHeader;
   }
 
   return (
-    <Stack pointerEvents="none" h={40}>
+    <Stack
+      pointerEvents="box-none"
+      h="$11"
+      justifyContent="center"
+      overflow="hidden"
+    >
       {currentHeader}
     </Stack>
   );

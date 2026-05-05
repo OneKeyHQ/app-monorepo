@@ -1,14 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDocumentSearch2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9.5 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v5m0 9.95a3.5 3.5 0 1 0-5-4.899 3.5 3.5 0 0 0 5 4.899m0 0 1.5 1.55"
+      fillRule="evenodd"
+      d="M16.5 13a4.5 4.5 0 0 1 3.82 6.876l1.594 1.648-1.437 1.391-1.566-1.618A4.5 4.5 0 1 1 16.5 13m0 2a2.5 2.5 0 1 0 1.771 4.263l.019-.018A2.5 2.5 0 0 0 16.5 15"
+      clipRule="evenodd"
     />
+    <Path d="M20 11h-2V4H6v16h4.5v2H4V2h16z" />
   </Svg>
 );
 export default SvgDocumentSearch2;

@@ -62,6 +62,7 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/BatchCreateAccount/BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
 
@@ -478,6 +479,7 @@ function BulkCopyAddresses({
     networkAccounts,
   ]);
 
+  type IFiledNameKeys = keyof typeof formRangeWatchFields;
   const handleFormValueOnChange = useCallback(
     ({
       name,
@@ -488,7 +490,7 @@ function BulkCopyAddresses({
       value: string | undefined;
       intRequired?: boolean;
     }) => {
-      const filedName = name as keyof typeof formRangeWatchFields;
+      const filedName = name as IFiledNameKeys;
       const valueBN = new BigNumber(value ?? 0);
       if (valueBN.isNaN()) {
         const formattedValue = parseFloat(value ?? '');
@@ -533,7 +535,7 @@ function BulkCopyAddresses({
     if (!networkAccountsByDeriveType || isEmpty(networkAccountsByDeriveType)) {
       return (
         <Empty
-          icon="SearchOutline"
+          illustration="WalletOpen"
           title={intl.formatMessage({ id: ETranslations.global_no_results })}
         />
       );
@@ -550,7 +552,7 @@ function BulkCopyAddresses({
                 title={
                   deriveInfo.labelKey
                     ? intl.formatMessage({ id: deriveInfo.labelKey })
-                    : deriveInfo.label ?? ''
+                    : (deriveInfo.label ?? '')
                 }
                 mx={0}
                 px={0}
@@ -609,7 +611,7 @@ function BulkCopyAddresses({
                 ).map(([deriveType, deriveInfo]) => ({
                   label: deriveInfo.labelKey
                     ? intl.formatMessage({ id: deriveInfo.labelKey })
-                    : deriveInfo.label ?? '',
+                    : (deriveInfo.label ?? ''),
                   value: deriveType as IAccountDeriveTypes,
                 }))}
                 floatingPanelProps={{
@@ -796,6 +798,9 @@ function BulkCopyAddresses({
 
   useEffect(() => {
     const getDefaultDeriveType = async () => {
+      if (!selectedNetworkId) {
+        return;
+      }
       const deriveType =
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: selectedNetworkId,
@@ -810,6 +815,21 @@ function BulkCopyAddresses({
       form.setValue('selectedWalletId', availableWallets?.[0]?.id);
     }
   }, [availableWallets, selectedWallet, form]);
+
+  if (availableWallets && availableWallets.length === 0) {
+    return (
+      <Page>
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.global_bulk_copy_addresses,
+          })}
+        />
+        <Page.Body>
+          <EmptyNoWalletView />
+        </Page.Body>
+      </Page>
+    );
+  }
 
   return (
     <Page scrollEnabled>

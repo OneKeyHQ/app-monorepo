@@ -14,7 +14,7 @@ export function ResponsiveTwoColumnLayout({
   leftColumn,
   rightColumn,
   gap = '$5',
-  p = '$5',
+  p = '$pagePadding',
   reverseOnMobile = false,
 }: IResponsiveTwoColumnLayoutProps) {
   return (

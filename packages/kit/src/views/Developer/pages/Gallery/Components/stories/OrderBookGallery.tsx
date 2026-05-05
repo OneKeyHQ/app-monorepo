@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
   OrderBook,
-  OrderBookMobile,
   OrderPairBook,
 } from '@onekeyhq/kit/src/views/Perp/components/OrderBook';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';

@@ -2,10 +2,12 @@ import { useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type {
   EModalSettingRoutes,
   IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useSettingsConfig } from './config';
 import { SubSettingsPage } from './SubSettingsPage';
@@ -14,7 +16,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 type ISettingName = string;
 
-export default function SettingListSubModal() {
+function SettingListSubModalView() {
   const route =
     useRoute<
       RouteProp<IModalSettingParamList, EModalSettingRoutes.SettingListSubModal>
@@ -30,5 +32,18 @@ export default function SettingListSubModal() {
       title={title || ''}
       settingsConfig={filteredSettingsConfig}
     />
+  );
+}
+
+export default function SettingListSubModal() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <SettingListSubModalView />
+    </AccountSelectorProviderMirror>
   );
 }

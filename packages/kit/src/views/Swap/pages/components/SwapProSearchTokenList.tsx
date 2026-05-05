@@ -43,7 +43,7 @@ const SwapProSearchTokenList = ({
       renderItem={renderItem}
       ListEmptyComponent={
         <Empty
-          icon="SearchOutline"
+          illustration="QuestionMark"
           title={intl.formatMessage({
             id: ETranslations.global_no_results,
           })}

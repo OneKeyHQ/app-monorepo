@@ -16,10 +16,12 @@ function WalletActionPerp({
   customization,
   inList,
   onClose,
+  showButtonStyle,
 }: {
   customization?: IActionCustomization;
   inList?: boolean;
   onClose?: () => void;
+  showButtonStyle?: boolean;
 }) {
   const intl = useIntl();
 
@@ -36,11 +38,10 @@ function WalletActionPerp({
     return (
       <ActionList.Item
         trackID="wallet-perp"
-        icon={customization?.icon ?? 'TradingViewCandlesOutline'}
-        label={
-          customization?.label ??
-          intl.formatMessage({ id: ETranslations.global_perp })
-        }
+        icon={customization?.icon ?? 'TradeOutline'}
+        label={intl.formatMessage({
+          id: customization?.labelId ?? ETranslations.global_perp,
+        })}
         onClose={() => {}}
         onPress={handlePress}
       />
@@ -50,8 +51,13 @@ function WalletActionPerp({
   return (
     <RawActions.Perp
       onPress={handlePress}
-      label={customization?.label}
+      label={
+        customization?.labelId
+          ? intl.formatMessage({ id: customization.labelId })
+          : undefined
+      }
       icon={customization?.icon}
+      showButtonStyle={showButtonStyle}
       disabled={customization?.disabled}
     />
   );

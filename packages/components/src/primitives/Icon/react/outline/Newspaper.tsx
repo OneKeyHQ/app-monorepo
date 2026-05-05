@@ -1,13 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgNewspaper = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M13 17H6v-2h7z" />
+    <Path fillRule="evenodd" d="M13 13H6V7h7zm-5-2h3V9H8z" clipRule="evenodd" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16 12V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v11.5A2.5 2.5 0 0 0 5.5 20h13M16 12v5.5a2.5 2.5 0 0 0 2.5 2.5M16 12h3a2 2 0 0 1 2 2v3.5a2.5 2.5 0 0 1-2.5 2.5M7 16h5M7 8h5v4H7z"
+      fillRule="evenodd"
+      d="M17 11h5v6.5a3.5 3.5 0 0 1-3.5 3.5h-13A3.5 3.5 0 0 1 2 17.5V3h15zM4 17.5A1.5 1.5 0 0 0 5.5 19h9.837A3.5 3.5 0 0 1 15 17.5V5H4zm13 0a1.5 1.5 0 0 0 3 0V13h-3z"
+      clipRule="evenodd"
     />
   </Svg>
 );

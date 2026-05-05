@@ -1,13 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPeopleCopy = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M17 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2m2.527 4a4.5 4.5 0 0 1 8.945 0M16 12.5a2 2 0 1 1-4 0 2 2 0 0 1 4 0m3 8.5H9a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2"
+      fillRule="evenodd"
+      d="M14 9.5a3 3 0 1 1 0 6 3 3 0 0 1 0-6m0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M18 6h4v16H6v-4H2V2h16zM8 20h.709a5.502 5.502 0 0 1 10.585 0H20V8H8zm6.002-2a3.5 3.5 0 0 0-3.16 2h6.32a3.5 3.5 0 0 0-3.16-2M4 16h2V6h10V4H4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

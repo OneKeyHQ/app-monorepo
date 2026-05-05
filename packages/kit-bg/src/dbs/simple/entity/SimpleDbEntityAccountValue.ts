@@ -24,11 +24,12 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
 
   async getAccountsValue({ accounts }: { accounts: { accountId: string }[] }) {
     const rawData = await this.getRawData();
+    const data = rawData?.data;
 
     return accounts.map(({ accountId }) => ({
       accountId,
-      value: rawData?.data[accountId]?.value,
-      currency: rawData?.data[accountId]?.currency,
+      value: data?.[accountId]?.value,
+      currency: data?.[accountId]?.currency,
     }));
   }
 
@@ -91,11 +92,12 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     accounts: { accountId: string }[];
   }) {
     const rawData = await this.getRawData();
+    const all = rawData?.all;
 
     return accounts.map(({ accountId }) => ({
       accountId,
-      value: rawData?.all[accountId]?.value,
-      currency: rawData?.all[accountId]?.currency,
+      value: all?.[accountId]?.value,
+      currency: all?.[accountId]?.currency,
     }));
   }
 }

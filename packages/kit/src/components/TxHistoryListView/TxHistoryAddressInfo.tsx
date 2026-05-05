@@ -36,6 +36,7 @@ function TxHistoryAddressInfo({
             }}
             size="$bodyMd"
             color="$textSubdued"
+            numberOfLines={1}
           >
             {badge.label}
           </SizableText>
@@ -50,7 +51,7 @@ function TxHistoryAddressInfo({
           px="$3"
           py="$3"
           $md={{
-            px: '$5',
+            px: '$pagePadding',
             pt: '$2',
           }}
           onPress={(event: GestureResponderEvent) => {

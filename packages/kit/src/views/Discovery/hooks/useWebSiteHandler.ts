@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -16,7 +15,6 @@ interface IHandleWebSiteParams {
   webSite?: IBrowserBookmark | IBrowserHistory;
   dApp?: IDApp;
   useSystemBrowser?: boolean;
-  shouldPopNavigation?: boolean;
   useCurrentWindow?: boolean;
   enterMethod: EEnterMethod;
   tabId?: string;
@@ -25,7 +23,6 @@ interface IHandleWebSiteParams {
 export const useWebSiteHandler = () => {
   const { handleOpenWebSite } = useBrowserAction().current;
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
   const { activeTabId } = useActiveTabId();
 
   return useCallback(
@@ -34,7 +31,6 @@ export const useWebSiteHandler = () => {
         webSite,
         dApp,
         useSystemBrowser,
-        shouldPopNavigation,
         enterMethod,
         useCurrentWindow,
         tabId,
@@ -56,8 +52,6 @@ export const useWebSiteHandler = () => {
           webSite,
           dApp,
           navigation,
-          shouldPopNavigation,
-          switchToMultiTabBrowser: gtMd,
           useCurrentWindow,
           tabId: effectiveTabId,
         });
@@ -69,6 +63,6 @@ export const useWebSiteHandler = () => {
         enterMethod,
       });
     },
-    [navigation, handleOpenWebSite, gtMd, activeTabId],
+    [navigation, handleOpenWebSite, activeTabId],
   );
 };

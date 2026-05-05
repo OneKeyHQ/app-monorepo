@@ -120,11 +120,15 @@ export class E2EEClientToClientApi {
   async verifyPairingCode(
     keyExchangeRequest: IECDHEKeyExchangeRequest,
   ): Promise<IECDHEKeyExchangeResponse> {
-    const { userId, encryptedData, clientPublicKey } = keyExchangeRequest;
+    const {
+      userId: _userId,
+      encryptedData,
+      clientPublicKey,
+    } = keyExchangeRequest;
 
     if (isVerifiedRoomId === this.roomId) {
       const message = appLocale.intl.formatMessage({
-        // eslint-disable-next-line spellcheck/spell-checker
+        // oxlint-disable-next-line @cspell/spellchecker
         id: ETranslations.global_connet_error_try_again,
       });
       appEventBus.emit(EAppEventBusNames.PrimeTransferForceExit, {

@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgStreaming = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M2 7a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3zm15.75 2.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5M14.5 11a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0m-6.69 6.061C8.39 16.09 9.786 15 12 15s3.61 1.089 4.19 2.061c.284.475-.138.939-.69.939h-7c-.552 0-.974-.464-.69-.939"
+      d="M22 20H2V4h20zm-10-5c-3 0-4.5 2-4.5 3h9c0-1-1.5-3-4.5-3m0-6.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M17.75 7a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5"
       clipRule="evenodd"
     />
   </Svg>

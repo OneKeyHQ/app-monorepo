@@ -1,4 +1,4 @@
-import { forwardRef, useCallback } from 'react';
+import { forwardRef, useCallback, useMemo } from 'react';
 import type { ForwardedRef } from 'react';
 
 import DraggableFlatList, {
@@ -18,6 +18,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { TabsDraggableFlatList } from '../../composite/Tabs/TabsDraggableFlatList';
+
 import sortableListViewUtils from './sortableListViewUtils';
 
 import type { ISortableListViewProps, ISortableListViewRef } from './types';
@@ -27,12 +29,15 @@ import type {
   RenderItem,
 } from 'react-native-draggable-flatlist';
 
+const ANIMATION_CONFIG = { damping: 25, stiffness: 400, mass: 0.4 };
+
 function BaseSortableListView<T>(
   {
     data,
     keyExtractor,
     renderItem,
     enabled = true,
+    tabIntegrated,
     containerStyle = {},
     contentContainerStyle = {},
     columnWrapperStyle,
@@ -98,14 +103,23 @@ function BaseSortableListView<T>(
     [onDragEnd],
   );
 
+  const resolvedContainerStyle = useMemo(
+    () => [{ flex: 1 }, rawContainerStyle],
+    [rawContainerStyle],
+  );
+
+  const ListComponent = tabIntegrated
+    ? TabsDraggableFlatList
+    : DraggableFlatList;
+
   return (
-    <DraggableFlatList<T>
+    <ListComponent<T>
       ref={ref}
       style={style as StyleProp<ViewStyle>}
       onDragBegin={reloadOnDragBegin}
       onDragEnd={reloadOnDragEnd}
       activationDistance={enabled ? activeDistance : 100_000}
-      containerStyle={[{ flex: 1 }, rawContainerStyle]}
+      containerStyle={resolvedContainerStyle}
       columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}
       ListFooterComponentStyle={listFooterStyle}
@@ -115,6 +129,7 @@ function BaseSortableListView<T>(
       renderItem={renderItem as RenderItem<T>}
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
+      animationConfig={ANIMATION_CONFIG}
       {...restProps}
     />
   );

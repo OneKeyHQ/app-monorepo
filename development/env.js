@@ -1,15 +1,19 @@
+const fs = require('fs');
 const path = require('path');
-const dotenv = require('dotenv');
+
 const dateFns = require('date-fns');
+const dotenv = require('dotenv');
+
+const envPaths = [
+  // priority: high -> low
+  path.resolve(__dirname, '../.env.version'),
+  path.resolve(__dirname, '../.env.expo'),
+  path.resolve(__dirname, '../.env'),
+].filter((p) => fs.existsSync(p));
 
 const results = [
   dotenv.config({
-    path: [
-      // priority: high -> low
-      path.resolve(__dirname, '../.env.version'),
-      path.resolve(__dirname, '../.env.expo'),
-      path.resolve(__dirname, '../.env'),
-    ],
+    path: envPaths,
   }),
 ];
 
@@ -18,6 +22,7 @@ if (process.env.NODE_ENV !== 'production') {
 
   process.env.BUILD_NUMBER =
     process.env.BUILD_NUMBER || `${dateFns.format(Date.now(), 'MMddHHmm')}-dev`;
+  process.env.BUNDLE_VERSION = process.env.BUNDLE_VERSION || '1000000';
 }
 
 process.env.BUILD_TIME = Date.now();

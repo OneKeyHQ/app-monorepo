@@ -1,0 +1,1 @@
+export { HardwareSalesRewardHeader } from './HardwareSalesRewardHeader';

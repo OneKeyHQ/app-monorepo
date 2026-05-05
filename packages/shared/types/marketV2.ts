@@ -1,7 +1,28 @@
-/* eslint-disable spellcheck/spell-checker */
+export interface IBtcMetadataNextHalving {
+  nextHalvingBlockHeight: number;
+  blocksUntilHalving: number;
+  estimatedSecondsUntilHalving: number;
+}
+
+export interface IBtcMetadata {
+  marketCap: string;
+  circulatingSupply: string;
+  remainingSupply: string;
+  totalSupply: string;
+  fdv: string;
+  blockHeight: string;
+  blockReward: string;
+  nextHalving: IBtcMetadataNextHalving;
+  updatedAt: string;
+  stale: boolean;
+}
+
 export interface IMarketTokenDetail {
+  networkId?: string;
+  isNative?: boolean;
   address: string;
   logoUrl: string;
+  logoUrls?: string[];
   name: string;
   symbol: string;
   decimals: number;
@@ -20,6 +41,7 @@ export interface IMarketTokenDetail {
     warningMessage?: string;
   };
   price?: string;
+  priceConverted?: string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;
@@ -91,6 +113,8 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   communityRecognized?: boolean;
+  stock?: IMarketStockInfo;
+  btcMetadata?: IBtcMetadata;
   [key: string]: unknown;
 }
 
@@ -112,9 +136,47 @@ export interface IMarketTokenListItemExtraData {
   [key: string]: unknown;
 }
 
+export interface IMarketStockAssetAnalysis {
+  volume24h?: string;
+  volumeShares?: string;
+  turnoverRate?: string;
+  avgDailyVolume1y?: string;
+  weekHigh52?: string;
+  weekLow52?: string;
+}
+
+export interface IMarketStockTradingActivity {
+  peRatio?: string;
+  pbRatio?: string;
+  psRatio?: string;
+  roe?: string;
+  roa?: string;
+  netProfitMargin?: string;
+  debtToEquity?: string;
+  dividendYield?: string;
+}
+
+export interface IMarketStockInfo {
+  title?: string;
+  subtitle: string;
+  source?: string;
+  sourceLogoUri: string;
+  isOpen?: boolean;
+  // Localized description from backend (tooltip when open, countdown + tooltip when closed)
+  description?: string;
+  assetAnalysis?: IMarketStockAssetAnalysis;
+  tradingActivity?: IMarketStockTradingActivity;
+  dividendPerShare?: string;
+  marketCap?: string;
+  sharesOutstanding?: string;
+  underlyingAssetTicker?: string;
+  underlyingAssetName?: string;
+}
+
 export interface IMarketTokenListItem {
   address: string;
   logoUrl?: string;
+  logoUrls?: string[];
   name: string;
   symbol: string;
   decimals: number;
@@ -182,6 +244,8 @@ export interface IMarketTokenListItem {
   liquidity?: string;
   chainId?: string;
   communityRecognized?: boolean;
+  isNative?: boolean;
+  stock?: IMarketStockInfo;
 }
 
 export interface IMarketTokenListResponse {
@@ -233,6 +297,7 @@ export interface IMarketTokenTransactionsResponse {
 export interface IMarketAccountTokenTransactionParty {
   amount: string;
   address: string;
+  symbol: string;
 }
 
 export interface IMarketAccountTokenTransaction {
@@ -264,6 +329,57 @@ export interface IMarketTokenHolder {
 
 export interface IMarketTokenHoldersResponse {
   list: IMarketTokenHolder[];
+}
+
+export type IMarketTokenTopLiquidityValue = string | number | null;
+
+export interface IMarketTokenTopLiquidityToken {
+  address?: string | null;
+  name?: string | null;
+  symbol?: string | null;
+  tokenSymbol?: string | null;
+  tokenAmount?: IMarketTokenTopLiquidityValue;
+  logoUrl?: string | null;
+  decimals?: number | null;
+  [key: string]: unknown;
+}
+
+export interface IMarketTokenTopLiquidityItem {
+  networkId?: string | null;
+  pool?: string | null;
+  pairName?: string | null;
+  poolName?: string | null;
+  pairAddress?: string | null;
+  poolAddress?: string | null;
+  contractAddress?: string | null;
+  dexName?: string | null;
+  dexLogoUri?: string | null;
+  dexLogoUrl?: string | null;
+  protocolName?: string | null;
+  protocolLogoUri?: string | null;
+  protocolLogoUrl?: string | null;
+  liquidity?: IMarketTokenTopLiquidityValue;
+  liquidityUsd?: IMarketTokenTopLiquidityValue;
+  reserveInUsd?: IMarketTokenTopLiquidityValue;
+  tvl?: IMarketTokenTopLiquidityValue;
+  liquidityProviderFeePercent?: IMarketTokenTopLiquidityValue;
+  liquidityProviderFeeRate?: IMarketTokenTopLiquidityValue;
+  feeRate?: IMarketTokenTopLiquidityValue;
+  lpFeeRate?: IMarketTokenTopLiquidityValue;
+  feePercent?: IMarketTokenTopLiquidityValue;
+  lpFeePercent?: IMarketTokenTopLiquidityValue;
+  feeBps?: IMarketTokenTopLiquidityValue;
+  lpFeeBps?: IMarketTokenTopLiquidityValue;
+  tokenAddress?: string | null;
+  poolCreator?: string | null;
+  liquidityAmount?: IMarketTokenTopLiquidityToken[] | null;
+  baseToken?: IMarketTokenTopLiquidityToken | null;
+  quoteToken?: IMarketTokenTopLiquidityToken | null;
+  [key: string]: unknown;
+}
+
+export interface IMarketTokenTopLiquidityResponse {
+  list: IMarketTokenTopLiquidityItem[];
 }
 
 export interface IMarketTokenBatchListResponse {
@@ -316,6 +432,17 @@ export interface IMarketBasicConfigFeature {
   [key: string]: unknown;
 }
 
+export interface IMarketBasicConfigLowLiquidKlineSourceToken {
+  networkId: string;
+  tokenAddress: string;
+}
+
+export interface IMarketBasicConfigHyperLiquidKlineSourceToken {
+  networkId: string;
+  tokenAddress: string;
+  symbol: string;
+}
+
 export interface IMarketBasicConfigData {
   tradingViewUrl: string;
   networkList: IMarketBasicConfigNetwork[];
@@ -327,6 +454,47 @@ export interface IMarketBasicConfigData {
     [networkId: string]: IMarketBasicConfigNetworkFeature;
   };
   feature?: IMarketBasicConfigFeature;
+  lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
+  HyperLiquidKlineSourceTokens?: IMarketBasicConfigHyperLiquidKlineSourceToken[];
+  perpsCategories?: IMarketPerpsCategory[];
+  spotCategories?: IMarketSpotCategory[];
+}
+
+export interface IMarketSpotCategory {
+  type: string;
+  name: string;
+  icon?: string;
+}
+
+export interface IMarketPerpsCategory {
+  /** Unique category identifier, e.g. "crypto", "stock", "commodity" */
+  categoryId: string;
+  /** Localized display name, e.g. "Crypto", "Stocks" */
+  name: string;
+}
+
+export interface IMarketPerpsTokenFromServer {
+  name: string;
+  displayName: string;
+  maxLeverage: number;
+  tokenImageUrl: string;
+  markPrice: string;
+  prevDayPrice: string;
+  change24hPercent: number;
+  volume24h: string;
+  openInterest: string;
+  fundingRate: string;
+}
+
+export interface IMarketPerpsTokenListData {
+  tokens: IMarketPerpsTokenFromServer[];
+  updatedAt: number;
+}
+
+export interface IMarketPerpsTokenListResponse {
+  code: number;
+  message: string;
+  data: IMarketPerpsTokenListData;
 }
 
 export interface IMarketBasicConfigResponse {
@@ -340,15 +508,28 @@ export interface IMarketTokenDetailWebsocket {
   kline: boolean;
 }
 
+export interface IMarketPerpsInfo {
+  hlTicker: string;
+}
+
 export interface IMarketTokenDetailData {
   token: IMarketTokenDetail;
   websocket: IMarketTokenDetailWebsocket;
+  perpsInfo?: IMarketPerpsInfo;
 }
 
 export interface IMarketTokenDetailResponse {
   code: number;
   message: string;
   data: IMarketTokenDetailData;
+}
+
+export interface IMarketAccountPortfolioPnl {
+  isPnlSupported: boolean;
+  totalPnlUsd: string;
+  totalPnlPercent: string;
+  unrealizedPnlUsd: string;
+  unrealizedPnlPercent: string;
 }
 
 export interface IMarketAccountPortfolioItem {
@@ -358,6 +539,7 @@ export interface IMarketAccountPortfolioItem {
   symbol: string;
   tokenPrice: string;
   totalPrice: string;
+  pnl?: IMarketAccountPortfolioPnl;
 }
 
 export interface IMarketAccountPortfolioResponse {
@@ -365,6 +547,11 @@ export interface IMarketAccountPortfolioResponse {
 }
 
 // Banner types
+export enum EMarketBannerType {
+  Ticker = 'ticker',
+  Perps = 'perps',
+}
+
 export interface IMarketBannerDescription {
   text: string;
   fontColor: string;
@@ -381,6 +568,7 @@ export interface IMarketBannerItem {
   tokenListId: string;
   description?: IMarketBannerDescription;
   tokenLogos?: string[];
+  type?: EMarketBannerType;
 }
 
 export interface IMarketBannerListResponse {

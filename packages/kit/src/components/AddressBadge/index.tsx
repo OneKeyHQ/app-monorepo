@@ -29,9 +29,9 @@ function BasicAddressBadge({
   const badgeElement = useMemo(
     () => (
       <Badge badgeType={badgeType} badgeSize="sm">
-        <XStack gap="$1" alignItems="center" userSelect="none">
-          {icon ? <Icon name={icon} size="$4" /> : null}
-          <Badge.Text> {title}</Badge.Text>
+        <XStack gap="$1" alignItems="center" userSelect="none" flexShrink={1}>
+          {icon ? <Icon name={icon} size="$4" flexShrink={0} /> : null}
+          <Badge.Text flexShrink={1}>{title}</Badge.Text>
         </XStack>
       </Badge>
     ),

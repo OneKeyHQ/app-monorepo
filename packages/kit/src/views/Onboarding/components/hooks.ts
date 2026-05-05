@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
-import { InteractionManager } from 'react-native';
 
 import type { useForm } from '@onekeyhq/components';
 import { Haptics, useClipboard, useKeyboardEvent } from '@onekeyhq/components';
@@ -269,10 +268,13 @@ export const useSuggestion = (
             words.push(...formValues.slice(words.length, currentPhraseLength));
           }
           form.reset(
-            words.reduce((prev, next, index) => {
-              prev[`phrase${index + 1}`] = next;
-              return prev;
-            }, {} as Record<`phrase${number}`, string>),
+            words.reduce(
+              (prev, next, index) => {
+                prev[`phrase${index + 1}`] = next;
+                return prev;
+              },
+              {} as Record<`phrase${number}`, string>,
+            ),
           );
           resetSuggestions();
           await timerUtils.wait(10);

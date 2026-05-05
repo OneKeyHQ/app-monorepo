@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ComponentRef, ForwardedRef } from 'react';
 
 import { SkeletonView } from '@onekeyfe/react-native-skeleton';
 
@@ -18,11 +19,10 @@ const baseColors = {
   dark: ['#111111', '#333333'],
   light: ['#fafafa', '#cdcdcd'],
 };
-export function BaseSkeleton({
-  colorMode,
-  children,
-  ...props
-}: ISkeletonProps) {
+export function BaseSkeleton(
+  { colorMode, children, ...props }: ISkeletonProps,
+  ref: ForwardedRef<ComponentRef<typeof Stack>>,
+) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
@@ -40,9 +40,21 @@ export function BaseSkeleton({
     return (restProps.radius as number) || DEFAULT_RADIUS;
   }, [restProps.radius]);
 
+  const skeletonStyle = useMemo(
+    () => [
+      style as Record<string, unknown>,
+      {
+        height: (style.height as number) || DEFAULT_SKELETON_SIZE,
+        width: (style.width as number) || '100%',
+      },
+    ],
+    [style],
+  );
+
   const isGroupLoading = useIsGroupLoading();
   return isGroupLoading === undefined || isGroupLoading ? (
     <Stack
+      ref={ref}
       bg="$bg"
       style={style as any}
       height={(style.height as number) || DEFAULT_SKELETON_SIZE}
@@ -52,13 +64,7 @@ export function BaseSkeleton({
       {...restProps}
     >
       <SkeletonView
-        style={[
-          style as any,
-          {
-            height: (style.height as number) || DEFAULT_SKELETON_SIZE,
-            width: (style.width as number) || '100%',
-          },
-        ]}
+        style={skeletonStyle}
         shimmerSpeed={3}
         shimmerGradientColors={colors}
       />

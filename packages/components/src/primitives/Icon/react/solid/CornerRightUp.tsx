@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCornerRightUp = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M11.293 6.793a1 1 0 0 0 1.414 1.414L15 5.914V16a3 3 0 0 1-3 3H4a1 1 0 1 0 0 2h8a5 5 0 0 0 5-5V5.914l2.293 2.293a1 1 0 1 0 1.414-1.414L17.414 3.5a2 2 0 0 0-2.828 0z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M20.414 8.414 19 9.828l-3-3v14.586H4v-2h10V6.828l-3 3-1.414-1.414L15 3z" />
   </Svg>
 );
 export default SvgCornerRightUp;

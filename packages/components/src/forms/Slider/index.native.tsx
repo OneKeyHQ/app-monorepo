@@ -2,20 +2,21 @@ import { useCallback, useRef, useState } from 'react';
 
 import RNSlider from '@react-native-community/slider';
 
-import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  usePropsAndStyle,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../hooks';
 import { XStack, YStack } from '../../primitives';
 
 import type { IBaseSliderProps } from './type';
 import type { LayoutChangeEvent, ViewStyle } from 'react-native';
 
 function SliderSegment({ marked }: { marked: boolean }) {
-  const [bgPrimaryColor, neutral5Color] = useThemeValue([
-    'bgPrimary',
-    'neutral5',
-  ]);
+  const theme = useTheme();
+  const bgPrimaryColor = theme.bgPrimary.val;
+  const neutral5Color = theme.neutral5.val;
   return (
     <XStack
       w={8}
@@ -49,10 +50,9 @@ export function Slider({
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
-  const [bgPrimaryColor, neutral5Color] = useThemeValue([
-    'bgPrimary',
-    'neutral5',
-  ]);
+  const theme = useTheme();
+  const bgPrimaryColor = theme.bgPrimary.val;
+  const neutral5Color = theme.neutral5.val;
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -109,6 +109,14 @@ export function Slider({
     />
   );
 
+  const handlePressMin = useCallback(() => {
+    handleValueChange(min);
+  }, [handleValueChange, min]);
+
+  const handlePressMax = useCallback(() => {
+    handleValueChange(max);
+  }, [handleValueChange, max]);
+
   const value = props.value ?? props.defaultValue;
   return segments ? (
     <YStack position="relative" onLayout={handleLayout}>
@@ -123,9 +131,7 @@ export function Slider({
         >
           <XStack
             left={platformEnv.isNativeAndroid ? 12 : 2}
-            onPress={() => {
-              handleValueChange(min);
-            }}
+            onPress={handlePressMin}
           >
             <SliderSegment key={-1} marked />
           </XStack>
@@ -141,9 +147,7 @@ export function Slider({
           ))}
           <XStack
             right={platformEnv.isNativeAndroid ? 12 : 2}
-            onPress={() => {
-              handleValueChange(max);
-            }}
+            onPress={handlePressMax}
           >
             <SliderSegment key={segments ?? 1} marked={value === max} />
           </XStack>

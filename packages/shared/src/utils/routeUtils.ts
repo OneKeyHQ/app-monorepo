@@ -11,6 +11,7 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
   ETabDeveloperRoutes,
+  ETabHomeRoutes,
   ETabMarketRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
@@ -29,6 +30,7 @@ export type IScreenPathConfig = Record<
   {
     path: string;
     exact: boolean;
+    initialRouteName?: string;
     screens?: IScreenPathConfig;
   }
 >;
@@ -154,10 +156,25 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabReferAFriend}`]:
-      { showUrl: true, showParams: false },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabInviteReward}`]:
-      { showUrl: true, showParams: false },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketNativeDetail}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    ...(!platformEnv.isNative
+      ? {
+          [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabReferAFriend}`]:
+            {
+              showUrl: true,
+              showParams: false,
+            },
+          [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabInviteReward}`]:
+            {
+              showUrl: true,
+              showParams: false,
+            },
+        }
+      : {}),
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Earn}`]: {
       showUrl: true,
       showParams: true,
@@ -204,11 +221,6 @@ export const buildAllowList = (
     //     showParams: true,
     //   },
 
-    // Me Pages
-    // [pagePath`${ERootRoutes.Main}${ETabRoutes.Me}${ETabMeRoutes.TabMe}`]: {
-    //   showUrl: true,
-    //   showParams: true,
-    // },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.ReferFriendsModal}${EModalReferFriendsRoutes.ReferAFriend}`]:
       {
         showUrl: true,
@@ -229,6 +241,17 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHomeBulkSendAddressesInput}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHomeBulkSendAmountsInput}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    // eslint-disable-next-line no-nested-ternary
     ...(perpTabShowWeb
       ? {
           [pagePath`${ERootRoutes.Main}${ETabRoutes.WebviewPerpTrade}`]: {
@@ -236,16 +259,14 @@ export const buildAllowList = (
             showParams: true,
           },
         }
-      : {
-          ...(!perpDisabled
-            ? {
-                [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
-                  showUrl: true,
-                  showParams: true,
-                },
-              }
-            : {}),
-        }),
+      : !perpDisabled
+        ? {
+            [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
+              showUrl: true,
+              showParams: true,
+            },
+          }
+        : {}),
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isExtension) {

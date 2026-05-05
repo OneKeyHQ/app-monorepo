@@ -42,7 +42,7 @@ export class V4MigrationLogger {
       this.detailsWallet[v4walletId] = this.detailsWallet[v4walletId] || {};
       if (v4device)
         this.detailsWallet[v4walletId].v4device = cloneDeep(v4device);
-    } catch (error) {
+    } catch (_error) {
       //
     }
   }
@@ -59,7 +59,7 @@ export class V4MigrationLogger {
       this.detailsWallet[v4walletId] = this.detailsWallet[v4walletId] || {};
       if (v5device)
         this.detailsWallet[v4walletId].v5device = cloneDeep(v5device);
-    } catch (error) {
+    } catch (_error) {
       //
     }
   }
@@ -76,7 +76,7 @@ export class V4MigrationLogger {
       this.detailsWallet[v4walletId] = this.detailsWallet[v4walletId] || {};
       if (v4wallet)
         this.detailsWallet[v4walletId].v4wallet = cloneDeep(v4wallet);
-    } catch (error) {
+    } catch (_error) {
       //
     }
   }
@@ -93,7 +93,7 @@ export class V4MigrationLogger {
       this.detailsWallet[v4walletId] = this.detailsWallet[v4walletId] || {};
       if (v5wallet)
         this.detailsWallet[v4walletId].v5wallet = cloneDeep(v5wallet);
-    } catch (error) {
+    } catch (_error) {
       //
     }
   }
@@ -120,7 +120,7 @@ export class V4MigrationLogger {
         this.detailsAccount[v4accountId].v4accountFixed = item;
         return item;
       }
-    } catch (error) {
+    } catch (_error) {
       //
     }
   }
@@ -136,7 +136,7 @@ export class V4MigrationLogger {
       this.detailsAccount[v4accountId] = this.detailsAccount[v4accountId] || {};
       if (v5account)
         this.detailsAccount[v4accountId].v5account = cloneDeep(v5account);
-    } catch (error) {
+    } catch (_error) {
       //
     }
   }
@@ -156,7 +156,7 @@ export class V4MigrationLogger {
           // hideSeconds: true,
         })} [${name}] #${type}# ${payload || ''}`,
       );
-    } catch (error) {
+    } catch (_error) {
       //
     }
   }
@@ -206,7 +206,7 @@ export class V4MigrationLogger {
       if (!logErrorOnly && logResultFn) {
         try {
           this.log({ name, type: 'result', payload: logResultFn(result) });
-        } catch (error) {
+        } catch (_error) {
           //
         }
       }

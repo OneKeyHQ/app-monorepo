@@ -26,7 +26,7 @@ export class HardwareProcessingManager {
       };
 
       this.registerCancelCallback(connectId, cancelCallback);
-      fn()
+      void fn()
         .then((result) => {
           resolve(result);
         })

@@ -10,7 +10,6 @@ function ensureNotPromise<T>(value: T) {
     valueLikePromise.value &&
     valueLikePromise.status
   ) {
-    debugger;
     throw new OneKeyLocalError('jotai value should not be a promise');
   }
 }

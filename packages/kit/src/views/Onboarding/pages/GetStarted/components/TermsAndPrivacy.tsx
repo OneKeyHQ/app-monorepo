@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { Anchor, SizableText } from '@onekeyhq/components';
+import { Anchor, SizableText, useMedia } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -17,6 +17,7 @@ interface ITermsAndPrivacyProps {
 
 export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const termsLink = useHelpLink({
     path: 'articles/11461297',
   });
@@ -32,6 +33,8 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
             openUrlExternal(link);
           }}
           size="$bodySm"
+          textDecorationLine="underline"
+          color="$textDisabled"
         >
           {chunks[0]}
         </SizableText>
@@ -39,9 +42,12 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
         <Anchor
           href={link}
           size="$bodySm"
-          color="$textSubdued"
+          color="$textDisabled"
           target="_blank"
-          textDecorationLine="none"
+          showExternalIndicator={false}
+          $gtMd={{
+            size: '$bodyMd',
+          }}
         >
           {chunks}
         </Anchor>
@@ -65,8 +71,9 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
       size="$bodySm"
       color="$textDisabled"
       textAlign="center"
-      $md={{
-        maxWidth: '$80',
+      $gtMd={{
+        size: '$bodyMd',
+        alignSelf: 'flex-start',
       }}
       {...(props?.contentContainerProps as any)}
     >
@@ -75,6 +82,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
         {
           termsTag: renderTermsTag,
           privacyTag: renderPrivacyTag,
+          br: () => (gtMd ? ' ' : '\n'),
         },
       )}
     </SizableText>

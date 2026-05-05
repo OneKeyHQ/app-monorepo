@@ -66,6 +66,24 @@ export class FirmwareScene extends BaseScene {
   }
 
   @LogToServer()
+  public firmwareSwitchStart(params: {
+    deviceType: IDeviceType | undefined;
+    fromFirmwareType: EFirmwareType | undefined;
+    toFirmwareType: EFirmwareType | undefined;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  public firmwareSwitchSuccess(params: {
+    deviceType: IDeviceType | undefined;
+    fromFirmwareType: EFirmwareType | undefined;
+    toFirmwareType: EFirmwareType | undefined;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
   @LogToLocal()
   public firmwareUpdateResult(params: {
     deviceType: IDeviceType | undefined;

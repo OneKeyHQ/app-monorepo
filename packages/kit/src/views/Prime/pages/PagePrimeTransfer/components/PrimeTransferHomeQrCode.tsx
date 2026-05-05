@@ -18,7 +18,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,7 +26,6 @@ import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTran
 export function PrimeTransferHomeQrCode() {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [primeTransferAtom] = usePrimeTransferAtom();
-  const themeVariant = useThemeVariant();
   const websocketConnected = primeTransferAtom.websocketConnected;
   const { gtMd } = useMedia();
 

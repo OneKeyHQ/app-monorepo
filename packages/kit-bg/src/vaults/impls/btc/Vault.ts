@@ -97,14 +97,15 @@ import { settingsPersistAtom } from '../../../states/jotai/atoms';
 import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientBtc } from './sdkBtc/ClientBtc';
 
-import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
-import type { KeyringBase } from '../../base/KeyringBase';
+import type { IDBUtxoAccount } from '../../../dbs/local/types';
+import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
@@ -555,6 +556,73 @@ export default class VaultBtc extends VaultBase {
     });
   }
 
+  override async buildBulkSendEncodedTxs(params: {
+    transfersInfo: ITransferInfo[];
+  }): Promise<{
+    encodedTxs: IEncodedTxBtc[];
+    transfersInfoChunks: ITransferInfo[][];
+    ataCount?: number;
+  }> {
+    const { transfersInfo } = params;
+
+    if (!transfersInfo || transfersInfo.length === 0) {
+      throw new OneKeyLocalError('transfersInfo is required');
+    }
+
+    const MAX_OUTPUTS_PER_TX = 200;
+    const encodedTxs: IEncodedTxBtc[] = [];
+    const transfersInfoChunks: ITransferInfo[][] = [];
+
+    for (let i = 0; i < transfersInfo.length; i += MAX_OUTPUTS_PER_TX) {
+      const chunk = transfersInfo.slice(i, i + MAX_OUTPUTS_PER_TX);
+      transfersInfoChunks.push(chunk);
+
+      const encodedTx = await this._buildEncodedTxFromBatchTransfer({
+        transfersInfo: chunk,
+      });
+      encodedTxs.push(encodedTx);
+    }
+
+    return { encodedTxs, transfersInfoChunks };
+  }
+
+  override async refreshUnsignedTxBeforeBatchSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    // Rebuild the transaction with fresh UTXOs from the network
+    // to avoid double-spend when sending multiple chunked BTC transactions
+    if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {
+      return unsignedTx;
+    }
+    // Preserve the user-selected fee rate from the existing encoded tx
+    // fee/txSize gives sat/vbyte, must convert to BTC/vbyte for _buildTransferParamsWithCoinSelector
+    const network = await this.getNetwork();
+    let specifiedFeeRate: string | undefined;
+    const existingEncodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
+    if (existingEncodedTx?.fee && existingEncodedTx?.txSize) {
+      specifiedFeeRate = new BigNumber(existingEncodedTx.fee)
+        .div(existingEncodedTx.txSize)
+        .shiftedBy(-network.feeMeta.decimals)
+        .toFixed();
+    }
+    // Clear the UTXO cache to ensure fresh UTXOs are fetched
+    this._collectUTXOsInfoByApiWithCache.clear();
+    const encodedTx = await this._buildEncodedTxFromBatchTransfer({
+      transfersInfo: unsignedTx.transfersInfo,
+      specifiedFeeRate,
+    });
+    const newUnsignedTx = await this._buildUnsignedTxFromEncodedTx({
+      encodedTx,
+      transfersInfo: unsignedTx.transfersInfo,
+    });
+    // Preserve transfersInfo, uuid, accountId, networkId, indexedAccountId
+    // from the original unsignedTx, as _buildUnsignedTxFromEncodedTx returns a new object
+    return {
+      ...unsignedTx,
+      ...newUnsignedTx,
+    };
+  }
+
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
@@ -657,9 +725,8 @@ export default class VaultBtc extends VaultBase {
   override async validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    const { result, inputDecoded: input } = await this.baseValidateGeneralInput(
-      params,
-    );
+    const { result, inputDecoded: input } =
+      await this.baseValidateGeneralInput(params);
 
     if (result.addressResult?.isValid && result.addressResult?.encoding) {
       const settings = await this.getVaultSettings();
@@ -734,10 +801,11 @@ export default class VaultBtc extends VaultBase {
     throw new OneKeyLocalError('getCoinSelectTxType ERROR: Invalid encoding');
   }
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
+  override keyringMap: IKeyringMap = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,
+    hwLedger: KeyringHardwareLedger,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringWatching,
@@ -788,72 +856,100 @@ export default class VaultBtc extends VaultBase {
     }
 
     return {
-      inputs: inputs.map(({ txid, amount, ...keep }) => ({
-        address: account.address,
-        path: '',
-        ...keep,
-        txid,
-        value: amount,
-      })),
-      outputs: outputs.map(({ type, amount, address, path, script }) => {
-        const valueText = amount;
+      inputs: inputs.map(
+        ({
+          txid,
+          amount,
+          ...keep
+        }: {
+          txid: string;
+          amount: string;
+          vout: number;
+          coinbase: boolean;
+          own: boolean;
+          confirmations: number;
+          required?: boolean;
+        }) => ({
+          address: account.address,
+          path: '',
+          ...keep,
+          txid,
+          value: amount,
+        }),
+      ),
+      outputs: outputs.map(
+        ({
+          type,
+          amount,
+          address,
+          path,
+          script,
+        }: {
+          type?: string;
+          amount?: string;
+          address?: string;
+          path?: string;
+          script?: string;
+        }) => {
+          const valueText = amount;
 
-        // OP_RETURN output
-        if (
-          type === 'opreturn' &&
-          valueText &&
-          new BigNumber(valueText).eq(0) &&
-          !address &&
-          script === transferInfo.opReturn
-        ) {
-          return {
-            address: '',
-            value: valueText,
-            payload: {
-              opReturn: transferInfo.opReturn,
-            },
-          };
-        }
+          // OP_RETURN output
+          if (
+            type === 'opreturn' &&
+            valueText &&
+            new BigNumber(valueText).eq(0) &&
+            !address &&
+            script === transferInfo.opReturn
+          ) {
+            return {
+              address: '',
+              value: valueText,
+              payload: {
+                opReturn: transferInfo.opReturn,
+              },
+            };
+          }
 
-        if (!valueText || new BigNumber(valueText).lte(0)) {
-          throw new OneKeyLocalError(
-            'buildEncodedTxFromBatchTransfer ERROR: Invalid value',
-          );
-        }
-
-        if (!address) {
-          throw new OneKeyLocalError(
-            'buildEncodedTxFromBatchTransfer ERROR: Invalid output address',
-          );
-        }
-
-        if (type === 'payment') {
-          return {
-            address,
-            value: valueText,
-          };
-        }
-
-        if (type === 'change') {
-          if (!path) {
+          if (!valueText || new BigNumber(valueText).lte(0)) {
             throw new OneKeyLocalError(
-              'buildEncodedTxFromBatchTransfer ERROR: Invalid change path',
+              'buildEncodedTxFromBatchTransfer ERROR: Invalid value',
             );
           }
-          return {
-            address,
-            value: valueText,
-            payload: {
-              isChange: true,
-              bip44Path: path,
-            },
-          };
-        }
 
-        throw new OneKeyLocalError(
-          'buildEncodedTxFromBatchTransfer ERROR: Invalid output type',
-        );
-      }),
+          if (!address) {
+            throw new OneKeyLocalError(
+              'buildEncodedTxFromBatchTransfer ERROR: Invalid output address',
+            );
+          }
+
+          if (type === 'payment') {
+            return {
+              address,
+              value: valueText,
+            };
+          }
+
+          if (type === 'change') {
+            if (!path) {
+              throw new OneKeyLocalError(
+                'buildEncodedTxFromBatchTransfer ERROR: Invalid change path',
+              );
+            }
+            return {
+              address,
+              value: valueText,
+              payload: {
+                isChange: true,
+                bip44Path: path,
+              },
+            };
+          }
+
+          throw new OneKeyLocalError(
+            'buildEncodedTxFromBatchTransfer ERROR: Invalid output type',
+          );
+        },
+      ),
       inputsForCoinSelect,
       outputsForCoinSelect,
       fee: fee.toString(),
@@ -1013,6 +1109,7 @@ export default class VaultBtc extends VaultBase {
       network: btcForkNetwork,
       changeAddress,
       txType,
+      sortingStrategy: transfersInfo[0]?.opReturn ? 'none' : undefined,
     });
 
     if (hasSelectedUtxos) {
@@ -1151,7 +1248,7 @@ export default class VaultBtc extends VaultBase {
           negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
         }
 
-        return fees.sort((a, b) =>
+        return fees.toSorted((a, b) =>
           new BigNumber(a).comparedTo(new BigNumber(b)),
         );
       } catch (e) {
@@ -1208,7 +1305,7 @@ export default class VaultBtc extends VaultBase {
           );
         }
         return { utxoList, frozenUtxoList, allUtxoList };
-      } catch (e) {
+      } catch (_e) {
         throw new OneKeyInternalError(
           appLocale.intl.formatMessage({
             id: ETranslations.feedback_failed_to_get_utxos,
@@ -1298,7 +1395,8 @@ export default class VaultBtc extends VaultBase {
       xpubSegwit &&
       isEnabledBtcFreshAddress &&
       (accountUtils.isHdAccount({ accountId: account.id }) ||
-        accountUtils.isHwAccount({ accountId: account.id }))
+        accountUtils.isHwAccount({ accountId: account.id }) ||
+        accountUtils.isQrAccount({ accountId: account.id }))
     ) {
       const currentAddress = account.address;
       const freshAddressesMap =

@@ -13,6 +13,10 @@ export enum ECustomOneKeyHardwareError {
   FirmwareUpdateBatteryTooLow = 4081,
 }
 
+export enum ECustomCloudSyncError {
+  OnekeyIdSyncSunsetReminder = 9001,
+}
+
 export enum EOneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
   OneKeyAppError = 'OneKeyAppError',
@@ -22,6 +26,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyServerApiError = 'OneKeyServerApiError',
   LocalDBRecordNotFoundError = 'LocalDBRecordNotFoundError',
   PrimeTransferImportCancelledError = 'PrimeTransferImportCancelledError',
+  RequestLimitExceededError = 'RequestLimitExceededError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
@@ -34,6 +39,7 @@ export enum EOneKeyErrorClassNames {
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
   PrimeLoginDialogCancelError = 'PrimeLoginDialogCancelError',
   PrimeSendEmailOTPCancelError = 'PrimeSendEmailOTPCancelError',
+  OAuthLoginCancelError = 'OAuthLoginCancelError',
   OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
@@ -45,9 +51,11 @@ export enum EOneKeyErrorClassNames {
   HardwareUserCancelFromOutside = 'HardwareUserCancelFromOutside',
   FirmwareUpdateExit = 'FirmwareUpdateExit',
   FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
+  IncorrectPinError = 'IncorrectPinError',
   WebDeviceNotFoundOrNeedsPermission = 'WebDeviceNotFoundOrNeedsPermission',
   DeviceNotOpenedPassphrase = 'DeviceNotOpenedPassphrase',
   DeviceNotFound = 'DeviceNotFound',
+  KeylessDataCorruptedError = 'KeylessDataCorruptedError',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

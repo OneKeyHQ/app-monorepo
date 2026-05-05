@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,7 @@ import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalFirmwareUpdateRoutes } from '@onekeyhq/shared/src/routes';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -31,76 +32,78 @@ export function FirmwareUpdateCheckList({
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
-  const [checkValueList, setCheckValueList] = useState([
-    {
-      label: intl.formatMessage({
-        id: ETranslations.update_i_have_backed_up_my_recovery_phrase,
-      }),
-      emoji: '✅',
-      value: false,
+  const isMountedRef = useRef(true);
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
     },
-    {
-      label: intl.formatMessage({
-        id: platformEnv.isNative
-          ? ETranslations.update_device_connected_via_bluetooth
-          : ETranslations.update_device_connected_via_usb,
-      }),
-      emoji: platformEnv.isNative ? '📲' : '🔌',
-      value: false,
-    },
-    // {
-    //   label: intl.formatMessage({
-    //     id: ETranslations.update_device_fully_charged,
-    //   }),
-    //   emoji: '🔋',
-    //   value: false,
-    // },
-    ...(platformEnv.isNative
-      ? []
-      : [
-          {
-            label: intl.formatMessage({
-              id: ETranslations.update_only_one_device_connected,
-            }),
-            emoji: '📱',
-            value: false,
-          },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.update_all_other_apps_closed,
-            }),
-            emoji: '🆗',
-            value: false,
-          },
-        ]),
-  ]);
-  const onCheckChanged = useCallback(
-    (checkValue: { value: boolean }) => {
-      checkValue.value = !checkValue.value;
-      setCheckValueList([...checkValueList]);
-    },
-    [checkValueList],
+    [],
   );
+
+  const checkItems = useMemo(
+    () => [
+      {
+        id: 'backup',
+        label: intl.formatMessage({
+          id: ETranslations.update_i_have_backed_up_my_recovery_phrase,
+        }),
+        emoji: '✅',
+      },
+      {
+        id: 'connection',
+        label: intl.formatMessage({
+          id: platformEnv.isNative
+            ? ETranslations.update_device_connected_via_bluetooth
+            : ETranslations.update_device_connected_via_usb,
+        }),
+        emoji: platformEnv.isNative ? '📲' : '🔌',
+      },
+      ...(platformEnv.isNative
+        ? []
+        : [
+            {
+              id: 'single-device',
+              label: intl.formatMessage({
+                id: ETranslations.update_only_one_device_connected,
+              }),
+              emoji: '📱',
+            },
+            {
+              id: 'apps-closed',
+              label: intl.formatMessage({
+                id: ETranslations.update_all_other_apps_closed,
+              }),
+              emoji: '🆗',
+            },
+          ]),
+    ],
+    [intl],
+  );
+  const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
+  const onCheckChanged = useCallback((id: string) => {
+    if (!isMountedRef.current) return;
+    setCheckedMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
   const isAllChecked = useMemo(
-    () => checkValueList.every((x) => x.value),
-    [checkValueList],
+    () => checkItems.every((item) => checkedMap[item.id]),
+    [checkItems, checkedMap],
   );
 
   return (
     <Stack>
       <Stack>
-        {checkValueList.map((checkValue) => (
-          <Checkbox
-            key={checkValue.label}
-            value={checkValue.value}
-            label={
-              checkValue.value
-                ? `${checkValue.label} ${checkValue.emoji}`
-                : checkValue.label
-            }
-            onChange={() => onCheckChanged(checkValue)}
-          />
-        ))}
+        {checkItems.map((item) => {
+          const checked = !!checkedMap[item.id];
+          return (
+            <Checkbox
+              key={item.id}
+              value={checked}
+              label={checked ? `${item.label} ${item.emoji}` : item.label}
+              onChange={() => onCheckChanged(item.id)}
+            />
+          );
+        })}
       </Stack>
       <Dialog.Footer
         confirmButtonProps={{
@@ -117,6 +120,14 @@ export function FirmwareUpdateCheckList({
                 const updateFirmwareInfo = result?.updateInfos?.firmware;
                 try {
                   await dialog.close();
+
+                  // Wait for React Native Fabric to complete view cleanup
+                  // This prevents RetryableMountingLayerException during rapid navigation
+                  await timerUtils.wait(150);
+
+                  // Allow workflow to continue even if component unmounts
+                  // The workflow runs in background service and doesn't depend on component lifecycle
+
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateStart,
                     payload: {

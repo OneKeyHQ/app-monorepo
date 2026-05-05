@@ -17,6 +17,7 @@ interface ISortableHeaderCellProps {
   label: string;
   width?: number;
   flex?: number;
+  minWidth?: number;
 }
 
 function BaseSortableHeaderCell({
@@ -24,6 +25,7 @@ function BaseSortableHeaderCell({
   label,
   width,
   flex,
+  minWidth,
 }: ISortableHeaderCellProps) {
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
@@ -72,12 +74,14 @@ function BaseSortableHeaderCell({
       group="card"
       width={width}
       flex={flex}
-      cursor="pointer"
+      flexBasis={typeof flex === 'number' ? 0 : undefined}
+      minWidth={minWidth}
       onPress={handlePress}
       hoverStyle={{ opacity: 0.7 }}
       userSelect="none"
       alignItems="center"
       gap="$0.5"
+      cursor="default"
     >
       <SizableText
         size="$bodySm"

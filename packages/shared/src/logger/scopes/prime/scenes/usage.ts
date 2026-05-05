@@ -1,3 +1,9 @@
+import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+import type {
+  ETranslateDisplayMode,
+  ETranslateEngine,
+} from '@onekeyhq/shared/types/discovery';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
 
@@ -23,6 +29,30 @@ export class PrimeUsageScene extends BaseScene {
   }
 
   /**
+   * Bulk send usage
+   * Triggered when a Prime user successfully completes a bulk send operation
+   */
+  @LogToServer()
+  public bulkSendSuccess({
+    recipientCount,
+    sendMode,
+    network,
+    tokenSymbol,
+  }: {
+    recipientCount: number;
+    sendMode: EBulkSendMode;
+    network: string;
+    tokenSymbol: string;
+  }) {
+    return {
+      recipientCount,
+      sendMode,
+      network,
+      tokenSymbol,
+    };
+  }
+
+  /**
    * 使用批量撤销
    * 触发时机: Prime 用户成功执行一次"批量撤销"操作后触发
    */
@@ -30,6 +60,26 @@ export class PrimeUsageScene extends BaseScene {
   public bulkRevokeSuccess({ revokeCount }: { revokeCount: number }) {
     return {
       revokeCount,
+    };
+  }
+
+  @LogToServer()
+  public dappTranslateSuccess({
+    engine,
+    targetLang,
+    displayMode,
+    dappDomain,
+  }: {
+    engine: ETranslateEngine;
+    targetLang: string;
+    displayMode: ETranslateDisplayMode;
+    dappDomain: string;
+  }) {
+    return {
+      engine,
+      targetLang,
+      displayMode,
+      dappDomain,
     };
   }
 }

@@ -32,15 +32,7 @@ export const SwapTxHistoryAvatar = ({
   fromUri: string;
   toUri: string;
 }) => (
-  <XStack
-    w="$10"
-    h="$10"
-    userSelect="none"
-    alignItems="center"
-    pl="$1"
-    pr="$2.5"
-    py="$1"
-  >
+  <XStack w="$10" h="$10" userSelect="none" alignItems="center" py="$1">
     <YStack
       borderWidth={2}
       borderRadius="$full"
@@ -161,9 +153,8 @@ const SwapTxHistoryListCell = ({
     item.swapInfo.otherFeeInfos,
   ]);
   return (
-    <XStack overflow="visible" flex={1} px="$4">
+    <XStack flex={1} px="$3">
       <XStack
-        mx="$-2"
         px="$2"
         py="$2.5"
         flex={1}
@@ -208,7 +199,7 @@ const SwapTxHistoryListCell = ({
             </SizableText>
           </YStack>
         </XStack>
-        <YStack>
+        <YStack alignItems="flex-end" flexShrink={0}>
           <SizableText
             size="$bodyMdMedium"
             color="$textSuccess"

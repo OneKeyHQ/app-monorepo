@@ -12,13 +12,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   hash160,
   hmacSHA256,
   hmacSHA512,
   sha256,
-} from '@onekeyhq/core/src/secret/hash';
-import appCrypto from '@onekeyhq/shared/src/appCrypto';
+} from '@onekeyhq/shared/src/appCrypto/modules/hash';
 
 const { aesCbcDecrypt: aesCbcDecryptAsync, aesCbcEncrypt: aesCbcEncryptAsync } =
   appCrypto.aesCbc;
@@ -120,8 +120,8 @@ export default function PageDevUnitTests() {
         key.length === 0
           ? 'emptyKey'
           : data.length === 0
-          ? 'emptyData'
-          : 'normal';
+            ? 'emptyData'
+            : 'normal';
       const expected = HASH_TEST_SNAPSHOTS.hmacSHA256[testCase];
       setHmac256Valid(resultHex === expected);
     } catch (error) {
@@ -142,8 +142,8 @@ export default function PageDevUnitTests() {
         key.length === 0
           ? 'emptyKey'
           : data.length === 0
-          ? 'emptyData'
-          : 'normal';
+            ? 'emptyData'
+            : 'normal';
       const expected = HASH_TEST_SNAPSHOTS.hmacSHA512[testCase];
       setHmac512Valid(resultHex === expected);
     } catch (error) {

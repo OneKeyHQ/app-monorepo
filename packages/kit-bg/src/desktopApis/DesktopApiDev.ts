@@ -2,16 +2,19 @@ import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 
 import AdmZip from 'adm-zip';
-import { app, shell } from 'electron';
+import { shell } from 'electron';
 import logger from 'electron-log/main';
 import fetch from 'node-fetch';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
+import { flushDesktopDedup } from '@onekeyhq/desktop/app/logger';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -41,6 +44,20 @@ class DesktopApiDev {
     await shell.openPath(path.dirname(logger.transports.file.getFile().path));
   }
 
+  async exportLoggerZip(params: {
+    fileBaseName: string;
+  }): Promise<{ filePath: string }> {
+    const digest = await this.collectLoggerDigest(params);
+    const mainWindow = this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      throw new OneKeyLocalError('No active window for download');
+    }
+    // Use pathToFileURL to properly handle Windows backslashes, spaces, and special chars
+    const fileUrl = pathToFileURL(digest.filePath).href;
+    mainWindow.webContents.downloadURL(fileUrl);
+    return { filePath: digest.filePath };
+  }
+
   async collectLoggerDigest(params: { fileBaseName: string }): Promise<{
     filePath: string;
     fileName: string;
@@ -52,14 +69,40 @@ class DesktopApiDev {
       throw new OneKeyLocalError('fileBaseName is required');
     }
     const baseName = params.fileBaseName;
+    // Flush pending dedup state (including pendingRepeatPrefix) so nothing is lost on export
+    flushDesktopDedup();
+
     const logFilePath = logger.transports.file.getFile().path;
     const logDir = path.dirname(logFilePath);
     const logFiles = await fsPromises.readdir(logDir);
 
     const zipName = `${baseName}.zip`;
-    const tempDir = path.join(app.getPath('temp'), '@onekeyhq-desktop-logs');
-    await fsPromises.mkdir(tempDir, { recursive: true });
-    const zipPath = path.join(tempDir, zipName);
+    // Store zips in logs_zip/ next to log directory, matching native behavior
+    const zipDir = path.join(path.dirname(logDir), 'logs_zip');
+    await fsPromises.mkdir(zipDir, { recursive: true });
+
+    const zipPath = path.join(zipDir, zipName);
+
+    // Clean up stale zip files (older than 1 hour) to avoid removing
+    // archives that a concurrent upload/download flow may still be using
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    try {
+      const existingZips = await fsPromises.readdir(zipDir);
+      for (const oldZip of existingZips) {
+        if (oldZip.endsWith('.zip') && oldZip !== zipName) {
+          try {
+            const stat = await fsPromises.stat(path.join(zipDir, oldZip));
+            if (Date.now() - stat.mtimeMs > ONE_HOUR_MS) {
+              await fsPromises.unlink(path.join(zipDir, oldZip));
+            }
+          } catch {
+            // ignore individual cleanup errors
+          }
+        }
+      }
+    } catch {
+      // ignore cleanup errors
+    }
 
     const zip = new AdmZip();
     logFiles
@@ -100,19 +143,13 @@ class DesktopApiDev {
     logger.info('[client-log-upload] url:', uploadUrl);
     logger.info('[client-log-upload] filePath:', filePath);
     logger.info('[client-log-upload] sizeBytes:', sizeBytes);
-    logger.info('[client-log-upload] headers:', JSON.stringify(reqHeaders));
-
-    const curlParts = [`curl -X POST '${uploadUrl}'`];
-    Object.entries(reqHeaders).forEach(([key, value]) => {
-      curlParts.push(`-H '${key}: ${value}'`);
-    });
-    curlParts.push(`--data-binary '@${filePath}'`);
-    logger.info('[client-log-upload] curl command:', curlParts.join(' \\\n  '));
+    // headers / curl logs are emitted after withCustomUAHeaders so the values
+    // reflect what is actually sent (including the injected User-Agent).
 
     const totalBytes =
       typeof sizeBytes === 'number' && sizeBytes > 0
         ? sizeBytes
-        : (await fsPromises.stat(filePath)).size ?? 0;
+        : ((await fsPromises.stat(filePath)).size ?? 0);
     const sendProgress = ({
       stage,
       progressPercent,
@@ -168,12 +205,51 @@ class DesktopApiDev {
     });
 
     try {
+      const finalHeaders = await withCustomUAHeaders(uploadUrl, reqHeaders);
+      // Redact sensitive values before logging. Anything written here lands
+      // in app-latest.log and gets re-uploaded inside the next zip, so it
+      // must never contain auth tokens, raw HTML, or other "fuel" for WAF
+      // rules / token replay.
+      const redactedHeaders = Object.fromEntries(
+        Object.entries(finalHeaders).map(([k, v]) =>
+          k.toLowerCase() === 'authorization' ? [k, '[REDACTED]'] : [k, v],
+        ),
+      );
+      logger.info(
+        '[client-log-upload] headers:',
+        JSON.stringify(redactedHeaders),
+      );
+      const curlParts = [`curl -X POST '${uploadUrl}'`];
+      Object.entries(redactedHeaders).forEach(([key, value]) => {
+        curlParts.push(`-H '${key}: ${value}'`);
+      });
+      curlParts.push(`--data-binary '@${filePath}'`);
+      logger.info(
+        '[client-log-upload] curl command:',
+        curlParts.join(' \\\n  '),
+      );
       const response = await fetch(uploadUrl, {
         method: 'POST',
-        headers: reqHeaders,
+        headers: finalHeaders,
         body: fileStream as unknown as any,
       });
       const text = await response.text();
+      // Log only safe metadata. The response body is intentionally NOT
+      // written here — for non-2xx the upstream is often a Cloudflare HTML
+      // error page whose <script>/<iframe>/<style> bytes would otherwise be
+      // captured into app-latest.log and re-uploaded inside the next zip,
+      // tripping CF's OWASP HTML Injection / XSS rule and creating a
+      // self-perpetuating 403 loop. cf-ray is sufficient for backend triage.
+      logger.info(
+        '[client-log-upload] response status:',
+        response.status,
+        'cf-ray:',
+        response.headers.get('cf-ray') ?? 'n/a',
+        'cf-mitigated:',
+        response.headers.get('cf-mitigated') ?? 'n/a',
+        'body-len:',
+        text.length,
+      );
       try {
         const parsed = JSON.parse(text) as Record<string, any>;
         if (typeof parsed.code === 'number') {
@@ -197,14 +273,20 @@ class DesktopApiDev {
           });
         }
         return parsed;
-      } catch (error) {
+      } catch (_error) {
+        // Non-JSON response (typically a CF block page). Surface a stable,
+        // non-HTML error message so the renderer / caller never sees raw
+        // <script>/<iframe> bytes that could be re-logged or rendered.
+        const safeMessage = `Upload failed (HTTP ${response.status}, cf-ray=${
+          response.headers.get('cf-ray') ?? 'n/a'
+        })`;
         sendProgress({
           stage: ELogUploadStage.Error,
-          message: text,
+          message: safeMessage,
         });
         return {
           code: response.status,
-          message: text,
+          message: safeMessage,
         };
       }
     } catch (error) {
@@ -213,6 +295,39 @@ class DesktopApiDev {
         message: error instanceof Error ? error.message : String(error),
       });
       throw error;
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // NativeLogger-compatible methods (aligned with react-native-native-logger)
+  // -----------------------------------------------------------------------
+
+  getLogDirectory(): string {
+    return path.dirname(logger.transports.file.getFile().path);
+  }
+
+  async getLogFilePaths(): Promise<string[]> {
+    const logDir = this.getLogDirectory();
+    const files = await fsPromises.readdir(logDir);
+    return files.filter((f) => f.endsWith('.log')).toSorted();
+  }
+
+  async deleteLogFiles(): Promise<void> {
+    const logDir = this.getLogDirectory();
+    const files = await fsPromises.readdir(logDir);
+    const logFiles = files.filter((f) => f.endsWith('.log'));
+    for (const file of logFiles) {
+      const filePath = path.join(logDir, file);
+      try {
+        if (file === 'app-latest.log') {
+          // Truncate active log file instead of deleting (matches native behavior)
+          await fsPromises.writeFile(filePath, '');
+        } else {
+          await fsPromises.unlink(filePath);
+        }
+      } catch {
+        // ignore individual file errors
+      }
     }
   }
 

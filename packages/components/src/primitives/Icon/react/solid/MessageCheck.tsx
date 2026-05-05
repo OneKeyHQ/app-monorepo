@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgMessageCheck = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M6.002 3h12a3 3 0 0 1 3 3v10.036a3 3 0 0 1-3 3h-2.626l-2.74 2.27a1 1 0 0 1-1.28-.004l-2.704-2.266h-2.65a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3m9.455 6.957a1 1 0 0 0-1.414-1.414l-2.793 2.793-.793-.793a1 1 0 0 0-1.414 1.414l1.5 1.5a1 1 0 0 0 1.414 0z"
+      d="M21.002 19.036h-5.626l-3.382 2.802-3.343-2.802H3.002V3h18zm-9.752-7.7-1.5-1.5-1.414 1.414 2.914 2.914 4.914-4.914-1.414-1.414z"
       clipRule="evenodd"
     />
   </Svg>

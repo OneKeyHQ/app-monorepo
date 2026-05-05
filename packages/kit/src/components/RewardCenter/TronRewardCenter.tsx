@@ -22,7 +22,7 @@ import {
 import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
-} from '@onekeyhq/core/src/chains/tron/constants';
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -190,7 +190,7 @@ function RewardCenterContent({
       });
       setIsClaiming(false);
       return resp;
-    } catch (error) {
+    } catch (_error) {
       setIsClaiming(false);
     }
   }, [account, claimSource, intl, network, networkId]);
@@ -245,7 +245,7 @@ function RewardCenterContent({
       setIsRedeeming(false);
       setIsResourceRedeemed(true);
       return resp;
-    } catch (error) {
+    } catch (_error) {
       setIsRedeeming(false);
     }
   }, [account, claimSource, form, intl, network, networkId]);
@@ -355,15 +355,19 @@ export const showTronRewardCenter = ({
   }) => void;
 }) =>
   Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.wallet_subsidy_redeem_title,
     }),
     tone: 'info',
     description: (
       <SizableText size="$bodyLg" color="$textSubdued">
-        {appLocale.intl.formatMessage({
-          id: ETranslations.wallet_subsidy_description,
-        })}
+        {
+          // eslint-disable-next-line onekey/no-app-locale-main-thread
+          appLocale.intl.formatMessage({
+            id: ETranslations.wallet_subsidy_description,
+          })
+        }
       </SizableText>
     ),
     icon: 'GiftSolid',

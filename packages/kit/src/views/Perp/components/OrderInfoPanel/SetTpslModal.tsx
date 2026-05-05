@@ -2,13 +2,13 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
   Checkbox,
   Dialog,
   Divider,
-  IconButton,
   Page,
   SizableText,
   Toast,
@@ -23,7 +23,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   type EModalPerpRoutes,
   type IModalPerpParamList,
@@ -44,6 +43,7 @@ import { TpslInput } from '../TradingPanel/inputs/TpslInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { IntlShape } from 'react-intl';
 
 export interface ISetTpslParams {
   coin: string;
@@ -71,6 +71,7 @@ const SetTpslForm = memo(
     isMobile,
     onClose = () => {},
   }: ISetTpslFormProps) => {
+    const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
     const { mid: midPrice } = usePerpsMidPrice({ coin });
 
@@ -294,7 +295,7 @@ const SetTpslForm = memo(
         if (configureAmount) {
           if (!tpOrder && !slOrder && (!tpslAmount || tpslAmountBN.lte(0))) {
             Toast.error({
-              title: appLocale.intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.perp_tp_sl_error_enter,
               }),
             });
@@ -303,7 +304,7 @@ const SetTpslForm = memo(
 
           if (tpslAmountBN.gt(positionSize)) {
             Toast.error({
-              title: appLocale.intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.perp_tp_sl_error_amount,
               }),
             });
@@ -313,7 +314,7 @@ const SetTpslForm = memo(
 
         if (!isValidForm) {
           Toast.error({
-            title: appLocale.intl.formatMessage({
+            title: intl.formatMessage({
               id: ETranslations.perp_tp_sl_error_price,
             }),
           });
@@ -338,12 +339,18 @@ const SetTpslForm = memo(
             let errorMessage = '';
             if (isLongPosition) {
               // Long + above
-              errorMessage = appLocale.intl.formatMessage({
+              errorMessage = intl.formatMessage({
+                // invalid => invalid
+
+                // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_tp_desc_1,
               });
             } else {
               // Short + below
-              errorMessage = appLocale.intl.formatMessage({
+              errorMessage = intl.formatMessage({
+                // invalid => invalid
+
+                // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_tp_desc_2,
               });
             }
@@ -368,12 +375,18 @@ const SetTpslForm = memo(
             let errorMessage = '';
             if (isLongPosition) {
               // Long + below
-              errorMessage = appLocale.intl.formatMessage({
+              errorMessage = intl.formatMessage({
+                // invalid => invalid
+
+                // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_sl_desc_1,
               });
             } else {
               // Short + above
-              errorMessage = appLocale.intl.formatMessage({
+              errorMessage = intl.formatMessage({
+                // invalid => invalid
+
+                // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_sl_desc_2,
               });
             }
@@ -415,6 +428,7 @@ const SetTpslForm = memo(
       tpOrder,
       midPrice,
       isValidForm,
+      intl,
     ]);
 
     // Early return if position doesn't exist to prevent accessing undefined properties
@@ -428,7 +442,7 @@ const SetTpslForm = memo(
           <YStack gap="$3">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_token_selector_asset,
                 })}
               </SizableText>
@@ -437,7 +451,7 @@ const SetTpslForm = memo(
 
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_position_position_size,
                 })}
               </SizableText>
@@ -448,7 +462,7 @@ const SetTpslForm = memo(
 
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_position_entry_price,
                 })}
               </SizableText>
@@ -457,7 +471,7 @@ const SetTpslForm = memo(
 
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_position_mark_price,
                 })}
               </SizableText>
@@ -468,14 +482,14 @@ const SetTpslForm = memo(
           {!tpOrder ? null : (
             <XStack justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price,
                 })}
               </SizableText>
               <YStack gap="$1">
                 <XStack gap="$1">
                   <SizableText size="$bodyMdMedium">
-                    {appLocale.intl.formatMessage({
+                    {intl.formatMessage({
                       id: ETranslations.perp_tp_sl_above,
                     })}
                     {': '}
@@ -485,10 +499,9 @@ const SetTpslForm = memo(
                     size="$bodyMd"
                     color="$green9"
                     ml="$2"
-                    cursor="pointer"
                     onPress={() => handleCancelOrder(tpOrder)}
                   >
-                    {appLocale.intl.formatMessage({
+                    {intl.formatMessage({
                       id: ETranslations.perp_open_orders_cancel,
                     })}
                   </SizableText>
@@ -499,7 +512,7 @@ const SetTpslForm = memo(
                     alignSelf="flex-end"
                     color="$textSubdued"
                   >
-                    {appLocale.intl.formatMessage({
+                    {intl.formatMessage({
                       id: ETranslations.perp_tp_sl_profit,
                     })}
                     {': '}
@@ -537,14 +550,14 @@ const SetTpslForm = memo(
           {!slOrder ? null : (
             <XStack justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price,
                 })}
               </SizableText>
               <YStack gap="$1">
                 <XStack gap="$1">
                   <SizableText size="$bodyMdMedium">
-                    {appLocale.intl.formatMessage({
+                    {intl.formatMessage({
                       id: ETranslations.perp_tp_sl_below,
                     })}
                     {': '}
@@ -554,10 +567,9 @@ const SetTpslForm = memo(
                     size="$bodyMd"
                     color="$green9"
                     ml="$2"
-                    cursor="pointer"
                     onPress={() => handleCancelOrder(slOrder)}
                   >
-                    {appLocale.intl.formatMessage({
+                    {intl.formatMessage({
                       id: ETranslations.perp_open_orders_cancel,
                     })}
                   </SizableText>
@@ -568,7 +580,7 @@ const SetTpslForm = memo(
                     alignSelf="flex-end"
                     color="$textSubdued"
                   >
-                    {appLocale.intl.formatMessage({
+                    {intl.formatMessage({
                       id: ETranslations.perp_tp_sl_loss,
                     })}
                     {': '}
@@ -592,7 +604,7 @@ const SetTpslForm = memo(
             <Checkbox
               value={configureAmount}
               onChange={(checked) => setConfigureAmount(Boolean(checked))}
-              label={appLocale.intl.formatMessage({
+              label={intl.formatMessage({
                 id: ETranslations.perp_tp_sl_partial_position,
               })}
               labelProps={{
@@ -608,7 +620,7 @@ const SetTpslForm = memo(
               <YStack width="100%" gap="$5">
                 <YStack width="100%">
                   <TradingFormInput
-                    label={appLocale.intl.formatMessage({
+                    label={intl.formatMessage({
                       id: ETranslations.dexmarket_details_history_amount,
                     })}
                     value={
@@ -646,7 +658,7 @@ const SetTpslForm = memo(
             disabled={!isValidForm || isSubmitting}
             loading={isSubmitting}
           >
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.perp_confirm_order,
             })}
           </Button>{' '}
@@ -659,6 +671,7 @@ const SetTpslForm = memo(
 SetTpslForm.displayName = 'SetTpslForm';
 
 function SetTpslModal() {
+  const intl = useIntl();
   const route =
     useRoute<RouteProp<IModalPerpParamList, EModalPerpRoutes.MobileSetTpsl>>();
 
@@ -670,7 +683,7 @@ function SetTpslModal() {
   return (
     <Page>
       <Page.Header
-        title={appLocale.intl.formatMessage({
+        title={intl.formatMessage({
           id: ETranslations.perp_tp_sl_position,
         })}
       />
@@ -696,12 +709,13 @@ export function showSetTpslDialog({
   coin,
   szDecimals,
   assetId,
-}: ISetTpslParams) {
+  intl,
+}: ISetTpslParams & { intl: IntlShape }) {
   const dialogInstance = Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.perp_tp_sl_position,
     }),
-    description: appLocale.intl.formatMessage({
+    description: intl.formatMessage({
       id: ETranslations.perp_tp_sl_position_desc,
     }),
     renderContent: (

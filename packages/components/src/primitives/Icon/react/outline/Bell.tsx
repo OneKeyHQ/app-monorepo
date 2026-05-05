@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBell = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16 17a4 4 0 0 1-8 0m10.3-8.007.179 3.588c.014.276.085.547.209.794l1.227 2.454A.808.808 0 0 1 19.19 17H4.809a.81.81 0 0 1-.724-1.17l1.227-2.455a2 2 0 0 0 .209-.794l.18-3.588a6.308 6.308 0 0 1 12.599 0Z"
+      fillRule="evenodd"
+      d="M12 2a7.31 7.31 0 0 1 7.299 6.942l.19 3.798L21 15.764V18h-4.102a5 5 0 0 1-9.796 0H3v-2.236l1.51-3.024.191-3.798A7.31 7.31 0 0 1 12 2M9.174 18A3 3 0 0 0 12 20a3 3 0 0 0 2.827-2zM12 4a5.307 5.307 0 0 0-5.3 5.042l-.201 4.008-.01.21L5.118 16h13.763l-1.37-2.74-.011-.21-.2-4.008A5.307 5.307 0 0 0 12 4"
+      clipRule="evenodd"
     />
   </Svg>
 );

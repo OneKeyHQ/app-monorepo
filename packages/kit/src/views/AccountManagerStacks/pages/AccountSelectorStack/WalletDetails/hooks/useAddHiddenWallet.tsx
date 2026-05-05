@@ -217,7 +217,7 @@ export function useAddHiddenWallet() {
   );
 
   const createQrHiddenWallet = useCallback(
-    async ({ wallet }: { wallet?: IDBWallet }) => {
+    async ({ wallet: _wallet }: { wallet?: IDBWallet }) => {
       try {
         defaultLogger.account.wallet.addWalletStarted({
           addMethod: 'ConnectHWWallet',

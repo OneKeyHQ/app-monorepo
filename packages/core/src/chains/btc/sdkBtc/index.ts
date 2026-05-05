@@ -17,6 +17,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import {
+  isTaprootAddress,
+  isTaprootPath,
+} from '@onekeyhq/shared/src/utils/btcUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
   IAddressValidation,
@@ -137,20 +141,13 @@ export const loadOPReturn = (
   return buffer.slice(0, opReturnSizeLimit);
 };
 
-export const isTaprootPath = (pathPrefix: string) =>
-  pathPrefix.startsWith(`m/86'/`);
-export const isNativeSegwitPath = (pathPrefix: string) =>
-  pathPrefix.startsWith(`m/84'/`);
-
-// eslint-disable-next-line spellcheck/spell-checker
-// Taproot addresses start with 'bc1p' on mainnet
-// eslint-disable-next-line spellcheck/spell-checker
-// Taproot addresses start with 'tb1p' on testnet
-export const isTaprootAddress = (address: string): boolean =>
-  address.startsWith('bc1p') || address.startsWith('tb1p');
-
-export const isNativeSegwitAddress = (address: string): boolean =>
-  address.startsWith('bc1q') || address.startsWith('tb1q');
+// Re-export from shared for backward compatibility
+export {
+  isTaprootPath,
+  isNativeSegwitPath,
+  isTaprootAddress,
+  isNativeSegwitAddress,
+} from '@onekeyhq/shared/src/utils/btcUtils';
 
 export function scriptPkToAddress(
   scriptPk: string | Buffer,
@@ -326,6 +323,7 @@ export function validateBtcAddress({
   } catch (e) {
     errorUtils.autoPrintErrorIgnore(e);
     try {
+      // oxlint-disable-next-line @cspell/spellchecker
       const decoded = BitcoinJsAddress.fromBech32(address);
       if (
         decoded.version === 0x00 &&

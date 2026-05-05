@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAnchor = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M13 8.855A3.502 3.502 0 0 0 12 2a3.5 3.5 0 0 0-1 6.855v11.129A7.5 7.5 0 0 1 4.016 13H6a1 1 0 1 0 0-2H3a1 1 0 0 0-1 1v.5a9.5 9.5 0 0 0 9.5 9.5h1a9.5 9.5 0 0 0 9.5-9.5V12a1 1 0 0 0-1-1h-3a1 1 0 1 0 0 2h1.984A7.5 7.5 0 0 1 13 19.984zM10.5 5.5a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0"
+      d="M12 2a3.5 3.5 0 0 1 1 6.855v11.128A7.5 7.5 0 0 0 19.983 13H17v-2h5v1.5a9.5 9.5 0 0 1-9.5 9.5h-1A9.5 9.5 0 0 1 2 12.5V11h5v2H4.017A7.5 7.5 0 0 0 11 19.983V8.855A3.502 3.502 0 0 1 12 2m0 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3"
       clipRule="evenodd"
     />
   </Svg>

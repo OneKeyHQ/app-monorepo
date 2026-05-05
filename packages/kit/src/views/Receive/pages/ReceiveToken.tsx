@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
 import { useThrottledCallback } from 'use-debounce';
 
@@ -23,8 +24,10 @@ import {
 } from '@onekeyhq/components';
 import {
   EHardwareUiStateAction,
+  EThirdPartyHardwareUiAction,
   useHardwareUiStateAtom,
   useSettingsPersistAtom,
+  useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
@@ -36,6 +39,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -47,6 +52,7 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
+import { HighlightAddress } from '../../../components/HighlightAddress';
 import {
   FormatHyperlinkText,
   HyperlinkText,
@@ -56,7 +62,6 @@ import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
-import { useHelpLink } from '../../../hooks/useHelpLink';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { EAddressState } from '../types';
@@ -85,6 +90,7 @@ function ReceiveToken() {
     disableSelector,
     btcUsedAddress,
     btcUsedAddressPath,
+    exchangeSource,
   } = route.params;
 
   const { account, network, wallet, vaultSettings, deriveType, deriveInfo } =
@@ -123,7 +129,7 @@ function ReceiveToken() {
 
   const displayAddress = isBtcUsedAddressVerifyMode
     ? btcUsedAddress
-    : currentAccount?.address ?? '';
+    : (currentAccount?.address ?? '');
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;
@@ -137,10 +143,9 @@ function ReceiveToken() {
   const [networkLogoColor, setNetworkLogoColor] = useState<string | null>(null);
 
   const [hardwareUiState] = useHardwareUiStateAtom();
+  const [thirdPartyHardwareUiState] = useThirdPartyHardwareUiStateAtom();
 
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
-
-  const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const { result: banner } = usePromiseResult(async () => {
     const banners =
@@ -175,13 +180,20 @@ function ReceiveToken() {
 
     if (
       addressState === EAddressState.Verifying &&
-      hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON
+      (hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON ||
+        thirdPartyHardwareUiState?.action ===
+          EThirdPartyHardwareUiAction.confirmOnDevice)
     ) {
       return true;
     }
 
     return false;
-  }, [addressState, hardwareUiState?.action, isHardwareWallet]);
+  }, [
+    addressState,
+    hardwareUiState?.action,
+    thirdPartyHardwareUiState,
+    isHardwareWallet,
+  ]);
 
   const shouldShowQRCode = useMemo(() => {
     if (!isHardwareWallet) {
@@ -219,25 +231,6 @@ function ReceiveToken() {
       });
   }, [network?.logoURI]);
 
-  const throttledSyncBTCFreshAddress = useThrottledCallback(
-    (params: { networkId: string; accountId: string }) => {
-      void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByAccountId(
-        params,
-      );
-    },
-    timerUtils.getTimeDurationMs({ seconds: 1 }),
-    { leading: true, trailing: true },
-  );
-
-  useEffect(() => {
-    if (networkUtils.isBTCNetwork(networkId) && currentAccount?.id) {
-      throttledSyncBTCFreshAddress({
-        networkId,
-        accountId: currentAccount.id,
-      });
-    }
-  }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
-
   const handleCopyAddress = useCallback(() => {
     if (!displayAddress) return;
     if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
@@ -259,6 +252,55 @@ function ReceiveToken() {
     network?.name,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
+
+  // Auto-navigate to ExchangeOpenRedirect after HW address verification
+  const hasNavigatedToRedirectRef = useRef(false);
+  useEffect(() => {
+    if (
+      !exchangeSource ||
+      !displayAddress ||
+      !isHardwareWallet ||
+      hasNavigatedToRedirectRef.current
+    ) {
+      return;
+    }
+    if (
+      addressState !== EAddressState.Verified &&
+      addressState !== EAddressState.ForceShow
+    ) {
+      return;
+    }
+    hasNavigatedToRedirectRef.current = true;
+    navigation.push(EModalReceiveRoutes.ExchangeOpenRedirect, {
+      exchangeSource,
+      address: displayAddress,
+    });
+  }, [
+    exchangeSource,
+    displayAddress,
+    isHardwareWallet,
+    addressState,
+    navigation,
+  ]);
+
+  const throttledSyncBTCFreshAddress = useThrottledCallback(
+    (params: { networkId: string; accountId: string }) => {
+      void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByAccountId(
+        params,
+      );
+    },
+    timerUtils.getTimeDurationMs({ seconds: 1 }),
+    { leading: true, trailing: true },
+  );
+
+  useEffect(() => {
+    if (networkUtils.isBTCNetwork(networkId) && currentAccount?.id) {
+      throttledSyncBTCFreshAddress({
+        networkId,
+        accountId: currentAccount.id,
+      });
+    }
+  }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
 
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const isEnableBTCFreshAddressSetting = useMemo(() => {
@@ -314,7 +356,7 @@ function ReceiveToken() {
           onConfirmText: intl.formatMessage({
             id: ETranslations.global_contact_us,
           }),
-          onConfirm: () => Linking.openURL(requestsUrl),
+          onConfirm: () => showIntercom(),
           confirmButtonProps: {
             variant: 'primary',
           },
@@ -339,7 +381,6 @@ function ReceiveToken() {
     displayAddress,
     intl,
     networkId,
-    requestsUrl,
     verificationPath,
     wallet?.type,
     walletId,
@@ -361,28 +402,46 @@ function ReceiveToken() {
 
   const fetchAccount = useCallback(async () => {
     if (!accountId && networkId && indexedAccountId) {
-      const defaultDeriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId,
-        });
-
-      const { accounts } =
-        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
-          indexedAccountIds: [indexedAccountId],
-          networkId,
-          deriveType: defaultDeriveType,
-        });
-
-      if (accounts?.[0]) {
-        const deriveResp =
-          await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
+      try {
+        const defaultDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
-            template: accounts[0].template,
-            accountId: accounts[0].id,
           });
-        setCurrentDeriveInfo(deriveResp.deriveInfo);
-        setCurrentDeriveType(deriveResp.deriveType);
-        setCurrentAccount(accounts[0]);
+
+        const { accounts } =
+          await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+            indexedAccountIds: [indexedAccountId],
+            networkId,
+            deriveType: defaultDeriveType,
+          });
+
+        if (accounts?.[0]) {
+          const deriveResp =
+            await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
+              networkId,
+              template: accounts[0].template,
+              accountId: accounts[0].id,
+            });
+          setCurrentDeriveInfo(deriveResp.deriveInfo);
+          setCurrentDeriveType(deriveResp.deriveType);
+          setCurrentAccount(accounts[0]);
+        }
+      } catch (_e) {
+        // get default derive type account error, try to find the non-empty account
+        const { networkAccounts } =
+          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+            {
+              networkId,
+              indexedAccountId,
+              excludeEmptyAccount: true,
+            },
+          );
+        const nonEmptyAccount = networkAccounts.find((item) => item.account);
+        if (nonEmptyAccount) {
+          setCurrentAccount(nonEmptyAccount.account);
+          setCurrentDeriveType(nonEmptyAccount.deriveType);
+          setCurrentDeriveInfo(nonEmptyAccount.deriveInfo);
+        }
       }
     }
   }, [accountId, indexedAccountId, networkId]);
@@ -531,20 +590,23 @@ function ReceiveToken() {
     if (!currentAccount || !network || !wallet) return null;
     if (!displayAddress) return null;
 
-    let addressContent = '';
+    let addressContent: ReactNode;
 
     if (shouldShowAddress) {
-      addressContent =
-        displayAddress.match(/.{1,4}/g)?.join(' ') || displayAddress;
+      addressContent = <HighlightAddress address={displayAddress} />;
     } else {
-      addressContent = Array.from({ length: 11 })
+      const maskedText = Array.from({ length: 11 })
         .map(() => '****')
         .join(' ');
+      addressContent = (
+        <SizableText fontFamily="$monoMedium">{maskedText}</SizableText>
+      );
     }
 
     return (
       <XStack
-        maxWidth={304}
+        flex={platformEnv.isNative ? 1 : undefined}
+        maxWidth={platformEnv.isNative ? undefined : 304}
         flexWrap="wrap"
         {...(shouldShowAddress && {
           onPress: handleCopyAddress,
@@ -569,7 +631,7 @@ function ReceiveToken() {
           },
         })}
       >
-        <SizableText fontFamily="$monoMedium">{addressContent}</SizableText>
+        {addressContent}
       </XStack>
     );
   }, [
@@ -642,7 +704,11 @@ function ReceiveToken() {
               </Badge>
             ) : null}
           </XStack>
-          <XStack gap="$2" alignItems="center" justifyContent="space-between">
+          <XStack
+            gap="$2"
+            alignItems="center"
+            justifyContent={platformEnv.isNative ? undefined : 'space-between'}
+          >
             {renderAddress()}
             {renderCopyAddressButton()}
           </XStack>
@@ -668,7 +734,7 @@ function ReceiveToken() {
             color="$textSubdued"
             size="$bodyMd"
             translationId={ETranslations.wallet_receive_note_fresh_address}
-            autoHandleResult={false}
+            autoExecuteParsedAction={false}
             onAction={() => {
               console.log('HyperlinkText onAction');
               navigation.push(EModalReceiveRoutes.BtcAddresses, {
@@ -780,7 +846,7 @@ function ReceiveToken() {
           {!shouldShowQRCode ? (
             <Empty
               p="0"
-              icon="QrCodeOutline"
+              illustration="ShieldDevice"
               description={intl.formatMessage({
                 id: ETranslations.address_verify_address_instruction,
               })}
@@ -862,7 +928,11 @@ function ReceiveToken() {
                 source={{ uri: banner.src }}
                 fallback={<NetworkAvatar size="$5" networkId={networkId} />}
               />
-              <FormatHyperlinkText size="$bodyMd" flex={1}>
+              <FormatHyperlinkText
+                size="$bodyMd"
+                flex={1}
+                autoExecuteParsedAction={false}
+              >
                 {banner.title}
               </FormatHyperlinkText>
             </XStack>

@@ -1,28 +1,35 @@
 import type { PropsWithChildren } from 'react';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { getSupabaseClient } from './getSupabaseClient';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
+
 import { SupabaseAuthContext } from './SupabaseAuthContext';
 
 import type { Session } from '@supabase/supabase-js';
+
+function logSupabaseAuthProvider(message: string) {
+  if (
+    platformEnv.isNativeMainThread &&
+    platformEnv.enableNativeBackgroundThread
+  ) {
+    defaultLogger.app.appUpdate.log(`[SupabaseAuthProvider] ${message}`);
+  }
+}
 
 export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   const [authSession, setSession] = useState<Session | undefined | null>();
   // const [profile, setProfile] = useState<any>();
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  logSupabaseAuthProvider(`render isLoading=${isLoading}`);
 
   // TODO move to OneKeyAuthGlobalEffects
   // Fetch the session once, and subscribe to auth state changes
   useEffect(() => {
     const fetchSession = async () => {
       try {
+        logSupabaseAuthProvider('fetchSession start');
         setIsLoading(true);
         const {
           data: { session },
@@ -33,6 +40,7 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         }
         setSession(session);
       } finally {
+        logSupabaseAuthProvider('fetchSession done');
         setIsLoading(false);
       }
     };
@@ -61,24 +69,6 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
       "message": "Could not find the table 'public.profiles' in the schema cache"
     }
   */
-  useEffect(() => {
-    const fetchProfile = async () => {
-      setIsLoading(true);
-      // if (authSession) {
-      //   const { data } = await getSupabaseClient()
-      //     .client.from('profiles')
-      //     .select('*')
-      //     .eq('id', authSession.user.id)
-      //     .single();
-      //   setProfile(data);
-      // } else {
-      //   setProfile(null);
-      // }
-      setIsLoading(false);
-    };
-    // void fetchProfile();
-  }, [authSession]);
-
   return (
     <SupabaseAuthContext.Provider
       value={useMemo(

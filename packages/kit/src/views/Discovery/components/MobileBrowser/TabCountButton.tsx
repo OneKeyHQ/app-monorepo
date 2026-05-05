@@ -8,6 +8,7 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useTakeScreenshot } from '../../hooks/useTakeScreenshot';
 import {
@@ -31,12 +32,11 @@ function TabCountButton({ testID }: ITabCountButtonProps) {
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
   const handleShowTabList = useCallback(async () => {
-    try {
-      if (!displayHomePage) {
-        await takeScreenshot();
-      }
-    } catch (e) {
-      console.error(e);
+    if (!displayHomePage) {
+      await Promise.race([
+        takeScreenshot(),
+        timerUtils.setTimeoutPromised(undefined, 2000),
+      ]);
     }
     navigation.pushModal(EModalRoutes.DiscoveryModal, {
       screen: EDiscoveryModalRoutes.MobileTabList,

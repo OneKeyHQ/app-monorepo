@@ -1,13 +1,17 @@
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgMenuCircleHor = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Circle cx={12} cy={12} r={9} stroke="currentColor" strokeWidth={2} />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M8 10.75a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m4 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m4 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5" />
     <Path
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth={0.75}
-      d="M8 12.875a.875.875 0 1 0 0-1.75.875.875 0 0 0 0 1.75Zm4 0a.875.875 0 1 0 0-1.75.875.875 0 0 0 0 1.75Zm4 0a.875.875 0 1 0 0-1.75.875.875 0 0 0 0 1.75Z"
+      fillRule="evenodd"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"
+      clipRule="evenodd"
     />
   </Svg>
 );

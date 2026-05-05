@@ -1,12 +1,13 @@
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import {
-  ETabletViewType,
-  TabletModeViewContext,
-  useIsNativeTablet,
+  ESplitViewType,
+  SplitViewContext,
+  isNativeTablet,
 } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -29,12 +30,14 @@ import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalCon
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
+import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
-import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { RookieShareContainer } from './RookieShareContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
+import { ThirdPartyHardwareUiStateContainer } from './ThirdPartyHardwareUiStateContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
@@ -56,19 +59,22 @@ function DetailRouter() {
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />
       <Bootstrap />
+      <FullWindowOverlayContainer />
       <AirGapQrcodeDialogContainer />
       <CreateAddressContainer />
       <PrevCheckBeforeSendingContainer />
       <WalletBackupPreCheckContainer />
       <VerifyTxContainer />
       <HardwareUiStateContainer />
+      <ThirdPartyHardwareUiStateContainer />
       <PrimeLoginContainerLazy />
       <KeylessWalletContainerLazy />
+      <KeylessWebAutoConnectHashCleanupContainer />
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <CloudBackupContainer />
-      <FullWindowOverlayContainer />
-      <PortalBodyContainer />
+
+      {/* <PortalBodyContainer /> */}
       <PageTrackerContainer />
       <ErrorToastContainer />
       <GlobalErrorHandlerContainer />
@@ -77,6 +83,7 @@ function DetailRouter() {
       <PrimeGlobalEffect />
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
+      <RookieShareContainer />
     </NavigationContainer>
   );
 }
@@ -85,25 +92,28 @@ function MainRouter() {
   return <NavigationContainer />;
 }
 
-const tabletMainViewContext = { viewType: ETabletViewType.MAIN };
-const tabletDetailViewContext = { viewType: ETabletViewType.DETAIL };
+const splitMainViewContext = { viewType: ESplitViewType.MAIN };
+const splitSubViewContext = { viewType: ESplitViewType.SUB };
 
 export function Container() {
-  const isTablet = useIsNativeTablet();
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('Container render');
+  }
+  const isTablet = isNativeTablet();
   if (isTablet) {
     return (
       <RootSiblingParent>
         <AppStateLockContainer>
           <TableSplitViewContainer
             mainRouter={
-              <TabletModeViewContext.Provider value={tabletMainViewContext}>
+              <SplitViewContext.Provider value={splitMainViewContext}>
                 <MainRouter />
-              </TabletModeViewContext.Provider>
+              </SplitViewContext.Provider>
             }
             detailRouter={
-              <TabletModeViewContext.Provider value={tabletDetailViewContext}>
+              <SplitViewContext.Provider value={splitSubViewContext}>
                 <DetailRouter />
-              </TabletModeViewContext.Provider>
+              </SplitViewContext.Provider>
             }
           />
           <GlobalWalletConnectModalContainer />

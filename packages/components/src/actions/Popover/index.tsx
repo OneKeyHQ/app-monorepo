@@ -31,7 +31,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
-import { Keyboard } from '../../content';
+import { Keyboard } from '../../content/Keyboard';
 import { Portal } from '../../hocs';
 import {
   ModalNavigatorContext,
@@ -43,6 +43,10 @@ import {
 } from '../../hooks';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '../../utils/animationConstants';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
@@ -58,8 +62,23 @@ const gtMdShFrameStyle = {
   maxWidth: 480,
   mx: 'auto',
 } as const;
+
+const POPOVER_ENTER_STYLE = { scale: 0.95, opacity: 0 } as const;
+const POPOVER_EXIT_STYLE = { scale: 0.95, opacity: 0 } as const;
+const POPOVER_PLATFORM_WEB_STYLE = {
+  outlineColor: '$neutral3',
+  outlineStyle: 'solid',
+  outlineWidth: '$px',
+  boxShadow:
+    '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
+} as const;
+const POPOVER_PLATFORM_NATIVE = { elevation: 20 } as const;
+const OVERLAY_ENTER_STYLE = { opacity: 0 } as const;
+const OVERLAY_EXIT_STYLE = { opacity: 0 } as const;
+const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
+  description?: string;
   showHeader?: boolean;
   usingSheet?: boolean;
   renderTrigger: ReactNode;
@@ -78,6 +97,7 @@ export interface IPopoverProps extends TMPopoverProps {
 }
 
 interface IPopoverContext {
+  open?: boolean;
   closePopover?: () => Promise<void>;
 }
 
@@ -151,15 +171,16 @@ const useContentDisplay = platformEnv.isNative
         } else {
           setTimeout(() => {
             setDisplay('none');
-          }, 250);
+          }, 200);
         }
       }, [isOpen, keepChildrenMounted]);
       return display;
     };
 
 export const usePopoverContext = () => {
-  const { closePopover } = useContext(PopoverContext);
+  const { closePopover, open } = useContext(PopoverContext);
   return {
+    open,
     closePopover,
   };
 };
@@ -196,26 +217,84 @@ const useDismissKeyboard = platformEnv.isNative
 const getPlacement = (
   placementProp: IPopoverProps['placement'],
   triggerRef: React.RefObject<View | null>,
-) => {
+): NonNullable<IPopoverProps['placement']> => {
   if (platformEnv.isNative) {
     return placementProp || 'bottom-end';
   }
-  if (placementProp) {
+
+  const element = triggerRef.current as unknown as HTMLElement;
+  if (!element) {
+    return placementProp || 'bottom-end';
+  }
+
+  const rect = element.getBoundingClientRect();
+  const windowWidth = Dimensions.get('window').width;
+  const windowHeight = Dimensions.get('window').height;
+
+  // Estimated popover dimensions (default width $96 = 384px)
+  const POPOVER_MIN_WIDTH = 384;
+  const POPOVER_MIN_HEIGHT = 200; // Estimated minimum height
+  const OFFSET = 8; // Popover offset
+
+  // Calculate available space in each direction
+  const spaces = {
+    top: rect.top - OFFSET,
+    bottom: windowHeight - rect.bottom - OFFSET,
+    left: rect.left - OFFSET,
+    right: windowWidth - rect.right - OFFSET,
+  };
+
+  // Check if a placement has enough space
+  const hasEnoughSpace = (placement: string): boolean => {
+    if (placement.startsWith('top')) {
+      return spaces.top >= POPOVER_MIN_HEIGHT;
+    }
+    if (placement.startsWith('bottom')) {
+      return spaces.bottom >= POPOVER_MIN_HEIGHT;
+    }
+    if (placement.startsWith('left')) {
+      return spaces.left >= POPOVER_MIN_WIDTH;
+    }
+    if (placement.startsWith('right')) {
+      return spaces.right >= POPOVER_MIN_WIDTH;
+    }
+    return false;
+  };
+
+  // If placementProp is specified and has enough space, use it
+  if (placementProp && hasEnoughSpace(placementProp)) {
     return placementProp;
   }
-  const element = triggerRef.current as unknown as HTMLElement;
-  if (element) {
-    const { top } = element.getBoundingClientRect();
-    if (top > Dimensions.get('window').height / 2) {
-      return 'top-end';
-    }
-    return 'bottom-end';
+
+  // Otherwise, choose the direction with most space
+  const verticalPreference = spaces.bottom >= spaces.top ? 'bottom' : 'top';
+  const horizontalAlignment = rect.left > windowWidth / 2 ? 'end' : 'start';
+
+  // Build placement string
+  const buildPlacement = (
+    vertical: 'top' | 'bottom',
+    horizontal: 'start' | 'end',
+  ): NonNullable<IPopoverProps['placement']> =>
+    `${vertical}-${horizontal}` as NonNullable<IPopoverProps['placement']>;
+
+  // Check if preferred direction has enough space
+  if (hasEnoughSpace(verticalPreference)) {
+    return buildPlacement(verticalPreference, horizontalAlignment);
   }
-  return 'bottom-end';
+
+  // Try opposite direction
+  const oppositeVertical = verticalPreference === 'bottom' ? 'top' : 'bottom';
+  if (hasEnoughSpace(oppositeVertical)) {
+    return buildPlacement(oppositeVertical, horizontalAlignment);
+  }
+
+  // If neither has enough space, return the direction with most space (may overflow, but best option)
+  return buildPlacement(verticalPreference, horizontalAlignment);
 };
 
 function RawPopover({
   title,
+  description,
   open: isOpen,
   renderTrigger,
   renderContent,
@@ -315,9 +394,10 @@ function RawPopover({
     typeof renderContent === 'function' ? renderContent : null;
   const popoverContextValue = useMemo(
     () => ({
+      open: isOpen,
       closePopover: handleClosePopover,
     }),
-    [handleClosePopover],
+    [handleClosePopover, isOpen],
   );
   const { gtMd } = useMedia();
 
@@ -348,6 +428,14 @@ function RawPopover({
   const isShowNativeKeepChildrenMountedBackdrop =
     platformEnv.isNative && props.keepChildrenMounted;
   const maxScrollViewHeight = getMaxScrollViewHeight();
+  const transformOriginStyle = useMemo(
+    () => ({ transformOrigin }),
+    [transformOrigin],
+  );
+  const scrollViewStyle = useMemo(
+    () => ({ maxHeight: maxScrollViewHeight }),
+    [maxScrollViewHeight],
+  );
   return (
     <TMPopover
       offset={8}
@@ -365,42 +453,24 @@ function RawPopover({
       {/* floating panel */}
       {platformEnv.isNative ? null : (
         <TMPopover.Content
+          trapFocus={false}
           unstyled
           display={display}
-          style={{
-            transformOrigin,
-          }}
-          enterStyle={{
-            scale: 0.95,
-            opacity: 0,
-          }}
-          exitStyle={{ scale: 0.95, opacity: 0 }}
+          style={transformOriginStyle}
+          enterStyle={POPOVER_ENTER_STYLE}
+          exitStyle={POPOVER_EXIT_STYLE}
           w="$96"
           bg="$bg"
           borderRadius="$3"
-          $platform-web={{
-            outlineColor: '$neutral3',
-            outlineStyle: 'solid',
-            outlineWidth: '$px',
-            boxShadow:
-              '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
-          }}
-          $platform-native={{
-            elevation: 20,
-          }}
-          animation={[
-            'quick',
-            {
-              opacity: {
-                overshootClamping: true,
-              },
-            },
-          ]}
+          $platform-web={POPOVER_PLATFORM_WEB_STYLE}
+          $platform-native={POPOVER_PLATFORM_NATIVE}
+          animation="popoverQuick"
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           {...floatingPanelProps}
         >
           <TMPopover.ScrollView
             testID="TMPopover-ScrollView"
-            style={{ maxHeight: maxScrollViewHeight }}
+            style={scrollViewStyle}
           >
             {content}
           </TMPopover.ScrollView>
@@ -438,8 +508,9 @@ function RawPopover({
                   zIndex={sheetProps?.zIndex || zIndex}
                   backgroundColor="$bgBackdrop"
                   animation="quick"
-                  enterStyle={{ opacity: 0 }}
-                  exitStyle={{ opacity: 0 }}
+                  animateOnly={ANIMATE_ONLY_OPACITY}
+                  enterStyle={OVERLAY_ENTER_STYLE}
+                  exitStyle={OVERLAY_EXIT_STYLE}
                 />
               )}
               <TMPopover.Sheet.Frame
@@ -458,24 +529,32 @@ function RawPopover({
                     mx="$5"
                     p="$5"
                     justifyContent="space-between"
-                    alignItems="center"
+                    alignItems="flex-start"
                     borderCurve="continuous"
                     gap="$2"
                   >
-                    {typeof title === 'string' ? (
-                      <SizableText
-                        size="$headingXl"
-                        color="$text"
-                        flexShrink={1}
-                        style={{
-                          wordBreak: 'break-all',
-                        }}
-                      >
-                        {title}
-                      </SizableText>
-                    ) : (
-                      title
-                    )}
+                    <YStack flexShrink={1}>
+                      {typeof title === 'string' ? (
+                        <SizableText
+                          size="$headingXl"
+                          color="$text"
+                          style={WORD_BREAK_ALL_STYLE}
+                        >
+                          {title}
+                        </SizableText>
+                      ) : (
+                        title
+                      )}
+                      {description ? (
+                        <SizableText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          pt="$2"
+                        >
+                          {description}
+                        </SizableText>
+                      ) : null}
+                    </YStack>
                     <IconButton
                       icon="CrossedSmallOutline"
                       size="small"
@@ -549,6 +628,11 @@ function BasicPopover({
   const modalNavigatorContext = useModalNavigatorContext();
   const pageContextValue = usePageContext();
 
+  const webSheetProps = useMemo(
+    () => ({ ...sheetProps, modal: true }),
+    [sheetProps],
+  );
+
   if (platformEnv.isNative) {
     // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
     return (
@@ -578,7 +662,7 @@ function BasicPopover({
       onOpenChange={md ? onOpenChange : undefined}
       openPopover={openPopover}
       closePopover={closePopover}
-      sheetProps={{ ...sheetProps, modal: true }}
+      sheetProps={webSheetProps}
       renderTrigger={renderTrigger}
       trackID={trackID}
       keepChildrenMounted={keepChildrenMounted}
@@ -597,26 +681,35 @@ function Tooltip({
 }: IPopoverTooltip & {
   iconSize?: IIconButtonProps['iconSize'];
 }) {
+  const triggerMemo = useMemo(
+    () => (
+      <IconButton
+        iconColor="$iconSubdued"
+        iconSize={iconSize}
+        icon="InfoCircleOutline"
+        variant="tertiary"
+        {...triggerProps}
+      />
+    ),
+    [iconSize, triggerProps],
+  );
+
+  const contentMemo = useMemo(
+    () =>
+      renderContent || (
+        <YStack p="$5">
+          <SizableText size="$bodyLg">{tooltip}</SizableText>
+        </YStack>
+      ),
+    [renderContent, tooltip],
+  );
+
   return (
     <BasicPopover
       placement={placement}
       title={title}
-      renderTrigger={
-        <IconButton
-          iconColor="$iconSubdued"
-          iconSize={iconSize}
-          icon="InfoCircleOutline"
-          variant="tertiary"
-          {...triggerProps}
-        />
-      }
-      renderContent={
-        renderContent || (
-          <YStack p="$5">
-            <SizableText size="$bodyLg">{tooltip}</SizableText>
-          </YStack>
-        )
-      }
+      renderTrigger={triggerMemo}
+      renderContent={contentMemo}
     />
   );
 }

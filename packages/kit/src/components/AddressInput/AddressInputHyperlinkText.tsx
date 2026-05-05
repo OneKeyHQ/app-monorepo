@@ -5,7 +5,7 @@ import { useFormContext } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 
@@ -34,15 +34,18 @@ export function AddressInputHyperlinkText({
         if (!address) {
           return;
         }
-        const { addressBookId, addressBookName, isAllowListed } =
-          await backgroundApiProxy.serviceAccountProfile.queryAddress({
-            accountId,
-            networkId,
-            address,
-            enableAddressBook: true,
-            enableWalletName: true,
-            skipValidateAddress: true,
-          });
+        const {
+          addressBookId,
+          addressBookName: _addressBookName,
+          isAllowListed,
+        } = await backgroundApiProxy.serviceAccountProfile.queryAddress({
+          accountId,
+          networkId,
+          address,
+          enableAddressBook: true,
+          enableWalletName: true,
+          skipValidateAddress: true,
+        });
 
         if (!isAllowListed) {
           navigation.pushModal(EModalRoutes.AddressBookModal, {
@@ -65,16 +68,22 @@ export function AddressInputHyperlinkText({
       navigation,
     ],
   );
+  // Filter out "undefined" string which can occur from edge cases
+  const messageId =
+    error?.message && error.message !== 'undefined'
+      ? (error.message as ETranslations)
+      : ETranslations.send_address_invalid;
+
   return (
     <HyperlinkText
       color="$textCritical"
       size="$bodyMd"
       textAlign={errorMessageAlign}
-      key={error?.message}
+      key={messageId}
       testID={testID ? `${testID}-message` : undefined}
-      translationId={error?.message as ETranslations}
-      defaultMessage={error?.message as ETranslations}
-      autoHandleResult={false}
+      translationId={messageId}
+      defaultMessage={messageId}
+      autoExecuteParsedAction={false}
       onAction={onAction}
     />
   );

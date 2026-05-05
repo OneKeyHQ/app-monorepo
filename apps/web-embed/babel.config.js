@@ -9,6 +9,6 @@ module.exports = babelTools.normalizeConfig({
         { web: { unstable_transformProfile: 'hermes-canary' } },
       ],
     ],
-    plugins: ['react-native-reanimated/plugin'],
+    plugins: ['react-native-worklets/plugin'],
   },
 });

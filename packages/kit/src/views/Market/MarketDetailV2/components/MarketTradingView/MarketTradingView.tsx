@@ -12,6 +12,8 @@ interface IMarketTradingViewProps {
   onPanesCountChange?: (count: number) => void;
   isNative?: boolean;
   dataSource: 'websocket' | 'polling';
+  pageWidth?: number;
+  onTouchScroll?: (deltaY: number) => void;
 }
 
 export const MarketTradingView = memo(
@@ -21,6 +23,8 @@ export const MarketTradingView = memo(
     tokenSymbol = '',
     decimal = 8,
     dataSource,
+    pageWidth,
+    onTouchScroll,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
 
@@ -32,6 +36,8 @@ export const MarketTradingView = memo(
         decimal={decimal}
         dataSource={dataSource}
         accountAddress={accountAddress}
+        w={pageWidth}
+        onTouchScroll={onTouchScroll}
       />
     );
   },

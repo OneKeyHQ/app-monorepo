@@ -20,8 +20,7 @@ export class IndexedDBTransactionPromised<
     StoreNames<DBTypes>
   >,
   Mode extends IDBTransactionMode = 'readonly',
-> implements IDBPTransaction<DBTypes, TxStores, Mode>
-{
+> implements IDBPTransaction<DBTypes, TxStores, Mode> {
   constructor({
     db,
     mode,
@@ -60,6 +59,15 @@ export class IndexedDBTransactionPromised<
       tx.addEventListener('complete', complete);
       tx.addEventListener('error', error);
       tx.addEventListener('abort', error);
+    });
+
+    // Attach a no-op catch handler to prevent unhandled rejection warnings
+    // This doesn't suppress the error for actual consumers who await this.done
+    // It only prevents the browser from logging "Unhandled promise rejection"
+    // when no one is awaiting the done promise (which is common since
+    // IndexedDBAgent.withTransaction doesn't await dbTx.done)
+    done.catch(() => {
+      // Intentionally empty - errors will still propagate to actual consumers
     });
 
     this.done = done;

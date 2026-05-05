@@ -153,7 +153,7 @@ const HistoryItem = ({
           children: <Icon name="GlobusOutline" />,
         },
       }}
-      title={item.title}
+      title={item.title ?? ''}
       subtitle={subtitle}
       onPress={onPress}
     >
@@ -343,7 +343,7 @@ function HistoryList() {
             ),
           })),
         }))
-        .sort((a, b) => b.data[0].timestamp - a.data[0].timestamp);
+        .toSorted((a, b) => b.data[0].timestamp - a.data[0].timestamp);
 
       // local history items
       if (filterType !== 'rebate' && stakeTag) {

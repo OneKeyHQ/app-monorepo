@@ -237,7 +237,7 @@ class ServiceCustomRpc extends ServiceBase {
         }),
       )
     ).filter(Boolean);
-    return itemsWithNetwork.sort((a, b) =>
+    return itemsWithNetwork.toSorted((a, b) =>
       (a.network?.name ?? '').localeCompare(b.network?.name ?? ''),
     );
   }

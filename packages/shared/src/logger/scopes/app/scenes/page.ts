@@ -22,6 +22,16 @@ export class PageScene extends BaseScene {
   @LogToLocal()
   public appStart() {}
 
+  @LogToLocal()
+  public jsVersion(params: {
+    appVersion: string;
+    buildNumber: string;
+    bundleVersion: string;
+    githubSHA: string;
+  }) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal()
   public navigationToggle() {}

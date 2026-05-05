@@ -842,4 +842,5 @@ describe('Nexa Utils Tests', () => {
   });
 });
 
+// oxlint-disable-next-line unicorn/require-module-specifiers
 export {};

@@ -105,7 +105,9 @@ export function makeModalStackNavigatorOptions({
       titleColor,
       isModelScreen:
         pageType === EPageType.modal || pageType === EPageType.fullScreen,
-      isOnboardingScreen: pageType === EPageType.onboarding,
+      isOnboardingScreen:
+        pageType === EPageType.onboarding ||
+        pageType === EPageType.fullScreenPush,
     }),
   } as any;
 
@@ -152,7 +154,9 @@ export function makeOnboardingScreenOptions(info: {
   };
 }
 
-export function makeRootModalStackOptions(): StackNavigationOptions {
+export function makeRootModalStackOptions(_params?: {
+  bgColor?: string;
+}): StackNavigationOptions {
   return {
     detachPreviousScreen: false,
     headerShown: false,

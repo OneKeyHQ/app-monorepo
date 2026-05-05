@@ -1,13 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgKnob = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15.536 15.532a5.027 5.027 0 0 0 0-7.094c-1.913-1.917-5.162-1.917-7.071 0a5.027 5.027 0 0 0 0 7.094 4.99 4.99 0 0 0 7.07 0Zm0 0-.68-.675-2.142-2.143M20 7.2v9.6c0 1.12 0 1.68-.218 2.108a2 2 0 0 1-.874.874C18.48 20 17.92 20 16.8 20H7.2c-1.12 0-1.68 0-2.108-.218a2 2 0 0 1-.874-.874C4 18.48 4 17.92 4 16.8V7.2c0-1.12 0-1.68.218-2.108a2 2 0 0 1 .874-.874C5.52 4 6.08 4 7.2 4h9.6c1.12 0 1.68 0 2.108.218a2 2 0 0 1 .874.874C20 5.52 20 6.08 20 7.2"
+      fillRule="evenodd"
+      d="M7.977 7.522c2.322-2.098 6.035-2.026 8.266.21a6.027 6.027 0 0 1 .001 8.505 5.99 5.99 0 0 1-8.488 0 6.027 6.027 0 0 1 0-8.505zm6.85 1.623c-1.522-1.527-4.136-1.526-5.654-.001a4.027 4.027 0 0 0 0 5.681 3.99 3.99 0 0 0 4.858.62l-2.73-2.731 1.414-1.414 2.728 2.728a4.03 4.03 0 0 0-.616-4.883"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M21 21H3V3h18zM5 19h14V5H5z"
+      clipRule="evenodd"
     />
   </Svg>
 );

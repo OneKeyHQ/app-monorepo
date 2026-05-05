@@ -38,6 +38,7 @@ export function FooterLink({ label, href, onPress }: IFooterLinkProps) {
       size="$bodyMd"
       color="$textSubdued"
       textDecorationLine="none"
+      showExternalIndicator={false}
       hoverStyle={{
         bg: '$bgHover',
       }}

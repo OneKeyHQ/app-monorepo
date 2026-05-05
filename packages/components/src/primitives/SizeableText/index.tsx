@@ -5,7 +5,14 @@ import { type SizableTextProps } from '@onekeyhq/components/src/shared/tamagui';
 export const StyledSizableText = TamaguiSizableText;
 
 export function SizableText({ size = '$bodyMd', ...props }: SizableTextProps) {
-  return <StyledSizableText allowFontScaling={false} size={size} {...props} />;
+  return (
+    <StyledSizableText
+      allowFontScaling={false}
+      maxFontSizeMultiplier={1}
+      size={size}
+      {...props}
+    />
+  );
 }
 
 export type ISizableTextProps = SizableTextProps;

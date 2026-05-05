@@ -17,6 +17,8 @@ interface IMarketTokenListNetworkSelectorNormalProps {
   placement?: IPopoverProps['placement'];
   onStartListSelect?: () => void;
   startListSelect?: boolean;
+  borderColor?: string;
+  gradientBgColor?: string;
 }
 
 export interface IMarketTokenListNetworkSelectorNormalRef {
@@ -33,10 +35,12 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
       currentSelectNetwork,
       onSelectCurrentNetwork,
       handleMoreNetworkSelect,
-      isLoading,
+      isLoading: _isLoading,
       placement,
       onStartListSelect,
       startListSelect,
+      borderColor,
+      gradientBgColor,
     },
     ref,
   ) => {
@@ -54,7 +58,9 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
       [],
     );
 
-    if (isLoading || marketNetworks.length === 0) {
+    // Only show skeleton on initial load (no cached data yet).
+    // Skip skeleton during SWR revalidation to prevent layout flash.
+    if (marketNetworks.length === 0) {
       return <MarketTokenListNetworkSelectorNormalSkeleton />;
     }
 
@@ -68,6 +74,8 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
         placement={placement}
         onStartListSelect={onStartListSelect}
         startListSelect={startListSelect}
+        borderColor={borderColor}
+        gradientBgColor={gradientBgColor}
       />
     );
   },

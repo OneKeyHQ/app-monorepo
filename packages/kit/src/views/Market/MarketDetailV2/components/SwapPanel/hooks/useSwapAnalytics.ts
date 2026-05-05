@@ -90,12 +90,12 @@ export function useSwapAnalytics() {
 
         const sourceTokenSymbol =
           tradeType === ESwapDirection.BUY
-            ? paymentToken.symbol ?? ''
+            ? (paymentToken.symbol ?? '')
             : marketToken.symbol;
         const receivedTokenSymbol =
           tradeType === ESwapDirection.BUY
             ? marketToken.symbol
-            : paymentToken.symbol ?? '';
+            : (paymentToken.symbol ?? '');
 
         const walletType = activeAccount?.wallet?.type;
         if (walletType) {

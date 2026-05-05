@@ -19,7 +19,7 @@ function rsaEncrypt(publicKey: string, data: string) {
   try {
     const pubKeyObj = KEYUTIL.getKey(publicKey);
     return KJUR.crypto.Cipher.encrypt(data, pubKeyObj as RSAKey, 'RSA');
-  } catch (error) {
+  } catch (_error) {
     // flowLogger.error.log('rsa encrypt fail = ', error);
     return false;
   }
@@ -29,7 +29,7 @@ function rsaDecrypt(privateKey: string, encryptData: string) {
   try {
     const prvKeyObj = KEYUTIL.getKey(privateKey) as RSAKey;
     return KJUR.crypto.Cipher.decrypt(encryptData, prvKeyObj, 'RSA');
-  } catch (error) {
+  } catch (_error) {
     // flowLogger.error.log('rsa decrypt fail = ', error);
     return false;
   }

@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
@@ -25,6 +25,8 @@ import {
   processWebSiteUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
+import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -34,7 +36,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -54,6 +56,7 @@ import {
   webTabsMapAtom,
 } from './atoms';
 
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebView } from 'react-native-webview';
 
@@ -64,7 +67,38 @@ function loggerForEmptyData(tabs: IWebTab[], fnName: string) {
   }
 }
 
+// Gap between timestamps when placing a tab above the current unpinned min.
+// Must exceed the drag-reorder midpoint precision: `onDragEnd` inserts
+// `Math.round((a + b) / 2)`, so a 1ms gap collapses to the neighbor and
+// produces duplicate timestamps that destabilize sort order.
+const TOP_POSITION_TIMESTAMP_GAP = 1000;
+
+// Lowest timestamp among unpinned tabs; callers subtract a gap to sort above them.
+function getMinUnpinnedTimestamp(tabs: IWebTab[], excludeId?: string) {
+  return tabs
+    .filter(
+      (t) => !t.isPinned && t.timestamp && (!excludeId || t.id !== excludeId),
+    )
+    .reduce(
+      (min, t) => Math.min(min, t.timestamp ?? min),
+      Number.MAX_SAFE_INTEGER,
+    );
+}
+
+function isNewTabPositionTop() {
+  return (
+    platformEnv.isDesktop &&
+    jotaiDefaultStore.get(settingsPersistAtom.atom()).newBrowserTabPosition ===
+      'top'
+  );
+}
+
 export const homeResettingFlags: Record<string, number> = {};
+
+// Tracks last navigation time per tab id for the 500ms redirect-loop
+// debounce in `onNavigation`. Decoupled from `tab.timestamp` because the
+// latter also drives sidebar sort order (`top` mode freezes it on creation).
+export const lastNavigationFlags: Record<string, number> = {};
 
 function buildWebTabData(tabs: IWebTab[]) {
   const map: Record<string, IWebTab> = {};
@@ -228,7 +262,15 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     if (!payload.id || payload.id === homeTab.id) {
       payload.id = generateUUID();
     }
-    payload.timestamp = Date.now();
+    if (isNewTabPositionTop()) {
+      const minTs = getMinUnpinnedTimestamp(tabs);
+      payload.timestamp =
+        minTs < Number.MAX_SAFE_INTEGER
+          ? minTs - TOP_POSITION_TIMESTAMP_GAP
+          : Date.now();
+    } else {
+      payload.timestamp = Date.now();
+    }
     this.buildWebTabs.call(set, { data: [...tabs, payload as IWebTab] });
     this.setCurrentWebTab.call(set, payload.id ?? '');
     const endTime = performance.now();
@@ -244,6 +286,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     this.addWebTab.call(set, {
       id,
       url: '',
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
       title: appLocale.intl.formatMessage({
         id: ETranslations.browser_start_tab,
       }),
@@ -274,9 +317,18 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           // @ts-expect-error
           tabToModify[key] = value;
           if (key === 'url') {
-            tabToModify.timestamp = Date.now();
+            // Navigation normally bumps timestamp to Date.now(), which
+            // re-sorts the tab to the bottom. Skip when the user chose
+            // 'top' so the tab stays where it was created. Record the
+            // navigation time separately for the onNavigation debounce.
+            if (!isNewTabPositionTop()) {
+              tabToModify.timestamp = Date.now();
+            }
+            if (payload.id) {
+              lastNavigationFlags[payload.id] = Date.now();
+            }
             if (value === 'about:blank' && payload.id) {
-              homeResettingFlags[payload.id] = tabToModify.timestamp;
+              homeResettingFlags[payload.id] = Date.now();
             }
           }
         }
@@ -340,10 +392,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         tabs.splice(targetIndex, 1);
 
         // Add to browser history when tab is closed
-        if (closedTab.url && closedTab.title && closedTab.url !== homeTab.url) {
+        if (closedTab.url && closedTab.url !== homeTab.url) {
           void this.addBrowserHistory.call(set, {
             url: closedTab.url,
-            title: closedTab.title,
+            title: closedTab.title || closedTab.url,
+            logo: closedTab.favicon,
           });
         }
 
@@ -416,10 +469,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       // Create a queue for closing tabs
       const closeQueue = tabsToClose.map((tab) => async () => {
-        if (tab.url && tab.title) {
+        if (tab.url && tab.url !== homeTab.url) {
           await this.addBrowserHistory.call(set, {
             url: tab.url,
-            title: tab.title,
+            title: tab.title || tab.url,
+            logo: tab.favicon,
           });
         }
       });
@@ -460,10 +514,19 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   setPinnedTab = contextAtomMethod(
     (get, set, payload: { id: string; pinned: boolean }) => {
+      let timestamp = Date.now();
+      // When unpinning, place the tab at the top of the unpinned list
+      if (!payload.pinned) {
+        const allTabs = get(webTabsAtom())?.tabs ?? [];
+        const minTs = getMinUnpinnedTimestamp(allTabs, payload.id);
+        if (minTs < Number.MAX_SAFE_INTEGER) {
+          timestamp = minTs - TOP_POSITION_TIMESTAMP_GAP;
+        }
+      }
       this.setWebTabData.call(set, {
         id: payload.id,
         isPinned: payload.pinned,
-        timestamp: Date.now(),
+        timestamp,
       });
       this.setTabs.call(set);
 
@@ -671,11 +734,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       const updatedHistory = history.filter((item) => item.url !== payload.url);
 
-      const newHistoryEntry = {
+      const newHistoryEntry: IBrowserHistory = {
         id: generateUUID(),
         url: payload.url,
         title: payload.title,
         createdAt: Date.now(),
+        // Skip data: URIs to avoid inflating storage
+        logo: payload.logo?.startsWith('data:') ? undefined : payload.logo,
       };
 
       this.buildHistoryData.call(set, {
@@ -764,6 +829,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             isBookmark,
             type: 'normal',
           });
+          if (!isInPlace) {
+            this.setCurrentWebTab.call(set, tabId ?? '');
+          }
         }
 
         if (!isNewTab && !isInPlace) {
@@ -817,36 +885,54 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       {
         useCurrentWindow,
         tabId,
-        navigation,
+        navigation: _navigation,
         webSite,
         dApp,
-        shouldPopNavigation = true,
-        switchToMultiTabBrowser = false,
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
-        shouldPopNavigation?: boolean;
-        switchToMultiTabBrowser?: boolean;
       },
     ) => {
       if (webSite?.url) {
         webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
       }
 
-      let delayTime = 0;
-      if (shouldPopNavigation) {
-        delayTime = 300;
+      // Auto-detect if already on Discovery/MultiTabBrowser tab
+      let needsSwitchTab = true;
+      try {
+        const rootState = rootNavigationRef.current?.getRootState();
+        const currentIndex = rootState?.index || 0;
+        const currentRoute = rootState?.routes?.[currentIndex];
+        const currentTabName =
+          currentRoute?.name === ERootRoutes.Main
+            ? currentRoute.state?.routes?.[currentRoute.state?.index || 0]?.name
+            : undefined;
+        if (platformEnv.isDesktop) {
+          // On desktop, Discovery tab renders Dashboard (not browser with webviews).
+          // Only MultiTabBrowser has actual webview content, so always switch
+          // unless already on MultiTabBrowser.
+          needsSwitchTab = currentTabName !== ETabRoutes.MultiTabBrowser;
+        } else {
+          needsSwitchTab =
+            currentTabName !== ETabRoutes.Discovery &&
+            currentTabName !== ETabRoutes.MultiTabBrowser;
+        }
+      } catch (e) {
+        // fallback to switch tab if navigation state is not available
+        console.warn('Failed to detect current tab:', e);
       }
-      setTimeout(() => {
-        const isNewWindow = !useCurrentWindow;
 
+      const isNewWindow = !useCurrentWindow;
+
+      const openDApp = () => {
         if (!useCurrentWindow) {
           const disabledAddedNewTab = get(disabledAddedNewTabAtom());
           if (disabledAddedNewTab) {
             Toast.message({
+              // eslint-disable-next-line onekey/no-app-locale-main-thread
               title: appLocale.intl.formatMessage(
                 { id: ETranslations.explore_toast_tab_limit_reached },
                 { number: MaximumNumberOfTabs },
@@ -862,20 +948,39 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           isNewWindow,
           tabId,
         });
-      }, delayTime);
+      };
 
-      if (switchToMultiTabBrowser || platformEnv.isDesktop) {
-        navigation.switchTab(ETabRoutes.MultiTabBrowser);
-      } else if (shouldPopNavigation) {
-        navigation.switchTab(ETabRoutes.Discovery);
-      }
-      if (platformEnv.isNative) {
-        setTimeout(() => {
+      if (needsSwitchTab) {
+        const targetTab = platformEnv.isDesktop
+          ? ETabRoutes.MultiTabBrowser
+          : ETabRoutes.Discovery;
+
+        // Serialize: dismiss any overlay (e.g. UniversalSearchModal) first,
+        // then switch tab, wait for settle, then open the DApp page.
+        // The old code used navigate(Main, {pop:true}) which overlaps modal
+        // dismiss + tab switch + Main re-attach in one UIKit tick, creating
+        // orphan RNSScreenStack instances on iOS that accumulate across
+        // repeated search→open cycles and eventually freeze the UI.
+        void (async () => {
+          await switchTabAsync(targetTab);
+          if (platformEnv.isNative) {
+            appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+              tab: ETranslations.global_browser,
+              openUrl: true,
+            });
+          }
+          openDApp();
+        })();
+      } else {
+        // Already on Discovery/MultiTabBrowser — still emit the event to
+        // pop inner pages and set the selected browser sub-tab.
+        if (platformEnv.isNative) {
           appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
             tab: ETranslations.global_browser,
             openUrl: true,
           });
-        }, 150);
+        }
+        openDApp();
       }
     },
   );
@@ -922,7 +1027,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
 
       if (isValidNewUrl) {
-        if (tab.timestamp && now - tab.timestamp < 500) {
+        const lastNav = lastNavigationFlags[tab.id];
+        if (lastNav && now - lastNav < 500) {
           // ignore url change if it's too fast to avoid back & forth loop
           return;
         }
@@ -991,6 +1097,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         // update jsBridge interaction
         if (ref.jsBridge) {
           ref.jsBridge.globalOnMessageEnabled = !shouldPause;
+          backgroundApiProxy.connectBridge(
+            ref.jsBridge as unknown as JsBridgeBase,
+          );
         }
         // update wallet connect websocket
         if (platformEnv.isNative) {
@@ -1011,7 +1120,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (deskTopRef) {
             try {
               deskTopRef.executeJavaScript(injectCode);
-            } catch (e) {
+            } catch (_e) {
               // if not dom ready, no need to pause websocket
             }
           }
@@ -1036,26 +1145,30 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
-    if (!url) return EValidateUrlEnum.InvalidUrl;
-    const cache = get(phishingLruCacheAtom());
-    const { action } = uriUtils.parseDappRedirect(
-      url,
-      Array.from(cache.keys()),
-    );
-    if (action === uriUtils.EDAppOpenActionEnum.DENY) {
-      defaultLogger.discovery.browser.logRejectUrl(url);
-      return EValidateUrlEnum.NotSupportProtocol;
-    }
-    if (uriUtils.containsPunycode(url)) {
-      defaultLogger.discovery.browser.logRejectUrl(url);
-      return EValidateUrlEnum.InvalidPunycode;
-    }
-    if (uriUtils.isValidDeepLink(url)) {
-      return EValidateUrlEnum.ValidDeeplink;
-    }
-    return EValidateUrlEnum.Valid;
-  });
+  validateWebviewSrc = contextAtomMethod(
+    (get, _, payload: { url: string; isTopFrame?: boolean }) => {
+      const { url, isTopFrame = true } = payload;
+      if (!url) return EValidateUrlEnum.InvalidUrl;
+      const cache = get(phishingLruCacheAtom());
+      const { action } = uriUtils.parseDappRedirect(
+        url,
+        Array.from(cache.keys()),
+        { isTopFrame },
+      );
+      if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+        defaultLogger.discovery.browser.logRejectUrl(url);
+        return EValidateUrlEnum.NotSupportProtocol;
+      }
+      if (uriUtils.containsPunycode(url)) {
+        defaultLogger.discovery.browser.logRejectUrl(url);
+        return EValidateUrlEnum.InvalidPunycode;
+      }
+      if (uriUtils.isValidDeepLink(url)) {
+        return EValidateUrlEnum.ValidDeeplink;
+      }
+      return EValidateUrlEnum.Valid;
+    },
+  );
 }
 
 const createActions = memoFn(() => {

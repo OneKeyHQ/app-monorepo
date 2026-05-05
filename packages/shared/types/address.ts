@@ -12,6 +12,7 @@ export enum EInputAddressChangeType {
   Manual = 'manual',
   Paste = 'paste',
   Scan = 'scan',
+  Upload = 'upload',
   AddressBook = 'AddressBook',
   AccountSelector = 'AccountSelector',
 }
@@ -133,6 +134,7 @@ export type IServerAccountBadgeResp = {
   isScam?: boolean;
   badges?: IAddressBadge[];
   label?: string;
+  similarAddress?: string;
 };
 
 export enum EAddressInteractionStatus {
@@ -166,6 +168,8 @@ export type IQueryCheckAddressArgs = {
     accountName: string;
     accountId: string;
   };
+  ignoreSimilarAddressInAddressBook?: boolean;
+  enableCheckSimilarAddressInAddressBook?: boolean;
 };
 
 export type IFetchServerAccountDetailsParams = IFetchAccountDetailsParams & {

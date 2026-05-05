@@ -2,6 +2,7 @@
 import crypto from 'crypto';
 
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
 import {
   IncorrectPassword,
   OneKeyLocalError,
@@ -10,11 +11,19 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import {
+  ENCODE_TEXT_PREFIX,
+  ensureSensitiveTextEncoded,
+  isEncodedSensitiveText,
+} from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 
 import { xorDecrypt, xorEncrypt } from './xor';
 
 const {
   AES256_IV_LENGTH,
+  AES_GCM_ENCRYPTION_MAGIC: AES_GCM_ENCRYPTION_MAGIC_TEXT,
+  AES_GCM_NONCE_LENGTH,
+  AES_GCM_TAG_LENGTH,
   PBKDF2_KEY_LENGTH,
   PBKDF2_SALT_LENGTH,
   ENCRYPTED_DATA_OFFSET,
@@ -23,17 +32,30 @@ const {
 const { aesCbcDecryptSync, aesCbcDecrypt, aesCbcEncrypt, aesCbcEncryptSync } =
   appCrypto.aesCbc;
 
+const { aesGcmDecrypt, aesGcmEncrypt } = appCrypto.aesGcm;
+
 const { keyFromPasswordAndSalt } = appCrypto.keyGen;
+
+const AES_GCM_ENCRYPTION_MAGIC = Buffer.from(
+  AES_GCM_ENCRYPTION_MAGIC_TEXT,
+  'utf8',
+);
+
+function normalizeAad(aad?: Buffer | string): Buffer | undefined {
+  if (!aad) {
+    return undefined;
+  }
+  if (typeof aad === 'string') {
+    return Buffer.from(aad, 'utf8');
+  }
+  return Buffer.from(aad);
+}
 
 export const encodeKeyPrefix =
   'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
 let encodeKey = platformEnv.isWebEmbed
   ? ''
   : `${encodeKeyPrefix}${generateUUID()}`;
-const ENCODE_TEXT_PREFIX = {
-  aes: 'SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::',
-  xor: 'SENSITIVE_ENCODE::AAAAAAAA-2E51-4DC6-A913-79EB1C62D09E::',
-};
 // xor more fast but not safe
 const SENSITIVE_ENCODE_TYPE: 'xor' | 'aes' = 'aes';
 
@@ -43,13 +65,6 @@ function ensureEncodeKeyExists(key: string) {
       'encodeKey is not set, please call setBgSensitiveTextEncodeKey() from webembed',
     );
   }
-}
-
-function isEncodedSensitiveText(text: string) {
-  return (
-    text.startsWith(ENCODE_TEXT_PREFIX.aes) ||
-    text.startsWith(ENCODE_TEXT_PREFIX.xor)
-  );
 }
 
 async function decodePasswordAsync({
@@ -117,6 +132,8 @@ export type IEncryptStringParams = {
   dataEncoding?: BufferEncoding;
   allowRawPassword?: boolean;
   iterations?: number;
+  mode?: EAppCryptoAesEncryptionMode;
+  aad?: Buffer | string;
 };
 
 // ------------------------------------------------------------
@@ -129,6 +146,8 @@ export type IEncryptAsyncParams = {
   customIv?: Buffer | string;
   customDecodePasswordKey?: string;
   iterations?: number;
+  mode?: EAppCryptoAesEncryptionMode;
+  aad?: Buffer | string;
 };
 async function encryptAsync({
   password,
@@ -139,6 +158,8 @@ async function encryptAsync({
   customIv,
   customDecodePasswordKey,
   iterations,
+  mode = EAppCryptoAesEncryptionMode.cbc,
+  aad,
 }: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
@@ -146,6 +167,7 @@ async function encryptAsync({
 
   if (
     useWebembedApi &&
+    mode !== EAppCryptoAesEncryptionMode.gcm &&
     platformEnv.isNative &&
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
@@ -180,9 +202,6 @@ async function encryptAsync({
   const salt: Buffer = bufferUtils.toBuffer(
     customSalt || crypto.randomBytes(PBKDF2_SALT_LENGTH),
   );
-  const iv: Buffer = bufferUtils.toBuffer(
-    customIv || crypto.randomBytes(AES256_IV_LENGTH),
-  );
 
   // in web environment, if async function is executed in indexedDB.transaction, it will cause the transaction to be committed prematurely, so here use synchronous function
   // ------------------------------------------------------------
@@ -216,6 +235,28 @@ async function encryptAsync({
   //   //
   // });
 
+  if (mode === EAppCryptoAesEncryptionMode.gcm) {
+    const nonce: Buffer = bufferUtils.toBuffer(
+      customIv || crypto.randomBytes(AES_GCM_NONCE_LENGTH),
+    );
+    const aadBuffer = normalizeAad(aad);
+    const dataEncrypted = await aesGcmEncrypt({
+      data: dataBuffer,
+      key,
+      nonce,
+      aad: aadBuffer,
+    });
+    return Buffer.concat([
+      AES_GCM_ENCRYPTION_MAGIC,
+      salt,
+      nonce,
+      dataEncrypted,
+    ]);
+  }
+
+  const iv: Buffer = bufferUtils.toBuffer(
+    customIv || crypto.randomBytes(AES256_IV_LENGTH),
+  );
   const dataEncrypted = await aesCbcEncrypt({
     data: dataBuffer,
     key,
@@ -233,6 +274,8 @@ export type IDecryptAsyncParams = {
   ignoreLogger?: boolean;
   useWebembedApi?: boolean;
   iterations?: number;
+  mode?: EAppCryptoAesEncryptionMode;
+  aad?: Buffer | string;
 };
 /**
  * The recommended asynchronous decryption method
@@ -248,13 +291,39 @@ async function decryptAsync({
   ignoreLogger,
   useWebembedApi,
   iterations,
+  mode,
+  aad,
 }: IDecryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
   }
 
+  const dataBuffer = bufferUtils.toBuffer(data);
+  const isGcmData =
+    dataBuffer.length >
+      AES_GCM_ENCRYPTION_MAGIC.length +
+        PBKDF2_SALT_LENGTH +
+        AES_GCM_NONCE_LENGTH &&
+    dataBuffer
+      .slice(0, AES_GCM_ENCRYPTION_MAGIC.length)
+      .equals(AES_GCM_ENCRYPTION_MAGIC);
+  let resolvedMode: EAppCryptoAesEncryptionMode =
+    EAppCryptoAesEncryptionMode.cbc;
+  if (mode) {
+    resolvedMode = mode;
+  } else if (isGcmData) {
+    resolvedMode = EAppCryptoAesEncryptionMode.gcm;
+  }
+
+  if (resolvedMode === EAppCryptoAesEncryptionMode.gcm && !isGcmData) {
+    throw new OneKeyLocalError(
+      'decryptAsync ERROR: encryption mode mismatch, expected AES-GCM payload',
+    );
+  }
+
   if (
     useWebembedApi &&
+    resolvedMode !== EAppCryptoAesEncryptionMode.gcm &&
     platformEnv.isNative &&
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
@@ -289,8 +358,17 @@ async function decryptAsync({
     defaultLogger.account.secretPerf.decodePasswordDone();
   }
 
-  const dataBuffer = bufferUtils.toBuffer(data);
-  const salt: Buffer = dataBuffer.slice(0, PBKDF2_SALT_LENGTH);
+  let dataAfterMagic = dataBuffer;
+  if (resolvedMode === EAppCryptoAesEncryptionMode.gcm) {
+    if (dataBuffer.length <= AES_GCM_ENCRYPTION_MAGIC.length) {
+      throw new OneKeyLocalError('decryptAsync ERROR: encrypted data is empty');
+    }
+    dataAfterMagic = dataBuffer.slice(AES_GCM_ENCRYPTION_MAGIC.length);
+    if (!dataAfterMagic.length) {
+      throw new OneKeyLocalError('decryptAsync ERROR: encrypted data is empty');
+    }
+  }
+  const salt: Buffer = dataAfterMagic.slice(0, PBKDF2_SALT_LENGTH);
 
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.keyFromPasswordAndSalt();
@@ -309,11 +387,7 @@ async function decryptAsync({
     defaultLogger.account.secretPerf.keyFromPasswordAndSaltDone();
   }
 
-  const iv: Buffer = dataBuffer.slice(
-    PBKDF2_SALT_LENGTH,
-    ENCRYPTED_DATA_OFFSET,
-  );
-
+  let aesDecryptData: Buffer | undefined;
   try {
     if (!ignoreLogger) {
       defaultLogger.account.secretPerf.decryptAES();
@@ -331,24 +405,82 @@ async function decryptAsync({
     //       iv,
     //     });
 
-    const encryptedData = dataBuffer.slice(ENCRYPTED_DATA_OFFSET);
-    const aesDecryptData = await aesCbcDecrypt({
-      data: encryptedData,
-      key,
-      iv,
-    });
+    if (resolvedMode === EAppCryptoAesEncryptionMode.gcm) {
+      if (
+        dataAfterMagic.length <
+        PBKDF2_SALT_LENGTH + AES_GCM_NONCE_LENGTH + AES_GCM_TAG_LENGTH
+      ) {
+        throw new IncorrectPassword();
+      }
+      const nonce: Buffer = dataAfterMagic.slice(
+        PBKDF2_SALT_LENGTH,
+        PBKDF2_SALT_LENGTH + AES_GCM_NONCE_LENGTH,
+      );
+      const encryptedData = dataAfterMagic.slice(
+        PBKDF2_SALT_LENGTH + AES_GCM_NONCE_LENGTH,
+      );
+      if (!nonce.length || !encryptedData.length) {
+        throw new IncorrectPassword();
+      }
+      const aadBuffer = normalizeAad(aad);
+      try {
+        aesDecryptData = await aesGcmDecrypt({
+          data: encryptedData,
+          key,
+          nonce,
+          aad: aadBuffer,
+        });
+      } catch (error) {
+        // Noble/GCM throws error on authentication failure (wrong AAD or tampered data)
+        // This is different from wrong password (which results in wrong key derivation)
+        const errorMessage =
+          error instanceof Error ? error.message.toLowerCase() : '';
+        if (
+          errorMessage.includes('tag') ||
+          errorMessage.includes('authentication') ||
+          errorMessage.includes('auth')
+        ) {
+          throw new OneKeyLocalError(
+            'AES-GCM authentication failed: data may be tampered or AAD mismatch',
+          );
+        }
+        throw error;
+      }
+    }
+
+    if (resolvedMode === EAppCryptoAesEncryptionMode.cbc) {
+      if (dataAfterMagic.length <= ENCRYPTED_DATA_OFFSET) {
+        throw new IncorrectPassword();
+      }
+      const iv: Buffer = dataAfterMagic.slice(
+        PBKDF2_SALT_LENGTH,
+        ENCRYPTED_DATA_OFFSET,
+      );
+      const encryptedData = dataAfterMagic.slice(ENCRYPTED_DATA_OFFSET);
+      if (!iv.length || !encryptedData.length) {
+        throw new IncorrectPassword();
+      }
+      aesDecryptData = await aesCbcDecrypt({
+        data: encryptedData,
+        key,
+        iv,
+      });
+    }
 
     if (!ignoreLogger) {
       defaultLogger.account.secretPerf.decryptAESDone();
     }
-
-    return Buffer.from(aesDecryptData);
   } catch (e) {
     if (!platformEnv.isJest) {
       console.error(e);
     }
     throw new IncorrectPassword();
   }
+
+  if (!aesDecryptData || !aesDecryptData.length) {
+    throw new OneKeyLocalError('decryptAsync ERROR: decrypted data is empty');
+  }
+  return Buffer.from(aesDecryptData);
 }
 
 export type IDecryptStringParams = {
@@ -358,6 +490,8 @@ export type IDecryptStringParams = {
   dataEncoding?: BufferEncoding;
   allowRawPassword?: boolean;
   iterations?: number;
+  mode?: EAppCryptoAesEncryptionMode;
+  aad?: Buffer | string;
 };
 
 async function decryptStringAsync({
@@ -367,6 +501,8 @@ async function decryptStringAsync({
   dataEncoding = 'hex',
   allowRawPassword,
   iterations,
+  mode,
+  aad,
 }: IDecryptStringParams): Promise<string> {
   const bytes = await decryptAsync({
     password,
@@ -374,6 +510,8 @@ async function decryptStringAsync({
     ignoreLogger: undefined,
     allowRawPassword,
     iterations,
+    mode,
+    aad,
   });
   if (resultEncoding === 'hex') {
     return bufferUtils.bytesToHex(bytes);
@@ -387,6 +525,8 @@ async function encryptStringAsync({
   dataEncoding = 'hex',
   allowRawPassword,
   iterations,
+  mode,
+  aad,
 }: IEncryptStringParams): Promise<string> {
   const bufferData = bufferUtils.toBuffer(data, dataEncoding);
   const bytes = await encryptAsync({
@@ -394,6 +534,8 @@ async function encryptStringAsync({
     data: bufferData,
     allowRawPassword,
     iterations,
+    mode,
+    aad,
   });
   return bufferUtils.bytesToHex(bytes);
 }
@@ -403,12 +545,6 @@ function checkKeyPassedOnExtUi(key?: string) {
     throw new OneKeyLocalError(
       'Please get and pass key by:  await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey()',
     );
-  }
-}
-
-function ensureSensitiveTextEncoded(text: string) {
-  if (!isEncodedSensitiveText(text)) {
-    throw new OneKeyLocalError('Not encoded sensitive text');
   }
 }
 

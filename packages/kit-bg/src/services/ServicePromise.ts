@@ -134,7 +134,7 @@ class ServicePromise extends ServiceBase {
   }
 
   removeCallback(id: number | string) {
-    delete this.callbacks[id as number];
+    this.callbacks.splice(id as number, 1);
   }
 
   _rejectExpiredCallbacks() {

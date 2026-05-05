@@ -1,6 +1,7 @@
 import { useOnRouterChange } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import type { NavigationState, PartialState } from '@react-navigation/routers';
 
@@ -27,7 +28,8 @@ export default function PageTrackerContainer() {
         defaultLogger.app.page.pageView(ETabHomeRoutes.TabHome);
       } else {
         const page = getActiveRoute(state as IState);
-        if (page) {
+        // Perp has its own pageView with source tracking (perp.common.pageView)
+        if (page && page.name !== ETabRoutes.Perp) {
           defaultLogger.app.page.pageView(page.name);
         }
       }

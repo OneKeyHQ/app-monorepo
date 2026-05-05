@@ -66,11 +66,17 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onProgress,
       webviewDebuggingEnabled,
       siteMode,
+      mediaPermissionWhitelist,
       onMessage,
       useGeckoView,
       useInjectedNativeCode = true,
       pullToRefreshEnabled,
       allowsBackForwardNavigationGestures,
+      allowFileAccessFromFileURLs,
+      allowFileAccess,
+      allowingReadAccessToURL,
+      onError,
+      onHttpError,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -214,11 +220,12 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onLoadStart={onLoadStart}
           onLoadEnd={onLoadEnd}
           onScroll={onScroll}
-          // allowFileAccessFromFileURLs
-          // allowFileAccess
+          allowFileAccessFromFileURLs={allowFileAccessFromFileURLs}
+          allowFileAccess={allowFileAccess}
           // allowUniversalAccessFromFileURLs
           // *** Note that static HTML will require setting originWhitelist to ["*"].
           originWhitelist={['*']}
+          mediaPermissionWhitelist={mediaPermissionWhitelist}
           userAgent={isDesktopMode ? desktopUserAgent : undefined}
           // https://github.com/react-native-webview/react-native-webview/issues/1779
           onMessage={onMessage || defaultOnMessage}
@@ -227,6 +234,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
             allowsBackForwardNavigationGestures
           }
           {...nativeWebviewProps}
+          allowingReadAccessToURL={allowingReadAccessToURL}
+          onError={onError}
+          onHttpError={onHttpError}
         />
       </Stack>
     );

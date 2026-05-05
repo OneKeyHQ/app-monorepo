@@ -7,7 +7,6 @@ import {
   isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,
@@ -34,6 +33,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -44,6 +44,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   EHardwareTransportType,
+  ICurrencyItem,
   IServerNetwork,
 } from '@onekeyhq/shared/types';
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
@@ -64,6 +65,7 @@ import {
   desktopBluetoothAtom,
 } from '../states/jotai/atoms';
 import {
+  settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms/settings';
@@ -73,6 +75,7 @@ import ServiceBase from './ServiceBase';
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IDesktopBluetoothAtom } from '../states/jotai/atoms';
+import type { INewBrowserTabPosition } from '../states/jotai/atoms/settings';
 
 export type IAccountDerivationConfigItem = {
   num: number;
@@ -133,6 +136,16 @@ class ServiceSetting extends ServiceBase {
   public async getInstanceId() {
     const { instanceId } = await settingsPersistAtom.get();
     return instanceId;
+  }
+
+  @backgroundMethod()
+  public async resetInstanceId() {
+    const newInstanceId = generateUUID();
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      instanceId: newInstanceId,
+    }));
+    return newInstanceId;
   }
 
   @backgroundMethod()
@@ -337,7 +350,7 @@ class ServiceSetting extends ServiceBase {
       return Object.values(vaultSettings.accountDeriveInfo).length > 1;
     });
 
-    const toppedImpl = [IMPL_BTC, IMPL_EVM, IMPL_LTC].reduce(
+    const toppedImpl = [IMPL_EVM, IMPL_BTC, IMPL_LTC].reduce(
       (result, o, index) => {
         result[o] = index;
         return result;
@@ -442,6 +455,98 @@ class ServiceSetting extends ServiceBase {
         reviewControl: show,
       }));
     }
+  }
+
+  private async syncFiatPaySiteWhitelistToRuntime(origins: string[]) {
+    if (platformEnv.isDesktop) {
+      void globalThis.desktopApiProxy?.webview.setFiatPaySiteWhitelist(origins);
+    }
+  }
+
+  private async applyFiatPaySiteWhitelist(origins: string[]) {
+    await settingsFiatPaySiteWhitelistPersistAtom.set((prev) => ({
+      ...prev,
+      fiatPaySiteWhitelist: origins,
+    }));
+    await this.syncFiatPaySiteWhitelistToRuntime(origins);
+  }
+
+  @backgroundMethod()
+  public async restoreFiatPaySiteWhitelistFromPersist() {
+    const { fiatPaySiteWhitelist } =
+      await settingsFiatPaySiteWhitelistPersistAtom.get();
+    await this.syncFiatPaySiteWhitelistToRuntime(fiatPaySiteWhitelist);
+  }
+
+  @backgroundMethod()
+  public async fetchFiatPaySiteWhitelist() {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const key = 'FiatPay_site_white_list';
+    let response;
+    try {
+      response = await client.get<{
+        data: { value: string; key: string }[];
+      }>('/utility/v1/setting', {
+        params: {
+          key,
+        },
+      });
+    } catch (e) {
+      // Network error: keep cached whitelist, do not clear
+      console.error('fetchFiatPaySiteWhitelist network error', e);
+      return;
+    }
+    let origins: string[] = [];
+    const data = response.data.data;
+    const matched = data.find((item) => item.key === key);
+    if (matched) {
+      try {
+        const sites: { name: string; url: string }[] = JSON.parse(
+          matched.value,
+        );
+        origins = sites
+          .map((site) => {
+            try {
+              return new URL(site.url).origin;
+            } catch {
+              return '';
+            }
+          })
+          .filter(Boolean);
+      } catch {
+        // JSON parse failed: treat as server revocation, origins stays []
+        console.error(
+          'fetchFiatPaySiteWhitelist JSON parse failed',
+          matched.value,
+        );
+      }
+    }
+    // When key is missing or JSON is invalid, origins is [], clearing the whitelist (server revocation)
+    await this.applyFiatPaySiteWhitelist(origins);
+  }
+
+  @backgroundMethod()
+  public async fetchGetStartedLinks({
+    slots,
+  }: {
+    slots: ('hardware_faqs' | 'hardware_getstarteds')[];
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: {
+        linkId: string;
+        title: string;
+        mode: number;
+        payload: string;
+        image: string;
+        description: string;
+      }[];
+    }>('/utility/v1/link-config', {
+      params: {
+        slots: slots.join(','),
+      },
+    });
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -612,6 +717,38 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setUseGasAccountByDefault(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      useGasAccountByDefault: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setEnableMenuBarTray(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableMenuBarTray: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getEnableMenuBarTray() {
+    const { enableMenuBarTray } = await settingsPersistAtom.get();
+    // Fall back to true to match settingsAtomInitialValue for upgrades.
+    return enableMenuBarTray ?? true;
+  }
+
+  @backgroundMethod()
+  public async setNewBrowserTabPosition(value: INewBrowserTabPosition) {
+    await settingsPersistAtom.set((prev) =>
+      prev.newBrowserTabPosition === value
+        ? prev
+        : { ...prev, newBrowserTabPosition: value },
+    );
+  }
+
+  @backgroundMethod()
   public async getEnableBTCFreshAddress() {
     const { enableBTCFreshAddress } = await settingsPersistAtom.get();
     return enableBTCFreshAddress ?? false;
@@ -681,7 +818,7 @@ class ServiceSetting extends ServiceBase {
         '/wallet/v1/wallet/config',
       );
       return resp.data.data;
-    } catch (e) {
+    } catch (_e) {
       return null;
     }
   }

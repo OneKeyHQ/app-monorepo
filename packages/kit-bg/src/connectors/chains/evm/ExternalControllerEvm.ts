@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { isNil, isString, uniqBy } from 'lodash';
 
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { ONEKEY_EIP6963_RDNS } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -17,6 +18,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
+  IConnectToWalletOptions,
   IExternalConnectResultEvm,
   IExternalConnectWalletResult,
   IExternalConnectionInfo,
@@ -50,6 +52,20 @@ import type {
   IExternalSignMessagePayload,
   IExternalSyncAccountFromPeerWalletPayload,
 } from '../../base/ExternalControllerBase';
+
+function isOneKeyExtensionConnection(connectionInfo: IExternalConnectionInfo) {
+  const eip6963Rdns =
+    connectionInfo.evmEIP6963?.info?.rdns?.toLowerCase() ?? '';
+  const eip6963Name =
+    connectionInfo.evmEIP6963?.info?.name?.toLowerCase() ?? '';
+  const injectedName = connectionInfo.evmInjected?.name?.toLowerCase() ?? '';
+
+  return (
+    eip6963Rdns === ONEKEY_EIP6963_RDNS ||
+    eip6963Name === 'onekey wallet' ||
+    injectedName === 'onekey wallet'
+  );
+}
 
 export class ExternalControllerEvm extends ExternalControllerBase {
   changeListeners: Record<string, (data: any) => Promise<void>> = {};
@@ -272,13 +288,28 @@ export class ExternalControllerEvm extends ExternalControllerBase {
 
   override async connectWallet({
     connector,
+    connectToWalletOptions,
   }: {
     connector: IExternalConnectorEvm;
+    connectToWalletOptions?: IConnectToWalletOptions;
   }): Promise<IExternalConnectWalletResult> {
     const { connectionInfo } = connector;
     checkIsDefined(connectionInfo);
-    // const { connector } = await this.createConnector({ connectionInfo });
-    const result = (await connector.connect()) as IExternalConnectResultEvm;
+    const requestOneKeyKeylessAccount = isOneKeyExtensionConnection(
+      connectionInfo,
+    )
+      ? connectToWalletOptions?.webKeylessPendingLogin?.provider
+      : undefined;
+    const result = (await connector.connect(
+      (requestOneKeyKeylessAccount
+        ? { requestOneKeyKeylessAccount }
+        : {}) as any,
+    )) as IExternalConnectResultEvm;
+
+    if (!result?.accounts?.length) {
+      throw new OneKeyLocalError('No authorized external wallet accounts');
+    }
+
     const { impl, createAtNetwork, addressMap, notSupportedNetworkIds } =
       await this.buildEvmConnectedAddressMap(result);
     let name = '';

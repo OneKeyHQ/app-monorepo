@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 
@@ -98,20 +98,25 @@ function HeaderSearchBar({
     [onSearchButtonPress],
   );
 
+  const searchBarContainerProps = useMemo(
+    () => ({
+      alignSelf: 'stretch' as const,
+      mb: '$4' as const,
+      $gtMd: {
+        ...(!isModalScreen && {
+          width: '$52' as const,
+          alignSelf: 'auto' as const,
+          mb: '$0' as const,
+        }),
+      },
+    }),
+    [isModalScreen],
+  );
+
   return (
     <XStack px="$5" w="100%">
       <SearchBar
-        containerProps={{
-          alignSelf: 'stretch',
-          mb: '$4',
-          $gtMd: {
-            ...(!isModalScreen && {
-              width: '$52',
-              alignSelf: 'auto',
-              mb: '$0',
-            }),
-          },
-        }}
+        containerProps={searchBarContainerProps}
         {...(media.gtMd &&
           !isModalScreen && {
             size: 'small',

@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { prepareLoggerExport } from '@onekeyhq/shared/src/logger/exportSupport';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type {
@@ -44,6 +45,7 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(100);
+  await prepareLoggerExport();
   const result = await globalThis.desktopApiProxy.dev.collectLoggerDigest({
     fileBaseName: baseName,
   });
@@ -62,7 +64,8 @@ export const collectLogDigest = async (
   };
 };
 
-export const exportLogs = async () => {
+export const exportLogs = async (fileBaseName?: string) => {
+  const baseName = fileBaseName ?? buildDefaultFileBaseName();
   defaultLogger.setting.device.logDeviceInfo();
   try {
     const connectionInfo =
@@ -82,7 +85,10 @@ export const exportLogs = async () => {
     });
   }
   await waitAsync(50);
-  void globalThis.desktopApiProxy.dev.openLoggerFile();
+  await prepareLoggerExport();
+  await globalThis.desktopApiProxy.dev.exportLoggerZip({
+    fileBaseName: baseName,
+  });
 };
 
 export const uploadLogBundle = async ({

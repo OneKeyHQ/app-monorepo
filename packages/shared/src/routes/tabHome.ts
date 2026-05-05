@@ -1,3 +1,7 @@
+import type { EModalBulkSendRoutes, IModalBulkSendParamList } from './bulkSend';
+import type { EBulkSendMode } from '../../types/bulkSend';
+import type { IToken, ITokenFiat } from '../../types/token';
+
 export enum ETabHomeRoutes {
   TabHome = 'TabHome',
   TabHomeUrlAccountPage = 'TabHomeUrlAccountPage',
@@ -5,6 +9,10 @@ export enum ETabHomeRoutes {
   TabHomeReferralLanding = 'TabHomeReferralLanding',
   TabHomeReferralLandingWithoutPage = 'TabHomeReferralLandingWithoutPage',
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
+  TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
+  TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
+  TabHomeBulkSendProcess = 'TabHomeBulkSendProcess',
+  TabHomeApprovalList = 'TabHomeApprovalList',
 }
 
 export type ITabHomeUrlAccountParamList = {
@@ -23,6 +31,7 @@ export type ITabHomeParamList = {
   [ETabHomeRoutes.TabHomeReferralLanding]: {
     code: string;
     page: string;
+    fromDeepLink?: boolean;
   };
   [ETabHomeRoutes.TabHomeReferralLandingWithoutPage]: {
     code: string;
@@ -30,5 +39,35 @@ export type ITabHomeParamList = {
   };
   [ETabHomeRoutes.TabHomeReferralLandingCodeOnly]: {
     code: string;
+  };
+  [ETabHomeRoutes.TabHomeBulkSendAddressesInput]: {
+    networkId: string | undefined;
+    accountId: string | undefined;
+    indexedAccountId: string | undefined;
+    tokenInfo?: IToken;
+    isInModal?: boolean;
+    bulkSendMode?: EBulkSendMode;
+  };
+  [ETabHomeRoutes.TabHomeBulkSendAmountsInput]: {
+    networkId: string;
+    accountId: string | undefined;
+    senders: {
+      address: string;
+      amount: string | undefined;
+      accountId: string | undefined;
+    }[];
+    receivers: { address: string; amount: string | undefined }[];
+    tokenInfo: IToken;
+    tokenDetails: { info: IToken } & ITokenFiat;
+    bulkSendMode: EBulkSendMode;
+    isInModal?: boolean;
+    hasDuplicateSenders?: boolean;
+  };
+  [ETabHomeRoutes.TabHomeBulkSendProcess]: IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendProcess];
+  [ETabHomeRoutes.TabHomeApprovalList]: {
+    networkId: string | undefined;
+    accountId: string | undefined;
+    walletId: string | undefined;
+    indexedAccountId: string | undefined;
   };
 } & ITabHomeUrlAccountParamList;

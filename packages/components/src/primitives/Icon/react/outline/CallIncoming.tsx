@@ -1,14 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCallIncoming = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M19 9h-4m0 0V5m0 4 5-5m-1.996 15.877c-7.24-.901-12.98-6.64-13.88-13.881C3.986 4.9 4.894 4 6 4h1.312a2 2 0 0 1 1.916 1.425l.6 2.003a1 1 0 0 1-.25.994l-.26.26c-.604.604-.77 1.533-.315 2.255a13.1 13.1 0 0 0 4.06 4.06c.722.456 1.65.29 2.254-.314l.26-.26a1 1 0 0 1 .995-.251l2.003.6A2 2 0 0 1 20 16.688V18c0 1.105-.9 2.013-1.996 1.877"
+      fillRule="evenodd"
+      d="M11.13 8.285 9.537 9.876a12.06 12.06 0 0 0 4.586 4.586l1.17-1.169.422-.423L21 14.456V21h-1C10.611 21 3 13.389 3 4V3h6.544zM5.034 5C5.527 12.488 11.512 18.473 19 18.966v-3.023l-2.716-.814-1.772 1.773-.642-.312a14.05 14.05 0 0 1-6.46-6.46l-.312-.642L8.87 7.715 8.056 5z"
+      clipRule="evenodd"
     />
+    <Path d="m21.414 4-4 4H20v2h-6V4h2v2.586l4-4z" />
   </Svg>
 );
 export default SvgCallIncoming;

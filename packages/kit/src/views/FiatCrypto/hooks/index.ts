@@ -97,20 +97,19 @@ export function useFiatCrypto({
   const handleFiatCrypto = useCallback(
     (params: { sameModal?: boolean } | undefined) => {
       const { sameModal } = params ?? {};
+      const routeParams = {
+        networkId,
+        accountId,
+        tokens: allTokens.tokens,
+        map,
+        defaultTab: fiatCryptoType,
+      };
       if (sameModal) {
-        navigation.push(
-          fiatCryptoType === 'buy'
-            ? EModalFiatCryptoRoutes.BuyModal
-            : EModalFiatCryptoRoutes.SellModal,
-          { networkId, accountId, tokens: allTokens.tokens, map },
-        );
+        navigation.push(EModalFiatCryptoRoutes.BuyModal, routeParams);
       } else {
         navigation.pushModal(EModalRoutes.FiatCryptoModal, {
-          screen:
-            fiatCryptoType === 'buy'
-              ? EModalFiatCryptoRoutes.BuyModal
-              : EModalFiatCryptoRoutes.SellModal,
-          params: { networkId, accountId, tokens: allTokens.tokens, map },
+          screen: EModalFiatCryptoRoutes.BuyModal,
+          params: routeParams,
         });
       }
     },

@@ -38,9 +38,12 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
   const isReady = isAuthReady;
 
   const initSdk = useCallback(
-    async ({ loginRequired }: { loginRequired?: boolean } = {}) => {
+    async ({ loginRequired }: { loginRequired?: boolean } = {}): Promise<{
+      apiKey: string;
+      isSandboxKey: boolean;
+    }> => {
       console.log('initSdk');
-      const { apiKey } = await getPrimePaymentApiKey({
+      const { apiKey, isSandboxKey } = await getPrimePaymentApiKey({
         apiKeyType: 'web',
       });
       if (!isReady) {
@@ -63,6 +66,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         apiKey,
         user?.onekeyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
       );
+      return { apiKey, isSandboxKey };
     },
     [isReady, user?.onekeyUserId],
   );
@@ -97,49 +101,64 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
   }, [initSdk, setPrimePersistAtom, user?.onekeyUserId]);
 
   const getPackagesWeb = useCallback(async () => {
-    await initSdk();
-
     if (!isReady) {
       throw new OneKeyLocalError('PrimeAuth Not ready');
     }
 
-    const offerings = await Purchases.getSharedInstance().getOfferings({
-      currency: 'USD',
-    });
+    const { isSandboxKey } = await initSdk();
+
+    const { offerings, targetOffering } =
+      await primePaymentUtils.fetchWebTargetOffering({
+        purchases: Purchases.getSharedInstance(),
+        isSandboxKey,
+      });
 
     const packages: IPackage[] =
-      offerings?.current?.availablePackages?.map((p) => {
-        const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
+      targetOffering?.availablePackages?.map((p) => {
+        const {
+          normalPeriodDuration,
+          currentPrice,
+          defaultSubscriptionOption,
+        } = p.rcBillingProduct;
 
-        let currency = '';
-        currency = primePaymentUtils.extractCurrencySymbol(
-          currentPrice.formattedPrice,
-          {
-            useShortUSSymbol: true,
-          },
-        );
+        const currencyCode = currentPrice.currency || '';
 
         const pricePerMonthBN =
           normalPeriodDuration === 'P1M'
             ? new BigNumber(currentPrice.amountMicros).div(1_000_000)
             : new BigNumber(currentPrice.amountMicros).div(12).div(1_000_000);
 
-        const pricePerMonth = pricePerMonthBN.toFixed(2);
-        const pricePerYear = pricePerMonthBN.times(12).toFixed(2);
+        const pricePerMonth = pricePerMonthBN.toNumber();
+        const pricePerYear = pricePerMonthBN.times(12).toNumber();
 
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
-          pricePerYear: Number(pricePerYear),
-          pricePerYearString: `${currency}${pricePerYear}`,
-          pricePerMonth: Number(pricePerMonth),
-          pricePerMonthString: `${currency}${pricePerMonth}`,
-          priceTotalPerYearString: `${currency}${pricePerYear}`,
+          currencyCode,
+          pricePerYear,
+          pricePerYearString: primePaymentUtils.formatPriceString(
+            pricePerYear,
+            currencyCode,
+          ),
+          pricePerMonth,
+          pricePerMonthString: primePaymentUtils.formatPriceString(
+            pricePerMonth,
+            currencyCode,
+          ),
+          priceTotalPerYearString: primePaymentUtils.formatPriceString(
+            pricePerYear,
+            currencyCode,
+          ),
+          freeTrial: primePaymentUtils.extractWebFreeTrial(
+            defaultSubscriptionOption?.trial,
+          ),
         };
       }) || [];
 
     console.log('userPrimePaymentMethods >>>>>> WebPackages', {
       packages,
       offerings,
+      offeringId: targetOffering?.identifier,
+      isSandboxKey,
     });
 
     return packages;
@@ -150,14 +169,16 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       subscriptionPeriod,
       email,
       locale,
+      currency,
       featureName,
     }: {
       subscriptionPeriod: string;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
+      currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
-      await initSdk({ loginRequired: true });
+      const { isSandboxKey } = await initSdk({ loginRequired: true });
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth Not ready');
@@ -170,17 +191,20 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         //   }),
         // });
 
-        const offerings = await Purchases.getSharedInstance().getOfferings({
-          currency: 'USD',
-        });
+        const { targetOffering } =
+          await primePaymentUtils.fetchWebTargetOffering({
+            purchases: Purchases.getSharedInstance(),
+            isSandboxKey,
+            currency,
+          });
 
-        if (!offerings.current) {
+        if (!targetOffering) {
           throw new OneKeyLocalError(
             'purchasePaywallPackage ERROR: No offerings',
           );
         }
 
-        const paywallPackage = offerings.current.availablePackages.find(
+        const paywallPackage = targetOffering.availablePackages.find(
           (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
         );
 
@@ -199,9 +223,8 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         };
         // TODO check package user is Matched to id
         // TODO check if user has already purchased
-        const purchase = await Purchases.getSharedInstance().purchase(
-          purchaseParams,
-        );
+        const purchase =
+          await Purchases.getSharedInstance().purchase(purchaseParams);
 
         primePaymentUtils.trackPrimeSubscriptionSuccess({
           paywallPackage,

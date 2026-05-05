@@ -8,8 +8,11 @@ import type {
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 
 import type { INetworkAccount } from './account';
-import type { IDiscoveryBanner } from './discovery';
-import type { IEarnAvailableAssetAprInfo } from './earn';
+import type {
+  IEarnAvailableAsset,
+  IEarnAvailableAssetAprInfo,
+  IEarnAvailableAssetAprRangeInfo,
+} from './earn';
 import type { IFetchTokenDetailItem, IToken } from './token';
 import type { ESpotlightTour } from '../src/spotlight';
 import type { FontSizeTokens } from 'tamagui';
@@ -26,6 +29,11 @@ export enum ECheckAmountActionType {
   CLAIM = 'claim',
   DELEGATE = 'delegate',
   UNDELEGATE = 'undelegate',
+}
+
+export enum ECanSwapActionType {
+  STAKING = 'stake',
+  UNSTAKING = 'unstake',
 }
 
 export interface IEarnAlertButton {
@@ -45,7 +53,11 @@ export interface ICheckAmountAlert {
   type: IAlertType;
   text: {
     text: string;
+    color?: string;
+    size?: FontSizeTokens;
   };
+  title?: IEarnText;
+  description?: IEarnText;
   button?: IEarnAlertButton;
 }
 
@@ -58,7 +70,12 @@ export enum EEarnLabels {
   Claim = 'Claim',
   Redeem = 'Redeem',
   Withdraw = 'Withdraw',
+  Supply = 'Supply',
+  Borrow = 'Borrow',
+  Repay = 'Repay',
   Unknown = 'Unknown',
+  Sell = 'Sell',
+  Buy = 'Buy',
 }
 
 export type IStakingInfo = {
@@ -128,6 +145,16 @@ export type IStakeProviderInfo = {
   approveType?: EApproveType;
 
   liquidity?: string;
+  totalTVL?: string;
+  tradingVolume?: string;
+  ptAddress?: string;
+  syAddress?: string;
+  maturity?: {
+    date: string;
+    daysRemaining: string;
+    isMatured: boolean;
+  };
+  market?: Record<string, unknown>;
   vaultManager?: string;
   vaultManagerName?: string;
 
@@ -142,6 +169,10 @@ export type IStakeBaseParams = {
   amount: string;
   symbol: string;
   provider: string;
+  inputTokenAddress?: string;
+  outputTokenAddress?: string;
+  slippage?: number;
+  effectiveApy?: string | number;
 
   term?: number; // Babylon
   feeRate?: number;
@@ -155,7 +186,11 @@ export type IStakeBaseParams = {
   message?: string;
 
   inviteCode?: string;
+
+  // oxlint-disable-next-line @cspell/spellchecker
   bindedAccountAddress?: string;
+
+  // oxlint-disable-next-line @cspell/spellchecker
   bindedNetworkId?: string;
 
   // Stakefish ETH validator
@@ -168,12 +203,18 @@ export type IWithdrawBaseParams = {
   amount: string;
   symbol: string;
   provider: string;
+  inputTokenAddress?: string;
+  outputTokenAddress?: string;
+  slippage?: number;
+  effectiveApy?: string | number;
 
   identity?: string; // sol pubkey
   signature?: string; // lido unstake, stakefish withdraw all
   deadline?: number; // lido unstake
   protocolVault?: string; // protocol vault
   withdrawAll?: boolean;
+  useEthenaCooldown?: boolean;
+  ethenaPath?: boolean;
   // Stakefish: original message for withdraw all signature
   message?: string;
 };
@@ -204,6 +245,7 @@ export type IStakeClaimBaseParams = {
   amount?: string;
   identity?: string;
   claimTokenAddress?: string;
+  key?: string;
 };
 
 export type IStakeHistoryParams = {
@@ -217,7 +259,7 @@ export type IStakeHistoryParams = {
 
 export type IStakeHistory = {
   txHash: string;
-  title: string;
+  title?: string;
   type?: string;
   amount?: string;
   timestamp: number;
@@ -270,6 +312,8 @@ export type IStakeTx =
 // Stakefish validator exit broadcast response (no on-chain tx needed)
 export type IStakeTxStakefishExitBroadcast = {
   exitBroadcasted: boolean;
+
+  // oxlint-disable-next-line @cspell/spellchecker
   validators: {
     pubkey: string;
     validatorIndex: string;
@@ -352,6 +396,80 @@ export type IEarnTokenItem = {
   info: IToken;
 };
 
+export interface IEarnAssetsList {
+  assets: IEarnTokenItem[];
+}
+
+export interface IBorrowApyDetailItem {
+  icon?: IEarnIcon;
+  logoURI?: string;
+  title: IEarnText;
+  description?: IEarnText;
+  value: IBorrowApy;
+}
+
+export interface IBorrowApyComponent {
+  color: string;
+  value: string; // numeric string
+  title: IEarnText;
+}
+
+export interface IBorrowApyDetailSection {
+  title?: IEarnText;
+  descriptions?: IEarnText[];
+  items: IBorrowApyDetailItem[];
+  apyComponents?: IBorrowApyComponent[];
+}
+
+export interface IBorrowApyDetailPopupData {
+  icon?: {
+    icon: IKeyOfIcons;
+  };
+  apyDetail: {
+    descriptions?: { text: IEarnText; button: IEarnLinkActionIcon }[];
+    normal?: IBorrowApyDetailSection;
+    supplyBonus?: IBorrowApyDetailSection;
+    collateralBonus?: IBorrowApyDetailSection;
+    platformBonus?: IBorrowApyDetailSection;
+    myCollateralShare?: IBorrowApyDetailSection;
+    myPlatformBonusShare?: IBorrowApyDetailSection;
+    totalApy?: {
+      icon?: {
+        icon: IKeyOfIcons;
+      };
+      title: IEarnText;
+      description?: IEarnText;
+      value: IBorrowApy;
+    };
+  };
+}
+
+export interface IBorrowApyPopupButton {
+  type: 'popup';
+  data: IBorrowApyDetailPopupData;
+}
+
+export type IBorrowApy = {
+  apy: string;
+  button?: IBorrowApyPopupButton;
+} & IEarnAvailableAssetAprInfo;
+
+export type IBorrowBalance = {
+  amount: string;
+  fiatValue: string;
+  title: IEarnText;
+  description: IEarnText;
+};
+
+export type IBorrowToken = {
+  networkId: string;
+  address: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  logoURI: string;
+};
+
 export interface IEarnText {
   text: string;
   color?: string;
@@ -398,6 +516,14 @@ export type IProtocolInfo = {
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;
+  // Max repay balance (debt balance) for repay max button
+  maxRepayBalance?: string;
+  // Debt balance for collateral repay (from debt field in manage page response)
+  debtBalance?: string;
+  // Whether repay with collateral needs a setup LUT transaction first
+  needsSetupLut?: boolean;
+  // Max supply balance for supply max button
+  maxSupplyBalance?: string;
 };
 
 export interface IEarnToken {
@@ -411,6 +537,7 @@ export interface IEarnToken {
   totalSupply: string;
   riskLevel: number;
   coingeckoId: string;
+  networkId: string;
 }
 
 export interface IEarnTokenInfo {
@@ -457,6 +584,7 @@ interface IRewardToken {
   title: IEarnText;
   description: IEarnText;
   button?: IEarnClaimActionIcon;
+  key?: string;
 }
 
 interface IRewards {
@@ -471,9 +599,161 @@ export interface IEarnIcon {
   size?: string;
 }
 
+export type IEarnProtocolIntroText = IEarnText | string;
+
+export interface IEarnProtocolIntroLooseIcon {
+  icon?: string;
+  color?: string;
+  size?: string;
+}
+
+export interface IEarnProtocolIntroLinkData {
+  link?: string;
+  icon?: IEarnProtocolIntroLooseIcon;
+}
+
+export interface IEarnProtocolIntroSocialLink {
+  type?:
+    | 'website'
+    | 'twitter'
+    | 'x'
+    | 'discord'
+    | 'linkedin'
+    | 'telegram'
+    | 'link';
+  title?: IEarnProtocolIntroText;
+  url?: string;
+  icon?: IEarnProtocolIntroLooseIcon;
+  disabled?: boolean;
+  data?: IEarnProtocolIntroLinkData;
+}
+
+export interface IEarnProtocolIntroMetric {
+  title?: IEarnProtocolIntroText;
+  value?: IEarnProtocolIntroText;
+  description?: IEarnProtocolIntroText;
+}
+
+export type IEarnProtocolIntroTag =
+  | IEarnProtocolIntroText
+  | {
+      tag?: IEarnProtocolIntroText;
+      title?: IEarnProtocolIntroText;
+      badge?: IBadgeType | string;
+    };
+
+export interface IEarnProtocolIntroTeamMember {
+  name?: IEarnProtocolIntroText;
+  title?: IEarnProtocolIntroText;
+  role?: IEarnProtocolIntroText;
+  position?: IEarnProtocolIntroText;
+  description?: IEarnProtocolIntroText;
+  avatarUrl?: string | null;
+  avatar?: string;
+  logoURI?: string;
+  links?: IEarnProtocolIntroSocialLink[];
+  socialLinks?: IEarnProtocolIntroSocialLink[];
+}
+
+export interface IEarnProtocolIntroTeam {
+  title?: IEarnProtocolIntroText;
+  items?: IEarnProtocolIntroTeamMember[];
+  button?: {
+    type?: 'popup' | string;
+    data?: {
+      title?: IEarnProtocolIntroText;
+      members?: IEarnProtocolIntroTeamMember[];
+    };
+  };
+}
+
+export interface IEarnProtocolIntroInvestorRound {
+  title?: IEarnProtocolIntroText;
+  round?: IEarnProtocolIntroText;
+  date?: IEarnProtocolIntroText;
+  amount?: IEarnProtocolIntroText;
+  valuation?: IEarnProtocolIntroText;
+  investors?: IEarnProtocolIntroText;
+  items?: IEarnProtocolIntroMetric[];
+}
+
+export interface IEarnProtocolIntroInvestors {
+  title?: IEarnProtocolIntroText;
+  items?: IEarnProtocolIntroInvestorRound[];
+  button?: {
+    type?: 'popup' | string;
+    data?: {
+      title?: IEarnProtocolIntroText;
+      fundingRounds?: IEarnProtocolIntroInvestorRound[];
+    };
+  };
+}
+
+export interface IEarnProtocolIntroAudit {
+  title?: IEarnProtocolIntroText;
+  name?: IEarnProtocolIntroText;
+  auditor?: IEarnProtocolIntroText;
+  date?: IEarnProtocolIntroText;
+  scope?: IEarnProtocolIntroText;
+  description?: IEarnProtocolIntroText;
+  auditorLogoUrl?: string;
+  logoURI?: string;
+  url?: string;
+  button?: IEarnProtocolIntroSocialLink;
+}
+
+export interface IEarnProtocolIntroAudits {
+  title?: IEarnProtocolIntroText;
+  updatedAt?: IEarnProtocolIntroText;
+  items?: IEarnProtocolIntroAudit[];
+  button?: {
+    type?: 'popup' | string;
+    data?: {
+      title?: IEarnProtocolIntroText;
+      description?: IEarnProtocolIntroText[];
+      auditItems?: IEarnProtocolIntroAudit[];
+    };
+  };
+}
+
+export interface IEarnProtocolIntroItem {
+  title?: IEarnProtocolIntroText;
+  displayName?: IEarnProtocolIntroText;
+  name?: IEarnProtocolIntroText;
+  role?: IEarnProtocolIntroText;
+  provider?: string;
+  slug?: string;
+  type?: string;
+  logoURI?: string;
+  logoUrl?: string;
+  logoUri?: string;
+  icon?: IEarnIcon;
+  description?: IEarnProtocolIntroText;
+  tags?: IEarnProtocolIntroTag[];
+  metrics?: IEarnProtocolIntroMetric[];
+  stats?: IEarnProtocolIntroMetric[];
+  tvl?: IEarnProtocolIntroText;
+  fdv?: IEarnProtocolIntroText;
+  establishment?: IEarnProtocolIntroText;
+  establishmentDate?: IEarnProtocolIntroText;
+  socialLinks?: IEarnProtocolIntroSocialLink[];
+  links?: IEarnProtocolIntroSocialLink[];
+  team?: IEarnProtocolIntroTeam;
+  teamMembers?: IEarnProtocolIntroTeam;
+  investors?: IEarnProtocolIntroInvestors;
+  audits?: IEarnProtocolIntroAudits;
+}
+
+export interface IEarnProtocolIntroInfo {
+  title?: IEarnProtocolIntroText;
+  notice?: IEarnProtocolIntroText;
+  items?: IEarnProtocolIntroItem[];
+}
+
 export interface IEarnPopupActionIcon {
   type: 'popup';
   data: {
+    title?: IEarnText;
     bulletList?: IEarnText[];
     icon?: IEarnIcon;
     description?: IEarnText[];
@@ -501,7 +781,7 @@ export interface IEarnLinkActionIcon {
   };
   icon?: IEarnIcon;
   disabled?: boolean;
-  text: IEarnText;
+  text?: IEarnText;
 }
 
 export interface IEarnDepositActionIcon {
@@ -516,11 +796,88 @@ export interface IEarnHistoryActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnRewardClaimButton {
+  type: 'claim';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IEarnRewardTokenSummary {
+  networkId: string;
+  address: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  logoURI: string;
+}
+
+export interface IEarnRewardClaimItem {
+  id: string;
+  title: IEarnText;
+  description?: IEarnText;
+  token: IEarnRewardTokenSummary;
+  button: IEarnRewardClaimButton;
+}
+
+export interface IEarnRewardClaimGroup {
+  title?: IEarnText;
+  items: IEarnRewardClaimItem[];
+}
+
+export interface IEarnBorrowUnclaimableReward {
+  title: IEarnText;
+  items: {
+    id: string;
+    title: IEarnText;
+    description: IEarnText;
+    token: IBorrowToken;
+    button: IEarnLinkActionIcon;
+  }[];
+}
+
+export interface IEarnRewardsDetail {
+  claimable: IEarnRewardClaimGroup[];
+  unclaimable: IEarnBorrowUnclaimableReward[];
+}
+
+export interface IEarnRewardsDetailsData {
+  rewardsDetail: IEarnRewardsDetail;
+}
+
+export interface IEarnRewardsDetails {
+  type: 'rewardsDetails';
+  disabled: boolean;
+  text: IEarnText;
+  data: IEarnRewardsDetailsData;
+}
+
 export interface IEarnTextTooltip {
   type: 'text';
   data: {
-    title: IEarnText;
+    title?: IEarnText;
     description: IEarnText;
+    items?: IEarnTooltipComparisonItem[];
+  };
+}
+
+export interface IEarnTooltipComparisonItem {
+  title: IEarnText;
+  description: IEarnText;
+  logo?: {
+    logoURI: string;
+    color?: string;
+    percentage?: string;
+  };
+  color?: string;
+  value?: string;
+}
+
+export interface IEarnFeeComparisonTooltip {
+  type: 'feeComparison';
+  data: {
+    title?: IEarnText;
+    description: IEarnText;
+    items?: IEarnTooltipComparisonItem[];
   };
 }
 
@@ -564,6 +921,7 @@ export interface IEarnRebateDetailsTooltip {
 
 export type IEarnTooltip =
   | IEarnTextTooltip
+  | IEarnFeeComparisonTooltip
   | IEarnRebateTooltip
   | IEarnWithdrawTooltip
   | IEarnRebateDetailsTooltip;
@@ -577,7 +935,7 @@ export enum EClaimType {
 
 export interface IEarnClaimActionIcon {
   type: EClaimType;
-  text: string | IEarnText;
+  text: IEarnText;
   disabled: boolean;
   data?: {
     balance: string;
@@ -657,6 +1015,45 @@ export interface IEarnListaCheckActionIcon {
   text: IEarnText;
 }
 
+export type IHealthFactorLevel = 'critical' | 'warning' | 'success';
+
+export interface IHealthFactorGradientStop {
+  percent: number;
+  level: IHealthFactorLevel;
+}
+
+export interface IBorrowHealthFactorRiskDetail {
+  type: 'healthFactorRiskDetail';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    healthFactorDetail: {
+      index: string;
+      liquidationAtIndex: string;
+      value: string;
+      valueColor: ColorTokens;
+      lowerLimit: string;
+      upperLimit: string;
+      gradientStops?: IHealthFactorGradientStop[];
+      status: {
+        tag: string;
+        badge: IBadgeType;
+      };
+      statusDescription: IEarnText;
+      liquidationAt: {
+        description: IEarnText;
+      };
+      liquidationAtDescription: IEarnText;
+    };
+  };
+}
+
+export interface IBorrowOnekeyBonusAction {
+  type: 'OneKeyBonus';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
@@ -678,7 +1075,7 @@ interface IEarnGridItem {
     title: IEarnText;
     logoURI: string;
   }[];
-  type?: 'default' | 'info';
+  type?: 'default' | 'info' | 'alert';
 }
 
 interface IEarnProfit {
@@ -697,9 +1094,10 @@ interface IEarnRisk {
     title: IEarnText;
     description: IEarnText;
     icon: IEarnIcon;
-    actionButton: IEarnLinkActionIcon;
+    actionButton?: IEarnLinkActionIcon;
     list?: {
       title: IEarnText;
+      description?: IEarnText;
       icon: IEarnIcon;
     }[];
   }[];
@@ -725,6 +1123,10 @@ export enum EStakingActionType {
   Activate = 'activate',
   Receive = 'receive',
   Trade = 'trade',
+
+  Supply = 'supply',
+  Borrow = 'borrow',
+  Repay = 'repay',
 }
 
 export interface IEarnWithdrawActionIcon {
@@ -746,13 +1148,85 @@ export interface IEarnWithdrawOrderActionIcon {
   };
 }
 
-export interface IEarnDepositActionData {
-  type: 'deposit';
+export interface IEarnBorrowActionData {
+  type: 'borrow';
+  disabled: boolean;
+  text: IEarnText;
+  data?: {
+    balance: string;
+    token?: {
+      info: IEarnToken;
+      price: string;
+    };
+  };
+}
+
+export interface IEarnRepayActionData {
+  type: 'repay';
   disabled: boolean;
   text: IEarnText;
   data: {
     balance: string;
-    token: {
+    maxBalance?: string;
+    token?: {
+      info: IEarnToken;
+      price: string;
+    };
+  };
+}
+
+export enum EManagePageActionType {
+  Buy = 'buy',
+  Sell = 'sell',
+  SellEarly = 'sell_early',
+  Redeem = 'redeem',
+}
+
+export type IEarnManagePageActionType =
+  | EManagePageActionType
+  | EStakingActionType
+  | (string & {});
+
+export interface IEarnManagePageActionData {
+  type: IEarnManagePageActionType;
+  disabled: boolean;
+  text?: IEarnText;
+  data?: {
+    balance?: string;
+    reserveAddress?: string;
+    token?: {
+      info: IEarnToken;
+      price: string;
+    };
+  };
+}
+
+export interface IEarnManagePageSwapActions {
+  payButton?: IEarnManagePageActionData;
+  receiveButton?: IEarnManagePageActionData;
+}
+
+export interface IEarnDepositActionData {
+  type: 'deposit';
+  disabled: boolean;
+  text: IEarnText;
+  data?: {
+    balance: string;
+    token?: {
+      info: IEarnToken;
+      price: string;
+    };
+  };
+}
+
+export interface IEarnSupplyActionData {
+  type: 'supply';
+  disabled: boolean;
+  text: IEarnText;
+  data?: {
+    balance: string;
+    maxBalance?: string;
+    token?: {
       info: IEarnToken;
       price: string;
     };
@@ -810,6 +1284,14 @@ export interface IEarnSelectField {
 }
 
 export interface IEarnManagePageResponse {
+  buy?: IEarnManagePageSwapActions;
+  sell?: IEarnManagePageSwapActions;
+  supply?: IEarnSupplyActionData;
+  borrow?: IEarnBorrowActionData;
+  repay?: IEarnRepayActionData;
+  debt?: IEarnManagePageActionData;
+  collateral?: IEarnManagePageActionData;
+  needsSetupLut?: boolean;
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
   receive?: IEarnReceiveActionIcon;
@@ -820,18 +1302,21 @@ export interface IEarnManagePageResponse {
   undelegate?: IEarnUndelegateActionData;
   riskNoticeDialog?: IEarnRiskNoticeDialog;
   ongoingValidator?: IEarnSelectField;
+  tooltip?: IEarnTooltip;
   approve?: {
-    allowance: string;
-    approveType: string;
-    approveTarget: string;
+    allowance?: string;
+    approveType?: string;
+    approveTarget?: string;
   };
   nums?: {
     overflow?: string;
+    minStakeAmount?: string;
     minUnstakeAmount?: string;
     maxUnstakeAmount?: string;
     minTransactionFee?: string;
     claimable?: string;
     remainingCap?: string;
+    maturity?: IEarnText;
     protocolInputDecimals?: number;
   };
   alerts?: IEarnAlert[];
@@ -874,7 +1359,7 @@ export type IEarnDetailActions =
 
 export interface IEarnAlert {
   alert: string;
-  key: ESpotlightTour;
+  key?: ESpotlightTour;
   badge: IBadgeType;
   button?: IEarnAlertButton;
 }
@@ -889,20 +1374,35 @@ export interface IStakeEarnDetail {
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;
+  maturity?: {
+    date: string;
+    daysRemaining: string;
+    isMatured: boolean;
+  };
   protection?: {
     title: IEarnText;
     items: {
       title: IEarnText;
       description: IEarnText;
       icon: IEarnIcon;
+      actionButton?: IEarnLinkActionIcon;
+      list?: {
+        title: IEarnText;
+        description?: IEarnText;
+        icon: IEarnIcon;
+      }[];
     }[];
   };
   actions?: IEarnDetailActions[];
   subscriptionValue?: ISubscriptionValue;
   tags?: IStakeBadgeTag[];
   protocol?: IProtocolInfo;
+  protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
   countDownAlert?: {
+    title?: IEarnText;
     description: IEarnText;
+    icon?: IEarnIcon;
+    button?: IEarnActionIcon;
     startTime: number;
     endTime: number;
   };
@@ -927,6 +1427,14 @@ export interface IStakeEarnDetail {
   rules?: {
     title: IEarnText;
     items: IEarnGridItem[];
+    chart?: {
+      currentRate: number;
+      remainingDays: number;
+      targetRate: number;
+      accountingSymbol: string;
+      ptSymbol: string;
+      description?: string;
+    };
   };
   performance?: {
     title: IEarnText;
@@ -965,11 +1473,16 @@ export interface IStakeEarnDetail {
     title: IEarnText;
     items: IEarnGridItem[];
   };
+  alerts?: string[];
   alertsV2?: IEarnAlert[];
   faqs?: {
     title: IEarnText;
     items: IEarnFAQItem[];
   };
+  extras?: {
+    title: IEarnText;
+    items: IEarnGridItem[];
+  }[];
   nums?: {
     overflow: string;
     minUnstakeAmount: string;
@@ -977,6 +1490,7 @@ export interface IStakeEarnDetail {
     minTransactionFee: string;
     claimable: string;
     remainingCap: string;
+    maturity?: IEarnText;
   };
   managers?: {
     items: {
@@ -1012,23 +1526,70 @@ export interface IEarnProvider {
 }
 
 export interface IStakeTransactionConfirmation {
-  title: IEarnText;
+  title?: IEarnText;
   tooltip?: IEarnTooltip;
   apyDetail?: IStakeEarnDetail['apyDetail'];
-  rewards: Array<{
+  effectiveApy?: string | number;
+  rewards?: Array<{
     title: IEarnText;
     description: IEarnText;
     tooltip?: IEarnTooltip;
   }>;
-  receive: {
+  receive?: {
     title: IEarnText;
     description: IEarnText;
-    tooltip: {
-      type: 'text';
-      data: {
+    tooltip?: IEarnTooltip;
+  };
+  transactionDetails?: {
+    type: string;
+    text?: IEarnText;
+    disabled?: boolean;
+    data?: {
+      transactionDetails?: Array<{
         title: IEarnText;
-      };
+        description?: IEarnText;
+        current?: {
+          title: IEarnText;
+          description?: IEarnText;
+        };
+        latest?: {
+          title: IEarnText;
+          description?: IEarnText;
+        };
+        tooltip?: IEarnTooltip;
+        button?: IEarnActionIcon;
+      }>;
+      swapRoute?: Array<{
+        token: {
+          decimals: number;
+          address: string;
+          symbol: string;
+          logoURI: string;
+        };
+        connector?: {
+          text: IEarnText;
+          priceImpact?: string;
+        };
+      }>;
     };
+  };
+  withdrawPath?: {
+    type: string;
+    text?: IEarnText;
+    disabled?: boolean;
+    data?: {
+      confirmBoxes?: Array<{
+        title: IEarnText;
+        description: IEarnText;
+        subtitle?: IEarnText;
+        subtitleDescription?: IEarnText;
+      }>;
+    };
+  };
+  tip?: {
+    type: string;
+    text: IEarnText;
+    button?: IEarnActionIcon;
   };
 }
 
@@ -1049,21 +1610,24 @@ export type IStakeProtocolDetails = {
   stakingCap?: string;
   token: IEarnTokenItem;
   network?: {
+    networkId?: string;
     name: string;
+    logoURI?: string;
   };
-  buttons?: {
+  buttons?: Partial<Record<string, boolean>> & {
     addInviteCode?: boolean;
   };
   updateFrequency: string;
   rewardToken: string;
   approveTarget?: string;
   earnHistoryEnable?: boolean;
-  pendingActivatePeriod?: number;
+  pendingActivatePeriod?: string | number;
   unstakingPeriod?: number;
   overflow?: string;
   rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
-  waitingRebateRewardAmount: string;
+  waitingRebateRewardAmount?: string;
+  totalRebateRewardAmount?: string;
 
   // falcon
   preStaked?: boolean; // pre stake usdf user
@@ -1079,10 +1643,22 @@ export enum EStakeProtocolGroupEnum {
   Unavailable = 'unavailable',
 }
 
+export enum EBorrowActionsEnum {
+  Supply = 'supply',
+  Withdraw = 'withdraw',
+  Borrow = 'borrow',
+  Repay = 'repay',
+}
+
 export type IStakeProtocolListItem = {
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
+    category?: string | null;
     description?: string;
+    maturity?: string | null;
+    daysRemaining?: string | null;
+    vaultName?: string;
+    tvl?: string;
     badges?: Array<{
       badgeType: IBadgeType;
       tag: string;
@@ -1206,25 +1782,16 @@ export type IEarnAccountTokenResponse = {
   earnings24h?: string;
   accounts: IEarnAccount[];
   isOverviewLoaded?: boolean;
+  hideSmallAssets?: boolean;
 };
 
 export type IEarnRewardUnit = 'APY' | 'APR';
-export type IAvailableAsset = {
-  name: string;
-  symbol: string;
-  logoURI: string;
-  apr: string;
-  aprWithoutFee: string;
-  tags: string[];
-  rewardUnit: IEarnRewardUnit;
-  protocols: Array<{
+export type IAvailableAsset = IEarnAvailableAsset & {
+  descriptions?: IEarnText[];
+  networks?: Array<{
     networkId: string;
-    provider: string;
-    vault: string;
-  }>;
-  badges?: Array<{
-    badgeType: IBadgeType;
-    tag: string;
+    name: string;
+    logoURI: string;
   }>;
 };
 
@@ -1235,22 +1802,30 @@ export type IRecommendAsset = {
   protocols: Array<{
     networkId: string;
     provider: string;
-    vault: string;
+    vault?: string;
   }>;
   aprWithoutFee: string;
   aprInfo: IEarnAvailableAssetAprInfo;
+  rewardUnit?: IEarnAvailableAsset['rewardUnit'];
+  minAprInfo?: IEarnAvailableAssetAprRangeInfo;
+  maxAprInfo?: IEarnAvailableAssetAprRangeInfo;
   bgColor: ColorTokens;
   available: {
     text: string;
     color: ColorTokens;
   };
+  isRecommended: boolean;
+  isPinedRecommend: boolean;
+  badges: Array<{
+    badgeType: IBadgeType;
+    tag: string;
+  }>;
 };
 
 export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssetsByType?: Record<string, IAvailableAsset[]>;
   recommendedTokens?: IRecommendAsset[];
-  banners?: IDiscoveryBanner[];
   refreshTrigger?: number;
 }
 
@@ -1307,7 +1882,13 @@ export interface IEarnInvestmentItem {
 export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
   earnings24hFiatValue: string;
+  totalFiatValueUsd?: string;
+  netPnl?: IEarnText;
+  netPnlFiatValue?: IEarnText;
   protocol: {
+    networkId?: string;
+    provider?: string;
+    symbol?: string;
     vault?: string;
     vaultName?: string;
     providerDetail: {
@@ -1329,6 +1910,7 @@ export interface IEarnInvestmentItemV2 {
     };
     earnings24h: {
       title: IEarnText;
+      description?: IEarnText;
     };
     totalReward?: {
       title: IEarnText;
@@ -1336,24 +1918,30 @@ export interface IEarnInvestmentItemV2 {
     };
     rewardAssets: {
       title: IEarnText;
-      tooltip: IEarnTooltip;
+      tooltip?: IEarnTooltip;
       button:
         | IEarnClaimActionIcon
         | IEarnClaimWithKycActionIcon
         | IEarnListaCheckActionIcon;
+      swapButton?: IEarnManagePageSwapActions;
+      badge?: IEarnBadge;
+      key?: string;
       description: IEarnText;
     }[];
     assetsStatus: {
       title: IEarnText;
       description: IEarnText;
-      tooltip: IEarnTooltip;
+      tooltip?: IEarnTooltip;
+      button?: IEarnActionIcon;
+      swapButton?: IEarnManagePageSwapActions;
+      badge?: IEarnBadge;
+      key?: string;
     }[];
     buttons: {
       type: string;
-      text: {
-        text: string;
-      };
+      text: IEarnText;
       disabled: boolean;
+      data?: Record<string, unknown>;
     }[];
   }[];
   network: {
@@ -1387,6 +1975,9 @@ export interface IEarnAirdropInvestmentItemV2 {
       tooltip: IEarnTooltip;
       button: IEarnClaimActionIcon | IEarnListaCheckActionIcon;
       description: IEarnText;
+      swapButton?: IEarnManagePageSwapActions;
+      badge?: IEarnBadge;
+      key?: string;
     }[];
   }[];
   network: {
@@ -1401,6 +1992,10 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
   metadata: {
     protocol: IEarnInvestmentItemV2['protocol'];
     network: IEarnInvestmentItemV2['network'];
+    fiatValue?: string;
+    fiatValueUsd?: string;
+    netPnl?: IEarnText;
+    netPnlFiatValue?: IEarnText;
   };
 };
 
@@ -1437,7 +2032,7 @@ export type IEarnEstimateFeeResp = {
   coverFeeDays?: string;
   coverFeeSeconds?: string;
   feeFiatValue: string;
-  token: {
+  token?: {
     balance: string;
     balanceParsed: string;
     fiatValue: string;
@@ -1515,8 +2110,7 @@ export interface IEarnRegisterSignMessageResponse {
   toast?: IEarnToast;
 }
 
-export interface IVerifyRegisterSignMessageParams
-  extends IBuildRegisterSignMessageParams {
+export interface IVerifyRegisterSignMessageParams extends IBuildRegisterSignMessageParams {
   signature: string;
   message: string;
 }
@@ -1528,6 +2122,7 @@ export type IApproveConfirmFnParams = {
   unsignedMessage?: IEarnPermit2ApproveSignData;
   // Stakefish: original message for permit signature
   message?: string;
+  effectiveApy?: string | number;
   // Stakefish ETH validator
   validatorPubkey?: string;
 };
@@ -1585,8 +2180,494 @@ export interface IApyHistoryItem {
   timestamp: number;
 }
 
+export type IBorrowApyHistoryItem = IApyHistoryItem;
+
 export interface IApyHistoryResponse {
   code: number;
   message: string;
   data: IApyHistoryItem[];
+}
+
+export interface IUnderlyingApyHistoryItem {
+  impliedApy: string;
+  underlyingApy: string;
+  timestamp: number;
+}
+
+export interface IUnderlyingApyHistoryData {
+  results: IUnderlyingApyHistoryItem[];
+  hasNonZeroUnderlyingApy: boolean;
+}
+
+export interface IUnderlyingApyHistoryResponse {
+  code: number;
+  message: string;
+  data: IUnderlyingApyHistoryData;
+}
+
+export interface IBorrowNetwork {
+  networkId: string;
+  network: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  logoURI: string;
+  indexerSupported: boolean;
+  fallbackSupported: boolean;
+  nativeTokenAddress: string;
+  coingeckoPlatform: string;
+  nativeTokenCoingeckoId: string;
+}
+
+export interface IBorrowMarketItem {
+  provider: string;
+  networkId: string;
+  name: string;
+  logoURI: string;
+  marketAddress: string;
+  network: IBorrowNetwork;
+}
+
+export interface IBorrowReserveRequestParams {
+  provider: string;
+  networkId: string;
+  marketAddress: string;
+  accountId?: string;
+}
+
+export interface IBorrowHealthFactor {
+  healthFactor: {
+    text: IEarnText;
+    button?: IBorrowHealthFactorRiskDetail;
+  };
+  alerts?: IBorrowAlert[];
+}
+
+export interface IBorrowRewards {
+  title: IEarnText;
+  description: IEarnText;
+  button: IEarnRewardsDetails;
+}
+
+export interface IBorrowAsset {
+  reserveAddress: string;
+  token: {
+    address: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+    logoURI: string;
+  };
+  canBeCollateral?: boolean;
+  balance: {
+    title: IEarnText;
+    description: IEarnText;
+  };
+  walletBalance?: IBorrowBalance;
+  available?: IBorrowBalance;
+  borrowed?: IBorrowBalance;
+  supplied: {
+    title: IEarnText;
+    description: IEarnText;
+  };
+  apyDetail: IBorrowApy;
+  platformBonusApy?: {
+    title: IEarnText;
+    logoURI: string;
+  };
+}
+
+export interface IBorrowAssetsList {
+  assets: IBorrowAsset[];
+}
+
+export interface IBorrowFaqList {
+  list: IEarnFAQList;
+}
+
+export interface IBorrowEstimateFee {
+  feeFiatValue: string;
+  coverFeeSeconds?: string;
+}
+
+export interface IBorrowCheckAmount {
+  result: boolean;
+  alerts: ICheckAmountAlert[];
+  riskOfLiquidationAlert?: boolean;
+}
+
+export interface IBorrowAlertButton {
+  type: 'receive' | 'bridge' | string;
+  text: IEarnText;
+  disabled?: boolean;
+}
+
+export interface IBorrowAlert {
+  title: IEarnText;
+  description?: IEarnText;
+  badge: IBadgeType;
+  buttons?: IBorrowAlertButton[];
+}
+
+export interface IBorrowReserveItem {
+  alerts?: IBorrowAlert[];
+  overview: {
+    netWorth: IEarnText;
+    netApy: IEarnText;
+    platformBonus?: {
+      totalReceived: {
+        description: IEarnText;
+        button: IEarnHistoryActionIcon;
+      };
+      alerts?: IBorrowAlert[];
+      description: IEarnText;
+      distributed?: {
+        title: IEarnText;
+        description: IEarnText;
+        token: IBorrowToken;
+      }[];
+      undistributed?: {
+        title: IEarnText;
+        description: IEarnText;
+        token: IBorrowToken;
+      }[];
+      data: {
+        icon: {
+          icon: IKeyOfIcons;
+        };
+        title: IEarnText;
+        endsIn: number;
+        rewards: {
+          type: IEarnText;
+          title: IEarnText;
+          description: IEarnText;
+          logoURI: string;
+        }[];
+        button: IEarnLinkActionIcon;
+      };
+    };
+    history?: IEarnHistoryActionIcon;
+    rewards?: {
+      text: IEarnText;
+      button: IEarnClaimActionIcon;
+    };
+  };
+  supplied: {
+    suppliedBalance: {
+      title: IEarnText;
+    };
+    suppliedApy: {
+      title: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    collateralBalance?: {
+      title: IEarnText;
+    };
+    assets: {
+      reserveAddress: string;
+      token: IBorrowToken;
+      apyDetail: IBorrowApy;
+      categories: string[];
+      suppliedAmount: IBorrowBalance;
+      liquidationLtv?: string;
+      canBeCollateral?: boolean;
+      withdrawButton: IEarnWithdrawActionData;
+      platformBonusApy?: {
+        title: IEarnText;
+        logoURI: string;
+      };
+    }[];
+  };
+  borrowed: {
+    borrowedBalance: {
+      title: IEarnText;
+    };
+    borrowedApy: {
+      title: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    borrowPowerUsed?: string;
+    assets: {
+      reserveAddress: string;
+      token: IBorrowToken;
+      apyDetail: IBorrowApy;
+      categories: string[];
+      borrowedAmount: IBorrowBalance;
+      borrowFactor?: string;
+      repayButton: IEarnRepayActionData;
+      platformBonusApy?: {
+        title: IEarnText;
+        logoURI: string;
+      };
+    }[];
+  };
+  supply: {
+    alert?: IEarnAlert;
+    assets: {
+      reserveAddress: string;
+      token: IBorrowToken;
+      apyDetail: IBorrowApy;
+      categories: string[];
+      walletBalance: IBorrowBalance;
+      canBeCollateral: boolean;
+      liquidationLtv?: string;
+      supplyButton: IEarnSupplyActionData;
+      platformBonusApy?: {
+        title: IEarnText;
+        logoURI: string;
+      };
+    }[];
+  };
+  borrow: {
+    alert?: IEarnAlert;
+    assets: {
+      reserveAddress: string;
+      token: IBorrowToken;
+      apyDetail: IBorrowApy;
+      categories: string[];
+      canBeBorrowed?: boolean;
+      available: IBorrowBalance;
+      borrowButton: IEarnBorrowActionData;
+      borrowFactor?: string;
+      platformBonusApy?: {
+        title: IEarnText;
+        logoURI: string;
+      };
+    }[];
+  };
+}
+
+export interface IBorrowHistory {
+  filter: Record<string, string>;
+  list: {
+    networkId: string;
+    txHash: string;
+    title: string;
+    amount: string;
+    tokenAddress: string;
+    timestamp: number;
+    type: 'repay' | 'borrow' | 'withdraw' | 'supply';
+    direction: 'send' | 'receive';
+  }[];
+  networks: IBorrowNetwork[];
+  tokens: {
+    price: string;
+    price24h: string;
+    info: IEarnToken;
+  }[];
+}
+
+export interface IBorrowReserveDetailDailyInfo {
+  borrowCapacity: IEarnText;
+
+  // oxlint-disable-next-line @cspell/spellchecker
+  borrowable: IEarnText;
+  borrowCapResetRemainingTime: IEarnText;
+  withdrawCapacity: IEarnText;
+  withdrawable: IEarnText;
+  withdrawCapResetRemainingTime: IEarnText;
+}
+
+export interface IBorrowReserveDetailRiskItem {
+  icon: {
+    icon: IKeyOfIcons;
+  };
+  title: IEarnText;
+  description: IEarnText;
+  actionButton: IEarnLinkActionIcon;
+}
+
+export interface IBorrowReserveDetailRisk {
+  items: IBorrowReserveDetailRiskItem[];
+}
+
+export interface IBorrowReserveDetail {
+  reserveSize: string;
+  utilizationRatio: string;
+  liquidity: string;
+  oraclePrice: string;
+  platformBonus?: {
+    icon: {
+      icon: IKeyOfIcons;
+    };
+    title: IEarnText;
+    endsIn: number;
+    rewards: {
+      type: IEarnText;
+      title: IEarnText;
+      description: IEarnText;
+      logoURI: string;
+    }[];
+    button: IEarnLinkActionIcon;
+  };
+  managers?: {
+    items: {
+      title: IEarnText;
+      description: IEarnText;
+      logoURI: string;
+    }[];
+  };
+  dailyInfo?: IBorrowReserveDetailDailyInfo;
+  risk?: IBorrowReserveDetailRisk;
+  userInfo: {
+    walletBalance: {
+      title: IEarnText;
+      description?: IEarnText;
+      tooltip?: IEarnTooltip;
+      button?: {
+        type: 'supply';
+        disabled: boolean;
+        text: IEarnText;
+        data: {
+          balance: string;
+        };
+      };
+    };
+    suppliedBalance: {
+      title: IEarnText;
+      description?: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    borrowedBalance: {
+      title: IEarnText;
+      description?: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    availableBorrowBalance: {
+      title: IEarnText;
+      description?: IEarnText;
+      tooltip?: IEarnTooltip;
+      button?: {
+        type: 'borrow';
+        disabled: boolean;
+        text: IEarnText;
+        data: {
+          balance: string;
+        };
+      };
+    };
+  };
+  supply: {
+    reserveAddress: string;
+    token: IEarnToken;
+    apyDetail: IBorrowApy;
+    categories: string[];
+    canBeCollateral: boolean;
+    usage: {
+      percentage: string;
+      title: IEarnText;
+      description: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    maxLtv: {
+      text: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    liquidationLtv: {
+      text: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    softLiquidation: {
+      text: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+  };
+  borrow: {
+    reserveAddress: string;
+    token: IEarnToken;
+    apyDetail: IBorrowApy;
+    categories: string[];
+    canBeBorrowed: boolean;
+    usage: {
+      percentage: string;
+      title: IEarnText;
+      description: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    borrowFactor: string;
+  };
+  interestRateModel: string;
+}
+
+export interface IBorrowTransactionConfirmation {
+  mySupply?: {
+    current?: {
+      title: IEarnText;
+      description: IEarnText;
+    };
+    latest?: {
+      title: IEarnText;
+      description: IEarnText;
+    };
+  };
+  myBorrow?: {
+    current?: {
+      title: IEarnText;
+      description: IEarnText;
+    };
+    latest?: {
+      title: IEarnText;
+      description: IEarnText;
+    };
+  };
+  apyDetail?: IBorrowApy;
+  canBeCollateral?: boolean;
+  refundableFee?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip: IEarnTooltip;
+  };
+  liquidationAt?: {
+    title: IEarnText;
+    description: IEarnText;
+  };
+  liquidationRisk?: boolean;
+  refundFee?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip: IEarnTooltip;
+  };
+  blockRepay?: boolean;
+  healthFactor?: {
+    current?: {
+      title: IEarnText;
+    };
+    latest?: {
+      title: IEarnText;
+    };
+  };
+  remainingCollateral?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+  };
+  slippage?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+    value: number;
+  };
+  fee?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+  };
+}
+
+export interface IBorrowUnsignedTransaction {
+  tx: string;
+  orderId?: string;
+}
+
+export type IBorrowManagePage = IEarnManagePageResponse;
+
+export interface IRepayWithCollateralQuote {
+  router: string;
+  swapIn: string;
+  swapInReserveAddress: string;
+  minimalExpectedSwapOut: string;
+  minimalExpectedSwapOutSymbol: string;
+  fillPrice: string;
+  maxPriceImpact: string;
+  routeKey?: string;
 }

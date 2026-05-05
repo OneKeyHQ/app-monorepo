@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
-import { InteractionManager } from 'react-native';
 
 import type { useForm } from '@onekeyhq/components';
 import { Haptics, useClipboard, useKeyboardEvent } from '@onekeyhq/components';
@@ -10,7 +9,12 @@ import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-const isValidWord = (word: string) => wordLists.includes(word);
+// Force the BIP39 JSON module to evaluate synchronously at this module's
+// load time. With split-thread bundles the original `wordLists.includes(...)`
+// deferred evaluation until the first call inside setTimeout, and that
+// timing intermittently caused the invalid-word highlight to drop.
+const wordListSet = new Set(wordLists);
+const isValidWord = (word: string) => wordListSet.has(word);
 
 export const PHRASE_LENGTHS = [12, 15, 18, 21, 24];
 export const useSearchWords = () => {
@@ -32,11 +36,11 @@ export const useSearchWords = () => {
       if (cachedSuggestions) {
         updateSuggestions(cachedSuggestions);
       } else {
-        const suggestionWords = wordLists.filter((text: string) =>
-          text.startsWith(value),
+        const shuffledWords = shuffle(
+          wordLists.filter((text: string) => text.startsWith(value)),
         );
-        ref.current.set(value, shuffle(suggestionWords));
-        updateSuggestions(suggestionWords);
+        ref.current.set(value, shuffledWords);
+        updateSuggestions(shuffledWords);
       }
       return suggestionsRef.current;
     },
@@ -269,10 +273,13 @@ export const useSuggestion = (
             words.push(...formValues.slice(words.length, currentPhraseLength));
           }
           form.reset(
-            words.reduce((prev, next, index) => {
-              prev[`phrase${index + 1}`] = next;
-              return prev;
-            }, {} as Record<`phrase${number}`, string>),
+            words.reduce(
+              (prev, next, index) => {
+                prev[`phrase${index + 1}`] = next;
+                return prev;
+              },
+              {} as Record<`phrase${number}`, string>,
+            ),
           );
           resetSuggestions();
           await timerUtils.wait(10);

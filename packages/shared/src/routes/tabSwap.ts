@@ -3,5 +3,5 @@ export enum ETabSwapRoutes {
 }
 
 export type ITabSwapParamList = {
-  [ETabSwapRoutes.TabSwap]: undefined;
+  [ETabSwapRoutes.TabSwap]: { tab?: string } | undefined;
 };

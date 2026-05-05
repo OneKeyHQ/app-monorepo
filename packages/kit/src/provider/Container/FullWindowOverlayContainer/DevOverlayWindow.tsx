@@ -24,7 +24,6 @@ import {
   usePerpsWebSocketDataUpdateTimesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
-import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EModalSettingRoutes,
@@ -89,7 +88,7 @@ function DevOverlayWindow() {
     };
   }, [devOverlayWindow]);
 
-  const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
+  const navigation = useAppNavigation<IPageNavigationProp<any>>();
 
   const [passwordSetting] = usePasswordPersistAtom();
 

@@ -1,17 +1,20 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCameraGopro = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M11 7c0-1.126.372-2.164 1-3H5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-4c-.836.628-1.874 1-3 1h-3a5 5 0 0 1-5-5zm-5 9a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2z"
+      d="M11 15h11v6H2V4h9zm-6 3h4v-2H5z"
       clipRule="evenodd"
     />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M13 7a3 3 0 0 1 3-3h3a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3zm4.5 2.75a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5"
+      d="M22 13h-9V4h9zm-4.5-5.75a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5"
       clipRule="evenodd"
     />
   </Svg>

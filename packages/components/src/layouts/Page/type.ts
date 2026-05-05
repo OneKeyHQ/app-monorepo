@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 
 import type { IFooterActionsProps } from './PageFooterActions';
+import type { IStackProps } from '../../primitives';
 import type { IScrollViewProps } from '../ScrollView';
 
 export interface IPageLifeCycle {
@@ -14,6 +15,10 @@ export interface IPageLifeCycle {
   onConfirm?: () => void;
   // registers a callback to be called when the page closed.
   onClose?: (extra?: { flag?: string }) => void;
+  // registers a callback to be called when the page needs to redirect.
+  onRedirected?: () => void;
+  // determines whether to redirect the page.
+  shouldRedirect?: () => boolean;
 }
 
 export type IBasicPageProps = PropsWithChildren<
@@ -46,3 +51,9 @@ export type IPageFooterProps = PropsWithChildren<
 >;
 
 export type IPageProps = IBasicPageProps;
+
+export type IPageContentContainerLayout = 'full' | 'regular' | 'compact';
+export type IPageContentContainerProps = Omit<IStackProps, 'layout'> & {
+  layout?: IPageContentContainerLayout;
+  padded?: boolean;
+};

@@ -8,6 +8,7 @@ import {
   Button,
   SectionList,
   SizableText,
+  Spinner,
   Stack,
   Tabs,
   XStack,
@@ -48,9 +49,8 @@ import { TxHistoryListItem } from './TxHistoryListItem';
 
 type IProps = {
   data: IAccountHistoryTx[];
-  isLoading?: boolean;
   tableLayout?: boolean;
-  ListHeaderComponent?: ReactElement;
+  ListHeaderComponent?: ReactElement | null;
   showHeader?: boolean;
   showFooter?: boolean;
   showIcon?: boolean;
@@ -139,7 +139,7 @@ const ListFooterComponent = ({
           alignItems="center"
           justifyContent="center"
           gap="$2"
-          px="$5"
+          px="$pagePadding"
           py="$6"
         >
           <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
@@ -231,28 +231,23 @@ function TxHistoryListViewSectionHeader(
   if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
     return (
       <XStack
-        px="$5"
+        px="$pagePadding"
         py="$2"
         alignItems="center"
         bg="$bgApp"
         gap="$2"
         mt={index === 0 ? '$0' : '$5'}
       >
-        <Stack
-          w="$2"
-          height="$2"
-          backgroundColor="$textCaution"
-          borderRadius="$full"
-        />
+        <Spinner size="small" color="$textCaution" />
         <SizableText numberOfLines={1} size="$headingXs" color="$textCaution">
-          {intl.formatMessage({ id: ETranslations.global_pending })}
+          {intl.formatMessage({ id: ETranslations.global_confirming })}
         </SizableText>
       </XStack>
     );
   }
 
   return (
-    <Stack py="$2" px="$5" mt={index === 0 ? '$0' : '$5'}>
+    <Stack py="$2" px="$pagePadding" mt={index === 0 ? '$0' : '$5'}>
       <SizableText size="$headingXs" color="$textSubdued">
         {titleText}
       </SizableText>
@@ -263,7 +258,6 @@ function TxHistoryListViewSectionHeader(
 function BaseTxHistoryListView(props: IProps) {
   const {
     data,
-    isLoading,
     ListHeaderComponent,
     showIcon,
     onPressHistory,
@@ -284,8 +278,6 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     ref,
     plainMode,
-    emptyTitle,
-    emptyDescription,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -312,13 +304,24 @@ function BaseTxHistoryListView(props: IProps) {
     [filteredHistory],
   );
 
-  const ListComponentRef = useRef<typeof ListComponent>(null);
+  const internalListRef = useRef<any>(null);
+
+  const handleListRef = useCallback(
+    (instance: any) => {
+      internalListRef.current = instance;
+      if (typeof ref === 'function') {
+        ref(instance);
+      } else if (ref) {
+        (ref as React.MutableRefObject<any>).current = instance;
+      }
+    },
+    [ref],
+  );
 
   const recomputeLayout = useCallback(() => {
     if (!platformEnv.isNative) {
-      // update tab list header height after alert dismissed
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (ListComponentRef.current as any)?.recomputeLayout?.();
+      internalListRef.current?.recomputeLayout?.();
     }
   }, []);
 
@@ -331,9 +334,10 @@ function BaseTxHistoryListView(props: IProps) {
         showIcon={showIcon}
         onPress={onPressHistory}
         tableLayout={tableLayout}
+        recomputeLayout={recomputeLayout}
       />
     ),
-    [hideValue, onPressHistory, showIcon, tableLayout],
+    [hideValue, onPressHistory, showIcon, tableLayout, recomputeLayout],
   );
   const renderSectionHeader = useCallback(
     ({
@@ -387,7 +391,7 @@ function BaseTxHistoryListView(props: IProps) {
   }, [sections]);
 
   const EmptyComponentElement = useMemo(() => {
-    if (!initialized && isLoading) {
+    if (!initialized) {
       return <HistoryLoadingView tableLayout={tableLayout} />;
     }
     if (searchKey && data.length > 0) {
@@ -402,13 +406,10 @@ function BaseTxHistoryListView(props: IProps) {
         indexedAccountId={indexedAccountId}
         isSingleAccount={isSingleAccount}
         tokenMap={tokenMap}
-        emptyTitle={emptyTitle}
-        emptyDescription={emptyDescription}
       />
     );
   }, [
     initialized,
-    isLoading,
     searchKey,
     data.length,
     walletId,
@@ -419,8 +420,6 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     tableLayout,
     plainMode,
-    emptyTitle,
-    emptyDescription,
   ]);
 
   if (plainMode) {
@@ -453,9 +452,15 @@ function BaseTxHistoryListView(props: IProps) {
 
   return (
     <ListComponent
-      ref={(ref ?? ListComponentRef) as any}
+      ref={handleListRef as any}
+      showsVerticalScrollIndicator={false}
+      windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
+      nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
+      removeClippedSubviews={platformEnv.isNativeAndroid}
       refreshControl={
-        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+        !platformEnv.isNativeAndroid && onRefresh ? (
+          <PullToRefresh onRefresh={onRefresh} />
+        ) : undefined
       }
       // @ts-ignore
       estimatedItemSize={platformEnv.isNative ? 60 : 56}

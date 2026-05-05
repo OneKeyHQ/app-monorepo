@@ -1,12 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBallRugby = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="m15.164 10.25-4.914 4.914-1.414-1.414 4.914-4.914z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth={2}
-      d="m10.25 13.75 3.5-3.5m-.607-7.107A12 12 0 0 1 15 3h5a1 1 0 0 1 1 1v5q-.001.949-.143 1.857m-7.714-7.714 7.714 7.714m-7.714-7.714a12.01 12.01 0 0 0-10 10m17.714-2.286a12.01 12.01 0 0 1-10 10m0 0Q9.949 20.999 9 21H4a1 1 0 0 1-1-1v-5q.001-.949.143-1.857m7.714 7.714-7.714-7.714"
+      fillRule="evenodd"
+      d="M20 2a2 2 0 0 1 2 2v5q0 .76-.087 1.499l.001.001-.002.001c-.688 5.98-5.431 10.723-11.411 11.411l-.001.002h-.001A13 13 0 0 1 9 22H4a2 2 0 0 1-2-2v-5q0-.761.087-1.5v-.002c.689-5.98 5.432-10.722 11.411-11.41l.002-.002Q14.239 2 15 2zM4 20h4.586L4 15.414zm8.805-15.781a11.01 11.01 0 0 0-8.586 8.586l6.975 6.975a11.01 11.01 0 0 0 8.586-8.586zM20 8.586V4h-4.586z"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -1,17 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCalendarDays = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M9.01 17H7v-2h2.01zm4 0H11v-2h2.01zm-4-4H7v-2h2.01zm4 0H11v-2h2.01zm4 0H15v-2h2.01z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4 8h16M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2"
-    />
-    <Path
-      fill="currentColor"
-      d="M9.25 12a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0m0 4a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0m4-4a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0m0 4a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0m4-4a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0"
+      fillRule="evenodd"
+      d="M21 21H3V3h18zM5 19h14V9H5zM5 7h14V5H5z"
+      clipRule="evenodd"
     />
   </Svg>
 );

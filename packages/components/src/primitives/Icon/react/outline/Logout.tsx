@@ -1,14 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgLogout = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M11.25 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.25M20 12H8.75M20 12l-4.5 4.5M20 12l-4.5-4.5"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12 5H5v14h7v2H3V3h9z" />
+    <Path d="M21.414 12 15.5 17.914 14.086 16.5l3.5-3.5H8v-2h9.586l-3.5-3.5L15.5 6.086z" />
   </Svg>
 );
 export default SvgLogout;

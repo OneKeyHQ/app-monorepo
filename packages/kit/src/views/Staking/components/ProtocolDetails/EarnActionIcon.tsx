@@ -38,6 +38,7 @@ import type {
 import { useEarnSignMessage } from '../../hooks/useEarnSignMessage';
 import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
 
+import { EarnAmountText } from './EarnAmountText';
 import { EarnIcon } from './EarnIcon';
 import { EarnText } from './EarnText';
 
@@ -142,7 +143,7 @@ function PopupItemLine({
           {title.text}
         </SizableText>
       </XStack>
-      <SizableText size="$bodyMdMedium">{value}</SizableText>
+      <EarnAmountText size="$bodyMdMedium">{value}</EarnAmountText>
     </XStack>
   );
 }
@@ -221,12 +222,12 @@ export function ActionPopupContent({
               >
                 {item.title.text}
               </SizableText>
-              <SizableText
+              <EarnAmountText
                 color={item.description?.color || '$text'}
                 size="$bodyMdMedium"
               >
                 {item.description?.text || '-'}
-              </SizableText>
+              </EarnAmountText>
             </YStack>
           ))}
         </XStack>
@@ -606,19 +607,16 @@ function BasicEarnActionIcon({
     case 'history':
       return (
         <XStack
-          gap="$0.5"
+          gap="$1"
           cursor="pointer"
+          ai="center"
           onPress={() => onHistory?.({ filterType: 'rebate' })}
         >
+          <Icon name="ClockTimeHistoryOutline" size="$4" color="$iconSubdued" />
           <EarnText
             text={actionIcon?.text}
             size="$bodyMd"
             color="$textSubdued"
-          />
-          <Icon
-            name="ChevronRightSmallOutline"
-            color="$iconSubdued"
-            size="$5"
           />
         </XStack>
       );

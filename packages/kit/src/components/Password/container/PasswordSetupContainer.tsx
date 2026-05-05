@@ -1,21 +1,13 @@
-import { Suspense, memo, useCallback, useEffect, useState } from 'react';
+import { Suspense, memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Dialog,
-  Icon,
-  SizableText,
-  Stack,
-  Toast,
-  XStack,
-} from '@onekeyhq/components';
+import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordModeAtom,
-  // usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -30,7 +22,8 @@ import PasswordSetup from '../components/PasswordSetup';
 import type { IPasswordSetupForm } from '../components/PasswordSetup';
 
 interface IPasswordSetupProps {
-  onSetupRes: (password: string) => void;
+  onSetupRes: (password: string) => void | Promise<void>;
+  pageMode?: boolean;
 }
 
 interface IBiologyAuthContainerProps {
@@ -44,7 +37,6 @@ const BiologyAuthContainer = ({
 }: IBiologyAuthContainerProps) => {
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
-  const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const intl = useIntl();
 
   const { title } = useBiometricAuthInfo();
@@ -53,18 +45,7 @@ const BiologyAuthContainer = ({
     { biometric: title },
   );
 
-  useEffect(() => {
-    if (
-      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) &&
-      isBiologyAuthSwitchOn
-    ) {
-      void backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(false);
-    }
-  }, [isBiologyAuthSwitchOn]);
-
-  return (biologyAuthIsSupport || webAuthIsSupport) &&
-    !platformEnv.isExtensionUiPopup &&
-    !platformEnv.isExtensionUiSidePanel ? (
+  return biologyAuthIsSupport || webAuthIsSupport ? (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMdMedium">{settingsTitle}</SizableText>
       <Stack>
@@ -74,12 +55,14 @@ const BiologyAuthContainer = ({
   ) : null;
 };
 
-const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
+const PasswordSetupContainer = ({
+  onSetupRes,
+  pageMode,
+}: IPasswordSetupProps) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
-  // const [, setPasswordPersist] = usePasswordPersistAtom();
   const [passwordMode] = usePasswordModeAtom();
   const { setWebAuthEnable } = useWebAuthActions();
   const onSetupPassword = useCallback(
@@ -88,10 +71,13 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
       const finalPassword =
         mode === EPasswordMode.PASSCODE ? confirmPassCode : confirmPassword;
       setLoading(true);
+      let isPasswordSetSuccess = false;
       try {
-        if (isBiologyAuthSwitchOn && isSupport) {
-          const res = await setWebAuthEnable(true);
-          if (!res) return;
+        const shouldEnableWebAuth = isBiologyAuthSwitchOn && isSupport;
+        let webAuthRes: string | undefined;
+        if (shouldEnableWebAuth && !platformEnv.isExtension) {
+          webAuthRes = await setWebAuthEnable(true);
+          if (!webAuthRes) return;
         }
         const encodePassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
@@ -102,12 +88,38 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
             encodePassword,
             mode,
           );
+        isPasswordSetSuccess = true;
+
+        // In extension, defer PassKey enrollment until after password setup so
+        // the just-cached password can be reused for a single PRF prompt.
+        if (platformEnv.isExtension && shouldEnableWebAuth) {
+          try {
+            webAuthRes = await setWebAuthEnable(true);
+          } catch (e) {
+            console.error('Failed to enable WebAuth after password setup:', e);
+          }
+
+          if (!webAuthRes) {
+            await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(
+              false,
+            );
+            Toast.error({
+              title: intl.formatMessage({ id: ETranslations.toast_web_auth }),
+            });
+          }
+        }
         Toast.success({
           title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
-        setTimeout(() => {
-          onSetupRes(setUpPasswordRes);
-        });
+
+        if (pageMode) {
+          await onSetupRes(setUpPasswordRes);
+        } else {
+          setTimeout(() => {
+            void onSetupRes(setUpPasswordRes);
+          });
+        }
+
         // Dialog.show({
         //   title: intl.formatMessage({
         //     id: ETranslations.auth_Passcode_protection,
@@ -152,20 +164,32 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
       } catch (e) {
         console.log('e.stack', (e as Error)?.stack);
         console.error(e);
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_passcode_set_failed,
-          }),
-        });
+        if (!isPasswordSetSuccess) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_passcode_set_failed,
+            }),
+          });
+        } else {
+          throw e;
+        }
       } finally {
         setLoading(false);
       }
     },
-    [intl, isBiologyAuthSwitchOn, isSupport, onSetupRes, setWebAuthEnable],
+    [
+      intl,
+      isBiologyAuthSwitchOn,
+      isSupport,
+      onSetupRes,
+      pageMode,
+      setWebAuthEnable,
+    ],
   );
 
   return (
     <PasswordSetup
+      pageMode={pageMode}
       loading={loading}
       passwordMode={passwordMode}
       onSetupPassword={onSetupPassword}
