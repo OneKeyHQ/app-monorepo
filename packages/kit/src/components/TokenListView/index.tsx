@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -35,14 +35,19 @@ import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 import type {
   IAccountToken,
   IHomeDefaultToken,
+  ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
+  RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS,
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
+  useAggregateTokensMapAtom,
+  useAllTokenListAtom,
   useFlattenAggregateTokensMapAtom,
+  useRenderedTokenListCacheAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
@@ -64,11 +69,17 @@ import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
 import { TokenListViewContext } from './TokenListViewContext';
+import { getTokenListOwnerCacheAccountId } from './utils';
 
 type IProps = {
   accountId: string;
   networkId: string;
   indexedAccountId: string | undefined;
+  // When true, the per-owner rendered cache is keyed by `indexedAccountId`
+  // instead of `accountId` so the same logical owner survives derive-type
+  // switches in merge mode. Mirrors the read-side rule in TokenListBlock's
+  // useLayoutEffect cache hydrator.
+  mergeDeriveAddressData?: boolean;
   tableLayout?: boolean;
   onPressToken?: (token: IAccountToken) => void;
   withHeader?: boolean;
@@ -158,6 +169,7 @@ function TokenListViewCmp(props: IProps) {
     accountId,
     networkId,
     indexedAccountId,
+    mergeDeriveAddressData,
     searchKeyLengthThreshold,
     plainMode,
     limit,
@@ -177,11 +189,21 @@ function TokenListViewCmp(props: IProps) {
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
+  const [allTokenList] = useAllTokenListAtom();
   const [tokenListMap] = useTokenListMapAtom();
   const [aggregateTokenMap] = useFlattenAggregateTokensMapAtom();
+  // Raw nested aggregate-token map — persisted alongside `tokenListMap` so
+  // a paint-time hydrate can restore aggregate-token balance/value together
+  // with the regular token map.
+  const [rawAggregateTokensMap] = useAggregateTokensMapAtom();
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
+  const [renderedTokenListCache, setRenderedTokenListCache] =
+    useRenderedTokenListCacheAtom();
+  // Use ref to avoid useMemo→useEffect→setState cycle
+  const renderedTokenListCacheRef = useRef(renderedTokenListCache);
+  renderedTokenListCacheRef.current = renderedTokenListCache;
   const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
 
   const tokenManagementEnabled =
@@ -193,7 +215,48 @@ function TokenListViewCmp(props: IProps) {
     enabled: tokenManagementEnabled,
   });
 
+  // The token list atoms are scoped to a singleton store, so they survive the
+  // PortfolioContainer remount that fires on every account/network switch and
+  // briefly carry the previous owner's data. When the loaded data does not
+  // belong to the current accountId/networkId, prefer the per-owner rendered
+  // cache for the current owner if it exists (instant swap, no skeleton);
+  // otherwise return an empty list so the skeleton (gated below) covers the
+  // gap until `initTokenListData` completes.
+  const ownerMismatch =
+    !!accountId &&
+    !!networkId &&
+    !!allTokenList.accountId &&
+    !!allTokenList.networkId &&
+    (allTokenList.accountId !== accountId ||
+      allTokenList.networkId !== networkId);
+
+  // Owner-aware cache key: in merge mode, keyed by indexedAccountId so the
+  // logical owner survives derive-type switches that change accountId.
+  // Read in TokenListBlock's pre-paint hydrate uses the same rule.
+  const ownerCacheAccountId = getTokenListOwnerCacheAccountId({
+    accountId,
+    indexedAccountId,
+    mergeDeriveAddressData,
+  });
+  const ownerCacheKey =
+    ownerCacheAccountId && networkId
+      ? `${ownerCacheAccountId}__${networkId}`
+      : '';
+
   const tokens = useMemo(() => {
+    if (ownerMismatch) {
+      const cached =
+        ownerCacheKey &&
+        renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
+      // Require a paired `tokenListMap` — otherwise we'd render tokens
+      // against the previous owner's map (no balance/price). Legacy cache
+      // entries from an earlier build don't carry it; treat them as misses.
+      if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
+        return cached.tokens;
+      }
+      return [];
+    }
+
     let resultTokens: IAccountToken[] = [];
     if (showActiveAccountTokenList) {
       resultTokens = activeAccountTokenList.tokens;
@@ -275,8 +338,22 @@ function TokenListViewCmp(props: IProps) {
       });
     }
 
+    // Cold-start fallback: when atoms haven't loaded yet for the current
+    // owner, reuse the per-owner cache so the user sees their last known list
+    // immediately. Read from ref to avoid useMemo→useEffect→setState cycle.
+    if (resultTokens.length === 0 && !tokenListState.initialized) {
+      const cached =
+        ownerCacheKey &&
+        renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
+      if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
+        return cached.tokens;
+      }
+    }
+
     return resultTokens;
   }, [
+    ownerMismatch,
+    ownerCacheKey,
     showActiveAccountTokenList,
     isTokenSelector,
     searchKey,
@@ -291,6 +368,111 @@ function TokenListViewCmp(props: IProps) {
     homeDefaultTokenMap,
     customTokens,
     exchangeFilter,
+    tokenListState.initialized,
+  ]);
+
+  // Persist the rendered token list (and its balance/price map) per owner.
+  // Skip when the loaded atoms are still showing a previous owner's data
+  // (ownerMismatch) — otherwise we'd overwrite the target owner's cache with
+  // stale tokens.
+  useEffect(() => {
+    if (
+      !ownerMismatch &&
+      ownerCacheKey &&
+      tokens.length > 0 &&
+      tokenListState.initialized &&
+      !tokenListState.isRefreshing &&
+      accountId &&
+      networkId
+    ) {
+      setRenderedTokenListCache((prev) => {
+        // `prev` may be in the legacy single-entry shape persisted by an
+        // earlier build (`{ tokens, initialized, accountId, networkId }`).
+        // Tolerate it defensively and lift it into `byOwner` so the user's
+        // cold-start cache survives the upgrade. Without this migration,
+        // first launch on the new build silently discards the old entry.
+        const legacy = prev as unknown as {
+          byOwner?: Record<
+            string,
+            {
+              tokens: IAccountToken[];
+              tokenListMap?: Record<string, ITokenFiat>;
+              aggregateTokensMap?: Record<string, Record<string, ITokenFiat>>;
+              accountId: string;
+              networkId: string;
+            }
+          >;
+          tokens?: IAccountToken[];
+          initialized?: boolean;
+          accountId?: string;
+          networkId?: string;
+        };
+        // Object spread tolerates `undefined` (treats it as no-op) — no
+        // explicit `?? {}` needed.
+        const nextByOwner: NonNullable<typeof legacy.byOwner> = {
+          ...legacy.byOwner,
+        };
+        if (
+          !legacy.byOwner &&
+          legacy.initialized &&
+          legacy.tokens?.length &&
+          legacy.accountId &&
+          legacy.networkId
+        ) {
+          const legacyKey = `${legacy.accountId}__${legacy.networkId}`;
+          if (!nextByOwner[legacyKey]) {
+            // No `tokenListMap` in legacy entries; downstream guards skip
+            // such entries until a fresh write replaces them.
+            nextByOwner[legacyKey] = {
+              tokens: legacy.tokens,
+              accountId: legacy.accountId,
+              networkId: legacy.networkId,
+            };
+          }
+        }
+
+        // MRU re-insertion: delete first so the spread below puts the
+        // current owner at the end of the key order. Combined with the
+        // size cap below, this keeps the most recently used entries.
+        delete nextByOwner[ownerCacheKey];
+        nextByOwner[ownerCacheKey] = {
+          tokens,
+          tokenListMap,
+          // Persist the raw aggregate-token map alongside `tokenListMap`
+          // so the read-side hydrate can refresh `aggregateTokensMapAtom`
+          // atomically — without it, cached tokens render with the
+          // previous owner's aggregate balance/value briefly.
+          aggregateTokensMap: rawAggregateTokensMap,
+          accountId,
+          networkId,
+        };
+
+        const keys = Object.keys(nextByOwner);
+        if (keys.length > RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS) {
+          // `Object.keys` preserves insertion order for string keys that
+          // aren't integer indices. `accountId__networkId` always contains
+          // non-digit chars (the `__` separator and id prefixes like
+          // `hd-`), so dropping from the front evicts the oldest entries.
+          const dropCount = keys.length - RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS;
+          for (let i = 0; i < dropCount; i += 1) {
+            delete nextByOwner[keys[i]];
+          }
+        }
+
+        return { byOwner: nextByOwner };
+      });
+    }
+  }, [
+    ownerMismatch,
+    ownerCacheKey,
+    tokens,
+    tokenListMap,
+    rawAggregateTokensMap,
+    tokenListState.initialized,
+    tokenListState.isRefreshing,
+    setRenderedTokenListCache,
+    accountId,
+    networkId,
   ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();
@@ -382,25 +564,45 @@ function TokenListViewCmp(props: IProps) {
     };
   }, []);
 
-  const showSkeleton = useMemo(
-    () =>
+  const showSkeleton = useMemo(() => {
+    // Per-owner cache hit → instant display, never skeleton. This covers
+    // both cold-start (atom hydrating from disk) and in-session switches
+    // back to a previously-rendered network/account. Require a paired
+    // `tokenListMap` so we don't suppress the skeleton over a legacy entry
+    // that would render tokens against the previous owner's map.
+    const cached =
+      ownerCacheKey &&
+      renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
+    if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
+      return false;
+    }
+    // Loaded atoms belong to a previous owner and we have no cache for the
+    // current owner — show skeleton until `initTokenListData` refreshes the
+    // atoms. Without this `tokenListState.initialized` is still true from
+    // the prior network so the existing checks below would not fire.
+    if (ownerMismatch) {
+      return true;
+    }
+    return (
       (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
       (!isTokenSelector && searchTokenState.isSearching) ||
       (!tokenListState.initialized && tokenListState.isRefreshing) ||
       (!activeAccountTokenListState.initialized &&
         showActiveAccountTokenList &&
-        activeAccountTokenListState.isRefreshing),
-    [
-      isTokenSelector,
-      tokenSelectorSearchTokenState.isSearching,
-      searchTokenState.isSearching,
-      tokenListState.initialized,
-      tokenListState.isRefreshing,
-      activeAccountTokenListState.initialized,
-      activeAccountTokenListState.isRefreshing,
-      showActiveAccountTokenList,
-    ],
-  );
+        activeAccountTokenListState.isRefreshing)
+    );
+  }, [
+    ownerMismatch,
+    ownerCacheKey,
+    isTokenSelector,
+    tokenSelectorSearchTokenState.isSearching,
+    searchTokenState.isSearching,
+    tokenListState.initialized,
+    tokenListState.isRefreshing,
+    activeAccountTokenListState.initialized,
+    activeAccountTokenListState.isRefreshing,
+    showActiveAccountTokenList,
+  ]);
 
   useEffect(() => {
     if (showSkeleton) {

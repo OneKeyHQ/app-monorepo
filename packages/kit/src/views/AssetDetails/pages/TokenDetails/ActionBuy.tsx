@@ -27,7 +27,11 @@ import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 
 import type { IActionProps } from './type';
 
-function ActionBuy({
+type IActionBuyContentProps = Omit<IActionProps, 'isTabView'> & {
+  focusParam: boolean;
+};
+
+function ActionBuyContent({
   networkId,
   tokenAddress,
   tokenSymbol,
@@ -36,14 +40,12 @@ function ActionBuy({
   walletType,
   disabled,
   source,
-  isTabView,
+  focusParam,
   ...rest
-}: IActionProps) {
+}: IActionBuyContentProps) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const loadingRef = useRef(false);
-  const { isFocused } = useTabIsRefreshingFocused();
-  const focusParam = isTabView ? isFocused : true;
 
   const { result: supportState } = usePromiseResult(
     async () => {
@@ -183,6 +185,8 @@ function ActionBuy({
   /* eslint-enable no-nested-ternary */
 
   const iconName = 'CurrencyDollarOutline' as const;
+  const actionItemIcon =
+    source === 'earn' && rest.showButtonStyle ? null : iconName;
 
   // Single-action or loading: buy-only or sell-only → direct URL, use ActionItem
   if (!bothSupported || rest.showButtonStyle) {
@@ -190,7 +194,7 @@ function ActionBuy({
       <ActionItem
         loading={loading}
         label={label}
-        icon={iconName}
+        icon={actionItemIcon}
         disabled={effectiveDisabled}
         onPress={handleDirectPress}
         {...rest}
@@ -310,6 +314,22 @@ function ActionBuy({
       </Stack>
     </>
   );
+}
+
+function ActionBuyWithTabFocus(props: Omit<IActionProps, 'isTabView'>) {
+  const { isFocused } = useTabIsRefreshingFocused();
+
+  return <ActionBuyContent {...props} focusParam={isFocused} />;
+}
+
+function ActionBuy(props: IActionProps) {
+  const { isTabView, ...contentProps } = props;
+
+  if (isTabView) {
+    return <ActionBuyWithTabFocus {...contentProps} />;
+  }
+
+  return <ActionBuyContent {...contentProps} focusParam />;
 }
 
 export default ActionBuy;

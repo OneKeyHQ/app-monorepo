@@ -12,6 +12,8 @@ import { globalAtom } from '../utils';
 
 export type IEndpointType = 'prod' | 'test';
 
+export type INewBrowserTabPosition = 'top' | 'bottom';
+
 // don't use deviceUtils.getDefaultHardwareTransportType(), it will cause resource export order conflict
 function getDefaultHardwareTransportType(): EHardwareTransportType {
   if (platformEnv.isNative) {
@@ -68,6 +70,12 @@ export type ISettingsPersistAtom = {
   showAddHiddenInWalletSidebar?: boolean;
   enableDesktopBluetooth?: boolean;
   enableBTCFreshAddress?: boolean;
+  enableMenuBarTray?: boolean;
+  newBrowserTabPosition?: INewBrowserTabPosition;
+  // Pay eligible network fees from Gas Account (sponsored gas) when available;
+  // turning this off makes ServiceGas.estimateFee force gasAccountEnabled=false
+  // for every caller (Send / Swap / Perps / Earn / dApp ...).
+  useGasAccountByDefault?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -104,6 +112,9 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   showAddHiddenInWalletSidebar: true,
   enableDesktopBluetooth: true,
   enableBTCFreshAddress: true,
+  enableMenuBarTray: true,
+  newBrowserTabPosition: 'bottom',
+  useGasAccountByDefault: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({

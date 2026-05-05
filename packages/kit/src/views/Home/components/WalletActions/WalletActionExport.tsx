@@ -1,12 +1,12 @@
 import { useCallback, useMemo } from 'react';
 
 import { ActionList, Dialog, useClipboard } from '@onekeyhq/components';
-import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/shared/src/types/coreEnums';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export function WalletActionExport({ onClose }: { onClose: () => void }) {

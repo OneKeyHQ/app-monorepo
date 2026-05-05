@@ -2,7 +2,7 @@
 // @generated — do not edit manually
 // Generated from zod schemas in src/schemas/
 // Run: yarn generate:cli-types
-// Generated at: 2026-04-17T08:26:05.253Z
+// Generated at: 2026-04-26T15:20:41.808Z
 
 /** Print CLI version and environment */
 export interface VersionInput {}
@@ -78,15 +78,21 @@ export interface TransferOutput {
   chain: string;
 }
 
-/** Authenticate with a OneKey App Bot Wallet */
+/** Authenticate with a OneKey App Bot Wallet or hardware wallet */
 export interface AuthLoginInput {
   /** Authenticate with a OneKey App Bot Wallet */
   appTransfer?: boolean;
+  /** Authenticate with a connected hardware wallet device */
+  hardware?: boolean;
+  /** Target hardware device UUID (from `onekey device search`). Required when multiple devices are connected. Only valid with --hardware. */
+  deviceId?: string;
+  /** Hardware passphrase mode. Required in non-interactive mode when device passphrase protection is enabled. */
+  passphraseMode?: "none" | "on_host" | "on_device";
 }
 
 export interface AuthLoginOutput {
-  auth_status: string;
-  login_method: string;
+  auth_status: "authenticated";
+  login_method: "app_transfer" | "hardware";
   source_label: string | null;
   display_address: string | null;
   storage_backend: "macos-keychain" | "linux-secret-service";
@@ -99,11 +105,17 @@ export interface AuthStatusOutput {
   authStatus: "authenticated" | "unauthenticated";
   hasSecrets: boolean;
   storageBackend: "macos-keychain" | "linux-secret-service";
-  loginMethod: "app_transfer" | null;
-  walletKind: "hd" | null;
+  loginMethod: "app_transfer" | "hardware" | null;
+  walletKind: "hd" | "hw" | null;
   sourceLabel: string | null;
   displayAddress: string | null;
   importedAt: string | null;
+  device: {
+    connectId: string;
+    deviceId: string;
+    deviceLabel: string;
+  } | null;
+  passphraseMode: "none" | "on_host" | "on_device" | null;
 }
 
 /** Log out of the current auth session */
@@ -125,17 +137,36 @@ export interface HistoryInput {
   detail?: boolean;
 }
 
-export type HistoryOutput = {
-  hash: string;
+export type HistoryOutput = ({
+  txHash: string;
+  type: string;
+  status: string;
   from: string;
   to: string;
-  value: string;
-  block?: string;
+  sends: {
+    token: string;
+    amount: string;
+    fiatValue: string;
+    contractAddress?: string;
+    isNative?: boolean;
+  }[];
+  receives: {
+    token: string;
+    amount: string;
+    fiatValue: string;
+    contractAddress?: string;
+    isNative?: boolean;
+  }[];
+  gasFee: string;
+  gasFeeFiatValue: string;
+  timestamp: string;
+  block?: number | null;
   nonce?: number;
-  confirmations?: number;
+  confirmations?: number | null;
   networkName?: string;
-  tokenSymbol?: string;
-}[]
+  label?: string;
+  contractAddress?: string | null;
+})[]
 
 /** Search tokens by keyword, symbol, or address */
 export interface TokenSearchInput {
@@ -401,10 +432,12 @@ export interface SwapQuoteOutput {
     toAmount: string | null;
     fromAmount: string | null;
     minToAmount: string | null;
-    estimatedTime: string | null;
+    estimatedTime: string | number | null;
     instantRate: string | null;
     isBest: boolean;
-    fee: string | null;
+    fee: {
+      estimatedFeeFiatValue?: number;
+    } | null;
     errorMessage?: string;
     allowanceResult?: {
       allowanceTarget: string;
@@ -596,7 +629,7 @@ export interface SecuritySimulateInput {
 
 export interface SecuritySimulateOutput {
   type: string | null;
-  display?: unknown;
+  display?: unknown | null;
   parsedTx?: unknown | null;
   accountAddress: string;
   isConfirmationRequired: boolean;

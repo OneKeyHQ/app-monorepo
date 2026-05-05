@@ -82,6 +82,14 @@ export interface IDevSettings {
   testAccounts?: ITestAccount[];
   // Ignore server bundle update info (prevents rollback when dev-switching bundles)
   ignoreServerBundleUpdate?: boolean;
+  // Allow watching accounts to pass through bulk-send pre-flight validation.
+  // Submission remains blocked; this only lets QA walk through the UI flow
+  // (e.g. BTC 200+ split cases that need high balances) without a signer.
+  allowBulkSendWatchingAccount?: boolean;
+  // Disable custom User-Agent injection (debug only).
+  // When true, buildCustomUA() returns null, all call sites fall back to
+  // the runtime default UA.
+  disableCustomUA?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

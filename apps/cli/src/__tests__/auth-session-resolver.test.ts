@@ -267,3 +267,65 @@ describe('AuthSessionResolver silent cleanup', () => {
     expect(existsSync(sessionPath)).toBe(false);
   });
 });
+
+describe('AuthSessionResolver hardware sessions', () => {
+  let tempDir: string;
+  let sessionPath: string;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), 'resolver-hw-'));
+    sessionPath = join(tempDir, 'auth-session.json');
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('reports authenticated hardware session without touching keychain mnemonic', async () => {
+    const storage = new InMemorySecureStorage();
+    const hardwareSession = {
+      schema_version: 1,
+      login_method: 'hardware',
+      wallet_kind: 'hw',
+      display_address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+      imported_at: '2026-04-21T00:00:00.000Z',
+      source_label: 'Hardware: OneKey Touch',
+      device: {
+        connect_id: 'connect-123',
+        device_id: 'device-xyz',
+        device_label: 'OneKey Touch',
+      },
+      passphrase_mode: 'on_device',
+    };
+    mkdirSync(dirname(sessionPath), { recursive: true });
+    writeFileSync(
+      sessionPath,
+      `${JSON.stringify(hardwareSession, null, 2)}\n`,
+      'utf-8',
+    );
+
+    const sessionStore = new AuthSessionStore(sessionPath);
+    const resolver = new AuthSessionResolver(storage, sessionStore);
+
+    const resolved = await resolver.resolve();
+
+    expect(resolved).toEqual({
+      authStatus: 'authenticated',
+      hasSecrets: true,
+      storageBackend: 'macos-keychain',
+      loginMethod: 'hardware',
+      walletKind: 'hw',
+      displayAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+      importedAt: '2026-04-21T00:00:00.000Z',
+      sourceLabel: 'Hardware: OneKey Touch',
+      device: {
+        connectId: 'connect-123',
+        deviceId: 'device-xyz',
+        deviceLabel: 'OneKey Touch',
+      },
+      passphraseMode: 'on_device',
+    });
+    expect(storage.has(KEYCHAIN_MNEMONIC_KEY)).toBe(false);
+    expect(storage.has(KEYCHAIN_ENCRYPTION_KEY)).toBe(false);
+  });
+});

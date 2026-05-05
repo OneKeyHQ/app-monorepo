@@ -10,6 +10,7 @@ useWalletBoundReferralCode/
 ├── types.ts                              # Type definitions
 ├── useGetReferralCodeWalletInfo.ts       # Get single wallet info hook
 ├── useFetchWalletsWithBoundStatus.ts     # Batch check all wallets bound status
+├── referralBindStatusUtils.ts            # Bind status resolution helpers
 ├── InviteCodeDialog.tsx                  # UI component
 └── useWalletBoundReferralCode.tsx        # Main hook
 ```
@@ -65,15 +66,18 @@ Hook to batch check all wallets' referral code binding status.
 
 **Features:**
 - Fetches all valid wallets (HD and hardware wallets)
-- Uses batch API `batchCheckWalletsBoundReferralCode` to check binding status in one request
-- Updates local database with the latest binding status
+- Uses V2 batch API `batchCheckWalletsBoundReferralCodeV2` to check bound status, bindability, and bind-window reason
+- Falls back to V1 batch API `batchCheckWalletsBoundReferralCode` when V2 is unavailable
+- Preserves cached `bindable` state during V1 fallback because V1 does not return bind-window status
+- Keeps local cache unchanged and skips database writes when both batch APIs fail
+- Updates local database only when a server status refresh succeeds
 - Returns loading state and wallet list with binding status
 
 **Returns:**
 
 | Field | Type | Description |
 |-------|------|-------------|
-| walletsWithStatus | Array | List of wallets with `{ wallet, isBound }` |
+| walletsWithStatus | Array | List of wallets with `{ wallet, isBound, bindable, reason }` |
 | isLoading | boolean | Whether the data is being fetched |
 
 **Usage:**
@@ -97,6 +101,13 @@ UI component for the referral code binding dialog.
 ### useWalletBoundReferralCode.tsx
 
 Main hook that orchestrates the referral code binding flow.
+
+**Status cache rules:**
+- `isBound: true` is treated as a stable local result.
+- `bindable: false` is treated as a stable local bind-window result.
+- `bindable: true` and legacy rows with `bindable: undefined` must be revalidated with `checkWalletBindStatus` before showing a bind entry.
+- If revalidation fails, cached positive or unknown bindability is not enough to show the bind entry.
+- Fresh server status remains authoritative and is persisted back to SimpleDB when available.
 
 **Returns:**
 

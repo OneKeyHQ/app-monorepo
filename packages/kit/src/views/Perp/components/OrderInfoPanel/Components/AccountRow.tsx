@@ -1,11 +1,11 @@
 import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -15,6 +15,7 @@ import type { IUserNonFundingLedgerUpdate } from '@onekeyhq/shared/types/hyperli
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
+import type { IntlShape } from 'react-intl';
 
 const balanceFormatter: INumberFormatProps = {
   formatter: 'balance',
@@ -165,7 +166,7 @@ const TYPE_CONFIG_DATA = new Map<string, ITypeConfigRaw>([
   ],
 ]);
 
-const getTypeConfig = (displayType: string): ITypeConfig => {
+const getTypeConfig = (displayType: string, intl: IntlShape): ITypeConfig => {
   const config = TYPE_CONFIG_DATA.get(displayType);
   if (!config) {
     return {
@@ -176,7 +177,7 @@ const getTypeConfig = (displayType: string): ITypeConfig => {
 
   return {
     text: config.translationId
-      ? appLocale.intl.formatMessage({ id: config.translationId })
+      ? intl.formatMessage({ id: config.translationId })
       : config.text || displayType,
     isIncrease: config.isIncrease,
   };
@@ -289,6 +290,7 @@ const AccountRow = memo(
     index,
   }: IAccountRowProps) => {
     const [currentUser] = usePerpsActiveAccountAtom();
+    const intl = useIntl();
 
     const { time, delta } = update;
 
@@ -298,7 +300,7 @@ const AccountRow = memo(
     );
 
     const typeConfig = useMemo(() => {
-      const config = getTypeConfig(displayType);
+      const config = getTypeConfig(displayType, intl);
 
       if (delta.type === 'accountClassTransfer' && 'toPerp' in delta) {
         return {
@@ -308,7 +310,7 @@ const AccountRow = memo(
       }
 
       return config;
-    }, [displayType, delta]);
+    }, [displayType, delta, intl]);
 
     const amount = useMemo(
       () => calculateAmount(delta, displayType),
@@ -328,13 +330,13 @@ const AccountRow = memo(
       const isPending = 'status' in delta && delta.status === 'pending';
       return {
         color: isPending ? '$yellow11' : '$green11',
-        text: appLocale.intl.formatMessage({
+        text: intl.formatMessage({
           id: isPending
             ? ETranslations.global_pending
             : ETranslations.perp_status_comlete,
         }),
       };
-    }, [delta]);
+    }, [delta, intl]);
 
     const dateInfo = useMemo(() => {
       const timeDate = new Date(time);

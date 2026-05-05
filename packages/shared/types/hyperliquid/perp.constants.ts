@@ -1,6 +1,7 @@
 import type { IHex } from './sdk';
 
 export const MAX_DECIMALS_PERP = 6;
+export const MAX_DECIMALS_SPOT = 8;
 export const MAX_SIGNIFICANT_FIGURES = 5;
 export const MAX_PRICE_INTEGER_DIGITS = 12;
 
@@ -38,6 +39,13 @@ export const DEX_SEPARATOR = ':';
 export const XYZ_DEX_PREFIX = `${DEX_PREFIXES[0]}${DEX_SEPARATOR}`;
 export const XYZ_ASSET_ID_OFFSET = 110_000;
 export const XYZ_ASSET_ID_LENGTH = `${XYZ_ASSET_ID_OFFSET}`.length;
+
+// Hyperliquid spot assetId = SPOT_ASSET_ID_OFFSET + spotUniverse.index
+export const SPOT_ASSET_ID_OFFSET = 10_000;
+
+// Quantize Date.now() to this window so near-simultaneous callers
+// produce identical memoizee cache keys (e.g. loadTradesHistory).
+export const CACHE_TIME_QUANTIZE_MS = 10_000;
 
 // Token Selector default values
 export const DEFAULT_PERP_TOKEN_SORT_FIELD = 'volume24h';

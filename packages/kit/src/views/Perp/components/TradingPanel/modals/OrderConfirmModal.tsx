@@ -13,15 +13,18 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAssetAtom,
-  usePerpsCustomSettingsAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+  useActiveTradeInstrumentAtom,
+  useTradingFormAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { inferTpsl, parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getSpotTokenDisplayName,
+  inferTpsl,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
@@ -33,6 +36,8 @@ import {
 } from '../../../utils/styleUtils';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
+
+import type { IntlShape } from 'react-intl';
 
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
 
@@ -56,11 +61,15 @@ function OrderConfirmContent({
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
-  const [selectedSymbol] = usePerpsActiveAssetAtom();
+  const [activeInstrument] = useActiveTradeInstrumentAtom();
+  const isSpot = activeInstrument.mode === 'spot';
   const effectiveSide = overrideSide || formData.side;
   const { computedSizeForSide, orderValue } =
     useTradingCalculationsForSide(effectiveSide);
-  const szDecimals = selectedSymbol?.universe?.szDecimals ?? 2;
+  const szDecimals =
+    activeInstrument.mode === 'spot'
+      ? (activeInstrument.universe?.baseSzDecimals ?? 2)
+      : (activeInstrument.universe?.szDecimals ?? 2);
   const actionColor = getTradingSideTextColor(effectiveSide);
 
   const [onekeyFee, setOnekeyFee] = useState<number | undefined>(undefined);
@@ -129,29 +138,46 @@ function OrderConfirmContent({
     });
   }, [isTriggerMode, formData.triggerPrice, midPriceBN, effectiveSide, intl]);
 
-  const actionText =
-    effectiveSide === 'long'
-      ? intl.formatMessage({
-          id: ETranslations.perp_trade_long,
-        })
-      : intl.formatMessage({
-          id: ETranslations.perp_trade_short,
-        });
+  const actionText = isSpot
+    ? intl.formatMessage({
+        id:
+          effectiveSide === 'long'
+            ? ETranslations.dexmarket_details_transactions_buy
+            : ETranslations.dexmarket_details_transactions_sell,
+      })
+    : intl.formatMessage({
+        id:
+          effectiveSide === 'long'
+            ? ETranslations.perp_trade_long
+            : ETranslations.perp_trade_short,
+      });
 
   const sizeDisplay = useMemo(() => {
     const sizeString = computedSizeForSide.toFixed(szDecimals);
-    if (selectedSymbol?.coin) {
-      const parsed = parseDexCoin(selectedSymbol.coin);
-      return `${sizeString} ${parsed.displayName}`;
+    if (activeInstrument?.coin) {
+      // Spot coins use @N format, resolve to display name (e.g. HYPE)
+      const coinDisplay =
+        activeInstrument.mode === 'spot'
+          ? getSpotTokenDisplayName(
+              activeInstrument.universe?.baseName ?? activeInstrument.coin,
+            )
+          : parseDexCoin(activeInstrument.coin).displayName;
+      return `${sizeString} ${coinDisplay}`;
     }
     return sizeString;
-  }, [computedSizeForSide, szDecimals, selectedSymbol?.coin]);
+  }, [
+    computedSizeForSide,
+    szDecimals,
+    activeInstrument?.coin,
+    activeInstrument.mode,
+    activeInstrument.universe,
+  ]);
 
   const priceDisplay = useMemo(() => {
     if (formData.type === 'market' || !formData.price) {
       return (
         <SizableText size="$bodyMdMedium">
-          {appLocale.intl.formatMessage({
+          {intl.formatMessage({
             id: ETranslations.perp_trade_market,
           })}
         </SizableText>
@@ -179,14 +205,14 @@ function OrderConfirmContent({
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.perp_trading_button_placing,
       });
     }
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.perp_confirm_order,
     });
-  }, [isSubmitting]);
+  }, [isSubmitting, intl]);
 
   const setSkipOrderConfirm = useCallback(
     (value: boolean) => {
@@ -295,18 +321,35 @@ function OrderConfirmContent({
         {/* Position Size */}
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.perp_position_position_size,
             })}
           </SizableText>
           <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
         </XStack>
 
+        {/* Order Value */}
+        {orderValue.isFinite() && orderValue.gt(0) ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_order_value,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {numberFormat(orderValue.toFixed(2), {
+                formatter: 'value',
+                formatterOptions: { currency: '$' },
+              })}
+            </SizableText>
+          </XStack>
+        ) : null}
+
         {/* Price (standard orders only — trigger orders show trigger/execution price above) */}
         {!isTriggerMode ? (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perp_orderbook_price,
               })}
             </SizableText>
@@ -315,19 +358,21 @@ function OrderConfirmContent({
         ) : null}
 
         {/* Liquidation Price */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {appLocale.intl.formatMessage({
-              id: ETranslations.perp_position_liq_price,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMd">
-            <LiquidationPriceDisplay
-              textSize="$bodyMdMedium"
-              side={effectiveSide}
-            />
-          </SizableText>
-        </XStack>
+        {isSpot ? null : (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_liq_price,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd">
+              <LiquidationPriceDisplay
+                textSize="$bodyMdMedium"
+                side={effectiveSide}
+              />
+            </SizableText>
+          </XStack>
+        )}
 
         {/* OneKey Fee */}
         {onekeyFee === 0 ? (
@@ -364,7 +409,7 @@ function OrderConfirmContent({
               fontSize: '$bodyMdMedium',
               color: '$textSubdued',
             }}
-            label={appLocale.intl.formatMessage({
+            label={intl.formatMessage({
               id: ETranslations.perp_confirm_not_show,
             })}
             value={perpsCustomSettings.skipOrderConfirm}
@@ -391,9 +436,15 @@ function OrderConfirmContent({
   );
 }
 
-export function showOrderConfirmDialog(overrideSide?: 'long' | 'short') {
+export function showOrderConfirmDialog({
+  overrideSide,
+  intl,
+}: {
+  overrideSide?: 'long' | 'short';
+  intl: IntlShape;
+}) {
   const dialogInstance = Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.perp_confirm_order,
     }),
     renderContent: (

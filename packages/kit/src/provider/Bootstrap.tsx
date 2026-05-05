@@ -67,12 +67,15 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../components/AccountSelector';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
+import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
 import type { IntlShape } from 'react-intl';
 
@@ -714,6 +717,25 @@ export const useTabletDetailView = () => {
   }, [appNavigation, isTabletDetailView]);
 };
 
+function TrayDataProviderInner() {
+  useTrayDataProvider();
+  return null;
+}
+
+function DesktopTrayDataProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <TrayDataProviderInner />
+    </AccountSelectorProviderMirror>
+  );
+}
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -760,7 +782,6 @@ export function Bootstrap() {
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
-            // screen: EOnboardingPagesV2.AddExistingWallet,
             screen: EOnboardingPagesV2.CreateOrImportWallet,
           },
         });
@@ -830,5 +851,5 @@ export function Bootstrap() {
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
-  return null;
+  return platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null;
 }

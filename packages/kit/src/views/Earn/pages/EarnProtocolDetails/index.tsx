@@ -78,6 +78,7 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 
 import { ApyChart } from './components/ApyChart';
+import { ProtocolIntroSection } from './components/ProtocolIntroSection';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 
@@ -532,6 +533,7 @@ const DetailsPartComponent = ({
               />
             </YStack>
             <GridSection data={detailInfo.intro} />
+            <ProtocolIntroSection protocolInfo={detailInfo.protocolInfo} />
             {earnUtils.isPendleProvider({
               providerName: provider,
             }) ? (

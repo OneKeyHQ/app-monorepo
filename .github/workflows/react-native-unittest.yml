@@ -20,6 +20,7 @@ jobs:
   harness-android:
     name: Harness Tests (Android)
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
 
     strategy:
       matrix:
@@ -147,7 +148,7 @@ jobs:
 
       - name: Start Android Emulator
         run: |
-          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 2048 &
+          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 6144 &
           adb wait-for-device
           SECONDS=0
           TIMEOUT=300
@@ -171,7 +172,7 @@ jobs:
         run: adb logcat -v time > /tmp/logcat.txt 2>&1 &
 
       - name: Run Harness Tests (Android)
-        timeout-minutes: 30
+        timeout-minutes: 60
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd

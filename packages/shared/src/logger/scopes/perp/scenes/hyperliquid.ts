@@ -3,6 +3,7 @@ import type {
   IApiRequestError,
   IApiRequestResult,
   ICancelResponse,
+  IModifyResponse,
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
@@ -33,6 +34,7 @@ export interface IHyperLiquidLogParams<
   response?: TResponse;
   error?: Record<string, unknown>;
   extra?: Record<string, unknown>;
+  isFirstTime?: boolean;
 }
 
 function stripSensitiveFields<TRequest, TResponse>(
@@ -135,6 +137,16 @@ export class HyperLiquidScene extends BaseScene {
   }
 
   @LogToServer()
+  public perpTermsAgree() {
+    return {};
+  }
+
+  @LogToServer()
+  public perpTermsReject() {
+    return {};
+  }
+
+  @LogToServer()
   public ordersClose(
     params: IHyperLiquidLogParams<
       IHyperLiquidOrderRequestPayload,
@@ -179,6 +191,16 @@ export class HyperLiquidScene extends BaseScene {
     params: IHyperLiquidLogParams<
       { cancels: Array<{ a: number; o: number }> },
       ICancelResponse | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public modifyOrder(
+    params: IHyperLiquidLogParams<
+      { oid: number; order: IOrderParams },
+      IModifyResponse | IApiErrorResponse
     >,
   ) {
     return stripSensitiveFields(params);
@@ -261,6 +283,7 @@ export class HyperLiquidScene extends BaseScene {
 
 export type IHyperLiquidOrderAction =
   | 'placeOrder'
+  | 'placeSpotOrder'
   | 'orderOpen'
   | 'orderTrigger'
   | 'ordersClose'

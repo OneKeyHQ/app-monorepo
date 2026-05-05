@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
+  useActiveTradeInstrumentAtom,
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsCustomSettingsAtom,
+  useSpotActiveOpenOrdersAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { MESSAGE_TYPES } from '../constants/messageTypes';
 import { buildAllLinesForSymbol } from '../utils/lineBuilder';
@@ -128,10 +132,14 @@ export function useChartLines({
   webRef,
   isReady,
 }: IUseChartLinesParams): IUseChartLinesReturn {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [{ activePositions, accountAddress: positionsAccountAddress }] =
     usePerpsActivePositionAtom();
   const [{ openOrdersByCoin, accountAddress: ordersAccountAddress }] =
     usePerpsActiveOpenOrdersAtom();
+  const [
+    { openOrders: spotOpenOrders, accountAddress: spotOrdersAccountAddress },
+  ] = useSpotActiveOpenOrdersAtom();
   const [{ showChartLines }] = usePerpsCustomSettingsAtom();
   const normalizedUserAddress = useMemo(
     () => normalizeAddress(userAddress),
@@ -181,15 +189,33 @@ export function useChartLines({
 
   // Get orders for current symbol
   const currentOrders = useMemo(() => {
-    if (
-      !normalizedUserAddress ||
-      normalizeAddress(ordersAccountAddress) !== normalizedUserAddress
-    ) {
+    if (!normalizedUserAddress) {
+      return [];
+    }
+
+    if (activeTradeInstrument.mode === 'spot') {
+      if (
+        normalizeAddress(spotOrdersAccountAddress) !== normalizedUserAddress
+      ) {
+        return [];
+      }
+      return spotOpenOrders.filter((order) => order.coin === symbol);
+    }
+
+    if (normalizeAddress(ordersAccountAddress) !== normalizedUserAddress) {
       return [];
     }
 
     return openOrdersByCoin[symbol] || [];
-  }, [normalizedUserAddress, openOrdersByCoin, ordersAccountAddress, symbol]);
+  }, [
+    activeTradeInstrument.mode,
+    normalizedUserAddress,
+    openOrdersByCoin,
+    ordersAccountAddress,
+    spotOpenOrders,
+    spotOrdersAccountAddress,
+    symbol,
+  ]);
 
   // Build current lines (returns empty if showChartLines is disabled)
   const currentLines = useMemo(() => {
@@ -213,9 +239,7 @@ export function useChartLines({
 
   // Send full sync
   const sendLinesSync = useCallback(() => {
-    if (!webRef.current || !isReady) {
-      return;
-    }
+    if (!webRef.current || !isReady) return;
 
     webRef.current.sendMessageViaInjectedScript({
       type: MESSAGE_TYPES.PERPS_TV_LINES_SYNC,
@@ -226,7 +250,6 @@ export function useChartLines({
       },
     });
 
-    // Update prev lines reference
     prevLinesRef.current = new Map(currentLines.map((line) => [line.id, line]));
   }, [webRef, isReady, symbol, currentLines]);
 
@@ -432,22 +455,28 @@ export function useChartLines({
     clearPendingPnlUpdates,
   ]);
 
-  // Handle lines update (incremental)
   useEffect(() => {
     if (!isReady || !userAddress) {
       return;
     }
 
-    // If no previous lines, do full sync
     if (prevLinesRef.current.size === 0 && currentLines.length > 0) {
       sendLinesSync();
       return;
     }
 
-    // Compute and send diff
     const patch = computeLinesDiff(prevLinesRef.current, currentLines);
-    patch.symbol = symbol;
-    sendLinesPatch(patch);
+    const hasStructuralChange = patch.add.length > 0 || patch.remove.length > 0;
+
+    if (hasStructuralChange) {
+      sendLinesSync();
+      return;
+    }
+
+    if (patch.update.length > 0) {
+      patch.symbol = symbol;
+      sendLinesPatch(patch);
+    }
   }, [
     currentLines,
     isReady,

@@ -1,8 +1,7 @@
 import { apiClient } from '../infra';
 
-// Types duplicated from @onekeyhq/shared/types/history.ts because that module
-// has transitive imports from @onekeyhq/kit (ICurrencyItem), which would violate
-// the import hierarchy (CLI cannot import from kit).
+// Types duplicated from @onekeyhq/shared/types/history.ts to keep the CLI
+// decoupled from the app's runtime-only history model surface.
 
 interface IHistoryTxTransfer {
   type: number;

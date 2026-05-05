@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { DebugRenderTracker, YStack } from '@onekeyhq/components';
 import {
@@ -13,6 +14,7 @@ import {
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useOrderConfirm, useTradingPrice } from '../../hooks';
@@ -23,6 +25,7 @@ import { PerpTradingButton } from './PerpTradingButton';
 import { TradingButtonGroup } from './TradingButtonGroup';
 
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
+  const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
@@ -33,6 +36,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const { midPriceBN } = useTradingPrice();
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
+  const [tradingMode] = useTradingModeAtom();
 
   const universalLoading = useMemo(() => {
     return perpsAccountLoading?.selectAccountLoading;
@@ -111,16 +115,23 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       void handleConfirm();
       return;
     }
-    showOrderConfirmDialog();
-  }, [activeAssetData, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
+    showOrderConfirmDialog({ intl });
+  }, [
+    activeAssetData,
+    perpsCustomSettings.skipOrderConfirm,
+    handleConfirm,
+    intl,
+  ]);
 
   const content = (
     <YStack
-      gap="$2"
+      gap={isMobile && tradingMode === 'spot' ? '$0.5' : '$2'}
       pl={isMobile ? undefined : '$3'}
       pr={isMobile ? undefined : '$5'}
       flex={isMobile ? 1 : undefined}
-      justifyContent={isMobile ? 'space-between' : undefined}
+      justifyContent={
+        isMobile && tradingMode !== 'spot' ? 'space-between' : undefined
+      }
     >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       {perpsAccountStatus.canTrade ? (
