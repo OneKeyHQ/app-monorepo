@@ -1,7 +1,8 @@
 diff --git a/node_modules/@nktkas/rews/esm/mod.js b/node_modules/@nktkas/rews/esm/mod.js
+index 923f636..d345f6e 100644
 --- a/node_modules/@nktkas/rews/esm/mod.js
 +++ b/node_modules/@nktkas/rews/esm/mod.js
-@@ -168,11 +168,19 @@
+@@ -168,11 +168,43 @@ export class ReconnectingWebSocket extends EventTarget {
              }, { signal });
              this._socket.addEventListener("close", (e) => {
                  ac.abort();
@@ -10,23 +11,47 @@ diff --git a/node_modules/@nktkas/rews/esm/mod.js b/node_modules/@nktkas/rews/es
 -                    reason: e.reason,
 -                    wasClean: e.wasClean,
 -                }));
-+                // OneKey: defensive try/catch — on React Native, the global CloseEvent
-+                // polyfill constructs events from globalThis.Event which is NOT the
-+                // same class as RN's internal Event used by EventTarget.dispatchEvent
-+                // for instanceof checks. A throw here would escape into RN's
-+                // RuntimeScheduler and be reported as a fatal error → SIGABRT.
++                // OneKey: prefer dispatching a real CloseEvent so consumers
++                // that check `event instanceof CloseEvent` keep working on
++                // web/desktop/Node. If that dispatch throws (e.g. on RN
++                // where polyfill ordering may make CloseEvent fail the
++                // wrapper EventTarget's `instanceof Event` check), fall back
++                // to a plain Event with the same expando fields so close
++                // still reaches consumers (WebSocketTransport,
++                // WebSocketSubscriptionManager,
++                // ServiceHyperliquidSubscription.socketCloseHandler).
++                // Outer try/catch is a last-resort guard: this listener is
++                // invoked from the underlying RN socket's dispatchEvent —
++                // any escaping throw would land in RN's RuntimeScheduler
++                // and become SIGABRT, defeating the entire patch. We log
++                // instead of silently no-op'ing so the pathological case is
++                // still visible in Sentry.
 +                try {
-+                    this.dispatchEvent(new CloseEvent("close", {
-+                        code: e.code,
-+                        reason: e.reason,
-+                        wasClean: e.wasClean,
-+                    }));
++                    try {
++                        this.dispatchEvent(new CloseEvent("close", {
++                            code: e.code,
++                            reason: e.reason,
++                            wasClean: e.wasClean,
++                        }));
++                    }
++                    catch (_err) {
++                        const fallback = new Event("close");
++                        fallback.code = e.code;
++                        fallback.reason = e.reason;
++                        fallback.wasClean = e.wasClean;
++                        this.dispatchEvent(fallback);
++                    }
 +                }
-+                catch (_err) { /* no-op: socket lifecycle is already complete via ac.abort() */ }
++                catch (lastResortErr) {
++                    try {
++                        console.warn("[rews] outward close dispatch failed:", lastResortErr);
++                    }
++                    catch (_) { /* no-op */ }
++                }
                  resolve();
              }, { signal });
          });
-@@ -330,7 +338,16 @@
+@@ -330,7 +362,16 @@ export class ReconnectingWebSocket extends EventTarget {
          //       removing all listeners before native events fire.
          if (wasConnecting) {
              // 1006 = Abnormal Closure (RFC 6455) — no close frame was received
@@ -44,7 +69,7 @@ diff --git a/node_modules/@nktkas/rews/esm/mod.js b/node_modules/@nktkas/rews/es
          }
      }
      /**
-@@ -374,7 +391,17 @@
+@@ -374,7 +415,17 @@ function createSocketWithTimeout(socketFactory, timeout) {
          //       because the internal close listener calls ac.abort(),
          //       removing all listeners before native events fire.
          if (wasConnecting) {
@@ -64,9 +89,10 @@ diff --git a/node_modules/@nktkas/rews/esm/mod.js b/node_modules/@nktkas/rews/es
      }, timeout);
      const cleanup = () => clearTimeout(timer);
 diff --git a/node_modules/@nktkas/rews/script/mod.js b/node_modules/@nktkas/rews/script/mod.js
+index a3270c1..b1319a7 100644
 --- a/node_modules/@nktkas/rews/script/mod.js
 +++ b/node_modules/@nktkas/rews/script/mod.js
-@@ -172,11 +172,19 @@
+@@ -172,11 +172,43 @@ class ReconnectingWebSocket extends EventTarget {
              }, { signal });
              this._socket.addEventListener("close", (e) => {
                  ac.abort();
@@ -75,23 +101,47 @@ diff --git a/node_modules/@nktkas/rews/script/mod.js b/node_modules/@nktkas/rews
 -                    reason: e.reason,
 -                    wasClean: e.wasClean,
 -                }));
-+                // OneKey: defensive try/catch — on React Native, the global CloseEvent
-+                // polyfill constructs events from globalThis.Event which is NOT the
-+                // same class as RN's internal Event used by EventTarget.dispatchEvent
-+                // for instanceof checks. A throw here would escape into RN's
-+                // RuntimeScheduler and be reported as a fatal error → SIGABRT.
++                // OneKey: prefer dispatching a real CloseEvent so consumers
++                // that check `event instanceof CloseEvent` keep working on
++                // web/desktop/Node. If that dispatch throws (e.g. on RN
++                // where polyfill ordering may make CloseEvent fail the
++                // wrapper EventTarget's `instanceof Event` check), fall back
++                // to a plain Event with the same expando fields so close
++                // still reaches consumers (WebSocketTransport,
++                // WebSocketSubscriptionManager,
++                // ServiceHyperliquidSubscription.socketCloseHandler).
++                // Outer try/catch is a last-resort guard: this listener is
++                // invoked from the underlying RN socket's dispatchEvent —
++                // any escaping throw would land in RN's RuntimeScheduler
++                // and become SIGABRT, defeating the entire patch. We log
++                // instead of silently no-op'ing so the pathological case is
++                // still visible in Sentry.
 +                try {
-+                    this.dispatchEvent(new CloseEvent("close", {
-+                        code: e.code,
-+                        reason: e.reason,
-+                        wasClean: e.wasClean,
-+                    }));
++                    try {
++                        this.dispatchEvent(new CloseEvent("close", {
++                            code: e.code,
++                            reason: e.reason,
++                            wasClean: e.wasClean,
++                        }));
++                    }
++                    catch (_err) {
++                        const fallback = new Event("close");
++                        fallback.code = e.code;
++                        fallback.reason = e.reason;
++                        fallback.wasClean = e.wasClean;
++                        this.dispatchEvent(fallback);
++                    }
 +                }
-+                catch (_err) { /* no-op: socket lifecycle is already complete via ac.abort() */ }
++                catch (lastResortErr) {
++                    try {
++                        console.warn("[rews] outward close dispatch failed:", lastResortErr);
++                    }
++                    catch (_) { /* no-op */ }
++                }
                  resolve();
              }, { signal });
          });
-@@ -334,7 +342,16 @@
+@@ -334,7 +366,16 @@ class ReconnectingWebSocket extends EventTarget {
          //       removing all listeners before native events fire.
          if (wasConnecting) {
              // 1006 = Abnormal Closure (RFC 6455) — no close frame was received
@@ -109,7 +159,7 @@ diff --git a/node_modules/@nktkas/rews/script/mod.js b/node_modules/@nktkas/rews
          }
      }
      /**
-@@ -379,7 +396,17 @@
+@@ -379,7 +420,17 @@ function createSocketWithTimeout(socketFactory, timeout) {
          //       because the internal close listener calls ac.abort(),
          //       removing all listeners before native events fire.
          if (wasConnecting) {
