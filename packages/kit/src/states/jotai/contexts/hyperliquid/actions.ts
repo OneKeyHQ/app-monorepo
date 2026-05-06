@@ -626,12 +626,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           return;
         }
 
+        // Merge with the latest atom after REST returns so WS updates received
+        // during the request are preserved.
+        const latestCurrent = get(perpsLedgerUpdatesAtom());
+        const mergedUpdates =
+          latestCurrent.accountAddress === normalizedAccountAddress
+            ? mergeLedgerUpdates(updates, latestCurrent.updates)
+            : updates;
+
         set(perpsLedgerUpdatesAtom(), {
           accountAddress: normalizedAccountAddress,
-          updates,
+          updates: mergedUpdates,
           isLoaded: true,
         });
-        await clearMatchedDepositOrders(updates);
+        await clearMatchedDepositOrders(mergedUpdates);
       } catch (error) {
         defaultLogger.app.error.log(
           `Failed to load perp account history: ${
