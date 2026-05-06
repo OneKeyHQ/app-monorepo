@@ -39,12 +39,20 @@ export function makeHeaderScreenOptions({
     const state = currentNavigation?.getState();
     const isCanGoBack = (state?.index ?? 0) > 0;
 
+    // Liquid Glass header is enabled only on root tabs. Modal and
+    // onboarding screens are presented over a parent VC; extending the
+    // child content under a translucent navigation bar would let the
+    // parent's chrome bleed through. They keep the existing opaque themed
+    // header on iOS 26+.
+    const useLiquidGlassHeader =
+      platformEnv.isNativeIOS26Plus && isRootScreen;
+
     return {
-      // On iOS 26+ omit headerStyle so the patched react-native-screens
-      // builds the appearance via configureWithDefaultBackground, letting
-      // UIKit render the system Liquid Glass material on the navigation
-      // bar. Passing backgroundColor would force the appearance opaque.
-      ...(platformEnv.isNativeIOS26Plus
+      // Omit headerStyle when Liquid Glass is active so the patched
+      // react-native-screens calls configureWithDefaultBackground and lets
+      // UIKit render the system glass material. Passing backgroundColor
+      // would force the appearance opaque and suppress glass.
+      ...(useLiquidGlassHeader
         ? {}
         : {
             headerStyle: {
@@ -60,13 +68,14 @@ export function makeHeaderScreenOptions({
          we still cannot remove it here.
          because RNSSearchBar seems will read an incorrect default value.
 
-         On iOS 26+ we flip it to `true` so react-native-screens sets
-         edgesForExtendedLayout = UIRectEdgeAll, letting the screen content
-         render under the navigation bar. Without this the Liquid Glass
-         material refracts the default (white) UINavigationController view
-         background and the bar appears solid white.
+         On iOS 26+ root tabs flip it to `true` so react-native-screens
+         sets edgesForExtendedLayout = UIRectEdgeAll, letting the tab
+         content render under the navigation bar so the Liquid Glass
+         material refracts it. Modal/onboarding screens keep `false` —
+         their parent screen still draws underneath them, and an extended
+         layout would show that parent through the modal chrome.
       */
-      headerTransparent: platformEnv.isNativeIOS26Plus ? true : false,
+      headerTransparent: useLiquidGlassHeader ? true : false,
       headerTitleAlign: 'left',
       // TODO: don't override the headerLeft on iOS
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
