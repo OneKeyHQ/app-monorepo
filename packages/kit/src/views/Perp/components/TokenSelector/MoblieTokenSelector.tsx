@@ -195,6 +195,9 @@ function MobileTokenSelectorModal({
   const dynamicTabs = useMemo(() => dynamicTabsRaw ?? [], [dynamicTabsRaw]);
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+  const scrollListToTop = useCallback(() => {
+    listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+  }, []);
 
   // Mount FlashList only after the navigation transition animation completes.
   // transitionEnd fires via navigation listener, so this is exact — no guesswork.
@@ -222,7 +225,15 @@ function MobileTokenSelectorModal({
     }
     lastSortRef.current = { field, direction };
     ctxSnapshotRef.current = assetCtxsByDex;
-  }, [selectorConfig?.direction, selectorConfig?.field, assetCtxsByDex]);
+    if (sortChanged) {
+      scrollListToTop();
+    }
+  }, [
+    selectorConfig?.direction,
+    selectorConfig?.field,
+    assetCtxsByDex,
+    scrollListToTop,
+  ]);
 
   // Container-level mark instead of per-row
   useEffect(() => {
@@ -243,6 +254,9 @@ function MobileTokenSelectorModal({
   );
   const setActiveTab = useCallback(
     (tab: string) => {
+      if (tab === activeTab) {
+        return;
+      }
       startTransition(() => {
         setSelectorConfig((prev) => ({
           field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
@@ -251,7 +265,7 @@ function MobileTokenSelectorModal({
         }));
       });
     },
-    [setSelectorConfig],
+    [activeTab, setSelectorConfig],
   );
 
   const computeSortValues = useCallback(
@@ -718,6 +732,7 @@ function MobileTokenSelectorModal({
           {isListReady ? (
             <ListView
               useFlashList
+              key={activeTab}
               ref={listRef}
               keyExtractor={keyExtractor}
               estimatedItemSize={44}

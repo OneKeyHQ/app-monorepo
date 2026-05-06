@@ -472,9 +472,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async enableLedgerUpdatesSubscription(): Promise<void> {
-    if (this._currentState.enableLedgerUpdates) {
-      return;
-    }
     this._currentState.enableLedgerUpdates = true;
     await this.updateSubscriptions();
   }

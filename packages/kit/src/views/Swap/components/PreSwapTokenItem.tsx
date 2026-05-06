@@ -15,11 +15,17 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
 
+import {
+  type ISwapRateDifference,
+  SwapRateDifferenceText,
+} from './SwapRateDifferenceText';
+
 interface IPreSwapTokenItemProps {
   token?: ISwapToken;
   amount: string;
   loading?: boolean;
   isFloating?: boolean;
+  rateDifference?: ISwapRateDifference;
 }
 
 const PreSwapTokenItem = ({
@@ -27,6 +33,7 @@ const PreSwapTokenItem = ({
   amount,
   loading,
   isFloating,
+  rateDifference,
 }: IPreSwapTokenItemProps) => {
   const fiatValue = useMemo(() => {
     return token?.price && amount
@@ -72,17 +79,24 @@ const PreSwapTokenItem = ({
                 {amount}
               </NumberSizeableText>
             </XStack>
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{
-                currency: settings.currencyInfo.symbol,
-              }}
-              numberOfLines={1}
-            >
-              {fiatValue}
-            </NumberSizeableText>
+            <XStack alignItems="center" gap="$1">
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="value"
+                formatterOptions={{
+                  currency: settings.currencyInfo.symbol,
+                }}
+                numberOfLines={1}
+              >
+                {fiatValue}
+              </NumberSizeableText>
+              <SwapRateDifferenceText
+                loading={loading}
+                rateDifference={rateDifference}
+                size="$bodyMd"
+              />
+            </XStack>
           </>
         )}
       </YStack>

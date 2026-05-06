@@ -388,11 +388,16 @@ function calculateSpreadPercentage(
 
 /**
  * Format value to specified decimal places using BigNumber precision
+ *
+ * @param roundingMode Optional rounding mode (default: BigNumber.ROUND_HALF_UP).
+ *   For HyperLiquid wire-safe size/price formatting, prefer BigNumber.ROUND_DOWN
+ *   (or use {@link formatHlSize} / {@link formatHlPrice}).
  */
 function formatWithPrecision(
   value: string | number | BigNumber,
   decimals: number,
   removeTrailingZeros = false,
+  roundingMode: BigNumber.RoundingMode = BigNumber.ROUND_HALF_UP,
 ): string {
   const bn = value instanceof BigNumber ? value : new BigNumber(value);
   if (!bn.isFinite()) return '0';
@@ -400,11 +405,130 @@ function formatWithPrecision(
     return bn.isInteger()
       ? bn.toFixed(0)
       : bn
-          .toFixed(decimals)
+          .toFixed(decimals, roundingMode)
           .replace(/(\.\d*?)0+$/, '$1')
           .replace(/\.$/, '');
   }
-  return bn.toFixed(decimals);
+  return bn.toFixed(decimals, roundingMode);
+}
+
+/**
+ * Strip a decimal-style string to canonical form.
+ * Mirrors the helper used by @nktkas/hyperliquid SDK so we stay 1:1 with HL rules
+ * without taking a runtime dependency on the SDK.
+ */
+function _stripDecimalString(value: string): string {
+  return value
+    .trim()
+    .replace(/^(-?)0+(?=\d)/, '$1') // "00123" → "123"
+    .replace(/\.0*$|(\.\d+?)0+$/, '$1') // "1.2000" → "1.2"
+    .replace(/^(-?)\./, '$10.') // ".5" → "0.5"
+    .replace(/^-?$/, '0') // "" → "0"
+    .replace(/^-0$/, '0'); // "-0" → "0"
+}
+
+/**
+ * Truncate a numeric string to N decimal places (regex-based, no float drift).
+ * Equivalent to floor() for non-negative values.
+ */
+function _truncateToDecimals(value: string, decimals: number): string {
+  if (decimals < 0) return '0';
+  const re = new RegExp(`^-?(?:\\d+)?(?:\\.\\d{0,${decimals}})?`);
+  const matched = value.match(re)?.[0];
+  if (!matched) return '0';
+  return _stripDecimalString(matched);
+}
+
+/**
+ * Floor-truncate a numeric string to N significant figures.
+ * Used to enforce HyperLiquid's "max 5 significant figures" price rule.
+ */
+function _truncateToSigFigs(value: string, sig: number): string {
+  if (sig < 1) return '0';
+  if (/^-?0+(\.0*)?$/.test(value)) return '0';
+
+  const neg = value.startsWith('-');
+  const abs = neg ? value.slice(1) : value;
+  const [intRaw, decRaw = ''] = abs.split('.');
+  const int = intRaw || '0';
+
+  // Compute floor(log10(abs)) without Number conversion (preserves precision).
+  let magnitude: number;
+  if (int !== '0') {
+    magnitude = int.replace(/^0+/, '').length - 1;
+  } else {
+    const leadingZeros = decRaw.match(/^0*/)?.[0].length ?? 0;
+    magnitude = -(leadingZeros + 1);
+  }
+
+  // Total available significant digits in the input
+  const allSigDigits = (int.replace(/^0+/, '') + decRaw).replace(/^0+/, '');
+  if (allSigDigits.length <= sig) return _stripDecimalString(value);
+
+  // Take first `sig` significant digits, pad with zeros up to magnitude+1 length on int side.
+  const truncatedSig = allSigDigits.slice(0, sig);
+  // Reconstruct number: place decimal point so MSD is at 10^magnitude
+  let resultStr: string;
+  if (magnitude >= sig - 1) {
+    // Pure integer with trailing zeros
+    resultStr = truncatedSig + '0'.repeat(magnitude - sig + 1);
+  } else if (magnitude >= 0) {
+    // Has both integer and decimal parts
+    const intLen = magnitude + 1;
+    resultStr = `${truncatedSig.slice(0, intLen)}.${truncatedSig.slice(intLen)}`;
+  } else {
+    // < 1, need leading zeros
+    const leadingZeros = -magnitude - 1;
+    resultStr = `0.${'0'.repeat(leadingZeros)}${truncatedSig}`;
+  }
+  return _stripDecimalString((neg ? '-' : '') + resultStr);
+}
+
+/**
+ * Format a size value into a HyperLiquid wire-safe string.
+ *
+ * Per {@link https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size HL tick & lot size}:
+ * - Size is truncated (floor) to `szDecimals` decimal places.
+ * - Trailing zeros stripped.
+ *
+ * Returns '' if the size truncates to 0 (caller should treat as "size too small").
+ */
+function formatHlSize(size: BigNumber.Value, szDecimals: number): string {
+  const bn = size instanceof BigNumber ? size : new BigNumber(size);
+  if (!bn.isFinite() || bn.lte(0)) return '';
+  const out = _truncateToDecimals(bn.toFixed(), Math.max(0, szDecimals));
+  return out === '0' ? '' : out;
+}
+
+/**
+ * Format a price value into a HyperLiquid wire-safe string.
+ *
+ * Per {@link https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size HL tick & lot size}:
+ * - Max 5 significant figures (integer prices are always allowed regardless).
+ * - Max decimals = (perp ? 6 : 8) - szDecimals.
+ *
+ * Returns '' if the price truncates to 0.
+ */
+function formatHlPrice(
+  price: BigNumber.Value,
+  szDecimals: number,
+  type: 'perp' | 'spot' = 'perp',
+): string {
+  const bn = price instanceof BigNumber ? price : new BigNumber(price);
+  if (!bn.isFinite() || bn.lte(0)) return '';
+  const s = bn.toFixed();
+  // Integer prices are always valid regardless of significant figures
+  if (/^-?\d+$/.test(s)) return _stripDecimalString(s);
+  const maxDecimals = Math.max((type === 'perp' ? 6 : 8) - szDecimals, 0);
+  let r = _truncateToDecimals(s, maxDecimals);
+  if (!r.includes('.')) return r === '0' ? '' : r;
+  const [integerPart] = r.split('.');
+  const integerDigits = integerPart.replace(/^-?0+/, '').length;
+  if (integerDigits >= MAX_SIGNIFICANT_FIGURES) {
+    return _stripDecimalString(integerPart);
+  }
+  r = _truncateToSigFigs(r, MAX_SIGNIFICANT_FIGURES);
+  return r === '0' ? '' : r;
 }
 
 /**
@@ -562,42 +686,17 @@ function getValidSpotPriceDecimals(
   marketPrice: string | number,
   szDecimals: number,
 ): number {
-  const price = new BigNumber(marketPrice);
-
-  if (!price.isFinite() || price.isLessThanOrEqualTo(0)) {
+  const validPrice = formatHlPrice(marketPrice, szDecimals, 'spot');
+  if (!validPrice) {
     return 2;
   }
 
-  const maxDecimals = Math.max(0, MAX_DECIMALS_SPOT - szDecimals);
-
-  if (price.isInteger()) {
-    return 0;
-  }
-
-  const priceStr = price.toFixed();
-  const decimalIndex = priceStr.indexOf('.');
-
+  const decimalIndex = validPrice.indexOf('.');
   if (decimalIndex === -1) {
     return 0;
   }
 
-  const actualDecimals = priceStr.length - decimalIndex - 1;
-  const significantFigures = _countSignificantFigures(price);
-
-  let maxAllowedDecimals = Math.min(actualDecimals, maxDecimals);
-
-  if (significantFigures > MAX_SIGNIFICANT_FIGURES) {
-    const integerPart = price.integerValue(BigNumber.ROUND_DOWN);
-    const integerDigits = integerPart.isZero()
-      ? 0
-      : integerPart.toFixed().length;
-    maxAllowedDecimals = Math.min(
-      maxAllowedDecimals,
-      Math.max(0, MAX_SIGNIFICANT_FIGURES - integerDigits),
-    );
-  }
-
-  return maxAllowedDecimals;
+  return validPrice.length - decimalIndex - 1;
 }
 
 /**
@@ -613,15 +712,7 @@ function formatSpotPriceToValid(
     return '0';
   }
 
-  const validDecimals = getValidSpotPriceDecimals(marketPrice, szDecimals);
-
-  // Strip trailing zeros ONLY after the decimal point (e.g. "60.100" → "60.1").
-  // Do NOT strip trailing zeros from integers (e.g. "60000" must stay "60000").
-  const fixed = price.toFixed(validDecimals);
-  if (fixed.includes('.')) {
-    return fixed.replace(/0+$/, '').replace(/\.$/, '');
-  }
-  return fixed;
+  return formatHlPrice(price, szDecimals, 'spot') || '0';
 }
 
 function formatPriceToSignificantDigits(
@@ -1720,6 +1811,8 @@ export {
   SPOT_TOKEN_DISPLAY_MAP,
   SPOT_MIN_VOLUME_STRICT,
   SPOT_SELECTOR_MIN_VOLUME,
+  formatHlSize,
+  formatHlPrice,
 };
 export default {
   formatAssetCtx,
@@ -1772,4 +1865,6 @@ export default {
   SPOT_SELECTOR_MIN_VOLUME,
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
+  formatHlSize,
+  formatHlPrice,
 };
