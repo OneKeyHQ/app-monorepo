@@ -41,5 +41,16 @@
       "#11412"
     ],
     "notes": "perf(defi): force-refresh positions after local tx confirms (#11357, OK-53474), fix(home): refresh all-net accounts on HW batch (#11383, OK-53863/OK-53864), feat(discovery): add Bitrefill payment intent checkout flow (#11399, OK-46521), fix: update provider fee content i18n (#11402), fix(swap): remove duplicate gas fee paragraph in service fee tooltip (#11412), fix(desktop): skip download UI for OTA updates from menu check (#11390), fix(appUpdate): detect Google Play flavor via Nitro registry (#11320, backport #11303)"
+  },
+  {
+    "seq": 4,
+    "commit": "1a2722723a62c6994dfc9c3f88f37855b6d0c15f",
+    "date": "2026-05-06T12:53:10Z",
+    "prs": [
+      "#11397",
+      "#11439",
+      "#11442"
+    ],
+    "notes": "fix(perps): patch rews dispatchEvent on RN to prevent SIGABRT (#11442), fix(firmware-update): banner targets device list with friendly disconnected prompt (#11397, OK-53914), fix(swap): improve gas and limit price checks (#11439, OK-53915/OK-53459)"
   }
 ]
