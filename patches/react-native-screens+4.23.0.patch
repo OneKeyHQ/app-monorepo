@@ -798,3 +798,45 @@ index 3e21388..e4f4785 100644
          break;
        }
        parentView = (UIView *)parentView.reactSuperview;
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+index 3270127..3df3e65 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+@@ -451,7 +451,18 @@
+       appearance.shadowImage = shadowImage;
+     }
+   } else {
+-    [appearance configureWithOpaqueBackground];
++    // OneKey: when caller did not pass an explicit backgroundColor on iOS 26+, use
++    // configureWithDefaultBackground so UIKit applies the system Liquid Glass material.
++    // configureWithOpaqueBackground would forcibly opaque-fill the bar and suppress glass.
++    if (@available(iOS 26.0, *)) {
++      if (config.backgroundColor == nil) {
++        [appearance configureWithDefaultBackground];
++      } else {
++        [appearance configureWithOpaqueBackground];
++      }
++    } else {
++      [appearance configureWithOpaqueBackground];
++    }
+   }
+ 
+   // set background color if specified
+@@ -461,7 +472,16 @@
+ 
+   switch (config.blurEffect) {
+     case RNSBlurEffectStyleNone:
+-      appearance.backgroundEffect = nil;
++      // OneKey: on iOS 26+ with no caller-supplied backgroundColor, preserve the system
++      // Liquid Glass effect installed by configureWithDefaultBackground above. Clearing
++      // backgroundEffect here would defeat the whole point of opting in.
++      if (@available(iOS 26.0, *)) {
++        if (config.backgroundColor != nil) {
++          appearance.backgroundEffect = nil;
++        }
++      } else {
++        appearance.backgroundEffect = nil;
++      }
+       break;
+ 
+     case RNSBlurEffectStyleSystemDefault:
