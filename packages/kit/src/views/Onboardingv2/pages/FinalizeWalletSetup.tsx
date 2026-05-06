@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { range } from 'lodash';
 import { useIntl } from 'react-intl';
 import {
   Easing,
@@ -13,10 +14,12 @@ import {
   AnimatePresence,
   Button,
   Icon,
+  LinearGradient,
   SizableText,
   XStack,
   YStack,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
@@ -67,6 +70,9 @@ import {
 } from '../hooks/useDeviceConnect';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
+
+const POPUP_LAYERED_SHADOW =
+  'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)';
 
 const fixErrorString = (errorMessage: string) => {
   if (errorMessage.toLowerCase() === 'no wallet creation strategy') {
@@ -446,6 +452,7 @@ function FinalizeWalletSetupPage({
   }, [createWallet, initialStep]);
 
   const { gtMd } = useMedia();
+  const theme = useTheme();
 
   const isReady = currentStep === EFinalizeWalletSetupSteps.Ready;
   const stepText = intl.formatMessage({ id: STEP_MESSAGE_IDS[currentStep] });
@@ -534,6 +541,17 @@ function FinalizeWalletSetupPage({
   const orbSize = 160;
   const isReadyActionVisible = isReady && isWalletCreationRecordHandled;
 
+  const [isExtensionTopRightVisible, setIsExtensionTopRightVisible] =
+    useState(false);
+  useEffect(() => {
+    if (!platformEnv.isExtension || !isReadyActionVisible || setupError) {
+      setIsExtensionTopRightVisible(false);
+      return undefined;
+    }
+    const timeout = setTimeout(() => setIsExtensionTopRightVisible(true), 1000);
+    return () => clearTimeout(timeout);
+  }, [isReadyActionVisible, setupError]);
+
   const enterWalletTransitionProps = {
     opacity: isReadyActionVisible ? 1 : 0,
     pointerEvents: isReadyActionVisible ? ('auto' as const) : ('none' as const),
@@ -549,6 +567,9 @@ function FinalizeWalletSetupPage({
       size="large"
       onPress={handleLetsGo}
       iconAfter="ArrowRightOutline"
+      animation="quick"
+      animateOnly={['opacity']}
+      enterStyle={{ opacity: 0 }}
       {...(gtMd ? { minWidth: 240 } : { w: '100%' as const })}
     >
       {intl.formatMessage({ id: ETranslations.enter_wallet })}
@@ -562,6 +583,90 @@ function FinalizeWalletSetupPage({
       enterAnimation={false}
     >
       <YStack flex={1}>
+        {platformEnv.isExtension && isExtensionTopRightVisible ? (
+          <YStack
+            gap="$4"
+            zIndex={10}
+            top="$4"
+            right="$4"
+            style={{ position: 'fixed' }}
+            borderRadius="$4"
+            p="$4"
+            bg="$bg"
+            width="$72"
+            $platform-web={{
+              boxShadow: POPUP_LAYERED_SHADOW,
+            }}
+            enterStyle={{
+              y: '$-2',
+              opacity: 0,
+            }}
+            animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+          >
+            <SizableText>
+              {intl.formatMessage({
+                id: ETranslations.onboarding_ext_popup_text,
+              })}
+            </SizableText>
+            <XStack gap="$2" position="relative">
+              <XStack
+                flex={1}
+                py="$2"
+                px="$4"
+                borderRadius="$full"
+                bg="$bgStrong"
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                {range(6).map((index) => (
+                  <YStack
+                    key={index}
+                    w="$4"
+                    h="$4"
+                    borderWidth={1.5}
+                    borderColor="$iconDisabled"
+                    borderStyle="dashed"
+                    borderRadius="$full"
+                  />
+                ))}
+              </XStack>
+              <YStack p="$2" borderRadius="$full" bg="$bgStrong">
+                <Icon name="PuzzleOutline" color="$iconActive" size="$5" />
+              </YStack>
+              <LinearGradient
+                colors={[theme.bg.val, `${theme.bg.val}00`]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                }}
+                pointerEvents="none"
+              />
+            </XStack>
+            <XStack
+              px="$4"
+              py="$3"
+              bg="$neutral2"
+              borderRadius="$3"
+              $platform-web={{
+                boxShadow: POPUP_LAYERED_SHADOW,
+              }}
+              gap="$2"
+              alignItems="center"
+            >
+              <Icon name="OnekeyBrand" />
+              <SizableText flex={1} size="$bodyLgMedium">
+                OneKey
+              </SizableText>
+              <Icon name="ThumbtackSolid" size="$5" color="$iconInfo" />
+            </XStack>
+          </YStack>
+        ) : null}
         {setupError ? (
           <YStack flex={1} justifyContent="center" gap="$7">
             <SizableText size="$heading5xl" fontWeight={600}>
