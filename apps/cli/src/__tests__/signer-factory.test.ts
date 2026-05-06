@@ -25,11 +25,22 @@ jest.mock('../core/auth/auth-gate', () => ({
 
 import { getSignerByImpl } from '../signer/factory';
 import { SignerHd } from '../signer/impls/evm/SignerHd';
+import { SignerHd as BtcSignerHd } from '../signer/impls/btc/SignerHd';
 
 describe('signer factory', () => {
   it('returns SignerHd for evm impl', async () => {
     const signer = await getSignerByImpl('evm');
     expect(signer).toBeInstanceOf(SignerHd);
+  });
+
+  it('returns BTC SignerHd for btc impl under an HD session', async () => {
+    const signer = await getSignerByImpl('btc');
+    expect(signer).toBeInstanceOf(BtcSignerHd);
+  });
+
+  it('returns BTC SignerHd for tbtc impl under an HD session', async () => {
+    const signer = await getSignerByImpl('tbtc');
+    expect(signer).toBeInstanceOf(BtcSignerHd);
   });
 
   it('throws for unsupported impl', async () => {

@@ -9,7 +9,10 @@ import { CLI_PASSWORD } from '../../keychain-keys';
 
 import { EVM_PATH_TEMPLATE, validateEvmNetworkId } from './evm-path';
 
-import type { ISignTransactionPayload } from '../../types';
+import type {
+  ISignTransactionPayload,
+  ISignerGetAddressOptions,
+} from '../../types';
 
 // Lazy-loaded EVM scope — avoids bundling all chain SDKs at CLI startup.
 let evmScopePromise: Promise<
@@ -34,7 +37,10 @@ async function getEvmScope() {
  * EVM-specific code.
  */
 export class SignerHd extends SignerSoftwareBase {
-  async getAddress(networkId: string): Promise<ICoreApiGetAddressItem> {
+  async getAddress(
+    networkId: string,
+    _options?: ISignerGetAddressOptions,
+  ): Promise<ICoreApiGetAddressItem> {
     validateEvmNetworkId(networkId);
     const hdCredential = await this.baseGetHdCredential();
     const scope = await getEvmScope();

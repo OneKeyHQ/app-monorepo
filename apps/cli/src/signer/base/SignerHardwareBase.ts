@@ -20,7 +20,11 @@ import {
 } from '../keychain-keys';
 
 import type { DeviceInfo, PassphraseMode } from '../../core/auth/auth-types';
-import type { ISignTransactionPayload, ISigner } from '../types';
+import type {
+  ISignTransactionPayload,
+  ISigner,
+  ISignerGetAddressOptions,
+} from '../types';
 import type { CoreApi } from '@onekeyfe/hd-core';
 
 /** Test seam for injected collaborators. */
@@ -103,7 +107,10 @@ export abstract class SignerHardwareBase implements ISigner {
       });
   }
 
-  abstract getAddress(networkId: string): Promise<ICoreApiGetAddressItem>;
+  abstract getAddress(
+    networkId: string,
+    options?: ISignerGetAddressOptions,
+  ): Promise<ICoreApiGetAddressItem>;
 
   abstract signTransaction(
     payload: ISignTransactionPayload,

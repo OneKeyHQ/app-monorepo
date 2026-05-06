@@ -17,7 +17,11 @@ import {
   KEYCHAIN_MNEMONIC_KEY,
 } from '../keychain-keys';
 
-import type { ISignTransactionPayload, ISigner } from '../types';
+import type {
+  ISignTransactionPayload,
+  ISigner,
+  ISignerGetAddressOptions,
+} from '../types';
 
 /**
  * Shared base for software signers (HD today; imported / watching in the
@@ -34,7 +38,10 @@ import type { ISignTransactionPayload, ISigner } from '../types';
 export abstract class SignerSoftwareBase implements ISigner {
   protected keychain = new KeychainStorage();
 
-  abstract getAddress(networkId: string): Promise<ICoreApiGetAddressItem>;
+  abstract getAddress(
+    networkId: string,
+    options?: ISignerGetAddressOptions,
+  ): Promise<ICoreApiGetAddressItem>;
 
   abstract signTransaction(
     payload: ISignTransactionPayload,
