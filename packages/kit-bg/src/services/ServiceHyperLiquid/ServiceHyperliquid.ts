@@ -84,6 +84,7 @@ import {
   spotActiveAssetCtxAtom,
   spotAssetCtxsMapAtom,
   spotBalancesAtom,
+  spotExternalMarketCapsAtom,
   spotPairDisplayMapAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -133,6 +134,31 @@ export default class ServiceHyperliquid extends ServiceBase {
   private _spotPriceDirty = false;
 
   private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private _fetchSpotExternalMarketCaps = cacheUtils.memoizee(
+    async (): Promise<Record<string, string>> => {
+      const idToSymbol =
+        perpsUtils.SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP;
+      const tokens = await this.backgroundApi.serviceMarket.fetchCategory(
+        'all',
+        Object.keys(idToSymbol),
+        false,
+      );
+      const marketCaps: Record<string, string> = {};
+      for (const token of tokens) {
+        const symbol = idToSymbol[token.coingeckoId];
+        const marketCap = new BigNumber(token.marketCap ?? 0);
+        if (symbol && marketCap.isFinite() && marketCap.gt(0)) {
+          marketCaps[symbol] = marketCap.toFixed();
+        }
+      }
+      return marketCaps;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+    },
+  );
 
   private _flushSpotPrices(map: Record<string, ISpotAssetCtxEntry>) {
     // allMids only sets markPx, spotAssetCtxs sets full entry — merge so neither overwrites the other
@@ -785,6 +811,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         (_prev): ISpotActiveAssetCtxAtom => ({
           coin: data.coin,
           assetId: activeSpotAsset?.assetId,
+          baseName: activeSpotAsset?.universe?.baseName,
           ctx: perpsUtils.formatSpotAssetCtx(data.ctx),
         }),
       );
@@ -807,6 +834,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           prevDayPx: ctx.prevDayPx,
           dayNtlVlm: ctx.dayNtlVlm,
           circulatingSupply: ctx.circulatingSupply,
+          totalSupply: ctx.totalSupply,
         };
       }
     });
@@ -1162,6 +1190,22 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async refreshSpotExternalMarketCaps() {
+    try {
+      const marketCaps = await this._fetchSpotExternalMarketCaps();
+      await spotExternalMarketCapsAtom.set(marketCaps);
+      return marketCaps;
+    } catch (error) {
+      defaultLogger.app.error.log(
+        `Failed to refresh spot external market caps: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return spotExternalMarketCapsAtom.get();
+    }
+  }
+
+  @backgroundMethod()
   async refreshSpotMeta() {
     const { infoClient } = hyperLiquidApiClients;
     const result = await infoClient.spotMetaAndAssetCtxs();
@@ -1196,6 +1240,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
       void this.updateSpotAssetCtxsMap(assetCtxs);
     }
+    void this.refreshSpotExternalMarketCaps();
   }
 
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;
