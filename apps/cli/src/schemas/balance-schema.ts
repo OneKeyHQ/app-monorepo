@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { chainAddress, chainId, tokenId } from './common';
+import { btcAddressType, chainAddress, chainId, tokenId } from './common';
 
 export const balanceInputSchema = z.object({
   chain: chainId.optional().describe('Target chain. Defaults to last used.'),
@@ -9,9 +9,10 @@ export const balanceInputSchema = z.object({
     .describe('Specific token to query. Omit for all assets.'),
   address: chainAddress
     .optional()
-    .describe(
-      'Override wallet address to query. Required for btc/tbtc in this round.',
-    ),
+    .describe('Override wallet address to query.'),
+  addressType: btcAddressType
+    .optional()
+    .describe('BTC address type for derived wallet reads.'),
 });
 
 export const balanceTokenOutputSchema = z.object({
@@ -39,3 +40,31 @@ export const balanceAllOutputSchema = z.object({
     }),
   ),
 });
+
+export const balanceBtcDerivedOutputSchema = z.object({
+  chain: z.string(),
+  aggregate: z.object({
+    symbol: z.string(),
+    balance: z.string(),
+    contractAddress: z.literal(''),
+    isNative: z.literal(true),
+  }),
+  items: z.array(
+    z.object({
+      addressType: btcAddressType,
+      label: z.string(),
+      deriveType: z.string(),
+      addressEncoding: z.union([z.string(), z.number()]),
+      address: z.string(),
+      path: z.string(),
+      balance: z.string(),
+      balanceRaw: z.string().optional(),
+    }),
+  ),
+});
+
+export const balanceOutputSchema = z.union([
+  balanceTokenOutputSchema,
+  balanceAllOutputSchema,
+  balanceBtcDerivedOutputSchema,
+]);

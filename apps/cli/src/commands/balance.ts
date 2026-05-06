@@ -1,5 +1,9 @@
 import { assertAddressForChain } from '../core/address-utils';
 import {
+  fetchBtcDerivedBalances,
+  fetchBtcExternalAddressBalance,
+} from '../core/btc/account';
+import {
   assertChainCapability,
   isEvmChain,
   resolveChain,
@@ -10,6 +14,7 @@ import { apiClient } from '../infra';
 import { getSignerByImpl } from '../signer';
 
 import type { IEndpointEnv } from '../config';
+import type { BtcAddressType } from '../core/btc/address-types';
 import type { OutputFormatter } from '../output';
 import type { Command } from 'commander';
 
@@ -172,9 +177,15 @@ export function registerBalanceCommand(program: Command): void {
       'Token symbol or contract address (omit for all assets)',
     )
     .option('--address <address>', 'Override wallet address to query')
+    .option('--address-type <type>', 'BTC address type for derived reads')
     .action(
       async (
-        options: { chain: string; token?: string; address?: string },
+        options: {
+          chain: string;
+          token?: string;
+          address?: string;
+          addressType?: BtcAddressType;
+        },
         command,
       ) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -193,15 +204,14 @@ export function registerBalanceCommand(program: Command): void {
           apiClient.setEnv(env);
 
           if (!isEvmChain(chainConfig)) {
-            if (!options.address) {
+            if (options.address && options.addressType) {
               throw new AppError(
-                ERROR_CODES.PARAM_MISSING_REQUIRED.code,
-                'BTC read-only balance currently requires --address.',
-                'Pass --address with a valid BTC or Bitcoin testnet address.',
+                ERROR_CODES.PARAM_INVALID_ADDRESS.code,
+                '--address cannot be used with --address-type.',
+                'Omit --address-type for external address reads, or omit --address to read derived wallet addresses.',
               );
             }
 
-            const address = assertAddressForChain(chainConfig, options.address);
             const nativeSymbols = new Set([
               chainConfig.nativeSymbol.toUpperCase(),
               chainConfig.impl === 'tbtc'
@@ -220,33 +230,31 @@ export function registerBalanceCommand(program: Command): void {
               );
             }
 
-            const account = await apiClient.get<IAccountResponse>(
-              'wallet',
-              '/wallet/v1/account/get-account',
-              {
-                networkId: chainConfig.networkId,
-                accountAddress: address,
-                withNetWorth: true,
-              },
-            );
-
-            const balanceDisplay = account.balanceParsed ?? account.balance;
-            if (balanceDisplay === null || balanceDisplay === undefined) {
-              throw new AppError(
-                ERROR_CODES.BIZ_UNKNOWN.code,
-                'API response is missing balance data',
-                'This may indicate an API contract change.',
+            if (!options.address) {
+              const result = await fetchBtcDerivedBalances(
+                chainConfig,
+                options.addressType,
               );
+
+              output.success(result, {
+                chain: chainName,
+              });
+              return;
             }
+
+            const account = await fetchBtcExternalAddressBalance(
+              chainConfig,
+              options.address,
+            );
 
             if (options.token) {
               output.success(
                 {
-                  address,
+                  address: account.address,
                   chain: chainName,
                   token: chainConfig.nativeSymbol,
                   contractAddress: '',
-                  balance: balanceDisplay,
+                  balance: account.balance,
                 },
                 { chain: chainName },
               );
@@ -255,12 +263,12 @@ export function registerBalanceCommand(program: Command): void {
 
             output.success(
               {
-                address,
+                address: account.address,
                 chain: chainName,
                 tokens: [
                   {
                     symbol: chainConfig.nativeSymbol,
-                    balance: balanceDisplay,
+                    balance: account.balance,
                     contractAddress: '',
                     fiatValue: null,
                     isNative: true,

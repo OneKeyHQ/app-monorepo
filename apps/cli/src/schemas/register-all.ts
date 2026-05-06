@@ -7,7 +7,7 @@ import {
   authStatusInputSchema,
   authStatusOutputSchema,
 } from './auth-schema';
-import { balanceAllOutputSchema, balanceInputSchema } from './balance-schema';
+import { balanceInputSchema, balanceOutputSchema } from './balance-schema';
 import { logoutInputSchema, logoutOutputSchema } from './logout-schema';
 import {
   marketKlineInputSchema,
@@ -96,7 +96,7 @@ defineCommand({
   name: 'balance',
   description: 'Query token balance — all assets or specific token',
   input: balanceInputSchema,
-  output: balanceAllOutputSchema,
+  output: balanceOutputSchema,
   examples: [
     'onekey balance --chain eth',
     'onekey balance --chain eth --token USDC',

@@ -36,7 +36,9 @@ export type { ITransferOptions } from './transfer-schema';
 // Balance
 export {
   balanceAllOutputSchema,
+  balanceBtcDerivedOutputSchema,
   balanceInputSchema,
+  balanceOutputSchema,
   balanceTokenOutputSchema,
 } from './balance-schema';
 

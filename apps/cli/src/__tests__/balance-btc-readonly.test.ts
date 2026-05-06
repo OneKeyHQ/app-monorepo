@@ -1,6 +1,7 @@
 import { registerBalanceCommand } from '../commands/balance';
 import { apiClient } from '../infra';
-import { createTestProgram, runCommand } from './test-helpers';
+import { getSignerByImpl } from '../signer';
+import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
 jest.mock('../infra', () => ({
   apiClient: {
@@ -10,7 +11,14 @@ jest.mock('../infra', () => ({
   },
 }));
 
+jest.mock('../signer', () => ({
+  getSignerByImpl: jest.fn(),
+}));
+
 const mockGet = apiClient.get as jest.MockedFunction<typeof apiClient.get>;
+const mockGetSignerByImpl = getSignerByImpl as jest.MockedFunction<
+  typeof getSignerByImpl
+>;
 
 describe('balance BTC/TBTC read-only', () => {
   beforeEach(() => {
@@ -49,7 +57,23 @@ describe('balance BTC/TBTC read-only', () => {
     expect(result.stdout).toContain('0.00012345');
   });
 
-  it('requires address for tbtc balance in the first round', async () => {
+  it('derives tbtc balance when address is omitted', async () => {
+    const getAddress = jest
+      .fn()
+      .mockResolvedValueOnce({ address: 'tb1ptaproot' })
+      .mockResolvedValueOnce({ address: 'tb1qnative' })
+      .mockResolvedValueOnce({ address: '2Nnested' })
+      .mockResolvedValueOnce({ address: 'mlegacy' });
+    mockGetSignerByImpl.mockResolvedValue({
+      getAddress,
+      signTransaction: jest.fn(),
+      signMessage: jest.fn(),
+    });
+    mockGet.mockResolvedValue({
+      balance: '1000',
+      balanceParsed: '0.00001',
+    });
+
     const program = createTestProgram();
     registerBalanceCommand(program);
 
@@ -60,8 +84,10 @@ describe('balance BTC/TBTC read-only', () => {
       '--json',
     ]);
 
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stdout).toContain('requires --address');
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.data.aggregate.balance).toBe('0.00004');
+    expect(parsed.data.items).toHaveLength(4);
   });
 
   it('rejects non-native token for tbtc', async () => {

@@ -1,5 +1,9 @@
 import { assertAddressForChain } from '../core/address-utils';
 import {
+  fetchBtcDerivedHistory,
+  fetchBtcExternalAddressHistory,
+} from '../core/btc/account';
+import {
   assertChainCapability,
   isEvmChain,
   resolveChain,
@@ -10,6 +14,7 @@ import { AppError, ERROR_CODES } from '../errors';
 import { getSignerByImpl } from '../signer';
 
 import type { IHistoryItem } from '../core/history-fetcher';
+import type { BtcAddressType } from '../core/btc/address-types';
 import type { OutputFormatter } from '../output';
 import type { Command } from 'commander';
 
@@ -20,6 +25,7 @@ export function registerWalletHistoryCommand(program: Command): void {
     .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, bsc)')
     .option('--token <token>', 'Filter by token symbol or contract address')
     .option('--address <address>', 'Override wallet address to query')
+    .option('--address-type <type>', 'BTC address type for derived reads')
     .option('--limit <n>', 'Max records (default 20, max 50)', '20')
     .option('--detail', 'Include detail fields (block, nonce, confirmations)')
     .action(
@@ -28,6 +34,7 @@ export function registerWalletHistoryCommand(program: Command): void {
           chain: string;
           token?: string;
           address?: string;
+          addressType?: BtcAddressType;
           limit: string;
           detail?: boolean;
         },
@@ -40,15 +47,20 @@ export function registerWalletHistoryCommand(program: Command): void {
         try {
           const chainConfig = resolveChain(options.chain);
           assertChainCapability(chainConfig, 'historyRead', 'history');
+          const limit = Math.max(
+            1,
+            Math.min(50, parseInt(options.limit, 10) || 20),
+          );
+          const detail = options.detail ?? false;
 
           // Resolve wallet address
           let address = options.address;
           if (!isEvmChain(chainConfig)) {
-            if (!address) {
+            if (address && options.addressType) {
               throw new AppError(
-                ERROR_CODES.PARAM_MISSING_REQUIRED.code,
-                'BTC read-only history currently requires --address.',
-                'Pass --address with a valid BTC or Bitcoin testnet address.',
+                ERROR_CODES.PARAM_INVALID_ADDRESS.code,
+                '--address cannot be used with --address-type.',
+                'Omit --address-type for external address reads, or omit --address to read derived wallet addresses.',
               );
             }
 
@@ -60,7 +72,39 @@ export function registerWalletHistoryCommand(program: Command): void {
               );
             }
 
-            address = assertAddressForChain(chainConfig, address);
+            if (!address) {
+              const result = await fetchBtcDerivedHistory(chainConfig, {
+                addressType: options.addressType,
+                limit,
+                detail,
+              });
+              output.success(result, {
+                chain: options.chain,
+                count: result.items.length,
+              });
+              return;
+            }
+
+            const result = await fetchBtcExternalAddressHistory(chainConfig, {
+              addressInput: address,
+              tokenAddress: undefined,
+              limit,
+              detail,
+            });
+            let items = result.items;
+            if (detail) {
+              items = items.map((item) => ({
+                ...item,
+                networkName: chainConfig.nativeSymbol,
+              }));
+            }
+            output.success(items, {
+              chain: options.chain,
+              address: result.address,
+              count: items.length,
+              hasMore: result.response.hasMore ?? false,
+            });
+            return;
           } else if (!address) {
             const signer = await getSignerByImpl(chainConfig.impl);
             const addrInfo = await signer.getAddress(chainConfig.networkId);
@@ -75,12 +119,6 @@ export function registerWalletHistoryCommand(program: Command): void {
             const resolved = await resolveToken(options.token, options.chain);
             tokenAddress = resolved.isNative ? '' : resolved.contractAddress;
           }
-
-          const limit = Math.max(
-            1,
-            Math.min(50, parseInt(options.limit, 10) || 20),
-          );
-          const detail = options.detail ?? false;
 
           const resp = await fetchHistory({
             networkId: chainConfig.networkId,

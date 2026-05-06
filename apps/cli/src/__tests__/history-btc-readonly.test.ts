@@ -1,21 +1,29 @@
 import { registerWalletHistoryCommand } from '../commands/wallet-history';
 import { fetchHistory } from '../core/history-fetcher';
-import { createTestProgram, runCommand } from './test-helpers';
+import { getSignerByImpl } from '../signer';
+import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
 jest.mock('../core/history-fetcher', () => ({
   fetchHistory: jest.fn(),
-  formatHistoryList: jest.fn(() => []),
+  formatHistoryList: jest.fn((resp) => resp.data),
+}));
+
+jest.mock('../signer', () => ({
+  getSignerByImpl: jest.fn(),
 }));
 
 const mockFetchHistory = fetchHistory as jest.MockedFunction<
   typeof fetchHistory
+>;
+const mockGetSignerByImpl = getSignerByImpl as jest.MockedFunction<
+  typeof getSignerByImpl
 >;
 
 describe('history BTC/TBTC read-only', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFetchHistory.mockResolvedValue({
-      items: [],
+      data: [],
       hasMore: false,
     } as never);
   });
@@ -44,7 +52,23 @@ describe('history BTC/TBTC read-only', () => {
     });
   });
 
-  it('requires address for tbtc history in the first round', async () => {
+  it('derives tbtc history when address is omitted', async () => {
+    const getAddress = jest
+      .fn()
+      .mockResolvedValueOnce({ address: 'tb1ptaproot' })
+      .mockResolvedValueOnce({ address: 'tb1qnative' })
+      .mockResolvedValueOnce({ address: '2Nnested' })
+      .mockResolvedValueOnce({ address: 'mlegacy' });
+    mockGetSignerByImpl.mockResolvedValue({
+      getAddress,
+      signTransaction: jest.fn(),
+      signMessage: jest.fn(),
+    });
+    mockFetchHistory.mockResolvedValue({
+      data: [],
+      hasMore: false,
+    } as never);
+
     const program = createTestProgram();
     registerWalletHistoryCommand(program);
 
@@ -55,8 +79,11 @@ describe('history BTC/TBTC read-only', () => {
       '--json',
     ]);
 
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stdout).toContain('requires --address');
+    expect(result.exitCode).toBe(0);
+    expect(mockFetchHistory).toHaveBeenCalledTimes(4);
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.data.aggregate).toBe(true);
+    expect(parsed.data.addressTypes).toHaveLength(4);
   });
 
   it('rejects token filters for tbtc history', async () => {
