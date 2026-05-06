@@ -29,7 +29,6 @@ export function InfoIcon({ onPress, size = '$5', tooltip }: IInfoIconProps) {
         ? tooltip.title
         : intl.formatMessage({ id: ETranslations.global_info });
 
-    // Use Popover on small screens (mobile/tablet), Tooltip on large screens (desktop)
     if (!gtMd) {
       return (
         <Popover
