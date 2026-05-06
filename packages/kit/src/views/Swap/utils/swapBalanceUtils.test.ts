@@ -126,4 +126,41 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
       amount: '0.100021',
     });
   });
+
+  it('adds native other fees to the same native balance requirement', () => {
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [{ gasInfo: evmGasInfo }],
+        networkId: 'evm--1',
+        fromToken: ethToken,
+        fromAmount: '0.1',
+        otherFeeInfos: [
+          {
+            token: {
+              networkId: 'evm--1',
+              contractAddress: '',
+              symbol: 'ETH',
+              price: '3000',
+              decimals: 18,
+              isNative: true,
+            },
+            amount: '0.02',
+          },
+          {
+            token: {
+              networkId: 'evm--1',
+              contractAddress: usdcToken.contractAddress,
+              symbol: 'USDC',
+              price: '1',
+              decimals: 6,
+            },
+            amount: '5',
+          },
+        ],
+      }),
+    ).toEqual({
+      token: ethToken,
+      amount: '0.120021',
+    });
+  });
 });

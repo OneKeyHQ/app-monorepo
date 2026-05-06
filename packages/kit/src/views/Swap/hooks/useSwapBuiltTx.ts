@@ -80,6 +80,7 @@ import type {
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
+  IQuoteResultFeeOtherFeeInfo,
   IOneInchOrderStruct,
   ISwapGasInfo,
   ISwapPreSwapData,
@@ -514,17 +515,20 @@ export function useSwapBuildTx() {
       networkId,
       token,
       amount,
+      otherFeeInfos,
     }: {
       gasInfos?: { gasInfo?: ISwapGasInfo }[];
       networkId?: string;
       token?: ISwapToken;
       amount?: string;
+      otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
     }) => {
       const nativeBalanceRequirement = getSwapRequiredNativeBalanceAmount({
         gasInfos,
         networkId,
         fromToken: token,
         fromAmount: amount,
+        otherFeeInfos,
       });
 
       if (!nativeBalanceRequirement) {
@@ -751,6 +755,8 @@ export function useSwapBuildTx() {
         networkId,
         token: unsignedTxItem.swapInfo?.sender.token,
         amount: unsignedTxItem.swapInfo?.sender.amount,
+        otherFeeInfos:
+          unsignedTxItem.swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
       });
       if (!checkLatestNativeBalanceRes) {
         throw new OneKeyError('checkLatestNativeTokenBalance failed');
@@ -2968,6 +2974,7 @@ export function useSwapBuildTx() {
             networkId,
             token: swapInfo?.sender.token,
             amount: swapInfo?.sender.amount,
+            otherFeeInfos: swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
           },
         );
         if (!checkLatestNativeBalanceRes) {

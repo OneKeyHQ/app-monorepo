@@ -94,6 +94,23 @@ export const useSwapLimitRate = () => {
     limitPriceUseRate.toToken,
     toSelectToken,
   ]);
+  const hasLimitPriceUseRate = useMemo(
+    () =>
+      Boolean(
+        limitPriceUseRate.fromToken ||
+          limitPriceUseRate.toToken ||
+          limitPriceUseRate.rate ||
+          limitPriceUseRate.reverseRate ||
+          limitPriceUseRate.inputRate,
+      ),
+    [
+      limitPriceUseRate.fromToken,
+      limitPriceUseRate.inputRate,
+      limitPriceUseRate.rate,
+      limitPriceUseRate.reverseRate,
+      limitPriceUseRate.toToken,
+    ],
+  );
   const canUseLimitPriceMarketPrice = useMemo(() => {
     const rateBN = new BigNumber(limitPriceMarketPrice.rate ?? 0);
     if (
@@ -333,15 +350,15 @@ export const useSwapLimitRate = () => {
       toToken: toSelectToken,
     });
     const shouldClearStaleLimitPrice =
-      !limitPriceMarketPrice.rate && !isLimitPriceUseRateForSelectedPair;
+      hasLimitPriceUseRate && !isLimitPriceUseRateForSelectedPair;
     if (isWrappedTokenPair || shouldClearStaleLimitPrice) {
       setLimitPriceUseRate({});
       setLimitPriceSetReverse(false);
     }
   }, [
     fromSelectToken,
+    hasLimitPriceUseRate,
     isLimitPriceUseRateForSelectedPair,
-    limitPriceMarketPrice.rate,
     setLimitPriceSetReverse,
     setLimitPriceUseRate,
     toSelectToken,

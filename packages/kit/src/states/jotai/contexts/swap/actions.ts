@@ -33,6 +33,7 @@ import type {
   IFetchTokensParams,
   ISwapAlertActionData,
   ISwapAlertState,
+  ISwapLimitPriceInfo,
   ISwapNetwork,
   ISwapQuoteEvent,
   ISwapQuoteEventAutoSlippage,
@@ -115,6 +116,34 @@ import {
   getSwapQuoteProgressState,
   isSwapQuoteEventFetching,
 } from './quoteProgress';
+
+function getSelectedPairLimitPriceRate({
+  protocol,
+  limitPriceUseRate,
+  fromToken,
+  toToken,
+}: {
+  protocol: ESwapTabSwitchType;
+  limitPriceUseRate: ISwapLimitPriceInfo;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}) {
+  if (protocol !== ESwapTabSwitchType.LIMIT || !limitPriceUseRate.rate) {
+    return undefined;
+  }
+
+  const isSelectedPair =
+    equalTokenNoCaseSensitive({
+      token1: limitPriceUseRate.fromToken,
+      token2: fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: limitPriceUseRate.toToken,
+      token2: toToken,
+    });
+
+  return isSelectedPair ? limitPriceUseRate.rate : undefined;
+}
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;
@@ -524,6 +553,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const limitPartiallyFillable = limitPartiallyFillableObj.value;
         const expirationTime = get(swapLimitExpirationTimeAtom());
         const limitUserMarketPrice = get(swapLimitPriceUseRateAtom());
+        const userMarketPriceRate = getSelectedPairLimitPriceRate({
+          protocol,
+          limitPriceUseRate: limitUserMarketPrice,
+          fromToken,
+          toToken,
+        });
         const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
           fromToken,
           toToken,
@@ -538,7 +573,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           incognito: incognitoEnabled,
           accountId,
           protocol,
-          userMarketPriceRate: limitUserMarketPrice.rate,
+          userMarketPriceRate,
           ...(protocol === ESwapTabSwitchType.LIMIT
             ? {
                 expirationTime: Number(expirationTime.value),
@@ -862,6 +897,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapQuoteFetchingAtom(), true);
       set(swapQuoteEventCompletedAtom(), false);
       const limitUserMarketPrice = get(swapLimitPriceUseRateAtom());
+      const userMarketPriceRate = getSelectedPairLimitPriceRate({
+        protocol,
+        limitPriceUseRate: limitUserMarketPrice,
+        fromToken,
+        toToken,
+      });
       await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
         fromToken,
         toToken,
@@ -876,7 +917,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         protocol,
         receivingAddress,
         incognito: incognitoEnabled,
-        userMarketPriceRate: limitUserMarketPrice.rate,
+        userMarketPriceRate,
         ...(protocol === ESwapTabSwitchType.LIMIT
           ? {
               expirationTime: Number(expirationTime.value),

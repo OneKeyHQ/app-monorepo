@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
+  IQuoteResultFeeOtherFeeInfo,
   ISwapGasInfo,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -36,6 +37,7 @@ type ISwapNativeBalanceRequirementParams = {
   networkId?: string;
   fromToken?: ISwapToken;
   fromAmount?: string;
+  otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
 };
 
 export type ISwapNativeBalanceRequirement = {
@@ -74,6 +76,7 @@ export function getSwapRequiredNativeBalanceAmount({
   networkId,
   fromToken,
   fromAmount,
+  otherFeeInfos,
 }: ISwapNativeBalanceRequirementParams):
   | ISwapNativeBalanceRequirement
   | undefined {
@@ -119,10 +122,25 @@ export function getSwapRequiredNativeBalanceAmount({
     !fromAmountBN.isNaN() &&
     fromAmountBN.isFinite() &&
     fromAmountBN.gt(0);
+  const otherNativeFeeAmount = (otherFeeInfos ?? []).reduce((acc, item) => {
+    if (
+      !item.token?.isNative ||
+      item.token.networkId !== nativeToken?.networkId
+    ) {
+      return acc;
+    }
+
+    const amountBN = new BigNumber(item.amount ?? 0);
+    if (amountBN.isNaN() || !amountBN.isFinite() || amountBN.lte(0)) {
+      return acc;
+    }
+
+    return acc.plus(amountBN);
+  }, new BigNumber(0));
 
   const requiredAmount = shouldAddFromAmount
-    ? networkFeeAmount.plus(fromAmountBN)
-    : networkFeeAmount;
+    ? networkFeeAmount.plus(fromAmountBN).plus(otherNativeFeeAmount)
+    : networkFeeAmount.plus(otherNativeFeeAmount);
 
   if (requiredAmount.lte(0)) {
     return undefined;
