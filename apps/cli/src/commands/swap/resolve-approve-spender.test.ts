@@ -29,4 +29,14 @@ describe('resolveApproveSpender', () => {
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
   });
+
+  it('routes fallback warnings through the provided output callback', () => {
+    const warn = jest.fn();
+
+    resolveApproveSpender(undefined, undefined, SWAP_TX_TO, { warn });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('No allowanceTarget'),
+    );
+  });
 });

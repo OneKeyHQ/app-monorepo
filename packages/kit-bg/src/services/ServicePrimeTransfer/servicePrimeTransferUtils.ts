@@ -20,7 +20,7 @@ export function filterTransferWallets({
   );
 }
 
-export function shouldUseCliTransportDecryptedCredentials({
+export function shouldUseCliBotWalletEncryptedCredential({
   transferData,
   allowCliImportableCredentials,
 }: {
@@ -44,9 +44,23 @@ export function shouldUseCliTransportDecryptedCredentials({
   );
 
   return (
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    getCliBotWalletTransferWalletId({ transferData }) !== undefined &&
     walletIds.length === 1 &&
     importedAccountIds.length === 0 &&
-    watchingAccountIds.length === 0 &&
-    accountUtils.isBotWallet({ walletId: walletIds[0] })
+    watchingAccountIds.length === 0
   );
+}
+
+export function getCliBotWalletTransferWalletId({
+  transferData,
+}: {
+  transferData: IPrimeTransferData;
+}) {
+  const walletIds = Object.keys(transferData.privateData.wallets ?? {});
+  if (walletIds.length !== 1) {
+    return undefined;
+  }
+  const [walletId] = walletIds;
+  return accountUtils.isBotWallet({ walletId }) ? walletId : undefined;
 }

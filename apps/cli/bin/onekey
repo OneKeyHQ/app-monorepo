@@ -1,4 +1,5 @@
 #!/usr/bin/env node
-// Suppress deprecation warnings from dependencies (Buffer(), url.parse())
+// Suppress dependency deprecation warnings in the package bin wrapper.
+// The bundled CLI build separately rejects deprecated Buffer constructors.
 process.noDeprecation = true;
 require('../dist/cli.js');

@@ -17,7 +17,10 @@ import {
   parseTransferRoomIdFromPairingCode,
 } from '../core/prime-transfer/pairing-code';
 import { getTransferPairingRuntimeError } from '../core/prime-transfer/pairing-session-runtime';
-import { TransferReceiverAdapter } from '../core/prime-transfer/transfer-receiver-adapter';
+import {
+  TRANSFER_SOCKET_TRANSPORTS,
+  TransferReceiverAdapter,
+} from '../core/prime-transfer/transfer-receiver-adapter';
 import { AppError, ERROR_CODES } from '../errors';
 
 import type {
@@ -217,6 +220,10 @@ async function deriveLocalSharedSecret({
 }
 
 describe('TransferReceiverAdapter', () => {
+  it('uses websocket-only transport to avoid Node url.parse deprecation warnings', () => {
+    expect(TRANSFER_SOCKET_TRANSPORTS).toEqual(['websocket']);
+  });
+
   it('creates normalized pairing session data in under one second', async () => {
     const socket = createMockSocket();
     const connectSocket = jest.fn(async () => socket);

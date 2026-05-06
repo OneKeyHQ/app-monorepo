@@ -10,8 +10,12 @@ export type {
   ISecureStorage,
   SecureStorageBackend,
 } from './secure-storage/types';
-export { createSecureStorage } from './secure-storage/storage-factory';
+export {
+  SECURE_STORAGE_USE_NAPI_RS_KEYRING,
+  createSecureStorage,
+} from './secure-storage/storage-factory';
 export { LinuxSecureStorage } from './secure-storage/secure-storage.linux';
+export { NapiRsKeyringSecureStorage } from './secure-storage/secure-storage.napi-rs-keyring';
 export { MacOSSecureStorage } from './secure-storage/secure-storage.macos';
 
 export class KeychainStorage implements ISecureStorage {

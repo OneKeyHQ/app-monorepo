@@ -8,7 +8,9 @@
  * Run: npx jest chain-resolution-smoke --no-cache
  */
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 import {
   _resetSwapNetworksCache,
@@ -48,6 +50,25 @@ function run(...args: string[]): string {
 function runSafe(...args: string[]): string {
   try {
     return run(...args);
+  } catch (err: unknown) {
+    const e = err as { stdout?: Buffer | string; stderr?: Buffer | string };
+    return (e.stdout ?? e.stderr ?? '').toString().trim();
+  }
+}
+
+function runSafeWithEnv(
+  env: Partial<NodeJS.ProcessEnv>,
+  ...args: string[]
+): string {
+  try {
+    return execFileSync(BIN, args, {
+      encoding: 'utf-8',
+      env: {
+        ...process.env,
+        ...env,
+      },
+      timeout: 15_000,
+    }).trim();
   } catch (err: unknown) {
     const e = err as { stdout?: Buffer | string; stderr?: Buffer | string };
     return (e.stdout ?? e.stderr ?? '').toString().trim();
@@ -394,59 +415,55 @@ describe('CLI command integration (smoke)', () => {
     expect(output).toContain('--chain');
   });
 
-  it('--chain with invalid chain returns PARAM_INVALID_CHAIN error', () => {
-    const output = runSafe(
-      '--json',
-      'swap',
-      'quote',
-      '--chain',
-      'nonexistent',
-      '--from',
-      '0x0000000000000000000000000000000000000000',
-      '--to',
-      '0x0000000000000000000000000000000000000001',
-      '--amount',
-      '1',
-    );
-    const parsed = JSON.parse(extractJson(output));
-    expect(parsed.status).toBe('error');
-    expect(parsed.error.code).toBe('PARAM_INVALID_CHAIN');
-    expect(parsed.error.message).toMatch(/unsupported.*chain/i);
+  it('swap quote checks auth before chain validation', () => {
+    const homeDir = mkdtempSync(join(tmpdir(), 'onekey-cli-swap-chain-auth-'));
+    try {
+      const output = runSafeWithEnv(
+        { HOME: homeDir },
+        '--json',
+        'swap',
+        'quote',
+        '--chain',
+        'nonexistent',
+        '--from',
+        '0x0000000000000000000000000000000000000000',
+        '--to',
+        '0x0000000000000000000000000000000000000001',
+        '--amount',
+        '1',
+      );
+      const parsed = JSON.parse(extractJson(output));
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error.code).toBe('AUTH_NO_WALLET');
+    } finally {
+      rmSync(homeDir, { recursive: true, force: true });
+    }
   });
 
-  it('--chain with typo "etherium" returns suggestion in error', () => {
-    const output = runSafe(
-      '--json',
-      'swap',
-      'quote',
-      '--chain',
-      'etherium',
-      '--from',
-      '0x0000000000000000000000000000000000000000',
-      '--to',
-      '0x0000000000000000000000000000000000000001',
-      '--amount',
-      '1',
-    );
-    const parsed = JSON.parse(extractJson(output));
-    expect(parsed.status).toBe('error');
-    expect(parsed.error.message).toMatch(/did you mean/i);
+  it('resolveChain typo "etherium" returns a suggestion', () => {
+    expect(() => resolveChain('etherium')).toThrow(/did you mean/i);
   });
 
-  it('transfer --chain with invalid chain returns error', () => {
-    const output = runSafe(
-      '--json',
-      'transfer',
-      '--chain',
-      'nonexistent',
-      '--to',
-      '0x0000000000000000000000000000000000000001',
-      '--amount',
-      '0.001',
-    );
-    const parsed = JSON.parse(extractJson(output));
-    expect(parsed.status).toBe('error');
-    expect(parsed.error.code).toBe('PARAM_INVALID_CHAIN');
+  it('transfer checks auth before chain validation', () => {
+    const homeDir = mkdtempSync(join(tmpdir(), 'onekey-cli-chain-auth-'));
+    try {
+      const output = runSafeWithEnv(
+        { HOME: homeDir },
+        '--json',
+        'transfer',
+        '--chain',
+        'nonexistent',
+        '--to',
+        '0x0000000000000000000000000000000000000001',
+        '--amount',
+        '0.001',
+      );
+      const parsed = JSON.parse(extractJson(output));
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error.code).toBe('AUTH_NO_WALLET');
+    } finally {
+      rmSync(homeDir, { recursive: true, force: true });
+    }
   });
 
   it('balance --chain eth resolves without chain error', () => {

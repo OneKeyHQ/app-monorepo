@@ -14,6 +14,9 @@ import { AppError, ERROR_CODES } from '../errors';
 
 import type { AppTransferLoginResult } from '../core/auth/auth-types';
 
+const ESC = String.fromCharCode(27);
+const ANSI_CLEAR_PATTERN = new RegExp(`${ESC}\\[\\d+A${ESC}\\[0J`);
+
 function makePairingResult(): AppTransferLoginResult {
   return {
     status: 'pairing',
@@ -43,7 +46,7 @@ describe('runAppTransferPairingDisplay', () => {
     jest.useRealTimers();
   });
 
-  it('writes QR, pairing code, and waiting updates to stderr without leaking secrets', async () => {
+  it('writes QR, server, and pairing code to stderr without leaking secrets and without a loading spinner', async () => {
     const pairingResult = makePairingResult();
     let stderrOutput = '';
     const runtime = createTransferPairingRuntime({
@@ -64,7 +67,6 @@ describe('runAppTransferPairingDisplay', () => {
         },
       },
       renderQr: () => '██\n██',
-      refreshIntervalMs: 80,
     });
 
     jest.advanceTimersByTime(160);
@@ -75,10 +77,20 @@ describe('runAppTransferPairingDisplay', () => {
     await displayPromise;
 
     expect(stderrOutput).toContain('Scan the QR code');
-    expect(stderrOutput).toContain(pairingResult.pairingCode);
+    expect(stderrOutput).toContain(
+      'Pairing Server: https://transfer.onekeytest.com',
+    );
+    expect(stderrOutput).toContain(
+      `Pairing code:\n${pairingResult.pairingCode}`,
+    );
     expect(stderrOutput).toContain('██');
-    expect(stderrOutput).toContain('Waiting for OneKey App');
-    expect(stderrOutput).toContain('Receiving the encrypted wallet payload');
+    expect(stderrOutput).toContain(
+      'Waiting for OneKey App to scan the QR code or enter the pairing code...',
+    );
+    expect(stderrOutput).toContain(
+      'Receiving the encrypted wallet payload from OneKey App...',
+    );
+    expect(stderrOutput).not.toContain('\r');
     expect(stderrOutput).not.toContain(pairingResult.pairingPayload.uri);
     expect(stderrOutput).not.toContain(
       pairingResult.pairingPayload.verifyString,
@@ -109,7 +121,6 @@ describe('runAppTransferPairingDisplay', () => {
         },
       },
       renderQr: () => '██\n██',
-      refreshIntervalMs: 80,
     });
 
     runtime.transition('pairing_verified');
@@ -124,6 +135,118 @@ describe('runAppTransferPairingDisplay', () => {
     expect(stderrOutput).toContain(
       'Enter this code in OneKey App to confirm the export.',
     );
+  });
+
+  it('clears the verification code from the terminal once the user confirms in App', async () => {
+    const pairingResult = makePairingResult();
+    let stderrOutput = '';
+    const runtime = createTransferPairingRuntime({
+      roomId: pairingResult.pairingPayload.roomId,
+      userId: 'user-1',
+      pairingCode: pairingResult.pairingCode,
+      now: () => new Date('2026-04-06T07:00:00.000Z'),
+      dispose: async () => undefined,
+    });
+
+    const displayPromise = runAppTransferPairingDisplay(pairingResult, {
+      runtime,
+      stderr: {
+        isTTY: true,
+        write: (chunk: string | Uint8Array) => {
+          stderrOutput += String(chunk);
+          return true;
+        },
+      },
+      renderQr: () => '██\n██',
+    });
+
+    runtime.transition('pairing_verified');
+    runtime.setVerificationCode('032653');
+
+    const beforeReceive = stderrOutput;
+    expect(beforeReceive).toContain('Verification code:');
+    expect(beforeReceive).toContain('032653');
+
+    runtime.transition('transfer_receiving');
+
+    const afterReceive = stderrOutput.slice(beforeReceive.length);
+    expect(afterReceive).toMatch(ANSI_CLEAR_PATTERN);
+    expect(afterReceive.indexOf('\x1b[')).toBeLessThan(
+      afterReceive.indexOf('Receiving the encrypted wallet payload'),
+    );
+
+    runtime.transition('transfer_completed');
+    await displayPromise;
+  });
+
+  it('clears the QR and pairing code from the terminal once the App connects', async () => {
+    const pairingResult = makePairingResult();
+    let stderrOutput = '';
+    const runtime = createTransferPairingRuntime({
+      roomId: pairingResult.pairingPayload.roomId,
+      userId: 'user-1',
+      pairingCode: pairingResult.pairingCode,
+      now: () => new Date('2026-04-06T07:00:00.000Z'),
+      dispose: async () => undefined,
+    });
+
+    const displayPromise = runAppTransferPairingDisplay(pairingResult, {
+      runtime,
+      stderr: {
+        isTTY: true,
+        write: (chunk: string | Uint8Array) => {
+          stderrOutput += String(chunk);
+          return true;
+        },
+      },
+      renderQr: () => '██\n██',
+    });
+
+    const beforeConnect = stderrOutput;
+    expect(beforeConnect).not.toMatch(ANSI_CLEAR_PATTERN);
+
+    runtime.transition('pairing_verified');
+
+    const afterConnect = stderrOutput.slice(beforeConnect.length);
+    expect(afterConnect).toMatch(ANSI_CLEAR_PATTERN);
+    expect(afterConnect.indexOf('\x1b[')).toBeLessThan(
+      afterConnect.indexOf('OneKey App connected'),
+    );
+
+    runtime.transition('transfer_completed');
+    await displayPromise;
+  });
+
+  it('does not emit ANSI clear sequences when stderr is not a TTY', async () => {
+    const pairingResult = makePairingResult();
+    let stderrOutput = '';
+    const runtime = createTransferPairingRuntime({
+      roomId: pairingResult.pairingPayload.roomId,
+      userId: 'user-1',
+      pairingCode: pairingResult.pairingCode,
+      now: () => new Date('2026-04-06T07:00:00.000Z'),
+      dispose: async () => undefined,
+    });
+
+    const displayPromise = runAppTransferPairingDisplay(pairingResult, {
+      runtime,
+      stderr: {
+        isTTY: false,
+        write: (chunk: string | Uint8Array) => {
+          stderrOutput += String(chunk);
+          return true;
+        },
+      },
+      renderQr: () => '██\n██',
+    });
+
+    runtime.transition('pairing_verified');
+    runtime.transition('transfer_completed');
+    await displayPromise;
+
+    expect(stderrOutput).not.toContain('\x1b[');
+    expect(stderrOutput).toContain(pairingResult.pairingCode);
+    expect(stderrOutput).toContain('OneKey App connected');
   });
 
   it('rejects failed terminal states and clears the active runtime', async () => {
@@ -145,7 +268,6 @@ describe('runAppTransferPairingDisplay', () => {
         write: () => true,
       },
       renderQr: () => '██\n██',
-      refreshIntervalMs: 80,
     });
 
     runtime.transition('transfer_failed');
@@ -183,7 +305,6 @@ describe('runAppTransferPairingDisplay', () => {
         write: () => true,
       },
       renderQr: () => '██\n██',
-      refreshIntervalMs: 80,
     });
 
     runtime.transition('transfer_failed');
@@ -216,7 +337,6 @@ describe('runAppTransferPairingDisplay', () => {
         write: () => true,
       },
       renderQr: () => '██\n██',
-      refreshIntervalMs: 80,
     });
 
     jest.advanceTimersByTime(1199);

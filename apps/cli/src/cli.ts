@@ -4,14 +4,21 @@ import 'fake-indexeddb/auto';
 import { version as PKG_VERSION } from '../package.json';
 
 import {
+  emitCliTopLevelError,
+  getCommanderPassthroughExitCode,
+  isCommanderPassthroughError,
+} from './cli-error-boundary';
+import {
   handleAuthCommandDiscoveryFallback,
   registerAuthCommands,
   registerBalanceCommand,
   registerDeviceCommands,
+  registerGetAddressCommand,
   registerLogoutCommand,
   registerMarketCommands,
   registerSchemaCommand,
   registerSecurityCommands,
+  registerSignCommand,
   registerStatusCommand,
   registerSwapCommands,
   registerTokenCommands,
@@ -24,6 +31,7 @@ import { secureCache } from './core';
 import { createSignalCleanupHandler } from './core/auth/auth-flow-interruption';
 import { ERROR_CODES } from './errors';
 import { apiClient } from './infra';
+import { properLockfileInlineSentinel } from './infra/vault/lock';
 import { OutputFormatter } from './output';
 import './runtime/customUA';
 import './schemas/register-all';
@@ -33,6 +41,7 @@ import { detectOutputMode } from './utils/mode-detector';
 import type { IEndpointEnv } from './config';
 
 const program = new Command();
+void properLockfileInlineSentinel;
 
 program
   .name('onekey')
@@ -41,15 +50,29 @@ program
 
 program
   .option('--json', 'Force JSON output')
+  .option('--format <format>', 'Top-level error output format: json | text')
   .option('--interactive', 'Force interactive (human) mode')
   .option('--verbose', 'Enable verbose logging')
   .option('--quiet', 'Suppress all non-essential output')
   .option('--env <env>', 'Environment: test | prod', 'prod')
   .option('--yes', 'Skip confirmation prompts');
 
+program.exitOverride((error) => {
+  throw error;
+});
+program.configureOutput({
+  writeErr: (str) => {
+    if (/^error:\s*/i.test(str.trim())) {
+      return;
+    }
+    process.stderr.write(str);
+  },
+});
+
 program.hook('preAction', (_thisCommand, actionCommand) => {
   const opts = actionCommand.optsWithGlobals();
   const mode = detectOutputMode({
+    format: opts.format,
     json: opts.json,
     interactive: opts.interactive,
     quiet: opts.quiet,
@@ -76,6 +99,8 @@ program.hook('preAction', (_thisCommand, actionCommand) => {
 registerVersionCommand(program);
 registerStatusCommand(program);
 registerLogoutCommand(program);
+registerSignCommand(program);
+registerGetAddressCommand(program);
 registerBalanceCommand(program);
 registerTransferCommand(program);
 registerAuthCommands(program);
@@ -131,16 +156,35 @@ program.hook('postAction', async () => {
   }
 });
 
-async function main(): Promise<void> {
-  if (handleAuthCommandDiscoveryFallback(process.argv.slice(2))) {
-    return;
+export async function runCli(
+  argv: readonly string[] = process.argv,
+): Promise<void> {
+  const parsedArgv = [...argv];
+
+  try {
+    if (!handleAuthCommandDiscoveryFallback(parsedArgv.slice(2))) {
+      await program.parseAsync(parsedArgv);
+    }
+  } catch (error) {
+    if (isCommanderPassthroughError(error)) {
+      process.exitCode = getCommanderPassthroughExitCode(error);
+      return;
+    }
+
+    emitCliTopLevelError(error, {
+      argv: parsedArgv.slice(2),
+    });
   }
-  await program.parseAsync();
 }
 
-void main().finally(() => {
-  // Force exit: `postAction` disposed the SDK, but some third-party
-  // handles (e.g. fake-indexeddb, axios keep-alive sockets) may still
-  // delay idle detection. An explicit exit keeps command turnaround snappy.
-  process.exit(process.exitCode ?? 0);
-});
+// Exported so cli-entry-runner can await completion before reading exitCode.
+// In production the .finally below force-exits to cover lingering handles
+// (USB poll timers, axios keep-alive). Inside Jest workers we skip the exit so
+// the harness's mocked process.exit doesn't crash the worker.
+export const cliRunPromise: Promise<void> = runCli();
+
+if (process.env.JEST_WORKER_ID === undefined) {
+  void cliRunPromise.finally(() => {
+    process.exit(process.exitCode ?? 0);
+  });
+}

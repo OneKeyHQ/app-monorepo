@@ -1,5 +1,7 @@
 import { AUTH_LOGIN_METHOD_APP_TRANSFER } from '../core/auth/auth-types';
 
+import { redactDisplayAddress } from './redact';
+
 import type { ResolvedAuthSession } from '../core/auth/auth-types';
 
 type IAuthLogoutOutputStatus =
@@ -58,7 +60,9 @@ export function presentAuthStatus(
     loginMethod: session.loginMethod ?? null,
     walletKind: session.walletKind ?? null,
     sourceLabel: session.sourceLabel ?? null,
-    displayAddress: session.displayAddress ?? null,
+    displayAddress: session.displayAddress
+      ? redactDisplayAddress(session.displayAddress)
+      : null,
     importedAt: session.importedAt ?? null,
     device: session.device ?? null,
     passphraseMode: session.passphraseMode ?? null,
@@ -72,7 +76,9 @@ export function presentAuthLoginResult(
     auth_status: session.authStatus,
     login_method: session.loginMethod ?? null,
     source_label: session.sourceLabel ?? null,
-    display_address: session.displayAddress ?? null,
+    display_address: session.displayAddress
+      ? redactDisplayAddress(session.displayAddress)
+      : null,
     storage_backend: session.storageBackend,
   };
 }
@@ -102,7 +108,9 @@ export function presentAuthLogoutResult(
       authStatus: 'authenticated',
       changed: false,
       sourceLabel: session.sourceLabel ?? null,
-      displayAddress: session.displayAddress ?? null,
+      displayAddress: session.displayAddress
+        ? redactDisplayAddress(session.displayAddress)
+        : null,
     };
   }
 

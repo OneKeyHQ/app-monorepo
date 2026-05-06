@@ -99,7 +99,7 @@ describe('executeAuthLogoutCommand', () => {
       authStatus: 'authenticated',
       changed: false,
       sourceLabel: 'Bot Wallet (abcd1234)',
-      displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
+      displayAddress: '0x123456...345678',
     });
     expect(authManager.clearSession).not.toHaveBeenCalled();
   });

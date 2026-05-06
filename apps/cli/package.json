@@ -11,13 +11,14 @@
     "bin/"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/assert-no-deprecated-buffer.js",
     "dev": "tsup --watch",
     "test": "yarn test:unit && yarn test:integration:cli",
     "test:unit": "npx jest",
     "test:integration:cli": "yarn build && npx jest --runInBand --runTestsByPath src/__tests__/cli.integration.test.ts --testPathIgnorePatterns='-smoke\\.test\\.ts$'",
     "typecheck": "npx tsc --noEmit",
     "prepublishOnly": "yarn build",
+    "package:macos-standalone": "yarn build && node scripts/package-macos-standalone.js",
     "version:patch": "node scripts/bump-version.js patch",
     "version:minor": "node scripts/bump-version.js minor",
     "version:major": "node scripts/bump-version.js major",
@@ -28,9 +29,12 @@
   "devDependencies": {
     "@onekeyhq/core": "workspace:*",
     "@onekeyhq/shared": "workspace:*",
+    "@types/proper-lockfile": "^4",
     "axios": "1.15.2",
     "chalk": "^4.1.2",
     "commander": "^12.0.0",
+    "expect-type": "^1.3.0",
+    "postject": "1.0.0-alpha.6",
     "qrcode": "^1.5.0",
     "tsup": "^8.0.0",
     "yaml": "^2.8.0",
@@ -39,8 +43,10 @@
     "zod-to-ts": "^2.0.0"
   },
   "dependencies": {
+    "@napi-rs/keyring": "^1.3.0",
     "@onekeyfe/hd-common-connect-sdk": "1.1.26-alpha.11",
     "@onekeyfe/hd-core": "1.1.26-alpha.11",
-    "@onekeyfe/hd-transport-usb": "1.1.26-alpha.11"
+    "@onekeyfe/hd-transport-usb": "1.1.26-alpha.11",
+    "proper-lockfile": "^4.1.2"
   }
 }

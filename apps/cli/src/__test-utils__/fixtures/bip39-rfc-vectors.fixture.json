@@ -1,0 +1,17 @@
+[
+  {
+    "id": "bip39-english-00000000000000000000000000000000",
+    "entropyHex": "00000000000000000000000000000000",
+    "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+  },
+  {
+    "id": "bip39-english-7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f",
+    "entropyHex": "7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f",
+    "mnemonic": "legal winner thank year wave sausage worth useful legal winner thank yellow"
+  },
+  {
+    "id": "bip39-english-80808080808080808080808080808080",
+    "entropyHex": "80808080808080808080808080808080",
+    "mnemonic": "letter advice cage absurd amount doctor acoustic avoid letter advice cage above"
+  }
+]

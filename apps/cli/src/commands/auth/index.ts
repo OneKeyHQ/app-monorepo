@@ -113,6 +113,10 @@ export function handleAuthCommandDiscoveryFallback(argv: string[]): boolean {
   }
 
   if (!AUTH_SUBCOMMANDS.has(subcommand)) {
+    if (!json && !quiet) {
+      return false;
+    }
+
     return emitAuthDiscoveryError(
       output,
       new AppError(

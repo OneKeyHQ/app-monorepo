@@ -69,7 +69,7 @@ export function registerSchemaCommand(program: Command): void {
         const globalOpts = command?.optsWithGlobals?.() ?? {};
         const output =
           (globalOpts._outputFormatter as OutputFormatter | undefined) ??
-          new OutputFormatter('human');
+          new OutputFormatter('agent');
 
         if (options?.list) {
           writeSchemaOutput(output, listCommandNames());

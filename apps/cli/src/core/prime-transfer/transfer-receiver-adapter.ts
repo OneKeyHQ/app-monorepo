@@ -37,6 +37,7 @@ import type {
 
 const SOCKET_CONNECT_TIMEOUT_MS = 10_000;
 const ROOM_USERS_POLL_INTERVAL_MS = 1000;
+export const TRANSFER_SOCKET_TRANSPORTS = ['websocket'] as const;
 
 function getDefaultCliDeviceInfo(): ITransferRoomJoinParams {
   return {
@@ -150,8 +151,8 @@ async function connectTransferSocket(
 ): Promise<ITransferSocketLike> {
   return new Promise((resolve, reject) => {
     const socket = io(endpoint, {
-      transports: ['polling', 'websocket'],
-      upgrade: true,
+      transports: [...TRANSFER_SOCKET_TRANSPORTS],
+      upgrade: false,
       timeout: SOCKET_CONNECT_TIMEOUT_MS,
     });
     let onConnect: () => void = () => {};

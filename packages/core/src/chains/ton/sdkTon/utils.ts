@@ -1,5 +1,5 @@
 /* eslint-disable no-control-regex */
-import { toASCII } from 'punycode';
+import { toASCII } from 'punycode/';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
