@@ -218,13 +218,11 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     // reached as a modal (EModalMarketRoutes.MarketBannerDetail) where
     // the modal-stack's screenOptions default to headerShown:false; the
     // explicit prop ensures the bar renders in both navigation contexts.
+    // Notification icon is intentionally omitted — it belongs to the
+    // tab-level chrome (Market tab home), not to a banner detail page.
     if (platformEnv.isNativeIOS26Plus) {
       return (
-        <Page.Header
-          headerShown
-          headerTitle={renderHeaderTitle}
-          headerRight={renderNotificationButton}
-        />
+        <Page.Header headerShown headerTitle={renderHeaderTitle} />
       );
     }
     return <Page.Header headerShown={false} />;
