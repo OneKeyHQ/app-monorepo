@@ -51,6 +51,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
+  useSwapSlippageOverrideAtom,
   useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -469,6 +470,7 @@ export function useSwapActionState() {
 export function useSwapSlippagePercentageModeInfo() {
   const [{ swapSlippagePercentageCustomValue, swapSlippagePercentageMode }] =
     useSettingsAtom();
+  const [swapSlippageOverride] = useSwapSlippageOverrideAtom();
   const [swapCurrentQuote] = useSwapQuoteCurrentSelectAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
@@ -488,20 +490,31 @@ export function useSwapSlippagePercentageModeInfo() {
     if (!isNil(quoteResult?.autoSuggestedSlippage)) {
       autoValue = quoteResult.autoSuggestedSlippage;
     }
-    if (swapSlippagePercentageMode === ESwapSlippageSegmentKey.AUTO) {
+    // Session-scoped override (e.g. Market preset) takes precedence over the
+    // global persisted swap slippage so a user jumping in from Market with a
+    // configured P1/P2/P3 slippage gets quote/build aligned to that value.
+    const effectiveMode =
+      swapSlippageOverride?.key ?? swapSlippagePercentageMode;
+    const effectiveCustomValue =
+      swapSlippageOverride?.key === ESwapSlippageSegmentKey.CUSTOM
+        ? (swapSlippageOverride.value ?? swapSlippagePercentageCustomValue)
+        : swapSlippagePercentageCustomValue;
+
+    if (effectiveMode === ESwapSlippageSegmentKey.AUTO) {
       value = autoValue;
     } else {
-      value = swapSlippagePercentageCustomValue;
+      value = effectiveCustomValue;
     }
     return {
       slippageItem: {
-        key: swapSlippagePercentageMode,
+        key: effectiveMode,
         value,
       },
       autoValue,
     };
   }, [
     quoteResult?.autoSuggestedSlippage,
+    swapSlippageOverride,
     swapSlippagePercentageCustomValue,
     swapSlippagePercentageMode,
   ]);
