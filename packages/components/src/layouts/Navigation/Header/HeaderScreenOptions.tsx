@@ -77,17 +77,28 @@ export function makeHeaderScreenOptions({
       */
       headerTransparent: useLiquidGlassHeader ? true : false,
       headerTitleAlign: 'left',
-      // TODO: don't override the headerLeft on iOS
-      headerLeft: (props: HeaderBackButtonProps): ReactNode => (
-        <HeaderBackButton
-          onPress={currentNavigation?.goBack}
-          isModelScreen={isModelScreen}
-          isRootScreen={isRootScreen}
-          isOnboardingScreen={isOnboardingScreen}
-          {...props}
-          canGoBack={isCanGoBack}
-        />
-      ),
+      // On iOS 26+ for pushed screens (canGoBack), defer to the system
+      // back button rendering. UIKit draws the chevron in a circular
+      // glass container that's already correctly sized and centered —
+      // bypassing our custom HeaderBackButton avoids the pill-shape and
+      // alignment quirks introduced by stuffing a small custom view into
+      // the new bar button slot. Modal/onboarding close (no canGoBack)
+      // keeps the custom X because the system has no equivalent.
+      ...(platformEnv.isNativeIOS26Plus && isCanGoBack
+        ? { headerBackTitle: '' }
+        : {
+            // TODO: don't override the headerLeft on iOS
+            headerLeft: (props: HeaderBackButtonProps): ReactNode => (
+              <HeaderBackButton
+                onPress={currentNavigation?.goBack}
+                isModelScreen={isModelScreen}
+                isRootScreen={isRootScreen}
+                isOnboardingScreen={isOnboardingScreen}
+                {...props}
+                canGoBack={isCanGoBack}
+              />
+            ),
+          }),
     };
   }
 
