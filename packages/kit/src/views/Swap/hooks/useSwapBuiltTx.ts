@@ -474,6 +474,20 @@ export function useSwapBuildTx() {
     [fromToken, intl, selectQuote?.fromAmount, fromUserAddress, fromAccountId],
   );
 
+  const showLatestBalanceInsufficientToast = useCallback(
+    (tokenSymbol: string) => {
+      Toast.error({
+        title: intl.formatMessage(
+          {
+            id: ETranslations.swap_page_toast_insufficient_balance_title,
+          },
+          { token: tokenSymbol },
+        ),
+      });
+    },
+    [intl],
+  );
+
   const checkLatestFromTokenBalance = useCallback(
     async (token: ISwapToken, amount: string) => {
       const checkResult = await checkSwapLatestBalanceSufficient({
@@ -483,28 +497,12 @@ export function useSwapBuildTx() {
         accountId: fromAccountId,
       });
       if (!checkResult.isSufficient) {
-        Toast.error({
-          title: intl.formatMessage(
-            {
-              id: ETranslations.swap_page_toast_insufficient_balance_title,
-            },
-            { token: checkResult.tokenSymbol },
-          ),
-          message: intl.formatMessage(
-            {
-              id: ETranslations.swap_page_toast_insufficient_balance_content,
-            },
-            {
-              token: checkResult.tokenSymbol,
-              number: numberFormat(checkResult.requiredAmount, formatter),
-            },
-          ),
-        });
+        showLatestBalanceInsufficientToast(checkResult.tokenSymbol);
         return false;
       }
       return true;
     },
-    [fromAccountId, fromUserAddress, intl],
+    [fromAccountId, fromUserAddress, showLatestBalanceInsufficientToast],
   );
 
   const cancelLimitOrder = useCallback(

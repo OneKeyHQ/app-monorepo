@@ -30,6 +30,7 @@ import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -91,6 +92,80 @@ type IChStateLite = {
 };
 
 type IChPositionLite = HL.IPerpsAssetPosition;
+
+const MAX_LEDGER_UPDATES = 200;
+
+function getLedgerUpdateKey(update: HL.IUserNonFundingLedgerUpdate): string {
+  return (
+    update.hash ||
+    `${update.time}:${update.delta.type}:${JSON.stringify(update.delta)}`
+  );
+}
+
+function sortAndLimitLedgerUpdates(
+  updates: HL.IUserNonFundingLedgerUpdate[],
+): HL.IUserNonFundingLedgerUpdate[] {
+  return updates
+    .toSorted((a, b) => b.time - a.time)
+    .slice(0, MAX_LEDGER_UPDATES);
+}
+
+function mergeLedgerUpdates(
+  incomingUpdates: HL.IUserNonFundingLedgerUpdate[],
+  existingUpdates: HL.IUserNonFundingLedgerUpdate[],
+): HL.IUserNonFundingLedgerUpdate[] {
+  const seenKeys = new Set<string>();
+  const mergedUpdates: HL.IUserNonFundingLedgerUpdate[] = [];
+
+  for (const update of [...incomingUpdates, ...existingUpdates]) {
+    const key = getLedgerUpdateKey(update);
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      mergedUpdates.push(update);
+    }
+  }
+
+  return sortAndLimitLedgerUpdates(mergedUpdates);
+}
+
+async function clearMatchedDepositOrders(
+  updates: HL.IUserNonFundingLedgerUpdate[],
+) {
+  const depositUpdates = updates.filter(
+    (update) =>
+      update.delta.type === 'deposit' ||
+      (update.delta.type as string) === 'send',
+  );
+  if (depositUpdates.length === 0) {
+    return;
+  }
+
+  const perpDepositOrder = await perpsDepositOrderAtom.get();
+  const pendingOrders = perpDepositOrder.orders.filter((order) => order.toTxId);
+  if (pendingOrders.length === 0) {
+    return;
+  }
+
+  const matchedOrderIds = new Set<string>();
+  for (const depositUpdate of depositUpdates) {
+    const matchedOrder = pendingOrders.find(
+      (order) => order.toTxId === depositUpdate.hash,
+    );
+
+    if (matchedOrder) {
+      matchedOrderIds.add(matchedOrder.fromTxId);
+    }
+  }
+
+  if (matchedOrderIds.size > 0) {
+    await perpsDepositOrderAtom.set((prev) => ({
+      ...prev,
+      orders: prev.orders.filter(
+        (order) => !matchedOrderIds.has(order.fromTxId),
+      ),
+    }));
+  }
+}
 
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private orderBookTickOptionsLoaded = false;
@@ -476,79 +551,103 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             !PERPS_FILTERED_LEDGER_TYPES.has(update.delta.type as string),
         );
 
+        const current = get(perpsLedgerUpdatesAtom());
+        const existingUpdates =
+          current.accountAddress === activeAccountAddress
+            ? current.updates || []
+            : [];
+        const existingKeys = new Set(
+          existingUpdates.map((update) => getLedgerUpdateKey(update)),
+        );
+        const newUpdates = incomingUpdates.filter((update) => {
+          return !existingKeys.has(getLedgerUpdateKey(update));
+        });
+        let isLoaded = false;
         if (isSnapshot) {
-          const sortedUpdates = [...incomingUpdates]
-            .toSorted((a, b) => b.time - a.time)
-            .slice(0, 200);
-          set(perpsLedgerUpdatesAtom(), {
-            accountAddress: activeAccountAddress,
-            updates: sortedUpdates,
-            isSubscribed: true,
-          });
-        } else {
-          const current = get(perpsLedgerUpdatesAtom());
-          const existingUpdates = current.updates || [];
-          const existingHashes = new Set(
-            existingUpdates.map((update) => update.hash),
-          );
-          const newUpdates = incomingUpdates.filter(
-            (update) => !existingHashes.has(update.hash),
-          );
-          const mergedUpdates = [...newUpdates, ...existingUpdates];
-          const sortedUpdates = mergedUpdates
-            .toSorted((a, b) => b.time - a.time)
-            .slice(0, 200);
-
-          set(perpsLedgerUpdatesAtom(), {
-            accountAddress: activeAccountAddress,
-            updates: sortedUpdates,
-            isSubscribed: true,
-          });
-
-          // Check for deposit/send updates and match with pending orders
-          // Hyperliquid use 'send' type for deposit confirmations
-          const depositUpdates = newUpdates.filter(
-            (update) =>
-              update.delta.type === 'deposit' ||
-              (update.delta.type as string) === 'send',
-          );
-          if (depositUpdates.length > 0) {
-            const perpDepositOrder = await perpsDepositOrderAtom.get();
-            const pendingOrders = perpDepositOrder.orders.filter(
-              (order) => order.toTxId,
-            );
-
-            if (pendingOrders.length > 0) {
-              const matchedOrderIds = new Set<string>();
-
-              for (const depositUpdate of depositUpdates) {
-                const matchedOrder = pendingOrders.find(
-                  (order) => order.toTxId === depositUpdate.hash,
-                );
-
-                if (matchedOrder) {
-                  matchedOrderIds.add(matchedOrder.fromTxId);
-                }
-              }
-
-              // Remove matched orders from the atom
-              if (matchedOrderIds.size > 0) {
-                await perpsDepositOrderAtom.set((prev) => ({
-                  ...prev,
-                  orders: prev.orders.filter(
-                    (order) => !matchedOrderIds.has(order.fromTxId),
-                  ),
-                }));
-              }
-            }
-          }
+          isLoaded = true;
+        } else if (current.accountAddress === activeAccountAddress) {
+          isLoaded = current.isLoaded;
         }
-      } else {
+
+        set(perpsLedgerUpdatesAtom(), {
+          accountAddress: activeAccountAddress,
+          updates: mergeLedgerUpdates(incomingUpdates, existingUpdates),
+          isLoaded,
+        });
+
+        await clearMatchedDepositOrders(newUpdates);
+      }
+    },
+  );
+
+  loadLedgerUpdatesByRest = contextAtomMethod(
+    async (get, set, params?: { force?: boolean }) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress;
+      const normalizedAccountAddress = activeAccountAddress?.toLowerCase();
+      const current = get(perpsLedgerUpdatesAtom());
+
+      if (!activeAccountAddress || !normalizedAccountAddress) {
         set(perpsLedgerUpdatesAtom(), {
           accountAddress: undefined,
           updates: [],
-          isSubscribed: true,
+          isLoaded: true,
         });
+        return;
+      }
+
+      if (
+        !params?.force &&
+        current.accountAddress === normalizedAccountAddress &&
+        current.isLoaded
+      ) {
+        return;
+      }
+
+      set(perpsLedgerUpdatesAtom(), {
+        accountAddress: normalizedAccountAddress,
+        updates:
+          current.accountAddress === normalizedAccountAddress
+            ? current.updates
+            : [],
+        isLoaded: false,
+      });
+
+      try {
+        const updates =
+          await backgroundApiProxy.serviceHyperliquid.getUserNonFundingLedgerUpdates(
+            activeAccountAddress,
+          );
+        const latestActiveAccount = await perpsActiveAccountAtom.get();
+        if (
+          latestActiveAccount?.accountAddress?.toLowerCase() !==
+          normalizedAccountAddress
+        ) {
+          return;
+        }
+
+        // Merge with the latest atom after REST returns so WS updates received
+        // during the request are preserved.
+        const latestCurrent = get(perpsLedgerUpdatesAtom());
+        const mergedUpdates =
+          latestCurrent.accountAddress === normalizedAccountAddress
+            ? mergeLedgerUpdates(updates, latestCurrent.updates)
+            : updates;
+
+        set(perpsLedgerUpdatesAtom(), {
+          accountAddress: normalizedAccountAddress,
+          updates: mergedUpdates,
+          isLoaded: true,
+        });
+        await clearMatchedDepositOrders(mergedUpdates);
+      } catch (error) {
+        defaultLogger.app.error.log(
+          `Failed to load perp account history: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        // Keep loading state intact. This path represents a real request failure,
+        // not a successful empty history.
       }
     },
   );
@@ -734,14 +833,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     async (get, set, { coin, force }: { coin: string; force?: boolean }) => {
       const activeAsset = await perpsActiveAssetAtom.get();
       if (activeAsset?.coin === coin && !force) {
-        const next = await this._buildActiveTradeInstrument('perp');
-        const prev = get(activeTradeInstrumentAtom());
-        if (
-          !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
-        ) {
-          set(activeTradeInstrumentAtom(), next);
+        // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
+        // mode already matches, otherwise the trading panel keeps the
+        // previous mode's layout when switching back with an unchanged coin.
+        const currentMode = await tradingModeAtom.get();
+        if (currentMode === 'perp') {
+          const next = await this._buildActiveTradeInstrument('perp');
+          const prev = get(activeTradeInstrumentAtom());
+          if (
+            !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
+          ) {
+            set(activeTradeInstrumentAtom(), next);
+          }
+          return;
         }
-        return;
       }
 
       const form = get(tradingFormAtom());
@@ -1046,11 +1151,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     });
     perpsOpenOrdersByCoinAtomCache.clear();
     this.canceledOrderIds.clear();
-    const current = get(perpsLedgerUpdatesAtom());
     set(perpsLedgerUpdatesAtom(), {
       accountAddress: undefined,
       updates: [],
-      isSubscribed: current.isSubscribed,
+      isLoaded: false,
     });
     await perpsActiveAccountSummaryAtom.set(undefined);
     await perpsActiveAccountStatusInfoAtom.set(undefined);
@@ -1079,7 +1183,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     set(perpsLedgerUpdatesAtom(), {
       accountAddress: undefined,
       updates: [],
-      isSubscribed: false,
+      isLoaded: false,
     });
     this.canceledOrderIds.clear();
     await this.changeActiveAsset.call(set, { coin: 'ETH', force: true });
@@ -1986,6 +2090,7 @@ export function useHyperliquidActions() {
   const updateAllMids = actions.updateAllMids.use();
   const updateWebData2 = actions.updateWebData2.use();
   const updateLedgerUpdates = actions.updateLedgerUpdates.use();
+  const loadLedgerUpdatesByRest = actions.loadLedgerUpdatesByRest.use();
   const markAllAssetCtxsRequired = actions.markAllAssetCtxsRequired.use();
   const markAllAssetCtxsNotRequired = actions.markAllAssetCtxsNotRequired.use();
   const updateL2Book = actions.updateL2Book.use();
@@ -2046,6 +2151,7 @@ export function useHyperliquidActions() {
     markAllAssetCtxsNotRequired,
     updateWebData2,
     updateLedgerUpdates,
+    loadLedgerUpdatesByRest,
     updateL2Book,
     updateBbo,
     updateConnectionState,

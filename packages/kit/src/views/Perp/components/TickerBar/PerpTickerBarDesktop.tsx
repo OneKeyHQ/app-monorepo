@@ -19,6 +19,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import {
   usePerpsActiveAssetCtxAtom,
   useTradingModeAtom,
@@ -420,19 +421,33 @@ const TickerBarSpotContractView = memo(
                 fontFamily="$monoRegular"
                 color="$text"
                 numberOfLines={1}
+                textTransform="none"
               >
                 {shortenedContract}
               </SizableText>
               {contract ? (
-                <IconButton
-                  size="small"
-                  variant="tertiary"
-                  icon="Copy3Outline"
-                  iconProps={{ size: '$3', color: '$iconSubdued' }}
-                  onPress={() => {
-                    copyText(contract);
-                  }}
-                />
+                <>
+                  <IconButton
+                    size="small"
+                    variant="tertiary"
+                    icon="Copy3Outline"
+                    iconProps={{ size: '$3', color: '$iconSubdued' }}
+                    onPress={() => {
+                      copyText(contract);
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    variant="tertiary"
+                    icon="OpenOutline"
+                    iconProps={{ size: '$3', color: '$iconSubdued' }}
+                    onPress={() => {
+                      void openHyperLiquidTokenExplorerUrl({
+                        tokenId: contract,
+                      });
+                    }}
+                  />
+                </>
               ) : null}
             </XStack>
           </SkeletonContainer>
