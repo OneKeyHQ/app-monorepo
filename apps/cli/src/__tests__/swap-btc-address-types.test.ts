@@ -348,7 +348,10 @@ describe('swap BTC address type metadata', () => {
           providerName: 'Test Provider',
         },
       },
-      tx: { to: '0xrouter', data: '0x1234' },
+      btcData: {
+        hexStr: '70736274ff0100',
+        addressType: ['taproot'],
+      },
     });
 
     const result = await runCommand(registerSwapCommands(), [
@@ -380,7 +383,12 @@ describe('swap BTC address type metadata', () => {
     expect(buildBody.userAddress).toBe('bc1psourceaddress');
 
     const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.data.hasTxData).toBe(true);
     const order = loadPending(parsed.data.orderId);
+    expect(order.txData.btcData).toEqual({
+      hexStr: '70736274ff0100',
+      addressType: ['taproot'],
+    });
     expect(order.btcAddressing?.from).toEqual(
       expect.objectContaining({
         addressType: 'taproot',
@@ -388,6 +396,49 @@ describe('swap BTC address type metadata', () => {
         path: "m/86'/0'/0'/0/0",
       }),
     );
+  });
+
+  it('rejects BTC source build response without tx or valid btcData', async () => {
+    mockQuoteSse({
+      fromNetworkId: 'btc--0',
+      toNetworkId: 'evm--1',
+      fromTokenAddress: '',
+      toTokenAddress: '',
+    });
+    mockPost.mockResolvedValueOnce({
+      result: {
+        info: {
+          provider: 'test-provider',
+          providerName: 'Test Provider',
+        },
+      },
+      btcData: {
+        addressType: ['taproot'],
+      },
+    });
+
+    const result = await runCommand(registerSwapCommands(), [
+      'swap',
+      'build',
+      '--chain',
+      'btc',
+      '--to-chain',
+      'eth',
+      '--from',
+      'BTC',
+      '--to',
+      'ETH',
+      '--amount',
+      '0.01',
+      '--from-address-type',
+      'taproot',
+    ]);
+
+    expect(result.exitCode).not.toBe(0);
+
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.error.code).toBe('BIZ_SWAP_FAILED');
+    expect(parsed.error.message).toContain('btcData');
   });
 
   it('rejects corrupted pending orders with non-object btcAddressing', () => {

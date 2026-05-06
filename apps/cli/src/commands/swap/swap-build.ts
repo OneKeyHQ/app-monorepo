@@ -56,8 +56,28 @@ interface IBuildTxResult {
 interface IBuildTxResponse {
   result: IBuildTxResult;
   tx?: Record<string, unknown> | string;
+  btcData?: {
+    hexStr?: string;
+    addressType?: unknown;
+    [key: string]: unknown;
+  };
   orderId?: string;
   [key: string]: unknown;
+}
+
+function hasValidEvmTx(response: IBuildTxResponse): boolean {
+  return Boolean(response.tx && typeof response.tx === 'object');
+}
+
+function hasValidBtcData(response: IBuildTxResponse): boolean {
+  const btcData = response.btcData;
+  return Boolean(
+    btcData &&
+      typeof btcData === 'object' &&
+      typeof btcData.hexStr === 'string' &&
+      btcData.hexStr.length > 0 &&
+      Array.isArray(btcData.addressType),
+  );
 }
 
 async function getWalletAddress(
@@ -472,11 +492,19 @@ export function registerSwapBuildCommand(parent: Command): void {
             );
           }
 
-          // Validate tx data exists and is executable
-          if (!buildTxResponse.tx || typeof buildTxResponse.tx !== 'object') {
+          // Validate executable data exists. EVM source routes require tx;
+          // BTC source routes may return PSBT data under btcData instead.
+          const isBtcSource = Boolean(btcAddressing.from);
+          const hasTxData = isBtcSource
+            ? hasValidBtcData(buildTxResponse) || hasValidEvmTx(buildTxResponse)
+            : hasValidEvmTx(buildTxResponse);
+
+          if (!hasTxData) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
-              'Build-tx API returned success but tx data is missing',
+              isBtcSource
+                ? 'Build-tx API returned success but BTC btcData.hexStr is missing'
+                : 'Build-tx API returned success but tx data is missing',
               'Try a different provider or amount',
             );
           }
@@ -539,7 +567,7 @@ export function registerSwapBuildCommand(parent: Command): void {
               amountSmallestUnit: fromTokenAmountSmallest,
               slippage,
               walletAddress,
-              hasTxData: buildTxResponse.tx !== undefined,
+              hasTxData,
               allowanceResult:
                 matchedQuote.allowanceResult ??
                 buildTxResponse.result?.allowanceResult ??
