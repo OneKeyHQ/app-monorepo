@@ -107,12 +107,14 @@ export function AvailableAssetsTabViewList() {
       isFixedRateTab
         ? [
             {
-              label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
+              label: intl.formatMessage({
+                id: ETranslations.defi_yield_high_to_low,
+              }),
               value: 'yield',
             },
             {
               label: intl.formatMessage({
-                id: ETranslations.dexmarket_details_liquidity_change_total,
+                id: ETranslations.defi_liquidity_high_to_low,
               }),
               value: 'liquidity',
             },
@@ -417,52 +419,68 @@ export function AvailableAssetsTabViewList() {
     [navigateToAsset, selectedTabType],
   );
 
+  const totalLiquidityLabel = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.dexmarket_details_liquidity_change_total,
+      }),
+    [intl],
+  );
+
   // Mobile custom renderer
   const mobileRenderItem = useCallback(
-    (asset: IEarnAvailableAsset) => (
-      <ListItem
-        userSelect="none"
-        onPress={() => handleRowPress(asset)}
-        renderAvatar={
-          <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
-        }
-      >
-        <ListItem.Text
-          flex={1}
-          primary={
-            <XStack gap="$2" ai="center">
-              <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
-              <XStack gap="$1">
-                {asset.badges?.map((badge) => (
-                  <Badge
-                    key={badge.tag}
-                    badgeType={badge.badgeType}
-                    badgeSize="sm"
-                    userSelect="none"
-                  >
-                    <Badge.Text>{badge.tag}</Badge.Text>
-                  </Badge>
-                ))}
-              </XStack>
-            </XStack>
+    (asset: IEarnAvailableAsset) => {
+      const showLiquidity = isFixedRateTab && Boolean(asset.liquidity);
+      return (
+        <ListItem
+          userSelect="none"
+          onPress={() => handleRowPress(asset)}
+          renderAvatar={
+            <Token
+              size="md"
+              tokenImageUri={asset.logoURI}
+              borderRadius="$full"
+            />
           }
-        />
-        <XStack flex={1} ai="center" jc="flex-end">
-          <YStack flexShrink={0} ai="flex-end">
+        >
+          <ListItem.Text
+            flex={1}
+            primary={
+              <XStack gap="$2" ai="center">
+                <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+                <XStack gap="$1">
+                  {asset.badges?.map((badge) => (
+                    <Badge
+                      key={badge.tag}
+                      badgeType={badge.badgeType}
+                      badgeSize="sm"
+                      userSelect="none"
+                    >
+                      <Badge.Text>{badge.tag}</Badge.Text>
+                    </Badge>
+                  ))}
+                </XStack>
+              </XStack>
+            }
+            secondary={
+              showLiquidity ? (
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {`${totalLiquidityLabel} ${asset.liquidity ?? ''}`}
+                </SizableText>
+              ) : undefined
+            }
+          />
+          <XStack flex={1} ai="center" jc="flex-end">
             <AprText asset={asset} />
-            {isFixedRateTab && asset.liquidity ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.dexmarket_details_liquidity_change_total,
-                })}
-                : {asset.liquidity}
-              </SizableText>
-            ) : null}
-          </YStack>
-        </XStack>
-      </ListItem>
-    ),
-    [handleRowPress, intl, isFixedRateTab],
+          </XStack>
+        </ListItem>
+      );
+    },
+    [handleRowPress, isFixedRateTab, totalLiquidityLabel],
   );
 
   // Memoize keyExtractor for TableList
