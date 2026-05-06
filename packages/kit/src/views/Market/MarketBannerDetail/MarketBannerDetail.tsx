@@ -214,9 +214,14 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     // iOS 26 mobile uses the native UINavigationBar so the header gets
     // Liquid Glass material and the system back chevron. Don't pass
     // headerLeft — HeaderScreenOptions wires the system back button.
+    // headerShown is set explicitly because this route can also be
+    // reached as a modal (EModalMarketRoutes.MarketBannerDetail) where
+    // the modal-stack's screenOptions default to headerShown:false; the
+    // explicit prop ensures the bar renders in both navigation contexts.
     if (platformEnv.isNativeIOS26Plus) {
       return (
         <Page.Header
+          headerShown
           headerTitle={renderHeaderTitle}
           headerRight={renderNotificationButton}
         />
