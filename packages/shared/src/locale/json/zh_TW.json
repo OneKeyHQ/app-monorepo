@@ -811,6 +811,7 @@
   "dexmarket_stock.underlying_asset_name": "標的資產名稱",
   "dexmarket_stock.underlying_asset_ticker": "標的資產代碼",
   "dexmarket_stock.volume_shares": "成交量（股）",
+  "discovery.ad_label": "廣告",
   "do_not_exit_app_during_setup": "設定期間請勿退出應用程式，否則建立將會失敗",
   "dont_have_mobile_app_yet": "還沒有手機 App 嗎？",
   "downgrade_warning_checkbox_label": "我不會降級到 OneKey v4",
