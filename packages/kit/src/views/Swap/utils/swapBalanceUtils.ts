@@ -1,6 +1,11 @@
 import BigNumber from 'bignumber.js';
 
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  ISwapGasInfo,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -21,6 +26,113 @@ export type ISwapLatestBalanceCheckResult =
       requiredAmount: string;
       tokenSymbol: string;
     };
+
+type ISwapGasInfoEntry = {
+  gasInfo?: ISwapGasInfo;
+};
+
+type ISwapNativeBalanceRequirementParams = {
+  gasInfos?: ISwapGasInfoEntry[];
+  networkId?: string;
+  fromToken?: ISwapToken;
+  fromAmount?: string;
+};
+
+export type ISwapNativeBalanceRequirement = {
+  token: ISwapToken;
+  amount: string;
+};
+
+function buildNativeTokenFromGasInfo({
+  gasInfo,
+  networkId,
+  fromToken,
+}: {
+  gasInfo: ISwapGasInfo;
+  networkId?: string;
+  fromToken?: ISwapToken;
+}) {
+  if (!gasInfo.common || !networkId) {
+    return undefined;
+  }
+
+  if (fromToken?.isNative && fromToken.networkId === networkId) {
+    return fromToken;
+  }
+
+  return {
+    networkId,
+    contractAddress: '',
+    isNative: true,
+    symbol: gasInfo.common.nativeSymbol,
+    decimals: gasInfo.common.nativeDecimals,
+  } as ISwapToken;
+}
+
+export function getSwapRequiredNativeBalanceAmount({
+  gasInfos,
+  networkId,
+  fromToken,
+  fromAmount,
+}: ISwapNativeBalanceRequirementParams):
+  | ISwapNativeBalanceRequirement
+  | undefined {
+  if (!gasInfos?.length || !networkId) {
+    return undefined;
+  }
+
+  let nativeToken: ISwapToken | undefined;
+  const networkFeeAmount = gasInfos.reduce((acc, item) => {
+    if (!item.gasInfo?.common) {
+      return acc;
+    }
+
+    nativeToken =
+      nativeToken ??
+      buildNativeTokenFromGasInfo({
+        gasInfo: item.gasInfo,
+        networkId,
+        fromToken,
+      });
+
+    const { totalNative } = calculateFeeForSend({
+      feeInfo: item.gasInfo as IFeeInfoUnit,
+      nativeTokenPrice: item.gasInfo.common.nativeTokenPrice ?? 0,
+    });
+    const totalNativeBN = new BigNumber(totalNative);
+
+    if (totalNativeBN.isNaN() || !totalNativeBN.isFinite()) {
+      return acc;
+    }
+
+    return acc.plus(totalNativeBN);
+  }, new BigNumber(0));
+
+  if (!nativeToken) {
+    return undefined;
+  }
+
+  const fromAmountBN = new BigNumber(fromAmount ?? 0);
+  const shouldAddFromAmount =
+    fromToken?.isNative &&
+    fromToken.networkId === nativeToken.networkId &&
+    !fromAmountBN.isNaN() &&
+    fromAmountBN.isFinite() &&
+    fromAmountBN.gt(0);
+
+  const requiredAmount = shouldAddFromAmount
+    ? networkFeeAmount.plus(fromAmountBN)
+    : networkFeeAmount;
+
+  if (requiredAmount.lte(0)) {
+    return undefined;
+  }
+
+  return {
+    token: nativeToken,
+    amount: requiredAmount.toFixed(),
+  };
+}
 
 export async function checkSwapLatestBalanceSufficient({
   token,

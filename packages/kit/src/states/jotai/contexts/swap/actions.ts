@@ -123,6 +123,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     | ReturnType<typeof setTimeout>
     | undefined;
 
+  private limitOrderMarketPriceRequestId = 0;
+
   /**
    * Execute promises in batches with concurrency control to prevent overwhelming the system
    * This fixes iOS app hangs when fetching token lists for multiple networks simultaneously
@@ -1146,6 +1148,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   });
 
   cleanLimitOrderMarketPriceInterval = () => {
+    this.limitOrderMarketPriceRequestId += 1;
     if (this.limitOrderMarketPriceInterval) {
       clearInterval(this.limitOrderMarketPriceInterval);
       this.limitOrderMarketPriceInterval = undefined;
@@ -2258,7 +2261,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   );
 
   limitMarketPriceRun = contextAtomMethod(
-    async (get, set, fromToken?: ISwapToken, toToken?: ISwapToken) => {
+    async (
+      get,
+      set,
+      fromToken?: ISwapToken,
+      toToken?: ISwapToken,
+      requestId?: number,
+    ) => {
       try {
         if (fromToken && toToken) {
           const { fromTokenPrice, toTokenPrice } =
@@ -2266,6 +2275,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               fromToken,
               toToken,
             });
+          if (requestId !== this.limitOrderMarketPriceRequestId) {
+            return;
+          }
           const fromTokenPriceInfo = {
             tokenInfo: fromToken,
             price: fromTokenPrice || (fromToken.price ?? ''),
@@ -2283,6 +2295,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       } catch (error) {
         console.error(error);
       }
+      if (requestId !== this.limitOrderMarketPriceRequestId) {
+        return;
+      }
       this.limitOrderMarketPriceInterval = setTimeout(() => {
         void this.limitOrderMarketPriceIntervalAction.call(
           set,
@@ -2295,6 +2310,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   limitOrderMarketPriceIntervalAction = contextAtomMethod(
     async (get, set, fromToken?: ISwapToken, toToken?: ISwapToken) => {
+      this.limitOrderMarketPriceRequestId += 1;
+      const requestId = this.limitOrderMarketPriceRequestId;
       if (this.limitOrderMarketPriceInterval) {
         clearInterval(this.limitOrderMarketPriceInterval);
       }
@@ -2307,7 +2324,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(limitOrderMarketPriceAtom(), {});
         return;
       }
-      await this.limitMarketPriceRun.call(set, fromToken, toToken);
+      await this.limitMarketPriceRun.call(set, fromToken, toToken, requestId);
     },
   );
 

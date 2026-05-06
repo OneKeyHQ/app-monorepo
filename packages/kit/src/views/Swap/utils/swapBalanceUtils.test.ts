@@ -1,6 +1,9 @@
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { checkSwapLatestBalanceSufficient } from './swapBalanceUtils';
+import {
+  checkSwapLatestBalanceSufficient,
+  getSwapRequiredNativeBalanceAmount,
+} from './swapBalanceUtils';
 
 type IFetchSwapTokenDetailsParams = {
   networkId: string;
@@ -28,7 +31,29 @@ const ethToken = {
   networkId: 'evm--1',
   contractAddress: '',
   symbol: 'ETH',
+  decimals: 18,
+  isNative: true,
 } as ISwapToken;
+
+const usdcToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+  symbol: 'USDC',
+  decimals: 6,
+} as ISwapToken;
+
+const evmGasInfo = {
+  common: {
+    feeDecimals: 9,
+    feeSymbol: 'Gwei',
+    nativeDecimals: 18,
+    nativeSymbol: 'ETH',
+  },
+  gas: {
+    gasLimit: '21000',
+    gasPrice: '1',
+  },
+};
 
 describe('checkSwapLatestBalanceSufficient', () => {
   beforeEach(() => {
@@ -64,5 +89,41 @@ describe('checkSwapLatestBalanceSufficient', () => {
         accountAddress: '0xabc',
       }),
     ).resolves.toEqual({ isSufficient: true });
+  });
+});
+
+describe('getSwapRequiredNativeBalanceAmount', () => {
+  it('returns the required native gas amount for non-native swaps', () => {
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [{ gasInfo: evmGasInfo }],
+        networkId: 'evm--1',
+        fromToken: usdcToken,
+        fromAmount: '12',
+      }),
+    ).toEqual({
+      token: {
+        networkId: 'evm--1',
+        contractAddress: '',
+        isNative: true,
+        symbol: 'ETH',
+        decimals: 18,
+      },
+      amount: '0.000021',
+    });
+  });
+
+  it('adds the sending amount when the from token is native', () => {
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [{ gasInfo: evmGasInfo }],
+        networkId: 'evm--1',
+        fromToken: ethToken,
+        fromAmount: '0.1',
+      }),
+    ).toEqual({
+      token: ethToken,
+      amount: '0.100021',
+    });
   });
 });
