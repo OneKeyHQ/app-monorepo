@@ -18,6 +18,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
@@ -116,6 +117,68 @@ function MobileDepositButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       color="$iconSubdued"
       cursor="default"
+    />
+  );
+}
+
+function SpotAvailableActionPopover({
+  onDeposit,
+  onTrade,
+  tradeLabel,
+}: {
+  onDeposit: () => void;
+  onTrade?: () => void;
+  tradeLabel?: string;
+}) {
+  const intl = useIntl();
+  return (
+    <Popover
+      title=""
+      placement="top-end"
+      floatingPanelProps={{
+        width: 320,
+      }}
+      renderTrigger={
+        <IconButton
+          testID="perp-trading-form-spot-available-action-button"
+          size="small"
+          variant="tertiary"
+          iconSize="$3.5"
+          icon="PlusCircleSolid"
+          color="$iconSubdued"
+          cursor="default"
+        />
+      }
+      renderContent={({ closePopover }) => (
+        <YStack p="$2" gap="$1">
+          <ListItem
+            icon="PlusCircleSolid"
+            title={intl.formatMessage({ id: ETranslations.global_top_up })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.perp_guide_desc_deposit_withdrawal,
+            })}
+            drillIn
+            borderRadius="$2"
+            onPress={() => {
+              closePopover();
+              onDeposit();
+            }}
+          />
+          {tradeLabel ? (
+            <ListItem
+              icon="TradeOutline"
+              title={intl.formatMessage({ id: ETranslations.global_trade })}
+              subtitle={tradeLabel}
+              drillIn
+              borderRadius="$2"
+              onPress={() => {
+                closePopover();
+                onTrade?.();
+              }}
+            />
+          ) : null}
+        </YStack>
+      )}
     />
   );
 }
@@ -477,33 +540,38 @@ function PerpTradingForm({
     spotUniverse?.baseName,
   ]);
 
-  const handleSpotAvailablePlusPress = useCallback(() => {
+  const spotAvailableToken = useMemo(() => {
+    if (!isSpot || !spotUniverse) return '';
+    return formData.side === 'long'
+      ? spotUniverse.quoteName
+      : spotUniverse.baseName;
+  }, [formData.side, isSpot, spotUniverse]);
+
+  const spotAvailableTradeUniverse = useMemo(() => {
+    if (!spotAvailableToken || spotAvailableToken === USDC_TOKEN_SYMBOL) {
+      return undefined;
+    }
+    const targetUniverse = universeByBaseName[spotAvailableToken];
+    return targetUniverse?.quoteName === USDC_TOKEN_SYMBOL
+      ? targetUniverse
+      : undefined;
+  }, [spotAvailableToken, universeByBaseName]);
+
+  const spotAvailableTradeLabel = useMemo(() => {
+    if (!spotAvailableTradeUniverse) return undefined;
+    return `${getSpotTokenDisplayName(spotAvailableTradeUniverse.baseName)}/${
+      spotAvailableTradeUniverse.quoteName
+    }`;
+  }, [spotAvailableTradeUniverse]);
+
+  const handleSpotAvailableTradePress = useCallback(() => {
+    if (!spotAvailableTradeUniverse) return;
     void (async () => {
-      if (!isSpot || !spotUniverse) {
-        await showDepositWithdrawModal('deposit');
-        return;
-      }
-
-      const availableToken =
-        formData.side === 'long'
-          ? spotUniverse.quoteName
-          : spotUniverse.baseName;
-      if (availableToken === USDC_TOKEN_SYMBOL) {
-        await showDepositWithdrawModal('deposit');
-        return;
-      }
-
-      if (formData.side === 'long') {
-        const targetUniverse = universeByBaseName[availableToken];
-        if (targetUniverse) {
-          await actions.current.switchTradeInstrument({
-            mode: 'spot',
-            coin: targetUniverse.name,
-            spotUniverse: targetUniverse,
-          });
-        }
-      }
-
+      await actions.current.switchTradeInstrument({
+        mode: 'spot',
+        coin: spotAvailableTradeUniverse.name,
+        spotUniverse: spotAvailableTradeUniverse,
+      });
       actions.current.updateTradingForm({
         side: 'long',
         size: '',
@@ -511,14 +579,11 @@ function PerpTradingForm({
         sizeInputMode: EPerpsSizeInputMode.MANUAL,
       });
     })();
-  }, [
-    actions,
-    formData.side,
-    isSpot,
-    showDepositWithdrawModal,
-    spotUniverse,
-    universeByBaseName,
-  ]);
+  }, [actions, spotAvailableTradeUniverse]);
+
+  const handleSpotAvailableDepositPress = useCallback(() => {
+    void showDepositWithdrawModal('deposit');
+  }, [showDepositWithdrawModal]);
   const handleDepositPress = useCallback(() => {
     void showDepositWithdrawModal('deposit');
   }, [showDepositWithdrawModal]);
@@ -1107,7 +1172,11 @@ function PerpTradingForm({
         </SizableText>
         <XStack alignItems="center" gap="$1">
           <SizableText size="$bodySmMedium">{spotAvailableDisplay}</SizableText>
-          <MobileDepositButton onPress={handleSpotAvailablePlusPress} />
+          <SpotAvailableActionPopover
+            onDeposit={handleSpotAvailableDepositPress}
+            onTrade={handleSpotAvailableTradePress}
+            tradeLabel={spotAvailableTradeLabel}
+          />
         </XStack>
       </XStack>
 
