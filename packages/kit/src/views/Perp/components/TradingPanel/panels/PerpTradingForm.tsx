@@ -490,22 +490,34 @@ function PerpTradingForm({
 
   const spotMaxTradeDisplay = useMemo(() => {
     if (!isSpot) return '';
-    const maxSize =
-      formData.side === 'long'
-        ? (spotMaxTradeSzs?.[0] ?? '0')
-        : spotAvailableBaseBN.toFixed(sizeSzDecimals, BigNumber.ROUND_DOWN);
-    return `${maxSize ?? '0'} ${
-      spotUniverse?.baseName
-        ? getSpotTokenDisplayName(spotUniverse.baseName)
-        : ''
+    if (formData.side === 'long') {
+      return `${spotMaxTradeSzs?.[0] ?? '0'} ${
+        spotUniverse?.baseName
+          ? getSpotTokenDisplayName(spotUniverse.baseName)
+          : ''
+      }`;
+    }
+    let effectiveSpotPriceBN = new BigNumber(0);
+    if (orderPriceBN.isFinite() && orderPriceBN.gt(0)) {
+      effectiveSpotPriceBN = orderPriceBN;
+    } else if (midPriceBN.isFinite() && midPriceBN.gt(0)) {
+      effectiveSpotPriceBN = midPriceBN;
+    }
+    const maxSellQuoteBN = effectiveSpotPriceBN.gt(0)
+      ? spotAvailableBaseBN.multipliedBy(effectiveSpotPriceBN)
+      : new BigNumber(0);
+    return `${maxSellQuoteBN.toFixed(2, BigNumber.ROUND_DOWN)} ${
+      spotUniverse?.quoteName ?? ''
     }`;
   }, [
     formData.side,
     isSpot,
-    sizeSzDecimals,
+    midPriceBN,
+    orderPriceBN,
     spotAvailableBaseBN,
     spotMaxTradeSzs,
     spotUniverse?.baseName,
+    spotUniverse?.quoteName,
   ]);
 
   const handleSideChange = useCallback(
