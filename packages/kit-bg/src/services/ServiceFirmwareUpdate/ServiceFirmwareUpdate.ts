@@ -1387,7 +1387,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async updateTasksClear(reason: string) {
-    await Promise.all([
+    await Promise.all(
       Object.keys(this.updateTasks).map(async (id) => {
         await this.updateTasksReject({
           id,
@@ -1396,7 +1396,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           }),
         });
       }),
-    ]);
+    );
     this.updateTasks = {};
   }
 
