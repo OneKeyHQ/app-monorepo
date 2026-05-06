@@ -9,7 +9,9 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
+import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type {
+  IEstimateFeeParams,
   IFeeAlgo,
   IFeeCkb,
   IFeeDot,
@@ -32,6 +34,8 @@ import type {
 
 import { isEncodedTxMatch } from './marketEncodedTxUtils';
 
+import type { IMarketPresetPriorityFeeOverride } from './marketPresetSettings';
+
 export type IMarketGasInfoEntry = {
   encodeTx: IEncodedTx;
   gasInfo: ISwapGasInfo;
@@ -45,6 +49,7 @@ type IMarketDirectSendParams = {
   approveUnsignedTxArr?: IUnsignedTxPro[];
   gasInfos?: IMarketGasInfoEntry[];
   networkFeeLevel?: ESwapNetworkFeeLevel;
+  customPriorityFee?: IMarketPresetPriorityFeeOverride;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   useDefaultRpc?: boolean;
 };
@@ -125,19 +130,25 @@ function buildGasInfo(
     nativeTokenPrice?: number;
   },
   networkFeeLevel?: ESwapNetworkFeeLevel,
+  customPriorityFee?: IMarketPresetPriorityFeeOverride,
+  estimateFeeParams?: IEstimateFeeParams,
 ): ISwapGasInfo {
-  return {
-    common: gasCommon,
-    gas: pickFeeLevelValue(gasRes.gas, networkFeeLevel),
-    gasEIP1559: pickFeeLevelValue(gasRes.gasEIP1559, networkFeeLevel),
-    feeUTXO: pickFeeLevelValue(gasRes.feeUTXO, networkFeeLevel),
-    feeTron: pickTronFeeLevelValue(gasRes.feeTron, networkFeeLevel),
-    feeSol: pickFeeLevelValue(gasRes.feeSol, networkFeeLevel),
-    feeCkb: pickFeeLevelValue(gasRes.feeCkb, networkFeeLevel),
-    feeAlgo: pickFeeLevelValue(gasRes.feeAlgo, networkFeeLevel),
-    feeDot: pickFeeLevelValue(gasRes.feeDot, networkFeeLevel),
-    feeBudget: pickFeeLevelValue(gasRes.feeBudget, networkFeeLevel),
-  };
+  return applyCustomPriorityFeeToGasInfo({
+    gasInfo: {
+      common: gasCommon,
+      gas: pickFeeLevelValue(gasRes.gas, networkFeeLevel),
+      gasEIP1559: pickFeeLevelValue(gasRes.gasEIP1559, networkFeeLevel),
+      feeUTXO: pickFeeLevelValue(gasRes.feeUTXO, networkFeeLevel),
+      feeTron: pickTronFeeLevelValue(gasRes.feeTron, networkFeeLevel),
+      feeSol: pickFeeLevelValue(gasRes.feeSol, networkFeeLevel),
+      feeCkb: pickFeeLevelValue(gasRes.feeCkb, networkFeeLevel),
+      feeAlgo: pickFeeLevelValue(gasRes.feeAlgo, networkFeeLevel),
+      feeDot: pickFeeLevelValue(gasRes.feeDot, networkFeeLevel),
+      feeBudget: pickFeeLevelValue(gasRes.feeBudget, networkFeeLevel),
+    },
+    customPriorityFee,
+    estimateFeeParams,
+  });
 }
 
 async function estimateUnsignedTxGasInfo({
@@ -146,12 +157,14 @@ async function estimateUnsignedTxGasInfo({
   networkId,
   unsignedTxItem,
   networkFeeLevel,
+  customPriorityFee,
 }: {
   accountAddress: string;
   accountId: string;
   networkId: string;
   unsignedTxItem: IUnsignedTxPro;
   networkFeeLevel?: ESwapNetworkFeeLevel;
+  customPriorityFee?: IMarketPresetPriorityFeeOverride;
 }) {
   const estimateFeeParams =
     await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -166,7 +179,13 @@ async function estimateUnsignedTxGasInfo({
     accountId,
   });
 
-  return buildGasInfo(gasRes, gasRes.common, networkFeeLevel);
+  return buildGasInfo(
+    gasRes,
+    gasRes.common,
+    networkFeeLevel,
+    customPriorityFee,
+    estimateFeeParams.estimateFeeParams,
+  );
 }
 
 async function resolveMarketGasInfosSequentially({
@@ -176,6 +195,7 @@ async function resolveMarketGasInfosSequentially({
   unsignedTx,
   approveUnsignedTxArr,
   networkFeeLevel,
+  customPriorityFee,
 }: {
   accountAddress: string;
   accountId: string;
@@ -183,6 +203,7 @@ async function resolveMarketGasInfosSequentially({
   unsignedTx: IUnsignedTxPro;
   approveUnsignedTxArr?: IUnsignedTxPro[];
   networkFeeLevel?: ESwapNetworkFeeLevel;
+  customPriorityFee?: IMarketPresetPriorityFeeOverride;
 }): Promise<IMarketGasInfoEntry[]> {
   const gasInfos: IMarketGasInfoEntry[] = [];
   const unsignedTxArr = buildUnsignedTxArr({
@@ -259,6 +280,7 @@ async function resolveMarketGasInfosSequentially({
           networkId,
           unsignedTxItem,
           networkFeeLevel,
+          customPriorityFee,
         });
 
         if (i === unsignedTxArr.length - 2) {
@@ -284,6 +306,7 @@ async function resolveMarketGasInfosSequentially({
         networkId,
         unsignedTxItem: unsignedTx,
         networkFeeLevel,
+        customPriorityFee,
       }),
     },
   ];
@@ -296,6 +319,7 @@ async function resolveMarketGasInfos({
   unsignedTx,
   approveUnsignedTxArr,
   networkFeeLevel,
+  customPriorityFee,
 }: {
   accountAddress: string;
   accountId: string;
@@ -303,6 +327,7 @@ async function resolveMarketGasInfos({
   unsignedTx: IUnsignedTxPro;
   approveUnsignedTxArr?: IUnsignedTxPro[];
   networkFeeLevel?: ESwapNetworkFeeLevel;
+  customPriorityFee?: IMarketPresetPriorityFeeOverride;
 }): Promise<IMarketGasInfoEntry[]> {
   const unsignedTxArr = buildUnsignedTxArr({
     unsignedTx,
@@ -341,6 +366,7 @@ async function resolveMarketGasInfos({
         unsignedTx,
         approveUnsignedTxArr,
         networkFeeLevel,
+        customPriorityFee,
       });
     }
 
@@ -350,6 +376,8 @@ async function resolveMarketGasInfos({
         gasResArr.txFees[index],
         gasResArr.common,
         networkFeeLevel,
+        customPriorityFee,
+        estimateFeeParamsArr[index].estimateFeeParams,
       ),
     }));
   }
@@ -361,6 +389,7 @@ async function resolveMarketGasInfos({
     unsignedTx,
     approveUnsignedTxArr,
     networkFeeLevel,
+    customPriorityFee,
   });
 }
 
@@ -370,12 +399,14 @@ async function resolveExactUnsignedTxGasInfos({
   networkId,
   unsignedTxArr,
   networkFeeLevel,
+  customPriorityFee,
 }: {
   accountAddress: string;
   accountId: string;
   networkId: string;
   unsignedTxArr: IUnsignedTxPro[];
   networkFeeLevel?: ESwapNetworkFeeLevel;
+  customPriorityFee?: IMarketPresetPriorityFeeOverride;
 }): Promise<IMarketGasInfoEntry[]> {
   const gasInfos: IMarketGasInfoEntry[] = [];
   const vaultSettings =
@@ -412,6 +443,7 @@ async function resolveExactUnsignedTxGasInfos({
           networkId,
           unsignedTxItem,
           networkFeeLevel,
+          customPriorityFee,
         });
 
         fallbackGasInfos.push({
@@ -429,6 +461,8 @@ async function resolveExactUnsignedTxGasInfos({
         gasResArr.txFees[index],
         gasResArr.common,
         networkFeeLevel,
+        customPriorityFee,
+        estimateFeeParamsArr[index].estimateFeeParams,
       ),
     }));
   }
@@ -442,6 +476,7 @@ async function resolveExactUnsignedTxGasInfos({
         networkId,
         unsignedTxItem,
         networkFeeLevel,
+        customPriorityFee,
       }),
     });
   }
@@ -466,6 +501,32 @@ function buildGasFeeFiatValue(gasInfos: IMarketGasInfoEntry[]) {
   return gasFeeFiatValue.isZero() ? undefined : gasFeeFiatValue.toFixed();
 }
 
+export function buildMarketGasInfoFeeInfo(gasInfo: ISwapGasInfo): IFeeInfoUnit {
+  if (!gasInfo.common) {
+    throw new OneKeyError('gasInfo.common is required');
+  }
+
+  return {
+    common: {
+      baseFee: gasInfo.common.baseFee,
+      feeDecimals: gasInfo.common.feeDecimals,
+      feeSymbol: gasInfo.common.feeSymbol,
+      nativeDecimals: gasInfo.common.nativeDecimals,
+      nativeSymbol: gasInfo.common.nativeSymbol,
+      nativeTokenPrice: gasInfo.common.nativeTokenPrice,
+    },
+    gas: gasInfo.gas,
+    gasEIP1559: gasInfo.gasEIP1559,
+    feeUTXO: gasInfo.feeUTXO,
+    feeTron: gasInfo.feeTron,
+    feeSol: gasInfo.feeSol,
+    feeCkb: gasInfo.feeCkb,
+    feeAlgo: gasInfo.feeAlgo,
+    feeDot: gasInfo.feeDot,
+    feeBudget: gasInfo.feeBudget,
+  };
+}
+
 export async function estimateMarketDirectGasInfos({
   accountAddress,
   accountId,
@@ -473,6 +534,7 @@ export async function estimateMarketDirectGasInfos({
   buildUnsignedParams,
   approveUnsignedTxArr,
   networkFeeLevel,
+  customPriorityFee,
 }: IEstimateMarketDirectGasInfosParams): Promise<{
   gasInfos: IMarketGasInfoEntry[];
   gasFeeFiatValue?: string;
@@ -501,6 +563,7 @@ export async function estimateMarketDirectGasInfos({
     unsignedTx,
     approveUnsignedTxArr,
     networkFeeLevel,
+    customPriorityFee,
   });
 
   return {
@@ -516,12 +579,14 @@ export async function estimateMarketApproveGasInfos({
   networkId,
   approveUnsignedTxArr,
   networkFeeLevel,
+  customPriorityFee,
 }: {
   accountAddress: string;
   accountId: string;
   networkId: string;
   approveUnsignedTxArr: IUnsignedTxPro[];
   networkFeeLevel?: ESwapNetworkFeeLevel;
+  customPriorityFee?: IMarketPresetPriorityFeeOverride;
 }): Promise<{
   gasInfos: IMarketGasInfoEntry[];
   gasFeeFiatValue?: string;
@@ -543,6 +608,7 @@ export async function estimateMarketApproveGasInfos({
     networkId,
     unsignedTxArr: approveUnsignedTxArr,
     networkFeeLevel,
+    customPriorityFee,
   });
 
   return {
@@ -566,34 +632,14 @@ async function updateUnsignedTxAndSendTx({
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   useDefaultRpc?: boolean;
 }): Promise<ISendTxOnSuccessData> {
-  if (!gasInfo.common) {
-    throw new OneKeyError('gasInfo.common is required');
-  }
+  const feeInfo = buildMarketGasInfoFeeInfo(gasInfo);
 
   const updatedUnsignedTxItem =
     await backgroundApiProxy.serviceSend.updateUnsignedTx({
       networkId,
       accountId,
       unsignedTx: unsignedTxItem,
-      feeInfo: {
-        common: {
-          baseFee: gasInfo.common.baseFee,
-          feeDecimals: gasInfo.common.feeDecimals,
-          feeSymbol: gasInfo.common.feeSymbol,
-          nativeDecimals: gasInfo.common.nativeDecimals,
-          nativeSymbol: gasInfo.common.nativeSymbol,
-          nativeTokenPrice: gasInfo.common.nativeTokenPrice,
-        },
-        gas: gasInfo.gas,
-        gasEIP1559: gasInfo.gasEIP1559,
-        feeUTXO: gasInfo.feeUTXO,
-        feeTron: gasInfo.feeTron,
-        feeSol: gasInfo.feeSol,
-        feeCkb: gasInfo.feeCkb,
-        feeAlgo: gasInfo.feeAlgo,
-        feeDot: gasInfo.feeDot,
-        feeBudget: gasInfo.feeBudget,
-      },
+      feeInfo,
       tronResourceRentalInfo,
     });
 
@@ -618,8 +664,8 @@ async function updateUnsignedTxAndSendTx({
     totalFiatForDisplay,
     totalNativeForDisplay,
   } = calculateFeeForSend({
-    feeInfo: gasInfo as IFeeInfoUnit,
-    nativeTokenPrice: gasInfo.common.nativeTokenPrice ?? 0,
+    feeInfo,
+    nativeTokenPrice: feeInfo.common.nativeTokenPrice ?? 0,
   });
 
   await backgroundApiProxy.serviceTransaction.verifyTransaction({
@@ -628,7 +674,7 @@ async function updateUnsignedTxAndSendTx({
     verifyTxTasks: ['feeInfo'],
     verifyTxFeeInfoParams: {
       feeAmount: totalNative,
-      feeTokenSymbol: gasInfo.common.nativeSymbol,
+      feeTokenSymbol: feeInfo.common.nativeSymbol,
       doubleConfirm: true,
     },
     encodedTx: updatedUnsignedTxItem.encodedTx,
@@ -648,7 +694,7 @@ async function updateUnsignedTxAndSendTx({
     accountId,
     unsignedTx: updatedUnsignedTxItem,
     feeInfo: {
-      feeInfo: gasInfo as IFeeInfoUnit,
+      feeInfo,
       total,
       totalNative,
       totalFiat,
@@ -665,7 +711,7 @@ async function updateUnsignedTxAndSendTx({
       signedTx,
       decodedTx,
       approveInfo: updatedUnsignedTxItem.approveInfo,
-      feeInfo: gasInfo as IFeeInfoUnit,
+      feeInfo,
     },
   });
 
@@ -673,7 +719,7 @@ async function updateUnsignedTxAndSendTx({
     signedTx,
     decodedTx,
     approveInfo: updatedUnsignedTxItem.approveInfo,
-    feeInfo: gasInfo as IFeeInfoUnit,
+    feeInfo,
   };
 
   const vaultSettings =
@@ -700,6 +746,7 @@ export async function sendMarketDirectUnsignedTxs({
   approveUnsignedTxArr,
   gasInfos = [],
   networkFeeLevel,
+  customPriorityFee,
   tronResourceRentalInfo,
   useDefaultRpc,
 }: IMarketDirectSendParams): Promise<ISendTxOnSuccessData[]> {
@@ -734,6 +781,7 @@ export async function sendMarketDirectUnsignedTxs({
       unsignedTx,
       approveUnsignedTxArr,
       networkFeeLevel,
+      customPriorityFee,
     });
   }
 

@@ -18,6 +18,7 @@ import type {
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { ActionButton } from './components/ActionButton';
+import { MarketPresetSelector } from './components/MarketPresetSelector';
 import { RateDisplay } from './components/RateDisplay';
 import SellForSelector from './components/SellForSelector';
 import { SlippageSetting } from './components/SlippageSetting';
@@ -29,6 +30,8 @@ import {
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { useSwapAnalytics } from './hooks/useSwapAnalytics';
 import { ESwapDirection } from './hooks/useTradeType';
+
+import type { IMarketPresetSettingsState } from './hooks/useMarketPresetSettings';
 
 export type ISwapPanelContentProps = {
   swapPanel: ReturnType<typeof useSwapPanel>;
@@ -64,6 +67,7 @@ export type ISwapPanelContentProps = {
   activeAccount: IAccountSelectorActiveAccountInfo;
   speedCheckError?: string;
   disableNativeToken?: boolean;
+  marketPresetSettings?: IMarketPresetSettingsState;
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -88,6 +92,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     currentMarketToken,
     speedCheckError,
     disableNativeToken,
+    marketPresetSettings,
   } = props;
 
   const {
@@ -122,6 +127,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   if (sellAmount !== sellAmountRef.current) {
     sellAmountRef.current = sellAmount;
   }
+  const showMarketPresetSelector =
+    !isWrapped && !!marketPresetSettings?.enabled;
+  const suppressStandaloneSlippage =
+    isWrapped || showMarketPresetSelector || !!marketPresetSettings?.isLoading;
 
   const currentInputAmount = useMemo(() => {
     return tradeType === ESwapDirection.BUY ? paymentAmount : sellAmount;
@@ -304,6 +313,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         </SizableText>
       ) : null}
 
+      {showMarketPresetSelector && marketPresetSettings ? (
+        <MarketPresetSelector presetSettings={marketPresetSettings} />
+      ) : null}
+
       <ActionButton
         supportSpeedSwap={!!supportSpeedSwap?.enabled}
         onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
@@ -330,7 +343,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       />
 
       {/* Slippage setting */}
-      {isWrapped ? null : (
+      {suppressStandaloneSlippage ? null : (
         <SlippageSetting
           autoDefaultValue={slippageAutoValue}
           isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
