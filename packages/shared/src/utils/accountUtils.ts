@@ -1254,8 +1254,9 @@ type MissingDeriveTypes<T extends readonly IAccountDeriveTypes[]> = Exclude<
   IAccountDeriveTypes,
   T[number]
 >;
-const _exhaustiveCheck: never =
-  undefined as MissingDeriveTypes<typeof validDeriveTypesList>;
+const _exhaustiveCheck: never = undefined as MissingDeriveTypes<
+  typeof validDeriveTypesList
+>;
 
 function normalizeDeriveType(
   deriveType: string,
