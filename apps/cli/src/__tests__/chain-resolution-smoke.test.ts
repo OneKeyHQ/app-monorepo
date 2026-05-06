@@ -118,6 +118,15 @@ describe('chain resolution (smoke)', () => {
       expect(['ETH', 'TETH']).toContain(c.nativeSymbol);
     });
 
+    it('resolves BTC-family read-only chains', () => {
+      const btc = resolveChain('btc');
+      const tbtc = resolveChain('tbtc');
+      expect(btc.networkId).toBe('btc--0');
+      expect(btc.impl).toBe('btc');
+      expect(tbtc.networkId).toBe('tbtc--0');
+      expect(tbtc.impl).toBe('tbtc');
+    });
+
     it('resolves legacy alias "ethereum" → eth', () => {
       const c = resolveChain('ethereum');
       expect(c.networkId).toBe('evm--1');
@@ -148,8 +157,8 @@ describe('chain resolution (smoke)', () => {
       expect(config.networkId).toBe('evm--43114');
     });
 
-    it('throws for non-EVM chain "btc"', () => {
-      expect(() => resolveChain('btc')).toThrow(/unsupported/i);
+    it('throws for non-BTC non-EVM chain "sol"', () => {
+      expect(() => resolveChain('sol')).toThrow(/unsupported/i);
     });
   });
 
