@@ -24,7 +24,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
 
   // Sync tokenDetail to global atom so mobile modal can read it
   useEffect(() => {
-    if (!tokenDetail?.address || !networkId) {
+    if (!tokenDetail || tokenDetail.address === undefined || !networkId) {
       setCurrentTokenLiveData(undefined);
       return;
     }
