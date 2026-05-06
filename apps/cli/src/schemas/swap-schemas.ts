@@ -135,6 +135,9 @@ export const swapBuildOutputSchema = z.object({
 // ---- swap execute ----
 export const swapExecuteInputSchema = z.object({
   order: z.string().describe('Order ID from swap build'),
+  fromAddressType: btcAddressType
+    .optional()
+    .describe('BTC/TBTC source address type'),
   approveUnlimited: z
     .boolean()
     .optional()

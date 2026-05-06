@@ -1,4 +1,9 @@
 import { loadPending, secureCache, updatePendingStatus } from '../../core';
+import {
+  BTC_ADDRESS_TYPES,
+  getBtcAddressTypeInfo,
+  isBtcImpl,
+} from '../../core/btc/address-types';
 import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
@@ -10,6 +15,7 @@ import { resolveApproveSpender } from './resolve-approve-spender';
 import { getProtocolConfig } from './swap-protocol-config';
 
 import type { IEndpointEnv } from '../../config';
+import type { BtcAddressType } from '../../core/btc/address-types';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
@@ -61,8 +67,18 @@ interface IAllowanceResult {
   shouldResetApprove?: boolean;
 }
 
+interface IBtcBuildTxData {
+  btcData?: {
+    hexStr?: unknown;
+    addressType?: unknown;
+  };
+}
+
 // Validate tx hash: 0x + 64 hex chars
 const TX_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/;
+
+// Validate BTC txid: bare 64 hex chars
+const BTC_TX_HASH_PATTERN = /^[a-fA-F0-9]{64}$/;
 
 // Validate EVM address: 0x + 40 hex chars
 const EVM_ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/i;
@@ -371,12 +387,17 @@ export function registerSwapExecuteCommand(parent: Command): void {
       '--approve-unlimited',
       'Approve unlimited token allowance (MAX_UINT256) instead of exact amount',
     )
+    .option(
+      '--from-address-type <type>',
+      `BTC/TBTC source address type (${BTC_ADDRESS_TYPES.join('|')})`,
+    )
     .action(
       async (
         options: {
           chain: string;
           order: string;
           approveUnlimited?: boolean;
+          fromAddressType?: BtcAddressType;
         },
         command,
       ) => {
@@ -435,7 +456,147 @@ export function registerSwapExecuteCommand(parent: Command): void {
               allowanceResult?: IAllowanceResult;
             };
             tx?: Record<string, string>;
+            btcData?: IBtcBuildTxData['btcData'];
           };
+
+          if (isBtcImpl(chainConfig.impl)) {
+            const fromAddressMeta = order.btcAddressing?.from;
+            if (!fromAddressMeta) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'BTC swap order is missing source address metadata',
+                'Run "onekey swap build" again to rebuild the BTC order',
+              );
+            }
+
+            const requestedAddressType =
+              options.fromAddressType ?? fromAddressMeta.addressType;
+            const addressTypeInfo = getBtcAddressTypeInfo(
+              chainConfig.impl,
+              requestedAddressType,
+            );
+
+            if (
+              options.fromAddressType &&
+              options.fromAddressType !== fromAddressMeta.addressType
+            ) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                `--from-address-type ${options.fromAddressType} does not match pending order source address type ${fromAddressMeta.addressType}`,
+                `Use --from-address-type ${fromAddressMeta.addressType}`,
+              );
+            }
+
+            const btcData = (txData as IBtcBuildTxData).btcData;
+            if (
+              !btcData ||
+              typeof btcData.hexStr !== 'string' ||
+              btcData.hexStr.length === 0 ||
+              !Array.isArray(btcData.addressType)
+            ) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'Order does not contain valid BTC PSBT data',
+                'Run "onekey swap build" to create a new order',
+              );
+            }
+
+            if (!btcData.addressType.includes(fromAddressMeta.addressEncoding)) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                `BTC PSBT does not support the pending derivation path/address type ${fromAddressMeta.path} (${fromAddressMeta.addressType}, ${fromAddressMeta.addressEncoding})`,
+                'Run "onekey swap build" again with a supported BTC address type',
+              );
+            }
+
+            const signer = await getSignerByImpl(chainConfig.impl);
+            const addressInfo = await signer.getAddress(chainConfig.networkId, {
+              addressType: addressTypeInfo.addressType,
+            });
+            const fromAddress = addressInfo.address;
+
+            if (fromAddress !== fromAddressMeta.address) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                `Wallet address mismatch: order was built for ${fromAddressMeta.address}, but current wallet is ${fromAddress}`,
+                'Run "onekey swap build" again with the current wallet',
+              );
+            }
+
+            await confirmTransaction({
+              info: {
+                action: `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`,
+                to: `${order.provider ?? 'swap provider'} BTC PSBT`,
+                value: `${order.amount} ${order.fromToken.symbol}`,
+                network: options.chain,
+              },
+              output,
+              skipConfirmation,
+            });
+
+            const signedTx = await signer.signTransaction({
+              networkId: chainConfig.networkId,
+              account: {
+                address: fromAddress,
+                path: fromAddressMeta.path,
+                pub: addressInfo.publicKey,
+              },
+              unsignedTx: {
+                encodedTx: {
+                  psbtHex: btcData.hexStr,
+                },
+              },
+              relPaths: [addressTypeInfo.relPath],
+              addressType: addressTypeInfo.addressType,
+              signOnly: false,
+            });
+
+            const broadcastResult =
+              await apiClient.post<ISendTransactionResult>(
+                'wallet',
+                '/wallet/v1/account/send-transaction',
+                {
+                  networkId: chainConfig.networkId,
+                  accountAddress: fromAddress,
+                  tx: signedTx.rawTx,
+                },
+              );
+
+            if (
+              !broadcastResult?.result ||
+              !BTC_TX_HASH_PATTERN.test(broadcastResult.result)
+            ) {
+              throw new AppError(
+                ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+                `BTC swap broadcast returned invalid txid: "${broadcastResult?.result ?? ''}"`,
+                'Check the transaction on chain explorer manually',
+              );
+            }
+
+            updatePendingStatus(options.order, 'executed', {
+              txHash: broadcastResult.result,
+            });
+
+            const isBridge = (order.protocolType ?? 'Swap') === 'Bridge';
+            const successMsg = isBridge
+              ? 'Bridge tx broadcast on source chain. Use "onekey swap status --watch --order ..." to track cross-chain progress.'
+              : 'Swap transaction broadcast successfully.';
+
+            output.success(
+              {
+                orderId: options.order,
+                status: 'executed',
+                txHash: broadcastResult.result,
+                chain: order.chain,
+                from: order.fromToken.symbol,
+                to: order.toToken.symbol,
+                amount: order.amount,
+                message: successMsg,
+              },
+              { chain: order.chain },
+            );
+            return;
+          }
 
           if (!txData.tx || typeof txData.tx !== 'object') {
             throw new AppError(
