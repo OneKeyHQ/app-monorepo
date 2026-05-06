@@ -1,3 +1,5 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { IconButton } from '../../../actions/IconButton';
 
 import type { IIconButtonProps } from '../../../actions/IconButton';
@@ -12,6 +14,13 @@ function HeaderIconButton(props: IIconButtonProps) {
       tooltipProps={headerTooltipProps}
       variant="tertiary"
       focusVisibleStyle={undefined}
+      // IconButton's tertiary variant applies a negative margin (m: -7)
+      // intended for inline text alignment. On iOS 26 the navigation bar
+      // wraps headerLeft/right in a glass container that vertically
+      // centers the view's frame; the negative margin then shifts the
+      // visible icon up and to the left of that centered slot. Reset it
+      // for header use so the icon sits at the bar's true center.
+      {...(platformEnv.isNativeIOS26Plus && { m: 0 })}
       {...props}
     />
   );
