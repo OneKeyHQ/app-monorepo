@@ -1,4 +1,9 @@
-import { resolveChain } from '../core/chain-resolver';
+import { assertAddressForChain } from '../core/address-utils';
+import {
+  assertChainCapability,
+  isEvmChain,
+  resolveChain,
+} from '../core/chain-resolver';
 import { fetchHistory, formatHistoryList } from '../core/history-fetcher';
 import { resolveToken } from '../core/token-resolver';
 import { AppError, ERROR_CODES } from '../errors';
@@ -34,19 +39,34 @@ export function registerWalletHistoryCommand(program: Command): void {
 
         try {
           const chainConfig = resolveChain(options.chain);
+          assertChainCapability(chainConfig, 'historyRead', 'history');
 
           // Resolve wallet address
           let address = options.address;
-          if (!address) {
+          if (!isEvmChain(chainConfig)) {
+            if (!address) {
+              throw new AppError(
+                ERROR_CODES.PARAM_MISSING_REQUIRED.code,
+                'BTC read-only history currently requires --address.',
+                'Pass --address with a valid BTC or Bitcoin testnet address.',
+              );
+            }
+
+            if (options.token) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                'Token filtering is not supported for BTC/TBTC history in this round.',
+                'Omit --token to query native BTC/TBTC history.',
+              );
+            }
+
+            address = assertAddressForChain(chainConfig, address);
+          } else if (!address) {
             const signer = await getSignerByImpl(chainConfig.impl);
             const addrInfo = await signer.getAddress(chainConfig.networkId);
             address = addrInfo.address;
-          } else if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-            throw new AppError(
-              ERROR_CODES.PARAM_INVALID_ADDRESS.code,
-              `Invalid address format: ${address}`,
-              'Provide a valid 0x-prefixed EVM address (42 chars)',
-            );
+          } else {
+            address = assertAddressForChain(chainConfig, address);
           }
 
           // Resolve token filter
