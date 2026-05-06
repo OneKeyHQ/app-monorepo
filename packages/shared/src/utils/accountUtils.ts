@@ -1237,7 +1237,7 @@ async function hashKeylessSocialUserId({
   );
 }
 
-const validDeriveTypesList: IAccountDeriveTypes[] = [
+const validDeriveTypesList = [
   'default',
   'ledgerLive',
   'ledgerLegacy',
@@ -1245,17 +1245,17 @@ const validDeriveTypesList: IAccountDeriveTypes[] = [
   'BIP84',
   'BIP44',
   'kaspaOfficial',
-] as const satisfies IAccountDeriveTypes[];
+] as const satisfies readonly IAccountDeriveTypes[];
 
 // Compile-time guard: ensures every IAccountDeriveTypes member is present in
 // validDeriveTypesList above. On failure, TypeScript names the missing
-// member(s) in the error (e.g. "Type 'never' is not assignable to type 'BIP49'").
+// member(s) in the error (e.g. "Type 'BIP49' is not assignable to type 'never'").
 type MissingDeriveTypes<T extends readonly IAccountDeriveTypes[]> = Exclude<
   IAccountDeriveTypes,
   T[number]
 >;
-const _exhaustiveCheck: MissingDeriveTypes<typeof validDeriveTypesList> =
-  undefined as never;
+const _exhaustiveCheck: never =
+  undefined as MissingDeriveTypes<typeof validDeriveTypesList>;
 
 function normalizeDeriveType(
   deriveType: string,
