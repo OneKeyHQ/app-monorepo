@@ -189,9 +189,10 @@ function ProtocolSwitchTriggerRow({
   const providerName = capitalizeString(
     currentProtocol?.provider.name || fallbackProviderName || '',
   );
+  const tvlText = formatTvl(currentProtocol?.provider.tvl);
   const subtitle = [
-    formatTvl(currentProtocol?.provider.tvl),
     currentProtocol?.provider.vaultName,
+    tvlText ? `TVL ${tvlText}` : undefined,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -223,9 +224,9 @@ function ProtocolSwitchTriggerRow({
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
-      px="$2"
-      mx="$-2"
-      py="$1"
+      px="$3"
+      py="$2"
+      bg="$bgSubdued"
       borderRadius="$2"
       hoverStyle={isSwitchEnabled ? { bg: '$bgHover' } : undefined}
       pressStyle={isSwitchEnabled ? { bg: '$bgActive' } : undefined}
@@ -255,7 +256,7 @@ function ProtocolSwitchTriggerRow({
         {aprElement}
         {showChevron ? (
           <Icon
-            name="ChevronDownSmallOutline"
+            name="ChevronGrabberVerSolid"
             color={isSwitchEnabled ? '$iconSubdued' : '$iconDisabled'}
             size="$5"
           />
@@ -307,11 +308,13 @@ function ProtocolSwitcher({
         w: 360,
         p: '$0',
       }}
-      renderContent={({ closePopover }) => (
+      renderContent={({ closePopover, isOpen }) => (
         <ProtocolListContent
           variant="switcher"
+          isOpen={isOpen}
           symbol={tokenSymbol}
           accountId={accountId}
+          indexedAccountId={protocolSwitchConfig.indexedAccountId}
           protocols={protocolSwitchConfig.protocols}
           isLoading={protocolSwitchConfig.isLoading}
           selectedProtocol={protocolSwitchConfig.selectedProtocol}
