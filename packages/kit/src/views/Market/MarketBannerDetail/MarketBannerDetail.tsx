@@ -221,9 +221,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     // Notification icon is intentionally omitted — it belongs to the
     // tab-level chrome (Market tab home), not to a banner detail page.
     if (platformEnv.isNativeIOS26Plus) {
-      return (
-        <Page.Header headerShown headerTitle={renderHeaderTitle} />
-      );
+      return <Page.Header headerShown headerTitle={renderHeaderTitle} />;
     }
     return <Page.Header headerShown={false} />;
   }, [
@@ -339,18 +337,20 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     intl,
   ]);
 
+  let bodyTopInset: number;
+  if (gtMd) {
+    bodyTopInset = 0;
+  } else if (platformEnv.isNativeIOS26Plus) {
+    bodyTopInset = headerHeight;
+  } else {
+    bodyTopInset = top;
+  }
+
   return (
     <Page>
       {renderPageHeader}
       <Page.Body>
-        <Stack
-          flex={1}
-          pt={
-            gtMd ? 0 : platformEnv.isNativeIOS26Plus ? headerHeight : top
-          }
-          px={gtMd ? '$4' : 0}
-          gap="$4"
-        >
+        <Stack flex={1} pt={bodyTopInset} px={gtMd ? '$4' : 0} gap="$4">
           {renderTitleSection}
           {renderTokenList}
         </Stack>

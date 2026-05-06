@@ -94,8 +94,7 @@ export function EarnPageContainer({
   // Tab roots (showBackButton=false) keep TabPageHeader because they
   // need account selector / notifications / search chrome that the
   // native bar can't host as a single row.
-  const useNativeHeader =
-    showBackButton && platformEnv.isNativeIOS26Plus;
+  const useNativeHeader = showBackButton && platformEnv.isNativeIOS26Plus;
   // Liquid Glass header is translucent and the page content extends
   // under it, so the ScrollView needs a top inset equal to the bar
   // height — without it, the first content item sits clipped behind

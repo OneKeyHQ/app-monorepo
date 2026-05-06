@@ -191,13 +191,7 @@ function MobilePerpMarket() {
         <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
       </XStack>
     );
-  }, [
-    baseName,
-    displayName,
-    mode,
-    onPressTokenSelector,
-    themeVariant,
-  ]);
+  }, [baseName, displayName, mode, onPressTokenSelector, themeVariant]);
 
   const isTablet = isNativeTablet();
   const isLandscape = useIsSplitView();

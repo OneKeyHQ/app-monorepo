@@ -26,11 +26,13 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-
-import { MarketStarV2, useStarV2Checked } from '../../../components/MarketStarV2';
+import {
+  MarketStarV2,
+  useStarV2Checked,
+} from '../../../components/MarketStarV2';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { buildMarketFullUrlV2 } from '../../../marketUtils';
 import { EModalMarketRoutes } from '../../../router';
@@ -85,10 +87,10 @@ export function MarketDetailHeader() {
   // gets the system Liquid Glass material and the back chevron sits in
   // its proper iOS 26 circular glass container. The token symbol +
   // dropdown chevron live in headerTitle; Star + Share live in
-  // headerRight. The address-copy sublabel that the custom pill used to
-  // render below the symbol is dropped here — single-row navbars can't
-  // host it cleanly. Pages that need the address can surface it in the
-  // body content.
+  // headerRight. The address-copy secondary label that the custom pill
+  // used to render below the symbol is dropped here — single-row
+  // navigation bars can't host it cleanly. Pages that need the address
+  // can surface it in the body content.
   const renderNativeHeaderTitle = useCallback(
     () => (
       <XStack ai="center" gap="$2" flex={1}>

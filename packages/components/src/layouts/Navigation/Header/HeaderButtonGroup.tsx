@@ -1,5 +1,5 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { XStack } from '../../../primitives';
 

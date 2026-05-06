@@ -52,12 +52,63 @@ export function makeHeaderScreenOptions({
     // background (so the bar looks like a flat dark rectangle).
     //
     // Trade-off: pages with custom top-of-content layouts (e.g. the
-    // Perps ETHUSDC stat row) must add a safe-area top inset themselves
+    // Perps ETH/USDC stat row) must add a safe-area top inset themselves
     // to avoid sliding under the bar. Most pages already do via the
     // Tamagui Page component / useSafeAreaInsets.
-    const useLiquidGlassHeader =
-      platformEnv.isNativeIOS26Plus && isRootScreen;
+    const useLiquidGlassHeader = platformEnv.isNativeIOS26Plus && isRootScreen;
     const useTransparentHeader = useLiquidGlassHeader;
+
+    // iOS 26+ uses native-stack's built-in bar button rendering so
+    // UIKit draws each button in its proper iOS 26 circular glass
+    // container.
+    //   - Pushed screens (canGoBack): omit headerLeft so the system
+    //     back button renders. Setting headerBackButtonDisplayMode to
+    //     'minimal' hides the previous-screen back-title; the long-press
+    //     navigation history menu still works because that's a system
+    //     UIBarButtonItem feature controlled by
+    //     headerBackButtonMenuEnabled (default true).
+    //   - Modal/onboarding close (no canGoBack): use
+    //     unstable_headerLeftItems with the SF Symbol close glyph. UIKit
+    //     has no built-in modal close primitive, so we emit a button
+    //     item and own its onPress.
+    //   - Root tab with no buttons: nothing to wire.
+    //
+    // iOS <26 keeps the OneKey-drawn HeaderBackButton path unchanged.
+    let headerLeftOptions: IStackNavigationOptions;
+    if (platformEnv.isNativeIOS26Plus) {
+      if (isCanGoBack) {
+        headerLeftOptions = {
+          headerBackButtonDisplayMode: 'minimal' as const,
+        };
+      } else if ((isModelScreen || isOnboardingScreen) && !isRootScreen) {
+        headerLeftOptions = {
+          unstable_headerLeftItems: () => [
+            {
+              type: 'button' as const,
+              label: 'Close',
+              icon: { type: 'sfSymbol' as const, name: 'xmark' },
+              onPress: () => currentNavigation?.goBack?.(),
+            },
+          ],
+        };
+      } else {
+        headerLeftOptions = {};
+      }
+    } else {
+      headerLeftOptions = {
+        // TODO: don't override the headerLeft on iOS
+        headerLeft: (props: HeaderBackButtonProps): ReactNode => (
+          <HeaderBackButton
+            onPress={currentNavigation?.goBack}
+            isModelScreen={isModelScreen}
+            isRootScreen={isRootScreen}
+            isOnboardingScreen={isOnboardingScreen}
+            {...props}
+            canGoBack={isCanGoBack}
+          />
+        ),
+      };
+    }
 
     return {
       // Omit headerStyle when Liquid Glass is active so the patched
@@ -87,54 +138,9 @@ export function makeHeaderScreenOptions({
          their parent screen still draws underneath them, and an extended
          layout would show that parent through the modal chrome.
       */
-      headerTransparent: useTransparentHeader ? true : false,
+      headerTransparent: useTransparentHeader,
       headerTitleAlign: 'left',
-      // iOS 26+ uses native-stack's built-in bar button rendering so
-      // UIKit draws each button in its proper iOS 26 circular glass
-      // container.
-      //   - Pushed screens (canGoBack): omit headerLeft so the system
-      //     back button renders. Setting headerBackButtonDisplayMode to
-      //     'minimal' hides the previous-screen back-title; the long-press
-      //     navigation history menu still works because that's a system
-      //     UIBarButtonItem feature controlled by
-      //     headerBackButtonMenuEnabled (default true).
-      //   - Modal/onboarding close (no canGoBack): use
-      //     unstable_headerLeftItems with the `xmark` SF Symbol. UIKit has
-      //     no built-in modal close primitive, so we emit a button item
-      //     and own its onPress.
-      //   - Root tab with no buttons: nothing to wire.
-      //
-      // iOS <26 keeps the OneKey-drawn HeaderBackButton path unchanged.
-      ...(platformEnv.isNativeIOS26Plus
-        ? isCanGoBack
-          ? {
-              headerBackButtonDisplayMode: 'minimal' as const,
-            }
-          : (isModelScreen || isOnboardingScreen) && !isRootScreen
-          ? {
-              unstable_headerLeftItems: () => [
-                {
-                  type: 'button' as const,
-                  label: 'Close',
-                  icon: { type: 'sfSymbol' as const, name: 'xmark' },
-                  onPress: () => currentNavigation?.goBack?.(),
-                },
-              ],
-            }
-          : {}
-        : {
-            // TODO: don't override the headerLeft on iOS
-            headerLeft: (props: HeaderBackButtonProps): ReactNode => (
-              <HeaderBackButton
-                onPress={currentNavigation?.goBack}
-                isModelScreen={isModelScreen}
-                isRootScreen={isRootScreen}
-                isOnboardingScreen={isOnboardingScreen}
-                {...props}
-                canGoBack={isCanGoBack}
-              />
-            ),
-          }),
+      ...headerLeftOptions,
     };
   }
 
