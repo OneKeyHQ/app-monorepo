@@ -27,6 +27,7 @@ import {
 import {
   EAppUpdateStatus,
   EUpdateFileType,
+  EUpdateStrategy,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -71,7 +72,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../components/AccountSelector';
-import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
+import {
+  isAutoUpdateStrategy,
+  useAppUpdateInfo,
+} from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
@@ -97,10 +101,8 @@ const useDesktopEvents = platformEnv.isDesktop
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
 
-      const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
-        false,
-        false,
-      );
+      const { checkForUpdates, downloadPackage, onUpdateAction } =
+        useAppUpdateInfoCallback(false, false);
       const isCheckingUpdate = useRef(false);
 
       const onCheckUpdate = useCallback(async () => {
@@ -110,7 +112,26 @@ const useDesktopEvents = platformEnv.isDesktop
         }
         isCheckingUpdate.current = true;
         const { isNeedUpdate, response } = await checkForUpdates();
-        if (isNeedUpdate || response === undefined) {
+        // OTA (silent/seamless) updates download/install transparently in
+        // the background. The desktop menu "Check for updates" must not open
+        // the download/verify UI for these strategies — that breaks the
+        // silent/seamless contract. Instead, kick off the background
+        // download silently (the auto useEffect only runs once at startup,
+        // so mid-session OTA discovery would otherwise stall) and show the
+        // "up to date" dialog as user feedback. The auto useEffect still
+        // drives any user-visible install dialog when status === ready.
+        const isOtaStrategy =
+          response &&
+          isAutoUpdateStrategy(
+            response.updateStrategy ?? EUpdateStrategy.manual,
+          );
+        if (isNeedUpdate && isOtaStrategy) {
+          // serviceAppUpdate.downloadPackage() inside this hook gates on
+          // DOWNLOAD_ENTRY_STATUSES, so calling it while already in-flight
+          // is a safe no-op. Fire-and-forget — we don't await the download.
+          void downloadPackage?.();
+        }
+        if ((isNeedUpdate && !isOtaStrategy) || response === undefined) {
           onUpdateAction();
           isCheckingUpdate.current = false;
         } else {
@@ -131,7 +152,7 @@ const useDesktopEvents = platformEnv.isDesktop
             }),
           });
         }
-      }, [checkForUpdates, intl, onUpdateAction]);
+      }, [checkForUpdates, downloadPackage, intl, onUpdateAction]);
 
       const onCheckUpdateRef = useRef(onCheckUpdate);
       onCheckUpdateRef.current = onCheckUpdate;
