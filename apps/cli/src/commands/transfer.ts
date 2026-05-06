@@ -157,7 +157,7 @@ export function registerTransferCommand(program: Command): void {
               addressType: validated.addressType,
             });
             const fromAddress = addressInfo.address;
-            const fromPath = addressInfo.path ?? addressTypeInfo.path;
+            const fromPath = addressTypeInfo.path;
             const toAddress = assertAddressForChain(chainConfig, validated.to);
             const builtTx = await buildBtcTransferTx({
               impl: chainConfig.impl,

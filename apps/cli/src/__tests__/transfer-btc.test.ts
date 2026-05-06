@@ -30,13 +30,14 @@ const mockBuildBtcTransferTx = buildBtcTransferTx as jest.MockedFunction<
 
 const recipientAddress = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
 const senderAddress = 'tb1qsenderaddress';
-const senderPath = "m/86'/1'/0'/0/0";
+const senderAccountPath = "m/86'/1'/0'";
+const senderReceivePath = "m/86'/1'/0'/0/0";
 
 function createBtcSigner() {
   return {
     getAddress: jest.fn().mockResolvedValue({
       address: senderAddress,
-      path: senderPath,
+      path: senderAccountPath,
       publicKey: '02abcdef',
     }),
     signTransaction: jest.fn().mockResolvedValue({
@@ -138,7 +139,7 @@ describe('BTC/TBTC transfer command', () => {
         impl: 'tbtc',
         networkId: 'tbtc--0',
         fromAddress: senderAddress,
-        fromPath: senderPath,
+        fromPath: senderReceivePath,
         toAddress: recipientAddress,
         amount: '0.00001',
         nativeDecimals: 8,
@@ -222,7 +223,7 @@ describe('BTC/TBTC transfer command', () => {
       networkId: 'tbtc--0',
       account: {
         address: senderAddress,
-        path: senderPath,
+        path: senderReceivePath,
         pub: '02abcdef',
       },
       unsignedTx: {
