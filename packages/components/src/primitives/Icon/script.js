@@ -74,7 +74,7 @@ const readCommittedIconsSource = () => {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-  } catch (err) {
+  } catch {
     return null;
   }
 };
