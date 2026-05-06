@@ -386,9 +386,9 @@ export function PerpOrderBook({
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
+    if (shouldShowEnableTradingButton) return 7;
     if (activeTradeInstrument.mode === 'spot')
       return MOBILE_SPOT_MAX_LEVELS_PER_SIDE;
-    if (shouldShowEnableTradingButton) return 5;
     if (formData.hasTpsl) return 9;
     return 7;
   }, [
