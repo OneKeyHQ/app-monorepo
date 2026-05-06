@@ -16,6 +16,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -106,6 +107,26 @@ const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
 };
 const USDC_TOKEN_SYMBOL = 'USDC';
 
+function SpotAvailableActionIcon({
+  icon,
+}: {
+  icon: 'DownloadOutline' | 'TradeOutline';
+}) {
+  return (
+    <XStack
+      w="$8"
+      h="$8"
+      borderRadius="$full"
+      bg="$bgStrong"
+      alignItems="center"
+      justifyContent="center"
+      flexShrink={0}
+    >
+      <Icon name={icon} size="$4.5" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
 function MobileDepositButton({ onPress }: { onPress: () => void }) {
   return (
     <IconButton
@@ -125,18 +146,51 @@ function SpotAvailableActionPopover({
   onDeposit,
   onTrade,
   tradeLabel,
+  tradeToken,
 }: {
   onDeposit: () => void;
   onTrade?: () => void;
   tradeLabel?: string;
+  tradeToken?: string;
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  const isChineseLocale = intl.locale.toLowerCase().startsWith('zh');
+  const sheetTitle = isChineseLocale ? '添加资金' : 'Add funds';
+  const depositTitle = isChineseLocale ? '充值到账 USDC' : 'Deposit to USDC';
+  const depositSubtitle = isChineseLocale
+    ? '从链上资产充值到个人账户'
+    : 'Deposit on-chain assets to your account';
+  const tradeTitle = tradeToken
+    ? `${intl.formatMessage({
+        id: ETranslations.dexmarket_details_transactions_buy,
+      })} ${tradeToken} ${intl.formatMessage({
+        id: ETranslations.dexmarket_spot,
+      })}`
+    : intl.formatMessage({ id: ETranslations.global_trade });
+  const listItemTextProps = {
+    titleProps: { size: '$bodyMdMedium' as const, color: '$text' as const },
+    subtitleProps: {
+      size: '$bodySm' as const,
+      color: '$textSubdued' as const,
+      numberOfLines: 1,
+    },
+  };
+  const listItemProps = {
+    minHeight: '$10' as const,
+    mx: gtMd ? ('$0' as const) : ('$-3' as const),
+    px: gtMd ? ('$2' as const) : ('$3' as const),
+    py: '$1.5' as const,
+    gap: '$3' as const,
+    borderRadius: '$2.5' as const,
+    ...listItemTextProps,
+  };
   return (
     <Popover
-      title=""
+      title={sheetTitle}
       placement="top-end"
       floatingPanelProps={{
-        width: 320,
+        width: 288,
       }}
       renderTrigger={
         <IconButton
@@ -150,31 +204,34 @@ function SpotAvailableActionPopover({
         />
       }
       renderContent={({ closePopover }) => (
-        <YStack p="$2" gap="$1">
+        <YStack
+          px={gtMd ? '$1.5' : '$5'}
+          pt={gtMd ? '$1.5' : '$0.5'}
+          pb={gtMd ? '$1.5' : '$4'}
+          gap={gtMd ? '$1' : '$2'}
+        >
           <ListItem
-            icon="PlusCircleSolid"
-            title={intl.formatMessage({ id: ETranslations.global_top_up })}
-            subtitle={intl.formatMessage({
-              id: ETranslations.perp_guide_desc_deposit_withdrawal,
-            })}
+            renderIcon={<SpotAvailableActionIcon icon="DownloadOutline" />}
+            title={depositTitle}
+            subtitle={depositSubtitle}
             drillIn
-            borderRadius="$2"
             onPress={() => {
               closePopover();
               onDeposit();
             }}
+            {...listItemProps}
           />
           {tradeLabel ? (
             <ListItem
-              icon="TradeOutline"
-              title={intl.formatMessage({ id: ETranslations.global_trade })}
+              renderIcon={<SpotAvailableActionIcon icon="TradeOutline" />}
+              title={tradeTitle}
               subtitle={tradeLabel}
               drillIn
-              borderRadius="$2"
               onPress={() => {
                 closePopover();
                 onTrade?.();
               }}
+              {...listItemProps}
             />
           ) : null}
         </YStack>
@@ -557,12 +614,17 @@ function PerpTradingForm({
       : undefined;
   }, [spotAvailableToken, universeByBaseName]);
 
-  const spotAvailableTradeLabel = useMemo(() => {
+  const spotAvailableTradeToken = useMemo(() => {
     if (!spotAvailableTradeUniverse) return undefined;
-    return `${getSpotTokenDisplayName(spotAvailableTradeUniverse.baseName)}/${
-      spotAvailableTradeUniverse.quoteName
-    }`;
+    return getSpotTokenDisplayName(spotAvailableTradeUniverse.baseName);
   }, [spotAvailableTradeUniverse]);
+
+  const spotAvailableTradeLabel = useMemo(() => {
+    if (!spotAvailableTradeUniverse || !spotAvailableTradeToken) {
+      return undefined;
+    }
+    return `${spotAvailableTradeToken}/${spotAvailableTradeUniverse.quoteName}`;
+  }, [spotAvailableTradeToken, spotAvailableTradeUniverse]);
 
   const handleSpotAvailableTradePress = useCallback(() => {
     if (!spotAvailableTradeUniverse) return;
@@ -1172,11 +1234,16 @@ function PerpTradingForm({
         </SizableText>
         <XStack alignItems="center" gap="$1">
           <SizableText size="$bodySmMedium">{spotAvailableDisplay}</SizableText>
-          <SpotAvailableActionPopover
-            onDeposit={handleSpotAvailableDepositPress}
-            onTrade={handleSpotAvailableTradePress}
-            tradeLabel={spotAvailableTradeLabel}
-          />
+          {spotAvailableToken === USDC_TOKEN_SYMBOL ? (
+            <MobileDepositButton onPress={handleSpotAvailableDepositPress} />
+          ) : (
+            <SpotAvailableActionPopover
+              onDeposit={handleSpotAvailableDepositPress}
+              onTrade={handleSpotAvailableTradePress}
+              tradeLabel={spotAvailableTradeLabel}
+              tradeToken={spotAvailableTradeToken}
+            />
+          )}
         </XStack>
       </XStack>
 
