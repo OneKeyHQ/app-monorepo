@@ -159,6 +159,18 @@ export function registerSwapBuildCommand(parent: Command): void {
           const toNetworkId = toChainConfig.networkId;
           const protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
           const btcAddressing = emptyBtcSwapAddressing();
+          const fromBtcAddressType = isBtcSwapChain(chainConfig)
+            ? requireBtcSwapAddressType(
+                '--from-address-type',
+                options.fromAddressType,
+              )
+            : undefined;
+          const toBtcAddressType = isBtcSwapChain(toChainConfig)
+            ? requireBtcSwapAddressType(
+                '--to-address-type',
+                options.toAddressType,
+              )
+            : undefined;
 
           // Validate chain supports swap
           const swapNetworks = await fetchSwapNetworks();
@@ -195,25 +207,17 @@ export function registerSwapBuildCommand(parent: Command): void {
             }
           }
 
-          if (isBtcSwapChain(chainConfig)) {
-            const addressType = requireBtcSwapAddressType(
-              '--from-address-type',
-              options.fromAddressType,
-            );
+          if (fromBtcAddressType) {
             btcAddressing.from = await getBtcSwapAddressMetadata(
               chainConfig,
-              addressType,
+              fromBtcAddressType,
             );
           }
 
-          if (isBtcSwapChain(toChainConfig)) {
-            const addressType = requireBtcSwapAddressType(
-              '--to-address-type',
-              options.toAddressType,
-            );
+          if (toBtcAddressType) {
             btcAddressing.to = await getBtcSwapAddressMetadata(
               toChainConfig,
-              addressType,
+              toBtcAddressType,
             );
           }
 

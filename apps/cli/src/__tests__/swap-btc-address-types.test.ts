@@ -204,6 +204,31 @@ describe('swap BTC address type metadata', () => {
     );
   });
 
+  it('quote validates BTC source address type before dynamic swap network support', async () => {
+    const result = await runCommand(registerSwapCommands(), [
+      'swap',
+      'quote',
+      '--chain',
+      'tbtc',
+      '--to-chain',
+      'eth',
+      '--from',
+      'TBTC',
+      '--to',
+      'ETH',
+      '--amount',
+      '0.01',
+    ]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(mockGet).not.toHaveBeenCalled();
+    expect(mockGetSignerByImpl).not.toHaveBeenCalled();
+
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.error.code).toBe('PARAM_MISSING_REQUIRED');
+    expect(parsed.error.message).toContain('--from-address-type');
+  });
+
   it('quote requires --to-address-type when destination is tbtc', async () => {
     const result = await runCommand(registerSwapCommands(), [
       'swap',
@@ -231,6 +256,31 @@ describe('swap BTC address type metadata', () => {
     expect(parsed.error.suggestion).toContain(
       'taproot|native-segwit|nested-segwit|legacy',
     );
+  });
+
+  it('build validates BTC destination address type before dynamic swap network support', async () => {
+    const result = await runCommand(registerSwapCommands(), [
+      'swap',
+      'build',
+      '--chain',
+      'eth',
+      '--to-chain',
+      'tbtc',
+      '--from',
+      'ETH',
+      '--to',
+      'TBTC',
+      '--amount',
+      '0.01',
+    ]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(mockGet).not.toHaveBeenCalled();
+    expect(mockGetSignerByImpl).not.toHaveBeenCalled();
+
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.error.code).toBe('PARAM_MISSING_REQUIRED');
+    expect(parsed.error.message).toContain('--to-address-type');
   });
 
   it('quote BTC source plus EVM destination uses BTC source as userAddress', async () => {
