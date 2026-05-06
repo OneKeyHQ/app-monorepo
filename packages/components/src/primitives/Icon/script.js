@@ -1,6 +1,6 @@
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
 
 const lodash = require('lodash');
 const prettier = require('prettier');
@@ -69,15 +69,11 @@ const iconsRepoRelativePath = path.relative(repoRoot, iconsFilePath);
 // the new baseline and silently mask further regressions.
 const readCommittedIconsSource = () => {
   try {
-    return execFileSync(
-      'git',
-      ['show', `HEAD:${iconsRepoRelativePath}`],
-      {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      },
-    );
+    return execFileSync('git', ['show', `HEAD:${iconsRepoRelativePath}`], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
   } catch (err) {
     return null;
   }
