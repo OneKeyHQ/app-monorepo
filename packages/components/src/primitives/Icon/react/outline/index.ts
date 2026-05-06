@@ -660,6 +660,7 @@ export { default as Prime } from './Prime';
 export { default as Printer } from './Printer';
 export { default as Processor } from './Processor';
 export { default as PullRequest } from './PullRequest';
+export { default as Puzzle } from './Puzzle';
 export { default as QrCode } from './QrCode';
 export { default as Questionmark } from './Questionmark';
 export { default as Radar } from './Radar';
