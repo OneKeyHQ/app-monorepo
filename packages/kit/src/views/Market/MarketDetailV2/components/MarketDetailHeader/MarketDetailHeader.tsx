@@ -167,8 +167,13 @@ export function MarketDetailHeader() {
   );
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
+    // Explicit headerShown is required because this route can also be
+    // reached as a modal where the parent stack defaults headerShown to
+    // false; without it the bar wouldn't render and the page body would
+    // sit under the status bar.
     return (
       <Page.Header
+        headerShown
         headerTitle={renderNativeHeaderTitle}
         headerRight={renderNativeHeaderRight}
       />

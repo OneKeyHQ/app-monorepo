@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -66,13 +67,18 @@ function MarketDetail({
   });
 
   const media = useMedia();
+  // iOS 26+ headers are translucent (Liquid Glass) so the page body
+  // extends under the bar — without an explicit top inset the chart /
+  // 图表 / 概述 tabs sit clipped behind the navbar position.
+  const headerHeight = useHeaderHeight();
+  const bodyPaddingTop = platformEnv.isNativeIOS26Plus ? headerHeight : 0;
 
   return (
     <BtcMetadataProvider>
       <Page>
         <MarketDetailHeader />
 
-        <Page.Body>
+        <Page.Body pt={bodyPaddingTop}>
           {media.gtLg && !platformEnv.isNative ? (
             <DesktopLayout />
           ) : (
