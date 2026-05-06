@@ -17,6 +17,7 @@ import {
   registerTokenCommands,
   registerTransferCommand,
   registerVersionCommand,
+  registerWalletCommands,
   registerWalletHistoryCommand,
 } from './commands';
 import { disposeSDK } from './commands/device/hardware-sdk';
@@ -85,6 +86,7 @@ registerTokenCommands(program);
 registerMarketCommands(program);
 registerSwapCommands(program);
 registerSecurityCommands(program);
+registerWalletCommands(program);
 registerWalletHistoryCommand(program);
 registerSchemaCommand(program);
 registerDeviceCommands(program);

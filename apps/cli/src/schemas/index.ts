@@ -6,6 +6,7 @@ export type { ICommandSchema } from './registry';
 
 // Common primitives
 export {
+  btcAddressType,
   chainId,
   ethAddress,
   humanAmount,
@@ -44,6 +45,14 @@ export {
   walletHistoryInputSchema,
   walletHistoryOutputSchema,
 } from './wallet-history-schema';
+
+// Wallet group
+export {
+  walletAddressInputSchema,
+  walletAddressOutputSchema,
+  walletAddressTypesInputSchema,
+  walletAddressTypesOutputSchema,
+} from './wallet-schemas';
 
 // Logout / Status / Version
 export { logoutInputSchema, logoutOutputSchema } from './logout-schema';

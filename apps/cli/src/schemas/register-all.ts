@@ -56,6 +56,12 @@ import {
 import { transferInputSchema, transferOutputSchema } from './transfer-schema';
 import { versionInputSchema, versionOutputSchema } from './version-schema';
 import {
+  walletAddressInputSchema,
+  walletAddressOutputSchema,
+  walletAddressTypesInputSchema,
+  walletAddressTypesOutputSchema,
+} from './wallet-schemas';
+import {
   walletHistoryInputSchema,
   walletHistoryOutputSchema,
 } from './wallet-history-schema';
@@ -148,6 +154,24 @@ defineCommand({
     'onekey history --chain eth --detail',
     'onekey history --chain tbtc --address tb1... --limit 5',
   ],
+});
+
+// --- Wallet group ---
+
+defineCommand({
+  name: 'wallet-address-types',
+  description: 'List supported BTC wallet address types',
+  input: walletAddressTypesInputSchema,
+  output: walletAddressTypesOutputSchema,
+  examples: ['onekey wallet address-types --chain btc'],
+});
+
+defineCommand({
+  name: 'wallet-address',
+  description: 'Derive a BTC wallet address',
+  input: walletAddressInputSchema,
+  output: walletAddressOutputSchema,
+  examples: ['onekey wallet address --chain tbtc --address-type taproot'],
 });
 
 // --- Token group ---
