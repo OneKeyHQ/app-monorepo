@@ -39,19 +39,25 @@ export function makeHeaderScreenOptions({
     const state = currentNavigation?.getState();
     const isCanGoBack = (state?.index ?? 0) > 0;
 
-    // Liquid Glass material is enabled for both the topmost screen of
-    // a root tab and pushed children inside that tab — the glass header
-    // is the iOS 26 system look users expect everywhere in the chrome.
-    // Modal/onboarding screens are excluded (isRootScreen=false).
+    // Liquid Glass material is enabled for every screen inside a root
+    // tab (top-level and pushed). Modal/onboarding screens are excluded
+    // (isRootScreen=false).
+    //
+    // headerTransparent must be true for the glass to be visibly
+    // distinct from a flat opaque bar — iOS 26's
+    // configureWithDefaultBackground only refracts what's actually
+    // underneath the bar, and without `edgesForExtendedLayout =
+    // UIRectEdgeAll` the page content stays below the bar, leaving the
+    // glass to refract the navigation controller's plain view
+    // background (so the bar looks like a flat dark rectangle).
+    //
+    // Trade-off: pages with custom top-of-content layouts (e.g. the
+    // Perps ETHUSDC stat row) must add a safe-area top inset themselves
+    // to avoid sliding under the bar. Most pages already do via the
+    // Tamagui Page component / useSafeAreaInsets.
     const useLiquidGlassHeader =
       platformEnv.isNativeIOS26Plus && isRootScreen;
-    // Only the true top of a tab extends content under the bar so the
-    // glass refracts real content. Pushed children keep
-    // edgesForExtendedLayout = UIRectEdgeAll - UIRectEdgeTop so pages
-    // with custom top layouts (e.g. the Perps ETHUSDC stat row) don't
-    // bleed into the navigation bar area; their glass refracts the
-    // navigation controller's view background instead.
-    const useTransparentHeader = useLiquidGlassHeader && !isCanGoBack;
+    const useTransparentHeader = useLiquidGlassHeader;
 
     return {
       // Omit headerStyle when Liquid Glass is active so the patched
