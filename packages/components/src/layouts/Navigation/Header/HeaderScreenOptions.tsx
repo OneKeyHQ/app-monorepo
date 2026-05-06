@@ -59,8 +59,14 @@ export function makeHeaderScreenOptions({
       /* Although the default value of `headerTransparent` is `false` too,
          we still cannot remove it here.
          because RNSSearchBar seems will read an incorrect default value.
+
+         On iOS 26+ we flip it to `true` so react-native-screens sets
+         edgesForExtendedLayout = UIRectEdgeAll, letting the screen content
+         render under the navigation bar. Without this the Liquid Glass
+         material refracts the default (white) UINavigationController view
+         background and the bar appears solid white.
       */
-      headerTransparent: false,
+      headerTransparent: platformEnv.isNativeIOS26Plus ? true : false,
       headerTitleAlign: 'left',
       // TODO: don't override the headerLeft on iOS
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
