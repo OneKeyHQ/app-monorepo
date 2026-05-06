@@ -46,7 +46,7 @@ function StatRow({ label, children }: { label: string; children: ReactNode }) {
 
 function MobilePerpMarketHeader() {
   const intl = useIntl();
-  const { mode } = useActiveTradeDisplay();
+  const { coin, mode } = useActiveTradeDisplay();
   const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
@@ -54,7 +54,9 @@ function MobilePerpMarketHeader() {
   const hasError = connectionState.reconnectCount > 3;
   const isReady = connectionState.isConnected && !hasError;
   const isSpot = mode === 'spot';
-  const currentCtx = isSpot ? spotAssetCtx?.ctx : assetCtx?.ctx;
+  const spotCtxForActiveCoin =
+    spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
+  const currentCtx = isSpot ? spotCtxForActiveCoin : assetCtx?.ctx;
 
   useEffect(() => {
     void backgroundApiProxy.simpleDb.perp
@@ -81,7 +83,7 @@ function MobilePerpMarketHeader() {
   const fundingRate = perpCtx?.fundingRate ?? '0';
   const openInterest = perpCtx?.openInterest ?? '0';
   // Spot-only fields
-  const spotCtx = spotAssetCtx?.ctx;
+  const spotCtx = spotCtxForActiveCoin;
   const circulatingSupply = spotCtx?.circulatingSupply ?? '0';
 
   const midPriceNumber = useMemo(() => parseFloat(midPrice), [midPrice]);

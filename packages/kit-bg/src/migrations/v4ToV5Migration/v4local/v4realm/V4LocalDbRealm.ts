@@ -66,26 +66,24 @@ export class V4LocalDbRealm extends V4LocalDbBase {
 
   private async _initDBRecords(db: V4RealmDBAgent) {
     await db.withTransaction(async () => {
-      await Promise.all([
-        db._getOrAddObjectRecord(EV4LocalDBStoreNames.Context, {
-          id: DB_MAIN_CONTEXT_ID,
-          nextHD: 1,
-          verifyString: DEFAULT_VERIFY_STRING,
-          backupUUID: generateUUID(),
-        }),
-        this._addSingletonWalletRecord({
-          db,
-          walletId: WALLET_TYPE_IMPORTED,
-        }),
-        this._addSingletonWalletRecord({
-          db,
-          walletId: WALLET_TYPE_WATCHING,
-        }),
-        this._addSingletonWalletRecord({
-          db,
-          walletId: WALLET_TYPE_EXTERNAL,
-        }),
-      ]);
+      db._getOrAddObjectRecord(EV4LocalDBStoreNames.Context, {
+        id: DB_MAIN_CONTEXT_ID,
+        nextHD: 1,
+        verifyString: DEFAULT_VERIFY_STRING,
+        backupUUID: generateUUID(),
+      });
+      this._addSingletonWalletRecord({
+        db,
+        walletId: WALLET_TYPE_IMPORTED,
+      });
+      this._addSingletonWalletRecord({
+        db,
+        walletId: WALLET_TYPE_WATCHING,
+      });
+      this._addSingletonWalletRecord({
+        db,
+        walletId: WALLET_TYPE_EXTERNAL,
+      });
     });
   }
 
