@@ -5,9 +5,13 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { useSpotAssetCtxsMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotAssetCtxsMapAtom,
+  useSpotExternalMarketCapsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   formatSpotPairDisplayName,
+  getSpotMarketCapValue,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -42,6 +46,7 @@ export function usePopularTickers(): IPopularTickerItem[] {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
   const [spotPriceMap] = useSpotAssetCtxsMapAtom();
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const mode = activeTradeInstrument.mode;
 
   // Must not read from search-filtered atom — popular tickers would disappear
@@ -98,14 +103,10 @@ export function usePopularTickers(): IPopularTickerItem[] {
         .map((asset) => {
           const ctx = spotPriceMap[asset.name];
           const volume24h = new BigNumber(ctx?.dayNtlVlm ?? '0');
-          const markPrice = new BigNumber(ctx?.markPx ?? '0');
-          const circulatingSupply = new BigNumber(
-            ctx?.circulatingSupply ?? '0',
-          );
           const hotScore = volume24h.toNumber();
-          const marketCap = circulatingSupply
-            .multipliedBy(markPrice)
-            .toNumber();
+          const marketCap = new BigNumber(
+            getSpotMarketCapValue(ctx, asset.baseName, spotMarketCaps) ?? '0',
+          ).toNumber();
 
           return {
             mode: 'spot' as const,
@@ -175,5 +176,5 @@ export function usePopularTickers(): IPopularTickerItem[] {
 
     scored.sort((a, b) => b.hotScore - a.hotScore);
     return scored.slice(0, POPULAR_TICKER_COUNT);
-  }, [allAssetCtxs, mode, spotPriceMap, taggedUniverse]);
+  }, [allAssetCtxs, mode, spotMarketCaps, spotPriceMap, taggedUniverse]);
 }
