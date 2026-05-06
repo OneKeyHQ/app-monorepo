@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { Fragment, isValidElement, useCallback, useMemo } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 
@@ -112,12 +112,32 @@ export function EarnPageContainer({
     [pageTitle],
   );
 
+  // Callers (e.g. EarnProtocols) pass <></> on native to mean "hide the
+  // default right items of TabPageHeader". For the native Page.Header
+  // path we must NOT forward an empty fragment to headerRight — UIKit
+  // would still wrap the empty custom view in a bar button glass
+  // container and render a hollow circle. Treat null / undefined /
+  // false / empty Fragment as "no right item" and skip headerRight
+  // entirely so iOS 26 leaves the trailing slot empty.
+  const hasNativeHeaderRight = useMemo(() => {
+    const node = customHeaderRightItems;
+    if (node === null || node === undefined || node === false) return false;
+    if (
+      isValidElement(node) &&
+      node.type === Fragment &&
+      !(node as { props?: { children?: unknown } }).props?.children
+    ) {
+      return false;
+    }
+    return true;
+  }, [customHeaderRightItems]);
+
   const renderNativeHeaderRight = useMemo(
     () =>
-      customHeaderRightItems
+      hasNativeHeaderRight
         ? () => <XStack>{customHeaderRightItems}</XStack>
         : undefined,
-    [customHeaderRightItems],
+    [hasNativeHeaderRight, customHeaderRightItems],
   );
 
   const body = (
