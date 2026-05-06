@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { getFontSize } from '@onekeyhq/components/src/shared/tamagui';
 import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { hasNativeHeaderView } from '../Navigator/CommonConfig';
 
@@ -39,15 +40,23 @@ export function makeHeaderScreenOptions({
     const isCanGoBack = (state?.index ?? 0) > 0;
 
     return {
-      headerStyle: {
-        backgroundColor: bgColor as string,
-      },
+      // On iOS 26+ omit headerStyle so the patched react-native-screens
+      // builds the appearance via configureWithDefaultBackground, letting
+      // UIKit render the system Liquid Glass material on the navigation
+      // bar. Passing backgroundColor would force the appearance opaque.
+      ...(platformEnv.isNativeIOS26Plus
+        ? {}
+        : {
+            headerStyle: {
+              backgroundColor: bgColor as string,
+            },
+          }),
       headerTitleStyle: {
         fontSize: getFontSize('$headingLg'),
         color: titleColor as string,
       },
       headerShadowVisible: false,
-      /* Although the default value of `headerTransparent` is `false` too, 
+      /* Although the default value of `headerTransparent` is `false` too,
          we still cannot remove it here.
          because RNSSearchBar seems will read an incorrect default value.
       */
