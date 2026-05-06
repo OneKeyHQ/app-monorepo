@@ -43,6 +43,26 @@ describe('token-resolver', () => {
     expect(result.networkId).toBe('evm--56');
   });
 
+  it('resolves native BTC without API call', async () => {
+    const result = await resolveToken('BTC', 'btc');
+    expect(result.isNative).toBe(true);
+    expect(result.symbol).toBe('BTC');
+    expect(result.decimals).toBe(8);
+    expect(result.contractAddress).toBe('');
+    expect(result.networkId).toBe('btc--0');
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('resolves native TBTC without API call', async () => {
+    const result = await resolveToken('TBTC', 'tbtc');
+    expect(result.isNative).toBe(true);
+    expect(result.symbol).toBe('TBTC');
+    expect(result.decimals).toBe(8);
+    expect(result.contractAddress).toBe('');
+    expect(result.networkId).toBe('tbtc--0');
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
   // --- Path 2: Contract address ---
 
   it('resolves contract address via V2 market search', async () => {

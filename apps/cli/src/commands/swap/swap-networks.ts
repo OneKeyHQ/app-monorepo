@@ -1,4 +1,9 @@
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
@@ -17,6 +22,13 @@ export interface ISwapNetworkResult {
 }
 
 let cachedNetworks: ISwapNetworkResult[] | null = null;
+
+const SUPPORTED_SWAP_IMPLS = new Set([IMPL_EVM, IMPL_BTC, IMPL_TBTC]);
+
+function hasWellFormedNetworkId(networkId: string): boolean {
+  const parts = networkId.split('--');
+  return parts.length === 2 && parts[0].length > 0 && parts[1].length > 0;
+}
 
 /** @internal Reset cache between tests */
 export function _resetSwapNetworksCache(): void {
@@ -47,21 +59,20 @@ export async function fetchSwapNetworks(): Promise<ISwapNetworkResult[]> {
     for (const net of res) {
       if (typeof net.networkId !== 'string') {
         // skip entries without networkId
-      } else if (!net.networkId.startsWith('evm--')) {
-        // skip non-EVM networks
       } else {
+        if (!hasWellFormedNetworkId(net.networkId)) continue;
         const preset = presetMap.get(net.networkId);
-        if (preset) {
-          results.push({
-            networkId: net.networkId,
-            name: preset.name,
-            chainId: preset.chainId,
-            nativeSymbol: preset.symbol,
-            supportSingleSwap: !!net.supportSingleSwap,
-            supportCrossChainSwap: !!net.supportCrossChainSwap,
-            supportLimit: !!net.supportLimit,
-          });
-        }
+        if (!preset || !SUPPORTED_SWAP_IMPLS.has(preset.impl)) continue;
+
+        results.push({
+          networkId: net.networkId,
+          name: preset.name,
+          chainId: preset.chainId,
+          nativeSymbol: preset.symbol,
+          supportSingleSwap: !!net.supportSingleSwap,
+          supportCrossChainSwap: !!net.supportCrossChainSwap,
+          supportLimit: !!net.supportLimit,
+        });
       }
     }
 
