@@ -368,6 +368,10 @@ export async function executeAuthLoginCommand({
       return;
     }
 
+    if (!isTTY) {
+      throw createAppTransferRequiresTTYError();
+    }
+
     const currentSession = await authManager.getStatus();
     if (currentSession.authStatus === 'authenticated') {
       throw new AppError(
@@ -390,10 +394,6 @@ export async function executeAuthLoginCommand({
         }
         await cleanup();
       });
-    }
-
-    if (!isTTY) {
-      throw createAppTransferRequiresTTYError();
     }
 
     attemptedAppTransfer = true;
