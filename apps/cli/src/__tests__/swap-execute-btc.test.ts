@@ -3,6 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
+import { Psbt } from 'bitcoinjs-lib';
+import {
+  getBtcForkNetwork,
+  getInputsToSignFromPsbt,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { formatPsbtHex } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
 
 import { registerSwapExecuteCommand } from '../commands/swap/swap-execute';
 import {
@@ -23,6 +29,27 @@ jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
   ),
 }));
 
+jest.mock('bitcoinjs-lib', () => ({
+  Psbt: {
+    fromHex: jest.fn(() => ({ mockPsbt: true })),
+  },
+}));
+
+jest.mock('@onekeyhq/core/src/chains/btc/sdkBtc', () => ({
+  getBtcForkNetwork: jest.fn(() => ({ networkChainCode: 'btc' })),
+  getInputsToSignFromPsbt: jest.fn(() => [
+    {
+      index: 0,
+      publicKey: '02abcdef',
+      address: 'bc1psourceaddress',
+    },
+  ]),
+}));
+
+jest.mock('@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils', () => ({
+  formatPsbtHex: jest.fn((psbtHex: string) => `formatted-${psbtHex}`),
+}));
+
 jest.mock('../infra', () => ({
   apiClient: {
     get: jest.fn(),
@@ -38,6 +65,19 @@ jest.mock('../signer', () => ({
 const mockPost = apiClient.post as jest.MockedFunction<typeof apiClient.post>;
 const mockGetSignerByImpl = getSignerByImpl as jest.MockedFunction<
   typeof getSignerByImpl
+>;
+const mockPsbtFromHex = Psbt.fromHex as jest.MockedFunction<
+  typeof Psbt.fromHex
+>;
+const mockGetBtcForkNetwork = getBtcForkNetwork as jest.MockedFunction<
+  typeof getBtcForkNetwork
+>;
+const mockGetInputsToSignFromPsbt =
+  getInputsToSignFromPsbt as jest.MockedFunction<
+    typeof getInputsToSignFromPsbt
+  >;
+const mockFormatPsbtHex = formatPsbtHex as jest.MockedFunction<
+  typeof formatPsbtHex
 >;
 
 function registerSwapCommands() {
@@ -173,12 +213,34 @@ describe('swap execute BTC PSBT path', () => {
       },
       unsignedTx: {
         encodedTx: {
-          psbtHex: '70736274ff0100',
+          psbtHex: 'formatted-70736274ff0100',
+          inputsToSign: [
+            {
+              index: 0,
+              publicKey: '02abcdef',
+              address: 'bc1psourceaddress',
+            },
+          ],
         },
       },
       relPaths: ['0/0'],
       addressType: 'taproot',
       signOnly: false,
+    });
+    expect(mockFormatPsbtHex).toHaveBeenCalledWith('70736274ff0100');
+    expect(mockGetBtcForkNetwork).toHaveBeenCalledWith('btc');
+    expect(mockPsbtFromHex).toHaveBeenCalledWith('formatted-70736274ff0100', {
+      network: { networkChainCode: 'btc' },
+    });
+    expect(mockGetInputsToSignFromPsbt).toHaveBeenCalledWith({
+      psbt: { mockPsbt: true },
+      psbtNetwork: { networkChainCode: 'btc' },
+      account: {
+        address: 'bc1psourceaddress',
+        path: "m/86'/0'/0'/0/0",
+        pub: '02abcdef',
+      },
+      isBtcWalletProvider: false,
     });
     expect(mockPost).toHaveBeenCalledWith(
       'wallet',
@@ -213,6 +275,20 @@ describe('swap execute BTC PSBT path', () => {
     const parsed = JSON.parse(extractJson(result.stdout));
     expect(parsed.error.code).toBe('BIZ_SWAP_FAILED');
     expect(parsed.error.message).toContain('Wallet address mismatch');
+    expect(mockPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects PSBT with no signable inputs for selected address', async () => {
+    savePending('btc_order', makePendingOrder());
+    mockGetInputsToSignFromPsbt.mockReturnValueOnce([]);
+
+    const result = await runExecute();
+
+    expect(result.exitCode).not.toBe(0);
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.error.code).toBe('BIZ_SWAP_FAILED');
+    expect(parsed.error.message).toContain('no signable BTC inputs');
+    expect(parsed.error.message).toContain('selected address');
     expect(mockPost).not.toHaveBeenCalled();
   });
 

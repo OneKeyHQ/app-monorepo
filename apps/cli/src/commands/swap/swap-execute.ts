@@ -1,3 +1,11 @@
+import { Psbt } from 'bitcoinjs-lib';
+
+import {
+  getBtcForkNetwork,
+  getInputsToSignFromPsbt,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { formatPsbtHex } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+
 import { loadPending, secureCache, updatePendingStatus } from '../../core';
 import {
   BTC_ADDRESS_TYPES,
@@ -523,6 +531,50 @@ export function registerSwapExecuteCommand(parent: Command): void {
               );
             }
 
+            if (!addressInfo.publicKey) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                `BTC swap order PSBT has no signable BTC inputs for the selected address ${fromAddress}: wallet public key is missing`,
+                'Run "onekey swap build" again with a wallet address that can sign this PSBT',
+              );
+            }
+
+            const accountForSign = {
+              address: fromAddress,
+              path: fromAddressMeta.path,
+              pub: addressInfo.publicKey,
+            };
+            let formattedPsbtHex: string;
+            let inputsToSign: ReturnType<typeof getInputsToSignFromPsbt>;
+            try {
+              formattedPsbtHex = formatPsbtHex(btcData.hexStr);
+              const psbtNetwork = getBtcForkNetwork(chainConfig.impl);
+              const psbt = Psbt.fromHex(formattedPsbtHex, {
+                network: psbtNetwork,
+              });
+              inputsToSign = getInputsToSignFromPsbt({
+                psbt,
+                psbtNetwork,
+                account: accountForSign,
+                isBtcWalletProvider: false,
+              });
+            } catch (error) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'Order does not contain a valid BTC PSBT',
+                'Run "onekey swap build" to create a new order',
+                { cause: error },
+              );
+            }
+
+            if (inputsToSign.length === 0) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                `BTC swap order PSBT has no signable BTC inputs for the selected address ${fromAddress}`,
+                'Run "onekey swap build" again with a wallet address that can sign this PSBT',
+              );
+            }
+
             await confirmTransaction({
               info: {
                 action: `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`,
@@ -536,14 +588,11 @@ export function registerSwapExecuteCommand(parent: Command): void {
 
             const signedTx = await signer.signTransaction({
               networkId: chainConfig.networkId,
-              account: {
-                address: fromAddress,
-                path: fromAddressMeta.path,
-                pub: addressInfo.publicKey,
-              },
+              account: accountForSign,
               unsignedTx: {
                 encodedTx: {
-                  psbtHex: btcData.hexStr,
+                  psbtHex: formattedPsbtHex,
+                  inputsToSign,
                 },
               },
               relPaths: [addressTypeInfo.relPath],
