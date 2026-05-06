@@ -203,6 +203,7 @@ export function ProtocolListContent({
   onProtocolSelect,
   protocols,
   isLoading: isLoadingProp,
+  isOpen = true,
   variant = 'dialog',
 }: {
   symbol: string;
@@ -213,6 +214,7 @@ export function ProtocolListContent({
   onProtocolSelect: (protocol: IStakeProtocolListItem) => Promise<void>;
   protocols?: IStakeProtocolListItem[];
   isLoading?: boolean;
+  isOpen?: boolean;
   variant?: IProtocolListVariant;
 }) {
   const intl = useIntl();
@@ -289,6 +291,7 @@ export function ProtocolListContent({
     async () => {
       if (
         variant !== 'switcher' ||
+        !isOpen ||
         flatProtocolData.length === 0 ||
         (!accountId && !indexedAccountId)
       ) {
@@ -345,7 +348,7 @@ export function ProtocolListContent({
         return acc;
       }, {});
     },
-    [accountId, flatProtocolData, indexedAccountId, symbol, variant],
+    [accountId, flatProtocolData, indexedAccountId, isOpen, symbol, variant],
     {
       initResult: {},
       watchLoading: true,

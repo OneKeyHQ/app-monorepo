@@ -308,9 +308,10 @@ function ProtocolSwitcher({
         w: 360,
         p: '$0',
       }}
-      renderContent={({ closePopover }) => (
+      renderContent={({ closePopover, isOpen }) => (
         <ProtocolListContent
           variant="switcher"
+          isOpen={isOpen}
           symbol={tokenSymbol}
           accountId={accountId}
           indexedAccountId={protocolSwitchConfig.indexedAccountId}
