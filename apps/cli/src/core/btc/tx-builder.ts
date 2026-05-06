@@ -54,6 +54,7 @@ interface ICoinSelectSelectedInput {
 interface ICoinSelectSelectedOutput {
   address: string;
   value?: NumberLike;
+  amount?: NumberLike;
   path?: string;
 }
 
@@ -104,6 +105,23 @@ function normalizeUtxoValue(value: string | number): {
     );
   }
   return { valueNumber, amount };
+}
+
+function normalizeCoinSelectAmount(value: unknown): number | undefined {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return undefined;
+  }
+  const amount = Number(value);
+  if (!Number.isSafeInteger(amount) || amount < 0) {
+    return undefined;
+  }
+  return amount;
+}
+
+function getSelectedOutputAmount(
+  output: ICoinSelectSelectedOutput,
+): number | undefined {
+  return normalizeCoinSelectAmount(output.value ?? output.amount);
 }
 
 function getRelPath(fullPath: string, fallbackRelPath: string): string {
@@ -162,7 +180,10 @@ function assertCoinSelectionComplete(params: {
     }) ||
     params.outputs.some((output) => {
       const selectedOutput = output as ICoinSelectSelectedOutput;
-      return !selectedOutput.address || selectedOutput.value === undefined;
+      return (
+        !selectedOutput.address ||
+        getSelectedOutputAmount(selectedOutput) === undefined
+      );
     })
   ) {
     throw createCoinSelectionError({
@@ -303,7 +324,14 @@ export async function buildBtcTransferTx(
 
   let paymentOutputConsumed = false;
   const outputs: IBtcOutput[] = selectedOutputs.map((output) => {
-    const outputValue = Number(output.value);
+    const outputValue = getSelectedOutputAmount(output);
+    if (outputValue === undefined) {
+      throw createCoinSelectionError({
+        inputCount: inputsForCoinSelect.length,
+        outputCount: outputsForCoinSelect.length,
+        paymentAmount,
+      });
+    }
     const isPaymentOutput =
       !paymentOutputConsumed &&
       output.address === params.toAddress &&

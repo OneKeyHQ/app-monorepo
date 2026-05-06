@@ -84,11 +84,11 @@ describe('BTC transfer tx builder', () => {
       outputs: [
         {
           address: toAddress,
-          value: 1000,
+          amount: '1000',
         },
         {
           address: fromAddress,
-          value: 98750,
+          amount: '98750',
         },
       ],
       fee: 250,
