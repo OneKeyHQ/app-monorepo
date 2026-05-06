@@ -77,15 +77,35 @@ export function makeHeaderScreenOptions({
       */
       headerTransparent: useLiquidGlassHeader ? true : false,
       headerTitleAlign: 'left',
-      // On iOS 26+ for pushed screens (canGoBack), defer to the system
-      // back button rendering. UIKit draws the chevron in a circular
-      // glass container that's already correctly sized and centered —
-      // bypassing our custom HeaderBackButton avoids the pill-shape and
-      // alignment quirks introduced by stuffing a small custom view into
-      // the new bar button slot. Modal/onboarding close (no canGoBack)
-      // keeps the custom X because the system has no equivalent.
-      ...(platformEnv.isNativeIOS26Plus && isCanGoBack
-        ? { headerBackTitle: '' }
+      // iOS 26+ uses native-stack's built-in bar button rendering so
+      // UIKit draws each button in its proper iOS 26 circular glass
+      // container. Three cases:
+      //   - Pushed screens (canGoBack): omit headerLeft and let the
+      //     system back chevron render. headerBackTitle:'' suppresses
+      //     the previous-screen back-title that would otherwise appear.
+      //   - Modal/onboarding close (no canGoBack but isModel/isOnboarding):
+      //     use unstable_headerLeftItems with the `xmark` SF Symbol so
+      //     UIKit renders a native close button instead of our custom
+      //     IconButton, which avoided the negative-margin and pill-shape
+      //     workarounds entirely.
+      //   - Anything else (root tab with no buttons): nothing to wire.
+      //
+      // iOS <26 keeps the OneKey-drawn HeaderBackButton path unchanged.
+      ...(platformEnv.isNativeIOS26Plus
+        ? isCanGoBack
+          ? { headerBackTitle: '' }
+          : (isModelScreen || isOnboardingScreen) && !isRootScreen
+          ? {
+              unstable_headerLeftItems: () => [
+                {
+                  type: 'button' as const,
+                  label: 'Close',
+                  icon: { type: 'sfSymbol' as const, name: 'xmark' },
+                  onPress: () => currentNavigation?.goBack?.(),
+                },
+              ],
+            }
+          : {}
         : {
             // TODO: don't override the headerLeft on iOS
             headerLeft: (props: HeaderBackButtonProps): ReactNode => (
