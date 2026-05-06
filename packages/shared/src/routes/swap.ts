@@ -6,6 +6,7 @@ import type {
   ESwapSource,
   ESwapTabSwitchType,
   IFetchLimitOrderRes,
+  IMarketPresetTokenContext,
   ISwapNetwork,
   ISwapToken,
   ISwapTxHistory,
@@ -37,6 +38,7 @@ export type IModalSwapParamList = {
     swapTabSwitchType?: ESwapTabSwitchType;
     importDeriveType?: IAccountDeriveTypes;
     swapSource?: ESwapSource;
+    marketPresetToken?: IMarketPresetTokenContext;
   };
   [EModalSwapRoutes.SwapTokenSelect]: {
     type: ESwapDirectionType;
