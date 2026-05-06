@@ -86,6 +86,82 @@ export function EarnPageContainer({
   const shouldShowTabPageHeader =
     platformEnv.isWebDappMode || showTabPageHeader;
 
+  // On iOS 26 push children, render via the native UINavigationBar so
+  // the header gets the system Liquid Glass material and the
+  // back-chevron sits in its proper iOS 26 circular glass container.
+  // Tab roots (showBackButton=false) keep TabPageHeader because they
+  // need account selector / notifications / search chrome that the
+  // native bar can't host as a single row.
+  const useNativeHeader =
+    showBackButton && platformEnv.isNativeIOS26Plus;
+
+  const renderNativeHeaderTitle = useCallback(
+    () =>
+      pageTitle ? (
+        <XStack gap="$2" ai="center">
+          {pageTitle}
+        </XStack>
+      ) : null,
+    [pageTitle],
+  );
+
+  const renderNativeHeaderRight = useMemo(
+    () =>
+      customHeaderRightItems
+        ? () => <XStack>{customHeaderRightItems}</XStack>
+        : undefined,
+    [customHeaderRightItems],
+  );
+
+  const body = (
+    <Page.Body>
+      <ScrollView
+        contentContainerStyle={{
+          py: media.gtMd ? '$6' : 0,
+          ...contentContainerStyle,
+        }}
+        refreshControl={refreshControl}
+      >
+        <Page.Container
+          padded={false}
+          layout={disableMaxWidth ? 'full' : 'regular'}
+        >
+          {showBreadcrumb || showHeader ? (
+            <XStack
+              px="$pagePadding"
+              pb={showBreadcrumb && showBodyTitle && pageTitle ? '$6' : '$5'}
+              gap="$5"
+              ai="center"
+            >
+              {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}
+              {showHeader ? header : null}
+            </XStack>
+          ) : null}
+          {showBreadcrumb && showBodyTitle && pageTitle ? (
+            <XStack px="$pagePadding" pb="$5" gap="$3" ai="center">
+              {pageTitle}
+            </XStack>
+          ) : null}
+          {children}
+        </Page.Container>
+      </ScrollView>
+    </Page.Body>
+  );
+
+  if (useNativeHeader) {
+    return (
+      <Page>
+        <Page.Header
+          headerShown
+          headerTitle={renderNativeHeaderTitle}
+          headerRight={renderNativeHeaderRight}
+        />
+        {body}
+        {footer}
+      </Page>
+    );
+  }
+
   return (
     <Page>
       {shouldShowTabPageHeader ? (
@@ -101,38 +177,7 @@ export function EarnPageContainer({
           <LegacyUniversalSearchInput size="medium" initialTab="dapp" />
         </YStack>
       )}
-      <Page.Body>
-        <ScrollView
-          contentContainerStyle={{
-            py: media.gtMd ? '$6' : 0,
-            ...contentContainerStyle,
-          }}
-          refreshControl={refreshControl}
-        >
-          <Page.Container
-            padded={false}
-            layout={disableMaxWidth ? 'full' : 'regular'}
-          >
-            {showBreadcrumb || showHeader ? (
-              <XStack
-                px="$pagePadding"
-                pb={showBreadcrumb && showBodyTitle && pageTitle ? '$6' : '$5'}
-                gap="$5"
-                ai="center"
-              >
-                {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}
-                {showHeader ? header : null}
-              </XStack>
-            ) : null}
-            {showBreadcrumb && showBodyTitle && pageTitle ? (
-              <XStack px="$pagePadding" pb="$5" gap="$3" ai="center">
-                {pageTitle}
-              </XStack>
-            ) : null}
-            {children}
-          </Page.Container>
-        </ScrollView>
-      </Page.Body>
+      {body}
       {footer}
     </Page>
   );
