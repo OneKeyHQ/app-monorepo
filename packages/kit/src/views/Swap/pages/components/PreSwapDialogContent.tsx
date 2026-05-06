@@ -447,9 +447,13 @@ const PreSwapDialogContent = ({
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
                     onSelectNetworkFeeLevel={(value) => {
-                      setSwapStepNetFeeLevel({
+                      // Spread previous state so a Market preset's
+                      // customPriorityFee is preserved when the user changes
+                      // the fee tier in the review dialog.
+                      setSwapStepNetFeeLevel((prev) => ({
+                        ...prev,
                         networkFeeLevel: value,
-                      });
+                      }));
                     }}
                   />
                   {/* Primary button */}

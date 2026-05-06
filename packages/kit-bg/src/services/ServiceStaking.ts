@@ -308,7 +308,7 @@ class ServiceStaking extends ServiceBase {
         accountId,
         networkId,
       }),
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
       }),

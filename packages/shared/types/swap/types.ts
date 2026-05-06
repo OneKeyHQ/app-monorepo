@@ -112,12 +112,19 @@ export enum ETokenRiskLevel {
   SCAM = 1002,
 }
 
+export interface IMarketPresetTokenContext {
+  networkId: string;
+  contractAddress: string;
+  isNative?: boolean;
+}
+
 export interface ISwapInitParams {
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
+  marketPresetToken?: IMarketPresetTokenContext;
 }
 
 // token & network

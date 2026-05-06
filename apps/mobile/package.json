@@ -33,8 +33,7 @@
     "android:clean": "./android/gradlew clean -p ./android",
     "android:dependencies": "./android/gradlew dependencies -p ./android",
     "eas-build-pre-install": "git config --global url.\"https://github.com/juicebox-systems/\".insteadOf \"git@github.com:juicebox-systems/\"",
-    "eas-build-post-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/@onekeyfe/react-native-lite-card/keys/keys.secret",
-    "_folderslint": "yarn folderslint"
+    "eas-build-post-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/@onekeyfe/react-native-lite-card/keys/keys.secret"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
@@ -45,7 +44,6 @@
     "@rozenite/network-activity-plugin": "1.0.0-alpha.16",
     "@rozenite/react-navigation-plugin": "1.0.0-alpha.16",
     "detox": "^20.46.3",
-    "folderslint": "1.2.0",
     "rimraf": "3.0.2"
   },
   "dependencies": {

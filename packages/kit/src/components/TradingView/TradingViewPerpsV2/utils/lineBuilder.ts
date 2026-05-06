@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
-import { formatWithPrecision } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatHlSize,
+  formatWithPrecision,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpsAssetPosition,
   IPerpsFrontendOrder,
@@ -99,17 +102,16 @@ export function buildPositionLine(
     unrealizedPnl.abs(),
     2,
   )}`;
-  const sizeFormatted = `${szi > 0 ? '+' : '-'}${formatWithPrecision(
-    absSize,
-    szDecimals,
-  )}`;
+  // Floor-truncate size to szDecimals (HL lot-size rule).
+  const formattedAbsSize = formatHlSize(absSize, szDecimals) || '0';
+  const sizeFormatted = `${szi > 0 ? '+' : '-'}${formattedAbsSize}`;
 
   return {
     id: `pos:${symbol}:${leverageType}`,
     symbol,
     kind: 'position',
     price: toChartPriceString(position.entryPx),
-    qty: formatWithPrecision(absSize, szDecimals),
+    qty: formattedAbsSize,
     side,
     pnlPositive: unrealizedPnl.gte(0),
     label: { left: pnlFormatted, right: sizeFormatted },
@@ -140,7 +142,7 @@ export function buildOrderLine(
     symbol: order.coin,
     kind: 'order',
     price: toChartPriceString(order.limitPx),
-    qty: formatWithPrecision(sz, szDecimals),
+    qty: formatHlSize(sz, szDecimals) || '0',
     side,
     label: { left: labelText },
     editable: order.orderType === 'Limit',
@@ -254,7 +256,7 @@ export function buildTpSlLine(
     symbol: order.coin,
     kind,
     price: toChartPriceString(order.triggerPx),
-    qty: formatWithPrecision(resolvedSize, szDecimals),
+    qty: formatHlSize(resolvedSize, szDecimals) || '0',
     side,
     label: { left: labelText },
     editable: false, // TP/SL orders are not draggable
