@@ -41,6 +41,13 @@ import type { IntlShape } from 'react-intl';
 
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
 
+function formatUsdPriceDisplay(price: string) {
+  return numberFormat(price, {
+    formatter: 'price',
+    formatterOptions: { currency: '$' },
+  });
+}
+
 interface IOrderConfirmContentProps {
   onClose?: () => void;
   overrideSide?: 'long' | 'short';
@@ -200,7 +207,11 @@ function OrderConfirmContent({
       );
     }
 
-    return <SizableText size="$bodyMdMedium">$ {formData.price}</SizableText>;
+    return (
+      <SizableText size="$bodyMdMedium">
+        {formatUsdPriceDisplay(formData.price)}
+      </SizableText>
+    );
   }, [formData.type, formData.price, formData.bboPriceMode, intl]);
 
   const buttonText = useMemo(() => {
@@ -285,7 +296,7 @@ function OrderConfirmContent({
               })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
-              $ {formData.triggerPrice}
+              {formatUsdPriceDisplay(formData.triggerPrice)}
             </SizableText>
           </XStack>
         ) : null}
@@ -299,7 +310,7 @@ function OrderConfirmContent({
               })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
-              $ {formData.executionPrice}
+              {formatUsdPriceDisplay(formData.executionPrice)}
             </SizableText>
           </XStack>
         ) : null}
