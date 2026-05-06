@@ -2075,7 +2075,10 @@ function TokenListBlock({
 
   const handleRefreshAllNetworkData = useCallback(() => {
     isAllNetworkManualRefresh.current = true;
-    void runAllNetworksRequests({ alwaysSetState: true });
+    void runAllNetworksRequests({
+      alwaysSetState: true,
+      skipAccountsCache: true,
+    });
   }, [runAllNetworksRequests]);
 
   const lastVisibilityRefreshAtRef = useRef(0);

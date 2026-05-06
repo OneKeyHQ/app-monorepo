@@ -107,12 +107,14 @@ function getAllNetworkAccountsBaseCached({
   networkId,
   networksEnabledOnly,
   excludeTestNetwork,
+  skipCache,
 }: {
   walletId: string;
   accountId: string;
   networkId: string;
   networksEnabledOnly: boolean;
   excludeTestNetwork: boolean;
+  skipCache?: boolean;
 }): {
   cacheKey: IAllNetworkAccountsBaseCacheKey;
   reused: boolean;
@@ -130,6 +132,7 @@ function getAllNetworkAccountsBaseCached({
   sweepAllNetworkAccountsBaseCache(now);
   const cached = allNetworkAccountsBaseCache.get(cacheKey);
   if (
+    !skipCache &&
     cached &&
     now - cached.createdAt < ALL_NETWORK_ACCOUNTS_BASE_CACHE_TTL_MS
   ) {
@@ -317,6 +320,7 @@ function useAllNetworkRequests<T>(params: {
     triggerByDeps?: boolean;
     pollingNonce?: number;
     alwaysSetState?: boolean;
+    skipAccountsCache?: boolean;
   };
   const {
     accountId: currentAccountId,
@@ -352,6 +356,11 @@ function useAllNetworkRequests<T>(params: {
   const runWithQueueRef = useRef<
     ((config?: IAllNetworkRequestsRunConfig) => Promise<void>) | undefined
   >(undefined);
+  // Single-shot signal that the next run should bypass the all-network
+  // accounts base cache. usePromiseResult does not forward the runner config
+  // into the method body, so we relay it through this ref and consume it
+  // inside the runner.
+  const skipAccountsCacheRef = useRef(false);
 
   useEffect(() => {
     const onEnabledNetworksChanged = () => {
@@ -375,6 +384,41 @@ function useAllNetworkRequests<T>(params: {
       );
     };
   }, [isAllNetworks]);
+
+  // Hardware wallets create default network accounts in series after connect
+  // (BTC -> EVM -> TRON -> SOL). The 15s account-list cache can otherwise
+  // capture a half-formed snapshot that contains only the first impl, which
+  // makes Spot show only BTC and DeFi filter to an empty network set.
+  // Invalidate this wallet's entries on every batch so the next run picks up
+  // the latest DB account set. allNetworkDataInit stays as-is to avoid
+  // clearAllNetworkData wiping the visible list between batches.
+  useEffect(() => {
+    if (!isAllNetworks) return;
+    if (!currentWalletId) return;
+    const walletIdAtSubscribe = currentWalletId;
+    const onAddDBAccounts = (payload?: { walletId: string }) => {
+      if (!payload?.walletId) return;
+      if (payload.walletId !== walletIdAtSubscribe) return;
+      const prefix = `${walletIdAtSubscribe}::`;
+      for (const key of Array.from(allNetworkAccountsBaseCache.keys())) {
+        if (key.startsWith(prefix)) {
+          allNetworkAccountsBaseCache.delete(key);
+        }
+      }
+      // alwaysSetState forces the runner past usePromiseResult's focus
+      // check, otherwise the refresh is dropped when the consuming tab
+      // (e.g. DeFi) is mounted but not the active tab during the HW connect
+      // batch — the cache would be cleared but no fetch would actually run.
+      void runWithQueueRef.current?.({
+        skipAccountsCache: true,
+        alwaysSetState: true,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, onAddDBAccounts);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, onAddDBAccounts);
+    };
+  }, [isAllNetworks, currentWalletId]);
 
   useEffect(() => {
     if (currentAccountId && currentNetworkId && currentWalletId) {
@@ -428,6 +472,9 @@ function useAllNetworkRequests<T>(params: {
       runCountRef.current += 1;
       isFetching.current = true;
 
+      let onStartedError: unknown;
+      let onStartedTask: Promise<void> | undefined;
+
       try {
         if (!allNetworkDataInit.current) {
           clearAllNetworkData();
@@ -441,8 +488,6 @@ function useAllNetworkRequests<T>(params: {
           allNetworkDataInit: !!allNetworkDataInit.current,
         });
 
-        let onStartedError: unknown;
-        let onStartedTask: Promise<void> | undefined;
         if (onStarted) {
           onStartedTask = onStarted({
             accountId: currentAccountId,
@@ -464,12 +509,16 @@ function useAllNetworkRequests<T>(params: {
           accountId: currentAccountId,
         });
 
+        const skipAccountsCacheForThisRun = skipAccountsCacheRef.current;
+        skipAccountsCacheRef.current = false;
+
         const { promise: accountsTask } = getAllNetworkAccountsBaseCached({
           walletId: currentWalletId,
           accountId: currentAccountId,
           networkId: currentNetworkId,
           excludeTestNetwork: true,
           networksEnabledOnly,
+          skipCache: skipAccountsCacheForThisRun,
         });
 
         const deFiEnabledNetworksMapTask = isDeFiRequests
@@ -729,14 +778,33 @@ function useAllNetworkRequests<T>(params: {
         if (accountsInfo.length && accountsInfo.length > 0) {
           allNetworkDataInit.current = true;
         }
-        await onFinished?.({
-          accountId: currentAccountId,
-          networkId: currentNetworkId,
-        });
 
         return resp;
       } finally {
         isFetching.current = false;
+        // Wait for onStarted to settle before firing onFinished, so
+        // the started/finished events for this run land in monotonic
+        // order (true -> false). Without this, an early throw above
+        // can fire onFinished while onStarted is still in flight,
+        // letting a stale "isRefreshing: true" arrive after "false".
+        if (onStartedTask) {
+          try {
+            await onStartedTask;
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        // Fire onFinished from finally so the "isRefreshing: false" signal
+        // (consumed by DeFi tab's runAfterTokensDone) is always emitted —
+        // even when the work above threw before reaching the prior call site.
+        try {
+          await onFinished?.({
+            accountId: currentAccountId,
+            networkId: currentNetworkId,
+          });
+        } catch (e) {
+          console.error(e);
+        }
         if (rerunAfterCurrentRef.current) {
           rerunAfterCurrentRef.current = false;
           const rerunConfig = rerunConfigRef.current;
@@ -783,8 +851,14 @@ function useAllNetworkRequests<T>(params: {
           alwaysSetState:
             !!rerunConfigRef.current?.alwaysSetState ||
             !!config?.alwaysSetState,
+          skipAccountsCache:
+            !!rerunConfigRef.current?.skipAccountsCache ||
+            !!config?.skipAccountsCache,
         };
         return;
+      }
+      if (config?.skipAccountsCache) {
+        skipAccountsCacheRef.current = true;
       }
       await run(config);
     },
