@@ -464,7 +464,9 @@
     // Custom OneKey rules (JS plugin)
     // ============================================
     // Enforce OneKeyLocalError/OneKeyError instead of raw Error
-    "onekey/no-raw-error": "error"
+    "onekey/no-raw-error": "error",
+    // Prevent DEP0005 warnings from new Buffer()/Buffer() in source.
+    "onekey/no-deprecated-buffer-constructor": "error"
   },
   // Package-specific rules (migrated from ESLint overrides)
   "overrides": [

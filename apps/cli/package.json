@@ -11,7 +11,7 @@
     "bin/"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/assert-no-deprecated-buffer.js",
     "dev": "tsup --watch",
     "test": "yarn test:unit && yarn test:integration:cli",
     "test:unit": "npx jest",

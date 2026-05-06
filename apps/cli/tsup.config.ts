@@ -429,6 +429,162 @@ const shimCrossInpageProviderLoggerPlugin: Plugin = {
   },
 };
 
+function replaceExact(
+  contents: string,
+  filePath: string,
+  replacements: Array<{ search: string; replace: string }>,
+): string {
+  return replacements.reduce((currentContents, replacement) => {
+    if (!currentContents.includes(replacement.search)) {
+      throw new TypeError(
+        `Missing expected deprecated Buffer constructor patch target in ${filePath}: ${replacement.search}`,
+      );
+    }
+
+    return currentContents.split(replacement.search).join(replacement.replace);
+  }, contents);
+}
+
+function isNodeModuleFile(filePath: string, segments: string[]): boolean {
+  return resolvePath(filePath).endsWith(segments.join(pathSeparator));
+}
+
+const pathSeparatorPattern = String.raw`[\/\\]`;
+const deprecatedBufferPatchFilter = new RegExp(
+  `(?:${[
+    ['xmlhttprequest-ssl', 'lib', 'XMLHttpRequest'].join(pathSeparatorPattern),
+    // cspell:ignore ethjs
+    `ethjs-util${pathSeparatorPattern}(?:lib|src)${pathSeparatorPattern}index`,
+    ['protobufjs', 'src', 'util', 'minimal'].join(pathSeparatorPattern),
+    ['form-data', 'lib', 'form_data'].join(pathSeparatorPattern),
+    ['tweetnacl-util', 'nacl-util'].join(pathSeparatorPattern),
+  ].join('|')})\\.js$`,
+);
+
+const patchDeprecatedBufferConstructorPlugin: Plugin = {
+  name: 'patch-deprecated-buffer-constructors',
+  setup(build) {
+    build.onLoad({ filter: deprecatedBufferPatchFilter }, async (args) => {
+      let contents = await readFileText(args.path, 'utf8');
+      let patched = false;
+
+      if (
+        isNodeModuleFile(args.path, [
+          'node_modules',
+          'xmlhttprequest-ssl',
+          'lib',
+          'XMLHttpRequest.js',
+        ])
+      ) {
+        contents = replaceExact(contents, args.path, [
+          {
+            search: 'new Buffer(settings.user + ":" + settings.password)',
+            replace: 'Buffer.from(settings.user + ":" + settings.password)',
+          },
+        ]);
+        patched = true;
+      }
+
+      if (
+        isNodeModuleFile(args.path, [
+          'node_modules',
+          'ethjs-util',
+          'lib',
+          'index.js',
+        ]) ||
+        isNodeModuleFile(args.path, [
+          'node_modules',
+          'ethjs-util',
+          'src',
+          'index.js',
+        ])
+      ) {
+        contents = replaceExact(contents, args.path, [
+          {
+            search: "new Buffer(padToEven(hex.slice(2)), 'hex')",
+            replace: "Buffer.from(padToEven(hex.slice(2)), 'hex')",
+          },
+          {
+            search:
+              "new Buffer(padToEven(stripHexPrefix(hex).replace(/^0+|0+$/g, '')), 'hex')",
+            replace:
+              "Buffer.from(padToEven(stripHexPrefix(hex).replace(/^0+|0+$/g, '')), 'hex')",
+          },
+          {
+            search: "new Buffer(stringValue, 'utf8')",
+            replace: "Buffer.from(stringValue, 'utf8')",
+          },
+        ]);
+        patched = true;
+      }
+
+      if (
+        isNodeModuleFile(args.path, [
+          'node_modules',
+          'protobufjs',
+          'src',
+          'util',
+          'minimal.js',
+        ])
+      ) {
+        contents = replaceExact(contents, args.path, [
+          {
+            search: 'return new Buffer(value, encoding);',
+            replace: 'return Buffer.from(value, encoding);',
+          },
+          {
+            search: 'return new Buffer(size);',
+            replace: 'return Buffer.alloc(size);',
+          },
+        ]);
+        patched = true;
+      }
+
+      if (
+        isNodeModuleFile(args.path, [
+          'node_modules',
+          'form-data',
+          'lib',
+          'form_data.js',
+        ])
+      ) {
+        contents = replaceExact(contents, args.path, [
+          {
+            search:
+              'var dataBuffer = new Buffer.alloc(0); // eslint-disable-line new-cap',
+            replace: 'var dataBuffer = Buffer.alloc(0);',
+          },
+        ]);
+        patched = true;
+      }
+
+      if (
+        isNodeModuleFile(args.path, [
+          'node_modules',
+          'tweetnacl-util',
+          'nacl-util.js',
+        ])
+      ) {
+        contents = replaceExact(contents, args.path, [
+          {
+            search: "return (new Buffer(arr)).toString('base64');",
+            replace: "return Buffer.from(arr).toString('base64');",
+          },
+          {
+            search:
+              "return new Uint8Array(Array.prototype.slice.call(new Buffer(s, 'base64'), 0));",
+            replace:
+              "return new Uint8Array(Array.prototype.slice.call(Buffer.from(s, 'base64'), 0));",
+          },
+        ]);
+        patched = true;
+      }
+
+      return patched ? { contents, loader: 'js' } : undefined;
+    });
+  },
+};
+
 export default defineConfig((options) => {
   const isProductionBuild = !options.watch;
 
@@ -458,6 +614,7 @@ export default defineConfig((options) => {
       shimReactNativePlugin,
       shimCrossInpageProviderDebugBrowserPlugin,
       shimCrossInpageProviderLoggerPlugin,
+      patchDeprecatedBufferConstructorPlugin,
     ],
     esbuildOptions(esbuildOptions) {
       // hd-common-connect-sdk has native USB deps (libusb) — must stay external // cspell:disable-line
