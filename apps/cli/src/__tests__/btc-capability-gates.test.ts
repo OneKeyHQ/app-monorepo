@@ -3,7 +3,7 @@ import { registerTransferCommand } from '../commands/transfer';
 import { createTestProgram, runCommand } from './test-helpers';
 
 describe('BTC unsupported command gates', () => {
-  it('rejects tbtc transfer before tx construction', async () => {
+  it('requires explicit tbtc address type before tx construction', async () => {
     const program = createTestProgram();
     registerTransferCommand(program);
 
@@ -20,8 +20,8 @@ describe('BTC unsupported command gates', () => {
     ]);
 
     expect(result.exitCode).not.toBe(0);
-    expect(result.stdout).toContain('does not support chain');
-    expect(result.stdout).toContain('transfer');
+    expect(result.stdout).toContain('PARAM_MISSING_REQUIRED');
+    expect(result.stdout).toContain('--address-type');
   });
 
   it('rejects tbtc security simulation explicitly', async () => {

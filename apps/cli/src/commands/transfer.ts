@@ -1,4 +1,15 @@
-import { assertChainCapability, resolveChain } from '../core/chain-resolver';
+import { assertAddressForChain } from '../core/address-utils';
+import {
+  BTC_ADDRESS_TYPES,
+  getBtcAddressTypeInfo,
+  isBtcImpl,
+} from '../core/btc/address-types';
+import { buildBtcTransferTx } from '../core/btc/tx-builder';
+import {
+  assertChainCapability,
+  isEvmChain,
+  resolveChain,
+} from '../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { transferOptionsSchema } from '../schemas';
@@ -13,6 +24,7 @@ import {
 } from '../utils/tx-utils';
 
 import type { OutputFormatter } from '../output';
+import type { BtcAddressType } from '../core/btc/address-types';
 import type { Command } from 'commander';
 
 // --- API response types aligned with real contracts ---
@@ -74,6 +86,10 @@ export function registerTransferCommand(program: Command): void {
     .requiredOption('--amount <amount>', 'Amount to send (human-readable)')
     .option('--token <address>', 'ERC-20 token contract address')
     .option('--chain <chain>', 'Target blockchain (e.g., eth, bsc)', 'eth')
+    .option(
+      '--address-type <type>',
+      `BTC/TBTC sender address type (${BTC_ADDRESS_TYPES.join('|')})`,
+    )
     .option('--dry-run', 'Estimate fees without sending')
     .action(
       async (
@@ -82,6 +98,7 @@ export function registerTransferCommand(program: Command): void {
           amount: string;
           token?: string;
           chain: string;
+          addressType?: BtcAddressType;
           dryRun?: boolean;
         },
         command,
@@ -94,19 +111,146 @@ export function registerTransferCommand(program: Command): void {
         try {
           const rawChainName = options.chain ?? 'eth';
           const rawChainConfig = resolveChain(rawChainName);
-          assertChainCapability(rawChainConfig, 'evmTransfer', 'transfer');
 
           const validated = transferOptionsSchema.parse({
             to: options.to,
             amount: options.amount,
             token: options.token,
             chain: options.chain,
+            addressType: options.addressType,
             dryRun: options.dryRun,
             yes: skipConfirmation,
           });
 
           const chainName = validated.chain ?? rawChainName;
           const chainConfig = rawChainConfig;
+
+          if (!isEvmChain(chainConfig)) {
+            assertChainCapability(chainConfig, 'btcTransfer', 'transfer');
+
+            if (!isBtcImpl(chainConfig.impl)) {
+              assertChainCapability(chainConfig, 'evmTransfer', 'transfer');
+            }
+
+            if (!validated.addressType) {
+              throw new AppError(
+                ERROR_CODES.PARAM_MISSING_REQUIRED.code,
+                'Missing required option --address-type for BTC/TBTC transfer.',
+                `Use one of: ${BTC_ADDRESS_TYPES.join('|')}.`,
+              );
+            }
+
+            if (validated.token) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                'BTC/TBTC transfer supports native token only.',
+                'Remove --token and send native BTC/TBTC.',
+              );
+            }
+
+            const addressTypeInfo = getBtcAddressTypeInfo(
+              chainConfig.impl,
+              validated.addressType,
+            );
+            const signer = await getSignerByImpl(chainConfig.impl);
+            const addressInfo = await signer.getAddress(chainConfig.networkId, {
+              addressType: validated.addressType,
+            });
+            const fromAddress = addressInfo.address;
+            const fromPath = addressInfo.path ?? addressTypeInfo.path;
+            const toAddress = assertAddressForChain(chainConfig, validated.to);
+            const builtTx = await buildBtcTransferTx({
+              impl: chainConfig.impl,
+              networkId: chainConfig.networkId,
+              fromAddress,
+              fromPath,
+              toAddress,
+              amount: validated.amount,
+              nativeDecimals: chainConfig.nativeDecimals,
+              feeRate: '1',
+              addressTypeInfo,
+            });
+
+            if (validated.dryRun) {
+              output.success({
+                chain: chainName,
+                addressType: addressTypeInfo.addressType,
+                from: fromAddress,
+                to: toAddress,
+                amount: validated.amount,
+                fee: builtTx.summary.fee,
+                txSize: builtTx.summary.txSize,
+                inputCount: builtTx.summary.inputCount,
+                outputCount: builtTx.summary.outputCount,
+                dryRun: true,
+              });
+              return;
+            }
+
+            await confirmTransaction({
+              info: {
+                action: `Transfer ${validated.amount} ${chainConfig.nativeSymbol}`,
+                to: toAddress,
+                value: validated.amount,
+                network: chainName,
+                estimatedGas: `${builtTx.summary.fee} sats`,
+              },
+              output,
+              skipConfirmation,
+            });
+
+            const signedTx = await signer.signTransaction({
+              networkId: chainConfig.networkId,
+              account: {
+                address: fromAddress,
+                path: fromPath,
+                pub: addressInfo.publicKey,
+              },
+              unsignedTx: { encodedTx: builtTx.encodedTx },
+              btcExtraInfo: builtTx.btcExtraInfo,
+              relPaths: builtTx.relPaths,
+              addressType: addressTypeInfo.addressType,
+            });
+
+            const broadcastResult =
+              await apiClient.post<ISendTransactionResult>(
+                'wallet',
+                '/wallet/v1/account/send-transaction',
+                {
+                  networkId: chainConfig.networkId,
+                  accountAddress: fromAddress,
+                  tx: signedTx.rawTx,
+                },
+              );
+
+            const BTC_TX_HASH_PATTERN = /^[a-fA-F0-9]{64}$/;
+            if (
+              !broadcastResult?.result ||
+              !BTC_TX_HASH_PATTERN.test(broadcastResult.result)
+            ) {
+              throw new AppError(
+                ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+                `Broadcast returned invalid txid: "${broadcastResult?.result ?? ''}"`,
+                'Check the transaction on chain explorer manually',
+              );
+            }
+
+            output.success(
+              {
+                txid: broadcastResult.result,
+                from: fromAddress,
+                to: toAddress,
+                amount: validated.amount,
+                chain: chainName,
+                addressType: addressTypeInfo.addressType,
+              },
+              { chain: chainName },
+            );
+            return;
+          }
+
+          assertChainCapability(chainConfig, 'evmTransfer', 'transfer');
+          const toAddress = assertAddressForChain(chainConfig, validated.to);
 
           const { feeDecimals, nativeDecimals, nativeSymbol } = chainConfig;
 
@@ -170,7 +314,7 @@ export function registerTransferCommand(program: Command): void {
             validateAmountDecimals(validated.amount, tokenInfo.decimals);
             encodedTx = buildErc20EncodedTx(
               fromAddress,
-              validated.to,
+              toAddress,
               validated.amount,
               validated.token,
               tokenInfo.decimals,
@@ -179,7 +323,7 @@ export function registerTransferCommand(program: Command): void {
             validateAmountDecimals(validated.amount, nativeDecimals);
             encodedTx = buildNativeEncodedTx(
               fromAddress,
-              validated.to,
+              toAddress,
               validated.amount,
               nativeDecimals,
             );
@@ -302,7 +446,7 @@ export function registerTransferCommand(program: Command): void {
                 ? `Transfer ERC-20`
                 : `Transfer ${validated.amount} ${nativeSymbol}`,
               from: fromAddress,
-              to: validated.to,
+              to: toAddress,
               amount: validated.amount,
               token: validated.token ?? 'native',
               chain: chainName,
@@ -318,7 +462,7 @@ export function registerTransferCommand(program: Command): void {
               action: validated.token
                 ? `Transfer ERC-20`
                 : `Transfer ${validated.amount} ${nativeSymbol}`,
-              to: validated.to,
+              to: toAddress,
               value: validated.amount,
               network: chainName,
               estimatedGas: estimatedGasDisplay,
@@ -422,7 +566,7 @@ export function registerTransferCommand(program: Command): void {
             {
               txid: broadcastResult.result,
               from: fromAddress,
-              to: validated.to,
+              to: toAddress,
               amount: validated.amount,
               chain: chainName,
             },
