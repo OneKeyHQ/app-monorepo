@@ -44,6 +44,7 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
@@ -57,6 +58,7 @@ import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
 import { useOrderPrice } from '../../../hooks/useOrderPrice';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
   type ITradeSide,
@@ -101,9 +103,9 @@ const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
   slType: 'price',
   slValue: '',
 };
+const USDC_TOKEN_SYMBOL = 'USDC';
 
-function MobileDepositButton() {
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+function MobileDepositButton({ onPress }: { onPress: () => void }) {
   return (
     <IconButton
       testID="perp-trading-form-mobile-deposit-button"
@@ -111,7 +113,7 @@ function MobileDepositButton() {
       variant="tertiary"
       iconSize="$3.5"
       icon="PlusCircleSolid"
-      onPress={() => void showDepositWithdrawModal('deposit')}
+      onPress={onPress}
       color="$iconSubdued"
       cursor="default"
     />
@@ -138,6 +140,8 @@ function PerpTradingForm({
   const { baseName: activeBaseName } = useActiveTradeDisplay();
   const { midPrice, midPriceBN } = useTradingPrice();
   const { price: orderPriceBN } = useOrderPrice(formData.side);
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { universeByBaseName } = useSpotMetaMaps();
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
   const isBBOActive = !!formData.bboPriceMode;
@@ -453,9 +457,13 @@ function PerpTradingForm({
   const spotAvailableDisplay = useMemo(() => {
     if (!isSpot) return '';
     if (formData.side === 'long') {
-      return `${spotAvailableQuoteBN.toFixed(2, BigNumber.ROUND_DOWN)} ${spotUniverse?.quoteName ?? ''}`;
+      return `${numberFormat(spotAvailableQuoteBN.toFixed(), {
+        formatter: 'balance',
+      })} ${spotUniverse?.quoteName ?? ''}`;
     }
-    return `${spotAvailableBaseBN.toFixed(sizeSzDecimals, BigNumber.ROUND_DOWN)} ${
+    return `${numberFormat(spotAvailableBaseBN.toFixed(), {
+      formatter: 'balance',
+    })} ${
       spotUniverse?.baseName
         ? getSpotTokenDisplayName(spotUniverse.baseName)
         : ''
@@ -467,8 +475,53 @@ function PerpTradingForm({
     spotAvailableBaseBN,
     spotUniverse?.quoteName,
     spotUniverse?.baseName,
-    sizeSzDecimals,
   ]);
+
+  const handleSpotAvailablePlusPress = useCallback(() => {
+    void (async () => {
+      if (!isSpot || !spotUniverse) {
+        await showDepositWithdrawModal('deposit');
+        return;
+      }
+
+      const availableToken =
+        formData.side === 'long'
+          ? spotUniverse.quoteName
+          : spotUniverse.baseName;
+      if (availableToken === USDC_TOKEN_SYMBOL) {
+        await showDepositWithdrawModal('deposit');
+        return;
+      }
+
+      if (formData.side === 'long') {
+        const targetUniverse = universeByBaseName[availableToken];
+        if (targetUniverse) {
+          await actions.current.switchTradeInstrument({
+            mode: 'spot',
+            coin: targetUniverse.name,
+            spotUniverse: targetUniverse,
+          });
+        }
+      }
+
+      actions.current.updateTradingForm({
+        side: 'long',
+        size: '',
+        sizePercent: 0,
+        sizeInputMode: EPerpsSizeInputMode.MANUAL,
+      });
+    })();
+  }, [
+    actions,
+    formData.side,
+    isSpot,
+    showDepositWithdrawModal,
+    spotUniverse,
+    universeByBaseName,
+  ]);
+  const handleDepositPress = useCallback(() => {
+    void showDepositWithdrawModal('deposit');
+  }, [showDepositWithdrawModal]);
 
   const spotMaxTradeLabel = useMemo(
     () =>
@@ -1054,7 +1107,7 @@ function PerpTradingForm({
         </SizableText>
         <XStack alignItems="center" gap="$1">
           <SizableText size="$bodySmMedium">{spotAvailableDisplay}</SizableText>
-          <MobileDepositButton />
+          <MobileDepositButton onPress={handleSpotAvailablePlusPress} />
         </XStack>
       </XStack>
 
@@ -1336,7 +1389,7 @@ function PerpTradingForm({
                     value={availableToTrade}
                     skeletonWidth={60}
                   />
-                  <MobileDepositButton />
+                  <MobileDepositButton onPress={handleDepositPress} />
                 </XStack>
               </XStack>
 
