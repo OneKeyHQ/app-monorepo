@@ -44,10 +44,11 @@ const EVM_CAPABILITIES = new Set<CliChainCapability>([
   'swap',
 ]);
 
-const BTC_READ_ONLY_CAPABILITIES = new Set<CliChainCapability>([
+const BTC_CAPABILITIES = new Set<CliChainCapability>([
   'accountRead',
   'historyRead',
   'btcTransfer',
+  'swap',
 ]);
 
 let chainCache: Map<string, IChainConfig> | null = null;
@@ -55,7 +56,7 @@ let chainCache: Map<string, IChainConfig> | null = null;
 function getCapabilitiesForImpl(impl: string): ReadonlySet<CliChainCapability> {
   if (impl === IMPL_EVM) return EVM_CAPABILITIES;
   if (impl === IMPL_BTC || impl === IMPL_TBTC) {
-    return BTC_READ_ONLY_CAPABILITIES;
+    return BTC_CAPABILITIES;
   }
   return new Set<CliChainCapability>();
 }

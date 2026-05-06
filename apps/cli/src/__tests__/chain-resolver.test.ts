@@ -67,7 +67,7 @@ describe('chain-resolver', () => {
     });
   });
 
-  describe('BTC/TBTC first-round CLI support', () => {
+  describe('BTC/TBTC CLI support', () => {
     it('resolves btc to Bitcoin mainnet config', () => {
       const config = resolveChain('btc');
       expect(config.networkId).toBe('btc--0');
@@ -101,6 +101,20 @@ describe('chain-resolver', () => {
       ).not.toThrow();
       expect(() =>
         assertChainCapability(tbtc, 'btcTransfer', 'transfer'),
+      ).not.toThrow();
+    });
+
+    it('assigns swap capability to btc and tbtc', () => {
+      const btc = resolveChain('btc');
+      const tbtc = resolveChain('tbtc');
+
+      expect(btc.capabilities.has('swap')).toBe(true);
+      expect(tbtc.capabilities.has('swap')).toBe(true);
+      expect(() =>
+        assertChainCapability(btc, 'swap', 'swap quote'),
+      ).not.toThrow();
+      expect(() =>
+        assertChainCapability(tbtc, 'swap', 'swap quote'),
       ).not.toThrow();
     });
 

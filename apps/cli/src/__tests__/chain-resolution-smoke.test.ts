@@ -118,7 +118,7 @@ describe('chain resolution (smoke)', () => {
       expect(['ETH', 'TETH']).toContain(c.nativeSymbol);
     });
 
-    it('resolves BTC-family read-only chains', () => {
+    it('resolves BTC-family chains', () => {
       const btc = resolveChain('btc');
       const tbtc = resolveChain('tbtc');
       expect(btc.networkId).toBe('btc--0');
@@ -231,7 +231,7 @@ describe('swap networks (smoke)', () => {
     _resetSwapNetworksCache();
   });
 
-  it('filters out non-EVM networks', async () => {
+  it('returns CLI-supported networks and skips unsupported networks', async () => {
     mockGet.mockResolvedValueOnce([
       {
         networkId: 'evm--1',
@@ -260,12 +260,20 @@ describe('swap networks (smoke)', () => {
     ]);
 
     const networks = await fetchSwapNetworks();
-    // Only EVM networks that exist in presetNetworks
-    for (const net of networks) {
-      expect(net.networkId).toMatch(/^evm--/);
-    }
+    const networkIds = networks.map((n) => n.networkId);
+
+    expect(networkIds).toContain('evm--1');
+    expect(networkIds).toContain('evm--137');
+    expect(networkIds).toContain('btc--0');
     expect(networks.find((n) => n.networkId === 'sol--101')).toBeUndefined();
-    expect(networks.find((n) => n.networkId === 'btc--0')).toBeUndefined();
+    expect(networks.find((n) => n.networkId === 'btc--0')).toMatchObject({
+      name: 'Bitcoin',
+      chainId: '0',
+      nativeSymbol: 'BTC',
+      supportSingleSwap: false,
+      supportCrossChainSwap: false,
+      supportLimit: false,
+    });
   });
 
   it('handles API failure gracefully — returns empty array', async () => {
@@ -372,7 +380,7 @@ describe('swap networks (smoke)', () => {
     expect(bsc!.nativeSymbol).toBe('BNB');
   });
 
-  it('skips EVM networks with unknown networkId', async () => {
+  it('skips unknown networkIds', async () => {
     mockGet.mockResolvedValueOnce([
       {
         networkId: 'evm--999999999',
