@@ -116,6 +116,7 @@ function MessageConfirm() {
             accountAddress,
             message: unsignedMessage.message,
             swapInfo,
+            origin: sourceInfo?.origin,
           }),
         ],
         {
