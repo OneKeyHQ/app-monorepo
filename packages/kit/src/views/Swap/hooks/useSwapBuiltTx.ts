@@ -3264,8 +3264,10 @@ export function useSwapBuildTx() {
                 error?.code !== 803 &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.code !== -99_999 &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-                !error?.message?.toLowerCase()?.includes('reject') &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                !String(error?.message ?? '')
+                  .toLowerCase()
+                  .includes('reject') &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 step.type !== ESwapStepType.SIGN_MESSAGE &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
