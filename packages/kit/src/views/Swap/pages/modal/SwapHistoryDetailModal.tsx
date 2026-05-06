@@ -413,10 +413,68 @@ const SwapHistoryDetailModal = () => {
     ],
   );
 
+  const renderProtocolFee = useCallback(() => {
+    const protocolFee = txHistory?.swapInfo.protocolFee;
+    const protocolFeeBN = new BigNumber(protocolFee ?? 0);
+    const positiveOtherFeeInfos = txHistory?.swapInfo.otherFeeInfos?.filter(
+      (item) => {
+        const amountBN = new BigNumber(item.amount ?? 0);
+        return !amountBN.isNaN() && amountBN.gt(0);
+      },
+    );
+
+    if (positiveOtherFeeInfos?.length && protocolFeeBN.isZero()) {
+      return (
+        <Stack alignItems="flex-end" gap="$1">
+          {positiveOtherFeeInfos.map((item, index) => (
+            <SizableText
+              key={`${item.token.networkId}-${item.token.contractAddress}-${index}`}
+              size="$bodyMd"
+              color="$textSubdued"
+            >
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="balance"
+              >
+                {item.amount}
+              </NumberSizeableText>
+              {` ${item.token.symbol}`}
+            </SizableText>
+          ))}
+        </Stack>
+      );
+    }
+
+    if (isNil(protocolFee)) {
+      return null;
+    }
+
+    return (
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$textSubdued"
+        formatter="value"
+        formatterOptions={{
+          currency:
+            txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol,
+        }}
+      >
+        {protocolFee.toString()}
+      </NumberSizeableText>
+    );
+  }, [
+    settingsPersistAtom.currencyInfo.symbol,
+    txHistory?.currency,
+    txHistory?.swapInfo.otherFeeInfos,
+    txHistory?.swapInfo.protocolFee,
+  ]);
+
   const renderSwapHistoryDetails = useCallback(() => {
     if (!txHistory) {
       return null;
     }
+    const protocolFeeContent = renderProtocolFee();
 
     return (
       <>
@@ -526,26 +584,13 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={renderRate()}
             />
-            {!isNil(txHistory.swapInfo.protocolFee) ? (
+            {protocolFeeContent ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({
                   id: ETranslations.swap_history_detail_protocol_fee,
                 })}
-                renderContent={
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    formatter="value"
-                    formatterOptions={{
-                      currency:
-                        txHistory.currency ??
-                        settingsPersistAtom.currencyInfo.symbol,
-                    }}
-                  >
-                    {txHistory.swapInfo.protocolFee.toString()}
-                  </NumberSizeableText>
-                }
+                renderContent={protocolFeeContent}
               />
             ) : null}
 
@@ -566,13 +611,13 @@ const SwapHistoryDetailModal = () => {
     intl,
     onViewInBrowser,
     renderNetworkFee,
+    renderProtocolFee,
     renderRate,
     renderSwapAssetsChange,
     renderSwapCrossChainStatus,
     renderSwapDate,
     renderSwapOrderStatus,
     renderSwapProvider,
-    settingsPersistAtom.currencyInfo.symbol,
     txHistory,
   ]);
 
