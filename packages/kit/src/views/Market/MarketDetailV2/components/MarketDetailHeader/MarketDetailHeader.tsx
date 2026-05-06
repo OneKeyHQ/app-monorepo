@@ -4,6 +4,7 @@ import {
   Icon,
   InteractiveIcon,
   NavBackButton,
+  Page,
   SizableText,
   XStack,
   YStack,
@@ -75,6 +76,91 @@ export function MarketDetailHeader() {
   );
 
   const customHeaderRight = useMemo(() => null, []);
+
+  // iOS 26+ mobile: render via the native UINavigationBar so the header
+  // gets the system Liquid Glass material and the back chevron sits in
+  // its proper iOS 26 circular glass container. The token symbol +
+  // dropdown chevron live in headerTitle; Star + Share live in
+  // headerRight. The address-copy sublabel that the custom pill used to
+  // render below the symbol is dropped here — single-row navbars can't
+  // host it cleanly. Pages that need the address can surface it in the
+  // body content.
+  const renderNativeHeaderTitle = useCallback(
+    () => (
+      <XStack ai="center" gap="$2" flex={1}>
+        <Token
+          size="sm"
+          tokenImageUri={tokenDetail?.logoUrl}
+          tokenImageUris={stableLogoUrls}
+          networkImageUri={networkLogoUri}
+          fallbackIcon="CryptoCoinOutline"
+        />
+        <XStack
+          ai="center"
+          gap="$1"
+          flexShrink={1}
+          {...(!isOverlayPage && {
+            onPress: onPressTokenSelector,
+            hoverStyle: { opacity: 0.8 },
+            pressStyle: { opacity: 0.6 },
+            cursor: 'pointer',
+          })}
+        >
+          <SizableText size="$headingLg" numberOfLines={1}>
+            {tokenDetail?.symbol || ''}
+          </SizableText>
+          {!isOverlayPage ? (
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$4"
+              color="$iconSubdued"
+            />
+          ) : null}
+        </XStack>
+      </XStack>
+    ),
+    [
+      tokenDetail?.logoUrl,
+      tokenDetail?.symbol,
+      stableLogoUrls,
+      networkLogoUri,
+      isOverlayPage,
+      onPressTokenSelector,
+    ],
+  );
+
+  const renderNativeHeaderRight = useCallback(
+    () =>
+      networkId ? (
+        <XStack gap="$3" ai="center">
+          <MarketStarV2
+            chainId={networkId}
+            contractAddress={tokenDetail?.address ?? ''}
+            size="large"
+            from={EWatchlistFrom.Detail}
+            tokenSymbol={tokenDetail?.symbol ?? ''}
+            isNative={isNative}
+          />
+          <ShareButton
+            networkId={networkId}
+            address={tokenDetail?.address ?? ''}
+            isNative={isNative}
+            useIconButton
+            size="large"
+          />
+        </XStack>
+      ) : null,
+    [networkId, tokenDetail?.address, tokenDetail?.symbol, isNative],
+  );
+
+  if (media.md && platformEnv.isNativeIOS26Plus) {
+    return (
+      <Page.Header
+        headerTitle={renderNativeHeaderTitle}
+        headerRight={renderNativeHeaderRight}
+      />
+    );
+  }
 
   return (
     <>
