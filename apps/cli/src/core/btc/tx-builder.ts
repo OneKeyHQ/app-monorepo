@@ -155,6 +155,8 @@ function assertCoinSelectionComplete(params: {
       const selectedInput = input as ICoinSelectSelectedInput;
       return (
         !(selectedInput.txId ?? selectedInput.txid) ||
+        !Number.isInteger(selectedInput.vout) ||
+        selectedInput.vout < 0 ||
         selectedInput.value === undefined
       );
     }) ||

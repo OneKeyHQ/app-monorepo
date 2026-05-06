@@ -234,4 +234,48 @@ describe('BTC transfer tx builder', () => {
       },
     );
   });
+
+  it('throws a structured insufficient balance error when coin selection returns an input without vout', async () => {
+    mockGet.mockResolvedValue({
+      utxoList: [
+        {
+          txid: 'tx-1',
+          vout: 0,
+          value: '1000',
+          address: fromAddress,
+          path: fromPath,
+        },
+      ],
+    });
+    mockCoinSelectWithWitness.mockReturnValue({
+      inputs: [
+        {
+          txId: 'tx-1',
+          value: 1000,
+          amount: '1000',
+          address: fromAddress,
+          path: fromPath,
+        },
+      ],
+      outputs: [
+        {
+          address: toAddress,
+          value: 1000,
+        },
+      ],
+      fee: 0,
+      bytes: 100,
+    } as never);
+
+    await expect(buildBtcTransferTxForTest(buildParams())).rejects.toMatchObject(
+      {
+        code: ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
+        message: 'BTC coin selection failed.',
+        details: expect.objectContaining({
+          inputCount: 1,
+          paymentAmount: '1000',
+        }),
+      },
+    );
+  });
 });
