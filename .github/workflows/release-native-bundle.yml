@@ -238,6 +238,11 @@ jobs:
             BRANCH="${{ github.ref_name }}"
             COMMIT="${{ github.sha }}"
           fi
+          # Validate branch format to prevent env injection and invalid refs
+          if [ -z "$BRANCH" ] || [[ "$BRANCH" == *$'\n'* ]] || [[ "$BRANCH" == *$'\r'* ]] || [[ ! "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "::error::Invalid branch format: $BRANCH"
+            exit 1
+          fi
           # Validate commit SHA format to prevent env injection
           if [[ ! "$COMMIT" =~ ^[0-9a-f]{7,40}$ ]]; then
             echo "::error::Invalid commit SHA format: $COMMIT"
@@ -263,7 +268,9 @@ jobs:
           # Override commit SHA for the build. GITHUB_SHA is a built-in GitHub Actions
           # env var that cannot be reliably overridden via $GITHUB_ENV. Instead, set
           # WORKFLOW_GITHUB_SHA which takes priority in platformEnv.githubSHA.
-          sed -i "s/^GITHUB_SHA=.*/GITHUB_SHA=$COMMIT/" .env
+          grep -v '^GITHUB_SHA=' .env > .env.tmp || true
+          printf 'GITHUB_SHA=%s\n' "$COMMIT" >> .env.tmp
+          mv .env.tmp .env
           echo "GITHUB_SHA=$COMMIT" >> $GITHUB_ENV
           echo "WORKFLOW_GITHUB_SHA=$COMMIT" >> $GITHUB_ENV
           echo "WORKFLOW_GITHUB_SHA=$COMMIT" >> .env
