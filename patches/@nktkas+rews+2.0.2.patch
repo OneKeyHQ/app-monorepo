@@ -1,0 +1,130 @@
+diff --git a/node_modules/@nktkas/rews/esm/mod.js b/node_modules/@nktkas/rews/esm/mod.js
+--- a/node_modules/@nktkas/rews/esm/mod.js
++++ b/node_modules/@nktkas/rews/esm/mod.js
+@@ -168,11 +168,19 @@
+             }, { signal });
+             this._socket.addEventListener("close", (e) => {
+                 ac.abort();
+-                this.dispatchEvent(new CloseEvent("close", {
+-                    code: e.code,
+-                    reason: e.reason,
+-                    wasClean: e.wasClean,
+-                }));
++                // OneKey: defensive try/catch — on React Native, the global CloseEvent
++                // polyfill constructs events from globalThis.Event which is NOT the
++                // same class as RN's internal Event used by EventTarget.dispatchEvent
++                // for instanceof checks. A throw here would escape into RN's
++                // RuntimeScheduler and be reported as a fatal error → SIGABRT.
++                try {
++                    this.dispatchEvent(new CloseEvent("close", {
++                        code: e.code,
++                        reason: e.reason,
++                        wasClean: e.wasClean,
++                    }));
++                }
++                catch (_err) { /* no-op: socket lifecycle is already complete via ac.abort() */ }
+                 resolve();
+             }, { signal });
+         });
+@@ -330,7 +338,16 @@
+         //       removing all listeners before native events fire.
+         if (wasConnecting) {
+             // 1006 = Abnormal Closure (RFC 6455) — no close frame was received
+-            this._socket.dispatchEvent(new CloseEvent("close", { code: 1006, reason: "", wasClean: false }));
++            // OneKey: defensive try/catch — see explanation in the "close" listener above.
++            // The dispatched event is constructed via globalThis.CloseEvent polyfill (which
++            // uses globalThis.Event), but the underlying RN WebSocket extends RN's internal
++            // EventTarget whose dispatchEvent does instanceof against RN's internal Event
++            // class. Class identity mismatch would throw "parameter 1 is not of type 'Event'"
++            // and propagate as a fatal error via RuntimeScheduler → SIGABRT.
++            try {
++                this._socket.dispatchEvent(new CloseEvent("close", { code: 1006, reason: "", wasClean: false }));
++            }
++            catch (_err) { /* no-op: native close() above will eventually fire close event in RN */ }
+         }
+     }
+     /**
+@@ -374,7 +391,17 @@
+         //       because the internal close listener calls ac.abort(),
+         //       removing all listeners before native events fire.
+         if (wasConnecting) {
+-            socket.dispatchEvent(new CloseEvent("close", { code: 3008, reason: "Timeout", wasClean: false }));
++            // OneKey: defensive try/catch — same root cause as the dispatchEvent calls
++            // above. This setTimeout fires after `timeout` ms (5s by default) when the
++            // underlying socket is still CONNECTING. On React Native, the throw from
++            // dispatchEvent would propagate out of this setTimeout callback into RN's
++            // RuntimeScheduler which hardcodes timer task errors as fatal → SIGABRT.
++            // Sentry issue REACT-NATIVE-4AX (357 events on so.onekey.wallet@6.2.0) is
++            // exactly this path firing during slow Hyperliquid WebSocket connects.
++            try {
++                socket.dispatchEvent(new CloseEvent("close", { code: 3008, reason: "Timeout", wasClean: false }));
++            }
++            catch (_err) { /* no-op: socket.close(3008) above already initiates teardown */ }
+         }
+     }, timeout);
+     const cleanup = () => clearTimeout(timer);
+diff --git a/node_modules/@nktkas/rews/script/mod.js b/node_modules/@nktkas/rews/script/mod.js
+--- a/node_modules/@nktkas/rews/script/mod.js
++++ b/node_modules/@nktkas/rews/script/mod.js
+@@ -172,11 +172,19 @@
+             }, { signal });
+             this._socket.addEventListener("close", (e) => {
+                 ac.abort();
+-                this.dispatchEvent(new CloseEvent("close", {
+-                    code: e.code,
+-                    reason: e.reason,
+-                    wasClean: e.wasClean,
+-                }));
++                // OneKey: defensive try/catch — on React Native, the global CloseEvent
++                // polyfill constructs events from globalThis.Event which is NOT the
++                // same class as RN's internal Event used by EventTarget.dispatchEvent
++                // for instanceof checks. A throw here would escape into RN's
++                // RuntimeScheduler and be reported as a fatal error → SIGABRT.
++                try {
++                    this.dispatchEvent(new CloseEvent("close", {
++                        code: e.code,
++                        reason: e.reason,
++                        wasClean: e.wasClean,
++                    }));
++                }
++                catch (_err) { /* no-op: socket lifecycle is already complete via ac.abort() */ }
+                 resolve();
+             }, { signal });
+         });
+@@ -334,7 +342,16 @@
+         //       removing all listeners before native events fire.
+         if (wasConnecting) {
+             // 1006 = Abnormal Closure (RFC 6455) — no close frame was received
+-            this._socket.dispatchEvent(new CloseEvent("close", { code: 1006, reason: "", wasClean: false }));
++            // OneKey: defensive try/catch — see explanation in the "close" listener above.
++            // The dispatched event is constructed via globalThis.CloseEvent polyfill (which
++            // uses globalThis.Event), but the underlying RN WebSocket extends RN's internal
++            // EventTarget whose dispatchEvent does instanceof against RN's internal Event
++            // class. Class identity mismatch would throw "parameter 1 is not of type 'Event'"
++            // and propagate as a fatal error via RuntimeScheduler → SIGABRT.
++            try {
++                this._socket.dispatchEvent(new CloseEvent("close", { code: 1006, reason: "", wasClean: false }));
++            }
++            catch (_err) { /* no-op: native close() above will eventually fire close event in RN */ }
+         }
+     }
+     /**
+@@ -379,7 +396,17 @@
+         //       because the internal close listener calls ac.abort(),
+         //       removing all listeners before native events fire.
+         if (wasConnecting) {
+-            socket.dispatchEvent(new CloseEvent("close", { code: 3008, reason: "Timeout", wasClean: false }));
++            // OneKey: defensive try/catch — same root cause as the dispatchEvent calls
++            // above. This setTimeout fires after `timeout` ms (5s by default) when the
++            // underlying socket is still CONNECTING. On React Native, the throw from
++            // dispatchEvent would propagate out of this setTimeout callback into RN's
++            // RuntimeScheduler which hardcodes timer task errors as fatal → SIGABRT.
++            // Sentry issue REACT-NATIVE-4AX (357 events on so.onekey.wallet@6.2.0) is
++            // exactly this path firing during slow Hyperliquid WebSocket connects.
++            try {
++                socket.dispatchEvent(new CloseEvent("close", { code: 3008, reason: "Timeout", wasClean: false }));
++            }
++            catch (_err) { /* no-op: socket.close(3008) above already initiates teardown */ }
+         }
+     }, timeout);
+     const cleanup = () => clearTimeout(timer);
