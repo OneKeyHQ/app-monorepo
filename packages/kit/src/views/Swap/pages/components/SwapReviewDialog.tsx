@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { jotaiContextStore } from '@onekeyhq/kit/src/states/jotai/utils/jotaiContextStore';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
@@ -23,6 +24,7 @@ type ISwapReviewDialogProps = {
   reviewState: ISwapReviewState;
   storeName: EJotaiContextStoreNames;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
+  defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   disableGlobalApproveSync?: boolean;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
   accountSelectorConfig?: {
@@ -68,6 +70,7 @@ export function SwapReviewDialog({
   reviewState,
   storeName,
   defaultNetworkFeeLevel,
+  defaultCustomPriorityFee,
   disableGlobalApproveSync,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
   accountSelectorConfig = {
@@ -94,6 +97,7 @@ export function SwapReviewDialog({
       <SwapProviderMirror storeName={storeName}>
         <SwapReviewInitializer
           defaultNetworkFeeLevel={defaultNetworkFeeLevel}
+          defaultCustomPriorityFee={defaultCustomPriorityFee}
           reviewState={reviewState}
         >
           <SwapReviewDialogContent

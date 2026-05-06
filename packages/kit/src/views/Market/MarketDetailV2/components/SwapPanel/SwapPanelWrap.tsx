@@ -526,6 +526,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
             <MarketSwapReviewDialog
               adapter={reviewAdapter}
               defaultNetworkFeeLevel={effectiveNetworkFeeLevel}
+              defaultCustomPriorityFee={effectiveCustomPriorityFee}
               reviewState={nextReviewState}
               onDone={() => void dialog?.close()}
             />
