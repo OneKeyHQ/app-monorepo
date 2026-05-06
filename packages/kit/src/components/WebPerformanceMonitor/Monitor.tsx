@@ -10,12 +10,16 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { WorkletFn } from '@onekeyhq/shared/types/worklet';
 
 import SystemResources from './SystemResources';
 
 import type { FrameInfo } from 'react-native-reanimated';
 
-const isLowFps = (fps: number) => fps < 30;
+const isLowFps: WorkletFn<(fps: number) => boolean> = (fps) => {
+  'worklet';
+  return fps < 30;
+};
 const styles = StyleSheet.create({
   monitor: {
     userSelect: 'none',
