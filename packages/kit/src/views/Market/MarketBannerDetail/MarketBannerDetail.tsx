@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
 
@@ -72,6 +73,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
   const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const tabBarHeight = useTabBarHeight();
   const { gtMd } = useMedia();
 
@@ -338,7 +340,14 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     <Page>
       {renderPageHeader}
       <Page.Body>
-        <Stack flex={1} pt={gtMd ? 0 : top} px={gtMd ? '$4' : 0} gap="$4">
+        <Stack
+          flex={1}
+          pt={
+            gtMd ? 0 : platformEnv.isNativeIOS26Plus ? headerHeight : top
+          }
+          px={gtMd ? '$4' : 0}
+          gap="$4"
+        >
           {renderTitleSection}
           {renderTokenList}
         </Stack>

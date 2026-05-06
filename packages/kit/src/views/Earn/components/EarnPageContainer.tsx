@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
+
 import type { IBreadcrumbProps, IScrollViewProps } from '@onekeyhq/components';
 import {
   Breadcrumb,
@@ -94,6 +96,11 @@ export function EarnPageContainer({
   // native bar can't host as a single row.
   const useNativeHeader =
     showBackButton && platformEnv.isNativeIOS26Plus;
+  // Liquid Glass header is translucent and the page content extends
+  // under it, so the ScrollView needs a top inset equal to the bar
+  // height — without it, the first content item sits clipped behind
+  // the navbar at scroll offset 0.
+  const nativeHeaderHeight = useHeaderHeight();
 
   const renderNativeHeaderTitle = useCallback(
     () =>
@@ -119,6 +126,7 @@ export function EarnPageContainer({
         contentContainerStyle={{
           py: media.gtMd ? '$6' : 0,
           ...contentContainerStyle,
+          ...(useNativeHeader ? { pt: nativeHeaderHeight } : {}),
         }}
         refreshControl={refreshControl}
       >
