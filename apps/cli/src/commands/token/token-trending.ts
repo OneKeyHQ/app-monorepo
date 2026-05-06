@@ -1,4 +1,4 @@
-import { resolveChain } from '../../core/chain-resolver';
+import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 
@@ -46,6 +46,11 @@ export function registerTokenTrendingCommand(parent: Command): void {
         let networkId: string | undefined;
         if (options.chain) {
           const chainConfig = resolveChain(options.chain);
+          assertChainCapability(
+            chainConfig,
+            'evmTokenMarket',
+            'token-trending',
+          );
           networkId = chainConfig.networkId;
         }
 

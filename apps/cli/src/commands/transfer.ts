@@ -1,4 +1,4 @@
-import { resolveChain } from '../core/chain-resolver';
+import { assertChainCapability, resolveChain } from '../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { transferOptionsSchema } from '../schemas';
@@ -92,6 +92,10 @@ export function registerTransferCommand(program: Command): void {
         const skipConfirmation = Boolean(globalOpts.yes);
 
         try {
+          const rawChainName = options.chain ?? 'eth';
+          const rawChainConfig = resolveChain(rawChainName);
+          assertChainCapability(rawChainConfig, 'evmTransfer', 'transfer');
+
           const validated = transferOptionsSchema.parse({
             to: options.to,
             amount: options.amount,
@@ -101,8 +105,8 @@ export function registerTransferCommand(program: Command): void {
             yes: skipConfirmation,
           });
 
-          const chainName = validated.chain ?? 'eth';
-          const chainConfig = resolveChain(chainName);
+          const chainName = validated.chain ?? rawChainName;
+          const chainConfig = rawChainConfig;
 
           const { feeDecimals, nativeDecimals, nativeSymbol } = chainConfig;
 

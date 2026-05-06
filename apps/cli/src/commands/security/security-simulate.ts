@@ -1,4 +1,4 @@
-import { resolveChain } from '../../core/chain-resolver';
+import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import {
@@ -55,6 +55,11 @@ export function registerSecuritySimulateCommand(parent: Command): void {
 
         try {
           const chainConfig = resolveChain(options.chain);
+          assertChainCapability(
+            chainConfig,
+            'evmSecurity',
+            'security-simulate',
+          );
 
           // Validate --to is a valid EVM address
           if (!/^0x[0-9a-fA-F]{40}$/.test(options.to)) {

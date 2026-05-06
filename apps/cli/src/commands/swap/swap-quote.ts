@@ -7,7 +7,7 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import { version as VERSION } from '../../../package.json';
 import { ConfigManager, getHost } from '../../config';
 import { auditToken, resolveToken } from '../../core';
-import { resolveChain } from '../../core/chain-resolver';
+import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { getSignerByImpl } from '../../signer';
 import {
@@ -351,6 +351,8 @@ export function registerSwapQuoteCommand(parent: Command): void {
           const toChainConfig = toChainInput
             ? resolveChain(toChainInput)
             : chainConfig;
+          assertChainCapability(chainConfig, 'swap', 'swap-quote');
+          assertChainCapability(toChainConfig, 'swap', 'swap-quote');
           const toNetworkId = toChainConfig.networkId;
           const fromNetworkId = chainConfig.networkId;
 

@@ -5,7 +5,7 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import { ConfigManager } from '../../config';
 import { auditToken, resolveToken, savePending } from '../../core';
-import { resolveChain } from '../../core/chain-resolver';
+import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
@@ -115,6 +115,8 @@ export function registerSwapBuildCommand(parent: Command): void {
           const toChainConfig = toChainInput
             ? resolveChain(toChainInput)
             : chainConfig;
+          assertChainCapability(chainConfig, 'swap', 'swap-build');
+          assertChainCapability(toChainConfig, 'swap', 'swap-build');
           const fromNetworkId = chainConfig.networkId;
           const toNetworkId = toChainConfig.networkId;
           const protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);

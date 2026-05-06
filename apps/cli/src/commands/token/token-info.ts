@@ -1,5 +1,5 @@
 import { resolveToken } from '../../core';
-import { resolveChain } from '../../core/chain-resolver';
+import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 
@@ -58,7 +58,8 @@ export function registerTokenInfoCommand(parent: Command): void {
       const output = globalOpts._outputFormatter as OutputFormatter;
 
       try {
-        resolveChain(options.chain);
+        const chainConfig = resolveChain(options.chain);
+        assertChainCapability(chainConfig, 'evmTokenMarket', 'token-info');
 
         // Step 1: Resolve token → get contractAddress + networkId
         const resolved = await resolveToken(options.token, options.chain);

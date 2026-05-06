@@ -1,5 +1,5 @@
 import { loadPending, secureCache, updatePendingStatus } from '../../core';
-import { resolveChain } from '../../core/chain-resolver';
+import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
@@ -388,6 +388,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
         try {
           // Validate chain
           const chainConfig = resolveChain(options.chain);
+          assertChainCapability(chainConfig, 'swap', 'swap-execute');
 
           // Resolve env
           const env = (
