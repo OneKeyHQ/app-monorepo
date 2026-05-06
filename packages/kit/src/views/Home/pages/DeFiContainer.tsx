@@ -33,6 +33,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
+import type { WorkletFn } from '@onekeyhq/shared/types/worklet';
 
 import { BackToTopButton } from '../../../components/BackToTopButton';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -81,16 +82,19 @@ const SIDEBAR_STICKY_UNPIN_GAP = 8;
 // on downward scroll or when back near the top. rAF / animated-reaction
 // throttles already absorb wheel jitter, so no extra dead zone. Returns
 // `previous` when direction is neutral so callers can dedup by identity.
-function decideBackToTopVisible(
-  current: number,
-  last: number,
-  previous: boolean,
-): boolean {
+// Called from a Reanimated worklet (useAnimatedReaction below). The
+// 'worklet'; directive is REQUIRED — Reanimated's babel plugin does not
+// auto-worklet top-level named function declarations, so without it the UI
+// thread crashes with "Object is not a function".
+const decideBackToTopVisible: WorkletFn<
+  (current: number, last: number, previous: boolean) => boolean
+> = (current, last, previous) => {
+  'worklet';
   if (current <= BACK_TO_TOP_NEAR_TOP_PX) return false;
   if (current < last) return true;
   if (current > last) return false;
   return previous;
-}
+};
 
 function scrollToAnchor(
   anchor: HTMLElement,
