@@ -3090,6 +3090,7 @@ export function useSwapBuildTx() {
               ...prev.preSwapData,
               stepBeforeActionsLoading: false,
               stepBeforeActionsError: true,
+              netWorkFee: undefined,
             },
           }));
         }
