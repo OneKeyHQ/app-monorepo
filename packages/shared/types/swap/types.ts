@@ -510,6 +510,10 @@ export interface ISwapPreSwapData {
   providerInfo?: IFetchQuoteInfo;
   isHWAndExBatchTransfer?: boolean;
   slippage?: number;
+  rateDifference?: {
+    value: string;
+    unit: ESwapRateDifferenceUnit;
+  };
   swapType?: ESwapTabSwitchType;
   unSupportSlippage?: boolean;
   swapBuildResultData?: {

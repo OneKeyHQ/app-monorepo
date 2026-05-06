@@ -57,6 +57,8 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import {
+  SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
+  getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
   isSwapQuoteEventFetching,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
@@ -138,9 +140,22 @@ export function useSwapQuoteEventFetching() {
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const [currentEventReceivedCount] =
     useSwapQuoteCurrentEventReceivedCountAtom();
+  const [{ swapIncognitoMode }] = useSettingsAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const quoteEventProgressTotalCount = useMemo(
+    () =>
+      getSwapQuoteEventProgressTotalCount({
+        quoteEventTotalCount,
+        maxQuoteCount:
+          swapIncognitoMode && swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+            ? SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP
+            : undefined,
+      }),
+    [quoteEventTotalCount, swapIncognitoMode, swapTypeSwitch],
+  );
 
   return isSwapQuoteEventFetching({
-    quoteEventTotalCount,
+    quoteEventTotalCount: quoteEventProgressTotalCount,
     currentEventReceivedCount,
     quoteEventCompleted,
   });
