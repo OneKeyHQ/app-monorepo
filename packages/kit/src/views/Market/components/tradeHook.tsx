@@ -223,6 +223,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
       });
+
       navigateToSwapPage({
         importFromToken: {
           ...onekeyNetwork,
@@ -237,6 +238,11 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         swapTabSwitchType: isSupportSwap
           ? ESwapTabSwitchType.SWAP
           : ESwapTabSwitchType.BRIDGE,
+        marketPresetToken: {
+          networkId,
+          contractAddress: realContractAddress,
+          isNative,
+        },
       });
     },
     [
