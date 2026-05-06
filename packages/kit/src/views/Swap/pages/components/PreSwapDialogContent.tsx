@@ -132,19 +132,40 @@ const PreSwapDialogContent = ({
       toAmount,
     ],
   );
+  const isPrimaryButtonDisabled = useMemo(
+    () =>
+      Boolean(
+        preSwapData?.estimateNetworkFeeLoading ||
+        preSwapData?.swapBuildLoading ||
+        preSwapData?.stepBeforeActionsLoading ||
+        preSwapData?.stepBeforeActionsError,
+      ),
+    [
+      preSwapData?.estimateNetworkFeeLoading,
+      preSwapData?.stepBeforeActionsError,
+      preSwapData?.stepBeforeActionsLoading,
+      preSwapData?.swapBuildLoading,
+    ],
+  );
 
   const handleConfirmPress = useCallback(() => {
+    if (isPrimaryButtonDisabled) {
+      return;
+    }
     if (validatedQuoteShowTip) {
       setShowPreSwapTipInfo(validatedQuoteShowTip);
     } else {
       onConfirm();
     }
-  }, [onConfirm, validatedQuoteShowTip]);
+  }, [isPrimaryButtonDisabled, onConfirm, validatedQuoteShowTip]);
 
   const tipOnConfirm = useCallback(() => {
+    if (isPrimaryButtonDisabled) {
+      return;
+    }
     onConfirm();
     setShowPreSwapTipInfo(undefined);
-  }, [onConfirm]);
+  }, [isPrimaryButtonDisabled, onConfirm]);
   const tipOnCancel = useCallback(() => {
     setShowPreSwapTipInfo(undefined);
   }, []);
@@ -456,11 +477,7 @@ const PreSwapDialogContent = ({
                     variant="primary"
                     onPress={handleConfirmPress}
                     size="medium"
-                    disabled={
-                      swapSteps.preSwapData.estimateNetworkFeeLoading ||
-                      swapSteps.preSwapData.swapBuildLoading ||
-                      swapSteps.preSwapData.stepBeforeActionsLoading
-                    }
+                    disabled={isPrimaryButtonDisabled}
                   >
                     {actionBtnTest}
                   </Button>

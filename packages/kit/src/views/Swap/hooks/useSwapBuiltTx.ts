@@ -80,8 +80,8 @@ import type {
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
-  IQuoteResultFeeOtherFeeInfo,
   IOneInchOrderStruct,
+  IQuoteResultFeeOtherFeeInfo,
   ISwapGasInfo,
   ISwapPreSwapData,
   ISwapStep,
@@ -2974,7 +2974,8 @@ export function useSwapBuildTx() {
             networkId,
             token: swapInfo?.sender.token,
             amount: swapInfo?.sender.amount,
-            otherFeeInfos: swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
+            otherFeeInfos:
+              swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
           },
         );
         if (!checkLatestNativeBalanceRes) {
@@ -3016,10 +3017,7 @@ export function useSwapBuildTx() {
             estimateNetworkFeeLoading: false,
           },
         }));
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (_e?.message === 'checkLatestNativeTokenBalance failed') {
-          throw _e;
-        }
+        throw _e;
       }
     },
     [
@@ -3055,6 +3053,7 @@ export function useSwapBuildTx() {
           preSwapData: {
             ...prev.preSwapData,
             stepBeforeActionsLoading: true,
+            stepBeforeActionsError: undefined,
           },
         }));
         try {
@@ -3081,14 +3080,16 @@ export function useSwapBuildTx() {
             preSwapData: {
               ...prev.preSwapData,
               stepBeforeActionsLoading: false,
+              stepBeforeActionsError: undefined,
             },
           }));
-        } catch (_e) {
+        } catch {
           setSwapSteps((prev) => ({
             ...prev,
             preSwapData: {
               ...prev.preSwapData,
               stepBeforeActionsLoading: false,
+              stepBeforeActionsError: true,
             },
           }));
         }
