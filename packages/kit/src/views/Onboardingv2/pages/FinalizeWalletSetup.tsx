@@ -265,11 +265,8 @@ function FinalizeWalletSetupPage({
                   ) {
                     return;
                   }
-                  const [token, refreshToken, pin] = await Promise.all([
-                    refreshResult.accessToken,
-                    refreshResult.refreshToken,
-                    getKeylessOnboardingPin(),
-                  ]);
+                  const { accessToken: token, refreshToken } = refreshResult;
+                  const pin = await getKeylessOnboardingPin();
                   if (!token || !pin || !refreshToken) {
                     console.error(
                       'Skip keyless auto reset pin: missing onboarding token or pin.',
