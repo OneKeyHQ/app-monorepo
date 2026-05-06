@@ -77,28 +77,26 @@ export function makeHeaderScreenOptions({
       */
       headerTransparent: useLiquidGlassHeader ? true : false,
       headerTitleAlign: 'left',
-      // iOS 26+ uses native-stack's unstable_headerLeftItems so UIKit
-      // renders each bar button (back chevron or modal close) in its
-      // proper iOS 26 circular glass container, while we keep full
-      // control of the icon and onPress.
-      //   - Pushed screens (canGoBack): chevron.left SF Symbol. Bypasses
-      //     the system back button which would render the previous
-      //     screen's title alongside the chevron.
-      //   - Modal/onboarding close (no canGoBack): xmark SF Symbol.
+      // iOS 26+ uses native-stack's built-in bar button rendering so
+      // UIKit draws each button in its proper iOS 26 circular glass
+      // container.
+      //   - Pushed screens (canGoBack): omit headerLeft so the system
+      //     back button renders. Setting headerBackButtonDisplayMode to
+      //     'minimal' hides the previous-screen back-title; the long-press
+      //     navigation history menu still works because that's a system
+      //     UIBarButtonItem feature controlled by
+      //     headerBackButtonMenuEnabled (default true).
+      //   - Modal/onboarding close (no canGoBack): use
+      //     unstable_headerLeftItems with the `xmark` SF Symbol. UIKit has
+      //     no built-in modal close primitive, so we emit a button item
+      //     and own its onPress.
       //   - Root tab with no buttons: nothing to wire.
       //
       // iOS <26 keeps the OneKey-drawn HeaderBackButton path unchanged.
       ...(platformEnv.isNativeIOS26Plus
         ? isCanGoBack
           ? {
-              unstable_headerLeftItems: () => [
-                {
-                  type: 'button' as const,
-                  label: 'Back',
-                  icon: { type: 'sfSymbol' as const, name: 'chevron.left' },
-                  onPress: () => currentNavigation?.goBack?.(),
-                },
-              ],
+              headerBackButtonDisplayMode: 'minimal' as const,
             }
           : (isModelScreen || isOnboardingScreen) && !isRootScreen
           ? {
