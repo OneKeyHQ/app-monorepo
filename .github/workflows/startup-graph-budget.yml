@@ -9,6 +9,9 @@ on:
       - 'apps/mobile/**'
       - 'yarn.lock'
 
+permissions:
+  contents: read
+
 # Cancel previous runs for the same PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

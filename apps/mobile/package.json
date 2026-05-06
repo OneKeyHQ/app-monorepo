@@ -174,7 +174,7 @@
     "realm": "20.2.0",
     "realm-flipper-plugin-device": "^1.1.0",
     "stream-http": "^3.2.0",
-    "uuid": "^3.0.0"
+    "uuid": "^14.0.0"
   },
   "workspaces": {
     "installConfig": {
