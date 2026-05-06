@@ -21,15 +21,11 @@ import type {
 } from '../../../types';
 
 /**
- * BTC-specific orchestration around the pure HKDF derivation in
- * {@link deriveContextHash}. Pulls 32-byte input key material from either:
- *   - HD credentials → BIP-32 derive at {@link DERIVE_CONTEXT_HASH_BIP32_PATH}
- *   - Imported credentials → raw private key
- *
- * Caller is responsible for prior user approval (this function performs no
- * user-facing checks). Caller must provide an already-validated `appName`
- * and `context` per the spec — this function still validates them defensively
- * via the inner `deriveContextHash` / `parseHexContext` calls.
+ * BTC `deriveContextHash` orchestration. HD = wallet-level output (IKM from
+ * stored BIP-39 seed at fixed path; passphrase changes seed → different
+ * output). Imported = per-key output. Account index/path/address type/
+ * accountId are intentionally NOT inputs — adding them breaks cross-wallet
+ * interop. Caller does user approval; we still validate defensively.
  */
 export async function deriveContextHashFromBtcCredentials({
   credentials,
@@ -44,8 +40,7 @@ export async function deriveContextHashFromBtcCredentials({
 }): Promise<string> {
   const contextBytes = parseHexContext(context);
 
-  // Fail-closed: keyrings populate exactly one of hd/imported. Both being
-  // present would be ambiguous credential state — refuse rather than guess.
+  // Fail-closed: keyrings populate exactly one of hd/imported.
   if (credentials.hd && credentials.imported) {
     throw new OneKeyLocalError(
       'deriveContextHash got ambiguous credentials (both hd and imported set)',
@@ -86,14 +81,9 @@ async function deriveFromHd({
   appName: string;
   contextBytes: Uint8Array;
 }): Promise<string> {
-  // Use the wallet's stored BIP-39 seed directly. The seed already
-  // incorporates any BIP-39 passphrase used at wallet creation, so HD wallets
-  // with passphrase produce a different (correct) `deriveContextHash` than
-  // wallets without. Reconstructing seed from entropy → mnemonic →
-  // mnemonicToSeed without passphrase would silently break passphrase users.
-  // This also avoids materializing the mnemonic string (which can't be zeroed
-  // in JS) and matches the canonical seed-access pattern used elsewhere in
-  // the codebase (see secret/index.ts → generateMasterKeyFromSeed).
+  // Use the stored seed directly — it already incorporates any BIP-39
+  // passphrase. Reconstructing via mnemonicToSeed would silently break
+  // passphrase users.
   const rs = await decryptRevealableSeed({ rs: hdCredential, password });
   const seed = bufferUtils.toBuffer(rs.seed);
   const root = getBitcoinBip32().fromSeed(seed);
@@ -107,10 +97,7 @@ async function deriveFromHd({
   try {
     return deriveContextHash(ikm, appName, contextBytes);
   } finally {
-    // Best-effort zeroing of intermediate key material. bip32 internal node
-    // state (root, parent nodes) may retain copies — we wipe what we
-    // directly hold: the IKM, the derived child's private-key Buffer, the
-    // root's private-key Buffer, and the seed Buffer.
+    // Best-effort zeroing; bip32 internal state may retain copies.
     ikm.fill(0);
     if (child.privateKey) {
       child.privateKey.fill(0);

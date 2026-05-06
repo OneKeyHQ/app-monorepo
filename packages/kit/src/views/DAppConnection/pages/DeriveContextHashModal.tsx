@@ -15,6 +15,7 @@ import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
+import { DAppAccountListStandAloneItemReadonly } from '../components/DAppAccountList';
 import {
   DAppRequestFooter,
   DAppRequestLayout,
@@ -23,17 +24,12 @@ import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
-// TODO(i18n): replace these placeholders with translation keys once they are
-// added through the OneKey translation pipeline. This API is marked
-// @experimental, so hardcoded English copy is acceptable for the first
-// release behind that flag.
+// TODO(i18n): three placeholders pending keys via OneKey translation pipeline.
 const COPY = {
   appNameLabel: 'Application name',
   contextLabel: 'Context (hex)',
   warning:
-    'A deterministic value will be derived from your wallet using the application name and context shown above. Anyone with the same key material, application name, and context can produce the same value.',
-  payloadLoadFailed:
-    'Failed to load the request payload. Please cancel and try again from the application.',
+    'A deterministic value will be derived from your wallet using the application name and context shown above. Anyone with the same key material, application name, and context can produce the same value. Note: for HD (mnemonic) wallets the value is the same across all BTC accounts under the same wallet seed (recovery phrase together with any BIP-39 passphrase set at wallet creation).',
 };
 
 function DeriveContextHashModal() {
@@ -45,10 +41,8 @@ function DeriveContextHashModal() {
       payloadNonce: string;
     }>();
 
-  // appName/context are kept off the route-query JSON pipeline (see
-  // ServiceDApp.openDeriveContextHashModal). DO NOT add appName/context back
-  // to the route params — modal params are logged via dappOpenModal and
-  // (on native) via console.log(modalParams). Fetch them in-memory here.
+  // Fetch appName/context in-memory — they MUST stay off the route params
+  // (logged via dappOpenModal). See ServiceDApp.openDeriveContextHashModal.
   const [payload, setPayload] = useState<
     { appName: string; context: string } | undefined
   >();
@@ -103,8 +97,7 @@ function DeriveContextHashModal() {
         setIsLoading(true);
         const { servicePassword, serviceDApp } = backgroundApiProxy;
 
-        // Mirror Nostr / SignMessage: ensure the user has unlocked the wallet
-        // password (cached or freshly entered) before invoking the keyring.
+        // Ensure password is unlocked (cached or freshly entered).
         const cachedPassword = await servicePassword.getCachedPassword();
         if (!cachedPassword) {
           await servicePassword.promptPasswordVerifyByAccount({ accountId });
@@ -122,10 +115,7 @@ function DeriveContextHashModal() {
           close: () => close?.({ flag: EDAppModalPageStatus.Confirmed }),
         });
       } catch (e) {
-        // useDappApproveAction.reject expects { error?, close? } — passing
-        // the raw Error would otherwise mask the real failure as a generic
-        // user-rejection. reject() is synchronous, so no await is needed
-        // (matches the pattern in NostrSignEventModal).
+        // reject() expects { error?, close? }; raw Error would mask as user-rejection.
         const error = e instanceof Error ? e : new Error(String(e));
         dappApprove.reject({ error });
       } finally {
@@ -145,10 +135,14 @@ function DeriveContextHashModal() {
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
           >
+            <DAppAccountListStandAloneItemReadonly
+              accountId={accountId}
+              networkId={networkId}
+            />
             <YStack gap="$3" px="$5">
               {payloadLoadFailed ? (
                 <SizableText size="$bodyMd" color="$textCritical">
-                  {COPY.payloadLoadFailed}
+                  {intl.formatMessage({ id: ETranslations.global_failed })}
                 </SizableText>
               ) : (
                 <>
@@ -175,12 +169,7 @@ function DeriveContextHashModal() {
                     <SizableText size="$bodyMdMedium" color="$textSubdued">
                       {COPY.contextLabel}
                     </SizableText>
-                    {/*
-                      TextArea (vs. a plain Stack with overflow="scroll") gives
-                      us a cross-platform scrollable read-only surface. On RN
-                      a Stack's `overflow: 'scroll'` would simply clip a 1KB
-                      hex blob with no way to scroll.
-                    */}
+                    {/* TextArea — cross-platform scrollable read-only surface. */}
                     <TextArea
                       editable={false}
                       numberOfLines={8}

@@ -276,13 +276,7 @@ export abstract class KeyringBase extends VaultContext {
 
   abstract signMessage(params: ISignMessageParams): Promise<ISignedMessagePro>;
 
-  /**
-   * Derive a deterministic 32-byte value from the wallet's key material.
-   *
-   * Default behavior is to throw — only software keyrings (HD/imported) on
-   * BTC override this. Hardware/QR/watching keyrings do not support
-   * `deriveContextHash` in this release.
-   */
+  // Software (HD/imported) BTC keyrings override this; everything else throws.
   async deriveContextHash(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: { password: string; appName: string; context: string },

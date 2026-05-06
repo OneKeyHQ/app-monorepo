@@ -941,25 +941,18 @@ class ProviderApiBtc extends ProviderApiBase {
   }
 
   /**
-   * @experimental Derive a deterministic 32-byte value from the wallet's key
-   * material via HKDF-SHA-256. See `core/src/chains/btc/sdkBtc/deriveContextHash.ts`
-   * for the algorithm and validation rules.
-   *
-   * Validation here mirrors the core validators word-for-word so invalid
-   * params fail fast — before showing any approval UI to the user.
+   * @experimental Derive a deterministic 32-byte value via HKDF-SHA-256.
+   * HD output is wallet-level; imported output is per-key — see
+   * `IDeriveContextHashParams` for the full contract. We validate via the
+   * core validators so invalid params fail before any approval UI opens.
    */
   @providerApiMethod()
   public async deriveContextHash(
     request: IJsBridgeMessagePayload,
     params: IDeriveContextHashParams,
   ): Promise<string> {
-    // Build a sanitized request whose `data.params` no longer contains the
-    // dApp-supplied `appName`/`context`. This single sanitized object is used
-    // for every downstream call that touches the logging or modal-routing
-    // pipeline (`dappRequest` log, `openModal` → `dappOpenModal` log,
-    // `$sourceInfo.data` JSON in route query, native console.log of
-    // modalParams). The original `request` is still used for `getAccountsInfo`
-    // since auth is scoped to origin/scope, not params.
+    // Redact dApp-supplied params from every logging / route-routing path.
+    // Original request stays for getAccountsInfo (auth is by origin/scope).
     const sanitizedRequest = {
       ...request,
       data: {
@@ -975,14 +968,10 @@ class ProviderApiBtc extends ProviderApiBase {
     }
     const { appName, context } = params;
 
-    // Validate via the canonical core validators so error messages and
-    // limits are byte-for-byte identical to the eventual derivation step.
-    // Wrapped into web3Errors.rpc.invalidParams for JSON-RPC-style failures.
+    // Use the canonical core validators — same messages as the derivation step.
     try {
       coreValidateAppName(appName);
-      // We discard the return value here — bytes are re-parsed inside the
-      // keyring via parseHexContext(). This call is for validation only.
-      coreParseHexContext(context);
+      coreParseHexContext(context); // validation only; keyring re-parses
     } catch (e) {
       throw web3Errors.rpc.invalidParams(
         e instanceof Error ? e.message : 'invalid params',
@@ -1000,10 +989,7 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
 
-    // Positive whitelist: only HD (mnemonic) and imported software keyrings
-    // are supported. Hardware / QR / watching / external accounts cannot
-    // perform HKDF locally and would require firmware-side support that is
-    // not yet shipped.
+    // Whitelist: software-only. HW/QR/watching/external need firmware support.
     const isHdOrImported =
       accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isImportedAccount({ accountId });

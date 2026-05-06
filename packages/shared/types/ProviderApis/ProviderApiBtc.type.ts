@@ -110,10 +110,12 @@ export type IPushPsbtParams = {
 };
 
 /**
- * @experimental
- * Params for `deriveContextHash` — see
- * `core/src/chains/btc/sdkBtc/deriveContextHash.ts` for the algorithm and
- * validation rules.
+ * @experimental Params for `deriveContextHash`. HD output is wallet-level
+ * (per-seed, identical across BTC accounts under the same seed); imported
+ * output is per-key. dApps needing account-level differentiation must encode
+ * the account identifier into `context`. See
+ * `core/src/chains/btc/sdkBtc/deriveContextHashFromCredentials.ts` for the
+ * full contract; `deriveContextHash.ts` for algorithm and validation.
  */
 export type IDeriveContextHashParams = {
   appName: string;

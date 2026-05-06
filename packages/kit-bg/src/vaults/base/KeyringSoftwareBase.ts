@@ -167,13 +167,8 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     return result;
   }
 
-  /**
-   * BTC `deriveContextHash` for software keyrings (HD or imported).
-   *
-   * The provider layer is responsible for user approval and parameter
-   * validation before calling this method. This method itself only fetches
-   * credentials and forwards to the deterministic derivation helper.
-   */
+  // BTC deriveContextHash for software keyrings. Provider layer is
+  // responsible for user approval and parameter validation.
   async baseDeriveContextHashBtc({
     password,
     appName,
@@ -184,8 +179,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     context: string;
   }): Promise<string> {
     const credentials = await this.baseGetCredentialsInfo({ password });
-    // Lazy-import to keep BTC-specific crypto (bip32 / bitcoinjs-lib) out of
-    // the base bundle for non-BTC software keyrings.
+    // Lazy-import keeps bip32/bitcoinjs-lib out of non-BTC keyring bundles.
     const { deriveContextHashFromBtcCredentials } =
       await import('@onekeyhq/core/src/chains/btc/sdkBtc/deriveContextHashFromCredentials');
     return deriveContextHashFromBtcCredentials({

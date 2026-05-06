@@ -111,9 +111,8 @@ class ServiceDApp extends ServiceBase {
   // openModal's params pipeline (logger + console.log serialize all params)
   private clipboardTextStore = new Map<string, string>();
 
-  // Same pattern for `deriveContextHash` payloads — the dApp-supplied context
-  // can be up to 1024 bytes and may identify what the user is doing in a
-  // given app; keep it out of dappOpenModal logs and route-query JSON.
+  // Same pattern for `deriveContextHash` payloads — keep dApp-supplied
+  // context out of dappOpenModal logs and route-query JSON.
   private deriveContextHashStore = new Map<
     string,
     { appName: string; context: string }
@@ -335,13 +334,8 @@ class ServiceDApp extends ServiceBase {
     return this.clipboardTextStore.get(nonce);
   }
 
-  /**
-   * @experimental BTC `deriveContextHash` — opens the user-approval modal and
-   * resolves with the 32-byte hex output once the user confirms (or rejects).
-   * `appName` and `context` are stored in a nonce-keyed in-memory map
-   * (same pattern as `clipboardTextStore`) so they never enter route-query
-   * JSON, the dappOpenModal logger, or native console.log of modalParams.
-   */
+  // @experimental Open approval modal for deriveContextHash.
+  // appName/context stay in the nonce-keyed store, never in route params.
   @backgroundMethod()
   async openDeriveContextHashModal({
     request,
@@ -380,9 +374,7 @@ class ServiceDApp extends ServiceBase {
         },
         fullScreen: !platformEnv.isNativeIOS,
       });
-      // Spec: output is a 64-char lowercase hex string. Reject anything else
-      // (e.g. modal dismissed without resolving with a value) so the dApp
-      // never sees a non-string success path.
+      // Reject non-hex (e.g. modal dismissed without resolving a value).
       if (typeof result !== 'string' || !/^[0-9a-f]{64}$/.test(result)) {
         throw new OneKeyLocalError(
           'deriveContextHash modal returned an invalid result',
@@ -390,24 +382,13 @@ class ServiceDApp extends ServiceBase {
       }
       return result;
     } finally {
-      // Defense-in-depth cleanup — `deriveContextHash` already deletes on
-      // consume, so this is a no-op on the happy path. Deleting again on
-      // reject/throw paths ensures no stale entry survives.
+      // Defense-in-depth — happy path already deleted in `deriveContextHash`.
       this.deriveContextHashStore.delete(payloadNonce);
     }
   }
 
-  /**
-   * Retrieve the dApp-supplied `appName`/`context` for a derive-context-hash
-   * approval flow. The modal calls this so the values never have to traverse
-   * route-query JSON.
-   *
-   * NOTE: this is a peek (does NOT consume the nonce). The nonce is only
-   * consumed when the modal calls `deriveContextHash` to perform the actual
-   * keyring operation. The `openDeriveContextHashModal` finally-block deletes
-   * the entry on close, so a nonce leaked via this peek can only be used
-   * inside the same modal lifetime.
-   */
+  // Peek (no consume); nonce is consumed by `deriveContextHash` on success.
+  // Lifetime is bounded by `openDeriveContextHashModal`'s finally-delete.
   @backgroundMethod()
   async getDeriveContextHashPayload(
     nonce: string,
@@ -415,20 +396,9 @@ class ServiceDApp extends ServiceBase {
     return this.deriveContextHashStore.get(nonce);
   }
 
-  /**
-   * @experimental BTC `deriveContextHash` — invoked by the approval modal
-   * after the user confirms. Looks up the cached password, dispatches to the
-   * BTC keyring, and returns the 32-byte hex output.
-   *
-   * Nonce consumption is deferred until *after* a successful derivation so
-   * the user can retry transient failures (e.g. password prompt cancelled,
-   * keyring init race) without restarting the dApp request. The
-   * `openDeriveContextHashModal` finally-block deletes the entry on close,
-   * so the nonce's lifetime is still bounded by the modal lifetime.
-   *
-   * Hardware/QR/watching keyrings are rejected at the provider layer; this
-   * method is only reached for HD/imported accounts.
-   */
+  // @experimental Invoked by the approval modal after user confirms. Nonce
+  // consumed only after successful derivation, so transient failures (e.g.
+  // cancelled password prompt) leave it retryable until the modal closes.
   @backgroundMethod()
   async deriveContextHash({
     walletId,
@@ -459,10 +429,7 @@ class ServiceDApp extends ServiceBase {
       );
     }
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    // Defense-in-depth: hardware/QR/watching keyrings are already rejected at
-    // the provider layer, but if a vault for an unsupported keyring slips
-    // through, fail with a clear error rather than crashing on a missing
-    // method.
+    // Defense-in-depth; hardware/QR/watching are also rejected at the provider.
     if (typeof vault.keyring.deriveContextHash !== 'function') {
       throw new OneKeyLocalError(
         'Current keyring does not support deriveContextHash',
@@ -473,9 +440,7 @@ class ServiceDApp extends ServiceBase {
       appName,
       context,
     });
-    // Single-use: consume the nonce only after the keyring derivation
-    // succeeded, so failures above leave the entry available for retry
-    // within the same modal lifetime.
+    // Consume only after success — failures above stay retryable.
     this.deriveContextHashStore.delete(payloadNonce);
     return result;
   }
