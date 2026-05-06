@@ -240,7 +240,7 @@ describe('swap execute BTC PSBT path', () => {
         path: "m/86'/0'/0'/0/0",
         pub: '02abcdef',
       },
-      isBtcWalletProvider: false,
+      isBtcWalletProvider: true,
     });
     expect(mockPost).toHaveBeenCalledWith(
       'wallet',

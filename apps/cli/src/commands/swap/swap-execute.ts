@@ -556,7 +556,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 psbt,
                 psbtNetwork,
                 account: accountForSign,
-                isBtcWalletProvider: false,
+                isBtcWalletProvider: true,
               });
             } catch (error) {
               throw new AppError(
