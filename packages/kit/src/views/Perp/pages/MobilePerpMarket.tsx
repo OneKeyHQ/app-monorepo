@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
+
 import {
   HeaderScrollGestureWrapper,
   Icon,
@@ -139,6 +141,11 @@ function MobilePerpMarket() {
   const { baseName, displayName, mode } = useActiveTradeDisplay();
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+  // iOS 26's HeaderScreenOptions sets headerTransparent: true so the
+  // page content extends under the navigation bar. Page.Body has p="$0"
+  // here, which lets the chart and order book slide up behind the bar.
+  // Use the header height to push them back into view.
+  const headerHeight = useHeaderHeight();
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
@@ -250,7 +257,11 @@ function MobilePerpMarket() {
       <Page>
         {pageHeader}
         <Page.Body p="$0">
-          <YStack flex={1} bg="$bgApp">
+          <YStack
+            flex={1}
+            bg="$bgApp"
+            pt={platformEnv.isNativeIOS26Plus ? headerHeight : 0}
+          >
             <Tabs.Container
               initialTabName="orderbook"
               renderHeader={() => <MobilePerpCandlesTouchBridge />}
