@@ -491,13 +491,22 @@ function PerpTradingForm({
   const spotMaxTradeDisplay = useMemo(() => {
     if (!isSpot) return '';
     const maxSize =
-      formData.side === 'long' ? spotMaxTradeSzs?.[0] : spotMaxTradeSzs?.[1];
+      formData.side === 'long'
+        ? (spotMaxTradeSzs?.[0] ?? '0')
+        : spotAvailableBaseBN.toFixed(sizeSzDecimals, BigNumber.ROUND_DOWN);
     return `${maxSize ?? '0'} ${
       spotUniverse?.baseName
         ? getSpotTokenDisplayName(spotUniverse.baseName)
         : ''
     }`;
-  }, [formData.side, isSpot, spotMaxTradeSzs, spotUniverse?.baseName]);
+  }, [
+    formData.side,
+    isSpot,
+    sizeSzDecimals,
+    spotAvailableBaseBN,
+    spotMaxTradeSzs,
+    spotUniverse?.baseName,
+  ]);
 
   const handleSideChange = useCallback(
     (newSide: 'long' | 'short') => {
