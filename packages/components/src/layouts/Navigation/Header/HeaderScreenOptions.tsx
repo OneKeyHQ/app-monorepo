@@ -77,23 +77,29 @@ export function makeHeaderScreenOptions({
       */
       headerTransparent: useLiquidGlassHeader ? true : false,
       headerTitleAlign: 'left',
-      // iOS 26+ uses native-stack's built-in bar button rendering so
-      // UIKit draws each button in its proper iOS 26 circular glass
-      // container. Three cases:
-      //   - Pushed screens (canGoBack): omit headerLeft and let the
-      //     system back chevron render. headerBackTitle:'' suppresses
-      //     the previous-screen back-title that would otherwise appear.
-      //   - Modal/onboarding close (no canGoBack but isModel/isOnboarding):
-      //     use unstable_headerLeftItems with the `xmark` SF Symbol so
-      //     UIKit renders a native close button instead of our custom
-      //     IconButton, which avoided the negative-margin and pill-shape
-      //     workarounds entirely.
-      //   - Anything else (root tab with no buttons): nothing to wire.
+      // iOS 26+ uses native-stack's unstable_headerLeftItems so UIKit
+      // renders each bar button (back chevron or modal close) in its
+      // proper iOS 26 circular glass container, while we keep full
+      // control of the icon and onPress.
+      //   - Pushed screens (canGoBack): chevron.left SF Symbol. Bypasses
+      //     the system back button which would render the previous
+      //     screen's title alongside the chevron.
+      //   - Modal/onboarding close (no canGoBack): xmark SF Symbol.
+      //   - Root tab with no buttons: nothing to wire.
       //
       // iOS <26 keeps the OneKey-drawn HeaderBackButton path unchanged.
       ...(platformEnv.isNativeIOS26Plus
         ? isCanGoBack
-          ? { headerBackTitle: '' }
+          ? {
+              unstable_headerLeftItems: () => [
+                {
+                  type: 'button' as const,
+                  label: 'Back',
+                  icon: { type: 'sfSymbol' as const, name: 'chevron.left' },
+                  onPress: () => currentNavigation?.goBack?.(),
+                },
+              ],
+            }
           : (isModelScreen || isOnboardingScreen) && !isRootScreen
           ? {
               unstable_headerLeftItems: () => [
