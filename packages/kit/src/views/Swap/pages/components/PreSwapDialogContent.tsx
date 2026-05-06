@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -57,12 +64,12 @@ interface IPreSwapDialogContentProps {
     data?: IFetchQuoteResult,
     currentFromToken?: ISwapToken,
     currentToToken?: ISwapToken,
-  ) => void;
+  ) => void | Promise<void>;
   preSwapStepsStart: (swapStepsValues?: {
     steps: ISwapStep[];
     preSwapData: ISwapPreSwapData;
     quoteResult?: IFetchQuoteResult;
-  }) => void;
+  }) => void | Promise<void>;
 }
 
 const PreSwapDialogContent = ({
@@ -227,7 +234,7 @@ const PreSwapDialogContent = ({
     swapSteps,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (
       swapStepsRef.current.preSwapData.supportNetworkFeeLevel &&
       swapStepsRef.current.preSwapData.supportPreBuild
