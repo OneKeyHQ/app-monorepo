@@ -11,6 +11,7 @@ import { ERROR_CODES } from '../errors/error-codes';
 export type CliChainCapability =
   | 'accountRead'
   | 'historyRead'
+  | 'btcTransfer'
   | 'evmTransfer'
   | 'evmTokenMarket'
   | 'evmSecurity'
@@ -46,6 +47,7 @@ const EVM_CAPABILITIES = new Set<CliChainCapability>([
 const BTC_READ_ONLY_CAPABILITIES = new Set<CliChainCapability>([
   'accountRead',
   'historyRead',
+  'btcTransfer',
 ]);
 
 let chainCache: Map<string, IChainConfig> | null = null;

@@ -1,4 +1,8 @@
-import { listEvmChains, resolveChain } from '../core/chain-resolver';
+import {
+  assertChainCapability,
+  listEvmChains,
+  resolveChain,
+} from '../core/chain-resolver';
 
 describe('chain-resolver', () => {
   describe('resolveChain', () => {
@@ -82,6 +86,30 @@ describe('chain-resolver', () => {
 
     it('does not resolve sol in the BTC-only first round', () => {
       expect(() => resolveChain('sol')).toThrow(/unsupported/i);
+    });
+
+    it('assigns btcTransfer capability to btc and tbtc only', () => {
+      const btc = resolveChain('btc');
+      const tbtc = resolveChain('tbtc');
+      const eth = resolveChain('eth');
+
+      expect(btc.capabilities.has('btcTransfer')).toBe(true);
+      expect(tbtc.capabilities.has('btcTransfer')).toBe(true);
+      expect(eth.capabilities.has('btcTransfer')).toBe(false);
+      expect(() =>
+        assertChainCapability(btc, 'btcTransfer', 'transfer'),
+      ).not.toThrow();
+      expect(() =>
+        assertChainCapability(tbtc, 'btcTransfer', 'transfer'),
+      ).not.toThrow();
+    });
+
+    it('keeps btc and tbtc out of evm-only capabilities', () => {
+      for (const chain of [resolveChain('btc'), resolveChain('tbtc')]) {
+        expect(chain.capabilities.has('evmTransfer')).toBe(false);
+        expect(chain.capabilities.has('evmTokenMarket')).toBe(false);
+        expect(chain.capabilities.has('evmSecurity')).toBe(false);
+      }
     });
   });
 });

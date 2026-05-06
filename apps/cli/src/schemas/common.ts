@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { BTC_ADDRESS_TYPES } from '../core/btc/address-types';
+
 /** 0x-prefixed, 40 hex character Ethereum-compatible address */
 export const ethAddress = z
   .string()
@@ -18,6 +20,9 @@ export const chainId = z
   .string()
   .min(1)
   .describe('Chain alias (eth, bsc, polygon) or networkId (evm--1, evm--56)');
+
+/** Canonical user-facing BTC address type */
+export const btcAddressType = z.enum(BTC_ADDRESS_TYPES);
 
 /**
  * Human-readable token amount (e.g. "1.5", "0.001").
