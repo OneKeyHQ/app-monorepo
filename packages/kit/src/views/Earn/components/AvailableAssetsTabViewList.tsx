@@ -35,10 +35,13 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
-import { EarnNavigation } from '../earnUtils';
+import { EarnNavigation, parseFormattedLiquidityValue } from '../earnUtils';
 
 import { AprText } from './AprText';
 import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
+import { EarnMobileSortControl } from './EarnMobileSortControl';
+
+import type { IEarnSortDirection } from './EarnMobileSortControl';
 
 export function AvailableAssetsTabViewList() {
   const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
@@ -47,6 +50,9 @@ export function AvailableAssetsTabViewList() {
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const [searchText, setSearchText] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
+  const [sortKey, setSortKey] = useState('yield');
+  const [sortDirection, setSortDirection] =
+    useState<IEarnSortDirection>('desc');
   const media = useMedia();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -63,11 +69,60 @@ export function AvailableAssetsTabViewList() {
     return tabData.map((item) => item.title);
   }, [tabData]);
   const focusedTab = useSharedValue(TabNames[0]);
+  const selectedTabType = tabData[selectedTabIndex]?.type;
+  const isFixedRateTab = selectedTabType === EAvailableAssetsTypeEnum.FixedRate;
+  const showMobileSortControl =
+    isFixedRateTab && (platformEnv.isNative || !media.gtMd);
+  const previousTabTypeRef = useRef<EAvailableAssetsTypeEnum | undefined>(
+    selectedTabType,
+  );
+
+  const handleSortChange = useCallback(
+    (key: string, direction: IEarnSortDirection) => {
+      setSortKey(key);
+      setSortDirection(direction);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const previousTabType = previousTabTypeRef.current;
+    const switchedFromFixedRate =
+      previousTabType === EAvailableAssetsTypeEnum.FixedRate &&
+      selectedTabType !== EAvailableAssetsTypeEnum.FixedRate;
+
+    if (switchedFromFixedRate) {
+      setSortKey('yield');
+      setSortDirection('desc');
+    }
+
+    previousTabTypeRef.current = selectedTabType;
+  }, [selectedTabType]);
+
+  const mobileSortOptions = useMemo(
+    () =>
+      isFixedRateTab
+        ? [
+            {
+              label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
+              value: 'yield',
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.dexmarket_details_liquidity_change_total,
+              }),
+              value: 'liquidity',
+            },
+          ]
+        : [],
+    [intl, isFixedRateTab],
+  );
 
   // Get filtered assets based on selected tab and search text
   const assets = useMemo(() => {
-    const currentTabType = tabData[selectedTabIndex]?.type;
-    const source = availableAssetsByType[currentTabType] || [];
+    const source = selectedTabType
+      ? availableAssetsByType[selectedTabType] || []
+      : [];
     if (!searchText) return source;
     const query = searchText.toLowerCase();
     return source.filter(
@@ -75,7 +130,7 @@ export function AvailableAssetsTabViewList() {
         a.symbol.toLowerCase().includes(query) ||
         a.name.toLowerCase().includes(query),
     );
-  }, [availableAssetsByType, selectedTabIndex, tabData, searchText]);
+  }, [availableAssetsByType, selectedTabType, searchText]);
 
   // Use ref to track component mount status to prevent state updates after unmount
   const isMountedRef = useRef(true);
@@ -121,15 +176,14 @@ export function AvailableAssetsTabViewList() {
   // Load data for the selected tab
   usePromiseResult(
     async () => {
-      const currentTabType = tabData[selectedTabIndex]?.type;
-      if (currentTabType) {
-        const result = await fetchAssetsData(currentTabType);
+      if (selectedTabType) {
+        const result = await fetchAssetsData(selectedTabType);
         return result || [];
       }
       return [];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedTabIndex, tabData, refreshTrigger, fetchAssetsData],
+    [selectedTabType, refreshTrigger, fetchAssetsData],
     {
       watchLoading: true,
       undefinedResultIfError: false, // Return empty array instead of undefined on error
@@ -148,8 +202,8 @@ export function AvailableAssetsTabViewList() {
     [focusedTab, tabData],
   );
 
-  const columns: ITableColumn<IEarnAvailableAsset>[] = useMemo(
-    () => [
+  const columns: ITableColumn<IEarnAvailableAsset>[] = useMemo(() => {
+    const baseColumns: ITableColumn<IEarnAvailableAsset>[] = [
       {
         key: 'asset',
         label: intl.formatMessage({ id: ETranslations.global_asset }),
@@ -195,22 +249,45 @@ export function AvailableAssetsTabViewList() {
           />
         ),
       },
-      {
-        key: 'yield',
-        label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
+    ];
+
+    if (isFixedRateTab) {
+      baseColumns.push({
+        key: 'liquidity',
+        label: intl.formatMessage({
+          id: ETranslations.dexmarket_details_liquidity_change_total,
+        }),
         flex: 1,
         align: 'flex-end',
+        hideInMobile: true,
         sortable: true,
-        comparator: (a, b) => {
-          const aprA = parseFloat(a.aprWithoutFee || a.apr || '0');
-          const aprB = parseFloat(b.aprWithoutFee || b.apr || '0');
-          return aprA - aprB;
-        },
-        render: (asset) => <AprText asset={asset} hideSuffix />,
+        comparator: (a, b) =>
+          parseFormattedLiquidityValue(a.liquidity) -
+          parseFormattedLiquidityValue(b.liquidity),
+        render: (asset) => (
+          <SizableText size="$bodyLgMedium">
+            {asset.liquidity || '-'}
+          </SizableText>
+        ),
+      });
+    }
+
+    baseColumns.push({
+      key: 'yield',
+      label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
+      flex: 1,
+      align: 'flex-end',
+      sortable: true,
+      comparator: (a, b) => {
+        const aprA = parseFloat(a.aprWithoutFee || a.apr || '0');
+        const aprB = parseFloat(b.aprWithoutFee || b.apr || '0');
+        return aprA - aprB;
       },
-    ],
-    [intl],
-  );
+      render: (asset) => <AprText asset={asset} hideSuffix />,
+    });
+
+    return baseColumns;
+  }, [intl, isFixedRateTab]);
 
   // Navigate to asset detail or protocol list, reused by both table and search dialog
   const navigateToAsset = useCallback(
@@ -284,10 +361,9 @@ export function AvailableAssetsTabViewList() {
   // Handle row press in the main table
   const handleRowPress = useCallback(
     (asset: IEarnAvailableAsset) => {
-      const currentTabType = tabData[selectedTabIndex]?.type;
-      return navigateToAsset(asset, currentTabType);
+      return navigateToAsset(asset, selectedTabType);
     },
-    [navigateToAsset, tabData, selectedTabIndex],
+    [navigateToAsset, selectedTabType],
   );
 
   // Mobile custom renderer
@@ -321,13 +397,21 @@ export function AvailableAssetsTabViewList() {
           }
         />
         <XStack flex={1} ai="center" jc="flex-end">
-          <XStack flexShrink={0} jc="flex-end">
+          <YStack flexShrink={0} ai="flex-end">
             <AprText asset={asset} />
-          </XStack>
+            {isFixedRateTab && asset.liquidity ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.dexmarket_details_liquidity_change_total,
+                })}
+                : {asset.liquidity}
+              </SizableText>
+            ) : null}
+          </YStack>
         </XStack>
       </ListItem>
     ),
-    [handleRowPress],
+    [handleRowPress, intl, isFixedRateTab],
   );
 
   // Memoize keyExtractor for TableList
@@ -513,14 +597,24 @@ export function AvailableAssetsTabViewList() {
         ) : null}
       </XStack>
 
+      {showMobileSortControl ? (
+        <EarnMobileSortControl
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          options={mobileSortOptions}
+          onSortChange={handleSortChange}
+        />
+      ) : null}
+
       <TableList<IEarnAvailableAsset>
         key={`assets-tab-${selectedTabIndex}`}
         data={assets ?? []}
         columns={columns}
         keyExtractor={keyExtractor}
         withHeader={platformEnv.isNative ? false : media.gtMd}
-        defaultSortKey="yield"
-        defaultSortDirection="desc"
+        sortKey={sortKey}
+        sortDirection={sortDirection}
+        onSortChange={handleSortChange}
         onPressRow={onPressRow}
         mobileRenderItem={mobileRenderItem}
         enableDrillIn
