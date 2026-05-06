@@ -27,7 +27,11 @@ export enum EMarketPresetPriorityFeeType {
 
 export type IMarketPresetItem = {
   key: EMarketPresetKey;
-  label: string;
+  // Static technical label for P1/P2/P3. AUTO has no static label and is
+  // resolved to a translated string at the UI layer (see `getMarketPresetLabel`
+  // in MarketPresetSelector). Never render this directly — always go through
+  // the resolver so AUTO picks up `ETranslations.global_auto`.
+  label?: string;
   defaults?: Partial<
     Record<EMarketPresetTradeSide, IMarketPresetDirectionSettings>
   >;
@@ -78,7 +82,9 @@ export type IMarketPresetConfig = {
 };
 
 const MARKET_PRESET_ITEMS: IMarketPresetItem[] = [
-  { key: EMarketPresetKey.AUTO, label: 'Auto' },
+  // AUTO label intentionally omitted — resolved via `getMarketPresetLabel`
+  // at the UI consumption layer to honour i18n.
+  { key: EMarketPresetKey.AUTO },
   { key: EMarketPresetKey.P1, label: 'P1' },
   { key: EMarketPresetKey.P2, label: 'P2' },
   { key: EMarketPresetKey.P3, label: 'P3' },

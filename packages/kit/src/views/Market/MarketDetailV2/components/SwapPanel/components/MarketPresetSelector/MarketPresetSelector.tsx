@@ -71,14 +71,17 @@ function getMarketPresetLabel({
   presetKey,
 }: {
   intl: ReturnType<typeof useIntl>;
-  label: string;
+  label?: string;
   presetKey: EMarketPresetKey;
 }) {
   if (presetKey === EMarketPresetKey.AUTO) {
     return intl.formatMessage({ id: ETranslations.global_auto });
   }
 
-  return label;
+  // Defensive fallback: P1/P2/P3 carry a static technical label, but if a
+  // future preset entry forgets to set one, returning empty would render an
+  // invisible segment. Use the key as a last-resort label.
+  return label ?? presetKey.toUpperCase();
 }
 
 function getPriorityFeeLabel({

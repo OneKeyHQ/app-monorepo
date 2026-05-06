@@ -82,7 +82,15 @@ export async function loadMarketPresetSwapOverrides({
       customPriorityFee: getMarketPresetPriorityFeeOverride(directionSettings),
       slippage,
     };
-  } catch {
+  } catch (error) {
+    // Falling back to defaults here is intentional (preset is non-critical),
+    // but keep a minimal trace so SimpleDb / config drift is observable in
+    // dev/staging instead of disappearing silently.
+    console.error(
+      '[marketPresetSwapOverrides] failed to load',
+      { networkId, tradeSide },
+      error,
+    );
     return undefined;
   }
 }

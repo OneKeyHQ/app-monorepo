@@ -1508,6 +1508,16 @@ export function useSpeedSwapActions(props: {
         } catch {
           feeInfo = undefined;
         }
+      } else if (customPriorityFee) {
+        // Approve+swap (or other multi-tx) fallback: the user configured a
+        // Market preset custom priority fee but we cannot pre-attach it here
+        // because each tx must round-trip through the standard
+        // SignatureConfirm flow, which does not read the swap-context atom.
+        // Surface a warning so QA/regression tooling can detect the silent
+        // override loss until the TODO below is resolved.
+        console.warn(
+          '[market-preset] customPriorityFee not applied: approve+swap fallback path does not propagate to SignatureConfirm yet',
+        );
       }
 
       // Only lock the fee editor when a preset feeInfo was actually pre-attached.
