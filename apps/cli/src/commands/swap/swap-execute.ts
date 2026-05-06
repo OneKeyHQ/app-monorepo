@@ -544,10 +544,10 @@ export function registerSwapExecuteCommand(parent: Command): void {
               path: fromAddressMeta.path,
               pub: addressInfo.publicKey,
             };
-            let formattedPsbtHex: string;
+            let psbtHexToSign: string;
             let inputsToSign: ReturnType<typeof getInputsToSignFromPsbt>;
             try {
-              formattedPsbtHex = formatPsbtHex(btcData.hexStr);
+              const formattedPsbtHex = formatPsbtHex(btcData.hexStr);
               const psbtNetwork = getBtcForkNetwork(chainConfig.impl);
               const psbt = Psbt.fromHex(formattedPsbtHex, {
                 network: psbtNetwork,
@@ -558,6 +558,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 account: accountForSign,
                 isBtcWalletProvider: true,
               });
+              psbtHexToSign = psbt.toHex();
             } catch (error) {
               throw new AppError(
                 ERROR_CODES.BIZ_SWAP_FAILED.code,
@@ -591,7 +592,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               account: accountForSign,
               unsignedTx: {
                 encodedTx: {
-                  psbtHex: formattedPsbtHex,
+                  psbtHex: psbtHexToSign,
                   inputsToSign,
                 },
               },

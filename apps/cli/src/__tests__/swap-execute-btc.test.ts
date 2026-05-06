@@ -31,7 +31,10 @@ jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
 
 jest.mock('bitcoinjs-lib', () => ({
   Psbt: {
-    fromHex: jest.fn(() => ({ mockPsbt: true })),
+    fromHex: jest.fn(() => ({
+      mockPsbt: true,
+      toHex: jest.fn(() => 'normalized-psbt-hex'),
+    })),
   },
 }));
 
@@ -213,7 +216,7 @@ describe('swap execute BTC PSBT path', () => {
       },
       unsignedTx: {
         encodedTx: {
-          psbtHex: 'formatted-70736274ff0100',
+          psbtHex: 'normalized-psbt-hex',
           inputsToSign: [
             {
               index: 0,
@@ -233,7 +236,7 @@ describe('swap execute BTC PSBT path', () => {
       network: { networkChainCode: 'btc' },
     });
     expect(mockGetInputsToSignFromPsbt).toHaveBeenCalledWith({
-      psbt: { mockPsbt: true },
+      psbt: expect.objectContaining({ mockPsbt: true }),
       psbtNetwork: { networkChainCode: 'btc' },
       account: {
         address: 'bc1psourceaddress',
