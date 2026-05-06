@@ -9,7 +9,6 @@
     { "name": "import-js", "specifier": "eslint-plugin-import" },
     "./development/plugins/eslint-plugin-onekey.js"
   ],
-  "extends": ["eslint-config-prettier"],
   "plugins": [
     "unicorn",
     "typescript",
@@ -310,6 +309,21 @@
         "ignoreTypeReferences": true
       }
     ],
+
+    // Rules newly enabled by default in oxlint 1.57-1.62 that conflict with
+    // existing project conventions or are too noisy to fix wholesale.
+    // Codebase widely uses `_foo` naming for private-like identifiers.
+    "no-underscore-dangle": "off",
+    // Many functions intentionally fall through with implicit undefined returns.
+    "typescript/consistent-return": "off",
+    // Defensive `Boolean(x)` / `Number(x)` / `String(x)` calls are intentional.
+    "typescript/no-unnecessary-type-conversion": "off",
+    // Generic helpers sometimes use a single type param for readability.
+    "typescript/no-unnecessary-type-parameters": "off",
+    // Destructuring defaults like `tokens = []` are intentional runtime guards
+    // against API responses / async results that TypeScript types claim are
+    // required but may be undefined at runtime. Removing them is unsafe.
+    "typescript/no-useless-default-assignment": "off",
 
     // ============================================
     // Unicorn rules (matching ESLint config)
