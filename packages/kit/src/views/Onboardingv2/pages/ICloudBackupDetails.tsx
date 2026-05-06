@@ -8,8 +8,6 @@ import {
   Button,
   Dialog,
   Icon,
-  Page,
-  ScrollView,
   SizableText,
   Toast,
   XStack,
@@ -39,12 +37,7 @@ import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 import { CloudBackupDetailsEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
-import {
-  LayoutHeader,
-  LayoutHeaderBack,
-  LayoutHeaderLanguageSelector,
-  LayoutHeaderTitle,
-} from '../components/Layout';
+import { OnboardingPage } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 
 export default function ICloudBackupDetails({
@@ -261,101 +254,73 @@ export default function ICloudBackupDetails({
   );
 
   return (
-    <Page safeAreaEnabled={false}>
-      <YStack
-        $gtMd={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 10,
-        }}
-      >
-        <LayoutHeader>
-          <LayoutHeaderBack />
-          <LayoutHeaderTitle>{formattedDate}</LayoutHeaderTitle>
-          <LayoutHeaderLanguageSelector />
-        </LayoutHeader>
-      </YStack>
-      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-        <YStack
-          flex={1}
-          px="$5"
-          $gtMd={{ alignItems: 'center', justifyContent: 'center' }}
-        >
-          <YStack
-            w="100%"
-            maxWidth={480}
-            mx="auto"
-            gap="$3"
-            $md={{ flex: 1 }}
-            $gtMd={{ minHeight: 522 }}
-          >
-            <CloudAccountBar />
-            {renderContent()}
-            <MultipleClickStack
-              h="$10"
-              showDevBgColor
-              debugComponent={
-                <YStack gap="$2">
-                  <Button
-                    onPress={async () => {
-                      Dialog.debugMessage({
-                        debugMessage: backupData,
-                      });
-                    }}
-                  >
-                    showBackupData
-                  </Button>
-                  <Button
-                    onPress={async () => {
-                      showCloudBackupPasswordDialog({
-                        intl,
-                        onSubmit: async (password) => {
-                          const privateData =
-                            await backgroundApiProxy.serviceCloudBackupV2.restorePreparePrivateData(
-                              {
-                                payload:
-                                  backupData as IBackupDataEncryptedPayload,
-                                password,
-                              },
-                            );
-                          Dialog.debugMessage({
-                            debugMessage: privateData,
-                          });
+    <OnboardingPage
+      safeAreaEnabled={false}
+      scrollable
+      headerTitle={formattedDate}
+      contentContainerProps={{ maxWidth: 480, gap: '$3', paddingVertical: 20 }}
+    >
+      <CloudAccountBar />
+      {renderContent()}
+      <MultipleClickStack
+        h="$10"
+        showDevBgColor
+        debugComponent={
+          <YStack gap="$2">
+            <Button
+              onPress={async () => {
+                Dialog.debugMessage({
+                  debugMessage: backupData,
+                });
+              }}
+            >
+              showBackupData
+            </Button>
+            <Button
+              onPress={async () => {
+                showCloudBackupPasswordDialog({
+                  intl,
+                  onSubmit: async (password) => {
+                    const privateData =
+                      await backgroundApiProxy.serviceCloudBackupV2.restorePreparePrivateData(
+                        {
+                          payload: backupData as IBackupDataEncryptedPayload,
+                          password,
                         },
-                      });
-                    }}
-                  >
-                    showBackupPrivateData
-                  </Button>
-                  <Button
-                    onPress={async () => {
-                      setWalletDataMocked([]);
-                    }}
-                  >
-                    Mock Empty Wallets
-                  </Button>
-                  <Button
-                    loading={checkLoading}
-                    disabled={isButtonDisabled}
-                    flex={1}
-                    onPress={async () => {
-                      await doBackup({
-                        data: backupData as IPrimeTransferData,
-                        backupTimes: 30,
-                      });
-                    }}
-                  >
-                    备份 30 份
-                  </Button>
-                </YStack>
-              }
-            />
-            <YStack {...(!gtMd && { mt: 'auto' })}>{actionButtons}</YStack>
+                      );
+                    Dialog.debugMessage({
+                      debugMessage: privateData,
+                    });
+                  },
+                });
+              }}
+            >
+              showBackupPrivateData
+            </Button>
+            <Button
+              onPress={async () => {
+                setWalletDataMocked([]);
+              }}
+            >
+              Mock Empty Wallets
+            </Button>
+            <Button
+              loading={checkLoading}
+              disabled={isButtonDisabled}
+              flex={1}
+              onPress={async () => {
+                await doBackup({
+                  data: backupData as IPrimeTransferData,
+                  backupTimes: 30,
+                });
+              }}
+            >
+              备份 30 份
+            </Button>
           </YStack>
-        </YStack>
-      </ScrollView>
-    </Page>
+        }
+      />
+      <YStack {...(!gtMd && { mt: 'auto' })}>{actionButtons}</YStack>
+    </OnboardingPage>
   );
 }
