@@ -27,6 +27,7 @@ import {
 import {
   useSpotActiveAssetAtom,
   useSpotActiveAssetCtxAtom,
+  useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -34,6 +35,7 @@ import {
   formatDisplayNumber,
   formatLocalizedNumberString,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getSpotMarketCapValue } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
@@ -369,7 +371,11 @@ const TickerBarMarketCapView = memo(
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText size="$headingXs">${formattedMarketCap}</SizableText>
+            <SizableText size="$headingXs">
+              {formattedMarketCap === '--'
+                ? formattedMarketCap
+                : `$${formattedMarketCap}`}
+            </SizableText>
           </SkeletonContainer>
         </YStack>
       </DebugRenderTracker>
@@ -380,12 +386,15 @@ TickerBarMarketCapView.displayName = 'TickerBarMarketCapView';
 
 function TickerBarMarketCap() {
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const { circulatingSupply = '0', markPrice = '0' } = spotAssetCtx?.ctx || {};
-  const formattedMarketCap = formatDisplayNumber(
-    NUMBER_FORMATTER.marketCap(
-      (Number(circulatingSupply) * Number(markPrice)).toString(),
-    ),
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
+  const marketCap = getSpotMarketCapValue(
+    spotAssetCtx?.ctx,
+    spotAssetCtx?.baseName ?? spotAssetCtx?.coin,
+    spotMarketCaps,
   );
+  const formattedMarketCap = marketCap
+    ? formatDisplayNumber(NUMBER_FORMATTER.marketCap(marketCap))
+    : undefined;
   const isLoading = useTickerBarIsLoading();
 
   return (
