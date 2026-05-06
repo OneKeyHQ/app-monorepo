@@ -26,5 +26,20 @@
       "#11368"
     ],
     "notes": "feat(browser): add sidebar preference to place new tab at top (#11310, OK-53560), fix(swap): unblock swap on first actionable quote (#11312, OK-52655), fix(logs): use RNFS.hash to compute log bundle sha256 (#11316, OK-53527), fix: send flow and signature confirm regressions (#11317, OK-53537/OK-53449/OK-53370), fix: refresh Houdini swap balance on state detail updates (#11338, OK-53652), fix: prevent stale swap balance orders (#11352, OK-53762/OK-53841), fix: normalize fiat send amount precision (#11368, OK-53784)"
+  },
+  {
+    "seq": 3,
+    "commit": "715848c9cfa35293e41043487a126eec5e81556c",
+    "date": "2026-05-06T12:53:09Z",
+    "prs": [
+      "#11320",
+      "#11357",
+      "#11383",
+      "#11390",
+      "#11399",
+      "#11402",
+      "#11412"
+    ],
+    "notes": "perf(defi): force-refresh positions after local tx confirms (#11357, OK-53474), fix(home): refresh all-net accounts on HW batch (#11383, OK-53863/OK-53864), feat(discovery): add Bitrefill payment intent checkout flow (#11399, OK-46521), fix: update provider fee content i18n (#11402), fix(swap): remove duplicate gas fee paragraph in service fee tooltip (#11412), fix(desktop): skip download UI for OTA updates from menu check (#11390), fix(appUpdate): detect Google Play flavor via Nitro registry (#11320, backport #11303)"
   }
 ]
