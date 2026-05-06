@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { DescriptionItem } from '@onekeyhq/kit/src/components/DescriptionItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
@@ -135,18 +136,17 @@ function RedeemSuccessPage() {
 
             <Divider />
 
-            <XStack justifyContent="space-between">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.redemption_btc_success_eligible_label_title,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {formatDate(getBtcRewardPayoutDate(payoutEligibleAt), {
-                  hideTimeForever: true,
-                })}
-              </SizableText>
-            </XStack>
+            <DescriptionItem
+              label={intl.formatMessage({
+                id: ETranslations.redemption_btc_success_eligible_label_title,
+              })}
+              infoTooltip={intl.formatMessage({
+                id: ETranslations.redemption_btc_success_eligible_label_tooltip,
+              })}
+              value={formatDate(getBtcRewardPayoutDate(payoutEligibleAt), {
+                hideTimeForever: true,
+              })}
+            />
           </YStack>
         </YStack>
       </Page.Body>

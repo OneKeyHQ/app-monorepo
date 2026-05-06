@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { SizableText, XStack } from '@onekeyhq/components';
-
-import { InfoIcon } from './InfoIcon';
+import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 
 export interface IDescriptionItemProps {
   label: string;
@@ -19,8 +18,8 @@ export function DescriptionItem({
 }: IDescriptionItemProps) {
   return (
     <XStack gap="$2" ai="center" jc="space-between">
-      <XStack gap="$2" ai="center">
-        <SizableText size="$bodyMd" color="$textSubdued">
+      <XStack gap="$2" ai="center" flexShrink={1}>
+        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={1}>
           {label}
         </SizableText>
         {infoTooltip ? (
