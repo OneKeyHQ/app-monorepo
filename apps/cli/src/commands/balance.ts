@@ -1,4 +1,9 @@
-import { resolveChain } from '../core/chain-resolver';
+import { assertAddressForChain } from '../core/address-utils';
+import {
+  assertChainCapability,
+  isEvmChain,
+  resolveChain,
+} from '../core/chain-resolver';
 import { resolveToken } from '../core/token-resolver';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
@@ -179,6 +184,7 @@ export function registerBalanceCommand(program: Command): void {
         try {
           const chainName = options.chain;
           const chainConfig = resolveChain(chainName);
+          assertChainCapability(chainConfig, 'accountRead', 'balance');
 
           // Resolve env
           const env = (
@@ -186,18 +192,94 @@ export function registerBalanceCommand(program: Command): void {
           ) as IEndpointEnv;
           apiClient.setEnv(env);
 
+          if (!isEvmChain(chainConfig)) {
+            if (!options.address) {
+              throw new AppError(
+                ERROR_CODES.PARAM_MISSING_REQUIRED.code,
+                'BTC read-only balance currently requires --address.',
+                'Pass --address with a valid BTC or Bitcoin testnet address.',
+              );
+            }
+
+            const address = assertAddressForChain(chainConfig, options.address);
+            const nativeSymbols = new Set([
+              chainConfig.nativeSymbol.toUpperCase(),
+              chainConfig.impl === 'tbtc'
+                ? 'BTC'
+                : chainConfig.nativeSymbol.toUpperCase(),
+            ]);
+
+            if (
+              options.token &&
+              !nativeSymbols.has(options.token.toUpperCase())
+            ) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                'Only native BTC/TBTC balance is supported for Bitcoin chains.',
+                `Use --token ${chainConfig.nativeSymbol} or omit --token.`,
+              );
+            }
+
+            const account = await apiClient.get<IAccountResponse>(
+              'wallet',
+              '/wallet/v1/account/get-account',
+              {
+                networkId: chainConfig.networkId,
+                accountAddress: address,
+                withNetWorth: true,
+              },
+            );
+
+            const balanceDisplay = account.balanceParsed ?? account.balance;
+            if (balanceDisplay === null || balanceDisplay === undefined) {
+              throw new AppError(
+                ERROR_CODES.BIZ_UNKNOWN.code,
+                'API response is missing balance data',
+                'This may indicate an API contract change.',
+              );
+            }
+
+            if (options.token) {
+              output.success(
+                {
+                  address,
+                  chain: chainName,
+                  token: chainConfig.nativeSymbol,
+                  contractAddress: '',
+                  balance: balanceDisplay,
+                },
+                { chain: chainName },
+              );
+              return;
+            }
+
+            output.success(
+              {
+                address,
+                chain: chainName,
+                tokens: [
+                  {
+                    symbol: chainConfig.nativeSymbol,
+                    balance: balanceDisplay,
+                    contractAddress: '',
+                    fiatValue: null,
+                    isNative: true,
+                  },
+                ],
+              },
+              { chain: chainName },
+            );
+            return;
+          }
+
           // Resolve wallet address
           let address = options.address;
           if (!address) {
             const signer = await getSignerByImpl(chainConfig.impl);
             const addrInfo = await signer.getAddress(chainConfig.networkId);
             address = addrInfo.address;
-          } else if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-            throw new AppError(
-              ERROR_CODES.PARAM_INVALID_ADDRESS.code,
-              `Invalid address format: ${address}`,
-              'Provide a valid 0x-prefixed EVM address (42 chars)',
-            );
+          } else {
+            address = assertAddressForChain(chainConfig, address);
           }
 
           if (!options.token) {
