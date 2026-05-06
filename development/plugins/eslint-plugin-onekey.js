@@ -124,12 +124,13 @@ const noNonWorkletCallInWorklet = {
 
     function pushAstChildren(node, stack) {
       for (const k of Object.keys(node)) {
-        if (SKIP_AST_KEYS.has(k)) continue;
-        const v = node[k];
-        if (Array.isArray(v)) {
-          for (const item of v) if (item) stack.push(item);
-        } else if (v && typeof v === 'object' && v.type) {
-          stack.push(v);
+        if (!SKIP_AST_KEYS.has(k)) {
+          const v = node[k];
+          if (Array.isArray(v)) {
+            for (const item of v) if (item) stack.push(item);
+          } else if (v && typeof v === 'object' && v.type) {
+            stack.push(v);
+          }
         }
       }
     }
