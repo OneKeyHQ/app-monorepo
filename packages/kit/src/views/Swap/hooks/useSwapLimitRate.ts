@@ -98,10 +98,10 @@ export const useSwapLimitRate = () => {
     () =>
       Boolean(
         limitPriceUseRate.fromToken ||
-          limitPriceUseRate.toToken ||
-          limitPriceUseRate.rate ||
-          limitPriceUseRate.reverseRate ||
-          limitPriceUseRate.inputRate,
+        limitPriceUseRate.toToken ||
+        limitPriceUseRate.rate ||
+        limitPriceUseRate.reverseRate ||
+        limitPriceUseRate.inputRate,
       ),
     [
       limitPriceUseRate.fromToken,
