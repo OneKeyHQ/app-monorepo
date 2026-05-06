@@ -66,17 +66,19 @@ export function formatUsd(value: number | string): string {
   });
 }
 
-// Payouts run on the 10th UTC; consumers render with formatDate (local
-// timezone). Pick the target month in UTC, but return a local-midnight Date
-// for that 10th so the displayed day stays "10th" in every timezone — UTC
-// midnight would render as the 9th in the Americas and as the 11th east of
-// UTC+12.
+// Snapshots run at 00:00 UTC on the 1st of each month and capture every
+// reward whose 30-day return window has closed by then; payouts go out on
+// the 10th of that snapshot month. Anything eligible after a month's
+// snapshot misses it and slips to the next month's 10th. Returns
+// local-midnight for the 10th so the displayed day stays "10th" in every
+// timezone — UTC midnight would render as the 9th in the Americas and as
+// the 11th east of UTC+12.
 export function getBtcRewardPayoutDate(eligibleAtIso: string): Date {
   const eligibleAt = new Date(eligibleAtIso);
   const year = eligibleAt.getUTCFullYear();
   const month = eligibleAt.getUTCMonth();
-  const sameMonth10thUtc = Date.UTC(year, month, 10);
-  if (sameMonth10thUtc >= eligibleAt.getTime()) {
+  const sameMonth1stUtc = Date.UTC(year, month, 1);
+  if (eligibleAt.getTime() <= sameMonth1stUtc) {
     return new Date(year, month, 10);
   }
   return new Date(year, month + 1, 10);
