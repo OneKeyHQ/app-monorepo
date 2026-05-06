@@ -51,7 +51,7 @@
     "node-fetch": "^2.6.7",
     "passport-desktop": "0.1.2",
     "passport-desktop-win32-x64-msvc": "0.1.2",
-    "semver": "7.5.4"
+    "semver": "7.7.4"
   },
   "devDependencies": {
     "@electron/notarize": "2.3.2",
@@ -67,6 +67,6 @@
     "folderslint": "1.2.0",
     "glob": "^7.2.0",
     "rimraf": "3.0.2",
-    "webpack": "5.90.3"
+    "webpack": "5.104.1"
   }
 }
