@@ -335,38 +335,33 @@ export const popModalPagesOnNative = (maxRetryTimes = 10) => {
   }
 };
 
+type IRouteLike = {
+  readonly name: string;
+  readonly params?: unknown;
+  readonly state?: {
+    readonly index?: number;
+    readonly routes?: ReadonlyArray<{ readonly name: string }>;
+  };
+};
+
+const getRouteScreenName = (route: IRouteLike): string | undefined =>
+  (route.params as { screen?: string } | undefined)?.screen ||
+  route.state?.routes?.[route.state?.index || 0]?.name;
+
 /**
- * Atomically remove ScanQrCodeModal and ActionCenter (FullScreenPush) routes
- * from the navigation state via CommonActions.reset, preserving all other
- * routes (e.g. onboarding). This avoids the goBack() animated dismiss that
- * causes RNSScreenStack window=NIL and blocks Fabric commits on the
- * underlying page.
+ * Atomically drop every route for which `shouldDrop` returns true, via
+ * CommonActions.reset. No-op if nothing matches.
+ *
+ * Prefer this over navigation.popStack() / navigation.pop() to skip the
+ * native animated dismiss that leaves detached-tab RNSScreenStacks with
+ * window=NIL and triggers the ~5s (50×100ms) retry storm on iOS.
  */
-export function resetScanModalRoute() {
+function resetRoutesMatching(shouldDrop: (route: IRouteLike) => boolean) {
   const state = rootNavigationRef.current?.getRootState();
   if (!state) {
     return;
   }
-  const filteredRoutes = state.routes.filter((route) => {
-    const screenName =
-      (route.params as { screen?: string })?.screen ||
-      route.state?.routes?.[route.state?.index || 0]?.name;
-    // Remove ScanQrCodeModal routes
-    if (
-      route.name === ERootRoutes.Modal &&
-      screenName === EModalRoutes.ScanQrCodeModal
-    ) {
-      return false;
-    }
-    // Remove ActionCenter routes only (not other FullScreenPush pages)
-    if (
-      route.name === ERootRoutes.FullScreenPush &&
-      screenName === EFullScreenPushRoutes.ActionCenter
-    ) {
-      return false;
-    }
-    return true;
-  });
+  const filteredRoutes = state.routes.filter((r) => !shouldDrop(r));
   if (filteredRoutes.length === state.routes.length) {
     return;
   }
@@ -380,38 +375,42 @@ export function resetScanModalRoute() {
 }
 
 /**
- * Atomically remove every root Modal route whose inner screen matches
- * `modalName` via CommonActions.reset, preserving every other route
- * (parent modals, tabs, FullScreenPush overlays).
+ * Drop ScanQrCodeModal and ActionCenter (FullScreenPush) routes,
+ * preserving all other routes (e.g. onboarding).
+ */
+export function resetScanModalRoute() {
+  resetRoutesMatching((route) => {
+    const screen = getRouteScreenName(route);
+    if (
+      route.name === ERootRoutes.Modal &&
+      screen === EModalRoutes.ScanQrCodeModal
+    ) {
+      return true;
+    }
+    if (
+      route.name === ERootRoutes.FullScreenPush &&
+      screen === EFullScreenPushRoutes.ActionCenter
+    ) {
+      return true;
+    }
+    return false;
+  });
+}
+
+/**
+ * Drop every root Modal route whose inner screen matches `modalName`,
+ * preserving every other route (parent modals, tabs, FullScreenPush
+ * overlays).
  *
- * Use this to close a Modal from ANY caller context. Prefer this over
- * resetAboveMainRoute() when the target modal can be pushed from inside
- * another modal — atomic reset above Main would wipe parent overlays too.
- *
- * Prefer this over navigation.popStack() / navigation.pop() to skip the
- * native animated dismiss that leaves detached-tab RNSScreenStacks with
- * window=NIL and triggers the ~5s (50×100ms) retry storm on iOS.
+ * Prefer this over resetAboveMainRoute() when the target modal can be
+ * pushed from inside another modal — atomic reset above Main would wipe
+ * parent overlays too.
  */
 export function resetModalRouteByName(modalName: EModalRoutes) {
-  const state = rootNavigationRef.current?.getRootState();
-  if (!state) {
-    return;
-  }
-  const filteredRoutes = state.routes.filter((route) => {
-    const screenName =
-      (route.params as { screen?: string })?.screen ||
-      route.state?.routes?.[route.state?.index || 0]?.name;
-    return !(route.name === ERootRoutes.Modal && screenName === modalName);
-  });
-  if (filteredRoutes.length === state.routes.length) {
-    return;
-  }
-  rootNavigationRef.current?.dispatch(
-    CommonActions.reset({
-      ...state,
-      routes: filteredRoutes,
-      index: filteredRoutes.length - 1,
-    }),
+  resetRoutesMatching(
+    (route) =>
+      route.name === ERootRoutes.Modal &&
+      getRouteScreenName(route) === modalName,
   );
 }
 
@@ -425,9 +424,21 @@ export function resetPrimeModal() {
   resetModalRouteByName(EModalRoutes.PrimeModal);
 }
 
-/** Thin wrapper — see resetModalRouteByName. */
+/**
+ * Drop both onboarding entry points: V1 OnboardingModal under
+ * ERootRoutes.Modal and V2 OnboardingV2 at ERootRoutes.Onboarding. V2 can
+ * push V1 on top of itself (Connect external wallet reuses V1
+ * ConnectWalletSelectNetworks), so dropping only V1 leaves V2 visible.
+ * Other overlays above Main (LiteCard, KeyTag, Swap, Perp,
+ * AccountManagerStacks, …) are preserved.
+ */
 export function resetOnboardingModal() {
-  resetModalRouteByName(EModalRoutes.OnboardingModal);
+  resetRoutesMatching(
+    (route) =>
+      route.name === ERootRoutes.Onboarding ||
+      (route.name === ERootRoutes.Modal &&
+        getRouteScreenName(route) === EModalRoutes.OnboardingModal),
+  );
 }
 
 /** Thin wrapper — see resetModalRouteByName. */
