@@ -118,6 +118,32 @@ describe('onekey/no-non-worklet-call-in-worklet', () => {
             useAnimatedReaction(() => 1, () => { obj.format(); });
           `,
         },
+        // Component-local helper declared with 'worklet' directive — used
+        // inside a worklet hook in the same component is fine.
+        {
+          code: `
+            function MyComponent() {
+              function localHelper() { 'worklet'; return 1; }
+              useAnimatedStyle(() => ({ width: localHelper() }));
+            }
+          `,
+        },
+        // Shadowing: module-scope worklet helper, plus an unrelated
+        // non-worklet local with the same name in another component. The
+        // worklet hook in ComponentB resolves to the module-scope worklet
+        // and must not be flagged. (Scope-based resolution required.)
+        {
+          code: `
+            function helper() { 'worklet'; return 1; }
+            function ComponentA() {
+              function helper() { return 2; }
+              doSomething(helper);
+            }
+            function ComponentB() {
+              useAnimatedStyle(() => ({ width: helper() }));
+            }
+          `,
+        },
       ],
       invalid: [
         // 1) Inline arrow body calls non-worklet helper.
@@ -184,6 +210,57 @@ describe('onekey/no-non-worklet-call-in-worklet', () => {
             {
               message:
                 /Function 'badInner' is called from a Reanimated worklet \(useAnimatedScrollHandler\)/,
+            },
+          ],
+        },
+        // 6) Component-local helper without 'worklet' directive — most
+        // common React pattern, must NOT slip through. (Regression guard
+        // for module-scope-only indexing.)
+        {
+          code: `
+            function MyComponent() {
+              function localBad(y) { return y > 100; }
+              useAnimatedReaction(() => 1, (v) => { localBad(v); });
+            }
+          `,
+          errors: [
+            {
+              message:
+                /Function 'localBad' is called from a Reanimated worklet \(useAnimatedReaction\)/,
+            },
+          ],
+        },
+        // 7) Helper declared inside a custom hook — same shape as (6) but
+        // exercises function-variable nesting.
+        {
+          code: `
+            function useThing() {
+              const innerBad = () => 7;
+              useAnimatedStyle(() => ({ width: innerBad() }));
+            }
+          `,
+          errors: [
+            {
+              message:
+                /Function 'innerBad' is called from a Reanimated worklet \(useAnimatedStyle\)/,
+            },
+          ],
+        },
+        // 8) Shadowing: module-scope worklet helper is shadowed by a local
+        // non-worklet of the same name. The worklet hook resolves to the
+        // local (closer scope), which lacks the directive → must flag.
+        {
+          code: `
+            function helper() { 'worklet'; return 1; }
+            function MyComponent() {
+              function helper() { return 2; }
+              useAnimatedStyle(() => ({ width: helper() }));
+            }
+          `,
+          errors: [
+            {
+              message:
+                /Function 'helper' is called from a Reanimated worklet \(useAnimatedStyle\)/,
             },
           ],
         },

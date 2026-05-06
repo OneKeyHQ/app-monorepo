@@ -112,9 +112,6 @@ const noNonWorkletCallInWorklet = {
     schema: [],
   },
   create(context) {
-    // Module-scope functions: name -> hasWorkletDirective.
-    const localFns = new Map();
-
     const SKIP_AST_KEYS = new Set(['parent', 'loc', 'range', 'start', 'end']);
 
     function isFunctionLikeNode(n) {
@@ -127,31 +124,62 @@ const noNonWorkletCallInWorklet = {
 
     function pushAstChildren(node, stack) {
       for (const k of Object.keys(node)) {
-        if (SKIP_AST_KEYS.has(k)) {
-          // Skip non-AST metadata keys.
-        } else {
-          const v = node[k];
-          if (Array.isArray(v)) {
-            for (const item of v) if (item) stack.push(item);
-          } else if (v && typeof v === 'object' && v.type) {
-            stack.push(v);
-          }
+        if (SKIP_AST_KEYS.has(k)) continue;
+        const v = node[k];
+        if (Array.isArray(v)) {
+          for (const item of v) if (item) stack.push(item);
+        } else if (v && typeof v === 'object' && v.type) {
+          stack.push(v);
         }
       }
     }
 
+    function getScope(node) {
+      if (context.sourceCode?.getScope) {
+        return context.sourceCode.getScope(node);
+      }
+      return context.getScope();
+    }
+
+    // Walk the lexical scope chain to resolve `name` to its declaration.
+    // Returns:
+    //   true       — function definition with 'worklet'; directive
+    //   false      — function definition without the directive (BAD)
+    //   undefined  — unresolved (import / global / param / non-function var)
+    function resolveFnDirective(name, scope) {
+      let s = scope;
+      while (s) {
+        const v = s.set?.get?.(name);
+        if (v) {
+          const def = v.defs?.[0];
+          if (!def) return undefined;
+          if (def.type === 'FunctionName') {
+            return hasWorkletDirective(def.node);
+          }
+          if (def.type === 'Variable') {
+            const init = def.node?.init;
+            if (
+              init &&
+              (init.type === 'FunctionExpression' ||
+                init.type === 'ArrowFunctionExpression')
+            ) {
+              return hasWorkletDirective(init);
+            }
+          }
+          return undefined;
+        }
+        s = s.upper;
+      }
+      return undefined;
+    }
+
     function reportBadCall(callNode, hookName) {
-      // Only bare Identifier callees can collide with a module-scope helper.
-      // For MemberExpression (obj.foo()) the receiver is independent of any
-      // same-named local function, so skip to avoid false positives.
+      // Only bare Identifier callees can collide with a same-named helper.
+      // For MemberExpression (obj.foo()) the receiver is independent.
       if (callNode.callee?.type !== 'Identifier') return;
       const name = callNode.callee.name;
-      if (
-        name &&
-        !WORKLET_SAFE_CALLEES.has(name) &&
-        localFns.has(name) &&
-        localFns.get(name) === false
-      ) {
+      if (!name || WORKLET_SAFE_CALLEES.has(name)) return;
+      if (resolveFnDirective(name, getScope(callNode.callee)) === false) {
         context.report({
           node: callNode.callee,
           message:
@@ -166,12 +194,8 @@ const noNonWorkletCallInWorklet = {
 
     function reportBadIdentifierArg(idNode, hookName) {
       const name = idNode?.name;
-      if (
-        name &&
-        !WORKLET_SAFE_CALLEES.has(name) &&
-        localFns.has(name) &&
-        localFns.get(name) === false
-      ) {
+      if (!name || WORKLET_SAFE_CALLEES.has(name)) return;
+      if (resolveFnDirective(name, getScope(idNode)) === false) {
         context.report({
           node: idNode,
           message:
@@ -203,7 +227,7 @@ const noNonWorkletCallInWorklet = {
 
     // Normalize a hook argument into something we can inspect:
     // - inline function/arrow → walk its body
-    // - identifier → look it up in localFns and report if it lacks 'worklet'
+    // - identifier → resolve via scope and report if it lacks 'worklet'
     // - object handler map (useAnimatedScrollHandler / useAnimatedGestureHandler)
     //   → recurse into each property value
     function inspectWorkletArg(arg, hookName) {
@@ -226,43 +250,6 @@ const noNonWorkletCallInWorklet = {
     }
 
     return {
-      Program(node) {
-        // Pre-pass: index module-scope function declarations and
-        // function/arrow expressions assigned to const/let/var.
-        for (const child of node.body) {
-          if (child.type === 'FunctionDeclaration' && child.id) {
-            localFns.set(child.id.name, hasWorkletDirective(child));
-          } else if (child.type === 'VariableDeclaration') {
-            for (const d of child.declarations) {
-              if (
-                d.id?.type === 'Identifier' &&
-                (d.init?.type === 'FunctionExpression' ||
-                  d.init?.type === 'ArrowFunctionExpression')
-              ) {
-                localFns.set(d.id.name, hasWorkletDirective(d.init));
-              }
-            }
-          } else if (
-            child.type === 'ExportNamedDeclaration' &&
-            child.declaration
-          ) {
-            const decl = child.declaration;
-            if (decl.type === 'FunctionDeclaration' && decl.id) {
-              localFns.set(decl.id.name, hasWorkletDirective(decl));
-            } else if (decl.type === 'VariableDeclaration') {
-              for (const d of decl.declarations) {
-                if (
-                  d.id?.type === 'Identifier' &&
-                  (d.init?.type === 'FunctionExpression' ||
-                    d.init?.type === 'ArrowFunctionExpression')
-                ) {
-                  localFns.set(d.id.name, hasWorkletDirective(d.init));
-                }
-              }
-            }
-          }
-        }
-      },
       CallExpression(node) {
         const name = calleeName(node.callee);
         if (!name || !WORKLET_HOOKS.has(name)) return;
