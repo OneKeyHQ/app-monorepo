@@ -82,6 +82,13 @@ const PreSwapInfoGroup = ({
   }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
 
   const networkFeeLevelLabel = useMemo(() => {
+    // A Market preset's custom priority fee always wins over the tier label
+    // because it overrides the priority fee component regardless of tier.
+    if (swapStepNetFeeLevel.customPriorityFee) {
+      return intl.formatMessage({
+        id: ETranslations.transaction_custom,
+      });
+    }
     if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW) {
       return intl.formatMessage({
         id: ETranslations.transaction_slow,
@@ -98,7 +105,11 @@ const PreSwapInfoGroup = ({
       });
     }
     return '-';
-  }, [intl, swapStepNetFeeLevel.networkFeeLevel]);
+  }, [
+    intl,
+    swapStepNetFeeLevel.networkFeeLevel,
+    swapStepNetFeeLevel.customPriorityFee,
+  ]);
 
   const networkFeeSelect = useMemo(() => {
     return (
