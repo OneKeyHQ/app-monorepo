@@ -608,6 +608,81 @@ describe('searchResultRanking', () => {
     ]);
   });
 
+  it('keeps visited remote dapps ahead of local history when a trending dapp is first', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'hyper',
+      searchResult: [
+        createDApp({
+          dappId: 'hyperlane',
+          name: 'Hyperlane',
+          url: 'https://hyperlane.xyz',
+        }),
+        createDApp({
+          dappId: 'hyperbeat',
+          name: 'Hyperbeat',
+          url: 'https://hyperbeat.org',
+        }),
+      ],
+      trendingSearchData: [
+        createDApp({
+          dappId: 'hyperliquid',
+          name: 'Hyperliquid',
+          url: 'https://app.hyperliquid.xyz/join/1KGO',
+        }),
+      ],
+      rankingHistoryData: [
+        createHistory({
+          id: 'history-hyperlane-ranking',
+          title: 'Hyperlane',
+          url: 'https://hyperlane.xyz',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+        createHistory({
+          id: 'history-hyperliquid-ranking',
+          title: 'Hyperliquid',
+          url: 'https://app.hyperliquid.xyz/join/1KGO',
+          createdAt: Date.now() - 2 * 60 * 60 * 1000,
+        }),
+      ],
+      historySearchData: [
+        createHistory({
+          id: 'history-hyperliquid',
+          title: 'Hyperliquid',
+          url: 'https://app.hyperliquid.xyz/join/1KGO',
+          createdAt: Date.now() - 2 * 60 * 60 * 1000,
+        }),
+        createHistory({
+          id: 'history-hyperliquid-trade',
+          title: 'Hyperliquid Trade',
+          url: 'https://app.hyperliquid.xyz/trade/BTC',
+          createdAt: Date.now() - 3 * 60 * 60 * 1000,
+        }),
+        createHistory({
+          id: 'history-hyperlane',
+          title: 'Hyperlane',
+          url: 'https://hyperlane.xyz',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.slice(0, 2).map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'dapp',
+        title: 'Hyperliquid',
+      },
+      {
+        type: 'dapp',
+        title: 'Hyperlane',
+      },
+    ]);
+  });
+
   it('uses real discovery URLs to promote site-backed dapps ahead of weaker text matches', () => {
     const result = mergeSearchResultsWithLocalData({
       keyword: 'aav',
