@@ -2672,6 +2672,7 @@ export enum ETranslations {
   onboarding_benefit_security_title = 'onboarding_benefit_security_title',
   onboarding_benefit_setup_description = 'onboarding_benefit_setup_description',
   onboarding_benefit_setup_title = 'onboarding_benefit_setup_title',
+  onboarding_ext_popup_text = 'onboarding_ext_popup_text',
   onboarding_hero_action_buying = 'onboarding_hero_action_buying',
   onboarding_hero_action_earning = 'onboarding_hero_action_earning',
   onboarding_hero_action_swap = 'onboarding_hero_action_swap',
