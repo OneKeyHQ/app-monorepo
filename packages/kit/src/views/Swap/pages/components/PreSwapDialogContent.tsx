@@ -422,6 +422,7 @@ const PreSwapDialogContent = ({
               amount={toAmount}
               loading={preSwapData.swapBuildLoading}
               isFloating={quoteResult?.isFloating}
+              rateDifference={preSwapData.rateDifference}
             />
           </YStack>
 
