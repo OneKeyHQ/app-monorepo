@@ -93,8 +93,12 @@ export class KeyringQr extends KeyringQrBase {
     const { airGapAccount } = params;
     // TODO get deriveType by path
     if (airGapAccount.note === EAirGapAccountNoteEvm.Standard) {
+      // The xpub at m/44'/60'/0' covers both Standard children (0/i) and
+      // LedgerLegacy children (i) via public derivation. Real signer firmware
+      // exports this xpub with note=Standard regardless of which derive type
+      // the user asked for, so we accept both subtrees here.
       return {
-        childPathTemplates: ['0/*'],
+        childPathTemplates: ['0/*', '*'],
       };
     }
     if (airGapAccount.note === EAirGapAccountNoteEvm.LedgerLegacy) {
@@ -105,6 +109,7 @@ export class KeyringQr extends KeyringQrBase {
     return {
       childPathTemplates: [
         '0/*', // standard
+        '*', // ledger legacy
         '0/0', // ledger live
       ],
     };
