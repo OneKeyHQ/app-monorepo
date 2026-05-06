@@ -187,6 +187,7 @@ const ManagePositionPage = () => {
 
     return {
       currentProtocol,
+      indexedAccountId,
       isLoading: isProtocolListLoading,
       protocols,
       selectedProtocol,
@@ -196,6 +197,7 @@ const ManagePositionPage = () => {
     currentProtocol,
     enableProtocolSwitch,
     handleProtocolSelect,
+    indexedAccountId,
     isProtocolListLoading,
     protocols,
     selectedProtocol,

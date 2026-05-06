@@ -917,13 +917,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         await spotActiveAssetCtxAtom.set({
           coin,
           assetId: spotUniverse?.assetId,
+          baseName: spotUniverse?.baseName,
           ctx: formatSpotAssetCtx({
             markPx: cached.markPx,
             midPx: null,
             prevDayPx: cached.prevDayPx ?? '0',
             dayNtlVlm: cached.dayNtlVlm ?? '0',
             circulatingSupply: cached.circulatingSupply ?? '0',
-            totalSupply: '0',
+            totalSupply: cached.totalSupply ?? '0',
             dayBaseVlm: '0',
             coin,
           }),
