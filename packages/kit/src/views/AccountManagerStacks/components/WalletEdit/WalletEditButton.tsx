@@ -109,6 +109,13 @@ function WalletEditButtonView({
     // Keyless wallet can also be removed
     if (isKeyless) return true;
     if (isThirdPartyVendorWallet) return false;
+    if (
+      platformEnv.isWebDappMode &&
+      !accountUtils.isHwHiddenWallet({ wallet }) &&
+      accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
+    ) {
+      return false;
+    }
     return (
       !wallet?.isMocked &&
       !accountUtils.isOthersWallet({ walletId: wallet?.id || '' })
