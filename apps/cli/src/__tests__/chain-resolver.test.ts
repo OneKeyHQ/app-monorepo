@@ -39,8 +39,8 @@ describe('chain-resolver', () => {
       expect(() => resolveChain('opti')).toThrow(/did you mean.*optimism/i);
     });
 
-    it('throws for non-EVM chain', () => {
-      expect(() => resolveChain('btc')).toThrow(/unsupported/i);
+    it('throws for unsupported non-EVM chain', () => {
+      expect(() => resolveChain('sol')).toThrow(/unsupported/i);
     });
 
     it('is case-insensitive', () => {
@@ -60,6 +60,28 @@ describe('chain-resolver', () => {
       const chains = listEvmChains();
       const networkIds = chains.map((c) => c.networkId);
       expect(networkIds).not.toContain('btc--0');
+    });
+  });
+
+  describe('BTC/TBTC first-round CLI support', () => {
+    it('resolves btc to Bitcoin mainnet config', () => {
+      const config = resolveChain('btc');
+      expect(config.networkId).toBe('btc--0');
+      expect(config.impl).toBe('btc');
+      expect(config.nativeDecimals).toBe(8);
+      expect(config.nativeSymbol).toBe('BTC');
+    });
+
+    it('resolves tbtc to Bitcoin testnet config', () => {
+      const config = resolveChain('tbtc');
+      expect(config.networkId).toBe('tbtc--0');
+      expect(config.impl).toBe('tbtc');
+      expect(config.nativeDecimals).toBe(8);
+      expect(config.nativeSymbol).toBe('TBTC');
+    });
+
+    it('does not resolve sol in the BTC-only first round', () => {
+      expect(() => resolveChain('sol')).toThrow(/unsupported/i);
     });
   });
 });
