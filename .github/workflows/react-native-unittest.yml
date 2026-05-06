@@ -196,8 +196,15 @@ jobs:
       # alphabetically in shard 1/3). 6 shards keeps the worst-case shard at
       # ~12 heavy tests, peaking around 4 GiB — well under the heap limit.
       # The patched @react-native-harness/cli accepts jest's --shard=k/n.
+      #
+      # `continue-on-error` lets every shard run even if an earlier one fails,
+      # so a single CI run surfaces failures from all shards at once instead
+      # of one-per-iteration. The summary step at the end fails the job if
+      # any shard's outcome is failure, preserving the red/green signal.
       - name: Run Harness Tests (Android, shard 1/6)
+        id: shard1
         timeout-minutes: 20
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
@@ -205,7 +212,9 @@ jobs:
         run: yarn harness:test:android --shard=1/6
 
       - name: Run Harness Tests (Android, shard 2/6)
+        id: shard2
         timeout-minutes: 20
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
@@ -213,7 +222,9 @@ jobs:
         run: yarn harness:test:android --shard=2/6
 
       - name: Run Harness Tests (Android, shard 3/6)
+        id: shard3
         timeout-minutes: 20
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
@@ -221,7 +232,9 @@ jobs:
         run: yarn harness:test:android --shard=3/6
 
       - name: Run Harness Tests (Android, shard 4/6)
+        id: shard4
         timeout-minutes: 20
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
@@ -229,7 +242,9 @@ jobs:
         run: yarn harness:test:android --shard=4/6
 
       - name: Run Harness Tests (Android, shard 5/6)
+        id: shard5
         timeout-minutes: 20
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
@@ -237,12 +252,34 @@ jobs:
         run: yarn harness:test:android --shard=5/6
 
       - name: Run Harness Tests (Android, shard 6/6)
+        id: shard6
         timeout-minutes: 20
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
         working-directory: apps/mobile
         run: yarn harness:test:android --shard=6/6
+
+      - name: Aggregate shard outcomes
+        run: |
+          echo "Shard outcomes:"
+          echo "  1/6: ${{ steps.shard1.outcome }}"
+          echo "  2/6: ${{ steps.shard2.outcome }}"
+          echo "  3/6: ${{ steps.shard3.outcome }}"
+          echo "  4/6: ${{ steps.shard4.outcome }}"
+          echo "  5/6: ${{ steps.shard5.outcome }}"
+          echo "  6/6: ${{ steps.shard6.outcome }}"
+          if [ "${{ steps.shard1.outcome }}" != "success" ] || \
+             [ "${{ steps.shard2.outcome }}" != "success" ] || \
+             [ "${{ steps.shard3.outcome }}" != "success" ] || \
+             [ "${{ steps.shard4.outcome }}" != "success" ] || \
+             [ "${{ steps.shard5.outcome }}" != "success" ] || \
+             [ "${{ steps.shard6.outcome }}" != "success" ]; then
+            echo "::error::One or more harness shards failed"
+            exit 1
+          fi
+          echo "All shards passed"
 
       - name: Dump logcat on failure
         if: failure()

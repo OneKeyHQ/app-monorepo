@@ -145,5 +145,18 @@ export default {
     //   TransactionsHistory above — uses web testing-library. Migration
     //   to react-native testing-library required.
     'packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/layout/DesktopInformationTabs\\.test\\.tsx',
+    // ---------------------------------------------------------------------
+    // Sixth batch (CI run #25401595533, shard 2/6 once timeout was bumped
+    // and prior batch unblocked). Same families.
+    // ---------------------------------------------------------------------
+    //
+    // exportSupport: uses `jest.mock('./utils', () => ({ default: { ... } }))`
+    //   factory pattern. Under the harness the factory does not actually
+    //   replace the imported module, so `flushPendingRepeat` is the real
+    //   implementation rather than the `jest.fn()`, yielding "[Function
+    //   flushPendingRepeat] is not a spy or a call to a spy!". Same
+    //   jest.mock-helper-not-available pattern as useMarketTransactions
+    //   and useBtcMetadata above.
+    'packages/shared/src/logger/exportSupport\\.test\\.ts',
   ],
 };
