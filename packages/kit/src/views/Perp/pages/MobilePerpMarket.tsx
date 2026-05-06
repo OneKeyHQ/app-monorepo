@@ -5,7 +5,6 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import {
   HeaderScrollGestureWrapper,
   Icon,
-  NavBackButton,
   Page,
   SizableText,
   Tabs,
@@ -153,10 +152,6 @@ function MobilePerpMarket() {
     });
   }, [navigation]);
 
-  const onPageGoBack = useCallback(() => {
-    navigation.pop();
-  }, [navigation]);
-
   const renderHeaderTitle = useCallback(() => {
     let pairLabel: string;
     if (mode === 'spot') {
@@ -166,41 +161,40 @@ function MobilePerpMarket() {
     } else {
       pairLabel = '--';
     }
+    // Match the MarketDetailV2 layout: Token + Symbol + dropdown sit
+    // in the native headerTitle slot. The system back chevron renders
+    // separately on the left via HeaderScreenOptions
+    // (headerBackButtonDisplayMode: 'minimal'), so we no longer wrap
+    // a NavBackButton inside this XStack — that's what was forcing
+    // UIKit to draw the whole thing as a single pill-shaped glass
+    // container on iOS 26.
     return (
-      <XStack alignItems="center" gap="$2">
-        <NavBackButton
-          hoverStyle={{ opacity: 0.8 }}
-          pressStyle={{ opacity: 0.6 }}
-          onPress={onPageGoBack}
+      <XStack
+        alignItems="center"
+        gap="$2"
+        onPress={onPressTokenSelector}
+        hoverStyle={{ opacity: 0.8 }}
+        pressStyle={{ opacity: 0.6 }}
+        cursor="default"
+      >
+        <Token
+          size="sm"
+          borderRadius="$full"
+          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
+          tokenImageUri={
+            baseName ? getHyperliquidTokenImageUrl(baseName) : undefined
+          }
+          fallbackIcon="CryptoCoinOutline"
         />
-        <XStack
-          alignItems="center"
-          gap="$2"
-          onPress={onPressTokenSelector}
-          hoverStyle={{ opacity: 0.8 }}
-          pressStyle={{ opacity: 0.6 }}
-          cursor="default"
-        >
-          <Token
-            size="sm"
-            borderRadius="$full"
-            bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-            tokenImageUri={
-              baseName ? getHyperliquidTokenImageUrl(baseName) : undefined
-            }
-            fallbackIcon="CryptoCoinOutline"
-          />
-          <SizableText size="$headingLg">{pairLabel}</SizableText>
-          <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
-          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
-        </XStack>
+        <SizableText size="$headingLg">{pairLabel}</SizableText>
+        <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
+        <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
       </XStack>
     );
   }, [
     baseName,
     displayName,
     mode,
-    onPageGoBack,
     onPressTokenSelector,
     themeVariant,
   ]);
@@ -232,7 +226,8 @@ function MobilePerpMarket() {
   const pageHeader = useMemo(
     () => (
       <Page.Header
-        headerLeft={renderHeaderTitle}
+        headerShown
+        headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
       />
     ),
