@@ -10,7 +10,10 @@ import {
   calculateLiquidationPrice,
   calculatePriceScale,
   countDecimalPlaces,
+  formatHlPrice,
+  formatHlSize,
   formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
   formatWithPrecision,
   getDisplayPriceScaleDecimals,
   getHyperliquidTokenImageUrl,
@@ -201,6 +204,42 @@ describe('formatWithPrecision', () => {
     expect(formatWithPrecision(Infinity, 2)).toBe('0');
     expect(formatWithPrecision(NaN, 2)).toBe('0');
     expect(formatWithPrecision(new BigNumber(Infinity), 2)).toBe('0');
+  });
+
+  test('supports explicit rounding mode', () => {
+    expect(formatWithPrecision('123.456', 2, false, BigNumber.ROUND_DOWN)).toBe(
+      '123.45',
+    );
+    expect(formatWithPrecision('123.456', 2, true, BigNumber.ROUND_DOWN)).toBe(
+      '123.45',
+    );
+  });
+});
+
+describe('HyperLiquid wire-safe formatters', () => {
+  test('formatHlSize truncates to szDecimals', () => {
+    expect(formatHlSize('1.23456789', 5)).toBe('1.23456');
+    expect(formatHlSize('1.999', 0)).toBe('1');
+    expect(formatHlSize('0.000009', 5)).toBe('');
+    expect(formatHlSize('abc', 5)).toBe('');
+  });
+
+  test('formatHlPrice applies perp significant figures and decimal limits', () => {
+    expect(formatHlPrice('97123.456', 5, 'perp')).toBe('97123');
+    expect(formatHlPrice('4367.89', 2, 'perp')).toBe('4367.8');
+    expect(formatHlPrice('0.012345678', 0, 'perp')).toBe('0.012345');
+    expect(formatHlPrice('0.001234567', 2, 'perp')).toBe('0.0012');
+    expect(formatHlPrice('123456.789', 2, 'perp')).toBe('123456');
+  });
+
+  test('formatHlPrice applies spot decimal limits', () => {
+    expect(formatHlPrice('60.123456789', 2, 'spot')).toBe('60.123');
+    expect(formatHlPrice('0.00123456789', 2, 'spot')).toBe('0.001234');
+  });
+
+  test('formatSpotPriceToValid truncates instead of rounding up', () => {
+    expect(formatSpotPriceToValid('60.123456789', 2)).toBe('60.123');
+    expect(formatSpotPriceToValid('0.00123456789', 2)).toBe('0.001234');
   });
 });
 

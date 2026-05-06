@@ -34,6 +34,14 @@ type ISwapQuoteEventFetchingInput = {
   quoteEventCompleted: boolean;
 };
 
+type ISwapQuoteEventProgressTotalCountInput = {
+  quoteEventTotalCount: {
+    count: number;
+    eventId?: string;
+  };
+  maxQuoteCount?: number;
+};
+
 type ISwapCurrentQuoteInput = {
   currentEventSortedQuotes: IFetchQuoteResult[];
   selectionIntent?: ISwapQuoteSelectionIntent;
@@ -87,6 +95,22 @@ export function isSwapQuoteEventFetching({
     !quoteEventCompleted &&
     currentEventReceivedCount < quoteEventTotalCount.count
   );
+}
+
+export const SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP = 2;
+
+export function getSwapQuoteEventProgressTotalCount({
+  quoteEventTotalCount,
+  maxQuoteCount,
+}: ISwapQuoteEventProgressTotalCountInput) {
+  if (!maxQuoteCount || maxQuoteCount <= 0) {
+    return quoteEventTotalCount;
+  }
+
+  return {
+    ...quoteEventTotalCount,
+    count: Math.min(quoteEventTotalCount.count, maxQuoteCount),
+  };
 }
 
 export function isSwapQuoteActionable(
