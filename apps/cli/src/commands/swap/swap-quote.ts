@@ -20,11 +20,18 @@ import {
   parseSortMode,
   renderQuoteTable,
 } from './swap-display-utils';
+import {
+  emptyBtcSwapAddressing,
+  getBtcSwapAddressMetadata,
+  isBtcSwapChain,
+  requireBtcSwapAddressType,
+} from './swap-btc-address';
 import { fetchSwapNetworks } from './swap-networks';
 import { getProtocolConfig } from './swap-protocol-config';
 
 import type { IEndpointEnv } from '../../config';
 import type { IAuditSummary } from '../../core';
+import type { BtcAddressType } from '../../core/btc/address-types';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
@@ -322,6 +329,14 @@ export function registerSwapQuoteCommand(parent: Command): void {
       'Destination token (contract address or symbol)',
     )
     .requiredOption('--amount <amount>', 'Amount of source token to swap')
+    .option(
+      '--from-address-type <type>',
+      'BTC/TBTC source address type (taproot|native-segwit|nested-segwit|legacy)',
+    )
+    .option(
+      '--to-address-type <type>',
+      'BTC/TBTC destination address type (taproot|native-segwit|nested-segwit|legacy)',
+    )
     .option('--slippage <percent>', 'Slippage tolerance percentage')
     .option(
       '--sort <mode>',
@@ -336,6 +351,8 @@ export function registerSwapQuoteCommand(parent: Command): void {
           from: string;
           to: string;
           amount: string;
+          fromAddressType?: BtcAddressType;
+          toAddressType?: BtcAddressType;
           slippage?: string;
           sort?: string;
         },
@@ -355,6 +372,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
           assertChainCapability(toChainConfig, 'swap', 'swap-quote');
           const toNetworkId = toChainConfig.networkId;
           const fromNetworkId = chainConfig.networkId;
+          const btcAddressing = emptyBtcSwapAddressing();
 
           // Validate chain supports swap
           const swapNetworks = await fetchSwapNetworks();
@@ -389,6 +407,28 @@ export function registerSwapQuoteCommand(parent: Command): void {
                 'Run "onekey swap networks --bridge" to see supported networks',
               );
             }
+          }
+
+          if (isBtcSwapChain(chainConfig)) {
+            const addressType = requireBtcSwapAddressType(
+              '--from-address-type',
+              options.fromAddressType,
+            );
+            btcAddressing.from = await getBtcSwapAddressMetadata(
+              chainConfig,
+              addressType,
+            );
+          }
+
+          if (isBtcSwapChain(toChainConfig)) {
+            const addressType = requireBtcSwapAddressType(
+              '--to-address-type',
+              options.toAddressType,
+            );
+            btcAddressing.to = await getBtcSwapAddressMetadata(
+              toChainConfig,
+              addressType,
+            );
           }
 
           // Resolve both tokens
@@ -456,11 +496,14 @@ export function registerSwapQuoteCommand(parent: Command): void {
             slippage = config.default_slippage;
           }
 
-          // Try to get wallet address (optional — quote works without it)
-          const walletAddress = await tryGetWalletAddress(
-            chainConfig.impl,
-            chainConfig.networkId,
-          );
+          // Try to get source wallet address for non-BTC routes.
+          // Quote still works without it (just no gas estimation).
+          const sourceWalletAddress = btcAddressing.from
+            ? btcAddressing.from.address
+            : await tryGetWalletAddress(chainConfig.impl, chainConfig.networkId);
+          const receivingAddress =
+            btcAddressing.to?.address ??
+            (btcAddressing.from ? undefined : sourceWalletAddress);
 
           // Build SSE quote params
           const _protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
@@ -476,9 +519,11 @@ export function registerSwapQuoteCommand(parent: Command): void {
             protocol: 'Swap',
             kind: 'sell',
           };
-          if (walletAddress) {
-            quoteParams.userAddress = walletAddress;
-            quoteParams.receivingAddress = walletAddress;
+          if (sourceWalletAddress) {
+            quoteParams.userAddress = sourceWalletAddress;
+          }
+          if (receivingAddress) {
+            quoteParams.receivingAddress = receivingAddress;
           }
 
           // Resolve env from apiClient state
@@ -622,7 +667,8 @@ export function registerSwapQuoteCommand(parent: Command): void {
                 amountSmallestUnit: fromTokenAmountSmallest,
                 slippage,
                 networkId: chainConfig.networkId,
-                walletAddress: walletAddress ?? null,
+                walletAddress: sourceWalletAddress ?? null,
+                btcAddressing,
               },
             },
             { chain: options.chain },

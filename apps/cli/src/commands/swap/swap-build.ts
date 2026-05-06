@@ -19,11 +19,19 @@ import {
   parseSortMode,
   renderQuoteTable,
 } from './swap-display-utils';
+import {
+  emptyBtcSwapAddressing,
+  getBtcSwapAddressMetadata,
+  hasBtcSwapAddressing,
+  isBtcSwapChain,
+  requireBtcSwapAddressType,
+} from './swap-btc-address';
 import { fetchSwapNetworks } from './swap-networks';
 import { getProtocolConfig } from './swap-protocol-config';
 import { fetchQuotesViaSSE } from './swap-quote';
 
 import type { IEndpointEnv } from '../../config';
+import type { BtcAddressType } from '../../core/btc/address-types';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
@@ -80,6 +88,14 @@ export function registerSwapBuildCommand(parent: Command): void {
     )
     .requiredOption('--amount <amount>', 'Amount of source token to swap')
     .option(
+      '--from-address-type <type>',
+      'BTC/TBTC source address type (taproot|native-segwit|nested-segwit|legacy)',
+    )
+    .option(
+      '--to-address-type <type>',
+      'BTC/TBTC destination address type (taproot|native-segwit|nested-segwit|legacy)',
+    )
+    .option(
       '--provider <provider>',
       'Swap provider ID (auto-selected if omitted)',
     )
@@ -98,6 +114,8 @@ export function registerSwapBuildCommand(parent: Command): void {
           from: string;
           to: string;
           amount: string;
+          fromAddressType?: BtcAddressType;
+          toAddressType?: BtcAddressType;
           provider?: string;
           sort?: string;
           slippage?: string;
@@ -120,6 +138,7 @@ export function registerSwapBuildCommand(parent: Command): void {
           const fromNetworkId = chainConfig.networkId;
           const toNetworkId = toChainConfig.networkId;
           const protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
+          const btcAddressing = emptyBtcSwapAddressing();
 
           // Validate chain supports swap
           const swapNetworks = await fetchSwapNetworks();
@@ -154,6 +173,28 @@ export function registerSwapBuildCommand(parent: Command): void {
                 'Run "onekey swap networks --bridge" to see supported networks',
               );
             }
+          }
+
+          if (isBtcSwapChain(chainConfig)) {
+            const addressType = requireBtcSwapAddressType(
+              '--from-address-type',
+              options.fromAddressType,
+            );
+            btcAddressing.from = await getBtcSwapAddressMetadata(
+              chainConfig,
+              addressType,
+            );
+          }
+
+          if (isBtcSwapChain(toChainConfig)) {
+            const addressType = requireBtcSwapAddressType(
+              '--to-address-type',
+              options.toAddressType,
+            );
+            btcAddressing.to = await getBtcSwapAddressMetadata(
+              toChainConfig,
+              addressType,
+            );
           }
 
           // Resolve both tokens
@@ -250,11 +291,13 @@ export function registerSwapBuildCommand(parent: Command): void {
             slippage = config.default_slippage;
           }
 
-          // Wallet address is required for build-tx
-          const walletAddress = await getWalletAddress(
-            chainConfig.impl,
-            chainConfig.networkId,
-          );
+          // Source wallet address is required for build-tx.
+          const walletAddress = btcAddressing.from
+            ? btcAddressing.from.address
+            : await getWalletAddress(chainConfig.impl, chainConfig.networkId);
+          const receivingAddress =
+            btcAddressing.to?.address ??
+            (btcAddressing.from ? undefined : walletAddress);
 
           // Resolve env
           const env = (
@@ -273,8 +316,10 @@ export function registerSwapBuildCommand(parent: Command): void {
             protocol: 'Swap', // API uses 'Swap' for both swap and bridge
             kind: 'sell',
             userAddress: walletAddress,
-            receivingAddress: walletAddress,
           };
+          if (receivingAddress) {
+            quoteParams.receivingAddress = receivingAddress;
+          }
 
           const quotes = await fetchQuotesViaSSE(env, quoteParams);
           const sortMode = parseSortMode(options.sort);
@@ -333,24 +378,28 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
 
           // Step 2: POST /swap/v1/build-tx with toTokenAmount from quote
+          const buildTxParams: Record<string, unknown> = {
+            fromTokenAddress: fromResolved.contractAddress,
+            toTokenAddress: toResolved.contractAddress,
+            fromTokenAmount,
+            toTokenAmount: matchedQuote.toAmount,
+            fromNetworkId,
+            toNetworkId,
+            provider: matchedQuote.info.provider,
+            userAddress: walletAddress,
+            slippagePercentage: slippage,
+            protocol: 'Swap', // API uses 'Swap' for both swap and bridge
+            kind: 'sell',
+            quoteResultCtx: matchedQuote.quoteResultCtx,
+          };
+          if (receivingAddress) {
+            buildTxParams.receivingAddress = receivingAddress;
+          }
+
           const buildTxResponse = await apiClient.post<IBuildTxResponse>(
             'swap',
             '/swap/v1/build-tx',
-            {
-              fromTokenAddress: fromResolved.contractAddress,
-              toTokenAddress: toResolved.contractAddress,
-              fromTokenAmount,
-              toTokenAmount: matchedQuote.toAmount,
-              fromNetworkId,
-              toNetworkId,
-              provider: matchedQuote.info.provider,
-              userAddress: walletAddress,
-              receivingAddress: walletAddress,
-              slippagePercentage: slippage,
-              protocol: 'Swap', // API uses 'Swap' for both swap and bridge
-              kind: 'sell',
-              quoteResultCtx: matchedQuote.quoteResultCtx,
-            },
+            buildTxParams,
           );
 
           // Validate build-tx response contains usable result
@@ -435,6 +484,9 @@ export function registerSwapBuildCommand(parent: Command): void {
           // Generate orderId and save pending order
           const orderId = randomUUID();
           const now = Date.now();
+          const pendingBtcAddressing = hasBtcSwapAddressing(btcAddressing)
+            ? btcAddressing
+            : undefined;
 
           savePending(orderId, {
             orderId,
@@ -462,6 +514,9 @@ export function registerSwapBuildCommand(parent: Command): void {
               matchedQuote.allowanceResult ??
               buildTxResponse.result?.allowanceResult ??
               null,
+            ...(pendingBtcAddressing
+              ? { btcAddressing: pendingBtcAddressing }
+              : {}),
           });
 
           output.success(
@@ -489,6 +544,7 @@ export function registerSwapBuildCommand(parent: Command): void {
                 matchedQuote.allowanceResult ??
                 buildTxResponse.result?.allowanceResult ??
                 null,
+              btcAddressing,
             },
             { chain: options.chain },
           );
