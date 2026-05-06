@@ -13,6 +13,8 @@ const REMOTE_SEARCH_MIN_QUERY_LENGTH = 3;
 const REMOTE_SEARCH_MAX_QUERY_LENGTH = 64;
 const DAPP_PROMOTION_LOCAL_SUPPORT_MIN_COUNT = 2;
 const DAPP_PROMOTION_PREFIX_COVERAGE_DIRECT = 0.8;
+const DAPP_PROMOTION_LIGHT_SUPPORT_MIN_QUERY_LENGTH = 5;
+const DAPP_PROMOTION_PREFIX_COVERAGE_WITH_LIGHT_SUPPORT = 0.5;
 const DAPP_PROMOTION_PREFIX_COVERAGE_WITH_SUPPORT = 0.6;
 
 export const DISCOVERY_RANKING_HISTORY_LIMIT = 200;
@@ -421,7 +423,16 @@ function shouldPrioritizeDappAheadOfLocal({
   }
 
   const namePrefixCoverage = getDappNamePrefixCoverage({ dapp, keyword });
+  const normalizedKeyword = normalizeText(keyword);
   if (namePrefixCoverage >= DAPP_PROMOTION_PREFIX_COVERAGE_DIRECT) {
+    return true;
+  }
+
+  if (
+    normalizedKeyword.length >= DAPP_PROMOTION_LIGHT_SUPPORT_MIN_QUERY_LENGTH &&
+    localSupportCount >= 1 &&
+    namePrefixCoverage >= DAPP_PROMOTION_PREFIX_COVERAGE_WITH_LIGHT_SUPPORT
+  ) {
     return true;
   }
 
