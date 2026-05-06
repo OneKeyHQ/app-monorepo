@@ -39,16 +39,19 @@ export function makeHeaderScreenOptions({
     const state = currentNavigation?.getState();
     const isCanGoBack = (state?.index ?? 0) > 0;
 
-    // Liquid Glass header is enabled only on the topmost screen of a
-    // root tab (isRootScreen=true and no back stack). Pushed children
-    // inside a tab keep isRootScreen=true through TabSubStackNavigator,
-    // so we additionally gate on !isCanGoBack — otherwise the screen
-    // content extends under a translucent navigation bar and pages
-    // designed for an opaque header (e.g. Perps detail with custom
-    // ETHUSDC pill + stat row) bleed into the bar area. Modal and
-    // onboarding screens are already excluded (isRootScreen=false).
+    // Liquid Glass material is enabled for both the topmost screen of
+    // a root tab and pushed children inside that tab — the glass header
+    // is the iOS 26 system look users expect everywhere in the chrome.
+    // Modal/onboarding screens are excluded (isRootScreen=false).
     const useLiquidGlassHeader =
-      platformEnv.isNativeIOS26Plus && isRootScreen && !isCanGoBack;
+      platformEnv.isNativeIOS26Plus && isRootScreen;
+    // Only the true top of a tab extends content under the bar so the
+    // glass refracts real content. Pushed children keep
+    // edgesForExtendedLayout = UIRectEdgeAll - UIRectEdgeTop so pages
+    // with custom top layouts (e.g. the Perps ETHUSDC stat row) don't
+    // bleed into the navigation bar area; their glass refracts the
+    // navigation controller's view background instead.
+    const useTransparentHeader = useLiquidGlassHeader && !isCanGoBack;
 
     return {
       // Omit headerStyle when Liquid Glass is active so the patched
@@ -78,7 +81,7 @@ export function makeHeaderScreenOptions({
          their parent screen still draws underneath them, and an extended
          layout would show that parent through the modal chrome.
       */
-      headerTransparent: useLiquidGlassHeader ? true : false,
+      headerTransparent: useTransparentHeader ? true : false,
       headerTitleAlign: 'left',
       // iOS 26+ uses native-stack's built-in bar button rendering so
       // UIKit draws each button in its proper iOS 26 circular glass
