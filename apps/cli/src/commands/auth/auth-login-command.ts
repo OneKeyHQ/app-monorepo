@@ -375,6 +375,15 @@ export async function executeAuthLoginCommand({
 
   try {
     if (payload) {
+      const currentSession = await authManager.getStatus();
+      if (currentSession.authStatus === 'authenticated') {
+        throw new AppError(
+          ERROR_CODES.AUTH_WALLET_EXISTS.code,
+          'Wallet already exists. Log out before importing another wallet.',
+          'Run: onekey auth logout',
+        );
+      }
+
       const result = await persistAuthSession(parseAuthPayload(payload)).catch(
         (error) => {
           throw normalizePayloadLoginError(error);

@@ -168,6 +168,39 @@ describe('executeAuthLoginCommand', () => {
     expect(exit).not.toHaveBeenCalled();
   });
 
+  it('blocks --payload login when an authenticated wallet already exists', async () => {
+    const authManager = {
+      getStatus: jest.fn(async () => makeAuthenticatedStatus()),
+      startAppTransferLogin: jest.fn(async () => makePairingResult()),
+    };
+    const routeAuthSession = jest.fn(async () => ({
+      ok: true as const,
+      data: { keyId: 'A'.repeat(43) },
+    }));
+
+    await executeAuthLoginCommand({
+      output: output as OutputFormatter,
+      payload: JSON.stringify({
+        kind: 'cli-bot-wallet',
+        payload: { keyId: 'A'.repeat(43) },
+      }),
+      authManager,
+      routeAuthSession,
+      exit,
+    });
+
+    expect(authManager.getStatus).toHaveBeenCalledTimes(1);
+    expect(routeAuthSession).not.toHaveBeenCalled();
+    expect(output.error).toHaveBeenCalledWith({
+      code: ERROR_CODES.AUTH_WALLET_EXISTS.code,
+      message:
+        'Wallet already exists. Log out before importing another wallet.',
+      suggestion: 'Run: onekey auth logout',
+    });
+    expect(process.exitCode).toBe(ERROR_CODES.AUTH_WALLET_EXISTS.exitCode);
+    expect(exit).not.toHaveBeenCalled();
+  });
+
   it('rejects combining --app-transfer and --hardware', async () => {
     const authManager = {
       getStatus: jest.fn(async () => makeUnauthenticatedStatus()),

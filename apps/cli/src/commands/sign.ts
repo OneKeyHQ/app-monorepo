@@ -8,16 +8,22 @@ import { AppError, ERROR_CODES } from '../errors';
 import { signInputSchema } from '../schemas';
 import { getSignerByImpl } from '../signer';
 
+import {
+  requireAuthenticatedCommand,
+  requireStringOption,
+} from './command-guards';
+
 import type { IChainConfig } from '../core';
 import type { OutputFormatter } from '../output';
+import type { ISignInput } from '../schemas';
 import type { Command } from 'commander';
 
 type ISignCommandOptions = {
-  address: string;
+  address?: string;
   chain?: string;
-  path: string;
-  pub: string;
-  tx: string;
+  path?: string;
+  pub?: string;
+  tx?: string;
 };
 
 type ISignCommandOutput = {
@@ -37,6 +43,7 @@ type ISignerLoader = (impl: string) => Promise<unknown>;
 type ISignCommandDependencies = {
   getSignerByImpl?: ISignerLoader;
   output: Pick<OutputFormatter, 'error' | 'success'>;
+  requireAuthenticatedCommand?: () => Promise<void>;
   resolveChain?: typeof resolveChain;
 };
 
@@ -104,7 +111,7 @@ function buildSignPayload({
   chainConfig: IChainConfig;
   encodedTx: Record<string, unknown>;
   hdCredential: string;
-  options: ISignCommandOptions;
+  options: ISignInput;
   password: string;
   signer: ISignCapableSigner;
 }): ICoreApiSignTxPayload {
@@ -130,11 +137,21 @@ export async function executeSignCommand(
   const {
     getSignerByImpl: getSigner = getSignerByImpl,
     output,
+    requireAuthenticatedCommand:
+      requireAuthenticated = requireAuthenticatedCommand,
     resolveChain: resolve = resolveChain,
   } = dependencies;
 
   try {
-    const validated = signInputSchema.parse(options);
+    await requireAuthenticated();
+
+    const validated = signInputSchema.parse({
+      ...options,
+      address: requireStringOption(options.address, '--address <address>'),
+      path: requireStringOption(options.path, '--path <path>'),
+      pub: requireStringOption(options.pub, '--pub <public-key>'),
+      tx: requireStringOption(options.tx, '--tx <json>'),
+    });
     const chainConfig = resolve(validated.chain ?? 'eth');
     const encodedTx = parseEncodedTx(validated.tx);
     const signer = await getSigner(chainConfig.impl);
@@ -169,10 +186,10 @@ export function registerSignCommand(program: Command): void {
   program
     .command('sign')
     .description('Sign an encoded transaction locally')
-    .requiredOption('--tx <json>', 'JSON encoded transaction payload')
-    .requiredOption('--address <address>', 'Signing account address')
-    .requiredOption('--path <path>', 'HD derivation path')
-    .requiredOption('--pub <public-key>', 'Account public key')
+    .option('--tx <json>', 'JSON encoded transaction payload')
+    .option('--address <address>', 'Signing account address')
+    .option('--path <path>', 'HD derivation path')
+    .option('--pub <public-key>', 'Account public key')
     .option('--chain <chain>', 'Target blockchain (e.g., eth, bsc)', 'eth')
     .action(async (options: ISignCommandOptions, command: Command) => {
       const globalOpts = command.optsWithGlobals();

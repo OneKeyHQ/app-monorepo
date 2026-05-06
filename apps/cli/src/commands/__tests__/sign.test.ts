@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { AppError, ERROR_CODES } from '../../errors';
 import { executeSignCommand } from '../sign';
 
 import type { IChainConfig } from '../../core';
@@ -63,14 +64,17 @@ describe('onekey sign command', () => {
       error: jest.fn(),
     };
     const getSignerByImpl = jest.fn(() => Promise.resolve(signer));
+    const requireAuthenticatedCommand = jest.fn(async () => undefined);
     const resolveChain = jest.fn(() => CHAIN_CONFIG);
 
     await executeSignCommand(VALID_OPTIONS, {
       getSignerByImpl,
       output,
+      requireAuthenticatedCommand,
       resolveChain,
     });
 
+    expect(requireAuthenticatedCommand).toHaveBeenCalledTimes(1);
     expect(resolveChain).toHaveBeenCalledWith('eth');
     expect(getSignerByImpl).toHaveBeenCalledWith('evm');
     expect(signer.getHdCredential).toHaveBeenCalledTimes(1);
@@ -111,6 +115,7 @@ describe('onekey sign command', () => {
       }
       return signer;
     });
+    const requireAuthenticatedCommand = jest.fn(async () => undefined);
     const resolveChain = jest.fn(() => CHAIN_CONFIG);
 
     await Promise.all(
@@ -118,11 +123,13 @@ describe('onekey sign command', () => {
         executeSignCommand(VALID_OPTIONS, {
           getSignerByImpl,
           output,
+          requireAuthenticatedCommand,
           resolveChain,
         }),
       ),
     );
 
+    expect(requireAuthenticatedCommand).toHaveBeenCalledTimes(10);
     expect(output.success).toHaveBeenCalledTimes(10);
     expect(output.error).not.toHaveBeenCalled();
   });
@@ -133,6 +140,7 @@ describe('onekey sign command', () => {
       error: jest.fn(),
     };
     const getSignerByImpl = jest.fn(() => Promise.resolve(createSigner()));
+    const requireAuthenticatedCommand = jest.fn(async () => undefined);
 
     await executeSignCommand(
       {
@@ -142,10 +150,12 @@ describe('onekey sign command', () => {
       {
         getSignerByImpl,
         output,
+        requireAuthenticatedCommand,
         resolveChain: () => CHAIN_CONFIG,
       },
     );
 
+    expect(requireAuthenticatedCommand).toHaveBeenCalledTimes(1);
     expect(output.success).not.toHaveBeenCalled();
     expect(getSignerByImpl).not.toHaveBeenCalled();
     expect(output.error).toHaveBeenCalledWith(
@@ -154,5 +164,40 @@ describe('onekey sign command', () => {
       }),
     );
     expect(process.exitCode).toBe(1);
+  });
+
+  it('checks authentication before validating required options', async () => {
+    const output = {
+      success: jest.fn(),
+      error: jest.fn(),
+    };
+    const getSignerByImpl = jest.fn(() => Promise.resolve(createSigner()));
+    const requireAuthenticatedCommand = jest.fn(async () => {
+      throw new AppError(
+        ERROR_CODES.AUTH_NO_WALLET.code,
+        'This command requires an authenticated wallet.',
+        'Run: onekey auth login --app-transfer',
+      );
+    });
+
+    await executeSignCommand(
+      {},
+      {
+        getSignerByImpl,
+        output,
+        requireAuthenticatedCommand,
+        resolveChain: () => CHAIN_CONFIG,
+      },
+    );
+
+    expect(requireAuthenticatedCommand).toHaveBeenCalledTimes(1);
+    expect(getSignerByImpl).not.toHaveBeenCalled();
+    expect(output.success).not.toHaveBeenCalled();
+    expect(output.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: ERROR_CODES.AUTH_NO_WALLET.code,
+      }),
+    );
+    expect(process.exitCode).toBe(ERROR_CODES.AUTH_NO_WALLET.exitCode);
   });
 });

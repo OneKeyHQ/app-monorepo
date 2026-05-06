@@ -116,17 +116,12 @@ function renderTextValue(value: unknown): string {
 }
 
 function formatDataLines(data: unknown): string[] {
-  const sanitized = sanitizeOutput(data);
-  if (
-    typeof sanitized === 'object' &&
-    sanitized !== null &&
-    !Array.isArray(sanitized)
-  ) {
-    return Object.entries(sanitized as Record<string, unknown>).map(
+  if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+    return Object.entries(data as Record<string, unknown>).map(
       ([key, value]) => `${key}: ${renderTextValue(value)}`,
     );
   }
-  return [`data: ${renderTextValue(sanitized)}`];
+  return [`data: ${renderTextValue(data)}`];
 }
 
 export function formatOk(

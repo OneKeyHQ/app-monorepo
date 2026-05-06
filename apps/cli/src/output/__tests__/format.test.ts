@@ -1,5 +1,6 @@
 import { CLI_ERROR_CODES } from '../../errors';
 import { formatError, formatOk } from '../format';
+import { redactSecret } from '../redact';
 
 const FIXED_NOW = new Date('2026-04-28T01:02:03.000Z');
 
@@ -51,11 +52,12 @@ describe('output/format', () => {
   });
 
   it('formats text output as multi-line labels with redacted fields', () => {
+    const secret = 'access-token-secret';
     const output = formatOk(
       {
         displayAddress: '0x1234567890abcdef',
         keyId: 'key_123456789abcdef',
-        accessToken: 'access-token-secret',
+        accessToken: secret,
       },
       'text',
       { now: FIXED_NOW, isTTY: true },
@@ -65,8 +67,11 @@ describe('output/format', () => {
     expect(output).toContain('timestamp:');
     expect(output).toContain('displayAddress: 0x123456...abcdef');
     expect(output).toContain('keyId: key_1234');
-    expect(output).not.toContain('access-token-secret');
-    expect(output).toContain('accessToken: <REDACTED:sha256:');
+    expect(output).not.toContain(secret);
+    expect(output).toContain(`accessToken: ${redactSecret(secret)}`);
+    expect(output).not.toContain(
+      `accessToken: ${redactSecret(redactSecret(secret))}`,
+    );
     expect(output.split('\n').length).toBeGreaterThan(3);
   });
 
