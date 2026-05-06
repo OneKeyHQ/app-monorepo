@@ -11,11 +11,16 @@ export default function HeaderButtonGroup(props: GetProps<typeof XStack>) {
       gap="$4"
       alignItems="center"
       // iOS 26 wraps headerLeft/right custom views in a UIBarButtonItem
-      // glass container that vertically aligns to its content's intrinsic
-      // size. Without an explicit height the icon ends up flush with the
-      // top of the bar instead of centered against the title. 44pt matches
-      // the iOS navigation bar standard height.
-      {...(platformEnv.isNativeIOS26Plus && { height: 44 })}
+      // glass container. With only a height set, our intrinsic 36-wide
+      // children produced a 36x44 frame; the glass container then padded
+      // it horizontally and rendered as a wide pill instead of a circle.
+      // Forcing a 44x44 square frame keeps the container circular and
+      // aligned to the bar's vertical center.
+      {...(platformEnv.isNativeIOS26Plus && {
+        height: 44,
+        minWidth: 44,
+        justifyContent: 'center',
+      })}
       testID="Navigation-HeaderView-ButtonGroup"
       {...rest}
     >
