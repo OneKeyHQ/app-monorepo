@@ -39,13 +39,16 @@ export function makeHeaderScreenOptions({
     const state = currentNavigation?.getState();
     const isCanGoBack = (state?.index ?? 0) > 0;
 
-    // Liquid Glass header is enabled only on root tabs. Modal and
-    // onboarding screens are presented over a parent VC; extending the
-    // child content under a translucent navigation bar would let the
-    // parent's chrome bleed through. They keep the existing opaque themed
-    // header on iOS 26+.
+    // Liquid Glass header is enabled only on the topmost screen of a
+    // root tab (isRootScreen=true and no back stack). Pushed children
+    // inside a tab keep isRootScreen=true through TabSubStackNavigator,
+    // so we additionally gate on !isCanGoBack — otherwise the screen
+    // content extends under a translucent navigation bar and pages
+    // designed for an opaque header (e.g. Perps detail with custom
+    // ETHUSDC pill + stat row) bleed into the bar area. Modal and
+    // onboarding screens are already excluded (isRootScreen=false).
     const useLiquidGlassHeader =
-      platformEnv.isNativeIOS26Plus && isRootScreen;
+      platformEnv.isNativeIOS26Plus && isRootScreen && !isCanGoBack;
 
     return {
       // Omit headerStyle when Liquid Glass is active so the patched
