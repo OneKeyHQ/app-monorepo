@@ -76,6 +76,13 @@ function SideButtonInternal({
   const [tradingPreferences] = usePerpsTradingPreferencesAtom();
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
+  // SizeInput already collapses 'margin' → 'usd' in spot to keep the input
+  // box consistent. Mirror that here so secondary text and minimum-order
+  // hints stay aligned with what the user actually sees.
+  const resolvedSizeInputUnit =
+    isSpot && tradingPreferences.sizeInputUnit === 'margin'
+      ? 'usd'
+      : tradingPreferences.sizeInputUnit;
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
 
@@ -142,7 +149,7 @@ function SideButtonInternal({
   const buttonSecondaryText = useMemo(() => {
     if (orderValue.isZero() || !orderValue.isFinite()) return null;
 
-    if (tradingPreferences.sizeInputUnit === 'usd') {
+    if (resolvedSizeInputUnit === 'usd') {
       const usdValue = orderValue
         .decimalPlaces(2, BigNumber.ROUND_DOWN)
         .toFixed(2);
@@ -163,7 +170,7 @@ function SideButtonInternal({
     return `${sizeValue} ${displayName}`;
   }, [
     orderValue,
-    tradingPreferences.sizeInputUnit,
+    resolvedSizeInputUnit,
     computedSizeForSide,
     szDecimals,
     isSpot,
@@ -359,7 +366,7 @@ function SideButtonInternal({
           const minSize = new BigNumber(10)
             .dividedBy(effectivePriceBN)
             .decimalPlaces(szDecimals, BigNumber.ROUND_UP);
-          if (tradingPreferences.sizeInputUnit === 'token') {
+          if (resolvedSizeInputUnit === 'token') {
             const coinSymbol = (() => {
               if (isSpot && activeTradeInstrument.mode === 'spot') {
                 const u = activeTradeInstrument.universe;
@@ -372,16 +379,14 @@ function SideButtonInternal({
                 : '';
             })();
             minAmount = `${minSize.toFixed(szDecimals)} ${coinSymbol}`;
-          } else if (tradingPreferences.sizeInputUnit === 'margin') {
+          } else if (resolvedSizeInputUnit === 'margin') {
             const leverageBN = new BigNumber(leverage || 1);
             if (leverageBN.isFinite() && leverageBN.gt(0)) {
-              // System uses toFixed (ROUND_HALF_UP) to convert margin to token size.
-              // The smallest raw value that rounds up to minSize is: minSize - 0.5 * 10^(-szDecimals)
-              const halfStep = new BigNumber(5).times(
-                new BigNumber(10).pow(-(szDecimals + 1)),
-              );
+              // SizeInput floors (margin × leverage / price) to szDecimals via
+              // formatHlSize, so the smallest margin that produces ≥ `minSize`
+              // tokens is exactly `minSize × effectivePrice / leverage`,
+              // rounded up to 2 cents to keep the displayed amount on the safe side.
               const minMargin = minSize
-                .minus(halfStep)
                 .multipliedBy(effectivePriceBN)
                 .dividedBy(leverageBN)
                 .decimalPlaces(2, BigNumber.ROUND_UP)
