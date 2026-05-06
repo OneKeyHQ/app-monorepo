@@ -209,6 +209,17 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         />
       );
     }
+    // iOS 26 mobile uses the native UINavigationBar so the header gets
+    // Liquid Glass material and the system back chevron. Don't pass
+    // headerLeft — HeaderScreenOptions wires the system back button.
+    if (platformEnv.isNativeIOS26Plus) {
+      return (
+        <Page.Header
+          headerTitle={renderHeaderTitle}
+          headerRight={renderNotificationButton}
+        />
+      );
+    }
     return <Page.Header headerShown={false} />;
   }, [
     isWebDesktop,
@@ -226,7 +237,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         </XStack>
       );
     }
-    if (!gtMd) {
+    // On iOS 26 mobile the title is in the native bar already.
+    if (!gtMd && !platformEnv.isNativeIOS26Plus) {
       return (
         <XStack ai="center" gap="$4" px="$4">
           {renderHeaderLeft()}
