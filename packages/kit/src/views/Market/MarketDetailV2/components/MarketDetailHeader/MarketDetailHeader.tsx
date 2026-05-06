@@ -11,6 +11,7 @@ import {
   useClipboard,
   useIsOverlayPage,
   useMedia,
+  useShare,
 } from '@onekeyhq/components';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -27,11 +28,11 @@ import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import { MarketStarV2 } from '../../../components/MarketStarV2';
+import { MarketStarV2, useStarV2Checked } from '../../../components/MarketStarV2';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
-import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
+import { buildMarketFullUrlV2 } from '../../../marketUtils';
 import { EModalMarketRoutes } from '../../../router';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -132,38 +133,61 @@ export function MarketDetailHeader() {
     ],
   );
 
-  const renderNativeHeaderRight = useCallback(
-    () =>
-      networkId ? (
-        // react-native-screens renders headerLeft/right in an isolated
-        // React subtree (so it can hand the views to UIKit as
-        // UIBarButtonItem customViews), so this subtree does NOT inherit
-        // the MarketWatchListProviderMirrorV2 wrapping the page body.
-        // MarketStarV2 reads the watchlist jotai store via context and
-        // crashes ("store not initialized") without a fresh mirror here.
-        <MarketWatchListProviderMirrorV2
-          storeName={EJotaiContextStoreNames.marketWatchListV2}
-        >
-          <XStack gap="$3" ai="center">
-            <MarketStarV2
-              chainId={networkId}
-              contractAddress={tokenDetail?.address ?? ''}
-              size="large"
-              from={EWatchlistFrom.Detail}
-              tokenSymbol={tokenDetail?.symbol ?? ''}
-              isNative={isNative}
-            />
-            <ShareButton
-              networkId={networkId}
-              address={tokenDetail?.address ?? ''}
-              isNative={isNative}
-              useIconButton
-              size="large"
-            />
-          </XStack>
-        </MarketWatchListProviderMirrorV2>
-      ) : null,
-    [networkId, tokenDetail?.address, tokenDetail?.symbol, isNative],
+  // Drive native UIBarButtonItem-rendered SF Symbol buttons from the
+  // parent's React state. MarketDetailHeader is rendered inside the
+  // MarketWatchListProviderMirrorV2 so useStarV2Checked has access to
+  // the watchlist store; we only pass the resulting checked flag and
+  // onPress handler down to native via unstable_headerRightItems —
+  // there's no React subtree under the bar items, so no additional
+  // Mirror wrap is needed.
+  const { checked: starChecked, onPress: onStarPress } = useStarV2Checked({
+    chainId: networkId ?? '',
+    contractAddress: tokenDetail?.address ?? '',
+    from: EWatchlistFrom.Detail,
+    tokenSymbol: tokenDetail?.symbol ?? '',
+    isNative,
+  });
+
+  const { shareText } = useShare();
+
+  const handleShareNative = useCallback(() => {
+    if (!networkId) return;
+    const shortCode =
+      networkUtils.getNetworkShortCode({ networkId }) || networkId;
+    const url = buildMarketFullUrlV2({
+      network: shortCode,
+      address: tokenDetail?.address ?? '',
+      isNative,
+    });
+    void shareText(url);
+  }, [networkId, tokenDetail?.address, isNative, shareText]);
+
+  const handleStarNative = useCallback(() => {
+    void onStarPress();
+  }, [onStarPress]);
+
+  const buildNativeHeaderRightItems = useCallback(
+    () => [
+      {
+        type: 'button' as const,
+        label: 'Watchlist',
+        icon: {
+          type: 'sfSymbol' as const,
+          name: starChecked ? ('star.fill' as const) : ('star' as const),
+        },
+        onPress: handleStarNative,
+      },
+      {
+        type: 'button' as const,
+        label: 'Share',
+        icon: {
+          type: 'sfSymbol' as const,
+          name: 'square.and.arrow.up' as const,
+        },
+        onPress: handleShareNative,
+      },
+    ],
+    [starChecked, handleStarNative, handleShareNative],
   );
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
@@ -175,7 +199,7 @@ export function MarketDetailHeader() {
       <Page.Header
         headerShown
         headerTitle={renderNativeHeaderTitle}
-        headerRight={renderNativeHeaderRight}
+        unstable_headerRightItems={buildNativeHeaderRightItems}
       />
     );
   }
