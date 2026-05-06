@@ -92,9 +92,9 @@ defineCommand({
   input: balanceInputSchema,
   output: balanceAllOutputSchema,
   examples: [
-    'onekey balance',
     'onekey balance --chain eth',
     'onekey balance --chain eth --token USDC',
+    'onekey balance --chain tbtc --address tb1...',
   ],
 });
 
@@ -144,7 +144,10 @@ defineCommand({
   description: 'On-chain transaction history',
   input: walletHistoryInputSchema,
   output: walletHistoryOutputSchema,
-  examples: ['onekey history', 'onekey history --chain eth --detail'],
+  examples: [
+    'onekey history --chain eth --detail',
+    'onekey history --chain tbtc --address tb1... --limit 5',
+  ],
 });
 
 // --- Token group ---

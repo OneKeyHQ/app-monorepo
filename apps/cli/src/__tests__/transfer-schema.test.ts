@@ -86,4 +86,14 @@ describe('transferOptionsSchema', () => {
       transferOptionsSchema.parse({ ...validBase, token: 'not-an-address' }),
     ).toThrow('Invalid Ethereum address');
   });
+
+  it('keeps recipient validation EVM-only even when chain is tbtc', () => {
+    expect(() =>
+      transferOptionsSchema.parse({
+        to: 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx',
+        amount: '0.00001',
+        chain: 'tbtc',
+      }),
+    ).toThrow('Invalid Ethereum address');
+  });
 });

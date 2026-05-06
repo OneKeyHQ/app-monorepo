@@ -54,11 +54,17 @@ describe('Schema Registry', () => {
       description: 'Has examples',
       input: z.object({}),
       output: z.object({}),
-      examples: ['onekey test --flag'],
+      examples: [
+        'onekey test --flag',
+        'onekey balance --chain tbtc --address tb1...',
+      ],
     });
 
     const entry = getSchemaRegistry().get('with-examples')!;
-    expect(entry.examples).toEqual(['onekey test --flag']);
+    expect(entry.examples).toEqual([
+      'onekey test --flag',
+      'onekey balance --chain tbtc --address tb1...',
+    ]);
   });
 
   it('throws on duplicate command name', () => {

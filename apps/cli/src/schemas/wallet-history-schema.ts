@@ -1,9 +1,16 @@
 import { z } from 'zod';
 
-import { chainId } from './common';
+import { chainAddress, chainId, positiveIntString, tokenId } from './common';
 
 export const walletHistoryInputSchema = z.object({
   chain: chainId.optional(),
+  token: tokenId.optional().describe('Filter by token where supported'),
+  address: chainAddress
+    .optional()
+    .describe(
+      'Override wallet address to query. Required for btc/tbtc in this round.',
+    ),
+  limit: positiveIntString.optional(),
   detail: z.boolean().optional().describe('Include extended fields'),
 });
 

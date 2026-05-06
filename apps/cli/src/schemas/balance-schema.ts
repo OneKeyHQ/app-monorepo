@@ -1,12 +1,17 @@
 import { z } from 'zod';
 
-import { chainId, tokenId } from './common';
+import { chainAddress, chainId, tokenId } from './common';
 
 export const balanceInputSchema = z.object({
   chain: chainId.optional().describe('Target chain. Defaults to last used.'),
   token: tokenId
     .optional()
     .describe('Specific token to query. Omit for all assets.'),
+  address: chainAddress
+    .optional()
+    .describe(
+      'Override wallet address to query. Required for btc/tbtc in this round.',
+    ),
 });
 
 export const balanceTokenOutputSchema = z.object({

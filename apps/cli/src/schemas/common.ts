@@ -1,9 +1,17 @@
 import { z } from 'zod';
 
-/** 0x-prefixed, 40 hex character Ethereum address */
+/** 0x-prefixed, 40 hex character Ethereum-compatible address */
 export const ethAddress = z
   .string()
   .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address');
+
+/** Chain-specific account address for read-only account/history commands */
+export const chainAddress = z
+  .string()
+  .min(1)
+  .describe(
+    'Chain-specific account address, for example 0x..., bc1..., or tb1...',
+  );
 
 /** Blockchain identifier — alias (eth, bsc) or networkId (evm--1) */
 export const chainId = z
