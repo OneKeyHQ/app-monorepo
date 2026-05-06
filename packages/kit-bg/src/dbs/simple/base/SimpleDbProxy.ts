@@ -40,6 +40,7 @@ import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning'
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import type { SimpleDbEntityMarketPresetSettings } from '../entity/SimpleDbEntityMarketPresetSettings';
 import type { SimpleDbEntityMarketTokenPreference } from '../entity/SimpleDbEntityMarketTokenPreference';
 import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import type { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMarketWatchListV2';
@@ -167,6 +168,10 @@ export class SimpleDbProxy
   marketTokenPreference = this._createProxyService(
     'marketTokenPreference',
   ) as SimpleDbEntityMarketTokenPreference;
+
+  marketPresetSettings = this._createProxyService(
+    'marketPresetSettings',
+  ) as SimpleDbEntityMarketPresetSettings;
 
   marketWatchList = this._createProxyService(
     'marketWatchList',
