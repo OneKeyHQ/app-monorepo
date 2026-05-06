@@ -81,6 +81,7 @@ import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IOneInchOrderStruct,
+  IQuoteResultFeeOtherFeeInfo,
   ISwapGasInfo,
   ISwapPreSwapData,
   ISwapStep,
@@ -120,7 +121,10 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
-import { checkSwapLatestBalanceSufficient } from '../utils/swapBalanceUtils';
+import {
+  checkSwapLatestBalanceSufficient,
+  getSwapRequiredNativeBalanceAmount,
+} from '../utils/swapBalanceUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapBuildTxInfo, useSwapProAccount } from './useSwapPro';
@@ -505,6 +509,63 @@ export function useSwapBuildTx() {
     [fromAccountId, fromUserAddress, intl],
   );
 
+  const checkLatestNativeTokenBalance = useCallback(
+    async ({
+      gasInfos,
+      networkId,
+      token,
+      amount,
+      otherFeeInfos,
+    }: {
+      gasInfos?: { gasInfo?: ISwapGasInfo }[];
+      networkId?: string;
+      token?: ISwapToken;
+      amount?: string;
+      otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
+    }) => {
+      const nativeBalanceRequirement = getSwapRequiredNativeBalanceAmount({
+        gasInfos,
+        networkId,
+        fromToken: token,
+        fromAmount: amount,
+        otherFeeInfos,
+      });
+
+      if (!nativeBalanceRequirement) {
+        return true;
+      }
+
+      const checkResult = await checkSwapLatestBalanceSufficient({
+        token: nativeBalanceRequirement.token,
+        amount: nativeBalanceRequirement.amount,
+        accountAddress: fromUserAddress,
+        accountId: fromAccountId,
+      });
+      if (!checkResult.isSufficient) {
+        Toast.error({
+          title: intl.formatMessage(
+            {
+              id: ETranslations.swap_page_toast_insufficient_balance_title,
+            },
+            { token: checkResult.tokenSymbol },
+          ),
+          message: intl.formatMessage(
+            {
+              id: ETranslations.swap_page_toast_insufficient_balance_content,
+            },
+            {
+              token: checkResult.tokenSymbol,
+              number: numberFormat(checkResult.requiredAmount, formatter),
+            },
+          ),
+        });
+        return false;
+      }
+      return true;
+    },
+    [fromAccountId, fromUserAddress, intl],
+  );
+
   const cancelLimitOrder = useCallback(
     async (item: IFetchLimitOrderRes, source: ESwapCancelLimitOrderSource) => {
       if (item.cancelInfo) {
@@ -689,6 +750,17 @@ export function useSwapBuildTx() {
         feeInfo: gasInfo as IFeeInfoUnit,
         nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
       });
+      const checkLatestNativeBalanceRes = await checkLatestNativeTokenBalance({
+        gasInfos: [{ gasInfo }],
+        networkId,
+        token: unsignedTxItem.swapInfo?.sender.token,
+        amount: unsignedTxItem.swapInfo?.sender.amount,
+        otherFeeInfos:
+          unsignedTxItem.swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
+      });
+      if (!checkLatestNativeBalanceRes) {
+        throw new OneKeyError('checkLatestNativeTokenBalance failed');
+      }
       await backgroundApiProxy.serviceTransaction.verifyTransaction({
         networkId,
         accountId,
@@ -732,7 +804,7 @@ export function useSwapBuildTx() {
       });
       return res;
     },
-    [intl, setSwapSteps],
+    [checkLatestNativeTokenBalance, intl, setSwapSteps],
   );
 
   const swapEstimateFeeEvent = useCallback(
@@ -1775,12 +1847,12 @@ export function useSwapBuildTx() {
         if (!checkLatestBalanceRes) {
           throw new OneKeyError('checkLatestFromTokenBalance failed');
         }
-        if (swapStepsRef.current.preSwapData.swapBuildResultData) {
-          return swapStepsRef.current.preSwapData.swapBuildResultData;
-        }
         const checkRes = await checkOtherFee(data);
         if (!checkRes) {
           throw new OneKeyError('checkOtherFee failed');
+        }
+        if (swapStepsRef.current.preSwapData.swapBuildResultData) {
+          return swapStepsRef.current.preSwapData.swapBuildResultData;
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
         try {
@@ -2896,6 +2968,19 @@ export function useSwapBuildTx() {
             throw e;
           }
         }
+        const checkLatestNativeBalanceRes = await checkLatestNativeTokenBalance(
+          {
+            gasInfos: gasFeeInfos,
+            networkId,
+            token: swapInfo?.sender.token,
+            amount: swapInfo?.sender.amount,
+            otherFeeInfos:
+              swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
+          },
+        );
+        if (!checkLatestNativeBalanceRes) {
+          throw new OneKeyError('checkLatestNativeTokenBalance failed');
+        }
         const gasFeeFiatValues = await Promise.all(
           gasFeeInfos.map(async (item) => {
             const { gasInfo } = item;
@@ -2932,6 +3017,7 @@ export function useSwapBuildTx() {
             estimateNetworkFeeLoading: false,
           },
         }));
+        throw _e;
       }
     },
     [
@@ -2941,6 +3027,7 @@ export function useSwapBuildTx() {
       swapEstimateFeeEvent,
       fromAccountId,
       fromUserAddress,
+      checkLatestNativeTokenBalance,
     ],
   );
 
@@ -2966,6 +3053,7 @@ export function useSwapBuildTx() {
           preSwapData: {
             ...prev.preSwapData,
             stepBeforeActionsLoading: true,
+            stepBeforeActionsError: undefined,
           },
         }));
         try {
@@ -2992,14 +3080,17 @@ export function useSwapBuildTx() {
             preSwapData: {
               ...prev.preSwapData,
               stepBeforeActionsLoading: false,
+              stepBeforeActionsError: undefined,
             },
           }));
-        } catch (_e) {
+        } catch {
           setSwapSteps((prev) => ({
             ...prev,
             preSwapData: {
               ...prev.preSwapData,
               stepBeforeActionsLoading: false,
+              stepBeforeActionsError: true,
+              netWorkFee: undefined,
             },
           }));
         }
