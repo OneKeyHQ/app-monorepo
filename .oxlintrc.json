@@ -464,7 +464,10 @@
     // Custom OneKey rules (JS plugin)
     // ============================================
     // Enforce OneKeyLocalError/OneKeyError instead of raw Error
-    "onekey/no-raw-error": "error"
+    "onekey/no-raw-error": "error",
+    // Block helpers without 'worklet'; from being called inside Reanimated
+    // worklet hooks (regression: REACT-NATIVE-4FJ / 3RG)
+    "onekey/no-non-worklet-call-in-worklet": "error"
   },
   // Package-specific rules (migrated from ESLint overrides)
   "overrides": [
