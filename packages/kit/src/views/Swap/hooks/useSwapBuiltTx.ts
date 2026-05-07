@@ -35,7 +35,7 @@ import {
   BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -718,31 +718,6 @@ export function useSwapBuildTx() {
             feeBudget: gasInfo.feeBudget,
           },
         });
-      await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
-        networkId,
-        accountId,
-        unsignedTxs: [updatedUnsignedTxItem],
-        precheckTiming: ESendPreCheckTimingEnum.Confirm,
-      });
-      setSwapSteps(
-        (prev: {
-          steps: ISwapStep[];
-          preSwapData: ISwapPreSwapData;
-          quoteResult?: IFetchQuoteResult | undefined;
-        }) => {
-          const newSteps = cloneDeep(prev.steps);
-          newSteps[stepIndex] = {
-            ...newSteps[stepIndex],
-            stepSubTitle: intl.formatMessage({
-              id: ETranslations.swap_process_sign_and_sent_tx,
-            }),
-          };
-          return {
-            ...prev,
-            steps: newSteps,
-          };
-        },
-      );
       const {
         totalNative,
         total,
@@ -762,8 +737,33 @@ export function useSwapBuildTx() {
           unsignedTxItem.swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
       });
       if (!checkLatestNativeBalanceRes) {
-        throw new OneKeyError('checkLatestNativeTokenBalance failed');
+        throw new OneKeyAppError('checkLatestNativeTokenBalance failed');
       }
+      setSwapSteps(
+        (prev: {
+          steps: ISwapStep[];
+          preSwapData: ISwapPreSwapData;
+          quoteResult?: IFetchQuoteResult | undefined;
+        }) => {
+          const newSteps = cloneDeep(prev.steps);
+          newSteps[stepIndex] = {
+            ...newSteps[stepIndex],
+            stepSubTitle: intl.formatMessage({
+              id: ETranslations.swap_process_sign_and_sent_tx,
+            }),
+          };
+          return {
+            ...prev,
+            steps: newSteps,
+          };
+        },
+      );
+      await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+        networkId,
+        accountId,
+        unsignedTxs: [updatedUnsignedTxItem],
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
+      });
       await backgroundApiProxy.serviceTransaction.verifyTransaction({
         networkId,
         accountId,
@@ -1869,11 +1869,11 @@ export function useSwapBuildTx() {
           data.fromAmount,
         );
         if (!checkLatestBalanceRes) {
-          throw new OneKeyError('checkLatestFromTokenBalance failed');
+          throw new OneKeyAppError('checkLatestFromTokenBalance failed');
         }
         const checkRes = await checkOtherFee(data);
         if (!checkRes) {
-          throw new OneKeyError('checkOtherFee failed');
+          throw new OneKeyAppError('checkOtherFee failed');
         }
         if (swapStepsRef.current.preSwapData.swapBuildResultData) {
           return swapStepsRef.current.preSwapData.swapBuildResultData;
@@ -2359,7 +2359,7 @@ export function useSwapBuildTx() {
             data.fromAmount,
           );
           if (!checkLatestBalanceRes) {
-            throw new OneKeyError('checkLatestFromTokenBalance failed');
+            throw new OneKeyAppError('checkLatestFromTokenBalance failed');
           }
           const {
             unSignedInfo,
@@ -3018,7 +3018,7 @@ export function useSwapBuildTx() {
           },
         );
         if (!checkLatestNativeBalanceRes) {
-          throw new OneKeyError('checkLatestNativeTokenBalance failed');
+          throw new OneKeyAppError('checkLatestNativeTokenBalance failed');
         }
         const gasFeeFiatValues = await Promise.all(
           gasFeeInfos.map(async (item) => {
