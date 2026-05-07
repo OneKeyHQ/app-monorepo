@@ -314,6 +314,13 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         </SizableText>
       ) : null}
 
+      {showMarketPresetSelector && marketPresetSettings ? (
+        <MarketPresetSelector
+          presetSettings={marketPresetSettings}
+          slippageIconName={gtMd ? 'SliderVerOutline' : 'ChartTrendingOutline'}
+        />
+      ) : null}
+
       <ActionButton
         supportSpeedSwap={!!supportSpeedSwap?.enabled}
         onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
@@ -338,13 +345,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           })
         }
       />
-
-      {showMarketPresetSelector && marketPresetSettings ? (
-        <MarketPresetSelector
-          presetSettings={marketPresetSettings}
-          slippageIconName={gtMd ? 'SliderVerOutline' : 'ChartTrendingOutline'}
-        />
-      ) : null}
 
       {/* Slippage setting */}
       {suppressStandaloneSlippage ? null : (

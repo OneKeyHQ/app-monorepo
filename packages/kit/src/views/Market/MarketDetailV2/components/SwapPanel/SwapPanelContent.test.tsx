@@ -305,7 +305,7 @@ describe('SwapPanelContent', () => {
     const actionButton = screen.getByTestId('action-button');
     const marketPresetSelector = screen.getByTestId('market-preset-selector');
     expect(marketPresetSelector).toBeTruthy();
-    expect(actionButton.compareDocumentPosition(marketPresetSelector)).toBe(
+    expect(marketPresetSelector.compareDocumentPosition(actionButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     expect(marketPresetSelectorMock).toHaveBeenCalledWith(
