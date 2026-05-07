@@ -1,11 +1,13 @@
 import { Psbt, Transaction } from 'bitcoinjs-lib';
 
 import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiSignMsgPayload,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { ITxInputToSign } from '@onekeyhq/core/src/types/coreTypesTx';
 
 import {
   CoreSDKLoader,
@@ -16,6 +18,7 @@ import { SignerHardwareBase } from '../../base/SignerHardwareBase';
 
 import { resolveBtcAddressTypeInfo, validateBtcNetworkId } from './btc-path';
 
+import type { IBtcAddressTypeInfo } from '../../../core/btc/address-types';
 import type { IBtcSignerImpl } from './btc-path';
 import type { ISignerHardwareConfig } from '../../base/SignerHardwareBase';
 import type {
@@ -98,6 +101,17 @@ interface IBtcAddressPayload {
   path?: string;
 }
 
+interface IBtcPublicKeyPayload {
+  path?: string;
+  xpub?: string;
+  xpubSegwit?: string;
+  node?: {
+    public_key?: string;
+    fingerprint?: number;
+  };
+  root_fingerprint?: number;
+}
+
 interface IBtcPsbtPayload {
   psbt: string;
 }
@@ -124,26 +138,146 @@ export class SignerHardware extends SignerHardwareBase {
     const sdk = await this.getHardwareSDK();
     const commonParams = await this.getHwCommonParams();
 
-    const result = await sdk.btcGetAddress(
-      this.device.connectId,
-      this.device.deviceId,
-      {
+    const [addressResult, pubKeyResult] = await Promise.all([
+      sdk.btcGetAddress(this.device.connectId, this.device.deviceId, {
         path: info.path,
         coin: this.getCoin(),
         showOnOneKey: false,
         ...commonParams,
-      },
-    );
+      }),
+      sdk.btcGetPublicKey(this.device.connectId, this.device.deviceId, {
+        path: info.path,
+        coin: this.getCoin(),
+        showOnOneKey: false,
+        ...commonParams,
+      }),
+    ]);
 
-    const address = unwrapSDKResult<IBtcAddressPayload>(result, 'getAddress');
+    const address = unwrapSDKResult<IBtcAddressPayload>(
+      addressResult,
+      'getAddress',
+    );
+    const pubKey = unwrapSDKResult<IBtcPublicKeyPayload>(
+      pubKeyResult,
+      'getPublicKey',
+    );
+    const publicKey = pubKey.node?.public_key ?? '';
+    if (!publicKey) {
+      throw new AppError(
+        ERROR_CODES.BIZ_UNKNOWN.code,
+        'Hardware did not return BTC public key',
+        'Reconnect the device or update the firmware',
+      );
+    }
+
     return {
       address: address.address ?? '',
+      publicKey,
       path: address.path ?? info.path,
       relPath: info.relPath,
       addresses: {
         [info.relPath]: address.address ?? '',
       },
+      __hwExtraInfo__:
+        typeof pubKey.root_fingerprint === 'number'
+          ? { rootFingerprint: pubKey.root_fingerprint }
+          : undefined,
     } as ICoreApiGetAddressItem;
+  }
+
+  private async getRootFingerprintHex(): Promise<string> {
+    const sdk = await this.getHardwareSDK();
+    const commonParams = await this.getHwCommonParams();
+    const result = await sdk.btcGetPublicKey(
+      this.device.connectId,
+      this.device.deviceId,
+      {
+        path: "m/44'/0'/0'",
+        coin: this.getCoin(),
+        showOnOneKey: false,
+        ...commonParams,
+      },
+    );
+    const payload = unwrapSDKResult<IBtcPublicKeyPayload>(
+      result,
+      'getPublicKey',
+    );
+    if (typeof payload.root_fingerprint !== 'number') {
+      throw new AppError(
+        ERROR_CODES.BIZ_UNKNOWN.code,
+        'Hardware did not return root fingerprint',
+        'Reconnect the device or update the firmware',
+      );
+    }
+    return payload.root_fingerprint.toString(16).padStart(8, '0');
+  }
+
+  private async injectPsbtDerivations(params: {
+    psbt: Psbt;
+    inputsToSign: ITxInputToSign[];
+    addressTypeInfo: IBtcAddressTypeInfo;
+    accountAddress: string;
+    accountPublicKey: string | undefined;
+  }): Promise<void> {
+    const { psbt, inputsToSign, addressTypeInfo, accountAddress } = params;
+    const fingerprintHex = await this.getRootFingerprintHex();
+    const masterFingerprint = Buffer.from(fingerprintHex, 'hex');
+    const isTaproot =
+      addressTypeInfo.addressEncoding === EAddressEncodings.P2TR;
+
+    for (const input of inputsToSign) {
+      const inputPubKey = Buffer.from(input.publicKey, 'hex');
+      if (isTaproot) {
+        psbt.updateInput(input.index, {
+          tapBip32Derivation: [
+            {
+              masterFingerprint,
+              pubkey: inputPubKey.subarray(1, 33),
+              path: addressTypeInfo.path,
+              leafHashes: [],
+            },
+          ],
+        });
+      } else {
+        psbt.updateInput(input.index, {
+          bip32Derivation: [
+            {
+              masterFingerprint,
+              pubkey: inputPubKey,
+              path: addressTypeInfo.path,
+            },
+          ],
+        });
+      }
+    }
+
+    if (
+      isTaproot &&
+      params.accountPublicKey &&
+      typeof accountAddress === 'string'
+    ) {
+      const accountPub = Buffer.from(params.accountPublicKey, 'hex');
+      for (let i = 0; i < psbt.txOutputs.length; i += 1) {
+        const output = psbt.txOutputs[i];
+        if (output.address === accountAddress && psbt.txOutputs.length > 1) {
+          try {
+            psbt.updateOutput(i, {
+              tapInternalKey: accountPub.subarray(1, 33),
+              tapBip32Derivation: [
+                {
+                  masterFingerprint,
+                  pubkey: accountPub.subarray(1, 33),
+                  path: addressTypeInfo.path,
+                  leafHashes: [],
+                },
+              ],
+            });
+          } catch {
+            // updateOutput throws when fields already exist; safe to ignore.
+          }
+        }
+      }
+    }
   }
 
   async signTransaction(
@@ -163,11 +297,33 @@ export class SignerHardware extends SignerHardwareBase {
         );
       }
 
+      const psbtAddressTypeInfo = resolveBtcAddressTypeInfo(
+        this.impl,
+        payload.addressType,
+      );
+      const psbtNetwork = getBtcForkNetwork(this.impl);
+      const enrichedPsbt = Psbt.fromHex(encodedTx.psbtHex, {
+        network: psbtNetwork,
+      });
+      const psbtInputsToSign = encodedTx.inputsToSign as
+        | ITxInputToSign[]
+        | undefined;
+      if (psbtInputsToSign?.length) {
+        await this.injectPsbtDerivations({
+          psbt: enrichedPsbt,
+          inputsToSign: psbtInputsToSign,
+          addressTypeInfo: psbtAddressTypeInfo,
+          accountAddress: payload.account.address,
+          accountPublicKey: payload.account.pub,
+        });
+      }
+      const enrichedPsbtHex = enrichedPsbt.toHex();
+
       const result = await sdk.btcSignPsbt(
         this.device.connectId,
         this.device.deviceId,
         {
-          psbt: encodedTx.psbtHex,
+          psbt: enrichedPsbtHex,
           coin: this.getCoin(),
           ...commonParams,
         },
