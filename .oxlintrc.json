@@ -467,7 +467,9 @@
     "onekey/no-raw-error": "error",
     // Block helpers without 'worklet'; from being called inside Reanimated
     // worklet hooks (regression: REACT-NATIVE-4FJ / 3RG)
-    "onekey/no-non-worklet-call-in-worklet": "error"
+    "onekey/no-non-worklet-call-in-worklet": "error",
+    // Prevent DEP0005 warnings from new Buffer()/Buffer() in source.
+    "onekey/no-deprecated-buffer-constructor": "error"
   },
   // Package-specific rules (migrated from ESLint overrides)
   "overrides": [

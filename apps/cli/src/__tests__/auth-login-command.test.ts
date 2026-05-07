@@ -168,10 +168,44 @@ describe('executeAuthLoginCommand', () => {
     expect(exit).not.toHaveBeenCalled();
   });
 
+  it('blocks --payload login when an authenticated wallet already exists', async () => {
+    const authManager = {
+      getStatus: jest.fn(async () => makeAuthenticatedStatus()),
+      startAppTransferLogin: jest.fn(async () => makePairingResult()),
+    };
+    const routeAuthSession = jest.fn(async () => ({
+      ok: true as const,
+      data: { keyId: 'A'.repeat(43) },
+    }));
+
+    await executeAuthLoginCommand({
+      output: output as OutputFormatter,
+      payload: JSON.stringify({
+        kind: 'cli-bot-wallet',
+        payload: { keyId: 'A'.repeat(43) },
+      }),
+      authManager,
+      routeAuthSession,
+      exit,
+    });
+
+    expect(authManager.getStatus).toHaveBeenCalledTimes(1);
+    expect(routeAuthSession).not.toHaveBeenCalled();
+    expect(output.error).toHaveBeenCalledWith({
+      code: ERROR_CODES.AUTH_WALLET_EXISTS.code,
+      message:
+        'Wallet already exists. Log out before importing another wallet.',
+      suggestion: 'Run: onekey auth logout',
+    });
+    expect(process.exitCode).toBe(ERROR_CODES.AUTH_WALLET_EXISTS.exitCode);
+    expect(exit).not.toHaveBeenCalled();
+  });
+
   it('rejects combining --app-transfer and --hardware', async () => {
     const authManager = {
       getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
       startAppTransferLogin: jest.fn(async () => makePairingResult()),
+      persistHardwareSession: jest.fn(async () => undefined),
     };
     const runHardwareLogin = jest.fn(async () => undefined);
 
@@ -201,12 +235,14 @@ describe('executeAuthLoginCommand', () => {
     const authManager = {
       getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
       startAppTransferLogin: jest.fn(async () => makePairingResult()),
+      persistHardwareSession: jest.fn(async () => undefined),
     };
     type IHardwareLoginDeps = {
       output: unknown;
       isTTY: boolean;
       isHumanMode: boolean;
       getStatus: () => Promise<ResolvedAuthSession>;
+      persistSession: (...args: never[]) => Promise<void>;
     };
     const runHardwareLogin: jest.Mock<
       Promise<void>,
@@ -227,6 +263,7 @@ describe('executeAuthLoginCommand', () => {
     const deps = runHardwareLogin.mock.calls[0][0];
     expect(deps.isTTY).toBe(true);
     expect(deps.isHumanMode).toBe(true);
+    expect(typeof deps.persistSession).toBe('function');
     expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
     expect(exit).not.toHaveBeenCalled();
   });
@@ -235,6 +272,7 @@ describe('executeAuthLoginCommand', () => {
     const authManager = {
       getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
       startAppTransferLogin: jest.fn(async () => makePairingResult()),
+      persistHardwareSession: jest.fn(async () => undefined),
     };
     const runHardwareLogin = jest.fn(async () => {
       throw new AppError(
@@ -361,6 +399,7 @@ describe('executeAuthLoginCommand', () => {
     });
 
     expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
+    expect(authManager.getStatus).not.toHaveBeenCalled();
     expect(waitForHeadlessAppTransferCompletion).not.toHaveBeenCalled();
     expect(output.error).toHaveBeenCalledWith({
       code: ERROR_CODES.PARAM_REQUIRES_TTY.code,

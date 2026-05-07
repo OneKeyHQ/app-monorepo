@@ -262,12 +262,55 @@ const noNonWorkletCallInWorklet = {
   },
 };
 
+const noDeprecatedBufferConstructor = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description:
+        'Disallow deprecated Buffer constructor calls. Use Buffer.from, Buffer.alloc, or Buffer.allocUnsafe explicitly.',
+    },
+    schema: [],
+  },
+  create(context) {
+    function reportDeprecatedConstructor(node) {
+      context.report({
+        node,
+        message:
+          'Do not use the deprecated Buffer constructor. Use Buffer.from(...), Buffer.alloc(...), or Buffer.allocUnsafe(...) explicitly.',
+      });
+    }
+
+    function reportInvalidNewBufferApi(node) {
+      context.report({
+        node,
+        message:
+          'Do not use new with Buffer APIs. Call Buffer.from(...), Buffer.alloc(...), or Buffer.allocUnsafe(...) directly.',
+      });
+    }
+
+    return {
+      'CallExpression[callee.name="Buffer"]'(node) {
+        reportDeprecatedConstructor(node);
+      },
+      'NewExpression[callee.name="Buffer"]'(node) {
+        reportDeprecatedConstructor(node);
+      },
+      "NewExpression[callee.type='MemberExpression'][callee.object.name='Buffer']"(
+        node,
+      ) {
+        reportInvalidNewBufferApi(node);
+      },
+    };
+  },
+};
+
 const plugin = {
   meta: { name: 'onekey' },
   rules: {
     'no-raw-error': noRawError,
     'no-app-locale-main-thread': noAppLocaleMainThread,
     'no-non-worklet-call-in-worklet': noNonWorkletCallInWorklet,
+    'no-deprecated-buffer-constructor': noDeprecatedBufferConstructor,
   },
 };
 
