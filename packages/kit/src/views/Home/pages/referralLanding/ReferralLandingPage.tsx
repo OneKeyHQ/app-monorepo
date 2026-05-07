@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
-  Dialog,
-  Icon,
   Page,
-  SizableText,
   Spinner,
   Stack,
-  XStack,
+  Toast,
   YStack,
   closeAllDialogInstances,
   rootNavigationRef,
@@ -18,18 +15,22 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { useOneKeyWalletDetection } from '@onekeyhq/kit/src/hooks/useWebDapp/useOneKeyWalletDetection';
 import { safePushToEarnRoute } from '@onekeyhq/kit/src/views/Earn/earnUtils';
-import {
-  InvitedByFriendContent,
-  InvitedByFriendImage,
-} from '@onekeyhq/kit/src/views/ReferFriends/pages/InvitedByFriend/components';
+import { useBindReferralViaExtension } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ANDROID_PACKAGE_NAME,
+  APP_STORE_DOWNLOAD_LINK,
   APP_STORE_DOWNLOAD_WEB_LINK,
+  DOWNLOAD_URL,
   PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -49,40 +50,49 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
+import { REFERRAL_STEP2_ANCHOR_ID, ReferralWebLanding } from './components';
+
+import type { IReferralVariant } from './components';
+
+// iOS App Store: when `itms-apps://` fails (e.g. restricted profile), fall
+// back to the HTTPS web link after this delay.
+const IOS_STORE_WEB_FALLBACK_DELAY_MS = 300;
+
+// If the store redirect round-trip takes longer than this, assume the App
+// Store actually opened (timer fired late because the page was backgrounded)
+// and skip the web fallback.
+const IOS_STORE_ELAPSED_THRESHOLD_MS = 1500;
+
 // Delay before opening the InvitedByFriend modal after tab navigation.
 // Gives the target tab enough time to mount and render before the modal overlay.
 const MODAL_OPEN_DELAY_MS = 1500;
 
-// Build an Android intent:// URL that opens the app without sending users to a
-// store automatically. The current page is used as browser fallback so users can
-// still choose the store option themselves if the app is not installed.
-function buildAndroidIntentUrl(
-  deepLinkUrl: string,
-  fallbackUrl: string,
-): string {
+// Build an Android intent:// URL with built-in Play Store fallback.
+// Chrome (and Chromium-based browsers) handles this natively: opens the app if
+// installed, otherwise redirects to S.browser_fallback_url.
+// Using location.href with a raw custom scheme (onekey-wallet://) on Android
+// navigates to an ERR_UNKNOWN_URL_SCHEME error page, destroying the JS context
+// and any fallback timers.
+function buildAndroidIntentUrl(deepLinkUrl: string): string {
   const schemeEnd = deepLinkUrl.indexOf('://');
   if (schemeEnd === -1) {
-    return fallbackUrl;
+    return deepLinkUrl;
   }
   const scheme = deepLinkUrl.slice(0, schemeEnd);
   const rest = deepLinkUrl.slice(schemeEnd + 3);
-  return `intent://${rest}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+  // Intentionally omit S.browser_fallback_url. With a fallback URL, Chrome
+  // navigates to it on miss and reloads the page, killing our 1.5s "app not
+  // detected" toast timer. Without one, Chrome stays on the current page and
+  // the timer fires correctly. Step 1 still has the explicit download CTA.
+  return `intent://${rest}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};end`;
 }
 
-function openIOSAppStore() {
-  globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
-}
-
-// Wait for navigation to be ready
-const waitForNavigationReady = async (maxWaitMs = 3000): Promise<boolean> => {
-  const startTime = Date.now();
-  while (Date.now() - startTime < maxWaitMs) {
-    if (rootNavigationRef.current) {
-      return true;
-    }
-    await timerUtils.wait(100);
-  }
-  return false;
+const waitForNavigationReady = async (until = 3000): Promise<boolean> => {
+  await timerUtils.sleepUntil({
+    conditionFn: () => !!rootNavigationRef.current,
+    until,
+  });
+  return !!rootNavigationRef.current;
 };
 
 enum EReferralLandingPageName {
@@ -121,42 +131,54 @@ const normalizeReferralLandingPageName = (
     : undefined;
 };
 
-function MobileWebOptionCard({
-  icon,
-  title,
-  onPress,
-}: {
-  icon: React.ComponentProps<typeof Icon>['name'];
-  title: string;
-  onPress: () => void;
-}) {
-  return (
-    <Stack
-      borderWidth={1}
-      borderColor="$borderStrong"
-      borderRadius="$3"
-      p="$3"
-      pressStyle={{ bg: '$bgActive' }}
-      onPress={onPress}
-      cursor="pointer"
-    >
-      <XStack alignItems="center" gap="$3">
-        <Stack
-          bg="$bgStrong"
-          borderRadius="$2"
-          p="$2"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Icon name={icon} size="$5" color="$iconSubdued" />
-        </Stack>
-        <YStack flex={1} gap="$0.5">
-          <SizableText size="$bodyLgMedium">{title}</SizableText>
-        </YStack>
-        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
-      </XStack>
-    </Stack>
-  );
+const DEFAULT_INVITEE_DISCOUNT = '10%';
+
+const REFERRAL_UTM_SOURCE = {
+  webAppStore: 'web_appstore',
+  webBindExtension: 'web_bind_extension',
+  webBindDeepLink: 'web_bind_deep_link',
+  webTradeDeepLink: 'web_trade_deep_link',
+  webAlreadyHaveSkip: 'web_already_have_skip',
+  deepLink: 'deep_link',
+  appLanding: 'app_landing',
+} as const;
+type IReferralUtmSource =
+  (typeof REFERRAL_UTM_SOURCE)[keyof typeof REFERRAL_UTM_SOURCE];
+
+const formatDiscount = (value?: { amount: number; unit: string }) =>
+  value ? `${value.amount}${value.unit}` : '';
+
+function redirectToStore() {
+  if (platformEnv.isWebMobileIOS) {
+    const storeStartTime = Date.now();
+    globalThis.location.href = APP_STORE_DOWNLOAD_LINK;
+    globalThis.setTimeout(() => {
+      const elapsed = Date.now() - storeStartTime;
+      const isVisible = globalThis.document?.visibilityState !== 'hidden';
+      if (isVisible && elapsed <= IOS_STORE_ELAPSED_THRESHOLD_MS) {
+        globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
+      }
+    }, IOS_STORE_WEB_FALLBACK_DELAY_MS);
+    return;
+  }
+  if (platformEnv.isWebMobileAndroid) {
+    globalThis.location.href = PLAY_STORE_LINK;
+    return;
+  }
+  globalThis.location.href = DOWNLOAD_URL;
+}
+
+function openAppViaDeepLink(deepLinkUrl: string) {
+  if (!deepLinkUrl) return;
+  if (platformEnv.isWebMobileAndroid) {
+    globalThis.location.href = buildAndroidIntentUrl(deepLinkUrl);
+    return;
+  }
+  // iOS / desktop web: navigate to the custom scheme directly. iOS 17+ Safari
+  // has tightened restrictions on iframe-based deep link injection, so direct
+  // navigation has higher success rates. If the scheme is unhandled, the
+  // browser shows a prompt; user can fall back to Step 1's explicit download.
+  globalThis.location.href = deepLinkUrl;
 }
 
 function ReferralLandingPage() {
@@ -175,164 +197,161 @@ function ReferralLandingPage() {
   const page = routeParams?.page;
   const fromDeepLink = routeParams?.fromDeepLink;
 
-  // Handle /r/invite?code=XXX case - extract code from URL query params
-  let code = routeCode;
-  if (routeCode === 'invite' && platformEnv.isWeb) {
-    const parsedURL = new URL(globalThis?.location.href);
-    const queryCode = parsedURL.searchParams.get('code');
-    if (queryCode) {
-      code = queryCode;
-    }
-  }
+  // /r/invite?code=XXX → extract code from URL query params.
+  // When the query is missing, return undefined (not the literal "invite") so
+  // Step 2 renders the "------" placeholder and disables copy/bind/deep-link.
+  const code = useMemo(() => {
+    if (routeCode !== 'invite' || !platformEnv.isWeb) return routeCode;
+    return (
+      new URL(globalThis?.location.href).searchParams.get('code') ?? undefined
+    );
+  }, [routeCode]);
 
-  const isMobileWeb = platformEnv.isWeb && platformEnv.isWebMobile;
+  const isWeb = platformEnv.isWeb;
+  const pageName = useMemo(
+    () => normalizeReferralLandingPageName(page),
+    [page],
+  );
+  const variant = useMemo<IReferralVariant>(
+    () => (pageName && EARN_PAGE_NAMES.has(pageName) ? 'defi' : 'perps'),
+    [pageName],
+  );
 
-  const buildMobileDeepLinkUrl = useCallback(
+  const [inviteeDiscount, setInviteeDiscount] = useState(
+    DEFAULT_INVITEE_DISCOUNT,
+  );
+
+  useEffect(() => {
+    if (!isWeb) return;
+    let mounted = true;
+    void (async () => {
+      const config =
+        await backgroundApiProxy.serviceReferralCode.getPostConfig();
+      if (mounted && config?.inviteeDiscount) {
+        setInviteeDiscount(formatDiscount(config.inviteeDiscount));
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [isWeb]);
+
+  const logEnter = useCallback(
+    (utmSource: IReferralUtmSource) => {
+      defaultLogger.referral.page.enterReferralGuide(code, utmSource);
+      defaultLogger.referral.page.enterFromReferralLink({
+        referralCode: code ?? '',
+        landingPage: page ? `/app/${page}` : '/app',
+        utmSource,
+      });
+    },
+    [code, page],
+  );
+
+  const buildDeepLink = useCallback(
     () =>
       code
         ? uriUtils.buildDeepLinkUrl({
             path: EOneKeyDeepLinkPath.invited_by_friend,
-            query: {
-              code,
-              page,
-            },
+            query: { code, page },
           })
         : '',
     [code, page],
   );
 
-  const logMobileWebReferralLinkEntry = useCallback(() => {
-    defaultLogger.referral.page.enterReferralGuide(code, 'web_mobile_redirect');
-    defaultLogger.referral.page.enterFromReferralLink({
-      referralCode: code ?? '',
-      landingPage: page ? `/app/${page}` : '/app',
-      utmSource: 'web_mobile_redirect',
-    });
-  }, [code, page]);
+  const handleDownload = useCallback(() => {
+    logEnter(REFERRAL_UTM_SOURCE.webAppStore);
+    redirectToStore();
+  }, [logEnter]);
 
-  const handleOpenMobileApp = useCallback(() => {
-    logMobileWebReferralLinkEntry();
-    defaultLogger.referral.page.clickAcceptInviteButton({
-      referralCode: code ?? '',
-      acceptMethod: 'web_no_extension',
-    });
-
-    const deepLinkUrl = buildMobileDeepLinkUrl();
-    if (!deepLinkUrl) {
-      if (platformEnv.isWebMobileIOS) {
-        openIOSAppStore();
-        return;
-      }
-      globalThis.location.href = PLAY_STORE_LINK;
-      return;
-    }
-
-    if (platformEnv.isWebMobileAndroid) {
-      const intentUrl = buildAndroidIntentUrl(
-        deepLinkUrl,
-        globalThis.location.href,
-      );
-      globalThis.location.href = intentUrl;
-      return;
-    }
-
-    if (platformEnv.isWebMobileIOS) {
-      globalThis.location.href = deepLinkUrl;
-      return;
-    }
-
-    globalThis.location.href = deepLinkUrl;
-  }, [buildMobileDeepLinkUrl, code, logMobileWebReferralLinkEntry]);
-
-  const handleOpenMobileStore = useCallback(() => {
-    logMobileWebReferralLinkEntry();
-    defaultLogger.referral.page.clickAcceptInviteButton({
-      referralCode: code ?? '',
-      acceptMethod: 'web_no_extension',
-    });
-
-    if (platformEnv.isWebMobileIOS) {
-      openIOSAppStore();
-      return;
-    }
-
-    globalThis.location.href = PLAY_STORE_LINK;
-  }, [code, logMobileWebReferralLinkEntry]);
-
-  let storeIcon: React.ComponentProps<typeof Icon>['name'] = 'StoreOutline';
-  if (platformEnv.isWebMobileIOS) {
-    storeIcon = 'AppleBrand';
-  } else if (platformEnv.isWebMobileAndroid) {
-    storeIcon = 'GooglePlayBrand';
-  }
-
-  const handleShowMobileWebOptions = useCallback(() => {
-    const dialog = Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.referral_choose_how_to_bind,
-      }),
-      showCancelButton: false,
-      showConfirmButton: false,
-      estimatedContentHeight: 128,
-      renderContent: (
-        <YStack gap="$2">
-          <MobileWebOptionCard
-            icon="PhoneOutline"
-            title={intl.formatMessage({
-              id: ETranslations.open_in_mobile_app,
-            })}
-            onPress={() => {
-              handleOpenMobileApp();
-              void dialog.close();
-            }}
-          />
-
-          <MobileWebOptionCard
-            icon={storeIcon}
-            title={intl.formatMessage({
-              id: ETranslations.global_download_app,
-            })}
-            onPress={() => {
-              handleOpenMobileStore();
-              void dialog.close();
-            }}
-          />
-        </YStack>
-      ),
-    });
-  }, [handleOpenMobileApp, handleOpenMobileStore, intl, storeIcon]);
-
-  const mobileWebFooter = (
-    <XStack
-      gap="$4"
-      w="100%"
-      justifyContent="space-between"
-      px="$4"
-      py="$4"
-      bg="$bgApp"
-    >
-      <Button
-        variant="primary"
-        flex={1}
-        size="large"
-        onPress={handleShowMobileWebOptions}
-      >
-        {intl.formatMessage({
-          id: ETranslations.wallet_subsidy_claim,
-        })}
-      </Button>
-    </XStack>
+  // 1.5s after firing a deep link, if the page never went to background
+  // (visibilityState !== 'hidden'), the OS didn't hand off to OneKey App —
+  // either it's not installed, the scheme was blocked (iOS 17+ Safari is
+  // strict), or the user dismissed the open-in-app prompt. Toast a hint
+  // pointing back to Step 1's explicit download.
+  const unhandledTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const launchViaDeepLink = useCallback(
+    (utmSource: IReferralUtmSource) => {
+      logEnter(utmSource);
+      openAppViaDeepLink(buildDeepLink());
+      clearTimeout(unhandledTimerRef.current ?? undefined);
+      unhandledTimerRef.current = setTimeout(() => {
+        if (typeof globalThis.document === 'undefined') return;
+        if (globalThis.document.visibilityState === 'hidden') return;
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.referral_web_landing_app_not_detected,
+          }),
+        });
+      }, 1500);
+    },
+    [logEnter, buildDeepLink, intl],
   );
 
-  // Native / desktop web: process referral after app is unlocked.
-  // hasProcessedRef guards against duplicate processing in this effect only;
-  // the mobile web path is handled by the explicit chooser above.
+  // Trade has no extension shortcut: opening the target tab requires the app,
+  // not just sign-and-bind.
+  const handleTrade = useCallback(
+    () => launchViaDeepLink(REFERRAL_UTM_SOURCE.webTradeDeepLink),
+    [launchViaDeepLink],
+  );
+
+  const { isOneKeyInstalled } = useOneKeyWalletDetection();
+  const { bindViaExtension } = useBindReferralViaExtension({
+    referralCode: code ?? '',
+  });
+  const handleBind = useCallback(() => {
+    if (!code) return;
+    if (isOneKeyInstalled) {
+      logEnter(REFERRAL_UTM_SOURCE.webBindExtension);
+      void bindViaExtension();
+      return;
+    }
+    launchViaDeepLink(REFERRAL_UTM_SOURCE.webBindDeepLink);
+  }, [code, isOneKeyInstalled, bindViaExtension, logEnter, launchViaDeepLink]);
+
+  // Briefly highlight Step 2 after scroll so the focus shift is visible.
+  const [isStep2Highlighted, setIsStep2Highlighted] = useState(false);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      clearTimeout(highlightTimerRef.current ?? undefined);
+      clearTimeout(unhandledTimerRef.current ?? undefined);
+    },
+    [],
+  );
+  const handleScrollToBind = useCallback(() => {
+    logEnter(REFERRAL_UTM_SOURCE.webAlreadyHaveSkip);
+    if (typeof globalThis.document !== 'undefined') {
+      globalThis.document
+        .getElementById(REFERRAL_STEP2_ANCHOR_ID)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    clearTimeout(highlightTimerRef.current ?? undefined);
+    setIsStep2Highlighted(true);
+    highlightTimerRef.current = setTimeout(
+      () => setIsStep2Highlighted(false),
+      1500,
+    );
+  }, [logEnter]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isWeb) return undefined;
+      appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+      return () => {
+        appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+      };
+    }, [isWeb]),
+  );
+
+  // Native / extension only: web platforms render the 3-step UI above and
+  // skip this effect. hasProcessedRef guards against duplicate processing.
   const hasProcessedRef = useRef(false);
   useEffect(() => {
     if (hasProcessedRef.current) {
       return;
     }
-    if (isMobileWeb) {
+    if (isWeb) {
       return;
     }
     if (appIsLocked) {
@@ -350,19 +369,13 @@ function ReferralLandingPage() {
         return;
       }
       if (!isNavigationReady) {
-        if (platformEnv.isWeb) {
-          globalThis.location.href = '/';
-        }
         return;
       }
 
-      const utmSource = fromDeepLink ? 'deep_link' : 'app_landing';
-      defaultLogger.referral.page.enterReferralGuide(code, utmSource);
-      defaultLogger.referral.page.enterFromReferralLink({
-        referralCode: code ?? '',
-        landingPage: page ? `/app/${page}` : '/app',
-        utmSource,
-      });
+      const utmSource = fromDeepLink
+        ? REFERRAL_UTM_SOURCE.deepLink
+        : REFERRAL_UTM_SOURCE.appLanding;
+      logEnter(utmSource);
 
       if (code && (page === 'perp' || page === 'perps')) {
         try {
@@ -375,7 +388,6 @@ function ReferralLandingPage() {
         }
       }
 
-      const pageName = normalizeReferralLandingPageName(page);
       const targetTabRoute = pageName
         ? (PAGE_TO_TAB_ROUTE[pageName] ?? ETabRoutes.Market)
         : ETabRoutes.Market;
@@ -422,18 +434,32 @@ function ReferralLandingPage() {
         clearTimeout(modalTimerId);
       }
     };
-  }, [appIsLocked, code, page, navigation, isMobileWeb, fromDeepLink]);
+  }, [
+    appIsLocked,
+    code,
+    page,
+    pageName,
+    navigation,
+    isWeb,
+    fromDeepLink,
+    logEnter,
+  ]);
 
-  if (isMobileWeb) {
+  if (isWeb) {
     return (
       <Page scrollEnabled>
         <Page.Body>
-          <YStack pb="$5" maxWidth={640} mx="auto" flex={1}>
-            <InvitedByFriendImage />
-            <InvitedByFriendContent referralCode={code} />
-          </YStack>
+          <ReferralWebLanding
+            code={code}
+            variant={variant}
+            inviteeDiscount={inviteeDiscount}
+            onDownload={handleDownload}
+            onScrollToBind={handleScrollToBind}
+            onBind={handleBind}
+            onTrade={handleTrade}
+            isStep2Highlighted={isStep2Highlighted}
+          />
         </Page.Body>
-        <Page.Footer>{mobileWebFooter}</Page.Footer>
       </Page>
     );
   }
