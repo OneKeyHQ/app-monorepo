@@ -248,6 +248,29 @@ export function getMarketPresetDefaultDirectionSettingsForPreset({
   config?: IMarketPresetConfig;
   presetKey?: EMarketPresetKey;
 }): IMarketPresetDirectionSettings {
+  const defaultSettings = getMarketPresetDefaultDirectionSettings();
+
+  if (!config?.enabled || presetKey === EMarketPresetKey.AUTO) {
+    return defaultSettings;
+  }
+
+  return {
+    slippage: defaultSettings.slippage,
+    priorityFee: config.priorityFee.editable
+      ? defaultSettings.priorityFee
+      : {
+          type: EMarketPresetPriorityFeeType.AUTO,
+        },
+  };
+}
+
+export function getMarketPresetDefaultEditableDirectionSettingsForPreset({
+  config,
+  presetKey,
+}: {
+  config?: IMarketPresetConfig;
+  presetKey?: EMarketPresetKey;
+}): IMarketPresetDirectionSettings {
   if (!config?.enabled || presetKey === EMarketPresetKey.AUTO) {
     return getMarketPresetDefaultDirectionSettings();
   }

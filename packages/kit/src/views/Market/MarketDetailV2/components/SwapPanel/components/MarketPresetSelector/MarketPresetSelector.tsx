@@ -28,7 +28,7 @@ import {
   EMarketPresetTradeSide,
   type IMarketPresetDirectionSettings,
   getMarketPresetDefaultDirectionSettings,
-  getMarketPresetDefaultDirectionSettingsForPreset,
+  getMarketPresetDefaultEditableDirectionSettingsForPreset,
   isInvalidMarketPresetDirectionSettings,
   isInvalidMarketPresetPriorityFeeSettings,
   isInvalidMarketPresetSlippageSettings,
@@ -121,14 +121,24 @@ function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
     }
 
     acc[preset.key] = {
-      [EMarketPresetTradeSide.BUY]: presetSettings.getDirectionSettings({
-        presetKey: preset.key,
-        tradeSide: EMarketPresetTradeSide.BUY,
-      }),
-      [EMarketPresetTradeSide.SELL]: presetSettings.getDirectionSettings({
-        presetKey: preset.key,
-        tradeSide: EMarketPresetTradeSide.SELL,
-      }),
+      [EMarketPresetTradeSide.BUY]:
+        presetSettings.getSavedDirectionSettings({
+          presetKey: preset.key,
+          tradeSide: EMarketPresetTradeSide.BUY,
+        }) ??
+        getMarketPresetDefaultEditableDirectionSettingsForPreset({
+          config: presetSettings.config,
+          presetKey: preset.key,
+        }),
+      [EMarketPresetTradeSide.SELL]:
+        presetSettings.getSavedDirectionSettings({
+          presetKey: preset.key,
+          tradeSide: EMarketPresetTradeSide.SELL,
+        }) ??
+        getMarketPresetDefaultEditableDirectionSettingsForPreset({
+          config: presetSettings.config,
+          presetKey: preset.key,
+        }),
     };
     return acc;
   }, {});
@@ -378,10 +388,11 @@ function MarketPresetSettingsDialog({
         presetKey: activePresetKey,
         tradeSide: activeTradeSide,
       });
-      const defaultSettings = getMarketPresetDefaultDirectionSettingsForPreset({
-        config: presetSettings.config,
-        presetKey: activePresetKey,
-      });
+      const defaultSettings =
+        getMarketPresetDefaultEditableDirectionSettingsForPreset({
+          config: presetSettings.config,
+          presetKey: activePresetKey,
+        });
       const matchesDefault = areMarketPresetDirectionSettingsEqual(
         nextSettings,
         defaultSettings,
@@ -549,10 +560,11 @@ function MarketPresetSettingsDialog({
       return;
     }
 
-    const defaultSettings = getMarketPresetDefaultDirectionSettingsForPreset({
-      config: presetSettings.config,
-      presetKey: activePresetKey,
-    });
+    const defaultSettings =
+      getMarketPresetDefaultEditableDirectionSettingsForPreset({
+        config: presetSettings.config,
+        presetKey: activePresetKey,
+      });
     const directionKey = getDirectionKey({
       presetKey: activePresetKey,
       tradeSide: activeTradeSide,
