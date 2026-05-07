@@ -17,6 +17,7 @@ const setSlippageSettingMock = jest.fn();
 const resetAnalyticsMock = jest.fn();
 const logSwapActionMock = jest.fn();
 const tokenInputSectionMock = jest.fn();
+const marketPresetSelectorMock = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
   SizableText: ({ children }: { children?: ReactNode }) => (
@@ -26,6 +27,7 @@ jest.mock('@onekeyhq/components', () => ({
   Toast: {
     message: jest.fn(),
   },
+  useMedia: () => ({ gtMd: false }),
 }));
 
 jest.mock('react-intl', () => ({
@@ -89,7 +91,10 @@ jest.mock('./components/SlippageSetting', () => ({
 }));
 
 jest.mock('./components/MarketPresetSelector', () => ({
-  MarketPresetSelector: () => <div data-testid="market-preset-selector" />,
+  MarketPresetSelector: (props: unknown) => {
+    marketPresetSelectorMock(props);
+    return <div data-testid="market-preset-selector" />;
+  },
 }));
 
 jest.mock('./components/ActionButton', () => ({
@@ -182,6 +187,7 @@ describe('SwapPanelContent', () => {
     resetAnalyticsMock.mockReset();
     logSwapActionMock.mockReset();
     tokenInputSectionMock.mockReset();
+    marketPresetSelectorMock.mockReset();
   });
 
   it('routes the main action button to the review swap handler', () => {
@@ -296,7 +302,17 @@ describe('SwapPanelContent', () => {
 
     render(<SwapPanelContent {...props} />);
 
-    expect(screen.getByTestId('market-preset-selector')).toBeTruthy();
+    const actionButton = screen.getByTestId('action-button');
+    const marketPresetSelector = screen.getByTestId('market-preset-selector');
+    expect(marketPresetSelector).toBeTruthy();
+    expect(actionButton.compareDocumentPosition(marketPresetSelector)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(marketPresetSelectorMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slippageIconName: 'ChartTrendingOutline',
+      }),
+    );
     expect(screen.queryByTestId('slippage')).toBeNull();
   });
 

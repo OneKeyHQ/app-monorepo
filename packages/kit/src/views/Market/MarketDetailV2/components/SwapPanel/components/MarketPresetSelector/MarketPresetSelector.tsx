@@ -15,6 +15,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IIconProps } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -40,6 +41,7 @@ import type { IMarketPresetSettingsState } from '../../hooks/useMarketPresetSett
 
 type IMarketPresetSelectorProps = {
   presetSettings: IMarketPresetSettingsState;
+  slippageIconName?: IIconProps['name'];
 };
 
 type IDraftPresetSettings = Partial<
@@ -97,9 +99,7 @@ function getPriorityFeeLabel({
     settings?.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
     settings.priorityFee.customValue
   ) {
-    return `${intl.formatMessage({
-      id: ETranslations.content__custom,
-    })} ${settings.priorityFee.customValue}${unit ? ` ${unit}` : ''}`;
+    return `${settings.priorityFee.customValue}${unit ? ` ${unit}` : ''}`;
   }
 
   return intl.formatMessage({
@@ -732,6 +732,7 @@ function MarketPresetSettingsDialog({
 
 export function MarketPresetSelector({
   presetSettings,
+  slippageIconName = 'SliderVerOutline',
 }: IMarketPresetSelectorProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -781,10 +782,7 @@ export function MarketPresetSelector({
     return null;
   }
 
-  const slippageLabel =
-    selectedDirectionSettings.slippage.key === ESwapSlippageSegmentKey.CUSTOM
-      ? `${selectedSlippageValue}%`
-      : intl.formatMessage({ id: ETranslations.global_auto });
+  const slippageLabel = `${selectedSlippageValue}%`;
   const priorityFeeLabel = getPriorityFeeLabel({
     intl,
     settings: selectedDirectionSettings,
@@ -802,7 +800,11 @@ export function MarketPresetSelector({
     : intl.formatMessage({ id: ETranslations.global_auto });
 
   return (
-    <YStack gap={gtMd ? '$3' : '$2'} testID="market-preset-selector">
+    <YStack
+      gap={gtMd ? '$3' : '$2'}
+      width="100%"
+      testID="market-preset-selector"
+    >
       {gtMd ? (
         <XStack alignItems="center" gap="$2" width="100%">
           {presetOptions.map((option) => {
@@ -846,16 +848,16 @@ export function MarketPresetSelector({
 
       <XStack
         alignItems="center"
-        justifyContent="space-between"
-        bg={gtMd ? undefined : '$bgSubdued'}
-        borderColor={gtMd ? undefined : '$borderSubdued'}
+        justifyContent={gtMd ? 'space-between' : 'flex-start'}
+        bg={gtMd ? undefined : '$bgStrong'}
         borderRadius={gtMd ? undefined : '$2'}
-        borderWidth={gtMd ? 0 : '$px'}
+        borderWidth={0}
         cursor="pointer"
-        gap={gtMd ? '$3' : undefined}
-        minHeight={gtMd ? 20 : '$10'}
-        px={gtMd ? 0 : '$3'}
-        py={gtMd ? 0 : '$2'}
+        gap={gtMd ? '$3' : '$1'}
+        minHeight={gtMd ? 20 : '$8'}
+        pl={gtMd ? 0 : '$3.5'}
+        pr={gtMd ? 0 : '$2.5'}
+        py={gtMd ? 0 : '$1.5'}
         hoverStyle={gtMd ? undefined : { bg: '$bgHover' }}
         pressStyle={gtMd ? undefined : { bg: '$bgActive' }}
         onPress={openPresetDialog}
@@ -865,7 +867,7 @@ export function MarketPresetSelector({
             size="$bodyMdMedium"
             color="$text"
             numberOfLines={1}
-            minWidth="$10"
+            flexShrink={0}
           >
             {selectedPresetLabel}
           </SizableText>
@@ -873,52 +875,49 @@ export function MarketPresetSelector({
 
         <XStack
           alignItems="center"
-          gap="$2"
-          flex={gtMd ? undefined : 1}
+          justifyContent={gtMd ? 'flex-start' : 'flex-end'}
+          flex={1}
           minWidth={0}
         >
-          <Icon name="SliderVerOutline" size={18} color="$iconSubdued" />
-          <SizableText
-            size="$bodyMdMedium"
-            color="$textSubdued"
-            numberOfLines={1}
+          <XStack alignItems="center" gap="$2" minWidth={0}>
+            <Icon name={slippageIconName} size={18} color="$iconSubdued" />
+            <SizableText
+              size="$bodyMdMedium"
+              color="$textSubdued"
+              numberOfLines={1}
+            >
+              {slippageLabel}
+            </SizableText>
+          </XStack>
+
+          <Divider vertical h={12} mx="$2" />
+
+          <XStack alignItems="center" gap="$2" minWidth={0}>
+            <Icon name="HandCoinsOutline" size={18} color="$iconSubdued" />
+            <SizableText
+              size="$bodyMdMedium"
+              color="$textSubdued"
+              numberOfLines={1}
+            >
+              {priorityFeeLabel}
+            </SizableText>
+          </XStack>
+
+          <Divider vertical h={12} mx="$2" />
+
+          <XStack
+            alignItems="center"
+            justifyContent="flex-end"
+            gap={gtMd ? '$3' : '$1'}
+            flex={gtMd ? 1 : undefined}
           >
-            {slippageLabel}
-          </SizableText>
-        </XStack>
-
-        <Divider vertical h={12} mx="$2" />
-
-        <XStack
-          alignItems="center"
-          gap="$2"
-          flex={gtMd ? undefined : 1}
-          minWidth={0}
-        >
-          <Icon name="HandCoinsOutline" size={18} color="$iconSubdued" />
-          <SizableText
-            size="$bodyMdMedium"
-            color="$textSubdued"
-            numberOfLines={1}
-          >
-            {priorityFeeLabel}
-          </SizableText>
-        </XStack>
-
-        <Divider vertical h={12} mx="$2" />
-
-        <XStack
-          alignItems="center"
-          justifyContent="flex-end"
-          gap={gtMd ? '$3' : '$1'}
-          flex={gtMd ? 1 : undefined}
-        >
-          <Icon name="ShieldCheckDoneSolid" size={18} color="$iconSuccess" />
-          <Icon
-            name="ChevronRightSmallOutline"
-            size={gtMd ? 20 : '$5'}
-            color="$iconSubdued"
-          />
+            <Icon name="ShieldCheckDoneSolid" size={18} color="$iconSuccess" />
+            <Icon
+              name="ChevronRightSmallOutline"
+              size={gtMd ? 20 : '$5'}
+              color="$iconSubdued"
+            />
+          </XStack>
         </XStack>
       </XStack>
     </YStack>
