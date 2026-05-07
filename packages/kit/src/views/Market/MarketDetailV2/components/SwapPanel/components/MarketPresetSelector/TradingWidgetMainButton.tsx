@@ -137,12 +137,12 @@ function TradingWidgetMainButtonInfoRow<T extends string>({
       >
         <XStack
           alignItems="center"
+          flexShrink={0}
           gap="$2"
           justifyContent="center"
-          minWidth={0}
-          w={57}
+          minWidth={57}
         >
-          <Icon name={slippageIconName} size={18} color="$iconSubdued" />
+          <Icon name={slippageIconName} size="$4.5" color="$iconSubdued" />
           <SizableText
             size="$bodyMdMedium"
             color="$textSubdued"
@@ -155,7 +155,7 @@ function TradingWidgetMainButtonInfoRow<T extends string>({
         <Divider vertical h={12} mx="$2" />
 
         <XStack alignItems="center" gap="$2" minWidth={0}>
-          <Icon name="HandCoinsOutline" size={18} color="$iconSubdued" />
+          <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
           <SizableText
             size="$bodyMdMedium"
             color="$textSubdued"
@@ -173,10 +173,10 @@ function TradingWidgetMainButtonInfoRow<T extends string>({
           gap={compact ? '$1' : '$3'}
           flex={compact ? undefined : 1}
         >
-          <Icon name="ShieldCheckDoneSolid" size={18} color="$iconSuccess" />
+          <Icon name="ShieldCheckDoneSolid" size="$4.5" color="$iconSuccess" />
           <Icon
             name="ChevronRightSmallOutline"
-            size={compact ? '$5' : 20}
+            size="$5"
             color="$iconSubdued"
           />
         </XStack>

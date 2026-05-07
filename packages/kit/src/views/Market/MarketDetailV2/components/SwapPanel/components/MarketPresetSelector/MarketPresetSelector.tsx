@@ -421,7 +421,7 @@ function MarketPresetSettingsDialog({
       {
         label: (
           <XStack alignItems="center" gap="$1" justifyContent="center">
-            <Icon name="Ai3StarOutline" size={15} color="$iconSuccess" />
+            <Icon name="Ai3StarOutline" size="$3.5" color="$iconSuccess" />
             <SizableText
               size="$bodyMdMedium"
               color={autoSelected ? '$text' : '$textSubdued'}
