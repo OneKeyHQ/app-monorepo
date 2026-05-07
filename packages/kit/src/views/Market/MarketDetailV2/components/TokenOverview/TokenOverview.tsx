@@ -14,8 +14,8 @@ import {
   MARKET_CAP_FORMATTER,
   USD_CURRENCY_FORMATTER,
   formatBlockHeightValue,
-  formatBtcSupplyValue,
   formatCurrencyStatValue,
+  formatMarketCapValue,
   formatStatValueWithFormatter,
 } from '../../utils/statValue';
 import { TokenSecurityAlertDialogContent } from '../TokenSecurityAlert/components';
@@ -131,31 +131,31 @@ export function TokenOverview() {
             />
             <StatCard
               label={intl.formatMessage({
-                id: ETranslations.dexmarket_btc_circulating_supply,
+                id: ETranslations.dexmarket_stock_24h_volume,
               })}
-              value={formatBtcSupplyValue(btcMetadata.circulatingSupply)}
+              value={formatCurrencyStatValue(btcMetadata.volume24h)}
             />
           </XStack>
           <XStack gap="$2">
+            <StatCard
+              label={intl.formatMessage({
+                id: ETranslations.dexmarket_btc_circulating_supply,
+              })}
+              value={formatMarketCapValue(btcMetadata.circulatingSupply)}
+            />
             <StatCard
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_btc_remaining_supply,
               })}
-              value={formatBtcSupplyValue(btcMetadata.remainingSupply)}
-            />
-            <StatCard
-              label={intl.formatMessage({
-                id: ETranslations.dexmarket_btc_total_supply,
-              })}
-              value={formatBtcSupplyValue(btcMetadata.totalSupply)}
+              value={formatMarketCapValue(btcMetadata.remainingSupply)}
             />
           </XStack>
           <XStack gap="$2">
             <StatCard
               label={intl.formatMessage({
-                id: ETranslations.dexmarket_fdv_title,
+                id: ETranslations.dexmarket_btc_total_supply,
               })}
-              value={formatCurrencyStatValue(btcMetadata.fdv)}
+              value={formatMarketCapValue(btcMetadata.totalSupply)}
             />
             <StatCard
               label={intl.formatMessage({
