@@ -925,10 +925,6 @@ function getInvestorMetricCells(
       title: intl.formatMessage({ id: ETranslations.content__amount }),
       value: round.amount,
     },
-    {
-      title: intl.formatMessage({ id: ETranslations.global_value }),
-      value: round.valuation,
-    },
   ].filter((metric) => hasText(metric.value));
 }
 
