@@ -2,7 +2,7 @@
 // @generated — do not edit manually
 // Generated from zod schemas in src/schemas/
 // Run: yarn generate:cli-types
-// Generated at: 2026-04-26T15:20:41.808Z
+// Generated at: 2026-05-03T14:23:43.166Z
 
 /** Print CLI version and environment */
 export interface VersionInput {}
@@ -78,6 +78,36 @@ export interface TransferOutput {
   chain: string;
 }
 
+/** Sign an encoded transaction locally */
+export interface SignInput {
+  /** Target chain. Defaults to eth. */
+  chain?: string;
+  /** JSON encoded transaction payload */
+  tx: string;
+  /** Signing account address */
+  address: string;
+  /** HD derivation path */
+  path: string;
+  /** Account public key */
+  pub: string;
+}
+
+export interface SignOutput {
+  /** Signed transaction raw payload or signature */
+  signature: string;
+  /** Transaction id when returned by core */
+  txid?: string;
+}
+
+/** Show the active Bot Wallet address */
+export interface GetAddressInput {
+  format?: "json" | "text";
+}
+
+export interface GetAddressOutput {
+  address: string;
+}
+
 /** Authenticate with a OneKey App Bot Wallet or hardware wallet */
 export interface AuthLoginInput {
   /** Authenticate with a OneKey App Bot Wallet */
@@ -88,6 +118,8 @@ export interface AuthLoginInput {
   deviceId?: string;
   /** Hardware passphrase mode. Required in non-interactive mode when device passphrase protection is enabled. */
   passphraseMode?: "none" | "on_host" | "on_device";
+  /** CLI Bot Wallet payload JSON or base64-encoded JSON */
+  payload?: string;
 }
 
 export interface AuthLoginOutput {
@@ -95,7 +127,7 @@ export interface AuthLoginOutput {
   login_method: "app_transfer" | "hardware";
   source_label: string | null;
   display_address: string | null;
-  storage_backend: "macos-keychain" | "linux-secret-service";
+  storage_backend: "macos-keychain" | "linux-secret-service" | "windows-credential-manager";
 }
 
 /** Show the current auth session */
@@ -104,7 +136,7 @@ export interface AuthStatusInput {}
 export interface AuthStatusOutput {
   authStatus: "authenticated" | "unauthenticated";
   hasSecrets: boolean;
-  storageBackend: "macos-keychain" | "linux-secret-service";
+  storageBackend: "macos-keychain" | "linux-secret-service" | "windows-credential-manager";
   loginMethod: "app_transfer" | "hardware" | null;
   walletKind: "hd" | "hw" | null;
   sourceLabel: string | null;
