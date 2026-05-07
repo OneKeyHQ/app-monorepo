@@ -34,6 +34,8 @@ export const TRAY_DATA_REFRESH_EVENT_NAMES = [
   EAppEventBusNames.AccountDataUpdate,
   EAppEventBusNames.MarketWatchListV2Changed,
   EAppEventBusNames.EnabledNetworksChanged,
+  // Without this, tray stays stale when home polling (not tray) confirms a pending tx.
+  EAppEventBusNames.LocalPendingTxConfirmed,
 ] as const;
 
 export function getTrayCurrencyDisplayInfo({
