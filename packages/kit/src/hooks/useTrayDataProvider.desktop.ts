@@ -1035,10 +1035,8 @@ export function useTrayDataProvider() {
       const nav = rootNavigationRef.current;
       if (!nav) return;
 
-      // RN Navigation modals render in DOM flow without their own stacking
-      // context, while tamagui Popover/Sheet portal to body at high zIndex —
-      // so a tray-triggered route would otherwise render behind any open
-      // overlay. Notify listeners (e.g. Perp token selector) to dismiss.
+      // Tamagui Popover/Sheet portal to body at high zIndex and would
+      // obscure any tray-triggered RN modal. Ask open overlays to dismiss.
       appEventBus.emit(EAppEventBusNames.TrayActionWillNavigate, undefined);
 
       if (action?.type === 'open-page') {
