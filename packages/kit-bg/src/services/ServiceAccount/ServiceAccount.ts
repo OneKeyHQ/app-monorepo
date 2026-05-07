@@ -2243,7 +2243,14 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     address: string;
   }) {
-    return this.getAccountNameFromAddressMemo({ networkId, address });
+    const result = await this.getAccountNameFromAddressMemo({
+      networkId,
+      address,
+    });
+    if (isEmpty(result)) {
+      void this.getAccountNameFromAddressMemo.delete({ networkId, address });
+    }
+    return result;
   }
 
   @backgroundMethod()

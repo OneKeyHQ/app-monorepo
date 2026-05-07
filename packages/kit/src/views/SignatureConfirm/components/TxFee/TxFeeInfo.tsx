@@ -706,9 +706,11 @@ function TxFeeInfo(props: IProps) {
             errMessage: '',
             discountPercent: 0,
           });
-          Toast.warning({
-            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
-          });
+          if (!gasAccountEntry.suppressToast) {
+            Toast.warning({
+              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+            });
+          }
           appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
           return staleResult;
         }
@@ -727,9 +729,11 @@ function TxFeeInfo(props: IProps) {
             errMessage: '',
             discountPercent: 0,
           });
-          Toast.warning({
-            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
-          });
+          if (!gasAccountEntry.suppressToast) {
+            Toast.warning({
+              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+            });
+          }
           appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
           return staleResult;
         }

@@ -107,11 +107,6 @@ export function formatBlockHeightValue(
   return Number.isFinite(n) ? n.toLocaleString('en-US') : fallback;
 }
 
-export function formatBtcSupplyValue(value?: string | number | null): string {
-  const formatted = formatMarketCapValue(value);
-  return formatted === STAT_FALLBACK_VALUE ? formatted : `${formatted} BTC`;
-}
-
 export function formatPercentValue(
   value?: string | number | null,
   fallback: string = STAT_FALLBACK_VALUE,

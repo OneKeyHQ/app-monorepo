@@ -23,6 +23,9 @@ type IGasAccountErrorEntry = {
   // Alias from tech-spec §7.1 when available; otherwise a descriptive tag.
   alias: string;
   messageKey: ETranslations;
+  // When true, swallow the user-facing Toast for this code while still
+  // running the strategy side-effects (Fallback re-estimate, Hint reject, etc).
+  suppressToast?: boolean;
 };
 
 export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
@@ -74,6 +77,14 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
     messageKey:
       ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
   },
+  // Daily sponsor budget exhausted — fall back to user-paid silently so the
+  // dApp call still proceeds without surfacing a quota error to the user.
+  40_216: {
+    strategy: EGasAccountErrorStrategy.Fallback,
+    alias: 'GAS_ACCOUNT_DAILY_LIMIT_REACHED',
+    messageKey: ETranslations.wallet_gas_sponsor_daily_limit_reached__msg,
+    suppressToast: true,
+  },
   40_218: {
     strategy: EGasAccountErrorStrategy.Fallback,
     alias: 'GAS_ACCOUNT_SPONSOR_UNAVAILABLE',
@@ -98,6 +109,13 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
     messageKey:
       ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
   },
+  // Same semantics as 40216 but emitted by the upstream sponsor service.
+  90_208: {
+    strategy: EGasAccountErrorStrategy.Fallback,
+    alias: 'UPSTREAM_DAILY_LIMIT_REACHED',
+    messageKey: ETranslations.wallet_gas_sponsor_daily_limit_reached__msg,
+    suppressToast: true,
+  },
 
   // --- Hint only: terminal for this attempt, surface to user and dApp ---
   40_203: {
@@ -117,11 +135,6 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
     alias: 'GAS_ACCOUNT_RATE_LIMITED',
     messageKey:
       ETranslations.wallet_too_many_gas_sponsor_requests_try_again_shortly__msg,
-  },
-  40_216: {
-    strategy: EGasAccountErrorStrategy.Hint,
-    alias: 'GAS_ACCOUNT_DAILY_LIMIT_REACHED',
-    messageKey: ETranslations.wallet_gas_sponsor_daily_limit_reached__msg,
   },
   40_217: {
     strategy: EGasAccountErrorStrategy.Hint,
@@ -143,11 +156,6 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
     alias: 'UPSTREAM_RATE_LIMITED',
     messageKey:
       ETranslations.wallet_too_many_gas_sponsor_requests_try_again_shortly__msg,
-  },
-  90_208: {
-    strategy: EGasAccountErrorStrategy.Hint,
-    alias: 'UPSTREAM_DAILY_LIMIT_REACHED',
-    messageKey: ETranslations.wallet_gas_sponsor_daily_limit_reached__msg,
   },
   90_209: {
     strategy: EGasAccountErrorStrategy.Hint,

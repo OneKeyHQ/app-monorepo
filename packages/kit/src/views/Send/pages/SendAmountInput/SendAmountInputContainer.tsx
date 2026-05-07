@@ -1185,6 +1185,7 @@ function SendAmountInputContainer() {
               note: recipientNote,
               tokenInfo: tokenDetails?.info,
               isCustomHexData: !!(
+                submitRecipientIsContract &&
                 settings.isCustomTxMessageEnabled &&
                 displayTxMessageForm &&
                 tokenInfo?.isNative &&
