@@ -97,7 +97,11 @@ export class PageScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public clickAcceptInviteButton(params: {
     referralCode: string;
-    acceptMethod: 'local_app' | 'web_extension' | 'web_no_extension';
+    acceptMethod:
+      | 'local_app'
+      | 'web_extension'
+      | 'web_no_extension'
+      | 'web_get_extension';
   }) {
     return params;
   }
