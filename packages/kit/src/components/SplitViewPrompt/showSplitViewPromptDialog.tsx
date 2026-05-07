@@ -29,8 +29,11 @@ function ModeCard({
   onPress: () => void;
 }) {
   const intl = useIntl();
+  // LayoutColumnOutline draws two columns split by a vertical divider;
+  // StopOutline is an empty rounded rectangle of the same outer shape with
+  // no divider — the visual diff isolates exactly what the choice means.
   const icon: IKeyOfIcons =
-    mode === 'split' ? 'LayoutColumnOutline' : 'LayoutWindowOutline';
+    mode === 'split' ? 'LayoutColumnOutline' : 'StopOutline';
   const title =
     mode === 'split'
       ? ETranslations.split_view_option_split
