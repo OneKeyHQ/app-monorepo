@@ -116,6 +116,7 @@ function MessageConfirm() {
             accountAddress,
             message: unsignedMessage.message,
             swapInfo,
+            origin: sourceInfo?.origin,
           }),
         ],
         {
@@ -163,7 +164,13 @@ function MessageConfirm() {
         isConfirmationRequired: m?.isConfirmationRequired,
       };
     },
-    [networkId, accountId, unsignedMessage.message, swapInfo],
+    [
+      networkId,
+      accountId,
+      unsignedMessage.message,
+      swapInfo,
+      sourceInfo?.origin,
+    ],
     {
       watchLoading: true,
     },
