@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,6 +22,7 @@ type IEarnMobileSortControlProps = {
 
 export function EarnMobileSortControl({
   sortKey,
+  sortDirection,
   options,
   onSortChange,
 }: IEarnMobileSortControlProps) {
@@ -38,6 +39,12 @@ export function EarnMobileSortControl({
     },
     [onSortChange],
   );
+
+  useEffect(() => {
+    if (selectedOption && sortDirection !== 'desc') {
+      onSortChange(selectedOption.value, 'desc');
+    }
+  }, [onSortChange, selectedOption, sortDirection]);
 
   const handlePress = useCallback(() => {
     ActionList.show({

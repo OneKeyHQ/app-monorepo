@@ -451,13 +451,23 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             isFixedRateCategory &&
             !isDesktopLayout &&
             Boolean(item.provider.liquidity);
+          const mobileLiquidity = showMobileLiquidity ? (
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {`${intl.formatMessage({
+                id: ETranslations.global_liquidity,
+              })} ${item.provider.liquidity}`}
+            </SizableText>
+          ) : null;
 
           if (item.aprInfo?.button?.type === 'redeem') {
             return (
-              <SizableText size="$bodyLgMedium" color="$textInfo">
-                {item.aprInfo.button.text?.text ||
-                  intl.formatMessage({ id: ETranslations.defi_redeemable })}
-              </SizableText>
+              <YStack ai="flex-end" gap="$0.5">
+                <SizableText size="$bodyLgMedium" color="$textInfo">
+                  {item.aprInfo.button.text?.text ||
+                    intl.formatMessage({ id: ETranslations.defi_redeemable })}
+                </SizableText>
+                {mobileLiquidity}
+              </YStack>
             );
           }
           return (
@@ -470,13 +480,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   rewardUnit: item?.provider?.rewardUnit,
                 }}
               />
-              {showMobileLiquidity ? (
-                <SizableText size="$bodySmMedium" color="$textSubdued">
-                  {`${intl.formatMessage({
-                    id: ETranslations.global_liquidity,
-                  })} ${item.provider.liquidity}`}
-                </SizableText>
-              ) : null}
+              {mobileLiquidity}
             </YStack>
           );
         },
