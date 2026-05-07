@@ -32,7 +32,11 @@ export function SplitViewPrompt() {
 
     firedRef.current = true;
 
-    const timer = setTimeout(() => {
+    // Intentionally no cleanup: during an unfold animation `isSpanning` can
+    // briefly toggle false→true→false→true as Dimensions re-emit. A cleanup
+    // that clears the timer would lose the prompt because firedRef is
+    // already true on the next run, leaving the dialog forever unscheduled.
+    setTimeout(() => {
       void (async () => {
         const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
           ESpotlightTour.splitViewFirstPrompt,
@@ -44,8 +48,6 @@ export function SplitViewPrompt() {
         });
       })();
     }, 800);
-
-    return () => clearTimeout(timer);
   }, [tablet, isSpanning, enableSplitView, intl]);
 
   return null;
