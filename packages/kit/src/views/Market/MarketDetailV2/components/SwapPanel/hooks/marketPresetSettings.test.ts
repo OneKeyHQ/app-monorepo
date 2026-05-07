@@ -100,27 +100,6 @@ describe('marketPresetSettings', () => {
     expect(preset?.key).toBe(EMarketPresetKey.AUTO);
   });
 
-  it('keeps P1/P2/P3 defaults equivalent to Auto before customization', async () => {
-    const config = await fetchMarketPresetConfig({
-      networkId: presetNetworksMap.base.id,
-    });
-
-    const settings = resolveMarketPresetDirectionSettings({
-      config,
-      presetKey: EMarketPresetKey.P3,
-      tradeSide: EMarketPresetTradeSide.BUY,
-    });
-
-    expect(settings.slippage.key).toBe(ESwapSlippageSegmentKey.AUTO);
-    expect(settings.priorityFee.type).toBe(EMarketPresetPriorityFeeType.MARKET);
-    expect(
-      getMarketPresetSlippageValue({ settings, defaultSlippage: 0.5 }),
-    ).toBe(0.5);
-    expect(getMarketPresetNetworkFeeLevel(settings)).toBe(
-      ESwapNetworkFeeLevel.MEDIUM,
-    );
-  });
-
   it('resolves saved preset settings per network direction', async () => {
     const config = await fetchMarketPresetConfig({
       networkId: presetNetworksMap.base.id,

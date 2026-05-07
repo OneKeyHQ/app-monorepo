@@ -416,15 +416,30 @@ function MarketPresetSettingsDialog({
     [activePresetKey, activeTradeSide, currentSettings, presetSettings],
   );
 
+  const currentDirectionKey = getDirectionKey({
+    presetKey: activePresetKey,
+    tradeSide: activeTradeSide,
+  });
+  const currentDirectionPendingReset =
+    resetDirectionSetRef.current.has(currentDirectionKey);
   const currentSlippageInvalid =
     isInvalidMarketPresetSlippageSettings(currentSettings);
   const currentPriorityFeeInvalid =
     !!presetSettings.config?.priorityFee.editable &&
     isInvalidMarketPresetPriorityFeeSettings(currentSettings);
   const currentSettingsInvalid =
-    currentSlippageInvalid || currentPriorityFeeInvalid;
+    !currentDirectionPendingReset &&
+    (currentSlippageInvalid || currentPriorityFeeInvalid);
+  const showCurrentSlippageError =
+    !currentDirectionPendingReset && currentSlippageInvalid;
+  const showCurrentPriorityFeeError =
+    !currentDirectionPendingReset && currentPriorityFeeInvalid;
   const hasInvalidDirtySettings = Array.from(dirtyDirectionSetRef.current).some(
     (directionKey) => {
+      if (resetDirectionSetRef.current.has(directionKey)) {
+        return false;
+      }
+
       const parsed = parseDirectionKey(directionKey);
       if (!parsed) {
         return false;
@@ -730,7 +745,7 @@ function MarketPresetSettingsDialog({
                         ))}
                       </XStack>
                     </XStack>
-                    {currentSlippageInvalid ? (
+                    {showCurrentSlippageError ? (
                       <SizableText size="$bodySmMedium" color="$textCritical">
                         {intl.formatMessage({
                           id: ETranslations.slippage_tolerance_error_message,
@@ -795,7 +810,7 @@ function MarketPresetSettingsDialog({
                   <>
                     <Input
                       size="medium"
-                      error={currentPriorityFeeInvalid}
+                      error={showCurrentPriorityFeeError}
                       value={currentSettings.priorityFee.customValue ?? ''}
                       addOns={[
                         {
@@ -816,7 +831,7 @@ function MarketPresetSettingsDialog({
                         }));
                       }}
                     />
-                    {currentPriorityFeeInvalid ? (
+                    {showCurrentPriorityFeeError ? (
                       <SizableText size="$bodySmMedium" color="$textCritical">
                         {intl.formatMessage(
                           {
