@@ -83,10 +83,10 @@ function formatTransfersAmount({
     new Set(transfers.map((transfer) => transfer.tokenIdOnNetwork)),
   );
   if (tokenIds.length > 1) {
-    return intl.formatMessage(
+    return `${prefix}${intl.formatMessage(
       { id: ETranslations.count_assets },
       { count: tokenIds.length },
-    );
+    )}`;
   }
 
   const totalAmount = transfers
