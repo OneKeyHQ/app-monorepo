@@ -42,12 +42,12 @@ import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { AprText } from '../../components/AprText';
-import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnNavigation, parseFormattedLiquidityValue } from '../../earnUtils';
 
-import type { IEarnSortDirection } from '../../components/EarnMobileSortControl';
 import type { RouteProp } from '@react-navigation/core';
+
+type IEarnSortDirection = 'asc' | 'desc';
 
 type IRouteProps = RouteProp<ITabEarnParamList, ETabEarnRoutes.EarnProtocols>;
 
@@ -141,7 +141,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const accountId = activeAccount.account?.id;
   const accountNetworkId = filterNetworkId ?? activeAccount.network?.id;
   const isFixedRateCategory = selectedCategory === EProtocolCategory.FixedRate;
-  const showMobileSortControl = isFixedRateCategory && !isDesktopLayout;
 
   const handleSortChange = useCallback(
     (key: string, direction: IEarnSortDirection) => {
@@ -161,29 +160,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     setSortKey('yield');
     setSortDirection('desc');
   }, [selectedCategory]);
-
-  const mobileSortOptions = useMemo(
-    () =>
-      isFixedRateCategory
-        ? [
-            {
-              label: intl.formatMessage({
-                id: ETranslations.defi_protocol_maturity,
-              }),
-              value: 'protocol',
-            },
-            {
-              label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
-              value: 'yield',
-            },
-            {
-              label: intl.formatMessage({ id: ETranslations.global_liquidity }),
-              value: 'liquidity',
-            },
-          ]
-        : [],
-    [intl, isFixedRateCategory],
-  );
 
   const fetchProtocolData = useCallback(async () => {
     if (!activeAccount.ready) {
@@ -316,13 +292,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       const providerName = normalizeToEarnProvider(item.provider.name);
       const maturityTitle =
         item.provider.maturity || item.provider.vaultName || providerName;
-      const baseDetailText = item.provider.description || providerName;
-      const detailText =
-        isFixedRateCategory && !isDesktopLayout && item.provider.liquidity
-          ? `${baseDetailText} · ${intl.formatMessage({
-              id: ETranslations.global_liquidity,
-            })}: ${item.provider.liquidity}`
-          : baseDetailText;
+      const detailText = item.provider.description || providerName;
 
       return {
         detailText,
@@ -477,23 +447,41 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           return aprA - aprB;
         },
         render: (item) => {
+          const showMobileLiquidity =
+            isFixedRateCategory &&
+            !isDesktopLayout &&
+            Boolean(item.provider.liquidity);
+          const mobileLiquidity = showMobileLiquidity ? (
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {`${intl.formatMessage({
+                id: ETranslations.global_liquidity,
+              })} ${item.provider.liquidity}`}
+            </SizableText>
+          ) : null;
+
           if (item.aprInfo?.button?.type === 'redeem') {
             return (
-              <SizableText size="$bodyLgMedium" color="$textInfo">
-                {item.aprInfo.button.text?.text ||
-                  intl.formatMessage({ id: ETranslations.defi_redeemable })}
-              </SizableText>
+              <YStack ai="flex-end" gap="$0.5">
+                <SizableText size="$bodyLgMedium" color="$textInfo">
+                  {item.aprInfo.button.text?.text ||
+                    intl.formatMessage({ id: ETranslations.defi_redeemable })}
+                </SizableText>
+                {mobileLiquidity}
+              </YStack>
             );
           }
           return (
-            <AprText
-              hideSuffix={isDesktopLayout}
-              asset={{
-                aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
-                aprInfo: item?.aprInfo,
-                rewardUnit: item?.provider?.rewardUnit,
-              }}
-            />
+            <YStack ai="flex-end" gap="$0.5">
+              <AprText
+                hideSuffix={isDesktopLayout}
+                asset={{
+                  aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
+                  aprInfo: item?.aprInfo,
+                  rewardUnit: item?.provider?.rewardUnit,
+                }}
+              />
+              {mobileLiquidity}
+            </YStack>
           );
         },
       },
@@ -661,14 +649,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     return (
       <YStack>
         {categoryTabs}
-        {showMobileSortControl ? (
-          <EarnMobileSortControl
-            sortKey={sortKey}
-            sortDirection={sortDirection}
-            options={mobileSortOptions}
-            onSortChange={handleSortChange}
-          />
-        ) : null}
         <TableList<IStakeProtocolListItem>
           key={selectedCategory}
           data={protocolDisplayData}
@@ -676,7 +656,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           sortKey={sortKey}
           sortDirection={sortDirection}
           onSortChange={handleSortChange}
-          withHeader={showMobileSortControl ? false : undefined}
           onPressRow={handleProtocolPress}
           enableDrillIn={isDesktopLayout}
           isLoading={isLoading}
@@ -688,10 +667,8 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     protocolData,
     protocolDisplayData,
     categoryTabs,
-    showMobileSortControl,
     sortKey,
     sortDirection,
-    mobileSortOptions,
     handleSortChange,
     columns,
     selectedCategory,
