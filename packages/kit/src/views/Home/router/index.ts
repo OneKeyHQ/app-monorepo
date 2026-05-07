@@ -84,6 +84,7 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: ReferralLanding,
     rewrite: referralLandingRewrite,
     exact: true,
+    headerShown: false,
   },
   {
     // Referral landing page without page param: /r/:code/app
@@ -92,6 +93,7 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: ReferralLanding,
     rewrite: referralLandingRewriteWithoutPage,
     exact: true,
+    headerShown: false,
   },
   {
     // Referral landing page with code only: /r/:code
@@ -100,6 +102,7 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: ReferralLanding,
     rewrite: referralLandingRewriteCodeOnly,
     exact: true,
+    headerShown: false,
   },
   {
     name: ETabHomeRoutes.TabHomeBulkSendAddressesInput,
