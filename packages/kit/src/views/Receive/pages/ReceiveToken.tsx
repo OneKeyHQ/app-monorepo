@@ -880,11 +880,11 @@ function ReceiveToken() {
     return !!(banner?.href || banner?.mode);
   }, [banner?.href, banner?.mode]);
   return (
-    <Page safeAreaEnabled={false} bg="red">
+    <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
-      <Page.Body flex={1} pb="$5" px="$5">
+      <Page.Body flex={1} pb="$5" px="$5" bg="red">
         {renderReceiveQrCode()}
         <YStack gap="$2">
           {banner && shouldShowQRCode && !isBtcUsedAddressVerifyMode ? (
