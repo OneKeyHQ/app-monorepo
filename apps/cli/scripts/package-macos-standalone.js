@@ -13,6 +13,9 @@ class PackageMacOSStandaloneError extends Error {}
 const supportedArchitectures = new Set(['arm64', 'x64']);
 const arch = process.env.CLI_MACOS_ARCH || process.arch;
 const bundleId = process.env.CLI_MACOS_BUNDLE_ID || 'so.onekey.cli';
+const entitlementsPath =
+  process.env.CLI_MACOS_ENTITLEMENTS ||
+  path.join(cliRoot, 'entitlements.macos-standalone.plist');
 const signIdentity = process.env.CLI_MACOS_SIGN_IDENTITY || '-';
 const signingKeychain = process.env.CLI_MACOS_SIGNING_KEYCHAIN || '';
 const timestamp =
@@ -95,6 +98,23 @@ function resolveNativeKeyringBindingPath() {
   return nativePackageMain;
 }
 
+function prepareNativeKeyringBinding({ buildDir }) {
+  const nativeBindingPath = resolveNativeKeyringBindingPath();
+  const signedNativeBindingPath = path.join(buildDir, 'keyring-native.node');
+
+  fs.copyFileSync(nativeBindingPath, signedNativeBindingPath);
+  fs.chmodSync(signedNativeBindingPath, 0o755);
+  removeSignature(signedNativeBindingPath);
+  signFile(signedNativeBindingPath, {
+    identifier: `${bundleId}.keyring-native`,
+  });
+  run('codesign', ['--verify', '--verbose=2', signedNativeBindingPath], {
+    cwd: repoRoot,
+  });
+
+  return signedNativeBindingPath;
+}
+
 function supportsBuildSea() {
   try {
     const help = execFileSync(process.execPath, ['--help'], {
@@ -120,8 +140,11 @@ function ensureNodeSupportsSeaInjection() {
   }
 }
 
-function signFile(filePath) {
-  const args = ['--force', '--sign', signIdentity, '--identifier', bundleId];
+function signFile(
+  filePath,
+  { identifier = bundleId, entitlements = false } = {},
+) {
+  const args = ['--force', '--sign', signIdentity, '--identifier', identifier];
 
   if (signingKeychain) {
     args.push('--keychain', signingKeychain);
@@ -133,6 +156,9 @@ function signFile(filePath) {
   }
   if (hardenedRuntime) {
     args.push('--options', 'runtime');
+  }
+  if (entitlements) {
+    args.push('--entitlements', entitlementsPath);
   }
 
   args.push(filePath);
@@ -212,7 +238,7 @@ function buildStandaloneBinary({ buildDir, executablePath }) {
   const seaEntryPath = path.join(buildDir, 'sea-entry.cjs');
   const seaConfigPath = path.join(buildDir, 'sea-config.json');
   const seaBlobPath = path.join(buildDir, 'onekey-sea.blob');
-  const nativeKeyringBindingPath = resolveNativeKeyringBindingPath();
+  const nativeKeyringBindingPath = prepareNativeKeyringBinding({ buildDir });
 
   ensureNodeSupportsSeaInjection();
   prepareSeaEntry(distCliPath, seaEntryPath);
@@ -235,7 +261,7 @@ function buildStandaloneBinary({ buildDir, executablePath }) {
     });
     fs.chmodSync(executablePath, 0o755);
     disableNodeOptionsEnv(executablePath);
-    signFile(executablePath);
+    signFile(executablePath, { entitlements: hardenedRuntime });
     run('codesign', ['--verify', '--verbose=2', executablePath], {
       cwd: repoRoot,
     });
@@ -277,7 +303,7 @@ function buildStandaloneBinary({ buildDir, executablePath }) {
   );
 
   disableNodeOptionsEnv(executablePath);
-  signFile(executablePath);
+  signFile(executablePath, { entitlements: hardenedRuntime });
   run('codesign', ['--verify', '--verbose=2', executablePath], {
     cwd: repoRoot,
   });
@@ -349,6 +375,21 @@ function buildNpmPackage({ buildDir, executablePath }) {
   };
 }
 
+function buildDistributionZip({ buildDir, executablePath }) {
+  const zipPath = path.join(buildDir, `onekey-cli-darwin-${arch}.zip`);
+
+  fs.rmSync(zipPath, { force: true });
+  run(
+    'ditto',
+    ['-c', '-k', '--keepParent', path.basename(executablePath), zipPath],
+    {
+      cwd: path.dirname(executablePath),
+    },
+  );
+
+  return zipPath;
+}
+
 function main() {
   ensureDarwinHost();
 
@@ -365,9 +406,11 @@ function main() {
 
   buildStandaloneBinary({ buildDir, executablePath });
   const npmPackage = buildNpmPackage({ buildDir, executablePath });
+  const zipPath = buildDistributionZip({ buildDir, executablePath });
 
   console.log('');
   console.log(`Built: ${executablePath}`);
+  console.log(`Distribution zip: ${zipPath}`);
   console.log(`NPM package: ${npmPackage.packageName}`);
   console.log(`Tarball dir: ${npmPackage.tarballDir}`);
 }
