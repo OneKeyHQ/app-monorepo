@@ -67,6 +67,7 @@ import type {
   IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 import {
+  EApproveType,
   EDecodedTxActionType,
   EDecodedTxStatus,
   EReplaceTxType,
@@ -983,14 +984,34 @@ export default class Vault extends VaultBase {
     ) {
       const { allowance, isUnlimited } = tokenApproveInfo;
       const { spender, decimals } = action.tokenApprove;
+      // Prefer the approveType from the editor; fall back to the action's
+      // detected type (and finally Approve) for older call sites.
+      const approveType =
+        tokenApproveInfo.approveType ??
+        action.tokenApprove.approveType ??
+        EApproveType.Approve;
 
-      const amountHex = toBigIntHex(
-        isUnlimited
-          ? new BigNumber(2).pow(256).minus(1)
-          : new BigNumber(allowance).shiftedBy(decimals),
-      );
+      // The editor only allows Unlimited on absolute approve. For
+      // increase/decreaseAllowance we keep the original selector and treat
+      // the value strictly as a delta — never silently rewrite to approve().
+      let selector: EErc20MethodSelectors;
+      let amountHex: string;
+      if (approveType === EApproveType.IncreaseAllowance) {
+        selector = EErc20MethodSelectors.increaseAllowance;
+        amountHex = toBigIntHex(new BigNumber(allowance).shiftedBy(decimals));
+      } else if (approveType === EApproveType.DecreaseAllowance) {
+        selector = EErc20MethodSelectors.decreaseAllowance;
+        amountHex = toBigIntHex(new BigNumber(allowance).shiftedBy(decimals));
+      } else {
+        selector = EErc20MethodSelectors.tokenApprove;
+        amountHex = toBigIntHex(
+          isUnlimited
+            ? new BigNumber(2).pow(256).minus(1)
+            : new BigNumber(allowance).shiftedBy(decimals),
+        );
+      }
 
-      const data = `${EErc20MethodSelectors.tokenApprove}${defaultAbiCoder
+      const data = `${selector}${defaultAbiCoder
         .encode(['address', 'uint256'], [spender, amountHex])
         .slice(2)}`;
 
@@ -1071,7 +1092,11 @@ export default class Vault extends VaultBase {
       });
     }
 
-    if (txDesc.name === EErc20TxDescriptionName.Approve) {
+    if (
+      txDesc.name === EErc20TxDescriptionName.Approve ||
+      txDesc.name === EErc20TxDescriptionName.IncreaseAllowance ||
+      txDesc.name === EErc20TxDescriptionName.DecreaseAllowance
+    ) {
       return this._buildTxApproveTokenAction({
         encodedTx,
         txDesc,
@@ -1150,6 +1175,13 @@ export default class Vault extends VaultBase {
     const amount = formatValue(value, token.decimals);
     const accountAddress = await this.getAccountAddress();
 
+    let approveType: EApproveType = EApproveType.Approve;
+    if (txDesc.name === EErc20TxDescriptionName.IncreaseAllowance) {
+      approveType = EApproveType.IncreaseAllowance;
+    } else if (txDesc.name === EErc20TxDescriptionName.DecreaseAllowance) {
+      approveType = EApproveType.DecreaseAllowance;
+    }
+
     const action: IDecodedTxAction = {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
@@ -1162,7 +1194,10 @@ export default class Vault extends VaultBase {
         symbol: token.symbol,
         decimals: token.decimals,
         tokenIdOnNetwork: token.address,
-        isInfiniteAmount: amount === InfiniteAmountText,
+        // increase/decreaseAllowance carries a delta, never an "infinite" amount.
+        isInfiniteAmount:
+          approveType === EApproveType.Approve && amount === InfiniteAmountText,
+        approveType,
       },
     };
 

@@ -221,6 +221,15 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   swapReceivedNetworkId?: string;
 };
 
+export enum EApproveType {
+  // ERC20 approve(spender, value): sets allowance to an absolute value
+  Approve = 'approve',
+  // OpenZeppelin increaseAllowance(spender, addedValue): allowance += value
+  IncreaseAllowance = 'increaseAllowance',
+  // OpenZeppelin decreaseAllowance(spender, subtractedValue): allowance -= value
+  DecreaseAllowance = 'decreaseAllowance',
+}
+
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amount: string;
   symbol: string;
@@ -230,6 +239,9 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   isInfiniteAmount: boolean;
   tokenIdOnNetwork: string;
   label?: string;
+  // Distinguishes approve(absolute) vs increase/decreaseAllowance(delta).
+  // Undefined is treated as `Approve` for backward compatibility.
+  approveType?: EApproveType;
 };
 
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {

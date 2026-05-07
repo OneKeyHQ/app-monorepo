@@ -17,6 +17,7 @@ import {
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -36,6 +37,10 @@ export type IProps = {
   tokenDecimals: number;
   tokenSymbol: string;
   approveInfo?: IApproveInfo;
+  // The original on-chain method behind this approve action. Determines
+  // whether the allowance value is an absolute target or a delta, and
+  // whether the Unlimited toggle is meaningful in this context.
+  approveType?: EApproveType;
   onResetTokenApproveInfo?: () => void;
   onChangeTokenApproveInfo?: ({
     allowance,
@@ -66,7 +71,15 @@ function ApproveEditor(props: IProps) {
     onResetTokenApproveInfo,
     onChangeTokenApproveInfo,
     approveInfo,
+    approveType = EApproveType.Approve,
   } = props;
+
+  const isIncrease = approveType === EApproveType.IncreaseAllowance;
+  const isDecrease = approveType === EApproveType.DecreaseAllowance;
+  // Unlimited would force a selector switch to approve(MAX), silently
+  // overriding the dApp's original method. Restrict the toggle to absolute
+  // approve so increase/decreaseAllowance can only edit their delta.
+  const showUnlimitedToggle = !isIncrease && !isDecrease;
 
   const handleUpdateUnsignedTxs = useCallback(
     async ({
@@ -84,11 +97,12 @@ function ApproveEditor(props: IProps) {
           tokenApproveInfo: {
             allowance: newAllowance,
             isUnlimited: newIsUnlimited,
+            approveType,
           },
         });
       updateUnsignedTxs([newUnsignedTx]);
     },
-    [accountId, networkId, unsignedTxs, updateUnsignedTxs],
+    [accountId, approveType, networkId, unsignedTxs, updateUnsignedTxs],
   );
 
   const { result, isLoading } = usePromiseResult(
@@ -127,7 +141,9 @@ function ApproveEditor(props: IProps) {
         return 'RESET';
       }
 
-      if (approveInfo) {
+      // The swap-required-allowance check assumes value is an absolute target.
+      // For increase/decreaseAllowance the input is a delta, so skip it.
+      if (approveInfo && !isIncrease && !isDecrease) {
         if (form.getValues('isUnlimited')) {
           return true;
         }
@@ -141,16 +157,24 @@ function ApproveEditor(props: IProps) {
 
       return true;
     },
-    [approveInfo, form, intl],
+    [approveInfo, form, intl, isIncrease, isDecrease],
   );
+
+  // English-only fallback labels for inc/dec — no dedicated i18n keys yet.
+  let amountFieldLabel = intl.formatMessage({
+    id: ETranslations.approve_edit_approve_amount,
+  });
+  if (isIncrease) {
+    amountFieldLabel = 'Increase amount';
+  } else if (isDecrease) {
+    amountFieldLabel = 'Decrease amount';
+  }
 
   return (
     <>
       <Form form={form}>
         <Form.Field
-          label={intl.formatMessage({
-            id: ETranslations.approve_edit_approve_amount,
-          })}
+          label={amountFieldLabel}
           name="allowance"
           rules={{
             validate: handleValidateApproveAmount,
@@ -229,26 +253,28 @@ function ApproveEditor(props: IProps) {
             }
           />
         </Form.Field>
-        <Form.Field
-          horizontal
-          label={intl.formatMessage({
-            id: ETranslations.approve_edit_unlimited_amount,
-          })}
-          name="isUnlimited"
-          rules={{
-            onChange: (e: { target: { name: string; value: boolean } }) => {
-              const value = e.target?.value;
-              if (value) {
-                form.setValue('allowance', unlimitedText);
-              } else {
-                form.setValue('allowance', isUnlimited ? '' : allowance);
-              }
-              void form.trigger('allowance');
-            },
-          }}
-        >
-          <Switch size="small" />
-        </Form.Field>
+        {showUnlimitedToggle ? (
+          <Form.Field
+            horizontal
+            label={intl.formatMessage({
+              id: ETranslations.approve_edit_unlimited_amount,
+            })}
+            name="isUnlimited"
+            rules={{
+              onChange: (e: { target: { name: string; value: boolean } }) => {
+                const value = e.target?.value;
+                if (value) {
+                  form.setValue('allowance', unlimitedText);
+                } else {
+                  form.setValue('allowance', isUnlimited ? '' : allowance);
+                }
+                void form.trigger('allowance');
+              },
+            }}
+          >
+            <Switch size="small" />
+          </Form.Field>
+        ) : null}
       </Form>
       <Dialog.Footer
         confirmButtonProps={{

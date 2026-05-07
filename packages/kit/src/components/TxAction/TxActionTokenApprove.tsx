@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
@@ -37,6 +38,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const tokenAddress = tokenApprove?.tokenIdOnNetwork ?? '';
   const tokenDecimals = tokenApprove?.decimals ?? 0;
   const tokenSymbol = tokenApprove?.symbol ?? '';
+  const approveType = tokenApprove?.approveType ?? EApproveType.Approve;
 
   return {
     approveIcon,
@@ -51,6 +53,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
     tokenAddress,
     tokenDecimals,
     tokenSymbol,
+    approveType,
   };
 }
 
@@ -78,9 +81,15 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     approveSymbol,
     approveIsMax,
     approveLabel,
+    approveType,
   } = getTxActionTokenApproveInfo(props);
 
-  const isRevoke = new BigNumber(approveAmount).eq(0);
+  const isIncrease = approveType === EApproveType.IncreaseAllowance;
+  const isDecrease = approveType === EApproveType.DecreaseAllowance;
+  // Revoke only applies to absolute approve(spender, 0); zero deltas on
+  // increase/decrease are not revokes.
+  const isRevoke =
+    !isIncrease && !isDecrease && new BigNumber(approveAmount).eq(0);
 
   let title = approveLabel;
   const avatar: ITxActionCommonListViewProps['avatar'] = {
@@ -108,6 +117,11 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
           symbol: approveSymbol,
         },
       );
+    } else if (isIncrease) {
+      // English-only fallback for now; no dedicated title key yet.
+      title = `Increase ${approveSymbol} allowance`;
+    } else if (isDecrease) {
+      title = `Decrease ${approveSymbol} allowance`;
     } else {
       title = intl.formatMessage({
         id: ETranslations.global_approve,
@@ -214,6 +228,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     tokenAddress,
     tokenDecimals,
     tokenSymbol,
+    approveType,
   } = getTxActionTokenApproveInfo(props);
 
   const { vaultSettings } = useAccountData({
@@ -223,11 +238,19 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   const { updateTokenApproveInfo } = useSendConfirmActions().current;
   const approveInfoInit = useRef(false);
 
+  const isIncrease = approveType === EApproveType.IncreaseAllowance;
+  const isDecrease = approveType === EApproveType.DecreaseAllowance;
+
   let content: React.ReactNode = approveLabel;
   const amount = originalApproveAmount;
   const isUnlimited = approveIsMax;
   if (!content) {
-    if (new BigNumber(amount).eq(0)) {
+    if (isIncrease) {
+      // English-only: no dedicated i18n key for this allowance variant yet.
+      content = `Increase ${approveSymbol} allowance by ${amount}`;
+    } else if (isDecrease) {
+      content = `Decrease ${approveSymbol} allowance by ${amount}`;
+    } else if (new BigNumber(amount).eq(0)) {
       content = intl.formatMessage(
         {
           id: ETranslations.global_revoke_approve,
@@ -286,6 +309,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
               tokenSymbol,
               tokenAddress,
               approveInfo: decodedTx.approveInfo,
+              approveType,
             })
           }
         >

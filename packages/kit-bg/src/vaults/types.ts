@@ -53,7 +53,7 @@ import type {
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import type { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
+import type { EApproveType, IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
 import type {
   IAccountDeriveInfoMapBtc,
@@ -642,7 +642,14 @@ export interface IBuildUnsignedTxParams {
   withUuid?: boolean;
 }
 
-export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
+export type ITokenApproveInfo = {
+  allowance: string;
+  isUnlimited: boolean;
+  // When editing an increase/decreaseAllowance tx, the editor passes the
+  // original approve type so the vault can re-encode with the correct
+  // selector (or fall back to approve(MAX) when Unlimited is toggled on).
+  approveType?: EApproveType;
+};
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: IFeeInfoUnit;
