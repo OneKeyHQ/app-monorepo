@@ -103,19 +103,19 @@ function HeaderStatRows({
         />
         <StatRow
           label={intl.formatMessage({
-            id: ETranslations.dexmarket_btc_circulating_supply,
+            id: ETranslations.dexmarket_stock_24h_volume,
           })}
           value={formatStatValueWithFormatter(
-            btcMetadata.circulatingSupply,
-            MARKET_CAP_FORMATTER,
+            btcMetadata.volume24h,
+            USD_CURRENCY_FORMATTER,
           )}
         />
         <StatRow
           label={intl.formatMessage({
-            id: ETranslations.dexmarket_btc_remaining_supply,
+            id: ETranslations.dexmarket_btc_circulating_supply,
           })}
           value={formatStatValueWithFormatter(
-            btcMetadata.remainingSupply,
+            btcMetadata.circulatingSupply,
             MARKET_CAP_FORMATTER,
           )}
         />
