@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: next
+      notarize:
+        description: 'Submit the signed macOS CLI zip to Apple notarization'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -35,6 +40,7 @@ jobs:
       YARN_ENABLE_GLOBAL_CACHE: true
       CLI_MACOS_ARCH: ${{ matrix.arch }}
       CLI_MACOS_BUNDLE_ID: so.onekey.cli
+      CLI_MACOS_HARDENED_RUNTIME: true
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -66,10 +72,11 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           PUBLISH_TO_NPM: ${{ inputs.publish_to_npm }}
+          NOTARIZE: ${{ inputs.notarize }}
         run: |
           if [ -z "$DESKTOP_KEYS_SECRET" ] || [ -z "$CSC_KEY_PASSWORD" ]; then
-            if [ "$PUBLISH_TO_NPM" = "true" ]; then
-              echo "::error::Developer ID signing secrets are required before publishing macOS standalone CLI packages."
+            if [ "$PUBLISH_TO_NPM" = "true" ] || [ "$NOTARIZE" = "true" ]; then
+              echo "::error::Developer ID signing secrets are required before publishing or notarizing macOS standalone CLI packages."
               exit 1
             fi
             echo "::warning::Developer ID signing secrets are missing; using ad-hoc signing for this artifact."
@@ -133,7 +140,69 @@ jobs:
           cp "$BIN" "$RUNNER_TEMP/onekey-standalone-test"
           HOME="$RUNNER_TEMP/onekey-cli-home" "$RUNNER_TEMP/onekey-standalone-test" auth status --json
           codesign --verify --verbose=2 "$BIN"
+          codesign -d --entitlements - "$BIN"
           ls "$TARBALL_DIR"/*.tgz
+
+      - name: Notarize standalone CLI
+        if: ${{ inputs.notarize }}
+        env:
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLEID:-}" ] || [ -z "${APPLEIDPASS:-}" ] || [ -z "${ASC_PROVIDER:-}" ]; then
+            echo "::error::APPLEID, APPLEIDPASS, and ASC_PROVIDER are required to notarize macOS standalone CLI packages."
+            exit 1
+          fi
+
+          BIN="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/onekey"
+          TARBALL_DIR="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/npm-tarball"
+          ZIP="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/onekey-cli-darwin-${CLI_MACOS_ARCH}.zip"
+          TARBALL=$(ls "$TARBALL_DIR"/*.tgz)
+          xcrun notarytool submit "$ZIP" \
+            --apple-id "$APPLEID" \
+            --password "$APPLEIDPASS" \
+            --team-id "$ASC_PROVIDER" \
+            --wait
+
+          codesign --verify --check-notarization --verbose=4 "$BIN"
+
+          ARTIFACT_VERIFY_DIR="$RUNNER_TEMP/onekey-notarized-artifacts"
+          rm -rf "$ARTIFACT_VERIFY_DIR"
+          mkdir -p "$ARTIFACT_VERIFY_DIR/zip" "$ARTIFACT_VERIFY_DIR/tarball"
+          ditto -x -k "$ZIP" "$ARTIFACT_VERIFY_DIR/zip"
+          tar -xzf "$TARBALL" -C "$ARTIFACT_VERIFY_DIR/tarball"
+
+          ZIP_BIN=$(find "$ARTIFACT_VERIFY_DIR/zip" -type f -name onekey -print -quit)
+          TARBALL_BIN="$ARTIFACT_VERIFY_DIR/tarball/package/bin/onekey"
+          if [ -z "$ZIP_BIN" ] || [ ! -x "$ZIP_BIN" ]; then
+            echo "::error::Distribution zip does not contain an executable onekey binary."
+            exit 1
+          fi
+          if [ ! -x "$TARBALL_BIN" ]; then
+            echo "::error::NPM tarball does not contain an executable package/bin/onekey binary."
+            exit 1
+          fi
+
+          for PACKAGE_BIN in "$BIN" "$ZIP_BIN" "$TARBALL_BIN"; do
+            file "$PACKAGE_BIN"
+            codesign --verify --check-notarization --verbose=4 "$PACKAGE_BIN"
+          done
+
+          GATEKEEPER_INDEX=0
+          for PACKAGE_BIN in "$ZIP_BIN" "$TARBALL_BIN"; do
+            GATEKEEPER_TEST_BIN="$RUNNER_TEMP/onekey-gatekeeper-test-$GATEKEEPER_INDEX"
+            cp "$PACKAGE_BIN" "$GATEKEEPER_TEST_BIN"
+            QUARANTINE_TS="$(printf '%x' "$(date +%s)")"
+            xattr -w com.apple.quarantine \
+              "0081;$QUARANTINE_TS;onekey-ci;https://github.com/OneKeyHQ/app-monorepo" \
+              "$GATEKEEPER_TEST_BIN"
+            xattr -p com.apple.quarantine "$GATEKEEPER_TEST_BIN"
+            codesign --verify --check-notarization --verbose=4 "$GATEKEEPER_TEST_BIN"
+            "$GATEKEEPER_TEST_BIN" --version
+            GATEKEEPER_INDEX=$((GATEKEEPER_INDEX + 1))
+          done
 
       - name: Upload standalone package
         uses: actions/upload-artifact@v4
@@ -141,6 +210,7 @@ jobs:
           name: onekey-cli-macos-standalone-${{ matrix.arch }}-${{ github.sha }}
           path: |
             apps/cli/build/macos-standalone/darwin-${{ matrix.arch }}/onekey
+            apps/cli/build/macos-standalone/darwin-${{ matrix.arch }}/onekey-cli-darwin-${{ matrix.arch }}.zip
             apps/cli/build/macos-standalone/darwin-${{ matrix.arch }}/npm-tarball/*.tgz
 
       - name: Publish standalone package to npm
