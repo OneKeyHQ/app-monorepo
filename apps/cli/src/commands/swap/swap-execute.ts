@@ -605,9 +605,13 @@ export function registerSwapExecuteCommand(parent: Command): void {
               );
             }
 
+            // CoreChainSoftware.signTransaction calls baseGetPrivateKeysHd which
+            // derives at `account.path + relPaths`. account.path MUST be the
+            // account-level prefix (e.g. m/49'/0'/0'), NOT the full leaf path,
+            // otherwise the derivation lands two levels deeper than the address.
             const accountForSign = {
               address: fromAddress,
-              path: fromAddressMeta.path,
+              path: addressTypeInfo.accountPath,
               pub: addressInfo.publicKey,
             };
 
@@ -758,6 +762,24 @@ export function registerSwapExecuteCommand(parent: Command): void {
               skipConfirmation,
             });
 
+            // Provider PSBTs do not carry the local pathToAddresses map, but
+            // CoreChainSoftware.signTransaction → buildSignersMap unconditionally
+            // dereferences payload.btcExtraInfo. Build a minimal but complete
+            // mapping for the single account address we sign with.
+            const psbtPathItem = {
+              address: fromAddress,
+              relPath: addressTypeInfo.relPath,
+              fullPath: addressTypeInfo.path,
+            };
+            const psbtBtcExtraInfo: ICoreApiSignBtcExtraInfo = {
+              pathToAddresses: { [addressTypeInfo.path]: psbtPathItem },
+              addressToPath: { [fromAddress]: psbtPathItem },
+              inputAddressesEncodings: inputsToSign.map(
+                () => addressTypeInfo.addressEncoding,
+              ),
+              nonWitnessPrevTxs: {},
+            };
+
             const signedTx = await signer.signTransaction({
               networkId: chainConfig.networkId,
               account: accountForSign,
@@ -768,6 +790,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 },
               },
               relPaths: [addressTypeInfo.relPath],
+              btcExtraInfo: psbtBtcExtraInfo,
               addressType: addressTypeInfo.addressType,
               signOnly,
             });
