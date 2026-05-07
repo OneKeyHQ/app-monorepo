@@ -427,8 +427,7 @@ function getMarketPresetCustomValueBN(value?: string) {
 }
 
 export function isValidMarketPresetCustomValue(value?: string) {
-  const valueBN = getMarketPresetCustomValueBN(value);
-  return !!valueBN && !valueBN.isNegative();
+  return isPositiveMarketPresetCustomValue(value);
 }
 
 function isPositiveMarketPresetCustomValue(value?: string) {
