@@ -417,12 +417,30 @@ function DepositWithdrawContent({
 
   const accountResult = usePerpsAccountResult(selectedAccount);
 
+  const checkDepositWalletNotBackedUp = useCallback(async () => {
+    const walletId =
+      accountResult?.wallet?.id ??
+      (selectedAccount.accountId
+        ? accountUtils.getWalletIdFromAccountId({
+            accountId: selectedAccount.accountId,
+          })
+        : undefined);
+    if (!walletId) return false;
+
+    return backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+      walletId,
+    });
+  }, [accountResult?.wallet?.id, selectedAccount.accountId]);
+
   const handleBuyPress = useCallback(async () => {
     if (!currentPerpsDepositSelectedToken || !accountResult) {
       return;
     }
 
     await dismissKeyboardWithDelay();
+    if (await checkDepositWalletNotBackedUp()) {
+      return;
+    }
 
     defaultLogger.wallet.walletActions.buyOnLowBalance({
       source: 'perp',
@@ -457,6 +475,7 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken,
     selectedAccount,
     accountResult,
+    checkDepositWalletNotBackedUp,
   ]);
 
   const checkAccountSupport = useMemo(() => {
@@ -1102,6 +1121,12 @@ function DepositWithdrawContent({
         void perpDepositQuoteAction();
         return;
       }
+      if (
+        selectedAction === 'deposit' &&
+        (await checkDepositWalletNotBackedUp())
+      ) {
+        return;
+      }
       setIsSubmitting(true);
       if (selectedAction === 'deposit') {
         if (isArbitrumUsdcToken) {
@@ -1171,6 +1196,7 @@ function DepositWithdrawContent({
     validateAmountBeforeSubmit,
     checkRefreshQuote,
     selectedAction,
+    checkDepositWalletNotBackedUp,
     perpDepositQuoteAction,
     isArbitrumUsdcToken,
     normalizeTxConfirm,
