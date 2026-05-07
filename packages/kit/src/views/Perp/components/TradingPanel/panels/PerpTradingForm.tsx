@@ -155,18 +155,24 @@ function SpotAvailableActionPopover({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const isChineseLocale = intl.locale.toLowerCase().startsWith('zh');
-  const sheetTitle = isChineseLocale ? '添加资金' : 'Add funds';
-  const depositTitle = isChineseLocale ? '充值到账 USDC' : 'Deposit to USDC';
-  const depositSubtitle = isChineseLocale
-    ? '从链上资产充值到个人账户'
-    : 'Deposit on-chain assets to your account';
+  const sheetTitle = intl.formatMessage({
+    id: ETranslations.perps_spot_add_funds__title,
+  });
+  const depositTitle = intl.formatMessage({
+    id: ETranslations.perps_spot_deposit_to_usdc__title,
+  });
+  const depositSubtitle = intl.formatMessage({
+    id: ETranslations.perps_spot_deposit_to_usdc__desc,
+  });
   const tradeTitle = tradeToken
-    ? `${intl.formatMessage({
-        id: ETranslations.dexmarket_details_transactions_buy,
-      })} ${tradeToken} ${intl.formatMessage({
-        id: ETranslations.dexmarket_spot,
-      })}`
+    ? intl.formatMessage(
+        {
+          id: ETranslations.perps_spot_buy_token_spot__action,
+        },
+        {
+          token: tradeToken,
+        },
+      )
     : intl.formatMessage({ id: ETranslations.global_trade });
   const listItemTextProps = {
     titleProps: { size: '$bodyMdMedium' as const, color: '$text' as const },
