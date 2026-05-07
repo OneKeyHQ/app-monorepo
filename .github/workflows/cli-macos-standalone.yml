@@ -1,0 +1,160 @@
+name: cli-macos-standalone
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_to_npm:
+        description: 'Publish generated darwin packages to npm'
+        required: false
+        type: boolean
+        default: false
+      npm_tag:
+        description: 'npm dist-tag used when publishing'
+        required: false
+        type: string
+        default: next
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  package:
+    name: package macOS standalone CLI (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x64
+            runner: macos-26-intel
+    runs-on: ${{ matrix.runner }}
+    env:
+      NODE_ENV: production
+      YARN_ENABLE_GLOBAL_CACHE: true
+      CLI_MACOS_ARCH: ${{ matrix.arch }}
+      CLI_MACOS_BUNDLE_ID: so.onekey.cli
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: yarn
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify Node SEA runtime
+        run: |
+          node -p "process.version + ' ' + process.platform + ' ' + process.arch"
+          test "$(node -p "process.arch")" = "$CLI_MACOS_ARCH"
+          node -e "const fs=require('node:fs');const fuse='NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';if(!fs.readFileSync(process.execPath).includes(Buffer.from(fuse))){throw new Error('Node binary does not contain the SEA fuse: '+process.execPath)}"
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Setup Developer ID signing
+        env:
+          DESKTOP_KEYS_SECRET: ${{ secrets.DESKTOP_KEYS_SECRET }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          PUBLISH_TO_NPM: ${{ inputs.publish_to_npm }}
+        run: |
+          if [ -z "$DESKTOP_KEYS_SECRET" ] || [ -z "$CSC_KEY_PASSWORD" ]; then
+            if [ "$PUBLISH_TO_NPM" = "true" ]; then
+              echo "::error::Developer ID signing secrets are required before publishing macOS standalone CLI packages."
+              exit 1
+            fi
+            echo "::warning::Developer ID signing secrets are missing; using ad-hoc signing for this artifact."
+            echo "CLI_MACOS_SIGN_IDENTITY=-" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          KEYCHAIN_PASSWORD="${KEYCHAIN_PASSWORD:-cli-signing-keychain}"
+          KEYCHAIN_PATH="$RUNNER_TEMP/cli-signing.keychain-db"
+          P12_PATH="$RUNNER_TEMP/cli-sign.p12"
+
+          echo "$DESKTOP_KEYS_SECRET" | base64 -d > "$P12_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$P12_PATH" -P "$CSC_KEY_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | sed -n 's/.*"\(Developer ID Application:.*\)".*/\1/p' | head -n 1)
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No Developer ID Application signing identity found in imported certificate."
+            security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+            exit 1
+          fi
+
+          echo "CLI_MACOS_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "CLI_MACOS_SIGNING_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Package standalone CLI
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn workspace @onekeyfe/cli package:macos-standalone
+
+      - name: Verify standalone CLI
+        run: |
+          set -euo pipefail
+          BIN="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/onekey"
+          TARBALL_DIR="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/npm-tarball"
+          file "$BIN"
+          if [ "$CLI_MACOS_ARCH" = "arm64" ]; then
+            file "$BIN" | grep -q "arm64"
+          else
+            file "$BIN" | grep -q "x86_64"
+          fi
+          "$BIN" --version
+          "$BIN" --help
+          if grep -a -q "NODE_OPTIONS" "$BIN"; then
+            echo "::error::Standalone binary still contains NODE_OPTIONS references."
+            exit 1
+          fi
+          NODE_OPTIONS="--require=$RUNNER_TEMP/onekey-missing-preload.cjs" "$BIN" --version
+          INSPECT_LOG="$RUNNER_TEMP/onekey-node-options-inspect.log"
+          NODE_OPTIONS="--inspect=0" "$BIN" --version > "$INSPECT_LOG" 2>&1
+          cat "$INSPECT_LOG"
+          if grep -E "Debugger listening|Starting inspector" "$INSPECT_LOG"; then
+            echo "::error::Standalone binary consumed NODE_OPTIONS inspector flags."
+            exit 1
+          fi
+          cp "$BIN" "$RUNNER_TEMP/onekey-standalone-test"
+          HOME="$RUNNER_TEMP/onekey-cli-home" "$RUNNER_TEMP/onekey-standalone-test" auth status --json
+          codesign --verify --verbose=2 "$BIN"
+          ls "$TARBALL_DIR"/*.tgz
+
+      - name: Upload standalone package
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-cli-macos-standalone-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            apps/cli/build/macos-standalone/darwin-${{ matrix.arch }}/onekey
+            apps/cli/build/macos-standalone/darwin-${{ matrix.arch }}/npm-tarball/*.tgz
+
+      - name: Publish standalone package to npm
+        if: ${{ inputs.publish_to_npm }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TAG: ${{ inputs.npm_tag }}
+        run: |
+          TARBALL=$(ls apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/npm-tarball/*.tgz)
+          npm publish "$TARBALL" --access public --tag "$NPM_TAG"
+
+      - name: Clean up signing keychain
+        if: ${{ always() }}
+        run: |
+          if [ -n "${CLI_MACOS_SIGNING_KEYCHAIN:-}" ]; then
+            security delete-keychain "$CLI_MACOS_SIGNING_KEYCHAIN" 2>/dev/null || true
+          fi
