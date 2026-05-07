@@ -37,6 +37,16 @@ function run(command, args, options = {}) {
   });
 }
 
+function capture(command, args, options = {}) {
+  console.log(`$ ${[command, ...args].join(' ')}`);
+  return execFileSync(command, args, {
+    cwd: options.cwd || cliRoot,
+    env: options.env ? { ...process.env, ...options.env } : process.env,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+}
+
 function ensureDarwinHost() {
   if (process.platform !== 'darwin') {
     throw new PackageMacOSStandaloneError(
@@ -205,6 +215,127 @@ function removeSignature(filePath) {
   } catch {
     // Fresh Node binaries may not have a removable signature in local dev.
   }
+}
+
+function assertMachOArchitecture(filePath) {
+  const expectedArchitecture = arch === 'arm64' ? 'arm64' : 'x86_64';
+  const fileDescription = capture('file', [filePath], { cwd: repoRoot }).trim();
+  console.log(fileDescription);
+
+  if (!fileDescription.includes('Mach-O 64-bit executable')) {
+    throw new PackageMacOSStandaloneError(
+      `${filePath} is not a Mach-O 64-bit executable.`,
+    );
+  }
+
+  if (!fileDescription.includes(expectedArchitecture)) {
+    throw new PackageMacOSStandaloneError(
+      `${filePath} does not match expected architecture ${expectedArchitecture}.`,
+    );
+  }
+}
+
+function assertExecutableMode(filePath) {
+  if ((fs.statSync(filePath).mode & 0o111) === 0) {
+    throw new PackageMacOSStandaloneError(
+      `${filePath} is not marked as executable.`,
+    );
+  }
+}
+
+function assertNodeOptionsPatched(filePath) {
+  if (fs.readFileSync(filePath).includes(nodeOptionsEnvKey)) {
+    throw new PackageMacOSStandaloneError(
+      `${filePath} still contains NODE_OPTIONS references.`,
+    );
+  }
+}
+
+function verifyStandaloneExecutable(filePath, label) {
+  console.log('');
+  console.log(`Verifying ${label}: ${filePath}`);
+  if (!fs.existsSync(filePath)) {
+    throw new PackageMacOSStandaloneError(`Missing ${label}: ${filePath}`);
+  }
+
+  assertExecutableMode(filePath);
+  assertMachOArchitecture(filePath);
+  assertNodeOptionsPatched(filePath);
+  run('codesign', ['--verify', '--verbose=2', filePath], { cwd: repoRoot });
+  run(filePath, ['--version'], {
+    cwd: cliRoot,
+    env: {
+      HOME: path.join(path.dirname(filePath), '.onekey-cli-home'),
+    },
+  });
+}
+
+function findFirstExecutable(rootDir) {
+  const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const entryPath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      const found = findFirstExecutable(entryPath);
+      if (found) {
+        return found;
+      }
+    } else if (entry.isFile() && entry.name === 'onekey') {
+      return entryPath;
+    }
+  }
+
+  return '';
+}
+
+function getSingleTarballPath(tarballDir) {
+  const tarballs = fs
+    .readdirSync(tarballDir)
+    .filter((fileName) => fileName.endsWith('.tgz'));
+
+  if (tarballs.length !== 1) {
+    throw new PackageMacOSStandaloneError(
+      `Expected exactly one npm tarball in ${tarballDir}, found ${tarballs.length}.`,
+    );
+  }
+
+  return path.join(tarballDir, tarballs[0]);
+}
+
+function verifyPackagedArtifacts({
+  buildDir,
+  executablePath,
+  npmPackage,
+  zipPath,
+}) {
+  const verifyDir = path.join(buildDir, 'artifact-verify');
+  const zipExtractDir = path.join(verifyDir, 'zip');
+  const tarballExtractDir = path.join(verifyDir, 'tarball');
+  const tarballPath = getSingleTarballPath(npmPackage.tarballDir);
+
+  fs.rmSync(verifyDir, { recursive: true, force: true });
+  fs.mkdirSync(zipExtractDir, { recursive: true });
+  fs.mkdirSync(tarballExtractDir, { recursive: true });
+
+  verifyStandaloneExecutable(executablePath, 'raw standalone executable');
+
+  run('ditto', ['-x', '-k', zipPath, zipExtractDir], { cwd: repoRoot });
+  const zipExecutablePath = findFirstExecutable(zipExtractDir);
+  if (!zipExecutablePath) {
+    throw new PackageMacOSStandaloneError(
+      `Distribution zip does not contain an onekey executable: ${zipPath}`,
+    );
+  }
+  verifyStandaloneExecutable(zipExecutablePath, 'distribution zip executable');
+
+  run('tar', ['-xzf', tarballPath, '-C', tarballExtractDir], { cwd: repoRoot });
+  const tarballExecutablePath = path.join(
+    tarballExtractDir,
+    'package',
+    'bin',
+    'onekey',
+  );
+  verifyStandaloneExecutable(tarballExecutablePath, 'npm tarball executable');
 }
 
 function prepareSeaEntry(distCliPath, seaEntryPath) {
@@ -407,6 +538,7 @@ function main() {
   buildStandaloneBinary({ buildDir, executablePath });
   const npmPackage = buildNpmPackage({ buildDir, executablePath });
   const zipPath = buildDistributionZip({ buildDir, executablePath });
+  verifyPackagedArtifacts({ buildDir, executablePath, npmPackage, zipPath });
 
   console.log('');
   console.log(`Built: ${executablePath}`);

@@ -157,7 +157,9 @@ jobs:
           fi
 
           BIN="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/onekey"
+          TARBALL_DIR="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/npm-tarball"
           ZIP="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/onekey-cli-darwin-${CLI_MACOS_ARCH}.zip"
+          TARBALL=$(ls "$TARBALL_DIR"/*.tgz)
           xcrun notarytool submit "$ZIP" \
             --apple-id "$APPLEID" \
             --password "$APPLEIDPASS" \
@@ -166,15 +168,41 @@ jobs:
 
           codesign --verify --check-notarization --verbose=4 "$BIN"
 
-          GATEKEEPER_TEST_BIN="$RUNNER_TEMP/onekey-gatekeeper-test"
-          cp "$BIN" "$GATEKEEPER_TEST_BIN"
-          QUARANTINE_TS="$(printf '%x' "$(date +%s)")"
-          xattr -w com.apple.quarantine \
-            "0081;$QUARANTINE_TS;onekey-ci;https://github.com/OneKeyHQ/app-monorepo" \
-            "$GATEKEEPER_TEST_BIN"
-          xattr -p com.apple.quarantine "$GATEKEEPER_TEST_BIN"
-          codesign --verify --check-notarization --verbose=4 "$GATEKEEPER_TEST_BIN"
-          "$GATEKEEPER_TEST_BIN" --version
+          ARTIFACT_VERIFY_DIR="$RUNNER_TEMP/onekey-notarized-artifacts"
+          rm -rf "$ARTIFACT_VERIFY_DIR"
+          mkdir -p "$ARTIFACT_VERIFY_DIR/zip" "$ARTIFACT_VERIFY_DIR/tarball"
+          ditto -x -k "$ZIP" "$ARTIFACT_VERIFY_DIR/zip"
+          tar -xzf "$TARBALL" -C "$ARTIFACT_VERIFY_DIR/tarball"
+
+          ZIP_BIN=$(find "$ARTIFACT_VERIFY_DIR/zip" -type f -name onekey -print -quit)
+          TARBALL_BIN="$ARTIFACT_VERIFY_DIR/tarball/package/bin/onekey"
+          if [ -z "$ZIP_BIN" ] || [ ! -x "$ZIP_BIN" ]; then
+            echo "::error::Distribution zip does not contain an executable onekey binary."
+            exit 1
+          fi
+          if [ ! -x "$TARBALL_BIN" ]; then
+            echo "::error::NPM tarball does not contain an executable package/bin/onekey binary."
+            exit 1
+          fi
+
+          for PACKAGE_BIN in "$BIN" "$ZIP_BIN" "$TARBALL_BIN"; do
+            file "$PACKAGE_BIN"
+            codesign --verify --check-notarization --verbose=4 "$PACKAGE_BIN"
+          done
+
+          GATEKEEPER_INDEX=0
+          for PACKAGE_BIN in "$ZIP_BIN" "$TARBALL_BIN"; do
+            GATEKEEPER_TEST_BIN="$RUNNER_TEMP/onekey-gatekeeper-test-$GATEKEEPER_INDEX"
+            cp "$PACKAGE_BIN" "$GATEKEEPER_TEST_BIN"
+            QUARANTINE_TS="$(printf '%x' "$(date +%s)")"
+            xattr -w com.apple.quarantine \
+              "0081;$QUARANTINE_TS;onekey-ci;https://github.com/OneKeyHQ/app-monorepo" \
+              "$GATEKEEPER_TEST_BIN"
+            xattr -p com.apple.quarantine "$GATEKEEPER_TEST_BIN"
+            codesign --verify --check-notarization --verbose=4 "$GATEKEEPER_TEST_BIN"
+            "$GATEKEEPER_TEST_BIN" --version
+            GATEKEEPER_INDEX=$((GATEKEEPER_INDEX + 1))
+          done
 
       - name: Upload standalone package
         uses: actions/upload-artifact@v4
