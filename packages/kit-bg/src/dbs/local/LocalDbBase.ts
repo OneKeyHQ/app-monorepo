@@ -4556,12 +4556,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // saveAccountAddresses
     if (allAccountsBelongToNetworkId) {
+      let shouldFlushAccountAddressCache = false;
       for (const account of accounts) {
         try {
           void this.saveAccountAddresses({
             networkId: allAccountsBelongToNetworkId,
             account: account as INetworkAccount,
           });
+          shouldFlushAccountAddressCache = true;
+        } catch (error) {
+          //
+        }
+      }
+      if (shouldFlushAccountAddressCache) {
+        try {
+          await this._saveAccountAddressesBatchByCache.flush();
         } catch (error) {
           //
         }

@@ -781,7 +781,7 @@ function HardwareUiStateContainerCmpControlled() {
 
         hardwareErrorDialogInstanceRef.current = Dialog.show({
           title: intl.formatMessage({
-            id: ETranslations.communication_timeout,
+            id: ETranslations.device_not_connected,
           }),
           description: intl.formatMessage({
             id: ETranslations.troubleshooting_show_helper_cta_label,
