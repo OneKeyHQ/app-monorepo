@@ -26,9 +26,6 @@ function PortfolioHeaderNormalBase() {
       <SizableText {...commonTextProps} w={100}>
         {intl.formatMessage({ id: ETranslations.perp_relay_token__title })}
       </SizableText>
-      <SizableText {...commonTextProps} w={columnWidth} textAlign="right">
-        {intl.formatMessage({ id: ETranslations.global_balance })}
-      </SizableText>
       <XStack w={columnWidth} justifyContent="flex-end">
         <DashText
           size="$bodySmMedium"
