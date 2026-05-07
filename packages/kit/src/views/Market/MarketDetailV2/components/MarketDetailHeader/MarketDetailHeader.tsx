@@ -192,6 +192,27 @@ export function MarketDetailHeader() {
     [starChecked, handleStarNative, handleShareNative],
   );
 
+  // Drive the back button through useMarketDetailBackNavigation so the
+  // detail-specific routing (Search → Discovery, single-route stacks
+  // resetting to Market home, split-view pop, SwapPro return) keeps
+  // working under iOS 26's native bar. The default system back would
+  // only pop the current stack and would render no entry at all when
+  // state.index === 0.
+  const buildNativeHeaderLeftItems = useCallback(
+    () => [
+      {
+        type: 'button' as const,
+        label: 'Back',
+        icon: {
+          type: 'sfSymbol' as const,
+          name: 'chevron.left' as const,
+        },
+        onPress: handleBackPress,
+      },
+    ],
+    [handleBackPress],
+  );
+
   if (media.md && platformEnv.isNativeIOS26Plus) {
     // Explicit headerShown is required because this route can also be
     // reached as a modal where the parent stack defaults headerShown to
@@ -201,6 +222,7 @@ export function MarketDetailHeader() {
       <Page.Header
         headerShown
         headerTitle={renderNativeHeaderTitle}
+        unstable_headerLeftItems={buildNativeHeaderLeftItems}
         unstable_headerRightItems={buildNativeHeaderRightItems}
       />
     );
