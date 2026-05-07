@@ -127,11 +127,15 @@ workflow therefore submits the ZIP for notarization and verifies the resulting
 online ticket with:
 
 ```bash
-spctl --assess --type execute --verbose=4 path/to/onekey
+codesign --verify --check-notarization --verbose=4 path/to/onekey
 ```
 
-It also verifies a copied binary with `com.apple.quarantine` applied, which is
-the Gatekeeper path that direct downloads use.
+The workflow does not treat `spctl --assess --type execute` as the standalone
+binary pass/fail check because current macOS runners reject plain Mach-O tools
+with `the code is valid but does not seem to be an app`, even after Apple
+accepts the notarization submission. Instead, it verifies notarization with
+`codesign --check-notarization` and executes a copied binary after applying
+`com.apple.quarantine`, which is the Gatekeeper path that direct downloads use.
 
 ## CI Notarization Steps
 
@@ -175,7 +179,11 @@ The workflow does the following when `notarize` is enabled:
 5. Verify on CI and on a clean macOS machine or VM:
 
    ```bash
-   spctl --assess --type execute --verbose path/to/onekey
+   codesign --verify --check-notarization --verbose=4 path/to/onekey
+   QUARANTINE_TS="$(printf '%x' "$(date +%s)")"
+   xattr -w com.apple.quarantine \
+     "0081;$QUARANTINE_TS;onekey-ci;https://github.com/OneKeyHQ/app-monorepo" \
+     path/to/onekey
    path/to/onekey --version
    ```
 

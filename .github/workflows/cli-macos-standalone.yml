@@ -164,7 +164,7 @@ jobs:
             --team-id "$ASC_PROVIDER" \
             --wait
 
-          spctl --assess --type execute --verbose=4 "$BIN"
+          codesign --verify --check-notarization --verbose=4 "$BIN"
 
           GATEKEEPER_TEST_BIN="$RUNNER_TEMP/onekey-gatekeeper-test"
           cp "$BIN" "$GATEKEEPER_TEST_BIN"
@@ -172,7 +172,8 @@ jobs:
           xattr -w com.apple.quarantine \
             "0081;$QUARANTINE_TS;onekey-ci;https://github.com/OneKeyHQ/app-monorepo" \
             "$GATEKEEPER_TEST_BIN"
-          spctl --assess --type execute --verbose=4 "$GATEKEEPER_TEST_BIN"
+          xattr -p com.apple.quarantine "$GATEKEEPER_TEST_BIN"
+          codesign --verify --check-notarization --verbose=4 "$GATEKEEPER_TEST_BIN"
           "$GATEKEEPER_TEST_BIN" --version
 
       - name: Upload standalone package
