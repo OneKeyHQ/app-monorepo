@@ -130,6 +130,8 @@ describe('BTC/TBTC transfer command', () => {
       recipientAddress,
       '--amount',
       '0.00001',
+      '--fee-rate',
+      '1',
       '--dry-run',
       '--json',
     ]);
@@ -220,6 +222,8 @@ describe('BTC/TBTC transfer command', () => {
       recipientAddress,
       '--amount',
       '0.00001',
+      '--fee-rate',
+      '1',
       '--json',
     ]);
 

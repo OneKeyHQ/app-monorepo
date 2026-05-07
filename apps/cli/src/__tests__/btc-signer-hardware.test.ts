@@ -78,6 +78,16 @@ function makeDeps(overrides: { sdk?: Partial<CoreApi> } = {}): {
     btcGetAddress: jest.fn(async () =>
       makeSuccess({ address: 'tb1p-first', path: "m/86'/1'/0'/0/0" }),
     ),
+    btcGetPublicKey: jest.fn(async () =>
+      makeSuccess({
+        path: "m/86'/1'/0'/0/0",
+        node: {
+          public_key:
+            '03098891dd952dd6f6bde1489761d0befbfa31815e9c0e64058d12b83de852a18c',
+        },
+        root_fingerprint: 0xdeadbeef,
+      }),
+    ),
     btcSignTransaction: jest.fn(async () =>
       makeSuccess({ serializedTx: makeSignedTxHex(), txid: undefined }),
     ),
@@ -149,11 +159,25 @@ describe('btc hardware signer', () => {
 
     expect(address).toEqual({
       address: 'tb1p-first',
+      publicKey:
+        '03098891dd952dd6f6bde1489761d0befbfa31815e9c0e64058d12b83de852a18c',
       path: "m/86'/1'/0'/0/0",
       relPath: '0/0',
       addresses: { '0/0': 'tb1p-first' },
+      __hwExtraInfo__: { rootFingerprint: 0xdeadbeef },
     });
     expect(mocks.sdk.btcGetAddress).toHaveBeenCalledWith(
+      device.connectId,
+      device.deviceId,
+      {
+        path: "m/86'/1'/0'/0/0",
+        coin: 'testnet',
+        showOnOneKey: false,
+        useEmptyPassphrase: true,
+        skipPassphraseCheck: true,
+      },
+    );
+    expect(mocks.sdk.btcGetPublicKey).toHaveBeenCalledWith(
       device.connectId,
       device.deviceId,
       {
@@ -315,11 +339,21 @@ describe('btc hardware signer', () => {
       deps,
     });
     const encodedTx = { psbtHex: '70736274ff0100' };
+    // PSBT path is enriched in-place; spy on toHex so we can verify the SDK
+    // received the enriched (or, with no inputsToSign, untouched) PSBT.
+    const toHex = jest.fn(() => '70736274ff0100');
+    getPsbtFromHexMock().mockReturnValue({
+      finalizeInput: jest.fn(),
+      extractTransaction: jest.fn(),
+      toHex,
+      updateInput: jest.fn(),
+    });
 
     const result = await signer.signTransaction({
       networkId: 'tbtc--0',
       account: { address: 'tb1p-input', path: "m/86'/1'/0'/0/0" },
       unsignedTx: { encodedTx },
+      addressType: 'taproot',
       signOnly: true,
     });
 
@@ -347,12 +381,23 @@ describe('btc hardware signer', () => {
     const signedTxHex = makeSignedTxHex();
     const finalizeInput = jest.fn();
     const extractTransaction = jest.fn(() => Transaction.fromHex(signedTxHex));
-    getPsbtFromHexMock().mockReturnValue({
-      finalizeInput,
-      extractTransaction,
-      toHex: jest.fn(() => 'finalized-psbt-hex'),
-    });
-    const { deps } = makeDeps();
+    const enrichToHex = jest.fn(() => 'enriched-psbt-hex');
+    const finalizeToHex = jest.fn(() => 'finalized-psbt-hex');
+    const updateInput = jest.fn();
+    getPsbtFromHexMock()
+      .mockReturnValueOnce({
+        // pre-sign PSBT (enriched with derivations before SDK call)
+        updateInput,
+        toHex: enrichToHex,
+        txOutputs: [],
+      })
+      .mockReturnValueOnce({
+        // post-sign PSBT used for finalize/extract
+        finalizeInput,
+        extractTransaction,
+        toHex: finalizeToHex,
+      });
+    const { deps, mocks } = makeDeps();
     const signer = new SignerHardware({
       impl: 'tbtc',
       device,
@@ -361,15 +406,51 @@ describe('btc hardware signer', () => {
     });
     const encodedTx = {
       psbtHex: '70736274ff0100',
-      inputsToSign: [{ index: 0 }, { index: 2 }],
+      inputsToSign: [
+        {
+          index: 0,
+          publicKey:
+            '03098891dd952dd6f6bde1489761d0befbfa31815e9c0e64058d12b83de852a18c',
+          address: 'tb1p-input',
+        },
+        {
+          index: 2,
+          publicKey:
+            '03098891dd952dd6f6bde1489761d0befbfa31815e9c0e64058d12b83de852a18c',
+          address: 'tb1p-input',
+        },
+      ],
     };
 
     const result = await signer.signTransaction({
       networkId: 'tbtc--0',
       account: { address: 'tb1p-input', path: "m/86'/1'/0'/0/0" },
       unsignedTx: { encodedTx },
+      addressType: 'taproot',
     });
 
+    expect(getPsbtFromHexMock()).toHaveBeenCalledWith('70736274ff0100', {
+      network: expect.objectContaining({
+        networkChainCode: 'tbtc',
+      }),
+    });
+    expect(updateInput).toHaveBeenCalledTimes(2);
+    expect(updateInput).toHaveBeenCalledWith(
+      0,
+      expect.objectContaining({
+        tapBip32Derivation: [
+          expect.objectContaining({
+            path: "m/86'/1'/0'/0/0",
+            leafHashes: [],
+          }),
+        ],
+      }),
+    );
+    expect(mocks.sdk.btcSignPsbt).toHaveBeenCalledWith(
+      device.connectId,
+      device.deviceId,
+      expect.objectContaining({ psbt: 'enriched-psbt-hex', coin: 'testnet' }),
+    );
     expect(getPsbtFromHexMock()).toHaveBeenCalledWith('signed-psbt-hex', {
       network: expect.objectContaining({
         networkChainCode: 'tbtc',

@@ -221,7 +221,7 @@ describe('swap execute BTC PSBT path', () => {
       networkId: 'btc--0',
       account: {
         address: 'bc1psourceaddress',
-        path: "m/86'/0'/0'/0/0",
+        path: "m/86'/0'/0'",
         pub: '02abcdef',
       },
       unsignedTx: {
@@ -237,6 +237,24 @@ describe('swap execute BTC PSBT path', () => {
         },
       },
       relPaths: ['0/0'],
+      btcExtraInfo: {
+        pathToAddresses: {
+          "m/86'/0'/0'/0/0": {
+            address: 'bc1psourceaddress',
+            relPath: '0/0',
+            fullPath: "m/86'/0'/0'/0/0",
+          },
+        },
+        addressToPath: {
+          bc1psourceaddress: {
+            address: 'bc1psourceaddress',
+            relPath: '0/0',
+            fullPath: "m/86'/0'/0'/0/0",
+          },
+        },
+        inputAddressesEncodings: [EAddressEncodings.P2TR],
+        nonWitnessPrevTxs: {},
+      },
       addressType: 'taproot',
       signOnly: false,
     });
@@ -250,7 +268,7 @@ describe('swap execute BTC PSBT path', () => {
       psbtNetwork: { networkChainCode: 'btc' },
       account: {
         address: 'bc1psourceaddress',
-        path: "m/86'/0'/0'/0/0",
+        path: "m/86'/0'/0'",
         pub: '02abcdef',
       },
       isBtcWalletProvider: true,
@@ -396,7 +414,7 @@ describe('swap execute BTC PSBT path', () => {
       networkId: 'btc--0',
       account: {
         address: 'bc1psourceaddress',
-        path: "m/86'/0'/0'/0/0",
+        path: "m/86'/0'/0'",
         pub: '02abcdef',
       },
       unsignedTx: {
