@@ -30,7 +30,7 @@ function ModeCard({
 }) {
   const intl = useIntl();
   const icon: IKeyOfIcons =
-    mode === 'split' ? 'LayoutSidebarOutline' : 'LayoutColumnOutline';
+    mode === 'split' ? 'LayoutColumnOutline' : 'LayoutWindowOutline';
   const title =
     mode === 'split'
       ? ETranslations.split_view_option_split
@@ -116,7 +116,7 @@ export function showSplitViewPromptDialog({
   let picked: IMode = currentEnabled ? 'split' : 'single';
 
   Dialog.show({
-    icon: 'LayoutSidebarOutline',
+    icon: 'LayoutColumnOutline',
     title: intl.formatMessage({
       id: ETranslations.split_view_prompt_title,
     }),

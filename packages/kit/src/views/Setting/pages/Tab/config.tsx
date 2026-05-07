@@ -366,7 +366,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             isNativeTablet()
               ? {
-                  icon: 'LayoutSidebarOutline',
+                  icon: 'LayoutColumnOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_split_view,
                   }),
