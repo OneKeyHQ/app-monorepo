@@ -324,7 +324,7 @@ export function TransactionsHistoryBase({
     }
   }, [hasMore, isLoadingMore, loadMore]);
   const isRelativeTimeTickingEnabled =
-    isVisible && isTabFocused && transactions.length > 0 && !isRealtimePaused;
+    isVisible && isTabFocused && transactions.length > 0;
 
   useScrollEnd(onScrollEnd ?? noop);
 
