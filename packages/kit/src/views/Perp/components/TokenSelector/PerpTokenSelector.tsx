@@ -48,6 +48,8 @@ import {
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -1159,6 +1161,19 @@ function BasePerpTokenSelector() {
       tokenSelectorOpen: isOpen,
     });
   }, [actions, isOpen]);
+  useEffect(() => {
+    const handleTrayNavigate = () => setIsOpen(false);
+    appEventBus.on(
+      EAppEventBusNames.TrayActionWillNavigate,
+      handleTrayNavigate,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.TrayActionWillNavigate,
+        handleTrayNavigate,
+      );
+    };
+  }, []);
   const triggerLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
   const content = useMemo(
     () => (
