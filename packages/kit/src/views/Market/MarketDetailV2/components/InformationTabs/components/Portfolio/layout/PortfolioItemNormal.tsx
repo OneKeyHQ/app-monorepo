@@ -1,6 +1,11 @@
 import { memo } from 'react';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -38,6 +43,28 @@ function PortfolioItemNormalBase({
           {item.symbol}
         </SizableText>
       </XStack>
+
+      <YStack w={columnWidth} alignItems="flex-end">
+        <NumberSizeableText
+          size="$bodySm"
+          color="$text"
+          autoFormatter="price-marketCap"
+          autoFormatterThreshold={1000}
+          formatterOptions={{
+            currency: '$',
+          }}
+        >
+          {item.totalPrice}
+        </NumberSizeableText>
+        <NumberSizeableText
+          size="$bodySm"
+          color="$textSubdued"
+          autoFormatter="price-marketCap"
+          autoFormatterThreshold={1000}
+        >
+          {item.amount}
+        </NumberSizeableText>
+      </YStack>
 
       <PnlCell
         usdValue={pnl?.unrealizedPnlUsd ?? '0'}

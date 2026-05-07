@@ -2,14 +2,19 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { DashText, XStack } from '@onekeyhq/components';
+import { DashText, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+const commonTextProps = { size: '$bodySm', color: '$textSubdued' } as const;
 
 function PortfolioHeaderSmallBase() {
   const intl = useIntl();
 
   return (
     <XStack px="$5" py="$2" alignItems="center">
+      <SizableText {...commonTextProps} w={100} minWidth={0}>
+        {intl.formatMessage({ id: ETranslations.global_balance })}
+      </SizableText>
       <XStack flex={1} justifyContent="flex-end">
         <DashText
           size="$bodySm"
