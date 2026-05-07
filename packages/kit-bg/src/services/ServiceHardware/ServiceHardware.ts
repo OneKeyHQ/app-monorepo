@@ -1221,6 +1221,36 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkDeviceReachableForFirmwareUpdate(params: { connectId: string }) {
+    const dbDevice = await localDb.getDeviceByQuery({
+      connectId: params.connectId,
+    });
+    if (!dbDevice) {
+      // Onboarding / bootloader-mode flows hit this with a freshly-discovered
+      // device that has no local DB record yet — skip pre-flight and let the
+      // update modal proceed.
+      return;
+    }
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId: params.connectId,
+      featuresDeviceId: dbDevice.deviceId,
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+    });
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      () =>
+        this.getFeaturesWithoutCache({
+          connectId: compatibleConnectId,
+          params: { retryCount: 1 },
+        }),
+      {
+        deviceParams: {
+          dbDevice,
+        },
+      },
+    );
+  }
+
+  @backgroundMethod()
   async getPassphraseState({
     connectId,
     forceInputPassphrase,

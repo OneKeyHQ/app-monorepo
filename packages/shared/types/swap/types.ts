@@ -507,6 +507,7 @@ export interface ISwapPreSwapData {
   swapBuildLoading?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
+  stepBeforeActionsError?: boolean;
   providerInfo?: IFetchQuoteInfo;
   isHWAndExBatchTransfer?: boolean;
   slippage?: number;

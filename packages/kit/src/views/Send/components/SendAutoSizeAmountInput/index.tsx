@@ -352,7 +352,7 @@ function SendAutoSizeAmountInputComponent(
     0,
   );
   const isCompactInlineWidth =
-    !md && availableInlineWidth > 0 && availableInlineWidth < 360;
+    md && availableInlineWidth > 0 && availableInlineWidth < 360;
   const maxFontSize = Math.round(56 * fontSizeScale);
   const minFontSize = Math.round(
     (isCompactInlineWidth ? 12 : 14) * fontSizeScale,
