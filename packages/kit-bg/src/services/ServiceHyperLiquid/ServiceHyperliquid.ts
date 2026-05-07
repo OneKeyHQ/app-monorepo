@@ -132,6 +132,12 @@ type ILoadTradesHistoryOptions = {
   force?: boolean;
 };
 
+function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
+  return fills.filter(
+    (fill) => !perpsUtils.isPredictionMarketInstrument(fill.coin),
+  );
+}
+
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
@@ -626,9 +632,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       reversed: true,
     };
 
-    const fills = options.force
+    const fillsRaw = options.force
       ? await this.getUserFillsByTime(params)
       : await this._getUserFillsByTimeMemo(params);
+    const fills = filterSupportedTradeHistoryFills(fillsRaw);
 
     const activeAccount = await perpsActiveAccountAtom.get();
     if (
@@ -692,7 +699,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
-    const fills = this._sortAndDedupeFills([...newFills, ...current.fills]);
+    const fills = this._sortAndDedupeFills([
+      ...filterSupportedTradeHistoryFills(newFills),
+      ...current.fills,
+    ]);
 
     await perpsTradesHistoryDataAtom.set({
       ...current,
