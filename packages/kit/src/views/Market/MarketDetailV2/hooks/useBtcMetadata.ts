@@ -4,21 +4,18 @@ import { useIntl } from 'react-intl';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IBtcMetadata } from '@onekeyhq/shared/types/marketV2';
 
 import { formatNextHalving } from '../utils/formatNextHalving';
 
 import { useTokenDetail } from './useTokenDetail';
 
-export interface IUseBtcMetadataResult {
-  marketCap: string;
-  circulatingSupply: string;
-  remainingSupply: string;
-  totalSupply: string;
-  fdv: string;
-  blockHeight: string;
-  blockReward: string;
+export type IUseBtcMetadataResult = Omit<
+  IBtcMetadata,
+  'nextHalving' | 'updatedAt' | 'stale'
+> & {
   nextHalvingDisplay: string;
-}
+};
 
 export function useBtcMetadata(): IUseBtcMetadataResult | null {
   const intl = useIntl();
@@ -44,6 +41,7 @@ export function useBtcMetadata(): IUseBtcMetadataResult | null {
       remainingSupply: meta.remainingSupply,
       totalSupply: meta.totalSupply,
       fdv: meta.fdv,
+      volume24h: meta.volume24h,
       blockHeight: meta.blockHeight,
       blockReward: meta.blockReward,
       nextHalvingDisplay: formatNextHalving(

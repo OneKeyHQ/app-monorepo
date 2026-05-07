@@ -42,6 +42,7 @@ export type IAccountDeriveInfoMapEvm = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
   // etcNative: IAccountDeriveInfo;
   ledgerLive: IAccountDeriveInfo;
+  ledgerLegacy: IAccountDeriveInfo;
 };
 export type IAccountDeriveTypesEvm = keyof IAccountDeriveInfoMapEvm;
 
@@ -331,6 +332,14 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
     template: `m/44'/${COINTYPE_ETH}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_ETH,
     desc: `m/44'/60'/*'/0/0`,
+  },
+  ledgerLegacy: {
+    namePrefix: 'EVM Ledger Legacy',
+    label: 'Ledger Legacy',
+    idSuffix: 'LedgerLegacy', // hd-1--m/44'/60'/0'/0--LedgerLegacy
+    template: `m/44'/${COINTYPE_ETH}'/0'/${INDEX_PLACEHOLDER}`,
+    coinType: COINTYPE_ETH,
+    desc: `m/44'/60'/0'/*`,
   },
 };
 
