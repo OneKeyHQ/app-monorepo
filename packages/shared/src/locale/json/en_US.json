@@ -2242,7 +2242,7 @@
   "hardware_third_party_connect_step_ble": "Turn on Bluetooth on your phone and keep Ledger nearby",
   "hardware_third_party_connect_step_power_on_and_unlock": "Power on and unlock your Ledger",
   "hardware_third_party_connect_step_usb": "Connect your Ledger to the computer via USB",
-  "hardware_third_party_device_app_stuck": "Press both buttons on the device to exit the current app, then try again.",
+  "hardware_third_party_device_app_stuck": "Please exit the current app on your device and return to the home screen, then try again.",
   "hardware_third_party_device_busy": "Device is in use by another app. Close Ledger Live and try again.",
   "hardware_third_party_device_disconnected": "Device disconnected",
   "hardware_third_party_device_locked": "Please manually unlock the device.",
