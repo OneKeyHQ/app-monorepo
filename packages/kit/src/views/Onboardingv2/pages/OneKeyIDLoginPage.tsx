@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { OAuthLoginCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -172,6 +173,16 @@ function OneKeyIDLoginPage() {
       };
       try {
         setLoggingInProvider(provider);
+        // Pair every wallet-creation OAuth attempt with a start event so failure
+        // events have a matching denominator. Reset/verify flows reuse OAuth for
+        // identity only and don't create a wallet.
+        if (!isVerifyMode && !isResetMode) {
+          defaultLogger.account.wallet.addWalletStarted({
+            addMethod: 'CreateKeylessWallet',
+            isSoftwareWalletOnlyUser: true,
+            details: { provider },
+          });
+        }
         const result = await signInWithSocialLogin(provider);
         if (result?.session?.accessToken) {
           if (isResetMode) {
@@ -185,13 +196,6 @@ function OneKeyIDLoginPage() {
             });
             setIsResetMode(false);
           } else {
-            if (!isVerifyMode) {
-              defaultLogger.account.wallet.addWalletStarted({
-                addMethod: 'CreateKeylessWallet',
-                isSoftwareWalletOnlyUser: true,
-                details: { provider },
-              });
-            }
             await checkKeylessWalletCreatedOnServer({
               token: result.session.accessToken,
               refreshToken: result.session.refreshToken,
@@ -202,7 +206,10 @@ function OneKeyIDLoginPage() {
           reportOAuthFailure();
         }
       } catch (error) {
-        reportOAuthFailure();
+        // User cancellation is normal behavior, not a failure metric.
+        if (!(error instanceof OAuthLoginCancelError)) {
+          reportOAuthFailure();
+        }
         throw error;
       } finally {
         loggingInProviderRef.current = null;

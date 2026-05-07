@@ -499,6 +499,9 @@ export function useDeviceConnect({
             onBeforeUpdate: prepareUSBForUpdate,
           });
           console.log('Device is in bootloader mode', device);
+          // Bootloader mode hands off to the firmware-update flow, so the throw
+          // below is not a connection failure — suppress the catch-block tracking.
+          connectionFailureTracked = true;
           throw new OneKeyLocalError('Device is in bootloader mode');
         };
 
@@ -688,12 +691,16 @@ export function useDeviceConnect({
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         console.error('handleDeviceConnect error:', error);
         if (!connectionFailureTracked) {
-          void trackHardwareWalletConnection({
+          // Fire-and-forget; an analytics rejection must not mask the original error
+          // in the catch, so we cannot await here.
+          trackHardwareWalletConnection({
             status: 'failure',
             isSoftwareWalletOnlyUser,
             deviceType: device.deviceType,
             hardwareTransportType: forceTransportType || hardwareTransportType,
-          });
+          }).catch((e) =>
+            console.error('trackHardwareWalletConnection failed:', e),
+          );
         }
         throw error;
       }
