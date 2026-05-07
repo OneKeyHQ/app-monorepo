@@ -52,6 +52,7 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -653,6 +654,39 @@ function useHyperliquidScreenLockHandler() {
   }, [unLock, checkPerpsAccountStatus]);
 }
 
+function useHyperliquidLocaleChangeRecovery() {
+  const localeVariant = useLocaleVariant();
+  const actions = useHyperliquidActions();
+  const isFocusedRef = useRef(false);
+  const pendingRecoveryRef = useRef(false);
+
+  const recoverSubscriptions = useCallback(async () => {
+    await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
+    await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
+    await actions.current.updateSubscriptions();
+    await backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
+  }, [actions]);
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    (isFocus: boolean, isHiddenByModal: boolean) => {
+      isFocusedRef.current = isFocus && !isHiddenByModal;
+      if (isFocusedRef.current && pendingRecoveryRef.current) {
+        pendingRecoveryRef.current = false;
+        void recoverSubscriptions();
+      }
+    },
+  );
+
+  useUpdateEffect(() => {
+    if (!isFocusedRef.current) {
+      pendingRecoveryRef.current = true;
+      return;
+    }
+    void recoverSubscriptions();
+  }, [localeVariant, recoverSubscriptions]);
+}
+
 function AutoPauseSubscriptions() {
   const pauseSubscriptionsTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
@@ -785,6 +819,7 @@ function PerpsGlobalEffectsView() {
   useHyperliquidSymbolSelect();
   useHyperliquidInstrumentSwitchRequest();
   useHyperliquidScreenLockHandler();
+  useHyperliquidLocaleChangeRecovery();
   useSyncContextOrderBookOptionsToGlobal();
   useTradeRouteViewStateSync();
   usePerpsSharePrompt();
