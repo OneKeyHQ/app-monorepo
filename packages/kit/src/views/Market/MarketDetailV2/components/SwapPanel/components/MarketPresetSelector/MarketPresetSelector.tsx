@@ -45,6 +45,11 @@ type IMarketPresetSelectorProps = {
   showAutoSlippageLabel?: boolean;
 };
 
+type IPressEvent = {
+  preventDefault?: () => void;
+  stopPropagation?: () => void;
+};
+
 type IDraftPresetSettings = Partial<
   Record<
     EMarketPresetKey,
@@ -210,6 +215,60 @@ function MarketPresetReadonlyRow({
   );
 }
 
+function MarketPresetTabBar({
+  onChange,
+  options,
+  value,
+}: {
+  onChange: (value: EMarketPresetKey) => void;
+  options: {
+    label: string;
+    value: EMarketPresetKey;
+    testID?: string;
+  }[];
+  value: EMarketPresetKey;
+}) {
+  return (
+    <XStack
+      alignItems="flex-start"
+      borderBottomColor="$borderSubdued"
+      borderBottomWidth="$px"
+      gap="$5"
+      width="100%"
+    >
+      {options.map((option) => {
+        const selected = option.value === value;
+
+        return (
+          <XStack
+            key={option.value}
+            accessibilityRole="button"
+            alignItems="center"
+            borderBottomColor={selected ? '$borderActive' : '$transparent'}
+            borderBottomWidth="$0.5"
+            cursor="pointer"
+            h={44}
+            justifyContent="center"
+            pb="$0.5"
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            onPress={() => onChange(option.value)}
+            testID={option.testID}
+          >
+            <SizableText
+              size="$bodyLgMedium"
+              color={selected ? '$text' : '$textSubdued'}
+              numberOfLines={1}
+            >
+              {option.label}
+            </SizableText>
+          </XStack>
+        );
+      })}
+    </XStack>
+  );
+}
+
 function MarketPresetSettingsDialog({
   close,
   presetSettings,
@@ -238,6 +297,7 @@ function MarketPresetSettingsDialog({
           label: preset.label,
           presetKey: preset.key,
         }),
+        testID: `market-preset-dialog-tab-${preset.key}`,
         value: preset.key,
       })),
     [intl, presetSettings.presets],
@@ -439,11 +499,10 @@ function MarketPresetSettingsDialog({
     <YStack gap="$4">
       <MarketPresetDialogHeader networkId={presetSettings.config?.networkId} />
 
-      <SegmentControl
-        fullWidth
+      <MarketPresetTabBar
         value={activePresetKey}
         options={presetOptions}
-        onChange={(value) => setActivePresetKey(value as EMarketPresetKey)}
+        onChange={setActivePresetKey}
       />
 
       {activePresetKey === EMarketPresetKey.AUTO ? (
@@ -780,6 +839,24 @@ export function MarketPresetSelector({
     });
   }, [intl, presetSettings]);
 
+  const handleQuickPresetSwitch = useCallback(
+    (event?: IPressEvent) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+
+      const currentIndex = presetOptions.findIndex(
+        (option) => option.value === selectedPresetKey,
+      );
+      const nextIndex =
+        currentIndex < 0 ? 0 : (currentIndex + 1) % presetOptions.length;
+      const nextPresetKey = presetOptions[nextIndex]?.value;
+      if (nextPresetKey && nextPresetKey !== selectedPresetKey) {
+        onPresetChange(nextPresetKey);
+      }
+    },
+    [onPresetChange, presetOptions, selectedPresetKey],
+  );
+
   if (!enabled || presetOptions.length === 0) {
     return null;
   }
@@ -868,16 +945,20 @@ export function MarketPresetSelector({
         hoverStyle={gtMd ? undefined : { bg: '$bgHover' }}
         pressStyle={gtMd ? undefined : { bg: '$bgActive' }}
         onPress={openPresetDialog}
+        testID="market-preset-settings-trigger"
       >
         {gtMd ? null : (
-          <SizableText
-            size="$bodyMdMedium"
-            color="$text"
-            numberOfLines={1}
+          <XStack
+            accessibilityRole="button"
+            alignItems="center"
             flexShrink={0}
+            onPress={handleQuickPresetSwitch}
+            testID="market-preset-quick-switch"
           >
-            {selectedPresetLabel}
-          </SizableText>
+            <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+              {selectedPresetLabel}
+            </SizableText>
+          </XStack>
         )}
 
         <XStack
