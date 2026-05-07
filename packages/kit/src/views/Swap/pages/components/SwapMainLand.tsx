@@ -234,6 +234,33 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       ),
     [focusSwapPro, marketPresetTokenContext, swapProSelectToken],
   );
+  const swapProMarketPresetTokenContext = useMemo<
+    IMarketPresetTokenContext | undefined
+  >(() => {
+    if (
+      !focusSwapPro ||
+      swapProTradeType !== ESwapProTradeType.MARKET ||
+      !swapProSelectToken
+    ) {
+      return undefined;
+    }
+
+    if (isSwapProMarketPresetToken) {
+      return marketPresetTokenContext;
+    }
+
+    return {
+      networkId: swapProSelectToken.networkId,
+      contractAddress: swapProSelectToken.contractAddress,
+      isNative: swapProSelectToken.isNative,
+    };
+  }, [
+    focusSwapPro,
+    isSwapProMarketPresetToken,
+    marketPresetTokenContext,
+    swapProSelectToken,
+    swapProTradeType,
+  ]);
   useEffect(() => {
     if (
       focusSwapPro &&
@@ -255,16 +282,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       ? EMarketPresetTradeSide.SELL
       : EMarketPresetTradeSide.BUY;
   const swapProMarketPresetSettings = useMarketPresetSettings({
-    networkId: isSwapProMarketPresetToken
-      ? marketPresetTokenContext?.networkId
-      : undefined,
+    networkId: swapProMarketPresetTokenContext?.networkId,
     tradeSide: swapProMarketPresetTradeSide,
   });
 
   // Reactively resolve Market preset overrides based on which side the market token sits on.
   // Lets Swap and Swap Pro pick up BUY vs SELL preset as the user flips sides.
   useMarketPresetSwapOverridesEffect({
-    marketPresetToken: marketPresetTokenContext,
+    marketPresetToken: focusSwapPro
+      ? swapProMarketPresetTokenContext
+      : marketPresetTokenContext,
   });
   const currentQuoteRes = useMemo(() => {
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
@@ -1212,7 +1239,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               onTokenPress={onTokenPress}
               supportNetworksList={SwapProSupportNetworksList}
               marketPresetSettings={
-                isSwapProMarketPresetToken
+                swapProMarketPresetTokenContext
                   ? swapProMarketPresetSettings
                   : undefined
               }
