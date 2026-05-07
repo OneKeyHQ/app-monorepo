@@ -28,11 +28,10 @@ import {
   EMarketPresetTradeSide,
   type IMarketPresetDirectionSettings,
   getMarketPresetDefaultDirectionSettings,
-  getMarketPresetDefaultEditableDirectionSettings,
+  getMarketPresetDefaultDirectionSettingsForPreset,
   isInvalidMarketPresetDirectionSettings,
   isInvalidMarketPresetPriorityFeeSettings,
   isInvalidMarketPresetSlippageSettings,
-  isMarketPresetDirectionCustomized,
   normalizeMarketPresetDirectionSettings,
 } from '../../hooks/marketPresetSettings';
 
@@ -122,16 +121,14 @@ function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
     }
 
     acc[preset.key] = {
-      [EMarketPresetTradeSide.BUY]:
-        presetSettings.getSavedDirectionSettings({
-          presetKey: preset.key,
-          tradeSide: EMarketPresetTradeSide.BUY,
-        }) ?? getMarketPresetDefaultEditableDirectionSettings(),
-      [EMarketPresetTradeSide.SELL]:
-        presetSettings.getSavedDirectionSettings({
-          presetKey: preset.key,
-          tradeSide: EMarketPresetTradeSide.SELL,
-        }) ?? getMarketPresetDefaultEditableDirectionSettings(),
+      [EMarketPresetTradeSide.BUY]: presetSettings.getDirectionSettings({
+        presetKey: preset.key,
+        tradeSide: EMarketPresetTradeSide.BUY,
+      }),
+      [EMarketPresetTradeSide.SELL]: presetSettings.getDirectionSettings({
+        presetKey: preset.key,
+        tradeSide: EMarketPresetTradeSide.SELL,
+      }),
     };
     return acc;
   }, {});
@@ -147,6 +144,21 @@ function getDraftDirectionSettings({
   tradeSide: EMarketPresetTradeSide;
 }) {
   return draftSettings[presetKey]?.[tradeSide];
+}
+
+function areMarketPresetDirectionSettingsEqual(
+  firstSettings?: IMarketPresetDirectionSettings,
+  secondSettings?: IMarketPresetDirectionSettings,
+) {
+  const first = normalizeMarketPresetDirectionSettings(firstSettings);
+  const second = normalizeMarketPresetDirectionSettings(secondSettings);
+
+  return (
+    first.slippage.key === second.slippage.key &&
+    first.slippage.value === second.slippage.value &&
+    first.priorityFee.type === second.priorityFee.type &&
+    first.priorityFee.customValue === second.priorityFee.customValue
+  );
 }
 
 function getDirectionKey({
@@ -366,16 +378,31 @@ function MarketPresetSettingsDialog({
         presetKey: activePresetKey,
         tradeSide: activeTradeSide,
       });
+      const defaultSettings = getMarketPresetDefaultDirectionSettingsForPreset({
+        config: presetSettings.config,
+        presetKey: activePresetKey,
+      });
+      const matchesDefault = areMarketPresetDirectionSettingsEqual(
+        nextSettings,
+        defaultSettings,
+      );
+      const matchesSaved =
+        !!savedSettings &&
+        areMarketPresetDirectionSettingsEqual(nextSettings, savedSettings);
 
-      if (isMarketPresetDirectionCustomized(nextSettings)) {
+      if (matchesSaved) {
+        dirtyDirectionSetRef.current.delete(directionKey);
+        resetDirectionSetRef.current.delete(directionKey);
+      } else if (matchesDefault) {
+        dirtyDirectionSetRef.current.delete(directionKey);
+        if (savedSettings) {
+          resetDirectionSetRef.current.add(directionKey);
+        } else {
+          resetDirectionSetRef.current.delete(directionKey);
+        }
+      } else {
         resetDirectionSetRef.current.delete(directionKey);
         dirtyDirectionSetRef.current.add(directionKey);
-      } else if (savedSettings) {
-        dirtyDirectionSetRef.current.delete(directionKey);
-        resetDirectionSetRef.current.add(directionKey);
-      } else {
-        dirtyDirectionSetRef.current.delete(directionKey);
-        resetDirectionSetRef.current.delete(directionKey);
       }
 
       setDraftSettings((prev) => ({
@@ -392,6 +419,7 @@ function MarketPresetSettingsDialog({
   const currentSlippageInvalid =
     isInvalidMarketPresetSlippageSettings(currentSettings);
   const currentPriorityFeeInvalid =
+    !!presetSettings.config?.priorityFee.editable &&
     isInvalidMarketPresetPriorityFeeSettings(currentSettings);
   const currentSettingsInvalid =
     currentSlippageInvalid || currentPriorityFeeInvalid;
@@ -401,13 +429,15 @@ function MarketPresetSettingsDialog({
       if (!parsed) {
         return false;
       }
-      return isInvalidMarketPresetDirectionSettings(
-        getDraftDirectionSettings({
-          draftSettings,
-          presetKey: parsed.presetKey,
-          tradeSide: parsed.tradeSide,
-        }),
-      );
+      const directionSettings = getDraftDirectionSettings({
+        draftSettings,
+        presetKey: parsed.presetKey,
+        tradeSide: parsed.tradeSide,
+      });
+      if (!presetSettings.config?.priorityFee.editable) {
+        return isInvalidMarketPresetSlippageSettings(directionSettings);
+      }
+      return isInvalidMarketPresetDirectionSettings(directionSettings);
     },
   );
 
@@ -504,7 +534,10 @@ function MarketPresetSettingsDialog({
       return;
     }
 
-    const defaultSettings = getMarketPresetDefaultEditableDirectionSettings();
+    const defaultSettings = getMarketPresetDefaultDirectionSettingsForPreset({
+      config: presetSettings.config,
+      presetKey: activePresetKey,
+    });
     const directionKey = getDirectionKey({
       presetKey: activePresetKey,
       tradeSide: activeTradeSide,

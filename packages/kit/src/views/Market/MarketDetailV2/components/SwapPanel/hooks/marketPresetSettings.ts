@@ -241,6 +241,32 @@ export function getMarketPresetDefaultEditableDirectionSettings(): IMarketPreset
   };
 }
 
+export function getMarketPresetDefaultDirectionSettingsForPreset({
+  config,
+  presetKey,
+}: {
+  config?: IMarketPresetConfig;
+  presetKey?: EMarketPresetKey;
+}): IMarketPresetDirectionSettings {
+  if (!config?.enabled || presetKey === EMarketPresetKey.AUTO) {
+    return getMarketPresetDefaultDirectionSettings();
+  }
+
+  const defaultSettings = getMarketPresetDefaultDirectionSettings();
+  const editableSettings = getMarketPresetDefaultEditableDirectionSettings();
+
+  return {
+    slippage: config.slippage.editable
+      ? editableSettings.slippage
+      : defaultSettings.slippage,
+    priorityFee: config.priorityFee.editable
+      ? editableSettings.priorityFee
+      : {
+          type: EMarketPresetPriorityFeeType.AUTO,
+        },
+  };
+}
+
 export function normalizeMarketPresetDirectionSettings(
   settings?: IMarketPresetDirectionSettings,
 ): IMarketPresetDirectionSettings {
@@ -296,7 +322,12 @@ export function resolveMarketPresetDirectionSettings({
       savedSettings,
       presetKey,
       tradeSide,
-    }) ?? configDefaultSettings,
+    }) ??
+      configDefaultSettings ??
+      getMarketPresetDefaultDirectionSettingsForPreset({
+        config,
+        presetKey,
+      }),
   );
 
   return {
@@ -370,6 +401,13 @@ export function getMarketPresetNetworkFeeLevel(
   settings?: IMarketPresetDirectionSettings,
 ) {
   if (
+    settings?.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
+    !isPositiveMarketPresetCustomValue(settings.priorityFee.customValue)
+  ) {
+    return ESwapNetworkFeeLevel.MEDIUM;
+  }
+
+  if (
     settings?.priorityFee.type === EMarketPresetPriorityFeeType.FAST ||
     settings?.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM
   ) {
@@ -379,16 +417,23 @@ export function getMarketPresetNetworkFeeLevel(
   return ESwapNetworkFeeLevel.MEDIUM;
 }
 
-export function isValidMarketPresetCustomValue(value?: string) {
+function getMarketPresetCustomValueBN(value?: string) {
   if (!value) {
-    return false;
+    return undefined;
   }
 
   const valueBN = new BigNumber(value);
-  // Reject NaN, Infinity, negatives, and zero. `new BigNumber('Infinity')`
-  // produces a non-NaN value that satisfies `gt(0)`, so the explicit
-  // `isFinite()` check is required to keep the value usable downstream.
-  return valueBN.isFinite() && valueBN.gt(0);
+  return valueBN.isFinite() ? valueBN : undefined;
+}
+
+export function isValidMarketPresetCustomValue(value?: string) {
+  const valueBN = getMarketPresetCustomValueBN(value);
+  return !!valueBN && !valueBN.isNegative();
+}
+
+function isPositiveMarketPresetCustomValue(value?: string) {
+  const valueBN = getMarketPresetCustomValueBN(value);
+  return !!valueBN && valueBN.gt(0);
 }
 
 export function isInvalidMarketPresetSlippageSettings(
@@ -437,7 +482,7 @@ export function getMarketPresetPriorityFeeOverride(
   if (
     settings?.priorityFee.type !== EMarketPresetPriorityFeeType.CUSTOM ||
     !customValue ||
-    !isValidMarketPresetCustomValue(customValue)
+    !isPositiveMarketPresetCustomValue(customValue)
   ) {
     return undefined;
   }

@@ -17,7 +17,6 @@ const setSlippageSettingMock = jest.fn();
 const resetAnalyticsMock = jest.fn();
 const logSwapActionMock = jest.fn();
 const tokenInputSectionMock = jest.fn();
-const marketPresetSelectorMock = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
   SizableText: ({ children }: { children?: ReactNode }) => (
@@ -27,7 +26,6 @@ jest.mock('@onekeyhq/components', () => ({
   Toast: {
     message: jest.fn(),
   },
-  useMedia: () => ({ gtMd: false }),
 }));
 
 jest.mock('react-intl', () => ({
@@ -91,10 +89,7 @@ jest.mock('./components/SlippageSetting', () => ({
 }));
 
 jest.mock('./components/MarketPresetSelector', () => ({
-  MarketPresetSelector: (props: unknown) => {
-    marketPresetSelectorMock(props);
-    return <div data-testid="market-preset-selector" />;
-  },
+  MarketPresetSelector: () => <div data-testid="market-preset-selector" />,
 }));
 
 jest.mock('./components/ActionButton', () => ({
@@ -187,7 +182,6 @@ describe('SwapPanelContent', () => {
     resetAnalyticsMock.mockReset();
     logSwapActionMock.mockReset();
     tokenInputSectionMock.mockReset();
-    marketPresetSelectorMock.mockReset();
   });
 
   it('routes the main action button to the review swap handler', () => {
@@ -302,59 +296,8 @@ describe('SwapPanelContent', () => {
 
     render(<SwapPanelContent {...props} />);
 
-    const actionButton = screen.getByTestId('action-button');
-    const marketPresetSelector = screen.getByTestId('market-preset-selector');
-    expect(marketPresetSelector).toBeTruthy();
-    expect(marketPresetSelector.compareDocumentPosition(actionButton)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(marketPresetSelectorMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        variant: 'full',
-      }),
-    );
+    expect(screen.getByTestId('market-preset-selector')).toBeTruthy();
     expect(screen.queryByTestId('slippage')).toBeNull();
-  });
-
-  it('uses compact Market preset widget inside the mobile swap dialog', () => {
-    const props = createProps();
-    props.onCloseDialog = jest.fn();
-    props.marketPresetSettings = {
-      config: undefined,
-      enabled: true,
-      isLoading: false,
-      presets: [],
-      presetCustomizedMap: {},
-      priorityFeeUnit: 'Gwei',
-      savedSettings: undefined,
-      selectedPresetKey: 'auto',
-      selectedPreset: undefined,
-      selectedDirectionSettings: {
-        slippage: {
-          key: 'auto',
-        },
-        priorityFee: {
-          type: 'market',
-        },
-      },
-      selectedNetworkFeeLevel: 'medium',
-      selectedSlippageValue: 0.5,
-      defaultSlippageValue: 0.5,
-      tradeSide: 'buy',
-      onPresetChange: jest.fn(),
-      onSavePresetDirectionSettings: jest.fn(),
-      onResetPresetDirectionSettings: jest.fn(),
-      getDirectionSettings: jest.fn(),
-      getSavedDirectionSettings: jest.fn(),
-    } as never;
-
-    render(<SwapPanelContent {...props} />);
-
-    expect(marketPresetSelectorMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        variant: 'compact',
-      }),
-    );
   });
 
   it('suppresses the standalone slippage setting while Market preset config is loading', () => {

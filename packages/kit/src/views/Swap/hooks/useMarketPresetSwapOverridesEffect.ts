@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import {
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
+  useSwapProTradeTypeAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippageOverrideAtom,
@@ -13,6 +14,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapNetworkFeeLevel,
+  ESwapProTradeType,
   ESwapTabSwitchType,
   type IMarketPresetTokenContext,
 } from '@onekeyhq/shared/types/swap/types';
@@ -31,6 +33,7 @@ export function useMarketPresetSwapOverridesEffect({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [, setSwapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
   const [, setSwapSlippageOverride] = useSwapSlippageOverrideAtom();
   const requestIdRef = useRef(0);
@@ -59,7 +62,15 @@ export function useMarketPresetSwapOverridesEffect({
     let tradeSide: EMarketPresetTradeSide | undefined;
     const focusSwapPro =
       platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
-    if (focusSwapPro && matchToken(swapProSelectToken)) {
+    const focusSwapProMarket =
+      focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET;
+    if (focusSwapPro && !focusSwapProMarket) {
+      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
+      setSwapSlippageOverride(undefined);
+      return;
+    }
+
+    if (focusSwapProMarket && matchToken(swapProSelectToken)) {
       tradeSide =
         swapProDirection === ESwapDirection.SELL
           ? EMarketPresetTradeSide.SELL
@@ -98,6 +109,7 @@ export function useMarketPresetSwapOverridesEffect({
     swapTypeSwitch,
     swapProSelectToken,
     swapProDirection,
+    swapProTradeType,
     setSwapStepNetFeeLevel,
     setSwapSlippageOverride,
   ]);
