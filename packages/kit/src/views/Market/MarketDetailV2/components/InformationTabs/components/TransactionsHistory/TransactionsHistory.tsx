@@ -105,8 +105,7 @@ export function TransactionsHistoryBase({
   const normalMode =
     isNative ||
     (!platformEnv.isNative && !gtXl && !(websocketConfig?.txs ?? false));
-  const enableRealtimePause =
-    !normalMode && isVisible && (platformEnv.isNative || gtXl);
+  const enableRealtimePause = !normalMode && isVisible;
   const enableHoverRealtimePause = enableRealtimePause && !platformEnv.isNative;
   const enableTouchRealtimePause = enableRealtimePause && platformEnv.isNative;
 
