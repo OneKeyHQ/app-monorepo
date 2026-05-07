@@ -42,6 +42,8 @@ export function useMarketPresetSwapOverridesEffect({
     requestIdRef.current = requestId;
 
     if (!marketPresetToken?.networkId) {
+      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
+      setSwapSlippageOverride(undefined);
       return;
     }
 
