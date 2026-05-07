@@ -627,7 +627,7 @@ const TokenFundingCellDesktop = memo(() => {
           justifyContent="flex-start"
         >
           <SkeletonContainer
-            isLoading={!isSpot && isLoading}
+            isLoading={!isSpot ? isLoading : false}
             width="80%"
             height={16}
           >
@@ -714,7 +714,7 @@ const TokenMarketCapCellDesktop = memo(() => {
         justifyContent="flex-start"
       >
         <SkeletonContainer
-          isLoading={Boolean(isSpot) && isLoading}
+          isLoading={isSpot ? isLoading : false}
           width="80%"
           height={16}
         >
@@ -774,7 +774,7 @@ const TokenOpenInterestCellDesktop = memo(() => {
           justifyContent="flex-start"
         >
           <SkeletonContainer
-            isLoading={!isSpot && isLoading}
+            isLoading={!isSpot ? isLoading : false}
             width="80%"
             height={16}
           >
