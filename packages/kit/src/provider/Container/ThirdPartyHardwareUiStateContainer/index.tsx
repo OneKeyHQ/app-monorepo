@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,6 +18,7 @@ import {
 import type { IDialogInstance, ILottieViewProps } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
+import type { IAdapterUiResponse } from '@onekeyhq/kit-bg/src/services/ServiceHardware/adapters/types';
 import type { IThirdPartyHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EThirdPartyHardwareUiAction,
@@ -165,7 +167,10 @@ function DeviceActionToast({
 // Dialog content config
 // ---------------------------------------------------------------------------
 
-function getDialogContent(state: IThirdPartyHardwareUiState): {
+function getDialogContent(
+  state: IThirdPartyHardwareUiState,
+  intl: IntlShape,
+): {
   title: string;
   message: string;
   showFooter: boolean;
@@ -174,13 +179,29 @@ function getDialogContent(state: IThirdPartyHardwareUiState): {
   const device = getDeviceLabel(vendor);
 
   switch (action) {
-    case EThirdPartyHardwareUiAction.requestUnlock:
+    case EThirdPartyHardwareUiAction.requestDeviceNotFound:
       // TODO: replace with ETranslations + ICU {device} placeholder when available
       return {
         title: `Connect ${device}`,
         message:
           payload?.message ||
           `Please connect and unlock your ${device} device, then press Confirm.`,
+        showFooter: true,
+      };
+    case EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm:
+      return {
+        title: intl.formatMessage({
+          id: ETranslations.hardware_third_party_btc_high_index_confirm_title,
+        }),
+        message: intl.formatMessage(
+          {
+            id: ETranslations.hardware_third_party_btc_high_index_confirm_desc,
+          },
+          {
+            path: payload?.path ?? '',
+            accountIndex: payload?.accountIndex ?? '',
+          },
+        ),
         showFooter: true,
       };
     // open-app, searching, unlock-device, confirm-on-device → handled by Toast
@@ -191,13 +212,17 @@ function getDialogContent(state: IThirdPartyHardwareUiState): {
 }
 
 // Actions that need confirm/cancel footer (blocking requests)
-const REQUEST_ACTIONS = new Set([EThirdPartyHardwareUiAction.requestUnlock]);
+const REQUEST_ACTIONS = new Set([
+  EThirdPartyHardwareUiAction.requestDeviceNotFound,
+  EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm,
+]);
 
 // ---------------------------------------------------------------------------
 // Container
 // ---------------------------------------------------------------------------
 
 function ThirdPartyHardwareUiStateContainerCmp() {
+  const intl = useIntl();
   const [uiState] = useThirdPartyHardwareUiStateAtom();
   const uiStateRef = useRef(uiState);
   uiStateRef.current = uiState;
@@ -208,32 +233,88 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const isToastAction = isThirdPartyToastAction(uiState?.action);
   const isDialogAction = !!uiState && !isToastAction;
 
-  const handleClose = useCallback(async (params?: { flag?: string }) => {
-    if (params?.flag !== AUTO_CLOSED_FLAG) {
+  // Toast / Dialog onClose are passive notifications only — they fire on every
+  // open=false transition (atom programmatic change, Confirm-driven clear,
+  // user dismiss, Esc, etc.) and Tamagui gives us no way to distinguish them.
+  // The "user-actually-cancelled" contract is bound to the explicit footer
+  // Cancel button (handleUserCancel) instead, which is the only path allowed
+  // to call thirdPartyHardwareCancel. This keeps programmatic atom transitions
+  // (handleConfirm clearing atom, SDK driving ui-state changes) from
+  // accidentally rejecting an in-flight SDK _uiRegistry.wait.
+  const handleToastClose = useCallback(async () => {
+    // intentional no-op
+  }, []);
+
+  const handleDialogClose = useCallback(async (params?: { flag?: string }) => {
+    if (params?.flag === AUTO_CLOSED_FLAG) {
+      await thirdPartyHardwareUiStateAtom.set(undefined);
+    }
+    // intentional no-op for any other source — see comment above.
+  }, []);
+
+  const buildUiResponse = useCallback(
+    (
+      action: EThirdPartyHardwareUiAction | undefined,
+      confirmed: boolean,
+    ): IAdapterUiResponse | null => {
+      switch (action) {
+        case EThirdPartyHardwareUiAction.requestDeviceNotFound:
+          return {
+            type: UI_RESPONSE.RECEIVE_DEVICE_CONNECT,
+            payload: { confirmed },
+          };
+        case EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm:
+          return {
+            type: UI_RESPONSE.RECEIVE_BTC_HIGH_INDEX_CONFIRM,
+            payload: { confirmed },
+          };
+        default:
+          return null;
+      }
+    },
+    [],
+  );
+
+  const handleUserCancel = useCallback(
+    async (close: () => Promise<void>) => {
       const vendor = uiStateRef.current?.vendor;
+      const action = uiStateRef.current?.action;
       if (vendor) {
-        await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
+        const response = buildUiResponse(action, false);
+        if (response) {
+          await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse(
+            { vendor, response },
+          );
+        } else {
+          await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
+            vendor,
+          });
+        }
+      }
+      await thirdPartyHardwareUiStateAtom.set(undefined);
+      await close();
+    },
+    [buildUiResponse],
+  );
+
+  const handleConfirm = useCallback(async () => {
+    const vendor = uiStateRef.current?.vendor;
+    const action = uiStateRef.current?.action;
+    if (vendor) {
+      const response = buildUiResponse(action, true);
+      if (response) {
+        await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse({
           vendor,
+          response,
         });
       }
     }
     await thirdPartyHardwareUiStateAtom.set(undefined);
-  }, []);
-
-  const handleConfirm = useCallback(async () => {
-    const vendor = uiStateRef.current?.vendor;
-    if (vendor) {
-      await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse({
-        vendor,
-        type: 'confirm',
-      });
-    }
-    await thirdPartyHardwareUiStateAtom.set(undefined);
-  }, []);
+  }, [buildUiResponse]);
 
   const dialogContent = useMemo(() => {
     if (!uiState || isToastAction) return null;
-    const { message } = getDialogContent(uiState);
+    const { message } = getDialogContent(uiState, intl);
     return (
       <YStack>
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -241,12 +322,12 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         </SizableText>
       </YStack>
     );
-  }, [uiState, isToastAction]);
+  }, [uiState, isToastAction, intl]);
 
   const dialogTitle = useMemo(() => {
     if (!uiState || isToastAction) return '';
-    return getDialogContent(uiState).title;
-  }, [uiState, isToastAction]);
+    return getDialogContent(uiState, intl).title;
+  }, [uiState, isToastAction, intl]);
 
   const showFooter = useMemo(() => {
     if (!uiState) return false;
@@ -263,7 +344,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
           open={isToastAction}
           dismissOnOverlayPress={false}
           disableSwipeGesture
-          onClose={handleClose}
+          onClose={handleToastClose}
         >
           <DeviceActionToast
             action={uiState?.action}
@@ -284,7 +365,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
             disableDrag
             showFooter={showFooter}
             onConfirm={handleConfirm}
-            onClose={handleClose}
+            onCancel={handleUserCancel}
+            onClose={handleDialogClose}
           />
         ) : null}
       </Portal.Body>

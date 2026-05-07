@@ -1,5 +1,4 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
-import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -76,7 +75,11 @@ import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type { IThirdPartyVendor } from './adapters/thirdPartyHardwareAdapterRegistry';
-import type { DeviceInfo, IThirdPartyHardwareAdapter } from './adapters/types';
+import type {
+  DeviceInfo,
+  IAdapterUiResponse,
+  IThirdPartyHardwareAdapter,
+} from './adapters/types';
 import type {
   IBaseDeviceProcessingParams,
   IChangePinParams,
@@ -848,11 +851,17 @@ class ServiceHardware extends ServiceBase {
         const err = error as { code?: number | string; message?: string };
         const rawCode =
           typeof err?.code === 'number' ? err.code : Number(err?.code);
+        const permissionDeniedReason = (err as { reason?: string }).reason;
         return {
           success: false as const,
           payload: {
             code: Number.isFinite(rawCode) ? rawCode : -1,
             error: err?.message ?? String(error),
+            params: permissionDeniedReason
+              ? {
+                  permissionDeniedReason,
+                }
+              : undefined,
           },
         };
       }
@@ -1736,18 +1745,12 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async thirdPartyHardwareUiResponse(params: {
     vendor: EHardwareVendor;
-    type: 'confirm' | 'cancel';
+    response: IAdapterUiResponse;
   }) {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) return;
-
-    // Only REQUEST_DEVICE_CONNECT flows through this path today. Extend the
-    // mapping when PIN / passphrase / select-device dialogs are wired up.
-    adapter.uiResponse({
-      type: UI_RESPONSE.RECEIVE_DEVICE_CONNECT,
-      payload: { confirmed: params.type === 'confirm' },
-    });
+    adapter.uiResponse(params.response);
   }
 
   @backgroundMethod()

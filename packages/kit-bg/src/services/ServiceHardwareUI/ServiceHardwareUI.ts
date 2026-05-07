@@ -31,7 +31,6 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
-  EThirdPartyHardwareUiAction,
   hardwareUiStateAtom,
   thirdPartyHardwareUiStateAtom,
 } from '../../states/jotai/atoms';
@@ -514,16 +513,10 @@ class ServiceHardwareUI extends ServiceBase {
             connectId,
           });
         }
-        if (
-          isThirdPartyVendor &&
-          !hideCheckingDeviceLoading &&
-          device?.vendor
-        ) {
-          void thirdPartyHardwareUiStateAtom.set({
-            action: EThirdPartyHardwareUiAction.searching,
-            vendor: device.vendor,
-          });
-        }
+        // Third-party "searching" state is driven entirely by the SDK now —
+        // it emits EConnectorInteraction.Searching at every _doConnect loop
+        // iteration. The kit-bg LedgerAdapter ui-event switch maps it to the
+        // atom. No monorepo-side priming needed.
 
         // await waitForCancelDone();
 
