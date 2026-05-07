@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
+  Icon,
   Page,
+  SizableText,
   Spinner,
   Stack,
   XStack,
@@ -23,9 +26,8 @@ import {
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ANDROID_PACKAGE_NAME,
-  APP_STORE_DOWNLOAD_LINK,
   APP_STORE_DOWNLOAD_WEB_LINK,
-  DOWNLOAD_MOBILE_APP_URL,
+  PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -47,40 +49,13 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
-// Deep-link → store fallback timing constants.
-// On mobile web, we attempt to open the app via deep link, then redirect to
-// the app store if the page stays visible (i.e. the deep link had no handler).
-
-// How long to wait after firing the deep link before redirecting to the store.
-// 1200 ms is a trade-off: long enough for the OS to open the app and trigger
-// visibilitychange/pagehide, short enough that the user doesn't stare at a
-// blank page.  Empirically validated on iOS 17 Safari & Android Chrome 120+.
-const DEEP_LINK_FALLBACK_DELAY_MS = 1200;
-
-// After injecting the hidden iframe for the deep link on iOS, keep it alive
-// long enough for the OS to finish handling.  Must be >= DEEP_LINK_FALLBACK_DELAY_MS
-// so the iframe is still present when Safari checks for a handler.
-const IFRAME_CLEANUP_DELAY_MS = DEEP_LINK_FALLBACK_DELAY_MS + 500; // 1700 ms
-
-// iOS-specific: when `itms-apps://` fails to open the App Store app (e.g.
-// restricted profile), we fall back to the HTTPS web link after this delay.
-const IOS_STORE_WEB_FALLBACK_DELAY_MS = 300;
-
-// If the store redirect round-trip takes longer than this, assume the App
-// Store actually opened (the timer fired late because the page was backgrounded)
-// and skip the web fallback.
-const IOS_STORE_ELAPSED_THRESHOLD_MS = 1500;
-
 // Delay before opening the InvitedByFriend modal after tab navigation.
 // Gives the target tab enough time to mount and render before the modal overlay.
 const MODAL_OPEN_DELAY_MS = 1500;
 
-// Build an Android intent:// URL with built-in Play Store fallback.
-// Chrome (and Chromium-based browsers) handles this natively: opens the app if
-// installed, otherwise redirects to S.browser_fallback_url.
-// Using location.href with a raw custom scheme (onekey-wallet://) on Android
-// navigates to an ERR_UNKNOWN_URL_SCHEME error page, destroying the JS context
-// and any fallback timers.
+// Build an Android intent:// URL that opens the app without sending users to a
+// store automatically. The current page is used as browser fallback so users can
+// still choose the store option themselves if the app is not installed.
 function buildAndroidIntentUrl(
   deepLinkUrl: string,
   fallbackUrl: string,
@@ -92,6 +67,10 @@ function buildAndroidIntentUrl(
   const scheme = deepLinkUrl.slice(0, schemeEnd);
   const rest = deepLinkUrl.slice(schemeEnd + 3);
   return `intent://${rest}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+}
+
+function openIOSAppStore() {
+  globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
 }
 
 // Wait for navigation to be ready
@@ -142,6 +121,44 @@ const normalizeReferralLandingPageName = (
     : undefined;
 };
 
+function MobileWebOptionCard({
+  icon,
+  title,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Icon>['name'];
+  title: string;
+  onPress: () => void;
+}) {
+  return (
+    <Stack
+      borderWidth={1}
+      borderColor="$borderStrong"
+      borderRadius="$3"
+      p="$3"
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={onPress}
+      cursor="pointer"
+    >
+      <XStack alignItems="center" gap="$3">
+        <Stack
+          bg="$bgStrong"
+          borderRadius="$2"
+          p="$2"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon name={icon} size="$5" color="$iconSubdued" />
+        </Stack>
+        <YStack flex={1} gap="$0.5">
+          <SizableText size="$bodyLgMedium">{title}</SizableText>
+        </YStack>
+        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+      </XStack>
+    </Stack>
+  );
+}
+
 function ReferralLandingPage() {
   const route = useAppRoute<
     ITabHomeParamList,
@@ -170,111 +187,146 @@ function ReferralLandingPage() {
 
   const isMobileWeb = platformEnv.isWeb && platformEnv.isWebMobile;
 
-  const [isJoining, setIsJoining] = useState(false);
+  const buildMobileDeepLinkUrl = useCallback(
+    () =>
+      code
+        ? uriUtils.buildDeepLinkUrl({
+            path: EOneKeyDeepLinkPath.invited_by_friend,
+            query: {
+              code,
+              page,
+            },
+          })
+        : '',
+    [code, page],
+  );
 
-  // Mobile web: user presses "Join" → try deep link, fall back to app store.
-  const handleMobileWebJoin = useCallback(() => {
-    if (isJoining) {
-      return;
-    }
-    setIsJoining(true);
-    const storeUrlAuto = platformEnv.isWebMobileIOS
-      ? APP_STORE_DOWNLOAD_WEB_LINK
-      : DOWNLOAD_MOBILE_APP_URL;
-
-    const deepLinkUrl = code
-      ? uriUtils.buildDeepLinkUrl({
-          path: EOneKeyDeepLinkPath.invited_by_friend,
-          query: {
-            code,
-            page,
-          },
-        })
-      : '';
-
+  const logMobileWebReferralLinkEntry = useCallback(() => {
     defaultLogger.referral.page.enterReferralGuide(code, 'web_mobile_redirect');
     defaultLogger.referral.page.enterFromReferralLink({
       referralCode: code ?? '',
       landingPage: page ? `/app/${page}` : '/app',
       utmSource: 'web_mobile_redirect',
     });
+  }, [code, page]);
 
-    const redirectToStore = () => {
+  const handleOpenMobileApp = useCallback(() => {
+    logMobileWebReferralLinkEntry();
+    defaultLogger.referral.page.clickAcceptInviteButton({
+      referralCode: code ?? '',
+      acceptMethod: 'web_no_extension',
+    });
+
+    const deepLinkUrl = buildMobileDeepLinkUrl();
+    if (!deepLinkUrl) {
       if (platformEnv.isWebMobileIOS) {
-        const storeStartTime = Date.now();
-        globalThis.location.href = APP_STORE_DOWNLOAD_LINK;
-        globalThis.setTimeout(() => {
-          const elapsed = Date.now() - storeStartTime;
-          const isVisible = globalThis.document?.visibilityState !== 'hidden';
-          if (isVisible && elapsed <= IOS_STORE_ELAPSED_THRESHOLD_MS) {
-            globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
-          }
-        }, IOS_STORE_WEB_FALLBACK_DELAY_MS);
+        openIOSAppStore();
         return;
       }
-      globalThis.location.href = storeUrlAuto;
-    };
-
-    const openDeepLinkSilently = (url: string) => {
-      try {
-        const doc = globalThis.document;
-        if (doc?.body) {
-          const iframe = doc.createElement('iframe');
-          iframe.style.display = 'none';
-          iframe.style.width = '0';
-          iframe.style.height = '0';
-          iframe.src = url;
-          doc.body.appendChild(iframe);
-          globalThis.setTimeout(() => {
-            try {
-              iframe.remove();
-            } catch (removeError) {
-              console.error('Failed to remove deep link iframe:', removeError);
-            }
-          }, IFRAME_CLEANUP_DELAY_MS);
-          return;
-        }
-      } catch (error) {
-        console.error('Failed to open deep link via iframe:', error);
-      }
-      globalThis.location.href = url;
-    };
-
-    if (deepLinkUrl) {
-      if (platformEnv.isWebMobileAndroid) {
-        const intentUrl = buildAndroidIntentUrl(
-          deepLinkUrl,
-          DOWNLOAD_MOBILE_APP_URL,
-        );
-        globalThis.location.href = intentUrl;
-      } else if (platformEnv.isWebMobileIOS) {
-        const armTime = Date.now();
-        globalThis.setTimeout(() => {
-          const elapsed = Date.now() - armTime;
-          const isVisible = globalThis.document?.visibilityState !== 'hidden';
-          const timerFiredLate = elapsed > DEEP_LINK_FALLBACK_DELAY_MS * 2;
-          if (isVisible && !timerFiredLate) {
-            redirectToStore();
-          }
-        }, DEEP_LINK_FALLBACK_DELAY_MS);
-        openDeepLinkSilently(deepLinkUrl);
-      } else {
-        globalThis.setTimeout(() => {
-          const isVisible = globalThis.document?.visibilityState !== 'hidden';
-          if (isVisible) {
-            redirectToStore();
-          }
-        }, DEEP_LINK_FALLBACK_DELAY_MS);
-        globalThis.location.href = deepLinkUrl;
-      }
-    } else {
-      redirectToStore();
+      globalThis.location.href = PLAY_STORE_LINK;
+      return;
     }
-  }, [code, page, isJoining]);
+
+    if (platformEnv.isWebMobileAndroid) {
+      const intentUrl = buildAndroidIntentUrl(
+        deepLinkUrl,
+        globalThis.location.href,
+      );
+      globalThis.location.href = intentUrl;
+      return;
+    }
+
+    if (platformEnv.isWebMobileIOS) {
+      globalThis.location.href = deepLinkUrl;
+      return;
+    }
+
+    globalThis.location.href = deepLinkUrl;
+  }, [buildMobileDeepLinkUrl, code, logMobileWebReferralLinkEntry]);
+
+  const handleOpenMobileStore = useCallback(() => {
+    logMobileWebReferralLinkEntry();
+    defaultLogger.referral.page.clickAcceptInviteButton({
+      referralCode: code ?? '',
+      acceptMethod: 'web_no_extension',
+    });
+
+    if (platformEnv.isWebMobileIOS) {
+      openIOSAppStore();
+      return;
+    }
+
+    globalThis.location.href = PLAY_STORE_LINK;
+  }, [code, logMobileWebReferralLinkEntry]);
+
+  let storeIcon: React.ComponentProps<typeof Icon>['name'] = 'StoreOutline';
+  if (platformEnv.isWebMobileIOS) {
+    storeIcon = 'AppleBrand';
+  } else if (platformEnv.isWebMobileAndroid) {
+    storeIcon = 'GooglePlayBrand';
+  }
+
+  const handleShowMobileWebOptions = useCallback(() => {
+    const dialog = Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.referral_choose_how_to_bind,
+      }),
+      showCancelButton: false,
+      showConfirmButton: false,
+      estimatedContentHeight: 128,
+      renderContent: (
+        <YStack gap="$2">
+          <MobileWebOptionCard
+            icon="PhoneOutline"
+            title={intl.formatMessage({
+              id: ETranslations.open_in_mobile_app,
+            })}
+            onPress={() => {
+              handleOpenMobileApp();
+              void dialog.close();
+            }}
+          />
+
+          <MobileWebOptionCard
+            icon={storeIcon}
+            title={intl.formatMessage({
+              id: ETranslations.global_download_app,
+            })}
+            onPress={() => {
+              handleOpenMobileStore();
+              void dialog.close();
+            }}
+          />
+        </YStack>
+      ),
+    });
+  }, [handleOpenMobileApp, handleOpenMobileStore, intl, storeIcon]);
+
+  const mobileWebFooter = (
+    <XStack
+      gap="$4"
+      w="100%"
+      justifyContent="space-between"
+      px="$4"
+      py="$4"
+      bg="$bgApp"
+    >
+      <Button
+        variant="primary"
+        flex={1}
+        size="large"
+        onPress={handleShowMobileWebOptions}
+      >
+        {intl.formatMessage({
+          id: ETranslations.wallet_subsidy_claim,
+        })}
+      </Button>
+    </XStack>
+  );
 
   // Native / desktop web: process referral after app is unlocked.
   // hasProcessedRef guards against duplicate processing in this effect only;
-  // the mobile web path is handled by handleMobileWebJoin (user-initiated).
+  // the mobile web path is handled by the explicit chooser above.
   const hasProcessedRef = useRef(false);
   useEffect(() => {
     if (hasProcessedRef.current) {
@@ -381,29 +433,7 @@ function ReferralLandingPage() {
             <InvitedByFriendContent referralCode={code} />
           </YStack>
         </Page.Body>
-        <Page.Footer>
-          <XStack
-            gap="$4"
-            w="100%"
-            justifyContent="space-between"
-            px="$4"
-            py="$4"
-            bg="$bgApp"
-          >
-            <Button
-              variant="primary"
-              flex={1}
-              size="large"
-              disabled={isJoining}
-              loading={isJoining}
-              onPress={handleMobileWebJoin}
-            >
-              {intl.formatMessage({
-                id: ETranslations.wallet_subsidy_claim,
-              })}
-            </Button>
-          </XStack>
-        </Page.Footer>
+        <Page.Footer>{mobileWebFooter}</Page.Footer>
       </Page>
     );
   }
