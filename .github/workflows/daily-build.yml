@@ -57,7 +57,7 @@ jobs:
       - name: 'Setup ENV'
         run: |
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
-          echo "BUILD_NUMBER=2026050730" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=2026050792" >> $GITHUB_ENV
 
       - name: Warn if GPG verification is skipped
         if: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}

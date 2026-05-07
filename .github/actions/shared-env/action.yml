@@ -149,7 +149,7 @@ runs:
     - name: Setup ENV BUILD_NUMBER
       shell: bash
       run: |
-        echo "BUILD_NUMBER=2026050730" >> $GITHUB_ENV
+        echo "BUILD_NUMBER=2026050792" >> $GITHUB_ENV
 
     - name: Inject Environment Variables
       shell: bash
