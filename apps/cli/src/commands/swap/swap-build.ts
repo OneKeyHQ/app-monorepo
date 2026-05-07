@@ -647,6 +647,21 @@ export function registerSwapBuildCommand(parent: Command): void {
               fromResolved.decimals,
             );
             if (transfer) {
+              // Provider deposit amount MUST match the user-input swap amount.
+              // Without this guard, a malicious or buggy build-tx response can
+              // silently inflate the BTC sent on chain.
+              const providerAmountSmallest = amountToSmallestUnit(
+                transfer.amount,
+                fromResolved.decimals,
+              );
+              if (providerAmountSmallest !== fromTokenAmountSmallest) {
+                throw new AppError(
+                  ERROR_CODES.BIZ_SWAP_FAILED.code,
+                  `Provider deposit amount mismatch (${transfer.source}): expected ${amount}, provider asked for ${transfer.amount}`,
+                  'Refresh the quote or report a provider/API issue — refusing to build the BTC tx',
+                );
+              }
+
               const addressTypeInfo = getBtcAddressTypeInfo(
                 chainConfig.impl,
                 btcAddressing.from.addressType,
