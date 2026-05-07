@@ -3,7 +3,6 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import {
   ESplitViewType,
   SplitViewContext,
-  isNativeTablet,
 } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
@@ -11,6 +10,7 @@ import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
 import { Bootstrap } from '../Bootstrap';
@@ -99,8 +99,8 @@ export function Container() {
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('Container render');
   }
-  const isTablet = isNativeTablet();
-  if (isTablet) {
+  const shouldUseSplitView = useShouldUseSplitView();
+  if (shouldUseSplitView) {
     return (
       <RootSiblingParent>
         <AppStateLockContainer>
