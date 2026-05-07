@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { OAuthLoginCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -160,8 +161,28 @@ function OneKeyIDLoginPage() {
       }
       // Close the same-tick re-entry window before React state updates commit.
       loggingInProviderRef.current = provider;
+      const reportOAuthFailure = () => {
+        if (!isVerifyMode) {
+          defaultLogger.account.wallet.walletAdded({
+            status: 'failure',
+            addMethod: 'CreateKeylessWallet',
+            isSoftwareWalletOnlyUser: true,
+            details: { provider },
+          });
+        }
+      };
       try {
         setLoggingInProvider(provider);
+        // Pair every wallet-creation OAuth attempt with a start event so failure
+        // events have a matching denominator. Reset/verify flows reuse OAuth for
+        // identity only and don't create a wallet.
+        if (!isVerifyMode && !isResetMode) {
+          defaultLogger.account.wallet.addWalletStarted({
+            addMethod: 'CreateKeylessWallet',
+            isSoftwareWalletOnlyUser: true,
+            details: { provider },
+          });
+        }
         const result = await signInWithSocialLogin(provider);
         if (result?.session?.accessToken) {
           if (isResetMode) {
@@ -175,26 +196,21 @@ function OneKeyIDLoginPage() {
             });
             setIsResetMode(false);
           } else {
-            // Track wallet creation started after OAuth login succeeds
-            if (!isVerifyMode) {
-              defaultLogger.account.wallet.addWalletStarted({
-                addMethod: 'CreateKeylessWallet',
-                isSoftwareWalletOnlyUser: true,
-                details: {
-                  provider:
-                    provider === EOAuthSocialLoginProvider.Google
-                      ? 'google'
-                      : 'apple',
-                },
-              });
-            }
             await checkKeylessWalletCreatedOnServer({
               token: result.session.accessToken,
               refreshToken: result.session.refreshToken,
               mode,
             });
           }
+        } else {
+          reportOAuthFailure();
         }
+      } catch (error) {
+        // User cancellation is normal behavior, not a failure metric.
+        if (!(error instanceof OAuthLoginCancelError)) {
+          reportOAuthFailure();
+        }
+        throw error;
       } finally {
         loggingInProviderRef.current = null;
         setLoggingInProvider(null);
