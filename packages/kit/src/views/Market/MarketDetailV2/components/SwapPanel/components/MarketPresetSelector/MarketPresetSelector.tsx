@@ -42,6 +42,7 @@ import type { IMarketPresetSettingsState } from '../../hooks/useMarketPresetSett
 type IMarketPresetSelectorProps = {
   presetSettings: IMarketPresetSettingsState;
   slippageIconName?: IIconProps['name'];
+  showAutoSlippageLabel?: boolean;
 };
 
 type IDraftPresetSettings = Partial<
@@ -733,6 +734,7 @@ function MarketPresetSettingsDialog({
 export function MarketPresetSelector({
   presetSettings,
   slippageIconName = 'SliderVerOutline',
+  showAutoSlippageLabel = false,
 }: IMarketPresetSelectorProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -782,7 +784,12 @@ export function MarketPresetSelector({
     return null;
   }
 
-  const slippageLabel = `${selectedSlippageValue}%`;
+  const slippageLabel =
+    !gtMd &&
+    showAutoSlippageLabel &&
+    selectedDirectionSettings.slippage.key === ESwapSlippageSegmentKey.AUTO
+      ? intl.formatMessage({ id: ETranslations.global_auto })
+      : `${selectedSlippageValue}%`;
   const priorityFeeLabel = getPriorityFeeLabel({
     intl,
     settings: selectedDirectionSettings,

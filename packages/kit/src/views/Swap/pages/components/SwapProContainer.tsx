@@ -270,7 +270,10 @@ const SwapProContainer = ({
       </XStack>
       {showMarketPresetSelector && marketPresetSettings ? (
         <YStack pb="$3">
-          <MarketPresetSelector presetSettings={marketPresetSettings} />
+          <MarketPresetSelector
+            presetSettings={marketPresetSettings}
+            showAutoSlippageLabel
+          />
         </YStack>
       ) : null}
       <SwapProErrorAlert
