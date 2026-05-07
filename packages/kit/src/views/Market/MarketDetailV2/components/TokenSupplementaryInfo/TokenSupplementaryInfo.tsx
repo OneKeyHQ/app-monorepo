@@ -18,8 +18,7 @@ import {
   MARKET_CAP_FORMATTER,
   USD_CURRENCY_FORMATTER,
   formatBlockHeightValue,
-  formatBtcSupplyValue,
-  formatCurrencyStatValue,
+  formatMarketCapValue,
   formatStatValueWithFormatter,
 } from '../../utils/statValue';
 
@@ -54,12 +53,14 @@ export function TokenSupplementaryInfo() {
           label: intl.formatMessage({
             id: ETranslations.dexmarket_btc_total_supply,
           }),
-          value: formatBtcSupplyValue(btcMetadata.totalSupply),
+          value: formatMarketCapValue(btcMetadata.totalSupply),
         },
         {
-          key: 'fdv',
-          label: intl.formatMessage({ id: ETranslations.dexmarket_fdv_title }),
-          value: formatCurrencyStatValue(btcMetadata.fdv),
+          key: 'remainingSupply',
+          label: intl.formatMessage({
+            id: ETranslations.dexmarket_btc_remaining_supply,
+          }),
+          value: formatMarketCapValue(btcMetadata.remainingSupply),
         },
         {
           key: 'blockHeight',
