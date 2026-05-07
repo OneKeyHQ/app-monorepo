@@ -158,6 +158,23 @@ export function TokenDetailHeaderRight({
         />
         <StatItem
           label={intl.formatMessage({
+            id: ETranslations.dexmarket_stock_24h_volume,
+          })}
+          value={
+            <NumberSizeableText
+              size="$headingXs"
+              color="$text"
+              formatter="marketCap"
+              formatterOptions={{
+                currency: '$',
+              }}
+            >
+              {btcMetadata.volume24h}
+            </NumberSizeableText>
+          }
+        />
+        <StatItem
+          label={intl.formatMessage({
             id: ETranslations.dexmarket_btc_circulating_supply,
           })}
           value={
@@ -165,24 +182,8 @@ export function TokenDetailHeaderRight({
               size="$headingXs"
               color="$text"
               formatter="marketCap"
-              formatterOptions={{ tokenSymbol: 'BTC' }}
             >
               {btcMetadata.circulatingSupply}
-            </NumberSizeableText>
-          }
-        />
-        <StatItem
-          label={intl.formatMessage({
-            id: ETranslations.dexmarket_btc_remaining_supply,
-          })}
-          value={
-            <NumberSizeableText
-              size="$headingXs"
-              color="$text"
-              formatter="marketCap"
-              formatterOptions={{ tokenSymbol: 'BTC' }}
-            >
-              {btcMetadata.remainingSupply}
             </NumberSizeableText>
           }
         />
