@@ -104,6 +104,9 @@ function useReviewStepStateActions() {
         preSwapData: {
           ...prev.preSwapData,
           stepBeforeActionsLoading: loading,
+          stepBeforeActionsError: loading
+            ? undefined
+            : prev.preSwapData.stepBeforeActionsError,
         },
       }));
     },
@@ -202,6 +205,7 @@ export function useSwapReviewActions({
             preSwapData: {
               ...reviewState.preSwapData,
               stepBeforeActionsLoading: false,
+              stepBeforeActionsError: undefined,
             },
           },
           {
@@ -214,6 +218,7 @@ export function useSwapReviewActions({
           preSwapData: {
             ...prev.preSwapData,
             stepBeforeActionsLoading: false,
+            stepBeforeActionsError: true,
             netWorkFee: undefined,
           },
         }));
