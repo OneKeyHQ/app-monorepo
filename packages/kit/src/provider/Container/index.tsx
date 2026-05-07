@@ -1,9 +1,6 @@
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import {
-  ESplitViewType,
-  SplitViewContext,
-} from '@onekeyhq/components';
+import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';

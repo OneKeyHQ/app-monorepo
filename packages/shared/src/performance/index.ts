@@ -1,7 +1,7 @@
 export default {
-  start: (_withCPU = false, _withMonitorView = false) => {},
+  start: (_intervalMs: number) => {},
   stop: () => {},
-  addListener: () => ({
-    remove: () => {},
-  }),
+  showOverlay: () => {},
+  hideOverlay: () => {},
+  sample: async () => ({ cpu: 0, rss: 0, timestamp: Date.now() }),
 };
