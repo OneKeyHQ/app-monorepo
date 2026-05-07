@@ -1,19 +1,25 @@
 import { useEffect, useRef } from 'react';
 
 import {
+  useSwapProDirectionAtom,
+  useSwapProSelectTokenAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippageOverrideAtom,
   useSwapStepNetFeeLevelAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapNetworkFeeLevel,
+  ESwapTabSwitchType,
   type IMarketPresetTokenContext,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { EMarketPresetTradeSide } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
 import { loadMarketPresetSwapOverrides } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSwapOverrides';
+import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
 export function useMarketPresetSwapOverridesEffect({
   marketPresetToken,
@@ -22,6 +28,9 @@ export function useMarketPresetSwapOverridesEffect({
 }) {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
   const [, setSwapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
   const [, setSwapSlippageOverride] = useSwapSlippageOverrideAtom();
   const requestIdRef = useRef(0);
@@ -46,7 +55,14 @@ export function useMarketPresetSwapOverridesEffect({
       });
 
     let tradeSide: EMarketPresetTradeSide | undefined;
-    if (matchToken(fromToken)) {
+    const focusSwapPro =
+      platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+    if (focusSwapPro && matchToken(swapProSelectToken)) {
+      tradeSide =
+        swapProDirection === ESwapDirection.SELL
+          ? EMarketPresetTradeSide.SELL
+          : EMarketPresetTradeSide.BUY;
+    } else if (matchToken(fromToken)) {
       tradeSide = EMarketPresetTradeSide.SELL;
     } else if (matchToken(toToken)) {
       tradeSide = EMarketPresetTradeSide.BUY;
@@ -77,6 +93,9 @@ export function useMarketPresetSwapOverridesEffect({
     marketPresetToken,
     fromToken,
     toToken,
+    swapTypeSwitch,
+    swapProSelectToken,
+    swapProDirection,
     setSwapStepNetFeeLevel,
     setSwapSlippageOverride,
   ]);
