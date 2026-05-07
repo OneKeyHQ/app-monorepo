@@ -20,7 +20,8 @@
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "7.0.2",
     "react-native-root-siblings": "^5.0.1",
-    "react-native-svg": "15.15.1"
+    "react-native-svg": "15.15.1",
+    "react-native-tab-view": "^3.5.1"
   },
   "devDependencies": {
     "@svgr/cli": "8.1.0",
