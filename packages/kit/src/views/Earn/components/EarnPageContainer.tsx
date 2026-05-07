@@ -1,4 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { Fragment, isValidElement, useCallback, useMemo } from 'react';
+
+import { useHeaderHeight } from '@react-navigation/elements';
 
 import type { IBreadcrumbProps, IScrollViewProps } from '@onekeyhq/components';
 import {
@@ -86,6 +88,107 @@ export function EarnPageContainer({
   const shouldShowTabPageHeader =
     platformEnv.isWebDappMode || showTabPageHeader;
 
+  // On iOS 26 push children, render via the native UINavigationBar so
+  // the header gets the system Liquid Glass material and the
+  // back-chevron sits in its proper iOS 26 circular glass container.
+  // Tab roots (showBackButton=false) keep TabPageHeader because they
+  // need account selector / notifications / search chrome that the
+  // native bar can't host as a single row.
+  const useNativeHeader = showBackButton && platformEnv.isNativeIOS26Plus;
+  // Liquid Glass header is translucent and the page content extends
+  // under it, so the ScrollView needs a top inset equal to the bar
+  // height — without it, the first content item sits clipped behind
+  // the navbar at scroll offset 0.
+  const nativeHeaderHeight = useHeaderHeight();
+
+  const renderNativeHeaderTitle = useCallback(
+    () =>
+      pageTitle ? (
+        <XStack gap="$2" ai="center">
+          {pageTitle}
+        </XStack>
+      ) : null,
+    [pageTitle],
+  );
+
+  // Callers (e.g. EarnProtocols) pass <></> on native to mean "hide the
+  // default right items of TabPageHeader". For the native Page.Header
+  // path we must NOT forward an empty fragment to headerRight — UIKit
+  // would still wrap the empty custom view in a bar button glass
+  // container and render a hollow circle. Treat null / undefined /
+  // false / empty Fragment as "no right item" and skip headerRight
+  // entirely so iOS 26 leaves the trailing slot empty.
+  const hasNativeHeaderRight = useMemo(() => {
+    const node = customHeaderRightItems;
+    if (node === null || node === undefined || node === false) return false;
+    if (
+      isValidElement(node) &&
+      node.type === Fragment &&
+      !(node as { props?: { children?: unknown } }).props?.children
+    ) {
+      return false;
+    }
+    return true;
+  }, [customHeaderRightItems]);
+
+  const renderNativeHeaderRight = useMemo(
+    () =>
+      hasNativeHeaderRight
+        ? () => <XStack>{customHeaderRightItems}</XStack>
+        : undefined,
+    [hasNativeHeaderRight, customHeaderRightItems],
+  );
+
+  const body = (
+    <Page.Body>
+      <ScrollView
+        contentContainerStyle={{
+          py: media.gtMd ? '$6' : 0,
+          ...contentContainerStyle,
+          ...(useNativeHeader ? { pt: nativeHeaderHeight } : {}),
+        }}
+        refreshControl={refreshControl}
+      >
+        <Page.Container
+          padded={false}
+          layout={disableMaxWidth ? 'full' : 'regular'}
+        >
+          {showBreadcrumb || showHeader ? (
+            <XStack
+              px="$pagePadding"
+              pb={showBreadcrumb && showBodyTitle && pageTitle ? '$6' : '$5'}
+              gap="$5"
+              ai="center"
+            >
+              {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}
+              {showHeader ? header : null}
+            </XStack>
+          ) : null}
+          {showBreadcrumb && showBodyTitle && pageTitle ? (
+            <XStack px="$pagePadding" pb="$5" gap="$3" ai="center">
+              {pageTitle}
+            </XStack>
+          ) : null}
+          {children}
+        </Page.Container>
+      </ScrollView>
+    </Page.Body>
+  );
+
+  if (useNativeHeader) {
+    return (
+      <Page>
+        <Page.Header
+          headerShown
+          headerTitle={renderNativeHeaderTitle}
+          headerRight={renderNativeHeaderRight}
+        />
+        {body}
+        {footer}
+      </Page>
+    );
+  }
+
   return (
     <Page>
       {shouldShowTabPageHeader ? (
@@ -101,38 +204,7 @@ export function EarnPageContainer({
           <LegacyUniversalSearchInput size="medium" initialTab="dapp" />
         </YStack>
       )}
-      <Page.Body>
-        <ScrollView
-          contentContainerStyle={{
-            py: media.gtMd ? '$6' : 0,
-            ...contentContainerStyle,
-          }}
-          refreshControl={refreshControl}
-        >
-          <Page.Container
-            padded={false}
-            layout={disableMaxWidth ? 'full' : 'regular'}
-          >
-            {showBreadcrumb || showHeader ? (
-              <XStack
-                px="$pagePadding"
-                pb={showBreadcrumb && showBodyTitle && pageTitle ? '$6' : '$5'}
-                gap="$5"
-                ai="center"
-              >
-                {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}
-                {showHeader ? header : null}
-              </XStack>
-            ) : null}
-            {showBreadcrumb && showBodyTitle && pageTitle ? (
-              <XStack px="$pagePadding" pb="$5" gap="$3" ai="center">
-                {pageTitle}
-              </XStack>
-            ) : null}
-            {children}
-          </Page.Container>
-        </ScrollView>
-      </Page.Body>
+      {body}
       {footer}
     </Page>
   );
