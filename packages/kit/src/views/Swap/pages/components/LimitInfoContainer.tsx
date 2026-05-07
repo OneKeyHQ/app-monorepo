@@ -40,6 +40,7 @@ const LimitInfoContainer = () => {
     limitPriceSetReverse,
     onChangeReverse,
     limitPriceEqualMarketPrice,
+    canUseLimitPriceMarketPrice,
   } = useSwapLimitRate();
   const intl = useIntl();
   const checkEqualMarketPrice = useCallback(
@@ -147,13 +148,26 @@ const LimitInfoContainer = () => {
                   ? '$borderActive'
                   : '$borderSubdued'
               }
-              onPress={() => onSetMarketPrice(percentage)}
-              hoverStyle={{
-                bg: '$bgStrongHover',
-              }}
-              pressStyle={{
-                bg: '$bgStrongActive',
-              }}
+              opacity={canUseLimitPriceMarketPrice ? 1 : 0.5}
+              onPress={
+                canUseLimitPriceMarketPrice
+                  ? () => onSetMarketPrice(percentage)
+                  : undefined
+              }
+              hoverStyle={
+                canUseLimitPriceMarketPrice
+                  ? {
+                      bg: '$bgStrongHover',
+                    }
+                  : undefined
+              }
+              pressStyle={
+                canUseLimitPriceMarketPrice
+                  ? {
+                      bg: '$bgStrongActive',
+                    }
+                  : undefined
+              }
             >
               {percentage === 0
                 ? intl.formatMessage({ id: ETranslations.Limit_market })
