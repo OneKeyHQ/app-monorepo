@@ -13,6 +13,10 @@ import {
   amountToSmallestUnit,
   validateAmountDecimals,
 } from '../../utils/tx-utils';
+import {
+  requireAuthenticatedCommand,
+  requireStringOption,
+} from '../command-guards';
 
 import {
   formatRouteHeader,
@@ -65,20 +69,20 @@ export function registerSwapBuildCommand(parent: Command): void {
   parent
     .command('build')
     .description('Build an unsigned swap transaction')
-    .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
+    .option('--chain <chain>', 'Target blockchain (e.g., eth, base, required)')
     .option(
       '--to-chain <chain>',
       'Destination chain for cross-chain bridge (default: same as --chain)',
     )
-    .requiredOption(
+    .option(
       '--from <token>',
-      'Source token (contract address or symbol)',
+      'Source token (contract address or symbol, required)',
     )
-    .requiredOption(
+    .option(
       '--to <token>',
-      'Destination token (contract address or symbol)',
+      'Destination token (contract address or symbol, required)',
     )
-    .requiredOption('--amount <amount>', 'Amount of source token to swap')
+    .option('--amount <amount>', 'Amount of source token to swap (required)')
     .option(
       '--provider <provider>',
       'Swap provider ID (auto-selected if omitted)',
@@ -93,11 +97,11 @@ export function registerSwapBuildCommand(parent: Command): void {
     .action(
       async (
         options: {
-          chain: string;
+          chain?: string;
           toChain?: string;
-          from: string;
-          to: string;
-          amount: string;
+          from?: string;
+          to?: string;
+          amount?: string;
           provider?: string;
           sort?: string;
           slippage?: string;
@@ -110,7 +114,17 @@ export function registerSwapBuildCommand(parent: Command): void {
         const output = globalOpts._outputFormatter as OutputFormatter;
 
         try {
-          const chainConfig = resolveChain(options.chain);
+          await requireAuthenticatedCommand();
+
+          const chain = requireStringOption(options.chain, '--chain <chain>');
+          const from = requireStringOption(options.from, '--from <token>');
+          const to = requireStringOption(options.to, '--to <token>');
+          const amount = requireStringOption(
+            options.amount,
+            '--amount <amount>',
+          );
+
+          const chainConfig = resolveChain(chain);
           const toChainInput = options.toChain;
           const toChainConfig = toChainInput
             ? resolveChain(toChainInput)
@@ -128,7 +142,7 @@ export function registerSwapBuildCommand(parent: Command): void {
             if (!isSwapSupported) {
               throw new AppError(
                 ERROR_CODES.PARAM_INVALID_CHAIN.code,
-                `Chain "${options.chain}" does not support swap`,
+                `Chain "${chain}" does not support swap`,
                 `Run 'onekey swap networks' to see supported chains.`,
               );
             }
@@ -156,8 +170,8 @@ export function registerSwapBuildCommand(parent: Command): void {
 
           // Resolve both tokens
           const [fromResolved, toResolved] = await Promise.all([
-            resolveToken(options.from, options.chain),
-            resolveToken(options.to, toChainInput ?? options.chain),
+            resolveToken(from, chain),
+            resolveToken(to, toChainInput ?? chain),
           ]);
 
           // fromToken decimals must be known and valid — no default allowed
@@ -169,7 +183,7 @@ export function registerSwapBuildCommand(parent: Command): void {
           ) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_TOKEN.code,
-              `Cannot determine valid decimals for ${options.from} (got: ${fromResolved.decimals})`,
+              `Cannot determine valid decimals for ${from} (got: ${fromResolved.decimals})`,
               'Use contract address instead of symbol, or verify the token exists',
             );
           }
@@ -183,7 +197,7 @@ export function registerSwapBuildCommand(parent: Command): void {
           ) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_TOKEN.code,
-              `Cannot determine valid decimals for ${options.to} (got: ${toResolved.decimals})`,
+              `Cannot determine valid decimals for ${to} (got: ${toResolved.decimals})`,
               'Use contract address instead of symbol, or verify the token exists',
             );
           }
@@ -204,24 +218,24 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
 
           // Validate amount is a valid positive decimal number
-          if (!/^\d+(\.\d+)?$/.test(options.amount)) {
+          if (!/^\d+(\.\d+)?$/.test(amount)) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_AMOUNT.code,
-              `Invalid amount: "${options.amount}"`,
+              `Invalid amount: "${amount}"`,
               'Amount must be a positive decimal number (e.g., "100", "0.5")',
             );
           }
 
           // Validate amount decimal places against token decimals
-          validateAmountDecimals(options.amount, fromResolved.decimals);
+          validateAmountDecimals(amount, fromResolved.decimals);
 
           const fromTokenAmountSmallest = amountToSmallestUnit(
-            options.amount,
+            amount,
             fromResolved.decimals,
           );
           // The swap API expects human-readable amounts (e.g. "0.2"),
           // NOT smallest unit (e.g. "200000"). Use the raw user input.
-          const fromTokenAmount = options.amount;
+          const fromTokenAmount = amount;
 
           // Reject zero-value amounts
           if (fromTokenAmountSmallest === '0') {
@@ -327,7 +341,7 @@ export function registerSwapBuildCommand(parent: Command): void {
             matchedQuote.info.provider,
           );
           if (output.getMode() === 'human') {
-            process.stderr.write(`\n${routeHeader}\n${table}\n\n`);
+            output.raw(`\n${routeHeader}\n${table}\n\n`, 'stderr');
           }
 
           // Step 2: POST /swap/v1/build-tx with toTokenAmount from quote
@@ -437,7 +451,7 @@ export function registerSwapBuildCommand(parent: Command): void {
           savePending(orderId, {
             orderId,
             status: 'pending',
-            chain: options.chain,
+            chain,
             networkId: chainConfig.networkId,
             toNetworkId,
             protocolType: protocolConfig.protocol,
@@ -453,7 +467,7 @@ export function registerSwapBuildCommand(parent: Command): void {
               symbol: toResolved.symbol,
               decimals: toResolved.decimals,
             },
-            amount: options.amount,
+            amount,
             txData: buildTxResponse as Record<string, unknown>,
             provider: matchedQuote.info.provider,
             allowanceResult:
@@ -467,7 +481,7 @@ export function registerSwapBuildCommand(parent: Command): void {
               orderId,
               provider: matchedQuote.info.provider,
               providerName: matchedQuote.info.providerName,
-              chain: options.chain,
+              chain,
               from: {
                 symbol: fromResolved.symbol,
                 contractAddress: fromResolved.contractAddress,
@@ -478,7 +492,7 @@ export function registerSwapBuildCommand(parent: Command): void {
                 contractAddress: toResolved.contractAddress,
                 decimals: toResolved.decimals,
               },
-              amount: options.amount,
+              amount,
               amountSmallestUnit: fromTokenAmountSmallest,
               slippage,
               walletAddress,
@@ -488,7 +502,7 @@ export function registerSwapBuildCommand(parent: Command): void {
                 buildTxResponse.result?.allowanceResult ??
                 null,
             },
-            { chain: options.chain },
+            { chain },
           );
         } catch (error) {
           const appError = AppError.from(error);
