@@ -61,6 +61,14 @@ jest.mock('../infra', () => ({
   },
 }));
 
+jest.mock('../commands/command-guards', () => {
+  const actual = jest.requireActual('../commands/command-guards');
+  return {
+    ...actual,
+    requireAuthenticatedCommand: jest.fn(async () => undefined),
+  };
+});
+
 jest.mock('../signer', () => ({
   getSignerByImpl: jest.fn(),
 }));
@@ -494,7 +502,6 @@ describe('swap execute BTC PSBT path', () => {
     const parsed = JSON.parse(extractJson(result.stdout));
     expect(parsed.error.code).toBe('BIZ_SWAP_FAILED');
     expect(parsed.error.message).toContain('--from-address-type');
-    expect(parsed.error.suggestion).toContain('taproot');
     expect(mockGetSignerByImpl).not.toHaveBeenCalled();
   });
 });

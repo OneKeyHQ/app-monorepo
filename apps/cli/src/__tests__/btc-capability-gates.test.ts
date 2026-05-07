@@ -2,6 +2,14 @@ import { registerSecurityCommands } from '../commands/security';
 import { registerTransferCommand } from '../commands/transfer';
 import { createTestProgram, runCommand } from './test-helpers';
 
+jest.mock('../commands/command-guards', () => {
+  const actual = jest.requireActual('../commands/command-guards');
+  return {
+    ...actual,
+    requireAuthenticatedCommand: jest.fn(async () => undefined),
+  };
+});
+
 describe('BTC unsupported command gates', () => {
   it('requires explicit tbtc address type before tx construction', async () => {
     const program = createTestProgram();

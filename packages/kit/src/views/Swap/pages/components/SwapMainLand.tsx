@@ -96,6 +96,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
+import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
@@ -160,6 +161,11 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
+  // Reactively resolve Market preset overrides based on which side the market token sits on.
+  // Lets the standard Swap modal pick up BUY vs SELL preset even when the user flips from/to.
+  useMarketPresetSwapOverridesEffect({
+    marketPresetToken: swapInitParams?.marketPresetToken,
+  });
   const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
   const [toSelectTokenAtom, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
@@ -515,10 +521,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
 
   const supportPreBuild = useMemo(() => {
-    if (isWrapped) {
-      return false;
-    }
-    if (quoteEventFetching) {
+    if (isWrapped || !currentQuoteRes) {
       return false;
     }
     if (currentQuoteRes && !currentQuoteRes?.allowanceResult) {
@@ -530,12 +533,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         fromSelectToken?.networkId ?? '',
       )
     );
-  }, [
-    currentQuoteRes,
-    fromSelectToken?.networkId,
-    isWrapped,
-    quoteEventFetching,
-  ]);
+  }, [currentQuoteRes, fromSelectToken?.networkId, isWrapped]);
 
   const reviewStepTexts = useMemo(
     () => ({

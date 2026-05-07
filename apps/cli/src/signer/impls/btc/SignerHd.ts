@@ -45,7 +45,7 @@ export class SignerHd extends SignerSoftwareBase {
     this.impl = config.impl;
   }
 
-  async getAddress(
+  override async getAddress(
     networkId: string,
     options?: ISignerGetAddressOptions,
   ): Promise<ICoreApiGetAddressItem> {
@@ -66,7 +66,7 @@ export class SignerHd extends SignerSoftwareBase {
     return result.addresses[0];
   }
 
-  async signTransaction(
+  override async signTransaction(
     payload: ISignTransactionPayload,
   ): Promise<ISignedTxPro> {
     validateBtcNetworkId(this.impl, payload.networkId);
@@ -94,7 +94,9 @@ export class SignerHd extends SignerSoftwareBase {
     });
   }
 
-  async signMessage(_payload: ICoreApiSignMsgPayload): Promise<string> {
+  override async signMessage(
+    _payload: ICoreApiSignMsgPayload,
+  ): Promise<string> {
     throw new Error('BTC message signing is not exposed by the CLI.');
   }
 

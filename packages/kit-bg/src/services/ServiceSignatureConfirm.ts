@@ -389,7 +389,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseMessage(params: IParseMessageParams) {
-    const { accountId, networkId, message, swapInfo } = params;
+    const { accountId, networkId, message, swapInfo, origin } = params;
 
     // if the network is custom network, disable parse message through api
     if (
@@ -424,6 +424,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           networkId,
           accountAddress,
           data: messageToParse,
+          origin,
         },
         {
           headers:

@@ -23,6 +23,11 @@ import {
   validateAmountDecimals,
 } from '../utils/tx-utils';
 
+import {
+  requireAuthenticatedCommand,
+  requireStringOption,
+} from './command-guards';
+
 import type { OutputFormatter } from '../output';
 import type { BtcAddressType } from '../core/btc/address-types';
 import type { Command } from 'commander';
@@ -82,8 +87,8 @@ export function registerTransferCommand(program: Command): void {
   program
     .command('transfer')
     .description('Send native token or ERC-20 to an address')
-    .requiredOption('--to <address>', 'Recipient address')
-    .requiredOption('--amount <amount>', 'Amount to send (human-readable)')
+    .option('--to <address>', 'Recipient address (required)')
+    .option('--amount <amount>', 'Amount to send (human-readable, required)')
     .option('--token <address>', 'ERC-20 token contract address')
     .option('--chain <chain>', 'Target blockchain (e.g., eth, bsc)', 'eth')
     .option(
@@ -94,8 +99,8 @@ export function registerTransferCommand(program: Command): void {
     .action(
       async (
         options: {
-          to: string;
-          amount: string;
+          to?: string;
+          amount?: string;
           token?: string;
           chain: string;
           addressType?: BtcAddressType;
@@ -109,12 +114,17 @@ export function registerTransferCommand(program: Command): void {
         const skipConfirmation = Boolean(globalOpts.yes);
 
         try {
-          const rawChainName = options.chain ?? 'eth';
-          const rawChainConfig = resolveChain(rawChainName);
+          await requireAuthenticatedCommand();
+
+          const to = requireStringOption(options.to, '--to <address>');
+          const amount = requireStringOption(
+            options.amount,
+            '--amount <amount>',
+          );
 
           const validated = transferOptionsSchema.parse({
-            to: options.to,
-            amount: options.amount,
+            to,
+            amount,
             token: options.token,
             chain: options.chain,
             addressType: options.addressType,
@@ -122,8 +132,8 @@ export function registerTransferCommand(program: Command): void {
             yes: skipConfirmation,
           });
 
-          const chainName = validated.chain ?? rawChainName;
-          const chainConfig = rawChainConfig;
+          const chainName = validated.chain ?? 'eth';
+          const chainConfig = resolveChain(chainName);
 
           if (!isEvmChain(chainConfig)) {
             assertChainCapability(chainConfig, 'btcTransfer', 'transfer');

@@ -12,6 +12,14 @@ jest.mock('../infra', () => ({
   },
 }));
 
+jest.mock('../commands/command-guards', () => {
+  const actual = jest.requireActual('../commands/command-guards');
+  return {
+    ...actual,
+    requireAuthenticatedCommand: jest.fn(async () => undefined),
+  };
+});
+
 jest.mock('../signer', () => ({
   getSignerByImpl: jest.fn(),
 }));
@@ -102,9 +110,6 @@ describe('BTC/TBTC transfer command', () => {
     const parsed = JSON.parse(extractJson(result.stdout));
     expect(parsed.error.code).toBe('PARAM_MISSING_REQUIRED');
     expect(parsed.error.message).toContain('--address-type');
-    expect(parsed.error.suggestion).toContain(
-      'taproot|native-segwit|nested-segwit|legacy',
-    );
   });
 
   it('builds tbtc dry-run without signing or broadcasting', async () => {

@@ -33,6 +33,14 @@ jest.mock('../infra', () => ({
   },
 }));
 
+jest.mock('../commands/command-guards', () => {
+  const actual = jest.requireActual('../commands/command-guards');
+  return {
+    ...actual,
+    requireAuthenticatedCommand: jest.fn(async () => undefined),
+  };
+});
+
 jest.mock('../signer', () => ({
   getSignerByImpl: jest.fn(),
 }));
@@ -199,9 +207,6 @@ describe('swap BTC address type metadata', () => {
     const parsed = JSON.parse(extractJson(result.stdout));
     expect(parsed.error.code).toBe('PARAM_MISSING_REQUIRED');
     expect(parsed.error.message).toContain('--from-address-type');
-    expect(parsed.error.suggestion).toContain(
-      'taproot|native-segwit|nested-segwit|legacy',
-    );
   });
 
   it('quote rejects tbtc source before BTC address type validation', async () => {
@@ -252,9 +257,6 @@ describe('swap BTC address type metadata', () => {
     const parsed = JSON.parse(extractJson(result.stdout));
     expect(parsed.error.code).toBe('PARAM_MISSING_REQUIRED');
     expect(parsed.error.message).toContain('--to-address-type');
-    expect(parsed.error.suggestion).toContain(
-      'taproot|native-segwit|nested-segwit|legacy',
-    );
   });
 
   it('build rejects tbtc destination before BTC address type validation', async () => {

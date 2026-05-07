@@ -1400,6 +1400,10 @@ export function sortPerpsAssetIndices({
         compareResult = a.openInterestValue - b.openInterestValue;
         break;
 
+      case 'marketCap':
+        compareResult = 0;
+        break;
+
       default:
         break;
     }
@@ -1461,11 +1465,11 @@ function inferTpsl(params: {
 }
 
 /**
- * Get the effective price used for size/margin calculations in trigger mode.
+ * Get the reference price used for trigger order panel calculations.
  *
- * - Market trigger: uses triggerPrice (the price at which the order activates)
+ * - Market trigger: uses current mid/mark price; triggerPrice is only the activation condition
  * - Limit trigger: uses executionPrice (the limit price for the resulting order)
- * - Fallback: uses midPrice
+ * - Fallback: uses triggerPrice, then midPrice
  */
 function getTriggerEffectivePrice(params: {
   triggerOrderType: ETriggerOrderType;
@@ -1481,6 +1485,13 @@ function getTriggerEffectivePrice(params: {
     const execBN = new BigNumber(executionPrice);
     if (execBN.isFinite() && execBN.gt(0)) {
       return execBN;
+    }
+  }
+
+  if (!isLimitTrigger && midPrice) {
+    const midBN = new BigNumber(midPrice);
+    if (midBN.isFinite() && midBN.gt(0)) {
+      return midBN;
     }
   }
 
@@ -1611,6 +1622,148 @@ export function formatPerpsCompactUsd(value: number): string {
   return formatted;
 }
 
+const SPOT_MARKET_CAP_SUPPRESSED_TOKENS = new Set([
+  'AAVE0',
+  'AVAX0',
+  'AXL',
+  'AZTEC',
+  'BASED',
+  'BNB0',
+  'BZEC',
+  'DIME',
+  'EX',
+  'FEUSD',
+  'HMT',
+  'HPL',
+  'KHYPE',
+  'LINK0',
+  'LMTS',
+  'LTHREE',
+  'MNT',
+  'MON',
+  'MOVE',
+  'PEG',
+  'PENGU',
+  'QONE',
+  'REI',
+  'SEDA',
+  'SEI',
+  'SLAY',
+  'SOLV',
+  'SOON',
+  'SPX',
+  'STABLE',
+  'THBILL',
+  'USDE',
+  'USDH',
+  'USDHL',
+  'USDT',
+  'USDT0',
+  'USDXL',
+  'USH',
+  'USR',
+  'XAUT',
+]);
+
+function isSpotMarketCapSuppressedToken(tokenName?: string): boolean {
+  if (!tokenName) {
+    return false;
+  }
+
+  const baseName = tokenName.split('/')[0]?.toUpperCase();
+  const displayName = baseName ? getSpotTokenDisplayName(baseName) : undefined;
+  return (
+    Boolean(baseName && SPOT_MARKET_CAP_SUPPRESSED_TOKENS.has(baseName)) ||
+    Boolean(displayName && SPOT_MARKET_CAP_SUPPRESSED_TOKENS.has(displayName))
+  );
+}
+
+type ISpotMarketCapOverrides = Record<
+  string,
+  string | number | null | undefined
+>;
+
+function getSpotMarketCapOverrideValue(
+  tokenName?: string,
+  marketCapOverrides?: ISpotMarketCapOverrides,
+): string | undefined {
+  if (!tokenName || !marketCapOverrides) {
+    return undefined;
+  }
+
+  const baseName = tokenName.split('/')[0]?.toUpperCase();
+  if (!baseName) {
+    return undefined;
+  }
+
+  const displayKey = getSpotTokenDisplayName(baseName).toLowerCase();
+  const value = marketCapOverrides[displayKey];
+  const marketCap = new BigNumber(value ?? '0');
+  if (!marketCap.isFinite() || marketCap.lte(0)) {
+    return undefined;
+  }
+  return marketCap.toFixed();
+}
+
+function getSpotMarketCapValue(
+  spotCtx:
+    | {
+        markPx?: string;
+        markPrice?: string;
+        totalSupply?: string;
+        circulatingSupply?: string;
+      }
+    | null
+    | undefined,
+  tokenName?: string,
+  marketCapOverrides?: ISpotMarketCapOverrides,
+): string | undefined {
+  const overrideValue = getSpotMarketCapOverrideValue(
+    tokenName,
+    marketCapOverrides,
+  );
+  if (overrideValue) {
+    return overrideValue;
+  }
+
+  if (isSpotMarketCapSuppressedToken(tokenName)) {
+    return undefined;
+  }
+
+  const markPrice = new BigNumber(spotCtx?.markPx ?? spotCtx?.markPrice ?? '0');
+  const circulatingSupply = new BigNumber(spotCtx?.circulatingSupply ?? '0');
+
+  if (
+    !markPrice.isFinite() ||
+    !circulatingSupply.isFinite() ||
+    markPrice.lte(0) ||
+    circulatingSupply.lte(0)
+  ) {
+    return undefined;
+  }
+
+  return circulatingSupply.multipliedBy(markPrice).toFixed();
+}
+
+function compareSpotMarketCapValues(
+  a: number | undefined,
+  b: number | undefined,
+  direction: IPerpTokenSortDirection,
+): number {
+  const aValid = typeof a === 'number' && Number.isFinite(a);
+  const bValid = typeof b === 'number' && Number.isFinite(b);
+
+  if (!aValid || !bValid) {
+    if (!aValid && !bValid) {
+      return 0;
+    }
+    return aValid ? -1 : 1;
+  }
+
+  const cmp = a - b;
+  return direction === 'asc' ? cmp : -cmp;
+}
+
 /**
  * Return a theme color token based on PnL sign.
  * Positive → '$green11', Negative → '$red11', Zero/null → '$text'.
@@ -1735,6 +1888,22 @@ const SPOT_TOKEN_DISPLAY_MAP: Record<string, string> = {
   HBNB: 'BNB',
   HSEI: 'SEI',
 };
+
+const SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP: Record<string, string> =
+  {
+    bitcoin: 'btc',
+    ethereum: 'eth',
+    solana: 'sol',
+    fartcoin: 'fartcoin',
+    'pump-fun': 'pump',
+    bonk: 'bonk',
+    plasma: 'xpl',
+    doublezero: '2z',
+    monad: 'mon',
+    ethena: 'ena',
+    zcash: 'zec',
+    'avalanche-2': 'avax',
+  };
 /* cspell:enable */
 
 function getSpotTokenDisplayName(rawName: string): string {
@@ -1800,6 +1969,8 @@ export {
   mapTriggerOrderType,
   inferTpsl,
   getTriggerEffectivePrice,
+  getSpotMarketCapValue,
+  compareSpotMarketCapValues,
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
   formatSpotAssetCtx,
@@ -1809,6 +1980,7 @@ export {
   formatSpotPairDisplayName,
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,
+  SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP,
   SPOT_MIN_VOLUME_STRICT,
   SPOT_SELECTOR_MIN_VOLUME,
   formatHlSize,
@@ -1854,6 +2026,8 @@ export default {
   formatPerpsCompactUsd,
   getPerpsValueColor,
   formatChartUsdPrice,
+  getSpotMarketCapValue,
+  compareSpotMarketCapValues,
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,
@@ -1861,6 +2035,7 @@ export default {
   formatSpotPairDisplayName,
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,
+  SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP,
   SPOT_MIN_VOLUME_STRICT,
   SPOT_SELECTOR_MIN_VOLUME,
   getValidSpotPriceDecimals,

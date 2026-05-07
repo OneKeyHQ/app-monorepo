@@ -37,7 +37,7 @@ async function getEvmScope() {
  * EVM-specific code.
  */
 export class SignerHd extends SignerSoftwareBase {
-  async getAddress(
+  override async getAddress(
     networkId: string,
     _options?: ISignerGetAddressOptions,
   ): Promise<ICoreApiGetAddressItem> {
@@ -57,7 +57,7 @@ export class SignerHd extends SignerSoftwareBase {
     return result.addresses[0];
   }
 
-  async signTransaction(
+  override async signTransaction(
     payload: ISignTransactionPayload,
   ): Promise<ISignedTxPro> {
     validateEvmNetworkId(payload.networkId);
@@ -79,7 +79,7 @@ export class SignerHd extends SignerSoftwareBase {
     });
   }
 
-  async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     const scope = await getEvmScope();
     return scope.hd.signMessage(payload);
   }

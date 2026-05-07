@@ -25,6 +25,8 @@ export {
 } from './auth-schema';
 
 // Transfer
+export { signInputSchema, signOutputSchema } from './sign-schema';
+export type { ISignInput } from './sign-schema';
 export {
   transferDryRunOutputSchema,
   transferInputSchema,
@@ -57,6 +59,10 @@ export {
 } from './wallet-schemas';
 
 // Logout / Status / Version
+export {
+  getAddressInputSchema,
+  getAddressOutputSchema,
+} from './get-address-schema';
 export { logoutInputSchema, logoutOutputSchema } from './logout-schema';
 export { statusInputSchema, statusOutputSchema } from './status-schema';
 export { versionInputSchema, versionOutputSchema } from './version-schema';

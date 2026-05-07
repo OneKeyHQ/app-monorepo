@@ -114,7 +114,7 @@ describe('wallet BTC address commands', () => {
     expect(result.exitCode).not.toBe(0);
 
     const parsed = JSON.parse(extractJson(result.stdout));
-    expect(parsed.status).toBe('error');
+    expect(parsed.ok).toBe(false);
     expect(parsed.error).toEqual(
       expect.objectContaining({
         code: 'PARAM_MISSING_REQUIRED',
@@ -138,7 +138,7 @@ describe('wallet BTC address commands', () => {
     expect(result.exitCode).not.toBe(0);
 
     const parsed = JSON.parse(extractJson(result.stdout));
-    expect(parsed.status).toBe('error');
+    expect(parsed.ok).toBe(false);
     expect(parsed.error).toEqual(
       expect.objectContaining({
         code: 'PARAM_INVALID_CHAIN',

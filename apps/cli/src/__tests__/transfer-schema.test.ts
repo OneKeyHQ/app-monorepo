@@ -2,6 +2,14 @@ import { transferOptionsSchema } from '../schemas/transfer-schema';
 import { registerTransferCommand } from '../commands/transfer';
 import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
+jest.mock('../commands/command-guards', () => {
+  const actual = jest.requireActual('../commands/command-guards');
+  return {
+    ...actual,
+    requireAuthenticatedCommand: jest.fn(async () => undefined),
+  };
+});
+
 describe('transferOptionsSchema', () => {
   const validBase = {
     to: '0x0000000000000000000000000000000000000001',

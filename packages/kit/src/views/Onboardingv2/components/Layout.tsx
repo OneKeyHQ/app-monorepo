@@ -207,7 +207,7 @@ export function OnboardingPage({
         mx="auto"
         $md={{ flex: 1 }}
         $gtMd={{
-          minHeight: 522,
+          minHeight: 600,
           ...(narrow && { py: '$10', maxWidth: 400 }),
         }}
         {...(shouldAnimate && {

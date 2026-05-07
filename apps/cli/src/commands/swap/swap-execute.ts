@@ -18,10 +18,15 @@ import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
 import { confirmTransaction } from '../../utils/confirm-transaction';
 import { amountToSmallestUnit, feeToWeiHex } from '../../utils/tx-utils';
+import {
+  requireAuthenticatedCommand,
+  requireStringOption,
+} from '../command-guards';
 
 import { resolveApproveSpender } from './resolve-approve-spender';
 import { getProtocolConfig } from './swap-protocol-config';
 
+import type { ICoreApiSignBtcExtraInfo } from '@onekeyhq/core/src/types';
 import type { IEndpointEnv } from '../../config';
 import type { BtcAddressType } from '../../core/btc/address-types';
 import type { OutputFormatter } from '../../output';
@@ -75,32 +80,46 @@ interface IAllowanceResult {
   shouldResetApprove?: boolean;
 }
 
+interface IBtcData {
+  hexStr: string;
+  addressType: unknown[];
+}
+
 interface IBtcBuildTxData {
-  btcData?: {
-    hexStr?: unknown;
-    addressType?: unknown;
+  btcData?: unknown;
+}
+
+interface IBtcLocalTx {
+  encodedTx: Record<string, unknown>;
+  btcExtraInfo: ICoreApiSignBtcExtraInfo;
+  relPaths: string[];
+  transfer?: {
+    toAddress?: unknown;
+    amount?: unknown;
+    opReturn?: unknown;
+    source?: unknown;
   };
 }
 
 interface IBtcLocalTxData {
-  btcLocalTx?: {
-    encodedTx?: unknown;
-    btcExtraInfo?: unknown;
-    relPaths?: unknown;
-    transfer?: {
-      toAddress?: unknown;
-      amount?: unknown;
-      opReturn?: unknown;
-      source?: unknown;
-    };
-  };
+  btcLocalTx?: IBtcLocalTx;
 }
 
-function isValidBtcLocalTxData(
+function isValidBtcBuildTxData(
   value: unknown,
-): value is NonNullable<IBtcLocalTxData['btcLocalTx']> {
+): value is IBtcData {
   if (typeof value !== 'object' || value === null) return false;
-  const localTx = value as NonNullable<IBtcLocalTxData['btcLocalTx']>;
+  const btcData = value as Partial<IBtcData>;
+  return (
+    typeof btcData.hexStr === 'string' &&
+    btcData.hexStr.length > 0 &&
+    Array.isArray(btcData.addressType)
+  );
+}
+
+function isValidBtcLocalTxData(value: unknown): value is IBtcLocalTx {
+  if (typeof value !== 'object' || value === null) return false;
+  const localTx = value as Partial<IBtcLocalTx>;
   return (
     typeof localTx.encodedTx === 'object' &&
     localTx.encodedTx !== null &&
@@ -418,8 +437,8 @@ export function registerSwapExecuteCommand(parent: Command): void {
   parent
     .command('execute')
     .description('Execute a pending swap order (sign + broadcast)')
-    .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
-    .requiredOption('--order <orderId>', 'Order ID from swap build output')
+    .option('--chain <chain>', 'Target blockchain (e.g., eth, base, required)')
+    .option('--order <orderId>', 'Order ID from swap build output (required)')
     .option(
       '--approve-unlimited',
       'Approve unlimited token allowance (MAX_UINT256) instead of exact amount',
@@ -432,8 +451,8 @@ export function registerSwapExecuteCommand(parent: Command): void {
     .action(
       async (
         options: {
-          chain: string;
-          order: string;
+          chain?: string;
+          order?: string;
           approveUnlimited?: boolean;
           fromAddressType?: BtcAddressType;
           signOnly?: boolean;
@@ -446,8 +465,16 @@ export function registerSwapExecuteCommand(parent: Command): void {
         const skipConfirmation = Boolean(globalOpts.yes);
 
         try {
+          await requireAuthenticatedCommand();
+
+          const chain = requireStringOption(options.chain, '--chain <chain>');
+          const orderId = requireStringOption(
+            options.order,
+            '--order <orderId>',
+          );
+
           // Validate chain
-          const chainConfig = resolveChain(options.chain);
+          const chainConfig = resolveChain(chain);
           assertChainCapability(chainConfig, 'swap', 'swap-execute');
 
           // Resolve env
@@ -457,7 +484,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
           apiClient.setEnv(env);
 
           // Load pending order with dynamic expiry based on protocol config
-          const order = loadPending(options.order, { skipExpiry: true });
+          const order = loadPending(orderId, { skipExpiry: true });
           const protocolConfig = getProtocolConfig(
             order.networkId,
             order.toNetworkId ?? order.networkId,
@@ -466,16 +493,16 @@ export function registerSwapExecuteCommand(parent: Command): void {
           if (age > protocolConfig.pendingExpiryMs) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_EXPIRED.code,
-              `Order "${options.order}" expired (created ${Math.round(age / 1000)}s ago)`,
+              `Order "${orderId}" expired (created ${Math.round(age / 1000)}s ago)`,
               'Run "onekey swap build" again to get fresh tx data',
             );
           }
 
           // Verify chain matches order
-          if (order.chain !== options.chain) {
+          if (order.chain !== chain) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_CHAIN.code,
-              `Order chain "${order.chain}" does not match --chain "${options.chain}"`,
+              `Order chain "${order.chain}" does not match --chain "${chain}"`,
               `Use --chain ${order.chain}`,
             );
           }
@@ -484,7 +511,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
           if (order.status !== 'pending') {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
-              `Order "${options.order}" status is "${order.status}", expected "pending"`,
+              `Order "${orderId}" status is "${order.status}", expected "pending"`,
               'Only pending orders can be executed',
             );
           }
@@ -528,31 +555,32 @@ export function registerSwapExecuteCommand(parent: Command): void {
               );
             }
 
-            const btcLocalTx = (txData as IBtcLocalTxData).btcLocalTx;
-            const btcData = (txData as IBtcBuildTxData).btcData;
-            if (!isValidBtcLocalTxData(btcLocalTx)) {
-              if (
-                !btcData ||
-                typeof btcData.hexStr !== 'string' ||
-                btcData.hexStr.length === 0 ||
-                !Array.isArray(btcData.addressType)
-              ) {
-                throw new AppError(
-                  ERROR_CODES.BIZ_SWAP_FAILED.code,
-                  'Order does not contain valid BTC PSBT data',
-                  'Run "onekey swap build" to create a new order',
-                );
-              }
+            const btcLocalTxCandidate = (txData as IBtcLocalTxData).btcLocalTx;
+            const btcLocalTx = isValidBtcLocalTxData(btcLocalTxCandidate)
+              ? btcLocalTxCandidate
+              : undefined;
+            const btcDataCandidate = (txData as IBtcBuildTxData).btcData;
+            const btcData = isValidBtcBuildTxData(btcDataCandidate)
+              ? btcDataCandidate
+              : undefined;
+            if (!btcLocalTx && !btcData) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'Order does not contain valid BTC PSBT data',
+                'Run "onekey swap build" to create a new order',
+              );
+            }
 
-              if (
-                !btcData.addressType.includes(fromAddressMeta.addressEncoding)
-              ) {
-                throw new AppError(
-                  ERROR_CODES.BIZ_SWAP_FAILED.code,
-                  `BTC PSBT does not support the pending derivation path/address type ${fromAddressMeta.path} (${fromAddressMeta.addressType}, ${fromAddressMeta.addressEncoding})`,
-                  'Run "onekey swap build" again with a supported BTC address type',
-                );
-              }
+            if (
+              !btcLocalTx &&
+              btcData &&
+              !btcData.addressType.includes(fromAddressMeta.addressEncoding)
+            ) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                `BTC PSBT does not support the pending derivation path/address type ${fromAddressMeta.path} (${fromAddressMeta.addressType}, ${fromAddressMeta.addressEncoding})`,
+                'Run "onekey swap build" again with a supported BTC address type',
+              );
             }
 
             const signer = await getSignerByImpl(chainConfig.impl);
@@ -583,7 +611,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               pub: addressInfo.publicKey,
             };
 
-            if (isValidBtcLocalTxData(btcLocalTx)) {
+            if (btcLocalTx) {
               await confirmTransaction({
                 info: {
                   action: `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`,
@@ -595,7 +623,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
                     typeof btcLocalTx.transfer?.amount === 'string'
                       ? `${btcLocalTx.transfer.amount} ${order.fromToken.symbol}`
                       : `${order.amount} ${order.fromToken.symbol}`,
-                  network: options.chain,
+                  network: chain,
                 },
                 output,
                 skipConfirmation,
@@ -616,7 +644,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               if (signOnly) {
                 output.success(
                   {
-                    orderId: options.order,
+                    orderId,
                     status: 'signed',
                     chain: order.chain,
                     from: order.fromToken.symbol,
@@ -656,7 +684,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 );
               }
 
-              updatePendingStatus(options.order, 'executed', {
+              updatePendingStatus(orderId, 'executed', {
                 txHash: broadcastResult.result,
               });
 
@@ -667,7 +695,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
 
               output.success(
                 {
-                  orderId: options.order,
+                  orderId,
                   status: 'executed',
                   txHash: broadcastResult.result,
                   chain: order.chain,
@@ -679,6 +707,13 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 { chain: order.chain },
               );
               return;
+            }
+            if (!btcData) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'Order does not contain valid BTC PSBT data',
+                'Run "onekey swap build" to create a new order',
+              );
             }
             let psbtHexToSign: string;
             let inputsToSign: ReturnType<typeof getInputsToSignFromPsbt>;
@@ -717,7 +752,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 action: `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`,
                 to: `${order.provider ?? 'swap provider'} BTC PSBT`,
                 value: `${order.amount} ${order.fromToken.symbol}`,
-                network: options.chain,
+                network: chain,
               },
               output,
               skipConfirmation,
@@ -740,7 +775,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
             if (signOnly) {
               output.success(
                 {
-                  orderId: options.order,
+                  orderId,
                   status: 'signed',
                   chain: order.chain,
                   from: order.fromToken.symbol,
@@ -779,7 +814,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               );
             }
 
-            updatePendingStatus(options.order, 'executed', {
+            updatePendingStatus(orderId, 'executed', {
               txHash: broadcastResult.result,
             });
 
@@ -790,7 +825,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
 
             output.success(
               {
-                orderId: options.order,
+                orderId,
                 status: 'executed',
                 txHash: broadcastResult.result,
                 chain: order.chain,
@@ -932,6 +967,9 @@ export function registerSwapExecuteCommand(parent: Command): void {
               orderAllowance?.allowanceTarget,
               buildAllowance?.allowanceTarget,
               swapTxTo,
+              {
+                warn: (message) => output.warn(message),
+              },
             );
 
             if (knownSpender) {
@@ -976,7 +1014,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               action: confirmAction,
               to: `${swapTxTo} (${order.provider ?? 'swap provider'})`,
               value: `${order.amount} ${order.fromToken.symbol}`,
-              network: options.chain,
+              network: chain,
             },
             output,
             skipConfirmation,
@@ -1141,7 +1179,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               if (resetTxHash && !approveTxHash) {
                 const appErr = AppError.from(approveError);
                 try {
-                  updatePendingStatus(options.order, 'approve_only', {
+                  updatePendingStatus(orderId, 'approve_only', {
                     txHash: resetTxHash,
                   });
                 } catch {
@@ -1234,7 +1272,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
             }
 
             // Update pending status to executed
-            updatePendingStatus(options.order, 'executed', {
+            updatePendingStatus(orderId, 'executed', {
               txHash: swapResult.result,
             });
 
@@ -1245,7 +1283,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
 
             output.success(
               {
-                orderId: options.order,
+                orderId,
                 status: 'executed',
                 txHash: swapResult.result,
                 ...(approveTxHash ? { approveTxHash } : {}),
@@ -1263,7 +1301,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               const swapAppError = AppError.from(swapError);
               let statusWarning = '';
               try {
-                updatePendingStatus(options.order, 'approve_only', {
+                updatePendingStatus(orderId, 'approve_only', {
                   txHash: approveTxHash,
                 });
               } catch {

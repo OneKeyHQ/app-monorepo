@@ -9,6 +9,7 @@ import {
   analyzeOrderBookPrecision,
   calculateLiquidationPrice,
   calculatePriceScale,
+  compareSpotMarketCapValues,
   countDecimalPlaces,
   formatHlPrice,
   formatHlSize,
@@ -18,6 +19,7 @@ import {
   getDisplayPriceScaleDecimals,
   getHyperliquidTokenImageUrl,
   getMostFrequentDecimalPlaces,
+  getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
 } from './perpsUtils';
@@ -104,6 +106,94 @@ describe('spot token display helpers', () => {
     expect(getHyperliquidTokenImageUrl('USDC')).toBe(
       'https://uni.onekey-asset.com/static/hyperliquid/USDC.png',
     );
+  });
+});
+
+describe('getSpotMarketCapValue', () => {
+  test('uses circulatingSupply for regular spot market cap', () => {
+    expect(
+      getSpotMarketCapValue({
+        markPx: '1.02',
+        circulatingSupply: '100',
+        totalSupply: '1000',
+      }),
+    ).toBe('102');
+  });
+
+  test('supports formatted active spot ctx with markPrice', () => {
+    expect(
+      getSpotMarketCapValue({
+        markPrice: '0.99',
+        circulatingSupply: '100',
+      }),
+    ).toBe('99');
+  });
+
+  test('uses external market cap override for mapped display symbols', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '80000',
+          circulatingSupply: '21000000',
+        },
+        'UBTC',
+        { btc: '1690000000000' },
+      ),
+    ).toBe('1690000000000');
+
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '25',
+          circulatingSupply: '100000000000',
+        },
+        'AVAX0',
+        { avax: '15000000000' },
+      ),
+    ).toBe('15000000000');
+  });
+
+  test('falls back to circulatingSupply when override is invalid', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '2',
+          circulatingSupply: '3',
+        },
+        'UETH',
+        { eth: '0' },
+      ),
+    ).toBe('6');
+  });
+
+  test('suppresses known stablecoin placeholder supplies', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '1',
+          circulatingSupply: '100000000000',
+        },
+        'USDH',
+      ),
+    ).toBeUndefined();
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '1',
+          circulatingSupply: '184467440737.0587768555',
+        },
+        'USDT0',
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe('compareSpotMarketCapValues', () => {
+  test('keeps unknown market caps last in both sort directions', () => {
+    expect(compareSpotMarketCapValues(undefined, 100, 'asc')).toBe(1);
+    expect(compareSpotMarketCapValues(100, undefined, 'asc')).toBe(-1);
+    expect(compareSpotMarketCapValues(undefined, 100, 'desc')).toBe(1);
+    expect(compareSpotMarketCapValues(100, undefined, 'desc')).toBe(-1);
   });
 });
 
