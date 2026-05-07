@@ -18,12 +18,14 @@ import { useConnectionStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/
 import {
   usePerpsActiveAssetCtxAtom,
   useSpotActiveAssetCtxAtom,
+  useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getSpotMarketCapValue } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 
@@ -46,15 +48,18 @@ function StatRow({ label, children }: { label: string; children: ReactNode }) {
 
 function MobilePerpMarketHeader() {
   const intl = useIntl();
-  const { mode } = useActiveTradeDisplay();
+  const { coin, mode } = useActiveTradeDisplay();
   const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const hasError = connectionState.reconnectCount > 3;
   const isReady = connectionState.isConnected && !hasError;
   const isSpot = mode === 'spot';
-  const currentCtx = isSpot ? spotAssetCtx?.ctx : assetCtx?.ctx;
+  const spotCtxForActiveCoin =
+    spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
+  const currentCtx = isSpot ? spotCtxForActiveCoin : assetCtx?.ctx;
 
   useEffect(() => {
     void backgroundApiProxy.simpleDb.perp
@@ -81,8 +86,7 @@ function MobilePerpMarketHeader() {
   const fundingRate = perpCtx?.fundingRate ?? '0';
   const openInterest = perpCtx?.openInterest ?? '0';
   // Spot-only fields
-  const spotCtx = spotAssetCtx?.ctx;
-  const circulatingSupply = spotCtx?.circulatingSupply ?? '0';
+  const spotCtx = spotCtxForActiveCoin;
 
   const midPriceNumber = useMemo(() => parseFloat(midPrice), [midPrice]);
   const fundingRateNumber = useMemo(
@@ -123,9 +127,20 @@ function MobilePerpMarketHeader() {
 
   const openInterestDisplay = useMemo(() => {
     if (isSpot) {
-      const marketCap = (
-        Number(circulatingSupply || 0) * Number(markPrice || 0)
-      ).toString();
+      const marketCap = getSpotMarketCapValue(
+        {
+          markPrice,
+          totalSupply: spotCtx?.totalSupply,
+          circulatingSupply: spotCtx?.circulatingSupply,
+        },
+        spotAssetCtx?.coin === coin
+          ? (spotAssetCtx?.baseName ?? spotAssetCtx?.coin)
+          : coin,
+        spotMarketCaps,
+      );
+      if (!marketCap) {
+        return '--';
+      }
       const formatted = numberFormat(marketCap, {
         formatter: 'marketCap',
       });
@@ -153,7 +168,17 @@ function MobilePerpMarketHeader() {
       return '--';
     }
     return `$${formatted}`;
-  }, [circulatingSupply, isSpot, markPrice, openInterest]);
+  }, [
+    coin,
+    isSpot,
+    markPrice,
+    openInterest,
+    spotAssetCtx?.baseName,
+    spotAssetCtx?.coin,
+    spotCtx?.circulatingSupply,
+    spotCtx?.totalSupply,
+    spotMarketCaps,
+  ]);
 
   const priceMetaContent = useMemo(() => {
     return (

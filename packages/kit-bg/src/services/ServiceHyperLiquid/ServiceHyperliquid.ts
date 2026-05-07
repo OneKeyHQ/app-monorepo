@@ -17,6 +17,7 @@ import {
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
   HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
+  PERPS_FILTERED_LEDGER_TYPES,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -50,6 +51,7 @@ import type {
   ISpotUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
+  IUserNonFundingLedgerUpdate,
   IWsActiveAssetCtx,
   IWsActiveSpotAssetCtx,
   IWsAllDexsClearinghouseState,
@@ -82,6 +84,7 @@ import {
   spotActiveAssetCtxAtom,
   spotAssetCtxsMapAtom,
   spotBalancesAtom,
+  spotExternalMarketCapsAtom,
   spotPairDisplayMapAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -115,6 +118,10 @@ import type {
   IPerpServerDepositConfig,
 } from '../ServiceWebviewPerp/ServiceWebviewPerp';
 
+type ILoadTradesHistoryOptions = {
+  force?: boolean;
+};
+
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
@@ -127,6 +134,31 @@ export default class ServiceHyperliquid extends ServiceBase {
   private _spotPriceDirty = false;
 
   private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private _fetchSpotExternalMarketCaps = cacheUtils.memoizee(
+    async (): Promise<Record<string, string>> => {
+      const idToSymbol =
+        perpsUtils.SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP;
+      const tokens = await this.backgroundApi.serviceMarket.fetchCategory(
+        'all',
+        Object.keys(idToSymbol),
+        false,
+      );
+      const marketCaps: Record<string, string> = {};
+      for (const token of tokens) {
+        const symbol = idToSymbol[token.coingeckoId];
+        const marketCap = new BigNumber(token.marketCap ?? 0);
+        if (symbol && marketCap.isFinite() && marketCap.gt(0)) {
+          marketCaps[symbol] = marketCap.toFixed();
+        }
+      }
+      return marketCaps;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+    },
+  );
 
   private _flushSpotPrices(map: Record<string, ISpotAssetCtxEntry>) {
     // allMids only sets markPx, spotAssetCtxs sets full entry — merge so neither overwrites the other
@@ -459,6 +491,27 @@ export default class ServiceHyperliquid extends ServiceBase {
     return config.tokenSearchAliases;
   }
 
+  private _getFillKey(fill: IFill): string {
+    if (typeof fill.tid === 'number') {
+      return `tid:${fill.tid}`;
+    }
+    return `${fill.hash}-${fill.oid}-${fill.time}-${fill.coin}-${fill.side}-${fill.px}-${fill.sz}`;
+  }
+
+  private _sortAndDedupeFills(fills: IFill[]): IFill[] {
+    const fillMap = new Map<string, IFill>();
+    for (const fill of fills) {
+      const key = this._getFillKey(fill);
+      const existing = fillMap.get(key);
+      if (!existing || fill.time >= existing.time) {
+        fillMap.set(key, fill);
+      }
+    }
+    return Array.from(fillMap.values()).toSorted(
+      (a, b) => b.time - a.time || (b.tid ?? 0) - (a.tid ?? 0),
+    );
+  }
+
   _getUserFillsByTimeMemo = cacheUtils.memoizee(
     async (params: IUserFillsByTimeParameters) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -495,14 +548,21 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async loadTradesHistory(accountAddress: IHex): Promise<IFill[]> {
+  async loadTradesHistory(
+    accountAddress: IHex,
+    options: ILoadTradesHistoryOptions = {},
+  ): Promise<IFill[]> {
+    const normalizedAccountAddress = accountAddress.toLowerCase();
     const current = await perpsTradesHistoryDataAtom.get();
+    const isSameAccount =
+      current.accountAddress?.toLowerCase() === normalizedAccountAddress;
 
-    if (
-      current.isLoaded &&
-      current.accountAddress?.toLowerCase() === accountAddress.toLowerCase()
-    ) {
+    if (!options.force && current.isLoaded && isSameAccount) {
       return current.fills;
+    }
+
+    if (options.force) {
+      this._getUserFillsByTimeMemo.clear();
     }
 
     // Quantize to 10-second boundary so near-simultaneous callers
@@ -512,20 +572,48 @@ export default class ServiceHyperliquid extends ServiceBase {
     const historyDuration = timerUtils.getTimeDurationMs({ year: 2 });
     const twoYearsAgo = now - historyDuration;
 
-    const fills = await this._getUserFillsByTimeMemo({
+    const params = {
       user: accountAddress,
       startTime: twoYearsAgo,
       endTime: now,
       aggregateByTime: true,
-    });
+      // HL caps userFillsByTime at 2000 rows; reverse to keep the latest fills.
+      reversed: true,
+    };
 
-    const sorted = [...fills].toSorted((a, b) => b.time - a.time);
+    const fills = options.force
+      ? await this.getUserFillsByTime(params)
+      : await this._getUserFillsByTimeMemo(params);
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (
+      activeAccount?.accountAddress?.toLowerCase() !== normalizedAccountAddress
+    ) {
+      return this._sortAndDedupeFills(fills);
+    }
+
+    // Merge with the latest atom after the request returns so WS appends or
+    // concurrent refreshes that landed during the REST call are preserved.
+    const latestCurrent = await perpsTradesHistoryDataAtom.get();
+    const shouldMergeLatest =
+      latestCurrent.accountAddress?.toLowerCase() === normalizedAccountAddress;
+    const sorted = this._sortAndDedupeFills(
+      shouldMergeLatest ? [...latestCurrent.fills, ...fills] : fills,
+    );
+
+    const latestActiveAccount = await perpsActiveAccountAtom.get();
+    if (
+      latestActiveAccount?.accountAddress?.toLowerCase() !==
+      normalizedAccountAddress
+    ) {
+      return sorted;
+    }
 
     await perpsTradesHistoryDataAtom.set({
       fills: sorted,
       isLoaded: true,
       latestTime: sorted[0]?.time ?? 0,
-      accountAddress: accountAddress.toLowerCase(),
+      accountAddress: normalizedAccountAddress,
     });
 
     return sorted;
@@ -549,18 +637,22 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
-    const filtered = newFills
-      .filter((f) => f.time > current.latestTime)
-      .toSorted((a, b) => b.time - a.time);
-
-    if (filtered.length === 0) {
+    const currentFillKeys = new Set(
+      current.fills.map((fill) => this._getFillKey(fill)),
+    );
+    const hasNewFill = newFills.some(
+      (fill) => !currentFillKeys.has(this._getFillKey(fill)),
+    );
+    if (!hasNewFill) {
       return;
     }
 
+    const fills = this._sortAndDedupeFills([...newFills, ...current.fills]);
+
     await perpsTradesHistoryDataAtom.set({
       ...current,
-      fills: [...filtered, ...current.fills],
-      latestTime: Math.max(current.latestTime, filtered[0].time),
+      fills,
+      latestTime: fills[0]?.time ?? current.latestTime,
     });
   }
 
@@ -579,6 +671,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     const { infoClient } = hyperLiquidApiClients;
 
     return infoClient.userFills(params);
+  }
+
+  @backgroundMethod()
+  async getUserNonFundingLedgerUpdates(
+    accountAddress: IHex,
+  ): Promise<IUserNonFundingLedgerUpdate[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const now =
+      Math.floor(Date.now() / CACHE_TIME_QUANTIZE_MS) * CACHE_TIME_QUANTIZE_MS;
+    const twoYearsAgo = now - timerUtils.getTimeDurationMs({ year: 2 });
+    const updates = await infoClient.userNonFundingLedgerUpdates({
+      user: accountAddress,
+      startTime: twoYearsAgo,
+      endTime: now,
+    });
+    return updates
+      .filter((update) => !PERPS_FILTERED_LEDGER_TYPES.has(update.delta.type))
+      .toSorted((a, b) => b.time - a.time)
+      .slice(0, 200);
   }
 
   @backgroundMethod()
@@ -700,12 +811,16 @@ export default class ServiceHyperliquid extends ServiceBase {
         (_prev): ISpotActiveAssetCtxAtom => ({
           coin: data.coin,
           assetId: activeSpotAsset?.assetId,
+          baseName: activeSpotAsset?.universe?.baseName,
           ctx: perpsUtils.formatSpotAssetCtx(data.ctx),
         }),
       );
+    } else {
+      const activeSpotAssetCtx = await spotActiveAssetCtxAtom.get();
+      if (activeSpotAssetCtx?.coin !== activeSpotAsset?.coin) {
+        await spotActiveAssetCtxAtom.set(undefined);
+      }
     }
-    // Don't clear to undefined — stale data from the previous coin is preferable
-    // to a brief flash of empty state while waiting for the new WS update.
   }
 
   async updateSpotAssetCtxsMap(data: IWsSpotAssetCtxs) {
@@ -719,6 +834,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           prevDayPx: ctx.prevDayPx,
           dayNtlVlm: ctx.dayNtlVlm,
           circulatingSupply: ctx.circulatingSupply,
+          totalSupply: ctx.totalSupply,
         };
       }
     });
@@ -1074,6 +1190,22 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async refreshSpotExternalMarketCaps() {
+    try {
+      const marketCaps = await this._fetchSpotExternalMarketCaps();
+      await spotExternalMarketCapsAtom.set(marketCaps);
+      return marketCaps;
+    } catch (error) {
+      defaultLogger.app.error.log(
+        `Failed to refresh spot external market caps: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return spotExternalMarketCapsAtom.get();
+    }
+  }
+
+  @backgroundMethod()
   async refreshSpotMeta() {
     const { infoClient } = hyperLiquidApiClients;
     const result = await infoClient.spotMetaAndAssetCtxs();
@@ -1108,6 +1240,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
       void this.updateSpotAssetCtxsMap(assetCtxs);
     }
+    void this.refreshSpotExternalMarketCaps();
   }
 
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;
