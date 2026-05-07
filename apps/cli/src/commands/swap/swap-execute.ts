@@ -82,6 +82,35 @@ interface IBtcBuildTxData {
   };
 }
 
+interface IBtcLocalTxData {
+  btcLocalTx?: {
+    encodedTx?: unknown;
+    btcExtraInfo?: unknown;
+    relPaths?: unknown;
+    transfer?: {
+      toAddress?: unknown;
+      amount?: unknown;
+      opReturn?: unknown;
+      source?: unknown;
+    };
+  };
+}
+
+function isValidBtcLocalTxData(
+  value: unknown,
+): value is NonNullable<IBtcLocalTxData['btcLocalTx']> {
+  if (typeof value !== 'object' || value === null) return false;
+  const localTx = value as NonNullable<IBtcLocalTxData['btcLocalTx']>;
+  return (
+    typeof localTx.encodedTx === 'object' &&
+    localTx.encodedTx !== null &&
+    typeof localTx.btcExtraInfo === 'object' &&
+    localTx.btcExtraInfo !== null &&
+    Array.isArray(localTx.relPaths) &&
+    localTx.relPaths.every((item) => typeof item === 'string')
+  );
+}
+
 // Validate tx hash: 0x + 64 hex chars
 const TX_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/;
 
@@ -397,8 +426,9 @@ export function registerSwapExecuteCommand(parent: Command): void {
     )
     .option(
       '--from-address-type <type>',
-      `BTC/TBTC source address type (${BTC_ADDRESS_TYPES.join('|')})`,
+      `BTC source address type (${BTC_ADDRESS_TYPES.join('|')})`,
     )
+    .option('--sign-only', 'BTC only: sign the PSBT without broadcasting')
     .action(
       async (
         options: {
@@ -406,6 +436,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
           order: string;
           approveUnlimited?: boolean;
           fromAddressType?: BtcAddressType;
+          signOnly?: boolean;
         },
         command,
       ) => {
@@ -465,9 +496,11 @@ export function registerSwapExecuteCommand(parent: Command): void {
             };
             tx?: Record<string, string>;
             btcData?: IBtcBuildTxData['btcData'];
+            btcLocalTx?: IBtcLocalTxData['btcLocalTx'];
           };
 
           if (isBtcImpl(chainConfig.impl)) {
+            const signOnly = Boolean(options.signOnly);
             const fromAddressMeta = order.btcAddressing?.from;
             if (!fromAddressMeta) {
               throw new AppError(
@@ -495,26 +528,31 @@ export function registerSwapExecuteCommand(parent: Command): void {
               );
             }
 
+            const btcLocalTx = (txData as IBtcLocalTxData).btcLocalTx;
             const btcData = (txData as IBtcBuildTxData).btcData;
-            if (
-              !btcData ||
-              typeof btcData.hexStr !== 'string' ||
-              btcData.hexStr.length === 0 ||
-              !Array.isArray(btcData.addressType)
-            ) {
-              throw new AppError(
-                ERROR_CODES.BIZ_SWAP_FAILED.code,
-                'Order does not contain valid BTC PSBT data',
-                'Run "onekey swap build" to create a new order',
-              );
-            }
+            if (!isValidBtcLocalTxData(btcLocalTx)) {
+              if (
+                !btcData ||
+                typeof btcData.hexStr !== 'string' ||
+                btcData.hexStr.length === 0 ||
+                !Array.isArray(btcData.addressType)
+              ) {
+                throw new AppError(
+                  ERROR_CODES.BIZ_SWAP_FAILED.code,
+                  'Order does not contain valid BTC PSBT data',
+                  'Run "onekey swap build" to create a new order',
+                );
+              }
 
-            if (!btcData.addressType.includes(fromAddressMeta.addressEncoding)) {
-              throw new AppError(
-                ERROR_CODES.BIZ_SWAP_FAILED.code,
-                `BTC PSBT does not support the pending derivation path/address type ${fromAddressMeta.path} (${fromAddressMeta.addressType}, ${fromAddressMeta.addressEncoding})`,
-                'Run "onekey swap build" again with a supported BTC address type',
-              );
+              if (
+                !btcData.addressType.includes(fromAddressMeta.addressEncoding)
+              ) {
+                throw new AppError(
+                  ERROR_CODES.BIZ_SWAP_FAILED.code,
+                  `BTC PSBT does not support the pending derivation path/address type ${fromAddressMeta.path} (${fromAddressMeta.addressType}, ${fromAddressMeta.addressEncoding})`,
+                  'Run "onekey swap build" again with a supported BTC address type',
+                );
+              }
             }
 
             const signer = await getSignerByImpl(chainConfig.impl);
@@ -534,8 +572,8 @@ export function registerSwapExecuteCommand(parent: Command): void {
             if (!addressInfo.publicKey) {
               throw new AppError(
                 ERROR_CODES.BIZ_SWAP_FAILED.code,
-                `BTC swap order PSBT has no signable BTC inputs for the selected address ${fromAddress}: wallet public key is missing`,
-                'Run "onekey swap build" again with a wallet address that can sign this PSBT',
+                `BTC swap order has no signable BTC inputs for the selected address ${fromAddress}: wallet public key is missing`,
+                'Run "onekey swap build" again with a wallet address that can sign this transaction',
               );
             }
 
@@ -544,6 +582,104 @@ export function registerSwapExecuteCommand(parent: Command): void {
               path: fromAddressMeta.path,
               pub: addressInfo.publicKey,
             };
+
+            if (isValidBtcLocalTxData(btcLocalTx)) {
+              await confirmTransaction({
+                info: {
+                  action: `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`,
+                  to:
+                    typeof btcLocalTx.transfer?.toAddress === 'string'
+                      ? btcLocalTx.transfer.toAddress
+                      : `${order.provider ?? 'swap provider'} BTC deposit`,
+                  value:
+                    typeof btcLocalTx.transfer?.amount === 'string'
+                      ? `${btcLocalTx.transfer.amount} ${order.fromToken.symbol}`
+                      : `${order.amount} ${order.fromToken.symbol}`,
+                  network: options.chain,
+                },
+                output,
+                skipConfirmation,
+              });
+
+              const signedTx = await signer.signTransaction({
+                networkId: chainConfig.networkId,
+                account: accountForSign,
+                unsignedTx: {
+                  encodedTx: btcLocalTx.encodedTx,
+                },
+                relPaths: btcLocalTx.relPaths,
+                btcExtraInfo: btcLocalTx.btcExtraInfo,
+                addressType: addressTypeInfo.addressType,
+                signOnly,
+              });
+
+              if (signOnly) {
+                output.success(
+                  {
+                    orderId: options.order,
+                    status: 'signed',
+                    chain: order.chain,
+                    from: order.fromToken.symbol,
+                    to: order.toToken.symbol,
+                    amount: order.amount,
+                    rawTx: signedTx.rawTx,
+                    txid: signedTx.txid ?? null,
+                    psbtHex: signedTx.psbtHex ?? null,
+                    finalizedPsbtHex: signedTx.finalizedPsbtHex ?? null,
+                    message:
+                      'BTC transaction signed. Broadcast was skipped because --sign-only was set.',
+                  },
+                  { chain: order.chain },
+                );
+                return;
+              }
+
+              const broadcastResult =
+                await apiClient.post<ISendTransactionResult>(
+                  'wallet',
+                  '/wallet/v1/account/send-transaction',
+                  {
+                    networkId: chainConfig.networkId,
+                    accountAddress: fromAddress,
+                    tx: signedTx.rawTx,
+                  },
+                );
+
+              if (
+                !broadcastResult?.result ||
+                !BTC_TX_HASH_PATTERN.test(broadcastResult.result)
+              ) {
+                throw new AppError(
+                  ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+                  `BTC swap broadcast returned invalid txid: "${broadcastResult?.result ?? ''}"`,
+                  'Check the transaction on chain explorer manually',
+                );
+              }
+
+              updatePendingStatus(options.order, 'executed', {
+                txHash: broadcastResult.result,
+              });
+
+              const isBridge = (order.protocolType ?? 'Swap') === 'Bridge';
+              const successMsg = isBridge
+                ? 'Bridge tx broadcast on source chain. Use "onekey swap status --watch --order ..." to track cross-chain progress.'
+                : 'Swap transaction broadcast successfully.';
+
+              output.success(
+                {
+                  orderId: options.order,
+                  status: 'executed',
+                  txHash: broadcastResult.result,
+                  chain: order.chain,
+                  from: order.fromToken.symbol,
+                  to: order.toToken.symbol,
+                  amount: order.amount,
+                  message: successMsg,
+                },
+                { chain: order.chain },
+              );
+              return;
+            }
             let psbtHexToSign: string;
             let inputsToSign: ReturnType<typeof getInputsToSignFromPsbt>;
             try {
@@ -598,8 +734,28 @@ export function registerSwapExecuteCommand(parent: Command): void {
               },
               relPaths: [addressTypeInfo.relPath],
               addressType: addressTypeInfo.addressType,
-              signOnly: false,
+              signOnly,
             });
+
+            if (signOnly) {
+              output.success(
+                {
+                  orderId: options.order,
+                  status: 'signed',
+                  chain: order.chain,
+                  from: order.fromToken.symbol,
+                  to: order.toToken.symbol,
+                  amount: order.amount,
+                  rawTx: signedTx.rawTx,
+                  psbtHex: signedTx.psbtHex ?? null,
+                  finalizedPsbtHex: signedTx.finalizedPsbtHex ?? null,
+                  message:
+                    'BTC PSBT signed. Broadcast was skipped because --sign-only was set.',
+                },
+                { chain: order.chain },
+              );
+              return;
+            }
 
             const broadcastResult =
               await apiClient.post<ISendTransactionResult>(
@@ -646,6 +802,14 @@ export function registerSwapExecuteCommand(parent: Command): void {
               { chain: order.chain },
             );
             return;
+          }
+
+          if (options.signOnly) {
+            throw new AppError(
+              ERROR_CODES.PARAM_INVALID_CONFIG.code,
+              '--sign-only is only supported for BTC source swap orders.',
+              'Remove --sign-only for EVM swap execution.',
+            );
           }
 
           if (!txData.tx || typeof txData.tx !== 'object') {

@@ -51,7 +51,7 @@ describe('swap-networks', () => {
       ]);
 
       const networks = await fetchSwapNetworks();
-      expect(networks).toHaveLength(4);
+      expect(networks).toHaveLength(3);
       expect(networks[0].networkId).toBe('evm--1');
       expect(networks[0].supportSingleSwap).toBe(true);
       expect(networks[0].supportCrossChainSwap).toBe(true);
@@ -65,15 +65,7 @@ describe('swap-networks', () => {
         supportCrossChainSwap: true,
         supportLimit: false,
       });
-      expect(networks[3]).toMatchObject({
-        networkId: 'tbtc--0',
-        name: 'Bitcoin Testnet',
-        chainId: '0',
-        nativeSymbol: 'TBTC',
-        supportSingleSwap: false,
-        supportCrossChainSwap: true,
-        supportLimit: false,
-      });
+      expect(networks.map((n) => n.networkId)).not.toContain('tbtc--0');
     });
 
     it('skips malformed, unsupported, and non-preset networks', async () => {

@@ -270,10 +270,13 @@ defineCommand({
 
 defineCommand({
   name: 'swap-execute',
-  description: 'Sign and broadcast a built swap transaction',
+  description: 'Sign and broadcast a built swap transaction; BTC supports sign-only PSBT output',
   input: swapExecuteInputSchema,
   output: swapExecuteOutputSchema,
-  examples: ['onekey swap execute --order <orderId>'],
+  examples: [
+    'onekey swap execute --chain eth --order <orderId>',
+    'onekey swap execute --chain btc --order <orderId> --from-address-type taproot --sign-only',
+  ],
 });
 
 defineCommand({

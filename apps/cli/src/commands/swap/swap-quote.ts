@@ -1,14 +1,12 @@
-import { randomUUID } from 'node:crypto';
-
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
-import { version as VERSION } from '../../../package.json';
 import { ConfigManager, getHost } from '../../config';
 import { auditToken, resolveToken } from '../../core';
 import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
+import { buildCliAppRequestHeaders } from '../../infra/app-request-headers';
 import { getSignerByImpl } from '../../signer';
 import {
   amountToSmallestUnit,
@@ -129,11 +127,11 @@ export async function fetchQuotesViaSSE(
   let response: Response;
   try {
     const baseHeaders: Record<string, string> = {
-      Accept: 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'X-Onekey-Request-ID': randomUUID(),
-      'X-Onekey-Request-Platform': 'cli',
-      'X-Onekey-Request-Version': VERSION,
+      ...buildCliAppRequestHeaders(),
+      accept: 'text/event-stream',
+      'accept-language': 'en-US',
+      'cache-control': 'no-cache',
+      pragma: 'no-cache',
     };
     const headers = await withCustomUAHeaders(url, baseHeaders);
     response = await fetch(url, {
@@ -331,11 +329,11 @@ export function registerSwapQuoteCommand(parent: Command): void {
     .requiredOption('--amount <amount>', 'Amount of source token to swap')
     .option(
       '--from-address-type <type>',
-      'BTC/TBTC source address type (taproot|native-segwit|nested-segwit|legacy)',
+      'BTC source address type (taproot|native-segwit|nested-segwit|legacy)',
     )
     .option(
       '--to-address-type <type>',
-      'BTC/TBTC destination address type (taproot|native-segwit|nested-segwit|legacy)',
+      'BTC destination address type (taproot|native-segwit|nested-segwit|legacy)',
     )
     .option('--slippage <percent>', 'Slippage tolerance percentage')
     .option(
@@ -507,7 +505,12 @@ export function registerSwapQuoteCommand(parent: Command): void {
             : await tryGetWalletAddress(chainConfig.impl, chainConfig.networkId);
           const receivingAddress =
             btcAddressing.to?.address ??
-            (btcAddressing.from ? undefined : sourceWalletAddress);
+            (btcAddressing.from
+              ? await tryGetWalletAddress(
+                  toChainConfig.impl,
+                  toChainConfig.networkId,
+                )
+              : sourceWalletAddress);
 
           // Build SSE quote params
           const _protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);

@@ -182,6 +182,92 @@ describe('BTC transfer tx builder', () => {
     });
   });
 
+  it('keeps provider memo as an OP_RETURN output when building a BTC provider deposit tx', async () => {
+    mockGet.mockResolvedValue({
+      utxoList: [
+        {
+          txid: 'tx-1',
+          vout: 0,
+          value: '100000',
+          address: fromAddress,
+          path: fromPath,
+          confirmations: 6,
+          rawTx: '02000000raw',
+        },
+      ],
+    });
+    mockCoinSelectWithWitness.mockReturnValue({
+      inputs: [
+        {
+          txId: 'tx-1',
+          txid: 'tx-1',
+          vout: 0,
+          value: 100000,
+          amount: '100000',
+          address: fromAddress,
+          path: fromPath,
+          confirmations: 6,
+        },
+      ],
+      outputs: [
+        {
+          address: toAddress,
+          amount: '1000',
+        },
+        {
+          type: EOutputsTypeForCoinSelect.OpReturn,
+          address: '',
+          dataHex: '74686f722d6d656d6f',
+        },
+        {
+          address: fromAddress,
+          amount: '98510',
+        },
+      ],
+      fee: 490,
+      bytes: 184,
+    } as never);
+
+    const result = await buildBtcTransferTxForTest(
+      buildParams({ opReturn: 'thor-memo' }),
+    );
+
+    expect(mockCoinSelectWithWitness).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outputsForCoinSelect: [
+          {
+            type: EOutputsTypeForCoinSelect.Payment,
+            address: toAddress,
+            value: 1000,
+            amount: '1000',
+          },
+          {
+            type: EOutputsTypeForCoinSelect.OpReturn,
+            address: '',
+            dataHex: '74686f722d6d656d6f',
+          },
+        ],
+      }),
+    );
+    expect(result.encodedTx.outputs).toEqual([
+      { address: toAddress, value: '1000' },
+      {
+        address: '',
+        value: '0',
+        payload: { opReturn: 'thor-memo' },
+      },
+      {
+        address: fromAddress,
+        value: '98510',
+        payload: {
+          isChange: true,
+          bip44Path: fromPath,
+        },
+      },
+    ]);
+    expect(result.summary.outputCount).toBe(3);
+  });
+
   it('throws insufficient balance when the selected address has no UTXOs', async () => {
     mockGet.mockResolvedValue({ utxoList: [] });
 

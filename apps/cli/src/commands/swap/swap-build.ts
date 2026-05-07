@@ -5,6 +5,8 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import { ConfigManager } from '../../config';
 import { auditToken, resolveToken, savePending } from '../../core';
+import { getBtcAddressTypeInfo } from '../../core/btc/address-types';
+import { buildBtcTransferTx } from '../../core/btc/tx-builder';
 import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
@@ -61,6 +63,7 @@ interface IBuildTxResponse {
     addressType?: unknown;
     [key: string]: unknown;
   };
+  btcLocalTx?: Record<string, unknown>;
   orderId?: string;
   [key: string]: unknown;
 }
@@ -77,6 +80,106 @@ function hasValidBtcData(response: IBuildTxResponse): boolean {
       typeof btcData.hexStr === 'string' &&
       btcData.hexStr.length > 0 &&
       Array.isArray(btcData.addressType),
+  );
+}
+
+function amountFromSmallestUnit(value: string, decimals: number): string {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    throw new AppError(
+      ERROR_CODES.BIZ_SWAP_FAILED.code,
+      `Invalid BTC provider amount: "${value}"`,
+      'Try a different provider or amount',
+    );
+  }
+  if (decimals === 0) return trimmed;
+  const padded = trimmed.padStart(decimals + 1, '0');
+  const integer = padded.slice(0, -decimals);
+  const fraction = padded.slice(-decimals).replace(/0+$/, '');
+  return fraction ? `${integer}.${fraction}` : integer;
+}
+
+function getObjectValue(
+  value: unknown,
+  key: string,
+): Record<string, unknown> | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const nested = (value as Record<string, unknown>)[key];
+  if (typeof nested !== 'object' || nested === null) return undefined;
+  return nested as Record<string, unknown>;
+}
+
+function getStringValue(
+  value: Record<string, unknown> | undefined,
+  key: string,
+): string | undefined {
+  const raw = value?.[key];
+  return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
+}
+
+function extractBtcProviderTransfer(
+  response: IBuildTxResponse,
+  nativeDecimals: number,
+):
+  | {
+      toAddress: string;
+      amount: string;
+      opReturn?: string;
+      source: 'thorSwapCallData' | 'changellyOrder' | 'swftOrder';
+    }
+  | undefined {
+  const thorSwapCallData = getObjectValue(response, 'thorSwapCallData');
+  const thorVault = getStringValue(thorSwapCallData, 'vault');
+  const thorAmount = getStringValue(thorSwapCallData, 'amount');
+  if (thorVault && thorAmount) {
+    return {
+      toAddress: thorVault,
+      amount: amountFromSmallestUnit(thorAmount, nativeDecimals),
+      opReturn:
+        getStringValue(thorSwapCallData, 'memoStreamingSwap') ??
+        getStringValue(thorSwapCallData, 'memo'),
+      source: 'thorSwapCallData',
+    };
+  }
+
+  const changellyOrder = getObjectValue(response, 'changellyOrder');
+  const changellyPayinAddress = getStringValue(changellyOrder, 'payinAddress');
+  const changellyAmount = getStringValue(
+    changellyOrder,
+    'amountExpectedFrom',
+  );
+  if (changellyPayinAddress && changellyAmount) {
+    return {
+      toAddress: changellyPayinAddress,
+      amount: changellyAmount,
+      opReturn: getStringValue(changellyOrder, 'payinExtraId'),
+      source: 'changellyOrder',
+    };
+  }
+
+  const swftOrder = getObjectValue(response, 'swftOrder');
+  const swftPayinAddress = getStringValue(swftOrder, 'platformAddr');
+  const swftAmount = getStringValue(swftOrder, 'depositCoinAmt');
+  if (swftPayinAddress && swftAmount) {
+    return {
+      toAddress: swftPayinAddress,
+      amount: swftAmount,
+      opReturn: getStringValue(swftOrder, 'memo'),
+      source: 'swftOrder',
+    };
+  }
+}
+
+function hasValidBtcLocalTx(response: IBuildTxResponse): boolean {
+  const localTx = response.btcLocalTx;
+  return Boolean(
+    localTx &&
+      typeof localTx === 'object' &&
+      typeof localTx.encodedTx === 'object' &&
+      localTx.encodedTx !== null &&
+      typeof localTx.btcExtraInfo === 'object' &&
+      localTx.btcExtraInfo !== null &&
+      Array.isArray(localTx.relPaths),
   );
 }
 
@@ -109,11 +212,11 @@ export function registerSwapBuildCommand(parent: Command): void {
     .requiredOption('--amount <amount>', 'Amount of source token to swap')
     .option(
       '--from-address-type <type>',
-      'BTC/TBTC source address type (taproot|native-segwit|nested-segwit|legacy)',
+      'BTC source address type (taproot|native-segwit|nested-segwit|legacy)',
     )
     .option(
       '--to-address-type <type>',
-      'BTC/TBTC destination address type (taproot|native-segwit|nested-segwit|legacy)',
+      'BTC destination address type (taproot|native-segwit|nested-segwit|legacy)',
     )
     .option(
       '--provider <provider>',
@@ -321,7 +424,12 @@ export function registerSwapBuildCommand(parent: Command): void {
             : await getWalletAddress(chainConfig.impl, chainConfig.networkId);
           const receivingAddress =
             btcAddressing.to?.address ??
-            (btcAddressing.from ? undefined : walletAddress);
+            (btcAddressing.from
+              ? await getWalletAddress(
+                  toChainConfig.impl,
+                  toChainConfig.networkId,
+                )
+              : walletAddress);
 
           // Resolve env
           const env = (
@@ -497,17 +605,57 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
 
           // Validate executable data exists. EVM source routes require tx;
-          // BTC source routes may return PSBT data under btcData instead.
+          // BTC source routes may return PSBT data under btcData, or App-style
+          // provider deposit data that must be converted into a local BTC tx.
           const isBtcSource = Boolean(btcAddressing.from);
+          if (
+            isBtcSource &&
+            !hasValidBtcData(buildTxResponse) &&
+            !hasValidEvmTx(buildTxResponse) &&
+            btcAddressing.from
+          ) {
+            const transfer = extractBtcProviderTransfer(
+              buildTxResponse,
+              fromResolved.decimals,
+            );
+            if (transfer) {
+              const addressTypeInfo = getBtcAddressTypeInfo(
+                chainConfig.impl,
+                btcAddressing.from.addressType,
+              );
+              const builtLocalTx = await buildBtcTransferTx({
+                impl: chainConfig.impl,
+                networkId: chainConfig.networkId,
+                fromAddress: btcAddressing.from.address,
+                fromPath: btcAddressing.from.path,
+                toAddress: transfer.toAddress,
+                amount: transfer.amount,
+                nativeDecimals: fromResolved.decimals,
+                feeRate: '1',
+                addressTypeInfo,
+                opReturn: transfer.opReturn,
+              });
+              buildTxResponse.btcLocalTx = {
+                encodedTx: builtLocalTx.encodedTx,
+                btcExtraInfo: builtLocalTx.btcExtraInfo,
+                relPaths: builtLocalTx.relPaths,
+                summary: builtLocalTx.summary,
+                transfer,
+              };
+            }
+          }
+
           const hasTxData = isBtcSource
-            ? hasValidBtcData(buildTxResponse) || hasValidEvmTx(buildTxResponse)
+            ? hasValidBtcData(buildTxResponse) ||
+              hasValidBtcLocalTx(buildTxResponse) ||
+              hasValidEvmTx(buildTxResponse)
             : hasValidEvmTx(buildTxResponse);
 
           if (!hasTxData) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
               isBtcSource
-                ? 'Build-tx API returned success but BTC btcData.hexStr is missing'
+                ? 'Build-tx API returned success but no BTC PSBT or provider deposit data is available'
                 : 'Build-tx API returned success but tx data is missing',
               'Try a different provider or amount',
             );

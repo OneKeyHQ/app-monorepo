@@ -52,10 +52,12 @@ interface ICoinSelectSelectedInput {
 }
 
 interface ICoinSelectSelectedOutput {
+  type?: string;
   address: string;
   value?: NumberLike;
   amount?: NumberLike;
   path?: string;
+  dataHex?: string;
 }
 
 export interface IBuildBtcTransferTxParams {
@@ -68,6 +70,7 @@ export interface IBuildBtcTransferTxParams {
   nativeDecimals: number;
   feeRate: string;
   addressTypeInfo: IBtcAddressTypeInfo;
+  opReturn?: string;
 }
 
 export interface IBuildBtcTransferTxResult {
@@ -180,6 +183,9 @@ function assertCoinSelectionComplete(params: {
     }) ||
     params.outputs.some((output) => {
       const selectedOutput = output as ICoinSelectSelectedOutput;
+      if (selectedOutput.type === EOutputsTypeForCoinSelect.OpReturn) {
+        return typeof selectedOutput.dataHex !== 'string';
+      }
       return (
         !selectedOutput.address ||
         getSelectedOutputAmount(selectedOutput) === undefined
@@ -275,6 +281,13 @@ export async function buildBtcTransferTx(
       amount: paymentAmount,
     },
   ];
+  if (params.opReturn) {
+    outputsForCoinSelect.push({
+      type: EOutputsTypeForCoinSelect.OpReturn,
+      address: '',
+      dataHex: Buffer.from(params.opReturn).toString('hex'),
+    });
+  }
 
   const selection = coinSelectWithWitness({
     inputsForCoinSelect,
@@ -324,6 +337,14 @@ export async function buildBtcTransferTx(
 
   let paymentOutputConsumed = false;
   const outputs: IBtcOutput[] = selectedOutputs.map((output) => {
+    if (output.type === EOutputsTypeForCoinSelect.OpReturn) {
+      return {
+        address: '',
+        value: '0',
+        payload: { opReturn: params.opReturn ?? '' },
+      };
+    }
+
     const outputValue = getSelectedOutputAmount(output);
     if (outputValue === undefined) {
       throw createCoinSelectionError({

@@ -2,7 +2,6 @@ import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   IMPL_BTC,
   IMPL_EVM,
-  IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { AppError, ERROR_CODES } from '../../errors';
@@ -23,7 +22,7 @@ export interface ISwapNetworkResult {
 
 let cachedNetworks: ISwapNetworkResult[] | null = null;
 
-const SUPPORTED_SWAP_IMPLS = new Set([IMPL_EVM, IMPL_BTC, IMPL_TBTC]);
+const SUPPORTED_SWAP_IMPLS = new Set([IMPL_EVM, IMPL_BTC]);
 
 function hasWellFormedNetworkId(networkId: string): boolean {
   const parts = networkId.split('--');

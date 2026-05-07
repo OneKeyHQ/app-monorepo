@@ -51,13 +51,18 @@ const BTC_CAPABILITIES = new Set<CliChainCapability>([
   'swap',
 ]);
 
+const TBTC_CAPABILITIES = new Set<CliChainCapability>([
+  'accountRead',
+  'historyRead',
+  'btcTransfer',
+]);
+
 let chainCache: Map<string, IChainConfig> | null = null;
 
 function getCapabilitiesForImpl(impl: string): ReadonlySet<CliChainCapability> {
   if (impl === IMPL_EVM) return EVM_CAPABILITIES;
-  if (impl === IMPL_BTC || impl === IMPL_TBTC) {
-    return BTC_CAPABILITIES;
-  }
+  if (impl === IMPL_BTC) return BTC_CAPABILITIES;
+  if (impl === IMPL_TBTC) return TBTC_CAPABILITIES;
   return new Set<CliChainCapability>();
 }
 

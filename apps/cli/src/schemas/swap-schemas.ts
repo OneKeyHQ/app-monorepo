@@ -52,10 +52,10 @@ export const swapQuoteInputSchema = z.object({
     .describe('Destination chain for cross-chain swap'),
   fromAddressType: btcAddressType
     .optional()
-    .describe('BTC/TBTC source address type'),
+    .describe('BTC source address type'),
   toAddressType: btcAddressType
     .optional()
-    .describe('BTC/TBTC destination address type'),
+    .describe('BTC destination address type'),
   slippage: z.coerce
     .number()
     .optional()
@@ -137,14 +137,18 @@ export const swapExecuteInputSchema = z.object({
   order: z.string().describe('Order ID from swap build'),
   fromAddressType: btcAddressType
     .optional()
-    .describe('BTC/TBTC source address type'),
+    .describe('BTC source address type'),
+  signOnly: z
+    .boolean()
+    .optional()
+    .describe('BTC only: sign the PSBT without broadcasting'),
   approveUnlimited: z
     .boolean()
     .optional()
     .describe('Approve unlimited allowance'),
 });
 
-export const swapExecuteOutputSchema = z.object({
+const swapExecuteBroadcastOutputSchema = z.object({
   orderId: z.string(),
   status: z.literal('executed'),
   txHash: z.string(),
@@ -155,6 +159,24 @@ export const swapExecuteOutputSchema = z.object({
   amount: z.string(),
   message: z.string(),
 });
+
+const swapExecuteSignOnlyOutputSchema = z.object({
+  orderId: z.string(),
+  status: z.literal('signed'),
+  chain: z.string(),
+  from: z.string(),
+  to: z.string(),
+  amount: z.string(),
+  rawTx: z.string(),
+  psbtHex: z.string().nullable(),
+  finalizedPsbtHex: z.string().nullable(),
+  message: z.string(),
+});
+
+export const swapExecuteOutputSchema = z.union([
+  swapExecuteBroadcastOutputSchema,
+  swapExecuteSignOnlyOutputSchema,
+]);
 
 // ---- swap status ----
 export const swapStatusInputSchema = z.object({

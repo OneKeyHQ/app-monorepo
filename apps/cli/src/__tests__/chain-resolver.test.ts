@@ -104,18 +104,18 @@ describe('chain-resolver', () => {
       ).not.toThrow();
     });
 
-    it('assigns swap capability to btc and tbtc', () => {
+    it('assigns swap capability to btc mainnet only', () => {
       const btc = resolveChain('btc');
       const tbtc = resolveChain('tbtc');
 
       expect(btc.capabilities.has('swap')).toBe(true);
-      expect(tbtc.capabilities.has('swap')).toBe(true);
+      expect(tbtc.capabilities.has('swap')).toBe(false);
       expect(() =>
         assertChainCapability(btc, 'swap', 'swap quote'),
       ).not.toThrow();
       expect(() =>
         assertChainCapability(tbtc, 'swap', 'swap quote'),
-      ).not.toThrow();
+      ).toThrow(/does not support chain "tbtc"/i);
     });
 
     it('keeps btc and tbtc out of evm-only capabilities', () => {

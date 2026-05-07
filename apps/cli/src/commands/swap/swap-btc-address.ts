@@ -50,7 +50,7 @@ export function requireBtcSwapAddressType(
 
   throw new AppError(
     ERROR_CODES.PARAM_MISSING_REQUIRED.code,
-    `Missing required option ${flagName} for BTC/TBTC swap.`,
+    `Missing required option ${flagName} for BTC swap.`,
     `Use ${flagName} ${BTC_ADDRESS_TYPES.join('|')}.`,
   );
 }

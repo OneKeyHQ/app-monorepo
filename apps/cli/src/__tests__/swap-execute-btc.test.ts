@@ -99,6 +99,8 @@ function makeSigner(address = 'bc1psourceaddress') {
     }),
     signTransaction: jest.fn().mockResolvedValue({
       rawTx: 'signed-btc-raw-tx',
+      psbtHex: 'signed-btc-psbt-hex',
+      finalizedPsbtHex: 'finalized-btc-psbt-hex',
     }),
     signMessage: jest.fn(),
   };
@@ -266,6 +268,194 @@ describe('swap execute BTC PSBT path', () => {
       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     );
     expect(parsed.data.txHash).not.toMatch(/^0x/);
+  });
+
+  it('signs valid BTC PSBT without broadcasting when --sign-only is set', async () => {
+    savePending('btc_order', makePendingOrder());
+
+    const result = await runExecute([
+      '--from-address-type',
+      'taproot',
+      '--sign-only',
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    const signer = await mockGetSignerByImpl.mock.results[0].value;
+    expect(signer.signTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'btc--0',
+        unsignedTx: {
+          encodedTx: {
+            psbtHex: 'normalized-psbt-hex',
+            inputsToSign: [
+              {
+                index: 0,
+                publicKey: '02abcdef',
+                address: 'bc1psourceaddress',
+              },
+            ],
+          },
+        },
+        relPaths: ['0/0'],
+        addressType: 'taproot',
+        signOnly: true,
+      }),
+    );
+    expect(mockPost).not.toHaveBeenCalled();
+
+    const updated = loadPending('btc_order');
+    expect(updated.status).toBe('pending');
+    expect(updated.txHash).toBeUndefined();
+
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.data).toMatchObject({
+      orderId: 'btc_order',
+      status: 'signed',
+      chain: 'btc',
+      from: 'BTC',
+      to: 'ETH',
+      amount: '0.01',
+      psbtHex: 'signed-btc-psbt-hex',
+      finalizedPsbtHex: 'finalized-btc-psbt-hex',
+      rawTx: 'signed-btc-raw-tx',
+    });
+    expect(parsed.data).not.toHaveProperty('txHash');
+  });
+
+  it('signs a locally built BTC provider deposit tx without broadcasting when --sign-only is set', async () => {
+    savePending(
+      'btc_order',
+      makePendingOrder({
+        txData: {
+          btcLocalTx: {
+            encodedTx: {
+              inputs: [
+                {
+                  txid: 'tx-1',
+                  vout: 0,
+                  value: '100000',
+                  address: 'bc1psourceaddress',
+                  path: "m/86'/0'/0'/0/0",
+                },
+              ],
+              outputs: [
+                {
+                  address: 'bc1pproviderdeposit',
+                  value: '100000',
+                },
+              ],
+            },
+            btcExtraInfo: {
+              addressToPath: {
+                bc1psourceaddress: {
+                  address: 'bc1psourceaddress',
+                  relPath: '0/0',
+                  fullPath: "m/86'/0'/0'/0/0",
+                },
+              },
+              pathToAddresses: {
+                "m/86'/0'/0'/0/0": {
+                  address: 'bc1psourceaddress',
+                  relPath: '0/0',
+                  fullPath: "m/86'/0'/0'/0/0",
+                },
+              },
+              inputAddressesEncodings: [EAddressEncodings.P2TR],
+              nonWitnessPrevTxs: {
+                'tx-1': '02000000raw',
+              },
+            },
+            relPaths: ['0/0'],
+            transfer: {
+              toAddress: 'bc1pproviderdeposit',
+              amount: '0.001',
+              source: 'thorSwapCallData',
+            },
+          },
+        },
+      }),
+    );
+
+    const result = await runExecute([
+      '--from-address-type',
+      'taproot',
+      '--sign-only',
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    const signer = await mockGetSignerByImpl.mock.results[0].value;
+    expect(signer.signTransaction).toHaveBeenCalledWith({
+      networkId: 'btc--0',
+      account: {
+        address: 'bc1psourceaddress',
+        path: "m/86'/0'/0'/0/0",
+        pub: '02abcdef',
+      },
+      unsignedTx: {
+        encodedTx: {
+          inputs: [
+            {
+              txid: 'tx-1',
+              vout: 0,
+              value: '100000',
+              address: 'bc1psourceaddress',
+              path: "m/86'/0'/0'/0/0",
+            },
+          ],
+          outputs: [
+            {
+              address: 'bc1pproviderdeposit',
+              value: '100000',
+            },
+          ],
+        },
+      },
+      relPaths: ['0/0'],
+      btcExtraInfo: {
+        addressToPath: {
+          bc1psourceaddress: {
+            address: 'bc1psourceaddress',
+            relPath: '0/0',
+            fullPath: "m/86'/0'/0'/0/0",
+          },
+        },
+        pathToAddresses: {
+          "m/86'/0'/0'/0/0": {
+            address: 'bc1psourceaddress',
+            relPath: '0/0',
+            fullPath: "m/86'/0'/0'/0/0",
+          },
+        },
+        inputAddressesEncodings: [EAddressEncodings.P2TR],
+        nonWitnessPrevTxs: {
+          'tx-1': '02000000raw',
+        },
+      },
+      addressType: 'taproot',
+      signOnly: true,
+    });
+    expect(mockPsbtFromHex).not.toHaveBeenCalled();
+    expect(mockGetInputsToSignFromPsbt).not.toHaveBeenCalled();
+    expect(mockPost).not.toHaveBeenCalled();
+
+    const updated = loadPending('btc_order');
+    expect(updated.status).toBe('pending');
+    expect(updated.txHash).toBeUndefined();
+
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.data).toMatchObject({
+      orderId: 'btc_order',
+      status: 'signed',
+      chain: 'btc',
+      from: 'BTC',
+      to: 'ETH',
+      amount: '0.01',
+      rawTx: 'signed-btc-raw-tx',
+      txid: null,
+      psbtHex: 'signed-btc-psbt-hex',
+      finalizedPsbtHex: 'finalized-btc-psbt-hex',
+    });
+    expect(parsed.data).not.toHaveProperty('txHash');
   });
 
   it('rejects wallet address mismatch', async () => {

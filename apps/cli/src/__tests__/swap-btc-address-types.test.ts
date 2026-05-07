@@ -204,7 +204,7 @@ describe('swap BTC address type metadata', () => {
     );
   });
 
-  it('quote validates BTC source address type before dynamic swap network support', async () => {
+  it('quote rejects tbtc source before BTC address type validation', async () => {
     const result = await runCommand(registerSwapCommands(), [
       'swap',
       'quote',
@@ -225,26 +225,25 @@ describe('swap BTC address type metadata', () => {
     expect(mockGetSignerByImpl).not.toHaveBeenCalled();
 
     const parsed = JSON.parse(extractJson(result.stdout));
-    expect(parsed.error.code).toBe('PARAM_MISSING_REQUIRED');
-    expect(parsed.error.message).toContain('--from-address-type');
+    expect(parsed.error.code).toBe('PARAM_INVALID_CHAIN');
+    expect(parsed.error.message).toContain('does not support chain "tbtc"');
+    expect(parsed.error.message).not.toContain('--from-address-type');
   });
 
-  it('quote requires --to-address-type when destination is tbtc', async () => {
+  it('quote requires --to-address-type when destination is btc', async () => {
     const result = await runCommand(registerSwapCommands(), [
       'swap',
       'quote',
       '--chain',
       'eth',
       '--to-chain',
-      'tbtc',
+      'btc',
       '--from',
       'ETH',
       '--to',
-      'TBTC',
+      'BTC',
       '--amount',
       '0.01',
-      '--from-address-type',
-      'taproot',
     ]);
 
     expect(result.exitCode).not.toBe(0);
@@ -258,7 +257,7 @@ describe('swap BTC address type metadata', () => {
     );
   });
 
-  it('build validates BTC destination address type before dynamic swap network support', async () => {
+  it('build rejects tbtc destination before BTC address type validation', async () => {
     const result = await runCommand(registerSwapCommands(), [
       'swap',
       'build',
@@ -279,11 +278,12 @@ describe('swap BTC address type metadata', () => {
     expect(mockGetSignerByImpl).not.toHaveBeenCalled();
 
     const parsed = JSON.parse(extractJson(result.stdout));
-    expect(parsed.error.code).toBe('PARAM_MISSING_REQUIRED');
-    expect(parsed.error.message).toContain('--to-address-type');
+    expect(parsed.error.code).toBe('PARAM_INVALID_CHAIN');
+    expect(parsed.error.message).toContain('does not support chain "tbtc"');
+    expect(parsed.error.message).not.toContain('--to-address-type');
   });
 
-  it('quote BTC source plus EVM destination uses BTC source as userAddress', async () => {
+  it('quote BTC source plus EVM destination uses BTC source as userAddress and destination as receivingAddress', async () => {
     mockQuoteSse({
       fromNetworkId: 'btc--0',
       toNetworkId: 'evm--1',
@@ -310,14 +310,19 @@ describe('swap BTC address type metadata', () => {
 
     expect(result.exitCode).toBe(0);
     expect(mockGetSignerByImpl).toHaveBeenCalledWith('btc');
+    expect(mockGetSignerByImpl).toHaveBeenCalledWith('evm');
     const btcSigner = await mockGetSignerByImpl.mock.results[0].value;
+    const evmSigner = await mockGetSignerByImpl.mock.results[1].value;
     expect(btcSigner.getAddress).toHaveBeenCalledWith('btc--0', {
       addressType: 'taproot',
     });
+    expect(evmSigner.getAddress).toHaveBeenCalledWith('evm--1');
     const fetchUrl = (global.fetch as jest.Mock).mock.calls[0][0] as string;
     const params = new URL(fetchUrl).searchParams;
     expect(params.get('userAddress')).toBe('bc1psourceaddress');
-    expect(params.has('receivingAddress')).toBe(false);
+    expect(params.get('receivingAddress')).toBe(
+      '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+    );
 
     const parsed = JSON.parse(extractJson(result.stdout));
     expect(parsed.data.metadata.btcAddressing).toEqual({
@@ -423,14 +428,19 @@ describe('swap BTC address type metadata', () => {
 
     expect(result.exitCode).toBe(0);
     const btcSigner = await mockGetSignerByImpl.mock.results[0].value;
+    const evmSigner = await mockGetSignerByImpl.mock.results[1].value;
     expect(btcSigner.getAddress).toHaveBeenCalledTimes(1);
     expect(btcSigner.getAddress).toHaveBeenCalledWith('btc--0', {
       addressType: 'taproot',
     });
     expect(btcSigner.getAddress).not.toHaveBeenCalledWith('btc--0');
+    expect(evmSigner.getAddress).toHaveBeenCalledWith('evm--1');
 
     const buildBody = mockPost.mock.calls[0][2] as Record<string, unknown>;
     expect(buildBody.userAddress).toBe('bc1psourceaddress');
+    expect(buildBody.receivingAddress).toBe(
+      '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+    );
 
     const parsed = JSON.parse(extractJson(result.stdout));
     expect(parsed.data.hasTxData).toBe(true);
@@ -488,7 +498,7 @@ describe('swap BTC address type metadata', () => {
 
     const parsed = JSON.parse(extractJson(result.stdout));
     expect(parsed.error.code).toBe('BIZ_SWAP_FAILED');
-    expect(parsed.error.message).toContain('btcData');
+    expect(parsed.error.message).toContain('provider deposit data');
   });
 
   it('rejects corrupted pending orders with non-object btcAddressing', () => {
