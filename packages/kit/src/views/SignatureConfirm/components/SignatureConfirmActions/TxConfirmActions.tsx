@@ -241,16 +241,21 @@ function TxConfirmActions(props: IProps) {
           errMessage: '',
           discountPercent: 0,
         });
-        Toast.warning({ title: message });
+        if (!entry.suppressToast) {
+          Toast.warning({ title: message });
+        }
         appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
         return EGasAccountErrorStrategy.Fallback;
       }
 
       // Hint: suppress the generic toast, show our specific copy, but let the
       // caller still invoke onFail / dappApprove.reject — the current attempt
-      // is terminal and the dApp needs to know.
+      // is terminal and the dApp needs to know. Entries flagged suppressToast
+      // skip the user-facing copy entirely while preserving the reject path.
       muteHandledErrorToast(error);
-      Toast.warning({ title: message });
+      if (!entry.suppressToast) {
+        Toast.warning({ title: message });
+      }
       return EGasAccountErrorStrategy.Hint;
     },
     [
