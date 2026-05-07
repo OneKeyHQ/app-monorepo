@@ -150,4 +150,5 @@ export enum EAppEventBusNames {
   ShowRookieShare = 'ShowRookieShare',
   CreateNewBrowserTab = 'CreateNewBrowserTab',
   NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
+  TrayActionWillNavigate = 'TrayActionWillNavigate',
 }
