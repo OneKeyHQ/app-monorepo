@@ -102,11 +102,12 @@ function getPriorityFeeLabel({
   settings?: IMarketPresetDirectionSettings;
   unit?: string;
 }) {
-  if (
-    settings?.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
-    settings.priorityFee.customValue
-  ) {
-    return `${settings.priorityFee.customValue}${unit ? ` ${unit}` : ''}`;
+  if (settings?.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM) {
+    if (settings.priorityFee.customValue) {
+      return `${settings.priorityFee.customValue}${unit ? ` ${unit}` : ''}`;
+    }
+
+    return unit ?? '';
   }
 
   return intl.formatMessage({
@@ -232,9 +233,11 @@ function MarketPresetTabBar({
   return (
     <XStack
       alignItems="flex-start"
+      bg="$transparent"
       borderBottomColor="$borderSubdued"
       borderBottomWidth="$px"
       gap="$5"
+      px="$0"
       width="100%"
     >
       {options.map((option) => {
@@ -245,14 +248,14 @@ function MarketPresetTabBar({
             key={option.value}
             accessibilityRole="button"
             alignItems="center"
+            bg="$transparent"
             borderBottomColor={selected ? '$borderActive' : '$transparent'}
             borderBottomWidth="$0.5"
             cursor="pointer"
             h={44}
             justifyContent="center"
+            overflow="hidden"
             pb="$0.5"
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
             onPress={() => onChange(option.value)}
             testID={option.testID}
           >
@@ -410,6 +413,37 @@ function MarketPresetSettingsDialog({
 
   const confirmDisabled = currentSettingsInvalid || hasInvalidDirtySettings;
 
+  const slippageOptions = useMemo(() => {
+    const autoSelected =
+      currentSettings.slippage.key === ESwapSlippageSegmentKey.AUTO;
+
+    return [
+      {
+        label: (
+          <XStack alignItems="center" gap="$1" justifyContent="center">
+            <Icon name="Ai3StarOutline" size={15} color="$iconSuccess" />
+            <SizableText
+              size="$bodyMdMedium"
+              color={autoSelected ? '$text' : '$textSubdued'}
+              numberOfLines={1}
+            >
+              {intl.formatMessage({
+                id: ETranslations.slippage_tolerance_switch_auto,
+              })}
+            </SizableText>
+          </XStack>
+        ),
+        value: ESwapSlippageSegmentKey.AUTO,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.slippage_tolerance_switch_custom,
+        }),
+        value: ESwapSlippageSegmentKey.CUSTOM,
+      },
+    ];
+  }, [currentSettings.slippage.key, intl]);
+
   const handleConfirm = useCallback(async () => {
     if (confirmDisabled) {
       return;
@@ -555,10 +589,20 @@ function MarketPresetSettingsDialog({
             fullWidth
             value={activeTradeSide}
             options={sideOptions}
+            borderRadius="$2.5"
+            gap="$0.5"
+            p="$0.5"
+            slotBackgroundColor="$neutral5"
             activeBackgroundColor={getTradeSideActiveBackgroundColor(
               activeTradeSide,
             )}
             activeTextColor="$textOnColor"
+            inactiveTextColor="$textSubdued"
+            segmentControlItemStyleProps={{
+              borderRadius: '$2',
+              px: '$2',
+              py: '$1',
+            }}
             onChange={(value) =>
               setActiveTradeSide(value as EMarketPresetTradeSide)
             }
@@ -577,20 +621,19 @@ function MarketPresetSettingsDialog({
                 <SegmentControl
                   fullWidth
                   value={currentSettings.slippage.key}
-                  options={[
-                    {
-                      label: intl.formatMessage({
-                        id: ETranslations.slippage_tolerance_switch_auto,
-                      }),
-                      value: ESwapSlippageSegmentKey.AUTO,
-                    },
-                    {
-                      label: intl.formatMessage({
-                        id: ETranslations.slippage_tolerance_switch_custom,
-                      }),
-                      value: ESwapSlippageSegmentKey.CUSTOM,
-                    },
-                  ]}
+                  options={slippageOptions}
+                  borderRadius="$2.5"
+                  gap="$0.5"
+                  p="$0.5"
+                  slotBackgroundColor="$neutral5"
+                  activeBackgroundColor="$bg"
+                  activeTextColor="$text"
+                  inactiveTextColor="$textSubdued"
+                  segmentControlItemStyleProps={{
+                    borderRadius: '$2',
+                    px: '$2',
+                    py: '$1',
+                  }}
                   onChange={(value) => {
                     const key = value as ESwapSlippageSegmentKey;
                     updateCurrentSettings((settings) => ({
@@ -688,6 +731,18 @@ function MarketPresetSettingsDialog({
                   fullWidth
                   value={currentSettings.priorityFee.type}
                   options={priorityFeeOptions}
+                  borderRadius="$2.5"
+                  gap="$0.5"
+                  p="$0.5"
+                  slotBackgroundColor="$neutral5"
+                  activeBackgroundColor="$bg"
+                  activeTextColor="$text"
+                  inactiveTextColor="$textSubdued"
+                  segmentControlItemStyleProps={{
+                    borderRadius: '$2',
+                    px: '$2',
+                    py: '$1',
+                  }}
                   onChange={(value) => {
                     const type = value as EMarketPresetPriorityFeeType;
                     updateCurrentSettings((settings) => ({

@@ -43,7 +43,20 @@ jest.mock('@onekeyhq/components', () => ({
   Divider: () => <span data-testid="divider" />,
   Icon: ({ name }: { name: string }) => <span data-testid={`icon-${name}`} />,
   Input: () => <input />,
-  SegmentControl: () => <div data-testid="segment-control" />,
+  SegmentControl: ({
+    options,
+  }: {
+    options?: {
+      label: ReactNode;
+      value: string | number;
+    }[];
+  }) => (
+    <div data-testid="segment-control">
+      {options?.map((option) => (
+        <span key={option.value}>{option.label}</span>
+      ))}
+    </div>
+  ),
   SizableText: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
   ),
@@ -211,6 +224,19 @@ describe('MarketPresetSelector', () => {
     expect(mockDialogShow).not.toHaveBeenCalled();
   });
 
+  it('does not show Custom as the compact priority fee value', () => {
+    const presetSettings = createPresetSettings();
+    presetSettings.priorityFeeUnit = 'Gwei';
+    presetSettings.selectedDirectionSettings.priorityFee = {
+      type: EMarketPresetPriorityFeeType.CUSTOM,
+    };
+
+    render(<MarketPresetSelector presetSettings={presetSettings} />);
+
+    expect(screen.getByText('Gwei')).toBeTruthy();
+    expect(screen.queryByText(ETranslations.content__custom)).toBeNull();
+  });
+
   it('uses the extracted full widget preset buttons when requested', () => {
     const onPresetChange = jest.fn();
 
@@ -242,5 +268,6 @@ describe('MarketPresetSelector', () => {
     fireEvent.click(screen.getByTestId('market-preset-dialog-tab-p1'));
 
     expect(screen.getAllByTestId('segment-control')).toHaveLength(3);
+    expect(screen.getByTestId('icon-Ai3StarOutline')).toBeTruthy();
   });
 });
