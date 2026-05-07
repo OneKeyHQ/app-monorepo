@@ -133,12 +133,14 @@ export function selectSwapCurrentQuote({
     );
 
     if (manualQuote) {
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
       if (isSwapQuoteActionable(manualQuote)) {
         return manualQuote;
       }
 
       return (
         selectBestQuote(
+          // eslint-disable-next-line @typescript-eslint/no-use-before-define
           currentEventSortedQuotes.filter(isSwapQuoteActionable),
         ) ?? manualQuote
       );
