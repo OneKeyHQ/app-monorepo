@@ -125,6 +125,20 @@ import type { FailedAttemptError } from 'p-retry';
 
 const enabledNFTNetworkIds = networkUtils.getEnabledNFTNetworkIds();
 
+const APPROVE_TYPE_BY_DESC_NAME: Partial<
+  Record<EErc20TxDescriptionName, EApproveType>
+> = {
+  [EErc20TxDescriptionName.Approve]: EApproveType.Approve,
+  [EErc20TxDescriptionName.IncreaseAllowance]: EApproveType.IncreaseAllowance,
+  [EErc20TxDescriptionName.IncreaseApproval]: EApproveType.IncreaseApproval,
+};
+
+const SELECTOR_BY_APPROVE_TYPE: Record<EApproveType, EErc20MethodSelectors> = {
+  [EApproveType.Approve]: EErc20MethodSelectors.tokenApprove,
+  [EApproveType.IncreaseAllowance]: EErc20MethodSelectors.increaseAllowance,
+  [EApproveType.IncreaseApproval]: EErc20MethodSelectors.increaseApproval,
+};
+
 // evm vault
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.evm.hd;
@@ -984,32 +998,21 @@ export default class Vault extends VaultBase {
     ) {
       const { allowance, isUnlimited } = tokenApproveInfo;
       const { spender, decimals } = action.tokenApprove;
-      // Prefer the approveType from the editor; fall back to the action's
-      // detected type (and finally Approve) for older call sites.
       const approveType =
         tokenApproveInfo.approveType ??
         action.tokenApprove.approveType ??
         EApproveType.Approve;
 
-      // The editor only allows Unlimited on absolute approve. For the
-      // increase variants we keep the original selector and treat the value
-      // strictly as a delta — never silently rewrite to approve().
-      let selector: EErc20MethodSelectors;
-      let amountHex: string;
-      if (approveType === EApproveType.IncreaseAllowance) {
-        selector = EErc20MethodSelectors.increaseAllowance;
-        amountHex = toBigIntHex(new BigNumber(allowance).shiftedBy(decimals));
-      } else if (approveType === EApproveType.IncreaseApproval) {
-        selector = EErc20MethodSelectors.increaseApproval;
-        amountHex = toBigIntHex(new BigNumber(allowance).shiftedBy(decimals));
-      } else {
-        selector = EErc20MethodSelectors.tokenApprove;
-        amountHex = toBigIntHex(
-          isUnlimited
-            ? new BigNumber(2).pow(256).minus(1)
-            : new BigNumber(allowance).shiftedBy(decimals),
-        );
-      }
+      const selector = SELECTOR_BY_APPROVE_TYPE[approveType];
+      // Unlimited only applies to absolute approve; increase variants always
+      // encode the value as a delta.
+      const isAbsoluteUnlimited =
+        approveType === EApproveType.Approve && isUnlimited;
+      const amountHex = toBigIntHex(
+        isAbsoluteUnlimited
+          ? new BigNumber(2).pow(256).minus(1)
+          : new BigNumber(allowance).shiftedBy(decimals),
+      );
 
       const data = `${selector}${defaultAbiCoder
         .encode(['address', 'uint256'], [spender, amountHex])
@@ -1175,12 +1178,9 @@ export default class Vault extends VaultBase {
     const amount = formatValue(value, token.decimals);
     const accountAddress = await this.getAccountAddress();
 
-    let approveType: EApproveType = EApproveType.Approve;
-    if (txDesc.name === EErc20TxDescriptionName.IncreaseAllowance) {
-      approveType = EApproveType.IncreaseAllowance;
-    } else if (txDesc.name === EErc20TxDescriptionName.IncreaseApproval) {
-      approveType = EApproveType.IncreaseApproval;
-    }
+    const approveType =
+      APPROVE_TYPE_BY_DESC_NAME[txDesc.name as EErc20TxDescriptionName] ??
+      EApproveType.Approve;
 
     const action: IDecodedTxAction = {
       type: EDecodedTxActionType.TOKEN_APPROVE,
@@ -1194,7 +1194,6 @@ export default class Vault extends VaultBase {
         symbol: token.symbol,
         decimals: token.decimals,
         tokenIdOnNetwork: token.address,
-        // increaseAllowance/increaseApproval carry a delta, never an "infinite" amount.
         isInfiniteAmount:
           approveType === EApproveType.Approve && amount === InfiniteAmountText,
         approveType,

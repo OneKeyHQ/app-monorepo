@@ -88,15 +88,11 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
   const isIncrease =
     approveType === EApproveType.IncreaseAllowance ||
     approveType === EApproveType.IncreaseApproval;
-  // increaseAllowance(MaxUint256) — formatValue returns the 'Infinite'
-  // string for the action amount even though isInfiniteAmount is false
-  // (that flag is only set for absolute approve). Treat it as unlimited at
-  // the display layer so we don't render NaN through NumberSizeableText.
+  // increaseAllowance(MaxUint256) leaves "Infinite" in approveAmount even
+  // though isInfiniteAmount is only set on absolute approve.
   const isIncreaseUnlimited =
     isIncrease && !new BigNumber(approveAmount).isFinite();
   const showUnlimitedAmount = approveIsMax || isIncreaseUnlimited;
-  // Revoke only applies to absolute approve(spender, 0); a zero delta on
-  // an increase call is not a revoke.
   const isRevoke = !isIncrease && new BigNumber(approveAmount).eq(0);
 
   let title = approveLabel;
@@ -126,7 +122,6 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
         },
       );
     } else if (isIncrease) {
-      // English-only fallback for now; no dedicated title key yet.
       title = `Increase ${approveSymbol} allowance`;
     } else {
       title = intl.formatMessage({
@@ -193,8 +188,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
         </NumberSizeableTextWrapper>
       );
     } else if (isIncrease) {
-      // Render the "+" outside the formatter — BigNumber would strip a
-      // leading "+" so it has to live in its own text span.
+      // "+" lives outside the formatter so BigNumber doesn't strip it.
       changeDescription = (
         <XStack gap="$0.5" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -286,16 +280,10 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     approveType === EApproveType.IncreaseAllowance ||
     approveType === EApproveType.IncreaseApproval;
 
-  // increaseAllowance(MaxUint256) — formatValue produces the 'Infinite'
-  // string; we surface it as unlimited at the display layer (Final allowance
-  // would otherwise just echo the current allowance and hide the risk).
+  // Same "Infinite" sentinel handling as the list view.
   const isIncreaseUnlimited =
     isIncrease && !new BigNumber(originalApproveAmount).isFinite();
 
-  // For increase variants, look up the current on-chain allowance so the
-  // confirm page can display the post-tx total ("Approve {current+delta}")
-  // instead of just the calldata delta. Falls back to the delta wording
-  // while loading or if the lookup fails.
   const { allowanceParsed: currentAllowanceParsed } = useTokenApproveAllowance({
     enabled: isIncrease,
     accountId: decodedTx.accountId,
@@ -307,8 +295,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   const finalAllowanceParsed = useMemo(() => {
     if (!isIncrease || !currentAllowanceParsed) return null;
     const deltaBN = new BigNumber(originalApproveAmount);
-    // Non-finite delta is handled separately as "unlimited"; signal that
-    // here with null so the caller doesn't render the bare current value.
+    // null signals "unlimited" to the caller; finite delta is added.
     if (!deltaBN.isFinite()) return null;
     return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
   }, [currentAllowanceParsed, isIncrease, originalApproveAmount]);
@@ -319,9 +306,6 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   if (!content) {
     if (isIncrease) {
       if (isIncreaseUnlimited) {
-        // increaseAllowance(MaxUint256): the resulting allowance is
-        // effectively unbounded (or the call reverts) — match the wording
-        // of an unlimited absolute approve.
         content = intl.formatMessage(
           { id: ETranslations.form__approve_str },
           {
@@ -332,14 +316,11 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
           },
         );
       } else if (finalAllowanceParsed) {
-        // Show the resulting absolute allowance after this tx is mined,
-        // matching the "Approve {amount} {symbol}" framing of plain approve.
         content = intl.formatMessage(
           { id: ETranslations.form__approve_str },
           { amount: finalAllowanceParsed, symbol: approveSymbol },
         );
       } else {
-        // English-only fallback while current allowance is unknown.
         content = `Increase ${approveSymbol} allowance by ${amount}`;
       }
     } else if (new BigNumber(amount).eq(0)) {

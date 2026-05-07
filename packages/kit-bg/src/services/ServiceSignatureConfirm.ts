@@ -279,29 +279,22 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.isLocalParsed = true;
     }
 
-    // Backfill approveType and spender on Approve display components from
-    // the local decoded action. The server-side parser may not yet include
-    // these fields, but the local EVM decoder always identifies the on-chain
-    // method, so the editor can reliably adapt UI for increaseAllowance /
-    // increaseApproval calls.
+    // Backfill approveType/spender/amount on server-built Approve components
+    // from the local decoder, which always reflects current calldata (the
+    // server's amountParsed lags re-encoding after the user edits the delta).
     if (decodedTx.txDisplay?.components) {
       const localApproves = decodedTx.actions
         .map((a) => a.tokenApprove)
         .filter((a): a is NonNullable<typeof a> => Boolean(a));
       if (localApproves.length > 0) {
-        // Index by token address (lowercased) for robust matching when there
-        // are multiple Approve components or unexpected ordering.
         const localByToken = new Map<string, (typeof localApproves)[number]>();
         for (const a of localApproves) {
           if (a.tokenIdOnNetwork) {
             localByToken.set(a.tokenIdOnNetwork.toLowerCase(), a);
           }
         }
-        // Track which local approves were already attributed to a server
-        // component so that token-based hits and positional fallbacks don't
-        // double-consume the same entry (e.g. component[0] matches by token
-        // localApproves[1], we must NOT then hand localApproves[1] to a
-        // later component lacking a token via positional fallback).
+        // Prevent double-attribution: token-keyed hits must not be re-handed
+        // out by the positional fallback to a later component.
         const usedLocal = new Set<(typeof localApproves)[number]>();
         let fallbackIdx = 0;
         for (const c of decodedTx.txDisplay.components) {
@@ -329,11 +322,6 @@ class ServiceSignatureConfirm extends ServiceBase {
               if (!c.spender && localApprove.spender) {
                 c.spender = localApprove.spender;
               }
-              // For increase variants, the server's amountParsed may lag
-              // behind unsigned-tx updates (e.g. after the user edits the
-              // delta in the approve editor and the encodedTx is re-encoded).
-              // The local decoder always reflects the current calldata, so
-              // use it as the source of truth.
               const localApproveType =
                 localApprove.approveType ?? c.approveType;
               if (

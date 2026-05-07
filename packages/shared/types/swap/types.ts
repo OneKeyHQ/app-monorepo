@@ -701,8 +701,7 @@ export interface ISwapApproveAllowanceResponse {
   isApproved: boolean;
   allowanceTarget: string;
   shouldApproveAmount: string;
-  // Server returns this field name (sic — backend spelling). Value is already
-  // decimal-parsed (e.g. "112" for 112 LINK), not raw wei.
+  // sic — backend spelling. Value is already decimal-parsed, not raw wei.
   approveAmounted: string;
   shouldResetApprove?: boolean;
 }

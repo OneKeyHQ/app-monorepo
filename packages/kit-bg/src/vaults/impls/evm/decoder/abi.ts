@@ -1,12 +1,9 @@
 export enum EErc20MethodSelectors {
   tokenTransfer = '0xa9059cbb',
   tokenApprove = '0x095ea7b3',
-  // OpenZeppelin ERC20 extensions for additive allowance updates.
-  // increaseAllowance: OZ v2~v4 naming. Removed in OZ v5 but still widely
-  // deployed in production tokens.
+  // OZ v2~v4 (removed in v5) and OZ v1 — different selectors must be
+  // preserved on re-encode; cannot be silently rewritten to approve().
   increaseAllowance = '0x39509351',
-  // increaseApproval: original OZ v1 naming (2017~2018). Same semantics as
-  // increaseAllowance, used by older tokens such as ZRX/BAT/KNC v1.
   increaseApproval = '0xd73dd623',
 }
 

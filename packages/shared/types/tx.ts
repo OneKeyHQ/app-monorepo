@@ -222,12 +222,8 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
 };
 
 export enum EApproveType {
-  // ERC20 approve(spender, value): sets allowance to an absolute value
   Approve = 'approve',
-  // OpenZeppelin v2~v4 increaseAllowance(spender, addedValue): allowance += value
   IncreaseAllowance = 'increaseAllowance',
-  // OpenZeppelin v1 increaseApproval(spender, addedValue): same semantics as
-  // increaseAllowance but a different selector — must be preserved on re-encode.
   IncreaseApproval = 'increaseApproval',
 }
 
@@ -240,8 +236,6 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   isInfiniteAmount: boolean;
   tokenIdOnNetwork: string;
   label?: string;
-  // Distinguishes approve(absolute) vs increaseAllowance/increaseApproval(delta).
-  // Undefined is treated as `Approve` for backward compatibility.
   approveType?: EApproveType;
 };
 

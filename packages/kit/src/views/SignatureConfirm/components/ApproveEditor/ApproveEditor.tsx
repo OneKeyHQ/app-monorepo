@@ -42,17 +42,9 @@ export type IProps = {
   tokenDecimals: number;
   tokenSymbol: string;
   approveInfo?: IApproveInfo;
-  // The original on-chain method behind this approve action. Determines
-  // whether the value is an absolute target (approve) or a delta
-  // (increaseAllowance/increaseApproval), and whether the Unlimited toggle
-  // applies.
   approveType?: EApproveType;
-  // Spender of the approval. Required to look up the current on-chain
-  // allowance when editing an increase delta.
   spender?: string;
-  // Current on-chain allowance, already fetched and decimal-shifted by the
-  // caller (typically the confirm page). When provided the editor skips the
-  // fetch and renders Current/Final immediately.
+  // Skips the editor's own allowance fetch when the caller has it.
   currentAllowanceParsed?: string;
   onResetTokenApproveInfo?: () => void;
   onChangeTokenApproveInfo?: ({
@@ -93,9 +85,8 @@ function ApproveEditor(props: IProps) {
   const isIncrease =
     approveType === EApproveType.IncreaseAllowance ||
     approveType === EApproveType.IncreaseApproval;
-  // Unlimited would force a selector switch to approve(MAX), silently
-  // overriding the dApp's original method. Restrict the toggle to absolute
-  // approve so increase calls can only edit their delta.
+  // Unlimited would silently rewrite the call to approve(MAX); only allow it
+  // for absolute approve.
   const showUnlimitedToggle = !isIncrease;
 
   const handleUpdateUnsignedTxs = useCallback(
@@ -150,9 +141,6 @@ function ApproveEditor(props: IProps) {
 
   const tokenBalanceParsed = result?.tokenBalanceParsed;
 
-  // Editor prefers the value passed by the caller (the confirm page already
-  // fetched it to render the final total); falls back to fetching itself if
-  // the prop is missing or the caller's request failed.
   const {
     allowanceParsed: fetchedAllowanceParsed,
     isLoading: isAllowanceLoading,
@@ -188,8 +176,7 @@ function ApproveEditor(props: IProps) {
         return 'RESET';
       }
 
-      // The swap-required-allowance check assumes value is an absolute target.
-      // For increase calls the input is a delta, so skip it.
+      // approveInfo.amount is an absolute minimum; deltas can't be compared.
       if (approveInfo && !isIncrease) {
         if (form.getValues('isUnlimited')) {
           return true;
@@ -253,8 +240,6 @@ function ApproveEditor(props: IProps) {
                 return;
               }
 
-              // Auto-flip to Unlimited only makes sense for absolute approve.
-              // For increase deltas, leave the value as a plain number.
               if (
                 !isIncrease &&
                 valueBN.isGreaterThanOrEqualTo(ALLOWANCE_MAX)

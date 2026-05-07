@@ -335,10 +335,6 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
     component.approveType === EApproveType.IncreaseAllowance ||
     component.approveType === EApproveType.IncreaseApproval;
 
-  // For increase variants, fetch the on-chain current allowance so the
-  // confirm page can show "Approve {current+delta} {symbol}" — i.e. the
-  // resulting absolute allowance after this tx — rather than just the
-  // delta carried in the calldata.
   const { allowanceParsed: currentAllowanceParsed } = useTokenApproveAllowance({
     enabled: isIncrease,
     accountId,
@@ -372,17 +368,11 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
   );
 
   const displayedAmount = useMemo(() => {
-    if (component.isInfiniteAmount) {
-      return intl.formatMessage({
-        id: ETranslations.swap_page_provider_approve_amount_un_limit,
-      });
-    }
     const amountBN = new BigNumber(component.amountParsed);
-    // increaseAllowance(MaxUint256) leaks the 'Infinite' string through
-    // amountParsed even though isInfiniteAmount is false (it is only set on
-    // absolute approve). Surface it as the unlimited label instead of
-    // letting BigNumber render NaN.
-    if (!amountBN.isFinite()) {
+    // increaseAllowance(MaxUint256) leaks the "Infinite" sentinel through
+    // amountParsed (isInfiniteAmount is only set on absolute approve), so
+    // collapse both signals into one unlimited check.
+    if (component.isInfiniteAmount || !amountBN.isFinite()) {
       return intl.formatMessage({
         id: ETranslations.swap_page_provider_approve_amount_un_limit,
       });
@@ -391,8 +381,8 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
       if (finalAllowanceParsed) {
         return new BigNumber(finalAllowanceParsed).toFixed();
       }
-      // Allowance lookup not ready (or failed) — render the delta with an
-      // explicit "+" so it cannot be misread as the absolute approve amount.
+      // Allowance lookup not ready — render the delta with an explicit "+"
+      // so it cannot be misread as the absolute approve amount.
       return `+${amountBN.toFixed()}`;
     }
     return amountBN.toFixed();

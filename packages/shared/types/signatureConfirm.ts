@@ -159,10 +159,7 @@ export interface IDisplayComponentApprove {
   networkId: string;
   showNetwork: boolean;
   isSmallSize?: boolean;
-  // Distinguishes approve(absolute) vs increaseAllowance/increaseApproval(delta)
-  // so the editor can adapt UI and the vault can re-encode with the right selector.
   approveType?: EApproveType;
-  // Spender address — used by the editor to look up the current on-chain allowance.
   spender?: string;
 }
 
