@@ -519,6 +519,7 @@ export interface IAppEventBusPayload {
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
+  [EAppEventBusNames.TrayActionWillNavigate]: undefined;
 }
 
 /**
