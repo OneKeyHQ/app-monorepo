@@ -14,6 +14,10 @@ import {
   amountToSmallestUnit,
   validateAmountDecimals,
 } from '../../utils/tx-utils';
+import {
+  requireAuthenticatedCommand,
+  requireStringOption,
+} from '../command-guards';
 
 import {
   formatRouteHeader,
@@ -280,48 +284,33 @@ export async function fetchQuotesViaSSE(
   return [...quotesByProvider.values()];
 }
 
-async function tryGetWalletAddress(
+async function getWalletAddress(
   impl: string,
   networkId: string,
-): Promise<string | undefined> {
-  try {
-    const signer = await getSignerByImpl(impl);
-    const addressInfo = await signer.getAddress(networkId);
-    return addressInfo.address;
-  } catch (error) {
-    // Degrade to no-address mode for expected wallet-unavailable scenarios.
-    // Quote still works without userAddress (just no gas estimation).
-    const appErr = AppError.from(error);
-    const degradeCodes: Set<string> = new Set([
-      ERROR_CODES.AUTH_NO_WALLET.code,
-      ERROR_CODES.SEC_KEYCHAIN_LOCKED.code,
-      ERROR_CODES.SEC_KEYCHAIN_ACCESS_DENIED.code,
-    ]);
-    if (degradeCodes.has(appErr.code)) {
-      return undefined;
-    }
-    throw error;
-  }
+): Promise<string> {
+  const signer = await getSignerByImpl(impl);
+  const addressInfo = await signer.getAddress(networkId);
+  return addressInfo.address;
 }
 
 export function registerSwapQuoteCommand(parent: Command): void {
   parent
     .command('quote')
     .description('Get swap quotes with security audit')
-    .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
+    .option('--chain <chain>', 'Target blockchain (e.g., eth, base, required)')
     .option(
       '--to-chain <chain>',
       'Destination chain for cross-chain bridge (default: same as --chain)',
     )
-    .requiredOption(
+    .option(
       '--from <token>',
-      'Source token (contract address or symbol)',
+      'Source token (contract address or symbol, required)',
     )
-    .requiredOption(
+    .option(
       '--to <token>',
-      'Destination token (contract address or symbol)',
+      'Destination token (contract address or symbol, required)',
     )
-    .requiredOption('--amount <amount>', 'Amount of source token to swap')
+    .option('--amount <amount>', 'Amount of source token to swap (required)')
     .option('--slippage <percent>', 'Slippage tolerance percentage')
     .option(
       '--sort <mode>',
@@ -331,11 +320,11 @@ export function registerSwapQuoteCommand(parent: Command): void {
     .action(
       async (
         options: {
-          chain: string;
+          chain?: string;
           toChain?: string;
-          from: string;
-          to: string;
-          amount: string;
+          from?: string;
+          to?: string;
+          amount?: string;
           slippage?: string;
           sort?: string;
         },
@@ -346,7 +335,17 @@ export function registerSwapQuoteCommand(parent: Command): void {
         const output = globalOpts._outputFormatter as OutputFormatter;
 
         try {
-          const chainConfig = resolveChain(options.chain);
+          await requireAuthenticatedCommand();
+
+          const chain = requireStringOption(options.chain, '--chain <chain>');
+          const from = requireStringOption(options.from, '--from <token>');
+          const to = requireStringOption(options.to, '--to <token>');
+          const amount = requireStringOption(
+            options.amount,
+            '--amount <amount>',
+          );
+
+          const chainConfig = resolveChain(chain);
           const toChainInput = options.toChain;
           const toChainConfig = toChainInput
             ? resolveChain(toChainInput)
@@ -363,7 +362,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
             if (!isSwapSupported) {
               throw new AppError(
                 ERROR_CODES.PARAM_INVALID_CHAIN.code,
-                `Chain "${options.chain}" does not support swap`,
+                `Chain "${chain}" does not support swap`,
                 `Run 'onekey swap networks' to see supported chains.`,
               );
             }
@@ -391,8 +390,8 @@ export function registerSwapQuoteCommand(parent: Command): void {
 
           // Resolve both tokens
           const [fromResolved, toResolved] = await Promise.all([
-            resolveToken(options.from, options.chain),
-            resolveToken(options.to, toChainInput ?? options.chain),
+            resolveToken(from, chain),
+            resolveToken(to, toChainInput ?? chain),
           ]);
 
           // fromToken decimals must be known and valid — no default allowed
@@ -404,30 +403,30 @@ export function registerSwapQuoteCommand(parent: Command): void {
           ) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_TOKEN.code,
-              `Cannot determine valid decimals for ${options.from} (got: ${fromResolved.decimals})`,
+              `Cannot determine valid decimals for ${from} (got: ${fromResolved.decimals})`,
               'Use contract address instead of symbol, or verify the token exists',
             );
           }
 
           // Validate amount is a valid positive decimal number
-          if (!/^\d+(\.\d+)?$/.test(options.amount)) {
+          if (!/^\d+(\.\d+)?$/.test(amount)) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_AMOUNT.code,
-              `Invalid amount: "${options.amount}"`,
+              `Invalid amount: "${amount}"`,
               'Amount must be a positive decimal number (e.g., "100", "0.5")',
             );
           }
 
           // Validate amount decimal places against token decimals
-          validateAmountDecimals(options.amount, fromResolved.decimals);
+          validateAmountDecimals(amount, fromResolved.decimals);
 
           const fromTokenAmountSmallest = amountToSmallestUnit(
-            options.amount,
+            amount,
             fromResolved.decimals,
           );
           // The swap API expects human-readable amounts (e.g. "0.2"),
           // NOT smallest unit (e.g. "200000"). Use the raw user input.
-          const fromTokenAmount = options.amount;
+          const fromTokenAmount = amount;
 
           // Reject zero-value amounts (covers "0", "0.0", "00", "000.000")
           if (fromTokenAmountSmallest === '0') {
@@ -454,8 +453,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
             slippage = config.default_slippage;
           }
 
-          // Try to get wallet address (optional — quote works without it)
-          const walletAddress = await tryGetWalletAddress(
+          const walletAddress = await getWalletAddress(
             chainConfig.impl,
             chainConfig.networkId,
           );
@@ -474,10 +472,8 @@ export function registerSwapQuoteCommand(parent: Command): void {
             protocol: 'Swap',
             kind: 'sell',
           };
-          if (walletAddress) {
-            quoteParams.userAddress = walletAddress;
-            quoteParams.receivingAddress = walletAddress;
-          }
+          quoteParams.userAddress = walletAddress;
+          quoteParams.receivingAddress = walletAddress;
 
           // Resolve env from apiClient state
           const env = (
@@ -598,7 +594,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
           const routeHeader = formatRouteHeader(fromName, toName);
           const table = renderQuoteTable(sortedQuotes, toResolved.symbol);
           if (output.getMode() === 'human') {
-            process.stderr.write(`\n${routeHeader}\n${table}\n\n`);
+            output.raw(`\n${routeHeader}\n${table}\n\n`, 'stderr');
           }
 
           output.success(
@@ -616,14 +612,14 @@ export function registerSwapQuoteCommand(parent: Command): void {
                   contractAddress: toResolved.contractAddress,
                   decimals: toResolved.decimals,
                 },
-                amount: options.amount,
+                amount,
                 amountSmallestUnit: fromTokenAmountSmallest,
                 slippage,
                 networkId: chainConfig.networkId,
-                walletAddress: walletAddress ?? null,
+                walletAddress,
               },
             },
-            { chain: options.chain },
+            { chain },
           );
         } catch (error) {
           const appError = AppError.from(error);

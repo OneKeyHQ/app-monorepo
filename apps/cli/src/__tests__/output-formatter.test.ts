@@ -10,8 +10,54 @@ describe('detectOutputMode', () => {
     expect(detectOutputMode({ json: true })).toBe('agent');
   });
 
+  it('returns text when --format=text is set', () => {
+    expect(detectOutputMode({ format: 'text' })).toBe('text');
+  });
+
   it('returns human when --interactive is set', () => {
     expect(detectOutputMode({ interactive: true })).toBe('human');
+  });
+
+  it('defaults to human output when stdout is a TTY', () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      process.stdout,
+      'isTTY',
+    );
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+
+    try {
+      expect(detectOutputMode({})).toBe('human');
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(process.stdout, 'isTTY', originalDescriptor);
+      } else {
+        delete (process.stdout as Partial<typeof process.stdout>).isTTY;
+      }
+    }
+  });
+
+  it('defaults to agent output when stdout is not a TTY', () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      process.stdout,
+      'isTTY',
+    );
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value: false,
+    });
+
+    try {
+      expect(detectOutputMode({})).toBe('agent');
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(process.stdout, 'isTTY', originalDescriptor);
+      } else {
+        delete (process.stdout as Partial<typeof process.stdout>).isTTY;
+      }
+    }
   });
 
   it('quiet takes precedence over json', () => {
@@ -45,10 +91,8 @@ describe('OutputFormatter', () => {
       const formatter = new OutputFormatter('agent');
       formatter.success({ balance: '1.5' });
       const parsed = JSON.parse(stdoutData.trim());
-      expect(parsed.status).toBe('success');
-      expect(parsed.api_version).toBe('1');
+      expect(parsed.ok).toBe(true);
       expect(parsed.data).toEqual({ balance: '1.5' });
-      expect(parsed.metadata).toBeDefined();
     });
 
     it('outputs JSON error to stdout (not stderr)', () => {
@@ -59,8 +103,20 @@ describe('OutputFormatter', () => {
         suggestion: 'retry',
       });
       const parsed = JSON.parse(stdoutData.trim());
-      expect(parsed.status).toBe('error');
+      expect(parsed.ok).toBe(false);
       expect(parsed.error.code).toBe('NET_TIMEOUT');
+    });
+  });
+
+  describe('text mode', () => {
+    it('outputs multi-line text success without ANSI', () => {
+      const formatter = new OutputFormatter('text');
+      formatter.success({ balance: '1.5', accessToken: 'secret-token' });
+
+      expect(stdoutData).toContain('ok: true');
+      expect(stdoutData).toContain('balance: 1.5');
+      expect(stdoutData).not.toContain('secret-token');
+      expect(stdoutData).toContain('accessToken: <REDACTED:sha256:');
     });
   });
 
