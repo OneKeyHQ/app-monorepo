@@ -20,10 +20,7 @@ import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  swapSlippageCustomDefaultList,
-  swapSlippageMaxValue,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { swapSlippageCustomDefaultList } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -31,10 +28,12 @@ import {
   EMarketPresetPriorityFeeType,
   EMarketPresetTradeSide,
   type IMarketPresetDirectionSettings,
-  getMarketPresetDefaultEditableDirectionSettings,
   getMarketPresetDefaultDirectionSettings,
+  getMarketPresetDefaultEditableDirectionSettings,
+  isInvalidMarketPresetDirectionSettings,
+  isInvalidMarketPresetPriorityFeeSettings,
+  isInvalidMarketPresetSlippageSettings,
   isMarketPresetDirectionCustomized,
-  isValidMarketPresetCustomValue,
   normalizeMarketPresetDirectionSettings,
 } from '../../hooks/marketPresetSettings';
 
@@ -168,26 +167,6 @@ function parseDirectionKey(directionKey: string) {
     presetKey: presetKey as EMarketPresetKey,
     tradeSide: tradeSide as EMarketPresetTradeSide,
   };
-}
-
-function isInvalidDirectionSettings(settings?: IMarketPresetDirectionSettings) {
-  if (!settings) {
-    return false;
-  }
-
-  const customPriorityFeeInvalid =
-    settings.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
-    !isValidMarketPresetCustomValue(settings.priorityFee.customValue);
-
-  const slippageValueBN = new BigNumber(settings.slippage.value ?? Number.NaN);
-  const customSlippageInvalid =
-    settings.slippage.key === ESwapSlippageSegmentKey.CUSTOM &&
-    (settings.slippage.value === undefined ||
-      slippageValueBN.isNaN() ||
-      slippageValueBN.isNegative() ||
-      slippageValueBN.gt(swapSlippageMaxValue));
-
-  return customPriorityFeeInvalid || customSlippageInvalid;
 }
 
 function getTradeSideActiveBackgroundColor(tradeSide: EMarketPresetTradeSide) {
@@ -345,14 +324,19 @@ function MarketPresetSettingsDialog({
     [activePresetKey, activeTradeSide, currentSettings, presetSettings],
   );
 
-  const currentSettingsInvalid = isInvalidDirectionSettings(currentSettings);
+  const currentSlippageInvalid =
+    isInvalidMarketPresetSlippageSettings(currentSettings);
+  const currentPriorityFeeInvalid =
+    isInvalidMarketPresetPriorityFeeSettings(currentSettings);
+  const currentSettingsInvalid =
+    currentSlippageInvalid || currentPriorityFeeInvalid;
   const hasInvalidDirtySettings = Array.from(dirtyDirectionSetRef.current).some(
     (directionKey) => {
       const parsed = parseDirectionKey(directionKey);
       if (!parsed) {
         return false;
       }
-      return isInvalidDirectionSettings(
+      return isInvalidMarketPresetDirectionSettings(
         getDraftDirectionSettings({
           draftSettings,
           presetKey: parsed.presetKey,
@@ -609,7 +593,7 @@ function MarketPresetSettingsDialog({
                         ))}
                       </XStack>
                     </XStack>
-                    {currentSettingsInvalid ? (
+                    {currentSlippageInvalid ? (
                       <SizableText size="$bodySmMedium" color="$textCritical">
                         {intl.formatMessage({
                           id: ETranslations.slippage_tolerance_error_message,
@@ -659,28 +643,41 @@ function MarketPresetSettingsDialog({
                 />
                 {currentSettings.priorityFee.type ===
                 EMarketPresetPriorityFeeType.CUSTOM ? (
-                  <Input
-                    size="medium"
-                    value={currentSettings.priorityFee.customValue ?? ''}
-                    addOns={[
-                      {
-                        label: presetSettings.priorityFeeUnit,
-                      },
-                    ]}
-                    placeholder="0"
-                    onChangeText={(text) => {
-                      if (!validateAmountInput(text, 9)) {
-                        return;
-                      }
-                      updateCurrentSettings((settings) => ({
-                        ...settings,
-                        priorityFee: {
-                          ...settings.priorityFee,
-                          customValue: text,
+                  <>
+                    <Input
+                      size="medium"
+                      error={currentPriorityFeeInvalid}
+                      value={currentSettings.priorityFee.customValue ?? ''}
+                      addOns={[
+                        {
+                          label: presetSettings.priorityFeeUnit,
                         },
-                      }));
-                    }}
-                  />
+                      ]}
+                      placeholder="0"
+                      onChangeText={(text) => {
+                        if (!validateAmountInput(text, 9)) {
+                          return;
+                        }
+                        updateCurrentSettings((settings) => ({
+                          ...settings,
+                          priorityFee: {
+                            ...settings.priorityFee,
+                            customValue: text,
+                          },
+                        }));
+                      }}
+                    />
+                    {currentPriorityFeeInvalid ? (
+                      <SizableText size="$bodySmMedium" color="$textCritical">
+                        {intl.formatMessage(
+                          {
+                            id: ETranslations.form_fee_rate_error_out_of_range,
+                          },
+                          { min: 0, max: '999999999' },
+                        )}
+                      </SizableText>
+                    ) : null}
+                  </>
                 ) : null}
               </>
             ) : (

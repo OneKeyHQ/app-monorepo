@@ -14,6 +14,9 @@ import {
   getMarketPresetItem,
   getMarketPresetNetworkFeeLevel,
   getMarketPresetSlippageValue,
+  isInvalidMarketPresetDirectionSettings,
+  isInvalidMarketPresetPriorityFeeSettings,
+  isInvalidMarketPresetSlippageSettings,
   resolveMarketPresetDirectionSettings,
 } from './marketPresetSettings';
 
@@ -176,5 +179,8 @@ describe('marketPresetSettings', () => {
       type: EMarketPresetPriorityFeeType.CUSTOM,
       customValue: '0',
     });
+    expect(isInvalidMarketPresetSlippageSettings(settings)).toBe(false);
+    expect(isInvalidMarketPresetPriorityFeeSettings(settings)).toBe(true);
+    expect(isInvalidMarketPresetDirectionSettings(settings)).toBe(true);
   });
 });

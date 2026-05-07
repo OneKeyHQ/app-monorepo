@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { swapSlippageMaxValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapNetworkFeeLevel,
   ESwapSlippageSegmentKey,
@@ -388,6 +389,45 @@ export function isValidMarketPresetCustomValue(value?: string) {
   // produces a non-NaN value that satisfies `gt(0)`, so the explicit
   // `isFinite()` check is required to keep the value usable downstream.
   return valueBN.isFinite() && valueBN.gt(0);
+}
+
+export function isInvalidMarketPresetSlippageSettings(
+  settings?: IMarketPresetDirectionSettings,
+) {
+  if (!settings) {
+    return false;
+  }
+
+  const slippageValueBN = new BigNumber(settings.slippage.value ?? Number.NaN);
+  return (
+    settings.slippage.key === ESwapSlippageSegmentKey.CUSTOM &&
+    (settings.slippage.value === undefined ||
+      slippageValueBN.isNaN() ||
+      slippageValueBN.isNegative() ||
+      slippageValueBN.gt(swapSlippageMaxValue))
+  );
+}
+
+export function isInvalidMarketPresetPriorityFeeSettings(
+  settings?: IMarketPresetDirectionSettings,
+) {
+  if (!settings) {
+    return false;
+  }
+
+  return (
+    settings.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
+    !isValidMarketPresetCustomValue(settings.priorityFee.customValue)
+  );
+}
+
+export function isInvalidMarketPresetDirectionSettings(
+  settings?: IMarketPresetDirectionSettings,
+) {
+  return (
+    isInvalidMarketPresetSlippageSettings(settings) ||
+    isInvalidMarketPresetPriorityFeeSettings(settings)
+  );
 }
 
 export function getMarketPresetPriorityFeeOverride(
