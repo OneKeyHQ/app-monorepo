@@ -108,7 +108,7 @@ export function TabStackNavigator<RouteName extends string>({
   // Listen for HideTabBar events to show/hide the tab bar
   useEffect(() => {
     const handler = (hidden: boolean) => {
-      setTabBarHidden(hidden);
+      setTabBarHidden((prev) => (prev === hidden ? prev : hidden));
     };
     appEventBus.on(EAppEventBusNames.HideTabBar, handler);
     return () => {
