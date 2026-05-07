@@ -377,10 +377,25 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
         id: ETranslations.swap_page_provider_approve_amount_un_limit,
       });
     }
-    if (isIncrease && finalAllowanceParsed) {
-      return new BigNumber(finalAllowanceParsed).toFixed();
+    const amountBN = new BigNumber(component.amountParsed);
+    // increaseAllowance(MaxUint256) leaks the 'Infinite' string through
+    // amountParsed even though isInfiniteAmount is false (it is only set on
+    // absolute approve). Surface it as the unlimited label instead of
+    // letting BigNumber render NaN.
+    if (!amountBN.isFinite()) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_amount_un_limit,
+      });
     }
-    return new BigNumber(component.amountParsed).toFixed();
+    if (isIncrease) {
+      if (finalAllowanceParsed) {
+        return new BigNumber(finalAllowanceParsed).toFixed();
+      }
+      // Allowance lookup not ready (or failed) — render the delta with an
+      // explicit "+" so it cannot be misread as the absolute approve amount.
+      return `+${amountBN.toFixed()}`;
+    }
+    return amountBN.toFixed();
   }, [
     component.amountParsed,
     component.isInfiniteAmount,

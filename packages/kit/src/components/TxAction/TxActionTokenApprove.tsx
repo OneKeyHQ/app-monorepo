@@ -88,6 +88,13 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
   const isIncrease =
     approveType === EApproveType.IncreaseAllowance ||
     approveType === EApproveType.IncreaseApproval;
+  // increaseAllowance(MaxUint256) — formatValue returns the 'Infinite'
+  // string for the action amount even though isInfiniteAmount is false
+  // (that flag is only set for absolute approve). Treat it as unlimited at
+  // the display layer so we don't render NaN through NumberSizeableText.
+  const isIncreaseUnlimited =
+    isIncrease && !new BigNumber(approveAmount).isFinite();
+  const showUnlimitedAmount = approveIsMax || isIncreaseUnlimited;
   // Revoke only applies to absolute approve(spender, 0); a zero delta on
   // an increase call is not a revoke.
   const isRevoke = !isIncrease && new BigNumber(approveAmount).eq(0);
@@ -134,7 +141,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
   if (tableLayout) {
     if (isRevoke) {
       change = undefined;
-    } else if (approveIsMax) {
+    } else if (showUnlimitedAmount) {
       change = (
         <XStack gap="$1" alignItems="center">
           <Token size="xs" tokenImageUri={approveIcon} />
@@ -150,6 +157,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       change = (
         <XStack gap="$1" alignItems="center">
           <Token size="xs" tokenImageUri={approveIcon} />
+          {isIncrease ? <SizableText size="$bodyMd">+</SizableText> : null}
           <NumberSizeableTextWrapper
             hideValue={hideValue}
             formatter="balance"
@@ -167,24 +175,61 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     // Don't pass changeDescription in tableLayout
   } else {
     change = approveName;
-    changeDescription = (
-      <NumberSizeableTextWrapper
-        hideValue={hideValue}
-        formatter="balance"
-        formatterOptions={{
-          tokenSymbol: approveSymbol,
-        }}
-        size="$bodyMd"
-        color="$textSubdued"
-        numberOfLines={1}
-      >
-        {approveIsMax
-          ? intl.formatMessage({
-              id: ETranslations.swap_page_provider_approve_amount_un_limit,
-            })
-          : approveAmount}
-      </NumberSizeableTextWrapper>
-    );
+    if (showUnlimitedAmount) {
+      changeDescription = (
+        <NumberSizeableTextWrapper
+          hideValue={hideValue}
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: approveSymbol,
+          }}
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
+          {intl.formatMessage({
+            id: ETranslations.swap_page_provider_approve_amount_un_limit,
+          })}
+        </NumberSizeableTextWrapper>
+      );
+    } else if (isIncrease) {
+      // Render the "+" outside the formatter — BigNumber would strip a
+      // leading "+" so it has to live in its own text span.
+      changeDescription = (
+        <XStack gap="$0.5" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            +
+          </SizableText>
+          <NumberSizeableTextWrapper
+            hideValue={hideValue}
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: approveSymbol,
+            }}
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {approveAmount}
+          </NumberSizeableTextWrapper>
+        </XStack>
+      );
+    } else {
+      changeDescription = (
+        <NumberSizeableTextWrapper
+          hideValue={hideValue}
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: approveSymbol,
+          }}
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
+          {approveAmount}
+        </NumberSizeableTextWrapper>
+      );
+    }
   }
 
   return (
@@ -241,6 +286,12 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     approveType === EApproveType.IncreaseAllowance ||
     approveType === EApproveType.IncreaseApproval;
 
+  // increaseAllowance(MaxUint256) — formatValue produces the 'Infinite'
+  // string; we surface it as unlimited at the display layer (Final allowance
+  // would otherwise just echo the current allowance and hide the risk).
+  const isIncreaseUnlimited =
+    isIncrease && !new BigNumber(originalApproveAmount).isFinite();
+
   // For increase variants, look up the current on-chain allowance so the
   // confirm page can display the post-tx total ("Approve {current+delta}")
   // instead of just the calldata delta. Falls back to the delta wording
@@ -256,7 +307,9 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   const finalAllowanceParsed = useMemo(() => {
     if (!isIncrease || !currentAllowanceParsed) return null;
     const deltaBN = new BigNumber(originalApproveAmount);
-    if (!deltaBN.isFinite()) return currentAllowanceParsed;
+    // Non-finite delta is handled separately as "unlimited"; signal that
+    // here with null so the caller doesn't render the bare current value.
+    if (!deltaBN.isFinite()) return null;
     return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
   }, [currentAllowanceParsed, isIncrease, originalApproveAmount]);
 
@@ -265,7 +318,20 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   const isUnlimited = approveIsMax;
   if (!content) {
     if (isIncrease) {
-      if (finalAllowanceParsed) {
+      if (isIncreaseUnlimited) {
+        // increaseAllowance(MaxUint256): the resulting allowance is
+        // effectively unbounded (or the call reverts) — match the wording
+        // of an unlimited absolute approve.
+        content = intl.formatMessage(
+          { id: ETranslations.form__approve_str },
+          {
+            amount: intl.formatMessage({
+              id: ETranslations.swap_page_provider_approve_amount_un_limit,
+            }),
+            symbol: approveSymbol,
+          },
+        );
+      } else if (finalAllowanceParsed) {
         // Show the resulting absolute allowance after this tx is mined,
         // matching the "Approve {amount} {symbol}" framing of plain approve.
         content = intl.formatMessage(
@@ -302,7 +368,9 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
 
   if (
     vaultSettings?.editApproveAmountEnabled &&
-    (approveIsMax || new BigNumber(originalApproveAmount).gt(0))
+    (approveIsMax ||
+      isIncreaseUnlimited ||
+      new BigNumber(originalApproveAmount).gt(0))
   ) {
     content = (
       <XStack

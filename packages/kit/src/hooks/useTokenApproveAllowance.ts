@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from './usePromiseResult';
@@ -42,7 +44,15 @@ export function useTokenApproveAllowance({
           amount: '0',
         });
         return r ?? null;
-      } catch {
+      } catch (e) {
+        // Swallowed at the UI layer (the editor/confirm page falls back to a
+        // delta-only label) but recorded so the failure is observable in
+        // local logs and via the regular error pipeline.
+        defaultLogger.app.error.log(
+          `useTokenApproveAllowance fetch failed: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
         return null;
       }
     },

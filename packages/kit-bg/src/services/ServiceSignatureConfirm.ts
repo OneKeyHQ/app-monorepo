@@ -297,15 +297,32 @@ class ServiceSignatureConfirm extends ServiceBase {
             localByToken.set(a.tokenIdOnNetwork.toLowerCase(), a);
           }
         }
+        // Track which local approves were already attributed to a server
+        // component so that token-based hits and positional fallbacks don't
+        // double-consume the same entry (e.g. component[0] matches by token
+        // localApproves[1], we must NOT then hand localApproves[1] to a
+        // later component lacking a token via positional fallback).
+        const usedLocal = new Set<(typeof localApproves)[number]>();
         let fallbackIdx = 0;
         for (const c of decodedTx.txDisplay.components) {
           if (c.type === EParseTxComponentType.Approve) {
             const tokenAddr = c.token?.info?.address?.toLowerCase();
-            const localApprove =
-              (tokenAddr && localByToken.get(tokenAddr)) ||
-              localApproves[fallbackIdx];
-            fallbackIdx += 1;
+            let localApprove: (typeof localApproves)[number] | undefined;
+            const byToken = tokenAddr ? localByToken.get(tokenAddr) : undefined;
+            if (byToken && !usedLocal.has(byToken)) {
+              localApprove = byToken;
+            } else {
+              while (
+                fallbackIdx < localApproves.length &&
+                usedLocal.has(localApproves[fallbackIdx])
+              ) {
+                fallbackIdx += 1;
+              }
+              localApprove = localApproves[fallbackIdx];
+              fallbackIdx += 1;
+            }
             if (localApprove) {
+              usedLocal.add(localApprove);
               if (!c.approveType && localApprove.approveType) {
                 c.approveType = localApprove.approveType;
               }
