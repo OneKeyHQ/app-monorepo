@@ -880,7 +880,7 @@ function ReceiveToken() {
     return !!(banner?.href || banner?.mode);
   }, [banner?.href, banner?.mode]);
   return (
-    <Page safeAreaEnabled={false}>
+    <Page safeAreaEnabled={false} bg="red">
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
