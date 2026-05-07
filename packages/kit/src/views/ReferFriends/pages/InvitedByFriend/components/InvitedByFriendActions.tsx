@@ -7,34 +7,20 @@ import {
   Icon,
   SizableText,
   Stack,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useOneKeyWalletDetection } from '@onekeyhq/kit/src/hooks/useWebDapp/useOneKeyWalletDetection';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useBindReferralViaExtension } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
 import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-
-type IEthereumProvider = {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-};
-
-function getOneKeyExtensionProvider(): IEthereumProvider | null {
-  // OneKey extension injects $onekey.ethereum as its dedicated provider
-  const provider = (globalThis as Record<string, unknown>).$onekey as
-    | { ethereum?: IEthereumProvider }
-    | undefined;
-  return provider?.ethereum ?? null;
-}
 
 interface IInvitedByFriendActionsProps {
   referralCode: string;
@@ -111,7 +97,7 @@ function WebWalletOptions({
   const handleGetExtension = useCallback(() => {
     defaultLogger.referral.page.clickAcceptInviteButton({
       referralCode,
-      acceptMethod: 'web_no_extension',
+      acceptMethod: 'web_get_extension',
     });
     globalThis.open(EXT_RATE_URL.chrome, '_blank');
   }, [referralCode]);
@@ -173,85 +159,19 @@ function InvitedByFriendActions({
     entry: 'modal',
   });
   const [showWebOptions, setShowWebOptions] = useState(false);
-  const [isBinding, setIsBinding] = useState(false);
+  const { isOneKeyInstalled } = useOneKeyWalletDetection();
+  const { bindViaExtension, isBinding } = useBindReferralViaExtension({
+    referralCode,
+    onSuccess: () => navigation.pop(),
+  });
 
   const handleCancel = useCallback(() => {
     navigation.pop();
   }, [navigation]);
 
-  const bindViaExtension = useCallback(async () => {
-    const provider = getOneKeyExtensionProvider();
-    if (!provider) return;
-
-    setIsBinding(true);
-    let success = false;
-    try {
-      const accounts = (await provider.request({
-        method: 'eth_requestAccounts',
-      })) as string[];
-
-      const address = accounts?.[0];
-      if (!address) {
-        throw new OneKeyLocalError('No account returned from extension');
-      }
-
-      const networkId = getNetworkIdsMap().eth;
-
-      const message =
-        await backgroundApiProxy.serviceReferralCode.getBoundReferralCodeUnsignedMessage(
-          { address, networkId, inviteCode: referralCode },
-        );
-
-      const signature = (await provider.request({
-        method: 'personal_sign',
-        params: [message, address],
-      })) as string;
-
-      await backgroundApiProxy.serviceReferralCode.boundReferralCodeWithSignedMessage(
-        { networkId, address, referralCode, signature },
-      );
-
-      await backgroundApiProxy.serviceReferralCode.setCachedInviteCode('');
-      defaultLogger.referral.page.referralBindingCompleted({
-        referralCode,
-        address,
-        networkId,
-      });
-      success = true;
-    } catch (error) {
-      // EIP-1193: code 4001 = user rejected — silently ignore
-      const err = error as { code?: number };
-      if (err?.code !== 4001) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          }),
-        });
-      }
-    } finally {
-      // Always disconnect dApp session to clean up "connected to localhost"
-      try {
-        await provider.request({
-          method: 'wallet_revokePermissions',
-          params: [{ eth_accounts: {} }],
-        });
-      } catch {
-        // Ignore revocation errors
-      }
-      setIsBinding(false);
-      if (success) {
-        Toast.success({
-          title: intl.formatMessage({ id: ETranslations.global_success }),
-        });
-        navigation.pop();
-      }
-    }
-  }, [referralCode, intl, navigation]);
-
   const handleJoin = useCallback(() => {
     if (platformEnv.isWeb) {
-      // Extension installed → bind directly
-      if (getOneKeyExtensionProvider()) {
+      if (isOneKeyInstalled) {
         defaultLogger.referral.page.clickAcceptInviteButton({
           referralCode,
           acceptMethod: 'web_extension',
@@ -279,6 +199,7 @@ function InvitedByFriendActions({
     activeAccount?.wallet,
     bindWalletInviteCode,
     bindViaExtension,
+    isOneKeyInstalled,
     referralCode,
     navigation,
   ]);
