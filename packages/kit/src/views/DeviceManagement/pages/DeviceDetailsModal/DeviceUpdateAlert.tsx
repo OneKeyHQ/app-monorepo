@@ -27,7 +27,7 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
 
   const actions = useFirmwareUpdateActions();
   const openChangeLogModalCallback = useCallback(() => {
-    actions.openChangeLogModal({ connectId: deviceConnectId });
+    void actions.openChangeLogModal({ connectId: deviceConnectId });
   }, [actions, deviceConnectId]);
 
   const detectResult = useMemo(() => {
