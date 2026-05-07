@@ -10,6 +10,7 @@ import {
   EMarketPresetTradeSide,
   fetchMarketPresetConfig,
   getMarketPresetCustomizedMap,
+  getMarketPresetDefaultEditableDirectionSettings,
   getMarketPresetItem,
   getMarketPresetNetworkFeeLevel,
   getMarketPresetSlippageValue,
@@ -162,5 +163,18 @@ describe('marketPresetSettings', () => {
         },
       })[EMarketPresetKey.P2],
     ).toBe(true);
+  });
+
+  it('uses explicit editable defaults for unset custom presets', () => {
+    const settings = getMarketPresetDefaultEditableDirectionSettings();
+
+    expect(settings.slippage).toEqual({
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 1,
+    });
+    expect(settings.priorityFee).toEqual({
+      type: EMarketPresetPriorityFeeType.CUSTOM,
+      customValue: '0',
+    });
   });
 });

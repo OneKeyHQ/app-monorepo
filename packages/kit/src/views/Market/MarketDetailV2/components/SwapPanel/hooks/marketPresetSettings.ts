@@ -100,6 +100,18 @@ const DEFAULT_MARKET_PRESET_DIRECTION_SETTINGS: IMarketPresetDirectionSettings =
     },
   };
 
+const DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS: IMarketPresetDirectionSettings =
+  {
+    slippage: {
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 1,
+    },
+    priorityFee: {
+      type: EMarketPresetPriorityFeeType.CUSTOM,
+      customValue: '0',
+    },
+  };
+
 const MARKET_PRESET_EVM_NETWORK_IDS = new Set([
   presetNetworksMap.eth.id,
   presetNetworksMap.bsc.id,
@@ -213,6 +225,17 @@ export function getMarketPresetDefaultDirectionSettings(): IMarketPresetDirectio
     },
     priorityFee: {
       ...DEFAULT_MARKET_PRESET_DIRECTION_SETTINGS.priorityFee,
+    },
+  };
+}
+
+export function getMarketPresetDefaultEditableDirectionSettings(): IMarketPresetDirectionSettings {
+  return {
+    slippage: {
+      ...DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS.slippage,
+    },
+    priorityFee: {
+      ...DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS.priorityFee,
     },
   };
 }

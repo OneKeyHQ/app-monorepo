@@ -31,6 +31,7 @@ import {
   EMarketPresetPriorityFeeType,
   EMarketPresetTradeSide,
   type IMarketPresetDirectionSettings,
+  getMarketPresetDefaultEditableDirectionSettings,
   getMarketPresetDefaultDirectionSettings,
   isMarketPresetDirectionCustomized,
   isValidMarketPresetCustomValue,
@@ -114,14 +115,16 @@ function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
     }
 
     acc[preset.key] = {
-      [EMarketPresetTradeSide.BUY]: presetSettings.getDirectionSettings({
-        presetKey: preset.key,
-        tradeSide: EMarketPresetTradeSide.BUY,
-      }),
-      [EMarketPresetTradeSide.SELL]: presetSettings.getDirectionSettings({
-        presetKey: preset.key,
-        tradeSide: EMarketPresetTradeSide.SELL,
-      }),
+      [EMarketPresetTradeSide.BUY]:
+        presetSettings.getSavedDirectionSettings({
+          presetKey: preset.key,
+          tradeSide: EMarketPresetTradeSide.BUY,
+        }) ?? getMarketPresetDefaultEditableDirectionSettings(),
+      [EMarketPresetTradeSide.SELL]:
+        presetSettings.getSavedDirectionSettings({
+          presetKey: preset.key,
+          tradeSide: EMarketPresetTradeSide.SELL,
+        }) ?? getMarketPresetDefaultEditableDirectionSettings(),
     };
     return acc;
   }, {});
@@ -421,7 +424,7 @@ function MarketPresetSettingsDialog({
       return;
     }
 
-    const defaultSettings = getMarketPresetDefaultDirectionSettings();
+    const defaultSettings = getMarketPresetDefaultEditableDirectionSettings();
     const directionKey = getDirectionKey({
       presetKey: activePresetKey,
       tradeSide: activeTradeSide,
