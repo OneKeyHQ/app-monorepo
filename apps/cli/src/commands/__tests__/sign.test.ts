@@ -1,13 +1,11 @@
-import type {
-  ICoreApiSignTxPayload,
-  ISignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { AppError, ERROR_CODES } from '../../errors';
 import { executeSignCommand } from '../sign';
 
 import type { IChainConfig } from '../../core';
+import type { ISigner } from '../../signer';
 
 const VALID_OPTIONS = {
   address: '0x1111111111111111111111111111111111111111',
@@ -35,20 +33,20 @@ function createSignedTx(rawTx = '0xsigned'): ISignedTxPro {
   };
 }
 
-function createSigner() {
+function createSigner(): jest.Mocked<ISigner> {
   return {
-    getHdCredential: jest.fn(() => Promise.resolve('hd-credential')),
-    getEncodedPassword: jest.fn(() => Promise.resolve('encoded-password')),
-    buildNetworkInfo: jest.fn((networkId: string) => ({
-      networkChainCode: 'evm',
-      chainId: networkId.split('--')[1],
-      networkImpl: 'evm',
-      networkId,
-    })),
-    signTransaction: jest.fn((payload: ICoreApiSignTxPayload) => {
-      void payload;
-      return Promise.resolve(createSignedTx());
-    }),
+    getAddress: jest.fn<
+      ReturnType<ISigner['getAddress']>,
+      Parameters<ISigner['getAddress']>
+    >(),
+    signMessage: jest.fn<
+      ReturnType<ISigner['signMessage']>,
+      Parameters<ISigner['signMessage']>
+    >(),
+    signTransaction: jest.fn<
+      ReturnType<ISigner['signTransaction']>,
+      Parameters<ISigner['signTransaction']>
+    >(() => Promise.resolve(createSignedTx())),
   };
 }
 
@@ -77,24 +75,21 @@ describe('onekey sign command', () => {
     expect(requireAuthenticatedCommand).toHaveBeenCalledTimes(1);
     expect(resolveChain).toHaveBeenCalledWith('eth');
     expect(getSignerByImpl).toHaveBeenCalledWith('evm');
-    expect(signer.getHdCredential).toHaveBeenCalledTimes(1);
-    expect(signer.signTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        credentials: { hd: 'hd-credential' },
-        password: 'encoded-password',
-        account: {
-          address: VALID_OPTIONS.address,
-          path: VALID_OPTIONS.path,
-          pub: VALID_OPTIONS.pub,
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(signer.signTransaction).toHaveBeenCalledWith({
+      networkId: CHAIN_CONFIG.networkId,
+      account: {
+        address: VALID_OPTIONS.address,
+        path: VALID_OPTIONS.path,
+        pub: VALID_OPTIONS.pub,
+      },
+      unsignedTx: {
+        encodedTx: {
+          to: '0x2222222222222222222222222222222222222222',
+          value: '0x1',
         },
-        unsignedTx: {
-          encodedTx: {
-            to: '0x2222222222222222222222222222222222222222',
-            value: '0x1',
-          },
-        },
-      }),
-    );
+      },
+    });
     expect(output.success).toHaveBeenCalledWith({
       signature: '0xsigned',
       txid: '0xtxid',
