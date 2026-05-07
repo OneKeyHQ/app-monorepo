@@ -1,9 +1,13 @@
 export enum EErc20MethodSelectors {
   tokenTransfer = '0xa9059cbb',
   tokenApprove = '0x095ea7b3',
-  // OpenZeppelin ERC20 extensions, removed in OZ v5 but still widely used
+  // OpenZeppelin ERC20 extensions for additive allowance updates.
+  // increaseAllowance: OZ v2~v4 naming. Removed in OZ v5 but still widely
+  // deployed in production tokens.
   increaseAllowance = '0x39509351',
-  decreaseAllowance = '0xa457c2d7',
+  // increaseApproval: original OZ v1 naming (2017~2018). Same semantics as
+  // increaseAllowance, used by older tokens such as ZRX/BAT/KNC v1.
+  increaseApproval = '0xd73dd623',
 }
 
 export enum EErc721MethodSelectors {
@@ -27,7 +31,7 @@ export enum EErc20TxDescriptionName {
   TransferFrom = 'transferFrom',
   Approve = 'approve',
   IncreaseAllowance = 'increaseAllowance',
-  DecreaseAllowance = 'decreaseAllowance',
+  IncreaseApproval = 'increaseApproval',
 }
 
 export enum EErc721TxDescriptionName {
@@ -48,7 +52,7 @@ const ERC20 = [
   'function transferFrom(address _from, address _to, uint256 _value) public returns (bool success)',
   'function approve(address _spender, uint256 _value) public returns (bool success)',
   'function increaseAllowance(address _spender, uint256 _addedValue) public returns (bool success)',
-  'function decreaseAllowance(address _spender, uint256 _subtractedValue) public returns (bool success)',
+  'function increaseApproval(address _spender, uint256 _addedValue) public returns (bool success)',
   'function allowance(address _owner, address _spender) public view returns (uint256 remaining)',
   'event Transfer(address indexed _from, address indexed _to, uint256 _value)',
   'event Approval(address indexed _owner, address indexed _spender, uint256 _value)',

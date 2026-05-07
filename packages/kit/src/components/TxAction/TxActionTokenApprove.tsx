@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
+import { useTokenApproveAllowance } from '../../hooks/useTokenApproveAllowance';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
 import { useSendConfirmActions } from '../../states/jotai/contexts/sendConfirm';
 import { showApproveEditor } from '../../views/ApproveEditor';
@@ -84,12 +85,12 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     approveType,
   } = getTxActionTokenApproveInfo(props);
 
-  const isIncrease = approveType === EApproveType.IncreaseAllowance;
-  const isDecrease = approveType === EApproveType.DecreaseAllowance;
-  // Revoke only applies to absolute approve(spender, 0); zero deltas on
-  // increase/decrease are not revokes.
-  const isRevoke =
-    !isIncrease && !isDecrease && new BigNumber(approveAmount).eq(0);
+  const isIncrease =
+    approveType === EApproveType.IncreaseAllowance ||
+    approveType === EApproveType.IncreaseApproval;
+  // Revoke only applies to absolute approve(spender, 0); a zero delta on
+  // an increase call is not a revoke.
+  const isRevoke = !isIncrease && new BigNumber(approveAmount).eq(0);
 
   let title = approveLabel;
   const avatar: ITxActionCommonListViewProps['avatar'] = {
@@ -120,8 +121,6 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     } else if (isIncrease) {
       // English-only fallback for now; no dedicated title key yet.
       title = `Increase ${approveSymbol} allowance`;
-    } else if (isDecrease) {
-      title = `Decrease ${approveSymbol} allowance`;
     } else {
       title = intl.formatMessage({
         id: ETranslations.global_approve,
@@ -238,18 +237,45 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   const { updateTokenApproveInfo } = useSendConfirmActions().current;
   const approveInfoInit = useRef(false);
 
-  const isIncrease = approveType === EApproveType.IncreaseAllowance;
-  const isDecrease = approveType === EApproveType.DecreaseAllowance;
+  const isIncrease =
+    approveType === EApproveType.IncreaseAllowance ||
+    approveType === EApproveType.IncreaseApproval;
+
+  // For increase variants, look up the current on-chain allowance so the
+  // confirm page can display the post-tx total ("Approve {current+delta}")
+  // instead of just the calldata delta. Falls back to the delta wording
+  // while loading or if the lookup fails.
+  const { allowanceParsed: currentAllowanceParsed } = useTokenApproveAllowance({
+    enabled: isIncrease,
+    accountId: decodedTx.accountId,
+    networkId: decodedTx.networkId,
+    tokenAddress,
+    spender: approveSpender,
+  });
+
+  const finalAllowanceParsed = useMemo(() => {
+    if (!isIncrease || !currentAllowanceParsed) return null;
+    const deltaBN = new BigNumber(originalApproveAmount);
+    if (!deltaBN.isFinite()) return currentAllowanceParsed;
+    return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
+  }, [currentAllowanceParsed, isIncrease, originalApproveAmount]);
 
   let content: React.ReactNode = approveLabel;
   const amount = originalApproveAmount;
   const isUnlimited = approveIsMax;
   if (!content) {
     if (isIncrease) {
-      // English-only: no dedicated i18n key for this allowance variant yet.
-      content = `Increase ${approveSymbol} allowance by ${amount}`;
-    } else if (isDecrease) {
-      content = `Decrease ${approveSymbol} allowance by ${amount}`;
+      if (finalAllowanceParsed) {
+        // Show the resulting absolute allowance after this tx is mined,
+        // matching the "Approve {amount} {symbol}" framing of plain approve.
+        content = intl.formatMessage(
+          { id: ETranslations.form__approve_str },
+          { amount: finalAllowanceParsed, symbol: approveSymbol },
+        );
+      } else {
+        // English-only fallback while current allowance is unknown.
+        content = `Increase ${approveSymbol} allowance by ${amount}`;
+      }
     } else if (new BigNumber(amount).eq(0)) {
       content = intl.formatMessage(
         {
@@ -310,6 +336,8 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
               tokenAddress,
               approveInfo: decodedTx.approveInfo,
               approveType,
+              spender: approveSpender,
+              currentAllowanceParsed: currentAllowanceParsed ?? undefined,
             })
           }
         >

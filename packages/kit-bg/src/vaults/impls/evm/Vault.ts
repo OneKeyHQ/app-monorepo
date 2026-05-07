@@ -991,16 +991,16 @@ export default class Vault extends VaultBase {
         action.tokenApprove.approveType ??
         EApproveType.Approve;
 
-      // The editor only allows Unlimited on absolute approve. For
-      // increase/decreaseAllowance we keep the original selector and treat
-      // the value strictly as a delta — never silently rewrite to approve().
+      // The editor only allows Unlimited on absolute approve. For the
+      // increase variants we keep the original selector and treat the value
+      // strictly as a delta — never silently rewrite to approve().
       let selector: EErc20MethodSelectors;
       let amountHex: string;
       if (approveType === EApproveType.IncreaseAllowance) {
         selector = EErc20MethodSelectors.increaseAllowance;
         amountHex = toBigIntHex(new BigNumber(allowance).shiftedBy(decimals));
-      } else if (approveType === EApproveType.DecreaseAllowance) {
-        selector = EErc20MethodSelectors.decreaseAllowance;
+      } else if (approveType === EApproveType.IncreaseApproval) {
+        selector = EErc20MethodSelectors.increaseApproval;
         amountHex = toBigIntHex(new BigNumber(allowance).shiftedBy(decimals));
       } else {
         selector = EErc20MethodSelectors.tokenApprove;
@@ -1095,7 +1095,7 @@ export default class Vault extends VaultBase {
     if (
       txDesc.name === EErc20TxDescriptionName.Approve ||
       txDesc.name === EErc20TxDescriptionName.IncreaseAllowance ||
-      txDesc.name === EErc20TxDescriptionName.DecreaseAllowance
+      txDesc.name === EErc20TxDescriptionName.IncreaseApproval
     ) {
       return this._buildTxApproveTokenAction({
         encodedTx,
@@ -1178,8 +1178,8 @@ export default class Vault extends VaultBase {
     let approveType: EApproveType = EApproveType.Approve;
     if (txDesc.name === EErc20TxDescriptionName.IncreaseAllowance) {
       approveType = EApproveType.IncreaseAllowance;
-    } else if (txDesc.name === EErc20TxDescriptionName.DecreaseAllowance) {
-      approveType = EApproveType.DecreaseAllowance;
+    } else if (txDesc.name === EErc20TxDescriptionName.IncreaseApproval) {
+      approveType = EApproveType.IncreaseApproval;
     }
 
     const action: IDecodedTxAction = {
@@ -1194,7 +1194,7 @@ export default class Vault extends VaultBase {
         symbol: token.symbol,
         decimals: token.decimals,
         tokenIdOnNetwork: token.address,
-        // increase/decreaseAllowance carries a delta, never an "infinite" amount.
+        // increaseAllowance/increaseApproval carry a delta, never an "infinite" amount.
         isInfiniteAmount:
           approveType === EApproveType.Approve && amount === InfiniteAmountText,
         approveType,

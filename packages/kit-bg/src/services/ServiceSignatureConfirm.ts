@@ -28,7 +28,11 @@ import type {
 } from '@onekeyhq/shared/types/signatureConfirm';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
+import {
+  EApproveType,
+  type IDecodedTx,
+  type ISendTxBaseParams,
+} from '@onekeyhq/shared/types/tx';
 
 import {
   type IRecentRecipientEntry,
@@ -273,6 +277,58 @@ class ServiceSignatureConfirm extends ServiceBase {
         alerts: [],
       };
       decodedTx.isLocalParsed = true;
+    }
+
+    // Backfill approveType and spender on Approve display components from
+    // the local decoded action. The server-side parser may not yet include
+    // these fields, but the local EVM decoder always identifies the on-chain
+    // method, so the editor can reliably adapt UI for increaseAllowance /
+    // increaseApproval calls.
+    if (decodedTx.txDisplay?.components) {
+      const localApproves = decodedTx.actions
+        .map((a) => a.tokenApprove)
+        .filter((a): a is NonNullable<typeof a> => Boolean(a));
+      if (localApproves.length > 0) {
+        // Index by token address (lowercased) for robust matching when there
+        // are multiple Approve components or unexpected ordering.
+        const localByToken = new Map<string, (typeof localApproves)[number]>();
+        for (const a of localApproves) {
+          if (a.tokenIdOnNetwork) {
+            localByToken.set(a.tokenIdOnNetwork.toLowerCase(), a);
+          }
+        }
+        let fallbackIdx = 0;
+        for (const c of decodedTx.txDisplay.components) {
+          if (c.type === EParseTxComponentType.Approve) {
+            const tokenAddr = c.token?.info?.address?.toLowerCase();
+            const localApprove =
+              (tokenAddr && localByToken.get(tokenAddr)) ||
+              localApproves[fallbackIdx];
+            fallbackIdx += 1;
+            if (localApprove) {
+              if (!c.approveType && localApprove.approveType) {
+                c.approveType = localApprove.approveType;
+              }
+              if (!c.spender && localApprove.spender) {
+                c.spender = localApprove.spender;
+              }
+              // For increase variants, the server's amountParsed may lag
+              // behind unsigned-tx updates (e.g. after the user edits the
+              // delta in the approve editor and the encodedTx is re-encoded).
+              // The local decoder always reflects the current calldata, so
+              // use it as the source of truth.
+              const localApproveType =
+                localApprove.approveType ?? c.approveType;
+              if (
+                localApproveType === EApproveType.IncreaseAllowance ||
+                localApproveType === EApproveType.IncreaseApproval
+              ) {
+                c.amountParsed = localApprove.amount;
+              }
+            }
+          }
+        }
+      }
     }
 
     if (transferPayload?.isCustomHexData) {

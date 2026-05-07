@@ -645,9 +645,9 @@ export interface IBuildUnsignedTxParams {
 export type ITokenApproveInfo = {
   allowance: string;
   isUnlimited: boolean;
-  // When editing an increase/decreaseAllowance tx, the editor passes the
-  // original approve type so the vault can re-encode with the correct
-  // selector (or fall back to approve(MAX) when Unlimited is toggled on).
+  // When editing an increaseAllowance/increaseApproval tx, the editor passes
+  // the original approve type so the vault can re-encode with the correct
+  // selector. Undefined falls back to absolute approve.
   approveType?: EApproveType;
 };
 export interface IUpdateUnsignedTxParams {

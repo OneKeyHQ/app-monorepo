@@ -700,7 +700,9 @@ export interface ISwapApproveAllowanceResponse {
   isApproved: boolean;
   allowanceTarget: string;
   shouldApproveAmount: string;
-  approvedAmount: string;
+  // Server returns this field name (sic — backend spelling). Value is already
+  // decimal-parsed (e.g. "112" for 112 LINK), not raw wei.
+  approveAmounted: string;
   shouldResetApprove?: boolean;
 }
 

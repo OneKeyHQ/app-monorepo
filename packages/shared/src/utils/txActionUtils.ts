@@ -462,6 +462,8 @@ function convertTokenApproveActionToSignatureConfirmComponent({
     isEditable: !isRevoke && !isMultiTxs,
     isInfiniteAmount: action.isInfiniteAmount,
     networkId,
+    approveType: action.approveType,
+    spender: action.spender,
   };
 
   const spenderComponent: IDisplayComponentAddress | null = isMultiTxs

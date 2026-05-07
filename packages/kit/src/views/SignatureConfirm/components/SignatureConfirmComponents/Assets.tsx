@@ -15,6 +15,7 @@ import {
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { useTokenApproveAllowance } from '@onekeyhq/kit/src/hooks/useTokenApproveAllowance';
 import {
   useDecodedTxsAtom,
   useSignatureConfirmActions,
@@ -32,6 +33,7 @@ import {
   type IDisplayComponentNFT,
   type IDisplayComponentToken,
 } from '@onekeyhq/shared/types/signatureConfirm';
+import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
@@ -329,6 +331,29 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
   const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
   const intl = useIntl();
 
+  const isIncrease =
+    component.approveType === EApproveType.IncreaseAllowance ||
+    component.approveType === EApproveType.IncreaseApproval;
+
+  // For increase variants, fetch the on-chain current allowance so the
+  // confirm page can show "Approve {current+delta} {symbol}" — i.e. the
+  // resulting absolute allowance after this tx — rather than just the
+  // delta carried in the calldata.
+  const { allowanceParsed: currentAllowanceParsed } = useTokenApproveAllowance({
+    enabled: isIncrease,
+    accountId,
+    networkId,
+    tokenAddress: token.info.address,
+    spender: component.spender,
+  });
+
+  const finalAllowanceParsed = useMemo(() => {
+    if (!isIncrease || !currentAllowanceParsed) return null;
+    const deltaBN = new BigNumber(component.amountParsed);
+    if (!deltaBN.isFinite()) return currentAllowanceParsed;
+    return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
+  }, [component.amountParsed, currentAllowanceParsed, isIncrease]);
+
   useEffect(() => {
     updateTokenApproveInfo({
       originalAllowance: component.amountParsed,
@@ -346,17 +371,29 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
     [editable, component.isEditable],
   );
 
+  const displayedAmount = useMemo(() => {
+    if (component.isInfiniteAmount) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_amount_un_limit,
+      });
+    }
+    if (isIncrease && finalAllowanceParsed) {
+      return new BigNumber(finalAllowanceParsed).toFixed();
+    }
+    return new BigNumber(component.amountParsed).toFixed();
+  }, [
+    component.amountParsed,
+    component.isInfiniteAmount,
+    finalAllowanceParsed,
+    intl,
+    isIncrease,
+  ]);
+
   return (
     <SignatureAssetDetailItem
       isLoading={isBuildingDecodedTxs}
       label={component.label}
-      amount={
-        component.isInfiniteAmount
-          ? intl.formatMessage({
-              id: ETranslations.swap_page_provider_approve_amount_un_limit,
-            })
-          : new BigNumber(component.amountParsed).toFixed()
-      }
+      amount={displayedAmount}
       symbol={component.token.info.symbol}
       tokenProps={{
         tokenImageUri: component.token.info.logoURI,
@@ -379,6 +416,9 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
           tokenAddress: token.info.address,
           balanceParsed: component.balanceParsed,
           approveInfo,
+          approveType: component.approveType,
+          spender: component.spender,
+          currentAllowanceParsed: currentAllowanceParsed ?? undefined,
         });
       }}
       showNetwork={component.showNetwork ?? showNetwork}

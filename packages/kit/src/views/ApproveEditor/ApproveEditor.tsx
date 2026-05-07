@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNaN } from 'lodash';
@@ -10,8 +10,11 @@ import {
   Form,
   Input,
   NumberSizeableText,
+  SizableText,
   Skeleton,
   Switch,
+  XStack,
+  YStack,
   useForm,
 } from '@onekeyhq/components';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -21,6 +24,7 @@ import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useTokenApproveAllowance } from '../../hooks/useTokenApproveAllowance';
 import {
   useSendConfirmActions,
   useTokenApproveInfoAtom,
@@ -38,9 +42,17 @@ export type IProps = {
   tokenSymbol: string;
   approveInfo?: IApproveInfo;
   // The original on-chain method behind this approve action. Determines
-  // whether the allowance value is an absolute target or a delta, and
-  // whether the Unlimited toggle is meaningful in this context.
+  // whether the value is an absolute target (approve) or a delta
+  // (increaseAllowance/increaseApproval), and whether the Unlimited toggle
+  // applies.
   approveType?: EApproveType;
+  // Spender of the approval. Required to look up the current on-chain
+  // allowance when editing an increase delta.
+  spender?: string;
+  // Current on-chain allowance, already fetched and decimal-shifted by the
+  // caller (typically the confirm page). When provided the editor skips the
+  // fetch and renders Current/Final immediately.
+  currentAllowanceParsed?: string;
   onResetTokenApproveInfo?: () => void;
   onChangeTokenApproveInfo?: ({
     allowance,
@@ -72,14 +84,17 @@ function ApproveEditor(props: IProps) {
     onChangeTokenApproveInfo,
     approveInfo,
     approveType = EApproveType.Approve,
+    spender,
+    currentAllowanceParsed: currentAllowanceParsedFromProps,
   } = props;
 
-  const isIncrease = approveType === EApproveType.IncreaseAllowance;
-  const isDecrease = approveType === EApproveType.DecreaseAllowance;
+  const isIncrease =
+    approveType === EApproveType.IncreaseAllowance ||
+    approveType === EApproveType.IncreaseApproval;
   // Unlimited would force a selector switch to approve(MAX), silently
   // overriding the dApp's original method. Restrict the toggle to absolute
-  // approve so increase/decreaseAllowance can only edit their delta.
-  const showUnlimitedToggle = !isIncrease && !isDecrease;
+  // approve so increase calls can only edit their delta.
+  const showUnlimitedToggle = !isIncrease;
 
   const handleUpdateUnsignedTxs = useCallback(
     async ({
@@ -120,6 +135,23 @@ function ApproveEditor(props: IProps) {
 
   const tokenDetails = result?.[0];
 
+  // Editor prefers the value passed by the caller (the confirm page already
+  // fetched it to render the final total); falls back to fetching itself if
+  // the prop is missing or the caller's request failed.
+  const {
+    allowanceParsed: fetchedAllowanceParsed,
+    isLoading: isAllowanceLoading,
+  } = useTokenApproveAllowance({
+    enabled: isIncrease && !currentAllowanceParsedFromProps,
+    accountId,
+    networkId,
+    tokenAddress,
+    spender,
+  });
+
+  const currentAllowanceParsed =
+    currentAllowanceParsedFromProps ?? fetchedAllowanceParsed;
+
   const unlimitedText = intl.formatMessage({
     id: ETranslations.swap_page_provider_approve_amount_un_limit,
   });
@@ -142,8 +174,8 @@ function ApproveEditor(props: IProps) {
       }
 
       // The swap-required-allowance check assumes value is an absolute target.
-      // For increase/decreaseAllowance the input is a delta, so skip it.
-      if (approveInfo && !isIncrease && !isDecrease) {
+      // For increase calls the input is a delta, so skip it.
+      if (approveInfo && !isIncrease) {
         if (form.getValues('isUnlimited')) {
           return true;
         }
@@ -157,18 +189,32 @@ function ApproveEditor(props: IProps) {
 
       return true;
     },
-    [approveInfo, form, intl, isIncrease, isDecrease],
+    [approveInfo, form, intl, isIncrease],
   );
 
-  // English-only fallback labels for inc/dec — no dedicated i18n keys yet.
+  // English-only fallback label for increase calls — no dedicated i18n key yet.
   let amountFieldLabel = intl.formatMessage({
     id: ETranslations.approve_edit_approve_amount,
   });
   if (isIncrease) {
     amountFieldLabel = 'Increase amount';
-  } else if (isDecrease) {
-    amountFieldLabel = 'Decrease amount';
   }
+
+  const finalAllowanceParsed = useMemo(() => {
+    if (!isIncrease || !currentAllowanceParsed) return null;
+    const deltaStr = watchAllFields.allowance;
+    if (!deltaStr || deltaStr === unlimitedText) return currentAllowanceParsed;
+    const deltaBN = new BigNumber(deltaStr);
+    if (!deltaBN.isFinite()) return currentAllowanceParsed;
+    return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
+  }, [
+    currentAllowanceParsed,
+    isIncrease,
+    unlimitedText,
+    watchAllFields.allowance,
+  ]);
+
+  const showAllowancePreview = isIncrease && Boolean(spender);
 
   return (
     <>
@@ -193,7 +239,12 @@ function ApproveEditor(props: IProps) {
                 return;
               }
 
-              if (valueBN.isGreaterThanOrEqualTo(ALLOWANCE_MAX)) {
+              // Auto-flip to Unlimited only makes sense for absolute approve.
+              // For increase deltas, leave the value as a plain number.
+              if (
+                !isIncrease &&
+                valueBN.isGreaterThanOrEqualTo(ALLOWANCE_MAX)
+              ) {
                 form.setValue('allowance', unlimitedText);
                 form.setValue('isUnlimited', true);
                 return;
@@ -276,6 +327,42 @@ function ApproveEditor(props: IProps) {
           </Form.Field>
         ) : null}
       </Form>
+      {showAllowancePreview ? (
+        <YStack gap="$2" pt="$3">
+          <XStack jc="space-between" ai="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              Current allowance
+            </SizableText>
+            {isAllowanceLoading ? (
+              <Skeleton height={16} width={120} />
+            ) : (
+              <NumberSizeableText
+                size="$bodyMdMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol }}
+              >
+                {currentAllowanceParsed ?? '-'}
+              </NumberSizeableText>
+            )}
+          </XStack>
+          <XStack jc="space-between" ai="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              Final allowance
+            </SizableText>
+            {isAllowanceLoading ? (
+              <Skeleton height={16} width={120} />
+            ) : (
+              <NumberSizeableText
+                size="$bodyMdMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol }}
+              >
+                {finalAllowanceParsed ?? '-'}
+              </NumberSizeableText>
+            )}
+          </XStack>
+        </YStack>
+      ) : null}
       <Dialog.Footer
         confirmButtonProps={{
           disabled: !form.formState.isValid,
