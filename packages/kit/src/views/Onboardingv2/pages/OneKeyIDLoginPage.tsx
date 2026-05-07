@@ -160,6 +160,16 @@ function OneKeyIDLoginPage() {
       }
       // Close the same-tick re-entry window before React state updates commit.
       loggingInProviderRef.current = provider;
+      const reportOAuthFailure = () => {
+        if (!isVerifyMode) {
+          defaultLogger.account.wallet.walletAdded({
+            status: 'failure',
+            addMethod: 'CreateKeylessWallet',
+            isSoftwareWalletOnlyUser: true,
+            details: { provider },
+          });
+        }
+      };
       try {
         setLoggingInProvider(provider);
         const result = await signInWithSocialLogin(provider);
@@ -175,17 +185,11 @@ function OneKeyIDLoginPage() {
             });
             setIsResetMode(false);
           } else {
-            // Track wallet creation started after OAuth login succeeds
             if (!isVerifyMode) {
               defaultLogger.account.wallet.addWalletStarted({
                 addMethod: 'CreateKeylessWallet',
                 isSoftwareWalletOnlyUser: true,
-                details: {
-                  provider:
-                    provider === EOAuthSocialLoginProvider.Google
-                      ? 'google'
-                      : 'apple',
-                },
+                details: { provider },
               });
             }
             await checkKeylessWalletCreatedOnServer({
@@ -194,7 +198,12 @@ function OneKeyIDLoginPage() {
               mode,
             });
           }
+        } else {
+          reportOAuthFailure();
         }
+      } catch (error) {
+        reportOAuthFailure();
+        throw error;
       } finally {
         loggingInProviderRef.current = null;
         setLoggingInProvider(null);

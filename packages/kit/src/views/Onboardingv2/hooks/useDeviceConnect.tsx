@@ -453,6 +453,8 @@ export function useDeviceConnect({
         );
       }
 
+      let connectionFailureTracked = false;
+      let forceTransportType: EHardwareTransportType | undefined;
       try {
         void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
           connectId: device.connectId ?? '',
@@ -518,7 +520,6 @@ export function useDeviceConnect({
         }
 
         // Set global transport type based on selected channel before connecting
-        let forceTransportType: EHardwareTransportType | undefined;
         if (tabValue === EConnectDeviceChannel.bluetooth) {
           forceTransportType = EHardwareTransportType.DesktopWebBle;
         } else {
@@ -542,6 +543,7 @@ export function useDeviceConnect({
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
+          connectionFailureTracked = true;
           throw new OneKeyHardwareError(
             'connect device failed, no features returned',
           );
@@ -574,6 +576,7 @@ export function useDeviceConnect({
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
+          connectionFailureTracked = true;
           Toast.error({
             title: 'Device is in backup mode',
           });
@@ -684,6 +687,14 @@ export function useDeviceConnect({
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         console.error('handleDeviceConnect error:', error);
+        if (!connectionFailureTracked) {
+          void trackHardwareWalletConnection({
+            status: 'failure',
+            isSoftwareWalletOnlyUser,
+            deviceType: device.deviceType,
+            hardwareTransportType: forceTransportType || hardwareTransportType,
+          });
+        }
         throw error;
       }
     },
