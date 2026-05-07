@@ -472,9 +472,7 @@ export function useTrayDataProvider() {
   const inFlightRef = useRef(false);
   const trailingRefreshRef = useRef(false);
   const hasPendingTxRef = useRef(false);
-  // Watchlist is global (market favorites), not account-specific — preserving
-  // it across switches avoids the empty-state CTA flashing during the gather
-  // that follows the optimistic placeholder (OK-54088).
+  // Cached resolved watchlist for the account-switch optimistic placeholder (OK-54088).
   const lastWatchlistRef = useRef<ITrayWatchlistItem[]>([]);
   const pendingRecheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -790,9 +788,7 @@ export function useTrayDataProvider() {
             resolvedItems: watchlistResults,
           });
         }
-        // Cache last successful watchlist for the account-switch optimistic
-        // placeholder. Only update on a non-throwing fetch — keep the prior
-        // value on failure so transient errors don't blank the cached list.
+        // Only update on a non-throwing fetch — keep prior value on transient errors.
         lastWatchlistRef.current = trayData.watchlist;
       } catch (e) {
         defaultLogger.app.error.log(
@@ -1211,9 +1207,6 @@ export function useTrayDataProvider() {
           currency: displayCurrency,
           symbol: displaySymbol,
         },
-        // Reuse last fetched watchlist — it's global, so the next gather will
-        // return the same items. Preventing the brief `[]` here avoids the
-        // empty-state CTA flashing in `WatchlistTickers` (OK-54088).
         watchlist: lastWatchlistRef.current,
         pendingTxs: [],
       });
