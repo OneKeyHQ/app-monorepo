@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Dialog,
-  Divider,
   Icon,
   Input,
   SegmentControl,
@@ -37,17 +36,19 @@ import {
   normalizeMarketPresetDirectionSettings,
 } from '../../hooks/marketPresetSettings';
 
+import {
+  type ITradingWidgetMainButtonPressEvent,
+  type ITradingWidgetMainButtonVariant,
+  TradingWidgetMainButton,
+} from './TradingWidgetMainButton';
+
 import type { IMarketPresetSettingsState } from '../../hooks/useMarketPresetSettings';
 
 type IMarketPresetSelectorProps = {
   presetSettings: IMarketPresetSettingsState;
   slippageIconName?: IIconProps['name'];
   showAutoSlippageLabel?: boolean;
-};
-
-type IPressEvent = {
-  preventDefault?: () => void;
-  stopPropagation?: () => void;
+  variant?: ITradingWidgetMainButtonVariant;
 };
 
 type IDraftPresetSettings = Partial<
@@ -794,6 +795,7 @@ export function MarketPresetSelector({
   presetSettings,
   slippageIconName = 'SliderVerOutline',
   showAutoSlippageLabel = false,
+  variant,
 }: IMarketPresetSelectorProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -807,6 +809,7 @@ export function MarketPresetSelector({
     selectedSlippageValue,
     onPresetChange,
   } = presetSettings;
+  const resolvedVariant = variant ?? (gtMd ? 'full' : 'compact');
 
   const presetOptions = useMemo(
     () =>
@@ -840,7 +843,7 @@ export function MarketPresetSelector({
   }, [intl, presetSettings]);
 
   const handleQuickPresetSwitch = useCallback(
-    (event?: IPressEvent) => {
+    (event?: ITradingWidgetMainButtonPressEvent) => {
       event?.preventDefault?.();
       event?.stopPropagation?.();
 
@@ -862,7 +865,7 @@ export function MarketPresetSelector({
   }
 
   const slippageLabel =
-    !gtMd &&
+    resolvedVariant === 'compact' &&
     showAutoSlippageLabel &&
     selectedDirectionSettings.slippage.key === ESwapSlippageSegmentKey.AUTO
       ? intl.formatMessage({ id: ETranslations.global_auto })
@@ -884,130 +887,18 @@ export function MarketPresetSelector({
     : intl.formatMessage({ id: ETranslations.global_auto });
 
   return (
-    <YStack
-      gap={gtMd ? '$3' : '$2'}
-      width="100%"
+    <TradingWidgetMainButton
+      variant={resolvedVariant}
+      presetOptions={presetOptions}
+      selectedPresetLabel={selectedPresetLabel}
+      selectedPresetValue={selectedPresetKey}
+      slippageIconName={slippageIconName}
+      slippageLabel={slippageLabel}
+      priorityFeeLabel={priorityFeeLabel}
+      onPresetChange={onPresetChange}
+      onOpenSettings={openPresetDialog}
+      onQuickPresetPress={handleQuickPresetSwitch}
       testID="market-preset-selector"
-    >
-      {gtMd ? (
-        <XStack alignItems="center" gap="$2" width="100%">
-          {presetOptions.map((option) => {
-            const selected = option.value === selectedPresetKey;
-
-            return (
-              <XStack
-                key={option.value}
-                accessibilityRole="button"
-                alignItems="center"
-                bg={selected ? '$bgActive' : '$transparent'}
-                borderRadius="$full"
-                cursor="pointer"
-                flex={1}
-                justifyContent="center"
-                minHeight={30}
-                minWidth={0}
-                px="$2.5"
-                py="$1"
-                hoverStyle={{ bg: selected ? '$bgActive' : '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                onPress={() => {
-                  if (!selected) {
-                    onPresetChange(option.value);
-                  }
-                }}
-                testID={option.testID}
-              >
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={selected ? '$text' : '$textSubdued'}
-                  numberOfLines={1}
-                >
-                  {option.label}
-                </SizableText>
-              </XStack>
-            );
-          })}
-        </XStack>
-      ) : null}
-
-      <XStack
-        alignItems="center"
-        justifyContent={gtMd ? 'space-between' : 'flex-start'}
-        bg={gtMd ? undefined : '$bgStrong'}
-        borderRadius={gtMd ? undefined : '$2'}
-        borderWidth={0}
-        cursor="pointer"
-        gap={gtMd ? '$3' : '$1'}
-        minHeight={gtMd ? 20 : '$8'}
-        pl={gtMd ? 0 : '$3.5'}
-        pr={gtMd ? 0 : '$2.5'}
-        py={gtMd ? 0 : '$1.5'}
-        hoverStyle={gtMd ? undefined : { bg: '$bgHover' }}
-        pressStyle={gtMd ? undefined : { bg: '$bgActive' }}
-        onPress={openPresetDialog}
-        testID="market-preset-settings-trigger"
-      >
-        {gtMd ? null : (
-          <XStack
-            accessibilityRole="button"
-            alignItems="center"
-            flexShrink={0}
-            onPress={handleQuickPresetSwitch}
-            testID="market-preset-quick-switch"
-          >
-            <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
-              {selectedPresetLabel}
-            </SizableText>
-          </XStack>
-        )}
-
-        <XStack
-          alignItems="center"
-          justifyContent={gtMd ? 'flex-start' : 'flex-end'}
-          flex={1}
-          minWidth={0}
-        >
-          <XStack alignItems="center" gap="$2" minWidth={0}>
-            <Icon name={slippageIconName} size={18} color="$iconSubdued" />
-            <SizableText
-              size="$bodyMdMedium"
-              color="$textSubdued"
-              numberOfLines={1}
-            >
-              {slippageLabel}
-            </SizableText>
-          </XStack>
-
-          <Divider vertical h={12} mx="$2" />
-
-          <XStack alignItems="center" gap="$2" minWidth={0}>
-            <Icon name="HandCoinsOutline" size={18} color="$iconSubdued" />
-            <SizableText
-              size="$bodyMdMedium"
-              color="$textSubdued"
-              numberOfLines={1}
-            >
-              {priorityFeeLabel}
-            </SizableText>
-          </XStack>
-
-          <Divider vertical h={12} mx="$2" />
-
-          <XStack
-            alignItems="center"
-            justifyContent="flex-end"
-            gap={gtMd ? '$3' : '$1'}
-            flex={gtMd ? 1 : undefined}
-          >
-            <Icon name="ShieldCheckDoneSolid" size={18} color="$iconSuccess" />
-            <Icon
-              name="ChevronRightSmallOutline"
-              size={gtMd ? 20 : '$5'}
-              color="$iconSubdued"
-            />
-          </XStack>
-        </XStack>
-      </XStack>
-    </YStack>
+    />
   );
 }

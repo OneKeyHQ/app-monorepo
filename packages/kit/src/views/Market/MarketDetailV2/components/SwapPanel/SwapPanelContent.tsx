@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Toast, YStack, useMedia } from '@onekeyhq/components';
+import { SizableText, Toast, YStack } from '@onekeyhq/components';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
@@ -93,6 +93,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     speedCheckError,
     disableNativeToken,
     marketPresetSettings,
+    onCloseDialog,
   } = props;
 
   const {
@@ -121,7 +122,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   } = useSwapAnalytics();
   const resetSwapAmounts = resetAmounts as () => void;
   const intl = useIntl();
-  const { gtMd } = useMedia();
   if (paymentAmount !== paymentAmountRef.current) {
     paymentAmountRef.current = paymentAmount;
   }
@@ -317,7 +317,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {showMarketPresetSelector && marketPresetSettings ? (
         <MarketPresetSelector
           presetSettings={marketPresetSettings}
-          slippageIconName={gtMd ? 'SliderVerOutline' : 'ChartTrendingOutline'}
+          variant={onCloseDialog ? 'compact' : 'full'}
         />
       ) : null}
 

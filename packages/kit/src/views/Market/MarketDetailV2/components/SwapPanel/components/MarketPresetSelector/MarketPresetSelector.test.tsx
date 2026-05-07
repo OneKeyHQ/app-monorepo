@@ -211,6 +211,23 @@ describe('MarketPresetSelector', () => {
     expect(mockDialogShow).not.toHaveBeenCalled();
   });
 
+  it('uses the extracted full widget preset buttons when requested', () => {
+    const onPresetChange = jest.fn();
+
+    render(
+      <MarketPresetSelector
+        presetSettings={createPresetSettings({ onPresetChange })}
+        variant="full"
+      />,
+    );
+
+    expect(screen.getByTestId('market-preset-auto')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('market-preset-p1'));
+
+    expect(onPresetChange).toHaveBeenCalledWith(EMarketPresetKey.P1);
+    expect(mockDialogShow).not.toHaveBeenCalled();
+  });
+
   it('uses underline tabs for preset switching in the settings dialog', () => {
     render(<MarketPresetSelector presetSettings={createPresetSettings()} />);
 
