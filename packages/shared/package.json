@@ -17,6 +17,7 @@
     "@types/ethereumjs-util": "^6.1.2",
     "@types/webextension-polyfill": "^0.8.2",
     "async-mutex": "^0.3.2",
+    "axios": "1.15.2",
     "fast-safe-stringify": "^2.1.1",
     "js-base64": "3.7.5",
     "jsonschema": "^1.4.1",
@@ -27,7 +28,8 @@
     "react-native-uuid": "^2.0.1",
     "redux-persist": "^6.0.0",
     "stackblur-canvas": "^2.7.0",
-    "webextension-polyfill": "^0.8.0"
+    "webextension-polyfill": "^0.8.0",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "rimraf": "3.0.2"

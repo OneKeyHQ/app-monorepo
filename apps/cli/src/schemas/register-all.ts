@@ -8,6 +8,10 @@ import {
   authStatusOutputSchema,
 } from './auth-schema';
 import { balanceAllOutputSchema, balanceInputSchema } from './balance-schema';
+import {
+  getAddressInputSchema,
+  getAddressOutputSchema,
+} from './get-address-schema';
 import { logoutInputSchema, logoutOutputSchema } from './logout-schema';
 import {
   marketKlineInputSchema,
@@ -24,6 +28,7 @@ import {
   securitySimulateInputSchema,
   securitySimulateOutputSchema,
 } from './security-schemas';
+import { signInputSchema, signOutputSchema } from './sign-schema';
 import { statusInputSchema, statusOutputSchema } from './status-schema';
 import {
   swapBuildInputSchema,
@@ -108,6 +113,24 @@ defineCommand({
     'onekey transfer --to 0x... --amount 100 --token 0x... --chain bsc',
     'onekey transfer --to 0x... --amount 0.01 --dry-run',
   ],
+});
+
+defineCommand({
+  name: 'sign',
+  description: 'Sign an encoded transaction locally',
+  input: signInputSchema,
+  output: signOutputSchema,
+  examples: [
+    'onekey sign --chain eth --tx \'{"to":"0x..."}\' --address 0x... --path "m/44\'/60\'/0\'/0/0" --pub 02...',
+  ],
+});
+
+defineCommand({
+  name: 'get-address',
+  description: 'Show the active Bot Wallet address',
+  input: getAddressInputSchema,
+  output: getAddressOutputSchema,
+  examples: ['onekey get-address', 'onekey get-address --format=text'],
 });
 
 defineCommand({
