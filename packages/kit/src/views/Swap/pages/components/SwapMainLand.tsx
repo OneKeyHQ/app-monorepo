@@ -521,10 +521,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
 
   const supportPreBuild = useMemo(() => {
-    if (isWrapped) {
-      return false;
-    }
-    if (quoteEventFetching) {
+    if (isWrapped || !currentQuoteRes) {
       return false;
     }
     if (currentQuoteRes && !currentQuoteRes?.allowanceResult) {
@@ -536,12 +533,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         fromSelectToken?.networkId ?? '',
       )
     );
-  }, [
-    currentQuoteRes,
-    fromSelectToken?.networkId,
-    isWrapped,
-    quoteEventFetching,
-  ]);
+  }, [currentQuoteRes, fromSelectToken?.networkId, isWrapped]);
 
   const reviewStepTexts = useMemo(
     () => ({
