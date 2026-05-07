@@ -10,9 +10,18 @@ import type { IAirGapSDK } from '../types';
 
 export class AirGapEthSDK extends KeystoneEthereumSDK implements IAirGapSDK {
   normalizeGetMultiAccountsPath(path: string) {
+    // EVM xpub level the device exposes is depth 3: m/44'/60'/0'
+    // Standard / LedgerLive templates resolve to depth 5 (drop 2),
+    // LedgerLegacy template resolves to depth 4 (drop 1).
+    const targetDepth = 3;
+    const segments = path.replace(/^m\//i, '').split('/').filter(Boolean);
+    const removeCount = segments.length - targetDepth;
+    if (removeCount <= 0) {
+      return path;
+    }
     return accountUtils.removePathLastSegment({
       path,
-      removeCount: 2,
+      removeCount,
     });
   }
 
