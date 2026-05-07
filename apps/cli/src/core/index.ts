@@ -8,7 +8,13 @@ export {
   updatePendingStatus,
 } from './pending-storage';
 export type { IPendingOrder } from './pending-storage';
-export { SecureCache, secureCache } from './secure-cache';
+export {
+  SESSION_MEMO_TTL_MS,
+  SecureCache,
+  createSecureCacheKey,
+  secureCache,
+} from './secure-cache';
+export type { ISecureCacheKey } from './secure-cache';
 export { auditToken } from './security-checker';
 export type { IAuditSummary, ISecurityAuditResult } from './security-checker';
 export { resolveChain, listEvmChains } from './chain-resolver';
