@@ -223,7 +223,7 @@ describe('BTC/TBTC transfer command', () => {
       networkId: 'tbtc--0',
       account: {
         address: senderAddress,
-        path: senderReceivePath,
+        path: senderAccountPath,
         pub: '02abcdef',
       },
       unsignedTx: {

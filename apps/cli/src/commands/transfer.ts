@@ -158,6 +158,7 @@ export function registerTransferCommand(program: Command): void {
             });
             const fromAddress = addressInfo.address;
             const fromPath = addressTypeInfo.path;
+            const fromAccountPath = addressTypeInfo.accountPath;
             const toAddress = assertAddressForChain(chainConfig, validated.to);
             const builtTx = await buildBtcTransferTx({
               impl: chainConfig.impl,
@@ -203,7 +204,7 @@ export function registerTransferCommand(program: Command): void {
               networkId: chainConfig.networkId,
               account: {
                 address: fromAddress,
-                path: fromPath,
+                path: fromAccountPath,
                 pub: addressInfo.publicKey,
               },
               unsignedTx: { encodedTx: builtTx.encodedTx },
