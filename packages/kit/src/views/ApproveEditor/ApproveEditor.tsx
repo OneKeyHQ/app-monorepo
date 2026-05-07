@@ -192,13 +192,11 @@ function ApproveEditor(props: IProps) {
     [approveInfo, form, intl, isIncrease],
   );
 
-  // English-only fallback label for increase calls — no dedicated i18n key yet.
-  let amountFieldLabel = intl.formatMessage({
-    id: ETranslations.approve_edit_approve_amount,
+  const amountFieldLabel = intl.formatMessage({
+    id: isIncrease
+      ? ETranslations.approve_edit_increase_amount
+      : ETranslations.approve_edit_approve_amount,
   });
-  if (isIncrease) {
-    amountFieldLabel = 'Increase amount';
-  }
 
   const finalAllowanceParsed = useMemo(() => {
     if (!isIncrease || !currentAllowanceParsed) return null;
@@ -331,7 +329,9 @@ function ApproveEditor(props: IProps) {
         <YStack gap="$2" pt="$3">
           <XStack jc="space-between" ai="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Current allowance
+              {intl.formatMessage({
+                id: ETranslations.approve_edit_current_allowance,
+              })}
             </SizableText>
             {isAllowanceLoading ? (
               <Skeleton height={16} width={120} />
@@ -347,7 +347,9 @@ function ApproveEditor(props: IProps) {
           </XStack>
           <XStack jc="space-between" ai="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Final allowance
+              {intl.formatMessage({
+                id: ETranslations.approve_edit_final_allowance,
+              })}
             </SizableText>
             {isAllowanceLoading ? (
               <Skeleton height={16} width={120} />
