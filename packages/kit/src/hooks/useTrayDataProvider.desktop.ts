@@ -1035,6 +1035,10 @@ export function useTrayDataProvider() {
       const nav = rootNavigationRef.current;
       if (!nav) return;
 
+      // Tamagui Popover/Sheet portal to body at high zIndex and would
+      // obscure any tray-triggered RN modal. Ask open overlays to dismiss.
+      appEventBus.emit(EAppEventBusNames.TrayActionWillNavigate, undefined);
+
       if (action?.type === 'open-page') {
         if (action.route === TRAY_ROUTE_HOME) {
           resetAboveMainRoute();
