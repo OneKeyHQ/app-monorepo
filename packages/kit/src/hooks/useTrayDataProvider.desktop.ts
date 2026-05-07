@@ -81,6 +81,8 @@ import {
 
 const TRAY_ROUTE_HOME = '/main/tab-home';
 const TRAY_ROUTE_MARKET = '/main/tab-market';
+// Fires while pending txs exist even when panel is closed and home is unfocused.
+const TRAY_PENDING_TX_RECHECK_INTERVAL_MS = 12_000;
 
 async function refreshTrayPendingTxStatuses(
   txs: IAccountHistoryTx[],
@@ -469,6 +471,12 @@ export function useTrayDataProvider() {
   // Renderer-side inflight guard for non-poll paths (account change, refresh).
   const inFlightRef = useRef(false);
   const trailingRefreshRef = useRef(false);
+  const hasPendingTxRef = useRef(false);
+  const pendingRecheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const isTrayActiveRef = useRef(isTrayActive);
+  isTrayActiveRef.current = isTrayActive;
 
   const handleTrayDataRequestInner = useCallback(async () => {
     // Tray window can't reach backgroundApiProxy (DESKTOP_API_CALL is gated
@@ -900,6 +908,9 @@ export function useTrayDataProvider() {
         return;
       }
 
+      hasPendingTxRef.current = (trayData.pendingTxs ?? []).some(
+        (tx) => tx.status === 'pending',
+      );
       globalThis.desktopApi?.sendTrayData(trayData);
       pendingTxsClearedRef.current = false;
     } catch {
@@ -935,6 +946,25 @@ export function useTrayDataProvider() {
     }
   }, []);
 
+  const clearPendingRecheck = useCallback(() => {
+    if (pendingRecheckTimerRef.current) {
+      clearTimeout(pendingRecheckTimerRef.current);
+      pendingRecheckTimerRef.current = null;
+    }
+  }, []);
+
+  // Resets on every refresh so external events near a tick don't cause back-to-back gathers.
+  const schedulePendingRecheck = useCallback(() => {
+    if (!isTrayActiveRef.current) return;
+    if (pendingRecheckTimerRef.current) {
+      clearTimeout(pendingRecheckTimerRef.current);
+    }
+    pendingRecheckTimerRef.current = setTimeout(() => {
+      pendingRecheckTimerRef.current = null;
+      void handleTrayDataRequestRef.current?.();
+    }, TRAY_PENDING_TX_RECHECK_INTERVAL_MS);
+  }, []);
+
   const handleTrayDataRequest = useCallback(async () => {
     if (inFlightRef.current) {
       trailingRefreshRef.current = true;
@@ -945,16 +975,21 @@ export function useTrayDataProvider() {
       await handleTrayDataRequestInner();
     } finally {
       inFlightRef.current = false;
-      if (trailingRefreshRef.current) {
+      const willTrailingRefresh = trailingRefreshRef.current;
+      if (willTrailingRefresh) {
         trailingRefreshRef.current = false;
         // Microtask so the call stack unwinds and main-process
         // `guardedRequest` can release on TRAY_DATA_RESPONSE first.
         queueMicrotask(() => {
           void handleTrayDataRequestRef.current?.();
         });
+      } else if (hasPendingTxRef.current) {
+        schedulePendingRecheck();
+      } else {
+        clearPendingRecheck();
       }
     }
-  }, [handleTrayDataRequestInner]);
+  }, [handleTrayDataRequestInner, schedulePendingRecheck, clearPendingRecheck]);
 
   const handleOpenTransactionDetail = useCallback(
     async (action: ITrayAction) => {
@@ -1237,4 +1272,14 @@ export function useTrayDataProvider() {
       );
     };
   }, [isTrayActive]);
+
+  useEffect(() => {
+    if (!isTrayActive) {
+      clearPendingRecheck();
+      hasPendingTxRef.current = false;
+    }
+    return () => {
+      clearPendingRecheck();
+    };
+  }, [isTrayActive, clearPendingRecheck]);
 }
