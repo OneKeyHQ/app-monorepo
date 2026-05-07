@@ -13,6 +13,9 @@ class PackageMacOSStandaloneError extends Error {}
 const supportedArchitectures = new Set(['arm64', 'x64']);
 const arch = process.env.CLI_MACOS_ARCH || process.arch;
 const bundleId = process.env.CLI_MACOS_BUNDLE_ID || 'so.onekey.cli';
+const entitlementsPath =
+  process.env.CLI_MACOS_ENTITLEMENTS ||
+  path.join(cliRoot, 'entitlements.macos-standalone.plist');
 const signIdentity = process.env.CLI_MACOS_SIGN_IDENTITY || '-';
 const signingKeychain = process.env.CLI_MACOS_SIGNING_KEYCHAIN || '';
 const timestamp =
@@ -31,6 +34,16 @@ function run(command, args, options = {}) {
     cwd: options.cwd || cliRoot,
     env: options.env ? { ...process.env, ...options.env } : process.env,
     stdio: 'inherit',
+  });
+}
+
+function capture(command, args, options = {}) {
+  console.log(`$ ${[command, ...args].join(' ')}`);
+  return execFileSync(command, args, {
+    cwd: options.cwd || cliRoot,
+    env: options.env ? { ...process.env, ...options.env } : process.env,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
   });
 }
 
@@ -95,6 +108,23 @@ function resolveNativeKeyringBindingPath() {
   return nativePackageMain;
 }
 
+function prepareNativeKeyringBinding({ buildDir }) {
+  const nativeBindingPath = resolveNativeKeyringBindingPath();
+  const signedNativeBindingPath = path.join(buildDir, 'keyring-native.node');
+
+  fs.copyFileSync(nativeBindingPath, signedNativeBindingPath);
+  fs.chmodSync(signedNativeBindingPath, 0o755);
+  removeSignature(signedNativeBindingPath);
+  signFile(signedNativeBindingPath, {
+    identifier: `${bundleId}.keyring-native`,
+  });
+  run('codesign', ['--verify', '--verbose=2', signedNativeBindingPath], {
+    cwd: repoRoot,
+  });
+
+  return signedNativeBindingPath;
+}
+
 function supportsBuildSea() {
   try {
     const help = execFileSync(process.execPath, ['--help'], {
@@ -120,8 +150,11 @@ function ensureNodeSupportsSeaInjection() {
   }
 }
 
-function signFile(filePath) {
-  const args = ['--force', '--sign', signIdentity, '--identifier', bundleId];
+function signFile(
+  filePath,
+  { identifier = bundleId, entitlements = false } = {},
+) {
+  const args = ['--force', '--sign', signIdentity, '--identifier', identifier];
 
   if (signingKeychain) {
     args.push('--keychain', signingKeychain);
@@ -133,6 +166,9 @@ function signFile(filePath) {
   }
   if (hardenedRuntime) {
     args.push('--options', 'runtime');
+  }
+  if (entitlements) {
+    args.push('--entitlements', entitlementsPath);
   }
 
   args.push(filePath);
@@ -181,6 +217,127 @@ function removeSignature(filePath) {
   }
 }
 
+function assertMachOArchitecture(filePath) {
+  const expectedArchitecture = arch === 'arm64' ? 'arm64' : 'x86_64';
+  const fileDescription = capture('file', [filePath], { cwd: repoRoot }).trim();
+  console.log(fileDescription);
+
+  if (!fileDescription.includes('Mach-O 64-bit executable')) {
+    throw new PackageMacOSStandaloneError(
+      `${filePath} is not a Mach-O 64-bit executable.`,
+    );
+  }
+
+  if (!fileDescription.includes(expectedArchitecture)) {
+    throw new PackageMacOSStandaloneError(
+      `${filePath} does not match expected architecture ${expectedArchitecture}.`,
+    );
+  }
+}
+
+function assertExecutableMode(filePath) {
+  if ((fs.statSync(filePath).mode & 0o111) === 0) {
+    throw new PackageMacOSStandaloneError(
+      `${filePath} is not marked as executable.`,
+    );
+  }
+}
+
+function assertNodeOptionsPatched(filePath) {
+  if (fs.readFileSync(filePath).includes(nodeOptionsEnvKey)) {
+    throw new PackageMacOSStandaloneError(
+      `${filePath} still contains NODE_OPTIONS references.`,
+    );
+  }
+}
+
+function verifyStandaloneExecutable(filePath, label) {
+  console.log('');
+  console.log(`Verifying ${label}: ${filePath}`);
+  if (!fs.existsSync(filePath)) {
+    throw new PackageMacOSStandaloneError(`Missing ${label}: ${filePath}`);
+  }
+
+  assertExecutableMode(filePath);
+  assertMachOArchitecture(filePath);
+  assertNodeOptionsPatched(filePath);
+  run('codesign', ['--verify', '--verbose=2', filePath], { cwd: repoRoot });
+  run(filePath, ['--version'], {
+    cwd: cliRoot,
+    env: {
+      HOME: path.join(path.dirname(filePath), '.onekey-cli-home'),
+    },
+  });
+}
+
+function findFirstExecutable(rootDir) {
+  const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const entryPath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      const found = findFirstExecutable(entryPath);
+      if (found) {
+        return found;
+      }
+    } else if (entry.isFile() && entry.name === 'onekey') {
+      return entryPath;
+    }
+  }
+
+  return '';
+}
+
+function getSingleTarballPath(tarballDir) {
+  const tarballs = fs
+    .readdirSync(tarballDir)
+    .filter((fileName) => fileName.endsWith('.tgz'));
+
+  if (tarballs.length !== 1) {
+    throw new PackageMacOSStandaloneError(
+      `Expected exactly one npm tarball in ${tarballDir}, found ${tarballs.length}.`,
+    );
+  }
+
+  return path.join(tarballDir, tarballs[0]);
+}
+
+function verifyPackagedArtifacts({
+  buildDir,
+  executablePath,
+  npmPackage,
+  zipPath,
+}) {
+  const verifyDir = path.join(buildDir, 'artifact-verify');
+  const zipExtractDir = path.join(verifyDir, 'zip');
+  const tarballExtractDir = path.join(verifyDir, 'tarball');
+  const tarballPath = getSingleTarballPath(npmPackage.tarballDir);
+
+  fs.rmSync(verifyDir, { recursive: true, force: true });
+  fs.mkdirSync(zipExtractDir, { recursive: true });
+  fs.mkdirSync(tarballExtractDir, { recursive: true });
+
+  verifyStandaloneExecutable(executablePath, 'raw standalone executable');
+
+  run('ditto', ['-x', '-k', zipPath, zipExtractDir], { cwd: repoRoot });
+  const zipExecutablePath = findFirstExecutable(zipExtractDir);
+  if (!zipExecutablePath) {
+    throw new PackageMacOSStandaloneError(
+      `Distribution zip does not contain an onekey executable: ${zipPath}`,
+    );
+  }
+  verifyStandaloneExecutable(zipExecutablePath, 'distribution zip executable');
+
+  run('tar', ['-xzf', tarballPath, '-C', tarballExtractDir], { cwd: repoRoot });
+  const tarballExecutablePath = path.join(
+    tarballExtractDir,
+    'package',
+    'bin',
+    'onekey',
+  );
+  verifyStandaloneExecutable(tarballExecutablePath, 'npm tarball executable');
+}
+
 function prepareSeaEntry(distCliPath, seaEntryPath) {
   const cliBundle = stripShebang(fs.readFileSync(distCliPath, 'utf8'));
   const bootstrap = [
@@ -212,7 +369,7 @@ function buildStandaloneBinary({ buildDir, executablePath }) {
   const seaEntryPath = path.join(buildDir, 'sea-entry.cjs');
   const seaConfigPath = path.join(buildDir, 'sea-config.json');
   const seaBlobPath = path.join(buildDir, 'onekey-sea.blob');
-  const nativeKeyringBindingPath = resolveNativeKeyringBindingPath();
+  const nativeKeyringBindingPath = prepareNativeKeyringBinding({ buildDir });
 
   ensureNodeSupportsSeaInjection();
   prepareSeaEntry(distCliPath, seaEntryPath);
@@ -235,7 +392,7 @@ function buildStandaloneBinary({ buildDir, executablePath }) {
     });
     fs.chmodSync(executablePath, 0o755);
     disableNodeOptionsEnv(executablePath);
-    signFile(executablePath);
+    signFile(executablePath, { entitlements: hardenedRuntime });
     run('codesign', ['--verify', '--verbose=2', executablePath], {
       cwd: repoRoot,
     });
@@ -277,7 +434,7 @@ function buildStandaloneBinary({ buildDir, executablePath }) {
   );
 
   disableNodeOptionsEnv(executablePath);
-  signFile(executablePath);
+  signFile(executablePath, { entitlements: hardenedRuntime });
   run('codesign', ['--verify', '--verbose=2', executablePath], {
     cwd: repoRoot,
   });
@@ -349,6 +506,21 @@ function buildNpmPackage({ buildDir, executablePath }) {
   };
 }
 
+function buildDistributionZip({ buildDir, executablePath }) {
+  const zipPath = path.join(buildDir, `onekey-cli-darwin-${arch}.zip`);
+
+  fs.rmSync(zipPath, { force: true });
+  run(
+    'ditto',
+    ['-c', '-k', '--keepParent', path.basename(executablePath), zipPath],
+    {
+      cwd: path.dirname(executablePath),
+    },
+  );
+
+  return zipPath;
+}
+
 function main() {
   ensureDarwinHost();
 
@@ -365,9 +537,12 @@ function main() {
 
   buildStandaloneBinary({ buildDir, executablePath });
   const npmPackage = buildNpmPackage({ buildDir, executablePath });
+  const zipPath = buildDistributionZip({ buildDir, executablePath });
+  verifyPackagedArtifacts({ buildDir, executablePath, npmPackage, zipPath });
 
   console.log('');
   console.log(`Built: ${executablePath}`);
+  console.log(`Distribution zip: ${zipPath}`);
   console.log(`NPM package: ${npmPackage.packageName}`);
   console.log(`Tarball dir: ${npmPackage.tarballDir}`);
 }

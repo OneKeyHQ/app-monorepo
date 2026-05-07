@@ -36,6 +36,7 @@ yarn workspace @onekeyfe/cli package:macos-standalone
 The script produces:
 
 - `apps/cli/build/macos-standalone/darwin-${arch}/onekey`
+- `apps/cli/build/macos-standalone/darwin-${arch}/onekey-cli-darwin-${arch}.zip`
 - `apps/cli/build/macos-standalone/darwin-${arch}/npm-tarball/*.tgz`
 
 The GitHub Actions workflow is:
@@ -45,10 +46,13 @@ The GitHub Actions workflow is:
 ```
 
 It builds separate `arm64` and `x64` packages. The current workflow reuses the
-desktop Developer ID certificate secrets:
+desktop Developer ID and notarization secrets:
 
 - `DESKTOP_KEYS_SECRET`
 - `CSC_KEY_PASSWORD`
+- `APPLEID`
+- `APPLEIDPASS`
+- `ASC_PROVIDER`
 
 The CLI package does not need the desktop provisioning profile. It does not use
 CloudKit, App Sandbox, or a Keychain access group.
@@ -95,12 +99,15 @@ only the binary to an arbitrary directory.
 
 Notarization is not required for npm-only distribution.
 
-For npm distribution, the important security property is the signed Mach-O
+The GitHub Actions workflow notarizes the standalone macOS CLI zip by default
+because workflow artifacts and direct downloads can receive the
+`com.apple.quarantine` attribute and be assessed by Gatekeeper. For npm
+distribution, the important security property is still the signed Mach-O
 executable identity used for Keychain access. Users install through npm and run
 the CLI from Terminal, so Gatekeeper quarantine checks are usually not the main
 distribution blocker.
 
-Notarization is recommended when distributing the same binary through channels
+Keep notarization enabled when distributing the same binary through channels
 outside npm, for example:
 
 - GitHub Releases
@@ -113,10 +120,26 @@ Gatekeeper can verify when the downloaded file is first opened or executed. It
 improves first-run trust and reduces quarantine/Gatekeeper friction. It is not
 what gives the CLI its Keychain access identity; code signing does that.
 
-## Future Notarization Steps
+The standalone CLI is a plain Mach-O executable, not a `.app` bundle. Apple
+creates notarization tickets for standalone binaries, but the ticket cannot be
+stapled directly to the binary. ZIP files also cannot be stapled directly. The
+workflow therefore submits the ZIP for notarization and verifies the resulting
+online ticket with:
 
-When we decide to distribute the macOS CLI outside npm, add a notarization phase
-to the standalone CLI workflow:
+```bash
+codesign --verify --check-notarization --verbose=4 path/to/onekey
+```
+
+The workflow does not treat `spctl --assess --type execute` as the standalone
+binary pass/fail check because current macOS runners reject plain Mach-O tools
+with `the code is valid but does not seem to be an app`, even after Apple
+accepts the notarization submission. Instead, it verifies notarization with
+`codesign --check-notarization` and executes a copied binary after applying
+`com.apple.quarantine`, which is the Gatekeeper path that direct downloads use.
+
+## CI Notarization Steps
+
+The workflow does the following when `notarize` is enabled:
 
 1. Enable Hardened Runtime during signing:
 
@@ -124,20 +147,26 @@ to the standalone CLI workflow:
    CLI_MACOS_HARDENED_RUNTIME=true
    ```
 
-2. Decide how native addons are handled under Hardened Runtime. The CLI embeds
-   and extracts the `@napi-rs/keyring` native `.node` file, so either sign that
-   native file with the same Developer ID identity before embedding it, or add
-   the entitlement below if library validation must be disabled:
+2. Sign the `@napi-rs/keyring` native `.node` file copy before embedding it
+   into the SEA executable. The CLI executable uses these Hardened Runtime
+   entitlements:
 
    ```xml
+   <key>com.apple.security.cs.allow-jit</key>
+   <true/>
+   <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+   <true/>
    <key>com.apple.security.cs.disable-library-validation</key>
    <true/>
    ```
 
-3. Package the signed CLI into a notarizable container, usually ZIP or PKG.
+   The JIT entitlements keep the Node/V8 runtime functional. Library validation
+   is disabled because CLI flows may load native Node addons.
 
-4. Submit it with `notarytool` using the same Apple credentials already used by
-   desktop releases:
+3. Package the signed CLI into a notarizable ZIP.
+
+4. Submit the ZIP with `notarytool` using the same Apple credentials already
+   used by desktop releases:
 
    ```bash
    xcrun notarytool submit path/to/onekey-cli.zip \
@@ -147,17 +176,36 @@ to the standalone CLI workflow:
      --wait
    ```
 
-5. Staple the ticket when the artifact type supports stapling:
+5. Verify on CI and on a clean macOS machine or VM:
 
    ```bash
-   xcrun stapler staple path/to/onekey-cli.zip
-   ```
-
-6. Verify on a clean macOS machine or VM:
-
-   ```bash
-   spctl --assess --type execute --verbose path/to/onekey
+   codesign --verify --check-notarization --verbose=4 path/to/onekey
+   QUARANTINE_TS="$(printf '%x' "$(date +%s)")"
+   xattr -w com.apple.quarantine \
+     "0081;$QUARANTINE_TS;onekey-ci;https://github.com/OneKeyHQ/app-monorepo" \
+     path/to/onekey
    path/to/onekey --version
    ```
 
-Keep notarization opt-in until a non-npm distribution channel requires it.
+For offline first-run support, distribute a `.pkg` or `.dmg` wrapper and staple
+that container. A plain standalone binary should be treated as an online-ticket
+notarized artifact.
+
+## Apple Account Setup
+
+No new App ID, provisioning profile, iCloud capability, App Sandbox setting, or
+Keychain access group is needed for the CLI. Keep the signing identifier as
+`so.onekey.cli`; it is only a code-signing identifier for this Mach-O binary.
+
+Required Apple-side material:
+
+- A valid `Developer ID Application` certificate in the OneKey Apple Developer
+  team. The existing desktop `DESKTOP_KEYS_SECRET` and `CSC_KEY_PASSWORD` can be
+  reused if that P12 contains `Developer ID Application: ...`.
+- An Apple ID that has access to that developer team and an app-specific
+  password stored as `APPLEIDPASS`.
+- The Apple Developer Team ID stored as `ASC_PROVIDER`, matching the desktop
+  notarization workflow.
+
+Only add a `Developer ID Installer` certificate if we later choose to ship a
+stapled `.pkg` installer.
