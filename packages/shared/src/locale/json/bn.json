@@ -574,7 +574,7 @@
   "defi.liquidation_borrow_desc": "এই পরিমাণ ঋণ নিলে আপনার হেলথ ফ্যাক্টর কমে যাবে এবং লিকুইডেশনের ঝুঁকি বাড়বে।",
   "defi.liquidation_ltv": "অবসায়ন LTV",
   "defi.liquidation_reminder": "লিকুইডেশন রিমাইন্ডার",
-  "defi.liquidation_withdraw_desc": "এই পরিমাণ উত্তোলন করলে আপনার হেলথ ফ্যাক্টর কমবে এবং লিকুইডেশনের ঝুঁকি বাড়বে।",
+  "defi.liquidation_withdraw_desc": "এই পরিমাণ টাকা তুলে নিলে আপনার স্বাস্থ্যগত কারণ কমে যাবে এবং লেনদেন বন্ধ হয়ে যাওয়ার ঝুঁকি বাড়বে।",
   "defi.liquidity_high_to_low": "তারল্য উচ্চ থেকে নিম্ন",
   "defi.manage_position": "অবস্থান পরিচালনা করুন",
   "defi.matured": "পরিপক্ক",

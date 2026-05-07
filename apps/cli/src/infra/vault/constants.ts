@@ -1,0 +1,9 @@
+export const SLIDING_TTL_MS = 60 * 60 * 1000;
+export const ABSOLUTE_MAX_TTL_MS = 24 * 60 * 60 * 1000;
+export const REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+export const LOCK_TIMEOUT_MS = 5000;
+export const REVOKE_TIMEOUT_MS = 3000;
+export const VAULT_MAGIC = Buffer.from('OKVAULT1', 'ascii');
+export const VAULT_VERSION = 0x01;
+export const VAULT_SCHEMA_VERSION = 0x01;
+export const VAULT_HKDF_INFO = 'bot-wallet/vault/v1';

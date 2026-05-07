@@ -574,7 +574,7 @@
   "defi.liquidation_borrow_desc": "Contrair esse empréstimo reduzirá seu fator de saúde e aumentará o risco de liquidação.",
   "defi.liquidation_ltv": "LTV de liquidação",
   "defi.liquidation_reminder": "lembrete de liquidação",
-  "defi.liquidation_withdraw_desc": "Retirar esse valor reduzirá seu fator de saúde e aumentará o risco de liquidação.",
+  "defi.liquidation_withdraw_desc": "Retirar esse valor reduzirá seu fator de saúde e aumentará o risco de falência.",
   "defi.liquidity_high_to_low": "Liquidez alta para baixa",
   "defi.manage_position": "Gerenciar Posição",
   "defi.matured": "Amadurecido",

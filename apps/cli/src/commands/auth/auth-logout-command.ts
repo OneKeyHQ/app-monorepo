@@ -1,7 +1,7 @@
-import { AuthManager } from '../../core/auth/auth-manager';
 import { AppError, ERROR_CODES } from '../../errors';
 import { presentAuthLogoutResult } from '../../output/auth-presenters';
 
+import { CliAuthManager } from './_internal/cli-auth-manager';
 import { readConfirmation } from './auth-prompt-utils';
 
 import type { ResolvedAuthSession } from '../../core/auth/auth-types';
@@ -25,7 +25,7 @@ export async function executeAuthLogoutCommand(params: {
   const {
     output,
     skipConfirmation = false,
-    authManager = new AuthManager(),
+    authManager = new CliAuthManager(),
     confirm = readConfirmation,
     isTTY = process.stdin.isTTY,
   } = params;

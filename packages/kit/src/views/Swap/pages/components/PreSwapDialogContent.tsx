@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -57,12 +64,12 @@ interface IPreSwapDialogContentProps {
     data?: IFetchQuoteResult,
     currentFromToken?: ISwapToken,
     currentToToken?: ISwapToken,
-  ) => void;
+  ) => void | Promise<void>;
   preSwapStepsStart: (swapStepsValues?: {
     steps: ISwapStep[];
     preSwapData: ISwapPreSwapData;
     quoteResult?: IFetchQuoteResult;
-  }) => void;
+  }) => void | Promise<void>;
 }
 
 const PreSwapDialogContent = ({
@@ -132,19 +139,40 @@ const PreSwapDialogContent = ({
       toAmount,
     ],
   );
+  const isPrimaryButtonDisabled = useMemo(
+    () =>
+      Boolean(
+        preSwapData?.estimateNetworkFeeLoading ||
+        preSwapData?.swapBuildLoading ||
+        preSwapData?.stepBeforeActionsLoading ||
+        preSwapData?.stepBeforeActionsError,
+      ),
+    [
+      preSwapData?.estimateNetworkFeeLoading,
+      preSwapData?.stepBeforeActionsError,
+      preSwapData?.stepBeforeActionsLoading,
+      preSwapData?.swapBuildLoading,
+    ],
+  );
 
   const handleConfirmPress = useCallback(() => {
+    if (isPrimaryButtonDisabled) {
+      return;
+    }
     if (validatedQuoteShowTip) {
       setShowPreSwapTipInfo(validatedQuoteShowTip);
     } else {
       onConfirm();
     }
-  }, [onConfirm, validatedQuoteShowTip]);
+  }, [isPrimaryButtonDisabled, onConfirm, validatedQuoteShowTip]);
 
   const tipOnConfirm = useCallback(() => {
+    if (isPrimaryButtonDisabled) {
+      return;
+    }
     onConfirm();
     setShowPreSwapTipInfo(undefined);
-  }, [onConfirm]);
+  }, [isPrimaryButtonDisabled, onConfirm]);
   const tipOnCancel = useCallback(() => {
     setShowPreSwapTipInfo(undefined);
   }, []);
@@ -206,7 +234,7 @@ const PreSwapDialogContent = ({
     swapSteps,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (
       swapStepsRef.current.preSwapData.supportNetworkFeeLevel &&
       swapStepsRef.current.preSwapData.supportPreBuild
@@ -461,11 +489,7 @@ const PreSwapDialogContent = ({
                     variant="primary"
                     onPress={handleConfirmPress}
                     size="medium"
-                    disabled={
-                      swapSteps.preSwapData.estimateNetworkFeeLoading ||
-                      swapSteps.preSwapData.swapBuildLoading ||
-                      swapSteps.preSwapData.stepBeforeActionsLoading
-                    }
+                    disabled={isPrimaryButtonDisabled}
                   >
                     {actionBtnTest}
                   </Button>

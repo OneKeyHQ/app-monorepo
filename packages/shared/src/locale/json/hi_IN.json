@@ -574,7 +574,7 @@
   "defi.liquidation_borrow_desc": "इतनी राशि उधार लेने से आपका स्वास्थ्य कारक कम हो जाएगा और परिसमापन का जोखिम बढ़ जाएगा।",
   "defi.liquidation_ltv": "परिसमापन एलटीवी",
   "defi.liquidation_reminder": "परिसमापन अनुस्मारक",
-  "defi.liquidation_withdraw_desc": "इस राशि को निकालने से आपका स्वास्थ्य कारक कम हो जाएगा और लिक्विडेशन का जोखिम बढ़ जाएगा। (keep technical term liquidation in Latin or use परिसमापन for liquidation)",
+  "defi.liquidation_withdraw_desc": "इस राशि को निकालने से आपका स्वास्थ्य कारक कम हो जाएगा और दिवालियापन का जोखिम बढ़ जाएगा।",
   "defi.liquidity_high_to_low": "तरलता उच्च से निम्न",
   "defi.manage_position": "स्थिति प्रबंधित करें",
   "defi.matured": "परिपक्व",

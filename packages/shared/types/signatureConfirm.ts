@@ -234,6 +234,7 @@ export interface IParseMessageParams {
   accountAddress?: string;
   message: string;
   swapInfo?: ISwapTxInfo;
+  origin?: string;
 }
 
 export interface IParseMessageResp {

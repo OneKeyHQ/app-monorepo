@@ -574,7 +574,7 @@
   "defi.liquidation_borrow_desc": "การกู้ยืมจำนวนนี้จะลด Health Factor ของคุณและเพิ่มความเสี่ยงที่จะถูกลิควิด",
   "defi.liquidation_ltv": "LTV การชำระบัญชี",
   "defi.liquidation_reminder": "แจ้งเตือนการชำระบัญชี",
-  "defi.liquidation_withdraw_desc": "การถอนจำนวนนี้จะทำให้ Health factor ของคุณลดลง และเพิ่มความเสี่ยงต่อการถูกลิควิดเดต",
+  "defi.liquidation_withdraw_desc": "การถอนเงินจำนวนนี้จะลดปัจจัยด้านสุขภาพของคุณและเพิ่มความเสี่ยงต่อการล้มละลาย",
   "defi.liquidity_high_to_low": "สภาพคล่องสูงไปต่ำ",
   "defi.manage_position": "จัดการตำแหน่ง",
   "defi.matured": "ครบกำหนด",
