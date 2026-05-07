@@ -234,6 +234,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       ),
     [focusSwapPro, marketPresetTokenContext, swapProSelectToken],
   );
+  useEffect(() => {
+    if (
+      focusSwapPro &&
+      marketPresetTokenContext &&
+      swapProSelectToken &&
+      !isSwapProMarketPresetToken
+    ) {
+      setMarketPresetTokenContext(undefined);
+    }
+  }, [
+    focusSwapPro,
+    isSwapProMarketPresetToken,
+    marketPresetTokenContext,
+    swapProSelectToken,
+  ]);
 
   const swapProMarketPresetTradeSide =
     swapProDirection === ESwapDirection.SELL
