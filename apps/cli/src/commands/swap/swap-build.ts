@@ -12,6 +12,10 @@ import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
 import {
+  parseBtcFeeTier,
+  resolveBtcFeeRate,
+} from '../../utils/btc-fee-rate';
+import {
   amountToSmallestUnit,
   validateAmountDecimals,
 } from '../../utils/tx-utils';
@@ -232,6 +236,14 @@ export function registerSwapBuildCommand(parent: Command): void {
       'recommended',
     )
     .option('--slippage <percent>', 'Slippage tolerance percentage')
+    .option(
+      '--fee-rate <satsPerVByte>',
+      'BTC fee rate in sats/vByte (BTC source only); overrides --fee-tier',
+    )
+    .option(
+      '--fee-tier <tier>',
+      'BTC fee tier: slow | standard (default) | fast (BTC source only)',
+    )
     .option('--force', 'Override high-risk token security check')
     .action(
       async (
@@ -246,6 +258,8 @@ export function registerSwapBuildCommand(parent: Command): void {
           provider?: string;
           sort?: string;
           slippage?: string;
+          feeRate?: string;
+          feeTier?: string;
           force?: boolean;
         },
         command,
@@ -637,6 +651,13 @@ export function registerSwapBuildCommand(parent: Command): void {
                 chainConfig.impl,
                 btcAddressing.from.addressType,
               );
+              const btcFeeRate = await resolveBtcFeeRate({
+                impl: chainConfig.impl,
+                networkId: chainConfig.networkId,
+                accountAddress: btcAddressing.from.address,
+                explicitFeeRate: options.feeRate,
+                tier: parseBtcFeeTier(options.feeTier),
+              });
               const builtLocalTx = await buildBtcTransferTx({
                 impl: chainConfig.impl,
                 networkId: chainConfig.networkId,
@@ -645,7 +666,7 @@ export function registerSwapBuildCommand(parent: Command): void {
                 toAddress: transfer.toAddress,
                 amount: transfer.amount,
                 nativeDecimals: fromResolved.decimals,
-                feeRate: '1',
+                feeRate: btcFeeRate,
                 addressTypeInfo,
                 opReturn: transfer.opReturn,
               });
@@ -655,6 +676,7 @@ export function registerSwapBuildCommand(parent: Command): void {
                 relPaths: builtLocalTx.relPaths,
                 summary: builtLocalTx.summary,
                 transfer,
+                feeRate: btcFeeRate,
               };
             }
           }

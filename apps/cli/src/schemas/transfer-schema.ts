@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import {
   btcAddressType,
+  btcFeeRate,
+  btcFeeTier,
   chainAddress,
   chainId,
   ethAddress,
@@ -20,6 +22,8 @@ export const transferInputSchema = z.object({
   addressType: btcAddressType
     .optional()
     .describe('BTC/TBTC sender address type. Required for BTC/TBTC transfer.'),
+  feeRate: btcFeeRate.optional(),
+  feeTier: btcFeeTier.optional(),
   dryRun: z.boolean().optional().describe('Estimate gas without sending'),
   yes: z.boolean().optional().describe('Skip confirmation prompt'),
 });
@@ -39,7 +43,7 @@ export const transferOutputSchema = z.object({
 });
 
 export const transferDryRunOutputSchema = z.object({
-  action: z.string(),
+  action: z.string().optional(),
   from: z.string(),
   to: z.string(),
   amount: z.string(),
@@ -48,6 +52,7 @@ export const transferDryRunOutputSchema = z.object({
   estimatedGas: z.string().optional(),
   addressType: btcAddressType.optional(),
   fee: z.string().optional(),
+  feeRate: z.string().optional(),
   txSize: z.number().optional(),
   inputCount: z.number().optional(),
   outputCount: z.number().optional(),

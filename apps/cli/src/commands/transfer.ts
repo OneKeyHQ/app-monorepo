@@ -14,6 +14,10 @@ import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { transferOptionsSchema } from '../schemas';
 import { getSignerByImpl } from '../signer';
+import {
+  parseBtcFeeTier,
+  resolveBtcFeeRate,
+} from '../utils/btc-fee-rate';
 import { confirmTransaction } from '../utils/confirm-transaction';
 import {
   buildErc20EncodedTx,
@@ -95,6 +99,14 @@ export function registerTransferCommand(program: Command): void {
       '--address-type <type>',
       `BTC/TBTC sender address type (${BTC_ADDRESS_TYPES.join('|')})`,
     )
+    .option(
+      '--fee-rate <satsPerVByte>',
+      'BTC fee rate in sats/vByte; overrides --fee-tier',
+    )
+    .option(
+      '--fee-tier <tier>',
+      'BTC fee tier: slow | standard (default) | fast',
+    )
     .option('--dry-run', 'Estimate fees without sending')
     .action(
       async (
@@ -104,6 +116,8 @@ export function registerTransferCommand(program: Command): void {
           token?: string;
           chain: string;
           addressType?: BtcAddressType;
+          feeRate?: string;
+          feeTier?: string;
           dryRun?: boolean;
         },
         command,
@@ -128,6 +142,8 @@ export function registerTransferCommand(program: Command): void {
             token: options.token,
             chain: options.chain,
             addressType: options.addressType,
+            feeRate: options.feeRate,
+            feeTier: options.feeTier,
             dryRun: options.dryRun,
             yes: skipConfirmation,
           });
@@ -170,6 +186,13 @@ export function registerTransferCommand(program: Command): void {
             const fromPath = addressTypeInfo.path;
             const fromAccountPath = addressTypeInfo.accountPath;
             const toAddress = assertAddressForChain(chainConfig, validated.to);
+            const feeRate = await resolveBtcFeeRate({
+              impl: chainConfig.impl,
+              networkId: chainConfig.networkId,
+              accountAddress: fromAddress,
+              explicitFeeRate: validated.feeRate,
+              tier: parseBtcFeeTier(validated.feeTier),
+            });
             const builtTx = await buildBtcTransferTx({
               impl: chainConfig.impl,
               networkId: chainConfig.networkId,
@@ -178,7 +201,7 @@ export function registerTransferCommand(program: Command): void {
               toAddress,
               amount: validated.amount,
               nativeDecimals: chainConfig.nativeDecimals,
-              feeRate: '1',
+              feeRate,
               addressTypeInfo,
             });
 
@@ -190,6 +213,7 @@ export function registerTransferCommand(program: Command): void {
                 to: toAddress,
                 amount: validated.amount,
                 fee: builtTx.summary.fee,
+                feeRate,
                 txSize: builtTx.summary.txSize,
                 inputCount: builtTx.summary.inputCount,
                 outputCount: builtTx.summary.outputCount,
@@ -204,7 +228,7 @@ export function registerTransferCommand(program: Command): void {
                 to: toAddress,
                 value: validated.amount,
                 network: chainName,
-                estimatedGas: `${builtTx.summary.fee} sats`,
+                estimatedGas: `${builtTx.summary.fee} sats @ ${feeRate} sat/vB`,
               },
               output,
               skipConfirmation,

@@ -45,3 +45,14 @@ export const tokenId = z
 export const positiveIntString = z
   .string()
   .regex(/^\d+$/, 'Must be a positive integer');
+
+/** BTC fee rate tier (slow/standard/fast) */
+export const btcFeeTier = z
+  .enum(['slow', 'standard', 'fast'])
+  .describe('BTC fee tier — slow, standard (default), or fast');
+
+/** BTC fee rate in sats/vByte (positive number, takes priority over --fee-tier) */
+export const btcFeeRate = z
+  .string()
+  .regex(/^\d+(\.\d+)?$/, 'Must be a positive number (sats/vByte)')
+  .describe('Explicit BTC fee rate in sats/vByte; overrides --fee-tier');
