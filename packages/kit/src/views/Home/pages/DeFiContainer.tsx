@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import {
   runOnJS,
   runOnUI,
@@ -18,6 +19,8 @@ import {
 } from 'react-native-reanimated';
 
 import {
+  SizableText,
+  Skeleton,
   Stack,
   Tabs,
   XStack,
@@ -28,7 +31,11 @@ import {
 } from '@onekeyhq/components';
 import { useTabsContext } from '@onekeyhq/components/src/composite/Tabs/context';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
@@ -47,36 +54,33 @@ import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/
 import { buildProtocolDisplayInfo } from '../../../utils/defiPositionUtils';
 import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
 import {
+  DeFiAllocationCard,
   DeFiListBlock,
-  DeFiOverviewCard,
-  DeFiPortfolioCard,
   DeFiStickyPortal,
   type IProtocolHandle,
   PinnedProtocolHeader,
+  useIsDeFiEnabled,
 } from '../components/DeFiListBlock';
 import { buildPortfolioStats } from '../components/DeFiListBlock/DeFiPortfolioStats';
+import { formatPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
-import { RecentHistory, RecentHistoryTitle } from '../components/RecentHistory';
+import { RichBlock } from '../components/RichBlock/RichBlock';
 import { SupportHub } from '../components/SupportHub';
 import { Upgrade } from '../components/Upgrade';
-import {
-  PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH,
-  STICKY_TOP_OFFSET,
-} from '../types';
+import { STICKY_TOP_OFFSET } from '../types';
 
 import {
   findPinnedProtocolKey,
   findScrollableAncestorFromLocalNode,
-  getStickySidebarMaxHeight,
 } from './defiDesktopStickyDom';
 
 // Scroll depth beyond which back-to-top may reveal; deep enough to be past
 // the initial fold, shallow enough to not require a full viewport of scroll.
 const BACK_TO_TOP_NEAR_TOP_PX = 200;
 const PROTOCOL_PINNED_HEADER_EXIT_GAP = 64;
-const SIDEBAR_STICKY_UNPIN_GAP = 8;
+const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 // Industry pattern: reveal on any upward scroll past the initial fold; hide
 // on downward scroll or when back near the top. rAF / animated-reaction
@@ -125,9 +129,9 @@ function scrollToAnchor(
 function DeFiContainer() {
   const media = useMedia();
   const reducedMotion = useReducedMotion();
+  const intl = useIntl();
 
   const tableLayout = media.gtMd;
-  const showRecentHistory = media.gtXl;
 
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const addPaddingOnListFooter = useMemo(
@@ -139,8 +143,10 @@ function DeFiContainer() {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
   const [settings] = useSettingsPersistAtom();
+  const [settingsValue] = useSettingsValuePersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
   const isAllNetworks = Boolean(network?.isAllNetworks);
+  const isDeFiEnabled = useIsDeFiEnabled(network?.id);
 
   const [{ protocols }] = useDeFiListProtocolsAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
@@ -197,8 +203,6 @@ function DeFiContainer() {
 
   const stickyHeaderCtx = useContext(HomeStickyHeaderContext);
   const portalTarget = stickyHeaderCtx?.portalTarget ?? null;
-  const tabBarRightPortalTarget =
-    stickyHeaderCtx?.tabBarRightPortalTarget ?? null;
   const isTabFocused = stickyHeaderCtx?.activeTabId === EHomeWalletTab.DeFi;
   const getLiveStickyOffset = useCallback(() => {
     const stickyBottom =
@@ -235,18 +239,21 @@ function DeFiContainer() {
     [getLiveStickyOffset, reducedMotion],
   );
 
+  // Protocol count alone isn't a sufficient gate: a wallet with 2+
+  // protocols whose positions have all been closed reports
+  // protocols.length >= 2 but portfolioStats.slices === [] (exposure
+  // total is zero, so buildPortfolioStats short-circuits). Without
+  // the slice check, the bar would render its empty-state strip while
+  // the bento grid below shows N tiles all at $0 — two conflicting
+  // statements about the same wallet. Require at least one slice so
+  // the AllocationCard only appears when it has something to allocate.
   const shouldShowOverview =
-    tableLayout && (isOverviewLoading || (protocols?.length ?? 0) >= 2);
+    tableLayout &&
+    (isOverviewLoading ||
+      ((protocols?.length ?? 0) >= 2 && portfolioStats.slices.length > 0));
 
   const [pinnedKey, setPinnedKey] = useState<string | null>(null);
   const suppressPinRef = useRef(false);
-  const sidebarRef = useRef<HTMLElement | null>(null);
-  const sidebarContentRef = useRef<HTMLElement | null>(null);
-  const [isSidebarPinned, setIsSidebarPinned] = useState(false);
-  const [sidebarShellHeight, setSidebarShellHeight] = useState(0);
-  const [sidebarFixedLeft, setSidebarFixedLeft] = useState(0);
-  const [sidebarStickyTop, setSidebarStickyTop] = useState(STICKY_TOP_OFFSET);
-  const [stickyLine, setStickyLine] = useState(STICKY_TOP_OFFSET);
 
   useEffect(() => {
     if (platformEnv.isNative || !tableLayout) {
@@ -261,11 +268,7 @@ function DeFiContainer() {
     };
 
     const resolveOriginNode = () => {
-      if (showRecentHistory) {
-        const sidebarNode = sidebarRef.current;
-        return sidebarNode?.isConnected ? sidebarNode : null;
-      }
-
+      // Use any live protocol anchor as the origin to locate the page scroller.
       for (const handle of protocolRefs.current.values()) {
         const anchor = handle.getAnchor();
         if (anchor?.isConnected) {
@@ -312,20 +315,10 @@ function DeFiContainer() {
 
       const stickyHostRect =
         stickyHeaderCtx?.stickyHost?.getBoundingClientRect() ?? null;
-      const nextSidebarStickyTop =
-        stickyHostRect && stickyHostRect.bottom > 0
-          ? stickyHostRect.bottom
-          : STICKY_TOP_OFFSET;
       const nextStickyLine =
         stickyHostRect && stickyHostRect.bottom > 0
           ? stickyHostRect.bottom
           : STICKY_TOP_OFFSET;
-      setSidebarStickyTop((prev) =>
-        prev === nextSidebarStickyTop ? prev : nextSidebarStickyTop,
-      );
-      setStickyLine((prev) =>
-        prev === nextStickyLine ? prev : nextStickyLine,
-      );
 
       const disconnectedKeys: string[] = [];
       const candidates: Array<{
@@ -361,33 +354,6 @@ function DeFiContainer() {
         });
       }
 
-      const sidebarAnchor = sidebarRef.current;
-      if (!showRecentHistory || !isTabFocused || !sidebarAnchor?.isConnected) {
-        setIsSidebarPinned(false);
-      } else {
-        const sidebarRect = sidebarAnchor.getBoundingClientRect();
-        const measuredContentHeight =
-          sidebarContentRef.current?.getBoundingClientRect().height ??
-          sidebarRect.height;
-        const measuredHeight = Math.max(
-          sidebarRect.height,
-          measuredContentHeight,
-        );
-        setSidebarShellHeight((prev) =>
-          prev === measuredHeight ? prev : measuredHeight,
-        );
-        setSidebarFixedLeft((prev) =>
-          prev === sidebarRect.left ? prev : sidebarRect.left,
-        );
-
-        setIsSidebarPinned((prev) => {
-          const nextIsSidebarPinned = prev
-            ? sidebarRect.top <= nextSidebarStickyTop + SIDEBAR_STICKY_UNPIN_GAP
-            : sidebarRect.top <= nextSidebarStickyTop;
-          return prev === nextIsSidebarPinned ? prev : nextIsSidebarPinned;
-        });
-      }
-
       if (suppressPinRef.current) return;
 
       const nextKey =
@@ -414,27 +380,14 @@ function DeFiContainer() {
       globalThis.removeEventListener('resize', schedule);
       triggerPinCheckRef.current = () => {};
     };
-  }, [
-    isTabFocused,
-    stickyHeaderCtx?.stickyHost,
-    tableLayout,
-    showRecentHistory,
-  ]);
+  }, [isTabFocused, stickyHeaderCtx?.stickyHost, tableLayout]);
 
   useEffect(() => {
     if (isTabFocused) {
       return;
     }
     setPinnedKey(null);
-    setIsSidebarPinned(false);
   }, [isTabFocused]);
-
-  useEffect(() => {
-    if (showRecentHistory) {
-      return;
-    }
-    setIsSidebarPinned(false);
-  }, [showRecentHistory]);
 
   useEffect(() => {
     if (!pinnedKey || !protocols) {
@@ -474,12 +427,6 @@ function DeFiContainer() {
     return getNetWorth(pinnedProtocol);
   }, [pinnedProtocol, getNetWorth]);
 
-  const stickySidebarMaxHeight = getStickySidebarMaxHeight({
-    viewportHeight: globalThis.window?.innerHeight ?? 0,
-    stickyLine,
-    bottomGap: 16,
-  });
-
   const hasStickyOverlay = Boolean(pinnedProtocol);
 
   const handlePinnedToggle = useCallback(() => {
@@ -506,67 +453,72 @@ function DeFiContainer() {
   }, [getLiveStickyOffset, pinnedKey, reducedMotion]);
 
   if (tableLayout) {
+    if (!isDeFiEnabled) {
+      return null;
+    }
+
     return (
       <>
-        <XStack gap="$6" pt="$3">
-          <YStack flex={1} gap="$8" pb="$8">
-            {shouldShowOverview ? (
-              <YStack gap="$6" px="$pagePadding" userSelect="none">
-                <DeFiPortfolioCard
-                  stats={portfolioStats}
-                  isLoading={isOverviewLoading}
-                  isAllNetworks={isAllNetworks}
-                />
-                <DeFiOverviewCard
-                  protocols={protocols}
-                  protocolMap={protocolMap}
-                  isLoading={isOverviewLoading}
-                  getNetWorth={getNetWorth}
-                  onPressProtocol={handleTilePress}
-                  isAllNetworks={isAllNetworks}
-                />
-              </YStack>
-            ) : null}
+        <YStack pt="$4" pb="$8">
+          <RichBlock
+            withTitleSeparator
+            title={intl.formatMessage({
+              id: ETranslations.earn_portfolio_title,
+            })}
+            subTitle={
+              isOverviewLoading ? (
+                // Match DeFiListBlock's heading skeleton preset so the
+                // $headingXl total has one canonical loading shape across
+                // both surfaces (DeFi tab here, mobile section there).
+                // w=120 widens the preset's default 103 px to better
+                // approximate a typical "$XX,XXX.XX" measurement.
+                <Skeleton.HeadingXl w={120} />
+              ) : (
+                <SizableText
+                  size="$headingXl"
+                  color="$textSubdued"
+                  fontVariant={TABULAR_NUMS}
+                >
+                  {formatPortfolioTotal(
+                    portfolioStats.total,
+                    currencySymbol,
+                    settingsValue.hideValue,
+                  )}
+                </SizableText>
+              )
+            }
+            // pb=0 cancels RichBlockHeader's own py="$3" bottom padding so the
+            // gap to the next block reads as the explicit mt below, not the
+            // header's internal padding stacked on top of it.
+            headerContainerProps={{ px: '$pagePadding', pb: 0 }}
+            content={null}
+            plainContentContainer
+          />
+          {shouldShowOverview ? (
+            <YStack px="$pagePadding" mt="$5">
+              <DeFiAllocationCard
+                stats={portfolioStats}
+                protocols={protocols}
+                protocolMap={protocolMap}
+                isLoading={isOverviewLoading}
+                getNetWorth={getNetWorth}
+                onPressProtocol={handleTilePress}
+                isAllNetworks={isAllNetworks}
+              />
+            </YStack>
+          ) : null}
+          <YStack mt="$8" gap="$8">
             <DeFiListBlock
               tableLayout
-              hideInternalTitle={shouldShowOverview}
+              hideInternalTitle
+              isDeFiEnabled={isDeFiEnabled}
               registerProtocol={registerProtocol}
             />
             <Upgrade />
             <SupportHub />
           </YStack>
-          {showRecentHistory ? (
-            <YStack
-              ref={(node) => {
-                sidebarRef.current = node as unknown as HTMLElement | null;
-              }}
-              width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
-              flexShrink={0}
-              height={isSidebarPinned ? sidebarShellHeight : undefined}
-            >
-              <YStack
-                ref={(node) => {
-                  sidebarContentRef.current =
-                    node as unknown as HTMLElement | null;
-                }}
-                width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
-                {...(isSidebarPinned
-                  ? {
-                      position: 'fixed' as any,
-                      top: sidebarStickyTop,
-                      left: sidebarFixedLeft,
-                      maxHeight: stickySidebarMaxHeight,
-                      overflow: 'scroll' as any,
-                      zIndex: 1,
-                    }
-                  : null)}
-              >
-                <RecentHistory hideTitle={isSidebarPinned} />
-              </YStack>
-            </YStack>
-          ) : null}
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
-        </XStack>
+        </YStack>
         {portalTarget && isTabFocused && hasStickyOverlay ? (
           <DeFiStickyPortal target={portalTarget}>
             {/* Pull up by Tabs.TabBar's own py="$2" bottom padding so the
@@ -607,21 +559,7 @@ function DeFiContainer() {
                   />
                 ) : null}
               </YStack>
-              {showRecentHistory ? (
-                <Stack
-                  width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
-                  flexShrink={0}
-                />
-              ) : null}
             </XStack>
-          </DeFiStickyPortal>
-        ) : null}
-        {tabBarRightPortalTarget &&
-        showRecentHistory &&
-        isTabFocused &&
-        isSidebarPinned ? (
-          <DeFiStickyPortal target={tabBarRightPortalTarget}>
-            <RecentHistoryTitle />
           </DeFiStickyPortal>
         ) : null}
       </>
