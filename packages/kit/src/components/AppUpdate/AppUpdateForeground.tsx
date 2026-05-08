@@ -37,8 +37,8 @@ import {
 import {
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
-  useDownloadPackage,
-} from './useAppUpdate';
+} from './updateStrategy';
+import { useDownloadPackage } from './useDownloadPackage';
 
 // Module-level guard so the first-launch dispatch effect fires exactly
 // once across the lifetime of the app, even if AppUpdateForeground is
