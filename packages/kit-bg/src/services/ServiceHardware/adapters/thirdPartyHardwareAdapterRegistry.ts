@@ -1,4 +1,12 @@
-import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  checkBLEPermissions,
+  checkBLEState,
+} from '@onekeyhq/shared/src/hardware/blePermissions';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -55,15 +63,40 @@ export const thirdPartyHardwareAdapterRegistry = {
       defaultLogger.hardware.sdkLog.log(
         '[3rdPartyHW][Registry] REQUEST_DEVICE_PERMISSION',
       );
-      const granted = platformEnv.isNative
-        ? !!(await checkBLEPermissions())
-        : true;
+      let granted = true;
+      let reason: EThirdPartyDevicePermissionDeniedReason | undefined;
+      if (platformEnv.isNative) {
+        const isPermissionGranted = !!(await checkBLEPermissions());
+        if (!isPermissionGranted) {
+          granted = false;
+          reason = EThirdPartyDevicePermissionDeniedReason.permissionDenied;
+        } else {
+          const isBluetoothOn = await checkBLEState();
+          if (!isBluetoothOn) {
+            granted = false;
+            reason = EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff;
+          }
+          defaultLogger.hardware.sdkLog.log(
+            `[3rdPartyHW][Registry] BLE state enabled=${String(isBluetoothOn)}`,
+          );
+        }
+      }
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Registry] BLE permission granted=${String(granted)}`,
       );
+      if (!granted && reason) {
+        appEventBus.emit(
+          EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog,
+          {
+            vendor: EHardwareVendor.ledger,
+            reason,
+          },
+        );
+      }
+      const permissionPayload = reason ? { granted, reason } : { granted };
       hw.uiResponse({
         type: UI_RESPONSE.RECEIVE_DEVICE_PERMISSION,
-        payload: { granted },
+        payload: permissionPayload,
       });
     });
     defaultLogger.hardware.sdkLog.log(

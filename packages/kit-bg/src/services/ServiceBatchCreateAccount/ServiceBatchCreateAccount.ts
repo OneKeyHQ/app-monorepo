@@ -1,5 +1,5 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
+import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
 import {
@@ -215,7 +215,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
         networkId: payload.params.networkId,
       }),
     ]);
-
     const hwRootFingerprintInfo: {
       rootFingerprint: number | undefined;
     } = {
@@ -362,7 +361,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
         walletId,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
-
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
@@ -927,7 +925,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
         walletId: params.walletId,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
-
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
@@ -1094,17 +1091,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
         isHardwareErrorByCode({
           error,
           code: [
+            // OneKey HW (legacy enum)
             HardwareErrorCode.DeviceNotFound,
-            // **** PIN\passphrase cancel
             HardwareErrorCode.PinCancelled,
             HardwareErrorCode.ActionCancelled,
             HardwareErrorCode.CallQueueActionCancelled,
-            HardwareErrorCode.DeviceInterruptedFromOutside, // cancel PIN from app
-            HardwareErrorCode.DeviceInterruptedFromUser, // cancel PIN from app
-            // **** third-party hardware
-            ThirdPartyHwErrorCode.UserAborted,
-            ThirdPartyHwErrorCode.DeviceDisconnected,
-            ThirdPartyHwErrorCode.DeviceAppStuck,
+            HardwareErrorCode.DeviceInterruptedFromOutside,
+            HardwareErrorCode.DeviceInterruptedFromUser,
+            // Third-party HW batch-abort codes from SDK.
+            ...ORPHAN_ELIGIBLE_ERROR_CODES,
           ],
         })
       ) {
