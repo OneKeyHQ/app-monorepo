@@ -30,6 +30,8 @@ import {
 } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
@@ -994,6 +996,17 @@ export function UniversalStake({
 
   const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
+
+    // Bot Wallet deactivated warning
+    const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
+      accountId,
+    });
+    if (isDeactivatedBot) {
+      const confirmed = await showBotWalletDeactivatedWarningDialog();
+      if (!confirmed) {
+        return;
+      }
+    }
 
     // Stakefish: get permit signature for create new validator
     if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {

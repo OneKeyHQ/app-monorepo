@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import {
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
@@ -565,6 +566,51 @@ function useMultiLineAddressValidation(
                   nonEmptyIndex += 1;
                 }
               }
+            }
+          }
+        }
+
+        // Reject any address that resolves to a deactivated Bot Wallet account
+        if (validAddresses.length > 0 && selectedNetworkId) {
+          const botWalletResults = await Promise.all(
+            validAddresses.map(({ index, address }) =>
+              limit(async () => {
+                const trimmedAddress = address.trim();
+                try {
+                  const ownerItems =
+                    await backgroundApiProxy.serviceAccount.getAccountNameFromAddress(
+                      {
+                        networkId: selectedNetworkId,
+                        address: trimmedAddress,
+                      },
+                    );
+                  for (const item of ownerItems) {
+                    // eslint-disable-next-line no-await-in-loop
+                    const isDeactivated = await isAccountIdDeactivatedBotWallet(
+                      {
+                        accountId: item.accountId,
+                      },
+                    );
+                    if (isDeactivated) {
+                      return { index, isDeactivated: true as const };
+                    }
+                  }
+                } catch (e) {
+                  console.error(e);
+                }
+                return { index, isDeactivated: false as const };
+              }),
+            ),
+          );
+          if (isValidationStale()) {
+            return true;
+          }
+          for (const { index, isDeactivated } of botWalletResults) {
+            if (isDeactivated) {
+              lineErrors.push({
+                lineNumber: index + 1,
+                message: '该 Bot 钱包已停用，无法作为接收地址',
+              });
             }
           }
         }

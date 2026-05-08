@@ -151,32 +151,50 @@ function BulkCopyAddresses({
       parentWalletName?: string;
     })[] = [];
 
-    wallets.forEach((wallet) => {
+    const isWalletDeactivatedBotWallet = async (walletId: string) => {
+      if (!accountUtils.isBotWallet({ walletId })) {
+        return false;
+      }
+      return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+        walletId,
+      });
+    };
+
+    for (const wallet of wallets) {
       if (
         !accountUtils.isQrWallet({ walletId: wallet.id }) &&
         !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
         !wallet.deprecated
       ) {
-        if (!wallet.isMocked) {
+        // eslint-disable-next-line no-await-in-loop
+        const isWalletDeactivated = await isWalletDeactivatedBotWallet(
+          wallet.id,
+        );
+        if (!wallet.isMocked && !isWalletDeactivated) {
           availableWalletsTemp.push(wallet);
         }
         walletsMap.current[wallet.id] = wallet;
         if (wallet.hiddenWallets?.length) {
-          wallet.hiddenWallets.forEach((hiddenWallet) => {
+          for (const hiddenWallet of wallet.hiddenWallets) {
             if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
-              availableWalletsTemp.push({
-                ...hiddenWallet,
-                parentWalletName: wallet.name,
-              });
+              // eslint-disable-next-line no-await-in-loop
+              const isHiddenWalletDeactivated =
+                await isWalletDeactivatedBotWallet(hiddenWallet.id);
+              if (!isHiddenWalletDeactivated) {
+                availableWalletsTemp.push({
+                  ...hiddenWallet,
+                  parentWalletName: wallet.name,
+                });
+              }
               walletsMap.current[hiddenWallet.id] = {
                 ...hiddenWallet,
                 parentWalletName: wallet.name,
               };
             }
-          });
+          }
         }
       }
-    });
+    }
 
     return availableWalletsTemp;
   }, []);

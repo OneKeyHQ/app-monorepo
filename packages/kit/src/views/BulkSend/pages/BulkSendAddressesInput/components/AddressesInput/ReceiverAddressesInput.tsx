@@ -17,6 +17,7 @@ import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -276,6 +277,29 @@ function SingleLineReceiverInput() {
           },
           { network: networkName },
         );
+      }
+
+      // Reject when the receiver address resolves to a deactivated Bot Wallet account
+      if (selectedNetworkId) {
+        try {
+          const ownerAccountItems =
+            await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
+              networkId: selectedNetworkId,
+              address: trimmedAddress,
+            });
+          for (const item of ownerAccountItems) {
+            // eslint-disable-next-line no-await-in-loop
+            const isDeactivated = await isAccountIdDeactivatedBotWallet({
+              accountId: item.accountId,
+            });
+            if (isDeactivated) {
+              setReceiverValidationErrors([]);
+              return '该 Bot 钱包已停用，无法作为接收地址';
+            }
+          }
+        } catch {
+          // ignore lookup failures, fall through to other validations
+        }
       }
 
       // Allowlist check

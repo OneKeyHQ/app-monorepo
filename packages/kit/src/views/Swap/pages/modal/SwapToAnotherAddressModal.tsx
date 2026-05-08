@@ -9,14 +9,17 @@ import {
   Icon,
   Page,
   SizableText,
+  Toast,
   XStack,
   useForm,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInputField } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import {
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -116,9 +119,30 @@ const SwapToAnotherAddressPage = () => {
   );
 
   const handleOnConfirm: SubmitHandler<IFormType> = useCallback(
-    (data) => {
+    async (data) => {
       const finallyAddress = data.address.resolved;
-      if (!finallyAddress) return;
+      if (!finallyAddress || !networkId) return;
+      try {
+        const ownerItems =
+          await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
+            networkId,
+            address: finallyAddress,
+          });
+        for (const item of ownerItems) {
+          // eslint-disable-next-line no-await-in-loop
+          const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
+            accountId: item.accountId,
+          });
+          if (isDeactivatedBot) {
+            Toast.error({
+              title: '该 Bot 钱包已停用，无法作为接收地址',
+            });
+            return;
+          }
+        }
+      } catch {
+        // ignore
+      }
       setSettings((v) => ({
         ...v,
         swapToAnotherAccountSwitchOn: true,
