@@ -34,7 +34,7 @@ jest.mock('../commands/device/hardware-sdk', () => {
           .split('/')
           .map((part) => {
             const hardened = part.endsWith("'");
-            const value = Number(part.replace("'", ''));
+            const value = Number(part.replace(/'/g, ''));
             return hardened ? value + 0x80_00_00_00 : value;
           }),
       getScriptType: jest.fn(() => 'SPENDWITNESS'),
