@@ -33,12 +33,12 @@ import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
-import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import {
   useAccountOverviewActions,
   useWalletTopBannersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import {
   HYPERLIQUID_REFERRAL_CODE,
   PERPS_NETWORK_ID,
