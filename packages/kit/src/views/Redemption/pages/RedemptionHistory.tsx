@@ -60,6 +60,8 @@ function LegacyRecordRow({ item }: { item: IRedemptionRecordItem }) {
       <Badge badgeType={isSuccess ? 'success' : 'default'} badgeSize="sm">
         <Badge.Text>{statusText}</Badge.Text>
       </Badge>
+      {/* Invisible chevron placeholder so the badge aligns with drillIn rows. */}
+      <ListItem.DrillIn opacity={0} />
     </ListItem>
   );
 }
