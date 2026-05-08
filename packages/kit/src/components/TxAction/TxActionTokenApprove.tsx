@@ -122,7 +122,14 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
         },
       );
     } else if (isIncrease) {
-      title = `Increase ${approveSymbol} allowance`;
+      title = intl.formatMessage(
+        {
+          id: ETranslations.approve_edit_increase_allowance,
+        },
+        {
+          symbol: approveSymbol,
+        },
+      );
     } else {
       title = intl.formatMessage({
         id: ETranslations.global_approve,
@@ -321,7 +328,15 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
           { amount: finalAllowanceParsed, symbol: approveSymbol },
         );
       } else {
-        content = `Increase ${approveSymbol} allowance by ${amount}`;
+        content = intl.formatMessage(
+          {
+            id: ETranslations.approve_edit_increase_allowance_by_amount,
+          },
+          {
+            symbol: approveSymbol,
+            amount,
+          },
+        );
       }
     } else if (new BigNumber(amount).eq(0)) {
       content = intl.formatMessage(
