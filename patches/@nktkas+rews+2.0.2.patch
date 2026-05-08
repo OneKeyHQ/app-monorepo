@@ -1,0 +1,180 @@
+diff --git a/node_modules/@nktkas/rews/esm/mod.js b/node_modules/@nktkas/rews/esm/mod.js
+index 923f636..d345f6e 100644
+--- a/node_modules/@nktkas/rews/esm/mod.js
++++ b/node_modules/@nktkas/rews/esm/mod.js
+@@ -168,11 +168,43 @@ export class ReconnectingWebSocket extends EventTarget {
+             }, { signal });
+             this._socket.addEventListener("close", (e) => {
+                 ac.abort();
+-                this.dispatchEvent(new CloseEvent("close", {
+-                    code: e.code,
+-                    reason: e.reason,
+-                    wasClean: e.wasClean,
+-                }));
++                // OneKey: prefer dispatching a real CloseEvent so consumers
++                // that check `event instanceof CloseEvent` keep working on
++                // web/desktop/Node. If that dispatch throws (e.g. on RN
++                // where polyfill ordering may make CloseEvent fail the
++                // wrapper EventTarget's `instanceof Event` check), fall back
++                // to a plain Event with the same expando fields so close
++                // still reaches consumers (WebSocketTransport,
++                // WebSocketSubscriptionManager,
++                // ServiceHyperliquidSubscription.socketCloseHandler).
++                // Outer try/catch is a last-resort guard: this listener is
++                // invoked from the underlying RN socket's dispatchEvent —
++                // any escaping throw would land in RN's RuntimeScheduler
++                // and become SIGABRT, defeating the entire patch. We log
++                // instead of silently no-op'ing so the pathological case is
++                // still visible in Sentry.
++                try {
++                    try {
++                        this.dispatchEvent(new CloseEvent("close", {
++                            code: e.code,
++                            reason: e.reason,
++                            wasClean: e.wasClean,
++                        }));
++                    }
++                    catch (_err) {
++                        const fallback = new Event("close");
++                        fallback.code = e.code;
++                        fallback.reason = e.reason;
++                        fallback.wasClean = e.wasClean;
++                        this.dispatchEvent(fallback);
++                    }
++                }
++                catch (lastResortErr) {
++                    try {
++                        console.warn("[rews] outward close dispatch failed:", lastResortErr);
++                    }
++                    catch (_) { /* no-op */ }
++                }
+                 resolve();
+             }, { signal });
+         });
+@@ -330,7 +362,16 @@ export class ReconnectingWebSocket extends EventTarget {
+         //       removing all listeners before native events fire.
+         if (wasConnecting) {
+             // 1006 = Abnormal Closure (RFC 6455) — no close frame was received
+-            this._socket.dispatchEvent(new CloseEvent("close", { code: 1006, reason: "", wasClean: false }));
++            // OneKey: defensive try/catch — see explanation in the "close" listener above.
++            // The dispatched event is constructed via globalThis.CloseEvent polyfill (which
++            // uses globalThis.Event), but the underlying RN WebSocket extends RN's internal
++            // EventTarget whose dispatchEvent does instanceof against RN's internal Event
++            // class. Class identity mismatch would throw "parameter 1 is not of type 'Event'"
++            // and propagate as a fatal error via RuntimeScheduler → SIGABRT.
++            try {
++                this._socket.dispatchEvent(new CloseEvent("close", { code: 1006, reason: "", wasClean: false }));
++            }
++            catch (_err) { /* no-op: native close() above will eventually fire close event in RN */ }
+         }
+     }
+     /**
+@@ -374,7 +415,17 @@ function createSocketWithTimeout(socketFactory, timeout) {
+         //       because the internal close listener calls ac.abort(),
+         //       removing all listeners before native events fire.
+         if (wasConnecting) {
+-            socket.dispatchEvent(new CloseEvent("close", { code: 3008, reason: "Timeout", wasClean: false }));
++            // OneKey: defensive try/catch — same root cause as the dispatchEvent calls
++            // above. This setTimeout fires after `timeout` ms (5s by default) when the
++            // underlying socket is still CONNECTING. On React Native, the throw from
++            // dispatchEvent would propagate out of this setTimeout callback into RN's
++            // RuntimeScheduler which hardcodes timer task errors as fatal → SIGABRT.
++            // Sentry issue REACT-NATIVE-4AX (357 events on so.onekey.wallet@6.2.0) is
++            // exactly this path firing during slow Hyperliquid WebSocket connects.
++            try {
++                socket.dispatchEvent(new CloseEvent("close", { code: 3008, reason: "Timeout", wasClean: false }));
++            }
++            catch (_err) { /* no-op: socket.close(3008) above already initiates teardown */ }
+         }
+     }, timeout);
+     const cleanup = () => clearTimeout(timer);
+diff --git a/node_modules/@nktkas/rews/script/mod.js b/node_modules/@nktkas/rews/script/mod.js
+index a3270c1..b1319a7 100644
+--- a/node_modules/@nktkas/rews/script/mod.js
++++ b/node_modules/@nktkas/rews/script/mod.js
+@@ -172,11 +172,43 @@ class ReconnectingWebSocket extends EventTarget {
+             }, { signal });
+             this._socket.addEventListener("close", (e) => {
+                 ac.abort();
+-                this.dispatchEvent(new CloseEvent("close", {
+-                    code: e.code,
+-                    reason: e.reason,
+-                    wasClean: e.wasClean,
+-                }));
++                // OneKey: prefer dispatching a real CloseEvent so consumers
++                // that check `event instanceof CloseEvent` keep working on
++                // web/desktop/Node. If that dispatch throws (e.g. on RN
++                // where polyfill ordering may make CloseEvent fail the
++                // wrapper EventTarget's `instanceof Event` check), fall back
++                // to a plain Event with the same expando fields so close
++                // still reaches consumers (WebSocketTransport,
++                // WebSocketSubscriptionManager,
++                // ServiceHyperliquidSubscription.socketCloseHandler).
++                // Outer try/catch is a last-resort guard: this listener is
++                // invoked from the underlying RN socket's dispatchEvent —
++                // any escaping throw would land in RN's RuntimeScheduler
++                // and become SIGABRT, defeating the entire patch. We log
++                // instead of silently no-op'ing so the pathological case is
++                // still visible in Sentry.
++                try {
++                    try {
++                        this.dispatchEvent(new CloseEvent("close", {
++                            code: e.code,
++                            reason: e.reason,
++                            wasClean: e.wasClean,
++                        }));
++                    }
++                    catch (_err) {
++                        const fallback = new Event("close");
++                        fallback.code = e.code;
++                        fallback.reason = e.reason;
++                        fallback.wasClean = e.wasClean;
++                        this.dispatchEvent(fallback);
++                    }
++                }
++                catch (lastResortErr) {
++                    try {
++                        console.warn("[rews] outward close dispatch failed:", lastResortErr);
++                    }
++                    catch (_) { /* no-op */ }
++                }
+                 resolve();
+             }, { signal });
+         });
+@@ -334,7 +366,16 @@ class ReconnectingWebSocket extends EventTarget {
+         //       removing all listeners before native events fire.
+         if (wasConnecting) {
+             // 1006 = Abnormal Closure (RFC 6455) — no close frame was received
+-            this._socket.dispatchEvent(new CloseEvent("close", { code: 1006, reason: "", wasClean: false }));
++            // OneKey: defensive try/catch — see explanation in the "close" listener above.
++            // The dispatched event is constructed via globalThis.CloseEvent polyfill (which
++            // uses globalThis.Event), but the underlying RN WebSocket extends RN's internal
++            // EventTarget whose dispatchEvent does instanceof against RN's internal Event
++            // class. Class identity mismatch would throw "parameter 1 is not of type 'Event'"
++            // and propagate as a fatal error via RuntimeScheduler → SIGABRT.
++            try {
++                this._socket.dispatchEvent(new CloseEvent("close", { code: 1006, reason: "", wasClean: false }));
++            }
++            catch (_err) { /* no-op: native close() above will eventually fire close event in RN */ }
+         }
+     }
+     /**
+@@ -379,7 +420,17 @@ function createSocketWithTimeout(socketFactory, timeout) {
+         //       because the internal close listener calls ac.abort(),
+         //       removing all listeners before native events fire.
+         if (wasConnecting) {
+-            socket.dispatchEvent(new CloseEvent("close", { code: 3008, reason: "Timeout", wasClean: false }));
++            // OneKey: defensive try/catch — same root cause as the dispatchEvent calls
++            // above. This setTimeout fires after `timeout` ms (5s by default) when the
++            // underlying socket is still CONNECTING. On React Native, the throw from
++            // dispatchEvent would propagate out of this setTimeout callback into RN's
++            // RuntimeScheduler which hardcodes timer task errors as fatal → SIGABRT.
++            // Sentry issue REACT-NATIVE-4AX (357 events on so.onekey.wallet@6.2.0) is
++            // exactly this path firing during slow Hyperliquid WebSocket connects.
++            try {
++                socket.dispatchEvent(new CloseEvent("close", { code: 3008, reason: "Timeout", wasClean: false }));
++            }
++            catch (_err) { /* no-op: socket.close(3008) above already initiates teardown */ }
+         }
+     }, timeout);
+     const cleanup = () => clearTimeout(timer);

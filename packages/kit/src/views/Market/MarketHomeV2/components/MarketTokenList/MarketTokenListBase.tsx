@@ -221,7 +221,10 @@ function MarketTokenListBase({
       }
     }
 
-    if (!liveTokenOverride?.networkId || !liveTokenOverride.address) {
+    if (
+      !liveTokenOverride?.networkId ||
+      liveTokenOverride.address === undefined
+    ) {
       return nextData;
     }
 

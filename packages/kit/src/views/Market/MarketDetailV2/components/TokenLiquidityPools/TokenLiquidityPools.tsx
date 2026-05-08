@@ -280,19 +280,16 @@ function useLiquidityPoolLabels(): ILiquidityPoolLabels {
   const intl = useIntl();
 
   return useMemo(() => {
-    const pool = intl.formatMessage({
-      id: ETranslations.wallet_defi_position_module_liquidity_pool,
-    });
-    const address = intl.formatMessage({ id: ETranslations.global_address });
-
     return {
-      pool,
+      pool: intl.formatMessage({ id: ETranslations.dexmarket_pool }),
       tokenAmount: intl.formatMessage({
-        id: ETranslations.wallet_defi_portfolio_column_amount,
+        id: ETranslations.dexmarket_token_amount,
       }),
-      feeRate: intl.formatMessage({ id: ETranslations.fee_fee_rate }),
-      poolAddress: `${pool} ${address}`,
-      creator: intl.formatMessage({ id: ETranslations.nft_owner_program }),
+      feeRate: intl.formatMessage({ id: ETranslations.dexmarket_tax_rate }),
+      poolAddress: intl.formatMessage({
+        id: ETranslations.dexmarket_pool_address,
+      }),
+      creator: intl.formatMessage({ id: ETranslations.dexmarket_creator }),
     };
   }, [intl]);
 }
@@ -757,7 +754,7 @@ function TokenLiquidityPoolsDesktopHeader() {
         {labels.pool}
       </SizableText>
       <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.liquidity}>
-        {intl.formatMessage({ id: ETranslations.global_liquidity })}
+        {intl.formatMessage({ id: ETranslations.dexmarket_liquidity })}
       </SizableText>
       <SizableText {...DESKTOP_HEADER_TEXT_PROPS} {...styles.tokenAmount}>
         {labels.tokenAmount}
@@ -789,7 +786,7 @@ function TokenLiquidityPoolsMobileHeader() {
         textAlign="right"
         {...MOBILE_COLUMN_STYLE.liquidity}
       >
-        {intl.formatMessage({ id: ETranslations.global_liquidity })}
+        {intl.formatMessage({ id: ETranslations.dexmarket_liquidity })}
       </SizableText>
       <SizableText
         {...MOBILE_HEADER_TEXT_PROPS}
@@ -948,9 +945,7 @@ function PoolDetailsContent({ item }: { item: IDisplayPool }) {
             {intl.formatMessage({ id: ETranslations.dexmarket_select_token })}
           </SizableText>
           <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.wallet_defi_portfolio_column_amount,
-            })}
+            {labels.tokenAmount}
           </SizableText>
         </XStack>
         <DetailTokenRows tokens={item.tokenAmounts} />
@@ -984,7 +979,7 @@ function MobilePoolRow({ item }: { item: IDisplayPool }) {
 
   const handlePress = useCallback(() => {
     Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.market_pool_details }),
+      title: intl.formatMessage({ id: ETranslations.dexmarket_pool_details }),
       renderContent: <PoolDetailsContent item={item} />,
       showFooter: false,
     });
@@ -1177,7 +1172,7 @@ export function TokenLiquidityPools({
       {showTitle ? (
         <SizableText size="$headingXs" color="$text" px="$5" pb="$3">
           {intl.formatMessage({
-            id: ETranslations.wallet_defi_position_module_liquidity_pool,
+            id: ETranslations.dexmarket_pool,
           })}
         </SizableText>
       ) : null}

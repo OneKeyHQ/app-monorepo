@@ -8,7 +8,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { InfoIcon } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RewardCard/InfoIcon';
+import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IRewardSummaryCardProps {

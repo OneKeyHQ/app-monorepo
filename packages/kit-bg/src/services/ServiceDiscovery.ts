@@ -371,8 +371,8 @@ class ServiceDiscovery extends ServiceBase {
       simpleDb.browserHistory.clearRawData(),
       simpleDb.dappConnection.clearRawData(),
       simpleDb.browserRiskWhiteList.clearRawData(),
-      this._isUrlExistInRiskWhiteList.clear(),
     ]);
+    this._isUrlExistInRiskWhiteList.clear();
   }
 
   @backgroundMethod()

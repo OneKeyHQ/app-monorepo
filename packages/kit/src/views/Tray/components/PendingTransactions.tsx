@@ -83,10 +83,10 @@ function formatTransfersAmount({
     new Set(transfers.map((transfer) => transfer.tokenIdOnNetwork)),
   );
   if (tokenIds.length > 1) {
-    return intl.formatMessage(
+    return `${prefix}${intl.formatMessage(
       { id: ETranslations.count_assets },
       { count: tokenIds.length },
-    );
+    )}`;
   }
 
   const totalAmount = transfers
@@ -387,10 +387,7 @@ export function PendingTransactions({
     id: ETranslations.tray_pending_status,
   });
 
-  // Failed txs stay in `transactions` for diffAndNotify; don't show them here.
-  const visibleTxs = (transactions || []).filter(
-    (tx) => tx.status === 'pending',
-  );
+  const visibleTxs = transactions || [];
 
   if (visibleTxs.length === 0) {
     return (

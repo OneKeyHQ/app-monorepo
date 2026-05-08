@@ -1,6 +1,5 @@
+import { CliAuthManager } from '../../commands/auth/_internal/cli-auth-manager';
 import { AppError, ERROR_CODES } from '../../errors';
-
-import { AuthManager } from './auth-manager';
 
 import type { ResolvedAuthSession } from './auth-types';
 
@@ -18,7 +17,12 @@ export async function requireAuthenticatedSession(
     suggestion?: string;
   } = {},
 ): Promise<ResolvedAuthSession> {
-  const authManager = params.authManager ?? new AuthManager();
+  // Default to the CliAuthManager facade so this gate recognizes BOTH the
+  // vault-backed app-transfer login (BotWalletAuthManager) and the
+  // session.json + keychain-pair hardware login (HardwareAuthManager).
+  // Picking one in isolation reintroduces the split-brain bug where
+  // `auth status` and downstream commands disagree about authentication.
+  const authManager = params.authManager ?? new CliAuthManager();
   const session = await authManager.getStatus();
 
   if (session.authStatus !== 'authenticated') {

@@ -57,6 +57,7 @@ type IBuildUnsignedTxParams = {
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   feeInfo?: IFeeInfoUnit;
+  feeInfos?: IFeeInfoUnit[];
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
   disableMev?: boolean;
@@ -128,6 +129,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         signOnly,
         useFeeInTx,
         feeInfoEditable,
+        feeInfos,
         approvesInfo,
         swapInfo,
         encodedTx,
@@ -181,6 +183,15 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               ...rest,
             }),
           );
+        }
+
+        if (feeInfos?.length) {
+          unsignedTxs.forEach((unsignedTx, index) => {
+            const feeInfo = feeInfos[index];
+            if (feeInfo) {
+              unsignedTx.feeInfo = feeInfo;
+            }
+          });
         }
 
         const target = params.isInternalSwap

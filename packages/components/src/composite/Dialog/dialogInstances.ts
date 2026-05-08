@@ -25,8 +25,8 @@ export async function closeAllDialogInstances(): Promise<void> {
     return;
   }
   await Promise.allSettled(
-    instances.map((instance) =>
-      instance.isExist() ? instance.close() : undefined,
-    ),
+    instances
+      .filter((instance) => instance.isExist())
+      .map((instance) => Promise.resolve(instance.close())),
   );
 }

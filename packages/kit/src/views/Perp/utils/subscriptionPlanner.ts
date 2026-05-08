@@ -4,6 +4,11 @@ import type {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 
+import {
+  isPerpTokenSelectorAllTab,
+  isPerpTokenSelectorSpotTab,
+} from './tokenSelectorTabs';
+
 export interface ITradeSubscriptionPlan {
   enableLedgerUpdates: boolean;
   shouldSyncSubscriptions: boolean;
@@ -20,24 +25,35 @@ export function planTradeSubscriptions(params: {
   const { activeInstrument, hasAccount, orderBookOptions, viewState } = params;
   const instrumentCoin = activeInstrument?.coin ?? '';
   const isSpot = activeInstrument?.mode === 'spot';
+  const isSpotSelectorOpen =
+    viewState.tokenSelectorOpen &&
+    isPerpTokenSelectorSpotTab(viewState.tokenSelectorTab);
+  const isAllSelectorOpen =
+    viewState.tokenSelectorOpen &&
+    isPerpTokenSelectorAllTab(viewState.tokenSelectorTab);
+  const shouldSyncSelectorSubscriptions =
+    isSpotSelectorOpen || isAllSelectorOpen;
 
   // Always subscribe to SPOT_STATE when account exists — total account value
   // (perps + spot) depends on spotTotalUsd from this subscription.
   const spotEnabled = hasAccount;
   const spotAssetCtxsEnabled =
     isSpot ||
-    (viewState.tokenSelectorOpen && viewState.tokenSelectorTab === 'spot') ||
+    isSpotSelectorOpen ||
+    isAllSelectorOpen ||
     viewState.favoritesBarSpotActive;
   const enableLedgerUpdates =
     hasAccount && viewState.infoPanelTab === 'Account';
 
-  let shouldSyncSubscriptions = false;
+  let shouldSyncSubscriptions = shouldSyncSelectorSubscriptions;
   if (viewState.routeFocused) {
     if (isSpot) {
-      shouldSyncSubscriptions = Boolean(instrumentCoin);
+      shouldSyncSubscriptions =
+        shouldSyncSelectorSubscriptions || Boolean(instrumentCoin);
     } else {
       shouldSyncSubscriptions =
-        Boolean(instrumentCoin) && orderBookOptions?.coin === instrumentCoin;
+        shouldSyncSelectorSubscriptions ||
+        (Boolean(instrumentCoin) && orderBookOptions?.coin === instrumentCoin);
     }
   }
 

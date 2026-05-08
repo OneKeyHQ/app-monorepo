@@ -1,5 +1,5 @@
 /**
- * Palette for DeFiPortfolioDonut + DeFiPortfolioLegend.
+ * Palette for DeFiPortfolioStackedBar + DeFiPortfolioInlineLegend.
  *
  * Why raw scales (`$blue9`, `$purple9`, ...) over semantic tokens
  * (`$bgInfoStrong`, `$bgSuccessStrong`, `$bgCautionStrong`,

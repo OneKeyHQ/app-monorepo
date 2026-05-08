@@ -72,7 +72,7 @@ function PerpAccountMMRView() {
               color="$textSubdued"
               cursor="help"
               dashColor="$textDisabled"
-              dashThickness={0.5}
+              dashThickness={1}
             >
               {intl.formatMessage({
                 id: ETranslations.perp_account_cross_margin_ration,
@@ -135,7 +135,7 @@ function PerpAccountPanel() {
                 color="$textSubdued"
                 cursor="help"
                 dashColor="$textDisabled"
-                dashThickness={0.5}
+                dashThickness={1}
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_portfolio_value,
@@ -181,7 +181,7 @@ function PerpAccountPanel() {
                 color="$textSubdued"
                 cursor="help"
                 dashColor="$textDisabled"
-                dashThickness={0.5}
+                dashThickness={1}
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_account_panel_account_maintenance_margin,

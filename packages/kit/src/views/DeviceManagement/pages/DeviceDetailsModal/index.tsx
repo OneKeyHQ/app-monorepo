@@ -100,7 +100,7 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
     ) => {
       const walletWithDevice = await localActions.getWalletWithDevice();
       if (!walletWithDevice) return;
-      actions.openChangeLogModal({
+      await actions.openChangeLogModal({
         connectId: walletWithDevice.device?.connectId,
         firmwareType,
         baseReleaseInfo,

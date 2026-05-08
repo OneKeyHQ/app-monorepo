@@ -34,6 +34,14 @@ type ISwapQuoteEventFetchingInput = {
   quoteEventCompleted: boolean;
 };
 
+type ISwapQuoteEventProgressTotalCountInput = {
+  quoteEventTotalCount: {
+    count: number;
+    eventId?: string;
+  };
+  maxQuoteCount?: number;
+};
+
 type ISwapCurrentQuoteInput = {
   currentEventSortedQuotes: IFetchQuoteResult[];
   selectionIntent?: ISwapQuoteSelectionIntent;
@@ -89,6 +97,22 @@ export function isSwapQuoteEventFetching({
   );
 }
 
+export const SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP = 2;
+
+export function getSwapQuoteEventProgressTotalCount({
+  quoteEventTotalCount,
+  maxQuoteCount,
+}: ISwapQuoteEventProgressTotalCountInput) {
+  if (!maxQuoteCount || maxQuoteCount <= 0) {
+    return quoteEventTotalCount;
+  }
+
+  return {
+    ...quoteEventTotalCount,
+    count: Math.min(quoteEventTotalCount.count, maxQuoteCount),
+  };
+}
+
 export function isSwapQuoteActionable(
   quoteCurrentSelect?: ISwapActionableQuote,
 ) {
@@ -109,12 +133,14 @@ export function selectSwapCurrentQuote({
     );
 
     if (manualQuote) {
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
       if (isSwapQuoteActionable(manualQuote)) {
         return manualQuote;
       }
 
       return (
         selectBestQuote(
+          // eslint-disable-next-line @typescript-eslint/no-use-before-define
           currentEventSortedQuotes.filter(isSwapQuoteActionable),
         ) ?? manualQuote
       );

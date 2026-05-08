@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
+import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -44,6 +45,69 @@ export class PrimeSubscriptionScene extends BaseScene {
     return {
       featureName,
       entryPoint,
+    };
+  }
+
+  /**
+   * Prime dashboard shown
+   * Triggered once when PrimeDashboard mounts.
+   * Filter by isPrimeActive=false to exclude users managing an existing subscription.
+   */
+  @LogToServer()
+  public primeDashboardShow({
+    featureName,
+    isPrimeActive,
+  }: {
+    featureName?: EPrimeFeatures;
+    isPrimeActive: boolean;
+  }) {
+    return {
+      featureName,
+      isPrimeActive,
+    };
+  }
+
+  /**
+   * Prime subscribe button click
+   * Triggered when user taps the subscribe button on PrimeDashboard, before the
+   * login / IAP flow runs. Pair with primeSubscribeIntent to isolate login drop-off.
+   */
+  @LogToServer()
+  public primeSubscribeButtonClick({
+    subscriptionPeriod,
+    featureName,
+    isLoggedIn,
+  }: {
+    subscriptionPeriod: ISubscriptionPeriod;
+    featureName?: EPrimeFeatures;
+    isLoggedIn: boolean;
+  }) {
+    return {
+      subscriptionPeriod,
+      featureName,
+      isLoggedIn,
+    };
+  }
+
+  /**
+   * Prime subscribe intent
+   * Triggered immediately before RevenueCat purchase is initiated. Pair with
+   * primeSubscribeSuccess to measure the true payment-attempt → success rate.
+   */
+  @LogToServer()
+  public primeSubscribeIntent({
+    subscriptionPeriod,
+    featureName,
+    currency,
+  }: {
+    subscriptionPeriod: ISubscriptionPeriod;
+    featureName?: EPrimeFeatures;
+    currency?: string;
+  }) {
+    return {
+      subscriptionPeriod,
+      featureName,
+      currency,
     };
   }
 

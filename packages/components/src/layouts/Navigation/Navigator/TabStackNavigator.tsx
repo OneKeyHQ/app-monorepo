@@ -1,9 +1,13 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useIntl } from 'react-intl';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useTheme } from '../../../hooks';
@@ -89,13 +93,19 @@ export function TabStackNavigator<RouteName extends string>({
   bottomMenu,
   webPageTabBar,
 }: ITabNavigatorProps<RouteName>) {
-  if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[LANDING_DEBUG] TabStackNavigator render, tabs=[${config.map((c) => c.name).join(',')}]`,
-    );
-  }
   const intl = useIntl();
+  const [tabBarHidden, setTabBarHidden] = useState(false);
+
+  useEffect(() => {
+    const handler = (hidden: boolean) => {
+      setTabBarHidden((prev) => (prev === hidden ? prev : hidden));
+    };
+    appEventBus.on(EAppEventBusNames.HideTabBar, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HideTabBar, handler);
+    };
+  }, []);
+
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => (
       <NavigationBar
@@ -166,7 +176,7 @@ export function TabStackNavigator<RouteName extends string>({
 
   return (
     <Tab.Navigator
-      tabBar={showTabBar ? tabBarCallback : emptyTabBar}
+      tabBar={showTabBar && !tabBarHidden ? tabBarCallback : emptyTabBar}
       screenOptions={tabScreenOptions}
     >
       {tabScreens}

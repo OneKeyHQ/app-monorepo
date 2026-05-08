@@ -26,6 +26,7 @@ import {
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
@@ -71,8 +72,11 @@ export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
   const icon = exit ? 'CrossedLargeOutline' : 'ArrowLeftOutline';
 
   const handleBack = useCallback(() => {
+    if (exit) {
+      defaultLogger.account.wallet.onboardingExit();
+    }
     navigation.pop();
-  }, [navigation]);
+  }, [navigation, exit]);
 
   if (gtMd && !exit) {
     return (
@@ -207,7 +211,7 @@ export function OnboardingPage({
         mx="auto"
         $md={{ flex: 1 }}
         $gtMd={{
-          minHeight: 522,
+          minHeight: 600,
           ...(narrow && { py: '$10', maxWidth: 400 }),
         }}
         {...(shouldAnimate && {
