@@ -20,7 +20,9 @@ function assertNoDeprecatedBufferConstructors() {
       pattern: /\bBuffer\s*\(/g,
       shouldIgnore: (index) => {
         const beforeMatch = contents.slice(Math.max(0, index - 10), index);
-        return /(?:new|function)\s+$/.test(beforeMatch);
+        return (
+          /(?:new|function)\s+$/.test(beforeMatch) || /\.\s*$/.test(beforeMatch)
+        );
       },
     },
   ];

@@ -183,6 +183,7 @@ describe('onekey CLI (integration)', () => {
     expect(output).toContain('auth');
     expect(output).toContain('version');
     expect(output).toContain('status');
+    expect(output).toContain('wallet');
   });
 
   it('shows auth subcommands with auth --help', () => {
@@ -411,7 +412,13 @@ describe('onekey CLI (integration)', () => {
     const parsed = JSON.parse(output) as string[];
 
     expect(parsed).toEqual(
-      expect.arrayContaining(['auth-login', 'auth-status', 'auth-logout']),
+      expect.arrayContaining([
+        'auth-login',
+        'auth-status',
+        'auth-logout',
+        'wallet-address-types',
+        'wallet-address',
+      ]),
     );
   });
 
