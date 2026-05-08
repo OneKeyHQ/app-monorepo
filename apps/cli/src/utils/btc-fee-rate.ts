@@ -32,8 +32,13 @@ function pickFeeFromTiers(
 ): string | undefined {
   const idx = TIER_INDEX[tier];
   if (rates[idx]) return rates[idx];
-  // tier missing: fall back to highest available, then lowest
-  return rates[rates.length - 1] ?? rates[0];
+  // tier missing: fall back to the closest LOWER tier; never silently upgrade
+  // to a higher tier, otherwise an API outlier (e.g. only `fast` returned) can
+  // overcharge a user who asked for `slow`/`standard`.
+  for (let i = idx - 1; i >= 0; i -= 1) {
+    if (rates[i]) return rates[i];
+  }
+  return undefined;
 }
 
 function normalizeRates(raw: Array<{ feeRate?: string }>): string[] {
