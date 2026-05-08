@@ -59,6 +59,7 @@ import {
   DeFiStickyPortal,
   type IProtocolHandle,
   PinnedProtocolHeader,
+  useIsDeFiEnabled,
 } from '../components/DeFiListBlock';
 import { buildPortfolioStats } from '../components/DeFiListBlock/DeFiPortfolioStats';
 import { formatPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
@@ -145,6 +146,7 @@ function DeFiContainer() {
   const [settingsValue] = useSettingsValuePersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
   const isAllNetworks = Boolean(network?.isAllNetworks);
+  const isDeFiEnabled = useIsDeFiEnabled(network?.id);
 
   const [{ protocols }] = useDeFiListProtocolsAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
@@ -451,6 +453,10 @@ function DeFiContainer() {
   }, [getLiveStickyOffset, pinnedKey, reducedMotion]);
 
   if (tableLayout) {
+    if (!isDeFiEnabled) {
+      return null;
+    }
+
     return (
       <>
         <YStack pt="$4" pb="$8">
@@ -505,6 +511,7 @@ function DeFiContainer() {
             <DeFiListBlock
               tableLayout
               hideInternalTitle
+              isDeFiEnabled={isDeFiEnabled}
               registerProtocol={registerProtocol}
             />
             <Upgrade />

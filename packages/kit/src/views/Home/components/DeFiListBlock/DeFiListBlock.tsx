@@ -65,6 +65,7 @@ import { formatPortfolioTotal } from './formatPortfolioTotal';
 import { buildDeFiOverviewCells } from './hooks/useDeFiOverviewTopN';
 import { resolveOverviewCols } from './overviewColsResolver';
 import { type IProtocolHandle, Protocol } from './Protocol';
+import { useIsDeFiEnabled } from './useIsDeFiEnabled';
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
@@ -88,6 +89,7 @@ export type IDeFiListBlockProps = {
    * alongside the overview grid instead.
    */
   hideInternalTitle?: boolean;
+  isDeFiEnabled?: boolean;
   registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
 };
 
@@ -133,6 +135,7 @@ function DeFiListBlock({
   refreshCacheOnly = false,
   tableLayout,
   hideInternalTitle = false,
+  isDeFiEnabled: isDeFiEnabledProp,
   registerProtocol,
 }: IDeFiListBlockProps) {
   const intl = useIntl();
@@ -202,28 +205,13 @@ function DeFiListBlock({
 
   const isForceRefreshRef = useRef(false);
 
-  const [isDeFiEnabled, setIsDeFiEnabled] = useState(false);
+  const computedIsDeFiEnabled = useIsDeFiEnabled(
+    network?.id,
+    isDeFiEnabledProp === undefined,
+  );
+  const isDeFiEnabled = isDeFiEnabledProp ?? computedIsDeFiEnabled;
   const [isAllNetRequestsEnabled, setIsAllNetRequestsEnabled] =
     useState<boolean>(false);
-
-  const checkDeFiEnabled = useCallback(async () => {
-    if (!network?.id) {
-      return;
-    }
-
-    if (networkUtils.isAllNetwork({ networkId: network.id })) {
-      setIsDeFiEnabled(true);
-      return;
-    }
-
-    const enabledNetworks =
-      await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-    setIsDeFiEnabled(!!enabledNetworks[network.id]);
-  }, [network?.id]);
-
-  useEffect(() => {
-    void checkDeFiEnabled();
-  }, [checkDeFiEnabled]);
 
   useEffect(() => {
     const isAllNetworks = networkUtils.isAllNetwork({
