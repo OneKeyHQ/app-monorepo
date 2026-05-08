@@ -13,6 +13,19 @@ import { join } from 'node:path';
 
 import { AppError, ERROR_CODES } from '../errors';
 
+export interface IPendingBtcAddressMetadata {
+  addressType: string;
+  addressEncoding: string;
+  deriveType: string;
+  address: string;
+  path: string;
+}
+
+export interface IPendingBtcAddressing {
+  from: IPendingBtcAddressMetadata | null;
+  to: IPendingBtcAddressMetadata | null;
+}
+
 export interface IPendingOrder {
   orderId: string;
   status: 'pending' | 'executed' | 'approve_only' | 'failed';
@@ -33,6 +46,7 @@ export interface IPendingOrder {
     amount: string;
     shouldResetApprove?: boolean;
   } | null;
+  btcAddressing?: IPendingBtcAddressing;
 }
 
 const VALID_STATUSES = new Set([
@@ -87,6 +101,34 @@ function isValidToken(
   );
 }
 
+function isValidBtcAddressMetadata(
+  value: unknown,
+): value is IPendingBtcAddressMetadata {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.addressType === 'string' &&
+    typeof obj.addressEncoding === 'string' &&
+    typeof obj.deriveType === 'string' &&
+    typeof obj.address === 'string' &&
+    typeof obj.path === 'string'
+  );
+}
+
+function isValidOptionalBtcAddressing(
+  value: unknown,
+): value is IPendingBtcAddressing | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  const from = obj.from;
+  const to = obj.to;
+  return (
+    (from === null || isValidBtcAddressMetadata(from)) &&
+    (to === null || isValidBtcAddressMetadata(to))
+  );
+}
+
 function validateOrder(parsed: unknown, source: string): IPendingOrder {
   if (typeof parsed !== 'object' || parsed === null) {
     throw new AppError(
@@ -110,7 +152,8 @@ function validateOrder(parsed: unknown, source: string): IPendingOrder {
     !isValidToken(o.fromToken) ||
     !isValidToken(o.toToken) ||
     typeof o.txData !== 'object' ||
-    o.txData === null
+    o.txData === null ||
+    !isValidOptionalBtcAddressing(o.btcAddressing)
   ) {
     throw new AppError(
       ERROR_CODES.BIZ_SWAP_FAILED.code,

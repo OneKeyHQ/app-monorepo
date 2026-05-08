@@ -14,7 +14,10 @@ import { SignerHardwareBase } from '../../base/SignerHardwareBase';
 
 import { resolveEvmPath, validateEvmNetworkId } from './evm-path';
 
-import type { ISignTransactionPayload } from '../../types';
+import type {
+  ISignTransactionPayload,
+  ISignerGetAddressOptions,
+} from '../../types';
 import type { EVMSignedTx } from '@onekeyfe/hd-core';
 
 interface IEvmAddressPayload {
@@ -32,7 +35,10 @@ interface IEvmSignMsgPayload {
  * ISigner call into the three EVM SDK methods.
  */
 export class SignerHardware extends SignerHardwareBase {
-  async getAddress(networkId: string): Promise<ICoreApiGetAddressItem> {
+  async getAddress(
+    networkId: string,
+    _options?: ISignerGetAddressOptions,
+  ): Promise<ICoreApiGetAddressItem> {
     validateEvmNetworkId(networkId);
     const sdk = await this.getHardwareSDK();
     const commonParams = await this.getHwCommonParams();

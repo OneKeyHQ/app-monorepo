@@ -22,7 +22,7 @@ describe('swap-networks', () => {
   });
 
   describe('fetchSwapNetworks', () => {
-    it('returns EVM swap networks from API', async () => {
+    it('returns API-supported EVM and BTC swap networks from preset metadata', async () => {
       mockGet.mockResolvedValueOnce([
         {
           networkId: 'evm--1',
@@ -37,24 +37,51 @@ describe('swap-networks', () => {
           supportLimit: false,
         },
         {
-          networkId: 'sol--101',
+          networkId: 'btc--0',
           supportSingleSwap: true,
-          supportCrossChainSwap: false,
+          supportCrossChainSwap: true,
+          supportLimit: false,
+        },
+        {
+          networkId: 'tbtc--0',
+          supportSingleSwap: false,
+          supportCrossChainSwap: true,
           supportLimit: false,
         },
       ]);
 
       const networks = await fetchSwapNetworks();
-      // Should filter out non-EVM (sol--101)
-      expect(networks).toHaveLength(2);
+      expect(networks).toHaveLength(3);
       expect(networks[0].networkId).toBe('evm--1');
       expect(networks[0].supportSingleSwap).toBe(true);
       expect(networks[0].supportCrossChainSwap).toBe(true);
       expect(networks[1].networkId).toBe('evm--56');
+      expect(networks[2]).toMatchObject({
+        networkId: 'btc--0',
+        name: 'Bitcoin',
+        chainId: '0',
+        nativeSymbol: 'BTC',
+        supportSingleSwap: true,
+        supportCrossChainSwap: true,
+        supportLimit: false,
+      });
+      expect(networks.map((n) => n.networkId)).not.toContain('tbtc--0');
     });
 
-    it('skips networks not in presetNetworks', async () => {
+    it('skips malformed, unsupported, and non-preset networks', async () => {
       mockGet.mockResolvedValueOnce([
+        {
+          networkId: '',
+          supportSingleSwap: true,
+          supportCrossChainSwap: false,
+          supportLimit: false,
+        },
+        {
+          networkId: 'sol--101',
+          supportSingleSwap: true,
+          supportCrossChainSwap: false,
+          supportLimit: false,
+        },
         {
           networkId: 'evm--999999',
           supportSingleSwap: true,
