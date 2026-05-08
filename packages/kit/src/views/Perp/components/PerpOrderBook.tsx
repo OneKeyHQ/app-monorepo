@@ -316,6 +316,7 @@ function MobileHeader() {
   );
 }
 const MobileHeaderMemo = memo(MobileHeader);
+const MOBILE_SPOT_MAX_LEVELS_PER_SIDE = 4;
 
 export function PerpOrderBook({
   entry,
@@ -385,10 +386,16 @@ export function PerpOrderBook({
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
-    if (shouldShowEnableTradingButton) return 5;
+    if (shouldShowEnableTradingButton) return 7;
+    if (activeTradeInstrument.mode === 'spot')
+      return MOBILE_SPOT_MAX_LEVELS_PER_SIDE;
     if (formData.hasTpsl) return 9;
     return 7;
-  }, [formData.hasTpsl, shouldShowEnableTradingButton]);
+  }, [
+    activeTradeInstrument.mode,
+    formData.hasTpsl,
+    shouldShowEnableTradingButton,
+  ]);
 
   const desktopMaxLevelsPerSide = useMemo(
     () => propMaxLevelsPerSide ?? 18,
