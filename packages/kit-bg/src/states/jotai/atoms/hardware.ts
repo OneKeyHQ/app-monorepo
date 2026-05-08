@@ -145,17 +145,9 @@ export const {
 
 export enum EThirdPartyHardwareUiAction {
   // Blocking requests — UI waits for user response.
-  // requestDeviceNotFound: SDK searched and found 0 devices, fall-back
-  // dialog asking the user to make the device available + Confirm. The
-  // user might just have it locked, off, out of range, etc. — we can't
-  // tell, so the dialog says "connect and unlock then press Confirm".
-  // Distinct from `unlockDevice` (toast) which fires when DMK actually
-  // detected a locked device on a live session.
+  // SDK found no device; ask the user to make it available and retry.
   requestDeviceNotFound = 'request-ledger-device-not-found',
-  // requestBtcHighIndexConfirm: BTC App rejects account index >= 100 unless
-  // display=true. Adapter asks user once per session before promoting the
-  // call. Subsequent 100+ paths in the same session auto-promote silently
-  // (Ledger device still requires per-call physical confirmation).
+  // Ledger BTC requires explicit user approval before using index >= 100.
   requestBtcHighIndexConfirm = 'request-ledger-btc-high-index-confirm',
   // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',
@@ -164,10 +156,7 @@ export enum EThirdPartyHardwareUiAction {
   connecting = 'ui-event-ledger-connecting',
   processing = 'ui-event-ledger-processing',
   done = 'ui-event-ledger-done',
-  // unlockDevice: DMK saw a locked SE during a live action (APDU 0x5515).
-  // Toast only — DMK has its own waitForDeviceUnlock that polls and
-  // self-recovers when the user unlocks; SDK does not throw and does not
-  // need a Confirm gate.
+  // Toast only; DMK keeps polling until the device is unlocked.
   unlockDevice = 'ui-event-ledger-unlock-device',
   error = 'ui-event-ledger-error',
 }
@@ -198,10 +187,7 @@ export type IThirdPartyHardwareUiState = {
   payload?: {
     message?: string;
     chain?: string;
-    /**
-     * Why the SDK surfaced the request (e.g. 'device-not-found' for the
-     * Ledger search-empty fallback). UI uses this to pick i18n copy.
-     */
+    /** SDK request reason used for UI copy. */
     reason?: string;
     /** BIP-44 path that triggered the request (e.g. requestBtcHighIndexConfirm). */
     path?: string;

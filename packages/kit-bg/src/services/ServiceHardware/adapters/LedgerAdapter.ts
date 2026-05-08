@@ -52,10 +52,7 @@ export class LedgerAdapter
           });
           break;
         case EConnectorInteraction.UnlockDevice:
-          // DMK detected a locked SE during a live action. DMK has its own
-          // 60s waitForDeviceUnlock that polls and self-recovers when the
-          // user unlocks — show a toast only, no Confirm gate. The toast
-          // auto-dismisses on the next InteractionComplete event.
+          // Toast only; DMK handles the unlock polling and completion event.
           void thirdPartyHardwareUiStateAtom.set({
             action: EThirdPartyHardwareUiAction.unlockDevice,
             vendor: EHardwareVendor.ledger,
@@ -119,9 +116,7 @@ export class LedgerAdapter
       void thirdPartyHardwareUiStateAtom.set(undefined);
     });
 
-    // BaseAdapter's onUiEvent -> set atom for request events.
-    // Adapter knows its own vendor; the inner payload.vendor coming from the
-    // SDK is an integrity hint, not the source of truth for the UI atom.
+    // Request events trust the adapter vendor, not SDK payload hints.
     this.onUiEvent((event) => {
       if (event.kind === 'request') {
         const { reason, message, path, accountIndex } = event.payload ?? {};
@@ -181,7 +176,6 @@ export class LedgerAdapter
           (error as Error)?.message ?? String(error)
         }`,
       );
-      // Ensure atom is cleared on unexpected errors
       void thirdPartyHardwareUiStateAtom.set(undefined);
       throw error;
     }

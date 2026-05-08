@@ -513,10 +513,7 @@ class ServiceHardwareUI extends ServiceBase {
             connectId,
           });
         }
-        // Third-party "searching" state is driven entirely by the SDK now —
-        // it emits EConnectorInteraction.Searching at every _doConnect loop
-        // iteration. The kit-bg LedgerAdapter ui-event switch maps it to the
-        // atom. No monorepo-side priming needed.
+        // Third-party searching UI is driven by SDK ui-events.
 
         // await waitForCancelDone();
 
