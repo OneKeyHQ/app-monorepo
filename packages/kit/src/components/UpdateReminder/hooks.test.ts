@@ -180,6 +180,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     app: {
       appUpdate: {
+        log: jest.fn(),
         softwareUpdateStarted: jest.fn(),
         softwareUpdateResult: jest.fn(),
         startCheckForUpdates: jest.fn(),
@@ -247,10 +248,12 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 
 import {
+  computeDownloadRetryDelayMs,
   extractUpdateErrorCode,
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
+  runDownloadWithRetry,
   sanitizeUpdateErrorMessage,
   useDownloadPackage,
 } from './hooks';
@@ -377,6 +380,117 @@ describe('Utility functions', () => {
         }),
       ).toBe(false);
     });
+  });
+});
+
+// =========================================================================
+// A.z runDownloadWithRetry — exponential-backoff retry for transient errors
+// =========================================================================
+describe('runDownloadWithRetry', () => {
+  // Drive backoff via fake timers so tests are instant.
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  // Helper: kick off pending timers as soon as the operation rejects, so
+  // the next attempt can run without real wall-clock waits.
+  const flush = async () => {
+    // Multiple awaits because each retry chains through Promise + setTimeout.
+    for (let i = 0; i < 8; i += 1) {
+      await Promise.resolve();
+      jest.runOnlyPendingTimers();
+    }
+  };
+
+  test('returns immediately on success without retrying', async () => {
+    const op = jest.fn().mockResolvedValue('ok');
+    const result = await runDownloadWithRetry(op, 'test');
+    expect(result).toBe('ok');
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries on transient error and succeeds on a later attempt', async () => {
+    const op = jest
+      .fn<Promise<string>, []>()
+      .mockRejectedValueOnce(new Error('NSURLErrorDomain -1005'))
+      .mockRejectedValueOnce(new Error('HTTP error 504'))
+      .mockResolvedValueOnce('ok');
+    const promise = runDownloadWithRetry(op, 'test');
+    await flush();
+    await flush();
+    const result = await promise;
+    expect(result).toBe('ok');
+    expect(op).toHaveBeenCalledTimes(3);
+  });
+
+  test('bails immediately on SHA256_MISMATCH (unrecoverable)', async () => {
+    const err = new Error('Bundle SHA256 verification failed: MISMATCH');
+    const op = jest.fn().mockRejectedValue(err);
+    await expect(runDownloadWithRetry(op, 'test')).rejects.toBe(err);
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  test('bails immediately on HTTP 403 / 404 / 410', async () => {
+    for (const code of [403, 404, 410]) {
+      const err = new Error(`HTTP ${code}`);
+      const op = jest.fn().mockRejectedValue(err);
+      // eslint-disable-next-line no-await-in-loop
+      await expect(runDownloadWithRetry(op, 'test')).rejects.toBe(err);
+      expect(op).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  test('bails immediately on programmer/config errors (HTTPS, invalid version)', async () => {
+    const cases = [
+      'Bundle download URL must use HTTPS',
+      'Invalid version string format',
+      'Invalid URL',
+      'Already downloading',
+    ];
+    for (const msg of cases) {
+      const err = new Error(msg);
+      const op = jest.fn().mockRejectedValue(err);
+      // eslint-disable-next-line no-await-in-loop
+      await expect(runDownloadWithRetry(op, 'test')).rejects.toBe(err);
+      expect(op).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  test('throws the last error after exhausting all 3 retries', async () => {
+    const e1 = new Error('NSURLErrorDomain -1005');
+    const e2 = new Error('NSURLErrorDomain -1001');
+    const e3 = new Error('HTTP 502');
+    const e4 = new Error('IO_SocketTimeoutException');
+    const op = jest
+      .fn<Promise<string>, []>()
+      .mockRejectedValueOnce(e1)
+      .mockRejectedValueOnce(e2)
+      .mockRejectedValueOnce(e3)
+      .mockRejectedValueOnce(e4);
+    const promise = runDownloadWithRetry(op, 'test').catch((err) => err);
+    await flush();
+    await flush();
+    await flush();
+    const finalErr = await promise;
+    expect(finalErr).toBe(e4);
+    expect(op).toHaveBeenCalledTimes(4); // initial + 3 retries
+  });
+
+  test('computeDownloadRetryDelayMs grows exponentially with jitter floor', () => {
+    // Backoff base = 1500. attempt 0 → ≥1500, attempt 1 → ≥3000, attempt 2 → ≥6000.
+    // Cap upper bound at base*2^attempt + 500 (jitter window).
+    const a0 = computeDownloadRetryDelayMs(0);
+    const a1 = computeDownloadRetryDelayMs(1);
+    const a2 = computeDownloadRetryDelayMs(2);
+    expect(a0).toBeGreaterThanOrEqual(1500);
+    expect(a0).toBeLessThan(2000);
+    expect(a1).toBeGreaterThanOrEqual(3000);
+    expect(a1).toBeLessThan(3500);
+    expect(a2).toBeGreaterThanOrEqual(6000);
+    expect(a2).toBeLessThan(6500);
   });
 });
 

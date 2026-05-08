@@ -134,6 +134,81 @@ export function sanitizeUpdateErrorMessage(error: unknown): string | undefined {
   return cleaned;
 }
 
+// Codes that mean a retry will deterministically fail the same way — either
+// the server actively rejects us (auth, gone, malformed), or the bytes we
+// have on disk are already verified-bad (SHA256 mismatch — partial gets
+// wiped, retrying just re-downloads the same bad payload). Bail immediately
+// for these so we don't burn three round-trips on a known-dead state.
+const UNRECOVERABLE_DOWNLOAD_ERROR_CODES = new Set<string>([
+  'SHA256_MISMATCH',
+  'HTTP_403',
+  'HTTP_404',
+  'HTTP_410',
+]);
+function isUnrecoverableDownloadError(error: unknown): boolean {
+  const code = extractUpdateErrorCode(error);
+  if (code && UNRECOVERABLE_DOWNLOAD_ERROR_CODES.has(code)) return true;
+  // Programmer/config-error throws — extractUpdateErrorCode returns undefined
+  // for these because the messages are plain English. Match the canonical
+  // set thrown by the native modules.
+  const msg = (error as { message?: string } | null)?.message ?? '';
+  return (
+    msg.includes('Bundle download URL must use HTTPS') ||
+    msg.includes('Invalid version string format') ||
+    msg.includes('Already downloading') ||
+    msg.includes('Invalid URL')
+  );
+}
+
+const DOWNLOAD_RETRY_MAX_ATTEMPTS = 3;
+const DOWNLOAD_RETRY_BASE_DELAY_MS = 1500;
+// Visible for testing; main callers go through runDownloadWithRetry.
+export function computeDownloadRetryDelayMs(attempt: number): number {
+  return (
+    DOWNLOAD_RETRY_BASE_DELAY_MS * 2 ** attempt + Math.floor(Math.random() * 500)
+  );
+}
+
+/**
+ * Retries `operation` on transient bundle-update failures (network drops,
+ * partial truncation, transient server 5xx) up to DOWNLOAD_RETRY_MAX_ATTEMPTS
+ * times with exponential backoff + jitter. The native modules persist their
+ * resume artifact (iOS .resume / Android & Desktop .partial) on each failure,
+ * so each retry is a true range-resume rather than a from-byte-zero re-fetch.
+ *
+ * Bails immediately for unrecoverable codes (SHA mismatch, HTTP 403/404/410,
+ * config errors) so we don't waste backoff windows on deterministic dead
+ * states. Cap of 3 attempts (initial + 3 retries = 4 total round-trips) keeps
+ * the worst-case wait under ~14s + jitter.
+ */
+export async function runDownloadWithRetry<T>(
+  operation: () => Promise<T>,
+  context: string,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= DOWNLOAD_RETRY_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await operation();
+    } catch (e) {
+      lastError = e;
+      if (
+        isUnrecoverableDownloadError(e) ||
+        attempt === DOWNLOAD_RETRY_MAX_ATTEMPTS
+      ) {
+        throw e;
+      }
+      const delayMs = computeDownloadRetryDelayMs(attempt);
+      defaultLogger.app.appUpdate.log(
+        `${context}: retry ${attempt + 1}/${DOWNLOAD_RETRY_MAX_ATTEMPTS} in ${delayMs}ms — code=${
+          extractUpdateErrorCode(e) ?? '<none>'
+        }`,
+      );
+      await timerUtils.wait(delayMs);
+    }
+  }
+  throw lastError;
+}
+
 // Maps a thrown bundle-update error into a stable, low-cardinality code so
 // Mixpanel can aggregate failures by category instead of unique message
 // strings. Recognized payloads (in priority order):
@@ -610,10 +685,19 @@ export const useDownloadPackage = () => {
         headers,
       };
       defaultLogger.app.appUpdate.startDownload(downloadParams);
-      const result =
-        fileType === EUpdateFileType.jsBundle
-          ? await BundleUpdate.downloadBundle(downloadParams)
-          : await AppUpdate.downloadPackage(downloadParams);
+      // Retry transient failures up to 3x with backoff. Each retry reuses
+      // the on-disk resume artifact (iOS .resume / Android & Desktop
+      // .partial), so the second attempt onward is a real range-resume —
+      // not a from-byte-zero re-fetch. Bails immediately on
+      // SHA256_MISMATCH / HTTP 4xx-permanent so we don't spin on a known-
+      // dead state.
+      const result = await runDownloadWithRetry(
+        () =>
+          fileType === EUpdateFileType.jsBundle
+            ? BundleUpdate.downloadBundle(downloadParams)
+            : AppUpdate.downloadPackage(downloadParams),
+        'downloadPackage',
+      );
       defaultLogger.app.appUpdate.endDownload(result || {});
       if (!result) {
         return;
