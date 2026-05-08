@@ -255,6 +255,7 @@ export function convertDeviceError(
         return convertThirdPartyDeviceError({
           code: Number(code),
           error: payload.error ?? message ?? '',
+          params: payload.params,
         });
       }
       return new HardwareErrors.UnknownHardwareError({ payload });
