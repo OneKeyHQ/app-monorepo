@@ -26,7 +26,7 @@ import { HyperlinkText } from '../../../components/HyperlinkText';
 import {
   useAppUpdateInfo,
   useDownloadPackage,
-} from '../../../components/UpdateReminder/hooks';
+} from '../../../components/AppUpdate';
 
 const STEP_INDEX_MAP: Record<EAppUpdateStatus, number> = {
   [EAppUpdateStatus.failed]: -2,

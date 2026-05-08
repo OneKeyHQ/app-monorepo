@@ -21,7 +21,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { isForceUpdateStrategy } from '../../../components/UpdateReminder/hooks';
+import { isForceUpdateStrategy } from '../../../components/AppUpdate';
 import { UpdatePreviewActionButton } from '../components/UpdatePreviewActionButton';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 

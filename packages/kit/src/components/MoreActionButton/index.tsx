@@ -93,7 +93,7 @@ import { UpdateReminder } from '../UpdateReminder';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
-} from '../UpdateReminder/hooks';
+} from '../AppUpdate';
 import { WalletAvatar } from '../WalletAvatar';
 
 import type { IDeviceManagementListItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
