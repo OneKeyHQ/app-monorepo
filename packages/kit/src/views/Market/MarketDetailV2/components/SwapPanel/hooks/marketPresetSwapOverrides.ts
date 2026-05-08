@@ -12,6 +12,7 @@ import {
   fetchMarketPresetConfig,
   getMarketPresetNetworkFeeLevel,
   getMarketPresetPriorityFeeOverride,
+  isInvalidMarketPresetSlippageSettings,
   normalizeMarketPresetSavedSettings,
   resolveMarketPresetDirectionSettings,
 } from './marketPresetSettings';
@@ -70,7 +71,8 @@ export async function loadMarketPresetSwapOverrides({
     const slippage =
       directionSettings.slippage?.key === ESwapSlippageSegmentKey.CUSTOM &&
       typeof slippageValue === 'number' &&
-      Number.isFinite(slippageValue)
+      Number.isFinite(slippageValue) &&
+      !isInvalidMarketPresetSlippageSettings(directionSettings)
         ? {
             key: ESwapSlippageSegmentKey.CUSTOM,
             value: slippageValue,
