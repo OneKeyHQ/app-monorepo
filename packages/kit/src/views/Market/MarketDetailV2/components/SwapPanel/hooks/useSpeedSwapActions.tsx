@@ -1482,6 +1482,8 @@ export function useSpeedSwapActions(props: {
       onCancel?: () => void;
     }) => {
       let feeInfo: IFeeInfoUnit | undefined;
+      let feeInfos: IFeeInfoUnit[] | undefined;
+      let txConfirmBuildUnsignedParams = buildUnsignedParams;
       const isApproveOnlyTx =
         approvesInfo?.length === 1 &&
         !buildUnsignedParams.encodedTx &&
@@ -1489,65 +1491,86 @@ export function useSpeedSwapActions(props: {
         !buildUnsignedParams.swapInfo;
       const canAttachPresetFeeInfo =
         Boolean(accountAddress && accountId && networkId) &&
-        Boolean(networkFeeLevel || customPriorityFee) &&
-        (!approvesInfo?.length || isApproveOnlyTx);
+        Boolean(networkFeeLevel || customPriorityFee);
 
       if (canAttachPresetFeeInfo) {
         try {
-          const feeState = await estimateMarketDirectGasInfos({
-            accountAddress: accountAddress as string,
-            accountId: accountId as string,
-            networkId: networkId as string,
-            buildUnsignedParams,
-            networkFeeLevel,
-            customPriorityFee,
-          });
-          const gasInfo =
-            feeState.gasInfos[feeState.gasInfos.length - 1]?.gasInfo;
-          feeInfo = gasInfo ? buildMarketGasInfoFeeInfo(gasInfo) : undefined;
+          if (approvesInfo?.length && !isApproveOnlyTx) {
+            const approveUnsignedTxArr = await buildMarketApproveUnsignedTxArr({
+              approveInfos: approvesInfo,
+              accountId: accountId as string,
+              networkId: networkId as string,
+            });
+
+            if (approveUnsignedTxArr?.length) {
+              const feeState = await estimateMarketDirectGasInfos({
+                accountAddress: accountAddress as string,
+                accountId: accountId as string,
+                networkId: networkId as string,
+                buildUnsignedParams,
+                approveUnsignedTxArr,
+                networkFeeLevel,
+                customPriorityFee,
+              });
+
+              if (
+                !buildUnsignedParams.encodedTx &&
+                feeState.preparedUnsignedTx.encodedTx
+              ) {
+                txConfirmBuildUnsignedParams = {
+                  ...buildUnsignedParams,
+                  encodedTx: feeState.preparedUnsignedTx.encodedTx,
+                };
+              }
+
+              const nextFeeInfos = feeState.gasInfos.map((item) =>
+                buildMarketGasInfoFeeInfo(item.gasInfo),
+              );
+              if (
+                nextFeeInfos.length === approveUnsignedTxArr.length + 1 &&
+                nextFeeInfos.every((item) => item.gas || item.gasEIP1559)
+              ) {
+                feeInfos = nextFeeInfos;
+              }
+            }
+          } else {
+            const feeState = await estimateMarketDirectGasInfos({
+              accountAddress: accountAddress as string,
+              accountId: accountId as string,
+              networkId: networkId as string,
+              buildUnsignedParams,
+              networkFeeLevel,
+              customPriorityFee,
+            });
+            const gasInfo =
+              feeState.gasInfos[feeState.gasInfos.length - 1]?.gasInfo;
+            feeInfo = gasInfo ? buildMarketGasInfoFeeInfo(gasInfo) : undefined;
+          }
         } catch {
           feeInfo = undefined;
+          feeInfos = undefined;
         }
-      } else if (customPriorityFee) {
-        // Approve+swap (or other multi-tx) fallback: the user configured a
-        // Market preset custom priority fee but we cannot pre-attach it here
-        // because each tx must round-trip through the standard
-        // SignatureConfirm flow, which does not read the swap-context atom.
-        // Surface a warning so QA/regression tooling can detect the silent
-        // override loss until the TODO below is resolved.
-        console.warn(
-          '[market-preset] customPriorityFee not applied: approve+swap fallback path does not propagate to SignatureConfirm yet',
-        );
       }
 
-      // Only lock the fee editor when a preset feeInfo was actually pre-attached.
-      // For the approve+swap fallback path we cannot pre-attach feeInfo (each tx
-      // needs its own estimation through the standard SignatureConfirm flow,
-      // which does not read the swap-context customPriorityFee). Keeping the
-      // editor unlocked there lets the user manually choose a tier rather than
-      // being stuck on a preset value the flow never delivered.
-      // TODO(market-preset): pipe `customPriorityFee` through
-      //   `useSignatureConfirm` → `EModalSignatureConfirmRoutes.TxConfirmFromSwap`
-      //   → `TxFeeInfo` so the approve+swap fallback path can also honour the
-      //   Market preset without forcing the user to re-pick the tier manually.
-      const lockFeeEditor = Boolean(feeInfo);
+      const lockFeeEditor = Boolean(feeInfo || feeInfos?.length);
 
       await navigationToTxConfirm({
-        wrappedInfo: buildUnsignedParams.wrappedInfo,
-        transfersInfo: buildUnsignedParams.transfersInfo,
-        encodedTx: buildUnsignedParams.encodedTx,
-        swapInfo: buildUnsignedParams.swapInfo,
+        wrappedInfo: txConfirmBuildUnsignedParams.wrappedInfo,
+        transfersInfo: txConfirmBuildUnsignedParams.transfersInfo,
+        encodedTx: txConfirmBuildUnsignedParams.encodedTx,
+        swapInfo: txConfirmBuildUnsignedParams.swapInfo,
         approvesInfo,
         feeInfo,
-        useFeeInTx: feeInfo ? true : undefined,
+        feeInfos,
+        useFeeInTx: lockFeeEditor ? true : undefined,
         feeInfoEditable: lockFeeEditor ? false : undefined,
         isInternalSwap: true,
-        disableMev: buildUnsignedParams.disableMev,
+        disableMev: txConfirmBuildUnsignedParams.disableMev,
         onSuccess,
         onCancel,
       });
     },
-    [navigationToTxConfirm],
+    [buildMarketApproveUnsignedTxArr, navigationToTxConfirm],
   );
 
   const signMarketReviewQuoteResult = useCallback(

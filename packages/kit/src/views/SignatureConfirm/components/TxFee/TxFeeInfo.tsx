@@ -106,6 +106,7 @@ import {
   getGasAccountErrorEntry,
 } from '../../constants/gasAccountErrorCodes';
 
+import { buildPresetMultiTxsFee } from './presetFeeInfoUtils';
 import { TxFeeEditor } from './TxFeeEditor';
 import { TxFeeSelectorTrigger } from './TxFeeSelectorTrigger';
 
@@ -299,6 +300,39 @@ function TxFeeInfo(props: IProps) {
           errMessage: '',
           discountPercent: 0,
         });
+
+        const presetMultiTxsFee =
+          useFeeInTx && !feeInfoEditable
+            ? buildPresetMultiTxsFee(unsignedTxs)
+            : undefined;
+
+        if (presetMultiTxsFee) {
+          const { estimateFeeParams: e } =
+            await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+              accountId,
+              networkId,
+              encodedTx: unsignedTxs[0].encodedTx,
+            });
+          if (getStaleResult()) {
+            return staleResult;
+          }
+
+          updateEffectiveFeePayer('user');
+          resetGasAccountUiState();
+          resetMegafuelEligible();
+          updateGasAccountUiState({ payer: 'user' });
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Success,
+            errMessage: '',
+          });
+          updateTxFeeInfoInit(true);
+          updateTxAdvancedSettings({ dataChanged: false });
+          return {
+            r: undefined,
+            e,
+            m: presetMultiTxsFee,
+          };
+        }
 
         if (isMultiTxs) {
           const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -785,9 +819,11 @@ function TxFeeInfo(props: IProps) {
       isMultiTxs,
       isSecondApproveTxWithFeeInfo,
       isSingleTxWithFeesInfo,
+      feeInfoEditable,
       network?.isTestnet,
       networkId,
       unsignedTxs,
+      useFeeInTx,
       gasAccountTemporarilyDisabled,
       resetGasAccountTemporarilyDisabled,
       updateGasAccountTemporarilyDisabled,
