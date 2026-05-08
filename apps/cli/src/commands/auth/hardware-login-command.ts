@@ -7,13 +7,8 @@ import {
   PASSPHRASE_MODE_ON_HOST,
 } from '../../core/auth/auth-types';
 import { AppError, ERROR_CODES } from '../../errors';
-import {
-  AUTH_SESSION_SCHEMA_VERSION,
-  AuthSessionStore,
-} from '../../infra/auth-session-store';
-import { KeychainStorage } from '../../infra/keychain-storage';
+import { AUTH_SESSION_SCHEMA_VERSION } from '../../infra/auth-session-store';
 import { presentAuthLoginResult } from '../../output/auth-presenters';
-import { persistKeychainSessionPair } from '../../signer/keychain-keys';
 import { promptPassphraseViaPinentry } from '../../utils/pinentry';
 import {
   CoreSDKLoader,
@@ -23,6 +18,7 @@ import {
   unwrapSDKResult,
 } from '../device/hardware-sdk';
 
+import type { IHardwareSessionPersistInput } from './_internal/hardware-auth-manager';
 import type {
   PassphraseMode,
   ResolvedAuthSession,
@@ -36,6 +32,7 @@ interface IHardwareLoginDeps {
   deviceIdHint?: string;
   passphraseMode?: string;
   getStatus: () => Promise<ResolvedAuthSession>;
+  persistSession: (input: IHardwareSessionPersistInput) => Promise<void>;
 }
 
 function normalizeExplicitPassphraseMode(
@@ -166,6 +163,7 @@ export async function executeHardwareLoginCommand({
   deviceIdHint,
   passphraseMode: explicitPassphraseMode,
   getStatus,
+  persistSession,
 }: IHardwareLoginDeps): Promise<void> {
   // Guard: no existing session
   const currentSession = await getStatus();
@@ -331,39 +329,30 @@ export async function executeHardwareLoginCommand({
 
   output.info(`Device address: ${displayAddress}`);
 
-  // Step 6: Persist session.json
-  const sessionStore = new AuthSessionStore();
-  await sessionStore.save({
-    schemaVersion: AUTH_SESSION_SCHEMA_VERSION,
-    loginMethod: AUTH_LOGIN_METHOD_HARDWARE,
-    walletKind: WALLET_TYPE_HW,
-    displayAddress,
-    importedAt: new Date().toISOString(),
-    sourceLabel: `Hardware: ${deviceLabel}`,
-    device: {
-      connectId,
-      deviceId,
-      deviceLabel,
+  // Step 6 + 7: Persist session.json AND the passphrase-state / session-id
+  // keychain pair atomically through the manager. The manager owns the
+  // post-save keychain write so command code never has to know which
+  // backends back the hardware session — the same handoff stops a future
+  // refactor (e.g., new keychain layout) from skipping the persistence
+  // step.
+  await persistSession({
+    session: {
+      schemaVersion: AUTH_SESSION_SCHEMA_VERSION,
+      loginMethod: AUTH_LOGIN_METHOD_HARDWARE,
+      walletKind: WALLET_TYPE_HW,
+      displayAddress,
+      importedAt: new Date().toISOString(),
+      sourceLabel: `Hardware: ${deviceLabel}`,
+      device: {
+        connectId,
+        deviceId,
+        deviceLabel,
+      },
+      passphraseMode,
     },
-    passphraseMode,
+    passphraseState,
+    sessionId: resolvedSessionId,
   });
-
-  // Step 7: Persist passphraseState + sessionId to OS keychain.
-  // This runs AFTER session.json is confirmed — if getAddress or session
-  // write failed above, no keychain entries are left behind.
-  if (passphraseState && resolvedSessionId) {
-    try {
-      const keychain = new KeychainStorage();
-      await persistKeychainSessionPair(
-        keychain,
-        passphraseState,
-        resolvedSessionId,
-      );
-    } catch {
-      // non-fatal — next command will pop pinentry once to rebuild the
-      // session; no security or data-loss consequence.
-    }
-  }
 
   // Step 8: Show result
   const finalSession = await getStatus();

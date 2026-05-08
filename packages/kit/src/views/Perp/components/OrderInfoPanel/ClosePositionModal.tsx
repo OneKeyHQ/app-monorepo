@@ -23,8 +23,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   calculateProfitLoss,
+  formatHlSize,
   formatPriceToSignificantDigits,
-  formatWithPrecision,
   parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -135,19 +135,20 @@ const ClosePositionForm = memo(
         ? 0
         : formData.percentage;
       const amount = positionSize.multipliedBy(percentage).dividedBy(100);
-      return formatWithPrecision(amount.toNumber(), szDecimals, true);
+      // Floor-truncate to szDecimals to match HL lot-size rule (no over-rounding).
+      return formatHlSize(amount, szDecimals) || '0';
     }, [positionSize, formData.percentage, szDecimals]);
 
     const handlePercentageChange = useCallback(
       (percentage: number) => {
-        const amount = positionSize
-          .multipliedBy(percentage)
-          .dividedBy(100)
-          .toFixed(szDecimals);
+        // Compute size at full precision then floor-truncate via formatHlSize
+        // (avoid HALF_UP toFixed which can produce a size larger than the
+        // requested percentage of the position).
+        const amount = positionSize.multipliedBy(percentage).dividedBy(100);
         setFormData((prev) => ({
           ...prev,
           percentage,
-          amount: formatWithPrecision(amount, szDecimals, true),
+          amount: formatHlSize(amount, szDecimals) || '0',
         }));
       },
       [positionSize, szDecimals],
@@ -174,7 +175,7 @@ const ClosePositionForm = memo(
         if (numericValue.gt(positionSize)) {
           setFormData((prev) => ({
             ...prev,
-            amount: formatWithPrecision(positionSize, szDecimals, true),
+            amount: formatHlSize(positionSize, szDecimals) || '0',
             percentage: 100,
           }));
           return;

@@ -308,7 +308,7 @@ class ServiceStaking extends ServiceBase {
         accountId,
         networkId,
       }),
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
       }),
@@ -1294,10 +1294,12 @@ class ServiceStaking extends ServiceBase {
     accountId,
     networkId,
     indexedAccountId,
+    scopeNetworkIds,
   }: {
     accountId: string;
     networkId: string;
     indexedAccountId?: string;
+    scopeNetworkIds?: string[];
   }) {
     if (!accountId) {
       return this._getAccountAssetV2([]);
@@ -1308,7 +1310,13 @@ class ServiceStaking extends ServiceBase {
       networkId,
       indexedAccountId,
     });
-    return this._getAccountAssetV2(accounts);
+    const scopeNetworkIdSet = scopeNetworkIds?.length
+      ? new Set(scopeNetworkIds)
+      : undefined;
+    const scopedAccounts = scopeNetworkIdSet
+      ? accounts.filter((account) => scopeNetworkIdSet.has(account.networkId))
+      : accounts;
+    return this._getAccountAssetV2(scopedAccounts);
   }
 
   @backgroundMethod()

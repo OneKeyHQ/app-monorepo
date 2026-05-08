@@ -112,12 +112,19 @@ export enum ETokenRiskLevel {
   SCAM = 1002,
 }
 
+export interface IMarketPresetTokenContext {
+  networkId: string;
+  contractAddress: string;
+  isNative?: boolean;
+}
+
 export interface ISwapInitParams {
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
+  marketPresetToken?: IMarketPresetTokenContext;
 }
 
 // token & network
@@ -500,9 +507,14 @@ export interface ISwapPreSwapData {
   swapBuildLoading?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
+  stepBeforeActionsError?: boolean;
   providerInfo?: IFetchQuoteInfo;
   isHWAndExBatchTransfer?: boolean;
   slippage?: number;
+  rateDifference?: {
+    value: string;
+    unit: ESwapRateDifferenceUnit;
+  };
   swapType?: ESwapTabSwitchType;
   unSupportSlippage?: boolean;
   swapBuildResultData?: {

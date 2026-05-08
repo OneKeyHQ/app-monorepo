@@ -25,6 +25,7 @@ import {
   useSwapQuoteCurrentEventProviderKeysAtom,
   useSwapQuoteCurrentEventReceivedCountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventCompletedAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -33,14 +34,24 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
   buildSwapManualProviderSelectionIntent,
   buildSwapQuoteProviderKey,
+  getSwapQuoteEventProgressTotalCount,
+  hasSwapQuoteEventTotalCount,
+  hasSwapZeroProviderQuoteEvent,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapTabSwitchType,
+  type IFetchQuoteResult,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   useSwapQuoteEventFetching,
@@ -142,6 +153,7 @@ const SwapProviderListPanel = ({
     useSwapManualSelectQuoteProvidersAtom();
   const [providerSort, setProviderSort] = useSwapProviderSortAtom();
   const [settingsPersist] = useSettingsPersistAtom();
+  const [{ swapIncognitoMode }] = useSettingsAtom();
   const [currentSelectQuote] = useSwapQuoteCurrentSelectAtom();
   const selectedProviderInfo =
     currentSelectQuote?.info ?? manualSelectQuoteProvider?.info;
@@ -149,6 +161,7 @@ const SwapProviderListPanel = ({
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const [currentEventReceivedCount] =
     useSwapQuoteCurrentEventReceivedCountAtom();
   const [currentEventProviderKeys] = useSwapQuoteCurrentEventProviderKeysAtom();
@@ -165,6 +178,9 @@ const SwapProviderListPanel = ({
         : swapSortedList,
     [currentEventProviderKeySet, quoteEventTotalCount.count, swapSortedList],
   );
+  const hasZeroProviderEvent = hasSwapZeroProviderQuoteEvent({
+    quoteEventTotalCount,
+  });
 
   // Cache the previous list to show during refresh (prevents flash to empty)
   const cachedListRef = useRef<IFetchQuoteResult[]>([]);
@@ -243,6 +259,7 @@ const SwapProviderListPanel = ({
   // Use cached list during refresh to prevent flash
   // Show cached data when: loading with empty list but had previous data, OR during refresh
   const displayList =
+    !hasZeroProviderEvent &&
     (isLoading || isRefreshingRef.current) &&
     quoteListForDisplay.length === 0 &&
     cachedListRef.current.length > 0
@@ -683,19 +700,39 @@ const SwapProviderListPanel = ({
   }
 
   const hasQuotes = displayList.length > 0;
+  const quoteEventProgressTotalCount = useMemo(
+    () =>
+      getSwapQuoteEventProgressTotalCount({
+        quoteEventTotalCount,
+        maxQuoteCount:
+          swapIncognitoMode && swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+            ? SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP
+            : undefined,
+      }),
+    [quoteEventTotalCount, swapIncognitoMode, swapTypeSwitch],
+  );
 
   // Whether the SSE total event has been received
-  const hasReceivedTotal = quoteEventTotalCount.count > 0;
+  const hasReceivedTotal = hasSwapQuoteEventTotalCount({
+    quoteEventTotalCount: quoteEventProgressTotalCount,
+    quoteEventCompleted,
+  });
+  const isZeroProviderFetching = hasZeroProviderEvent && quoteEventFetching;
   // Number of skeleton placeholders for providers not yet received
   const remainingSkeletonCount =
     hasReceivedTotal && quoteEventFetching
-      ? Math.max(0, quoteEventTotalCount.count - currentEventReceivedCount)
+      ? Math.max(
+          0,
+          quoteEventProgressTotalCount.count - currentEventReceivedCount,
+        )
       : 0;
 
   const contentArea = (
     <AnimatePresence>
       {/* Phase 1: Spinner - no total event received yet (covers gap before loading starts) */}
-      {shouldShowContent && !hasQuotes && !hasReceivedTotal ? (
+      {shouldShowContent &&
+      !hasQuotes &&
+      (!hasReceivedTotal || isZeroProviderFetching) ? (
         <MotiView
           key="spinner"
           from={{ opacity: 0 }}
@@ -725,7 +762,8 @@ const SwapProviderListPanel = ({
 
       {/* Phase 2+3: Data cards + skeleton placeholders for remaining */}
       {shouldShowContent &&
-      (hasQuotes || (hasReceivedTotal && quoteEventFetching)) ? (
+      (hasQuotes ||
+        (hasReceivedTotal && quoteEventFetching && !isZeroProviderFetching)) ? (
         <MotiView
           key="content"
           from={{ opacity: 0 }}

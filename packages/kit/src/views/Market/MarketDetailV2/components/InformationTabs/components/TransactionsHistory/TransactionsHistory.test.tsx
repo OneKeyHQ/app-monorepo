@@ -22,6 +22,7 @@ const mockHandleRealtimePauseHoverOut = jest.fn();
 const mockHandleRealtimePauseTouchStart = jest.fn();
 const mockHandleRealtimePauseTouchEnd = jest.fn();
 const mockTransactionsRelativeTimeProvider = jest.fn();
+const mockMedia = { gtXl: true };
 let mockFlatListProps: Record<
   string,
   ((...args: unknown[]) => void) | unknown
@@ -62,7 +63,7 @@ jest.mock('@onekeyhq/components', () => {
       },
     },
     useCurrentTabScrollY: () => ({ value: 0 }),
-    useMedia: () => ({ gtXl: true }),
+    useMedia: () => mockMedia,
   };
 });
 
@@ -167,6 +168,7 @@ describe('TransactionsHistory', () => {
     mockTransactionsRelativeTimeProvider.mockReset();
     mockMarketTransactionsResult.transactions = [];
     mockMarketTransactionsResult.isRealtimePaused = false;
+    mockMedia.gtXl = true;
     platformEnv.isNative = false;
     platformEnv.isNativeAndroid = false;
   });
@@ -193,6 +195,30 @@ describe('TransactionsHistory', () => {
       }),
     );
     expect(websocketParams).not.toHaveProperty('onSubscriptionRestored');
+  });
+
+  it('keeps web hover realtime pause enabled when desktop uses the small transaction list', () => {
+    mockMedia.gtXl = false;
+
+    render(
+      <TransactionsHistory
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        isTabFocused
+      />,
+    );
+
+    expect(mockFlatListProps).toEqual(
+      expect.objectContaining({
+        onMouseEnter: mockHandleRealtimePauseHoverIn,
+        onMouseLeave: mockHandleRealtimePauseHoverOut,
+      }),
+    );
+    expect(mockUseTransactionsWebSocket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabled: true,
+      }),
+    );
   });
 
   it('disables relative time ticking when the transactions tab is hidden', () => {

@@ -1,3 +1,13 @@
+import { Command } from 'commander';
+
+import { OutputFormatter } from '../output';
+
+export interface ICommandRunResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
 /**
  * Extract parseable JSON from CLI output that may contain debug log lines
  * (e.g., isExtensionBackgroundServiceWorker from shared package).
@@ -45,4 +55,69 @@ export function stripDebugOutput(raw: string): string {
     .join('\n')
     .trim();
   return cleaned;
+}
+
+export function createTestProgram(): Command {
+  const program = new Command();
+  program
+    .name('onekey-test')
+    .exitOverride()
+    .option('--json', 'Force JSON output')
+    .option('--interactive', 'Force interactive mode')
+    .option('--quiet', 'Suppress non-essential output')
+    .option('--env <env>', 'Environment: test | prod', 'prod')
+    .option('--yes', 'Skip confirmation prompts');
+
+  program.hook('preAction', (_thisCommand, actionCommand) => {
+    actionCommand.setOptionValue(
+      '_outputFormatter',
+      new OutputFormatter('agent'),
+    );
+  });
+
+  return program;
+}
+
+export async function runCommand(
+  program: Command,
+  args: string[],
+): Promise<ICommandRunResult> {
+  let stdout = '';
+  let stderr = '';
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+  const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  const originalExitCode = process.exitCode;
+
+  process.exitCode = 0;
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    stdout += chunk.toString();
+    return true;
+  }) as typeof process.stdout.write;
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    stderr += chunk.toString();
+    return true;
+  }) as typeof process.stderr.write;
+
+  try {
+    await program.parseAsync(['node', 'onekey', ...args], { from: 'node' });
+  } catch (error) {
+    if (typeof process.exitCode !== 'number') {
+      process.exitCode =
+        typeof (error as { exitCode?: unknown }).exitCode === 'number'
+          ? (error as { exitCode: number }).exitCode
+          : 1;
+    }
+  } finally {
+    process.stdout.write = originalStdoutWrite;
+    process.stderr.write = originalStderrWrite;
+  }
+
+  const exitCode = typeof process.exitCode === 'number' ? process.exitCode : 0;
+  process.exitCode = originalExitCode;
+
+  return {
+    exitCode,
+    stdout,
+    stderr,
+  };
 }

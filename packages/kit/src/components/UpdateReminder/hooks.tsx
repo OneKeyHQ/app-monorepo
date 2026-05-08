@@ -1030,10 +1030,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       toUpdatePreviewPage,
       onViewReleaseInfo,
       checkForUpdates,
+      downloadPackage,
     };
   }, [
     appUpdateInfo,
     checkForUpdates,
+    downloadPackage,
     onUpdateAction,
     onViewReleaseInfo,
     toUpdatePreviewPage,

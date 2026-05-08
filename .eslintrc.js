@@ -14,8 +14,10 @@
 // require('./development/lint/eslint-rule-force-async-bg-api'); // TODO not working
 // require('./development/lint/eslint-rule-enforce-return-type');
 
-// Register local eslint-plugin-onekey so eslint-disable-next-line onekey/no-raw-error
-// comments don't cause "unknown rule" errors (the real rule lives in oxlint)
+// Register local eslint-plugin-onekey so eslint-disable-next-line directives
+// such as `onekey/no-raw-error` and `onekey/no-non-worklet-call-in-worklet`
+// don't trigger "Definition for rule not found" errors. The real rules run
+// in oxlint (.oxlintrc.json); ESLint only needs the names to be resolvable.
 const Module = require('module');
 const path = require('path');
 

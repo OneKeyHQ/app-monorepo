@@ -192,7 +192,7 @@ function CheckAndUpdatePage({
     }
 
     // Original transport is stored in singleton, will be restored in useFocusEffect
-    actions.openChangeLogModal({
+    await actions.openChangeLogModal({
       connectId: usbPrepareResult.connectId,
     });
   }, [actions, currentDevice, prepareUSBConnect]);

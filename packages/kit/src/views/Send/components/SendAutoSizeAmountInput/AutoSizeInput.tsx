@@ -68,11 +68,113 @@ const measureInlineTextWidthPx = (
   return estimateInlineTextWidthPx(text, fontSize);
 };
 
+const INLINE_WIDTH_SAFETY_PX = 8;
+
+function getInlineContentWidthPx({
+  text,
+  fontSize,
+  currencyLabel,
+  inlineTokenSymbol,
+  inlinePrefixGapPx,
+  inlineSuffixGapPx,
+  measurementRevision,
+}: {
+  text: string;
+  fontSize: number;
+  currencyLabel?: string;
+  inlineTokenSymbol?: string;
+  inlinePrefixGapPx: number;
+  inlineSuffixGapPx: number;
+  measurementRevision: number;
+}) {
+  const amountWidthPx =
+    Math.ceil(
+      measureInlineTextWidthPx(text, fontSize, 500, measurementRevision),
+    ) + Math.max(18, Math.round(fontSize * 0.5));
+  const prefixWidthPx = currencyLabel
+    ? Math.ceil(
+        measureInlineTextWidthPx(
+          currencyLabel,
+          fontSize,
+          500,
+          measurementRevision,
+        ),
+      )
+    : 0;
+  const suffixWidthPx = inlineTokenSymbol
+    ? Math.ceil(
+        measureInlineTextWidthPx(
+          inlineTokenSymbol,
+          fontSize,
+          500,
+          measurementRevision,
+        ),
+      )
+    : 0;
+
+  return (
+    amountWidthPx +
+    prefixWidthPx +
+    suffixWidthPx +
+    (currencyLabel ? inlinePrefixGapPx : 0) +
+    (inlineTokenSymbol ? inlineSuffixGapPx : 0) +
+    Math.max(8, Math.round(fontSize * 0.16)) +
+    INLINE_WIDTH_SAFETY_PX
+  );
+}
+
+function getFittedInlineFontSize({
+  text,
+  fontSize,
+  minFontSize,
+  availableInlineWidth,
+  currencyLabel,
+  inlineTokenSymbol,
+  inlinePrefixGapPx,
+  inlineSuffixGapPx,
+  measurementRevision,
+}: {
+  text: string;
+  fontSize: number;
+  minFontSize: number;
+  availableInlineWidth: number;
+  currencyLabel?: string;
+  inlineTokenSymbol?: string;
+  inlinePrefixGapPx: number;
+  inlineSuffixGapPx: number;
+  measurementRevision: number;
+}) {
+  if (availableInlineWidth <= 0) {
+    return fontSize;
+  }
+
+  const minimumFontSize = Math.max(12, Math.min(fontSize, minFontSize));
+  let nextFontSize = fontSize;
+  while (nextFontSize > minimumFontSize) {
+    const contentWidthPx = getInlineContentWidthPx({
+      text,
+      fontSize: nextFontSize,
+      currencyLabel,
+      inlineTokenSymbol,
+      inlinePrefixGapPx,
+      inlineSuffixGapPx,
+      measurementRevision,
+    });
+    if (contentWidthPx <= availableInlineWidth) {
+      return nextFontSize;
+    }
+    nextFontSize -= 1;
+  }
+
+  return minimumFontSize;
+}
+
 export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
   (
     {
       value,
       fontSize,
+      minFontSize,
       availableInlineWidth,
       currencyLabel,
       inlineTokenSymbol,
@@ -133,13 +235,27 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     }, []);
 
     const inlineMeasureText = value || placeholder || '0';
+    const effectiveFontSize = getFittedInlineFontSize({
+      text: inlineMeasureText,
+      fontSize,
+      minFontSize,
+      availableInlineWidth,
+      currencyLabel,
+      inlineTokenSymbol,
+      inlinePrefixGapPx,
+      inlineSuffixGapPx,
+      measurementRevision: webFontMeasureVersion,
+    });
     const inlineMeasuredAmountWidthPx = measureInlineTextWidthPx(
       inlineMeasureText,
-      fontSize,
+      effectiveFontSize,
       500,
       webFontMeasureVersion,
     );
-    const inlineInputBufferPx = Math.max(18, Math.round(fontSize * 0.5));
+    const inlineInputBufferPx = Math.max(
+      18,
+      Math.round(effectiveFontSize * 0.5),
+    );
     const inlineAmountTextWidthPx = Math.ceil(
       inlineMeasuredAmountWidthPx + inlineInputBufferPx,
     );
@@ -147,7 +263,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       ? Math.ceil(
           measureInlineTextWidthPx(
             currencyLabel,
-            fontSize,
+            effectiveFontSize,
             500,
             webFontMeasureVersion,
           ),
@@ -157,7 +273,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       ? Math.ceil(
           measureInlineTextWidthPx(
             inlineTokenSymbol,
-            fontSize,
+            effectiveFontSize,
             500,
             webFontMeasureVersion,
           ),
@@ -165,7 +281,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       : 0;
     const inlineInputWidthPx = Math.max(
       inlineAmountTextWidthPx,
-      Math.ceil(fontSize * 1.05),
+      Math.ceil(effectiveFontSize * 1.05),
     );
     const inlineInputSlackPx = Math.max(
       inlineInputWidthPx - inlineAmountTextWidthPx,
@@ -176,13 +292,19 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       inlineSuffixTextWidthPx +
       (currencyLabel ? inlinePrefixGapPx : 0) +
       (inlineTokenSymbol ? inlineSuffixGapPx : 0) +
-      Math.max(8, Math.round(fontSize * 0.16));
+      Math.max(8, Math.round(effectiveFontSize * 0.16));
     const inlineInputMaxWidth =
       inlineTokenSymbol || currencyLabel
         ? `calc(100% - ${desktopInlineReservedWidthPx}px)`
         : '100%';
-    const desktopPrefixOffset = Math.max(2, Math.round(fontSize * 0.05));
-    const desktopInlineSymbolOffset = Math.max(2, Math.round(fontSize * 0.04));
+    const desktopPrefixOffset = Math.max(
+      2,
+      Math.round(effectiveFontSize * 0.05),
+    );
+    const desktopInlineSymbolOffset = Math.max(
+      2,
+      Math.round(effectiveFontSize * 0.04),
+    );
     const hasPrefix = !!currencyLabel;
     const hasSuffix = !!inlineTokenSymbol;
     let desktopAmountTextAlign: 'center' | 'left' | 'right' = 'center';
@@ -200,7 +322,8 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     }
 
     const hasSmallWidth =
-      availableInlineWidth > 0 && availableInlineWidth < Math.ceil(fontSize);
+      availableInlineWidth > 0 &&
+      availableInlineWidth < Math.ceil(effectiveFontSize);
 
     return (
       <XStack
@@ -217,9 +340,9 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           <SizableText
             color="$text"
             fontWeight="500"
-            lineHeight={Math.ceil(fontSize * 1.4)}
+            lineHeight={Math.ceil(effectiveFontSize * 1.4)}
             style={{
-              fontSize,
+              fontSize: effectiveFontSize,
               marginRight: inlinePrefixGapPx,
             }}
             mt={desktopPrefixOffset}
@@ -231,7 +354,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           ref={inputRef}
           keyboardType={keyboardType ?? 'decimal-pad'}
           editable={editable}
-          fontSize={fontSize}
+          fontSize={effectiveFontSize}
           fontWeight="500"
           color="$text"
           unstyled
@@ -241,7 +364,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           px="$0"
           pl="$0"
           pr="$0"
-          h={Math.ceil(fontSize * 1.4)}
+          h={Math.ceil(effectiveFontSize * 1.4)}
           size="large"
           focusVisibleStyle={undefined}
           placeholder={placeholder ?? '0'}
@@ -252,7 +375,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           containerProps={{
             width: inlineInputWidthPx,
             flexShrink: 1,
-            minWidth: Math.ceil(fontSize * 1.2),
+            minWidth: Math.ceil(effectiveFontSize * 1.2),
             maxWidth: inlineInputMaxWidth,
             borderWidth: 0,
             bg: 'transparent',
@@ -294,9 +417,9 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           <SizableText
             color="$text"
             fontWeight="500"
-            lineHeight={Math.ceil(fontSize * 1.4)}
+            lineHeight={Math.ceil(effectiveFontSize * 1.4)}
             style={{
-              fontSize,
+              fontSize: effectiveFontSize,
               marginLeft: inlineSuffixGapPx,
             }}
             mt={desktopInlineSymbolOffset}
