@@ -1,7 +1,21 @@
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { AppError } from '../errors';
 import { ERROR_CODES } from '../errors/error-codes';
+
+export type CliChainCapability =
+  | 'accountRead'
+  | 'historyRead'
+  | 'btcTransfer'
+  | 'evmTransfer'
+  | 'evmTokenMarket'
+  | 'evmSecurity'
+  | 'swap';
 
 export interface IChainConfig {
   networkId: string;
@@ -11,6 +25,7 @@ export interface IChainConfig {
   feeDecimals: number;
   feeSymbol: string;
   nativeSymbol: string;
+  capabilities: ReadonlySet<CliChainCapability>;
 }
 
 const CHAIN_ALIASES: Record<string, string> = {
@@ -18,16 +33,47 @@ const CHAIN_ALIASES: Record<string, string> = {
   avax: 'avalanche',
 };
 
-let evmChainCache: Map<string, IChainConfig> | null = null;
+const CLI_SUPPORTED_IMPLS = new Set([IMPL_EVM, IMPL_BTC, IMPL_TBTC]);
 
-function getEvmChainMap(): Map<string, IChainConfig> {
-  if (evmChainCache) return evmChainCache;
+const EVM_CAPABILITIES = new Set<CliChainCapability>([
+  'accountRead',
+  'historyRead',
+  'evmTransfer',
+  'evmTokenMarket',
+  'evmSecurity',
+  'swap',
+]);
+
+const BTC_CAPABILITIES = new Set<CliChainCapability>([
+  'accountRead',
+  'historyRead',
+  'btcTransfer',
+  'swap',
+]);
+
+const TBTC_CAPABILITIES = new Set<CliChainCapability>([
+  'accountRead',
+  'historyRead',
+  'btcTransfer',
+]);
+
+let chainCache: Map<string, IChainConfig> | null = null;
+
+function getCapabilitiesForImpl(impl: string): ReadonlySet<CliChainCapability> {
+  if (impl === IMPL_EVM) return EVM_CAPABILITIES;
+  if (impl === IMPL_BTC) return BTC_CAPABILITIES;
+  if (impl === IMPL_TBTC) return TBTC_CAPABILITIES;
+  return new Set<CliChainCapability>();
+}
+
+function getChainMap(): Map<string, IChainConfig> {
+  if (chainCache) return chainCache;
 
   const networks = getPresetNetworks();
   const map = new Map<string, IChainConfig>();
 
   for (const net of networks) {
-    if (net.impl === 'evm') {
+    if (CLI_SUPPORTED_IMPLS.has(net.impl)) {
       map.set(net.shortcode.toLowerCase(), {
         networkId: net.id,
         impl: net.impl,
@@ -36,11 +82,12 @@ function getEvmChainMap(): Map<string, IChainConfig> {
         feeDecimals: net.feeMeta.decimals,
         feeSymbol: net.feeMeta.symbol,
         nativeSymbol: net.symbol,
+        capabilities: getCapabilitiesForImpl(net.impl),
       });
     }
   }
 
-  evmChainCache = map;
+  chainCache = map;
   return map;
 }
 
@@ -105,7 +152,7 @@ function findClosestMatch(input: string, candidates: string[]): string | null {
 export function resolveChain(shortcode: string): IChainConfig {
   const normalized = shortcode.toLowerCase();
   const resolved = CHAIN_ALIASES[normalized] ?? normalized;
-  const map = getEvmChainMap();
+  const map = getChainMap();
   const config = map.get(resolved);
 
   if (config) return config;
@@ -119,6 +166,24 @@ export function resolveChain(shortcode: string): IChainConfig {
   );
 }
 
+export function assertChainCapability(
+  chainConfig: IChainConfig,
+  capability: CliChainCapability,
+  commandName: string,
+): void {
+  if (chainConfig.capabilities.has(capability)) return;
+
+  throw new AppError(
+    ERROR_CODES.PARAM_INVALID_CHAIN.code,
+    `Command "${commandName}" does not support chain "${chainConfig.impl}".`,
+    `Choose a supported chain for ${commandName}.`,
+  );
+}
+
+export function isEvmChain(chainConfig: IChainConfig): boolean {
+  return chainConfig.impl === IMPL_EVM;
+}
+
 export function listEvmChains(): IChainConfig[] {
-  return [...getEvmChainMap().values()];
+  return [...getChainMap().values()].filter((c) => c.impl === IMPL_EVM);
 }

@@ -1,10 +1,20 @@
-import { resolveChain } from '../core/chain-resolver';
+import { assertAddressForChain } from '../core/address-utils';
+import {
+  fetchBtcDerivedBalances,
+  fetchBtcExternalAddressBalance,
+} from '../core/btc/account';
+import {
+  assertChainCapability,
+  isEvmChain,
+  resolveChain,
+} from '../core/chain-resolver';
 import { resolveToken } from '../core/token-resolver';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { getSignerByImpl } from '../signer';
 
 import type { IEndpointEnv } from '../config';
+import type { BtcAddressType } from '../core/btc/address-types';
 import type { OutputFormatter } from '../output';
 import type { Command } from 'commander';
 
@@ -167,9 +177,15 @@ export function registerBalanceCommand(program: Command): void {
       'Token symbol or contract address (omit for all assets)',
     )
     .option('--address <address>', 'Override wallet address to query')
+    .option('--address-type <type>', 'BTC address type for derived reads')
     .action(
       async (
-        options: { chain: string; token?: string; address?: string },
+        options: {
+          chain: string;
+          token?: string;
+          address?: string;
+          addressType?: BtcAddressType;
+        },
         command,
       ) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -179,6 +195,7 @@ export function registerBalanceCommand(program: Command): void {
         try {
           const chainName = options.chain;
           const chainConfig = resolveChain(chainName);
+          assertChainCapability(chainConfig, 'accountRead', 'balance');
 
           // Resolve env
           const env = (
@@ -186,18 +203,91 @@ export function registerBalanceCommand(program: Command): void {
           ) as IEndpointEnv;
           apiClient.setEnv(env);
 
+          if (!isEvmChain(chainConfig)) {
+            if (options.address && options.addressType) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_ADDRESS.code,
+                '--address cannot be used with --address-type.',
+                'Omit --address-type for external address reads, or omit --address to read derived wallet addresses.',
+              );
+            }
+
+            const nativeSymbols = new Set([
+              chainConfig.nativeSymbol.toUpperCase(),
+              chainConfig.impl === 'tbtc'
+                ? 'BTC'
+                : chainConfig.nativeSymbol.toUpperCase(),
+            ]);
+
+            if (
+              options.token &&
+              !nativeSymbols.has(options.token.toUpperCase())
+            ) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                'Only native BTC/TBTC balance is supported for Bitcoin chains.',
+                `Use --token ${chainConfig.nativeSymbol} or omit --token.`,
+              );
+            }
+
+            if (!options.address) {
+              const result = await fetchBtcDerivedBalances(
+                chainConfig,
+                options.addressType,
+              );
+
+              output.success(result, {
+                chain: chainName,
+              });
+              return;
+            }
+
+            const account = await fetchBtcExternalAddressBalance(
+              chainConfig,
+              options.address,
+            );
+
+            if (options.token) {
+              output.success(
+                {
+                  address: account.address,
+                  chain: chainName,
+                  token: chainConfig.nativeSymbol,
+                  contractAddress: '',
+                  balance: account.balance,
+                },
+                { chain: chainName },
+              );
+              return;
+            }
+
+            output.success(
+              {
+                address: account.address,
+                chain: chainName,
+                tokens: [
+                  {
+                    symbol: chainConfig.nativeSymbol,
+                    balance: account.balance,
+                    contractAddress: '',
+                    fiatValue: null,
+                    isNative: true,
+                  },
+                ],
+              },
+              { chain: chainName },
+            );
+            return;
+          }
+
           // Resolve wallet address
           let address = options.address;
           if (!address) {
             const signer = await getSignerByImpl(chainConfig.impl);
             const addrInfo = await signer.getAddress(chainConfig.networkId);
             address = addrInfo.address;
-          } else if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-            throw new AppError(
-              ERROR_CODES.PARAM_INVALID_ADDRESS.code,
-              `Invalid address format: ${address}`,
-              'Provide a valid 0x-prefixed EVM address (42 chars)',
-            );
+          } else {
+            address = assertAddressForChain(chainConfig, address);
           }
 
           if (!options.token) {
