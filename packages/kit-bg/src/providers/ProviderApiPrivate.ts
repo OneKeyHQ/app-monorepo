@@ -170,18 +170,20 @@ class ProviderApiPrivate extends ProviderApiBase {
     provider?: EOAuthSocialLoginProvider;
     nonce?: string;
   }): Promise<IKeylessWebSessionState> {
-    const keylessWallet = await this.backgroundApi.serviceAccount
-      .getKeylessWallet()
-      .catch(() => undefined);
-    // Use findInjectedAccountByOrigin (origin-only lookup) instead of
-    // dAppGetConnectedAccountsInfo. The latter resolves the request scope to
-    // a network impl via scopeNetworks, but $private (the scope of this RPC)
-    // maps to undefined and throws — making siteConnected always false.
-    const connectedAccounts = request.origin
-      ? await this.backgroundApi.serviceDApp
-          .findInjectedAccountByOrigin(request.origin)
-          .catch(() => null)
-      : null;
+    // findInjectedAccountByOrigin (origin-only lookup) is intentional —
+    // dAppGetConnectedAccountsInfo resolves request.scope to a network impl
+    // via scopeNetworks, but $private (this RPC's scope) maps to undefined
+    // and throws, which makes siteConnected silently false.
+    const [keylessWallet, connectedAccounts] = await Promise.all([
+      this.backgroundApi.serviceAccount
+        .getKeylessWallet()
+        .catch(() => undefined),
+      request.origin
+        ? this.backgroundApi.serviceDApp
+            .findInjectedAccountByOrigin(request.origin)
+            .catch(() => null)
+        : Promise.resolve(null),
+    ]);
 
     return {
       pluginInstalled: true,

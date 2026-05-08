@@ -239,6 +239,38 @@ function persistPendingKeylessWebTabForAutoConnect(params: {
   });
 }
 
+// Validate the inbound keyless-open request and derive the parameters both
+// the side-panel and the expand-tab transport need. Throws on any precondition
+// failure so callers can either propagate (sidePanel) or attempt a fallback.
+function parseKeylessOpenRequest({
+  sender,
+  payload,
+}: {
+  sender: chrome.runtime.MessageSender;
+  payload?: {
+    provider?: EOAuthSocialLoginProvider;
+    nonce?: string;
+  };
+}) {
+  if (!payload?.provider) {
+    throw new OneKeyLocalError('provider is required');
+  }
+  if (!isKeylessWebAutoConnectOriginAllowed(sender.url)) {
+    throw new OneKeyLocalError('origin is not allowed for keyless flow');
+  }
+  const tabId = sender.tab?.id;
+  const windowId = sender.tab?.windowId;
+  if (typeof tabId !== 'number' || typeof windowId !== 'number') {
+    throw new OneKeyLocalError('sender tab info is invalid');
+  }
+  const getStartedParams = buildKeylessGetStartedParams({
+    senderUrl: sender.url,
+    provider: payload.provider,
+    nonce: payload.nonce,
+  });
+  return { tabId, windowId, getStartedParams };
+}
+
 async function openKeylessSidePanelByUserGesture({
   sender,
   payload,
@@ -252,23 +284,9 @@ async function openKeylessSidePanelByUserGesture({
   if (!chrome.sidePanel?.open) {
     throw new OneKeyLocalError('side panel api is unavailable');
   }
-  if (!payload?.provider) {
-    throw new OneKeyLocalError('provider is required');
-  }
-  if (!isKeylessWebAutoConnectOriginAllowed(sender.url)) {
-    throw new OneKeyLocalError('origin is not allowed for keyless side panel');
-  }
-
-  const tabId = sender.tab?.id;
-  const windowId = sender.tab?.windowId;
-  if (typeof tabId !== 'number' || typeof windowId !== 'number') {
-    throw new OneKeyLocalError('sender tab info is invalid');
-  }
-
-  const getStartedParams = buildKeylessGetStartedParams({
-    senderUrl: sender.url,
-    provider: payload.provider,
-    nonce: payload.nonce,
+  const { tabId, windowId, getStartedParams } = parseKeylessOpenRequest({
+    sender,
+    payload,
   });
 
   if (sidePanelState.isOpen) {
@@ -328,23 +346,9 @@ async function openKeylessExpandTabFallback({
     nonce?: string;
   };
 }) {
-  if (!payload?.provider) {
-    throw new OneKeyLocalError('provider is required');
-  }
-  if (!isKeylessWebAutoConnectOriginAllowed(sender.url)) {
-    throw new OneKeyLocalError('origin is not allowed for keyless side panel');
-  }
-
-  const tabId = sender.tab?.id;
-  const windowId = sender.tab?.windowId;
-  if (typeof tabId !== 'number' || typeof windowId !== 'number') {
-    throw new OneKeyLocalError('sender tab info is invalid');
-  }
-
-  const getStartedParams = buildKeylessGetStartedParams({
-    senderUrl: sender.url,
-    provider: payload.provider,
-    nonce: payload.nonce,
+  const { tabId, windowId, getStartedParams } = parseKeylessOpenRequest({
+    sender,
+    payload,
   });
 
   // Persist the pending tab so the post-onboarding bridge can later trigger
