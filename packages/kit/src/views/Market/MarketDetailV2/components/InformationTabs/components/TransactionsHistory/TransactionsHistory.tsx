@@ -105,8 +105,7 @@ export function TransactionsHistoryBase({
   const normalMode =
     isNative ||
     (!platformEnv.isNative && !gtXl && !(websocketConfig?.txs ?? false));
-  const enableRealtimePause =
-    !normalMode && isVisible && (platformEnv.isNative || gtXl);
+  const enableRealtimePause = !normalMode && isVisible;
   const enableHoverRealtimePause = enableRealtimePause && !platformEnv.isNative;
   const enableTouchRealtimePause = enableRealtimePause && platformEnv.isNative;
 
@@ -164,9 +163,16 @@ export function TransactionsHistoryBase({
         listRoot.getBoundingClientRect().top -
         scrollContainer.getBoundingClientRect().top -
         headerHeight;
+      const nextScrollTop = Math.max(0, listTop);
+
+      // The updates pill can be visible before the tab header sticks. In that
+      // case, do not advance the page-level scroll and collapse the chart area.
+      if (nextScrollTop >= scrollContainer.scrollTop) {
+        return;
+      }
 
       scrollContainer.scrollTo({
-        top: Math.max(0, listTop),
+        top: nextScrollTop,
         behavior: 'auto',
       });
     });
