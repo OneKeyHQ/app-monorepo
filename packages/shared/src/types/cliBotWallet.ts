@@ -9,8 +9,8 @@ import { z } from 'zod';
  * Trust boundary (project-context.md §2):
  * - `ciphertextBase64` is the AES-256-GCM ciphertext of the serialized
  *   `IBip39RevealableSeed`. The 32B random encryption key is **registered
- *   with the local key service** (not embedded here) and only handed back to
- *   the CLI on bearer-token-authorized fetch.
+ *   with the Bot Wallet key API** (not embedded here) and only handed back to
+ *   the CLI on access-token-authorized fetch.
  * - The legacy `privateData.decryptedCredentials` path **must NOT** be filled
  *   alongside this payload (FR7).
  *

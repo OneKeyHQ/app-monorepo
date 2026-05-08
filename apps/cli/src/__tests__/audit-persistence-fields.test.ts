@@ -46,8 +46,8 @@ function runAudit(fixture: ReturnType<typeof makeFixture>) {
     encoding: 'utf8',
     env: {
       ...process.env,
-      BOT_WALLET_KEY_SERVICE_DATA_FILE: fixture.dataFile,
-      BOT_WALLET_KEY_SERVICE_SRC_DIR: fixture.serviceSrcDir,
+      BOT_WALLET_KEY_API_DATA_FILE: fixture.dataFile,
+      BOT_WALLET_KEY_API_SRC_DIR: fixture.serviceSrcDir,
       BOT_WALLET_VAULT_FILE: fixture.vaultFile,
     },
     timeout: 10_000,
