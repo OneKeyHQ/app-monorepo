@@ -71,8 +71,6 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
-// AccountSelector rebuilds activeAccount with a 150ms trailing throttle.
-const DERIVE_TYPE_REFRESH_DELAY_MS = 300;
 
 function MobileProtocolDivider() {
   return (
@@ -178,9 +176,6 @@ function DeFiListBlock({
   protocolsRef.current = protocols;
   protocolMapRef.current = protocolMap;
   const pendingRefreshRef = useRef(false);
-  const deriveTypeRefreshTimerRef = useRef<
-    ReturnType<typeof setTimeout> | undefined
-  >(undefined);
 
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
   const overviewCols = useMemo(
@@ -887,34 +882,11 @@ function DeFiListBlock({
       }
     };
 
-    const scheduleRefreshAfterDeriveTypeChanged = () => {
-      if (deriveTypeRefreshTimerRef.current) {
-        clearTimeout(deriveTypeRefreshTimerRef.current);
-      }
-      if (network?.isAllNetworks) {
-        setIsAllNetRequestsEnabled(true);
-      }
-      deriveTypeRefreshTimerRef.current = setTimeout(() => {
-        deriveTypeRefreshTimerRef.current = undefined;
-        refresh();
-      }, DERIVE_TYPE_REFRESH_DELAY_MS);
-    };
-
     const onRefresh = () => {
-      isForceRefreshRef.current = true;
       if (isFocused) {
         pendingRefreshRef.current = false;
+        isForceRefreshRef.current = true;
         refresh();
-      } else {
-        pendingRefreshRef.current = true;
-      }
-    };
-
-    const onDeriveTypeChanged = () => {
-      isForceRefreshRef.current = true;
-      if (isFocused) {
-        pendingRefreshRef.current = false;
-        scheduleRefreshAfterDeriveTypeChanged();
       } else {
         pendingRefreshRef.current = true;
       }
@@ -922,41 +894,18 @@ function DeFiListBlock({
 
     if (isFocused && pendingRefreshRef.current) {
       pendingRefreshRef.current = false;
-      isForceRefreshRef.current = true;
-      scheduleRefreshAfterDeriveTypeChanged();
+      refresh();
     }
 
-    appEventBus.on(
-      EAppEventBusNames.NetworkDeriveTypeChanged,
-      onDeriveTypeChanged,
-    );
-    appEventBus.on(
-      EAppEventBusNames.GlobalDeriveTypeUpdate,
-      onDeriveTypeChanged,
-    );
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
+    appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, onRefresh);
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, onRefresh);
     return () => {
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, onRefresh);
-      appEventBus.off(
-        EAppEventBusNames.GlobalDeriveTypeUpdate,
-        onDeriveTypeChanged,
-      );
-      appEventBus.off(
-        EAppEventBusNames.NetworkDeriveTypeChanged,
-        onDeriveTypeChanged,
-      );
+      appEventBus.off(EAppEventBusNames.GlobalDeriveTypeUpdate, onRefresh);
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
     };
   }, [isFocused, network?.isAllNetworks, handleRefreshAllNetworkData, run]);
-
-  useEffect(
-    () => () => {
-      if (deriveTypeRefreshTimerRef.current) {
-        clearTimeout(deriveTypeRefreshTimerRef.current);
-        deriveTypeRefreshTimerRef.current = undefined;
-      }
-    },
-    [],
-  );
 
   useEffect(() => {
     const onDeFiPositionRefreshed = (
