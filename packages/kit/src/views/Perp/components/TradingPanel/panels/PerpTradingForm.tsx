@@ -16,8 +16,10 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
@@ -44,6 +46,7 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
@@ -57,6 +60,7 @@ import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
 import { useOrderPrice } from '../../../hooks/useOrderPrice';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
   type ITradeSide,
@@ -101,9 +105,29 @@ const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
   slType: 'price',
   slValue: '',
 };
+const USDC_TOKEN_SYMBOL = 'USDC';
 
-function MobileDepositButton() {
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+function SpotAvailableActionIcon({
+  icon,
+}: {
+  icon: 'DownloadOutline' | 'TradeOutline';
+}) {
+  return (
+    <XStack
+      w="$8"
+      h="$8"
+      borderRadius="$full"
+      bg="$bgStrong"
+      alignItems="center"
+      justifyContent="center"
+      flexShrink={0}
+    >
+      <Icon name={icon} size="$4.5" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
+function MobileDepositButton({ onPress }: { onPress: () => void }) {
   return (
     <IconButton
       testID="perp-trading-form-mobile-deposit-button"
@@ -111,9 +135,113 @@ function MobileDepositButton() {
       variant="tertiary"
       iconSize="$3.5"
       icon="PlusCircleSolid"
-      onPress={() => void showDepositWithdrawModal('deposit')}
+      onPress={onPress}
       color="$iconSubdued"
       cursor="default"
+    />
+  );
+}
+
+function SpotAvailableActionPopover({
+  onDeposit,
+  onTrade,
+  tradeLabel,
+  tradeToken,
+}: {
+  onDeposit: () => void;
+  onTrade?: () => void;
+  tradeLabel?: string;
+  tradeToken?: string;
+}) {
+  const intl = useIntl();
+  const { gtMd } = useMedia();
+  const sheetTitle = intl.formatMessage({
+    id: ETranslations.perps_spot_add_funds__title,
+  });
+  const depositTitle = intl.formatMessage({
+    id: ETranslations.perps_spot_deposit_to_usdc__title,
+  });
+  const depositSubtitle = intl.formatMessage({
+    id: ETranslations.perps_spot_deposit_to_usdc__desc,
+  });
+  const tradeTitle = tradeToken
+    ? intl.formatMessage(
+        {
+          id: ETranslations.perps_spot_buy_token_spot__action,
+        },
+        {
+          token: tradeToken,
+        },
+      )
+    : intl.formatMessage({ id: ETranslations.global_trade });
+  const listItemTextProps = {
+    titleProps: { size: '$bodyMdMedium' as const, color: '$text' as const },
+    subtitleProps: {
+      size: '$bodySm' as const,
+      color: '$textSubdued' as const,
+      numberOfLines: 1,
+    },
+  };
+  const listItemProps = {
+    minHeight: '$10' as const,
+    mx: gtMd ? ('$0' as const) : ('$-3' as const),
+    px: gtMd ? ('$2' as const) : ('$3' as const),
+    py: '$1.5' as const,
+    gap: '$3' as const,
+    borderRadius: '$2.5' as const,
+    ...listItemTextProps,
+  };
+  return (
+    <Popover
+      title={sheetTitle}
+      placement="top-end"
+      floatingPanelProps={{
+        width: 288,
+      }}
+      renderTrigger={
+        <IconButton
+          testID="perp-trading-form-spot-available-action-button"
+          size="small"
+          variant="tertiary"
+          iconSize="$3.5"
+          icon="PlusCircleSolid"
+          color="$iconSubdued"
+          cursor="default"
+        />
+      }
+      renderContent={({ closePopover }) => (
+        <YStack
+          px={gtMd ? '$1.5' : '$5'}
+          pt={gtMd ? '$1.5' : '$0.5'}
+          pb={gtMd ? '$1.5' : '$4'}
+          gap={gtMd ? '$1' : '$2'}
+        >
+          <ListItem
+            renderIcon={<SpotAvailableActionIcon icon="DownloadOutline" />}
+            title={depositTitle}
+            subtitle={depositSubtitle}
+            drillIn
+            onPress={() => {
+              closePopover();
+              onDeposit();
+            }}
+            {...listItemProps}
+          />
+          {tradeLabel ? (
+            <ListItem
+              renderIcon={<SpotAvailableActionIcon icon="TradeOutline" />}
+              title={tradeTitle}
+              subtitle={tradeLabel}
+              drillIn
+              onPress={() => {
+                closePopover();
+                onTrade?.();
+              }}
+              {...listItemProps}
+            />
+          ) : null}
+        </YStack>
+      )}
     />
   );
 }
@@ -138,6 +266,8 @@ function PerpTradingForm({
   const { baseName: activeBaseName } = useActiveTradeDisplay();
   const { midPrice, midPriceBN } = useTradingPrice();
   const { price: orderPriceBN } = useOrderPrice(formData.side);
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { universeByBaseName } = useSpotMetaMaps();
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
   const isBBOActive = !!formData.bboPriceMode;
@@ -453,9 +583,13 @@ function PerpTradingForm({
   const spotAvailableDisplay = useMemo(() => {
     if (!isSpot) return '';
     if (formData.side === 'long') {
-      return `${spotAvailableQuoteBN.toFixed(2, BigNumber.ROUND_DOWN)} ${spotUniverse?.quoteName ?? ''}`;
+      return `${numberFormat(spotAvailableQuoteBN.toFixed(), {
+        formatter: 'balance',
+      })} ${spotUniverse?.quoteName ?? ''}`;
     }
-    return `${spotAvailableBaseBN.toFixed(sizeSzDecimals, BigNumber.ROUND_DOWN)} ${
+    return `${numberFormat(spotAvailableBaseBN.toFixed(), {
+      formatter: 'balance',
+    })} ${
       spotUniverse?.baseName
         ? getSpotTokenDisplayName(spotUniverse.baseName)
         : ''
@@ -467,8 +601,60 @@ function PerpTradingForm({
     spotAvailableBaseBN,
     spotUniverse?.quoteName,
     spotUniverse?.baseName,
-    sizeSzDecimals,
   ]);
+
+  const spotAvailableToken = useMemo(() => {
+    if (!isSpot || !spotUniverse) return '';
+    return formData.side === 'long'
+      ? spotUniverse.quoteName
+      : spotUniverse.baseName;
+  }, [formData.side, isSpot, spotUniverse]);
+
+  const spotAvailableTradeUniverse = useMemo(() => {
+    if (!spotAvailableToken || spotAvailableToken === USDC_TOKEN_SYMBOL) {
+      return undefined;
+    }
+    const targetUniverse = universeByBaseName[spotAvailableToken];
+    return targetUniverse?.quoteName === USDC_TOKEN_SYMBOL
+      ? targetUniverse
+      : undefined;
+  }, [spotAvailableToken, universeByBaseName]);
+
+  const spotAvailableTradeToken = useMemo(() => {
+    if (!spotAvailableTradeUniverse) return undefined;
+    return getSpotTokenDisplayName(spotAvailableTradeUniverse.baseName);
+  }, [spotAvailableTradeUniverse]);
+
+  const spotAvailableTradeLabel = useMemo(() => {
+    if (!spotAvailableTradeUniverse || !spotAvailableTradeToken) {
+      return undefined;
+    }
+    return `${spotAvailableTradeToken}/${spotAvailableTradeUniverse.quoteName}`;
+  }, [spotAvailableTradeToken, spotAvailableTradeUniverse]);
+
+  const handleSpotAvailableTradePress = useCallback(() => {
+    if (!spotAvailableTradeUniverse) return;
+    void (async () => {
+      await actions.current.switchTradeInstrument({
+        mode: 'spot',
+        coin: spotAvailableTradeUniverse.name,
+        spotUniverse: spotAvailableTradeUniverse,
+      });
+      actions.current.updateTradingForm({
+        side: 'long',
+        size: '',
+        sizePercent: 0,
+        sizeInputMode: EPerpsSizeInputMode.MANUAL,
+      });
+    })();
+  }, [actions, spotAvailableTradeUniverse]);
+
+  const handleSpotAvailableDepositPress = useCallback(() => {
+    void showDepositWithdrawModal('deposit');
+  }, [showDepositWithdrawModal]);
+  const handleDepositPress = useCallback(() => {
+    void showDepositWithdrawModal('deposit');
+  }, [showDepositWithdrawModal]);
 
   const spotMaxTradeLabel = useMemo(
     () =>
@@ -490,14 +676,35 @@ function PerpTradingForm({
 
   const spotMaxTradeDisplay = useMemo(() => {
     if (!isSpot) return '';
-    const maxSize =
-      formData.side === 'long' ? spotMaxTradeSzs?.[0] : spotMaxTradeSzs?.[1];
-    return `${maxSize ?? '0'} ${
-      spotUniverse?.baseName
-        ? getSpotTokenDisplayName(spotUniverse.baseName)
-        : ''
+    if (formData.side === 'long') {
+      return `${spotMaxTradeSzs?.[0] ?? '0'} ${
+        spotUniverse?.baseName
+          ? getSpotTokenDisplayName(spotUniverse.baseName)
+          : ''
+      }`;
+    }
+    let effectiveSpotPriceBN = new BigNumber(0);
+    if (orderPriceBN.isFinite() && orderPriceBN.gt(0)) {
+      effectiveSpotPriceBN = orderPriceBN;
+    } else if (midPriceBN.isFinite() && midPriceBN.gt(0)) {
+      effectiveSpotPriceBN = midPriceBN;
+    }
+    const maxSellQuoteBN = effectiveSpotPriceBN.gt(0)
+      ? spotAvailableBaseBN.multipliedBy(effectiveSpotPriceBN)
+      : new BigNumber(0);
+    return `${maxSellQuoteBN.toFixed(2, BigNumber.ROUND_DOWN)} ${
+      spotUniverse?.quoteName ?? ''
     }`;
-  }, [formData.side, isSpot, spotMaxTradeSzs, spotUniverse?.baseName]);
+  }, [
+    formData.side,
+    isSpot,
+    midPriceBN,
+    orderPriceBN,
+    spotAvailableBaseBN,
+    spotMaxTradeSzs,
+    spotUniverse?.baseName,
+    spotUniverse?.quoteName,
+  ]);
 
   const handleSideChange = useCallback(
     (newSide: 'long' | 'short') => {
@@ -1033,7 +1240,16 @@ function PerpTradingForm({
         </SizableText>
         <XStack alignItems="center" gap="$1">
           <SizableText size="$bodySmMedium">{spotAvailableDisplay}</SizableText>
-          <MobileDepositButton />
+          {spotAvailableToken === USDC_TOKEN_SYMBOL ? (
+            <MobileDepositButton onPress={handleSpotAvailableDepositPress} />
+          ) : (
+            <SpotAvailableActionPopover
+              onDeposit={handleSpotAvailableDepositPress}
+              onTrade={handleSpotAvailableTradePress}
+              tradeLabel={spotAvailableTradeLabel}
+              tradeToken={spotAvailableTradeToken}
+            />
+          )}
         </XStack>
       </XStack>
 
@@ -1315,7 +1531,7 @@ function PerpTradingForm({
                     value={availableToTrade}
                     skeletonWidth={60}
                   />
-                  <MobileDepositButton />
+                  <MobileDepositButton onPress={handleDepositPress} />
                 </XStack>
               </XStack>
 
