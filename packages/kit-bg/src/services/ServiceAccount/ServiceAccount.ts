@@ -3534,6 +3534,10 @@ class ServiceAccount extends ServiceBase {
       index,
     });
     if (walletId !== expectedWalletId) {
+      console.warn(
+        'createBotWalletFromCloudSync skipped: walletId mismatch',
+        { walletId, expectedWalletId },
+      );
       return false;
     }
     const parentWallet = await this.getWalletSafe({
@@ -3541,11 +3545,24 @@ class ServiceAccount extends ServiceBase {
       withoutRefill: true,
     });
     if (!parentWallet?.isKeyless) {
+      // Parent KW not yet imported on this peer. Item stays in pool
+      // (localSceneUpdated stays false) and gets retried on the next
+      // syncToSceneByAllPendingItems pass.
+      console.warn(
+        'createBotWalletFromCloudSync skipped: parent keyless wallet missing',
+        { walletId, parentKeylessWalletId },
+      );
       return false;
     }
     const password =
       await this.backgroundApi.servicePassword.getCachedPassword();
     if (!password) {
+      // Password not cached. Pending bot wallet items are reprocessed by the
+      // forceSync pass triggered from setCachedPassword once it lands.
+      console.warn(
+        'createBotWalletFromCloudSync skipped: cached password missing',
+        { walletId, parentKeylessWalletId },
+      );
       return false;
     }
 
