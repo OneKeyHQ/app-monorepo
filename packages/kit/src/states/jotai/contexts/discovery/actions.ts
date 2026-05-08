@@ -22,7 +22,6 @@ import {
   crossWebviewLoadUrl,
   injectToPauseWebsocket,
   injectToResumeWebsocket,
-  processWebSiteUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -910,10 +909,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         dApp?: IMatchDAppItemType['dApp'];
       },
     ) => {
-      if (webSite?.url) {
-        webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
-      }
-
       // Auto-detect if already on Discovery/MultiTabBrowser tab
       let needsSwitchTab = true;
       try {
