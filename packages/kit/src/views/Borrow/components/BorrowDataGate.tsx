@@ -133,6 +133,14 @@ export const BorrowDataGate = ({
     [market, marketProvider, marketAddress, accountId],
   );
 
+  // Invalidate before usePromiseResult reruns for the new key; a later effect
+  // can let that rerun reuse the previous account's still-fresh TTL cache.
+  if (prevFetchKeyRef.current !== fetchKey) {
+    prevFetchKeyRef.current = fetchKey;
+    lastReservesUpdatedAtRef.current = null;
+    reservesResultRef.current = undefined;
+  }
+
   // Reset staleness on modal dismiss so revalidateOnFocus triggers a fresh fetch.
   // Must be declared BEFORE usePromiseResult so the effect fires first.
   const isRouteFocused = useRouteIsFocused();
@@ -253,14 +261,6 @@ export const BorrowDataGate = ({
     }
     wasActiveRef.current = isViewActive;
   }, [isViewActive, refetchMarkets, refreshReserves]);
-
-  useEffect(() => {
-    if (prevFetchKeyRef.current !== fetchKey) {
-      prevFetchKeyRef.current = fetchKey;
-      lastReservesUpdatedAtRef.current = null;
-      reservesResultRef.current = undefined;
-    }
-  }, [fetchKey]);
 
   useEffect(() => {
     setMarket(market ?? null);
