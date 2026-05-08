@@ -10,6 +10,7 @@ import {
   EMarketPresetTradeSide,
   fetchMarketPresetConfig,
   getMarketPresetCustomizedMap,
+  getMarketPresetDefaultEditableDirectionSettingsForPreset,
   getMarketPresetItem,
   getMarketPresetNetworkFeeLevel,
   getMarketPresetSlippageValue,
@@ -119,6 +120,26 @@ describe('marketPresetSettings', () => {
     expect(getMarketPresetNetworkFeeLevel(settings)).toBe(
       ESwapNetworkFeeLevel.MEDIUM,
     );
+  });
+
+  it('uses editable preset defaults with empty custom fee', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.base.id,
+    });
+
+    const settings = getMarketPresetDefaultEditableDirectionSettingsForPreset({
+      config,
+      presetKey: EMarketPresetKey.P1,
+    });
+
+    expect(settings.slippage).toEqual({
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 1,
+    });
+    expect(settings.priorityFee).toEqual({
+      type: EMarketPresetPriorityFeeType.CUSTOM,
+      customValue: '',
+    });
   });
 
   it('resolves saved preset settings per network direction', async () => {

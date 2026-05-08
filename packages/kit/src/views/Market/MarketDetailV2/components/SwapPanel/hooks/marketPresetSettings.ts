@@ -110,7 +110,7 @@ const DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS: IMarketPresetDirectionS
     },
     priorityFee: {
       type: EMarketPresetPriorityFeeType.CUSTOM,
-      customValue: '0',
+      customValue: '',
     },
   };
 
