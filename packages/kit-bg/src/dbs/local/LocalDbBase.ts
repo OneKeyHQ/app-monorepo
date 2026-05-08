@@ -3320,10 +3320,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const { connectId } = device;
     const resolvedVendor = vendor ?? EHardwareVendor.onekey;
     const profile = getVendorProfile(resolvedVendor);
+    const isUsbTransport =
+      transportType === EHardwareTransportType.WEBUSB ||
+      transportType === EHardwareTransportType.Bridge;
 
-    // Allow empty connectId only for vendors without persistent USB connectId
-    // (e.g. Ledger DMK generates temporary UUIDs that change every session).
-    if (!connectId && profile.hasPersistentConnectId('usb')) {
+    // Empty connectId is allowed only for non-persistent USB transports.
+    if (
+      !connectId &&
+      (profile.hasPersistentConnectId('usb') ||
+        (profile.isThirdParty && !isUsbTransport))
+    ) {
       throw new OneKeyLocalError('createHwWallet ERROR: connectId is required');
     }
     const context = await this.getContext();
