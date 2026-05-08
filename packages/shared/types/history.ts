@@ -187,6 +187,12 @@ export type IFetchAccountHistoryParams = {
   targetCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
   limit?: number;
+  // Pagination & time range. First page passes page=1 and no cursor.
+  // Subsequent pages pass page=N and cursor=previous response.next.
+  page?: number;
+  cursor?: string;
+  minTimestampMs?: number;
+  maxTimestampMs?: number;
 };
 
 export type IOnChainHistoryTxToken = {
@@ -202,6 +208,7 @@ export type IFetchAccountHistoryResp = {
   nfts: Record<string, IOnChainHistoryTxNFT>; // <nftAddress, nft>
   addressMap?: Record<string, IAddressBadge>; // <networkId_address, {label, tip, type}>
   hasMore?: boolean;
+  next?: string; // Cursor for the next page; pass back as request `cursor`.
 };
 
 export type IFetchHistoryTxDetailsParams = {

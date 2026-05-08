@@ -7,6 +7,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { HISTORY_TIME_RANGE_MONTHS } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -71,8 +72,130 @@ class ServiceHistory extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private async _resolveHistoryRequestParams(
+    params: IFetchAccountHistoryParams,
+  ): Promise<IFetchAccountHistoryParams> {
+    if (params.minTimestampMs || params.maxTimestampMs) {
+      return params;
+    }
+    if (networkUtils.isAllNetwork({ networkId: params.networkId })) {
+      return params;
+    }
+    let network;
+    try {
+      network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId: params.networkId,
+      });
+    } catch {
+      network = undefined;
+    }
+    // Indexer-backed chains paginate without a time window; non-indexer chains
+    // default to the latest 6 months so RPC-based scans stay bounded.
+    if (network?.backendIndex !== false) {
+      return params;
+    }
+    const HISTORY_TIME_RANGE_MS =
+      HISTORY_TIME_RANGE_MONTHS * 30 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    return {
+      ...params,
+      minTimestampMs: now - HISTORY_TIME_RANGE_MS,
+      maxTimestampMs: now,
+    };
+  }
+
+  private _isHistoryLoadMoreParams(
+    params: IFetchAccountHistoryParams,
+  ): boolean {
+    if (networkUtils.isAllNetwork({ networkId: params.networkId })) {
+      return false;
+    }
+    if (params.cursor) return true;
+    if (typeof params.page === 'number' && params.page > 1) return true;
+    return false;
+  }
+
+  private async _fetchMoreAccountHistory(params: IFetchAccountHistoryParams) {
+    const {
+      accountId,
+      networkId,
+      filterScam,
+      filterLowValue,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+    } = params;
+    let dbAccount;
+    try {
+      dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId,
+      });
+    } catch {
+      dbAccount = undefined;
+    }
+    const [accountAddress, xpub] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        dbAccount,
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        dbAccount,
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    const onChainResult = await this.fetchAccountOnChainHistory({
+      ...params,
+      isAllNetworks: false,
+      isManualRefresh: false,
+      accountAddress,
+      xpub,
+    });
+
+    const filtered = filterHistoryTxs({
+      txs: onChainResult.txs,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+      filterScam,
+      filterLowValue,
+    });
+
+    for (let i = 0; i < filtered.length; i += 1) {
+      const tx = filtered[i];
+      const network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId: tx.decodedTx.networkId,
+      });
+      tx.decodedTx.networkLogoURI = network.logoURI;
+    }
+
+    return {
+      hasMoreOnChainHistory: !!onChainResult.hasMore,
+      next: onChainResult.next,
+      accounts: [] as IAllNetworkAccountInfo[],
+      allAccounts: [] as IAllNetworkAccountInfo[],
+      txs: filtered,
+      addressMap: onChainResult.addressMap,
+      accountsWithChangedPendingTxs: [] as {
+        accountId: string;
+        networkId: string;
+      }[],
+      accountsWithChangedConfirmedTxs: [] as {
+        accountId: string;
+        networkId: string;
+      }[],
+      accountsWithChangedTxs: [] as { accountId: string; networkId: string }[],
+    };
+  }
+
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
+    const resolvedParams = await this._resolveHistoryRequestParams(params);
+    if (this._isHistoryLoadMoreParams(resolvedParams)) {
+      return this._fetchMoreAccountHistory(resolvedParams);
+    }
     const {
       accountId,
       networkId,
@@ -84,7 +207,7 @@ class ServiceHistory extends ServiceBase {
       currencyMap,
       excludeTestNetwork,
       limit: _limit,
-    } = params;
+    } = resolvedParams;
     let dbAccount;
     try {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
@@ -270,8 +393,9 @@ class ServiceHistory extends ServiceBase {
       txs,
       addressMap,
       hasMore: hasMoreOnChainHistory,
+      next,
     } = await this.fetchAccountOnChainHistory({
-      ...params,
+      ...resolvedParams,
       isAllNetworks,
       accountAddress,
       xpub,
@@ -439,6 +563,7 @@ class ServiceHistory extends ServiceBase {
 
     return {
       hasMoreOnChainHistory,
+      next,
       accounts,
       allAccounts,
       txs: result,
@@ -808,6 +933,10 @@ class ServiceHistory extends ServiceBase {
       filterScam,
       filterLowValue,
       limit,
+      page,
+      cursor,
+      minTimestampMs,
+      maxTimestampMs,
     } = params;
     const vault = await vaultFactory.getVault({
       accountId,
@@ -822,6 +951,8 @@ class ServiceHistory extends ServiceBase {
       return {
         txs: [],
         addressMap: {},
+        hasMore: false,
+        next: undefined as string | undefined,
       };
     }
 
@@ -857,6 +988,10 @@ class ServiceHistory extends ServiceBase {
           onlySafe: filterScam,
           withoutDust: filterLowValue,
           limit,
+          ...(typeof page === 'number' ? { page } : {}),
+          ...(cursor ? { cursor } : {}),
+          ...(typeof minTimestampMs === 'number' ? { minTimestampMs } : {}),
+          ...(typeof maxTimestampMs === 'number' ? { maxTimestampMs } : {}),
         },
         {
           headers:
@@ -888,6 +1023,7 @@ class ServiceHistory extends ServiceBase {
       nfts,
       addressMap,
       hasMore,
+      next,
     } = resp.data.data;
 
     const dbAccountCache: {
@@ -918,6 +1054,7 @@ class ServiceHistory extends ServiceBase {
       txs,
       addressMap,
       hasMore,
+      next,
     };
   }
 

@@ -77,6 +77,10 @@ type IProps = {
   plainMode?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
+  onEndReached?: () => void;
+  onEndReachedThreshold?: number;
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
 };
 
 const ListFooterComponent = ({
@@ -87,6 +91,8 @@ const ListFooterComponent = ({
   showFooter,
   hasMoreOnChainHistory,
   isSingleAccount,
+  isLoadingMore,
+  hasMore,
 }: {
   accountId?: string;
   networkId?: string;
@@ -95,6 +101,8 @@ const ListFooterComponent = ({
   showFooter?: boolean;
   hasMoreOnChainHistory?: boolean;
   isSingleAccount?: boolean;
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
 }) => {
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const intl = useIntl();
@@ -128,11 +136,24 @@ const ListFooterComponent = ({
     network?.id,
   ]);
 
-  if (
+  if (isLoadingMore) {
+    return (
+      <YStack alignItems="center" justifyContent="center" py="$4" gap="$2">
+        <Spinner size="small" />
+        {addPaddingOnListFooter ? <Stack h="$16" /> : null}
+      </YStack>
+    );
+  }
+
+  // Suppress the explorer button while there are still more pages to fetch
+  // locally — only show it when the user has truly bottomed out.
+  const showExplorerFooter =
     showFooter &&
     hasMoreOnChainHistory &&
-    (network?.isAllNetworks || !vaultSettings?.hideBlockExplorer)
-  ) {
+    !hasMore &&
+    (network?.isAllNetworks || !vaultSettings?.hideBlockExplorer);
+
+  if (showExplorerFooter) {
     return (
       <>
         <YStack
@@ -278,6 +299,10 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     ref,
     plainMode,
+    onEndReached,
+    onEndReachedThreshold,
+    isLoadingMore,
+    hasMore,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -473,6 +498,8 @@ function BaseTxHistoryListView(props: IProps) {
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader as any}
+      onEndReached={onEndReached}
+      onEndReachedThreshold={onEndReachedThreshold ?? 0.2}
       ListFooterComponent={
         <ListFooterComponent
           showFooter={showFooter}
@@ -484,6 +511,8 @@ function BaseTxHistoryListView(props: IProps) {
           walletId={walletId}
           indexedAccountId={indexedAccountId}
           isSingleAccount={isSingleAccount}
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
         />
       }
       ListHeaderComponent={ListHeaderComponent}

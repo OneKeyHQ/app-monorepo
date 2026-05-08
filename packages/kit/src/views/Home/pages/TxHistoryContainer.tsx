@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isEmpty, uniqBy } from 'lodash';
+import { isEmpty, unionBy, uniqBy } from 'lodash';
 
 import {
   onVisibilityStateChange,
@@ -48,6 +48,8 @@ import {
 import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+
+import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
 
 function TxHistoryListContainer(
   params:
@@ -135,6 +137,32 @@ function TxHistoryListContainer(
     deriveInfoItems.length > 1 &&
     vaultSettings?.mergeDeriveAssetsEnabled;
 
+  const isAllNetworksList = !!network?.isAllNetworks;
+  // Disable load-more for All Networks (server doesn't paginate the aggregate),
+  // for the merge-derive-address path (multiple parallel calls would each need
+  // their own cursor), and for preview lists that already enforce a fixed
+  // limit (e.g. Home recent-history block).
+  const loadMoreEnabled =
+    !isAllNetworksList && !mergeDeriveAddressData && !limit && !plainMode;
+  const {
+    appendedTxs,
+    hasMore: loadMoreHasMore,
+    isLoadingMore,
+    loadMore,
+    reset: resetLoadMore,
+    onFirstPageResponse,
+  } = useHistoryListLoadMore({
+    enabled: loadMoreEnabled,
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+    filterScam: settings.isFilterScamHistoryEnabled,
+    filterLowValue: settings.isFilterLowValueHistoryEnabled,
+    excludeTestNetwork: true,
+    sourceCurrency: settings.currencyInfo.id,
+    currencyMap,
+    limit,
+  });
+
   const handleHistoryItemPress = useCallback(
     async (history: IAccountHistoryTx) => {
       if (!account || !network) return;
@@ -196,12 +224,14 @@ function TxHistoryListContainer(
         }[];
         addressMap?: Record<string, IAddressBadge>;
         hasMoreOnChainHistory?: boolean;
+        next?: string;
       } = {
         allAccounts: [],
         txs: [],
         accountsWithChangedTxs: [],
         addressMap: {},
         hasMoreOnChainHistory: false,
+        next: undefined,
       };
 
       if (mergeDeriveAddressData) {
@@ -269,6 +299,10 @@ function TxHistoryListContainer(
         updateAddressesInfo({
           data: r.addressMap ?? {},
         });
+        onFirstPageResponse({
+          next: r.next,
+          hasMore: r.hasMoreOnChainHistory,
+        });
       }
 
       updateAllNetworksState({
@@ -310,6 +344,7 @@ function TxHistoryListContainer(
       setHasMoreOnChainHistory,
       limit,
       updateHistoryData,
+      onFirstPageResponse,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -410,9 +445,33 @@ function TxHistoryListContainer(
 
   useEffect(() => {
     if (isHeaderRefreshing) {
+      resetLoadMore();
       void run();
     }
-  }, [isHeaderRefreshing, run]);
+  }, [isHeaderRefreshing, run, resetLoadMore]);
+
+  // Wipe paginated state whenever the source identity changes; first-page fetch
+  // will re-initialize it via onFirstPageResponse.
+  useEffect(() => {
+    resetLoadMore();
+  }, [
+    account?.id,
+    network?.id,
+    indexedAccount?.id,
+    mergeDeriveAddressData,
+    settings.isFilterScamHistoryEnabled,
+    settings.isFilterLowValueHistoryEnabled,
+    settings.currencyInfo.id,
+    resetLoadMore,
+  ]);
+
+  const combinedHistoryData = useMemo(
+    () =>
+      appendedTxs.length
+        ? unionBy([...historyData, ...appendedTxs], (tx) => tx.id)
+        : historyData,
+    [historyData, appendedTxs],
+  );
 
   const lastVisibilityRefreshAtRef = useRef(0);
   const handleRefreshOnVisibilityActive = useCallback(() => {
@@ -498,7 +557,7 @@ function TxHistoryListContainer(
       inTabList
       hideValue
       onRefresh={onHomePageRefresh}
-      data={historyData ?? []}
+      data={combinedHistoryData}
       onPressHistory={handleHistoryItemPress}
       showHeader
       showFooter
@@ -518,6 +577,9 @@ function TxHistoryListContainer(
       emptyTitle={emptyTitle}
       emptyDescription={emptyDescription}
       ListHeaderComponent={listHeaderComponent}
+      onEndReached={loadMoreEnabled ? loadMore : undefined}
+      isLoadingMore={isLoadingMore}
+      hasMore={loadMoreHasMore}
     />
   );
 }

@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { unionBy } from 'lodash';
+
 import type { SectionList } from '@onekeyhq/components';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -10,6 +12,7 @@ import {
   useHistoryListActions,
   withHistoryListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
+import { useHistoryListLoadMore } from '@onekeyhq/kit/src/views/Home/pages/hooks/useHistoryListLoadMore';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -110,6 +113,24 @@ function TokenDetailsHistory(props: IProps) {
     }),
     [cachedHistory, isFocused, isTabView],
   );
+  const {
+    appendedTxs,
+    hasMore: loadMoreHasMore,
+    isLoadingMore,
+    loadMore,
+    reset: resetLoadMore,
+    onFirstPageResponse,
+  } = useHistoryListLoadMore({
+    enabled: true,
+    accountId,
+    networkId,
+    tokenIdOnNetwork: tokenInfo.address,
+    filterScam: settings.isFilterScamHistoryEnabled,
+    filterLowValue: settings.isFilterLowValueHistoryEnabled,
+    sourceCurrency: settings.currencyInfo.id,
+    currencyMap,
+  });
+
   const { result: tokenHistory, run } = usePromiseResult(
     async () => {
       try {
@@ -126,7 +147,13 @@ function TokenDetailsHistory(props: IProps) {
           data: r.addressMap ?? {},
         });
         setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
+        // Persist only first-page rows in the LRU cache; appended pages are
+        // session-scoped and would bloat the cache if stored here.
         tokenHistoryCache.set(historyCacheKey, r.txs ?? []);
+        onFirstPageResponse({
+          next: r.next,
+          hasMore: r.hasMoreOnChainHistory,
+        });
         setTimeout(() => {
           recomputeLayout();
         }, 300);
@@ -147,11 +174,23 @@ function TokenDetailsHistory(props: IProps) {
       setHasMoreOnChainHistory,
       recomputeLayout,
       historyCacheKey,
+      onFirstPageResponse,
     ],
     historyPromiseOptions,
   );
 
-  const resolvedHistory = tokenHistory ?? cachedHistory ?? [];
+  // Reset paginated state whenever the source identity changes; the next first
+  // page response will re-initialize it.
+  useEffect(() => {
+    resetLoadMore();
+  }, [historyCacheKey, resetLoadMore]);
+
+  const resolvedHistory = useMemo(() => {
+    const firstPageHistory = tokenHistory ?? cachedHistory ?? [];
+    return appendedTxs.length
+      ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
+      : firstPageHistory;
+  }, [tokenHistory, cachedHistory, appendedTxs]);
   // Derive initialized synchronously to avoid one-frame flash of empty history
   // when historyCacheKey changes and cachedHistory becomes undefined
   const effectiveInit = historyInit || cachedHistory !== undefined;
@@ -216,6 +255,9 @@ function TokenDetailsHistory(props: IProps) {
       onPressHistory={handleHistoryItemPress}
       ListHeaderComponent={ListHeaderComponent as React.ReactElement}
       isSingleAccount
+      onEndReached={loadMore}
+      isLoadingMore={isLoadingMore}
+      hasMore={loadMoreHasMore}
     />
   );
 }
