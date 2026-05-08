@@ -46,12 +46,12 @@ import {
   OneKeyLocalError,
   VaultKeyringNotDefinedError,
 } from '@onekeyhq/shared/src/errors';
-import { ThirdPartyChainNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
+import { ThirdPartyUnsupportedKeyringStub } from './base/ThirdPartyUnsupportedKeyringStub';
 import { VaultFactory } from './base/VaultFactory';
 
 import type { KeyringBase, KeyringBaseMock } from './base/KeyringBase';
@@ -104,23 +104,24 @@ export async function createKeyringInstance(vault: VaultBase) {
     switch (vendor) {
       case EHardwareVendor.ledger:
         if (!keyringMap.hwLedger) {
-          throw new ThirdPartyChainNotSupported({
+          // Defer unsupported-chain errors until a keyring method is invoked.
+          keyring = new ThirdPartyUnsupportedKeyringStub(vault, {
             vendor: 'Ledger',
             chain: await resolveChainName(),
-            payload: {},
           });
+        } else {
+          keyring = new keyringMap.hwLedger(vault);
         }
-        keyring = new keyringMap.hwLedger(vault);
         break;
       case EHardwareVendor.trezor:
         if (!keyringMap.hwTrezor) {
-          throw new ThirdPartyChainNotSupported({
+          keyring = new ThirdPartyUnsupportedKeyringStub(vault, {
             vendor: 'Trezor',
             chain: await resolveChainName(),
-            payload: {},
           });
+        } else {
+          keyring = new keyringMap.hwTrezor(vault);
         }
-        keyring = new keyringMap.hwTrezor(vault);
         break;
       case EHardwareVendor.onekey:
       case undefined:
