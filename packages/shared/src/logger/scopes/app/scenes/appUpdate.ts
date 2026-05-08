@@ -101,6 +101,14 @@ export class AppUpdateScene extends BaseScene {
       status: 'success' | 'failed';
       failedStep?: string;
       errorMessage?: string;
+      // Stable, low-cardinality classification of the failure parsed from
+      // errorMessage by extractUpdateErrorCode. Lets Mixpanel split the
+      // previously opaque "errorMessage" funnel into actionable buckets —
+      // SHA256_FILE_TRUNCATED / SHA256_OOM / SHA256_MISMATCH /
+      // HTTP_416 / NSURL_-1005 / IO_<errno> / … — that match the
+      // SHA256_<reason> payloads emitted by the iOS/Android/Desktop
+      // bundle-update native modules.
+      errorCode?: string;
     },
   ) {
     return params;

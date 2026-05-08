@@ -98,6 +98,44 @@ function buildSoftwareUpdateParams(
   };
 }
 
+// Maps a thrown bundle-update error into a stable, low-cardinality code so
+// Mixpanel can aggregate failures by category instead of unique message
+// strings. Recognized payloads (in priority order):
+//
+//   - Native SHA256 subtypes:
+//       iOS/Android throw "Bundle SHA256 verification failed: <REASON>"
+//       Desktop throws    "Downloaded file is not valid: SHA256_<REASON>"
+//     Both normalize to "SHA256_<REASON>".
+//   - HTTP failures:        "HTTP 416", "HTTP error 504"      → "HTTP_<code>"
+//   - iOS URLSession errors: "NSURLErrorDomain -1005"          → "NSURL_-1005"
+//   - Generic IO bubble:    "IO_FileNotFoundException", etc.   → "IO_<class>"
+//
+// Falls back to undefined so the analytics event simply lacks errorCode
+// rather than carrying a noisy free-text string.
+export function extractUpdateErrorCode(error: unknown): string | undefined {
+  const msg =
+    typeof error === 'string'
+      ? error
+      : (error as { message?: string } | null)?.message ?? '';
+  if (!msg) return undefined;
+
+  const sha256 = msg.match(
+    /(?:Bundle\s+SHA256\s+verification\s+failed:\s+|SHA256_)([A-Z][A-Z0-9_]*)/,
+  );
+  if (sha256) return `SHA256_${sha256[1]}`;
+
+  const http = msg.match(/HTTP\s+(?:error\s+)?(\d{3})/i);
+  if (http) return `HTTP_${http[1]}`;
+
+  const nsUrl = msg.match(/NSURLErrorDomain[^-\d]*(-?\d+)/);
+  if (nsUrl) return `NSURL_${nsUrl[1]}`;
+
+  const io = msg.match(/\b(IO_[A-Za-z][A-Za-z0-9_]*)/);
+  if (io) return io[1];
+
+  return undefined;
+}
+
 // shared across the entire update flow so all step events carry the same attemptId
 let currentUpdateAttemptId: string | undefined;
 
@@ -332,6 +370,7 @@ export const useDownloadPackage = () => {
           status: 'failed',
           failedStep: 'install',
           errorMessage: (e as Error)?.message,
+          errorCode: extractUpdateErrorCode(e),
         });
         if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
           onFail();
@@ -400,6 +439,7 @@ export const useDownloadPackage = () => {
         status: 'failed',
         failedStep: 'verifyPackage',
         errorMessage: (e as Error)?.message,
+        errorCode: extractUpdateErrorCode(e),
       });
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
@@ -443,6 +483,7 @@ export const useDownloadPackage = () => {
         status: 'failed',
         failedStep: 'verifyASC',
         errorMessage: (e as Error)?.message,
+        errorCode: extractUpdateErrorCode(e),
       });
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
     }
@@ -486,6 +527,7 @@ export const useDownloadPackage = () => {
         status: 'failed',
         failedStep: 'downloadASC',
         errorMessage: (e as Error)?.message,
+        errorCode: extractUpdateErrorCode(e),
       });
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
     }
@@ -551,6 +593,7 @@ export const useDownloadPackage = () => {
         status: 'failed',
         failedStep: 'download',
         errorMessage: (e as Error)?.message,
+        errorCode: extractUpdateErrorCode(e),
       });
       await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(
         e as Error,

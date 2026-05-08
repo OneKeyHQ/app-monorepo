@@ -247,6 +247,7 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 
 import {
+  extractUpdateErrorCode,
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
@@ -375,6 +376,97 @@ describe('Utility functions', () => {
         }),
       ).toBe(false);
     });
+  });
+});
+
+// =========================================================================
+// A.x extractUpdateErrorCode — error → stable mixpanel code mapping
+// =========================================================================
+describe('extractUpdateErrorCode', () => {
+  test('iOS / Android SHA256 verification failure → SHA256_<reason>', () => {
+    expect(
+      extractUpdateErrorCode(
+        new Error('Bundle SHA256 verification failed: MISMATCH'),
+      ),
+    ).toBe('SHA256_MISMATCH');
+    expect(
+      extractUpdateErrorCode(
+        new Error('Bundle SHA256 verification failed: FILE_TRUNCATED'),
+      ),
+    ).toBe('SHA256_FILE_TRUNCATED');
+    expect(
+      extractUpdateErrorCode(
+        new Error('Bundle SHA256 verification failed: OOM'),
+      ),
+    ).toBe('SHA256_OOM');
+  });
+
+  test('Desktop SHA256 failure → SHA256_<reason>', () => {
+    expect(
+      extractUpdateErrorCode(
+        new Error('Downloaded file is not valid: SHA256_FILE_NOT_FOUND'),
+      ),
+    ).toBe('SHA256_FILE_NOT_FOUND');
+    expect(
+      extractUpdateErrorCode(
+        new Error('Downloaded file is not valid: SHA256_PERMISSION_DENIED'),
+      ),
+    ).toBe('SHA256_PERMISSION_DENIED');
+  });
+
+  test('HTTP errors → HTTP_<status>', () => {
+    expect(extractUpdateErrorCode(new Error('HTTP 416'))).toBe('HTTP_416');
+    expect(extractUpdateErrorCode(new Error('HTTP error 504'))).toBe(
+      'HTTP_504',
+    );
+    expect(
+      extractUpdateErrorCode(new Error('Download failed with HTTP 502')),
+    ).toBe('HTTP_502');
+  });
+
+  test('iOS NSURL session errors → NSURL_<code>', () => {
+    expect(
+      extractUpdateErrorCode(new Error('NSURLErrorDomain -1005')),
+    ).toBe('NSURL_-1005');
+    expect(
+      extractUpdateErrorCode(new Error('NSURLErrorDomain code -1001')),
+    ).toBe('NSURL_-1001');
+  });
+
+  test('Generic IO bubble → IO_<class>', () => {
+    expect(
+      extractUpdateErrorCode(
+        new Error('something IO_FileNotFoundException happened'),
+      ),
+    ).toBe('IO_FileNotFoundException');
+  });
+
+  test('SHA256 token wins over HTTP / IO when both appear', () => {
+    expect(
+      extractUpdateErrorCode(
+        new Error('SHA256_MISMATCH after HTTP 200 and IO_Wrap'),
+      ),
+    ).toBe('SHA256_MISMATCH');
+  });
+
+  test('returns undefined for noise that does not match any pattern', () => {
+    expect(extractUpdateErrorCode(new Error('Already downloading'))).toBe(
+      undefined,
+    );
+    expect(
+      extractUpdateErrorCode(new Error('Bundle download URL must use HTTPS')),
+    ).toBe(undefined);
+    expect(extractUpdateErrorCode(undefined)).toBe(undefined);
+    expect(extractUpdateErrorCode(null)).toBe(undefined);
+    expect(extractUpdateErrorCode(new Error(''))).toBe(undefined);
+  });
+
+  test('plain string error is also accepted', () => {
+    expect(
+      extractUpdateErrorCode(
+        'Bundle SHA256 verification failed: FILE_DISAPPEARED',
+      ),
+    ).toBe('SHA256_FILE_DISAPPEARED');
   });
 });
 
