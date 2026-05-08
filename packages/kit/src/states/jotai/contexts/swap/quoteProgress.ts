@@ -29,6 +29,7 @@ type ISwapQuoteProgressState = {
 type ISwapQuoteEventFetchingInput = {
   quoteEventTotalCount: {
     count: number;
+    eventId?: string;
   };
   currentEventReceivedCount: number;
   quoteEventCompleted: boolean;
@@ -90,10 +91,30 @@ export function isSwapQuoteEventFetching({
   currentEventReceivedCount,
   quoteEventCompleted,
 }: ISwapQuoteEventFetchingInput) {
+  const hasReceivedTotal =
+    quoteEventTotalCount.count > 0 || Boolean(quoteEventTotalCount.eventId);
   return (
-    quoteEventTotalCount.count > 0 &&
+    hasReceivedTotal &&
     !quoteEventCompleted &&
-    currentEventReceivedCount < quoteEventTotalCount.count
+    (quoteEventTotalCount.count === 0 ||
+      currentEventReceivedCount < quoteEventTotalCount.count)
+  );
+}
+
+export function hasSwapQuoteEventTotalCount({
+  quoteEventTotalCount,
+  quoteEventCompleted,
+}: {
+  quoteEventTotalCount: {
+    count: number;
+    eventId?: string;
+  };
+  quoteEventCompleted: boolean;
+}) {
+  return (
+    quoteEventTotalCount.count > 0 ||
+    Boolean(quoteEventTotalCount.eventId) ||
+    quoteEventCompleted
   );
 }
 

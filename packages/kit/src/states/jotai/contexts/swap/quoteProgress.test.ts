@@ -1,5 +1,6 @@
 import {
   getSwapQuoteEventProgressTotalCount,
+  hasSwapQuoteEventTotalCount,
   isSwapQuoteEventFetching,
 } from './quoteProgress';
 
@@ -29,5 +30,49 @@ describe('swap quote progress', () => {
         quoteEventCompleted: false,
       }),
     ).toBe(false);
+  });
+
+  it('keeps a zero-provider quote event fetching until the event completes', () => {
+    expect(
+      isSwapQuoteEventFetching({
+        quoteEventTotalCount: { eventId: 'event-1', count: 0 },
+        currentEventReceivedCount: 0,
+        quoteEventCompleted: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      isSwapQuoteEventFetching({
+        quoteEventTotalCount: { eventId: 'event-1', count: 0 },
+        currentEventReceivedCount: 0,
+        quoteEventCompleted: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not treat reset state as a received zero-provider total', () => {
+    expect(
+      isSwapQuoteEventFetching({
+        quoteEventTotalCount: { count: 0 },
+        currentEventReceivedCount: 0,
+        quoteEventCompleted: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      hasSwapQuoteEventTotalCount({
+        quoteEventTotalCount: { count: 0 },
+        quoteEventCompleted: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('treats a completed non-event zero-count quote as received', () => {
+    expect(
+      hasSwapQuoteEventTotalCount({
+        quoteEventTotalCount: { count: 0 },
+        quoteEventCompleted: true,
+      }),
+    ).toBe(true);
   });
 });
