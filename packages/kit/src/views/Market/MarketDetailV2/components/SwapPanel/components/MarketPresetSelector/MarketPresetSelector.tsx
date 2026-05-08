@@ -731,9 +731,7 @@ function MarketPresetSettingsDialog({
                       <SlippageInput
                         swapSlippage={{
                           key: ESwapSlippageSegmentKey.CUSTOM,
-                          value:
-                            currentSettings.slippage.value ??
-                            presetSettings.defaultSlippageValue,
+                          value: currentSettings.slippage.value,
                         }}
                         onChangeText={(text) => {
                           const valueBN = new BigNumber(text);
