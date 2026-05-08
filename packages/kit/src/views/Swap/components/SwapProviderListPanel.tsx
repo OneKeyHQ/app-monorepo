@@ -39,6 +39,7 @@ import {
   buildSwapQuoteProviderKey,
   getSwapQuoteEventProgressTotalCount,
   hasSwapQuoteEventTotalCount,
+  hasSwapZeroProviderQuoteEvent,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import {
   useSettingsAtom,
@@ -177,8 +178,9 @@ const SwapProviderListPanel = ({
         : swapSortedList,
     [currentEventProviderKeySet, quoteEventTotalCount.count, swapSortedList],
   );
-  const hasZeroProviderEvent =
-    Boolean(quoteEventTotalCount.eventId) && quoteEventTotalCount.count === 0;
+  const hasZeroProviderEvent = hasSwapZeroProviderQuoteEvent({
+    quoteEventTotalCount,
+  });
 
   // Cache the previous list to show during refresh (prevents flash to empty)
   const cachedListRef = useRef<IFetchQuoteResult[]>([]);
@@ -715,10 +717,7 @@ const SwapProviderListPanel = ({
     quoteEventTotalCount: quoteEventProgressTotalCount,
     quoteEventCompleted,
   });
-  const isZeroProviderFetching =
-    hasReceivedTotal &&
-    quoteEventProgressTotalCount.count === 0 &&
-    quoteEventFetching;
+  const isZeroProviderFetching = hasZeroProviderEvent && quoteEventFetching;
   // Number of skeleton placeholders for providers not yet received
   const remainingSkeletonCount =
     hasReceivedTotal && quoteEventFetching

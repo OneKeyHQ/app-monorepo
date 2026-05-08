@@ -26,30 +26,29 @@ type ISwapQuoteProgressState = {
   isWaitingActionableQuote: boolean;
 };
 
-type ISwapQuoteEventFetchingInput = {
-  quoteEventTotalCount: {
-    count: number;
-    eventId?: string;
-  };
-  currentEventReceivedCount: number;
+type ISwapQuoteEventTotalCount = {
+  count: number;
+  eventId?: string;
+};
+
+type ISwapQuoteEventStateInput = {
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
   quoteEventCompleted: boolean;
 };
 
+type ISwapQuoteEventFetchingInput = ISwapQuoteEventStateInput & {
+  currentEventReceivedCount: number;
+};
+
 type ISwapQuoteEventProgressTotalCountInput = {
-  quoteEventTotalCount: {
-    count: number;
-    eventId?: string;
-  };
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
   maxQuoteCount?: number;
 };
 
 type ISwapCurrentQuoteInput = {
   currentEventSortedQuotes: IFetchQuoteResult[];
   selectionIntent?: ISwapQuoteSelectionIntent;
-  quoteEventTotalCount: {
-    count: number;
-    eventId?: string;
-  };
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
   currentEventProviderKeys: string[];
 };
 
@@ -104,17 +103,31 @@ export function isSwapQuoteEventFetching({
 export function hasSwapQuoteEventTotalCount({
   quoteEventTotalCount,
   quoteEventCompleted,
-}: {
-  quoteEventTotalCount: {
-    count: number;
-    eventId?: string;
-  };
-  quoteEventCompleted: boolean;
-}) {
+}: ISwapQuoteEventStateInput) {
   return (
     quoteEventTotalCount.count > 0 ||
     Boolean(quoteEventTotalCount.eventId) ||
     quoteEventCompleted
+  );
+}
+
+export function hasSwapZeroProviderQuoteEvent({
+  quoteEventTotalCount,
+}: {
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
+}) {
+  return (
+    Boolean(quoteEventTotalCount.eventId) && quoteEventTotalCount.count === 0
+  );
+}
+
+export function isSwapZeroProviderQuoteCompleted({
+  quoteEventTotalCount,
+  quoteEventCompleted,
+}: ISwapQuoteEventStateInput) {
+  return (
+    quoteEventCompleted &&
+    hasSwapZeroProviderQuoteEvent({ quoteEventTotalCount })
   );
 }
 
