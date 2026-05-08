@@ -1,12 +1,12 @@
-import { createCipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import safeStringify from 'fast-safe-stringify';
+
 import type {
   ICliBotWalletEncryptedCredential,
   ICliBotWalletRevealableSeed,
   IPersistAuthSessionInput,
 } from '@onekeyhq/shared/src/types/cliBotWallet';
-import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 type IRegisterResponse = {
   accessToken: string;
@@ -26,8 +26,39 @@ export type ISimulatedExportFixture = {
   keyBase64: string;
 };
 
-const SERVICE_BASE_URL =
-  process.env.BOT_WALLET_KEY_SERVICE_URL ?? 'http://127.0.0.1:8787';
+type IApiResponse<T> = {
+  code: number;
+  message: string;
+  data: T;
+};
+
+const BOT_WALLET_KEY_API_PATH = '/prime/v1/bot-wallet-keys';
+const BOT_WALLET_HASH_SALT = 'onekey-cli-bot-wallet-key-api:v1';
+
+class SimulatedExportError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SimulatedExportError';
+  }
+}
+
+function buildBotWalletHash(walletId: string): string {
+  return createHash('sha256')
+    .update(`${BOT_WALLET_HASH_SALT}:${walletId}`, 'utf8')
+    .digest('hex');
+}
+
+function getBotWalletKeyApiBaseUrl(): string {
+  const explicitBaseUrl = process.env.BOT_WALLET_KEY_API_BASE_URL;
+  if (explicitBaseUrl) {
+    return explicitBaseUrl.replace(/\/+$/, '');
+  }
+  return process.env.ONEKEY_E2E_ENV === 'prod'
+    ? 'https://prime.onekeycn.com'
+    : 'https://prime.onekeytest.com';
+}
+
+const BOT_WALLET_KEY_API_BASE_URL = getBotWalletKeyApiBaseUrl();
 
 function getSimulatedRevealableSeed(): ICliBotWalletRevealableSeed {
   if (process.env.ONEKEY_E2E_REVEALABLE_SEED_JSON) {
@@ -44,7 +75,9 @@ function getSimulatedRevealableSeed(): ICliBotWalletRevealableSeed {
         seed: parsed.seed,
       };
     }
-    throw new OneKeyLocalError('ONEKEY_E2E_REVEALABLE_SEED_JSON is malformed');
+    throw new SimulatedExportError(
+      'ONEKEY_E2E_REVEALABLE_SEED_JSON is malformed',
+    );
   }
   return {
     entropyWithLangPrefixed: `0110${'00'.repeat(32)}`,
@@ -55,7 +88,7 @@ function getSimulatedRevealableSeed(): ICliBotWalletRevealableSeed {
 export function encryptCredential(key: Buffer): string {
   const nonce = randomBytes(12);
   const plaintext = Buffer.from(
-    stableStringify(getSimulatedRevealableSeed()),
+    safeStringify.stableStringify(getSimulatedRevealableSeed()),
     'utf8',
   );
   const cipher = createCipheriv('aes-256-gcm', key, nonce);
@@ -84,7 +117,7 @@ export function createSimulatedExportFixture(
       sourceLabel:
         options.sourceLabel ??
         process.env.ONEKEY_E2E_SOURCE_LABEL ??
-        'PoC E2E Export',
+        'Bot Wallet E2E Export',
       algorithm: 'aes-256-gcm',
     };
 
@@ -102,27 +135,44 @@ export function createSimulatedExportFixture(
 
 export async function registerKey(
   keyBase64: string,
+  botWalletHash: string,
 ): Promise<IRegisterResponse> {
-  const response = await fetch(`${SERVICE_BASE_URL}/v1/bot-wallet-keys`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ keyBase64 }),
-  });
+  const response = await fetch(
+    `${BOT_WALLET_KEY_API_BASE_URL}${BOT_WALLET_KEY_API_PATH}`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ botWalletHash, keyBase64 }),
+    },
+  );
 
   if (!response.ok) {
-    throw new OneKeyLocalError(
+    throw new SimulatedExportError(
       `register failed: HTTP ${response.status} ${await response.text()}`,
     );
   }
 
-  const json = (await response.json()) as Partial<IRegisterResponse>;
-  if (typeof json.keyId !== 'string' || typeof json.accessToken !== 'string') {
-    throw new OneKeyLocalError('register failed: malformed response');
+  const json = (await response.json()) as Partial<
+    IApiResponse<Partial<IRegisterResponse>>
+  >;
+  if (json.code !== 0) {
+    throw new SimulatedExportError(
+      `register failed: API ${json.code ?? 'unknown'} ${
+        json.message ?? 'Unknown error'
+      }`,
+    );
+  }
+  const data = json.data;
+  if (
+    typeof data?.keyId !== 'string' ||
+    typeof data?.accessToken !== 'string'
+  ) {
+    throw new SimulatedExportError('register failed: malformed response');
   }
 
   return {
-    accessToken: json.accessToken,
-    keyId: json.keyId,
+    accessToken: data.accessToken,
+    keyId: data.keyId,
   };
 }
 
@@ -132,7 +182,7 @@ async function main(): Promise<void> {
       [
         'Usage: node -r esbuild-register apps/cli/scripts/_simulate-export.ts',
         '',
-        'Registers a random key with the local BotWallet key service and prints',
+        'Registers a random key with the Bot Wallet key API and prints',
         'a CLI BotWallet auth payload JSON object to stdout.',
         '',
       ].join('\n'),
@@ -142,13 +192,15 @@ async function main(): Promise<void> {
 
   const key = randomBytes(32);
   const keyBase64 = key.toString('base64');
-  const registered = await registerKey(keyBase64);
+  const walletId = process.env.ONEKEY_E2E_WALLET_ID ?? 'e2e-wallet-001';
+  const registered = await registerKey(keyBase64, buildBotWalletHash(walletId));
   const fixture = (() => {
     try {
       return createSimulatedExportFixture({
         accessToken: registered.accessToken,
         key,
         keyId: registered.keyId,
+        walletId,
       });
     } finally {
       key.fill(0);

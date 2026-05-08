@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-
-SERVICE_DATA_FILE="${BOT_WALLET_KEY_SERVICE_DATA_FILE:-$REPO_ROOT/development/bot-wallet-key-service/data/keys.json}"
-SERVICE_SRC_DIR="${BOT_WALLET_KEY_SERVICE_SRC_DIR:-$REPO_ROOT/development/bot-wallet-key-service/src}"
+SERVICE_DATA_FILE="${BOT_WALLET_KEY_API_DATA_FILE:-}"
+SERVICE_SRC_DIR="${BOT_WALLET_KEY_API_SRC_DIR:-}"
 VAULT_FILE="${BOT_WALLET_VAULT_FILE:-$HOME/.onekey-cli/bot-wallet/vault.enc}"
 
 FORBIDDEN_VAULT_PATTERN='accessToken|ciphertextBase64|ciphertext|mnemonic|seedPhrase|displayAddress|walletId|sourceLabel|IBip39RevealableSeed'
