@@ -346,7 +346,10 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
   const finalAllowanceParsed = useMemo(() => {
     if (!isIncrease || !currentAllowanceParsed) return null;
     const deltaBN = new BigNumber(component.amountParsed);
-    if (!deltaBN.isFinite()) return currentAllowanceParsed;
+    // Non-finite delta (e.g. increaseAllowance(MaxUint256)) cannot be summed
+    // into a meaningful absolute value — fall through so the display can
+    // render the increment with explicit "+" semantics instead.
+    if (!deltaBN.isFinite()) return null;
     return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
   }, [component.amountParsed, currentAllowanceParsed, isIncrease]);
 
@@ -369,21 +372,28 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
 
   const displayedAmount = useMemo(() => {
     const amountBN = new BigNumber(component.amountParsed);
-    // increaseAllowance(MaxUint256) leaks the "Infinite" sentinel through
-    // amountParsed (isInfiniteAmount is only set on absolute approve), so
-    // collapse both signals into one unlimited check.
+    // For increase variants, MaxUint256 means "increase by MaxUint256",
+    // not "set allowance to unlimited". Render the delta with explicit "+"
+    // so the increment semantics are preserved and never collapse into the
+    // absolute-unlimited copy used by `approve(MaxUint256)`.
+    if (isIncrease) {
+      if (!amountBN.isFinite()) {
+        return `+${intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_amount_un_limit,
+        })}`;
+      }
+      if (finalAllowanceParsed) {
+        return new BigNumber(finalAllowanceParsed).toFixed();
+      }
+      // Allowance lookup not ready — render the delta with "+" prefix so it
+      // cannot be misread as the absolute approve amount.
+      return `+${amountBN.toFixed()}`;
+    }
+    // Absolute approve: MaxUint256 / non-finite => unlimited.
     if (component.isInfiniteAmount || !amountBN.isFinite()) {
       return intl.formatMessage({
         id: ETranslations.swap_page_provider_approve_amount_un_limit,
       });
-    }
-    if (isIncrease) {
-      if (finalAllowanceParsed) {
-        return new BigNumber(finalAllowanceParsed).toFixed();
-      }
-      // Allowance lookup not ready — render the delta with an explicit "+"
-      // so it cannot be misread as the absolute approve amount.
-      return `+${amountBN.toFixed()}`;
     }
     return amountBN.toFixed();
   }, [
