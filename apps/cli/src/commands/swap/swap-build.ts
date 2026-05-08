@@ -639,11 +639,13 @@ export function registerSwapBuildCommand(parent: Command): void {
           // Validate executable data exists. EVM source routes require tx;
           // BTC source routes may return PSBT data under btcData, or App-style
           // provider deposit data that must be converted into a local BTC tx.
+          // A bare `tx` payload is NOT executable on the BTC execute branch,
+          // so we ignore it here and rely on the final hasTxData gate to fail
+          // closed if neither btcData nor a provider transfer is available.
           const isBtcSource = Boolean(btcAddressing.from);
           if (
             isBtcSource &&
             !hasValidBtcData(buildTxResponse) &&
-            !hasValidEvmTx(buildTxResponse) &&
             btcAddressing.from
           ) {
             const transfer = extractBtcProviderTransfer(
@@ -712,18 +714,28 @@ export function registerSwapBuildCommand(parent: Command): void {
             }
           }
 
+          // BTC source routes MUST sign a BTC PSBT — an EVM-style `tx` payload
+          // is unsignable on this code path, so we reject it at build time
+          // instead of saving a pending order that execute will fail to sign.
           const hasTxData = isBtcSource
             ? hasValidBtcData(buildTxResponse) ||
-              hasValidBtcLocalTx(buildTxResponse) ||
-              hasValidEvmTx(buildTxResponse)
+              hasValidBtcLocalTx(buildTxResponse)
             : hasValidEvmTx(buildTxResponse);
 
           if (!hasTxData) {
+            let message: string;
+            if (!isBtcSource) {
+              message = 'Build-tx API returned success but tx data is missing';
+            } else if (hasValidEvmTx(buildTxResponse)) {
+              message =
+                'Build-tx API returned an EVM-style tx for a BTC source route; this provider/route is not supported';
+            } else {
+              message =
+                'Build-tx API returned success but no BTC PSBT or provider deposit data is available';
+            }
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
-              isBtcSource
-                ? 'Build-tx API returned success but no BTC PSBT or provider deposit data is available'
-                : 'Build-tx API returned success but tx data is missing',
+              message,
               'Try a different provider or amount',
             );
           }
