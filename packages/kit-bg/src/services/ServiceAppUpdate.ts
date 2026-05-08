@@ -459,46 +459,52 @@ class ServiceAppUpdate extends ServiceBase {
     return appInfo.status;
   }
 
-  // Last time resumeIfInterrupted actually flipped a status — guards against
-  // AppState 'active' bursts (foreground notifications, route changes, etc.)
-  // hammering the download pipeline. 30 seconds is short enough that a real
-  // user-noticed "still failed" reflects in the next foreground pass, long
-  // enough to swallow the typical 1-3 'change' events that fire in quick
-  // succession on iOS scene transitions.
-  private resumeIfInterruptedLastFiredAt = 0;
+  // Last time the foreground-resume gate let a caller through. Guards
+  // against AppState 'active' bursts (foreground notifications, route
+  // changes, scene transitions on iOS) hammering the download pipeline.
+  // 30s is short enough that a real user-noticed "still failed" reflects
+  // in the next foreground pass, long enough to swallow the 1-3 'change'
+  // events that fire in quick succession on iOS scene transitions.
+  // Module-scoped on the single ServiceAppUpdate instance so that multiple
+  // useAppUpdateInfo mounts (UpdateReminder + MoreActionButton, etc.)
+  // share one cooldown window — without this, each listener would race
+  // through its own ref-based cooldown and we'd double-fire downloadPackage.
+  private resumeStalledDownloadLastFiredAt = 0;
 
   /**
-   * Re-arm the download pipeline when the user returns to the app and we
-   * were stuck mid-download (or a recent failure left status pinned to
-   * downloadPackageFailed / downloadASCFailed). Flips status back to
-   * downloadPackage; UpdateReminder/hooks.tsx's mount/refresh useEffect
-   * picks it up and re-calls downloadPackage(), which in turn reuses the
-   * on-disk resume artifact via downloadTask(withResumeData:) (iOS) or
-   * Range: bytes=<offset>- (Android/Desktop).
+   * Pure query (no atom mutation, no side effects on download timers):
+   * returns true iff the caller should now invoke the JS downloadPackage()
+   * hook to resume a stalled bundle download.
    *
-   * Cooldown protects against AppState bursts. Verify-failed and final
-   * failed statuses are NOT eligible — those need user-facing decisions,
-   * not silent retries.
+   * Eligibility deliberately excludes status === downloadPackage. That
+   * status either means a download is in flight (don't disturb) or that
+   * C1's in-flight retry is mid-backoff (also don't disturb). Verify-
+   * failed / install-failed / final-failed statuses are likewise excluded
+   * because those need a user-facing decision (different signature,
+   * different bundle, etc.) — silent re-download won't help.
+   *
+   * Returning true *consumes* the cooldown atomically so that two
+   * concurrent foreground-listeners (UpdateReminder + MoreActionButton)
+   * cannot both fire downloadPackage on the same AppState event.
    */
   @backgroundMethod()
-  async resumeIfInterrupted() {
+  async shouldResumeStalledDownload(): Promise<boolean> {
     const now = Date.now();
-    if (now - this.resumeIfInterruptedLastFiredAt < 30_000) {
-      return;
+    if (now - this.resumeStalledDownloadLastFiredAt < 30_000) {
+      return false;
     }
     const { status } = await appUpdatePersistAtom.get();
     const eligible =
-      status === EAppUpdateStatus.downloadPackage ||
       status === EAppUpdateStatus.downloadPackageFailed ||
       status === EAppUpdateStatus.downloadASCFailed;
     if (!eligible) {
-      return;
+      return false;
     }
-    this.resumeIfInterruptedLastFiredAt = now;
+    this.resumeStalledDownloadLastFiredAt = now;
     defaultLogger.app.appUpdate.log(
-      `resumeIfInterrupted: re-arming downloadPackage from status=${status}`,
+      `shouldResumeStalledDownload: green-lighting resume from status=${status}`,
     );
-    await this.downloadPackage();
+    return true;
   }
 
   static FAILED_STATUSES: EAppUpdateStatus[] = [

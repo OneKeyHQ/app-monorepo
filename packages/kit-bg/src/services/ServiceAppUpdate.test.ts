@@ -942,51 +942,40 @@ describe('ServiceAppUpdate state transitions', () => {
   });
 
   // =========================================================================
-  // resumeIfInterrupted — AppState 'active' re-arm
+  // shouldResumeStalledDownload — pure eligibility query for AppState 'active'
   // =========================================================================
-  describe('resumeIfInterrupted', () => {
-    test("re-arms downloadPackage when status is 'downloadPackage'", async () => {
-      resetAtom({ status: EAppUpdateStatus.downloadPackage });
-
-      await service.resumeIfInterrupted();
-
-      // Re-armed — status is still downloadPackage but a fresh 30-min timer
-      // is set, downloadedEvent is cleared, and the side-effect path kicked.
-      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
-    });
-
-    test("re-arms when status is 'downloadPackageFailed'", async () => {
+  describe('shouldResumeStalledDownload', () => {
+    test("greenlights resume when status is 'downloadPackageFailed'", async () => {
       resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
-
-      await service.resumeIfInterrupted();
-
-      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+      const should = await service.shouldResumeStalledDownload();
+      expect(should).toBe(true);
+      // Pure query — atom must NOT be mutated.
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
     });
 
-    test("re-arms when status is 'downloadASCFailed'", async () => {
+    test("greenlights resume when status is 'downloadASCFailed'", async () => {
       resetAtom({ status: EAppUpdateStatus.downloadASCFailed });
-
-      await service.resumeIfInterrupted();
-
-      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+      const should = await service.shouldResumeStalledDownload();
+      expect(should).toBe(true);
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadASCFailed);
     });
 
-    test('does not re-arm verify-failed states (need user decision)', async () => {
+    test("does NOT greenlight when status is 'downloadPackage' (in-flight)", async () => {
+      // Critical regression guard: foreground transitions during an
+      // in-flight download must NOT re-fire downloadPackage(); the native
+      // module's isDownloading guard would throw "Already downloading"
+      // (unrecoverable in the JS retry layer) and corrupt the active flow.
+      resetAtom({ status: EAppUpdateStatus.downloadPackage });
+      const should = await service.shouldResumeStalledDownload();
+      expect(should).toBe(false);
+    });
+
+    test('does NOT greenlight verify-failed / install-failed / terminal states', async () => {
       for (const status of [
         EAppUpdateStatus.verifyASCFailed,
         EAppUpdateStatus.verifyPackageFailed,
         EAppUpdateStatus.failed,
         EAppUpdateStatus.updateIncomplete,
-      ]) {
-        resetAtom({ status });
-        // eslint-disable-next-line no-await-in-loop
-        await service.resumeIfInterrupted();
-        expect(atomValue.status).toBe(status);
-      }
-    });
-
-    test('does not re-arm terminal/non-update states', async () => {
-      for (const status of [
         EAppUpdateStatus.done,
         EAppUpdateStatus.notify,
         EAppUpdateStatus.ready,
@@ -995,27 +984,36 @@ describe('ServiceAppUpdate state transitions', () => {
       ]) {
         resetAtom({ status });
         // eslint-disable-next-line no-await-in-loop
-        await service.resumeIfInterrupted();
-        expect(atomValue.status).toBe(status);
+        const should = await service.shouldResumeStalledDownload();
+        expect(should).toBe(false);
       }
     });
 
-    test('30s cooldown prevents back-to-back fires', async () => {
+    test('30s cooldown serializes burst foreground events', async () => {
       resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
 
-      await service.resumeIfInterrupted();
-      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+      // First call passes — cooldown consumed.
+      expect(await service.shouldResumeStalledDownload()).toBe(true);
 
-      // Reset status to "failed" again, fire a second resume <30s later —
-      // cooldown should swallow it.
-      resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
-      await service.resumeIfInterrupted();
-      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+      // Second call <30s later is rejected even though status is still
+      // eligible. Mirrors the AppState 'change' burst that fires multiple
+      // 'active' events on iOS scene transitions.
+      expect(await service.shouldResumeStalledDownload()).toBe(false);
 
-      // Past the cooldown window — fires again.
+      // Past the cooldown — passes again.
       await jest.advanceTimersByTimeAsync(30_000);
-      await service.resumeIfInterrupted();
-      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+      expect(await service.shouldResumeStalledDownload()).toBe(true);
+    });
+
+    test('cooldown is consumed only when the call returns true', async () => {
+      // Sequence: ineligible → eligible → ineligible.
+      // The first ineligible call must NOT consume cooldown, so the
+      // immediately-following eligible call still passes.
+      resetAtom({ status: EAppUpdateStatus.downloadPackage });
+      expect(await service.shouldResumeStalledDownload()).toBe(false);
+
+      resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
+      expect(await service.shouldResumeStalledDownload()).toBe(true);
     });
   });
 

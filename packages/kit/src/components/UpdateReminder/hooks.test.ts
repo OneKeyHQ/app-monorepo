@@ -39,7 +39,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     fetchChangeLog: jest.fn(),
     reset: jest.fn(),
     resetToInComplete: jest.fn(),
-    resumeIfInterrupted: jest.fn(),
+    shouldResumeStalledDownload: jest.fn(),
     updateLastDialogShownAt: jest.fn(),
   };
   (globalThis as any).__mockSvc = svc;
@@ -1836,16 +1836,58 @@ describe('useAppUpdateInfo useEffect', () => {
   });
 
   describe('AppState foreground resume', () => {
-    test("AppState 'active' triggers serviceAppUpdate.resumeIfInterrupted", async () => {
-      const handlerHolder: { fn?: (state: string) => void } = {};
+    // Capture the AppState handler so each test can fire transitions.
+    function captureAppStateHandler() {
+      const holder: { fn?: (state: string) => void } = {};
       const RN = require('react-native');
       RN.AppState.addEventListener.mockImplementationOnce(
         (_event: string, fn: (state: string) => void) => {
-          handlerHolder.fn = fn;
+          holder.fn = fn;
           return { remove: jest.fn() };
         },
       );
+      return holder;
+    }
 
+    test("AppState 'active' + service greenlight → fires JS downloadPackage", async () => {
+      // Critical assertion: it's the JS-side downloadPackage that ultimately
+      // calls BundleUpdate.downloadBundle. A foreground-resume that only
+      // pokes the service (and not the JS hook) would not start any bytes.
+      const handlerHolder = captureAppStateHandler();
+      svc.shouldResumeStalledDownload.mockResolvedValue(true);
+
+      // Wire enough state that downloadPackage()'s body completes its
+      // first await without reaching the network — we only need to prove
+      // the JS download function was entered.
+      setAtom({
+        status: EAppUpdateStatus.downloadPackageFailed,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.getDownloadEvent.mockResolvedValue({});
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        handlerHolder.fn?.('active');
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(svc.shouldResumeStalledDownload).toHaveBeenCalledTimes(1);
+      // The JS downloadPackage hook is what guarantees byte flow — it
+      // begins with svc.downloadPackage() before any native call.
+      expect(svc.downloadPackage).toHaveBeenCalled();
+    });
+
+    test("AppState 'active' + service rejects → does NOT fire downloadPackage", async () => {
+      const handlerHolder = captureAppStateHandler();
+      svc.shouldResumeStalledDownload.mockResolvedValue(false);
+
+      // Use status===notify so the run-once useEffect on first mount
+      // does not itself fire downloadPackage(); we want to attribute any
+      // svc.downloadPackage call SOLELY to the AppState handler under test.
       setAtom({
         status: EAppUpdateStatus.notify,
         latestVersion: '2.0.0',
@@ -1855,23 +1897,50 @@ describe('useAppUpdateInfo useEffect', () => {
 
       const hooks = requireFreshHooks();
       renderHook(() => hooks.useAppUpdateInfo(false, true));
+      // Drain the cold-launch useEffect before clearing — that effect can
+      // schedule its own setTimeout/microtask chain which would otherwise
+      // race the AppState handler under test.
+      await act(async () => {
+        jest.runAllTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      svc.downloadPackage.mockClear();
 
-      expect(handlerHolder.fn).toBeDefined();
-      // Foreground transition fires resumeIfInterrupted
       await act(async () => {
         handlerHolder.fn?.('active');
         await Promise.resolve();
+        await Promise.resolve();
       });
-      expect(svc.resumeIfInterrupted).toHaveBeenCalledTimes(1);
+      expect(svc.shouldResumeStalledDownload).toHaveBeenCalledTimes(1);
+      // Critical regression guard: when the gate says no, no JS download
+      // call must happen. Otherwise an in-flight download would race with
+      // a duplicate downloadPackage call → "Already downloading" →
+      // unrecoverable → status flipped to failed, killing a healthy flow.
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+    });
 
-      // Background / inactive transitions are silent
-      svc.resumeIfInterrupted.mockClear();
+    test("non-'active' transitions are no-ops (no service call at all)", async () => {
+      const handlerHolder = captureAppStateHandler();
+      setAtom({
+        status: EAppUpdateStatus.downloadPackageFailed,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      svc.shouldResumeStalledDownload.mockClear();
+      svc.downloadPackage.mockClear();
+
       await act(async () => {
         handlerHolder.fn?.('background');
         handlerHolder.fn?.('inactive');
         await Promise.resolve();
       });
-      expect(svc.resumeIfInterrupted).not.toHaveBeenCalled();
+      expect(svc.shouldResumeStalledDownload).not.toHaveBeenCalled();
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
     });
   });
 });

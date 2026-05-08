@@ -1155,26 +1155,42 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   // Re-arm the download pipeline whenever the user returns to the app,
   // covering two interruption modes that the in-flight retry (C1) cannot
   // catch on its own:
-  //   - iOS suspends the foreground URLSession after ~30s in background;
-  //     the task fails with -1005 / -1001, snapshotResumeDataForBackgrounding
-  //     persists the resume blob, status flips to downloadPackageFailed,
-  //     and the only thing left is to re-call downloadPackage() to consume
-  //     that blob via downloadTask(withResumeData:).
+  //   - iOS suspends the foreground URLSession after ~30s in background.
+  //     The task fails with -1005 / -1001 and the resume blob is on disk
+  //     (via the C3 didEnterBackground snapshot); C1 retries 3x within
+  //     ~14s; if all 3 fail, status flips to downloadPackageFailed.
   //   - Android may freeze / kill the JVM under memory pressure with the
-  //     stream still in flight. .partial holds the bytes that were flushed;
-  //     resumeIfInterrupted re-arms the pipeline so the next downloadPackage()
-  //     sends `Range: bytes=<flushed>-`.
-  // Service-side resumeIfInterrupted has its own 30s cooldown so AppState
-  // bursts (route changes, scene transitions on iOS) don't hammer the
-  // pipeline.
+  //     stream still in flight. The next foreground pass needs to re-fire
+  //     downloadPackage so the on-disk .partial gets resumed via
+  //     `Range: bytes=<flushed>-`.
+  //
+  // Eligibility is gated on the SERVICE side (shouldResumeStalledDownload),
+  // which combines a status check + a 30s instance-scoped cooldown so that:
+  //   - In-flight downloads (status===downloadPackage) are NEVER disturbed
+  //     by a foreground transition — the in-flight retry handles those.
+  //   - Verify-failed / install-failed states are NEVER auto-retried —
+  //     they need user-facing decisions.
+  //   - Multiple listeners (UpdateReminder + MoreActionButton both call
+  //     useAppUpdateInfo) cannot double-fire downloadPackage on the same
+  //     AppState event, because the cooldown lives on the single service
+  //     instance, not on per-mount refs.
+  //
+  // When the gate returns true, we MUST invoke the JS downloadPackage()
+  // hook here — the service method only sets atom status and would NOT
+  // start the actual byte transfer. Bytes only flow through
+  // BundleUpdate.downloadBundle / AppUpdate.downloadPackage which the
+  // hook calls directly.
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        void backgroundApiProxy.serviceAppUpdate.resumeIfInterrupted();
+    const sub = AppState.addEventListener('change', async (state) => {
+      if (state !== 'active') return;
+      const should =
+        await backgroundApiProxy.serviceAppUpdate.shouldResumeStalledDownload();
+      if (should) {
+        void downloadPackage();
       }
     });
     return () => sub.remove();
-  }, []);
+  }, [downloadPackage]);
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
