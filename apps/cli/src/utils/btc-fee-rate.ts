@@ -11,6 +11,10 @@ const TIER_INDEX: Record<IBtcFeeTier, number> = {
 
 const MIN_RELAY_FEE_RATE = 1;
 const MAINNET_SAFE_FLOOR = 2;
+// Hard ceiling against malformed API responses or fat-finger user input.
+// Historic mempool peaks rarely exceed a few hundred sat/vB; 2000 leaves
+// generous headroom while still preventing accidental fee blowouts.
+const MAX_REASONABLE_FEE_RATE = 2000;
 
 interface IEstimateFeeBtcResp {
   feeUTXO?: Array<{ feeRate?: string; feeValue?: string }>;
@@ -41,7 +45,12 @@ function normalizeRates(raw: Array<{ feeRate?: string }>): string[] {
     .map((item) => item.feeRate)
     .filter((rate): rate is string => typeof rate === 'string' && /^-?\d+(\.\d+)?$/.test(rate))
     .map((rate) => Math.max(0, Math.floor(Number(rate))).toString())
-    .filter((rate) => Number(rate) >= MIN_RELAY_FEE_RATE);
+    .filter((rate) => {
+      const numeric = Number(rate);
+      return (
+        numeric >= MIN_RELAY_FEE_RATE && numeric <= MAX_REASONABLE_FEE_RATE
+      );
+    });
   cleaned.sort((a, b) => Number(a) - Number(b));
   return cleaned;
 }
@@ -132,6 +141,13 @@ export function validateExplicitFeeRate(
       ERROR_CODES.PARAM_INVALID_CONFIG.code,
       `--fee-rate ${feeRate} is below the mainnet safe floor (${MAINNET_SAFE_FLOOR} sat/vB)`,
       'Mainnet transactions below 2 sat/vB routinely get stuck. Use --fee-tier or a higher --fee-rate',
+    );
+  }
+  if (numeric > MAX_REASONABLE_FEE_RATE) {
+    throw new AppError(
+      ERROR_CODES.PARAM_INVALID_CONFIG.code,
+      `--fee-rate ${feeRate} exceeds the safety cap (${MAX_REASONABLE_FEE_RATE} sat/vB)`,
+      'Pick a lower rate; if intentional, raise the cap explicitly in the source',
     );
   }
   return Math.floor(numeric).toString();

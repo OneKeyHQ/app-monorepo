@@ -29,12 +29,40 @@ jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
   ),
 }));
 
+// 1_000_000 sats == order.amount '0.01' BTC; +1_000 sats input headroom
+// gives a realistic fee budget that the new spend validator accepts.
+const MOCK_PSBT_INPUT_SATS = 1_001_000;
+const MOCK_PSBT_OUTPUT_SATS = 1_000_000;
+
 jest.mock('bitcoinjs-lib', () => ({
   Psbt: {
     fromHex: jest.fn(() => ({
       mockPsbt: true,
+      data: {
+        inputs: [
+          {
+            witnessUtxo: {
+              script: Buffer.from('our-input-script'),
+              value: MOCK_PSBT_INPUT_SATS,
+            },
+          },
+        ],
+      },
+      txInputs: [{ index: 0 }],
+      txOutputs: [
+        { address: 'bc1pproviderxxx', value: MOCK_PSBT_OUTPUT_SATS },
+      ],
       toHex: jest.fn(() => 'normalized-psbt-hex'),
     })),
+  },
+  // Strict ownership filter and describePsbtSpend both decode input scripts
+  // via address.fromOutputScript. In tests our only input belongs to the
+  // active wallet, so a fixed return value keeps the validator happy.
+  address: {
+    fromOutputScript: jest.fn(() => 'bc1psourceaddress'),
+  },
+  Transaction: {
+    fromBuffer: jest.fn(),
   },
 }));
 
@@ -349,6 +377,8 @@ describe('swap execute BTC PSBT path', () => {
   });
 
   it('signs a locally built BTC provider deposit tx without broadcasting when --sign-only is set', async () => {
+    // order.amount '0.01' BTC == 1_000_000 sats; encodedTx must spend a
+    // matching amount (plus fee budget) for assertBtcSpendIsSafe to pass.
     savePending(
       'btc_order',
       makePendingOrder({
@@ -359,7 +389,7 @@ describe('swap execute BTC PSBT path', () => {
                 {
                   txid: 'tx-1',
                   vout: 0,
-                  value: '100000',
+                  value: '1001000',
                   address: 'bc1psourceaddress',
                   path: "m/86'/0'/0'/0/0",
                 },
@@ -367,7 +397,7 @@ describe('swap execute BTC PSBT path', () => {
               outputs: [
                 {
                   address: 'bc1pproviderdeposit',
-                  value: '100000',
+                  value: '1000000',
                 },
               ],
             },
@@ -423,7 +453,7 @@ describe('swap execute BTC PSBT path', () => {
             {
               txid: 'tx-1',
               vout: 0,
-              value: '100000',
+              value: '1001000',
               address: 'bc1psourceaddress',
               path: "m/86'/0'/0'/0/0",
             },
@@ -431,7 +461,7 @@ describe('swap execute BTC PSBT path', () => {
           outputs: [
             {
               address: 'bc1pproviderdeposit',
-              value: '100000',
+              value: '1000000',
             },
           ],
         },

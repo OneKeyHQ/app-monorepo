@@ -12,6 +12,12 @@ import {
   getBtcAddressTypeInfo,
   isBtcImpl,
 } from '../../core/btc/address-types';
+import {
+  assertBtcSpendIsSafe,
+  describeEncodedTxSpend,
+  describePsbtSpend,
+  filterPsbtInputsToOwnedOnly,
+} from '../../core/btc/spend-validation';
 import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
@@ -26,6 +32,7 @@ import {
 import { resolveApproveSpender } from './resolve-approve-spender';
 import { getProtocolConfig } from './swap-protocol-config';
 
+import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { ICoreApiSignBtcExtraInfo } from '@onekeyhq/core/src/types';
 import type { IEndpointEnv } from '../../config';
 import type { BtcAddressType } from '../../core/btc/address-types';
@@ -616,6 +623,23 @@ export function registerSwapExecuteCommand(parent: Command): void {
             };
 
             if (btcLocalTx) {
+              // Independent spend validation. btcLocalTx may have been built
+              // locally OR returned by the API — either way, this guard runs
+              // before signing so a tampered encodedTx cannot reach the device.
+              const expectedBtcLocalSpendSats = BigInt(
+                amountToSmallestUnit(
+                  order.amount,
+                  order.fromToken.decimals,
+                ),
+              );
+              assertBtcSpendIsSafe(
+                describeEncodedTxSpend(
+                  btcLocalTx.encodedTx as IEncodedTxBtc,
+                  fromAddress,
+                ),
+                { expectedSpendSats: expectedBtcLocalSpendSats },
+              );
+
               await confirmTransaction({
                 info: {
                   action: `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`,
@@ -727,27 +751,50 @@ export function registerSwapExecuteCommand(parent: Command): void {
               const psbt = Psbt.fromHex(formattedPsbtHex, {
                 network: psbtNetwork,
               });
-              inputsToSign = getInputsToSignFromPsbt({
+              const candidateInputsToSign = getInputsToSignFromPsbt({
                 psbt,
                 psbtNetwork,
                 account: accountForSign,
                 isBtcWalletProvider: true,
               });
+              // Strict ownership filter: only sign inputs whose prevout
+              // script decodes to the current wallet address. Prevents the
+              // CLI from attempting to sign attacker-injected inputs even
+              // when isBtcWalletProvider:true relaxes core's matching.
+              inputsToSign = filterPsbtInputsToOwnedOnly(
+                candidateInputsToSign,
+                psbt,
+                fromAddress,
+                psbtNetwork,
+              );
+              if (inputsToSign.length === 0) {
+                throw new AppError(
+                  ERROR_CODES.BIZ_SWAP_FAILED.code,
+                  `BTC swap order PSBT has no signable BTC inputs for the selected address ${fromAddress}`,
+                  'Run "onekey swap build" again with a wallet address that can sign this PSBT',
+                );
+              }
+              // Independent spend validation against the order amount.
+              const expectedPsbtSpendSats = BigInt(
+                amountToSmallestUnit(
+                  order.amount,
+                  order.fromToken.decimals,
+                ),
+              );
+              assertBtcSpendIsSafe(
+                describePsbtSpend(psbt, fromAddress, psbtNetwork),
+                { expectedSpendSats: expectedPsbtSpendSats },
+              );
               psbtHexToSign = psbt.toHex();
             } catch (error) {
+              // Surface our own validation errors verbatim — only wrap
+              // unknown parser/runtime errors with the generic PSBT message.
+              if (error instanceof AppError) throw error;
               throw new AppError(
                 ERROR_CODES.BIZ_SWAP_FAILED.code,
                 'Order does not contain a valid BTC PSBT',
                 'Run "onekey swap build" to create a new order',
                 { cause: error },
-              );
-            }
-
-            if (inputsToSign.length === 0) {
-              throw new AppError(
-                ERROR_CODES.BIZ_SWAP_FAILED.code,
-                `BTC swap order PSBT has no signable BTC inputs for the selected address ${fromAddress}`,
-                'Run "onekey swap build" again with a wallet address that can sign this PSBT',
               );
             }
 

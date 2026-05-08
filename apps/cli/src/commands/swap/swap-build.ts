@@ -6,6 +6,10 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import { ConfigManager } from '../../config';
 import { auditToken, resolveToken, savePending } from '../../core';
 import { getBtcAddressTypeInfo } from '../../core/btc/address-types';
+import {
+  assertBtcSpendIsSafe,
+  describeEncodedTxSpend,
+} from '../../core/btc/spend-validation';
 import { buildBtcTransferTx } from '../../core/btc/tx-builder';
 import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
@@ -685,6 +689,18 @@ export function registerSwapBuildCommand(parent: Command): void {
                 addressTypeInfo,
                 opReturn: transfer.opReturn,
               });
+
+              // Independent spend validation — even though we just built this
+              // tx locally, run the same guardrail used at execute-time so
+              // both paths fail closed against the same invariants.
+              assertBtcSpendIsSafe(
+                describeEncodedTxSpend(
+                  builtLocalTx.encodedTx,
+                  btcAddressing.from.address,
+                ),
+                { expectedSpendSats: BigInt(fromTokenAmountSmallest) },
+              );
+
               buildTxResponse.btcLocalTx = {
                 encodedTx: builtLocalTx.encodedTx,
                 btcExtraInfo: builtLocalTx.btcExtraInfo,

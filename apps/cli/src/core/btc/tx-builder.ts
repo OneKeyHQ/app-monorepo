@@ -251,6 +251,7 @@ export async function buildBtcTransferTx(
   }
 
   const inputLookup = buildInputLookup(utxos);
+  const seenUtxoKeys = new Set<string>();
   const inputsForCoinSelect: ICoinSelectUTXO[] = utxos.map((utxo) => {
     const txId = getUtxoTxid(utxo);
     if (!txId) {
@@ -260,6 +261,16 @@ export async function buildBtcTransferTx(
         'Retry after the account UTXO data is refreshed.',
       );
     }
+
+    const utxoKey = `${txId}:${utxo.vout}`;
+    if (seenUtxoKeys.has(utxoKey)) {
+      throw new AppError(
+        ERROR_CODES.BIZ_UNKNOWN.code,
+        `Duplicate BTC UTXO from API: ${utxoKey}`,
+        'Retry after the account UTXO data is refreshed.',
+      );
+    }
+    seenUtxoKeys.add(utxoKey);
 
     const { valueNumber, amount } = normalizeUtxoValue(utxo.value);
     return {
@@ -282,6 +293,14 @@ export async function buildBtcTransferTx(
     },
   ];
   if (params.opReturn) {
+    const opReturnBytes = Buffer.byteLength(params.opReturn, 'utf8');
+    if (opReturnBytes > 80) {
+      throw new AppError(
+        ERROR_CODES.PARAM_INVALID_CONFIG.code,
+        `OP_RETURN payload is ${opReturnBytes} bytes, exceeds the 80-byte standard relay limit`,
+        'Use a shorter memo or contact the swap provider',
+      );
+    }
     outputsForCoinSelect.push({
       type: EOutputsTypeForCoinSelect.OpReturn,
       address: '',
