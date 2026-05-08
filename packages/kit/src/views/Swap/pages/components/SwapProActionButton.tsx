@@ -34,7 +34,10 @@ import {
   useSwapProInputToken,
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
-import { useSwapQuoteProgressState } from '../../hooks/useSwapState';
+import {
+  useSwapQuoteProgressState,
+  useSwapZeroProviderQuoteCompleted,
+} from '../../hooks/useSwapState';
 
 const MAX_BUTTON_CHARS = 25;
 
@@ -158,6 +161,7 @@ const SwapProActionButton = ({
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProAccount = useSwapProAccount();
   const { isWaitingActionableQuote } = useSwapQuoteProgressState();
+  const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
   const currencyInfo = useCurrency();
   const [quoteFetching] = useSwapSpeedQuoteFetchingAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
@@ -353,9 +357,19 @@ const SwapProActionButton = ({
     }
     return isWaitingActionableQuote;
   }, [swapProTradeType, isWaitingActionableQuote, quoteFetching]);
+  const shouldShowNoProviderSupport = useMemo(
+    () =>
+      (swapProTradeType !== ESwapProTradeType.MARKET &&
+        isZeroProviderQuoteCompleted) ||
+      Boolean(
+        currentQuoteRes && !currentQuoteRes.toAmount && !currentQuoteRes.limit,
+      ),
+    [currentQuoteRes, isZeroProviderQuoteCompleted, swapProTradeType],
+  );
   const actionButtonDisabled = useMemo(() => {
     let originalDisabled =
       !hasEnoughBalance ||
+      shouldShowNoProviderSupport ||
       !currentQuoteRes?.toAmount ||
       balanceLoading ||
       currentQuoteLoading;
@@ -365,7 +379,8 @@ const SwapProActionButton = ({
     return originalDisabled;
   }, [
     hasEnoughBalance,
-    currentQuoteRes,
+    currentQuoteRes?.toAmount,
+    shouldShowNoProviderSupport,
     balanceLoading,
     currentQuoteLoading,
     supportSpeedSwap,
@@ -403,11 +418,7 @@ const SwapProActionButton = ({
       };
     }
 
-    if (
-      currentQuoteRes &&
-      !currentQuoteRes.toAmount &&
-      !currentQuoteRes.limit
-    ) {
+    if (shouldShowNoProviderSupport) {
       return {
         resValue: intl.formatMessage({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
@@ -458,7 +469,7 @@ const SwapProActionButton = ({
     currencyInfo?.symbol,
     hasEnoughBalance,
     swapProAccount?.result?.addressDetail.address,
-    currentQuoteRes,
+    shouldShowNoProviderSupport,
     inputTokenValue,
     toToken?.symbol,
     quoteToAmount,
