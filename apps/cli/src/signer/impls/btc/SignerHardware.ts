@@ -124,6 +124,11 @@ interface IBtcSignedTxPayload {
 export class SignerHardware extends SignerHardwareBase {
   private readonly impl: IBtcSignerImpl;
 
+  // root_fingerprint is master-key derived and path-independent, so it's safe
+  // to cache for the lifetime of the signer instance. This avoids an extra
+  // btcGetPublicKey round-trip (and possible passphrase prompt) on every PSBT.
+  private rootFingerprintHexCache?: string;
+
   constructor(config: ISignerHardwareBtcConfig) {
     super(config);
     this.impl = config.impl;
@@ -170,6 +175,12 @@ export class SignerHardware extends SignerHardwareBase {
       );
     }
 
+    if (typeof pubKey.root_fingerprint === 'number') {
+      this.rootFingerprintHexCache = pubKey.root_fingerprint
+        .toString(16)
+        .padStart(8, '0');
+    }
+
     return {
       address: address.address ?? '',
       publicKey,
@@ -186,6 +197,8 @@ export class SignerHardware extends SignerHardwareBase {
   }
 
   private async getRootFingerprintHex(): Promise<string> {
+    if (this.rootFingerprintHexCache) return this.rootFingerprintHexCache;
+
     const sdk = await this.getHardwareSDK();
     const commonParams = await this.getHwCommonParams();
     const result = await sdk.btcGetPublicKey(
@@ -209,7 +222,10 @@ export class SignerHardware extends SignerHardwareBase {
         'Reconnect the device or update the firmware',
       );
     }
-    return payload.root_fingerprint.toString(16).padStart(8, '0');
+    this.rootFingerprintHexCache = payload.root_fingerprint
+      .toString(16)
+      .padStart(8, '0');
+    return this.rootFingerprintHexCache;
   }
 
   private async injectPsbtDerivations(params: {
