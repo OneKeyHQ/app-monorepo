@@ -24,7 +24,8 @@ import { decideCacheAction } from '../../infra/vault/cache';
 import { VaultClient } from '../../infra/vault/client';
 import { VaultClientError } from '../../infra/vault/errors';
 import {
-  BOT_WALLET_KEY_SERVICE_BASE_URL,
+  BOT_WALLET_KEY_API_PATH,
+  BOT_WALLET_KEY_API_SERVICE,
   serviceFetch,
 } from '../../infra/vault/service-client';
 import { CLI_PASSWORD } from '../keychain-keys';
@@ -114,7 +115,7 @@ function describeServiceFailureCause(
     case 'ENOTFOUND':
       return 'host not found';
     case 'ERR_INVALID_URL':
-      return 'invalid service URL';
+      return 'invalid Prime API URL';
     default:
       break;
   }
@@ -133,11 +134,12 @@ function createServiceUnreachableError(
   const reason = describeServiceFailureCause(cause);
   return new AppError(
     ERROR_CODES.SERVICE_UNREACHABLE.code,
-    `Cannot reach Bot Wallet key service at ${BOT_WALLET_KEY_SERVICE_BASE_URL} (${reason}).`,
-    `Make sure the local Bot Wallet key service is running on ${BOT_WALLET_KEY_SERVICE_BASE_URL}, then retry.`,
+    `Cannot reach Bot Wallet key API (${reason}).`,
+    'Check network connectivity and retry.',
     {
       details: {
-        endpoint: BOT_WALLET_KEY_SERVICE_BASE_URL,
+        service: BOT_WALLET_KEY_API_SERVICE,
+        path: `${BOT_WALLET_KEY_API_PATH}/{keyId}`,
         ...(cause?.code !== undefined && { causeCode: cause.code }),
         ...(cause?.message !== undefined && { causeMessage: cause.message }),
       },
