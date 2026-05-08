@@ -396,6 +396,15 @@ export function AccountSelectorWalletListSideBar({
   }, [wallets, connectedDevices]);
 
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
+  const shouldHideWalletList =
+    walletsResult !== undefined &&
+    wallets.length === 0 &&
+    !isEditableRouteParams;
+
+  if (shouldHideWalletList) {
+    return null;
+  }
+
   return (
     <Stack
       testID="account-selector-wallet-list"

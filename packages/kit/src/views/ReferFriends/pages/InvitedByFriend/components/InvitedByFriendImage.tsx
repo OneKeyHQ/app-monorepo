@@ -24,11 +24,13 @@ export function InvitedByFriendImage() {
     !platformEnv.isNative && (gtSm || platformEnv.isExtensionUiPopup);
   const lottieSource =
     LOTTIE_SOURCE[themeVariant === 'dark' ? 'dark' : 'light'];
+  const renderMode =
+    platformEnv.isNativeIOS && themeVariant !== 'dark' ? 'HARDWARE' : undefined;
   const width = !platformEnv.isNative && gtSm ? DESKTOP_WIDTH : pageWidth;
   const height = isDesktop ? width * DESKTOP_ASPECT_RATIO : pageWidth;
 
   return (
-    <Stack w={width} h={height} alignSelf="center">
+    <Stack w={width} h={height} alignSelf="center" bg="$bgApp">
       <LottieView
         source={lottieSource}
         width={width}
@@ -36,6 +38,8 @@ export function InvitedByFriendImage() {
         autoPlay
         loop
         resizeMode="contain"
+        renderMode={renderMode}
+        backgroundColor="$bgApp"
       />
     </Stack>
   );

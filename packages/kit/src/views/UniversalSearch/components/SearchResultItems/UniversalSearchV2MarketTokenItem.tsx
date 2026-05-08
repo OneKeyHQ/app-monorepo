@@ -33,7 +33,10 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-import { formatTokenSymbolForDisplay } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  formatTokenSymbolForDisplay,
+  getTokenPriceChangeStyle,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
@@ -195,6 +198,14 @@ export function UniversalSearchV2MarketTokenItem({
     address,
     isLegacyNavigation,
   });
+
+  const priceChangeStyle = useMemo(
+    () =>
+      getTokenPriceChangeStyle({
+        priceChange: Number(priceChange24hPercent),
+      }),
+    [priceChange24hPercent],
+  );
 
   const handlePress = useCallback(() => {
     const searchText = getSearchInput?.();
@@ -363,12 +374,10 @@ export function UniversalSearchV2MarketTokenItem({
             <NumberSizeableText
               size="$bodySm"
               formatter="priceChange"
-              color={
-                Number(priceChange24hPercent) >= 0
-                  ? '$textSuccess'
-                  : '$textCritical'
-              }
-              formatterOptions={{ showPlusMinusSigns: true }}
+              color={priceChangeStyle.changeColor}
+              formatterOptions={{
+                showPlusMinusSigns: priceChangeStyle.showPlusMinusSigns,
+              }}
             >
               {priceChange24hPercent}
             </NumberSizeableText>

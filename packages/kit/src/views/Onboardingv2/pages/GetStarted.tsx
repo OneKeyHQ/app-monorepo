@@ -20,6 +20,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
+import { HeroAtmosphere } from '../components/HeroAtmosphere';
 import { OnboardingPage } from '../components/Layout';
 
 // English fallbacks kept for dev/unsynced-locale resilience.
@@ -47,9 +48,9 @@ const HERO_ACTIONS = [
 const HERO_ACTION_MARKER = '\u0000ACTION\u0000';
 
 const HERO_CHAR_STAGGER_MS = 45;
-const HERO_CHAR_ANIMATION_MS = 550;
+const HERO_CHAR_ANIMATION_MS = 400;
 const HERO_WORD_DISPLAY_MS = 2600;
-// Long enough for the last char's staggered exit to finish (550ms animation +
+// Long enough for the last char's staggered exit to finish (400ms animation +
 // 20 × 45ms stagger covers words up to 20 graphemes).
 const HERO_EXIT_CLEANUP_MS = HERO_CHAR_ANIMATION_MS + 20 * HERO_CHAR_STAGGER_MS;
 
@@ -103,7 +104,7 @@ function HeroCharLayer({
   // enter mode: activated=false → hidden above; activated=true → visible
   // exit mode:  activated=false → visible;       activated=true → hidden below
   const visible = isEnter ? activated : !activated;
-  const hiddenYOffset = isEnter ? -24 : 24;
+  const hiddenYOffset = isEnter ? -8 : 8;
   const yOffset = visible ? 0 : hiddenYOffset;
 
   return (
@@ -147,7 +148,7 @@ function HeroCharLayer({
               {
                 opacity: visible ? 1 : 0,
                 transform: `translateY(${yOffset}px)`,
-                filter: visible ? 'blur(0px)' : 'blur(6px)',
+                filter: visible ? 'blur(0px)' : 'blur(3px)',
                 transition: `opacity ${HERO_CHAR_ANIMATION_MS}ms, transform ${HERO_CHAR_ANIMATION_MS}ms, filter ${HERO_CHAR_ANIMATION_MS}ms`,
                 transitionDelay: `${delay}ms`,
               } as any
@@ -433,6 +434,7 @@ function GetStarted() {
   return (
     <OnboardingPage
       headerBack="exit"
+      backgroundLayer={<HeroAtmosphere />}
       contentContainerProps={
         platformEnv.isNative
           ? undefined
@@ -516,7 +518,7 @@ function GetStarted() {
             ))}
           </XStack>
         ) : (
-          <YStack gap="$3">
+          <YStack gap="$3" pb="$5">
             {actions.map((action) => (
               <Button
                 key={action.labelId}

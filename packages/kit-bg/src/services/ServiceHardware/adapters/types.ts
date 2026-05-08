@@ -43,6 +43,7 @@ export interface IThirdPartyHardwareAdapter {
 
   onUiEvent(handler: (event: IAdapterUiEvent) => void): () => void;
   uiResponse(response: IAdapterUiResponse): void;
+  cancel(connectId?: string): void;
 
   searchDevices(): Promise<DeviceInfo[]>;
   connectDevice(

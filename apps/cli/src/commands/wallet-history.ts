@@ -1,4 +1,3 @@
-import { requireAuthenticatedSession } from '../core/auth/auth-gate';
 import { resolveChain } from '../core/chain-resolver';
 import { fetchHistory, formatHistoryList } from '../core/history-fetcher';
 import { resolveToken } from '../core/token-resolver';
@@ -39,7 +38,6 @@ export function registerWalletHistoryCommand(program: Command): void {
           // Resolve wallet address
           let address = options.address;
           if (!address) {
-            await requireAuthenticatedSession();
             const signer = await getSignerByImpl(chainConfig.impl);
             const addrInfo = await signer.getAddress(chainConfig.networkId);
             address = addrInfo.address;

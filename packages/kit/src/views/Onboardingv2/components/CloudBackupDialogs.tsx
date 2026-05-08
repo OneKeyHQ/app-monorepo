@@ -12,11 +12,11 @@ import {
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { onboardingCloudBackupListRefreshAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import type { IAppNavigation } from '../../../hooks/useAppNavigation';
+import type { IntlShape } from 'react-intl';
 
 function DialogInput({
   value,
@@ -70,9 +70,6 @@ function PasswordField() {
         },
         validate: (value: string) => {
           if (!value?.trim()) {
-            // return appLocale.intl.formatMessage({
-            //   id: ETranslations.form_rename_error_empty,
-            // });
             return intl.formatMessage({
               id: ETranslations.address_book_add_address_name_required,
             });
@@ -198,6 +195,7 @@ export const showCloudBackupPasswordDialog = ({
   showConfirmPasswordField,
   showForgotPasswordButton,
   onPressForgotPassword,
+  intl,
   ...dialogProps
 }: IDialogShowProps & {
   isRestoreAction?: boolean;
@@ -206,29 +204,30 @@ export const showCloudBackupPasswordDialog = ({
   showConfirmPasswordField?: boolean;
   showForgotPasswordButton?: boolean;
   onPressForgotPassword?: () => void;
+  intl: IntlShape;
 }) => {
   const title = showConfirmPasswordField
-    ? appLocale.intl.formatMessage({
+    ? intl.formatMessage({
         id: ETranslations.set_new_backup_password,
       })
-    : appLocale.intl.formatMessage({
+    : intl.formatMessage({
         id: ETranslations.verify_backup_password,
       });
 
   let description = showConfirmPasswordField
-    ? appLocale.intl.formatMessage({
+    ? intl.formatMessage({
         id: ETranslations.set_new_backup_password_desc,
       })
-    : appLocale.intl.formatMessage({
+    : intl.formatMessage({
         id: ETranslations.verify_backup_password_desc,
       });
   if (isRestoreAction) {
-    description = appLocale.intl.formatMessage({
+    description = intl.formatMessage({
       id: ETranslations.import_backup_password_desc,
     });
   }
   if (isFirstTimeSetPassword) {
-    description = appLocale.intl.formatMessage({
+    description = intl.formatMessage({
       id: ETranslations.set_new_backup_password_fist_time,
     });
   }
@@ -256,27 +255,29 @@ export const showCloudBackupPasswordDialog = ({
 export const showCloudBackupDeleteDialog = ({
   recordID,
   navigation,
+  intl,
   ...dialogProps
 }: IDialogShowProps & {
   recordID: string;
   navigation: IAppNavigation;
+  intl: IntlShape;
 }) => {
   Dialog.show({
     icon: 'DeleteOutline',
     tone: 'destructive',
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.backup_delete_this_backup,
     }),
-    description: appLocale.intl.formatMessage({
+    description: intl.formatMessage({
       id: ETranslations.backup_file_permanently_deleted,
     }),
-    onConfirmText: appLocale.intl.formatMessage({
+    onConfirmText: intl.formatMessage({
       id: ETranslations.global_delete,
     }),
     confirmButtonProps: {
       variant: 'destructive',
     },
-    onCancelText: appLocale.intl.formatMessage({
+    onCancelText: intl.formatMessage({
       id: ETranslations.global_cancel,
     }),
     onConfirm: async () => {

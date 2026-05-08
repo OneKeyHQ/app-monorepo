@@ -7,6 +7,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 
@@ -128,3 +129,18 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 const webembedApiProxy = new WebembedApiProxy();
 export default webembedApiProxy;
 appGlobals.$webembedApiProxy = webembedApiProxy;
+
+// Typed slot for shared/imageUtils. Routes via the same callRemoteApi path,
+// so single-thread (web/desktop/ext) and BG-thread (dual-thread native) both
+// pick up this registration. Main thread native registers a direct adapter
+// in setupMainThreadBackgroundRunner.
+registerImageEmbedBridge({
+  convertToBlackAndWhiteImageBase64: (img, mime) =>
+    webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(img, mime),
+  applyRoundedCorners: (params) =>
+    webembedApiProxy.imageUtils.applyRoundedCorners(params),
+  base64ImageToBitmap: (params) =>
+    webembedApiProxy.imageUtils.base64ImageToBitmap(params),
+  processImageBlur: (params) =>
+    webembedApiProxy.imageUtils.processImageBlur(params),
+});

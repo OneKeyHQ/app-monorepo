@@ -1123,6 +1123,39 @@ async function writeSegments({
 }) {
   const promotedSet = new Set(promotedSegments);
 
+  // Per-runtime serialized moduleId→segmentKey maps. Used by emitSegment
+  // to rewrite each segment's async-require dependencyMap "paths" block
+  // so it points at sibling segment keys / null (already-eager) instead of
+  // the raw Metro dev-server URLs that baseJSBundle emits by default.
+  // Without this, segment .seg.js files ship URLs like
+  // "/X/Y.bundle?modulesOnly=true&runModule=false" — at runtime the
+  // installProdBundleLoader eager-fallback short-circuits and the
+  // following require(<id>) FATALs because the actual segment is never
+  // loaded. See REACT-NATIVE-4AX, iOS 6.3.0-10069276.
+  const mainSerializedModuleToSegment = createSerializedModuleToSegmentMap({
+    moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+    absPathToSegment: mainRuntime.absPathToSegment,
+  });
+  const backgroundSerializedModuleToSegment =
+    createSerializedModuleToSegmentMap({
+      moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
+      absPathToSegment: backgroundRuntime.absPathToSegment,
+    });
+  // For shared segments — modules merged from BOTH runtimes — we must pass
+  // runtimeVariants so the rewriter emits per-runtime dispatch literals
+  // ({"main":"seg:X","background":null}) for modules whose ownership
+  // differs between runtimes. Mirrors the eager-bundle call at line 1065.
+  const segmentRuntimeVariants = {
+    main: {
+      absPathToSegment: mainRuntime.absPathToSegment,
+      eagerAbsPaths: mainEagerAbsPaths,
+    },
+    background: {
+      absPathToSegment: backgroundRuntime.absPathToSegment,
+      eagerAbsPaths: bgEagerAbsPaths,
+    },
+  };
+
   const emitSegment = async ({
     segmentKey,
     runtime,
@@ -1132,8 +1165,16 @@ async function writeSegments({
     moduleIdToAbsPath,
     outputDir,
     relativeDir,
+    rewriteContext,
   }) => {
     const segmentId = segmentIdMap.get(segmentKey);
+    // Mirror the eager-bundle rewrite at line 1065. See REACT-NATIVE-4AX.
+    rewriteAsyncRequirePaths(segModules, {
+      moduleToSegment: rewriteContext.moduleToSegment,
+      moduleIdToAbsPath,
+      eagerAbsPaths: rewriteContext.eagerAbsPaths,
+      runtimeVariants: rewriteContext.runtimeVariants,
+    });
     const { code } = bundleToString({
       pre: '',
       post: '',
@@ -1385,6 +1426,12 @@ async function writeSegments({
           moduleIdToAbsPath: mergedModuleIdToAbsPath,
           outputDir: getSegmentsDir('main'),
           relativeDir: 'segments',
+          // Shared segment ships into both runtimes — use runtimeVariants
+          // so async-require entries dispatch per-runtime where ownership
+          // differs (mirrors the eager-bundle pattern at line 1065).
+          rewriteContext: {
+            runtimeVariants: segmentRuntimeVariants,
+          },
         });
         // When the two runtimes' segment-level deps diverge (only possible
         // for forceShared segments — the canShare path above requires
@@ -1438,6 +1485,10 @@ async function writeSegments({
         moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
         outputDir: getSegmentsDir('main'),
         relativeDir: 'segments',
+        rewriteContext: {
+          moduleToSegment: mainSerializedModuleToSegment,
+          eagerAbsPaths: mainEagerAbsPaths,
+        },
       });
       const backgroundSegmentEntry = await emitSegment({
         segmentKey,
@@ -1448,6 +1499,10 @@ async function writeSegments({
         moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
         outputDir: getSegmentsDir('background'),
         relativeDir: 'segments-background',
+        rewriteContext: {
+          moduleToSegment: backgroundSerializedModuleToSegment,
+          eagerAbsPaths: bgEagerAbsPaths,
+        },
       });
       mainManifest.segments[segmentKey] = mainSegmentEntry;
       backgroundManifest.segments[segmentKey] = backgroundSegmentEntry;
@@ -1472,6 +1527,10 @@ async function writeSegments({
         moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
         outputDir: getSegmentsDir('main'),
         relativeDir: 'segments',
+        rewriteContext: {
+          moduleToSegment: mainSerializedModuleToSegment,
+          eagerAbsPaths: mainEagerAbsPaths,
+        },
       });
       mainManifest.segments[segmentKey] = mainSegmentEntry;
       mainReportSegments.set(
@@ -1495,6 +1554,10 @@ async function writeSegments({
       moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
       outputDir: getSegmentsDir('background'),
       relativeDir: 'segments-background',
+      rewriteContext: {
+        moduleToSegment: backgroundSerializedModuleToSegment,
+        eagerAbsPaths: bgEagerAbsPaths,
+      },
     });
     backgroundManifest.segments[segmentKey] = backgroundEntry;
     backgroundReportSegments.set(

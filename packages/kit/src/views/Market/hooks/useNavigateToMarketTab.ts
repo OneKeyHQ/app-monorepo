@@ -13,6 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
+  ETabDiscoveryRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -21,6 +22,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 interface INavigateToMarketTabOptions {
   tabToSelect?: IMarketSelectedTab;
+  spotCategoryToSelect?: string;
 }
 
 export function useNavigateToMarketTab() {
@@ -28,11 +30,16 @@ export function useNavigateToMarketTab() {
 
   const navigateToMarketTab = useCallback(
     (options?: INavigateToMarketTabOptions) => {
-      const { tabToSelect } = options ?? {};
+      const { tabToSelect, spotCategoryToSelect } = options ?? {};
+      const targetTab = spotCategoryToSelect ? 'trending' : tabToSelect;
 
       // Switch to specific tab inside Market (watchlist or trending)
-      if (tabToSelect) {
-        setMarketSelectedTab({ tab: tabToSelect });
+      if (targetTab || spotCategoryToSelect) {
+        setMarketSelectedTab((prev) => ({
+          ...prev,
+          tab: targetTab ?? prev.tab,
+          spotCategoryToSelect,
+        }));
       }
 
       if (
@@ -49,11 +56,19 @@ export function useNavigateToMarketTab() {
       const marketTab = platformEnv.isNative
         ? ETabRoutes.Discovery
         : ETabRoutes.Market;
+      const marketTabScreen = platformEnv.isNative
+        ? ETabDiscoveryRoutes.TabDiscovery
+        : ETabMarketRoutes.TabMarket;
 
       rootNavigationRef.current?.navigate(ERootRoutes.Main, {
         screen: marketTab,
         params: {
-          screen: ETabMarketRoutes.TabMarket,
+          screen: marketTabScreen,
+          params: platformEnv.isNative
+            ? {
+                defaultTab: ETranslations.global_market,
+              }
+            : undefined,
         },
       });
 

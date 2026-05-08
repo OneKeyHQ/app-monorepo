@@ -12,10 +12,13 @@ import {
   useAppIsLockedAtom,
   usePerpsActiveAssetAtom,
   usePerpsLastUsedLeverageAtom,
+  useSpotPairDisplayMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  getSpotTokenDisplayName,
   getValidPriceDecimals,
+  isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -26,6 +29,7 @@ import {
 } from '../../../hooks/usePerpOrderInfoPanel';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import { TradesHistoryRow } from '../Components/TradesHistoryRow';
+import { getPerpFillDirectionType } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -41,11 +45,17 @@ function PerpTradesHistoryList({
   useTabsList,
 }: IPerpTradesHistoryListProps) {
   const intl = useIntl();
-  const { trades, currentListPage, setCurrentListPage, isLoading } =
-    usePerpTradesHistory();
+  const {
+    trades,
+    currentListPage,
+    setCurrentListPage,
+    isLoading,
+    refreshTradesHistory,
+  } = usePerpTradesHistory();
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
+  const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
   const { showPositionShare } = useShowPositionShare();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
 
@@ -84,14 +94,24 @@ function PerpTradesHistoryList({
 
     const exitPriceBN = new BigNumber(fill.px);
     const pnlPerUnit = new BigNumber(fill.closedPnl).dividedBy(sizeBN);
-    const normalizedDir = fill.dir.toLowerCase();
+    const directionType = getPerpFillDirectionType(fill.dir);
 
-    if (normalizedDir.includes('close long')) {
+    if (directionType === 'closeLong') {
       return exitPriceBN.minus(pnlPerUnit);
     }
 
-    if (normalizedDir.includes('close short')) {
+    if (directionType === 'closeShort') {
       return exitPriceBN.plus(pnlPerUnit);
+    }
+
+    // Spot Sell realizes PnL against the running cost basis — same math as a
+    // perp Close Long, since HL's closedPnl is pre-fee on both sides.
+    if (
+      isSpotInstrument(fill.coin) &&
+      fill.side === 'A' &&
+      !new BigNumber(fill.closedPnl).isZero()
+    ) {
+      return exitPriceBN.minus(pnlPerUnit);
     }
 
     return null;
@@ -105,10 +125,13 @@ function PerpTradesHistoryList({
       if (closedPnlBN.isZero()) {
         return;
       }
-      const leverage = await getLeverage(fill.coin);
+      const isSpot = isSpotInstrument(fill.coin);
+      const leverage = isSpot ? 1 : await getLeverage(fill.coin);
       const entryPriceBN = calculateEntryPrice(fill);
 
-      const isLong = fill.side === 'A';
+      // Spot fill.side: 'B' = buy (~long), 'A' = sell (~short).
+      // Perp fill.side: 'A' encodes long via existing convention.
+      const isLong = isSpot ? fill.side === 'B' : fill.side === 'A';
       let pnlPercent = '0';
       let entryPrice = '0';
 
@@ -128,25 +151,45 @@ function PerpTradesHistoryList({
             .toFixed(2);
         }
       }
-      const parsed = parseDexCoin(fill.coin);
+      // parseDexCoin only handles perp coins, so spot needs its own cascade:
+      // WS-supplied display map → split "BASE/QUOTE" → raw coin.
+      let tokenDisplayName: string;
+      if (isSpot) {
+        const mapped = spotPairDisplayMap[fill.coin];
+        if (mapped) {
+          tokenDisplayName = mapped;
+        } else if (fill.coin.includes('/')) {
+          const [baseName] = fill.coin.split('/');
+          tokenDisplayName = getSpotTokenDisplayName(baseName);
+        } else {
+          tokenDisplayName = fill.coin;
+        }
+      } else {
+        tokenDisplayName = parseDexCoin(fill.coin).displayName;
+      }
       const exitPriceBN = new BigNumber(fill.px);
       const exitPriceDecimals = getValidPriceDecimals(fill.px);
       const exitPrice = exitPriceBN.isFinite()
         ? exitPriceBN.toFixed(exitPriceDecimals)
         : '0';
+      // Spot has no separate entry vs exit — mirror the trade price so the
+      // share image doesn't show a misleading "$0" entry next to a real exit.
+      const shareEntryPrice =
+        isSpot && entryPrice === '0' ? exitPrice : entryPrice;
       showPositionShare({
+        mode: isSpot ? 'spot' : 'perp',
         side: isLong ? 'long' : 'short',
         token: fill.coin,
-        tokenDisplayName: parsed.displayName,
+        tokenDisplayName,
         pnl: String(closedPnlBN),
         pnlPercent,
         leverage,
-        entryPrice,
+        entryPrice: shareEntryPrice,
         markPrice: exitPrice,
         priceType: 'exit',
       });
     },
-    [calculateEntryPrice, getLeverage, showPositionShare],
+    [calculateEntryPrice, getLeverage, showPositionShare, spotPairDisplayMap],
   );
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -259,14 +302,14 @@ function PerpTradesHistoryList({
 
   useUpdateEffect(() => {
     if (!isLocked) {
-      void backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
+      void refreshTradesHistory();
     }
-  }, [isLocked]);
+  }, [isLocked, refreshTradesHistory]);
 
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
-        await backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
+        await refreshTradesHistory();
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({

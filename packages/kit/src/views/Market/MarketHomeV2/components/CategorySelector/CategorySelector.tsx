@@ -69,6 +69,8 @@ function CategorySelectorImpl({
             id={item.id}
             name={item.name}
             icon={item.icon}
+            iconName={item.iconName}
+            iconOnly={item.iconOnly}
             isSelected={item.id === selectedCategoryId}
             {...getCategoryInteractionProps(item.id)}
           />
@@ -92,6 +94,8 @@ function CategorySelectorImpl({
           key={item.id}
           name={item.name}
           icon={item.icon}
+          iconName={item.iconName}
+          iconOnly={item.iconOnly}
           isSelected={item.id === selectedCategoryId}
           {...getCategoryInteractionProps(item.id)}
         />

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { range } from 'lodash';
 import { useIntl } from 'react-intl';
 import {
   Easing,
@@ -13,10 +14,12 @@ import {
   AnimatePresence,
   Button,
   Icon,
+  LinearGradient,
   SizableText,
   XStack,
   YStack,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
@@ -36,6 +39,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 import {
   type EOnboardingPagesV2,
   ERootRoutes,
@@ -66,6 +70,9 @@ import {
 } from '../hooks/useDeviceConnect';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
+
+const POPUP_LAYERED_SHADOW =
+  'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)';
 
 const fixErrorString = (errorMessage: string) => {
   if (errorMessage.toLowerCase() === 'no wallet creation strategy') {
@@ -127,8 +134,15 @@ function FinalizeWalletSetupPage({
       }
     | undefined
   >(undefined);
+  const [
+    isWalletCreationReadyForReferralCheck,
+    setIsWalletCreationReadyForReferralCheck,
+  ] = useState(false);
+  const [isWalletCreationRecordHandled, setIsWalletCreationRecordHandled] =
+    useState(false);
 
   const created = useRef(false);
+  const createdWalletRef = useRef<IDBWallet | undefined>(undefined);
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
   const keylessPackSetId = route?.params?.keylessPackSetId;
@@ -165,6 +179,7 @@ function FinalizeWalletSetupPage({
     setPendingKeylessAutoConnectWalletId,
     openKeylessAutoConnectDappModal,
   } = useKeylessWebFlowAutoConnectDapp();
+  const readyReferralCheckHandledRef = useRef(false);
 
   // Hold the "existing wallet switched" toast until the user confirms with
   // Enter wallet, so it doesn't pop over the setup progress animation.
@@ -236,6 +251,7 @@ function FinalizeWalletSetupPage({
               isKeylessWallet,
               keylessDetailsInfo,
             });
+            createdWalletRef.current = hdWalletCreatedResult.wallet;
             if (shouldRunAutoReset) {
               void (async () => {
                 try {
@@ -255,11 +271,8 @@ function FinalizeWalletSetupPage({
                   ) {
                     return;
                   }
-                  const [token, refreshToken, pin] = await Promise.all([
-                    refreshResult.accessToken,
-                    refreshResult.refreshToken,
-                    getKeylessOnboardingPin(),
-                  ]);
+                  const { accessToken: token, refreshToken } = refreshResult;
+                  const pin = await getKeylessOnboardingPin();
                   if (!token || !pin || !refreshToken) {
                     console.error(
                       'Skip keyless auto reset pin: missing onboarding token or pin.',
@@ -312,6 +325,13 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
+        const { wallets: walletsBeforeCreate } =
+          await backgroundApiProxy.serviceAccount.getWallets({
+            nestedHiddenWallets: false,
+          });
+        const existingWalletIds = new Set(
+          walletsBeforeCreate.map((walletItem) => walletItem.id),
+        );
         if (deviceData.vendor) {
           // Third-party vendor device (e.g., Ledger): call
           // createHWWalletWithoutHidden directly to avoid the
@@ -336,9 +356,26 @@ function FinalizeWalletSetupPage({
             isFirmwareVerified,
           });
         }
+        const { wallets: walletsAfterCreate } =
+          await backgroundApiProxy.serviceAccount.getWallets({
+            nestedHiddenWallets: false,
+          });
+        const createdWallet =
+          walletsAfterCreate.find(
+            (walletItem) =>
+              !existingWalletIds.has(walletItem.id) &&
+              !accountUtils.isHwHiddenWallet({ wallet: walletItem }),
+          ) ??
+          walletsAfterCreate.find(
+            (walletItem) => !existingWalletIds.has(walletItem.id),
+          );
+        if (createdWallet) {
+          createdWalletRef.current = createdWallet;
+        }
       } else if (keylessPackSetId && !created.current) {
         created.current = true;
       }
+      setIsWalletCreationReadyForReferralCheck(true);
     } catch (error) {
       console.error('createWallet error:', error);
       const hardwareError = error as {
@@ -402,6 +439,10 @@ function FinalizeWalletSetupPage({
     setSetupError(undefined);
     setCurrentStep(initialStep);
     stepQueue.current = [];
+    createdWalletRef.current = undefined;
+    readyReferralCheckHandledRef.current = false;
+    setIsWalletCreationReadyForReferralCheck(false);
+    setIsWalletCreationRecordHandled(false);
     // Reset the dedup guard so a retry triggered after a late, post-success
     // error (e.g. a hardware-connect event firing after a non-hardware
     // wallet was already created) can re-enter the create-wallet branch
@@ -411,9 +452,64 @@ function FinalizeWalletSetupPage({
   }, [createWallet, initialStep]);
 
   const { gtMd } = useMedia();
+  const theme = useTheme();
 
   const isReady = currentStep === EFinalizeWalletSetupSteps.Ready;
   const stepText = intl.formatMessage({ id: STEP_MESSAGE_IDS[currentStep] });
+
+  const handleWalletSetupReady = useCallback(async () => {
+    const referralWalletId = createdWalletRef.current?.id;
+    try {
+      if (!referralWalletId) {
+        return;
+      }
+
+      const walletCreatedAt = buildWalletCreatedAtISOString();
+      await backgroundApiProxy.serviceReferralCode.cacheWalletCreationRecordTimestamp(
+        {
+          walletId: referralWalletId,
+          walletCreatedAt,
+        },
+      );
+      const info =
+        await backgroundApiProxy.serviceReferralCode.getReferralCodeWalletInfo({
+          walletId: referralWalletId,
+        });
+      if (info) {
+        await backgroundApiProxy.serviceReferralCode.recordWalletCreation([
+          {
+            address: info.address,
+            networkId: info.networkId,
+            walletCreatedAt,
+          },
+        ]);
+      }
+    } catch {
+      // Startup migration will retry with the cached creation timestamp.
+    } finally {
+      setIsWalletCreationRecordHandled(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Hardware wallet creation may emit Ready before the post-create wallet
+    // lookup has stored createdWalletRef.
+    if (
+      !isReady ||
+      setupError ||
+      !isWalletCreationReadyForReferralCheck ||
+      readyReferralCheckHandledRef.current
+    ) {
+      return;
+    }
+    readyReferralCheckHandledRef.current = true;
+    void handleWalletSetupReady();
+  }, [
+    handleWalletSetupReady,
+    isReady,
+    isWalletCreationReadyForReferralCheck,
+    setupError,
+  ]);
 
   // Breathe up to 0.8 during active steps; on Ready fade to a faint hold
   // (0.15) so the orb visibly "settles" before the user taps Enter wallet.
@@ -443,10 +539,56 @@ function FinalizeWalletSetupPage({
   }, [isReady]);
 
   const orbSize = 160;
+  const isReadyActionVisible = isReady && isWalletCreationRecordHandled;
+
+  const [isExtensionTopRightVisible, setIsExtensionTopRightVisible] =
+    useState(false);
+  useEffect(() => {
+    if (!platformEnv.isExtension || !isReadyActionVisible || setupError) {
+      setIsExtensionTopRightVisible(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    void (async () => {
+      try {
+        // chrome.action.getUserSettings (Chrome 91+) reports whether the
+        // extension is already pinned to the toolbar. If pinned, the hint
+        // is redundant. Older Chrome / non-Chrome → fall through and show
+        // the hint as before.
+        const settings = await chrome.action?.getUserSettings?.();
+        if (cancelled) {
+          return;
+        }
+        if (settings?.isOnToolbar) {
+          return;
+        }
+      } catch {
+        // Permission / version edge cases — show the hint anyway.
+      }
+      if (cancelled) {
+        return;
+      }
+      timeout = setTimeout(() => {
+        if (!cancelled) {
+          setIsExtensionTopRightVisible(true);
+        }
+      }, 1000);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [isReadyActionVisible, setupError]);
 
   const enterWalletTransitionProps = {
-    opacity: isReady ? 1 : 0,
-    pointerEvents: isReady ? ('auto' as const) : ('none' as const),
+    opacity: isReadyActionVisible ? 1 : 0,
+    pointerEvents: isReadyActionVisible ? ('auto' as const) : ('none' as const),
     ...(!platformEnv.isNative && {
       animation: 'quick' as const,
       animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
@@ -459,6 +601,9 @@ function FinalizeWalletSetupPage({
       size="large"
       onPress={handleLetsGo}
       iconAfter="ArrowRightOutline"
+      animation="quick"
+      animateOnly={['opacity']}
+      enterStyle={{ opacity: 0 }}
       {...(gtMd ? { minWidth: 240 } : { w: '100%' as const })}
     >
       {intl.formatMessage({ id: ETranslations.enter_wallet })}
@@ -472,8 +617,92 @@ function FinalizeWalletSetupPage({
       enterAnimation={false}
     >
       <YStack flex={1}>
+        {platformEnv.isExtension && isExtensionTopRightVisible ? (
+          <YStack
+            gap="$4"
+            zIndex={10}
+            top="$4"
+            right="$4"
+            style={{ position: 'fixed' }}
+            borderRadius="$4"
+            p="$4"
+            bg="$bg"
+            width="$72"
+            $platform-web={{
+              boxShadow: POPUP_LAYERED_SHADOW,
+            }}
+            enterStyle={{
+              y: '$-2',
+              opacity: 0,
+            }}
+            animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+          >
+            <SizableText>
+              {intl.formatMessage({
+                id: ETranslations.onboarding_ext_popup_text,
+              })}
+            </SizableText>
+            <XStack gap="$2" position="relative">
+              <XStack
+                flex={1}
+                py="$2"
+                px="$4"
+                borderRadius="$full"
+                bg="$bgStrong"
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                {range(6).map((index) => (
+                  <YStack
+                    key={index}
+                    w="$4"
+                    h="$4"
+                    borderWidth={1.5}
+                    borderColor="$iconDisabled"
+                    borderStyle="dashed"
+                    borderRadius="$full"
+                  />
+                ))}
+              </XStack>
+              <YStack p="$2" borderRadius="$full" bg="$bgStrong">
+                <Icon name="PuzzleOutline" color="$iconActive" size="$5" />
+              </YStack>
+              <LinearGradient
+                colors={[theme.bg.val, `${theme.bg.val}00`]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                }}
+                pointerEvents="none"
+              />
+            </XStack>
+            <XStack
+              px="$4"
+              py="$3"
+              bg="$neutral2"
+              borderRadius="$3"
+              $platform-web={{
+                boxShadow: POPUP_LAYERED_SHADOW,
+              }}
+              gap="$2"
+              alignItems="center"
+            >
+              <Icon name="OnekeyBrand" />
+              <SizableText flex={1} size="$bodyLgMedium">
+                OneKey
+              </SizableText>
+              <Icon name="ThumbtackSolid" size="$5" color="$iconInfo" />
+            </XStack>
+          </YStack>
+        ) : null}
         {setupError ? (
-          <YStack flex={1} justifyContent="center" gap="$7">
+          <YStack flex={1} justifyContent="center" alignItems="center" gap="$7">
             <SizableText size="$heading5xl" fontWeight={600}>
               {intl.formatMessage({
                 id: ETranslations.failed_to_create_wallet,
@@ -557,7 +786,7 @@ function FinalizeWalletSetupPage({
               ) : null}
             </YStack>
             {!gtMd ? (
-              <YStack {...enterWalletTransitionProps}>
+              <YStack pb="$5" {...enterWalletTransitionProps}>
                 {enterWalletButton}
               </YStack>
             ) : null}

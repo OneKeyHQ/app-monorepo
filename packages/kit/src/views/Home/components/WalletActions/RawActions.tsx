@@ -23,13 +23,15 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type IActionItemsProps = {
-  icon?: IKeyOfIcons;
+  icon?: IKeyOfIcons | null;
   label?: string | ReactNode;
   showButtonStyle?: boolean;
   hiddenIfDisabled?: boolean;
   allowPressWhenDisabled?: boolean;
   verticalContainerProps?: IStackProps;
-} & Partial<Omit<IButtonProps, 'type'> & Omit<IIconButtonProps, 'type'>>;
+} & Partial<
+  Omit<IButtonProps, 'type' | 'icon'> & Omit<IIconButtonProps, 'type' | 'icon'>
+>;
 
 function ActionItem({
   icon = 'PlaceholderOutline',
@@ -47,7 +49,7 @@ function ActionItem({
   if (showButtonStyle) {
     return (
       <Button
-        icon={icon}
+        icon={icon || undefined}
         {...(!label && {
           py: '$2',
           pl: '$2.5',
@@ -91,13 +93,15 @@ function ActionItem({
         onPress={onPress}
         {...rest}
       >
-        <Stack>
-          <Icon
-            name={icon}
-            size="$6"
-            color={visualDisabled ? '$iconDisabled' : '$icon'}
-          />
-        </Stack>
+        {icon ? (
+          <Stack>
+            <Icon
+              name={icon}
+              size="$6"
+              color={visualDisabled ? '$iconDisabled' : '$icon'}
+            />
+          </Stack>
+        ) : null}
         <SizableText
           my="$1"
           textAlign="center"
@@ -112,7 +116,7 @@ function ActionItem({
       <Button
         variant="secondary"
         size="large"
-        icon={icon}
+        icon={icon || undefined}
         display="none"
         $gtSm={{ display: 'flex' }}
         onPress={onPress}

@@ -31,15 +31,7 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
 // Do NOT pass `defaultMessage` — the locale key's translation already holds
 // the human-readable text.
 
-/**
- * App not installed on device (Ledger 0x6807 "Unknown application name").
- *
- * TODO: when the real `ETranslations.hardware_third_party_app_not_installed`
- * key ships, make the locale value use an `{appName}` ICU placeholder and
- * pass `info: { appName }` here so the toast can interpolate. Mock lookup
- * doesn't do ICU substitution on the id, so the mock phase shows the
- * static fallback text without the app name.
- */
+/** App not installed on device */
 export class ThirdPartyAppNotInstalled extends ThirdPartyHardwareError {
   constructor(
     props?: IOneKeyErrorHardwareProps & {
@@ -49,9 +41,12 @@ export class ThirdPartyAppNotInstalled extends ThirdPartyHardwareError {
     },
   ) {
     super(
-      normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_app_not_installed,
-      }),
+      normalizeErrorProps(
+        { ...props, info: { ...props?.info, appName: props?.appName } },
+        {
+          defaultKey: ETranslations.hardware_third_party_app_not_installed,
+        },
+      ),
     );
     this.vendor = props?.vendor;
     this.chain = props?.chain;
@@ -87,6 +82,20 @@ export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.UserRejected;
+}
+
+/** User dismissed in-app cancel UI. No auto-toast (user already knows). */
+export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_user_cancel_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = ThirdPartyHwErrorCode.UserAborted;
 }
 
 /** OS-level device permission (Bluetooth / USB) denied. */
@@ -136,6 +145,24 @@ export class ThirdPartyDeviceDisconnected extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceDisconnected;
 }
 
+/** Chain app wedged (e.g. Ledger BTC 0x6901). User must exit app on device. */
+export class ThirdPartyDeviceAppStuck extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(
+        { ...props, info: { ...props?.info, vendor: props?.vendor } },
+        {
+          defaultKey: ETranslations.hardware_third_party_device_app_stuck,
+          defaultAutoToast: true,
+        },
+      ),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceAppStuck;
+}
+
 /** Connected device does not match the stored wallet */
 export class ThirdPartyDeviceMismatch extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
@@ -162,6 +189,34 @@ export class ThirdPartyOperationTimeout extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.OperationTimeout;
+}
+
+/** Chain has no keyring impl for this vendor (e.g. Ledger doesn't support Aptos). */
+export class ThirdPartyChainNotSupported extends ThirdPartyHardwareError {
+  constructor(
+    props?: IOneKeyErrorHardwareProps & { vendor?: string; chain?: string },
+  ) {
+    super(
+      normalizeErrorProps(
+        {
+          ...props,
+          info: {
+            ...props?.info,
+            vendor: props?.vendor,
+            chain: props?.chain,
+          },
+        },
+        {
+          defaultKey: ETranslations.hardware_third_party_chain_not_supported,
+          defaultAutoToast: true,
+        },
+      ),
+    );
+    this.vendor = props?.vendor;
+    this.chain = props?.chain;
+  }
+
+  override code = ThirdPartyHwErrorCode.ChainNotSupported;
 }
 
 /** Method not supported by this vendor/chain */

@@ -35,6 +35,7 @@ export function buildTransactionMarks({
     const label = isBuy ? 'B' : 'S';
     const displayAmount = tx.to.amount;
     const displaySymbol = tx.to.symbol;
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     const text = appLocale.intl.formatMessage(
       {
         id: isBuy

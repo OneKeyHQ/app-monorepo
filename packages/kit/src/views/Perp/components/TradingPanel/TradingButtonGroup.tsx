@@ -31,12 +31,16 @@ import {
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getSpotTokenDisplayName,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
+import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -73,6 +77,13 @@ function SideButtonInternal({
   const [tradingPreferences] = usePerpsTradingPreferencesAtom();
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
+  // SizeInput already collapses 'margin' → 'usd' in spot to keep the input
+  // box consistent. Mirror that here so secondary text and minimum-order
+  // hints stay aligned with what the user actually sees.
+  const resolvedSizeInputUnit =
+    isSpot && tradingPreferences.sizeInputUnit === 'margin'
+      ? 'usd'
+      : tradingPreferences.sizeInputUnit;
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
 
@@ -102,10 +113,26 @@ function SideButtonInternal({
   const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
 
   const isMinimumOrderNotMetForSide = useMemo(() => {
+    if (
+      !shouldApplyMinimumOrderGuard({
+        isSpot,
+        orderMode: formData.orderMode,
+        orderType: formData.type,
+        hasBboPriceMode: Boolean(formData.bboPriceMode),
+      })
+    ) {
+      return false;
+    }
     if (!orderValue || !orderValue.isFinite() || orderValue.lte(0))
       return false;
     return orderValue.lt(10);
-  }, [orderValue]);
+  }, [
+    formData.bboPriceMode,
+    formData.orderMode,
+    formData.type,
+    isSpot,
+    orderValue,
+  ]);
 
   const isAccountLoading = useMemo<boolean>(() => {
     return (
@@ -139,7 +166,7 @@ function SideButtonInternal({
   const buttonSecondaryText = useMemo(() => {
     if (orderValue.isZero() || !orderValue.isFinite()) return null;
 
-    if (tradingPreferences.sizeInputUnit === 'usd') {
+    if (resolvedSizeInputUnit === 'usd') {
       const usdValue = orderValue
         .decimalPlaces(2, BigNumber.ROUND_DOWN)
         .toFixed(2);
@@ -151,7 +178,8 @@ function SideButtonInternal({
       .toFixed(szDecimals);
     const displayName = (() => {
       if (isSpot && activeTradeInstrument.mode === 'spot') {
-        return activeTradeInstrument.universe?.displayName ?? '';
+        const u = activeTradeInstrument.universe;
+        return u ? getSpotTokenDisplayName(u.displayName || u.baseName) : '';
       }
       const symbol = activeAsset?.coin || '';
       return symbol ? parseDexCoin(symbol).displayName : '';
@@ -159,7 +187,7 @@ function SideButtonInternal({
     return `${sizeValue} ${displayName}`;
   }, [
     orderValue,
-    tradingPreferences.sizeInputUnit,
+    resolvedSizeInputUnit,
     computedSizeForSide,
     szDecimals,
     isSpot,
@@ -171,11 +199,9 @@ function SideButtonInternal({
     if (!isSpot || activeTradeInstrument.mode !== 'spot') {
       return '';
     }
-    return (
-      activeTradeInstrument.universe?.displayName ||
-      activeTradeInstrument.universe?.baseName ||
-      ''
-    );
+    const u = activeTradeInstrument.universe;
+    if (!u) return '';
+    return getSpotTokenDisplayName(u.displayName || u.baseName);
   }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
@@ -357,26 +383,27 @@ function SideButtonInternal({
           const minSize = new BigNumber(10)
             .dividedBy(effectivePriceBN)
             .decimalPlaces(szDecimals, BigNumber.ROUND_UP);
-          if (tradingPreferences.sizeInputUnit === 'token') {
+          if (resolvedSizeInputUnit === 'token') {
             const coinSymbol = (() => {
               if (isSpot && activeTradeInstrument.mode === 'spot') {
-                return activeTradeInstrument.universe?.displayName ?? '';
+                const u = activeTradeInstrument.universe;
+                return u
+                  ? getSpotTokenDisplayName(u.displayName || u.baseName)
+                  : '';
               }
               return activeAsset?.coin
                 ? parseDexCoin(activeAsset.coin).displayName
                 : '';
             })();
             minAmount = `${minSize.toFixed(szDecimals)} ${coinSymbol}`;
-          } else if (tradingPreferences.sizeInputUnit === 'margin') {
+          } else if (resolvedSizeInputUnit === 'margin') {
             const leverageBN = new BigNumber(leverage || 1);
             if (leverageBN.isFinite() && leverageBN.gt(0)) {
-              // System uses toFixed (ROUND_HALF_UP) to convert margin to token size.
-              // The smallest raw value that rounds up to minSize is: minSize - 0.5 * 10^(-szDecimals)
-              const halfStep = new BigNumber(5).times(
-                new BigNumber(10).pow(-(szDecimals + 1)),
-              );
+              // SizeInput floors (margin × leverage / price) to szDecimals via
+              // formatHlSize, so the smallest margin that produces ≥ `minSize`
+              // tokens is exactly `minSize × effectivePrice / leverage`,
+              // rounded up to 2 cents to keep the displayed amount on the safe side.
               const minMargin = minSize
-                .minus(halfStep)
                 .multipliedBy(effectivePriceBN)
                 .dividedBy(leverageBN)
                 .decimalPlaces(2, BigNumber.ROUND_UP)
@@ -508,7 +535,7 @@ function SideButtonInternal({
       if (perpsCustomSettings.skipOrderConfirm) {
         void handleConfirm(side);
       } else {
-        showOrderConfirmDialog(side);
+        showOrderConfirmDialog({ overrideSide: side, intl });
       }
     },
     1000,

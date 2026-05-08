@@ -1,8 +1,15 @@
 import type {
+  IBtcRewardHistoryItem,
   IEarnWalletHistoryItem,
   IEarnWalletHistoryNetwork,
   IHardwareRecordItem,
 } from '../referralCode/type';
+
+export interface IBtcRewardCodeInfoParam {
+  codeId: string;
+  batchName: string;
+  rewardUsd: number;
+}
 
 export enum EModalReferFriendsRoutes {
   ReferAFriend = 'ReferAFriend',
@@ -18,6 +25,11 @@ export enum EModalReferFriendsRoutes {
   ReferralLevel = 'ReferralLevel',
   RedemptionHistory = 'RedemptionHistory',
   PerpsReward = 'PerpsReward',
+  BtcRewardVerifyVoucher = 'BtcRewardVerifyVoucher',
+  BtcRewardSelectAddress = 'BtcRewardSelectAddress',
+  BtcRewardConfirm = 'BtcRewardConfirm',
+  BtcRewardSuccess = 'BtcRewardSuccess',
+  BtcRewardDetail = 'BtcRewardDetail',
 }
 
 export type IModalReferFriendsParamList = {
@@ -69,4 +81,29 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.ReferralLevel]: undefined;
   [EModalReferFriendsRoutes.RedemptionHistory]: undefined;
   [EModalReferFriendsRoutes.PerpsReward]: undefined;
+  [EModalReferFriendsRoutes.BtcRewardVerifyVoucher]: {
+    codeInfo: IBtcRewardCodeInfoParam;
+  };
+  [EModalReferFriendsRoutes.BtcRewardSelectAddress]: {
+    codeInfo: IBtcRewardCodeInfoParam;
+    voucherCode: string;
+    displayTitle: string;
+    quotaRemaining?: number;
+  };
+  [EModalReferFriendsRoutes.BtcRewardConfirm]: {
+    codeInfo: IBtcRewardCodeInfoParam;
+    voucherCode: string;
+    displayTitle: string;
+    walletAddress: string;
+  };
+  [EModalReferFriendsRoutes.BtcRewardSuccess]: {
+    rewardUsd: number;
+    walletAddress: string;
+    btcAmount: string;
+    btcPriceUsd: string;
+    payoutEligibleAt: string;
+  };
+  [EModalReferFriendsRoutes.BtcRewardDetail]: {
+    item: IBtcRewardHistoryItem;
+  };
 };

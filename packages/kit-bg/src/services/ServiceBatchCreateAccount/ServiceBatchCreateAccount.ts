@@ -1,4 +1,5 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
 import {
@@ -1100,6 +1101,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
             HardwareErrorCode.CallQueueActionCancelled,
             HardwareErrorCode.DeviceInterruptedFromOutside, // cancel PIN from app
             HardwareErrorCode.DeviceInterruptedFromUser, // cancel PIN from app
+            // **** third-party hardware
+            ThirdPartyHwErrorCode.UserAborted,
+            ThirdPartyHwErrorCode.DeviceDisconnected,
+            ThirdPartyHwErrorCode.DeviceAppStuck,
           ],
         })
       ) {

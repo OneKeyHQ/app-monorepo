@@ -96,12 +96,14 @@ import {
   DevSettingsSearchProvider,
   SearchFilterItem,
 } from './DevSettingsSearchContext';
+import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
+import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
@@ -389,7 +391,7 @@ const BaseDevSettingsSection = () => {
         title: 'Data Management',
         description: '数据重置 清理 导出',
         keywords:
-          '清空Market收藏数据 WatchList Mock Market Banner Data Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
+          '清空Market收藏数据 WatchList Mock Market Banner Data Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析 Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
       },
       {
         key: 'webview',
@@ -1211,6 +1213,10 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      <SearchFilterItem keywords="Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析">
+                        <DiscoverySearchDebugTool />
+                      </SearchFilterItem>
+
                       <SectionPressItem
                         icon="DeleteOutline"
                         title="Clear App Data (E2E release only)"
@@ -1619,6 +1625,24 @@ const BaseDevSettingsSection = () => {
                       </SectionFieldItem>
 
                       <SectionPressItem
+                        icon="GiftOutline"
+                        title="Referral Bind Debug"
+                        subtitle="Reset the selected wallet referral bind status"
+                        searchKeywords="referral rebate bind wallet dev unbind creation record"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'Referral Bind Debug',
+                            renderContent: (
+                              <ReferralCodeDebugPanel
+                                activeWalletId={activeAccount.wallet?.id}
+                                activeWalletName={activeAccount.wallet?.name}
+                              />
+                            ),
+                          });
+                        }}
+                      />
+
+                      <SectionPressItem
                         icon="ServerOutline"
                         title="Add ServerNetwork Test Data"
                         subtitle="添加 ServerNetwork 测试数据"
@@ -1780,6 +1804,23 @@ const BaseDevSettingsSection = () => {
                             );
                           }}
                           value={devSettings.settings?.enableMockHighTxFee}
+                        />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="GlobusOutline"
+                        name="disableCustomUA"
+                        title="禁用自定义 User-Agent"
+                        subtitle="dev 调试用：开启后回退到 runtime 默认 UA"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'disableCustomUA',
+                              !devSettings.settings?.disableCustomUA,
+                            );
+                          }}
+                          value={devSettings.settings?.disableCustomUA}
                         />
                       </SectionFieldItem>
 

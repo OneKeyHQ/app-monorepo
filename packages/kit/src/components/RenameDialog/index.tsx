@@ -30,7 +30,6 @@ import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4CoinTypeToNetworkId } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -45,6 +44,8 @@ import { NetworkAvatar } from '../NetworkAvatar';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
+
+import type { IntlShape } from 'react-intl';
 
 function V4AccountNameSelector({
   onChange,
@@ -199,6 +200,7 @@ export const showRenameDialog = (
     indexedAccount,
     disabledMaxLengthLabel = false,
     nameHistoryInfo,
+    intl,
     ...dialogProps
   }: IDialogShowProps & {
     indexedAccount?: IDBIndexedAccount;
@@ -210,10 +212,11 @@ export const showRenameDialog = (
       entityType: EChangeHistoryEntityType;
       contentType: EChangeHistoryContentType.Name;
     };
+    intl: IntlShape;
   },
 ) =>
   Dialog.show({
-    title: appLocale.intl.formatMessage({ id: ETranslations.global_rename }),
+    title: intl.formatMessage({ id: ETranslations.global_rename }),
     renderContent: (
       <Dialog.Form formProps={{ values: { name } }}>
         <Dialog.FormField
@@ -221,13 +224,13 @@ export const showRenameDialog = (
           rules={{
             required: {
               value: true,
-              message: appLocale.intl.formatMessage({
+              message: intl.formatMessage({
                 id: ETranslations.form_rename_error_empty,
               }),
             },
             validate: (value: string) => {
               if (!value?.trim()) {
-                return appLocale.intl.formatMessage({
+                return intl.formatMessage({
                   id: ETranslations.form_rename_error_empty,
                 });
               }
@@ -250,7 +253,7 @@ export const showRenameDialog = (
       // fix toast dropped frames
       await close();
       Toast.success({
-        title: appLocale.intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.feedback_change_saved,
         }),
       });
@@ -264,6 +267,7 @@ interface IPrimeProfileFormValues {
 }
 
 function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
+  const intl = useIntl();
   const dialogInstance = useDialogInstance();
   const formOption = useMemo(
     () => ({
@@ -280,7 +284,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
               nickname: values.nickname,
             });
             Toast.success({
-              title: appLocale.intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.feedback_change_saved,
               }),
             });
@@ -288,7 +292,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
           } catch (error) {
             console.error(error);
             Toast.error({
-              title: appLocale.intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.global_update_failed,
               }),
             });
@@ -296,7 +300,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
         }
       },
     }),
-    [dialogInstance, user?.avatar, user?.nickname],
+    [dialogInstance, user?.avatar, user?.nickname, intl],
   );
   const form = useForm<IPrimeProfileFormValues>(formOption);
   const handlePickAvatar = useCallback(async () => {
@@ -356,20 +360,20 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
             </Stack>
           </XStack>
           <Form.Field
-            label={appLocale.intl.formatMessage({
+            label={intl.formatMessage({
               id: ETranslations.settings_nickname,
             })}
             name="nickname"
             rules={{
               required: {
                 value: true,
-                message: appLocale.intl.formatMessage({
+                message: intl.formatMessage({
                   id: ETranslations.form_rename_error_empty,
                 }),
               },
               validate: (value: string) => {
                 if (!value?.trim()) {
-                  return appLocale.intl.formatMessage({
+                  return intl.formatMessage({
                     id: ETranslations.form_rename_error_empty,
                   });
                 }

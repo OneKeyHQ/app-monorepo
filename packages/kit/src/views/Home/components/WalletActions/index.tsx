@@ -374,7 +374,11 @@ function WalletActionSend({
     <RawActions.Send
       onPress={customization?.onPress || handleOnSend}
       disabled={customization?.disabled ?? vaultSettings?.disabledSendAction}
-      label={customization?.label}
+      label={
+        customization?.labelId
+          ? intl.formatMessage({ id: customization.labelId })
+          : undefined
+      }
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}
       trackID="wallet-send"

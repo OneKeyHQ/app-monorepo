@@ -44,8 +44,7 @@ export function BulkCopyAddressesButton({
             featureName: EPrimeFeatures.BulkCopyAddresses,
             entryPoint: 'walletEdit',
           });
-          // FullModal can cause hierarchy issues
-          navigation?.pushModal(EModalRoutes.PrimeModal, {
+          navigation?.pushFullModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeDashboard,
             params: {
               fromFeature: EPrimeFeatures.BulkCopyAddresses,

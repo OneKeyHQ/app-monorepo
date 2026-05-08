@@ -2,70 +2,483 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { rootNavigationRef } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
 import {
-  currencyPersistAtom,
-  settingsPersistAtom,
+  resetAboveMainRoute,
+  rootNavigationRef,
+  switchTabAsync,
+} from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import {
   useActiveAccountValueAtom,
   useAppIsLockedAtom,
+  useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalAssetDetailRoutes,
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import {
+  type IPendingTx,
+  type ITrayAccountAvatarInfo,
+  type ITrayAction,
   type ITrayData,
+  type ITrayWalletAvatarInfo,
   type ITrayWatchlistItem,
   TRAY_IPC,
 } from '@onekeyhq/shared/src/types/desktop/tray';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  getHyperliquidTokenImageUrl,
+  getTokenSubtitle,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   composeTrayAccountChange24h,
   formatTrayPendingTxAmount,
+  getTrayPendingTxAmountInfo,
+  getTrayPendingTxType,
 } from '@onekeyhq/shared/src/utils/trayDataUtils';
+import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
 
+import {
+  type ITrayActiveAccountScope,
+  TRAY_DATA_REFRESH_EVENT_NAMES,
+  buildTrayWatchlistInSourceOrder,
+  collectTrayTrackedTxs,
+  formatTrayUsdPrice,
+  getTrayCurrencyDisplayInfo,
+  getTrayMarketNavigationTarget,
+  getTrayTokenValueInTargetCurrency,
+  getTrayWatchlistNativeInfo,
+  recoverFailedTrackedTxs,
+} from './trayDataProviderUtils';
+
+const TRAY_ROUTE_HOME = '/main/tab-home';
+const TRAY_ROUTE_MARKET = '/main/tab-market';
+// Fires while pending txs exist even when panel is closed and home is unfocused.
+const TRAY_PENDING_TX_RECHECK_INTERVAL_MS = 12_000;
+
+async function refreshTrayPendingTxStatuses(
+  txs: IAccountHistoryTx[],
+): Promise<void> {
+  const requestKeys = new Set<string>();
+  const requests: Array<{ accountId: string; networkId: string }> = [];
+
+  for (const tx of txs) {
+    if (tx.decodedTx?.status === EDecodedTxStatus.Pending) {
+      const { accountId, networkId } = tx.decodedTx;
+      if (accountId && networkId) {
+        const key = `${accountId}__${networkId}`;
+        if (!requestKeys.has(key)) {
+          requestKeys.add(key);
+          requests.push({ accountId, networkId });
+        }
+      }
+    }
+  }
+
+  if (!requests.length) return;
+
+  const results = await Promise.allSettled(
+    requests.map(({ accountId, networkId }) =>
+      backgroundApiProxy.serviceHistory.fetchAccountHistory({
+        accountId,
+        networkId,
+        isManualRefresh: true,
+        excludeTestNetwork: true,
+        limit: 10,
+      }),
+    ),
+  );
+
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      const request = requests[index];
+      defaultLogger.app.error.log(
+        `[TrayDataProvider] pending tx refresh error: ${
+          (result.reason as Error)?.message || String(result.reason)
+        } (${request.accountId}, ${request.networkId})`,
+      );
+    }
+  });
+}
+
+async function findTrayHistoryTxByAction(
+  action: ITrayAction,
+): Promise<IAccountHistoryTx | undefined> {
+  if (action.accountId && action.networkId && action.historyId) {
+    const localTx =
+      await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
+        accountId: action.accountId,
+        networkId: action.networkId,
+        historyId: action.historyId,
+      });
+    if (localTx) return localTx;
+  }
+
+  const txid = action.txid || action.historyId;
+  if (!txid) return undefined;
+
+  const rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
+  const txGroups: IAccountHistoryTx[][] = [
+    ...Object.values(rawData?.pendingTxs ?? {}),
+    ...Object.values(rawData?.confirmedTxs ?? {}),
+  ];
+  for (const group of txGroups) {
+    if (Array.isArray(group)) {
+      const found = group.find(
+        (tx) => tx.id === txid || tx.decodedTx?.txid === txid,
+      );
+      if (found) return found;
+    }
+  }
+
+  return undefined;
+}
+
+function getNetworkLogoUri(networkId?: string): string {
+  if (!networkId) return '';
+  const network = getPresetNetworks().find((n) => n.id === networkId);
+  return network?.logoURI || '';
+}
+
+function getTrayWalletAvatarInfo(
+  wallet: IDBWallet | undefined,
+): ITrayWalletAvatarInfo | undefined {
+  if (wallet?.avatarInfo) {
+    return wallet.avatarInfo;
+  }
+
+  if (!wallet?.avatar) return undefined;
+  try {
+    return JSON.parse(wallet.avatar) as ITrayWalletAvatarInfo;
+  } catch {
+    return undefined;
+  }
+}
+
+function buildTrayWalletInfo(
+  wallet: IDBWallet | undefined,
+  fallbackName = '',
+): ITrayData['wallet'] {
+  const walletInfo: ITrayData['wallet'] = {
+    id: wallet?.id,
+    name: wallet?.name || fallbackName,
+    emoji: '',
+    avatarImg: '',
+    type: wallet?.type,
+    passphraseState: wallet?.passphraseState,
+    firmwareTypeAtCreated: wallet?.firmwareTypeAtCreated,
+  };
+
+  const avatarInfo = getTrayWalletAvatarInfo(wallet);
+  if (avatarInfo) {
+    walletInfo.avatarInfo = avatarInfo;
+    if (avatarInfo.emoji && avatarInfo.emoji !== 'img') {
+      walletInfo.emoji = avatarInfo.emoji;
+    }
+    if (avatarInfo.img) {
+      walletInfo.avatarImg = avatarInfo.img;
+    }
+  }
+
+  if (wallet && !walletInfo.emoji && !walletInfo.avatarImg) {
+    if (wallet.type === 'watching') {
+      walletInfo.emoji = '👁';
+    } else if (wallet.type === 'hw') {
+      walletInfo.emoji = '🔑';
+    } else {
+      walletInfo.emoji = '💰';
+    }
+  }
+
+  return walletInfo;
+}
+
+function buildTrayAccountInfo({
+  accountName,
+  account,
+  indexedAccount,
+  dbAccount,
+}: {
+  accountName: string;
+  account: { id?: string; address?: string } | undefined;
+  indexedAccount: IDBIndexedAccount | undefined;
+  dbAccount: IDBAccount | undefined;
+}): ITrayData['account'] {
+  const avatar: ITrayAccountAvatarInfo = {};
+  if (indexedAccount) {
+    avatar.indexedAccount = {
+      id: indexedAccount.id,
+      idHash: indexedAccount.idHash,
+    };
+  }
+  if (account) {
+    avatar.account = {
+      id: account.id,
+      address: account.address,
+    };
+  }
+  if (dbAccount) {
+    const dbAccountWithConnection = dbAccount as IDBAccount & {
+      connectionInfo?: unknown;
+    };
+    avatar.dbAccount = {
+      id: dbAccountWithConnection.id,
+      address: dbAccountWithConnection.address,
+      connectionInfo: dbAccountWithConnection.connectionInfo,
+    };
+  }
+  if (!avatar.indexedAccount && !avatar.account && !avatar.dbAccount) {
+    const address = account?.address || dbAccount?.address;
+    if (address) {
+      avatar.address = address;
+    }
+  }
+
+  return Object.keys(avatar).length
+    ? { name: accountName, avatar }
+    : { name: accountName };
+}
+
+function getIndexedAccountIdFromActiveAccountId({
+  activeAccountId,
+  walletId,
+}: {
+  activeAccountId: string | undefined;
+  walletId: string | undefined;
+}) {
+  if (!activeAccountId || !walletId) return undefined;
+  const parsed = accountUtils.parseIndexedAccountId({
+    indexedAccountId: activeAccountId,
+  });
+  if (parsed.walletId === walletId && Number.isInteger(parsed.index)) {
+    return activeAccountId;
+  }
+  return undefined;
+}
+
+async function getTrayActiveAccountScope({
+  wallet,
+  activeAccountId,
+  account,
+  indexedAccount,
+  dbAccount,
+}: {
+  wallet: IDBWallet | undefined;
+  activeAccountId: string | undefined;
+  account: { id?: string } | undefined;
+  indexedAccount: IDBIndexedAccount | undefined;
+  dbAccount: IDBAccount | undefined;
+}): Promise<ITrayActiveAccountScope> {
+  const accountIds = new Set<string>();
+  const addAccountId = (accountId?: string) => {
+    if (accountId) accountIds.add(accountId);
+  };
+
+  const walletId = wallet?.id;
+  const shouldUseIndexedAccountScope =
+    accountUtils.isHdWallet({ walletId }) ||
+    accountUtils.isHwWallet({ walletId });
+
+  if (shouldUseIndexedAccountScope) {
+    const indexedAccountId =
+      indexedAccount?.id ||
+      dbAccount?.indexedAccountId ||
+      getIndexedAccountIdFromActiveAccountId({ activeAccountId, walletId });
+
+    if (indexedAccountId) {
+      try {
+        const { accounts } =
+          await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
+            { indexedAccountId },
+          );
+        accounts.forEach((item) => addAccountId(item.id));
+      } catch (e) {
+        defaultLogger.app.error.log(
+          `[TrayDataProvider] active account scope error: ${
+            (e as Error)?.message || String(e)
+          }`,
+        );
+      }
+    }
+
+    addAccountId(account?.id);
+    addAccountId(dbAccount?.id);
+  } else {
+    addAccountId(account?.id);
+    addAccountId(dbAccount?.id);
+    addAccountId(activeAccountId);
+  }
+
+  return { accountIds: Array.from(accountIds) };
+}
+
+type ITrayEnabledNetworkScope = {
+  enabledNetworkIds: string[];
+  enabledNetworksCompatibleWithWalletId: Array<{ id: string }>;
+  networkInfoMap: Record<
+    string,
+    {
+      deriveType: string;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
+};
+
+async function getTrayEnabledNetworkScope({
+  walletId,
+  accountId,
+}: {
+  walletId: string;
+  accountId?: string;
+}): Promise<ITrayEnabledNetworkScope> {
+  const [{ enabledNetworks, disabledNetworks }, { networks }] =
+    await Promise.all([
+      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+      backgroundApiProxy.serviceNetwork.getAllNetworks({
+        excludeTestNetwork: true,
+        excludeAllNetworkItem: true,
+      }),
+    ]);
+
+  const enabledNetworkIds = networks
+    .filter((network) =>
+      isEnabledNetworksInAllNetworks({
+        networkId: network.id,
+        enabledNetworks,
+        disabledNetworks,
+        isTestnet: !!network.isTestnet,
+      }),
+    )
+    .map((network) => network.id);
+
+  if (enabledNetworkIds.length === 0) {
+    return {
+      enabledNetworkIds: [],
+      enabledNetworksCompatibleWithWalletId: [],
+      networkInfoMap: {},
+    };
+  }
+
+  const compatibleNetworks =
+    await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+      {
+        accountId,
+        walletId,
+        networkIds: enabledNetworkIds,
+      },
+    );
+
+  const enabledNetworksCompatibleWithWalletId =
+    compatibleNetworks.mainnetItems ?? [];
+
+  const networkInfoEntries = await Promise.all(
+    enabledNetworksCompatibleWithWalletId.map(async (network) => {
+      const [deriveType, vaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: network.id,
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: network.id,
+        }),
+      ]);
+      return [
+        network.id,
+        {
+          deriveType,
+          mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+        },
+      ] as const;
+    }),
+  );
+
+  return {
+    enabledNetworkIds: enabledNetworksCompatibleWithWalletId.map(
+      (network) => network.id,
+    ),
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap: Object.fromEntries(networkInfoEntries),
+  };
+}
+
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [appIsLocked] = useAppIsLockedAtom();
-  const [{ enableMenuBarTray }] = useSettingsPersistAtom();
+  const [
+    {
+      enableMenuBarTray,
+      currencyInfo,
+      locale: settingsLocale,
+      lastLocale: settingsLastLocale,
+    },
+  ] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const {
-    activeAccount: { wallet, accountName },
+    activeAccount: { wallet, accountName, account, indexedAccount, dbAccount },
   } = useActiveAccount({ num: 0 });
-  // Guard every effect on this predicate so flipping the setting tears
-  // down IPC/event subscriptions and re-subscribes without remounting.
   const isTrayActive = platformEnv.isDesktopMac && (enableMenuBarTray ?? true);
   const activeAccountValueRef = useRef(activeAccountValue);
   activeAccountValueRef.current = activeAccountValue;
   const appIsLockedRef = useRef(appIsLocked);
   appIsLockedRef.current = appIsLocked;
+  const currencyInfoRef = useRef(currencyInfo);
+  currencyInfoRef.current = currencyInfo;
+  const currencyMapRef = useRef(currencyMap);
+  currencyMapRef.current = currencyMap;
   const walletRef = useRef(wallet);
   walletRef.current = wallet;
+  const accountRef = useRef(account);
+  accountRef.current = account;
+  const indexedAccountRef = useRef(indexedAccount);
+  indexedAccountRef.current = indexedAccount;
+  const dbAccountRef = useRef(dbAccount);
+  dbAccountRef.current = dbAccount;
   const accountNameRef = useRef<string>('');
   accountNameRef.current = accountName || '';
-  // Seed with the current accountId so the first mount isn't mis-detected as
-  // an account switch, which would clobber cache primed by main-process
-  // guardedRequest() with an optimistic $0.00 placeholder.
+  // Seed with current accountId so first mount isn't mis-detected as a switch.
   const prevAccountIdRef = useRef<string | undefined>(
     activeAccountValue?.accountId,
   );
   const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
   const pendingTxsClearedRef = useRef(false);
-  // Renderer-side inflight guard — main-process `guardedRequest` only
-  // covers poll-driven runs; renderer-triggered paths (account change,
-  // appEventBus refresh) coalesce extra calls into a single trailing re-run.
+  // Renderer-side inflight guard for non-poll paths (account change, refresh).
   const inFlightRef = useRef(false);
   const trailingRefreshRef = useRef(false);
+  const hasPendingTxRef = useRef(false);
+  // Cached resolved watchlist for the account-switch optimistic placeholder (OK-54088).
+  const lastWatchlistRef = useRef<ITrayWatchlistItem[]>([]);
+  const pendingRecheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const isTrayActiveRef = useRef(isTrayActive);
+  isTrayActiveRef.current = isTrayActive;
 
   const handleTrayDataRequestInner = useCallback(async () => {
     // Tray window can't reach backgroundApiProxy (DESKTOP_API_CALL is gated
@@ -78,21 +491,47 @@ export function useTrayDataProvider() {
       // ignore
     }
 
-    // Capture accountId up-front so every outbound payload (main/locked/error)
-    // carries the identity the notification diff uses to reset its baseline.
+    // Capture accountId up-front so every outbound payload carries the same identity.
     const activeAccountId = activeAccountValueRef.current?.accountId;
+    let trayCurrencyMap = currencyMapRef.current;
+    const selectedCurrencyId = currencyInfoRef.current?.id || 'usd';
+    if (
+      selectedCurrencyId !== 'usd' &&
+      !trayCurrencyMap?.[selectedCurrencyId]
+    ) {
+      try {
+        trayCurrencyMap =
+          await backgroundApiProxy.serviceSetting.getCurrencyMap();
+      } catch (e) {
+        defaultLogger.app.error.log(
+          `[TrayDataProvider] currency map fetch error: ${
+            (e as Error)?.message || String(e)
+          }`,
+        );
+      }
+    }
+    const { displayCurrency, displaySymbol, usdToTargetFactor } =
+      getTrayCurrencyDisplayInfo({
+        currencyInfo: currencyInfoRef.current,
+        currencyMap: trayCurrencyMap,
+      });
 
     const buildLockedPayload = (): ITrayData => ({
       isLocked: true,
       locale,
       accountId: activeAccountId,
       pendingTxsCleared: pendingTxsClearedRef.current,
-      wallet: { name: '', emoji: '', avatarImg: '' },
-      account: { name: accountNameRef.current },
+      wallet: buildTrayWalletInfo(undefined),
+      account: buildTrayAccountInfo({
+        accountName: accountNameRef.current,
+        account: accountRef.current,
+        indexedAccount: indexedAccountRef.current,
+        dbAccount: dbAccountRef.current,
+      }),
       totalBalance: {
         amount: '0.00',
-        currency: 'USD',
-        symbol: '$',
+        currency: displayCurrency,
+        symbol: displaySymbol,
       },
       watchlist: [],
       pendingTxs: [],
@@ -103,38 +542,18 @@ export function useTrayDataProvider() {
       return;
     }
 
-    // Resolve USD→target factor up-front so totalBalance and watchlist rows
-    // format consistently; market API quotes USD and would otherwise be
-    // displayed next to a localized total.
-    let displayCurrency = 'usd';
-    let displaySymbol = '$';
-    let usdToTargetFactor = new BigNumber(1);
-    try {
-      const [{ currencyInfo }, { currencyMap }] = await Promise.all([
-        settingsPersistAtom.get(),
-        currencyPersistAtom.get(),
-      ]);
-      const targetCurrency = currencyInfo.id;
-      const usdInfoRaw = currencyMap.usd;
-      const targetInfoRaw = currencyMap[targetCurrency];
-      if (usdInfoRaw && targetInfoRaw) {
-        displayCurrency = targetCurrency;
-        displaySymbol = targetInfoRaw.unit || targetCurrency.toUpperCase();
-        usdToTargetFactor = new BigNumber(targetInfoRaw.value || '1').div(
-          new BigNumber(usdInfoRaw.value || '1'),
-        );
-      }
-    } catch {
-      // currencyMap not populated yet — keep USD defaults.
-    }
-
     try {
       const trayData: ITrayData = {
         locale,
         accountId: activeAccountId,
         pendingTxsCleared: pendingTxsClearedRef.current,
-        wallet: { name: '', emoji: '', avatarImg: '' },
-        account: { name: accountNameRef.current },
+        wallet: buildTrayWalletInfo(undefined),
+        account: buildTrayAccountInfo({
+          accountName: accountNameRef.current,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        }),
         totalBalance: {
           amount: '0.00',
           currency: displayCurrency,
@@ -146,29 +565,7 @@ export function useTrayDataProvider() {
 
       const currentWallet = walletRef.current;
       if (currentWallet) {
-        trayData.wallet.name = currentWallet.name || 'Wallet';
-        if (currentWallet.avatar) {
-          try {
-            const avatarInfo = JSON.parse(currentWallet.avatar);
-            if (avatarInfo?.emoji && avatarInfo.emoji !== 'img') {
-              trayData.wallet.emoji = avatarInfo.emoji;
-            }
-            if (avatarInfo?.img) {
-              trayData.wallet.avatarImg = avatarInfo.img;
-            }
-          } catch {
-            // avatar is not JSON
-          }
-        }
-        if (!trayData.wallet.emoji && !trayData.wallet.avatarImg) {
-          if (currentWallet.type === 'watching') {
-            trayData.wallet.emoji = '👁';
-          } else if (currentWallet.type === 'hw') {
-            trayData.wallet.emoji = '🔑';
-          } else {
-            trayData.wallet.emoji = '💰';
-          }
-        }
+        trayData.wallet = buildTrayWalletInfo(currentWallet, 'Wallet');
       }
 
       // Tray is always cross-network (spec non-goal #1) — pass the
@@ -178,16 +575,29 @@ export function useTrayDataProvider() {
         try {
           // `value` is either a string (others account) or Record<key, string> (own).
           const val = accountValue.value;
-          let tokensUsd = new BigNumber(0);
-          if (typeof val === 'string') {
-            tokensUsd = new BigNumber(val || '0');
-          } else if (val && typeof val === 'object') {
-            tokensUsd = Object.values(val).reduce(
-              (sum, v) => sum.plus(new BigNumber(v || '0')),
-              new BigNumber(0),
-            );
+          let enabledNetworkScope: ITrayEnabledNetworkScope | undefined;
+          if (val && typeof val === 'object' && currentWallet.id) {
+            try {
+              enabledNetworkScope = await getTrayEnabledNetworkScope({
+                walletId: currentWallet.id,
+                accountId: accountRef.current?.id,
+              });
+            } catch (e) {
+              defaultLogger.app.error.log(
+                `[TrayDataProvider] enabled networks fetch error: ${
+                  (e as Error)?.message || String(e)
+                }`,
+              );
+            }
           }
-          const tokensInTarget = tokensUsd.times(usdToTargetFactor).toFixed();
+          const tokensInTarget = getTrayTokenValueInTargetCurrency({
+            tokensValue: val,
+            usdToTargetFactor,
+            walletId: currentWallet.id,
+            enabledNetworksCompatibleWithWalletId:
+              enabledNetworkScope?.enabledNetworksCompatibleWithWalletId,
+            networkInfoMap: enabledNetworkScope?.networkInfoMap,
+          });
 
           // DeFi via simpleDb.deFi cache only — no network call.
           let deFiNetWorth = '0';
@@ -197,6 +607,7 @@ export function useTrayDataProvider() {
                 accountId: accountValue.accountId,
                 networkId: getNetworkIdsMap().onekeyall,
                 targetCurrency: displayCurrency,
+                enabledNetworkIds: enabledNetworkScope?.enabledNetworkIds,
               });
             deFiNetWorth = deFiResp.netWorth;
           } catch (e) {
@@ -228,11 +639,6 @@ export function useTrayDataProvider() {
         }
       }
 
-      // BigNumber keeps sub-cent precision a raw JS Number would drop.
-      const formatPriceInTarget = (usdPrice: number | string): string => {
-        const converted = new BigNumber(usdPrice || 0).times(usdToTargetFactor);
-        return `${displaySymbol}${converted.toFormat(2)}`;
-      };
       try {
         const watchListData =
           await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
@@ -244,41 +650,62 @@ export function useTrayDataProvider() {
             (item: any) => !!item.perpsCoin,
           );
 
-          const watchlistResults: ITrayWatchlistItem[] = [];
+          const watchlistResults: Array<{
+            sourceItem: {
+              chainId?: string;
+              contractAddress?: string;
+              isNative?: boolean;
+              perpsCoin?: string;
+            };
+            item: ITrayWatchlistItem;
+          }> = [];
 
           if (spotItems.length > 0) {
             try {
               const tokenAddressList = spotItems.map((item: any) => ({
                 chainId: item.chainId,
                 contractAddress: item.contractAddress || '',
-                isNative: item.isNative ?? false,
+                isNative: getTrayWatchlistNativeInfo({
+                  isNative: item.isNative,
+                  contractAddress: item.contractAddress,
+                }).isNative,
               }));
               const response =
                 await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
                   { tokenAddressList },
                 );
               if (response?.list?.length) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                response.list.forEach((coin: any) => {
+                // Align by spotItems index — API row is display-only; networkId
+                // shortcodes and address casing make field matching fragile.
+                spotItems.forEach((spotItem: any, index: number) => {
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+                  const coin = response.list[index] as any;
                   if (!coin?.symbol) return;
-                  // Match by networkId + address — API may reorder results.
-                  const spotItem = spotItems.find(
-                    (s: any) =>
-                      s.chainId === coin.networkId &&
-                      (s.contractAddress || '') === (coin.address || ''),
-                  );
+                  const { isNative: spotIsNative, tokenAddress } =
+                    getTrayWatchlistNativeInfo({
+                      isNative: spotItem.isNative as boolean | undefined,
+                      contractAddress: spotItem.contractAddress as
+                        | string
+                        | undefined,
+                    });
                   watchlistResults.push({
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                    symbol: (coin.symbol || '').toUpperCase(),
-                    name: coin.name || '',
-                    icon: coin.logoUrl || '',
-                    price: formatPriceInTarget(coin.price),
-                    change24h: Number(coin.priceChange24hPercent || 0),
-                    type: 'spot',
-                    tokenAddress:
-                      coin.address || spotItem?.contractAddress || '',
-                    networkId: coin.networkId || spotItem?.chainId || '',
-                    isNative: spotItem?.isNative ?? false,
+                    sourceItem: spotItem,
+                    item: {
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                      symbol: (coin.symbol || '').toUpperCase(),
+                      name: coin.name || '',
+                      icon: coin.logoUrl || coin.logoUrls?.[0] || '',
+                      iconUrls: coin.logoUrls,
+                      networkIcon: getNetworkLogoUri(spotItem.chainId),
+                      price: formatTrayUsdPrice(coin.price),
+                      change24h: Number(coin.priceChange24hPercent || 0),
+                      type: 'spot',
+                      tokenAddress,
+                      networkId: spotItem.chainId,
+                      isNative: spotIsNative,
+                      communityRecognized: coin.communityRecognized,
+                      stock: coin.stock,
+                    },
                   });
                 });
               }
@@ -289,10 +716,21 @@ export function useTrayDataProvider() {
 
           if (perpsItems.length > 0) {
             try {
+              const [perpsDataResult, tokenSearchAliasesResult] =
+                await Promise.allSettled([
+                  backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+                    category: 'all',
+                  }),
+                  backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+                ]);
               const perpsData =
-                await backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList(
-                  { category: 'all' },
-                );
+                perpsDataResult.status === 'fulfilled'
+                  ? perpsDataResult.value
+                  : undefined;
+              const tokenSearchAliases =
+                tokenSearchAliasesResult.status === 'fulfilled'
+                  ? tokenSearchAliasesResult.value
+                  : undefined;
               if (perpsData?.tokens?.length) {
                 for (const item of perpsItems) {
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -302,14 +740,40 @@ export function useTrayDataProvider() {
                       t.name?.toUpperCase() === item.perpsCoin?.toUpperCase(),
                   );
                   if (coin) {
+                    const parsedCoin = parseDexCoin(
+                      coin.name || item.perpsCoin || '',
+                    );
+                    const parsedDisplay = parseDexCoin(
+                      coin.displayName ||
+                        parsedCoin.displayName ||
+                        item.perpsCoin ||
+                        '',
+                    );
+                    const displayName =
+                      parsedDisplay.displayName ||
+                      parsedCoin.displayName ||
+                      item.perpsCoin ||
+                      '';
                     watchlistResults.push({
-                      symbol: (coin.name || '').toUpperCase(),
-                      name: coin.displayName || coin.name || '',
-                      icon: coin.tokenImageUrl || '',
-                      price: formatPriceInTarget(coin.markPrice),
-                      change24h: coin.change24hPercent || 0,
-                      type: 'perps',
-                      perpsCoin: item.perpsCoin,
+                      sourceItem: item,
+                      item: {
+                        symbol: displayName,
+                        name: '',
+                        icon:
+                          coin.tokenImageUrl ||
+                          getHyperliquidTokenImageUrl(
+                            parsedCoin.displayName || displayName,
+                          ),
+                        price: formatTrayUsdPrice(coin.markPrice),
+                        change24h: coin.change24hPercent || 0,
+                        type: 'perps',
+                        perpsCoin: item.perpsCoin,
+                        maxLeverage: coin.maxLeverage,
+                        subtitle: getTokenSubtitle(
+                          coin.name || item.perpsCoin || '',
+                          tokenSearchAliases,
+                        ),
+                      },
                     });
                   }
                 }
@@ -319,8 +783,13 @@ export function useTrayDataProvider() {
             }
           }
 
-          trayData.watchlist = watchlistResults;
+          trayData.watchlist = buildTrayWatchlistInSourceOrder({
+            sourceItems: watchListData.data,
+            resolvedItems: watchlistResults,
+          });
         }
+        // Only update on a non-throwing fetch — keep prior value on transient errors.
+        lastWatchlistRef.current = trayData.watchlist;
       } catch (e) {
         defaultLogger.app.error.log(
           `[TrayDataProvider] watchlist error: ${
@@ -334,56 +803,69 @@ export function useTrayDataProvider() {
       // tracking only Pending would mis-fire "Confirmed" on failed txs.
       let pendingTxReadFailed = false;
       try {
-        const rawData =
+        const activeAccountScope = await getTrayActiveAccountScope({
+          wallet: currentWallet,
+          activeAccountId,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        });
+        let rawData =
           await backgroundApiProxy.simpleDb.localHistory.getRawData();
-        const allTrackedTxs: any[] = [];
-        if (rawData?.pendingTxs) {
-          for (const txs of Object.values(rawData.pendingTxs)) {
-            if (Array.isArray(txs)) {
-              for (const tx of txs) {
-                const s = tx?.decodedTx?.status;
-                if (
-                  s === EDecodedTxStatus.Pending ||
-                  s === EDecodedTxStatus.Failed
-                ) {
-                  allTrackedTxs.push(tx);
-                }
-              }
+        let allTrackedTxs = collectTrayTrackedTxs(rawData, activeAccountScope);
+        const trackedPendingIds = new Set(
+          allTrackedTxs
+            .filter((tx) => tx.decodedTx?.status === EDecodedTxStatus.Pending)
+            .map((tx) => tx.id),
+        );
+        if (trackedPendingIds.size > 0) {
+          await refreshTrayPendingTxStatuses(allTrackedTxs);
+          rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
+          allTrackedTxs = collectTrayTrackedTxs(rawData, activeAccountScope);
+          // Refresh moves failed txs out of the pendingTxs bucket
+          // (SimpleDbEntityLocalHistory's save filters that bucket to
+          // Pending-only), so re-attach them from confirmedTxs by id /
+          // originalId — otherwise diffAndNotify mis-fires "Confirmed".
+          const recovered = recoverFailedTrackedTxs(
+            rawData,
+            trackedPendingIds,
+            activeAccountScope,
+          );
+          if (recovered.length > 0) {
+            const stillTrackedIds = new Set(allTrackedTxs.map((tx) => tx.id));
+            for (const tx of recovered) {
+              if (!stillTrackedIds.has(tx.id)) allTrackedTxs.push(tx);
             }
           }
         }
+
         allTrackedTxs.sort(
           (a, b) =>
             (b.decodedTx?.createdAt || 0) - (a.decodedTx?.createdAt || 0),
         );
         const history = allTrackedTxs;
         if (history?.length) {
-          trayData.pendingTxs = history.map((tx: any) => {
+          trayData.pendingTxs = history.map((tx): IPendingTx => {
             const decodedTx = tx.decodedTx;
-            const action = decodedTx?.actions?.[0];
+            const action = decodedTx
+              ? (getDisplayedActions({ decodedTx })[0] ??
+                decodedTx.actions?.[0])
+              : undefined;
             const transfer = action?.assetTransfer;
+            const txType = getTrayPendingTxType({ decodedTx, action });
 
-            let txType: 'send' | 'swap' | 'contract' | 'approve' = 'send';
-            if (action?.type === 'INTERNAL_SWAP' || transfer?.isInternalSwap) {
-              txType = 'swap';
-            } else if (action?.type === 'TOKEN_APPROVE') {
-              txType = 'approve';
-            } else if (action?.type === 'ASSET_TRANSFER') {
-              txType = 'send';
-            }
-
-            const firstSend = transfer?.sends?.[0];
-            // NEVER fall back to totalFeeFiatValue here (OK-53607): gas fee is
-            // not the tx amount and displaying it misleads users into thinking
-            // they transferred cents when they actually approved or called a
-            // contract.
+            // Don't fall back to totalFeeFiatValue: gas fee is not the tx amount (OK-53607).
             const amount = formatTrayPendingTxAmount({
-              firstSend: firstSend
-                ? { amount: firstSend.amount, symbol: firstSend.symbol }
-                : undefined,
+              amountInfo: getTrayPendingTxAmountInfo(action),
             });
 
-            const to = firstSend?.to || decodedTx?.to || '';
+            const to =
+              action?.tokenApprove?.spender ||
+              transfer?.sends?.[0]?.to ||
+              action?.functionCall?.to ||
+              action?.unknownAction?.to ||
+              decodedTx?.to ||
+              '';
 
             const status: 'pending' | 'failed' =
               decodedTx?.status === EDecodedTxStatus.Failed
@@ -392,9 +874,15 @@ export function useTrayDataProvider() {
 
             return {
               id: decodedTx?.txid || tx.id || '',
+              historyId: tx.id,
+              accountId: decodedTx?.accountId,
+              networkId: decodedTx?.networkId,
+              historyTx: tx,
               type: txType,
               to,
               amount,
+              createdAt: decodedTx?.createdAt,
+              updatedAt: decodedTx?.updatedAt,
               status,
             };
           });
@@ -424,6 +912,9 @@ export function useTrayDataProvider() {
         return;
       }
 
+      hasPendingTxRef.current = (trayData.pendingTxs ?? []).some(
+        (tx) => tx.status === 'pending',
+      );
       globalThis.desktopApi?.sendTrayData(trayData);
       pendingTxsClearedRef.current = false;
     } catch {
@@ -440,18 +931,42 @@ export function useTrayDataProvider() {
         locale,
         accountId: activeAccountId,
         pendingTxsCleared: pendingTxsClearedRef.current,
-        wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
-        account: { name: accountNameRef.current },
+        wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
+        account: buildTrayAccountInfo({
+          accountName: accountNameRef.current,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        }),
         totalBalance: {
           amount: '0.00',
-          currency: 'USD',
-          symbol: '$',
+          currency: displayCurrency,
+          symbol: displaySymbol,
         },
         watchlist: [],
         pendingTxs: [],
       });
       pendingTxsClearedRef.current = false;
     }
+  }, []);
+
+  const clearPendingRecheck = useCallback(() => {
+    if (pendingRecheckTimerRef.current) {
+      clearTimeout(pendingRecheckTimerRef.current);
+      pendingRecheckTimerRef.current = null;
+    }
+  }, []);
+
+  // Resets on every refresh so external events near a tick don't cause back-to-back gathers.
+  const schedulePendingRecheck = useCallback(() => {
+    if (!isTrayActiveRef.current) return;
+    if (pendingRecheckTimerRef.current) {
+      clearTimeout(pendingRecheckTimerRef.current);
+    }
+    pendingRecheckTimerRef.current = setTimeout(() => {
+      pendingRecheckTimerRef.current = null;
+      void handleTrayDataRequestRef.current?.();
+    }, TRAY_PENDING_TX_RECHECK_INTERVAL_MS);
   }, []);
 
   const handleTrayDataRequest = useCallback(async () => {
@@ -464,53 +979,123 @@ export function useTrayDataProvider() {
       await handleTrayDataRequestInner();
     } finally {
       inFlightRef.current = false;
-      if (trailingRefreshRef.current) {
+      const willTrailingRefresh = trailingRefreshRef.current;
+      if (willTrailingRefresh) {
         trailingRefreshRef.current = false;
         // Microtask so the call stack unwinds and main-process
         // `guardedRequest` can release on TRAY_DATA_RESPONSE first.
         queueMicrotask(() => {
           void handleTrayDataRequestRef.current?.();
         });
+      } else if (hasPendingTxRef.current) {
+        schedulePendingRecheck();
+      } else {
+        clearPendingRecheck();
       }
     }
-  }, [handleTrayDataRequestInner]);
+  }, [handleTrayDataRequestInner, schedulePendingRecheck, clearPendingRecheck]);
+
+  const handleOpenTransactionDetail = useCallback(
+    async (action: ITrayAction) => {
+      try {
+        const historyTx = await findTrayHistoryTxByAction(action);
+        const decodedTx = historyTx?.decodedTx;
+        if (!historyTx || !decodedTx?.accountId || !decodedTx.networkId) return;
+
+        const nav = rootNavigationRef.current;
+        if (!nav) return;
+
+        nav.navigate(ERootRoutes.Modal, {
+          screen: EModalRoutes.MainModal,
+          params: {
+            screen: EModalAssetDetailRoutes.HistoryDetails,
+            params: {
+              accountId: decodedTx.accountId,
+              networkId: decodedTx.networkId,
+              historyTx,
+              checkIsFocused: false,
+            },
+          },
+        });
+      } catch (e) {
+        defaultLogger.app.error.log(
+          `[TrayDataProvider] transaction navigation error: ${
+            (e as Error)?.message || String(e)
+          }`,
+        );
+      }
+    },
+    [],
+  );
 
   // addIpcEventListener strips the IpcRendererEvent, so the action payload
   // is the first (and only) argument to this handler.
   const handleTrayNavigation = useCallback(
-    (action: { type: string; [key: string]: unknown }) => {
+    (action: ITrayAction) => {
       const nav = rootNavigationRef.current;
       if (!nav) return;
 
+      // Tamagui Popover/Sheet portal to body at high zIndex and would
+      // obscure any tray-triggered RN modal. Ask open overlays to dismiss.
+      appEventBus.emit(EAppEventBusNames.TrayActionWillNavigate, undefined);
+
       if (action?.type === 'open-page') {
-        if (action.route === '/main/tab-home') {
+        if (action.route === TRAY_ROUTE_HOME) {
+          resetAboveMainRoute();
+          setTimeout(resetAboveMainRoute, 120);
           nav.navigate(ERootRoutes.Main, {
             screen: ETabRoutes.Home,
           });
+        } else if (action.route === TRAY_ROUTE_MARKET) {
+          resetAboveMainRoute();
+          setTimeout(resetAboveMainRoute, 120);
+          void switchTabAsync(ETabRoutes.Market).then(() => {
+            rootNavigationRef.current?.navigate(
+              ERootRoutes.Main,
+              {
+                screen: ETabRoutes.Market,
+                params: {
+                  screen: ETabMarketRoutes.TabMarket,
+                },
+              },
+              {
+                pop: true,
+              },
+            );
+          });
         }
-        // Transaction-detail routes go through the EVENT_OPEN_URL
-        // deep-link pipeline in trayIpc.ts and never reach here.
+        return;
+      }
+
+      if (action?.type === 'transaction-detail') {
+        void handleOpenTransactionDetail(action);
         return;
       }
 
       if (action?.type === 'view-all-transactions') {
-        // No public route param to select the history sub-tab directly;
-        // fall back to Home so the user at least lands on the right context.
         nav.navigate(ERootRoutes.Main, {
           screen: ETabRoutes.Home,
         });
+        // Delay lets HomePageView mount its SwitchWalletHomeTab listener
+        // before we emit.
+        setTimeout(() => {
+          appEventBus.emit(EAppEventBusNames.SwitchWalletHomeTab, {
+            id: EHomeWalletTab.History,
+          });
+        }, 80);
         return;
       }
 
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
+          const coin = action.perpsCoin;
           setTimeout(async () => {
             nav.navigate(ERootRoutes.Main, {
               screen: ETabRoutes.Perp,
             });
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-                coin: action.perpsCoin as string,
+                coin,
               });
             } catch (e) {
               defaultLogger.app.error.log(
@@ -519,28 +1104,53 @@ export function useTrayDataProvider() {
                 }`,
               );
             }
+            appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
+              mode: 'perp',
+              coin,
+            });
           }, 80);
           return;
         }
 
-        if (action.tokenAddress && action.networkId) {
-          const networkId = action.networkId as string;
+        const isNative = action.isNative || false;
+        if (action.networkId && (isNative || action.tokenAddress)) {
+          const networkId = action.networkId;
           const shortCode = networkUtils.getNetworkShortCode({ networkId });
-          nav.navigate(ERootRoutes.Main, {
-            screen: ETabRoutes.Market,
-            params: {
-              screen: ETabMarketRoutes.MarketDetailV2,
-              params: {
-                tokenAddress: action.tokenAddress as string,
-                network: shortCode || networkId,
-                isNative: (action.isNative as boolean) || false,
+          const target = getTrayMarketNavigationTarget({
+            network: shortCode || networkId,
+            tokenAddress: action.tokenAddress,
+            isNative,
+          });
+          if (!target) return;
+
+          void switchTabAsync(ETabRoutes.Market).then(() => {
+            rootNavigationRef.current?.navigate(
+              ERootRoutes.Main,
+              {
+                screen: ETabRoutes.Market,
+                params: {
+                  screen: ETabMarketRoutes.TabMarket,
+                },
               },
-            },
+              {
+                pop: true,
+              },
+            );
+
+            setTimeout(() => {
+              rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+                screen: ETabRoutes.Market,
+                params: {
+                  screen: target.screen,
+                  params: target.params,
+                },
+              });
+            }, 100);
           });
         }
       }
     },
-    [],
+    [handleOpenTransactionDetail],
   );
 
   useEffect(() => {
@@ -573,34 +1183,35 @@ export function useTrayDataProvider() {
     };
   }, [isTrayActive, handleTrayDataRequest, handleTrayNavigation]);
 
-  // Account switch: push an optimistic placeholder + gather immediately so the
-  // panel clears stale numbers within one frame (OK-53623). Non-switch identity
-  // changes (per-network profile refresh) keep the 300ms debounce so the
-  // cascade in OK-53610 is absorbed.
+  // Account switch: optimistic placeholder + immediate gather (OK-53623).
+  // Non-switch identity changes stay debounced to absorb OK-53610 cascade.
   useEffect(() => {
     if (!isTrayActive) return;
     const currentAccountId = activeAccountValue?.accountId;
     const accountJustChanged = currentAccountId !== prevAccountIdRef.current;
     if (accountJustChanged) {
       prevAccountIdRef.current = currentAccountId;
+      const { displayCurrency, displaySymbol } = getTrayCurrencyDisplayInfo({
+        currencyInfo,
+        currencyMap,
+      });
       globalThis.desktopApi?.sendTrayData({
         accountId: currentAccountId,
         pendingTxsCleared: false,
-        // Fall back to 'Wallet' — an empty name falls through to the
-        // `noWallet` empty-state branch in TrayPanel, which would replace
-        // the optimistic zeros with a full-panel "no wallet" screen.
-        wallet: {
-          name: walletRef.current?.name || 'Wallet',
-          emoji: '',
-          avatarImg: '',
-        },
-        account: { name: accountNameRef.current },
+        // Empty name triggers TrayPanel's `noWallet` branch, hiding the optimistic zeros.
+        wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
+        account: buildTrayAccountInfo({
+          accountName: accountNameRef.current,
+          account: accountRef.current,
+          indexedAccount: indexedAccountRef.current,
+          dbAccount: dbAccountRef.current,
+        }),
         totalBalance: {
           amount: '0.00',
-          currency: 'USD',
-          symbol: '$',
+          currency: displayCurrency,
+          symbol: displaySymbol,
         },
-        watchlist: [],
+        watchlist: lastWatchlistRef.current,
         pendingTxs: [],
       });
       handleTrayDataRequestRef.current?.();
@@ -610,12 +1221,17 @@ export function useTrayDataProvider() {
       handleTrayDataRequestRef.current?.();
     }, 300);
     return () => clearTimeout(timer);
-  }, [isTrayActive, activeAccountValue]);
+  }, [isTrayActive, activeAccountValue, currencyInfo, currencyMap]);
 
   useEffect(() => {
     if (!isTrayActive) return;
     handleTrayDataRequestRef.current?.();
   }, [isTrayActive, appIsLocked]);
+
+  useEffect(() => {
+    if (!isTrayActive) return;
+    handleTrayDataRequestRef.current?.();
+  }, [isTrayActive, settingsLocale, settingsLastLocale]);
 
   // Main process inits tray by default — if the user previously disabled
   // it, tell main to destroy on startup.
@@ -645,9 +1261,9 @@ export function useTrayDataProvider() {
       debouncedRefresh();
     };
 
-    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, debouncedRefresh);
-    appEventBus.on(EAppEventBusNames.RefreshHistoryList, debouncedRefresh);
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, debouncedRefresh);
+    TRAY_DATA_REFRESH_EVENT_NAMES.forEach((eventName) => {
+      appEventBus.on(eventName, debouncedRefresh);
+    });
     appEventBus.on(
       EAppEventBusNames.ClearLocalHistoryPendingTxs,
       handlePendingTxsCleared,
@@ -655,16 +1271,23 @@ export function useTrayDataProvider() {
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      appEventBus.off(
-        EAppEventBusNames.HistoryTxStatusChanged,
-        debouncedRefresh,
-      );
-      appEventBus.off(EAppEventBusNames.RefreshHistoryList, debouncedRefresh);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, debouncedRefresh);
+      TRAY_DATA_REFRESH_EVENT_NAMES.forEach((eventName) => {
+        appEventBus.off(eventName, debouncedRefresh);
+      });
       appEventBus.off(
         EAppEventBusNames.ClearLocalHistoryPendingTxs,
         handlePendingTxsCleared,
       );
     };
   }, [isTrayActive]);
+
+  useEffect(() => {
+    if (!isTrayActive) {
+      clearPendingRecheck();
+      hasPendingTxRef.current = false;
+    }
+    return () => {
+      clearPendingRecheck();
+    };
+  }, [isTrayActive, clearPendingRecheck]);
 }

@@ -20,7 +20,9 @@ import { PriceChangeBadge } from '../../../PriceChangeBadge';
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { type IMarketToken } from '../../MarketTokenData';
 
-export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
+export const useColumnsMobile = (
+  showStockSubtitle?: boolean,
+): ITableColumn<IMarketToken>[] => {
   const intl = useIntl();
 
   return [
@@ -104,6 +106,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
               volume={record.turnover}
               communityRecognized={record.communityRecognized}
               stock={record.stock}
+              showStockSubtitle={showStockSubtitle}
             />
           </XStack>
         );

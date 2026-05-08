@@ -571,7 +571,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
     // Desktop non-OneToMany: also check interval validity (inline editing has no confirm gate)
     const hasIntervalError =
-      !isOneToMany && !!validateIntervalSettings(intervalSettings);
+      !isOneToMany && !!validateIntervalSettings(intervalSettings, intl);
 
     return !isAmountValid || isInsufficientBalance || hasIntervalError;
   }, [
@@ -592,6 +592,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isInPreviewMode,
     amountInputMode,
     intervalSettings,
+    intl,
   ]);
 
   const confirmButtonText = useMemo(() => {
@@ -1153,6 +1154,7 @@ function BulkSendAmountsInputContent({
       minTransferAmount,
       tokenSymbol: tokenInfo.symbol,
       tokenDecimals: tokenInfo.decimals,
+      intl,
     });
 
     return error ? { rangeError: error } : {};
@@ -1165,6 +1167,7 @@ function BulkSendAmountsInputContent({
     matchedTokenDetails?.balanceParsed,
     tokenInfo.decimals,
     tokenInfo.symbol,
+    intl,
   ]);
 
   const validateCustomTransfers = useCallback(

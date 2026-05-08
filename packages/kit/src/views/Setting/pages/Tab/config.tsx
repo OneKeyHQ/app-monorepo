@@ -70,6 +70,7 @@ import {
   ResetAppListItem,
   ResetPinListItem,
   ThemeListItem,
+  UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
@@ -447,6 +448,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.settings_btc_multiple_addresses_description,
                   }),
                   renderElement: <BTCFreshAddressListItem />,
+                },
+              ],
+              [
+                {
+                  icon: 'GasOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__desc,
+                  }),
+                  renderElement: <UseGasAccountByDefaultListItem />,
                 },
               ],
             ],

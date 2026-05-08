@@ -1,4 +1,6 @@
-import { DebugRenderTracker, Stack, usePageWidth } from '@onekeyhq/components';
+import { useMemo } from 'react';
+
+import { DebugRenderTracker, Stack } from '@onekeyhq/components';
 import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -6,6 +8,10 @@ import {
   usePerpsCandlesWebviewReloadHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  formatSpotPairDisplayName,
+  getSpotTokenDisplayName,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 export function PerpCandles({
   onTouchScroll,
@@ -15,16 +21,34 @@ export function PerpCandles({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
-  const width = usePageWidth();
+  const enablePerpsTradingUi =
+    !platformEnv.isNative && !platformEnv.isWebMobile;
+
+  const { displayPair, displayCoin } = useMemo(() => {
+    if (
+      activeTradeInstrument.mode !== 'spot' ||
+      !activeTradeInstrument.universe
+    ) {
+      return { displayPair: undefined, displayCoin: undefined };
+    }
+    const { baseName, quoteName } = activeTradeInstrument.universe;
+    return {
+      displayPair: formatSpotPairDisplayName(baseName, quoteName),
+      displayCoin: getSpotTokenDisplayName(baseName),
+    };
+  }, [activeTradeInstrument]);
 
   const content = (
-    <Stack w="100%" h="100%" flex={1} pr={6}>
+    <Stack w="100%" h="100%" flex={1}>
       {reloadHook > 0 && activeTradeInstrument.coin ? (
         <TradingViewPerpsV2
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
+          enablePerpsTradingUi={enablePerpsTradingUi}
           symbol={activeTradeInstrument.coin}
-          w={platformEnv.isNative ? width : undefined}
+          displayPair={displayPair}
+          displayCoin={displayCoin}
+          w="100%"
           onTouchScroll={onTouchScroll}
         />
       ) : null}

@@ -31,11 +31,8 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 
 import {
-  INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER,
-  INTERVAL_SETTINGS_NONE_LABEL,
-  INTERVAL_SETTINGS_SPECIFIED_LABEL,
-  INTERVAL_SETTINGS_TITLE,
   IntervalRangeInputs,
+  useIntervalLabels,
 } from '../../../components/IntervalSettingsContent';
 import {
   BULK_SEND_INTERVAL_MAX_SECONDS,
@@ -55,12 +52,14 @@ const MEDIUM_INPUT_BORDER_RADIUS = getSharedInputStyles({
 
 function IntervalCard() {
   const intl = useIntl();
+  const { title, specifiedLabel, noneLabel, maxSecPlaceholder } =
+    useIntervalLabels();
   const { intervalSettings, setIntervalSettings } =
     useBulkSendAmountsInputContext();
 
   const intervalError = useMemo(
-    () => validateIntervalSettings(intervalSettings),
-    [intervalSettings],
+    () => validateIntervalSettings(intervalSettings, intl),
+    [intervalSettings, intl],
   );
   const shouldShowIntervalError =
     intervalSettings.mode === EIntervalMode.Specified &&
@@ -68,16 +67,10 @@ function IntervalCard() {
 
   const modeOptions = useMemo(
     () => [
-      {
-        label: INTERVAL_SETTINGS_SPECIFIED_LABEL,
-        value: EIntervalMode.Specified,
-      },
-      {
-        label: INTERVAL_SETTINGS_NONE_LABEL,
-        value: EIntervalMode.None,
-      },
+      { label: specifiedLabel, value: EIntervalMode.Specified },
+      { label: noneLabel, value: EIntervalMode.None },
     ],
-    [],
+    [specifiedLabel, noneLabel],
   );
 
   const handleModeChange = useCallback(
@@ -114,9 +107,7 @@ function IntervalCard() {
       p="$5"
     >
       <XStack alignItems="center" justifyContent="space-between">
-        <SizableText size="$bodyLgMedium">
-          {INTERVAL_SETTINGS_TITLE}
-        </SizableText>
+        <SizableText size="$bodyLgMedium">{title}</SizableText>
         <Select
           title=""
           value={intervalSettings.mode}
@@ -142,7 +133,7 @@ function IntervalCard() {
             minSeconds={intervalSettings.minSeconds}
             maxSeconds={intervalSettings.maxSeconds}
             error={shouldShowIntervalError ? intervalError : undefined}
-            maxSecPlaceholder={INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER}
+            maxSecPlaceholder={maxSecPlaceholder}
             onMinChange={handleMinChange}
             onMaxChange={handleMaxChange}
             inputBackgroundColor="$bg"
@@ -173,6 +164,7 @@ function IntervalCard() {
 
 function IntervalCardOneToMany() {
   const intl = useIntl();
+  const { title, noneLabel } = useIntervalLabels();
 
   return (
     <YStack
@@ -184,16 +176,14 @@ function IntervalCardOneToMany() {
       p="$5"
     >
       <XStack alignItems="center" justifyContent="space-between">
-        <SizableText size="$bodyLgMedium">
-          {INTERVAL_SETTINGS_TITLE}
-        </SizableText>
+        <SizableText size="$bodyLgMedium">{title}</SizableText>
         <Button
           variant="tertiary"
           size="small"
           iconAfter="ChevronDownSmallOutline"
           disabled
         >
-          {INTERVAL_SETTINGS_NONE_LABEL}
+          {noneLabel}
         </Button>
       </XStack>
 
@@ -470,6 +460,7 @@ function AmountCard() {
         minTransferAmount,
         tokenSymbol: tokenInfo?.symbol,
         tokenDecimals: tokenInfo?.decimals,
+        intl,
       });
       setAmountInputErrors({
         ...amountInputErrorsRef.current,

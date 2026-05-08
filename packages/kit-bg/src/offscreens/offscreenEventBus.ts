@@ -5,6 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IBackgroundApiInternalCallMessage } from '../apis/IBackgroundApi';
 import type { ConnectorEventType } from '@onekeyfe/hwk-adapter-core';
+import type { SdkEvent } from '@onekeyfe/hwk-ledger-adapter';
 
 /**
  * Typed one-way push channel from the offscreen document to the Service Worker.
@@ -45,6 +46,13 @@ export interface IOffscreenEventMap {
     type: ConnectorEventType;
     data: unknown;
   };
+
+  /**
+   * Forward of `SdkEvent` from the offscreen copy of hwk-ledger-adapter.
+   * SW subscribes separately; SdkEvent's discriminated union scales to
+   * new variants without needing new IPC routes.
+   */
+  hwkSdkEvent: SdkEvent;
 }
 
 export type IOffscreenEventType = keyof IOffscreenEventMap;

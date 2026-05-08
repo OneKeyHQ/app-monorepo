@@ -20,8 +20,9 @@ Automates the complete PR creation workflow for OneKey app-monorepo changes.
 | 6 | Push to remote | `git push -u origin <branch-name>` |
 | 7 | Extract context | Analyze conversation for intent, decisions, risks |
 | 8 | Create PR | `gh pr create --base <base> --title "..." --body "..."` |
-| 9 | Enable auto-merge | `gh pr merge <number> --auto --squash` |
-| 10 | Update Jira issue | Update `1k-github-branch` and `1k-github-pr-url` fields |
+| 9 | Update branch | `gh pr update-branch <number>` |
+| 10 | Enable auto-merge | `gh pr merge <number> --auto --squash` |
+| 11 | Update Jira issue | Update `1k-github-branch` and `1k-github-pr-url` fields |
 
 ## Workflow
 
@@ -167,14 +168,23 @@ The PR body MUST use this template. Omit sections that don't apply (don't write 
 - [ ] <Testing steps to verify the changes>
 ```
 
-### 9. Enable Auto-Merge
+### 9. Update Branch
+
+Sync the PR branch with the latest base branch to ensure CI runs on the merged state:
 
 ```bash
 gh pr update-branch <PR_NUMBER>
+```
+
+This is equivalent to clicking "Update branch" button on GitHub PR page.
+
+### 10. Enable Auto-Merge
+
+```bash
 gh pr merge <PR_NUMBER> --auto --squash
 ```
 
-### 10. Update Jira Issue (if OK-{number} exists)
+### 11. Update Jira Issue (if OK-{number} exists)
 
 If a Jira issue ID (`OK-{number}`) was found in the conversation or commit message, update the Jira issue with PR and branch information.
 
@@ -210,7 +220,7 @@ fields: {
 }
 ```
 
-### 11. Return PR URL
+### 12. Return PR URL
 
 Display PR URL to user and open in browser:
 ```bash

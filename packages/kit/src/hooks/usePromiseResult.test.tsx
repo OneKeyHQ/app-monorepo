@@ -351,4 +351,127 @@ describe('usePromiseResult', () => {
       expect(result.current.result).toBeUndefined();
     });
   });
+
+  describe('setStopPolling', () => {
+    const POLLING_MS = 1000;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    // Advance fake timers and drain queued microtasks so awaited promise
+    // chains inside the runner (`await wait(ms)` → `await defer.promise` →
+    // setResult → finally) actually progress. testing-library's `waitFor`
+    // can't help here: it polls via real setTimeout, which is also faked.
+    const tick = async (ms = 0) => {
+      await act(async () => {
+        jest.advanceTimersByTime(ms);
+        for (let i = 0; i < 10; i += 1) {
+          await Promise.resolve();
+        }
+      });
+    };
+
+    it('skips the next polling tick once setStopPolling(true) is called', async () => {
+      const method = jest.fn(async () => 'ok');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [], { pollingInterval: POLLING_MS }),
+      );
+
+      // Mount-time effect schedules the first run via setTimeout.
+      await tick(0);
+      const callsAfterMount = method.mock.calls.length;
+      expect(callsAfterMount).toBeGreaterThanOrEqual(1);
+
+      // One full interval → next polling tick should land.
+      await tick(POLLING_MS);
+      expect(method.mock.calls.length).toBeGreaterThan(callsAfterMount);
+      const callsBeforeStop = method.mock.calls.length;
+
+      act(() => {
+        result.current.setStopPolling(true);
+      });
+
+      // Multiple intervals pass — finally-block sees stopPollingRef.current
+      // and bails before scheduling the next run.
+      await tick(POLLING_MS * 5);
+      expect(method.mock.calls.length).toBe(callsBeforeStop);
+    });
+
+    it('auto-resumes polling when deps change after stopPolling', async () => {
+      const method = jest.fn(async (_dep: string) => 'ok');
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { dep: string }
+      >(
+        ({ dep }) =>
+          usePromiseResult(() => method(dep), [dep], {
+            pollingInterval: POLLING_MS,
+          }),
+        { initialProps: { dep: 'a' } },
+      );
+
+      await tick(0);
+      expect(method).toHaveBeenCalledWith('a');
+      const callsAfterMount = method.mock.calls.length;
+
+      act(() => {
+        result.current.setStopPolling(true);
+      });
+
+      await tick(POLLING_MS * 3);
+      expect(method.mock.calls.length).toBe(callsAfterMount);
+
+      // Deps change → runnerDeps effect clears stopPollingRef and fires a
+      // new run with the new input.
+      rerender({ dep: 'b' });
+      await tick(0);
+      expect(method).toHaveBeenCalledWith('b');
+      const callsAfterRerender = method.mock.calls.length;
+
+      // Subsequent ticks resume normally on the new deps.
+      await tick(POLLING_MS);
+      expect(method.mock.calls.length).toBeGreaterThan(callsAfterRerender);
+    });
+
+    it('resumes polling immediately when setStopPolling(false) clears a prior stop', async () => {
+      const method = jest.fn(async () => 'ok');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [], { pollingInterval: POLLING_MS }),
+      );
+
+      await tick(0);
+      const callsAfterMount = method.mock.calls.length;
+      expect(callsAfterMount).toBeGreaterThanOrEqual(1);
+
+      act(() => {
+        result.current.setStopPolling(true);
+      });
+
+      // Polling paused: ticks pass without new calls.
+      await tick(POLLING_MS * 3);
+      expect(method.mock.calls.length).toBe(callsAfterMount);
+
+      // Manual clear must resurrect the dead chain — fire one request now,
+      // and continue polling on subsequent ticks. Without the resume path
+      // the finally-block guard would never schedule another tick.
+      act(() => {
+        result.current.setStopPolling(false);
+      });
+
+      await tick(0);
+      const callsAfterResume = method.mock.calls.length;
+      expect(callsAfterResume).toBeGreaterThan(callsAfterMount);
+
+      await tick(POLLING_MS);
+      expect(method.mock.calls.length).toBeGreaterThan(callsAfterResume);
+    });
+  });
 });

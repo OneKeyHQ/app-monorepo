@@ -235,7 +235,12 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
 
             {/* Submit Button */}
             <Keyboard.StickyView>
-              <XStack gap="$2">
+              <XStack
+                gap="$2"
+                $md={{
+                  pb: '$5',
+                }}
+              >
                 {secondaryButtonText && onSecondaryButtonPress ? (
                   <Button
                     size="large"

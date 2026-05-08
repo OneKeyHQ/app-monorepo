@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import {
   useCallback,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -156,10 +156,16 @@ export const EditableChainSelectorContent = ({
     frequentlyUsedItems ?? [],
   );
   const listRef = useRef<ISectionListRef<any> | null>(null);
+  const hasRenderedSectionListRef = useRef(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setTempFrequentlyUsedItems(frequentlyUsedItems);
   }, [frequentlyUsedItems]);
+
+  const isFrequentlyUsedItemsSyncing =
+    !hasRenderedSectionListRef.current &&
+    !searchText.trim() &&
+    tempFrequentlyUsedItems !== frequentlyUsedItems;
 
   const networksToSearch = useMemo<IServerNetwork[]>(() => {
     const networks = [...mainnetItems, ...testnetItems];
@@ -290,6 +296,15 @@ export const EditableChainSelectorContent = ({
     return _initialScrollIndex;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, networkId, searchText]);
+
+  const shouldRenderList = sections.length > 0 && !isFrequentlyUsedItemsSyncing;
+  const shouldRenderEmpty = sections.length === 0;
+
+  useLayoutEffect(() => {
+    if (shouldRenderList) {
+      hasRenderedSectionListRef.current = true;
+    }
+  }, [shouldRenderList]);
 
   // Convert `initialScrollIndex` (section/item) into the flat data index
   // that FlashList (via SectionList) uses for `initialScrollIndex` prop.
@@ -432,7 +447,7 @@ export const EditableChainSelectorContent = ({
           />
         ) : null}
         <Stack flex={1}>
-          {sections.length > 0 ? (
+          {shouldRenderList ? (
             <SectionList
               ref={listRef}
               stickySectionHeadersEnabled
@@ -460,9 +475,8 @@ export const EditableChainSelectorContent = ({
               renderSectionHeader={renderSectionHeader}
               contentContainerStyle={{ paddingBottom: bottom || 8 }}
             />
-          ) : (
-            <ListEmptyComponent />
-          )}
+          ) : null}
+          {shouldRenderEmpty ? <ListEmptyComponent /> : null}
         </Stack>
       </Stack>
     </EditableChainSelectorContext.Provider>

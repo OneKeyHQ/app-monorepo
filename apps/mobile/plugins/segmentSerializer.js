@@ -32,6 +32,9 @@ const {
   getModuleIdMapPath,
 } = require('./segmentPaths');
 const {
+  rewriteAsyncPathsInModules,
+} = require('./segmentSerializer.rewriteAsyncPaths');
+const {
   deriveSegmentKey,
   allocateSegmentIds,
   monorepoRoot,
@@ -503,6 +506,16 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
     }
   }
 
+  // Step 6e: Rewrite asyncRequire paths in main bundle modules (#49, REACT-NATIVE-4AX)
+  //
+  // Per-segment rewrite happens inline in Step 7 below (immediately before
+  // bundleToString) so the ordering is enforced locally — without that,
+  // a refactor that re-orders Step 7 would silently re-introduce the
+  // iOS 6.3.0-10069276 regression. See REACT-NATIVE-4AX.
+  if (!bundleOptions.dev) {
+    rewriteAsyncPathsInModules(mainModules, moduleToSegment);
+  }
+
   // Step 7: Write segment files and build manifest
   const manifest = { segments: {} };
 
@@ -514,6 +527,9 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
 
   for (const [segmentKey, segModules] of segmentOutputs) {
     const segmentId = segmentIdMap.get(segmentKey);
+    if (!bundleOptions.dev) {
+      rewriteAsyncPathsInModules(segModules, moduleToSegment);
+    }
     const { code } = bundleToString({
       pre: '',
       post: '',
@@ -646,31 +662,6 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
   const moduleIdMapPath = getModuleIdMapPath(runtimeTarget);
   await fs.writeFile(moduleIdMapPath, JSON.stringify(moduleIdMap));
   console.log(`info Writing module-id map → ${moduleIdMapPath}`);
-
-  // Step 10: Rewrite asyncRequire paths for production (#49)
-  // In production mode, replace dev server URLs with segment keys.
-  // Only matches entries preceded by { or , to avoid false positives
-  // in unrelated JSON/object literals within module code.
-  if (!bundleOptions.dev) {
-    // Build a single regex that matches all async module IDs at once
-    const asyncModuleIds = [...moduleToSegment.keys()];
-    if (asyncModuleIds.length > 0) {
-      const idAlternation = asyncModuleIds.map(String).join('|');
-      // Match: {  "ID" : "..." or ,  "ID" : "..."
-      // The lookbehind ensures we're inside a paths map object literal
-      const pattern = new RegExp(
-        `([{,]\\s*)"(${idAlternation})"(\\s*:\\s*)"[^"]*"`,
-        'g',
-      );
-      for (const mod of mainModules) {
-        if (typeof mod[1] !== 'string') continue;
-        mod[1] = mod[1].replace(pattern, (_, prefix, modId, colon) => {
-          const segKey = moduleToSegment.get(Number(modId));
-          return segKey ? `${prefix}"${modId}"${colon}"${segKey}"` : _;
-        });
-      }
-    }
-  }
 
   // Step 11: Generate source map for main bundle (needed by Sentry / EAS)
   const mainGraphModules = [];

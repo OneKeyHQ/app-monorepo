@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EIntervalMode,
   type IIntervalSettings,
@@ -12,32 +11,15 @@ import {
 
 import { BULK_SEND_INTERVAL_MAX_SECONDS, filterIntegerInput } from '../utils';
 
-export const INTERVAL_SETTINGS_TITLE = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_interval_title,
-});
-export const INTERVAL_SETTINGS_NONE_LABEL = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_interval_none,
-});
-export const INTERVAL_SETTINGS_CANCEL_TEXT = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_btn_cancel,
-});
-export const INTERVAL_SETTINGS_CONFIRM_TEXT = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_btn_confirm,
-});
-export const INTERVAL_SETTINGS_REVIEW_TEXT = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_btn_review,
-});
-export const INTERVAL_SETTINGS_SPECIFIED_LABEL = appLocale.intl.formatMessage({
-  id: ETranslations.wallet_bulk_send_interval_specified_range,
-});
-export const INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER =
-  appLocale.intl.formatMessage({
-    id: ETranslations.wallet_bulk_send_interval_max_sec_placeholder,
-  });
-
-function useIntervalLabels() {
+export function useIntervalLabels() {
   const intl = useIntl();
   return {
+    title: intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_interval_title,
+    }),
+    reviewText: intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_btn_review,
+    }),
     specifiedLabel: intl.formatMessage({
       id: ETranslations.wallet_bulk_send_interval_specified_range,
     }),

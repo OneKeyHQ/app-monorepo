@@ -46,6 +46,10 @@ enum EConnectionStatus {
   listing = 'listing',
 }
 
+function RequireBlePermissionDialogRender({ ref }: { ref: any }) {
+  return <RequireBlePermissionDialog ref={ref} />;
+}
+
 function DeviceVideo({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
   const videoSource = useMemo<ReactVideoSource>(
     () =>
@@ -127,9 +131,7 @@ export default function LedgerConnectionFlow() {
           // (shares RequireBlePermissionDialog with OneKey native BLE flow).
           if (error instanceof ThirdPartyDevicePermissionDenied) {
             Dialog.show({
-              dialogContainer: ({ ref }) => (
-                <RequireBlePermissionDialog ref={ref} />
-              ),
+              dialogContainer: RequireBlePermissionDialogRender,
             });
           } else {
             Toast.error({

@@ -48,6 +48,10 @@ import {
   useWalletBoundReferralCode,
 } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
 import {
+  shouldRevalidateReferralBindStatusCache,
+  shouldShowReferralBindEntry,
+} from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/referralBindStatusUtils';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -151,7 +155,13 @@ function ReferralCodeBlock({
         });
         return shouldBound;
       }
-      return referralCodeInfo?.walletId && !referralCodeInfo?.isBound;
+      if (shouldRevalidateReferralBindStatusCache(referralCodeInfo)) {
+        const shouldBound = await getReferralCodeBondStatus({
+          walletId: wallet?.id,
+        });
+        return shouldBound;
+      }
+      return shouldShowReferralBindEntry(referralCodeInfo);
     },
     [isHdOrHwWallet, wallet?.id, wallet?.xfp, getReferralCodeBondStatus],
     {

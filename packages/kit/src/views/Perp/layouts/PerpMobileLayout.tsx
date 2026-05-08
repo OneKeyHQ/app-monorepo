@@ -14,6 +14,8 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import {
+  usePerpsAbstractionModeAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
   useSpotActiveOpenOrdersAtom,
   useSpotBalancesAtom,
@@ -37,6 +39,7 @@ import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
+import { isHyperLiquidUnifiedAccountMode } from '../utils';
 
 export enum ETabName {
   Positions = 'Positions',
@@ -137,18 +140,27 @@ export function PerpMobileLayout() {
   const [positionsLength] = usePerpsActivePositionLengthAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
+  );
 
   const holdingsCount = useMemo(() => {
-    const nonZeroSpotBalanceCount = balances.filter(
-      (item) => !new BigNumber(item.total).isZero(),
+    // Mirrors the USDC merge in SpotBalanceList.
+    const nonUsdcSpotCount = balances.filter(
+      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
     ).length;
-    const perpsUsdcCount =
-      accountSummary?.totalRawUsd &&
-      new BigNumber(accountSummary.totalRawUsd).gt(0)
-        ? 1
-        : 0;
-    return nonZeroSpotBalanceCount + perpsUsdcCount;
-  }, [accountSummary?.totalRawUsd, balances]);
+    const hasSpotUsdc = balances.some(
+      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
+    );
+    const hasPerpsUsdc =
+      !isUnifiedAccountMode &&
+      !!accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0);
+    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
+  }, [accountSummary?.totalRawUsd, balances, isUnifiedAccountMode]);
 
   const positionsTabCount = useMemo(() => {
     if (positionsLength > 0) {

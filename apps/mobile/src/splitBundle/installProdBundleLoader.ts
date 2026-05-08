@@ -167,14 +167,39 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
         // Pure eager-fallback: mark ready first, diagnostic log strictly
         // after — so a logger failure can never turn a success into an
         // error. Warn once per unique key.
+        // NOTE: Metro async-require URL shape is matched in three places:
+        //   - apps/mobile/plugins/segmentSerializer.rewriteAsyncPaths.js
+        //     (build-time rewrite)
+        //   - apps/mobile/scripts/check-split-bundle-integrity.js
+        //     UNREWRITTEN_ASYNC_PATH (build-time CI gate)
+        //   - here (runtime telemetry — distinguishes a corrupted bundle
+        //     from legitimate eager fallback)
+        // If Metro changes the URL shape, all three must be updated in
+        // lockstep.
+        const isMetroAsyncRequireUrl =
+          /\.bundle\?modulesOnly=true&runModule=false/.test(segmentKey);
         loadedSegments.add(segmentKey);
         segmentStates.set(segmentKey, 'ready');
         if (!eagerFallbackWarned.has(segmentKey)) {
           eagerFallbackWarned.add(segmentKey);
-          safeNativeLog(
-            LogLevel.Warning,
-            `[SplitBundle] eager fallback: key="${segmentKey}" runtime=${getRuntimeKind()}`,
-          );
+          if (isMetroAsyncRequireUrl) {
+            // The serializer was supposed to rewrite this to `seg:<key>`.
+            // It didn't, so the require() that follows will FATAL.  Log
+            // loud and structured so we can diagnose a corrupted OTA
+            // bundle from production logs. See REACT-NATIVE-4AX, and the
+            // build-time integrity check at
+            // apps/mobile/scripts/check-split-bundle-integrity.js which
+            // should have caught this before the bundle shipped.
+            safeNativeLog(
+              LogLevel.Error,
+              `[SplitBundle][BUG] missing-rewrite eager fallback: key="${segmentKey}" runtime=${getRuntimeKind()}`,
+            );
+          } else {
+            safeNativeLog(
+              LogLevel.Warning,
+              `[SplitBundle] eager fallback: key="${segmentKey}" runtime=${getRuntimeKind()}`,
+            );
+          }
         }
         return;
       }

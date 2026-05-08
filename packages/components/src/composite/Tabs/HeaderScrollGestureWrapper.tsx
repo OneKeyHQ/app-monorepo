@@ -12,6 +12,7 @@ export interface IHeaderScrollGestureWrapperProps {
   horizontalSwipeVelocityThreshold?: number;
   simultaneousWithNativeGesture?: boolean;
   cancelChildTouches?: boolean;
+  onGestureActiveChange?: (active: boolean) => void;
 }
 
 export function HeaderScrollGestureWrapper({

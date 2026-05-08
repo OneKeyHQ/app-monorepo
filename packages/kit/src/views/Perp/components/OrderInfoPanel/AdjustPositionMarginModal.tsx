@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import type { ISelectItem } from '@onekeyhq/components';
 import {
@@ -19,7 +20,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getValidPriceDecimals,
@@ -30,6 +30,8 @@ import {
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
+
+import type { IntlShape } from 'react-intl';
 
 export interface IAdjustPositionMarginParams {
   coin: string;
@@ -43,6 +45,7 @@ type IMarginAction = 'add' | 'remove';
 
 const AdjustPositionMarginForm = memo(
   ({ coin, onClose = () => {} }: IAdjustPositionMarginFormProps) => {
+    const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
     const [{ activePositions }] = usePerpsActivePositionAtom();
     const [computedValue] = usePerpsComputedAccountValueAtom();
@@ -133,19 +136,19 @@ const AdjustPositionMarginForm = memo(
     const selectItems = useMemo((): ISelectItem[] => {
       return [
         {
-          label: appLocale.intl.formatMessage({
+          label: intl.formatMessage({
             id: ETranslations.global_add,
           }),
           value: 'add',
         },
         {
-          label: appLocale.intl.formatMessage({
+          label: intl.formatMessage({
             id: ETranslations.global_remove,
           }),
           value: 'remove',
         },
       ];
-    }, []);
+    }, [intl]);
 
     const handleActionChange = useCallback((newAction: string) => {
       setAction(newAction as IMarginAction);
@@ -214,7 +217,7 @@ const AdjustPositionMarginForm = memo(
         items={selectItems}
         value={action}
         onChange={handleActionChange}
-        title={appLocale.intl.formatMessage({
+        title={intl.formatMessage({
           id: ETranslations.perp_position_margin,
         })}
         floatingPanelProps={{
@@ -242,7 +245,7 @@ const AdjustPositionMarginForm = memo(
           <YStack gap="$3">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_token_selector_asset,
                 })}
               </SizableText>
@@ -251,7 +254,7 @@ const AdjustPositionMarginForm = memo(
 
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_position_margin,
                 })}
               </SizableText>
@@ -270,7 +273,7 @@ const AdjustPositionMarginForm = memo(
 
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_position_liq_price,
                 })}
               </SizableText>
@@ -280,7 +283,7 @@ const AdjustPositionMarginForm = memo(
 
           <YStack gap="$2">
             <TradingFormInput
-              label={appLocale.intl.formatMessage({
+              label={intl.formatMessage({
                 id: ETranslations.dexmarket_details_history_amount,
               })}
               value={amount}
@@ -294,10 +297,10 @@ const AdjustPositionMarginForm = memo(
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {action === 'add'
-                  ? appLocale.intl.formatMessage({
+                  ? intl.formatMessage({
                       id: ETranslations.perp_trading_adjust_margin_max,
                     })
-                  : appLocale.intl.formatMessage({
+                  : intl.formatMessage({
                       id: ETranslations.perp_trading_adjust_margin_min,
                     })}
               </SizableText>
@@ -318,7 +321,7 @@ const AdjustPositionMarginForm = memo(
                   color="$textInteractive"
                   onPress={handleMaxPress}
                 >
-                  {appLocale.intl.formatMessage({
+                  {intl.formatMessage({
                     id: ETranslations.dexmarket_custom_filters_max,
                   })}
                 </SizableText>
@@ -335,7 +338,7 @@ const AdjustPositionMarginForm = memo(
             disabled={!isValidAmount || isSubmitting}
             loading={isSubmitting}
           >
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.global_confirm,
             })}
           </Button>
@@ -349,9 +352,10 @@ AdjustPositionMarginForm.displayName = 'AdjustPositionMarginForm';
 
 export function showAdjustPositionMarginDialog({
   coin,
-}: IAdjustPositionMarginParams) {
+  intl,
+}: IAdjustPositionMarginParams & { intl: IntlShape }) {
   const dialogInstance = Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.perp_trading_adjust_margin,
     }),
 

@@ -147,6 +147,9 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceSetting.migrateBTCFreshAddressSetting', () =>
         this.backgroundApi.serviceSetting.migrateBTCFreshAddressSetting(),
       ),
+      timedDeferred('serviceReferralCode.migrateCreationRecordsIfNeeded', () =>
+        this.backgroundApi.serviceReferralCode.migrateCreationRecordsIfNeeded(),
+      ),
       timedDeferred('serviceHardware.removeDeviceHomeScreen', () =>
         this.backgroundApi.serviceHardware.removeDeviceHomeScreen(),
       ),

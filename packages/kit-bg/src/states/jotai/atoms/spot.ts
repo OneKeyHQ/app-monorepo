@@ -29,6 +29,7 @@ export type ISpotActiveAssetCtxAtom =
   | {
       coin: string;
       assetId: number | undefined;
+      baseName?: string;
       ctx: ISpotFormattedAssetCtx;
     }
   | undefined;
@@ -104,11 +105,21 @@ export const {
   initialValue: {},
 });
 
+export type ISpotExternalMarketCaps = Record<string, string>;
+export const {
+  target: spotExternalMarketCapsAtom,
+  use: useSpotExternalMarketCapsAtom,
+} = globalAtom<ISpotExternalMarketCaps>({
+  name: EAtomNames.spotExternalMarketCapsAtom,
+  initialValue: {},
+});
+
 export interface ISpotAssetCtxEntry {
   markPx: string;
   prevDayPx?: string;
   dayNtlVlm?: string;
   circulatingSupply?: string;
+  totalSupply?: string;
 }
 export type ISpotAssetCtxsMap = Record<string, ISpotAssetCtxEntry>;
 export const { target: spotAssetCtxsMapAtom, use: useSpotAssetCtxsMapAtom } =
@@ -116,3 +127,22 @@ export const { target: spotAssetCtxsMapAtom, use: useSpotAssetCtxsMapAtom } =
     name: EAtomNames.spotAssetCtxsMapAtom,
     initialValue: {},
   });
+
+// Display-order only — membership still lives in
+// {perp,spot}TokenFavoritesPersistAtom. Held separately so a single sequence
+// can interleave both modes for cross-mode drag-reorder.
+export interface IPerpsFavoritesOrderEntry {
+  mode: 'perp' | 'spot';
+  coinName: string;
+}
+export interface IPerpsFavoritesOrder {
+  sequence: IPerpsFavoritesOrderEntry[];
+}
+export const {
+  target: perpsFavoritesOrderPersistAtom,
+  use: usePerpsFavoritesOrderPersistAtom,
+} = globalAtom<IPerpsFavoritesOrder>({
+  name: EAtomNames.perpsFavoritesOrderPersistAtom,
+  persist: true,
+  initialValue: { sequence: [] },
+});

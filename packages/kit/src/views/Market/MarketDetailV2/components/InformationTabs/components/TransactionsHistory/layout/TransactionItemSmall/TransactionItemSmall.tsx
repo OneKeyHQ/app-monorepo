@@ -10,6 +10,7 @@ import {
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionAmount } from '../../components/TransactionAmount';
+import { TransactionRelativeTime } from '../../components/TransactionRelativeTime';
 import { useTransactionItemData } from '../../hooks/useTransactionItemData';
 
 import { useTransactionsLayoutSmall } from './useTransactionsLayoutSmall';
@@ -29,7 +30,6 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
     typeText,
     price,
     value,
-    formattedTime,
   } = useTransactionItemData({ item });
 
   return (
@@ -48,9 +48,11 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
             {typeText}
           </SizableText>
 
-          <SizableText size="$bodySm" color="$textSubdued">
-            {formattedTime}
-          </SizableText>
+          <TransactionRelativeTime
+            timestamp={item.timestamp}
+            size="$bodySm"
+            color="$textSubdued"
+          />
         </YStack>
       </XStack>
 

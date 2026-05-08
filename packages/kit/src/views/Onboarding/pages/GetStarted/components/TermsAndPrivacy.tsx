@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { Anchor, SizableText } from '@onekeyhq/components';
+import { Anchor, SizableText, useMedia } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -17,6 +17,7 @@ interface ITermsAndPrivacyProps {
 
 export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const termsLink = useHelpLink({
     path: 'articles/11461297',
   });
@@ -44,6 +45,9 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
           color="$textDisabled"
           target="_blank"
           showExternalIndicator={false}
+          $gtMd={{
+            size: '$bodyMd',
+          }}
         >
           {chunks}
         </Anchor>
@@ -78,6 +82,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
         {
           termsTag: renderTermsTag,
           privacyTag: renderPrivacyTag,
+          br: () => (gtMd ? ' ' : '\n'),
         },
       )}
     </SizableText>

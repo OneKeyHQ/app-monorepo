@@ -105,6 +105,48 @@ export async function ensureLedgerChainFingerprint(
   return '';
 }
 
+async function generateAndStoreFingerprint(
+  backgroundApi: IBackgroundApi,
+  dbDevice: { id: string; connectId: string },
+  chain: ChainForFingerprint,
+): Promise<string> {
+  const adapter = await backgroundApi.serviceHardware.getAdapterForVendor(
+    EHardwareVendor.ledger,
+  );
+  if (!adapter) return '';
+
+  try {
+    const result = await adapter.hw.getChainFingerprint(
+      dbDevice.connectId,
+      '',
+      chain,
+    );
+    if (result.success && result.payload) {
+      const fingerprint = result.payload;
+      if (localDb.updateDeviceChainFingerprint) {
+        await serializeWrite(dbDevice.id, async () => {
+          await localDb.updateDeviceChainFingerprint({
+            dbDeviceId: dbDevice.id,
+            chain,
+            fingerprint,
+          });
+        });
+      }
+      return fingerprint;
+    }
+    defaultLogger.hardware.sdkLog.log(
+      'ledgerFingerprint.generateFailed',
+      `${chain} ${!result.success ? result.payload.error : 'empty payload'}`,
+    );
+  } catch (e) {
+    defaultLogger.hardware.sdkLog.log(
+      'ledgerFingerprint.generateThrew',
+      `${chain} ${(e as Error)?.message ?? ''}`,
+    );
+  }
+  return '';
+}
+
 /**
  * Call a Ledger adapter method with fingerprint verification.
  *
@@ -137,7 +179,6 @@ export async function callLedgerWithFingerprint<T>(
   // idempotent against a stable device.
   if (result.success && !deviceId) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-use-before-define
       const fp = await generateAndStoreFingerprint(
         backgroundApi,
         dbDevice,
@@ -210,46 +251,4 @@ export async function verifySeedMatch(
     `no candidate chain could be verified (stored=${candidates.join(',')})`,
   );
   return 'unknown';
-}
-
-async function generateAndStoreFingerprint(
-  backgroundApi: IBackgroundApi,
-  dbDevice: { id: string; connectId: string },
-  chain: ChainForFingerprint,
-): Promise<string> {
-  const adapter = await backgroundApi.serviceHardware.getAdapterForVendor(
-    EHardwareVendor.ledger,
-  );
-  if (!adapter) return '';
-
-  try {
-    const result = await adapter.hw.getChainFingerprint(
-      dbDevice.connectId,
-      '',
-      chain,
-    );
-    if (result.success && result.payload) {
-      const fingerprint = result.payload;
-      if (localDb.updateDeviceChainFingerprint) {
-        await serializeWrite(dbDevice.id, async () => {
-          await localDb.updateDeviceChainFingerprint({
-            dbDeviceId: dbDevice.id,
-            chain,
-            fingerprint,
-          });
-        });
-      }
-      return fingerprint;
-    }
-    defaultLogger.hardware.sdkLog.log(
-      'ledgerFingerprint.generateFailed',
-      `${chain} ${!result.success ? result.payload.error : 'empty payload'}`,
-    );
-  } catch (e) {
-    defaultLogger.hardware.sdkLog.log(
-      'ledgerFingerprint.generateThrew',
-      `${chain} ${(e as Error)?.message ?? ''}`,
-    );
-  }
-  return '';
 }

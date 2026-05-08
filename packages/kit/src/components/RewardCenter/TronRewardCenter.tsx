@@ -355,15 +355,19 @@ export const showTronRewardCenter = ({
   }) => void;
 }) =>
   Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.wallet_subsidy_redeem_title,
     }),
     tone: 'info',
     description: (
       <SizableText size="$bodyLg" color="$textSubdued">
-        {appLocale.intl.formatMessage({
-          id: ETranslations.wallet_subsidy_description,
-        })}
+        {
+          // eslint-disable-next-line onekey/no-app-locale-main-thread
+          appLocale.intl.formatMessage({
+            id: ETranslations.wallet_subsidy_description,
+          })
+        }
       </SizableText>
     ),
     icon: 'GiftSolid',

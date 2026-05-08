@@ -319,6 +319,7 @@ function ApproveEditor(props: IProps) {
 
 const showApproveEditor = (props: IProps) => {
   Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.approve_edit_title,
     }),

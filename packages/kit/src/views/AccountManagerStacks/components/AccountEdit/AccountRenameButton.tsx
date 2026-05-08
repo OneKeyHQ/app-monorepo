@@ -10,6 +10,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EChangeHistoryContentType,
@@ -31,9 +32,11 @@ export function useAccountRenameMethod({
   wallet?: IDBWallet;
 }) {
   const { serviceAccount } = backgroundApiProxy;
+  const intl = useIntl();
 
   const callShowRenameDialog = useCallback(() => {
     showRenameDialog(name, {
+      intl,
       disabledMaxLengthLabel: true,
       indexedAccount,
       nameHistoryInfo: {
@@ -64,7 +67,7 @@ export function useAccountRenameMethod({
         }
       },
     });
-  }, [account?.id, indexedAccount, name, serviceAccount, wallet?.id]);
+  }, [account?.id, indexedAccount, name, serviceAccount, wallet?.id, intl]);
 
   const showAccountRenameDialog = useCallback(() => {
     if (indexedAccount?.id) {
@@ -75,6 +78,17 @@ export function useAccountRenameMethod({
         const isQrWallet = accountUtils.isQrWallet({
           walletId: wallet?.id,
         });
+        // Third-party HW (e.g. Ledger) does not produce an OneKey-style xfp.
+        // Skip the OneKey legacy-xfp meta/dialog flow entirely — rename is
+        // local DB only.
+        const isThirdPartyHwWallet = Boolean(
+          wallet?.associatedDeviceInfo?.vendor &&
+          getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
+        );
+        if (isThirdPartyHwWallet) {
+          callShowRenameDialog();
+          return;
+        }
         await serviceAccount.generateWalletsMissingMetaSilently({
           walletId: wallet?.id || '',
         });
@@ -87,6 +101,7 @@ export function useAccountRenameMethod({
         } else if (isHwWallet) {
           await showUpdateHardwareWalletLegacyXfpDialog({
             walletId: wallet?.id || '',
+            intl,
             onConfirm: () => {
               callShowRenameDialog();
             },
@@ -96,7 +111,14 @@ export function useAccountRenameMethod({
     } else {
       callShowRenameDialog();
     }
-  }, [callShowRenameDialog, indexedAccount?.id, serviceAccount, wallet?.id]);
+  }, [
+    callShowRenameDialog,
+    indexedAccount?.id,
+    serviceAccount,
+    wallet?.id,
+    wallet?.associatedDeviceInfo?.vendor,
+    intl,
+  ]);
 
   return {
     showAccountRenameDialog,

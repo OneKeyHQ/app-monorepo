@@ -192,6 +192,38 @@ describe('getAccountTotalDeFiNetWorth', () => {
     expect(result).toEqual({ netWorth: '1000', hasCache: true });
   });
 
+  test('All-Networks: filters DeFi net worth to enabled networks when provided', async () => {
+    const svc = makeService({
+      getAllNetworkAccounts: jest.fn().mockResolvedValue({
+        accountsInfo: [
+          { apiAddress: '0xabc', accountXpub: undefined, networkId: 'evm--1' },
+          { apiAddress: '0xabc', accountXpub: undefined, networkId: 'evm--56' },
+          { apiAddress: '0xdef', accountXpub: undefined, networkId: 'btc--0' },
+        ],
+      }),
+      getRawData: jest.fn().mockResolvedValue({
+        overview: {
+          '0xabc|': {
+            'evm--1': { netWorth: 500, currency: 'usd' },
+            'evm--56': { netWorth: 200, currency: 'usd' },
+          },
+          '0xdef|': {
+            'btc--0': { netWorth: 300, currency: 'usd' },
+          },
+        },
+      }),
+    });
+
+    const result = await svc.getAccountTotalDeFiNetWorth({
+      accountId: 'hd-1--0',
+      networkId: 'onekeyall--0',
+      targetCurrency: 'usd',
+      enabledNetworkIds: ['evm--1', 'btc--0'],
+    });
+
+    expect(result).toEqual({ netWorth: '800', hasCache: true });
+  });
+
   test('missing target currency → falls back to USD', async () => {
     const svc = makeService({
       getAccountsDeFiOverview: jest.fn().mockResolvedValue([

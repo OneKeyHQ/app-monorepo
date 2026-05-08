@@ -29,7 +29,6 @@ import {
 import type { IUtxoInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { COIN_CONTROL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -44,6 +43,7 @@ import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/
 import CoinControlStrategyPopover from './CoinControlStrategyPopover';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { IntlShape } from 'react-intl';
 
 // Sort type enum
 enum ESortType {
@@ -56,12 +56,16 @@ enum ESortType {
 // Format blockTime to readable date
 // - If no blockTime and confirmations = 0: show "Pending"
 // - Otherwise: show "-"
-function formatBlockTime(blockTime?: number, confirmations?: number): string {
+function formatBlockTime(
+  blockTime: number | undefined,
+  confirmations: number | undefined,
+  intl: IntlShape,
+): string {
   if (blockTime) {
     return formatDate(new Date(blockTime));
   }
   if (confirmations === 0) {
-    return appLocale.intl.formatMessage({ id: ETranslations.global_pending });
+    return intl.formatMessage({ id: ETranslations.global_pending });
   }
   return '-';
 }
@@ -80,6 +84,7 @@ const UTXOListItem = memo(
     onToggle,
     decimals,
     symbol,
+    intl,
   }: {
     item: IUtxoInfo;
     index: number;
@@ -87,6 +92,7 @@ const UTXOListItem = memo(
     onToggle: (utxoKey: string) => void;
     decimals: number;
     symbol: string;
+    intl: IntlShape;
   }) => {
     const handlePress = useCallback(() => {
       const utxoKey = generateUtxoKey(item.txid, item.vout);
@@ -94,8 +100,8 @@ const UTXOListItem = memo(
     }, [item.txid, item.vout, onToggle]);
 
     const formattedInfo = useMemo(
-      () => formatBlockTime(item.blockTime, item.confirmations),
-      [item.blockTime, item.confirmations],
+      () => formatBlockTime(item.blockTime, item.confirmations, intl),
+      [item.blockTime, item.confirmations, intl],
     );
 
     const formattedAmount = useMemo(
@@ -392,10 +398,11 @@ function CoinControlPage() {
           onToggle={handleToggleUTXO}
           decimals={network?.decimals ?? 8}
           symbol={network?.symbol ?? 'BTC'}
+          intl={intl}
         />
       );
     },
-    [selectedUTXOs, handleToggleUTXO, network?.decimals, network?.symbol],
+    [selectedUTXOs, handleToggleUTXO, network?.decimals, network?.symbol, intl],
   );
 
   // Key extractor for list items

@@ -22,45 +22,46 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import {
   InfoItem,
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 
+import type { IntlShape } from 'react-intl';
+
 type IProps = {
   accountId: string;
   networkId: string;
 };
 
-const showNonceFaq = () => {
+const showNonceFaq = (intl: IntlShape) => {
   Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.global_nonce,
     }),
     icon: 'LabOutline',
-    description: appLocale.intl.formatMessage({
+    description: intl.formatMessage({
       id: ETranslations.global_nonce_faq_desc,
     }),
     showCancelButton: false,
-    onConfirmText: appLocale.intl.formatMessage({
+    onConfirmText: intl.formatMessage({
       id: ETranslations.global_ok,
     }),
   });
 };
 
-const showHexDataFaq = () => {
+const showHexDataFaq = (intl: IntlShape) => {
   Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.global_hex_data_default,
     }),
     icon: 'ConsoleOutline',
-    description: appLocale.intl.formatMessage({
+    description: intl.formatMessage({
       id: ETranslations.global_hex_data_faq_desc,
     }),
     showCancelButton: false,
-    onConfirmText: appLocale.intl.formatMessage({
+    onConfirmText: intl.formatMessage({
       id: ETranslations.global_ok,
     }),
   });
@@ -209,7 +210,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
               <Button
                 size="small"
                 variant="tertiary"
-                onPress={() => showNonceFaq()}
+                onPress={() => showNonceFaq(intl)}
               >
                 {intl.formatMessage({
                   id: ETranslations.global_nonce_faq,
@@ -229,7 +230,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
             <Button
               size="small"
               variant="tertiary"
-              onPress={() => showHexDataFaq()}
+              onPress={() => showHexDataFaq(intl)}
             >
               {intl.formatMessage({
                 id: ETranslations.global_hex_data_default_faq,

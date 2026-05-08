@@ -351,6 +351,10 @@ export function WebViewWebEmbed({
       jsBridge as unknown as JsBridgeBase,
     );
     return () => {
+      // Reset BG's canonical `isWebEmbedApiReady` alongside disconnecting the
+      // bridge. Without this, the next mount could see a stale BG ready and
+      // dispatch calls before the new page replays its `webEmbedApiReady`.
+      void backgroundApiProxy.serviceDApp.markWebEmbedApiNotReady();
       backgroundApiProxy.connectWebEmbedBridge(null);
     };
   }, [webviewRef, webview, webEmbedAppSettings]);

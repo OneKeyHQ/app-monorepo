@@ -117,6 +117,7 @@ export interface ITradeRouteViewState {
   tokenSelectorOpen: boolean;
   tokenSelectorTab: string;
   infoPanelTab: string;
+  favoritesBarSpotActive: boolean;
 }
 
 export const {
@@ -127,6 +128,7 @@ export const {
   tokenSelectorOpen: false,
   tokenSelectorTab: 'all',
   infoPanelTab: 'Positions',
+  favoritesBarSpotActive: false,
 });
 
 export type IBBOPriceMode =
@@ -216,15 +218,13 @@ export const {
   return activePositions?.activePositions?.length ?? 0;
 });
 
-export const {
-  atom: positionFilterByCurrentTokenAtom,
-  use: usePositionFilterByCurrentTokenAtom,
-} = contextAtom<boolean>(false);
+const { atom: filterByCurrentTokenAtom, use: useFilterByCurrentTokenAtom } =
+  contextAtom<boolean>(false);
 
-export const {
-  atom: orderFilterByCurrentTokenAtom,
-  use: useOrderFilterByCurrentTokenAtom,
-} = contextAtom<boolean>(false);
+export const positionFilterByCurrentTokenAtom = filterByCurrentTokenAtom;
+export const usePositionFilterByCurrentTokenAtom = useFilterByCurrentTokenAtom;
+export const orderFilterByCurrentTokenAtom = filterByCurrentTokenAtom;
+export const useOrderFilterByCurrentTokenAtom = useFilterByCurrentTokenAtom;
 
 export type IPerpsActiveOpenOrdersAtom = {
   accountAddress: string | undefined;
@@ -296,13 +296,13 @@ export function usePerpsOpenOrdersByCoin(
 export type IPerpsLedgerUpdatesAtom = {
   accountAddress: string | undefined;
   updates: HL.IUserNonFundingLedgerUpdate[];
-  isSubscribed: boolean;
+  isLoaded: boolean;
 };
 export const { atom: perpsLedgerUpdatesAtom, use: usePerpsLedgerUpdatesAtom } =
   contextAtom<IPerpsLedgerUpdatesAtom>({
     accountAddress: undefined,
     updates: [],
-    isSubscribed: false,
+    isLoaded: false,
   });
 
 export interface ITradingFormEnv {

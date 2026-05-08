@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { healthCheckRequest } from '@onekeyhq/shared/src/request/helpers/healthCheckRequest';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 
 import { buildDeferredPromise } from './useDeferredPromise';
 import {
@@ -105,10 +107,20 @@ class NetInfo {
     } = this.configuration;
 
     try {
+      // atoms may not be wired yet during early bootstrap; in that case ping
+      // without app headers so we don't flash a false offline state.
+      let headers: Record<string, string> | undefined;
+      try {
+        const baseHeaders = await getRequestHeaders();
+        headers = await withCustomUAHeaders(reachabilityUrl, baseHeaders);
+      } catch {
+        headers = undefined;
+      }
       const response = await healthCheckRequest({
         url: reachabilityUrl,
         method: reachabilityMethod as 'GET' | 'POST',
         timeout: reachabilityRequestTimeout,
+        headers,
       });
 
       this.updateState({

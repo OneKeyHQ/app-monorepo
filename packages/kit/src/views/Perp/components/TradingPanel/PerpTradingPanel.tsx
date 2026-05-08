@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { DebugRenderTracker, YStack } from '@onekeyhq/components';
 import {
@@ -17,6 +18,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useOrderConfirm, useTradingPrice } from '../../hooks';
+import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
@@ -24,6 +26,7 @@ import { PerpTradingButton } from './PerpTradingButton';
 import { TradingButtonGroup } from './TradingButtonGroup';
 
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
+  const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
@@ -57,6 +60,16 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   }, [formData.type, formData.price, midPriceBN]);
 
   const isMinimumOrderNotMet = useMemo(() => {
+    if (
+      !shouldApplyMinimumOrderGuard({
+        isSpot: tradingMode === 'spot',
+        orderMode: formData.orderMode,
+        orderType: formData.type,
+        hasBboPriceMode: Boolean(formData.bboPriceMode),
+      })
+    ) {
+      return false;
+    }
     if (!tradingComputed.computedSizeBN.isFinite()) return false;
     if (tradingComputed.computedSizeBN.lte(0)) return false;
 
@@ -70,7 +83,15 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       .multipliedBy(priceBN)
       .multipliedBy(leverageBN);
     return orderValue.lt(10);
-  }, [tradingComputed.computedSizeBN, effectivePriceBN, formData.leverage]);
+  }, [
+    tradingComputed.computedSizeBN,
+    effectivePriceBN,
+    formData.bboPriceMode,
+    formData.leverage,
+    formData.orderMode,
+    formData.type,
+    tradingMode,
+  ]);
 
   const isNoEnoughMargin = useMemo(() => {
     if (!tradingComputed.computedSizeBN.isFinite()) return false;
@@ -113,8 +134,13 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       void handleConfirm();
       return;
     }
-    showOrderConfirmDialog();
-  }, [activeAssetData, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
+    showOrderConfirmDialog({ intl });
+  }, [
+    activeAssetData,
+    perpsCustomSettings.skipOrderConfirm,
+    handleConfirm,
+    intl,
+  ]);
 
   const content = (
     <YStack

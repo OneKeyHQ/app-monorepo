@@ -19,7 +19,7 @@ function ResetPinGuidePage() {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const handleDone = useCallback(() => {
-    navigation.popStack();
+    navigation.pop();
   }, [navigation]);
 
   const STEPS = [
@@ -88,7 +88,12 @@ function ResetPinGuidePage() {
             </XStack>
           ))}
           {gtMd ? (
-            <Button size="large" variant="primary" onPress={handleDone}>
+            <Button
+              size="large"
+              maxWidth={320}
+              variant="primary"
+              onPress={handleDone}
+            >
               {intl.formatMessage({
                 id: ETranslations.i_have_done_these_steps,
               })}
@@ -96,7 +101,13 @@ function ResetPinGuidePage() {
           ) : null}
         </YStack>
         {!gtMd ? (
-          <Button size="large" variant="primary" mt="auto" onPress={handleDone}>
+          <Button
+            mb="$5"
+            size="large"
+            variant="primary"
+            mt="auto"
+            onPress={handleDone}
+          >
             {intl.formatMessage({
               id: ETranslations.i_have_done_these_steps,
             })}

@@ -28,6 +28,7 @@ import {
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -84,6 +85,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   } = useTokenDetail();
   const tokenSymbol = tokenDetail?.symbol;
   const intl = useIntl();
+  const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
 
@@ -356,7 +358,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             ) : (
               <>
                 <TokenOverview />
-                <TokenActivityOverview />
+                {isBTCMainnet ? null : <TokenActivityOverview />}
               </>
             )}
             <Stack h={100} w="100%" />
@@ -373,6 +375,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       handleSecondTabTouchStart,
       handleSecondTabTouchEnd,
       isStockToken,
+      isBTCMainnet,
     ],
   );
 

@@ -195,6 +195,7 @@ export function SpecifiedAmountInput() {
 }
 
 export function RangeAmountInput() {
+  const intl = useIntl();
   const {
     tokenDetails,
     tokenInfo,
@@ -239,6 +240,7 @@ export function RangeAmountInput() {
         minTransferAmount: ctxMinTransferAmount,
         tokenSymbol: tokenInfo.symbol,
         tokenDecimals: tokenInfo.decimals,
+        intl,
       });
       return error ? { rangeError: error } : {};
     },
@@ -248,6 +250,7 @@ export function RangeAmountInput() {
       ctxMinTransferAmount,
       tokenInfo.symbol,
       tokenInfo.decimals,
+      intl,
     ],
   );
 
@@ -628,6 +631,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       minTransferAmount,
       tokenSymbol: tokenInfo.symbol,
       tokenDecimals: tokenInfo.decimals,
+      intl,
     });
     return error ? { rangeError: error } : {};
   }, [
@@ -638,6 +642,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     tokenInfo.symbol,
     tokenInfo.decimals,
     isOneToMany,
+    intl,
   ]);
 
   const handleModeChange = useCallback(

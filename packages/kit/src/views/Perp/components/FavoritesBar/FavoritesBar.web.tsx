@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -11,13 +12,12 @@ import { noop } from 'lodash';
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
-import {
-  useActiveTradeInstrumentAtom,
-  useHyperliquidActions,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   type IPerpFavoritesDisplayMode,
+  type IPerpsFavoritesOrderEntry,
   usePerpTokenFavoritesPersistAtom,
+  usePerpsFavoritesOrderPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { usePerpsFavorites } from '../../hooks/usePerpsFavorites';
@@ -152,44 +152,120 @@ const ScrollButton = memo(
 ScrollButton.displayName = 'ScrollButton';
 
 function FavoritesBar() {
-  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const { favoriteItems } = usePerpsFavorites({ mode: 'current' });
+  // Bar always shows both modes regardless of which the user is currently
+  // trading, so the perp/spot pulls happen unconditionally.
+  const { favoriteItems: perpItems, isReady: perpReady } = usePerpsFavorites({
+    mode: 'perp',
+  });
+  const { favoriteItems: spotItems, isReady: spotReady } = usePerpsFavorites({
+    mode: 'spot',
+  });
+  const [favoritesOrder, setFavoritesOrder] =
+    usePerpsFavoritesOrderPersistAtom();
+
+  // Membership entries missing from the persisted order are appended at the
+  // end, covering legacy data and toggles done outside the FavoriteButton.
+  const favoriteItems = useMemo(() => {
+    const merged = [...perpItems, ...spotItems];
+    const lookup = new Map<string, (typeof merged)[number]>();
+    for (const item of merged) {
+      lookup.set(`${item.mode}:${item.coinName}`, item);
+    }
+    const ordered: typeof merged = [];
+    const seen = new Set<string>();
+    for (const entry of favoritesOrder.sequence) {
+      const key = `${entry.mode}:${entry.coinName}`;
+      const item = lookup.get(key);
+      if (item) {
+        ordered.push(item);
+        seen.add(key);
+      }
+    }
+    for (const item of merged) {
+      const key = `${item.mode}:${item.coinName}`;
+      if (!seen.has(key)) ordered.push(item);
+    }
+    return ordered;
+  }, [perpItems, spotItems, favoritesOrder]);
+
+  // Idempotent reconciliation — only writes when sequence drifts from
+  // membership, so callers that toggle favorites without touching this atom
+  // (initial migration, external watchlist sync) self-heal on next render.
+  // Gated on isReady so the persisted drag-reorder is not wiped by an empty
+  // run before the async universe data resolves.
+  useEffect(() => {
+    if (!perpReady || !spotReady) return;
+    setFavoritesOrder((prev) => {
+      const allKeys = new Set<string>();
+      for (const it of perpItems) allKeys.add(`${it.mode}:${it.coinName}`);
+      for (const it of spotItems) allKeys.add(`${it.mode}:${it.coinName}`);
+      const filtered = prev.sequence.filter((e) =>
+        allKeys.has(`${e.mode}:${e.coinName}`),
+      );
+      const seqKeys = new Set(filtered.map((e) => `${e.mode}:${e.coinName}`));
+      const additions: IPerpsFavoritesOrderEntry[] = [];
+      for (const it of [...perpItems, ...spotItems]) {
+        const key = `${it.mode}:${it.coinName}`;
+        if (!seqKeys.has(key)) {
+          additions.push({ mode: it.mode, coinName: it.coinName });
+          seqKeys.add(key);
+        }
+      }
+      const next = [...filtered, ...additions];
+      const changed =
+        next.length !== prev.sequence.length ||
+        next.some(
+          (e, i) =>
+            e.mode !== prev.sequence[i]?.mode ||
+            e.coinName !== prev.sequence[i]?.coinName,
+        );
+      return changed ? { sequence: next } : prev;
+    });
+  }, [perpItems, spotItems, perpReady, spotReady, setFavoritesOrder]);
+
   const actions = useHyperliquidActions();
   const hasFavorites = favoriteItems.length > 0;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [favoritesSettings, setFavoritesSettings] =
-    usePerpTokenFavoritesPersistAtom();
-  const displayMode = favoritesSettings.displayMode ?? 'price';
+  const [perpFavorites, setPerpFavorites] = usePerpTokenFavoritesPersistAtom();
+  // displayMode is shared across both modes; only the perp atom carries it.
+  const displayMode = perpFavorites.displayMode ?? 'price';
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragStart = useCallback(() => {
     setIsDragging(true);
   }, []);
 
+  // Reorder writes only the unified order atom; mode-specific membership
+  // atoms are untouched, so cross-mode drag is safe.
   const handleDragEnd = useCallback(
     (result: DropResult) => {
       setIsDragging(false);
       if (!result.destination) return;
       if (result.source.index === result.destination.index) return;
 
-      // Use coinName to locate items in persisted array (rendered list may be a filtered subset).
-      setFavoritesSettings((prev) => {
-        const sourceCoin = favoriteItems[result.source.index]?.coinName;
-        const destCoin = favoriteItems[result.destination!.index]?.coinName;
-        if (!sourceCoin || !destCoin) return prev;
-        const newFavorites = [...prev.favorites];
-        const sourceIdx = newFavorites.indexOf(sourceCoin);
-        const destIdx = newFavorites.indexOf(destCoin);
+      const sourceItem = favoriteItems[result.source.index];
+      const destItem = favoriteItems[result.destination.index];
+      if (!sourceItem || !destItem) return;
+
+      setFavoritesOrder((prev) => {
+        const next = [...prev.sequence];
+        const sourceIdx = next.findIndex(
+          (e) =>
+            e.mode === sourceItem.mode && e.coinName === sourceItem.coinName,
+        );
+        const destIdx = next.findIndex(
+          (e) => e.mode === destItem.mode && e.coinName === destItem.coinName,
+        );
         if (sourceIdx === -1 || destIdx === -1) return prev;
-        const [moved] = newFavorites.splice(sourceIdx, 1);
-        newFavorites.splice(destIdx, 0, moved);
-        return { ...prev, favorites: newFavorites };
+        const [moved] = next.splice(sourceIdx, 1);
+        next.splice(destIdx, 0, moved);
+        return { sequence: next };
       });
     },
-    [setFavoritesSettings, favoriteItems],
+    [favoriteItems, setFavoritesOrder],
   );
 
   const renderClone = useCallback(
@@ -225,11 +301,11 @@ function FavoritesBar() {
   );
 
   const toggleDisplayMode = useCallback(() => {
-    setFavoritesSettings((prev) => ({
+    setPerpFavorites((prev) => ({
       ...prev,
       displayMode: prev.displayMode === 'price' ? 'percent' : 'price',
     }));
-  }, [setFavoritesSettings]);
+  }, [setPerpFavorites]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
@@ -272,15 +348,35 @@ function FavoritesBar() {
     scrollRef.current?.scrollBy({ left: SCROLL_DISTANCE, behavior: 'smooth' });
   }, []);
 
+  // Perp price subscription is gated on bar membership rather than on the
+  // active trading mode, since perp favorites stay visible while browsing spot.
+  const hasPerpFavorites = perpItems.length > 0;
   useEffect(() => {
-    if (hasFavorites && activeTradeInstrument.mode === 'perp') {
+    if (hasPerpFavorites) {
       const currentActions = actions.current;
       currentActions.markAllAssetCtxsRequired();
       return () => {
         currentActions.markAllAssetCtxsNotRequired();
       };
     }
-  }, [actions, activeTradeInstrument.mode, hasFavorites]);
+  }, [actions, hasPerpFavorites]);
+
+  // Spot ctxs come from a planner-driven WS sub, not a refcount, so we surface
+  // bar visibility as a viewState flag the planner can OR into spotAssetCtxsEnabled.
+  // Otherwise spot favorites rendered while in perp mode would lack prevDayPx
+  // and show 0% / stale 24h change in the bar.
+  const hasSpotFavorites = spotItems.length > 0;
+  useEffect(() => {
+    if (hasSpotFavorites) {
+      const currentActions = actions.current;
+      currentActions.setTradeRouteViewState({ favoritesBarSpotActive: true });
+      return () => {
+        currentActions.setTradeRouteViewState({
+          favoritesBarSpotActive: false,
+        });
+      };
+    }
+  }, [actions, hasSpotFavorites]);
 
   if (!hasFavorites) {
     return null;
@@ -321,42 +417,48 @@ function FavoritesBar() {
                   scrollbarWidth: 'none',
                 }}
               >
-                {favoriteItems.map((item, index) => (
-                  <Draggable
-                    key={item.coinName}
-                    draggableId={item.coinName}
-                    index={index}
-                  >
-                    {(draggableProvided) => (
-                      <div
-                        ref={draggableProvided.innerRef}
-                        {...draggableProvided.draggableProps}
-                        {...draggableProvided.dragHandleProps}
-                        style={{
-                          ...draggableProvided.draggableProps.style,
-                          flexShrink: 0,
-                          marginRight: index < favoriteItems.length - 1 ? 4 : 0,
-                        }}
-                      >
-                        <FavoriteTokenItem
-                          displayName={item.displayName}
-                          coinName={item.coinName}
-                          dexIndex={item.dexIndex}
-                          assetId={item.assetId}
-                          imageTokenName={item.imageTokenName}
-                          mode={item.mode}
-                          displayMode={displayMode}
-                          onPress={() =>
-                            void actions.current.switchTradeInstrument({
-                              coin: item.coinName,
-                              mode: item.mode,
-                            })
-                          }
-                        />
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
+                {favoriteItems.map((item, index) => {
+                  // Mode-tagged so a future symbol overlap between perp and
+                  // spot can't collapse two rows onto one draggable id.
+                  const draggableKey = `${item.mode}:${item.coinName}`;
+                  return (
+                    <Draggable
+                      key={draggableKey}
+                      draggableId={draggableKey}
+                      index={index}
+                    >
+                      {(draggableProvided) => (
+                        <div
+                          ref={draggableProvided.innerRef}
+                          {...draggableProvided.draggableProps}
+                          {...draggableProvided.dragHandleProps}
+                          style={{
+                            ...draggableProvided.draggableProps.style,
+                            flexShrink: 0,
+                            marginRight:
+                              index < favoriteItems.length - 1 ? 4 : 0,
+                          }}
+                        >
+                          <FavoriteTokenItem
+                            displayName={item.displayName}
+                            coinName={item.coinName}
+                            dexIndex={item.dexIndex}
+                            assetId={item.assetId}
+                            imageTokenName={item.imageTokenName}
+                            mode={item.mode}
+                            displayMode={displayMode}
+                            onPress={() =>
+                              void actions.current.switchTradeInstrument({
+                                coin: item.coinName,
+                                mode: item.mode,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+                    </Draggable>
+                  );
+                })}
                 {droppableProvided.placeholder}
               </div>
             )}

@@ -2,6 +2,10 @@ import { loadPending, updatePendingStatus } from '../../core';
 import { resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
+import {
+  requireAuthenticatedCommand,
+  requireStringOption,
+} from '../command-guards';
 
 import { renderBridgeStatus } from './swap-display-utils';
 import {
@@ -45,7 +49,7 @@ export function registerSwapStatusCommand(parent: Command): void {
   parent
     .command('status')
     .description('Query swap transaction status')
-    .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
+    .option('--chain <chain>', 'Target blockchain (e.g., eth, base, required)')
     .option('--order <orderId>', 'Order ID from swap build output')
     .option('--tx <txHash>', 'Transaction hash to query')
     .option(
@@ -60,7 +64,7 @@ export function registerSwapStatusCommand(parent: Command): void {
     .action(
       async (
         options: {
-          chain: string;
+          chain?: string;
           order?: string;
           tx?: string;
           watch?: boolean;
@@ -73,6 +77,10 @@ export function registerSwapStatusCommand(parent: Command): void {
         const output = globalOpts._outputFormatter as OutputFormatter;
 
         try {
+          await requireAuthenticatedCommand();
+
+          const chain = requireStringOption(options.chain, '--chain <chain>');
+
           // Validate: at least one of --order or --tx is required
           if (!options.order && !options.tx) {
             throw new AppError(
@@ -83,7 +91,7 @@ export function registerSwapStatusCommand(parent: Command): void {
           }
 
           // Validate chain
-          const chainConfig = resolveChain(options.chain);
+          const chainConfig = resolveChain(chain);
 
           // Resolve env
           const env = (
@@ -105,10 +113,10 @@ export function registerSwapStatusCommand(parent: Command): void {
             order = loadPending(options.order, { skipExpiry: true });
 
             // Verify chain matches
-            if (order.chain !== options.chain) {
+            if (order.chain !== chain) {
               throw new AppError(
                 ERROR_CODES.PARAM_INVALID_CHAIN.code,
-                `Order chain "${order.chain}" does not match --chain "${options.chain}"`,
+                `Order chain "${order.chain}" does not match --chain "${chain}"`,
                 `Use --chain ${order.chain}`,
               );
             }
@@ -172,8 +180,7 @@ export function registerSwapStatusCommand(parent: Command): void {
 
           // --watch: poll until final state
           if (options.watch) {
-            const isJsonMode =
-              !process.stdout.isTTY || (globalOpts.json as boolean);
+            const isJsonMode = output.getMode() === 'agent';
             let lastLineCount = 0;
             let attempts = 0;
 
@@ -192,9 +199,7 @@ export function registerSwapStatusCommand(parent: Command): void {
 
               if (isJsonMode) {
                 // NDJSON: one JSON object per line
-                process.stdout.write(
-                  `${JSON.stringify({ ...response, stateInfo })}\n`,
-                );
+                output.raw(JSON.stringify({ ...response, stateInfo }));
               } else {
                 // TTY: clear previous multi-line output
                 if (lastLineCount > 0) {
@@ -221,14 +226,15 @@ export function registerSwapStatusCommand(parent: Command): void {
                   ...stateInfo,
                   ...displayData,
                 });
-                process.stdout.write(`${watchOutput}\n`);
+                output.raw(watchOutput);
                 lastLineCount = watchOutput.split('\n').length;
               }
 
               if (stateInfo.isFinal) return;
               if (attempts >= protocolConfig.statusMaxPollAttempts) {
-                process.stderr.write(
-                  'Timeout — poll limit reached. Try again later.\n',
+                output.raw(
+                  'Timeout — poll limit reached. Try again later.',
+                  'stderr',
                 );
                 return;
               }
@@ -297,7 +303,7 @@ export function registerSwapStatusCommand(parent: Command): void {
               ...stateInfo,
               ...displayData,
             });
-            process.stdout.write(`${bridgeOutput}\n`);
+            output.raw(bridgeOutput);
           } else {
             output.success(
               {
@@ -331,7 +337,7 @@ export function registerSwapStatusCommand(parent: Command): void {
                     }
                   : {}),
               },
-              { chain: options.chain },
+              { chain },
             );
           }
         } catch (error) {

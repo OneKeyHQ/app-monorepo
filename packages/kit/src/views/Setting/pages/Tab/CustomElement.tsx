@@ -795,6 +795,25 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
   );
 }
 
+export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
+  const [{ useGasAccountByDefault }] = useSettingsPersistAtom();
+  const toggleUseGasAccountByDefault = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setUseGasAccountByDefault(value);
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        alignSelf="flex-start"
+        size={ESwitchSize.small}
+        value={useGasAccountByDefault ?? true}
+        onChange={toggleUseGasAccountByDefault}
+      />
+    </TabSettingsListItem>
+  );
+}
+
 export function ResetPinListItem(props: ICustomElementProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();

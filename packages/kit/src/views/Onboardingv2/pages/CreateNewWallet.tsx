@@ -171,6 +171,7 @@ function CreateNewWallet() {
           gap="$3"
           $md={{
             mt: 'auto',
+            pb: '$5',
           }}
           $gtMd={{
             flex: 1,
@@ -188,7 +189,7 @@ function CreateNewWallet() {
           >
             <YStack position="absolute" left="$5">
               {isGoogleLoading ? (
-                <Spinner size="small" />
+                <Spinner size="small" color="$iconInverse" />
               ) : (
                 <Icon name="GoogleIllus" size="$5" color="$iconInverse" />
               )}
@@ -210,7 +211,7 @@ function CreateNewWallet() {
           >
             <YStack position="absolute" left="$5">
               {isAppleLoading ? (
-                <Spinner size="small" />
+                <Spinner size="small" color="$iconInverse" />
               ) : (
                 <Icon name="AppleBrand" size="$5" color="$iconInverse" />
               )}

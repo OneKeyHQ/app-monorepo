@@ -27,7 +27,7 @@ import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
-import { useAutoRefreshTokenDetail } from './hooks';
+import { BtcMetadataProvider, useAutoRefreshTokenDetail } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 
@@ -68,17 +68,19 @@ function MarketDetail({
   const media = useMedia();
 
   return (
-    <Page>
-      <MarketDetailHeader />
+    <BtcMetadataProvider>
+      <Page>
+        <MarketDetailHeader />
 
-      <Page.Body>
-        {media.gtLg && !platformEnv.isNative ? (
-          <DesktopLayout />
-        ) : (
-          <MobileLayout disableTrade={disableTrade} />
-        )}
-      </Page.Body>
-    </Page>
+        <Page.Body>
+          {media.gtLg && !platformEnv.isNative ? (
+            <DesktopLayout />
+          ) : (
+            <MobileLayout disableTrade={disableTrade} />
+          )}
+        </Page.Body>
+      </Page>
+    </BtcMetadataProvider>
   );
 }
 

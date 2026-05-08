@@ -112,6 +112,7 @@ function CancelAllOrdersContent({
 
 export function showCancelAllOrdersDialog(filterByCoin?: string) {
   const dialogInstance = Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_cacenl_all_order_title,
     }),

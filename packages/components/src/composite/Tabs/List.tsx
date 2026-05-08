@@ -1,5 +1,10 @@
 /* eslint-disable react/prop-types */
-import type { CSSProperties, ComponentType, ReactNode } from 'react';
+import type {
+  CSSProperties,
+  ComponentType,
+  MouseEventHandler,
+  ReactNode,
+} from 'react';
 import {
   isValidElement,
   useCallback,
@@ -92,6 +97,8 @@ export function List<Item>({
   horizontalPadding = 0,
   onEndReached,
   onEndReachedThreshold = 0.5,
+  onMouseEnter,
+  onMouseLeave,
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
@@ -99,6 +106,8 @@ export function List<Item>({
     horizontalPadding?: number;
     onEndReached?: () => void;
     onEndReachedThreshold?: number;
+    onMouseEnter?: MouseEventHandler<HTMLDivElement>;
+    onMouseLeave?: MouseEventHandler<HTMLDivElement>;
   }) {
   const {
     registerChild,
@@ -517,6 +526,8 @@ export function List<Item>({
             <div
               ref={ref as React.RefObject<HTMLDivElement>}
               style={contentContainerStyle as any}
+              onMouseEnter={onMouseEnter}
+              onMouseLeave={onMouseLeave}
             >
               <Collection
                 {...listProps}
@@ -541,6 +552,8 @@ export function List<Item>({
           <div
             ref={ref as React.RefObject<HTMLDivElement>}
             style={contentContainerStyle as any}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
           >
             <VirtualizedList
               {...listProps}

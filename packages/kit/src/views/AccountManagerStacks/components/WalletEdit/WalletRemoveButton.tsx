@@ -70,6 +70,7 @@ export function WalletRemoveButton({
           getTitleAndDescription({
             wallet,
             isRemoveToMocked,
+            intl,
           });
         showWalletRemoveDialog({
           config,

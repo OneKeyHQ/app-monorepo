@@ -25,6 +25,22 @@ export function usePerpTradesHistory() {
   const [currentListPage, setCurrentListPage] = useState(1);
   const prevAccountRef = useRef<string | null | undefined>(undefined);
 
+  const refreshTradesHistory = useCallback(async () => {
+    const accountAddress = currentAccount?.accountAddress;
+    if (!accountAddress) {
+      await backgroundApiProxy.serviceHyperliquid.resetTradesHistory();
+      return;
+    }
+
+    await backgroundApiProxy.serviceHyperliquid.loadTradesHistory(
+      accountAddress,
+      { force: true },
+    );
+    await backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
+  }, [currentAccount?.accountAddress]);
+  const refreshTradesHistoryRef = useRef(refreshTradesHistory);
+  refreshTradesHistoryRef.current = refreshTradesHistory;
+
   useEffect(() => {
     const accountAddress = currentAccount?.accountAddress;
 
@@ -56,7 +72,7 @@ export function usePerpTradesHistory() {
     noop(refreshHook);
     const timer = setTimeout(() => {
       if (isFocusedRef.current) {
-        void backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
+        void refreshTradesHistoryRef.current();
       }
     }, 300);
     return () => clearTimeout(timer);
@@ -80,6 +96,7 @@ export function usePerpTradesHistory() {
     currentListPage,
     setCurrentListPage,
     mode: activeTradeInstrument.mode,
+    refreshTradesHistory,
     // If current account has no Perp address (unsupported or not created yet),
     // show empty state instead of skeleton loading.
     isLoading: hasAccountAddress ? !isLoaded : false,

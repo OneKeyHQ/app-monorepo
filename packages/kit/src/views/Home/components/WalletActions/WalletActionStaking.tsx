@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { noop } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -22,6 +23,7 @@ function WalletActionStaking({
   const { network, wallet } = activeAccount;
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const intl = useIntl();
 
   const handleStaking = useCallback(() => {
     defaultLogger.wallet.walletActions.actionStaking({
@@ -40,7 +42,11 @@ function WalletActionStaking({
   return (
     <RawActions.Staking
       onPress={handleStaking}
-      label={customization?.label}
+      label={
+        customization?.labelId
+          ? intl.formatMessage({ id: customization.labelId })
+          : undefined
+      }
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}
       disabled={customization?.disabled}

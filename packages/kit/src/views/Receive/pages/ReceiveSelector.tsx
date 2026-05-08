@@ -18,7 +18,6 @@ import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EExchangeId,
   type IExchangeConfig,
-  OTHER_EXCHANGES_HELP_PATH,
 } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -354,19 +353,6 @@ function ReceiveSelectorContent() {
     ],
   );
 
-  const handleOtherExchangesPress = useCallback(() => {
-    defaultLogger.transaction.receive.clickExchangeEntry({
-      exchangeSource: 'others',
-      walletType: wallet?.type,
-    });
-    const helpLink = `${HELP_CENTER_URL}/${OTHER_EXCHANGES_HELP_PATH}`;
-    if (platformEnv.isDesktop || platformEnv.isNative) {
-      openUrlInDiscovery({ url: helpLink });
-    } else {
-      openUrlExternal(helpLink);
-    }
-  }, [wallet?.type]);
-
   useEffect(() => () => void onClose?.(), [onClose]);
 
   return (
@@ -525,30 +511,43 @@ function ReceiveSelectorContent() {
                 <ListItem.Text flex={1} primary={config.name} />
               </ListItem>
             ))}
-            <ListItem
-              drillIn
-              onPress={handleOtherExchangesPress}
-              gap="$4"
-              nativePressableStyle={{ flexShrink: 0 }}
-              userSelect="none"
-            >
-              <YStack
-                w="$10"
-                h="$10"
-                borderRadius="$full"
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-              >
-                <Icon name="BankOutline" color="$iconActive" />
-              </YStack>
-              <ListItem.Text
-                flex={1}
-                primary={intl.formatMessage({
-                  id: ETranslations.receive_other_exchanges,
-                })}
-              />
-            </ListItem>
+            <WalletActionReceive
+              sameModal
+              source="receiveSelector"
+              renderTrigger={({ onPress, disabled }) => (
+                <ListItem
+                  drillIn
+                  onPress={() => {
+                    defaultLogger.transaction.receive.clickExchangeEntry({
+                      exchangeSource: 'others',
+                      walletType: wallet?.type,
+                    });
+                    handleReceiveOnPress({ onPress });
+                  }}
+                  disabled={disabled}
+                  gap="$4"
+                  nativePressableStyle={{ flexShrink: 0 }}
+                  userSelect="none"
+                >
+                  <YStack
+                    w="$10"
+                    h="$10"
+                    borderRadius="$full"
+                    bg="$bgStrong"
+                    justifyContent="center"
+                    alignItems="center"
+                  >
+                    <Icon name="BankOutline" color="$iconActive" />
+                  </YStack>
+                  <ListItem.Text
+                    flex={1}
+                    primary={intl.formatMessage({
+                      id: ETranslations.receive_other_exchanges,
+                    })}
+                  />
+                </ListItem>
+              )}
+            />
           </YStack>
         </YStack>
       </Page.Body>

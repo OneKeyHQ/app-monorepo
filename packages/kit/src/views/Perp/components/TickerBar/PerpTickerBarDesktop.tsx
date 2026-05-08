@@ -18,14 +18,16 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import {
-  usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
   useSpotActiveAssetCtxAtom,
+  useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -33,6 +35,7 @@ import {
   formatDisplayNumber,
   formatLocalizedNumberString,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getSpotMarketCapValue } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
@@ -368,7 +371,11 @@ const TickerBarMarketCapView = memo(
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText size="$headingXs">${formattedMarketCap}</SizableText>
+            <SizableText size="$headingXs">
+              {formattedMarketCap === '--'
+                ? formattedMarketCap
+                : `$${formattedMarketCap}`}
+            </SizableText>
           </SkeletonContainer>
         </YStack>
       </DebugRenderTracker>
@@ -379,12 +386,15 @@ TickerBarMarketCapView.displayName = 'TickerBarMarketCapView';
 
 function TickerBarMarketCap() {
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const { circulatingSupply = '0', markPrice = '0' } = spotAssetCtx?.ctx || {};
-  const formattedMarketCap = formatDisplayNumber(
-    NUMBER_FORMATTER.marketCap(
-      (Number(circulatingSupply) * Number(markPrice)).toString(),
-    ),
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
+  const marketCap = getSpotMarketCapValue(
+    spotAssetCtx?.ctx,
+    spotAssetCtx?.baseName ?? spotAssetCtx?.coin,
+    spotMarketCaps,
   );
+  const formattedMarketCap = marketCap
+    ? formatDisplayNumber(NUMBER_FORMATTER.marketCap(marketCap))
+    : undefined;
   const isLoading = useTickerBarIsLoading();
 
   return (
@@ -420,19 +430,33 @@ const TickerBarSpotContractView = memo(
                 fontFamily="$monoRegular"
                 color="$text"
                 numberOfLines={1}
+                textTransform="none"
               >
                 {shortenedContract}
               </SizableText>
               {contract ? (
-                <IconButton
-                  size="small"
-                  variant="tertiary"
-                  icon="Copy3Outline"
-                  iconProps={{ size: '$3', color: '$iconSubdued' }}
-                  onPress={() => {
-                    copyText(contract);
-                  }}
-                />
+                <>
+                  <IconButton
+                    size="small"
+                    variant="tertiary"
+                    icon="Copy3Outline"
+                    iconProps={{ size: '$3', color: '$iconSubdued' }}
+                    onPress={() => {
+                      copyText(contract);
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    variant="tertiary"
+                    icon="OpenOutline"
+                    iconProps={{ size: '$3', color: '$iconSubdued' }}
+                    onPress={() => {
+                      void openHyperLiquidTokenExplorerUrl({
+                        tokenId: contract,
+                      });
+                    }}
+                  />
+                </>
               ) : null}
             </XStack>
           </SkeletonContainer>
@@ -779,7 +803,7 @@ function TickerBarFundingRate() {
 }
 
 function PerpTickerBarDesktop() {
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
   const marketDataGap = useMemo(() => (isSpot ? '$6' : '$8'), [isSpot]);
@@ -800,7 +824,7 @@ function PerpTickerBarDesktop() {
       <XStack gap="$4" alignItems="center" minWidth={0} flexShrink={1}>
         <XStack gap="$2" alignItems="center" minWidth={0} flexShrink={1}>
           <FavoriteButton
-            coin={activeAsset.coin}
+            coin={activeTradeInstrument.coin}
             iconSize="$4"
             isSpot={isSpot}
           />

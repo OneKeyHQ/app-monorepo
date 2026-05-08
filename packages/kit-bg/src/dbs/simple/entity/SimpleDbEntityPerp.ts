@@ -51,6 +51,7 @@ export interface ISimpleDbPerpData {
   configVersion?: string;
   tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
   hyperliquidTermsAccepted?: boolean;
+  perpOrderOpenFlags?: Record<string, boolean>; // user address -> whether orderOpen has succeeded
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
   abstractionModeUsers?: Record<string, string>; // user address -> EHyperLiquidAbstractionMode
@@ -92,6 +93,33 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   }
 
   @backgroundMethod()
+  async isFirstPerpOrderOpen(userAddress: string): Promise<boolean> {
+    const key = userAddress.toLowerCase();
+    if (!key) {
+      return true;
+    }
+    const config = await this.getPerpData();
+    return !config.perpOrderOpenFlags?.[key];
+  }
+
+  @backgroundMethod()
+  async markPerpOrderOpen(userAddress: string) {
+    const key = userAddress.toLowerCase();
+    if (!key) {
+      return;
+    }
+    await this.setPerpData(
+      (prevConfig): ISimpleDbPerpData => ({
+        ...prevConfig,
+        perpOrderOpenFlags: {
+          ...prevConfig?.perpOrderOpenFlags,
+          [key]: true,
+        },
+      }),
+    );
+  }
+
+  @backgroundMethod()
   async getPerpData(): Promise<ISimpleDbPerpData> {
     const config = await this.getRawData();
     const result = config || {
@@ -120,9 +148,32 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     marginTablesMapByDex: Array<IMarginTablesMap | undefined>;
   }> {
     const config = await this.getPerpData();
+    const tradingUniverses = config.tradingUniverses;
+    let universesByDex: IPerpsUniverse[][] = [];
+    if (Array.isArray(tradingUniverses) && tradingUniverses.length > 0) {
+      universesByDex = !Array.isArray(tradingUniverses[0] as unknown)
+        ? [tradingUniverses as unknown as IPerpsUniverse[]]
+        : tradingUniverses;
+    } else if (
+      Array.isArray(config.tradingUniverse) &&
+      config.tradingUniverse.length > 0
+    ) {
+      universesByDex = [config.tradingUniverse];
+    }
+
+    let marginTablesMapByDex: Array<IMarginTablesMap | undefined> = [];
+    if (
+      Array.isArray(config.marginTablesMapList) &&
+      config.marginTablesMapList.length > 0
+    ) {
+      marginTablesMapByDex = config.marginTablesMapList;
+    } else if (config.marginTablesMap) {
+      marginTablesMapByDex = [config.marginTablesMap];
+    }
+
     return {
-      universesByDex: config.tradingUniverses || [],
-      marginTablesMapByDex: config.marginTablesMapList || [],
+      universesByDex,
+      marginTablesMapByDex,
     };
   }
 

@@ -1463,17 +1463,17 @@ const PositionRow = memo(
     }, [pos.leverage?.type]);
 
     const handleAdjustMargin = useCallback(() => {
-      showAdjustPositionMarginDialog({ coin });
-    }, [coin]);
+      showAdjustPositionMarginDialog({ coin, intl });
+    }, [coin, intl]);
 
     const handleSetTpsl = useCallback(async () => {
       await actions.current.showSetPositionTpslUI({
         position: pos,
         isMobile: isMobile ?? false,
-        onShowDialog: showSetTpslDialog,
+        onShowDialog: (params) => showSetTpslDialog({ ...params, intl }),
         navigation,
       });
-    }, [isMobile, navigation, actions, pos]);
+    }, [isMobile, navigation, actions, pos, intl]);
 
     const handleChangeAsset = useCallback(() => {
       void actions.current.changeActiveAsset({
@@ -1483,9 +1483,9 @@ const PositionRow = memo(
 
     const handleClosePosition = useCallback(
       (type: 'market' | 'limit') => {
-        showClosePositionDialog({ position: pos, type });
+        showClosePositionDialog({ position: pos, type, intl });
       },
-      [pos],
+      [pos, intl],
     );
 
     const { showPositionShare } = useShowPositionShare();

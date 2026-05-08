@@ -52,7 +52,6 @@ import {
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -418,12 +417,30 @@ function DepositWithdrawContent({
 
   const accountResult = usePerpsAccountResult(selectedAccount);
 
+  const checkDepositWalletNotBackedUp = useCallback(async () => {
+    const walletId =
+      accountResult?.wallet?.id ??
+      (selectedAccount.accountId
+        ? accountUtils.getWalletIdFromAccountId({
+            accountId: selectedAccount.accountId,
+          })
+        : undefined);
+    if (!walletId) return false;
+
+    return backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+      walletId,
+    });
+  }, [accountResult?.wallet?.id, selectedAccount.accountId]);
+
   const handleBuyPress = useCallback(async () => {
     if (!currentPerpsDepositSelectedToken || !accountResult) {
       return;
     }
 
     await dismissKeyboardWithDelay();
+    if (await checkDepositWalletNotBackedUp()) {
+      return;
+    }
 
     defaultLogger.wallet.walletActions.buyOnLowBalance({
       source: 'perp',
@@ -458,6 +475,7 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken,
     selectedAccount,
     accountResult,
+    checkDepositWalletNotBackedUp,
   ]);
 
   const checkAccountSupport = useMemo(() => {
@@ -1103,6 +1121,12 @@ function DepositWithdrawContent({
         void perpDepositQuoteAction();
         return;
       }
+      if (
+        selectedAction === 'deposit' &&
+        (await checkDepositWalletNotBackedUp())
+      ) {
+        return;
+      }
       setIsSubmitting(true);
       if (selectedAction === 'deposit') {
         if (isArbitrumUsdcToken) {
@@ -1172,6 +1196,7 @@ function DepositWithdrawContent({
     validateAmountBeforeSubmit,
     checkRefreshQuote,
     selectedAction,
+    checkDepositWalletNotBackedUp,
     perpDepositQuoteAction,
     isArbitrumUsdcToken,
     normalizeTxConfirm,
@@ -1905,6 +1930,7 @@ function DepositWithdrawContent({
 }
 
 function MobileDepositWithdrawModal() {
+  const intl = useIntl();
   const navigation = useNavigation();
   const route =
     useRoute<
@@ -1955,7 +1981,7 @@ function MobileDepositWithdrawModal() {
   return (
     <Page>
       <Page.Header
-        title={appLocale.intl.formatMessage({
+        title={intl.formatMessage({
           id: ETranslations.perp_trade_account_overview,
         })}
       />

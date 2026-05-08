@@ -1,7 +1,10 @@
 import { type BrowserWindow, type IpcMainEvent, ipcMain } from 'electron';
 import logger from 'electron-log/main';
 
-import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
+import type {
+  ITrayAction,
+  ITrayData,
+} from '@onekeyhq/shared/src/types/desktop/tray';
 
 import { ipcMessageKeys } from '../config';
 
@@ -23,6 +26,7 @@ const ALLOWED_TRAY_ACTION_TYPES = new Set([
   'open-page',
   'market-detail-v2',
   'view-all-transactions',
+  'transaction-detail',
 ]);
 
 // Strict pattern so the tray cannot coerce the EVENT_OPEN_URL fan-out
@@ -76,6 +80,18 @@ function isFromTrayWindow(event: IpcMainEvent, channel: string): boolean {
     return false;
   }
   return true;
+}
+
+export function requestDataFromMainWindow(
+  getMainWindow: () => BrowserWindow | undefined,
+): void {
+  if (isLocked) return;
+
+  const mainWindow = getMainWindow();
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.webContents.isCrashed()) return;
+
+  mainWindow.webContents.send(ipcMessageKeys.TRAY_DATA_REQUEST);
 }
 
 export function registerTrayIpcHandlers(
@@ -147,9 +163,12 @@ export function registerTrayIpcHandlers(
     if (action.type === 'open-page' && typeof action.route === 'string') {
       const match = TX_DETAIL_ROUTE_PATTERN.exec(action.route);
       if (match) {
-        mainWindow.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, {
-          url: `onekey-wallet://transaction/${match[1]}`,
-        });
+        const nextAction: ITrayAction = {
+          type: 'transaction-detail',
+          txid: match[1],
+          historyId: match[1],
+        };
+        mainWindow.webContents.send(ipcMessageKeys.TRAY_ACTION, nextAction);
         return;
       }
     }
@@ -168,7 +187,6 @@ export function registerTrayIpcHandlers(
     }
     // Cold start: main renderer hasn't pushed data yet. Trigger a gather
     // instead of waiting for the next 30s poll tick.
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     requestDataFromMainWindow(getMainWindow);
   };
   ipcMain.on(ipcMessageKeys.TRAY_READY, onTrayReady);
@@ -180,18 +198,6 @@ export function sendCachedDataToTrayWindow(): void {
   if (trayWindow && !trayWindow.isDestroyed()) {
     trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, cachedTrayData);
   }
-}
-
-export function requestDataFromMainWindow(
-  getMainWindow: () => BrowserWindow | undefined,
-): void {
-  if (isLocked) return;
-
-  const mainWindow = getMainWindow();
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.webContents.isCrashed()) return;
-
-  mainWindow.webContents.send(ipcMessageKeys.TRAY_DATA_REQUEST);
 }
 
 export function unregisterTrayIpcHandlers(): void {

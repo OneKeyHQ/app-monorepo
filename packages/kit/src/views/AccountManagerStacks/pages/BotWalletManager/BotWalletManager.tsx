@@ -37,6 +37,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EAccountManagerStacksRoutes,
@@ -58,6 +59,7 @@ import {
   getBotWalletListItemActions,
   updateBotWalletEntryMetadata,
 } from './botWalletManagerUtils';
+import { useExportBotWalletToCli } from './useExportBotWalletToCli';
 
 function BotWalletListItem({
   entry,
@@ -65,6 +67,8 @@ function BotWalletListItem({
   onVisibilityToggle,
   onDeactivate,
   onReactivate,
+  onExportToCli,
+  canExportToCli,
 }: {
   entry: IBotWalletEntry;
   onRename: (params: { walletId: string; name: string }) => Promise<void>;
@@ -75,7 +79,13 @@ function BotWalletListItem({
   }) => Promise<void>;
   onDeactivate: (walletId: string) => Promise<void>;
   onReactivate: (walletId: string) => Promise<void>;
+  onExportToCli: (params: {
+    walletId: string;
+    walletName: string;
+  }) => Promise<void>;
+  canExportToCli: boolean;
 }) {
+  const intl = useIntl();
   const { wallet, metadata } = entry;
   const navigation = useAppNavigation();
   const isDeactivated = metadata.status === BOT_WALLET_STATUS_DEACTIVATED;
@@ -84,6 +94,10 @@ function BotWalletListItem({
   const canToggleVisibility = visibleActions.includes('visibility');
   const canDeactivate = visibleActions.includes('deactivate');
   const canReactivate = visibleActions.includes('reactivate');
+  // The export gate no longer requires a populated firstEvmAddress because
+  // CLI now derives displayAddress itself from the decrypted seed. We still
+  // exclude deactivated wallets — exporting a tombstoned wallet is nonsensical.
+  const canExportCliPayload = canExportToCli && !isDeactivated;
   const visibilityIcon = metadata.visible ? 'EyeOutline' : 'EyeClosedOutline';
   const visibilityIconColor = metadata.visible ? '$icon' : '$iconDisabled';
   const visibilityAccessibilityLabel = metadata.visible
@@ -147,6 +161,7 @@ function BotWalletListItem({
 
   const handleRename = useCallback(() => {
     showRenameDialog(metadata.name, {
+      intl,
       disabledMaxLengthLabel: true,
       nameHistoryInfo: {
         entityId: wallet.id,
@@ -160,7 +175,7 @@ function BotWalletListItem({
         });
       },
     });
-  }, [metadata.name, onRename, wallet.id]);
+  }, [metadata.name, onRename, wallet.id, intl]);
 
   return (
     <XStack
@@ -249,6 +264,21 @@ function BotWalletListItem({
         {canExportMnemonic ? (
           <Button size="small" variant="primary" onPress={handleExportMnemonic}>
             导出
+          </Button>
+        ) : null}
+
+        {canExportCliPayload ? (
+          <Button
+            size="small"
+            variant="secondary"
+            onPress={() =>
+              void onExportToCli({
+                walletId: wallet.id,
+                walletName: metadata.name,
+              })
+            }
+          >
+            导出到 CLI
           </Button>
         ) : null}
 
@@ -445,6 +475,14 @@ function BotWalletManagerContent() {
 
   const sections = buildBotWalletSections(entries);
 
+  const handleExportToCli = useExportBotWalletToCli();
+  const activeBotWalletCount = entries.filter(
+    (e) => e.metadata.status === BOT_WALLET_STATUS_ACTIVE,
+  ).length;
+  const canExportToCli =
+    Boolean(platformEnv.isDesktop || platformEnv.isWeb) &&
+    activeBotWalletCount === 1;
+
   const handleCreate = useCallback(() => {
     let botName = '';
     Dialog.confirm({
@@ -561,6 +599,8 @@ function BotWalletManagerContent() {
           onVisibilityToggle={handleBotWalletVisibilityToggle}
           onDeactivate={handleDeactivateBotWallet}
           onReactivate={handleReactivateBotWallet}
+          onExportToCli={handleExportToCli}
+          canExportToCli={canExportToCli}
         />
       )}
     />

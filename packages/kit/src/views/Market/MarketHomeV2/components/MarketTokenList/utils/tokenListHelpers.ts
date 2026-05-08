@@ -27,6 +27,17 @@ export const SORT_MAP: Record<string, keyof IMarketToken> = {
   v24hUSD: 'turnover',
 };
 
+export function shouldShowStockSubtitleForTokens(
+  items: Array<Pick<IMarketToken, 'stock'>>,
+) {
+  if (items.length === 0) {
+    return false;
+  }
+
+  const stockCount = items.filter((item) => !!item.stock).length;
+  return stockCount > items.length / 10;
+}
+
 const ONE_HOUR = 60 * 60 * 1000;
 const ONE_DAY = 24 * ONE_HOUR;
 const ONE_MONTH = 30 * ONE_DAY;

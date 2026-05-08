@@ -36,7 +36,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
         featureName: EPrimeFeatures.BulkSend,
         entryPoint: 'moreActions',
       });
-      navigation.pushModal(EModalRoutes.PrimeModal, {
+      navigation.pushFullModal(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
         params: {
           fromFeature: EPrimeFeatures.BulkSend,

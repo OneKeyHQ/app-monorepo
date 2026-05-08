@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -20,6 +22,7 @@ function WalletActionBuyMain({
 }: {
   customization?: IActionCustomization;
 }) {
+  const intl = useIntl();
   const {
     activeAccount: { network, wallet, account },
   } = useActiveAccount({ num: 0 });
@@ -79,7 +82,11 @@ function WalletActionBuyMain({
   return (
     <RawActions.Buy
       onPress={handleBuyToken}
-      label={customization?.label}
+      label={
+        customization?.labelId
+          ? intl.formatMessage({ id: customization.labelId })
+          : undefined
+      }
       icon={customization?.icon}
       disabled={customization?.disabled ?? isBuyDisabled}
       trackID="wallet-buy"

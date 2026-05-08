@@ -46,7 +46,7 @@ export function MobilePositionsListHeader({
       {/* Left: Filter checkbox - same style as TP/SL checkbox in trading form */}
       <Checkbox
         label={intl.formatMessage({
-          id: ETranslations.perps_hide_other_symbols,
+          id: ETranslations.perps_hide_other_pairs,
         })}
         labelProps={{ fontSize: '$bodyXs' }}
         containerProps={{ p: '$0', alignItems: 'center' }}

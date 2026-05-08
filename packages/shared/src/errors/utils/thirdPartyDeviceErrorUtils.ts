@@ -71,6 +71,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.UserRejected:
       return new ThirdPartyErrors.ThirdPartyUserRejected(props);
 
+    case ThirdPartyHwErrorCode.UserAborted:
+      return new ThirdPartyErrors.ThirdPartyUserAborted(props);
+
     case ThirdPartyHwErrorCode.DevicePermissionDenied:
       return new ThirdPartyErrors.ThirdPartyDevicePermissionDenied(props);
 
@@ -85,6 +88,12 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.DeviceMismatch:
       return new ThirdPartyErrors.ThirdPartyDeviceMismatch(props);
+
+    case ThirdPartyHwErrorCode.DeviceAppStuck:
+      return new ThirdPartyErrors.ThirdPartyDeviceAppStuck(props);
+
+    case ThirdPartyHwErrorCode.ChainNotSupported:
+      return new ThirdPartyErrors.ThirdPartyChainNotSupported(props);
 
     case ThirdPartyHwErrorCode.OperationTimeout:
       return new ThirdPartyErrors.ThirdPartyOperationTimeout(props);

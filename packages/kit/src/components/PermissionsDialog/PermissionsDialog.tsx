@@ -5,7 +5,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 export const showNotificationPermissionsDialog = () =>
   Dialog.show({
-    // title: appLocale.intl.formatMessage({ id: ETranslations.global_rename }),
     title: '通知权限',
     renderContent: (
       <Stack>

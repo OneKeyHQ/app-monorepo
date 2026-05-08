@@ -16,6 +16,12 @@ import type { IUnsignedTxPro } from '../../../types';
 import type { IEncodedTxEvm } from '../types';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
 
+export { buildHardwareEvmTransaction } from './hardwareTx';
+export type {
+  IHardwareEvmTransaction,
+  IHardwareEvmTransactionEIP1559,
+} from './hardwareTx';
+
 export async function getPublicKeyFromPrivateKey({
   privateKeyRaw,
 }: {
@@ -130,8 +136,8 @@ export function buildSignedTxFromSignatureEvm({
 }) {
   const { r, s, v } = signature;
   /**
-   * sdk legacy return {v,r,s}; eip1559 return {recoveryParam,r,s}
-   * splitSignature auto convert v to recoveryParam
+   * hd-core returns {v, r, s} for both legacy and EIP-1559 transactions.
+   * ethers' splitSignature derives recoveryParam from v internally.
    */
   const sig = splitSignature({
     v: Number(v),

@@ -32,7 +32,7 @@ export const useMarketTokenColumns = (
     showStockSubtitle,
     hiddenDesktopColumns,
   );
-  const mobileColumns = useColumnsMobile();
+  const mobileColumns = useColumnsMobile(showStockSubtitle);
 
   const media = useMedia();
 

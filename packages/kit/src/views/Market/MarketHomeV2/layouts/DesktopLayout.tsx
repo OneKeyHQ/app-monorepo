@@ -17,7 +17,7 @@ import {
 } from '../utils';
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
-import { useMarketTabsLogic } from './hooks';
+import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 
 import type {
   ILiquidityFilter,
@@ -60,16 +60,10 @@ export function DesktopLayout({
     perpsTabName,
     showPerpsTab,
     handleTabChange,
-    selectedTab,
+    selectedTabName,
   } = useMarketTabsLogic(onTabChange);
 
   const isFocused = useIsFirstFocus();
-
-  const initialTabName = useMemo(() => {
-    if (selectedTab === 'watchlist') return watchlistTabName;
-    if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
-    return spotTabName;
-  }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
 
   const containerProps = useMemo(
     () => ({
@@ -90,7 +84,8 @@ export function DesktopLayout({
     setPortalTarget(el);
   }, []);
 
-  const [activeTabName, setActiveTabName] = useState(initialTabName);
+  const { activeTabName, setActiveTabName, tabsRef } =
+    useSyncedMarketTab(selectedTabName);
 
   // Ref so renderTabBar can update activeTabName immediately on press
   // without recreating the callback (which would break collapsible tab memoisation).
@@ -154,7 +149,7 @@ export function DesktopLayout({
       setActiveTabName(tabName);
       handleTabChange(tabName);
     },
-    [handleTabChange],
+    [handleTabChange, setActiveTabName],
   );
 
   const listContainerProps = useMemo(() => {
@@ -188,8 +183,10 @@ export function DesktopLayout({
     <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
       <YStack flex={1}>
         <Tabs.Container
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ref={tabsRef as any}
           renderTabBar={renderTabBar}
-          initialTabName={initialTabName}
+          initialTabName={selectedTabName}
           onTabChange={onTabChangeHandler}
           {...containerProps}
         >

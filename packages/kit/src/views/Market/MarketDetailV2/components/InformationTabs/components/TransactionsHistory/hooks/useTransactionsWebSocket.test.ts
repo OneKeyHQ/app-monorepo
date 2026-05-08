@@ -125,6 +125,28 @@ describe('useTransactionsWebSocket', () => {
     });
   });
 
+  it('passes subscription restore callbacks to shared recovery', () => {
+    const onSubscriptionRestored = jest.fn();
+
+    renderHook(() =>
+      useTransactionsWebSocket({
+        networkId: 'evm--1',
+        tokenAddress: '0xabc',
+        currency: 'usd',
+        onSubscriptionRestored,
+      }),
+    );
+
+    expect(globalMockBag.__txWsRecoveryHook).toHaveBeenCalledWith({
+      enabled: true,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      currency: 'usd',
+      channel: 'tokenTxs',
+      onRestored: onSubscriptionRestored,
+    });
+  });
+
   it('maps matching transaction updates and clears the tracker count', async () => {
     const onNewTransaction = jest.fn();
     renderHook(() =>

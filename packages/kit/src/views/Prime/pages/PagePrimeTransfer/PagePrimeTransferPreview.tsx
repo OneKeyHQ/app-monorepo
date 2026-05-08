@@ -30,7 +30,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EPrimePages,
@@ -107,12 +106,12 @@ function PreviewItem({
       onSelect?.(itemId);
     } else {
       Toast.error({
-        title: appLocale.intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.transfer_web_only_supports_watch_only_transfer,
         }),
       });
     }
-  }, [itemId, onSelect, selectedItemMapInfo]);
+  }, [itemId, onSelect, selectedItemMapInfo, intl]);
 
   return (
     <Stack
@@ -590,7 +589,7 @@ export default function PagePrimeTransferPreview() {
           console.error(error);
           await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
           Toast.error({
-            title: appLocale.intl.formatMessage({
+            title: intl.formatMessage({
               id: ETranslations.global_an_error_occurred,
             }),
             message: (error as Error)?.message || 'Unknown error',
@@ -621,7 +620,7 @@ export default function PagePrimeTransferPreview() {
                 await startImport();
               } else {
                 Toast.error({
-                  title: appLocale.intl.formatMessage({
+                  title: intl.formatMessage({
                     id: ETranslations.auth_error_passcode_incorrect,
                   }),
                 });

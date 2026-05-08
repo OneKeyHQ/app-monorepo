@@ -108,6 +108,10 @@ function isBTCNetwork(networkId?: string) {
   );
 }
 
+function isBTCMainnet(networkId?: string) {
+  return networkId === getNetworkIdsMap().btc;
+}
+
 export function getBtcDappNetworkName(network: IServerNetwork) {
   if (network && isBTCNetwork(network.id)) {
     if (network.isTestnet) {
@@ -292,6 +296,7 @@ export default {
   isSolanaNetworkByNetworkId,
   isTronNetworkByNetworkId,
   isBTCNetwork,
+  isBTCMainnet,
   getBtcDappNetworkName,
   isAllNetwork,
   getDefaultDeriveTypeVisibleNetworks,

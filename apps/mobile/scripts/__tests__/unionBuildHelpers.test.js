@@ -308,6 +308,36 @@ describe('unionBuildHelpers', () => {
     expect(wrappedModules[0][1]).toContain('"22":"seg:feature.async"');
   });
 
+  // Contract test for the REACT-NATIVE-4AX (iOS 6.3.0-10069276) regression:
+  // emitSegment in unionBuild.js must call rewriteAsyncRequirePaths with a
+  // segment-shape input — wrappedModules whose source code is a __d(...)
+  // factory wrapper containing a Metro async-require dependencyMap with raw
+  // ".bundle?modulesOnly=true&runModule=false" URLs. The helper must rewrite
+  // those URLs to segment keys for any module that lives in a split segment.
+  it('rewrites Metro asyncRequire URLs inside __d() segment-shape modules', () => {
+    const segModules = [
+      [
+        2500,
+        '__d(function(){asyncRequire(778, {"paths":{"778":"/packages/kit/src/views/Receive/pages/ReceiveToken.bundle?modulesOnly=true&runModule=false"}});}, 2500, [778]);',
+      ],
+    ];
+
+    rewriteAsyncRequirePaths(segModules, {
+      moduleToSegment: new Map([
+        [778, 'seg:kit.views.Receive.pages.ReceiveToken'],
+      ]),
+      moduleIdToAbsPath: new Map([
+        [778, '/repo/packages/kit/src/views/Receive/pages/ReceiveToken.tsx'],
+      ]),
+      eagerAbsPaths: new Set(),
+    });
+
+    expect(segModules[0][1]).toContain(
+      '"778":"seg:kit.views.Receive.pages.ReceiveToken"',
+    );
+    expect(segModules[0][1]).not.toContain('modulesOnly=true&runModule=false');
+  });
+
   it('uses eager startup ownership instead of broad reachability when provided', () => {
     const sharedPath = '/repo/node_modules/path-browserify/index.js';
     const sharedModule = createModuleData({

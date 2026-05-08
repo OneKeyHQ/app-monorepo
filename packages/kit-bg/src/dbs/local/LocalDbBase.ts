@@ -3422,6 +3422,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       usbConnectId,
       bleConnectId,
     };
+    // Refill on a clone so DB insert keeps runtime-only fields out.
+    const deviceToAddHydrated: IDBDevice = { ...deviceToAdd };
+    this.refillDeviceInfo({ device: deviceToAddHydrated });
 
     const walletToAdd: IDBWallet = {
       id: dbWalletId,
@@ -3463,7 +3466,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               name: walletToAdd.name,
               avatarInfo: avatar,
             },
-            dbDevice: deviceToAdd,
+            dbDevice: deviceToAddHydrated,
           },
         ],
         onExistingSyncItemsInfo: async (existingSyncItemsInfo) => {
@@ -4553,12 +4556,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // saveAccountAddresses
     if (allAccountsBelongToNetworkId) {
+      let shouldFlushAccountAddressCache = false;
       for (const account of accounts) {
         try {
           void this.saveAccountAddresses({
             networkId: allAccountsBelongToNetworkId,
             account: account as INetworkAccount,
           });
+          shouldFlushAccountAddressCache = true;
+        } catch (error) {
+          //
+        }
+      }
+      if (shouldFlushAccountAddressCache) {
+        try {
+          await this._saveAccountAddressesBatchByCache.flush();
         } catch (error) {
           //
         }

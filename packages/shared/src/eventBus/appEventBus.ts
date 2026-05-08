@@ -25,6 +25,11 @@ import platformEnv, { ERuntimeRole } from '../platformEnv';
 import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
+import type {
+  IDeFiProtocol,
+  IFetchAccountDeFiPositionsResp,
+  IProtocolSummary,
+} from '../../types/defi';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type {
@@ -43,6 +48,7 @@ import type {
   ISwapTokenBase,
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
+import type { EDecodedTxStatus } from '../../types/tx';
 import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes } from '../routes';
@@ -235,6 +241,21 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
   [EAppEventBusNames.HardCloseHardwareUiStateDialog]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
+  [EAppEventBusNames.LocalPendingTxConfirmed]: {
+    accountId: string;
+    indexedAccountId?: string;
+    networkId: string;
+    txid: string;
+    status: EDecodedTxStatus;
+  };
+  [EAppEventBusNames.DeFiPositionRefreshed]: {
+    accountId: string;
+    indexedAccountId?: string;
+    networkId: string;
+    overview: IFetchAccountDeFiPositionsResp['data']['totals'];
+    protocols: IDeFiProtocol[];
+    protocolMap: Record<string, IProtocolSummary>;
+  };
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
   [EAppEventBusNames.GasAccountSubmitRetryScheduled]: {
     attempt: number;
@@ -399,6 +420,10 @@ export interface IAppEventBusPayload {
     data: unknown;
   };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
+  [EAppEventBusNames.PerpSwitchActiveInstrument]: {
+    mode: 'perp' | 'spot';
+    coin: string;
+  };
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';
@@ -450,6 +475,7 @@ export interface IAppEventBusPayload {
       | ETranslations.global_browser
       | ETranslations.global_earn;
     openUrl?: boolean;
+    shouldConsumePendingUrl?: boolean;
     switchType?: 'default' | 'tap' | 'swipe';
   };
   [EAppEventBusNames.SwitchEarnMode]: {
@@ -494,6 +520,7 @@ export interface IAppEventBusPayload {
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
+  [EAppEventBusNames.TrayActionWillNavigate]: undefined;
 }
 
 /**
@@ -531,6 +558,29 @@ function generateNodeId(): string {
   // eslint-disable-next-line no-bitwise
   const random = (Math.random() * 0xff_ff_ff_ff) >>> 0;
   return `${role}-${random.toString(36)}-${Date.now().toString(36)}`;
+}
+
+/**
+ * Tags a payload that is about to cross a process boundary with
+ * `$$isRemoteEvent: true`. Listeners may inspect this metadata flag to detect
+ * remote-origin events (see e.g. AccountSelectorEffects). The flag is *not*
+ * used for routing — echo prevention is handled by `originNodeId` in the
+ * transport layer.
+ */
+function convertToRemoteEventPayload(payloadValue: unknown): unknown {
+  const payloadCloned = cloneDeep(payloadValue);
+  try {
+    if (payloadCloned && typeof payloadCloned === 'object') {
+      (
+        payloadCloned as {
+          $$isRemoteEvent?: boolean;
+        }
+      ).$$isRemoteEvent = true;
+    }
+  } catch (_e) {
+    // ignore
+  }
+  return payloadCloned;
 }
 
 /**
@@ -603,6 +653,8 @@ class AppEventBusClass extends CrossEventEmitter {
         });
         break;
       case ERuntimeRole.Standalone:
+        break;
+      default:
         break;
     }
     return true;
@@ -703,28 +755,6 @@ class AppEventBusClass extends CrossEventEmitter {
   }
 }
 
-/**
- * Tags a payload that is about to cross a process boundary with
- * `$$isRemoteEvent: true`. Listeners may inspect this metadata flag to detect
- * remote-origin events (see e.g. AccountSelectorEffects). The flag is *not*
- * used for routing — echo prevention is handled by `originNodeId` in the
- * transport layer.
- */
-function convertToRemoteEventPayload(payloadValue: unknown): unknown {
-  const payloadCloned = cloneDeep(payloadValue);
-  try {
-    if (payloadCloned && typeof payloadCloned === 'object') {
-      (
-        payloadCloned as {
-          $$isRemoteEvent?: boolean;
-        }
-      ).$$isRemoteEvent = true;
-    }
-  } catch (_e) {
-    // ignore
-  }
-  return payloadCloned;
-}
 const appEventBus = new AppEventBusClass();
 
 appGlobals.$appEventBus = appEventBus;
