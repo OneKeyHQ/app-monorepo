@@ -173,16 +173,22 @@ class ProviderApiPrivate extends ProviderApiBase {
     const keylessWallet = await this.backgroundApi.serviceAccount
       .getKeylessWallet()
       .catch(() => undefined);
-    const connectedAccounts = await this.backgroundApi.serviceDApp
-      .dAppGetConnectedAccountsInfo(request)
-      .catch(() => null);
+    // Use findInjectedAccountByOrigin (origin-only lookup) instead of
+    // dAppGetConnectedAccountsInfo. The latter resolves the request scope to
+    // a network impl via scopeNetworks, but $private (the scope of this RPC)
+    // maps to undefined and throws — making siteConnected always false.
+    const connectedAccounts = request.origin
+      ? await this.backgroundApi.serviceDApp
+          .findInjectedAccountByOrigin(request.origin)
+          .catch(() => null)
+      : null;
 
     return {
       pluginInstalled: true,
       walletExists: Boolean(keylessWallet),
       walletType: keylessWallet?.keylessDetailsInfo?.keylessProvider,
       siteConnected: Boolean(connectedAccounts?.length),
-      connectedAccountId: connectedAccounts?.[0]?.account?.id,
+      connectedAccountId: connectedAccounts?.[0]?.accountId,
       pendingProvider: provider,
       pendingNonce: nonce,
     };

@@ -213,13 +213,24 @@ function WalletItem({
   );
 }
 
-function OneKeyWalletItem({ networkType }: { networkType?: string }) {
+function OneKeyWalletItem({
+  networkType,
+  isOneKeyConnected,
+}: {
+  networkType?: string;
+  isOneKeyConnected: boolean;
+}) {
   const intl = useIntl();
   const { isOneKeyInstalled, getOneKeyConnectionInfo } =
     useOneKeyWalletDetection();
   const { connectToWalletWithDialog } = useConnectExternalWallet();
 
+  const isConnectedState = isOneKeyConnected;
+
   const handlePress = useCallback(() => {
+    if (isConnectedState) {
+      return;
+    }
     if (isOneKeyInstalled) {
       const connectionInfo = getOneKeyConnectionInfo();
       if (connectionInfo) {
@@ -228,7 +239,12 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
     } else {
       openUrlExternal(getOneKeyExtensionStoreUrl());
     }
-  }, [isOneKeyInstalled, getOneKeyConnectionInfo, connectToWalletWithDialog]);
+  }, [
+    isConnectedState,
+    isOneKeyInstalled,
+    getOneKeyConnectionInfo,
+    connectToWalletWithDialog,
+  ]);
 
   return (
     <Stack flexBasis="50%" p="$1.5">
@@ -239,15 +255,12 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
         py="$3"
         pl="$3"
         pr="$5"
-        cursor="pointer"
-        hoverStyle={{
-          bg: '$bgStrong',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-        onPress={handlePress}
-        focusable
+        cursor={isConnectedState ? 'default' : 'pointer'}
+        opacity={isConnectedState ? 0.6 : 1}
+        hoverStyle={isConnectedState ? undefined : { bg: '$bgStrong' }}
+        pressStyle={isConnectedState ? undefined : { bg: '$bgActive' }}
+        onPress={isConnectedState ? undefined : handlePress}
+        focusable={!isConnectedState}
         focusVisibleStyle={{
           outlineColor: '$focusRing',
           outlineStyle: 'solid',
@@ -279,7 +292,11 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
                 OneKey
               </SizableText>
               <Badge badgeType="success" badgeSize="sm">
-                {intl.formatMessage({ id: ETranslations.earn_recommended })}
+                {intl.formatMessage({
+                  id: isConnectedState
+                    ? ETranslations.global_connected
+                    : ETranslations.earn_recommended,
+                })}
               </Badge>
             </XStack>
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -296,7 +313,11 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
   );
 }
 
-function KeylessProviderButtons() {
+function KeylessProviderButtons({
+  keylessWalletExists,
+}: {
+  keylessWalletExists: boolean;
+}) {
   const intl = useIntl();
   const { isOneKeyInstalled, getOneKeyConnectionInfo } =
     useOneKeyWalletDetection();
@@ -491,6 +512,10 @@ function KeylessProviderButtons() {
     return null;
   }
 
+  if (keylessWalletExists) {
+    return null;
+  }
+
   return (
     <YStack gap="$2">
       <XStack gap="$2">
@@ -580,6 +605,31 @@ function WalletConnectItem({ impl }: { impl?: string }) {
 }
 
 function ExternalWalletList({ impl }: { impl?: string }) {
+  const { isOneKeyInstalled } = useOneKeyWalletDetection();
+
+  const { result: keylessSiteState } = usePromiseResult(
+    async () => {
+      if (!platformEnv.isWebDappMode || !isOneKeyInstalled) {
+        return { walletExists: false, siteConnected: false };
+      }
+      const status = await getOneKeyPrivateProvider()
+        ?.request?.<{ walletExists?: boolean; siteConnected?: boolean }>({
+          method: EKeylessWebPrivateRpcMethod.GetStatus,
+        })
+        .catch(() => undefined);
+      return {
+        walletExists: Boolean(status?.walletExists),
+        siteConnected: Boolean(status?.siteConnected),
+      };
+    },
+    [isOneKeyInstalled],
+    { initResult: { walletExists: false, siteConnected: false } },
+  );
+  const keylessWalletExists = keylessSiteState?.walletExists ?? false;
+  const isOneKeyConnected =
+    (keylessSiteState?.walletExists ?? false) &&
+    (keylessSiteState?.siteConnected ?? false);
+
   // detect available wallets
   const { result: allWallets = { wallets: {} } } = usePromiseResult(
     () =>
@@ -644,9 +694,12 @@ function ExternalWalletList({ impl }: { impl?: string }) {
 
   return (
     <Stack px="$5" pt="$2" pb="$4">
-      <KeylessProviderButtons />
+      <KeylessProviderButtons keylessWalletExists={keylessWalletExists} />
       <XStack flexWrap="wrap" mx="$-1.5">
-        <OneKeyWalletItem networkType={networkLabel} />
+        <OneKeyWalletItem
+          networkType={networkLabel}
+          isOneKeyConnected={isOneKeyConnected}
+        />
         {walletItems}
         {fallbackWalletItems}
         <WalletConnectItem impl={impl} />

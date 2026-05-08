@@ -82,7 +82,19 @@ export function isProviderApiPrivateKeylessMethod(method?: string) {
 }
 
 export function isProviderApiPrivateAllowedKeylessOrigin(origin?: string) {
-  return !!origin && KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN.includes(origin);
+  if (!origin) return false;
+  if (KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN.includes(origin)) return true;
+  // Match the dev-localhost handling in isProviderApiPrivateAllowedOrigin so
+  // dev servers on any port (e.g. http://localhost:3000) can call keyless RPCs.
+  // The strict allow-list only contains "http://localhost" without a port.
+  if (
+    platformEnv.isDev &&
+    (origin.startsWith('http://localhost') ||
+      origin.startsWith('http://127.0.0.1'))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function isProviderApiPrivateAllowedOrigin(origin?: string) {
