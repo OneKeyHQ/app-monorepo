@@ -2,9 +2,14 @@ import BigNumber from 'bignumber.js';
 
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { isValidMarketPresetCustomPriorityFeeValue } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
-import { swapSlippageMaxValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  swapSlippageMaxValue,
+  swapSlippageWillAheadMinValue,
+  swapSlippageWillFailMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapNetworkFeeLevel,
+  ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -67,6 +72,11 @@ export type IMarketPresetSavedSettings = {
     >
   >;
 };
+
+export enum EMarketPresetSlippageWarningType {
+  WILL_FAIL = 'willFail',
+  WILL_AHEAD = 'willAhead',
+}
 
 export type IMarketPresetConfig = {
   enabled: boolean;
@@ -448,18 +458,51 @@ export function isValidMarketPresetCustomValue(value?: string) {
 export function isInvalidMarketPresetSlippageSettings(
   settings?: IMarketPresetDirectionSettings,
 ) {
+  return (
+    getMarketPresetSlippageCustomStatus(settings).status ===
+    ESwapSlippageCustomStatus.ERROR
+  );
+}
+
+export function getMarketPresetSlippageCustomStatus(
+  settings?: IMarketPresetDirectionSettings,
+): {
+  status: ESwapSlippageCustomStatus;
+  warningType?: EMarketPresetSlippageWarningType;
+} {
   if (!settings) {
-    return false;
+    return { status: ESwapSlippageCustomStatus.NORMAL };
+  }
+
+  if (settings.slippage.key !== ESwapSlippageSegmentKey.CUSTOM) {
+    return { status: ESwapSlippageCustomStatus.NORMAL };
   }
 
   const slippageValueBN = new BigNumber(settings.slippage.value ?? Number.NaN);
-  return (
-    settings.slippage.key === ESwapSlippageSegmentKey.CUSTOM &&
-    (settings.slippage.value === undefined ||
-      slippageValueBN.isNaN() ||
-      slippageValueBN.isNegative() ||
-      slippageValueBN.gt(swapSlippageMaxValue))
-  );
+  if (
+    settings.slippage.value === undefined ||
+    slippageValueBN.isNaN() ||
+    slippageValueBN.isNegative() ||
+    slippageValueBN.gt(swapSlippageMaxValue)
+  ) {
+    return { status: ESwapSlippageCustomStatus.ERROR };
+  }
+
+  if (slippageValueBN.lte(swapSlippageWillFailMinValue)) {
+    return {
+      status: ESwapSlippageCustomStatus.WRONG,
+      warningType: EMarketPresetSlippageWarningType.WILL_FAIL,
+    };
+  }
+
+  if (slippageValueBN.gt(swapSlippageWillAheadMinValue)) {
+    return {
+      status: ESwapSlippageCustomStatus.WRONG,
+      warningType: EMarketPresetSlippageWarningType.WILL_AHEAD,
+    };
+  }
+
+  return { status: ESwapSlippageCustomStatus.NORMAL };
 }
 
 export function isInvalidMarketPresetPriorityFeeSettings(

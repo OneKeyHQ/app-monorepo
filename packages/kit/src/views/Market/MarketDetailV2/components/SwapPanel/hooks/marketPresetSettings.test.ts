@@ -1,18 +1,21 @@
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   ESwapNetworkFeeLevel,
+  ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
   EMarketPresetKey,
   EMarketPresetPriorityFeeType,
+  EMarketPresetSlippageWarningType,
   EMarketPresetTradeSide,
   fetchMarketPresetConfig,
   getMarketPresetCustomizedMap,
   getMarketPresetDefaultEditableDirectionSettingsForPreset,
   getMarketPresetItem,
   getMarketPresetNetworkFeeLevel,
+  getMarketPresetSlippageCustomStatus,
   getMarketPresetSlippageValue,
   resolveMarketPresetDirectionSettings,
 } from './marketPresetSettings';
@@ -184,4 +187,41 @@ describe('marketPresetSettings', () => {
       })[EMarketPresetKey.P2],
     ).toBe(true);
   });
+
+  it.each([
+    [
+      0.05,
+      ESwapSlippageCustomStatus.WRONG,
+      EMarketPresetSlippageWarningType.WILL_FAIL,
+    ],
+    [0.06, ESwapSlippageCustomStatus.NORMAL, undefined],
+    [10, ESwapSlippageCustomStatus.NORMAL, undefined],
+    [
+      10.01,
+      ESwapSlippageCustomStatus.WRONG,
+      EMarketPresetSlippageWarningType.WILL_AHEAD,
+    ],
+    [
+      50,
+      ESwapSlippageCustomStatus.WRONG,
+      EMarketPresetSlippageWarningType.WILL_AHEAD,
+    ],
+    [50.01, ESwapSlippageCustomStatus.ERROR, undefined],
+  ])(
+    'resolves custom slippage %s validation status',
+    (value, status, warningType) => {
+      const result = getMarketPresetSlippageCustomStatus({
+        slippage: {
+          key: ESwapSlippageSegmentKey.CUSTOM,
+          value,
+        },
+        priorityFee: {
+          type: EMarketPresetPriorityFeeType.MARKET,
+        },
+      });
+
+      expect(result.status).toBe(status);
+      expect(result.warningType).toBe(warningType);
+    },
+  );
 });

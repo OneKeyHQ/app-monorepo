@@ -20,16 +20,25 @@ import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialo
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
-import { swapSlippageCustomDefaultList } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
+import {
+  swapSlippageCustomDefaultList,
+  swapSlippageWillAheadMinValue,
+  swapSlippageWillFailMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  ESwapSlippageCustomStatus,
+  ESwapSlippageSegmentKey,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   EMarketPresetKey,
   EMarketPresetPriorityFeeType,
+  EMarketPresetSlippageWarningType,
   EMarketPresetTradeSide,
   type IMarketPresetDirectionSettings,
   getMarketPresetDefaultDirectionSettings,
   getMarketPresetDefaultEditableDirectionSettingsForPreset,
+  getMarketPresetSlippageCustomStatus,
   isInvalidMarketPresetDirectionSettings,
   isInvalidMarketPresetPriorityFeeSettings,
   isInvalidMarketPresetSlippageSettings,
@@ -434,8 +443,10 @@ function MarketPresetSettingsDialog({
   });
   const currentDirectionPendingReset =
     resetDirectionSetRef.current.has(currentDirectionKey);
+  const currentSlippageCustomStatus =
+    getMarketPresetSlippageCustomStatus(currentSettings);
   const currentSlippageInvalid =
-    isInvalidMarketPresetSlippageSettings(currentSettings);
+    currentSlippageCustomStatus.status === ESwapSlippageCustomStatus.ERROR;
   const currentPriorityFeeInvalid =
     !!presetSettings.config?.priorityFee.editable &&
     isInvalidMarketPresetPriorityFeeSettings(currentSettings);
@@ -444,6 +455,9 @@ function MarketPresetSettingsDialog({
     (currentSlippageInvalid || currentPriorityFeeInvalid);
   const showCurrentSlippageError =
     !currentDirectionPendingReset && currentSlippageInvalid;
+  const showCurrentSlippageWarning =
+    !currentDirectionPendingReset &&
+    currentSlippageCustomStatus.status === ESwapSlippageCustomStatus.WRONG;
   const showCurrentPriorityFeeError =
     !currentDirectionPendingReset && currentPriorityFeeInvalid;
   const hasInvalidDirtySettings = Array.from(dirtyDirectionSetRef.current).some(
@@ -758,11 +772,35 @@ function MarketPresetSettingsDialog({
                         ))}
                       </XStack>
                     </XStack>
-                    {showCurrentSlippageError ? (
-                      <SizableText size="$bodySmMedium" color="$textCritical">
-                        {intl.formatMessage({
-                          id: ETranslations.slippage_tolerance_error_message,
-                        })}
+                    {showCurrentSlippageError || showCurrentSlippageWarning ? (
+                      <SizableText
+                        size="$bodySmMedium"
+                        color={
+                          showCurrentSlippageError
+                            ? '$textCritical'
+                            : '$textCaution'
+                        }
+                      >
+                        {showCurrentSlippageError
+                          ? intl.formatMessage({
+                              id: ETranslations.slippage_tolerance_error_message,
+                            })
+                          : intl.formatMessage(
+                              {
+                                id:
+                                  currentSlippageCustomStatus.warningType ===
+                                  EMarketPresetSlippageWarningType.WILL_AHEAD
+                                    ? ETranslations.slippage_tolerance_warning_message_1
+                                    : ETranslations.slippage_tolerance_warning_message_2,
+                              },
+                              {
+                                number:
+                                  currentSlippageCustomStatus.warningType ===
+                                  EMarketPresetSlippageWarningType.WILL_AHEAD
+                                    ? swapSlippageWillAheadMinValue
+                                    : swapSlippageWillFailMinValue,
+                              },
+                            )}
                       </SizableText>
                     ) : null}
                   </>
