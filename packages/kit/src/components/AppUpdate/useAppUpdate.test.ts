@@ -42,8 +42,15 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     shouldResumeStalledDownload: jest.fn(),
     updateLastDialogShownAt: jest.fn(),
   };
+  const dev = {
+    getSkipBundleGPGVerification: jest.fn(),
+  };
   (globalThis as any).__mockSvc = svc;
-  return { __esModule: true, default: { serviceAppUpdate: svc } };
+  (globalThis as any).__mockDevSvc = dev;
+  return {
+    __esModule: true,
+    default: { serviceAppUpdate: svc, serviceDevSetting: dev },
+  };
 });
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => {
@@ -257,10 +264,11 @@ import {
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
+  isUnrecoverableDownloadError,
   runDownloadWithRetry,
   sanitizeUpdateErrorMessage,
   useDownloadPackage,
-} from './hooks';
+} from './useAppUpdate';
 
 // Keep a reference to the shared React so isolated modules can reuse it
 (globalThis as any).__sharedReact = React;
@@ -271,6 +279,7 @@ import {
 
 const g = globalThis as any;
 const svc = g.__mockSvc;
+const devSvc = g.__mockDevSvc;
 const nav = g.__mockNav;
 const appUpd = g.__mockAppUpd;
 const bundleUpd = g.__mockBundleUpd;
@@ -316,6 +325,9 @@ function resetAllMocks() {
   svc.resetToInComplete.mockResolvedValue(undefined);
   svc.fetchChangeLog.mockResolvedValue(undefined);
   svc.updateLastDialogShownAt.mockResolvedValue(undefined);
+  // Defaults match the safe baseline: native disallows skip, dev setting off.
+  bundleUpd.isSkipGpgVerificationAllowed.mockResolvedValue(false);
+  devSvc.getSkipBundleGPGVerification.mockResolvedValue(false);
 }
 
 // ---------------------------------------------------------------------------
@@ -558,6 +570,30 @@ describe('sanitizeUpdateErrorMessage', () => {
     );
   });
 
+  test('redacts Android /data/data/<pkg>/ internal storage path', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          "java.io.FileNotFoundException: /data/data/so.onekey.app.wallet/files/onekey-bundle-download/x.zip.partial: open failed: ENOSPC",
+        ),
+      ),
+    ).toBe(
+      'java.io.FileNotFoundException: /data/data/<redacted>/files/onekey-bundle-download/x.zip.partial: open failed: ENOSPC',
+    );
+  });
+
+  test('redacts Android /data/user/<id>/<pkg>/ multi-user storage path', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'IOException: /data/user/0/so.onekey.app.wallet/files/foo: permission denied',
+        ),
+      ),
+    ).toBe(
+      'IOException: /data/user/0/<redacted>/files/foo: permission denied',
+    );
+  });
+
   test('preserves non-PII content unchanged', () => {
     expect(
       sanitizeUpdateErrorMessage(
@@ -704,6 +740,63 @@ describe('extractUpdateErrorCode', () => {
         'Bundle SHA256 verification failed: FILE_DISAPPEARED',
       ),
     ).toBe('SHA256_FILE_DISAPPEARED');
+  });
+});
+
+// =========================================================================
+// A4. isUnrecoverableDownloadError
+// =========================================================================
+describe('isUnrecoverableDownloadError', () => {
+  test.each([
+    ['SHA256_MISMATCH', 'Bundle SHA256 verification failed: MISMATCH'],
+    ['HTTP_403', 'HTTP 403 Forbidden'],
+    ['HTTP_404', 'HTTP error 404 Not Found'],
+    ['HTTP_410', 'Download failed with status: 410'],
+  ])('%s code → unrecoverable', (_label, msg) => {
+    expect(isUnrecoverableDownloadError(new Error(msg))).toBe(true);
+  });
+
+  test.each([
+    ['HTTP_500', 'HTTP 500 Internal Server Error'],
+    ['HTTP_502', 'HTTP error 502 Bad Gateway'],
+    ['HTTP_504', 'HTTP 504 Gateway Timeout'],
+    ['HTTP_408', 'HTTP 408 Request Timeout'],
+    ['HTTP_429', 'HTTP 429 Too Many Requests'],
+    ['SHA256_FILE_TRUNCATED', 'Bundle SHA256 verification failed: FILE_TRUNCATED'],
+    ['NSURL_-1009', 'NSURLErrorDomain code -1009 (offline)'],
+    ['IO_FileNotFoundException', 'IO_FileNotFoundException: open failed'],
+  ])('%s code → recoverable (transient)', (_label, msg) => {
+    expect(isUnrecoverableDownloadError(new Error(msg))).toBe(false);
+  });
+
+  test.each([
+    'Bundle download URL must use HTTPS',
+    'Invalid version string format',
+    'Already downloading',
+    'Invalid URL: not-a-url',
+  ])('programmer/config-error message %p → unrecoverable', (msg) => {
+    expect(isUnrecoverableDownloadError(new Error(msg))).toBe(true);
+  });
+
+  test('matches programmer-error message even when it is a substring of a longer message', () => {
+    expect(
+      isUnrecoverableDownloadError(
+        new Error('OneKeyError: Already downloading bundle x'),
+      ),
+    ).toBe(true);
+  });
+
+  test('plain unknown free-text error → recoverable (no false positive)', () => {
+    expect(
+      isUnrecoverableDownloadError(new Error('socket hang up')),
+    ).toBe(false);
+    expect(isUnrecoverableDownloadError(new Error(''))).toBe(false);
+  });
+
+  test('handles non-Error inputs without throwing', () => {
+    expect(isUnrecoverableDownloadError(null)).toBe(false);
+    expect(isUnrecoverableDownloadError(undefined)).toBe(false);
+    expect(isUnrecoverableDownloadError('HTTP 404 Not Found')).toBe(true);
   });
 });
 
@@ -1129,6 +1222,113 @@ describe('useDownloadPackage', () => {
     });
   });
 
+  // ----- B4b. getSkipGPGVerification routing through verifyPackage -----
+  // The skip-GPG branch is security-sensitive: it lets a developer bypass
+  // bundle signature verification on debug builds. The native
+  // `BundleUpdate.isSkipGpgVerificationAllowed()` gate is the *first*
+  // line of defense (only debug/dev builds return true); the dev-setting
+  // toggle is the second. Both must be true for the flag to propagate
+  // into BundleUpdate.verifyBundle. We assert this precise AND-chain
+  // here so a regression that flips either gate (or removes one)
+  // surfaces as a failing test instead of a release-build code-signing
+  // bypass.
+  describe('getSkipGPGVerification (via verifyPackage)', () => {
+    const baseInfo = {
+      latestVersion: '1.0.0',
+      jsBundleVersion: '5',
+    };
+
+    test('appShell verify never reads the dev setting (branch short-circuits at fileType)', async () => {
+      svc.getUpdateInfo.mockResolvedValue({ latestVersion: '2.0.0' });
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/a.zip' });
+      appUpd.verifyPackage.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(bundleUpd.isSkipGpgVerificationAllowed).not.toHaveBeenCalled();
+      expect(devSvc.getSkipBundleGPGVerification).not.toHaveBeenCalled();
+    });
+
+    test('bundle + native gate disallows skip → skipGPGVerification:false (dev setting never read)', async () => {
+      svc.getUpdateInfo.mockResolvedValue(baseInfo);
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/b.zip' });
+      bundleUpd.isSkipGpgVerificationAllowed.mockResolvedValue(false);
+      bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(bundleUpd.verifyBundle).toHaveBeenCalledWith(
+        expect.objectContaining({ skipGPGVerification: false }),
+      );
+      // Critical: the dev-setting branch must NOT be reached when the
+      // native gate denies. Otherwise a misconfigured prod build with a
+      // stale `skipBundleGPGVerification=true` setting would bypass.
+      expect(devSvc.getSkipBundleGPGVerification).not.toHaveBeenCalled();
+    });
+
+    test('bundle + native gate allows skip + dev setting OFF → skipGPGVerification:false', async () => {
+      svc.getUpdateInfo.mockResolvedValue(baseInfo);
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/b.zip' });
+      bundleUpd.isSkipGpgVerificationAllowed.mockResolvedValue(true);
+      devSvc.getSkipBundleGPGVerification.mockResolvedValue(false);
+      bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(devSvc.getSkipBundleGPGVerification).toHaveBeenCalledTimes(1);
+      expect(bundleUpd.verifyBundle).toHaveBeenCalledWith(
+        expect.objectContaining({ skipGPGVerification: false }),
+      );
+    });
+
+    test('bundle + native gate allows skip + dev setting ON → skipGPGVerification:true (the only path that bypasses)', async () => {
+      svc.getUpdateInfo.mockResolvedValue(baseInfo);
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/b.zip' });
+      bundleUpd.isSkipGpgVerificationAllowed.mockResolvedValue(true);
+      devSvc.getSkipBundleGPGVerification.mockResolvedValue(true);
+      bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(bundleUpd.verifyBundle).toHaveBeenCalledWith(
+        expect.objectContaining({ skipGPGVerification: true }),
+      );
+    });
+
+    test('bundle + native gate throws → falls back to skipGPGVerification:false (catch path)', async () => {
+      svc.getUpdateInfo.mockResolvedValue(baseInfo);
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/b.zip' });
+      bundleUpd.isSkipGpgVerificationAllowed.mockRejectedValue(
+        new Error('JNI bridge unavailable'),
+      );
+      bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      // Fail-closed: a thrown native gate must not be interpreted as a
+      // pass-through to the dev-setting branch.
+      expect(devSvc.getSkipBundleGPGVerification).not.toHaveBeenCalled();
+      expect(bundleUpd.verifyBundle).toHaveBeenCalledWith(
+        expect.objectContaining({ skipGPGVerification: false }),
+      );
+    });
+  });
+
   // ----- B5. installPackage -----
   describe('installPackage', () => {
     test('appShell success → calls AppUpdate.installPackage + onSuccess', async () => {
@@ -1332,12 +1532,12 @@ describe('useAppUpdateInfo useEffect', () => {
   // We use jest.isolateModules to get a fresh copy of ./hooks while
   // pinning 'react' to the shared instance (so renderHook works).
 
-  function requireFreshHooks(): typeof import('./hooks') {
-    let hooks: typeof import('./hooks') = undefined as any;
+  function requireFreshHooks(): typeof import('./useAppUpdate') {
+    let hooks: typeof import('./useAppUpdate') = undefined as any;
     jest.isolateModules(() => {
       // Pin react so the isolated hooks share the same React with renderHook
       jest.mock('react', () => (globalThis as any).__sharedReact);
-      hooks = require('./hooks');
+      hooks = require('./useAppUpdate');
     });
     return hooks;
   }
@@ -2038,17 +2238,94 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(svc.downloadPackage).not.toHaveBeenCalled();
     });
   });
+
+  // -------------------------------------------------------------------------
+  // C-extra: once-per-app-lifetime guard
+  // -------------------------------------------------------------------------
+  // The first-launch dispatch effect lives on a module-scoped flag in
+  // AppUpdateForeground.tsx (didRunFirstLaunchDispatch). It must fire
+  // exactly once across the lifetime of the JS context, even if the
+  // hook (or the <AppUpdateForeground /> component) is unmounted and
+  // remounted — StrictMode double-invoke and hot-reload both remount.
+  // The component-local `cancelled` flag would not catch this on its own.
+  describe('once-per-app-lifetime guard', () => {
+    function requireFreshHooksWithForeground(): {
+      hooks: typeof import('./useAppUpdate');
+      foreground: typeof import('./AppUpdateForeground');
+    } {
+      let hooks: typeof import('./useAppUpdate') = undefined as any;
+      let foreground: typeof import('./AppUpdateForeground') = undefined as any;
+      jest.isolateModules(() => {
+        jest.mock('react', () => (globalThis as any).__sharedReact);
+        hooks = require('./useAppUpdate');
+        foreground = require('./AppUpdateForeground');
+      });
+      return { hooks, foreground };
+    }
+
+    test('remount within the same app lifecycle does NOT re-fire the first-launch dispatch', async () => {
+      setAtom({
+        status: EAppUpdateStatus.downloadPackage,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const { hooks } = requireFreshHooksWithForeground();
+      const r1 = renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      expect(svc.downloadPackage).toHaveBeenCalledTimes(1);
+
+      r1.unmount();
+      svc.downloadPackage.mockClear();
+
+      // Same module instance → didRunFirstLaunchDispatch is still true.
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+    });
+
+    test('__resetAppUpdateForegroundForTests clears the guard so the next mount re-fires', async () => {
+      setAtom({
+        status: EAppUpdateStatus.downloadPackage,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const { hooks, foreground } = requireFreshHooksWithForeground();
+      const r1 = renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      expect(svc.downloadPackage).toHaveBeenCalledTimes(1);
+
+      r1.unmount();
+      svc.downloadPackage.mockClear();
+      foreground.__resetAppUpdateForegroundForTests();
+
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      expect(svc.downloadPackage).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 // =========================================================================
 // D. onUpdateAction routing
 // =========================================================================
 describe('onUpdateAction', () => {
-  function requireFreshHooks(): typeof import('./hooks') {
-    let hooks: typeof import('./hooks') = undefined as any;
+  function requireFreshHooks(): typeof import('./useAppUpdate') {
+    let hooks: typeof import('./useAppUpdate') = undefined as any;
     jest.isolateModules(() => {
       jest.mock('react', () => (globalThis as any).__sharedReact);
-      hooks = require('./hooks');
+      hooks = require('./useAppUpdate');
     });
     return hooks;
   }
