@@ -61,15 +61,15 @@ import {
 import { transferInputSchema, transferOutputSchema } from './transfer-schema';
 import { versionInputSchema, versionOutputSchema } from './version-schema';
 import {
+  walletHistoryInputSchema,
+  walletHistoryOutputSchema,
+} from './wallet-history-schema';
+import {
   walletAddressInputSchema,
   walletAddressOutputSchema,
   walletAddressTypesInputSchema,
   walletAddressTypesOutputSchema,
 } from './wallet-schemas';
-import {
-  walletHistoryInputSchema,
-  walletHistoryOutputSchema,
-} from './wallet-history-schema';
 
 // --- Standalone commands ---
 
@@ -293,7 +293,8 @@ defineCommand({
 
 defineCommand({
   name: 'swap-execute',
-  description: 'Sign and broadcast a built swap transaction; BTC supports sign-only PSBT output',
+  description:
+    'Sign and broadcast a built swap transaction; BTC supports sign-only PSBT output',
   input: swapExecuteInputSchema,
   output: swapExecuteOutputSchema,
   examples: [

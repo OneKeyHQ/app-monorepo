@@ -4,6 +4,7 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 
+import { AppError, ERROR_CODES } from '../../../errors';
 import { SignerSoftwareBase } from '../../base/SignerSoftwareBase';
 import { CLI_PASSWORD } from '../../keychain-keys';
 
@@ -97,7 +98,11 @@ export class SignerHd extends SignerSoftwareBase {
   override async signMessage(
     _payload: ICoreApiSignMsgPayload,
   ): Promise<string> {
-    throw new Error('BTC message signing is not exposed by the CLI.');
+    throw new AppError(
+      ERROR_CODES.PARAM_INVALID_COMMAND.code,
+      'BTC message signing is not exposed by the CLI.',
+      'Use a chain that supports message signing.',
+    );
   }
 
   buildNetworkInfo(networkId: string) {

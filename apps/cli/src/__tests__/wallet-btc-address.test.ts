@@ -2,6 +2,7 @@ import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 
 import { registerWalletCommands } from '../commands/wallet';
 import { getSignerByImpl } from '../signer';
+
 import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
 jest.mock('../signer', () => ({
@@ -32,10 +33,15 @@ describe('wallet BTC address commands', () => {
 
     expect(result.exitCode).toBe(0);
 
-    const parsed = JSON.parse(extractJson(result.stdout));
-    expect(
-      parsed.data.map((item: { addressType: string }) => item.addressType),
-    ).toEqual(['taproot', 'native-segwit', 'nested-segwit', 'legacy']);
+    const parsed = JSON.parse(extractJson(result.stdout)) as {
+      data: { addressType: string }[];
+    };
+    expect(parsed.data.map((item) => item.addressType)).toEqual([
+      'taproot',
+      'native-segwit',
+      'nested-segwit',
+      'legacy',
+    ]);
     expect(parsed.data[0]).toEqual(
       expect.objectContaining({
         chain: 'btc',

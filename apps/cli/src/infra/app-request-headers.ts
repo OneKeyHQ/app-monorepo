@@ -19,12 +19,16 @@ function parseEnvFile(content: string): Record<string, string> {
   const result: Record<string, string> = {};
   for (const rawLine of content.split(/\r?\n/)) {
     const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eqIndex = line.indexOf('=');
-    if (eqIndex <= 0) continue;
-    const key = line.slice(0, eqIndex).trim();
-    const value = line.slice(eqIndex + 1).trim();
-    if (key) result[key] = value;
+    if (!line || line.startsWith('#')) {
+      // skip blanks and comments
+    } else {
+      const eqIndex = line.indexOf('=');
+      if (eqIndex > 0) {
+        const key = line.slice(0, eqIndex).trim();
+        const value = line.slice(eqIndex + 1).trim();
+        if (key) result[key] = value;
+      }
+    }
   }
   return result;
 }
@@ -46,12 +50,13 @@ function readEnvVersionFile(): Record<string, string> {
   const searchDirs = [process.cwd(), __dirname];
   for (const dir of searchDirs) {
     const file = findEnvVersionFile(dir);
-    if (!file) continue;
-    try {
-      cachedEnvVersionFile = parseEnvFile(fs.readFileSync(file, 'utf8'));
-      return cachedEnvVersionFile;
-    } catch {
-      // Fall through to defaults. Request headers must not break CLI commands.
+    if (file) {
+      try {
+        cachedEnvVersionFile = parseEnvFile(fs.readFileSync(file, 'utf8'));
+        return cachedEnvVersionFile;
+      } catch {
+        // Fall through to defaults. Request headers must not break CLI commands.
+      }
     }
   }
 

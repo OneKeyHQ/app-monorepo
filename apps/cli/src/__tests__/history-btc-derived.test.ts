@@ -1,10 +1,12 @@
 import { registerWalletHistoryCommand } from '../commands/wallet-history';
 import { fetchHistory, formatHistoryList } from '../core/history-fetcher';
 import { getSignerByImpl } from '../signer';
+
 import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
 jest.mock('../core/history-fetcher', () => ({
   fetchHistory: jest.fn(),
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   formatHistoryList: jest.fn((resp) => resp.data),
 }));
 
@@ -41,7 +43,9 @@ describe('history BTC/TBTC derived wallet reads', () => {
     });
     mockFetchHistory
       .mockResolvedValueOnce({
-        data: [{ txHash: 'taproot-old', timestamp: '2026-05-01T00:00:00.000Z' }],
+        data: [
+          { txHash: 'taproot-old', timestamp: '2026-05-01T00:00:00.000Z' },
+        ],
         hasMore: false,
       } as never)
       .mockResolvedValueOnce({

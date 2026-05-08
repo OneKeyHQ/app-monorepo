@@ -2,6 +2,7 @@ import { registerTransferCommand } from '../commands/transfer';
 import { buildBtcTransferTx } from '../core/btc/tx-builder';
 import { apiClient } from '../infra';
 import { getSignerByImpl } from '../signer';
+
 import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
 jest.mock('../infra', () => ({
@@ -13,7 +14,9 @@ jest.mock('../infra', () => ({
 }));
 
 jest.mock('../commands/command-guards', () => {
-  const actual = jest.requireActual('../commands/command-guards');
+  const actual = jest.requireActual<
+    typeof import('../commands/command-guards')
+  >('../commands/command-guards');
   return {
     ...actual,
     requireAuthenticatedCommand: jest.fn(async () => undefined),
@@ -28,6 +31,7 @@ jest.mock('../core/btc/tx-builder', () => ({
   buildBtcTransferTx: jest.fn(),
 }));
 
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const mockPost = apiClient.post as jest.MockedFunction<typeof apiClient.post>;
 const mockGetSignerByImpl = getSignerByImpl as jest.MockedFunction<
   typeof getSignerByImpl

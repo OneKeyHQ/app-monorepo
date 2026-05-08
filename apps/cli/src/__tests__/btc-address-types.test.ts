@@ -1,7 +1,5 @@
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { ERROR_CODES } from '../errors';
-import { btcAddressType } from '../schemas/common';
 import {
   BTC_ADDRESS_TYPES,
   assertBtcAddressType,
@@ -14,6 +12,8 @@ import {
   listBtcAddressTypeInfos,
   normalizeBtcAddressEncoding,
 } from '../core/btc/address-types';
+import { ERROR_CODES } from '../errors';
+import { btcAddressType } from '../schemas/common';
 
 describe('btc address types', () => {
   it('exposes canonical address types in user-facing order', () => {
@@ -103,19 +103,23 @@ describe('btc address types', () => {
   });
 
   it('throws AppError for invalid address type with supported values', () => {
+    expect(() => getBtcAddressTypeInfo(IMPL_BTC, 'segwit')).toThrow(
+      expect.objectContaining({
+        code: ERROR_CODES.PARAM_INVALID_ADDRESS.code,
+      }),
+    );
+
+    let captured: Error | undefined;
     try {
       getBtcAddressTypeInfo(IMPL_BTC, 'segwit');
-      throw new Error('expected invalid address type');
     } catch (error) {
-      expect(error).toMatchObject({
-        code: ERROR_CODES.PARAM_INVALID_ADDRESS.code,
-      });
-      expect((error as Error).message).toContain('Invalid BTC address type');
-      expect((error as Error).message).toContain('taproot');
-      expect((error as Error).message).toContain('native-segwit');
-      expect((error as Error).message).toContain('nested-segwit');
-      expect((error as Error).message).toContain('legacy');
+      captured = error as Error;
     }
+    expect(captured?.message).toContain('Invalid BTC address type');
+    expect(captured?.message).toContain('taproot');
+    expect(captured?.message).toContain('native-segwit');
+    expect(captured?.message).toContain('nested-segwit');
+    expect(captured?.message).toContain('legacy');
   });
 
   it('exports a reusable zod schema for btc address types', () => {

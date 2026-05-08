@@ -13,8 +13,8 @@ import { resolveToken } from '../core/token-resolver';
 import { AppError, ERROR_CODES } from '../errors';
 import { getSignerByImpl } from '../signer';
 
-import type { IHistoryItem } from '../core/history-fetcher';
 import type { BtcAddressType } from '../core/btc/address-types';
+import type { IHistoryItem } from '../core/history-fetcher';
 import type { OutputFormatter } from '../output';
 import type { Command } from 'commander';
 

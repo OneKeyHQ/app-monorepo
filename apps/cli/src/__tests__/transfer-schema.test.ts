@@ -1,9 +1,12 @@
-import { transferOptionsSchema } from '../schemas/transfer-schema';
 import { registerTransferCommand } from '../commands/transfer';
+import { transferOptionsSchema } from '../schemas/transfer-schema';
+
 import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
 jest.mock('../commands/command-guards', () => {
-  const actual = jest.requireActual('../commands/command-guards');
+  const actual = jest.requireActual<
+    typeof import('../commands/command-guards')
+  >('../commands/command-guards');
   return {
     ...actual,
     requireAuthenticatedCommand: jest.fn(async () => undefined),

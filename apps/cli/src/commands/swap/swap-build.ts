@@ -15,10 +15,7 @@ import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
-import {
-  parseBtcFeeTier,
-  resolveBtcFeeRate,
-} from '../../utils/btc-fee-rate';
+import { parseBtcFeeTier, resolveBtcFeeRate } from '../../utils/btc-fee-rate';
 import {
   amountToSmallestUnit,
   validateAmountDecimals,
@@ -29,17 +26,17 @@ import {
 } from '../command-guards';
 
 import {
-  formatRouteHeader,
-  parseSortMode,
-  renderQuoteTable,
-} from './swap-display-utils';
-import {
   emptyBtcSwapAddressing,
   getBtcSwapAddressMetadata,
   hasBtcSwapAddressing,
   isBtcSwapChain,
   requireBtcSwapAddressType,
 } from './swap-btc-address';
+import {
+  formatRouteHeader,
+  parseSortMode,
+  renderQuoteTable,
+} from './swap-display-utils';
 import { fetchSwapNetworks } from './swap-networks';
 import { getProtocolConfig } from './swap-protocol-config';
 import { fetchQuotesViaSSE } from './swap-quote';
@@ -88,10 +85,10 @@ function hasValidBtcData(response: IBuildTxResponse): boolean {
   const btcData = response.btcData;
   return Boolean(
     btcData &&
-      typeof btcData === 'object' &&
-      typeof btcData.hexStr === 'string' &&
-      btcData.hexStr.length > 0 &&
-      Array.isArray(btcData.addressType),
+    typeof btcData === 'object' &&
+    typeof btcData.hexStr === 'string' &&
+    btcData.hexStr.length > 0 &&
+    Array.isArray(btcData.addressType),
   );
 }
 
@@ -156,10 +153,7 @@ function extractBtcProviderTransfer(
 
   const changellyOrder = getObjectValue(response, 'changellyOrder');
   const changellyPayinAddress = getStringValue(changellyOrder, 'payinAddress');
-  const changellyAmount = getStringValue(
-    changellyOrder,
-    'amountExpectedFrom',
-  );
+  const changellyAmount = getStringValue(changellyOrder, 'amountExpectedFrom');
   if (changellyPayinAddress && changellyAmount) {
     return {
       toAddress: changellyPayinAddress,
@@ -186,12 +180,12 @@ function hasValidBtcLocalTx(response: IBuildTxResponse): boolean {
   const localTx = response.btcLocalTx;
   return Boolean(
     localTx &&
-      typeof localTx === 'object' &&
-      typeof localTx.encodedTx === 'object' &&
-      localTx.encodedTx !== null &&
-      typeof localTx.btcExtraInfo === 'object' &&
-      localTx.btcExtraInfo !== null &&
-      Array.isArray(localTx.relPaths),
+    typeof localTx === 'object' &&
+    typeof localTx.encodedTx === 'object' &&
+    localTx.encodedTx !== null &&
+    typeof localTx.btcExtraInfo === 'object' &&
+    localTx.btcExtraInfo !== null &&
+    Array.isArray(localTx.relPaths),
   );
 }
 
@@ -715,7 +709,7 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
 
           // BTC source routes MUST sign a BTC PSBT — an EVM-style `tx` payload
-          // is unsignable on this code path, so we reject it at build time
+          // cannot be signed on this code path, so we reject it at build time
           // instead of saving a pending order that execute will fail to sign.
           const hasTxData = isBtcSource
             ? hasValidBtcData(buildTxResponse) ||

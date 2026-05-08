@@ -24,8 +24,8 @@ jest.mock('../core/auth/auth-gate', () => ({
 }));
 
 import { getSignerByImpl } from '../signer/factory';
-import { SignerHd } from '../signer/impls/evm/SignerHd';
 import { SignerHd as BtcSignerHd } from '../signer/impls/btc/SignerHd';
+import { SignerHd } from '../signer/impls/evm/SignerHd';
 
 describe('signer factory', () => {
   it('returns SignerHd for evm impl', async () => {

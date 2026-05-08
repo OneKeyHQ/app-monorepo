@@ -3,6 +3,7 @@ import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import { registerBalanceCommand } from '../commands/balance';
 import { apiClient } from '../infra';
 import { getSignerByImpl } from '../signer';
+
 import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
 jest.mock('../infra', () => ({
@@ -17,6 +18,7 @@ jest.mock('../signer', () => ({
   getSignerByImpl: jest.fn(),
 }));
 
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const mockGet = apiClient.get as jest.MockedFunction<typeof apiClient.get>;
 const mockGetSignerByImpl = getSignerByImpl as jest.MockedFunction<
   typeof getSignerByImpl

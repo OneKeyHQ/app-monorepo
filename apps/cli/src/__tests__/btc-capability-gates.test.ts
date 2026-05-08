@@ -1,9 +1,12 @@
 import { registerSecurityCommands } from '../commands/security';
 import { registerTransferCommand } from '../commands/transfer';
+
 import { createTestProgram, runCommand } from './test-helpers';
 
 jest.mock('../commands/command-guards', () => {
-  const actual = jest.requireActual('../commands/command-guards');
+  const actual = jest.requireActual<
+    typeof import('../commands/command-guards')
+  >('../commands/command-guards');
   return {
     ...actual,
     requireAuthenticatedCommand: jest.fn(async () => undefined),

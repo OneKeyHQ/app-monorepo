@@ -21,8 +21,7 @@ function assertNoDeprecatedBufferConstructors() {
       shouldIgnore: (index) => {
         const beforeMatch = contents.slice(Math.max(0, index - 10), index);
         return (
-          /(?:new|function)\s+$/.test(beforeMatch) ||
-          /\.\s*$/.test(beforeMatch)
+          /(?:new|function)\s+$/.test(beforeMatch) || /\.\s*$/.test(beforeMatch)
         );
       },
     },

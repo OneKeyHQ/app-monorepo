@@ -5,6 +5,8 @@ import {
   getInputsToSignFromPsbt,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { formatPsbtHex } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
+import type { ICoreApiSignBtcExtraInfo } from '@onekeyhq/core/src/types';
 
 import { loadPending, secureCache, updatePendingStatus } from '../../core';
 import {
@@ -33,8 +35,6 @@ import {
 import { resolveApproveSpender } from './resolve-approve-spender';
 import { getProtocolConfig } from './swap-protocol-config';
 
-import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
-import type { ICoreApiSignBtcExtraInfo } from '@onekeyhq/core/src/types';
 import type { IEndpointEnv } from '../../config';
 import type { BtcAddressType } from '../../core/btc/address-types';
 import type { OutputFormatter } from '../../output';

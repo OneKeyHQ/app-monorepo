@@ -1,9 +1,8 @@
-import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 
 import { AppError, ERROR_CODES } from '../../errors';
-
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 export const BTC_ADDRESS_TYPES = [
   'taproot',

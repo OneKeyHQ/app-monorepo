@@ -1,11 +1,11 @@
-import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import { EOutputsTypeForCoinSelect } from '@onekeyhq/core/src/chains/btc/types';
 import { coinSelectWithWitness } from '@onekeyhq/core/src/utils/coinSelectUtils';
+import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 
-import { ERROR_CODES } from '../errors';
-import { apiClient } from '../infra';
 import { getBtcAddressTypeInfo } from '../core/btc/address-types';
 import { buildBtcTransferTx } from '../core/btc/tx-builder';
+import { ERROR_CODES } from '../errors';
+import { apiClient } from '../infra';
 
 jest.mock('../infra', () => ({
   apiClient: {
@@ -16,13 +16,16 @@ jest.mock('../infra', () => ({
 }));
 
 jest.mock('@onekeyhq/core/src/utils/coinSelectUtils', () => {
-  const actual = jest.requireActual('@onekeyhq/core/src/utils/coinSelectUtils');
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/core/src/utils/coinSelectUtils')
+  >('@onekeyhq/core/src/utils/coinSelectUtils');
   return {
     ...actual,
     coinSelectWithWitness: jest.fn(),
   };
 });
 
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const mockGet = apiClient.get as jest.MockedFunction<typeof apiClient.get>;
 const mockCoinSelectWithWitness = coinSelectWithWitness as jest.MockedFunction<
   typeof coinSelectWithWitness

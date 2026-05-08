@@ -11,7 +11,9 @@ import {
 export const walletHistoryInputSchema = z.object({
   chain: chainId.optional(),
   token: tokenId.optional().describe('Filter by token where supported'),
-  address: chainAddress.optional().describe('Override wallet address to query.'),
+  address: chainAddress
+    .optional()
+    .describe('Override wallet address to query.'),
   addressType: btcAddressType
     .optional()
     .describe('BTC address type for derived wallet reads.'),

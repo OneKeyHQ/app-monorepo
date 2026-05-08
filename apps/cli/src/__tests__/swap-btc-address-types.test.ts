@@ -5,19 +5,16 @@ import { join } from 'node:path';
 import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 
 import { registerSwapBuildCommand } from '../commands/swap/swap-build';
-import {
-  _resetSwapNetworksCache,
-  fetchSwapNetworks,
-} from '../commands/swap/swap-networks';
+import { _resetSwapNetworksCache } from '../commands/swap/swap-networks';
 import { registerSwapQuoteCommand } from '../commands/swap/swap-quote';
-import {
-  _resetPendingDir,
-  _setPendingDirForTest,
-  loadPending,
-} from '../core';
+import { _resetPendingDir, _setPendingDirForTest, loadPending } from '../core';
+import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { getSignerByImpl } from '../signer';
+
 import { createTestProgram, extractJson, runCommand } from './test-helpers';
+
+import type { fetchSwapNetworks } from '../commands/swap/swap-networks';
 
 jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
   withCustomUAHeaders: jest.fn(
@@ -34,7 +31,9 @@ jest.mock('../infra', () => ({
 }));
 
 jest.mock('../commands/command-guards', () => {
-  const actual = jest.requireActual('../commands/command-guards');
+  const actual = jest.requireActual<
+    typeof import('../commands/command-guards')
+  >('../commands/command-guards');
   return {
     ...actual,
     requireAuthenticatedCommand: jest.fn(async () => undefined),
@@ -45,13 +44,15 @@ jest.mock('../signer', () => ({
   getSignerByImpl: jest.fn(),
 }));
 
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const mockGet = apiClient.get as jest.MockedFunction<typeof apiClient.get>;
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const mockPost = apiClient.post as jest.MockedFunction<typeof apiClient.post>;
 const mockGetSignerByImpl = getSignerByImpl as jest.MockedFunction<
   typeof getSignerByImpl
 >;
 
-const originalFetch = global.fetch;
+const originalFetch = globalThis.fetch;
 
 function registerSwapCommands() {
   const program = createTestProgram();
@@ -85,7 +86,11 @@ function mockSwapNetworks(): void {
         },
       ] as Awaited<ReturnType<typeof fetchSwapNetworks>>;
     }
-    throw new Error(`Unexpected GET service: ${service}`);
+    throw new AppError(
+      ERROR_CODES.NET_REQUEST_FAILED.code,
+      `Unexpected GET service: ${service}`,
+      'Test fixture mismatch',
+    );
   });
 }
 
@@ -124,7 +129,7 @@ function quoteItem(params: {
 }
 
 function mockQuoteSse(params: Parameters<typeof quoteItem>[0]): void {
-  global.fetch = jest.fn(async () => {
+  globalThis.fetch = jest.fn(async () => {
     const body = [
       'data: {"totalQuoteCount":1,"eventId":"event-1"}',
       '',
@@ -173,12 +178,16 @@ describe('swap BTC address type metadata', () => {
       if (impl === 'tbtc') {
         return createSigner('tb1pdestaddress', "m/86'/1'/0'");
       }
-      throw new Error(`Unexpected signer impl: ${impl}`);
+      throw new AppError(
+        ERROR_CODES.PARAM_INVALID_CHAIN.code,
+        `Unexpected signer impl: ${impl}`,
+        'Test fixture mismatch',
+      );
     });
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
     _resetPendingDir();
     rmSync(tempDir, { recursive: true, force: true });
   });
@@ -319,7 +328,7 @@ describe('swap BTC address type metadata', () => {
       addressType: 'taproot',
     });
     expect(evmSigner.getAddress).toHaveBeenCalledWith('evm--1');
-    const fetchUrl = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    const fetchUrl = (globalThis.fetch as jest.Mock).mock.calls[0][0] as string;
     const params = new URL(fetchUrl).searchParams;
     expect(params.get('userAddress')).toBe('bc1psourceaddress');
     expect(params.get('receivingAddress')).toBe(

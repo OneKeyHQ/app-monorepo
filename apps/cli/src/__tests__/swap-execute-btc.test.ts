@@ -2,13 +2,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import { Psbt } from 'bitcoinjs-lib';
+
 import {
   getBtcForkNetwork,
   getInputsToSignFromPsbt,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { formatPsbtHex } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 
 import { registerSwapExecuteCommand } from '../commands/swap/swap-execute';
 import {
@@ -19,6 +20,7 @@ import {
 } from '../core';
 import { apiClient } from '../infra';
 import { getSignerByImpl } from '../signer';
+
 import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
 import type { IPendingOrder } from '../core';
@@ -49,9 +51,7 @@ jest.mock('bitcoinjs-lib', () => ({
         ],
       },
       txInputs: [{ index: 0 }],
-      txOutputs: [
-        { address: 'bc1pproviderxxx', value: MOCK_PSBT_OUTPUT_SATS },
-      ],
+      txOutputs: [{ address: 'bc1pproviderxxx', value: MOCK_PSBT_OUTPUT_SATS }],
       toHex: jest.fn(() => 'normalized-psbt-hex'),
     })),
   },
@@ -90,7 +90,9 @@ jest.mock('../infra', () => ({
 }));
 
 jest.mock('../commands/command-guards', () => {
-  const actual = jest.requireActual('../commands/command-guards');
+  const actual = jest.requireActual<
+    typeof import('../commands/command-guards')
+  >('../commands/command-guards');
   return {
     ...actual,
     requireAuthenticatedCommand: jest.fn(async () => undefined),
@@ -101,10 +103,12 @@ jest.mock('../signer', () => ({
   getSignerByImpl: jest.fn(),
 }));
 
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const mockPost = apiClient.post as jest.MockedFunction<typeof apiClient.post>;
 const mockGetSignerByImpl = getSignerByImpl as jest.MockedFunction<
   typeof getSignerByImpl
 >;
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const mockPsbtFromHex = Psbt.fromHex as jest.MockedFunction<
   typeof Psbt.fromHex
 >;

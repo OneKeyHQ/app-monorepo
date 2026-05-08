@@ -1,9 +1,9 @@
-import { resolveChain } from '../core/chain-resolver';
 import {
   assertAddressForChain,
   sameAddress,
   validateAddressForChain,
 } from '../core/address-utils';
+import { resolveChain } from '../core/chain-resolver';
 
 describe('address-utils', () => {
   const evm = resolveChain('eth');
@@ -26,10 +26,8 @@ describe('address-utils', () => {
 
   it('validates BTC mainnet addresses', () => {
     expect(
-      validateAddressForChain(
-        btc,
-        'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
-      ).isValid,
+      validateAddressForChain(btc, 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')
+        .isValid,
     ).toBe(true);
   });
 
@@ -53,10 +51,7 @@ describe('address-utils', () => {
 
   it('throws AppError for invalid chain address', () => {
     expect(() =>
-      assertAddressForChain(
-        tbtc,
-        '0x0000000000000000000000000000000000000001',
-      ),
+      assertAddressForChain(tbtc, '0x0000000000000000000000000000000000000001'),
     ).toThrow(/Invalid address/);
   });
 });

@@ -1,23 +1,24 @@
 import BigNumber from 'bignumber.js';
 
-import { assertAddressForChain } from '../address-utils';
-import { fetchHistory, formatHistoryList } from '../history-fetcher';
+import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
+import { assertAddressForChain } from '../address-utils';
+import { fetchHistory, formatHistoryList } from '../history-fetcher';
+
 import {
   getBtcAddressTypeInfo,
   listBtcAddressTypeInfos,
 } from './address-types';
-import { AppError, ERROR_CODES } from '../../errors';
 
-import type { IChainConfig } from '../chain-resolver';
 import type { BtcAddressType, IBtcAddressTypeInfo } from './address-types';
+import type { ISigner } from '../../signer/types';
+import type { IChainConfig } from '../chain-resolver';
 import type {
   IFetchHistoryParams,
   IHistoryApiResponse,
   IHistoryItem,
 } from '../history-fetcher';
-import type { ISigner } from '../../signer/types';
 
 interface IAccountResponse {
   address: string;
@@ -92,7 +93,7 @@ function getAddressTypeInfos(
 }
 
 function sortHistoryItems(items: IHistoryItem[]): IHistoryItem[] {
-  return items.slice().sort((a, b) => {
+  return items.slice().toSorted((a, b) => {
     const aTimestamp =
       typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : Number.NaN;
     const bTimestamp =

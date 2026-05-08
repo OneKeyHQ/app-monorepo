@@ -18,9 +18,8 @@ describe('CLI App request headers', () => {
   });
 
   it('matches the OneKey Desktop App identity headers used by swap requests', async () => {
-    const { buildCliAppRequestHeaders } = await import(
-      '../infra/app-request-headers'
-    );
+    const { buildCliAppRequestHeaders } =
+      await import('../infra/app-request-headers');
 
     const headers = buildCliAppRequestHeaders();
 

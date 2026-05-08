@@ -14,10 +14,7 @@ import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { transferOptionsSchema } from '../schemas';
 import { getSignerByImpl } from '../signer';
-import {
-  parseBtcFeeTier,
-  resolveBtcFeeRate,
-} from '../utils/btc-fee-rate';
+import { parseBtcFeeTier, resolveBtcFeeRate } from '../utils/btc-fee-rate';
 import { confirmTransaction } from '../utils/confirm-transaction';
 import {
   buildErc20EncodedTx,
@@ -32,8 +29,8 @@ import {
   requireStringOption,
 } from './command-guards';
 
-import type { OutputFormatter } from '../output';
 import type { BtcAddressType } from '../core/btc/address-types';
+import type { OutputFormatter } from '../output';
 import type { Command } from 'commander';
 
 // --- API response types aligned with real contracts ---

@@ -18,16 +18,16 @@ import {
 } from '../command-guards';
 
 import {
-  formatRouteHeader,
-  parseSortMode,
-  renderQuoteTable,
-} from './swap-display-utils';
-import {
   emptyBtcSwapAddressing,
   getBtcSwapAddressMetadata,
   isBtcSwapChain,
   requireBtcSwapAddressType,
 } from './swap-btc-address';
+import {
+  formatRouteHeader,
+  parseSortMode,
+  renderQuoteTable,
+} from './swap-display-utils';
 import { fetchSwapNetworks } from './swap-networks';
 import { getProtocolConfig } from './swap-protocol-config';
 

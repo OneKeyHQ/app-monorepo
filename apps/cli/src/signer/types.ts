@@ -4,6 +4,7 @@ import type {
   ICoreApiSignMsgPayload,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+
 import type { BtcAddressType } from '../core/btc/address-types';
 
 export interface ISignerGetAddressOptions {

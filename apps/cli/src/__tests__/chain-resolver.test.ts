@@ -113,9 +113,9 @@ describe('chain-resolver', () => {
       expect(() =>
         assertChainCapability(btc, 'swap', 'swap quote'),
       ).not.toThrow();
-      expect(() =>
-        assertChainCapability(tbtc, 'swap', 'swap quote'),
-      ).toThrow(/does not support chain "tbtc"/i);
+      expect(() => assertChainCapability(tbtc, 'swap', 'swap quote')).toThrow(
+        /does not support chain "tbtc"/i,
+      );
     });
 
     it('keeps btc and tbtc out of evm-only capabilities', () => {

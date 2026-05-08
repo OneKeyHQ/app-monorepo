@@ -1,14 +1,14 @@
 import { Psbt, Transaction } from 'bitcoinjs-lib';
 
 import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
-import { IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
-import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiSignMsgPayload,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { ITxInputToSign } from '@onekeyhq/core/src/types/coreTypesTx';
+import { IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 
 import {
   CoreSDKLoader,
@@ -19,8 +19,8 @@ import { SignerHardwareBase } from '../../base/SignerHardwareBase';
 
 import { resolveBtcAddressTypeInfo, validateBtcNetworkId } from './btc-path';
 
-import type { IBtcAddressTypeInfo } from '../../../core/btc/address-types';
 import type { IBtcSignerImpl } from './btc-path';
+import type { IBtcAddressTypeInfo } from '../../../core/btc/address-types';
 import type { ISignerHardwareConfig } from '../../base/SignerHardwareBase';
 import type {
   ISignTransactionPayload,
@@ -520,6 +520,9 @@ export class SignerHardware extends SignerHardwareBase {
       hash: tx.getId(),
       version: tx.version,
       inputs: tx.ins.map((input) => ({
+        // Buffer.toReversed() returns Uint8Array which lacks .toString('hex'),
+        // so we keep the in-place .reverse() form here.
+        // oxlint-disable-next-line unicorn/no-array-reverse
         prev_hash: Buffer.from(input.hash).reverse().toString('hex'),
         prev_index: input.index,
         script_sig: Buffer.from(input.script).toString('hex'),

@@ -39,7 +39,9 @@ export const transferOutputSchema = z.object({
   to: z.string().describe('Recipient address'),
   amount: z.string().describe('Human-readable amount sent'),
   chain: z.string().describe('Chain alias'),
-  addressType: btcAddressType.optional().describe('BTC/TBTC sender address type'),
+  addressType: btcAddressType
+    .optional()
+    .describe('BTC/TBTC sender address type'),
 });
 
 export const transferDryRunOutputSchema = z.object({

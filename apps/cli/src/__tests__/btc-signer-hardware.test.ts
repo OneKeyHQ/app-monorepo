@@ -85,7 +85,7 @@ function makeDeps(overrides: { sdk?: Partial<CoreApi> } = {}): {
           public_key:
             '03098891dd952dd6f6bde1489761d0befbfa31815e9c0e64058d12b83de852a18c',
         },
-        root_fingerprint: 0xdeadbeef,
+        root_fingerprint: 0xde_ad_be_ef,
       }),
     ),
     btcSignTransaction: jest.fn(async () =>
@@ -164,7 +164,7 @@ describe('btc hardware signer', () => {
       path: "m/86'/1'/0'/0/0",
       relPath: '0/0',
       addresses: { '0/0': 'tb1p-first' },
-      __hwExtraInfo__: { rootFingerprint: 0xdeadbeef },
+      __hwExtraInfo__: { rootFingerprint: 0xde_ad_be_ef },
     });
     expect(mocks.sdk.btcGetAddress).toHaveBeenCalledWith(
       device.connectId,

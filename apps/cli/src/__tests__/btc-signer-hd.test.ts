@@ -1,6 +1,8 @@
 import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 
 import { getBtcAddressTypeInfo } from '../core/btc/address-types';
+import { SignerSoftwareBase } from '../signer/base/SignerSoftwareBase';
+import { SignerHd } from '../signer/impls/btc/SignerHd';
 
 const getAddressesFromHd = jest.fn();
 const signTransaction = jest.fn();
@@ -16,9 +18,6 @@ jest.mock('@onekeyhq/core/src/chains/btc', () => {
     })),
   };
 });
-
-import { SignerSoftwareBase } from '../signer/base/SignerSoftwareBase';
-import { SignerHd } from '../signer/impls/btc/SignerHd';
 
 describe('btc hd signer', () => {
   beforeEach(() => {

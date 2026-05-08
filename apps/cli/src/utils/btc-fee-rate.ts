@@ -48,7 +48,10 @@ function normalizeRates(raw: Array<{ feeRate?: string }>): string[] {
   // explicitly if all tiers are bogus.
   const cleaned = raw
     .map((item) => item.feeRate)
-    .filter((rate): rate is string => typeof rate === 'string' && /^-?\d+(\.\d+)?$/.test(rate))
+    .filter(
+      (rate): rate is string =>
+        typeof rate === 'string' && /^-?\d+(\.\d+)?$/.test(rate),
+    )
     .map((rate) => Math.max(0, Math.floor(Number(rate))).toString())
     .filter((rate) => {
       const numeric = Number(rate);
@@ -112,7 +115,11 @@ export async function fetchBtcFeeRate({
 export function parseBtcFeeTier(value: string | undefined): IBtcFeeTier {
   if (value === undefined) return 'standard';
   const normalized = value.toLowerCase();
-  if (normalized === 'slow' || normalized === 'standard' || normalized === 'fast') {
+  if (
+    normalized === 'slow' ||
+    normalized === 'standard' ||
+    normalized === 'fast'
+  ) {
     return normalized;
   }
   throw new AppError(
@@ -122,10 +129,7 @@ export function parseBtcFeeTier(value: string | undefined): IBtcFeeTier {
   );
 }
 
-export function validateExplicitFeeRate(
-  feeRate: string,
-  impl: string,
-): string {
+export function validateExplicitFeeRate(feeRate: string, impl: string): string {
   if (!/^\d+(\.\d+)?$/.test(feeRate)) {
     throw new AppError(
       ERROR_CODES.PARAM_INVALID_CONFIG.code,

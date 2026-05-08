@@ -1,8 +1,8 @@
 import {
-  address as bitcoinjsAddress,
   type Network,
-  Psbt,
+  type Psbt,
   Transaction,
+  address as bitcoinjsAddress,
 } from 'bitcoinjs-lib';
 
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
@@ -66,7 +66,8 @@ function getPsbtInputScriptAndValue(
       Buffer.from(psbtInput.nonWitnessUtxo),
     );
     const prevoutIndex = psbt.txInputs[index]?.index;
-    const prevOut = prevoutIndex !== undefined ? prevTx.outs[prevoutIndex] : undefined;
+    const prevOut =
+      prevoutIndex !== undefined ? prevTx.outs[prevoutIndex] : undefined;
     if (prevOut) {
       return {
         script: Buffer.from(prevOut.script),
@@ -143,13 +144,14 @@ export function describeEncodedTxSpend(
   for (const output of encodedTx.outputs ?? []) {
     // OP_RETURN outputs carry an empty address with value '0'; skip them so
     // they don't inflate externalOutputSum.
-    if (!output.address) continue;
-    const value = toBigInt(output.value);
-    totalOutputSum += value;
-    if (output.address === ourAddress) {
-      ourOutputSum += value;
-    } else {
-      externalOutputSum += value;
+    if (output.address) {
+      const value = toBigInt(output.value);
+      totalOutputSum += value;
+      if (output.address === ourAddress) {
+        ourOutputSum += value;
+      } else {
+        externalOutputSum += value;
+      }
     }
   }
 

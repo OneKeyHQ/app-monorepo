@@ -1,13 +1,12 @@
 import {
+  getBtcForkNetwork,
+  validateBtcAddress,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
   IMPL_BTC,
   IMPL_EVM,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-
-import {
-  getBtcForkNetwork,
-  validateBtcAddress,
-} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 
 import { AppError, ERROR_CODES } from '../errors';
 

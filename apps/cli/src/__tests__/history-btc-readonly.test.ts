@@ -1,10 +1,12 @@
 import { registerWalletHistoryCommand } from '../commands/wallet-history';
 import { fetchHistory } from '../core/history-fetcher';
 import { getSignerByImpl } from '../signer';
+
 import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
 jest.mock('../core/history-fetcher', () => ({
   fetchHistory: jest.fn(),
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   formatHistoryList: jest.fn((resp) => resp.data),
 }));
 
