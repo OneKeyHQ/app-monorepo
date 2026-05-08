@@ -24,8 +24,38 @@ function useRecommendedTokens({
   enableFetch: boolean;
   refreshVersion: number;
 }) {
-  const fetchRecommendedTokens = useCallback(async () => {
+  const fetchBaseRecommendedTokens = useCallback(async () => {
     if (!enableFetch) {
+      return [];
+    }
+
+    const recommendedAssets =
+      await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
+        accountId: '',
+        networkId,
+      });
+
+    return recommendedAssets?.tokens || [];
+  }, [enableFetch, networkId]);
+
+  const { result: baseRecommendedTokens = [], isLoading: isBaseLoading } =
+    usePromiseResult<IRecommendAsset[]>(
+      fetchBaseRecommendedTokens,
+      [fetchBaseRecommendedTokens, refreshVersion],
+      {
+        initResult: [],
+        watchLoading: true,
+        overrideIsFocused: (isFocused) => isFocused && enableFetch,
+      },
+    );
+
+  const shouldFetchAccountRecommendedTokens =
+    enableFetch &&
+    Boolean(accountId) &&
+    (baseRecommendedTokens.length > 0 || isBaseLoading === false);
+
+  const fetchAccountRecommendedTokens = useCallback(async () => {
+    if (!shouldFetchAccountRecommendedTokens) {
       return [];
     }
 
@@ -37,18 +67,38 @@ function useRecommendedTokens({
       });
 
     return recommendedAssets?.tokens || [];
-  }, [accountId, enableFetch, indexedAccountId, networkId]);
+  }, [
+    accountId,
+    indexedAccountId,
+    networkId,
+    shouldFetchAccountRecommendedTokens,
+  ]);
 
-  const { result: recommendedTokens = [], isLoading } = usePromiseResult<
-    IRecommendAsset[]
-  >(fetchRecommendedTokens, [fetchRecommendedTokens, refreshVersion], {
-    initResult: [],
-    watchLoading: true,
-    overrideIsFocused: (isFocused) => isFocused && enableFetch,
-  });
+  const { result: accountRecommendedTokens = [], isLoading: isAccountLoading } =
+    usePromiseResult<IRecommendAsset[]>(
+      fetchAccountRecommendedTokens,
+      [fetchAccountRecommendedTokens, refreshVersion],
+      {
+        initResult: [],
+        watchLoading: true,
+        undefinedResultIfReRun: true,
+        overrideIsFocused: (isFocused) =>
+          isFocused && shouldFetchAccountRecommendedTokens,
+      },
+    );
+
+  const recommendedTokens =
+    accountRecommendedTokens.length > 0
+      ? accountRecommendedTokens
+      : baseRecommendedTokens;
 
   return {
-    isLoading,
+    isLoading: isBaseLoading,
+    isBalanceLoading:
+      Boolean(accountId) &&
+      baseRecommendedTokens.length > 0 &&
+      accountRecommendedTokens.length === 0 &&
+      isAccountLoading === true,
     recommendedTokens,
   };
 }
@@ -81,13 +131,14 @@ export function Recommended(
     setRefreshVersion((prev) => prev + 1);
   }, []);
 
-  const { recommendedTokens, isLoading } = useRecommendedTokens({
-    accountId: account?.id,
-    indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
-    networkId: allNetworkId,
-    enableFetch,
-    refreshVersion,
-  });
+  const { recommendedTokens, isLoading, isBalanceLoading } =
+    useRecommendedTokens({
+      accountId: account?.id,
+      indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+      networkId: allNetworkId,
+      enableFetch,
+      refreshVersion,
+    });
 
   useRecommendedRefreshTrigger({
     accountId: account?.id,
@@ -110,6 +161,7 @@ export function Recommended(
       showSkeleton={
         isLoading === true ? recommendedTokens.length === 0 : undefined
       }
+      isBalanceLoading={isBalanceLoading}
     />
   );
 }
