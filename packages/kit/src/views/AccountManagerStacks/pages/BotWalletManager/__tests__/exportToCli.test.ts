@@ -62,10 +62,16 @@ describe('exportBotWalletToCli (AC10/AC11)', () => {
     expect(payload.ciphertextBase64).toBe(validCiphertextBase64);
     expect(payload.sourceLabel).toBe('desktop:bot:Trader-Yuna');
 
-    // Service was called exactly once with NO ciphertext / mnemonic / walletId
-    // (the registerKey wrapper enforces this; here we verify it was invoked).
+    // Service was called exactly once with the encrypted key plus a stable
+    // Bot Wallet hash, never raw walletId/ciphertext/mnemonic.
     expect(deps.registerKey).toHaveBeenCalledTimes(1);
-    expect(deps.registerKey.mock.calls[0][0]).toMatch(/^[A-Za-z0-9+/=]+$/);
+    expect(deps.registerKey.mock.calls[0][0]).toMatchObject({
+      botWalletHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      keyBase64: expect.stringMatching(/^[A-Za-z0-9+/=]+$/),
+    });
+    expect(JSON.stringify(deps.registerKey.mock.calls[0][0])).not.toContain(
+      'wallet-1',
+    );
 
     // No revoke happens on the happy path.
     expect(deps.revokeKey).not.toHaveBeenCalled();
@@ -113,12 +119,30 @@ describe('exportBotWalletToCli (AC10/AC11)', () => {
     ).toHaveBeenCalledTimes(1);
   });
 
-  it('payload assembly failure (post-register): triggers best-effort revoke + re-throws', async () => {
-    // Simulate a flow where register succeeds but the input fails schema —
-    // pass an empty walletId so cliBotWalletEncryptedCredentialSchema rejects.
+  it('invalid walletId: does NOT reveal seed, call registerKey, or revokeKey', async () => {
     const deps = makeDeps();
     await expect(
       exportBotWalletToCli({ ...baseInput, walletId: '' }, deps),
+    ).rejects.toThrow();
+    expect(
+      (deps as unknown as { getRevealableSeed: jest.Mock }).getRevealableSeed,
+    ).not.toHaveBeenCalled();
+    expect(
+      (deps as unknown as { encryptCredential: jest.Mock }).encryptCredential,
+    ).not.toHaveBeenCalled();
+    expect(
+      (deps as unknown as { registerKey: jest.Mock }).registerKey,
+    ).not.toHaveBeenCalled();
+    expect(
+      (deps as unknown as { revokeKey: jest.Mock }).revokeKey,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('payload assembly failure (post-register): triggers best-effort revoke + re-throws', async () => {
+    // Simulate a flow where register succeeds but payload validation fails.
+    const deps = makeDeps();
+    await expect(
+      exportBotWalletToCli({ ...baseInput, sourceLabel: '' }, deps),
     ).rejects.toThrow();
     expect(
       (deps as unknown as { revokeKey: jest.Mock }).revokeKey,
@@ -153,21 +177,27 @@ describe('exportBotWalletToCli (AC10/AC11)', () => {
     expect(JSON.stringify(payload)).not.toContain('decryptedCredentials');
   });
 
-  it('register body never contains ciphertext/mnemonic/walletId/displayAddress', async () => {
-    let capturedRegisterArg: string | undefined;
+  it('register body never contains ciphertext/mnemonic/raw walletId/displayAddress', async () => {
+    let capturedRegisterArg:
+      | {
+          botWalletHash: string;
+          keyBase64: string;
+        }
+      | undefined;
     const deps = makeDeps({
-      registerKey: jest.fn(async (keyBase64) => {
-        capturedRegisterArg = keyBase64;
+      registerKey: jest.fn(async (input) => {
+        capturedRegisterArg = input;
         return { keyId: 'K'.repeat(43), accessToken: 'T'.repeat(43) };
       }),
     });
     await exportBotWalletToCli(baseInput, deps);
-    // The registerKey wrapper takes only the random key as a positional arg.
-    // The downstream POST body shape is asserted in register.test.ts; here we
-    // just confirm exportBotWalletToCli passes a plain base64 key.
-    expect(typeof capturedRegisterArg).toBe('string');
-    expect(capturedRegisterArg).not.toContain(validCiphertextBase64);
-    expect(capturedRegisterArg).not.toContain('wallet-1');
-    expect(capturedRegisterArg).not.toContain('Trader-Yuna');
+    expect(capturedRegisterArg).toEqual({
+      botWalletHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      keyBase64: expect.stringMatching(/^[A-Za-z0-9+/=]+$/),
+    });
+    const serialized = JSON.stringify(capturedRegisterArg);
+    expect(serialized).not.toContain(validCiphertextBase64);
+    expect(serialized).not.toContain('wallet-1');
+    expect(serialized).not.toContain('Trader-Yuna');
   });
 });
