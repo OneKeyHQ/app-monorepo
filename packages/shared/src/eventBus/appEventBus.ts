@@ -475,6 +475,7 @@ export interface IAppEventBusPayload {
       | ETranslations.global_browser
       | ETranslations.global_earn;
     openUrl?: boolean;
+    shouldConsumePendingUrl?: boolean;
     switchType?: 'default' | 'tap' | 'swipe';
   };
   [EAppEventBusNames.SwitchEarnMode]: {
@@ -519,6 +520,7 @@ export interface IAppEventBusPayload {
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
+  [EAppEventBusNames.TrayActionWillNavigate]: undefined;
 }
 
 /**

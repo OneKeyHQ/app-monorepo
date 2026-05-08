@@ -462,7 +462,15 @@ export function PerpOrderBook({
         <DefaultLoadingNode
           variant={loadingVariant as IOrderBookVariant}
           symbol={
-            loadingVariant === 'mobileVertical' ? l2Book?.coin : undefined
+            loadingVariant === 'mobileVertical'
+              ? (l2Book?.coin ?? activeTradeInstrument.coin)
+              : undefined
+          }
+          isSpot={activeTradeInstrument.mode === 'spot'}
+          spotUniverse={
+            activeTradeInstrument.mode === 'spot'
+              ? activeTradeInstrument.universe
+              : undefined
           }
         />
       </YStack>

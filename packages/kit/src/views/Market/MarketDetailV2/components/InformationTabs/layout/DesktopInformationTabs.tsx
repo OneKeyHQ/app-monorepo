@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import Svg, { Path } from 'react-native-svg';
 
 import {
   Badge,
@@ -35,32 +34,7 @@ import { StickyHeader } from './StickyHeader';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 function UpdatesArrowIcon() {
-  return (
-    <Svg
-      width={14}
-      height={14}
-      viewBox="0 0 14 14"
-      fill="none"
-      accessibilityRole="image"
-    >
-      <Path
-        d="M2.91675 6.9974L7.00008 2.91406L11.0834 6.9974"
-        stroke="white"
-        strokeOpacity={0.926}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M7 11.0807V2.91406"
-        stroke="white"
-        strokeOpacity={0.926}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
+  return <Icon name="ArrowTopSolid" size="$3.5" color="$iconInverse" />;
 }
 
 function DesktopInformationTabsHeader(props: TabBarProps<string>) {

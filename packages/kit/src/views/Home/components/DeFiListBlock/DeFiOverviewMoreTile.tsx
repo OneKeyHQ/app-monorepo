@@ -35,19 +35,27 @@ function DeFiOverviewMoreTile({
   return (
     <XStack
       flex={1}
+      height="100%"
+      width="100%"
       bg="$bgApp"
       borderRadius="$3"
       borderWidth={1}
       borderStyle="dashed"
       borderColor="$borderSubdued"
       px="$4"
-      py="$3.5"
+      py="$3"
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
+      cursor="pointer"
+      focusable
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineWidth: 2,
+      }}
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
-      cursor="pointer"
       onPress={onPress}
       role="button"
       aria-label={`${viewMoreLabel} (+${extraCount})`}

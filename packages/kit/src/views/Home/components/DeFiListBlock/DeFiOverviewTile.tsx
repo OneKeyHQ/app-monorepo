@@ -1,4 +1,5 @@
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -12,7 +13,7 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import { formatPortfolioPercent } from './formatPortfolioPercent';
+import { OVERVIEW_TILE_SHADOW } from './DeFiOverviewLayout';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
@@ -21,7 +22,6 @@ export type IDeFiOverviewTileProps = {
   protocol: IDeFiProtocol;
   protocolInfo: IProtocolSummary | undefined;
   netWorth: number | string;
-  percent?: number;
   isAllNetworks?: boolean;
   onPress: () => void;
 };
@@ -30,7 +30,6 @@ function DeFiOverviewTile({
   protocol,
   protocolInfo,
   netWorth,
-  percent,
   isAllNetworks,
   onPress,
 }: IDeFiOverviewTileProps) {
@@ -56,9 +55,20 @@ function DeFiOverviewTile({
       py="$3.5"
       alignItems="center"
       gap="$3"
+      cursor="pointer"
+      focusable
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineWidth: 2,
+      }}
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
-      cursor="pointer"
+      $platform-web={{ boxShadow: OVERVIEW_TILE_SHADOW }}
+      $platform-native={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$borderSubdued',
+      }}
       onPress={onPress}
       role="button"
       aria-label={`${name}. ${detailsLabel}`}
@@ -102,17 +112,6 @@ function DeFiOverviewTile({
         >
           {formattedNetWorth}
         </SizableText>
-        {typeof percent === 'number' ? (
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            fontVariant={TABULAR_NUMS}
-          >
-            {formatPortfolioPercent(percent, netWorth)}
-          </SizableText>
-        ) : null}
       </YStack>
     </XStack>
   );
