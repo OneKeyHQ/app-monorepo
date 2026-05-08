@@ -527,6 +527,22 @@ export function isInvalidMarketPresetDirectionSettings(
   );
 }
 
+export function isMarketPresetConfirmDisabled({
+  activePresetKey,
+  currentSettingsInvalid,
+  hasInvalidDirtySettings,
+}: {
+  activePresetKey: EMarketPresetKey;
+  currentSettingsInvalid: boolean;
+  hasInvalidDirtySettings: boolean;
+}) {
+  if (activePresetKey === EMarketPresetKey.AUTO) {
+    return false;
+  }
+
+  return currentSettingsInvalid || hasInvalidDirtySettings;
+}
+
 export function getMarketPresetPriorityFeeOverride(
   settings?: IMarketPresetDirectionSettings,
 ): IMarketPresetPriorityFeeOverride | undefined {

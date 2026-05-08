@@ -17,6 +17,7 @@ import {
   getMarketPresetNetworkFeeLevel,
   getMarketPresetSlippageCustomStatus,
   getMarketPresetSlippageValue,
+  isMarketPresetConfirmDisabled,
   resolveMarketPresetDirectionSettings,
 } from './marketPresetSettings';
 
@@ -224,4 +225,21 @@ describe('marketPresetSettings', () => {
       expect(result.warningType).toBe(warningType);
     },
   );
+
+  it('keeps Auto confirmation enabled when edited preset drafts are invalid', () => {
+    expect(
+      isMarketPresetConfirmDisabled({
+        activePresetKey: EMarketPresetKey.AUTO,
+        currentSettingsInvalid: false,
+        hasInvalidDirtySettings: true,
+      }),
+    ).toBe(false);
+    expect(
+      isMarketPresetConfirmDisabled({
+        activePresetKey: EMarketPresetKey.P1,
+        currentSettingsInvalid: false,
+        hasInvalidDirtySettings: true,
+      }),
+    ).toBe(true);
+  });
 });
