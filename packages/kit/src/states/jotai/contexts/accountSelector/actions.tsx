@@ -1,6 +1,9 @@
 import { useRef } from 'react';
 
-import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
+import {
+  ORPHAN_ELIGIBLE_ERROR_CODES,
+  HardwareErrorCode as ThirdPartyHwErrorCode,
+} from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
@@ -114,16 +117,6 @@ export type IFinalizeWalletSetupCreateWalletResult = {
     indexedAccount: IDBIndexedAccount | undefined;
   };
 };
-
-// Ledger USB has no stable device id, so a failed batch leaves an orphan
-// wallet shell each retry. Restricted to codes that fire on the FIRST
-// chain (i.e. before any account is persisted) — DeviceDisconnected and
-// ChainNotSupported can fire mid-batch after partial success, hiding the
-// wallet there would orphan the already-created accounts.
-const LEDGER_ORPHAN_HIDE_CODES: number[] = [
-  ThirdPartyHwErrorCode.UserAborted,
-  ThirdPartyHwErrorCode.DeviceAppStuck,
-];
 
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
@@ -757,13 +750,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         };
         return createResult;
       } catch (error) {
-        // Soft-hide the just-created Ledger wallet shell when batch aborts.
-        // Uses isTemp + hideImmediately — no DB deletion. Vendor-gated to
-        // Ledger so other HW lines (OneKey/BLE) keep their dedup'able shells.
-        // Final guard is the DB account count: even on UserAborted /
-        // DeviceAppStuck the user may have completed earlier chains in the
-        // batch — if any IDBAccount belongs to the wallet, the shell is no
-        // longer empty and must not be hidden.
+        // Cleanup only empty Ledger onboarding shells.
         const isLedgerWallet =
           createdResult?.wallet?.associatedDeviceInfo?.vendor ===
           EHardwareVendor.ledger;
@@ -773,7 +760,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           isLedgerWallet &&
           isHardwareErrorByCode({
             error: error as IOneKeyError | undefined,
-            code: LEDGER_ORPHAN_HIDE_CODES,
+            code: ORPHAN_ELIGIBLE_ERROR_CODES,
           })
         ) {
           const walletId = createdResult.wallet?.id;
@@ -785,16 +772,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   indexedAccountId,
                 });
               if (accounts.length === 0) {
-                await serviceAccount.setWalletTempStatus({
+                await serviceAccount.removeFailedOnboardingHwWallet({
                   walletId,
-                  isTemp: true,
-                  hideImmediately: true,
                 });
               }
-            } catch (hideErr) {
+            } catch (cleanupErr) {
               defaultLogger.app.error.log(
-                `withFinalizeWalletSetupStep softHide failed: ${
-                  (hideErr as Error)?.message || String(hideErr)
+                `withFinalizeWalletSetupStep orphan cleanup failed: ${
+                  (cleanupErr as Error)?.message || String(cleanupErr)
                 }`,
               );
             }
@@ -886,7 +871,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               const allAppNotInstalled =
                 result.addedAccounts.length === 0 &&
                 failedList.every(
-                  (f) => f.error.code === ThirdPartyHwErrorCode.AppNotOpen,
+                  (f) => f.error.code === ThirdPartyHwErrorCode.AppNotInstalled,
                 );
               if (allAppNotInstalled) {
                 Toast.error({
@@ -899,7 +884,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               }
               // Strip AppNotInstalled errors, let other errors fall through
               failedList = failedList.filter(
-                (f) => f.error.code !== ThirdPartyHwErrorCode.AppNotOpen,
+                (f) => f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled,
               );
             }
           }
