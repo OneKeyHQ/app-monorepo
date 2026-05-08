@@ -23,6 +23,7 @@ const CHAIN_CONFIG: IChainConfig = {
   feeDecimals: 18,
   feeSymbol: 'ETH',
   nativeSymbol: 'ETH',
+  capabilities: new Set(['swap']),
 };
 
 function createSignedTx(rawTx = '0xsigned'): ISignedTxPro {

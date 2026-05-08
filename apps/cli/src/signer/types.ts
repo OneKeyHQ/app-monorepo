@@ -1,8 +1,15 @@
 import type {
   ICoreApiGetAddressItem,
+  ICoreApiSignBtcExtraInfo,
   ICoreApiSignMsgPayload,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+
+import type { BtcAddressType } from '../core/btc/address-types';
+
+export interface ISignerGetAddressOptions {
+  addressType?: BtcAddressType;
+}
 
 /**
  * Minimal sign-transaction input for `ISigner`.
@@ -17,10 +24,17 @@ export interface ISignTransactionPayload {
   networkId: string;
   account: { address: string; path: string; pub?: string };
   unsignedTx: { encodedTx: Record<string, unknown> };
+  relPaths?: string[];
+  btcExtraInfo?: ICoreApiSignBtcExtraInfo;
+  signOnly?: boolean;
+  addressType?: BtcAddressType;
 }
 
 export interface ISigner {
-  getAddress(networkId: string): Promise<ICoreApiGetAddressItem>;
+  getAddress(
+    networkId: string,
+    options?: ISignerGetAddressOptions,
+  ): Promise<ICoreApiGetAddressItem>;
 
   signTransaction(payload: ISignTransactionPayload): Promise<ISignedTxPro>;
 
