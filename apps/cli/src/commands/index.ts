@@ -10,6 +10,7 @@ export { registerStatusCommand } from './status';
 export { registerSignCommand } from './sign';
 export { registerTransferCommand } from './transfer';
 export { registerVersionCommand } from './version';
+export { registerWalletCommands } from './wallet';
 
 // Phase 3A command groups
 export { registerMarketCommands } from './market';
