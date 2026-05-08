@@ -10,7 +10,8 @@
         "ENABLE_NATIVE_BACKGROUND_THREAD": "true",
         "SPLIT_BUNDLE": "1",
         "SPLIT_BUNDLE_SEGMENTS": "true",
-        "UNION_BUILD": "true"
+        "UNION_BUILD": "true",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
       },
       "android": {
         "image": "ubuntu-24.04-jdk-17-ndk-r27b",
