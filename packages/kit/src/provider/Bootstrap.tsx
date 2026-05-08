@@ -821,9 +821,13 @@ export function Bootstrap() {
 
   useEffect(() => {
     if (devSettings.enabled) {
-      performance.start(true, !!devSettings.settings?.showPerformanceMonitor);
+      performance.start(1000);
+      if (devSettings.settings?.showPerformanceMonitor) {
+        performance.showOverlay();
+      }
     }
     return () => {
+      performance.hideOverlay();
       performance.stop();
     };
   }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
