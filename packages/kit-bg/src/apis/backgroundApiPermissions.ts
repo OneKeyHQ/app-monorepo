@@ -81,20 +81,30 @@ export function isProviderApiPrivateKeylessMethod(method?: string) {
   return method && PROVIDER_API_PRIVATE_KEYLESS_METHOD.includes(method || '');
 }
 
+// Dev servers run on arbitrary ports (e.g. http://localhost:3000), but the
+// strict allow-lists only contain "http://localhost" without a port. Loosen
+// to a startsWith check in dev so the keyless RPCs are reachable locally.
+function isDevLocalhostOrigin(origin?: string): boolean {
+  return Boolean(
+    platformEnv.isDev &&
+    origin &&
+    (origin.startsWith('http://localhost') ||
+      origin.startsWith('http://127.0.0.1')),
+  );
+}
+
 export function isProviderApiPrivateAllowedKeylessOrigin(origin?: string) {
-  return !!origin && KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN.includes(origin);
+  if (!origin) return false;
+  if (KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN.includes(origin)) return true;
+  return isDevLocalhostOrigin(origin);
 }
 
 export function isProviderApiPrivateAllowedOrigin(origin?: string) {
-  const isDevLocalhostOrigin =
-    platformEnv.isDev &&
-    (origin?.startsWith('http://localhost') ||
-      origin?.startsWith('http://127.0.0.1'));
   return (
     origin &&
     (origin?.endsWith('.onekey.so') ||
       origin?.endsWith('.onekeytest.com') ||
-      isDevLocalhostOrigin ||
+      isDevLocalhostOrigin(origin) ||
       PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
 }
