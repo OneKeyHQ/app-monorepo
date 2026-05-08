@@ -13,7 +13,6 @@ import {
   getTrayMarketNavigationTarget,
   getTrayTokenValueInTargetCurrency,
   getTrayWatchlistNativeInfo,
-  recoverFailedTrackedTxs,
 } from './trayDataProviderUtils';
 
 function buildTrackedTx(
@@ -213,7 +212,7 @@ describe('trayDataProviderUtils', () => {
     });
   });
 
-  test('collectTrayTrackedTxs picks up Pending and Failed entries from pendingTxs bucket', () => {
+  test('collectTrayTrackedTxs picks up Pending entries from pendingTxs bucket', () => {
     const result = collectTrayTrackedTxs(
       {
         pendingTxs: {
@@ -227,7 +226,7 @@ describe('trayDataProviderUtils', () => {
       buildActiveScope(),
     );
 
-    expect(result.map((tx) => tx.id)).toEqual(['a', 'b']);
+    expect(result.map((tx) => tx.id)).toEqual(['a']);
   });
 
   test('collectTrayTrackedTxs filters pending bucket by active account id across local-history keys', () => {
@@ -253,7 +252,7 @@ describe('trayDataProviderUtils', () => {
             ),
           ],
           'evm--1_addr2': [
-            buildTrackedTx('other-key-same-account', EDecodedTxStatus.Failed),
+            buildTrackedTx('other-key-same-account', EDecodedTxStatus.Pending),
           ],
         },
       },
@@ -305,80 +304,6 @@ describe('trayDataProviderUtils', () => {
         },
       },
       {},
-    );
-
-    expect(result).toEqual([]);
-  });
-
-  test('recoverFailedTrackedTxs recovers Failed txs that just left the pending bucket', () => {
-    const trackedIds = new Set(['pending-1', 'pending-2']);
-    const result = recoverFailedTrackedTxs(
-      {
-        confirmedTxs: {
-          'evm--1_addr1': [
-            buildTrackedTx('pending-1', EDecodedTxStatus.Failed),
-            buildTrackedTx('pending-2', EDecodedTxStatus.Confirmed),
-            buildTrackedTx('unrelated', EDecodedTxStatus.Failed),
-          ],
-        },
-      },
-      trackedIds,
-      buildActiveScope(),
-    );
-
-    expect(result.map((tx) => tx.id)).toEqual(['pending-1']);
-  });
-
-  test('recoverFailedTrackedTxs ignores failed txs from other accounts', () => {
-    const trackedIds = new Set(['pending-1', 'same-id-other-account']);
-    const result = recoverFailedTrackedTxs(
-      {
-        confirmedTxs: {
-          'evm--1_addr1': [
-            buildTrackedTx('pending-1', EDecodedTxStatus.Failed),
-            buildTrackedTx(
-              'same-id-other-account',
-              EDecodedTxStatus.Failed,
-              undefined,
-              'account-2',
-            ),
-          ],
-        },
-      },
-      trackedIds,
-      buildActiveScope(),
-    );
-
-    expect(result.map((tx) => tx.id)).toEqual(['pending-1']);
-  });
-
-  test('recoverFailedTrackedTxs matches via originalId for chains that remap tx ids', () => {
-    const trackedIds = new Set(['local-id']);
-    const result = recoverFailedTrackedTxs(
-      {
-        confirmedTxs: {
-          'ton--0_addr1': [
-            buildTrackedTx('remote-id', EDecodedTxStatus.Failed, 'local-id'),
-          ],
-        },
-      },
-      trackedIds,
-      buildActiveScope(),
-    );
-
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('remote-id');
-  });
-
-  test('recoverFailedTrackedTxs returns empty when no tracked ids are provided', () => {
-    const result = recoverFailedTrackedTxs(
-      {
-        confirmedTxs: {
-          'evm--1_addr1': [buildTrackedTx('x', EDecodedTxStatus.Failed)],
-        },
-      },
-      new Set(),
-      buildActiveScope(),
     );
 
     expect(result).toEqual([]);
