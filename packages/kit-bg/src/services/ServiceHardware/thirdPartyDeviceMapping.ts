@@ -30,7 +30,6 @@ export function mapThirdPartyDeviceToSearchDevice({
       connectId = stableConnectId;
       break;
     case 'usb':
-    case 'bridge':
       connectId = null;
       break;
     default:
