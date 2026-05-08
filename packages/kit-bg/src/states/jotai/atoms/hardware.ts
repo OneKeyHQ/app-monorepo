@@ -144,15 +144,19 @@ export const {
 // third-party hardware ui state -----------------------------------
 
 export enum EThirdPartyHardwareUiAction {
-  // Blocking requests — UI waits for user response
-  requestUnlock = 'request-ledger-unlock',
-  // Non-blocking notifications — UI shows status
+  // Blocking requests — UI waits for user response.
+  // SDK found no device; ask the user to make it available and retry.
+  requestDeviceNotFound = 'request-ledger-device-not-found',
+  // Ledger BTC requires explicit user approval before using index >= 100.
+  requestBtcHighIndexConfirm = 'request-ledger-btc-high-index-confirm',
+  // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',
   searching = 'ui-event-ledger-searching',
   connecting = 'ui-event-ledger-connecting',
   processing = 'ui-event-ledger-processing',
   done = 'ui-event-ledger-done',
+  // Toast only; DMK keeps polling until the device is unlocked.
   unlockDevice = 'ui-event-ledger-unlock-device',
   error = 'ui-event-ledger-error',
 }
@@ -183,6 +187,12 @@ export type IThirdPartyHardwareUiState = {
   payload?: {
     message?: string;
     chain?: string;
+    /** SDK request reason used for UI copy. */
+    reason?: string;
+    /** BIP-44 path that triggered the request (e.g. requestBtcHighIndexConfirm). */
+    path?: string;
+    /** Account index parsed from the path (e.g. requestBtcHighIndexConfirm). */
+    accountIndex?: number;
   };
 };
 
