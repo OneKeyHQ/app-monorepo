@@ -31,14 +31,15 @@ export function useTokenApproveAllowance({
         });
       if (!walletAddress) return null;
       try {
-        const r = await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
-          networkId,
-          tokenAddress,
-          spenderAddress: spender,
-          walletAddress,
-          accountId,
-          amount: '0',
-        });
+        const r =
+          await backgroundApiProxy.serviceSwap.fetchApproveAllowanceForDisplay({
+            networkId,
+            tokenAddress,
+            spenderAddress: spender,
+            walletAddress,
+            accountId,
+            amount: '0',
+          });
         return r ?? null;
       } catch (e) {
         // UI falls back to a delta-only label; log so the failure is visible.

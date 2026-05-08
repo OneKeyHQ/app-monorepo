@@ -1004,14 +1004,19 @@ export default class Vault extends VaultBase {
         EApproveType.Approve;
 
       const selector = SELECTOR_BY_APPROVE_TYPE[approveType];
-      // Unlimited only applies to absolute approve; increase variants always
-      // encode the value as a delta.
-      const isAbsoluteUnlimited =
-        approveType === EApproveType.Approve && isUnlimited;
+      // The decoder surfaces unlimited allowance as InfiniteAmountText, and the
+      // editor/reset path can feed it back here verbatim. Treat any non-finite
+      // allowance — and the absolute-approve unlimited flag — as MaxUint256 so
+      // increase variants don't shift `Infinite` and produce 0xNaN.
+      const allowanceBn = new BigNumber(allowance);
+      const isMaxUint256 =
+        allowance === InfiniteAmountText ||
+        !allowanceBn.isFinite() ||
+        (approveType === EApproveType.Approve && isUnlimited);
       const amountHex = toBigIntHex(
-        isAbsoluteUnlimited
+        isMaxUint256
           ? new BigNumber(2).pow(256).minus(1)
-          : new BigNumber(allowance).shiftedBy(decimals),
+          : allowanceBn.shiftedBy(decimals),
       );
 
       const data = `${selector}${defaultAbiCoder
