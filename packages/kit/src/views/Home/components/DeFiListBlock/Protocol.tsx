@@ -41,11 +41,9 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
+import { OVERVIEW_TILE_SHADOW } from './DeFiOverviewLayout';
 import { ProtocolHeaderRow } from './ProtocolHeaderRow';
 import { ProtocolRow } from './ProtocolRow';
-
-const PROTOCOL_CARD_WEB_SHADOW =
-  '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';
 
 type IProtocolProps = {
   protocol: IDeFiProtocol;
@@ -149,9 +147,14 @@ const ProtocolDesktopLayout = memo(
           borderRadius="$3"
           borderCurve="continuous"
           overflow="hidden"
+          // Body bg = $bgApp, header bg = $bgSubdued (in ProtocolHeaderRow).
+          // The card body matches the page so the soft shadow ring is the
+          // only edge between content and page; the header gets the slight
+          // bg lift that makes it read as a tabbed handle. Flipping the
+          // pair would invert the reading and is intentional.
           bg="$bgApp"
           $platform-web={{
-            boxShadow: PROTOCOL_CARD_WEB_SHADOW,
+            boxShadow: OVERVIEW_TILE_SHADOW,
           }}
           $platform-ios={{
             shadowColor: '#000',
@@ -198,10 +201,7 @@ const ProtocolDesktopLayout = memo(
                 )}
               </Accordion.Trigger>
               <Accordion.Content exitStyle={{ opacity: 0 }} px="$0" py="$0">
-                <YStack
-                  borderTopWidth={StyleSheet.hairlineWidth}
-                  borderColor="$borderSubdued"
-                >
+                <YStack pt="$2">
                   {positions.map((position, index) => {
                     const isLastPosition = index === positions.length - 1;
                     return (
@@ -273,7 +273,7 @@ const ProtocolDesktopLayout = memo(
                           ))}
                         </YStack>
                         {index !== positions.length - 1 ? (
-                          <Stack px="$5">
+                          <Stack px="$5" pt="$3" pb="$2">
                             <Divider />
                           </Stack>
                         ) : null}
