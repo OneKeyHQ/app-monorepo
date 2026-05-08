@@ -38,11 +38,16 @@ const ProtocolRow = memo(
         gap="$3"
         alignItems="center"
         justifyContent="space-between"
+        minHeight={60}
+        mx="$0"
+        px="$5"
+        py="$2"
+        borderRadius="$0"
         onPress={onPress}
         drillIn
       >
         <Token
-          size="md"
+          size="lg"
           tokenImageUri={protocolDisplayInfo.protocolLogo}
           showNetworkIcon={isAllNetworks}
           networkId={protocol.networkId}

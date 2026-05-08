@@ -71,7 +71,11 @@ const MAX_PROTOCOLS_ON_LARGE_SCREEN = OVERVIEW_TOP_N;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
 
 function MobileProtocolDivider() {
-  return <Divider ml="$16" mr="$5" borderColor="$borderDisabled" />;
+  return (
+    <YStack px="$5" pt="$1" pb="$2">
+      <Divider borderColor="$borderDisabled" />
+    </YStack>
+  );
 }
 
 export type IDeFiListBlockProps = {
