@@ -125,6 +125,7 @@ export function useSwapProInit() {
       setSwapProJumpToken({
         token: undefined,
         direction: ESwapProJumpTokenDirection.BUY,
+        marketPresetToken: undefined,
       });
     }
   }, [
