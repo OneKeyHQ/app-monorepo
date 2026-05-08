@@ -28,6 +28,11 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
   appName?: string;
 }
 
+export enum EThirdPartyDevicePermissionDeniedReason {
+  bluetoothTurnedOff = 'bluetoothTurnedOff',
+  permissionDenied = 'permissionDenied',
+}
+
 // Do NOT pass `defaultMessage` — the locale key's translation already holds
 // the human-readable text.
 
@@ -53,7 +58,7 @@ export class ThirdPartyAppNotInstalled extends ThirdPartyHardwareError {
     this.appName = props?.appName;
   }
 
-  override code = ThirdPartyHwErrorCode.AppNotOpen;
+  override code = ThirdPartyHwErrorCode.AppNotInstalled;
 }
 
 /** Device is locked — user needs to unlock */
@@ -100,14 +105,40 @@ export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
 
 /** OS-level device permission (Bluetooth / USB) denied. */
 export class ThirdPartyDevicePermissionDenied extends ThirdPartyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+  reason?: EThirdPartyDevicePermissionDeniedReason;
+
+  constructor(
+    props?: IOneKeyErrorHardwareProps & {
+      vendor?: string;
+      reason?: EThirdPartyDevicePermissionDeniedReason;
+    },
+  ) {
     super(
-      normalizeErrorProps(props, {
-        defaultKey: ETranslations.onboarding_bluetooth_permission_needed,
-        defaultAutoToast: true,
-      }),
+      normalizeErrorProps(
+        props
+          ? {
+              ...props,
+              payload: {
+                ...props.payload,
+                params: {
+                  ...props.payload.params,
+                  permissionDeniedReason: props.reason,
+                },
+              },
+            }
+          : props,
+        {
+          defaultKey:
+            props?.reason ===
+            EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff
+              ? ETranslations.hardware_bluetooth_need_turned_on_error
+              : ETranslations.onboarding_bluetooth_permission_needed,
+          defaultAutoToast: true,
+        },
+      ),
     );
     this.vendor = props?.vendor;
+    this.reason = props?.reason;
   }
 
   override code = ThirdPartyHwErrorCode.DevicePermissionDenied;
@@ -189,6 +220,21 @@ export class ThirdPartyOperationTimeout extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.OperationTimeout;
+}
+
+/** BLE SMP pairing 30s window expired. Distinct from generic OperationTimeout
+ *  so future PIN / passphrase / SSO confirmation timeouts don't collide. */
+export class ThirdPartyBlePairingTimeout extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_bluetooth_pairing_failed,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = ThirdPartyHwErrorCode.BlePairingTimeout;
 }
 
 /** Chain has no keyring impl for this vendor (e.g. Ledger doesn't support Aptos). */

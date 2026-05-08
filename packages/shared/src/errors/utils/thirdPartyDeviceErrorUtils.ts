@@ -21,12 +21,18 @@ interface IThirdPartyErrorContext {
  * ```
  */
 export function convertThirdPartyDeviceError(
-  payload: { error: string; code: number; appName?: string },
+  payload: {
+    error: string;
+    code: number;
+    appName?: string;
+    params?: IOneKeyHardwareErrorPayload['params'];
+  },
   context?: IThirdPartyErrorContext,
 ) {
   const hwPayload: IOneKeyHardwareErrorPayload = {
     code: payload.code,
     message: payload.error,
+    params: payload.params,
   };
   const props = {
     payload: hwPayload,
@@ -65,7 +71,7 @@ export function convertThirdPartyDeviceError(
         code: payload.code,
       });
 
-    case ThirdPartyHwErrorCode.AppNotOpen:
+    case ThirdPartyHwErrorCode.AppNotInstalled:
       return new ThirdPartyErrors.ThirdPartyAppNotInstalled(props);
 
     case ThirdPartyHwErrorCode.UserRejected:
@@ -75,7 +81,10 @@ export function convertThirdPartyDeviceError(
       return new ThirdPartyErrors.ThirdPartyUserAborted(props);
 
     case ThirdPartyHwErrorCode.DevicePermissionDenied:
-      return new ThirdPartyErrors.ThirdPartyDevicePermissionDenied(props);
+      return new ThirdPartyErrors.ThirdPartyDevicePermissionDenied({
+        ...props,
+        reason: payload.params?.permissionDeniedReason,
+      });
 
     case ThirdPartyHwErrorCode.DeviceLocked:
       return new ThirdPartyErrors.ThirdPartyDeviceLocked(props);
@@ -97,6 +106,9 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.OperationTimeout:
       return new ThirdPartyErrors.ThirdPartyOperationTimeout(props);
+
+    case ThirdPartyHwErrorCode.BlePairingTimeout:
+      return new ThirdPartyErrors.ThirdPartyBlePairingTimeout(props);
 
     case ThirdPartyHwErrorCode.MethodNotSupported:
       return new ThirdPartyErrors.ThirdPartyMethodNotSupported(props);
