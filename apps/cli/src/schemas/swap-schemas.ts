@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { BTC_ADDRESS_TYPES } from '../core/btc/address-types';
+
 import { chainId, humanAmount, tokenId } from './common';
 
 // --- shared sub-schemas ---
@@ -23,6 +25,21 @@ const swapQuoteFee = z
   })
   .passthrough();
 
+const btcAddressType = z.enum(BTC_ADDRESS_TYPES);
+
+const btcAddressMetadata = z.object({
+  addressType: btcAddressType,
+  addressEncoding: z.string(),
+  deriveType: z.string(),
+  address: z.string(),
+  path: z.string(),
+});
+
+const btcAddressing = z.object({
+  from: btcAddressMetadata.nullable(),
+  to: btcAddressMetadata.nullable(),
+});
+
 // ---- swap quote ----
 export const swapQuoteInputSchema = z.object({
   chain: chainId,
@@ -34,6 +51,12 @@ export const swapQuoteInputSchema = z.object({
   toChain: chainId
     .optional()
     .describe('Destination chain for cross-chain swap'),
+  fromAddressType: btcAddressType
+    .optional()
+    .describe('BTC source address type'),
+  toAddressType: btcAddressType
+    .optional()
+    .describe('BTC destination address type'),
   slippage: z.coerce
     .number()
     .optional()
@@ -73,6 +96,7 @@ export const swapQuoteOutputSchema = z.object({
     slippage: z.number(),
     networkId: z.string(),
     walletAddress: z.string().nullable(),
+    btcAddressing: btcAddressing.optional(),
   }),
 });
 
@@ -85,6 +109,8 @@ export const swapBuildInputSchema = z.object({
     'Human-readable amount of source token. Sent directly to swap API as-is, NOT converted.',
   ),
   toChain: chainId.optional(),
+  fromAddressType: btcAddressType.optional(),
+  toAddressType: btcAddressType.optional(),
   slippage: z.coerce.number().optional(),
   provider: z.string().optional(),
   sort: z.string().optional(),
@@ -104,18 +130,26 @@ export const swapBuildOutputSchema = z.object({
   walletAddress: z.string(),
   hasTxData: z.boolean(),
   allowanceResult,
+  btcAddressing: btcAddressing.optional(),
 });
 
 // ---- swap execute ----
 export const swapExecuteInputSchema = z.object({
   order: z.string().describe('Order ID from swap build'),
+  fromAddressType: btcAddressType
+    .optional()
+    .describe('BTC source address type'),
+  signOnly: z
+    .boolean()
+    .optional()
+    .describe('BTC only: sign the PSBT without broadcasting'),
   approveUnlimited: z
     .boolean()
     .optional()
     .describe('Approve unlimited allowance'),
 });
 
-export const swapExecuteOutputSchema = z.object({
+const swapExecuteBroadcastOutputSchema = z.object({
   orderId: z.string(),
   status: z.literal('executed'),
   txHash: z.string(),
@@ -126,6 +160,24 @@ export const swapExecuteOutputSchema = z.object({
   amount: z.string(),
   message: z.string(),
 });
+
+const swapExecuteSignOnlyOutputSchema = z.object({
+  orderId: z.string(),
+  status: z.literal('signed'),
+  chain: z.string(),
+  from: z.string(),
+  to: z.string(),
+  amount: z.string(),
+  rawTx: z.string(),
+  psbtHex: z.string().nullable(),
+  finalizedPsbtHex: z.string().nullable(),
+  message: z.string(),
+});
+
+export const swapExecuteOutputSchema = z.union([
+  swapExecuteBroadcastOutputSchema,
+  swapExecuteSignOnlyOutputSchema,
+]);
 
 // ---- swap status ----
 export const swapStatusInputSchema = z.object({
