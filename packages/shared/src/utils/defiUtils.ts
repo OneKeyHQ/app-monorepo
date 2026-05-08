@@ -122,21 +122,61 @@ function getSafeGroupedPositionId({
   return `__ungrouped__${position.protocol}-${position.category}-${positionIndex}`;
 }
 
-function transferPositionMap(
-  positionMap: Map<
-    string,
-    {
-      groupId: string;
-      poolName: string;
-      poolFullName: string;
-      category: string;
-      assets: (IDeFiAsset & { type: EDeFiAssetType })[];
-      debts: (IDeFiAsset & { type: EDeFiAssetType })[];
-      rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
-      value: BigNumber;
-    }
-  >,
-) {
+type IGroupedPositionValue = {
+  groupId: string;
+  poolName: string;
+  poolFullName: string;
+  category: string;
+  assets: (IDeFiAsset & { type: EDeFiAssetType })[];
+  debts: (IDeFiAsset & { type: EDeFiAssetType })[];
+  rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
+  value: BigNumber;
+};
+
+function getGroupedPositionMetadata(position: IDeFiPosition) {
+  const { targetString, originalString } = extractParenthesizedContent(
+    position.name,
+  );
+  return {
+    poolName: targetString,
+    poolFullName: originalString,
+    category: position.category,
+  };
+}
+
+function shouldUsePositionMetadata({
+  current,
+  incoming,
+}: {
+  current: IGroupedPositionValue;
+  incoming: IDeFiPosition;
+}) {
+  const currentHasPrincipal =
+    current.assets.length > 0 || current.debts.length > 0;
+  const incomingHasPrincipal =
+    incoming.assets.length > 0 || incoming.debts.length > 0;
+
+  if (incomingHasPrincipal && !currentHasPrincipal) {
+    return true;
+  }
+
+  return current.category === 'rewards' && incoming.category !== 'rewards';
+}
+
+function updateGroupedPositionMetadata({
+  current,
+  incoming,
+}: {
+  current: IGroupedPositionValue;
+  incoming: IDeFiPosition;
+}) {
+  const metadata = getGroupedPositionMetadata(incoming);
+  current.poolName = metadata.poolName;
+  current.poolFullName = metadata.poolFullName;
+  current.category = metadata.category;
+}
+
+function transferPositionMap(positionMap: Map<string, IGroupedPositionValue>) {
   const positions = Array.from(positionMap.entries())
     .map(([_, position]) => ({
       groupId: position.groupId,
@@ -174,19 +214,7 @@ function transformDeFiData({
       owner: string;
       networkId: string;
       protocol: string;
-      positionMap: Map<
-        string,
-        {
-          groupId: string;
-          poolName: string;
-          poolFullName: string;
-          category: string;
-          assets: (IDeFiAsset & { type: EDeFiAssetType })[];
-          debts: (IDeFiAsset & { type: EDeFiAssetType })[];
-          rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
-          value: BigNumber;
-        }
-      >; // key: groupId
+      positionMap: Map<string, IGroupedPositionValue>; // key: groupId
       categorySet: Set<string>;
     }
   >();
@@ -220,19 +248,7 @@ function transformDeFiData({
         owner: string;
         networkId: string;
         protocol: string;
-        positionMap: Map<
-          string,
-          {
-            groupId: string;
-            poolName: string;
-            poolFullName: string;
-            category: string;
-            assets: (IDeFiAsset & { type: EDeFiAssetType })[];
-            debts: (IDeFiAsset & { type: EDeFiAssetType })[];
-            rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
-            value: BigNumber;
-          }
-        >; // key: groupId
+        positionMap: Map<string, IGroupedPositionValue>; // key: groupId
         categorySet: Set<string>;
       };
 
@@ -245,15 +261,13 @@ function transformDeFiData({
         groupId: safeGroupId,
       });
 
-      if (!protocolPositionsMapValue.positionMap.has(positionKey)) {
-        const { targetString, originalString } = extractParenthesizedContent(
-          position.name,
-        );
+      const isNewPositionGroup =
+        !protocolPositionsMapValue.positionMap.has(positionKey);
+      if (isNewPositionGroup) {
+        const metadata = getGroupedPositionMetadata(position);
         protocolPositionsMapValue.positionMap.set(positionKey, {
           groupId: safeGroupId,
-          poolName: targetString,
-          poolFullName: originalString,
-          category: position.category,
+          ...metadata,
           assets: [],
           debts: [],
           rewards: [],
@@ -263,16 +277,20 @@ function transformDeFiData({
 
       const positionValue = protocolPositionsMapValue.positionMap.get(
         positionKey,
-      ) as {
-        groupId: string;
-        poolName: string;
-        poolFullName: string;
-        category: string;
-        assets: (IDeFiAsset & { type: EDeFiAssetType })[];
-        debts: (IDeFiAsset & { type: EDeFiAssetType })[];
-        rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
-        value: BigNumber;
-      };
+      ) as IGroupedPositionValue;
+
+      if (
+        !isNewPositionGroup &&
+        shouldUsePositionMetadata({
+          current: positionValue,
+          incoming: position,
+        })
+      ) {
+        updateGroupedPositionMetadata({
+          current: positionValue,
+          incoming: position,
+        });
+      }
 
       const assets = position.assets.map((asset) => ({
         ...asset,
