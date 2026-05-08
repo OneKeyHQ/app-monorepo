@@ -19,13 +19,13 @@ import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInp
 import { AddressInputField } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import {
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapToAnotherAccountAddressAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';

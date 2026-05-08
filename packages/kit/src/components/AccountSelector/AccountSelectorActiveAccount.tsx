@@ -16,8 +16,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
-import { shouldBlockBotWalletCopyAddress } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -28,12 +26,14 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useBotWalletDeactivatedStatus } from '../../hooks/useBotWalletDeactivatedStatus';
 import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { shouldBlockBotWalletCopyAddress } from '../../utils/botWalletStatusUtils';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 

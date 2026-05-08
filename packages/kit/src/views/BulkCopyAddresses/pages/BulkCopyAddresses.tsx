@@ -151,12 +151,12 @@ function BulkCopyAddresses({
       parentWalletName?: string;
     })[] = [];
 
-    const isWalletDeactivatedBotWallet = async (walletId: string) => {
-      if (!accountUtils.isBotWallet({ walletId })) {
+    const isWalletDeactivatedBotWallet = async (id: string) => {
+      if (!accountUtils.isBotWallet({ walletId: id })) {
         return false;
       }
       return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
-        walletId,
+        walletId: id,
       });
     };
 

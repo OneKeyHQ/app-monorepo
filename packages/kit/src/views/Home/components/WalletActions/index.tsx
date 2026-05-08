@@ -15,12 +15,12 @@ import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWal
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -388,6 +388,7 @@ function WalletActionSend({
     indexedAccount?.id,
     isSoftwareWalletOnlyUser,
     isBuySupported,
+    isBotWalletReceiveBlocked,
   ]);
 
   return (
