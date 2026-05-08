@@ -7,7 +7,7 @@ import {
   authStatusInputSchema,
   authStatusOutputSchema,
 } from './auth-schema';
-import { balanceAllOutputSchema, balanceInputSchema } from './balance-schema';
+import { balanceInputSchema, balanceOutputSchema } from './balance-schema';
 import {
   getAddressInputSchema,
   getAddressOutputSchema,
@@ -64,6 +64,12 @@ import {
   walletHistoryInputSchema,
   walletHistoryOutputSchema,
 } from './wallet-history-schema';
+import {
+  walletAddressInputSchema,
+  walletAddressOutputSchema,
+  walletAddressTypesInputSchema,
+  walletAddressTypesOutputSchema,
+} from './wallet-schemas';
 
 // --- Standalone commands ---
 
@@ -95,11 +101,11 @@ defineCommand({
   name: 'balance',
   description: 'Query token balance — all assets or specific token',
   input: balanceInputSchema,
-  output: balanceAllOutputSchema,
+  output: balanceOutputSchema,
   examples: [
-    'onekey balance',
     'onekey balance --chain eth',
     'onekey balance --chain eth --token USDC',
+    'onekey balance --chain tbtc --address tb1...',
   ],
 });
 
@@ -167,7 +173,28 @@ defineCommand({
   description: 'On-chain transaction history',
   input: walletHistoryInputSchema,
   output: walletHistoryOutputSchema,
-  examples: ['onekey history', 'onekey history --chain eth --detail'],
+  examples: [
+    'onekey history --chain eth --detail',
+    'onekey history --chain tbtc --address tb1... --limit 5',
+  ],
+});
+
+// --- Wallet group ---
+
+defineCommand({
+  name: 'wallet-address-types',
+  description: 'List supported BTC wallet address types',
+  input: walletAddressTypesInputSchema,
+  output: walletAddressTypesOutputSchema,
+  examples: ['onekey wallet address-types --chain btc'],
+});
+
+defineCommand({
+  name: 'wallet-address',
+  description: 'Derive a BTC wallet address',
+  input: walletAddressInputSchema,
+  output: walletAddressOutputSchema,
+  examples: ['onekey wallet address --chain tbtc --address-type taproot'],
 });
 
 // --- Token group ---
@@ -266,10 +293,14 @@ defineCommand({
 
 defineCommand({
   name: 'swap-execute',
-  description: 'Sign and broadcast a built swap transaction',
+  description:
+    'Sign and broadcast a built swap transaction; BTC supports sign-only PSBT output',
   input: swapExecuteInputSchema,
   output: swapExecuteOutputSchema,
-  examples: ['onekey swap execute --order <orderId>'],
+  examples: [
+    'onekey swap execute --chain eth --order <orderId>',
+    'onekey swap execute --chain btc --order <orderId> --from-address-type taproot --sign-only',
+  ],
 });
 
 defineCommand({
