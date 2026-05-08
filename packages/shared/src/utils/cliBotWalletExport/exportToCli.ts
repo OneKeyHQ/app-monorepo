@@ -1,5 +1,6 @@
 import { cliBotWalletEncryptedCredentialSchema } from '../../types/cliBotWallet';
 
+import { buildBotWalletHash } from './botWalletHash';
 import {
   encryptCredential as defaultEncryptCredential,
   secureWipe as defaultSecureWipe,
@@ -34,13 +35,13 @@ export type IExportBotWalletToCliDeps = {
   onPayloadReady?: (
     payload: ICliBotWalletEncryptedCredential,
   ) => Promise<void> | void;
-  /** Forwarded to register/revoke for non-default base URLs. */
+  /** Forwarded to register/revoke for non-default Prime service endpoints. */
   baseUrl?: string;
 };
 
 /**
  * Single-shot flow: encrypt one BotWallet's seed, register the random key
- * with the local key service, return the `ICliBotWalletEncryptedCredential`
+ * with the Bot Wallet key API, return the `ICliBotWalletEncryptedCredential`
  * payload that will be embedded in the CLI's `IPersistAuthSessionInput`.
  *
  * Failure semantics (FR5, project-context.md §2):
@@ -65,6 +66,7 @@ export async function exportBotWalletToCli(
   const wipe = deps.secureWipe ?? defaultSecureWipe;
   const clientOptions = { baseUrl: deps.baseUrl };
 
+  const botWalletHash = buildBotWalletHash(input.walletId);
   const seed = await deps.getRevealableSeed(input.walletId);
 
   // 1. Encrypt locally: produces { ciphertextBase64, randomKey }.
@@ -73,9 +75,12 @@ export async function exportBotWalletToCli(
 
   let credentials: { keyId: string; accessToken: string };
   try {
-    // 2. Register the random key with the local key service.
+    // 2. Register the random key with the Bot Wallet key API.
     credentials = await register(
-      encrypted.randomKey.toString('base64'),
+      {
+        botWalletHash,
+        keyBase64: encrypted.randomKey.toString('base64'),
+      },
       clientOptions,
     );
   } catch (e) {
