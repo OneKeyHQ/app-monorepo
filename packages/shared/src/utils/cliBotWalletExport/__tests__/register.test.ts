@@ -1,10 +1,17 @@
 /* eslint-disable onekey/no-raw-error -- tests intentionally simulate raw HTTP / network errors */
 import {
+  BOT_WALLET_HASH_INTERNALS,
+  buildBotWalletHash,
+  isBotWalletHash,
+} from '../botWalletHash';
+import {
   CLI_BOT_WALLET_CLIENT_INTERNALS,
   type ICliBotWalletKeyHttpClient,
   registerKey,
   revokeKey,
 } from '../register';
+
+const VALID_BOT_WALLET_HASH = 'a'.repeat(64);
 
 function makeHttp(
   responder: (
@@ -19,23 +26,59 @@ function makeHttp(
   };
 }
 
+describe('buildBotWalletHash', () => {
+  it('builds a deterministic salted sha256 hash for the same walletId', () => {
+    const hash1 = buildBotWalletHash('wallet-1');
+    const hash2 = buildBotWalletHash('wallet-1');
+    const hash3 = buildBotWalletHash('wallet-2');
+
+    expect(hash1).toBe(hash2);
+    expect(hash1).not.toBe(hash3);
+    expect(hash1).toMatch(/^[a-f0-9]{64}$/);
+    expect(hash1).not.toContain('wallet-1');
+    expect(BOT_WALLET_HASH_INTERNALS.BOT_WALLET_HASH_ALGORITHM).toBe('sha256');
+    expect(BOT_WALLET_HASH_INTERNALS.BOT_WALLET_HASH_SALT).toContain(':v1');
+  });
+
+  it('validates hash shape', () => {
+    expect(isBotWalletHash(buildBotWalletHash('wallet-1'))).toBe(true);
+    expect(isBotWalletHash('wallet-1')).toBe(false);
+    expect(isBotWalletHash('A'.repeat(64))).toBe(false);
+  });
+});
+
 describe('registerKey (AC9)', () => {
-  it('POST body field set is EXACTLY ["keyBase64"] — no leakage', async () => {
+  it('POST body field set is EXACTLY ["botWalletHash", "keyBase64"] and uses the Prime API path', async () => {
     let capturedBody: unknown;
     let capturedConfig: Record<string, unknown> | undefined;
     const http = makeHttp(async (_url, body, config) => {
       capturedBody = body;
       capturedConfig = config;
-      return { data: { keyId: 'K', accessToken: 'A' } };
+      return {
+        data: {
+          code: 0,
+          message: 'success',
+          data: { keyId: 'K', accessToken: 'A' },
+        },
+      };
     });
-    await registerKey('AAAA', { baseUrl: 'http://x', http });
+    await registerKey(
+      { botWalletHash: VALID_BOT_WALLET_HASH, keyBase64: 'AAAA' },
+      { baseUrl: 'http://x', http },
+    );
     expect(http.post).toHaveBeenCalledTimes(1);
-    expect(http.post.mock.calls[0][0]).toBe('http://x/v1/bot-wallet-keys');
-    // Whitelist assertion: keys must be exactly ['keyBase64'], in any order
+    expect(http.post.mock.calls[0][0]).toBe(
+      CLI_BOT_WALLET_CLIENT_INTERNALS.BOT_WALLET_KEY_API_PATH,
+    );
+    // Whitelist assertion: keys must be exactly these two fields, in any order.
     expect(Object.keys(capturedBody as object).toSorted()).toEqual([
+      'botWalletHash',
       'keyBase64',
     ]);
-    expect(capturedBody).toEqual({ keyBase64: 'AAAA' });
+    expect(capturedBody).toEqual({
+      botWalletHash: VALID_BOT_WALLET_HASH,
+      keyBase64: 'AAAA',
+    });
     expect(capturedConfig?.timeout).toBe(
       CLI_BOT_WALLET_CLIENT_INTERNALS.REGISTER_TIMEOUT_MS,
     );
@@ -44,18 +87,65 @@ describe('registerKey (AC9)', () => {
 
   it('parses 200 response { keyId, accessToken }', async () => {
     const http = makeHttp(async () => ({
-      data: { keyId: 'k1', accessToken: 't1' },
+      data: {
+        code: 0,
+        message: 'success',
+        data: { keyId: 'k1', accessToken: 't1' },
+      },
     }));
-    const out = await registerKey('AAAA', { baseUrl: 'http://x', http });
+    const out = await registerKey(
+      { botWalletHash: VALID_BOT_WALLET_HASH, keyBase64: 'AAAA' },
+      { baseUrl: 'http://x', http },
+    );
     expect(out).toEqual({ keyId: 'k1', accessToken: 't1' });
   });
 
-  it('throws when service returns malformed body', async () => {
+  it('rejects malformed botWalletHash before making a request', async () => {
     const http = makeHttp(async () => ({
-      data: { keyId: 'k1' /* missing accessToken */ },
+      data: {
+        code: 0,
+        message: 'success',
+        data: { keyId: 'k1', accessToken: 't1' },
+      },
     }));
     await expect(
-      registerKey('AAAA', { baseUrl: 'http://x', http }),
+      registerKey(
+        { botWalletHash: 'wallet-1', keyBase64: 'AAAA' },
+        { baseUrl: 'http://x', http },
+      ),
+    ).rejects.toThrow(/requires botWalletHash/);
+    expect(http.post).not.toHaveBeenCalled();
+  });
+
+  it('throws when the API envelope returns a non-zero code', async () => {
+    const http = makeHttp(async () => ({
+      data: {
+        code: 40_001,
+        message: 'invalid key',
+        data: null,
+      },
+    }));
+    await expect(
+      registerKey(
+        { botWalletHash: VALID_BOT_WALLET_HASH, keyBase64: 'AAAA' },
+        { baseUrl: 'http://x', http },
+      ),
+    ).rejects.toThrow(/Bot Wallet key API error \(code 40001\): invalid key/);
+  });
+
+  it('throws when API returns malformed data', async () => {
+    const http = makeHttp(async () => ({
+      data: {
+        code: 0,
+        message: 'success',
+        data: { keyId: 'k1' /* missing accessToken */ },
+      },
+    }));
+    await expect(
+      registerKey(
+        { botWalletHash: VALID_BOT_WALLET_HASH, keyBase64: 'AAAA' },
+        { baseUrl: 'http://x', http },
+      ),
     ).rejects.toThrow(/malformed response/);
   });
 
@@ -63,15 +153,18 @@ describe('registerKey (AC9)', () => {
     const http = makeHttp(async () => {
       // eslint-disable-next-line no-restricted-syntax
       const e = Object.assign(
-        new Error('connect ECONNREFUSED 127.0.0.1:8787'),
+        new Error('connect ECONNREFUSED prime.onekeytest.com:443'),
         { code: 'ECONNREFUSED' },
       );
       throw e;
     });
     await expect(
-      registerKey('AAAA', { baseUrl: 'http://x', http }),
+      registerKey(
+        { botWalletHash: VALID_BOT_WALLET_HASH, keyBase64: 'AAAA' },
+        { baseUrl: 'http://x', http },
+      ),
     ).rejects.toThrow(
-      /Cannot reach Bot Wallet key service at http:\/\/x \(connection refused\)/,
+      /Cannot reach Bot Wallet key API at http:\/\/x \(connection refused\)/,
     );
   });
 
@@ -84,9 +177,12 @@ describe('registerKey (AC9)', () => {
       throw e;
     });
     await expect(
-      registerKey('AAAA', { baseUrl: 'http://x', http }),
+      registerKey(
+        { botWalletHash: VALID_BOT_WALLET_HASH, keyBase64: 'AAAA' },
+        { baseUrl: 'http://x', http },
+      ),
     ).rejects.toThrow(
-      /Cannot reach Bot Wallet key service at http:\/\/x \(request timed out\)/,
+      /Cannot reach Bot Wallet key API at http:\/\/x \(request timed out\)/,
     );
   });
 
@@ -100,22 +196,25 @@ describe('registerKey (AC9)', () => {
     });
     let captured: unknown;
     try {
-      await registerKey('AAAA', { baseUrl: 'http://x', http });
+      await registerKey(
+        { botWalletHash: VALID_BOT_WALLET_HASH, keyBase64: 'AAAA' },
+        { baseUrl: 'http://x', http },
+      );
     } catch (e) {
       captured = e;
     }
     expect((captured as { cause?: unknown })?.cause).toBe(original);
   });
 
-  it('uses default base URL 127.0.0.1:8787 when none specified', () => {
-    expect(CLI_BOT_WALLET_CLIENT_INTERNALS.DEFAULT_BASE_URL).toBe(
-      'http://127.0.0.1:8787',
+  it('uses the Prime API path for default endpoint resolution', () => {
+    expect(CLI_BOT_WALLET_CLIENT_INTERNALS.BOT_WALLET_KEY_API_PATH).toBe(
+      '/prime/v1/bot-wallet-keys',
     );
   });
 });
 
 describe('revokeKey (AC9 — best-effort)', () => {
-  it('POST happy path includes Bearer header and 3s AbortSignal', async () => {
+  it('POST happy path includes Prime token header and 3s AbortSignal', async () => {
     let capturedConfig: Record<string, unknown> | undefined;
     const http = makeHttp(async (_url, _body, config) => {
       capturedConfig = config;
@@ -124,11 +223,13 @@ describe('revokeKey (AC9 — best-effort)', () => {
     await revokeKey('keyA', 'tokenA', { baseUrl: 'http://x', http });
     expect(http.post).toHaveBeenCalledTimes(1);
     expect(http.post.mock.calls[0][0]).toBe(
-      'http://x/v1/bot-wallet-keys/keyA/revoke',
+      '/prime/v1/bot-wallet-keys/keyA/revoke',
     );
     expect(
-      (capturedConfig?.headers as Record<string, string>)?.Authorization,
-    ).toBe('Bearer tokenA');
+      (capturedConfig?.headers as Record<string, string>)?.[
+        CLI_BOT_WALLET_CLIENT_INTERNALS.BOT_WALLET_KEY_API_TOKEN_HEADER
+      ],
+    ).toBe('tokenA');
     // Has timeout config
     expect(capturedConfig?.timeout).toBe(
       CLI_BOT_WALLET_CLIENT_INTERNALS.REVOKE_TIMEOUT_MS,

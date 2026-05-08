@@ -1,8 +1,15 @@
-import axios from 'axios';
-
+import {
+  EServiceEndpointEnum,
+  type IApiClientResponse,
+} from '../../../types/endpoint';
+import { appApiClient } from '../../appApiClient/appApiClient';
+import { getEndpointByServiceName } from '../../config/endpointsMap';
 import { OneKeyLocalError } from '../../errors';
 
-const DEFAULT_BASE_URL = 'http://127.0.0.1:8787';
+import { isBotWalletHash } from './botWalletHash';
+
+const BOT_WALLET_KEY_API_PATH = '/prime/v1/bot-wallet-keys';
+const BOT_WALLET_KEY_API_TOKEN_HEADER = 'X-Onekey-Request-Token';
 const REGISTER_TIMEOUT_MS = 3000;
 const REVOKE_TIMEOUT_MS = 3000;
 
@@ -66,12 +73,12 @@ function describeKeyServiceFailure(err: unknown): string {
 }
 
 function buildKeyServiceUnreachableError(
-  baseUrl: string,
+  endpoint: string,
   cause: unknown,
 ): OneKeyLocalError {
   const reason = describeKeyServiceFailure(cause);
   const error = new OneKeyLocalError(
-    `Cannot reach Bot Wallet key service at ${baseUrl} (${reason}). Make sure the local Bot Wallet key service is running on ${baseUrl}, then retry.`,
+    `Cannot reach Bot Wallet key API at ${endpoint} (${reason}). Check network connectivity and retry.`,
   );
   if (cause !== undefined) {
     Object.defineProperty(error, 'cause', {
@@ -90,7 +97,7 @@ function buildKeyServiceUnreachableError(
  * `AxiosInstance` type surface.
  */
 export type ICliBotWalletKeyHttpClient = {
-  post: <T = unknown>(
+  post: <T = unknown, R = { data: T }>(
     url: string,
     body?: unknown,
     config?: {
@@ -98,12 +105,17 @@ export type ICliBotWalletKeyHttpClient = {
       signal?: AbortSignal;
       timeout?: number;
     },
-  ) => Promise<{ data: T }>;
+  ) => Promise<R>;
 };
 
 export type IRegisterKeyResponse = {
   keyId: string;
   accessToken: string;
+};
+
+export type IRegisterKeyInput = {
+  botWalletHash: string;
+  keyBase64: string;
 };
 
 export type ICliBotWalletKeyClientLogger = {
@@ -116,75 +128,133 @@ const defaultLogger: ICliBotWalletKeyClientLogger = {
 };
 
 export type ICliBotWalletKeyClientOptions = {
-  /** Override the service base URL. Default: `http://127.0.0.1:8787`. */
+  /** Override the Prime service endpoint. Mostly used by tests/dev tooling. */
   baseUrl?: string;
-  /** Inject an HTTP client (used by tests). Default: top-level `axios`. */
+  /** Inject an HTTP client (used by tests). Default: OneKey app API client. */
   http?: ICliBotWalletKeyHttpClient;
   /** Inject a logger; default `console.warn`. Tests pass a spyable object. */
   logger?: ICliBotWalletKeyClientLogger;
 };
 
-/**
- * POST /v1/bot-wallet-keys with **only** `{ keyBase64 }`.
- *
- * The body field set is asserted by tests to be exactly `['keyBase64']` —
- * there is no opportunity for ciphertext, walletId, displayAddress, etc. to
- * leak across the network boundary into the service's request log.
- */
-export async function registerKey(
-  keyBase64: string,
-  options: ICliBotWalletKeyClientOptions = {},
-): Promise<IRegisterKeyResponse> {
-  const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
-  const http: ICliBotWalletKeyHttpClient =
-    options.http ?? (axios as unknown as ICliBotWalletKeyHttpClient);
-  const body: { keyBase64: string } = { keyBase64 };
-  let res: { data: IRegisterKeyResponse };
-  try {
-    res = await http.post<IRegisterKeyResponse>(
-      `${baseUrl}/v1/bot-wallet-keys`,
-      body,
-      {
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(REGISTER_TIMEOUT_MS),
-        timeout: REGISTER_TIMEOUT_MS,
-      },
-    );
-  } catch (err) {
-    throw buildKeyServiceUnreachableError(baseUrl, err);
+async function getPrimeServiceEndpoint(baseUrl?: string): Promise<string> {
+  return baseUrl ?? getEndpointByServiceName(EServiceEndpointEnum.Prime);
+}
+
+async function getPrimeServiceHttpClient({
+  baseUrl,
+  http,
+}: Pick<ICliBotWalletKeyClientOptions, 'baseUrl' | 'http'>): Promise<{
+  endpoint: string;
+  http: ICliBotWalletKeyHttpClient;
+}> {
+  const endpoint = await getPrimeServiceEndpoint(baseUrl);
+  if (http) {
+    return { endpoint, http };
   }
+  const client = await appApiClient.getRawDataClient({
+    endpoint,
+    name: EServiceEndpointEnum.Prime,
+  });
+  return {
+    endpoint,
+    http: client as unknown as ICliBotWalletKeyHttpClient,
+  };
+}
+
+function unwrapApiResponse<T>({
+  response,
+  endpoint,
+}: {
+  response: IApiClientResponse<T>;
+  endpoint: string;
+}): T {
   if (
-    typeof res.data?.keyId !== 'string' ||
-    typeof res.data?.accessToken !== 'string'
+    typeof response !== 'object' ||
+    response === null ||
+    typeof response.code !== 'number'
   ) {
     throw new OneKeyLocalError(
-      `Bot Wallet key service at ${baseUrl} returned a malformed response (missing keyId or accessToken).`,
+      `Bot Wallet key API at ${endpoint} returned a malformed response envelope.`,
     );
   }
-  return { keyId: res.data.keyId, accessToken: res.data.accessToken };
+  if (response.code !== 0) {
+    throw new OneKeyLocalError(
+      `Bot Wallet key API error (code ${response.code}): ${
+        response.message || 'Unknown error'
+      }`,
+    );
+  }
+  return response.data;
 }
 
 /**
- * Best-effort POST /v1/bot-wallet-keys/:keyId/revoke. **Never throws** — any
+ * POST /prime/v1/bot-wallet-keys with **only**
+ * `{ botWalletHash, keyBase64 }`.
+ *
+ * The body field set is asserted by tests to be exactly
+ * `['botWalletHash', 'keyBase64']` — there is no opportunity for ciphertext,
+ * raw walletId, displayAddress, etc. to leak across the network boundary into
+ * the API request log.
+ */
+export async function registerKey(
+  input: IRegisterKeyInput,
+  options: ICliBotWalletKeyClientOptions = {},
+): Promise<IRegisterKeyResponse> {
+  if (!isBotWalletHash(input.botWalletHash)) {
+    throw new OneKeyLocalError('Bot Wallet key API requires botWalletHash');
+  }
+  const { endpoint, http } = await getPrimeServiceHttpClient(options);
+  const body: IRegisterKeyInput = {
+    botWalletHash: input.botWalletHash,
+    keyBase64: input.keyBase64,
+  };
+  let res: { data: IApiClientResponse<IRegisterKeyResponse> };
+  try {
+    res = await http.post<
+      IApiClientResponse<IRegisterKeyResponse>,
+      { data: IApiClientResponse<IRegisterKeyResponse> }
+    >(BOT_WALLET_KEY_API_PATH, body, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(REGISTER_TIMEOUT_MS),
+      timeout: REGISTER_TIMEOUT_MS,
+    });
+  } catch (err) {
+    throw buildKeyServiceUnreachableError(endpoint, err);
+  }
+  const data = unwrapApiResponse({
+    response: res.data,
+    endpoint,
+  });
+  if (
+    typeof data?.keyId !== 'string' ||
+    typeof data?.accessToken !== 'string'
+  ) {
+    throw new OneKeyLocalError(
+      `Bot Wallet key API at ${endpoint} returned a malformed response (missing keyId or accessToken).`,
+    );
+  }
+  return { keyId: data.keyId, accessToken: data.accessToken };
+}
+
+/**
+ * Best-effort POST /prime/v1/bot-wallet-keys/:keyId/revoke. **Never throws** — any
  * failure (network / 4xx / 5xx / timeout) is swallowed and surfaced as a
  * single `logger.warn` call. Hard-capped at 3s with `AbortSignal.timeout`
- * so that a wedged service cannot block the rollback path.
+ * so that a wedged request cannot block the rollback path.
  */
 export async function revokeKey(
   keyId: string,
   accessToken: string,
   options: ICliBotWalletKeyClientOptions = {},
 ): Promise<void> {
-  const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
-  const http: ICliBotWalletKeyHttpClient =
-    options.http ?? (axios as unknown as ICliBotWalletKeyHttpClient);
   const logger = options.logger ?? defaultLogger;
   try {
+    const { http } = await getPrimeServiceHttpClient(options);
     await http.post(
-      `${baseUrl}/v1/bot-wallet-keys/${encodeURIComponent(keyId)}/revoke`,
+      `${BOT_WALLET_KEY_API_PATH}/${encodeURIComponent(keyId)}/revoke`,
       undefined,
       {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { [BOT_WALLET_KEY_API_TOKEN_HEADER]: accessToken },
         signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
         timeout: REVOKE_TIMEOUT_MS,
       },
@@ -199,7 +269,8 @@ export async function revokeKey(
 
 /** Constants exported for tests. */
 export const CLI_BOT_WALLET_CLIENT_INTERNALS = {
-  DEFAULT_BASE_URL,
+  BOT_WALLET_KEY_API_PATH,
+  BOT_WALLET_KEY_API_TOKEN_HEADER,
   REGISTER_TIMEOUT_MS,
   REVOKE_TIMEOUT_MS,
 } as const;
