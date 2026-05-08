@@ -41,6 +41,7 @@ import type {
 import {
   ESwapDirectionType,
   ESwapProTradeType,
+  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -1458,6 +1459,10 @@ export function useSwapProActionsQuote() {
   if (slippageItemRef.current !== slippageItem) {
     slippageItemRef.current = slippageItem;
   }
+  const swapProMarketQuoteCustomSlippage =
+    slippageItem.key === ESwapSlippageSegmentKey.CUSTOM
+      ? slippageItem.value
+      : undefined;
   const enableSwapProMarketQuote = useMemo(
     () =>
       swapTabSwitchType === ESwapTabSwitchType.LIMIT &&
@@ -1493,6 +1498,8 @@ export function useSwapProActionsQuote() {
     enableSwapProMarketQuote,
     swapProAccount.result?.addressDetail.address,
     swapProAccount.result?.id,
+    slippageItem.key,
+    swapProMarketQuoteCustomSlippage,
   ]);
 
   useEffect(() => {
