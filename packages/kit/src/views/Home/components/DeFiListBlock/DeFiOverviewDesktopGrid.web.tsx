@@ -4,18 +4,20 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import { OVERVIEW_GRID_STYLE } from './DeFiOverviewLayout';
+import { buildOverviewGridStyle } from './DeFiOverviewLayout';
 import { DeFiOverviewLessTile } from './DeFiOverviewLessTile';
 import { DeFiOverviewMoreTile } from './DeFiOverviewMoreTile';
 import { DeFiOverviewTile } from './DeFiOverviewTile';
 
 import type { IDeFiOverviewRenderCell } from './DeFiOverviewPlanner';
+import type { IOverviewCols } from './overviewColsResolver';
 
 const SPAN_1: React.CSSProperties = { gridColumnEnd: 'span 1' };
 const SPAN_2: React.CSSProperties = { gridColumnEnd: 'span 2' };
 
 export type IDeFiOverviewDesktopGridProps = {
   cells: IDeFiOverviewRenderCell[];
+  cols: IOverviewCols;
   protocolMap: Record<string, IProtocolSummary>;
   onPressProtocol: (protocol: IDeFiProtocol) => void;
   onPressMore: () => void;
@@ -25,6 +27,7 @@ export type IDeFiOverviewDesktopGridProps = {
 
 function DeFiOverviewDesktopGrid({
   cells,
+  cols,
   protocolMap,
   onPressProtocol,
   onPressMore,
@@ -32,7 +35,7 @@ function DeFiOverviewDesktopGrid({
   isAllNetworks,
 }: IDeFiOverviewDesktopGridProps) {
   return (
-    <XStack width="100%" gap="$2" style={OVERVIEW_GRID_STYLE}>
+    <XStack width="100%" gap="$2" style={buildOverviewGridStyle(cols)}>
       {cells.map((cell) => (
         <XStack
           key={cell.key}
@@ -44,7 +47,6 @@ function DeFiOverviewDesktopGrid({
               protocol={cell.protocol}
               protocolInfo={cell.protocolInfo}
               netWorth={cell.netWorth}
-              percent={cell.percent}
               onPress={() => onPressProtocol(cell.protocol)}
               isAllNetworks={isAllNetworks}
             />
@@ -69,4 +71,3 @@ function DeFiOverviewDesktopGrid({
 DeFiOverviewDesktopGrid.displayName = 'DeFiOverviewDesktopGrid';
 
 export { DeFiOverviewDesktopGrid };
-export { OVERVIEW_GRID_STYLE } from './DeFiOverviewLayout';
