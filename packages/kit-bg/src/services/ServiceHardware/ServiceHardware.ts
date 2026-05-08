@@ -1,5 +1,4 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
-import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -74,9 +73,13 @@ import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
+import { mapThirdPartyDeviceToSearchDevice } from './thirdPartyDeviceMapping';
 
 import type { IThirdPartyVendor } from './adapters/thirdPartyHardwareAdapterRegistry';
-import type { DeviceInfo, IThirdPartyHardwareAdapter } from './adapters/types';
+import type {
+  IAdapterUiResponse,
+  IThirdPartyHardwareAdapter,
+} from './adapters/types';
 import type {
   IBaseDeviceProcessingParams,
   IChangePinParams,
@@ -804,43 +807,18 @@ class ServiceHardware extends ServiceBase {
           success: true,
           count: devices.length,
         });
-
-        const isUuidLike = (s?: string) =>
-          s ? /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(s) : false;
+        const payload = devices.map((d) =>
+          mapThirdPartyDeviceToSearchDevice({
+            device: d,
+            defaultDeviceName: vendorProfile.defaultDeviceName,
+            canMatchDeviceByConnectId: (connectId) =>
+              vendorProfile.canMatchDeviceByConnectId(connectId),
+          }),
+        );
 
         return {
           success: true as const,
-          payload: devices.map((d) => {
-            const isBle = d.connectionType === 'ble';
-
-            // BLE: connectId is the stable 4-digit HEX (e.g. "A58F"), name is "Ledger"
-            // USB: connectId is null (ephemeral), name from label or default
-            let name: string;
-            let connectId: string | null = null;
-
-            if (isBle) {
-              connectId = d.connectId || null;
-              name = vendorProfile.defaultDeviceName || 'Ledger';
-            } else {
-              const rawName =
-                d.label || (d as DeviceInfo & { name?: string }).name || '';
-              name = isUuidLike(rawName)
-                ? vendorProfile.defaultDeviceName
-                : rawName || vendorProfile.defaultDeviceName;
-            }
-
-            return {
-              connectId,
-              deviceId: null,
-              name,
-              // Third-party vendors (Ledger) don't map to OneKey IDeviceType;
-              // use 'unknown' and carry vendor identity separately via
-              // IConnectYourDeviceItem.vendor at the UI layer.
-              deviceType: 'unknown',
-              uuid: '',
-              commType: 'bridge',
-            } as SearchDevice;
-          }),
+          payload,
         };
       } catch (error) {
         // Preserve HWK's structured error (code + message) so downstream
@@ -848,11 +826,17 @@ class ServiceHardware extends ServiceBase {
         const err = error as { code?: number | string; message?: string };
         const rawCode =
           typeof err?.code === 'number' ? err.code : Number(err?.code);
+        const permissionDeniedReason = (err as { reason?: string }).reason;
         return {
           success: false as const,
           payload: {
             code: Number.isFinite(rawCode) ? rawCode : -1,
             error: err?.message ?? String(error),
+            params: permissionDeniedReason
+              ? {
+                  permissionDeniedReason,
+                }
+              : undefined,
           },
         };
       }
@@ -1736,18 +1720,12 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async thirdPartyHardwareUiResponse(params: {
     vendor: EHardwareVendor;
-    type: 'confirm' | 'cancel';
+    response: IAdapterUiResponse;
   }) {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) return;
-
-    // Only REQUEST_DEVICE_CONNECT flows through this path today. Extend the
-    // mapping when PIN / passphrase / select-device dialogs are wired up.
-    adapter.uiResponse({
-      type: UI_RESPONSE.RECEIVE_DEVICE_CONNECT,
-      payload: { confirmed: params.type === 'confirm' },
-    });
+    adapter.uiResponse(params.response);
   }
 
   @backgroundMethod()
@@ -2189,10 +2167,7 @@ class ServiceHardware extends ServiceBase {
       features,
     });
 
-    // Third-party devices (Ledger) manage their own transport.
-    // Their connectId is already the correct identifier for the current
-    // connection type (e.g. BLE 4-digit HEX), so skip the OneKey
-    // USB↔BLE compatibility layer entirely.
+    // Third-party connectId already matches its active transport.
     if (device?.vendor) {
       const vp = getVendorProfile(device.vendor);
       if (vp.isThirdParty) {
@@ -2215,12 +2190,10 @@ class ServiceHardware extends ServiceBase {
       return device?.connectId || connectId;
     }
 
-    // Determine the transport type to use
     const result = await this.connectionManager.shouldSwitchTransportType({
       connectId: device?.connectId || connectId,
       hardwareCallContext,
     });
-    console.log('🔍 shouldSwitchTransportType result:', result);
     const targetTransportType = result.targetType;
     const forceTransportType = (await hardwareForceTransportAtom.get())
       .forceTransportType;
