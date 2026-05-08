@@ -14,6 +14,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
@@ -69,6 +70,12 @@ export function usePrimePurchaseCallback({
     }) => {
       try {
         onPurchase?.();
+
+        defaultLogger.prime.subscription.primeSubscribeIntent({
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          featureName,
+          currency,
+        });
 
         if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
           void purchaseByNative({
