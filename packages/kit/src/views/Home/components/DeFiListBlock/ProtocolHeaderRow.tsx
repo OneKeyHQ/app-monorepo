@@ -66,13 +66,12 @@ function ProtocolHeaderRow({
       alignItems="center"
       px="$5"
       py="$3"
-      bg="$bgSubdued"
+      bg="$bgApp"
       // Hairline edge is conditional: when this header *is* the card
       // (overlay/pinned mode floating in a portal) it owns its own
       // outer edge; when it sits inside ProtocolDesktopLayout the
-      // outer card's ring shadow (light) or hairline (dark) is the
-      // only edge — drawing one here too would render a visible
-      // double-line ~1px inside the card's ring.
+      // outer card border is the only edge — drawing one here too would
+      // render a visible double-line ~1px inside the card.
       borderWidth={overlay ? StyleSheet.hairlineWidth : 0}
       borderColor={overlay ? '$borderSubdued' : 'transparent'}
       borderTopLeftRadius={topRadius}
@@ -85,10 +84,8 @@ function ProtocolHeaderRow({
       animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
       opacity={shellOpacity}
       pointerEvents={!overlay && progress >= 0.999 ? 'none' : undefined}
-      hoverStyle={isInteractive ? { bg: '$bgSubdued' } : undefined}
-      pressStyle={
-        isInteractive ? { bg: '$bgSubdued', scale: 0.995 } : undefined
-      }
+      hoverStyle={isInteractive ? { bg: '$bgApp' } : undefined}
+      pressStyle={isInteractive ? { bg: '$bgApp', scale: 0.995 } : undefined}
       onPress={onPress}
       role={isInteractive ? 'button' : undefined}
       aria-label={isInteractive ? name : undefined}

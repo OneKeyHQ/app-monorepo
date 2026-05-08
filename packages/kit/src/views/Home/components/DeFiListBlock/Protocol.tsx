@@ -41,7 +41,6 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import { OVERVIEW_TILE_SHADOW } from './DeFiOverviewLayout';
 import { ProtocolHeaderRow } from './ProtocolHeaderRow';
 import { ProtocolRow } from './ProtocolRow';
 
@@ -147,14 +146,12 @@ const ProtocolDesktopLayout = memo(
           borderRadius="$3"
           borderCurve="continuous"
           overflow="hidden"
-          // Body bg = $bgApp, header bg = $bgSubdued (in ProtocolHeaderRow).
-          // The card body matches the page so the soft shadow ring is the
-          // only edge between content and page; the header gets the slight
-          // bg lift that makes it read as a tabbed handle. Flipping the
-          // pair would invert the reading and is intentional.
+          // Body and header bg follow the mobile Figma card surface.
           bg="$bgApp"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$border"
           $platform-web={{
-            boxShadow: OVERVIEW_TILE_SHADOW,
+            boxShadow: 'none',
           }}
           $platform-ios={{
             shadowColor: '#000',
@@ -252,6 +249,7 @@ const ProtocolDesktopLayout = memo(
                           <NumberSizeableTextWrapper
                             hideValue
                             size="$headingMd"
+                            color="$transparent"
                             formatter="value"
                             formatterOptions={{ currency: currencySymbol }}
                             textAlign="right"
