@@ -12,6 +12,7 @@ import { useReviewControl } from '../../../components/ReviewControl';
 import {
   buildDiscoverySearchDebugSnapshot,
   buildDiscoverySearchListFromFactors,
+  clearLatestDiscoverySearchDebugSnapshot,
   setLatestDiscoverySearchDebugSnapshot,
 } from '../utils/searchDebugSnapshot';
 import {
@@ -190,6 +191,12 @@ export function useSearchModalData(searchValue: string) {
     showSearchResult,
     trendingData,
   ]);
+
+  useEffect(() => {
+    return () => {
+      clearLatestDiscoverySearchDebugSnapshot();
+    };
+  }, []);
 
   // Determine what to display
   const displaySearchList =

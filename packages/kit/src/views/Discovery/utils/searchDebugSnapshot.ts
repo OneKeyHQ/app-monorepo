@@ -3,13 +3,17 @@ import {
   GOOGLE_LOGO_URL,
   SEARCH_ITEM_ID,
 } from '@onekeyhq/shared/src/consts/discovery';
+import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import {
   DISCOVERY_LOCAL_SEARCH_CANDIDATE_LIMIT,
   DISCOVERY_RANKING_HISTORY_LIMIT,
   type IDiscoverySearchListItem,
+  type IDiscoverySearchRankingDebugEntry,
+  buildSearchRankingDebugEntries,
   mergeSearchResultsWithLocalData,
   searchTrendingDappsByKeyword,
   shouldSkipRemoteSearchByKeyword,
@@ -26,19 +30,68 @@ export interface IDiscoverySearchLocalData {
   historyData: IBrowserHistory[];
 }
 
+export interface IDiscoverySearchDebugSnapshotQuery {
+  redacted: true;
+  length: number;
+  trimmedLength: number;
+  isUrlLike: boolean;
+}
+
+export interface IDiscoverySearchDebugDataSetSummary {
+  count: number;
+}
+
+export interface IDiscoverySearchDebugLocalDataSummary {
+  bookmarkData: IDiscoverySearchDebugDataSetSummary;
+  historyData: IDiscoverySearchDebugDataSetSummary;
+}
+
+export interface IDiscoverySearchDebugSanitizedRankingEntry {
+  type: IDiscoverySearchRankingDebugEntry['type'];
+  source: IDiscoverySearchRankingDebugEntry['source'];
+  inputIndex: number;
+  rankIndex: number;
+  matchKeys: string[];
+  topicality: {
+    bucket: number;
+    score: number;
+  };
+  finalScore: number;
+  visitCount: number;
+  isExactUrl?: boolean;
+  namePrefixCoverage?: number;
+  localSupportCount?: number;
+}
+
 export interface IDiscoverySearchDebugSnapshotFactors {
   showSearchResult: boolean;
   shouldSkipRemoteSearch: boolean;
-  localData: IDiscoverySearchLocalData | null;
-  localSearchData: IDiscoverySearchLocalData;
-  rankingHistoryData: IBrowserHistory[];
-  trendingData: IDApp[];
-  remoteSearchResult: IDApp[];
+  inputs: {
+    localData: IDiscoverySearchDebugLocalDataSummary | null;
+    localSearchData: IDiscoverySearchDebugLocalDataSummary;
+    rankingHistoryData: IDiscoverySearchDebugDataSetSummary;
+    trendingData: IDiscoverySearchDebugDataSetSummary;
+    remoteSearchResult: IDiscoverySearchDebugDataSetSummary;
+  };
+  rankingEntries: IDiscoverySearchDebugSanitizedRankingEntry[];
+}
+
+export interface IDiscoverySearchDebugOutputItem {
+  type: IDiscoverySearchListItem['type'];
+  source?: IDiscoverySearchRankingDebugEntry['source'];
+  outputIndex: number;
+  itemKey: string;
+  matchKeys: string[];
+  matchedFields?: {
+    key?: string;
+    indices: number[][];
+  }[];
+  isExactUrl?: boolean;
 }
 
 export interface IDiscoverySearchDebugSnapshotOutput {
-  trendingSearchData: IDApp[];
-  searchList: IDiscoverySearchListItem[];
+  trendingSearchData: IDiscoverySearchDebugDataSetSummary;
+  searchList: IDiscoverySearchDebugOutputItem[];
   displaySearchList: boolean;
   displayBookmarkList: boolean;
   displayHistoryList: boolean;
@@ -50,7 +103,7 @@ export interface IDiscoverySearchDebugSnapshot {
   version: typeof DISCOVERY_SEARCH_DEBUG_SNAPSHOT_VERSION;
   createdAt: number;
   source: 'latest-hook' | 'manual-query';
-  searchValue: string;
+  query: IDiscoverySearchDebugSnapshotQuery;
   meta: {
     platform: {
       isNative: boolean;
@@ -104,6 +157,143 @@ function buildSnapshotMeta(): IDiscoverySearchDebugSnapshot['meta'] {
       localSearchCandidateLimit: DISCOVERY_LOCAL_SEARCH_CANDIDATE_LIMIT,
       rankingHistoryLimit: DISCOVERY_RANKING_HISTORY_LIMIT,
     },
+  };
+}
+
+function buildQuerySnapshot(
+  searchValue: string,
+): IDiscoverySearchDebugSnapshotQuery {
+  const trimmedValue = searchValue.trim();
+  const parsedUrl = uriUtils.safeParseURL(
+    uriUtils.ensureHttpsPrefix(trimmedValue),
+  );
+  const isUrlLike = Boolean(
+    parsedUrl &&
+    parsedUrl.hostname &&
+    ['http:', 'https:'].includes(parsedUrl.protocol),
+  );
+
+  return {
+    redacted: true,
+    length: searchValue.length,
+    trimmedLength: trimmedValue.length,
+    isUrlLike,
+  };
+}
+
+function buildDataSetSummary<T>(
+  data?: T[] | null,
+): IDiscoverySearchDebugDataSetSummary {
+  return {
+    count: data?.length ?? 0,
+  };
+}
+
+function buildLocalDataSummary(
+  data?: IDiscoverySearchLocalData | null,
+): IDiscoverySearchDebugLocalDataSummary | null {
+  if (!data) {
+    return null;
+  }
+
+  return {
+    bookmarkData: buildDataSetSummary(data.bookmarkData),
+    historyData: buildDataSetSummary(data.historyData),
+  };
+}
+
+function sanitizeMatchKey(key?: string) {
+  const trimmedKey = key?.trim();
+  if (!trimmedKey) {
+    return '';
+  }
+
+  const parsedUrl = uriUtils.safeParseURL(
+    uriUtils.ensureHttpsPrefix(trimmedKey),
+  );
+  if (
+    parsedUrl &&
+    parsedUrl.hostname &&
+    ['http:', 'https:'].includes(parsedUrl.protocol)
+  ) {
+    return parsedUrl.origin;
+  }
+
+  const normalizedKey = trimmedKey.toLowerCase();
+  if (/^[a-z0-9_.:-]{1,64}$/u.test(normalizedKey)) {
+    return normalizedKey;
+  }
+
+  return `redacted:${trimmedKey.length}`;
+}
+
+function sanitizeMatchKeys(keys: string[]) {
+  return Array.from(
+    new Set(keys.map((key) => sanitizeMatchKey(key)).filter(Boolean)),
+  );
+}
+
+function sanitizeFuseMatches(matches: (IFuseResultMatch | undefined)[]) {
+  return matches
+    .filter((match): match is IFuseResultMatch => Boolean(match))
+    .map((match) => ({
+      ...(match.key ? { key: String(match.key) } : {}),
+      indices: match.indices.map(([start, end]) => [start, end]),
+    }))
+    .filter((match) => match.indices.length > 0);
+}
+
+function sanitizeRankingEntries(
+  entries: IDiscoverySearchRankingDebugEntry[],
+): IDiscoverySearchDebugSanitizedRankingEntry[] {
+  return entries.map((entry) => ({
+    ...entry,
+    matchKeys: sanitizeMatchKeys(entry.matchKeys),
+  }));
+}
+
+function buildSearchListDebugItem(
+  item: IDiscoverySearchListItem,
+  outputIndex: number,
+): IDiscoverySearchDebugOutputItem {
+  const base = {
+    type: item.type,
+    outputIndex,
+    itemKey: `${item.type}:${outputIndex}`,
+  };
+
+  if (item.type === 'dapp') {
+    return {
+      ...base,
+      source: item.source,
+      matchKeys: sanitizeMatchKeys([item.url, ...(item.dapp.origins ?? [])]),
+      isExactUrl: item.isExactUrl,
+    };
+  }
+
+  if (item.type === 'bookmark') {
+    const matchedFields = sanitizeFuseMatches([item.titleMatch, item.urlMatch]);
+    return {
+      ...base,
+      source: 'bookmark',
+      matchKeys: sanitizeMatchKeys([item.url]),
+      ...(matchedFields.length ? { matchedFields } : {}),
+    };
+  }
+
+  if (item.type === 'history') {
+    const matchedFields = sanitizeFuseMatches([item.titleMatch, item.urlMatch]);
+    return {
+      ...base,
+      source: 'history',
+      matchKeys: sanitizeMatchKeys([item.url]),
+      ...(matchedFields.length ? { matchedFields } : {}),
+    };
+  }
+
+  return {
+    ...base,
+    matchKeys: [],
   };
 }
 
@@ -186,26 +376,44 @@ export function buildDiscoverySearchDebugSnapshot({
   const totalItems =
     (displaySearchList ? searchList.length : 0) +
     (displayHistoryList ? localData?.historyData?.length || 0 : 0);
+  const rankingEntries = searchValue
+    ? buildSearchRankingDebugEntries({
+        keyword: searchValue,
+        searchResult,
+        rankingHistoryData,
+        bookmarkSearchData: localSearchData.bookmarkData,
+        historySearchData: localSearchData.historyData,
+        trendingSearchData,
+      })
+    : [];
 
   return {
     type: DISCOVERY_SEARCH_DEBUG_SNAPSHOT_TYPE,
     version: DISCOVERY_SEARCH_DEBUG_SNAPSHOT_VERSION,
     createdAt: Date.now(),
     source,
-    searchValue,
+    query: buildQuerySnapshot(searchValue),
     meta: buildSnapshotMeta(),
     factors: {
       showSearchResult,
       shouldSkipRemoteSearch,
-      localData,
-      localSearchData,
-      rankingHistoryData: rankingHistoryData ?? [],
-      trendingData: trendingData ?? [],
-      remoteSearchResult: searchResult ?? [],
+      inputs: {
+        localData: buildLocalDataSummary(localData),
+        localSearchData:
+          buildLocalDataSummary(localSearchData) ??
+          ({
+            bookmarkData: buildDataSetSummary(),
+            historyData: buildDataSetSummary(),
+          } satisfies IDiscoverySearchDebugLocalDataSummary),
+        rankingHistoryData: buildDataSetSummary(rankingHistoryData),
+        trendingData: buildDataSetSummary(trendingData),
+        remoteSearchResult: buildDataSetSummary(searchResult),
+      },
+      rankingEntries: sanitizeRankingEntries(rankingEntries),
     },
     output: {
-      trendingSearchData,
-      searchList,
+      trendingSearchData: buildDataSetSummary(trendingSearchData),
+      searchList: searchList.map(buildSearchListDebugItem),
       displaySearchList,
       displayBookmarkList,
       displayHistoryList,
@@ -309,6 +517,7 @@ type IDiscoverySearchDebugGlobal = typeof globalThis & {
   $$onekeyDiscoverySearchDebug?: {
     getLatestSnapshot: () => IDiscoverySearchDebugSnapshot | null;
     exportLatestSnapshot: () => string | null;
+    clearLatestSnapshot: () => void;
   };
 };
 
@@ -330,8 +539,13 @@ export function setLatestDiscoverySearchDebugSnapshot(
               latestDiscoverySearchDebugSnapshot,
             )
           : null,
+      clearLatestSnapshot: clearLatestDiscoverySearchDebugSnapshot,
     };
   }
+}
+
+export function clearLatestDiscoverySearchDebugSnapshot() {
+  latestDiscoverySearchDebugSnapshot = null;
 }
 
 export function getLatestDiscoverySearchDebugSnapshot() {
