@@ -9,6 +9,12 @@ import type { IEndpointEnv } from '../config';
 import type { Logger } from '../utils/logger';
 import type { AxiosInstance } from 'axios';
 
+type IApiRequestOptions = {
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+  timeout?: number;
+};
+
 export interface IOneKeyApiResponse<T> {
   code: number;
   message: string;
@@ -104,13 +110,19 @@ export class ApiClient {
     service: string,
     path: string,
     params?: Record<string, unknown>,
+    options?: IApiRequestOptions,
   ): Promise<T> {
     const client = this.createClient(service);
     this.logger?.debug(
       `[API] GET ${service}${path}`,
       JSON.stringify(params ?? {}),
     );
-    const response = await client.get<IOneKeyApiResponse<T>>(path, { params });
+    const response = await client.get<IOneKeyApiResponse<T>>(path, {
+      params,
+      headers: options?.headers,
+      signal: options?.signal,
+      timeout: options?.timeout,
+    });
     return this.unwrap(response.data, `GET ${path}`);
   }
 
@@ -119,6 +131,7 @@ export class ApiClient {
     path: string,
     body?: unknown,
     headers?: Record<string, string>,
+    options?: IApiRequestOptions,
   ): Promise<T> {
     const client = this.createClient(service);
     this.logger?.debug(
@@ -126,7 +139,12 @@ export class ApiClient {
       JSON.stringify(body ?? {}),
     );
     const response = await client.post<IOneKeyApiResponse<T>>(path, body, {
-      headers,
+      headers: {
+        ...headers,
+        ...options?.headers,
+      },
+      signal: options?.signal,
+      timeout: options?.timeout,
     });
     return this.unwrap(response.data, `POST ${path}`);
   }
