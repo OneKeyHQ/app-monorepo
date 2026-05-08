@@ -576,17 +576,12 @@ function MarketPresetSettingsDialog({
     close();
   }, [activePresetKey, close, confirmDisabled, draftSettings, presetSettings]);
 
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback(async () => {
     if (activePresetKey === EMarketPresetKey.AUTO) {
       close();
       return;
     }
 
-    const defaultSettings =
-      getMarketPresetDefaultEditableDirectionSettingsForPreset({
-        config: presetSettings.config,
-        presetKey: activePresetKey,
-      });
     const directionKey = getDirectionKey({
       presetKey: activePresetKey,
       tradeSide: activeTradeSide,
@@ -597,19 +592,16 @@ function MarketPresetSettingsDialog({
     });
 
     dirtyDirectionSetRef.current.delete(directionKey);
+    resetDirectionSetRef.current.delete(directionKey);
+
     if (savedSettings) {
-      resetDirectionSetRef.current.add(directionKey);
-    } else {
-      resetDirectionSetRef.current.delete(directionKey);
+      await presetSettings.onResetPresetDirectionSettings({
+        presetKey: activePresetKey,
+        tradeSide: activeTradeSide,
+      });
     }
 
-    setDraftSettings((prev) => ({
-      ...prev,
-      [activePresetKey]: {
-        ...prev[activePresetKey],
-        [activeTradeSide]: defaultSettings,
-      },
-    }));
+    close();
   }, [activePresetKey, activeTradeSide, close, presetSettings]);
 
   return (
@@ -930,7 +922,9 @@ function MarketPresetSettingsDialog({
                 flex={1}
                 variant="secondary"
                 size="medium"
-                onPress={handleReset}
+                onPress={() => {
+                  void handleReset();
+                }}
               >
                 {intl.formatMessage({ id: ETranslations.global_reset })}
               </Button>
