@@ -12,9 +12,6 @@ export interface IPendingTx {
   amount: string;
   createdAt?: number;
   updatedAt?: number;
-  // Failed is kept briefly so diffAndNotify can emit the "failed"
-  // notification; the panel filters it out from display.
-  status: 'pending' | 'failed';
   confirmations?: string;
 }
 
@@ -63,16 +60,13 @@ export interface ITrayAccountAvatarInfo {
 export interface ITrayData {
   isLocked?: boolean;
   // When true, main keeps previous cachedTrayData so the panel still shows
-  // last known good values and skips the pending-tx diff.
+  // last known good values.
   isError?: boolean;
-  // One-shot hint from the main renderer that pending txs were cleared by
-  // user action, so disappearance must not be treated as confirmation.
-  pendingTxsCleared?: boolean;
   // Tray renderer can't call backgroundApiProxy, so locale is assembled
   // on the main window side and pushed through TRAY_UPDATE.
   locale?: string;
-  // Notification diff uses this to reset the pending-tx baseline on
-  // wallet switch; without it, old-account txs would look "confirmed".
+  // Used by trayIpc to detect account switches and forward updates even to
+  // hidden tray windows so the next open isn't stale.
   accountId?: string;
   wallet: {
     id?: string;
