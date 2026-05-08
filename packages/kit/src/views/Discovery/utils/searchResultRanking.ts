@@ -116,6 +116,11 @@ type IRankLocalSearchItemsParams = {
   historySearchData?: IBrowserHistory[];
 };
 
+type IBuildSearchRankingContextParams = IRankLocalSearchItemsParams & {
+  searchResult?: IDApp[];
+  trendingSearchData?: IDApp[];
+};
+
 function normalizeText(text?: string) {
   return (text ?? '').trim().toLowerCase();
 }
@@ -947,27 +952,14 @@ function buildRankedLocalSearchEntries({
     });
 }
 
-function rankLocalSearchItems(params: IRankLocalSearchItemsParams) {
-  return buildRankedLocalSearchEntries(params).map(
-    ({ candidate }) => candidate,
-  );
-}
-
-export function buildSearchRankingDebugEntries({
+function buildSearchRankingContext({
   keyword,
   searchResult,
   rankingHistoryData,
   bookmarkSearchData,
   historySearchData,
   trendingSearchData,
-}: {
-  keyword: string;
-  searchResult?: IDApp[];
-  rankingHistoryData?: IBrowserHistory[];
-  bookmarkSearchData?: IBrowserBookmark[];
-  historySearchData?: IBrowserHistory[];
-  trendingSearchData?: IDApp[];
-}): IDiscoverySearchRankingDebugEntry[] {
+}: IBuildSearchRankingContextParams) {
   const localEntries = buildRankedLocalSearchEntries({
     keyword,
     rankingHistoryData,
@@ -989,6 +981,57 @@ export function buildSearchRankingDebugEntries({
     localSupportCountCache.set(dapp.dappId, count);
     return count;
   };
+
+  const rankedRemoteEntries = buildRankedDappSearchEntries({
+    keyword,
+    searchResult,
+    rankingHistoryData,
+  }).toSorted((a, b) =>
+    compareRankedDappSearchEntries(a, b, {
+      getLocalSupportCount,
+    }),
+  );
+
+  const rankedTrendingEntries = buildRankedDappSearchEntries({
+    keyword,
+    searchResult: trendingSearchData,
+    rankingHistoryData,
+  }).toSorted((a, b) =>
+    compareRankedDappSearchEntries(a, b, {
+      getLocalSupportCount,
+    }),
+  );
+
+  return {
+    localEntries,
+    rankedLocalItems,
+    rankedRemoteEntries,
+    rankedTrendingEntries,
+    getLocalSupportCount,
+  };
+}
+
+export function buildSearchRankingDebugEntries({
+  keyword,
+  searchResult,
+  rankingHistoryData,
+  bookmarkSearchData,
+  historySearchData,
+  trendingSearchData,
+}: IBuildSearchRankingContextParams): IDiscoverySearchRankingDebugEntry[] {
+  const {
+    localEntries,
+    rankedRemoteEntries,
+    rankedTrendingEntries,
+    getLocalSupportCount,
+  } = buildSearchRankingContext({
+    keyword,
+    searchResult,
+    rankingHistoryData,
+    bookmarkSearchData,
+    historySearchData,
+    trendingSearchData,
+  });
   const mapDappEntry = (
     entry: IDappRankedSearchEntry,
     source: 'remote' | 'trending',
@@ -1010,29 +1053,13 @@ export function buildSearchRankingDebugEntries({
     localSupportCount: getLocalSupportCount(entry.item),
   });
 
-  const remoteEntries = buildRankedDappSearchEntries({
-    keyword,
-    searchResult,
-    rankingHistoryData,
-  })
-    .toSorted((a, b) =>
-      compareRankedDappSearchEntries(a, b, {
-        getLocalSupportCount,
-      }),
-    )
-    .map((entry, rankIndex) => mapDappEntry(entry, 'remote', rankIndex));
+  const remoteEntries = rankedRemoteEntries.map((entry, rankIndex) =>
+    mapDappEntry(entry, 'remote', rankIndex),
+  );
 
-  const trendingEntries = buildRankedDappSearchEntries({
-    keyword,
-    searchResult: trendingSearchData,
-    rankingHistoryData,
-  })
-    .toSorted((a, b) =>
-      compareRankedDappSearchEntries(a, b, {
-        getLocalSupportCount,
-      }),
-    )
-    .map((entry, rankIndex) => mapDappEntry(entry, 'trending', rankIndex));
+  const trendingEntries = rankedTrendingEntries.map((entry, rankIndex) =>
+    mapDappEntry(entry, 'trending', rankIndex),
+  );
 
   const localDebugEntries = localEntries.map(
     (entry, rankIndex): IDiscoverySearchRankingDebugEntry => ({
@@ -1072,19 +1099,24 @@ export function searchTrendingDappsByKeyword({
 
 export function shouldSkipRemoteSearchByKeyword(keyword: string) {
   const trimmedLength = keyword.trim().length;
-  const normalizedKeyword = keyword.trim();
-  const normalizedUrl = uriUtils.safeParseURL(
-    uriUtils.ensureHttpsPrefix(normalizedKeyword),
-  );
-  const isLongUrlLikeQuery = Boolean(
-    normalizedUrl &&
-    normalizedUrl.hostname &&
-    ['http:', 'https:'].includes(normalizedUrl.protocol),
-  );
+  const isLongUrlLikeQuery = isWebUrlLikeSearchKeyword(keyword);
 
   return (
     trimmedLength < REMOTE_SEARCH_MIN_QUERY_LENGTH ||
     (trimmedLength > REMOTE_SEARCH_MAX_QUERY_LENGTH && !isLongUrlLikeQuery)
+  );
+}
+
+export function isWebUrlLikeSearchKeyword(keyword: string) {
+  const normalizedKeyword = keyword.trim();
+  const normalizedUrl = uriUtils.safeParseURL(
+    uriUtils.ensureHttpsPrefix(normalizedKeyword),
+  );
+
+  return Boolean(
+    normalizedUrl &&
+    normalizedUrl.hostname &&
+    ['http:', 'https:'].includes(normalizedUrl.protocol),
   );
 }
 
@@ -1198,51 +1230,21 @@ export function mergeSearchResultsWithLocalData({
   const mergedItems: IDiscoverySearchListItem[] = [];
   const dappOriginDedupeKeySet = new Set<string>();
   const urlDedupeKeySet = new Set<string>();
-
-  const rankedRemoteSearchEntries = buildRankedDappSearchEntries({
+  const {
+    rankedLocalItems,
+    rankedRemoteEntries,
+    rankedTrendingEntries,
+    getLocalSupportCount,
+  } = buildSearchRankingContext({
     keyword,
     searchResult,
     rankingHistoryData,
-  });
-  const rankedTrendingSearchEntries = buildRankedDappSearchEntries({
-    keyword,
-    searchResult: trendingSearchData,
-    rankingHistoryData,
-  });
-  const rankedLocalItems = rankLocalSearchItems({
-    keyword,
-    rankingHistoryData,
     bookmarkSearchData,
     historySearchData,
+    trendingSearchData,
   });
-  const localSupportCountCache = new Map<string, number>();
-  const getLocalSupportCount = (dapp: IDApp) => {
-    const cached = localSupportCountCache.get(dapp.dappId);
-    if (cached !== undefined) {
-      return cached;
-    }
-
-    const count = getDappLocalSupportCount({
-      dapp,
-      rankedLocalItems,
-    });
-    localSupportCountCache.set(dapp.dappId, count);
-    return count;
-  };
-  const rankedTrendingResults = rankedTrendingSearchEntries
-    .toSorted((a, b) =>
-      compareRankedDappSearchEntries(a, b, {
-        getLocalSupportCount,
-      }),
-    )
-    .map(({ item }) => item);
-  const rankedRemoteResults = rankedRemoteSearchEntries
-    .toSorted((a, b) =>
-      compareRankedDappSearchEntries(a, b, {
-        getLocalSupportCount,
-      }),
-    )
-    .map(({ item }) => item);
+  const rankedTrendingResults = rankedTrendingEntries.map(({ item }) => item);
+  const rankedRemoteResults = rankedRemoteEntries.map(({ item }) => item);
 
   const shouldPrioritize = (dapp: IDApp) =>
     shouldPrioritizeDappAheadOfLocal({

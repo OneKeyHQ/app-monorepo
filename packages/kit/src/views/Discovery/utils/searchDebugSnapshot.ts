@@ -14,6 +14,7 @@ import {
   type IDiscoverySearchListItem,
   type IDiscoverySearchRankingDebugEntry,
   buildSearchRankingDebugEntries,
+  isWebUrlLikeSearchKeyword,
   mergeSearchResultsWithLocalData,
   searchTrendingDappsByKeyword,
   shouldSkipRemoteSearchByKeyword,
@@ -164,20 +165,12 @@ function buildQuerySnapshot(
   searchValue: string,
 ): IDiscoverySearchDebugSnapshotQuery {
   const trimmedValue = searchValue.trim();
-  const parsedUrl = uriUtils.safeParseURL(
-    uriUtils.ensureHttpsPrefix(trimmedValue),
-  );
-  const isUrlLike = Boolean(
-    parsedUrl &&
-    parsedUrl.hostname &&
-    ['http:', 'https:'].includes(parsedUrl.protocol),
-  );
 
   return {
     redacted: true,
     length: searchValue.length,
     trimmedLength: trimmedValue.length,
-    isUrlLike,
+    isUrlLike: isWebUrlLikeSearchKeyword(searchValue),
   };
 }
 
