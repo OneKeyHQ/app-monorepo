@@ -1,24 +1,29 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Button,
   Dialog,
   Icon,
   Input,
+  ScrollView,
   SegmentControl,
   SizableText,
   XStack,
   YStack,
+  useKeyboardHeight,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IIconProps } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import {
   swapSlippageCustomDefaultList,
@@ -39,10 +44,10 @@ import {
   getMarketPresetDefaultDirectionSettings,
   getMarketPresetDefaultEditableDirectionSettingsForPreset,
   getMarketPresetSlippageCustomStatus,
-  isMarketPresetConfirmDisabled,
   isInvalidMarketPresetDirectionSettings,
   isInvalidMarketPresetPriorityFeeSettings,
   isInvalidMarketPresetSlippageSettings,
+  isMarketPresetConfirmDisabled,
   normalizeMarketPresetDirectionSettings,
 } from '../../hooks/marketPresetSettings';
 
@@ -67,6 +72,10 @@ type IDraftPresetSettings = Partial<
     Partial<Record<EMarketPresetTradeSide, IMarketPresetDirectionSettings>>
   >
 >;
+
+const MARKET_PRESET_DIALOG_TOP_SAFE_GAP = 16;
+const MARKET_PRESET_DIALOG_CHROME_HEIGHT = 220;
+const MARKET_PRESET_DIALOG_MIN_CONTENT_HEIGHT = 120;
 
 function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   if (type === EMarketPresetPriorityFeeType.AUTO) {
@@ -257,6 +266,39 @@ function MarketPresetReadonlyRow({
         {value}
       </SizableText>
     </XStack>
+  );
+}
+
+function MarketPresetDialogContentFrame({ children }: { children: ReactNode }) {
+  const keyboardHeight = useKeyboardHeight();
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const dialogContentMaxHeight = useMemo(() => {
+    if (!platformEnv.isNative || keyboardHeight <= 0) {
+      return undefined;
+    }
+
+    const availableHeight =
+      windowHeight -
+      keyboardHeight -
+      safeAreaTop -
+      MARKET_PRESET_DIALOG_TOP_SAFE_GAP -
+      MARKET_PRESET_DIALOG_CHROME_HEIGHT;
+
+    return Math.max(availableHeight, MARKET_PRESET_DIALOG_MIN_CONTENT_HEIGHT);
+  }, [keyboardHeight, safeAreaTop, windowHeight]);
+
+  return (
+    <ScrollView
+      mx="$-5"
+      px="$5"
+      pb="$5"
+      maxHeight={dialogContentMaxHeight}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <YStack gap="$4">{children}</YStack>
+    </ScrollView>
   );
 }
 
@@ -618,7 +660,7 @@ function MarketPresetSettingsDialog({
   }, [activePresetKey, activeTradeSide, close, presetSettings]);
 
   return (
-    <YStack gap="$4">
+    <MarketPresetDialogContentFrame>
       <MarketPresetDialogHeader networkId={presetSettings.config?.networkId} />
 
       <MarketPresetTabBar
@@ -956,7 +998,7 @@ function MarketPresetSettingsDialog({
           )}
         </YStack>
       )}
-    </YStack>
+    </MarketPresetDialogContentFrame>
   );
 }
 
