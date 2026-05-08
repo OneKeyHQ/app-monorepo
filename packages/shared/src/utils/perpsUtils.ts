@@ -21,6 +21,7 @@ import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
   ISpotAssetCtx,
+  ISpotUniverse,
   IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -1922,6 +1923,25 @@ function formatSpotPairDisplayName(
   return `${getSpotTokenDisplayName(baseName)}/${quoteName}`;
 }
 
+function getOrderBookSizeDisplaySymbol({
+  coin,
+  isSpot,
+  spotUniverse,
+}: {
+  coin?: string | null;
+  isSpot: boolean;
+  spotUniverse?: Pick<ISpotUniverse, 'baseName'> | null;
+}): string {
+  if (isSpot) {
+    const spotBaseName =
+      spotUniverse?.baseName ||
+      (coin?.includes('/') ? coin.split('/')[0] : coin);
+    return spotBaseName ? getSpotTokenDisplayName(spotBaseName) : '';
+  }
+
+  return coin ? parseDexCoin(coin).displayName : '';
+}
+
 function isSpotInstrument(coin?: string | null): boolean {
   if (!coin) return false;
   return coin.startsWith('@') || coin.includes('/');
@@ -1978,6 +1998,7 @@ export {
   isSpotInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
+  getOrderBookSizeDisplaySymbol,
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,
   SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP,
@@ -2033,6 +2054,7 @@ export default {
   isSpotInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
+  getOrderBookSizeDisplaySymbol,
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,
   SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP,

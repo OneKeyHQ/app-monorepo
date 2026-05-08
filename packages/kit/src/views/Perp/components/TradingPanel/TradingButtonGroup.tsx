@@ -40,6 +40,7 @@ import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 import { useOrderConfirm } from '../../hooks';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
+import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -112,10 +113,26 @@ function SideButtonInternal({
   const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
 
   const isMinimumOrderNotMetForSide = useMemo(() => {
+    if (
+      !shouldApplyMinimumOrderGuard({
+        isSpot,
+        orderMode: formData.orderMode,
+        orderType: formData.type,
+        hasBboPriceMode: Boolean(formData.bboPriceMode),
+      })
+    ) {
+      return false;
+    }
     if (!orderValue || !orderValue.isFinite() || orderValue.lte(0))
       return false;
     return orderValue.lt(10);
-  }, [orderValue]);
+  }, [
+    formData.bboPriceMode,
+    formData.orderMode,
+    formData.type,
+    isSpot,
+    orderValue,
+  ]);
 
   const isAccountLoading = useMemo<boolean>(() => {
     return (
