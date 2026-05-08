@@ -898,9 +898,11 @@ function DeFiListBlock({
     }
 
     appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
+    appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, onRefresh);
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, onRefresh);
     return () => {
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, onRefresh);
+      appEventBus.off(EAppEventBusNames.GlobalDeriveTypeUpdate, onRefresh);
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
     };
   }, [isFocused, network?.isAllNetworks, handleRefreshAllNetworkData, run]);
