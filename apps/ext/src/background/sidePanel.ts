@@ -466,13 +466,6 @@ async function tryImmediateOpenSidePanelOnMessage({
 export const setupSidePanelPortInBg = () => {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name === SIDE_PANEL_PORT_NAME) {
-      // reset side panel default path after 6 seconds
-      //  to avoid the side panel being stuck in a modal on every time it opens.
-
-      setTimeout(async () => {
-        await extUtils.resetSidePanelPath();
-      }, 6000);
-
       sidePanelState.isOpen = true;
       if (pendingKeylessGetStartedParams) {
         port.postMessage(
@@ -529,6 +522,13 @@ export const setupSidePanelPortInBg = () => {
       );
       port.onDisconnect.addListener(() => {
         closeSidePanel();
+        // Reset the side panel default path so the next open isn't stuck
+        // on the previous keyless/modal route. Done on disconnect rather
+        // than via a fixed timer after open — calling
+        // chrome.sidePanel.setOptions({ path }) on an open panel reloads
+        // it, which would yank the user away from in-flight flows like
+        // OAuth (typical OAuth round-trip exceeds the old 6s timeout).
+        void extUtils.resetSidePanelPath().catch(() => {});
       });
 
       appEventBus.on(EAppEventBusNames.SidePanel_BgToUI, (params) => {
