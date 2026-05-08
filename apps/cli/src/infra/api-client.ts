@@ -1,10 +1,9 @@
-import { randomUUID } from 'node:crypto';
-
 import axios from 'axios';
 
-import { version as VERSION } from '../../package.json';
 import { getHost } from '../config';
 import { AppError, ERROR_CODES } from '../errors';
+
+import { buildCliAppRequestHeaders } from './app-request-headers';
 
 import type { IEndpointEnv } from '../config';
 import type { Logger } from '../utils/logger';
@@ -40,12 +39,7 @@ export class ApiClient {
     const client = axios.create({
       baseURL,
       timeout: 30_000,
-      headers: {
-        'X-Onekey-Request-ID': randomUUID(),
-        'X-Onekey-Request-Platform': 'cli',
-        'X-Onekey-Request-Version': VERSION,
-        'X-Onekey-Request-Locale': 'en',
-      },
+      headers: buildCliAppRequestHeaders(),
     });
 
     client.interceptors.response.use(

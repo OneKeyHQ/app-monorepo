@@ -12,7 +12,11 @@
  * field to keep them from drifting.
  */
 
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { AppError, ERROR_CODES } from '../errors';
 
@@ -28,6 +32,8 @@ type ISignerBuildersLoader = () => Promise<ISignerBuilders>;
 
 const builderLoaders: Record<string, ISignerBuildersLoader> = {
   [IMPL_EVM]: () => import('./impls/evm').then((m) => m.evmSignerBuilders),
+  [IMPL_BTC]: () => import('./impls/btc').then((m) => m.btcSignerBuilders),
+  [IMPL_TBTC]: () => import('./impls/btc').then((m) => m.tbtcSignerBuilders),
 };
 
 export async function loadSignerBuilders(
