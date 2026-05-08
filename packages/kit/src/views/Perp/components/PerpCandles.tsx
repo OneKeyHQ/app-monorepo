@@ -7,6 +7,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsCandlesWebviewReloadHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
@@ -20,6 +21,8 @@ export function PerpCandles({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
+  const enablePerpsTradingUi =
+    !platformEnv.isNative && !platformEnv.isWebMobile;
 
   const { displayPair, displayCoin } = useMemo(() => {
     if (
@@ -41,6 +44,7 @@ export function PerpCandles({
         <TradingViewPerpsV2
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
+          enablePerpsTradingUi={enablePerpsTradingUi}
           symbol={activeTradeInstrument.coin}
           displayPair={displayPair}
           displayCoin={displayCoin}
