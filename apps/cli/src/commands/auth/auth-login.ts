@@ -20,6 +20,7 @@ export function registerAuthLoginCommand(program: Command): void {
       '--passphrase-mode <mode>',
       'Hardware wallet passphrase mode: none | on-host | on-device',
     )
+    .option('--payload <json>', 'Import a CLI Bot Wallet payload')
     .action(
       async (
         options: {
@@ -27,6 +28,7 @@ export function registerAuthLoginCommand(program: Command): void {
           hardware?: boolean;
           deviceId?: string;
           passphraseMode?: string;
+          payload?: string;
         },
         command: Command,
       ) => {
@@ -39,6 +41,7 @@ export function registerAuthLoginCommand(program: Command): void {
           hardwareFlag: options.hardware,
           deviceIdHint: options.deviceId,
           passphraseMode: options.passphraseMode,
+          payload: options.payload,
           isHumanMode: output.getMode() === 'human',
           isTTY: Boolean(process.stdin.isTTY && process.stdout.isTTY),
           env: (globalOpts.env as 'test' | 'prod' | undefined) ?? 'prod',

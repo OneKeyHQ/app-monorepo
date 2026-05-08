@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,17 +11,22 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
+  usePerpsAbstractionModeAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
   useSpotActiveOpenOrdersAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
@@ -54,10 +59,15 @@ function TabBarItem({
   const [positionsLength] = usePerpsActivePositionLengthAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
+  );
 
   const holdingsCount = useMemo(() => {
-    // Mirrors the spot+perps USDC merge in SpotBalanceList — count non-USDC
-    // spot rows once and add 1 if either side has any USDC.
+    // Mirrors the USDC merge in SpotBalanceList.
     const nonUsdcSpotCount = balances.filter(
       (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
     ).length;
@@ -65,10 +75,11 @@ function TabBarItem({
       (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
     );
     const hasPerpsUsdc =
+      !isUnifiedAccountMode &&
       !!accountSummary?.totalRawUsd &&
       new BigNumber(accountSummary.totalRawUsd).gt(0);
     return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
-  }, [accountSummary?.totalRawUsd, balances]);
+  }, [accountSummary?.totalRawUsd, balances, isUnifiedAccountMode]);
 
   const tabCount = useMemo(() => {
     if (name === 'Balances') {
@@ -115,6 +126,8 @@ function TabBarItem({
 
 function PerpOrderInfoPanel() {
   const tabsRef = useRef<ITabContainerRef | null>(null);
+  const actions = useHyperliquidActions();
+  const [activeTab, setActiveTab] = useState('Positions');
 
   const handleViewTpslOrders = () => {
     tabsRef.current?.jumpToTab('Open Orders');
@@ -127,6 +140,8 @@ function PerpOrderInfoPanel() {
       initialTabName="Positions"
       disableScroll={!platformEnv.isNative}
       onTabChange={async (tab) => {
+        setActiveTab(tab.tabName);
+        actions.current.setTradeRouteViewState({ infoPanelTab: tab.tabName });
         if (tab.tabName === 'Account') {
           void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
         }
@@ -164,7 +179,7 @@ function PerpOrderInfoPanel() {
         <PerpTradesHistoryList useTabsList />
       </Tabs.Tab>
       <Tabs.Tab name="Account">
-        <PerpAccountList useTabsList />
+        <PerpAccountList useTabsList isActive={activeTab === 'Account'} />
       </Tabs.Tab>
     </Tabs.Container>
   );

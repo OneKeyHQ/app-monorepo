@@ -41,9 +41,10 @@ export function useSpotMetaMaps() {
         // explorer jump line up with what users see on hyperliquid.xyz.
         const contractMap: Record<string, string> = {};
         for (const token of tokens) {
-          if (token.tokenId) {
-            contractMap[token.name] = token.tokenId;
-            contractMap[getSpotTokenDisplayName(token.name)] = token.tokenId;
+          const tokenId = token.tokenId?.toLowerCase();
+          if (tokenId) {
+            contractMap[token.name] = tokenId;
+            contractMap[getSpotTokenDisplayName(token.name)] = tokenId;
           }
         }
         setTokenContractMap(contractMap);

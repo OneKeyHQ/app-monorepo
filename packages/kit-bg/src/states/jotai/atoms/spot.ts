@@ -29,6 +29,7 @@ export type ISpotActiveAssetCtxAtom =
   | {
       coin: string;
       assetId: number | undefined;
+      baseName?: string;
       ctx: ISpotFormattedAssetCtx;
     }
   | undefined;
@@ -104,11 +105,21 @@ export const {
   initialValue: {},
 });
 
+export type ISpotExternalMarketCaps = Record<string, string>;
+export const {
+  target: spotExternalMarketCapsAtom,
+  use: useSpotExternalMarketCapsAtom,
+} = globalAtom<ISpotExternalMarketCaps>({
+  name: EAtomNames.spotExternalMarketCapsAtom,
+  initialValue: {},
+});
+
 export interface ISpotAssetCtxEntry {
   markPx: string;
   prevDayPx?: string;
   dayNtlVlm?: string;
   circulatingSupply?: string;
+  totalSupply?: string;
 }
 export type ISpotAssetCtxsMap = Record<string, ISpotAssetCtxEntry>;
 export const { target: spotAssetCtxsMapAtom, use: useSpotAssetCtxsMapAtom } =

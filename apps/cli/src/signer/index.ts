@@ -17,8 +17,6 @@ export type {
 } from './base/SignerHardwareBase';
 export {
   CLI_PASSWORD,
-  KEYCHAIN_ENCRYPTION_KEY,
-  KEYCHAIN_MNEMONIC_KEY,
   KEYCHAIN_PASSPHRASE_STATE_KEY,
   KEYCHAIN_SESSION_ID_KEY,
 } from './keychain-keys';

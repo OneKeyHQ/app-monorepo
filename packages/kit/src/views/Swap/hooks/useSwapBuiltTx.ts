@@ -35,7 +35,7 @@ import {
   BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -47,6 +47,7 @@ import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
+import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   numberFormat,
@@ -55,6 +56,7 @@ import {
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
+  IEstimateFeeParams,
   IFeeAlgo,
   IFeeCkb,
   IFeeDot,
@@ -81,6 +83,7 @@ import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IOneInchOrderStruct,
+  IQuoteResultFeeOtherFeeInfo,
   ISwapGasInfo,
   ISwapPreSwapData,
   ISwapStep,
@@ -120,7 +123,10 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
-import { checkSwapLatestBalanceSufficient } from '../utils/swapBalanceUtils';
+import {
+  checkSwapLatestBalanceSufficient,
+  getSwapRequiredNativeBalanceAmount,
+} from '../utils/swapBalanceUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapBuildTxInfo, useSwapProAccount } from './useSwapPro';
@@ -474,11 +480,66 @@ export function useSwapBuildTx() {
     [fromToken, intl, selectQuote?.fromAmount, fromUserAddress, fromAccountId],
   );
 
+  const showLatestBalanceInsufficientToast = useCallback(
+    (tokenSymbol: string) => {
+      Toast.error({
+        title: intl.formatMessage(
+          {
+            id: ETranslations.swap_page_toast_insufficient_balance_title,
+          },
+          { token: tokenSymbol },
+        ),
+      });
+    },
+    [intl],
+  );
+
   const checkLatestFromTokenBalance = useCallback(
     async (token: ISwapToken, amount: string) => {
       const checkResult = await checkSwapLatestBalanceSufficient({
         token,
         amount,
+        accountAddress: fromUserAddress,
+        accountId: fromAccountId,
+      });
+      if (!checkResult.isSufficient) {
+        showLatestBalanceInsufficientToast(checkResult.tokenSymbol);
+        return false;
+      }
+      return true;
+    },
+    [fromAccountId, fromUserAddress, showLatestBalanceInsufficientToast],
+  );
+
+  const checkLatestNativeTokenBalance = useCallback(
+    async ({
+      gasInfos,
+      networkId,
+      token,
+      amount,
+      otherFeeInfos,
+    }: {
+      gasInfos?: { gasInfo?: ISwapGasInfo }[];
+      networkId?: string;
+      token?: ISwapToken;
+      amount?: string;
+      otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
+    }) => {
+      const nativeBalanceRequirement = getSwapRequiredNativeBalanceAmount({
+        gasInfos,
+        networkId,
+        fromToken: token,
+        fromAmount: amount,
+        otherFeeInfos,
+      });
+
+      if (!nativeBalanceRequirement) {
+        return true;
+      }
+
+      const checkResult = await checkSwapLatestBalanceSufficient({
+        token: nativeBalanceRequirement.token,
+        amount: nativeBalanceRequirement.amount,
         accountAddress: fromUserAddress,
         accountId: fromAccountId,
       });
@@ -657,12 +718,27 @@ export function useSwapBuildTx() {
             feeBudget: gasInfo.feeBudget,
           },
         });
-      await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
-        networkId,
-        accountId,
-        unsignedTxs: [updatedUnsignedTxItem],
-        precheckTiming: ESendPreCheckTimingEnum.Confirm,
+      const {
+        totalNative,
+        total,
+        totalFiat,
+        totalFiatForDisplay,
+        totalNativeForDisplay,
+      } = calculateFeeForSend({
+        feeInfo: gasInfo as IFeeInfoUnit,
+        nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
       });
+      const checkLatestNativeBalanceRes = await checkLatestNativeTokenBalance({
+        gasInfos: [{ gasInfo }],
+        networkId,
+        token: unsignedTxItem.swapInfo?.sender.token,
+        amount: unsignedTxItem.swapInfo?.sender.amount,
+        otherFeeInfos:
+          unsignedTxItem.swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
+      });
+      if (!checkLatestNativeBalanceRes) {
+        throw new OneKeyAppError('checkLatestNativeTokenBalance failed');
+      }
       setSwapSteps(
         (prev: {
           steps: ISwapStep[];
@@ -682,15 +758,11 @@ export function useSwapBuildTx() {
           };
         },
       );
-      const {
-        totalNative,
-        total,
-        totalFiat,
-        totalFiatForDisplay,
-        totalNativeForDisplay,
-      } = calculateFeeForSend({
-        feeInfo: gasInfo as IFeeInfoUnit,
-        nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
+      await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+        networkId,
+        accountId,
+        unsignedTxs: [updatedUnsignedTxItem],
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
       });
       await backgroundApiProxy.serviceTransaction.verifyTransaction({
         networkId,
@@ -735,7 +807,7 @@ export function useSwapBuildTx() {
       });
       return res;
     },
-    [intl, setSwapSteps],
+    [checkLatestNativeTokenBalance, intl, setSwapSteps],
   );
 
   const swapEstimateFeeEvent = useCallback(
@@ -1029,6 +1101,7 @@ export function useSwapBuildTx() {
         nativeSymbol: string;
         nativeTokenPrice?: number;
       },
+      estimateFeeParams?: IEstimateFeeParams,
     ) => {
       let gasLet = gasRes.gas?.[1] ?? gasRes.gas?.[0];
       let gasEIP1559Let = gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0];
@@ -1071,21 +1144,27 @@ export function useSwapBuildTx() {
         feeBudgetLet = gasRes.feeBudget?.[0];
       }
 
-      const gasInfo = {
-        common: gasCommon,
-        gas: gasLet,
-        gasEIP1559: gasEIP1559Let,
-        feeUTXO: feeUTXOLet,
-        feeTron: feeTronLet,
-        feeSol: feeSolLet,
-        feeCkb: feeCkbLet,
-        feeAlgo: feeAlgoLet,
-        feeDot: feeDotLet,
-        feeBudget: feeBudgetLet,
-      };
-      return gasInfo;
+      return applyCustomPriorityFeeToGasInfo({
+        gasInfo: {
+          common: gasCommon,
+          gas: gasLet,
+          gasEIP1559: gasEIP1559Let,
+          feeUTXO: feeUTXOLet,
+          feeTron: feeTronLet,
+          feeSol: feeSolLet,
+          feeCkb: feeCkbLet,
+          feeAlgo: feeAlgoLet,
+          feeDot: feeDotLet,
+          feeBudget: feeBudgetLet,
+        },
+        customPriorityFee: swapNetWorkFeeLevel?.customPriorityFee,
+        estimateFeeParams,
+      });
     },
-    [swapNetWorkFeeLevel?.networkFeeLevel],
+    [
+      swapNetWorkFeeLevel?.networkFeeLevel,
+      swapNetWorkFeeLevel?.customPriorityFee,
+    ],
   );
 
   const sendTxActions = useCallback(
@@ -1233,7 +1312,11 @@ export function useSwapBuildTx() {
             for (let i = 0; i < unsignedTxArr.length; i += 1) {
               const unsignedTxItem = unsignedTxArr[i];
               const gasRes = gasResArr.txFees[i];
-              const gasInfo = buildGasInfo(gasRes, gasResArr.common);
+              const gasInfo = buildGasInfo(
+                gasRes,
+                gasResArr.common,
+                estimateFeeParamsArr[i].estimateFeeParams,
+              );
               try {
                 updateStepTitle(stepIndex, i, approveUnsignedTxArr);
                 const res = await updateUnsignedTxAndSendTx({
@@ -1429,14 +1512,18 @@ export function useSwapBuildTx() {
                 accountId,
                 scenario: 'swap',
               });
+              const gasParseInfo = buildGasInfo(
+                gasRes,
+                gasRes.common,
+                estimateFeeParams.estimateFeeParams,
+              );
               if (i === unsignedTxArr.length - 2) {
                 lastTxUseGasInfo = {
                   common: gasRes.common,
-                  gas: gasRes.gas?.[1] ?? gasRes.gas?.[0],
-                  gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
+                  gas: gasParseInfo.gas,
+                  gasEIP1559: gasParseInfo.gasEIP1559,
                 };
               }
-              const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
               updateStepTitle(stepIndex, i, approveUnsignedTxArr);
               await updateUnsignedTxAndSendTx({
                 stepIndex,
@@ -1507,7 +1594,11 @@ export function useSwapBuildTx() {
               swapInfo,
             );
           }
-          const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
+          const gasParseInfo = buildGasInfo(
+            gasRes,
+            gasRes.common,
+            estimateFeeParams.estimateFeeParams,
+          );
           try {
             lastTxRes = await updateUnsignedTxAndSendTx({
               stepIndex,
@@ -1778,14 +1869,14 @@ export function useSwapBuildTx() {
           data.fromAmount,
         );
         if (!checkLatestBalanceRes) {
-          throw new OneKeyError('checkLatestFromTokenBalance failed');
-        }
-        if (swapStepsRef.current.preSwapData.swapBuildResultData) {
-          return swapStepsRef.current.preSwapData.swapBuildResultData;
+          throw new OneKeyAppError('checkLatestFromTokenBalance failed');
         }
         const checkRes = await checkOtherFee(data);
         if (!checkRes) {
-          throw new OneKeyError('checkOtherFee failed');
+          throw new OneKeyAppError('checkOtherFee failed');
+        }
+        if (swapStepsRef.current.preSwapData.swapBuildResultData) {
+          return swapStepsRef.current.preSwapData.swapBuildResultData;
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
         try {
@@ -2268,7 +2359,7 @@ export function useSwapBuildTx() {
             data.fromAmount,
           );
           if (!checkLatestBalanceRes) {
-            throw new OneKeyError('checkLatestFromTokenBalance failed');
+            throw new OneKeyAppError('checkLatestFromTokenBalance failed');
           }
           const {
             unSignedInfo,
@@ -2747,7 +2838,11 @@ export function useSwapBuildTx() {
             for (let i = 0; i < unsignedTxArr.length; i += 1) {
               const unsignedTxItem = unsignedTxArr[i];
               const gasRes = gasResArr.txFees[i];
-              const gasInfo = buildGasInfo(gasRes, gasResArr.common);
+              const gasInfo = buildGasInfo(
+                gasRes,
+                gasResArr.common,
+                estimateFeeParamsArr[i].estimateFeeParams,
+              );
               gasFeeInfos.push({
                 encodeTx: unsignedTxItem.encodedTx ?? {},
                 gasInfo,
@@ -2845,14 +2940,18 @@ export function useSwapBuildTx() {
                 accountId,
                 scenario: 'swap',
               });
+              const gasParseInfo = buildGasInfo(
+                gasRes,
+                gasRes.common,
+                estimateFeeParams.estimateFeeParams,
+              );
               if (i === unsignedTxArr.length - 2) {
                 lastTxUseGasInfo = {
                   common: gasRes.common,
-                  gas: gasRes.gas?.[1] ?? gasRes.gas?.[0],
-                  gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
+                  gas: gasParseInfo.gas,
+                  gasEIP1559: gasParseInfo.gasEIP1559,
                 };
               }
-              const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
               gasFeeInfos.push({
                 encodeTx: unsignedTxItem.encodedTx,
                 gasInfo: gasParseInfo,
@@ -2882,7 +2981,11 @@ export function useSwapBuildTx() {
               JSON.stringify(unsignedTx.encodedTx ?? ''),
               swapInfo,
             );
-            const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
+            const gasParseInfo = buildGasInfo(
+              gasRes,
+              gasRes.common,
+              estimateFeeParams.estimateFeeParams,
+            );
             gasFeeInfos = [
               ...gasFeeInfos,
               {
@@ -2903,6 +3006,19 @@ export function useSwapBuildTx() {
 
             throw e;
           }
+        }
+        const checkLatestNativeBalanceRes = await checkLatestNativeTokenBalance(
+          {
+            gasInfos: gasFeeInfos,
+            networkId,
+            token: swapInfo?.sender.token,
+            amount: swapInfo?.sender.amount,
+            otherFeeInfos:
+              swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
+          },
+        );
+        if (!checkLatestNativeBalanceRes) {
+          throw new OneKeyAppError('checkLatestNativeTokenBalance failed');
         }
         const gasFeeFiatValues = await Promise.all(
           gasFeeInfos.map(async (item) => {
@@ -2940,6 +3056,7 @@ export function useSwapBuildTx() {
             estimateNetworkFeeLoading: false,
           },
         }));
+        throw _e;
       }
     },
     [
@@ -2949,6 +3066,7 @@ export function useSwapBuildTx() {
       swapEstimateFeeEvent,
       fromAccountId,
       fromUserAddress,
+      checkLatestNativeTokenBalance,
     ],
   );
 
@@ -2974,6 +3092,7 @@ export function useSwapBuildTx() {
           preSwapData: {
             ...prev.preSwapData,
             stepBeforeActionsLoading: true,
+            stepBeforeActionsError: undefined,
           },
         }));
         try {
@@ -3000,14 +3119,17 @@ export function useSwapBuildTx() {
             preSwapData: {
               ...prev.preSwapData,
               stepBeforeActionsLoading: false,
+              stepBeforeActionsError: undefined,
             },
           }));
-        } catch (_e) {
+        } catch {
           setSwapSteps((prev) => ({
             ...prev,
             preSwapData: {
               ...prev.preSwapData,
               stepBeforeActionsLoading: false,
+              stepBeforeActionsError: true,
+              netWorkFee: undefined,
             },
           }));
         }
@@ -3233,8 +3355,10 @@ export function useSwapBuildTx() {
                 error?.code !== 803 &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.code !== -99_999 &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-                !error?.message?.toLowerCase()?.includes('reject') &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                !String(error?.message ?? '')
+                  .toLowerCase()
+                  .includes('reject') &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 step.type !== ESwapStepType.SIGN_MESSAGE &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

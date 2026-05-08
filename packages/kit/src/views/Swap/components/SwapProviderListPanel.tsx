@@ -33,14 +33,22 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
   buildSwapManualProviderSelectionIntent,
   buildSwapQuoteProviderKey,
+  getSwapQuoteEventProgressTotalCount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapTabSwitchType,
+  type IFetchQuoteResult,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   useSwapQuoteEventFetching,
@@ -142,6 +150,7 @@ const SwapProviderListPanel = ({
     useSwapManualSelectQuoteProvidersAtom();
   const [providerSort, setProviderSort] = useSwapProviderSortAtom();
   const [settingsPersist] = useSettingsPersistAtom();
+  const [{ swapIncognitoMode }] = useSettingsAtom();
   const [currentSelectQuote] = useSwapQuoteCurrentSelectAtom();
   const selectedProviderInfo =
     currentSelectQuote?.info ?? manualSelectQuoteProvider?.info;
@@ -683,13 +692,27 @@ const SwapProviderListPanel = ({
   }
 
   const hasQuotes = displayList.length > 0;
+  const quoteEventProgressTotalCount = useMemo(
+    () =>
+      getSwapQuoteEventProgressTotalCount({
+        quoteEventTotalCount,
+        maxQuoteCount:
+          swapIncognitoMode && swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+            ? SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP
+            : undefined,
+      }),
+    [quoteEventTotalCount, swapIncognitoMode, swapTypeSwitch],
+  );
 
   // Whether the SSE total event has been received
-  const hasReceivedTotal = quoteEventTotalCount.count > 0;
+  const hasReceivedTotal = quoteEventProgressTotalCount.count > 0;
   // Number of skeleton placeholders for providers not yet received
   const remainingSkeletonCount =
     hasReceivedTotal && quoteEventFetching
-      ? Math.max(0, quoteEventTotalCount.count - currentEventReceivedCount)
+      ? Math.max(
+          0,
+          quoteEventProgressTotalCount.count - currentEventReceivedCount,
+        )
       : 0;
 
   const contentArea = (

@@ -8,6 +8,7 @@ import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import { DashText, SizableText, XStack } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
   useSpotAssetCtxsMapAtom,
@@ -21,6 +22,7 @@ import {
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
+import { isHyperLiquidUnifiedAccountMode } from '../../../utils';
 import { BalanceRow } from '../Components/BalanceRow';
 import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
 
@@ -69,6 +71,7 @@ function SpotBalanceList({
   const [{ balances, isLoaded }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
   const [priceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
   const { spotUniverses, universeByBaseName, tokenContractMap } =
@@ -101,6 +104,11 @@ function SpotBalanceList({
     }
     return lookup;
   }, [priceMap, spotUniverses]);
+
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
+  );
 
   const allBalances: IBalanceDisplayItem[] = useMemo(() => {
     const items: IBalanceDisplayItem[] = [];
@@ -174,8 +182,12 @@ function SpotBalanceList({
       spotUsdcTotalBN.minus(spotUsdcHoldBN),
       0,
     );
-    const perpsUsdcTotalBN = new BigNumber(accountSummary?.totalRawUsd || '0');
-    const perpsUsdcAvailBN = new BigNumber(accountSummary?.withdrawable || '0');
+    const perpsUsdcTotalBN = isUnifiedAccountMode
+      ? new BigNumber(0)
+      : new BigNumber(accountSummary?.totalRawUsd || '0');
+    const perpsUsdcAvailBN = isUnifiedAccountMode
+      ? new BigNumber(0)
+      : new BigNumber(accountSummary?.withdrawable || '0');
     const mergedUsdcTotalBN = spotUsdcTotalBN.plus(perpsUsdcTotalBN);
 
     if (mergedUsdcTotalBN.isGreaterThan(0)) {
@@ -208,6 +220,7 @@ function SpotBalanceList({
     tokenPriceLookup,
     tokenContractMap,
     universeByBaseName,
+    isUnifiedAccountMode,
   ]);
 
   // Filter out zero-balance tokens

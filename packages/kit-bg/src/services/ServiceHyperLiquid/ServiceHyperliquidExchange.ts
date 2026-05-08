@@ -33,6 +33,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import {
   MAX_DECIMALS_PERP,
+  formatHlPrice,
+  formatHlSize,
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
   getValidPriceDecimals,
@@ -87,6 +89,13 @@ interface IOrderLogOptions {
   extra?: Record<string, unknown>;
 }
 
+interface IOrderAssetPrecision {
+  szDecimals: number;
+  type: 'perp' | 'spot';
+}
+
+type IOrderAssetId = IOrderParams['a'];
+
 interface IOrderLogContext {
   accountAddress: string | null;
   exchangeAccountAddress: string | null;
@@ -138,17 +147,112 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     markPrice: string;
     isBuy: boolean;
     slippage: number;
+    szDecimals?: number;
   }): string {
     const price = new BigNumber(params.markPrice);
-    const validDecimals = getValidPriceDecimals(params.markPrice);
     const slippageMultiplier = params.isBuy
       ? new BigNumber(1).plus(params.slippage)
       : new BigNumber(1).minus(params.slippage);
     const adjustedPrice = price.multipliedBy(slippageMultiplier);
-    return formatPriceToSignificantDigits(
-      +adjustedPrice.toFixed(validDecimals),
-      MAX_DECIMALS_PERP - validDecimals,
+    return formatHlPrice(adjustedPrice, params.szDecimals ?? 0) || '0';
+  }
+
+  private async _getOrderAssetPrecisionMap(
+    assetIds: IOrderAssetId[],
+  ): Promise<Map<IOrderAssetId, IOrderAssetPrecision>> {
+    const idSet = new Set(assetIds);
+    const precisionMap = new Map<IOrderAssetId, IOrderAssetPrecision>();
+    if (idSet.size === 0) {
+      return precisionMap;
+    }
+
+    const [{ universesByDex }, { universes: spotUniverses }] =
+      await Promise.all([
+        this.backgroundApi.simpleDb.perp.getTradingUniverse(),
+        this.backgroundApi.simpleDb.perp.getSpotMeta(),
+      ]);
+
+    for (const universes of universesByDex) {
+      for (const universe of universes ?? []) {
+        if (idSet.has(universe.assetId)) {
+          precisionMap.set(universe.assetId, {
+            szDecimals: universe.szDecimals,
+            type: 'perp',
+          });
+        }
+      }
+    }
+
+    for (const universe of spotUniverses) {
+      if (idSet.has(universe.assetId)) {
+        precisionMap.set(universe.assetId, {
+          szDecimals: universe.baseSzDecimals,
+          type: 'spot',
+        });
+      }
+    }
+
+    return precisionMap;
+  }
+
+  private async _formatOrdersForHyperLiquid(
+    orders: IOrderParams[],
+    options?: {
+      allowZeroSize?: boolean;
+    },
+  ): Promise<IOrderParams[]> {
+    const precisionMap = await this._getOrderAssetPrecisionMap(
+      orders.map((order) => order.a),
     );
+
+    return orders.map((order) => {
+      const precision = precisionMap.get(order.a);
+      if (!precision) {
+        return order;
+      }
+
+      const price = formatHlPrice(
+        order.p,
+        precision.szDecimals,
+        precision.type,
+      );
+      const size =
+        options?.allowZeroSize && new BigNumber(order.s).isZero()
+          ? '0'
+          : formatHlSize(order.s, precision.szDecimals);
+      if (!price) {
+        throw new OneKeyLocalError('Order price is too small for HL tick size');
+      }
+      if (!size) {
+        throw new OneKeyLocalError('Order size is too small for HL lot size');
+      }
+      const t =
+        'trigger' in order.t
+          ? {
+              trigger: {
+                ...order.t.trigger,
+                triggerPx: formatHlPrice(
+                  order.t.trigger.triggerPx,
+                  precision.szDecimals,
+                  precision.type,
+                ),
+              },
+            }
+          : order.t;
+
+      if ('trigger' in t && !t.trigger.triggerPx) {
+        throw new OneKeyLocalError(
+          'Trigger price is too small for HL tick size',
+        );
+      }
+
+      return {
+        ...order,
+        p: price,
+        s: size,
+        t,
+      };
+    });
   }
 
   private async _buildLogContext() {
@@ -601,9 +705,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   ): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
 
+    const formattedOrders = await this._formatOrdersForHyperLiquid(orders, {
+      allowZeroSize: grouping === 'positionTpsl',
+    });
     const client = await this.getExchangeClientForTrading();
     const requestPayload: IHyperLiquidOrderRequestPayload = {
-      orders,
+      orders: formattedOrders,
       grouping,
       builder: this._builderFeeInfo ?? null,
     };
@@ -618,7 +725,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     try {
       const response = await convertHyperLiquidResponse(() =>
         client.order({
-          orders,
+          orders: formattedOrders,
           grouping,
           builder: this._builderFeeInfo,
         }),
@@ -1051,15 +1158,18 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       r: params.reduceOnly ?? false,
       t: params.orderType ?? { limit: { tif: 'Gtc' } },
     };
+    const [formattedOrder = order] = await this._formatOrdersForHyperLiquid([
+      order,
+    ]);
 
     const client = await this.getExchangeClientForTrading();
-    const requestPayload = { oid: params.oid, order };
+    const requestPayload = { oid: params.oid, order: formattedOrder };
     const context = await this._buildLogContext();
     const extra = { originalParams: params };
 
     try {
       const response = await convertHyperLiquidResponse(() =>
-        client.modify({ oid: params.oid, order }),
+        client.modify({ oid: params.oid, order: formattedOrder }),
       );
       defaultLogger.perp.hyperliquid.modifyOrder({
         ...context,

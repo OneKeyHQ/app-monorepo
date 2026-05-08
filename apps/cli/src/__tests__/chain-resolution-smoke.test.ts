@@ -8,7 +8,9 @@
  * Run: npx jest chain-resolution-smoke --no-cache
  */
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 import {
   _resetSwapNetworksCache,
@@ -48,6 +50,25 @@ function run(...args: string[]): string {
 function runSafe(...args: string[]): string {
   try {
     return run(...args);
+  } catch (err: unknown) {
+    const e = err as { stdout?: Buffer | string; stderr?: Buffer | string };
+    return (e.stdout ?? e.stderr ?? '').toString().trim();
+  }
+}
+
+function runSafeWithEnv(
+  env: Partial<NodeJS.ProcessEnv>,
+  ...args: string[]
+): string {
+  try {
+    return execFileSync(BIN, args, {
+      encoding: 'utf-8',
+      env: {
+        ...process.env,
+        ...env,
+      },
+      timeout: 15_000,
+    }).trim();
   } catch (err: unknown) {
     const e = err as { stdout?: Buffer | string; stderr?: Buffer | string };
     return (e.stdout ?? e.stderr ?? '').toString().trim();
@@ -118,6 +139,15 @@ describe('chain resolution (smoke)', () => {
       expect(['ETH', 'TETH']).toContain(c.nativeSymbol);
     });
 
+    it('resolves BTC-family chains', () => {
+      const btc = resolveChain('btc');
+      const tbtc = resolveChain('tbtc');
+      expect(btc.networkId).toBe('btc--0');
+      expect(btc.impl).toBe('btc');
+      expect(tbtc.networkId).toBe('tbtc--0');
+      expect(tbtc.impl).toBe('tbtc');
+    });
+
     it('resolves legacy alias "ethereum" → eth', () => {
       const c = resolveChain('ethereum');
       expect(c.networkId).toBe('evm--1');
@@ -148,8 +178,8 @@ describe('chain resolution (smoke)', () => {
       expect(config.networkId).toBe('evm--43114');
     });
 
-    it('throws for non-EVM chain "btc"', () => {
-      expect(() => resolveChain('btc')).toThrow(/unsupported/i);
+    it('throws for non-BTC non-EVM chain "sol"', () => {
+      expect(() => resolveChain('sol')).toThrow(/unsupported/i);
     });
   });
 
@@ -222,7 +252,7 @@ describe('swap networks (smoke)', () => {
     _resetSwapNetworksCache();
   });
 
-  it('filters out non-EVM networks', async () => {
+  it('returns CLI-supported networks and skips unsupported networks', async () => {
     mockGet.mockResolvedValueOnce([
       {
         networkId: 'evm--1',
@@ -251,12 +281,20 @@ describe('swap networks (smoke)', () => {
     ]);
 
     const networks = await fetchSwapNetworks();
-    // Only EVM networks that exist in presetNetworks
-    for (const net of networks) {
-      expect(net.networkId).toMatch(/^evm--/);
-    }
+    const networkIds = networks.map((n) => n.networkId);
+
+    expect(networkIds).toContain('evm--1');
+    expect(networkIds).toContain('evm--137');
+    expect(networkIds).toContain('btc--0');
     expect(networks.find((n) => n.networkId === 'sol--101')).toBeUndefined();
-    expect(networks.find((n) => n.networkId === 'btc--0')).toBeUndefined();
+    expect(networks.find((n) => n.networkId === 'btc--0')).toMatchObject({
+      name: 'Bitcoin',
+      chainId: '0',
+      nativeSymbol: 'BTC',
+      supportSingleSwap: false,
+      supportCrossChainSwap: false,
+      supportLimit: false,
+    });
   });
 
   it('handles API failure gracefully — returns empty array', async () => {
@@ -363,7 +401,7 @@ describe('swap networks (smoke)', () => {
     expect(bsc!.nativeSymbol).toBe('BNB');
   });
 
-  it('skips EVM networks with unknown networkId', async () => {
+  it('skips unknown networkIds', async () => {
     mockGet.mockResolvedValueOnce([
       {
         networkId: 'evm--999999999',
@@ -394,59 +432,55 @@ describe('CLI command integration (smoke)', () => {
     expect(output).toContain('--chain');
   });
 
-  it('--chain with invalid chain returns PARAM_INVALID_CHAIN error', () => {
-    const output = runSafe(
-      '--json',
-      'swap',
-      'quote',
-      '--chain',
-      'nonexistent',
-      '--from',
-      '0x0000000000000000000000000000000000000000',
-      '--to',
-      '0x0000000000000000000000000000000000000001',
-      '--amount',
-      '1',
-    );
-    const parsed = JSON.parse(extractJson(output));
-    expect(parsed.status).toBe('error');
-    expect(parsed.error.code).toBe('PARAM_INVALID_CHAIN');
-    expect(parsed.error.message).toMatch(/unsupported.*chain/i);
+  it('swap quote checks auth before chain validation', () => {
+    const homeDir = mkdtempSync(join(tmpdir(), 'onekey-cli-swap-chain-auth-'));
+    try {
+      const output = runSafeWithEnv(
+        { HOME: homeDir },
+        '--json',
+        'swap',
+        'quote',
+        '--chain',
+        'nonexistent',
+        '--from',
+        '0x0000000000000000000000000000000000000000',
+        '--to',
+        '0x0000000000000000000000000000000000000001',
+        '--amount',
+        '1',
+      );
+      const parsed = JSON.parse(extractJson(output));
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error.code).toBe('AUTH_NO_WALLET');
+    } finally {
+      rmSync(homeDir, { recursive: true, force: true });
+    }
   });
 
-  it('--chain with typo "etherium" returns suggestion in error', () => {
-    const output = runSafe(
-      '--json',
-      'swap',
-      'quote',
-      '--chain',
-      'etherium',
-      '--from',
-      '0x0000000000000000000000000000000000000000',
-      '--to',
-      '0x0000000000000000000000000000000000000001',
-      '--amount',
-      '1',
-    );
-    const parsed = JSON.parse(extractJson(output));
-    expect(parsed.status).toBe('error');
-    expect(parsed.error.message).toMatch(/did you mean/i);
+  it('resolveChain typo "etherium" returns a suggestion', () => {
+    expect(() => resolveChain('etherium')).toThrow(/did you mean/i);
   });
 
-  it('transfer --chain with invalid chain returns error', () => {
-    const output = runSafe(
-      '--json',
-      'transfer',
-      '--chain',
-      'nonexistent',
-      '--to',
-      '0x0000000000000000000000000000000000000001',
-      '--amount',
-      '0.001',
-    );
-    const parsed = JSON.parse(extractJson(output));
-    expect(parsed.status).toBe('error');
-    expect(parsed.error.code).toBe('PARAM_INVALID_CHAIN');
+  it('transfer checks auth before chain validation', () => {
+    const homeDir = mkdtempSync(join(tmpdir(), 'onekey-cli-chain-auth-'));
+    try {
+      const output = runSafeWithEnv(
+        { HOME: homeDir },
+        '--json',
+        'transfer',
+        '--chain',
+        'nonexistent',
+        '--to',
+        '0x0000000000000000000000000000000000000001',
+        '--amount',
+        '0.001',
+      );
+      const parsed = JSON.parse(extractJson(output));
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error.code).toBe('AUTH_NO_WALLET');
+    } finally {
+      rmSync(homeDir, { recursive: true, force: true });
+    }
   });
 
   it('balance --chain eth resolves without chain error', () => {

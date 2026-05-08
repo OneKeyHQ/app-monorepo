@@ -73,9 +73,7 @@ export function TrayPanel() {
     });
   }, []);
 
-  // Failed txs are tracked for notifications but don't count as content.
-  const hasPendingTxs =
-    data?.pendingTxs?.some((tx) => tx.status === 'pending') ?? false;
+  const hasPendingTxs = (data?.pendingTxs?.length ?? 0) > 0;
 
   if (!data) {
     return (

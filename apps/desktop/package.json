@@ -34,7 +34,6 @@
     "build:winms": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish never",
     "publish:all": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish always",
     "publish:winms": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish always",
-    "_folderslint": "yarn folderslint",
     "build:JsBundle": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 webpack build"
   },
   "dependencies": {
@@ -64,7 +63,6 @@
     "electron": "39.8.9",
     "electron-builder": "26.4.0",
     "esbuild": "0.27.2",
-    "folderslint": "1.2.0",
     "glob": "^7.2.0",
     "rimraf": "3.0.2",
     "webpack": "5.90.3"

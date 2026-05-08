@@ -5,6 +5,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapBatchTransferType,
+  ESwapRateDifferenceUnit,
   ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -109,6 +110,10 @@ describe('buildSwapReviewState', () => {
       shouldFallback: false,
       supportPreBuild: true,
       slippage: 1,
+      rateDifference: {
+        value: '-12.34%',
+        unit: ESwapRateDifferenceUnit.NEGATIVE,
+      },
       texts,
     });
 
@@ -117,6 +122,10 @@ describe('buildSwapReviewState', () => {
     ]);
     expect(result.preSwapData.needFetchGas).toBe(false);
     expect(result.preSwapData.supportNetworkFeeLevel).toBe(true);
+    expect(result.preSwapData.rateDifference).toEqual({
+      value: '-12.34%',
+      unit: ESwapRateDifferenceUnit.NEGATIVE,
+    });
   });
 
   it('builds a wrap flow', () => {
