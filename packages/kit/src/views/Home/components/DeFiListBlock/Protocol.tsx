@@ -44,9 +44,6 @@ import type {
 import { ProtocolHeaderRow } from './ProtocolHeaderRow';
 import { ProtocolRow } from './ProtocolRow';
 
-const PROTOCOL_CARD_WEB_SHADOW =
-  '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';
-
 type IProtocolProps = {
   protocol: IDeFiProtocol;
   tableLayout?: boolean;
@@ -149,9 +146,12 @@ const ProtocolDesktopLayout = memo(
           borderRadius="$3"
           borderCurve="continuous"
           overflow="hidden"
+          // Body and header bg follow the mobile Figma card surface.
           bg="$bgApp"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$border"
           $platform-web={{
-            boxShadow: PROTOCOL_CARD_WEB_SHADOW,
+            boxShadow: 'none',
           }}
           $platform-ios={{
             shadowColor: '#000',
@@ -198,10 +198,7 @@ const ProtocolDesktopLayout = memo(
                 )}
               </Accordion.Trigger>
               <Accordion.Content exitStyle={{ opacity: 0 }} px="$0" py="$0">
-                <YStack
-                  borderTopWidth={StyleSheet.hairlineWidth}
-                  borderColor="$borderSubdued"
-                >
+                <YStack pt="$2">
                   {positions.map((position, index) => {
                     const isLastPosition = index === positions.length - 1;
                     return (
@@ -273,7 +270,7 @@ const ProtocolDesktopLayout = memo(
                           ))}
                         </YStack>
                         {index !== positions.length - 1 ? (
-                          <Stack px="$5">
+                          <Stack px="$5" pt="$3" pb="$2">
                             <Divider />
                           </Stack>
                         ) : null}
