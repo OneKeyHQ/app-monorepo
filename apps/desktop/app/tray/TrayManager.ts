@@ -4,8 +4,6 @@ import { type BrowserWindow, Tray, nativeImage } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
-import { ipcMessageKeys } from '../config';
-
 import {
   registerTrayIpcHandlers,
   requestDataFromMainWindow,
@@ -14,10 +12,6 @@ import {
   setLocked,
   unregisterTrayIpcHandlers,
 } from './trayIpc';
-import {
-  resetNotificationState,
-  setNotificationClickHandler,
-} from './trayNotification';
 import {
   createTrayWindow,
   destroyTrayWindow,
@@ -151,18 +145,6 @@ export function initTrayManager(
 
   registerTrayIpcHandlers(getMainWindow, showMainWindow, releaseRequestGuard);
 
-  setNotificationClickHandler((txId: string) => {
-    showMainWindow();
-    const mainWindow = getMainWindow();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(ipcMessageKeys.TRAY_ACTION, {
-        type: 'transaction-detail',
-        txid: txId,
-        historyId: txId,
-      });
-    }
-  });
-
   isInitialized = true;
 
   // Prime the cache so the first panel open is instant.
@@ -175,7 +157,6 @@ export function setTrayLocked(locked: boolean): void {
   setLocked(locked);
   if (locked) {
     stopPolling();
-    resetNotificationState();
   }
 }
 
@@ -187,7 +168,6 @@ export function destroyTrayManager(): void {
   releaseRequestGuard();
   unregisterTrayIpcHandlers();
   destroyTrayWindow();
-  resetNotificationState();
 
   // Clear state so a re-init (setting toggle) isn't blocked by stale
   // isLocked or served stale cachedTrayData.

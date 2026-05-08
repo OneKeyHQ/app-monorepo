@@ -8,7 +8,6 @@ import type {
 
 import { ipcMessageKeys } from '../config';
 
-import { diffAndNotify } from './trayNotification';
 import { getTrayWindow } from './trayWindow';
 
 // Injected by TrayManager so the IPC layer can release the in-flight guard
@@ -118,9 +117,8 @@ export function registerTrayIpcHandlers(
       isLocked = true;
       cachedTrayData = data;
     } else if (data.isError) {
-      // Skip diff/notify — empty pendingTxs would mis-fire "Confirmed" for
-      // every tracked tx. Keep previous cache so the panel still shows the
-      // last known good data, and don't forward the placeholder to tray.
+      // Keep previous cache so the panel still shows the last known good
+      // data, and don't forward the placeholder to tray.
       //
       // Clear isLocked: renderer only hits this path when unlocked. Without
       // this, a lock→unlock→gather-failure sequence leaves isLocked stuck
@@ -130,7 +128,6 @@ export function registerTrayIpcHandlers(
     } else {
       isLocked = false;
       cachedTrayData = data;
-      diffAndNotify(data.pendingTxs, data.accountId, data.pendingTxsCleared);
     }
 
     const trayWindow = getTrayWindow();

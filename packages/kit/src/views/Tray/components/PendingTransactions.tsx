@@ -387,10 +387,7 @@ export function PendingTransactions({
     id: ETranslations.tray_pending_status,
   });
 
-  // Failed txs stay in `transactions` for diffAndNotify; don't show them here.
-  const visibleTxs = (transactions || []).filter(
-    (tx) => tx.status === 'pending',
-  );
+  const visibleTxs = transactions || [];
 
   if (visibleTxs.length === 0) {
     return (
