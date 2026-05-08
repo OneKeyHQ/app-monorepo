@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "金額を承認",
   "approve_edit.current_allowance": "現在の承認額",
   "approve_edit.final_allowance": "最終承認額",
+  "approve_edit.increase_allowance": "{symbol} の承認額を追加",
+  "approve_edit.increase_allowance_by_amount": "{symbol} の承認額を {amount} 追加",
   "approve_edit.increase_amount": "追加額",
   "approve_edit.less_than_swap": "許可額はスワップ金額を下回ることはできません",
   "approve_edit.title": "編集許可",

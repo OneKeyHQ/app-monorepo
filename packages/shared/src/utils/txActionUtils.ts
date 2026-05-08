@@ -433,8 +433,7 @@ function convertTokenApproveActionToSignatureConfirmComponent({
   // Treat undefined approveType as absolute approve for legacy chains that don't tag it.
   const isAbsoluteApprove =
     !action.approveType || action.approveType === EApproveType.Approve;
-  const isRevoke =
-    isAbsoluteApprove && new BigNumber(action.amount).isZero();
+  const isRevoke = isAbsoluteApprove && new BigNumber(action.amount).isZero();
   let approveLabel = '';
 
   if (isMultiTxs) {
@@ -710,8 +709,7 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
         !action.tokenApprove.approveType ||
         action.tokenApprove.approveType === EApproveType.Approve;
       const isRevoke =
-        isAbsoluteApprove &&
-        new BigNumber(action.tokenApprove.amount).isZero();
+        isAbsoluteApprove && new BigNumber(action.tokenApprove.amount).isZero();
 
       return isRevoke
         ? appLocale.intl.formatMessage({

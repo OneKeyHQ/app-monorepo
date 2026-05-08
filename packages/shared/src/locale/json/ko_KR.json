@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "금액 승인",
   "approve_edit.current_allowance": "현재 허용량",
   "approve_edit.final_allowance": "최종 허용량",
+  "approve_edit.increase_allowance": "{symbol} 허용량 증가",
+  "approve_edit.increase_allowance_by_amount": "{symbol} 허용량을 {amount}만큼 증가",
   "approve_edit.increase_amount": "증가 금액",
   "approve_edit.less_than_swap": "허용량은 스왑 금액보다 적을 수 없습니다.",
   "approve_edit.title": "수당 수정",

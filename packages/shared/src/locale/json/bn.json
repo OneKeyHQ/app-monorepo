@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "পরিমাণ অনুমোদন করুন",
   "approve_edit.current_allowance": "বর্তমান অনুমোদন",
   "approve_edit.final_allowance": "চূড়ান্ত অনুমোদন",
+  "approve_edit.increase_allowance": "{symbol} অনুমোদন বাড়ান",
+  "approve_edit.increase_allowance_by_amount": "{symbol} অনুমোদন {amount} দ্বারা বাড়ান",
   "approve_edit.increase_amount": "বৃদ্ধির পরিমাণ",
   "approve_edit.less_than_swap": "অনুমোদিত সীমা অদলবদলের পরিমাণের চেয়ে কম হতে পারে না",
   "approve_edit.title": "ভাতা সম্পাদনা করুন",

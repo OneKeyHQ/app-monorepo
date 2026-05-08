@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "Aprobar monto",
   "approve_edit.current_allowance": "Autorización actual",
   "approve_edit.final_allowance": "Autorización final",
+  "approve_edit.increase_allowance": "Aumentar autorización de {symbol}",
+  "approve_edit.increase_allowance_by_amount": "Aumentar autorización de {symbol} en {amount}",
   "approve_edit.increase_amount": "Importe a aumentar",
   "approve_edit.less_than_swap": "La asignación no puede ser menor que el monto del swap",
   "approve_edit.title": "Editar asignación",

@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "राशि स्वीकृत करें",
   "approve_edit.current_allowance": "वर्तमान स्वीकृति",
   "approve_edit.final_allowance": "अंतिम स्वीकृति",
+  "approve_edit.increase_allowance": "{symbol} स्वीकृति बढ़ाएं",
+  "approve_edit.increase_allowance_by_amount": "{symbol} स्वीकृति को {amount} से बढ़ाएं",
   "approve_edit.increase_amount": "बढ़ाने की राशि",
   "approve_edit.less_than_swap": "स्वीकृत सीमा स्वैप राशि से कम नहीं हो सकती",
   "approve_edit.title": "संपादन भत्ता",

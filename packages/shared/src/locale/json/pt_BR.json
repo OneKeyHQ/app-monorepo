@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "Aprovar valor",
   "approve_edit.current_allowance": "Autorização atual",
   "approve_edit.final_allowance": "Autorização final",
+  "approve_edit.increase_allowance": "Aumentar autorização de {symbol}",
+  "approve_edit.increase_allowance_by_amount": "Aumentar autorização de {symbol} em {amount}",
   "approve_edit.increase_amount": "Valor a aumentar",
   "approve_edit.less_than_swap": "O limite de aprovação não pode ser menor que o valor do swap",
   "approve_edit.title": "Editar subsídio",

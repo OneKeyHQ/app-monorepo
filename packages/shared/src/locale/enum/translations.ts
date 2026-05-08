@@ -147,6 +147,8 @@ export enum ETranslations {
   approve_edit_approve_amount = 'approve_edit.approve_amount',
   approve_edit_current_allowance = 'approve_edit.current_allowance',
   approve_edit_final_allowance = 'approve_edit.final_allowance',
+  approve_edit_increase_allowance = 'approve_edit.increase_allowance',
+  approve_edit_increase_allowance_by_amount = 'approve_edit.increase_allowance_by_amount',
   approve_edit_increase_amount = 'approve_edit.increase_amount',
   approve_edit_less_than_swap = 'approve_edit.less_than_swap',
   approve_edit_title = 'approve_edit.title',

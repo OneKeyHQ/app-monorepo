@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "Menyetujui jumlah",
   "approve_edit.current_allowance": "Izin saat ini",
   "approve_edit.final_allowance": "Izin akhir",
+  "approve_edit.increase_allowance": "Tambah izin {symbol}",
+  "approve_edit.increase_allowance_by_amount": "Tambah izin {symbol} sebesar {amount}",
   "approve_edit.increase_amount": "Jumlah tambahan",
   "approve_edit.less_than_swap": "Batas persetujuan tidak boleh kurang dari jumlah swap",
   "approve_edit.title": "Edit tunjangan",

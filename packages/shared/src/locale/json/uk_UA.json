@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "Затвердити суму",
   "approve_edit.current_allowance": "Поточний дозвіл",
   "approve_edit.final_allowance": "Кінцевий дозвіл",
+  "approve_edit.increase_allowance": "Збільшити дозвіл {symbol}",
+  "approve_edit.increase_allowance_by_amount": "Збільшити дозвіл {symbol} на {amount}",
   "approve_edit.increase_amount": "Сума збільшення",
   "approve_edit.less_than_swap": "Ліміт схвалення не може бути меншим за суму обміну",
   "approve_edit.title": "Редагувати допуск",

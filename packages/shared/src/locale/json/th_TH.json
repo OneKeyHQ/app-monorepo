@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "จำนวนเงินอนุมัติ",
   "approve_edit.current_allowance": "วงเงินอนุมัติปัจจุบัน",
   "approve_edit.final_allowance": "วงเงินอนุมัติสุดท้าย",
+  "approve_edit.increase_allowance": "เพิ่มวงเงินอนุมัติ {symbol}",
+  "approve_edit.increase_allowance_by_amount": "เพิ่มวงเงินอนุมัติ {symbol} อีก {amount}",
   "approve_edit.increase_amount": "จำนวนที่เพิ่ม",
   "approve_edit.less_than_swap": "วงเงินอนุมัติไม่สามารถน้อยกว่าจำนวนเงินที่สวอปได้",
   "approve_edit.title": "แก้ไขค่าเบี้ยเลี้ยง",

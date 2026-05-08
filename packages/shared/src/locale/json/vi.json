@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "Phê duyệt số tiền",
   "approve_edit.current_allowance": "Hạn mức hiện tại",
   "approve_edit.final_allowance": "Hạn mức cuối cùng",
+  "approve_edit.increase_allowance": "Tăng hạn mức {symbol}",
+  "approve_edit.increase_allowance_by_amount": "Tăng hạn mức {symbol} thêm {amount}",
   "approve_edit.increase_amount": "Số tiền tăng thêm",
   "approve_edit.less_than_swap": "Hạn mức cho phép không được nhỏ hơn số lượng hoán đổi",
   "approve_edit.title": "Chỉnh sửa trợ cấp",

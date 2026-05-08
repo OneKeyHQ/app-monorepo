@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "授權金額",
   "approve_edit.current_allowance": "目前授權額度",
   "approve_edit.final_allowance": "最終授權額度",
+  "approve_edit.increase_allowance": "增加 {symbol} 授權額度",
+  "approve_edit.increase_allowance_by_amount": "將 {symbol} 授權額度增加 {amount}",
   "approve_edit.increase_amount": "增加金額",
   "approve_edit.less_than_swap": "授權額度不能低於兌換金額",
   "approve_edit.title": "編輯授權",

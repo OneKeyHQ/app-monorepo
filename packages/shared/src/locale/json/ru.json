@@ -142,6 +142,8 @@
   "approve_edit.approve_amount": "Утвердить сумму",
   "approve_edit.current_allowance": "Текущее разрешение",
   "approve_edit.final_allowance": "Итоговое разрешение",
+  "approve_edit.increase_allowance": "Увеличить разрешение {symbol}",
+  "approve_edit.increase_allowance_by_amount": "Увеличить разрешение {symbol} на {amount}",
   "approve_edit.increase_amount": "Сумма увеличения",
   "approve_edit.less_than_swap": "Лимит одобрения не может быть меньше суммы обмена",
   "approve_edit.title": "Изменить разрешение",
