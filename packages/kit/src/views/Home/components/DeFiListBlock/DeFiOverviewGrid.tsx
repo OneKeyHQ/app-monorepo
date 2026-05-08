@@ -7,22 +7,35 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import { OVERVIEW_TOP_N } from '../../types';
-
-import {
-  DeFiOverviewDesktopGrid,
-  OVERVIEW_GRID_STYLE,
-} from './DeFiOverviewDesktopGrid';
+import { DeFiOverviewDesktopGrid } from './DeFiOverviewDesktopGrid';
+import { buildOverviewGridStyle } from './DeFiOverviewLayout';
 import { buildDeFiOverviewRenderCells } from './DeFiOverviewPlanner';
 import { useDeFiOverviewTopN } from './hooks/useDeFiOverviewTopN';
 
-// Window after any tile tap during which further taps are ignored. Prevents
-// a second quick click from landing on a newly-revealed tile during the
-// More/Less layout shift (deep-linking into a protocol accidentally) and
-// also kills rapid More↔Less double-toggle.
+import type { IOverviewCols } from './overviewColsResolver';
+
+/**
+ * Approximates the rendered DeFiOverviewTile height: 36 px logo +
+ * py="$3.5" (= 14 px each side) + a 2-line text stack (name + value
+ * with a $1 gap). Kept ~2 px under the natural height so it never
+ * looks taller than reality on load — undershoot is invisible,
+ * overshoot causes layout reflow.
+ */
+const SKELETON_TILE_HEIGHT = 68;
+/**
+ * Skeleton row count is a hedge, not a prediction: we don't know how
+ * many protocols are coming until the fetch lands. Two rows reads as
+ * "the typical wallet is loading" without claiming more cells than
+ * exist — most users have 4 to 8 protocols, well under the 3*cols
+ * ceiling the bento grid can grow to. Real data drives the eventual
+ * grid; the skeleton merely warms up the area.
+ */
+const SKELETON_ROWS = 2;
+
 const OVERVIEW_TOGGLE_PRESS_LOCK_MS = 600;
 
-export type IDeFiOverviewCardProps = {
+export type IDeFiOverviewGridProps = {
+  cols: IOverviewCols;
   protocols: IDeFiProtocol[] | undefined;
   protocolMap: Record<string, IProtocolSummary>;
   isLoading?: boolean;
@@ -31,25 +44,19 @@ export type IDeFiOverviewCardProps = {
   onPressProtocol: (p: IDeFiProtocol) => void;
 };
 
-const SKELETON_TILE_HEIGHT = 60;
-
-function DeFiOverviewCard({
+function DeFiOverviewGrid({
+  cols,
   protocols,
   protocolMap,
   isLoading,
   isAllNetworks,
   getNetWorth,
   onPressProtocol,
-}: IDeFiOverviewCardProps) {
+}: IDeFiOverviewGridProps) {
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
   const isExpanded = !isSliced;
 
   const rankedProtocols = useDeFiOverviewTopN(protocols, getNetWorth);
-  const overviewExposureTotal = useMemo(
-    () =>
-      rankedProtocols.reduce((acc, cell) => acc + Math.abs(cell.netWorth), 0),
-    [rankedProtocols],
-  );
 
   const cells = useMemo(
     () =>
@@ -57,9 +64,9 @@ function DeFiOverviewCard({
         rankedProtocols,
         protocolMap,
         isExpanded,
-        exposureTotal: overviewExposureTotal,
+        cols,
       }),
-    [rankedProtocols, protocolMap, isExpanded, overviewExposureTotal],
+    [rankedProtocols, protocolMap, isExpanded, cols],
   );
 
   const pressLockUntilRef = useRef(0);
@@ -89,20 +96,24 @@ function DeFiOverviewCard({
   );
 
   if (isLoading) {
+    const skeletonCount = cols * SKELETON_ROWS;
+    // Tamagui's $gtMd prop is typed against StackStyle (which doesn't allow
+    // `display: 'grid'`). Cast through `unknown` so we can pass a CSS-grid
+    // template object without spreading `any` into the call site.
+    const gridStyle = buildOverviewGridStyle(cols) as unknown as Record<
+      string,
+      unknown
+    >;
     return (
-      <XStack width="100%" flexWrap="wrap" gap="$2" $gtMd={OVERVIEW_GRID_STYLE}>
-        {Array.from({ length: OVERVIEW_TOP_N }).map((_, i) => (
+      <XStack width="100%" flexWrap="wrap" gap="$2" $gtMd={gridStyle}>
+        {Array.from({ length: skeletonCount }).map((_, i) => (
           <XStack
             // eslint-disable-next-line react/no-array-index-key
             key={`defi-overview-skeleton-${i}`}
             minWidth={0}
             flex={1}
           >
-            <Skeleton
-              height={SKELETON_TILE_HEIGHT}
-              borderRadius="$3"
-              flex={1}
-            />
+            <Skeleton height={SKELETON_TILE_HEIGHT} radius={12} flex={1} />
           </XStack>
         ))}
       </XStack>
@@ -116,6 +127,7 @@ function DeFiOverviewCard({
   return (
     <DeFiOverviewDesktopGrid
       cells={cells}
+      cols={cols}
       protocolMap={protocolMap}
       onPressProtocol={handleProtocolPress}
       onPressMore={handleMore}
@@ -125,10 +137,9 @@ function DeFiOverviewCard({
   );
 }
 
-// Memoized: same reason as DeFiPortfolioCard — sticky scroll updates in
-// DeFiContainer re-render this tree every rAF frame otherwise. 10+ tile
-// children skip re-render when props haven't changed.
-const MemoDeFiOverviewCard = memo(DeFiOverviewCard);
-MemoDeFiOverviewCard.displayName = 'DeFiOverviewCard';
+DeFiOverviewGrid.displayName = 'DeFiOverviewGrid';
 
-export { MemoDeFiOverviewCard as DeFiOverviewCard };
+const MemoDeFiOverviewGrid = memo(DeFiOverviewGrid);
+MemoDeFiOverviewGrid.displayName = 'DeFiOverviewGrid';
+
+export { MemoDeFiOverviewGrid as DeFiOverviewGrid };
