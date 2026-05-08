@@ -93,6 +93,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     speedCheckError,
     disableNativeToken,
     marketPresetSettings,
+    onCloseDialog,
   } = props;
 
   const {
@@ -314,7 +315,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       ) : null}
 
       {showMarketPresetSelector && marketPresetSettings ? (
-        <MarketPresetSelector presetSettings={marketPresetSettings} />
+        <MarketPresetSelector
+          presetSettings={marketPresetSettings}
+          variant={onCloseDialog ? 'compact' : 'full'}
+        />
       ) : null}
 
       <ActionButton
