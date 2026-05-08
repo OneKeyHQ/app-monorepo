@@ -168,7 +168,10 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   }
 
   // BTC deriveContextHash for software keyrings. Provider layer is
-  // responsible for user approval and parameter validation.
+  // responsible for user approval and parameter validation. For HD
+  // accounts the IKM is the connected leaf private key — we resolve the
+  // leaf path here from the vault's address detail (matches the fallback
+  // pattern used by KeyringHardwareBtcBase for sign/getAddress).
   async baseDeriveContextHashBtc({
     password,
     appName,
@@ -178,6 +181,16 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     appName: string;
     context: string;
   }): Promise<string> {
+    let leafPath: string | undefined;
+    if (this.isKeyringHd()) {
+      const account = await this.vault.getAccount();
+      // Same pattern as KeyringHardwareBtcBase: prefer the fresh-address
+      // leaf path; otherwise fall back to <account.path>/<relPath || 0/0>.
+      const receiveAddressPath = account.addressDetail?.receiveAddressPath;
+      const fallback = `${account.path}/${account.relPath ?? '0/0'}`;
+      leafPath = receiveAddressPath ?? fallback;
+    }
+
     const credentials = await this.baseGetCredentialsInfo({ password });
     // Lazy-import keeps bip32/bitcoinjs-lib out of non-BTC keyring bundles.
     const { deriveContextHashFromBtcCredentials } =
@@ -185,6 +198,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     return deriveContextHashFromBtcCredentials({
       credentials,
       password,
+      leafPath,
       appName,
       context,
     });

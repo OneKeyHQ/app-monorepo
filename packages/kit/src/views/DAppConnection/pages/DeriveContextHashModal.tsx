@@ -29,7 +29,7 @@ const COPY = {
   appNameLabel: 'Application name',
   contextLabel: 'Context (hex)',
   warning:
-    'A deterministic value will be derived from your wallet using the application name and context shown above. Anyone with the same key material, application name, and context can produce the same value. Note: for HD (mnemonic) wallets the value is the same across all BTC accounts under the same wallet seed (recovery phrase together with any BIP-39 passphrase set at wallet creation).',
+    'A deterministic value will be derived from the connected address using the application name and context shown above. Anyone with the same key material, application name, and context can produce the same value. Output is bound to the connected address — a different connected address (different public key) will produce a different value.',
 };
 
 function DeriveContextHashModal() {

@@ -942,9 +942,10 @@ class ProviderApiBtc extends ProviderApiBase {
 
   /**
    * @experimental Derive a deterministic 32-byte value via HKDF-SHA-256.
-   * HD output is wallet-level; imported output is per-key — see
-   * `IDeriveContextHashParams` for the full contract. We validate via the
-   * core validators so invalid params fail before any approval UI opens.
+   * Output is per-public-key — different connected addresses produce
+   * different outputs. See `IDeriveContextHashParams` for the full
+   * contract. We validate via the core validators so invalid params fail
+   * before any approval UI opens.
    */
   @providerApiMethod()
   public async deriveContextHash(

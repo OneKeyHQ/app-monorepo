@@ -9,6 +9,9 @@ import { deriveContextHashFromBtcCredentials } from './deriveContextHashFromCred
 const TEST_MNEMONIC =
   'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 const PASSWORD = 'a-test-password';
+// First receive address of BIP-44 Bitcoin account 0 — matches the §4.2
+// integration KAT in the babylon-toolkit deriveContextHash spec.
+const LEAF_PATH_DEFAULT = "m/44'/0'/0'/0/0";
 
 async function makeHdCredential(mnemonic: string, passphrase?: string) {
   const rs = mnemonicToRevealableSeed(mnemonic, passphrase);
@@ -23,12 +26,13 @@ async function makeImportedCredential(privateKeyHex: string) {
 }
 
 describe('deriveContextHashFromBtcCredentials — contract', () => {
-  describe('HD path: output is wallet-level (per-seed, not per-account)', () => {
-    it('produces identical output across multiple invocations with the same hd credential', async () => {
+  describe('HD path: output is per-public-key (per connected leaf)', () => {
+    it('produces identical output across multiple invocations with the same hd credential and leaf path', async () => {
       const hd = await makeHdCredential(TEST_MNEMONIC);
       const args = {
         credentials: { hd },
         password: PASSWORD,
+        leafPath: LEAF_PATH_DEFAULT,
         appName: 'test-app',
         context: 'deadbeef',
       };
@@ -40,27 +44,79 @@ describe('deriveContextHashFromBtcCredentials — contract', () => {
       expect(out1).toMatch(/^[0-9a-f]{64}$/);
     });
 
-    it('matches the cross-wallet KAT vector for the standard test mnemonic (no passphrase)', async () => {
+    // Cross-wallet integration KAT from the babylon-toolkit spec §4.2.
+    // Standard "abandon × 11 / about" mnemonic, no passphrase, leaf at
+    // m/44'/0'/0'/0/0. Any conforming wallet MUST produce this exact output.
+    it('matches the §4.2 cross-wallet KAT for the standard test mnemonic', async () => {
       const hd = await makeHdCredential(TEST_MNEMONIC);
       const out = await deriveContextHashFromBtcCredentials({
         credentials: { hd },
         password: PASSWORD,
+        leafPath: LEAF_PATH_DEFAULT,
         appName: 'test-app',
         context: 'deadbeef',
       });
       expect(out).toBe(
-        '3b0e2d90a01122eed8a520648073892f6b2d8f4419216023d63cdbd49500fca3',
+        '650b3fa2cf958ecd258544af2b812c3e8a3f4f75ea5d030cb4dd175da551e356',
       );
+    });
+
+    it('different leaf paths produce different outputs (per-public-key)', async () => {
+      const hd = await makeHdCredential(TEST_MNEMONIC);
+      const args = {
+        credentials: { hd },
+        password: PASSWORD,
+        appName: 'test-app',
+        context: 'deadbeef',
+      };
+      const a = await deriveContextHashFromBtcCredentials({
+        ...args,
+        leafPath: LEAF_PATH_DEFAULT, // m/44'/0'/0'/0/0
+      });
+      const b = await deriveContextHashFromBtcCredentials({
+        ...args,
+        leafPath: "m/44'/0'/0'/0/1", // next receive index
+      });
+      const c = await deriveContextHashFromBtcCredentials({
+        ...args,
+        leafPath: "m/86'/0'/0'/0/0", // different address type (Taproot)
+      });
+      expect(a).not.toBe(b);
+      expect(a).not.toBe(c);
+      expect(b).not.toBe(c);
+    });
+
+    // Regression: fresh-address support hands the keyring a non-0/0 leaf
+    // path. The IKM must come from THAT leaf, not silently fall back to 0/0.
+    it('non-0/0 receive leaf participates in IKM selection', async () => {
+      const hd = await makeHdCredential(TEST_MNEMONIC);
+      const args = {
+        credentials: { hd },
+        password: PASSWORD,
+        appName: 'test-app',
+        context: 'deadbeef',
+      };
+      const at0 = await deriveContextHashFromBtcCredentials({
+        ...args,
+        leafPath: "m/44'/0'/0'/0/0",
+      });
+      const at5 = await deriveContextHashFromBtcCredentials({
+        ...args,
+        leafPath: "m/44'/0'/0'/0/5",
+      });
+      expect(at0).not.toBe(at5);
     });
 
     // Locks the contract that the BIP-39 passphrase IS part of the seed
     // identity. Two HD wallets that share a recovery phrase but differ in
-    // BIP-39 passphrase MUST produce different outputs.
-    it('different BIP-39 passphrases produce different outputs', async () => {
+    // BIP-39 passphrase MUST produce different outputs even at the same
+    // leaf path.
+    it('different BIP-39 passphrases produce different outputs at the same leaf path', async () => {
       const hdNoPass = await makeHdCredential(TEST_MNEMONIC);
       const hdWithPass = await makeHdCredential(TEST_MNEMONIC, 'extra-pass');
       const args = {
         password: PASSWORD,
+        leafPath: LEAF_PATH_DEFAULT,
         appName: 'test-app',
         context: 'deadbeef',
       };
@@ -73,6 +129,18 @@ describe('deriveContextHashFromBtcCredentials — contract', () => {
         credentials: { hd: hdWithPass },
       });
       expect(a).not.toBe(b);
+    });
+
+    it('rejects when leafPath is missing for an HD credential', async () => {
+      const hd = await makeHdCredential(TEST_MNEMONIC);
+      await expect(
+        deriveContextHashFromBtcCredentials({
+          credentials: { hd },
+          password: PASSWORD,
+          appName: 'test-app',
+          context: 'deadbeef',
+        }),
+      ).rejects.toThrow('connected leaf BIP-32 path');
     });
   });
 
@@ -113,7 +181,7 @@ describe('deriveContextHashFromBtcCredentials — contract', () => {
   });
 
   describe('HD vs Imported produce different outputs (independent IKM)', () => {
-    it('HD seed-derived IKM and a raw-key IKM produce different outputs', async () => {
+    it('HD leaf-derived IKM and a raw-key IKM produce different outputs', async () => {
       const hd = await makeHdCredential(TEST_MNEMONIC);
       const imp = await makeImportedCredential('11'.repeat(32));
       const args = {
@@ -124,6 +192,7 @@ describe('deriveContextHashFromBtcCredentials — contract', () => {
       const hdOut = await deriveContextHashFromBtcCredentials({
         ...args,
         credentials: { hd },
+        leafPath: LEAF_PATH_DEFAULT,
       });
       const impOut = await deriveContextHashFromBtcCredentials({
         ...args,
@@ -141,6 +210,7 @@ describe('deriveContextHashFromBtcCredentials — contract', () => {
         deriveContextHashFromBtcCredentials({
           credentials: { hd, imported: imp },
           password: PASSWORD,
+          leafPath: LEAF_PATH_DEFAULT,
           appName: 'test-app',
           context: 'deadbeef',
         }),

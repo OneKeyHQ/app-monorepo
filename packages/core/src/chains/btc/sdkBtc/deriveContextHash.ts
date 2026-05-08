@@ -15,9 +15,6 @@ const CONTEXT_MAX_BYTES = CONTEXT_MAX_HEX_CHARS / 2; // 1024
 const APP_NAME_REGEX = /^[a-z0-9-]+$/;
 const HEX_REGEX = /^[0-9a-f]+$/;
 
-// HD IKM path. 73681862 = trunc31_be(SHA-256("derive-context-hash")).
-export const DERIVE_CONTEXT_HASH_BIP32_PATH = "m/73681862'";
-
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))

@@ -89,12 +89,12 @@ describe('deriveContextHash', () => {
     });
   });
 
-  // Known-answer vectors. Any conforming implementation MUST produce these
-  // exact outputs for the given inputs — that's the cross-wallet interop
-  // guarantee. IKM is the BIP-32 private key at m/73681862' derived from
-  // the standard BIP-39 mnemonic "abandon abandon abandon abandon abandon
-  // abandon abandon abandon abandon abandon abandon about" (no passphrase).
-  describe('known-answer tests (cross-wallet interop vectors)', () => {
+  // Known-answer vectors that pin the pure HKDF composition (ikm,
+  // appName, context). They are independent of how a wallet sources IKM
+  // at runtime — IKM here is an opaque fixed 32-byte test value, NOT
+  // produced by any BIP-32 derivation. Wallet integration tests should
+  // assert per-leaf IKM derivation in the keyring-specific test files.
+  describe('known-answer tests (HKDF function-level)', () => {
     const IKM_HEX =
       '391cdb922097ec9c96fc13cadb01d5745ccf31f5dbec3a38103440714779ec85';
     const ikm = new Uint8Array(Buffer.from(IKM_HEX, 'hex'));

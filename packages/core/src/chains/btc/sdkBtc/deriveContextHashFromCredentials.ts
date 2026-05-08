@@ -8,11 +8,7 @@ import {
   decryptRevealableSeed,
 } from '../../../secret';
 
-import {
-  DERIVE_CONTEXT_HASH_BIP32_PATH,
-  deriveContextHash,
-  parseHexContext,
-} from './deriveContextHash';
+import { deriveContextHash, parseHexContext } from './deriveContextHash';
 
 import type {
   ICoreCredentialsInfo,
@@ -20,64 +16,16 @@ import type {
   ICoreImportedCredentialEncryptHex,
 } from '../../../types';
 
-/**
- * BTC `deriveContextHash` orchestration. HD = wallet-level output (IKM from
- * stored BIP-39 seed at fixed path; passphrase changes seed → different
- * output). Imported = per-key output. Account index/path/address type/
- * accountId are intentionally NOT inputs — adding them breaks cross-wallet
- * interop. Caller does user approval; we still validate defensively.
- */
-export async function deriveContextHashFromBtcCredentials({
-  credentials,
-  password,
-  appName,
-  context,
-}: {
-  credentials: ICoreCredentialsInfo;
-  password: string;
-  appName: string;
-  context: string;
-}): Promise<string> {
-  const contextBytes = parseHexContext(context);
-
-  // Fail-closed: keyrings populate exactly one of hd/imported.
-  if (credentials.hd && credentials.imported) {
-    throw new OneKeyLocalError(
-      'deriveContextHash got ambiguous credentials (both hd and imported set)',
-    );
-  }
-
-  if (credentials.hd) {
-    return deriveFromHd({
-      hdCredential: credentials.hd,
-      password,
-      appName,
-      contextBytes,
-    });
-  }
-
-  if (credentials.imported) {
-    return deriveFromImported({
-      importedCredential: credentials.imported,
-      password,
-      appName,
-      contextBytes,
-    });
-  }
-
-  throw new OneKeyLocalError(
-    'deriveContextHash requires HD or imported credentials',
-  );
-}
-
 async function deriveFromHd({
   hdCredential,
   password,
+  leafPath,
   appName,
   contextBytes,
 }: {
   hdCredential: ICoreHdCredentialEncryptHex;
   password: string;
+  leafPath: string;
   appName: string;
   contextBytes: Uint8Array;
 }): Promise<string> {
@@ -87,7 +35,7 @@ async function deriveFromHd({
   const rs = await decryptRevealableSeed({ rs: hdCredential, password });
   const seed = bufferUtils.toBuffer(rs.seed);
   const root = getBitcoinBip32().fromSeed(seed);
-  const child = root.derivePath(DERIVE_CONTEXT_HASH_BIP32_PATH);
+  const child = root.derivePath(leafPath);
   if (!child.privateKey) {
     throw new OneKeyLocalError(
       'BIP-32 derivation produced no private key for deriveContextHash',
@@ -146,4 +94,61 @@ async function deriveFromImported({
   } finally {
     ikm.fill(0);
   }
+}
+
+/**
+ * BTC `deriveContextHash` orchestration. HD = per-public-key output (IKM is
+ * the connected leaf's BIP-32 private key at `leafPath`; different leaves
+ * → different outputs). Imported = per-key output (raw imported privkey).
+ * Caller does user approval; we still validate defensively.
+ */
+export async function deriveContextHashFromBtcCredentials({
+  credentials,
+  password,
+  leafPath,
+  appName,
+  context,
+}: {
+  credentials: ICoreCredentialsInfo;
+  password: string;
+  leafPath?: string;
+  appName: string;
+  context: string;
+}): Promise<string> {
+  const contextBytes = parseHexContext(context);
+
+  // Fail-closed: keyrings populate exactly one of hd/imported.
+  if (credentials.hd && credentials.imported) {
+    throw new OneKeyLocalError(
+      'deriveContextHash got ambiguous credentials (both hd and imported set)',
+    );
+  }
+
+  if (credentials.hd) {
+    if (!leafPath) {
+      throw new OneKeyLocalError(
+        'deriveContextHash requires a connected leaf BIP-32 path for HD credentials',
+      );
+    }
+    return deriveFromHd({
+      hdCredential: credentials.hd,
+      password,
+      leafPath,
+      appName,
+      contextBytes,
+    });
+  }
+
+  if (credentials.imported) {
+    return deriveFromImported({
+      importedCredential: credentials.imported,
+      password,
+      appName,
+      contextBytes,
+    });
+  }
+
+  throw new OneKeyLocalError(
+    'deriveContextHash requires HD or imported credentials',
+  );
 }
