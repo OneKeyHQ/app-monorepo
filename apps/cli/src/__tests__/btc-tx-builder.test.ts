@@ -24,8 +24,9 @@ jest.mock('@onekeyhq/core/src/utils/coinSelectUtils', () => {
 });
 
 const mockGet = apiClient.get as jest.MockedFunction<typeof apiClient.get>;
-const mockCoinSelectWithWitness =
-  coinSelectWithWitness as jest.MockedFunction<typeof coinSelectWithWitness>;
+const mockCoinSelectWithWitness = coinSelectWithWitness as jest.MockedFunction<
+  typeof coinSelectWithWitness
+>;
 
 const addressTypeInfo = getBtcAddressTypeInfo('tbtc', 'taproot');
 const fromAddress =
@@ -74,7 +75,7 @@ describe('BTC transfer tx builder', () => {
           txId: 'tx-1',
           txid: 'tx-1',
           vout: 0,
-          value: 100000,
+          value: 100_000,
           amount: '100000',
           address: fromAddress,
           path: fromPath,
@@ -113,7 +114,7 @@ describe('BTC transfer tx builder', () => {
           {
             txId: 'tx-1',
             vout: 0,
-            value: 100000,
+            value: 100_000,
             amount: '100000',
             address: fromAddress,
             path: fromPath,
@@ -202,7 +203,7 @@ describe('BTC transfer tx builder', () => {
           txId: 'tx-1',
           txid: 'tx-1',
           vout: 0,
-          value: 100000,
+          value: 100_000,
           amount: '100000',
           address: fromAddress,
           path: fromPath,
@@ -271,12 +272,10 @@ describe('BTC transfer tx builder', () => {
   it('throws insufficient balance when the selected address has no UTXOs', async () => {
     mockGet.mockResolvedValue({ utxoList: [] });
 
-    await expect(buildBtcTransferTx(buildParams())).rejects.toMatchObject(
-      {
-        code: ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
-        message: 'No usable BTC UTXOs found.',
-      },
-    );
+    await expect(buildBtcTransferTx(buildParams())).rejects.toMatchObject({
+      code: ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
+      message: 'No usable BTC UTXOs found.',
+    });
     expect(mockCoinSelectWithWitness).not.toHaveBeenCalled();
   });
 
@@ -309,16 +308,14 @@ describe('BTC transfer tx builder', () => {
       bytes: undefined,
     });
 
-    await expect(buildBtcTransferTx(buildParams())).rejects.toMatchObject(
-      {
-        code: ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
-        message: 'BTC coin selection failed.',
-        details: expect.objectContaining({
-          inputCount: 1,
-          paymentAmount: '1000',
-        }),
-      },
-    );
+    await expect(buildBtcTransferTx(buildParams())).rejects.toMatchObject({
+      code: ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
+      message: 'BTC coin selection failed.',
+      details: expect.objectContaining({
+        inputCount: 1,
+        paymentAmount: '1000',
+      }),
+    });
   });
 
   it('throws a structured insufficient balance error when coin selection returns an input without vout', async () => {
@@ -353,15 +350,13 @@ describe('BTC transfer tx builder', () => {
       bytes: 100,
     } as never);
 
-    await expect(buildBtcTransferTx(buildParams())).rejects.toMatchObject(
-      {
-        code: ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
-        message: 'BTC coin selection failed.',
-        details: expect.objectContaining({
-          inputCount: 1,
-          paymentAmount: '1000',
-        }),
-      },
-    );
+    await expect(buildBtcTransferTx(buildParams())).rejects.toMatchObject({
+      code: ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
+      message: 'BTC coin selection failed.',
+      details: expect.objectContaining({
+        inputCount: 1,
+        paymentAmount: '1000',
+      }),
+    });
   });
 });

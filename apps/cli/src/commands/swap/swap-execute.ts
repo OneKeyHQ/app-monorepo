@@ -112,9 +112,7 @@ interface IBtcLocalTxData {
   btcLocalTx?: IBtcLocalTx;
 }
 
-function isValidBtcBuildTxData(
-  value: unknown,
-): value is IBtcData {
+function isValidBtcBuildTxData(value: unknown): value is IBtcData {
   if (typeof value !== 'object' || value === null) return false;
   const btcData = value as Partial<IBtcData>;
   return (
@@ -617,10 +615,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               // locally OR returned by the API — either way, this guard runs
               // before signing so a tampered encodedTx cannot reach the device.
               const expectedBtcLocalSpendSats = BigInt(
-                amountToSmallestUnit(
-                  order.amount,
-                  order.fromToken.decimals,
-                ),
+                amountToSmallestUnit(order.amount, order.fromToken.decimals),
               );
               assertBtcSpendIsSafe(
                 describeEncodedTxSpend(
@@ -766,10 +761,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               }
               // Independent spend validation against the order amount.
               const expectedPsbtSpendSats = BigInt(
-                amountToSmallestUnit(
-                  order.amount,
-                  order.fromToken.decimals,
-                ),
+                amountToSmallestUnit(order.amount, order.fromToken.decimals),
               );
               assertBtcSpendIsSafe(
                 describePsbtSpend(psbt, fromAddress, psbtNetwork),

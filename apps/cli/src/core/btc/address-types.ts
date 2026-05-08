@@ -1,8 +1,5 @@
 import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
-import {
-  IMPL_BTC,
-  IMPL_TBTC,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { AppError, ERROR_CODES } from '../../errors';
 
@@ -126,9 +123,7 @@ export function getBtcAddressTypeInfo(
   };
 }
 
-export function listBtcAddressTypeInfos(
-  impl: string,
-): IBtcAddressTypeInfo[] {
+export function listBtcAddressTypeInfos(impl: string): IBtcAddressTypeInfo[] {
   return BTC_ADDRESS_TYPES.map((addressType) =>
     getBtcAddressTypeInfo(impl, addressType),
   );

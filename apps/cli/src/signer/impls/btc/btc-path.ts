@@ -1,8 +1,8 @@
-import {
+import type {
   IMPL_BTC,
   IMPL_TBTC,
-  INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { getBtcAddressTypeInfo } from '../../../core/btc/address-types';
 import { AppError, ERROR_CODES } from '../../../errors';

@@ -11,10 +11,7 @@ import {
 import { AppError, ERROR_CODES } from '../../errors';
 
 import type { IChainConfig } from '../chain-resolver';
-import type {
-  BtcAddressType,
-  IBtcAddressTypeInfo,
-} from './address-types';
+import type { BtcAddressType, IBtcAddressTypeInfo } from './address-types';
 import type {
   IFetchHistoryParams,
   IHistoryApiResponse,

@@ -200,7 +200,9 @@ function assertCoinSelectionComplete(params: {
   }
 }
 
-function buildInputLookup(utxos: IBtcAccountUtxo[]): Map<string, IBtcAccountUtxo> {
+function buildInputLookup(
+  utxos: IBtcAccountUtxo[],
+): Map<string, IBtcAccountUtxo> {
   const lookup = new Map<string, IBtcAccountUtxo>();
   for (const utxo of utxos) {
     const txid = getUtxoTxid(utxo);
@@ -317,10 +319,7 @@ export async function buildBtcTransferTx(
       address: params.fromAddress,
       path: params.fromPath,
     },
-    txType: getCoinSelectTxType(
-      params.addressTypeInfo
-        .addressEncoding as Parameters<typeof getCoinSelectTxType>[0],
-    ),
+    txType: getCoinSelectTxType(params.addressTypeInfo.addressEncoding),
   });
 
   const errCtx = {
@@ -399,7 +398,8 @@ export async function buildBtcTransferTx(
 
   for (const input of inputs) {
     const originalUtxo = inputLookup.get(`${input.txid}:${input.vout}`);
-    const address = originalUtxo?.address ?? input.address ?? params.fromAddress;
+    const address =
+      originalUtxo?.address ?? input.address ?? params.fromAddress;
     const fullPath = originalUtxo?.path ?? input.path ?? params.fromPath;
     const relPath = getRelPath(fullPath, params.addressTypeInfo.relPath);
     const pathItem = { address, relPath, fullPath };
