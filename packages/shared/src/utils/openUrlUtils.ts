@@ -53,6 +53,10 @@ export function setPendingDiscoveryUrl(url: string, title?: string): void {
   pendingDiscoveryUrl = { url, title };
 }
 
+export function clearPendingDiscoveryUrl(): void {
+  pendingDiscoveryUrl = null;
+}
+
 const openUrlByWebview = (url: string, title?: string) => {
   appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
     screen: EModalRoutes.WebViewModal,
@@ -217,6 +221,7 @@ const openUrlUtils = {
   gotoDiscoveryTab,
   getPendingDiscoveryUrl,
   setPendingDiscoveryUrl,
+  clearPendingDiscoveryUrl,
   openSettings,
   linkingCanOpenURL,
   linkingOpenURL,
