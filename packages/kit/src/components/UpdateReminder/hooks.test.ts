@@ -546,6 +546,18 @@ describe('sanitizeUpdateErrorMessage', () => {
     );
   });
 
+  test('redacts iOS /var/mobile/Containers/Shared/AppGroup/<UUID>/', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'open failed at /var/mobile/Containers/Shared/AppGroup/AAAA-BBBB/onekey/x',
+        ),
+      ),
+    ).toBe(
+      'open failed at /var/mobile/Containers/Shared/AppGroup/<redacted>/onekey/x',
+    );
+  });
+
   test('preserves non-PII content unchanged', () => {
     expect(
       sanitizeUpdateErrorMessage(
@@ -598,6 +610,32 @@ describe('extractUpdateErrorCode', () => {
         new Error('Bundle SHA256 verification failed: OOM'),
       ),
     ).toBe('SHA256_OOM');
+  });
+
+  test('iOS native error class names with mixed case + digits survive intact', () => {
+    // Regression: previously the regex was [A-Z][A-Z0-9_]* so
+    // "IO_NSCocoaErrorDomain_257" was truncated to "IO_NSC".
+    expect(
+      extractUpdateErrorCode(
+        new Error('Bundle SHA256 verification failed: IO_NSCocoaErrorDomain_257'),
+      ),
+    ).toBe('SHA256_IO_NSCOCOAERRORDOMAIN_257');
+    expect(
+      extractUpdateErrorCode(
+        new Error('Bundle SHA256 verification failed: IO_FileNotFoundException'),
+      ),
+    ).toBe('SHA256_IO_FILENOTFOUNDEXCEPTION');
+  });
+
+  test('Desktop legacy "Download failed with status: <code>" still maps to HTTP_<code>', () => {
+    // Back-compat: pre-fix Desktop reject sites used this shape. New
+    // sites should use "HTTP <code>"; both work via the extractor.
+    expect(
+      extractUpdateErrorCode(new Error('Download failed with status: 404')),
+    ).toBe('HTTP_404');
+    expect(
+      extractUpdateErrorCode(new Error('Download failed with status: 502')),
+    ).toBe('HTTP_502');
   });
 
   test('Desktop SHA256 failure → SHA256_<reason>', () => {

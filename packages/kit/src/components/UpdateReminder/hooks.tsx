@@ -127,6 +127,12 @@ export function sanitizeUpdateErrorMessage(error: unknown): string | undefined {
     .replace(
       /(\/var\/mobile\/Containers\/(?:Data|Bundle)\/Application\/)([^/'"\s]+)/g,
       '$1<redacted>',
+    )
+    // iOS App Group containers (per-install UUID); same risk surface
+    // as Data/Bundle/Application UUIDs above.
+    .replace(
+      /(\/var\/mobile\/Containers\/Shared\/AppGroup\/)([^/'"\s]+)/g,
+      '$1<redacted>',
     );
   if (cleaned.length > MAX_ERROR_MESSAGE_LENGTH) {
     cleaned = `${cleaned.slice(0, MAX_ERROR_MESSAGE_LENGTH)}…`;
@@ -178,8 +184,10 @@ export function computeDownloadRetryDelayMs(attempt: number): number {
  *
  * Bails immediately for unrecoverable codes (SHA mismatch, HTTP 403/404/410,
  * config errors) so we don't waste backoff windows on deterministic dead
- * states. Cap of 3 attempts (initial + 3 retries = 4 total round-trips) keeps
- * the worst-case wait under ~14s + jitter.
+ * states. Cap of 3 attempts (initial + 3 retries = 4 total round-trips).
+ * Backoff schedule is `1500 * 2^attempt + jitter[0,500)`, i.e. roughly
+ * 1.5s, 3s, 6s before the 4th attempt; total worst-case wall time
+ * before bubbling up is ~10.5s + ~1.5s of jitter.
  */
 export async function runDownloadWithRetry<T>(
   operation: () => Promise<T>,
@@ -230,13 +238,22 @@ export function extractUpdateErrorCode(error: unknown): string | undefined {
       : (error as { message?: string } | null)?.message ?? '';
   if (!msg) return undefined;
 
+  // SHA reasons can include native error class names mixed with digits
+  // and dashes (e.g. iOS "IO_NSCocoaErrorDomain_257" or Android
+  // "IO_FileNotFoundException"). Widen char class beyond A-Z so the
+  // payload survives intact end-to-end.
   const sha256 = msg.match(
-    /(?:Bundle\s+SHA256\s+verification\s+failed:\s+|SHA256_)([A-Z][A-Z0-9_]*)/,
+    /(?:Bundle\s+SHA256\s+verification\s+failed:\s+|SHA256_)([A-Za-z][A-Za-z0-9_-]*)/,
   );
-  if (sha256) return `SHA256_${sha256[1]}`;
+  if (sha256) return `SHA256_${sha256[1].toUpperCase()}`;
 
-  const http = msg.match(/HTTP\s+(?:error\s+)?(\d{3})/i);
-  if (http) return `HTTP_${http[1]}`;
+  // Match the canonical "HTTP <code>" / "HTTP error <code>" shape AND
+  // the legacy "Download failed with status: <code>" / "status: <code>"
+  // form that older Desktop reject sites used. The status: branch is
+  // here for back-compat with rejected promises that pre-date the
+  // canonical shape; new throws should use "HTTP <code>".
+  const http = msg.match(/HTTP\s+(?:error\s+)?(\d{3})|status:\s*(\d{3})/i);
+  if (http) return `HTTP_${http[1] ?? http[2]}`;
 
   const nsUrl = msg.match(/NSURLErrorDomain[^-\d]*(-?\d+)/);
   if (nsUrl) return `NSURL_${nsUrl[1]}`;

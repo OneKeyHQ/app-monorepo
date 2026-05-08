@@ -151,16 +151,13 @@ class DesktopApiAppBundleUpdate {
     this.isDownloading = true;
     return new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
       setTimeout(async () => {
-        const tempDir = this.getDownloadDir();
-        logger.info('bundle-download', {
-          tempDir,
-        });
-        const fileName = `${appVersion}-${bundleVersion}.zip`;
-        const filePath = path.join(tempDir, fileName);
-        const partialFilePath = `${filePath}.partial`;
-
-        let downloadedBytes = 0;
-        let totalBytes = fileSize;
+        // Synchronous fs / setup errors before the response handlers are
+        // installed (getDownloadDir() permission denied, statSync ENOENT
+        // races on the partial file, mkdirSync EROFS, etc.) used to
+        // bubble up as unhandled rejections — leaving isDownloading=true
+        // and blocking every subsequent download call. Wrap the whole
+        // body so any setup error becomes a clean safeReject + flag
+        // reset.
         // Prevent double resolve/reject when multiple error handlers fire
         let settled = false;
         const safeResolve = (value: IUpdateDownloadedEvent) => {
@@ -171,8 +168,20 @@ class DesktopApiAppBundleUpdate {
         const safeReject = (error: unknown) => {
           if (settled) return;
           settled = true;
+          this.isDownloading = false;
           reject(error);
         };
+        try {
+        const tempDir = this.getDownloadDir();
+        logger.info('bundle-download', {
+          tempDir,
+        });
+        const fileName = `${appVersion}-${bundleVersion}.zip`;
+        const filePath = path.join(tempDir, fileName);
+        const partialFilePath = `${filePath}.partial`;
+
+        let downloadedBytes = 0;
+        let totalBytes = fileSize;
 
         if (fs.existsSync(filePath)) {
           try {
@@ -287,7 +296,7 @@ class DesktopApiAppBundleUpdate {
                   'HTTP 416 with no partial file to resume',
                 );
                 this.isDownloading = false;
-                safeReject(new Error('Download failed with status: 416'));
+                safeReject(new Error('HTTP 416'));
                 return;
               }
 
@@ -297,11 +306,13 @@ class DesktopApiAppBundleUpdate {
                   `Unexpected HTTP status: ${response.statusCode || 0}`,
                 );
                 this.isDownloading = false;
-                safeReject(
-                  new Error(
-                    `Download failed with status: ${response.statusCode || 0}`,
-                  ),
-                );
+                // Use the canonical "HTTP <code>" shape so
+                // extractUpdateErrorCode in hooks.tsx parses it as
+                // HTTP_<code> and can apply the unrecoverable-list
+                // (HTTP_403/404/410). Previously "Download failed with
+                // status: 404" did not match the regex, so 404s went
+                // through the retry-with-backoff loop pointlessly.
+                safeReject(new Error(`HTTP ${response.statusCode || 0}`));
                 return;
               }
 
@@ -449,6 +460,11 @@ class DesktopApiAppBundleUpdate {
         };
 
         makeDownloadRequest(bundleUrl, options);
+        } catch (setupError) {
+          logger.error('bundle-download', 'Setup error:', setupError);
+          safeReject(wrapDownloadError(setupError, 'Download setup error'));
+          clearWindowProgressBar(this.getMainWindow());
+        }
       }, 0);
     });
   }
@@ -567,11 +583,18 @@ class DesktopApiAppBundleUpdate {
     if (!allowSkipGPG) {
       const isBundleVerified = verifySha256(downloadedFile, sha256);
       if (!isBundleVerified) {
+        // Promote the SHA256 subtype (FILE_NOT_FOUND / IO_<errno> /
+        // OOM / MISMATCH) into the thrown message so JS-side
+        // extractUpdateErrorCode splits this verifyASC bucket the same
+        // way the download stage does.
+        const reason = lastSHA256FailureReason() ?? 'MISMATCH';
         logger.error(
           'bundle-verifyASC',
-          `SHA256 verification failed for ${downloadedFile}`,
+          `SHA256 verification failed (reason=${reason})`,
         );
-        throw new OneKeyLocalError('Invalid bundle file');
+        throw new OneKeyLocalError(
+          `Bundle SHA256 verification failed: ${reason}`,
+        );
       }
     }
     const extractDir = getBundleExtractDir({
