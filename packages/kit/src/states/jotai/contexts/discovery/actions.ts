@@ -39,7 +39,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  clearPendingDiscoveryUrl,
+  openUrlInApp,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
@@ -228,30 +231,41 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   setCurrentWebTab = contextAtomMethod((get, set, tabId: string | null) => {
     const currentTabId = get(activeTabIdAtom());
-    if (currentTabId !== tabId) {
-      this.pauseDappInteraction.call(set, currentTabId);
+    const { tabs } = get(webTabsAtom());
+    const targetTabId = tabId ?? '';
+    const hasTargetTab = tabs.some((t) => t.id === targetTabId);
+    const nextActiveTabId = hasTargetTab ? targetTabId : '';
+    const shouldUpdateActiveState = tabs.some(
+      (t) => Boolean(t.isActive) !== (t.id === nextActiveTabId),
+    );
 
-      // set isActive to true
-      const { tabs } = get(webTabsAtom());
-      const targetIndex = tabs.findIndex((t) => t.id === tabId);
-      tabs.forEach((t) => {
-        t.isActive = false;
+    if (currentTabId !== nextActiveTabId || shouldUpdateActiveState) {
+      if (currentTabId !== nextActiveTabId) {
+        this.pauseDappInteraction.call(set, currentTabId);
+      }
+
+      const nextTabs = tabs.map((t) => {
+        const isActive = t.id === nextActiveTabId;
+        return t.isActive === isActive ? t : { ...t, isActive };
       });
-      loggerForEmptyData([...tabs], 'setCurrentWebTab');
-      this.buildWebTabs.call(set, { data: [...tabs] });
-      if (targetIndex !== -1) {
-        tabs[targetIndex].isActive = true;
-        set(activeTabIdAtom(), tabId);
-        this.resumeDappInteraction.call(set, tabId);
-      } else {
-        set(activeTabIdAtom(), '');
+
+      loggerForEmptyData(nextTabs, 'setCurrentWebTab');
+      this.buildWebTabs.call(set, {
+        data: nextTabs,
+        options: { forceUpdate: true },
+      });
+      set(activeTabIdAtom(), nextActiveTabId);
+
+      if (currentTabId !== nextActiveTabId && nextActiveTabId) {
+        this.resumeDappInteraction.call(set, nextActiveTabId);
       }
     }
+
     const displayHomePage = get(displayHomePageAtom());
-    if (tabId && displayHomePage) {
+    if (nextActiveTabId && displayHomePage) {
       this.setDisplayHomePage.call(set, false);
     }
-    if (!tabId && !displayHomePage) {
+    if (!nextActiveTabId && !displayHomePage) {
       this.setDisplayHomePage.call(set, true);
     }
   });
@@ -927,7 +941,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       const isNewWindow = !useCurrentWindow;
 
-      const openDApp = () => {
+      const openDApp = async () => {
         if (!useCurrentWindow) {
           const disabledAddedNewTab = get(disabledAddedNewTabAtom());
           if (disabledAddedNewTab) {
@@ -941,13 +955,15 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             return;
           }
         }
-        this.setDisplayHomePage.call(set, false);
-        void this.openMatchDApp.call(set, {
+        const opened = await this.openMatchDApp.call(set, {
           webSite,
           dApp,
           isNewWindow,
           tabId,
         });
+        if (opened) {
+          this.setDisplayHomePage.call(set, false);
+        }
       };
 
       if (needsSwitchTab) {
@@ -964,23 +980,27 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         void (async () => {
           await switchTabAsync(targetTab);
           if (platformEnv.isNative) {
+            clearPendingDiscoveryUrl();
             appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
               tab: ETranslations.global_browser,
               openUrl: true,
+              shouldConsumePendingUrl: false,
             });
           }
-          openDApp();
+          await openDApp();
         })();
       } else {
         // Already on Discovery/MultiTabBrowser — still emit the event to
         // pop inner pages and set the selected browser sub-tab.
         if (platformEnv.isNative) {
+          clearPendingDiscoveryUrl();
           appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
             tab: ETranslations.global_browser,
             openUrl: true,
+            shouldConsumePendingUrl: false,
           });
         }
-        openDApp();
+        void openDApp();
       }
     },
   );
