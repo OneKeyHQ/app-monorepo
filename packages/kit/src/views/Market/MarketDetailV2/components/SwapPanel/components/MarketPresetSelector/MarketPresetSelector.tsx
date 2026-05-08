@@ -274,13 +274,13 @@ function MarketPresetDialogContentFrame({ children }: { children: ReactNode }) {
   const { top: safeAreaTop } = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const dialogContentMaxHeight = useMemo(() => {
-    if (!platformEnv.isNative || keyboardHeight <= 0) {
+    if (!platformEnv.isNative) {
       return undefined;
     }
 
     const availableHeight =
       windowHeight -
-      keyboardHeight -
+      Math.max(keyboardHeight, 0) -
       safeAreaTop -
       MARKET_PRESET_DIALOG_TOP_SAFE_GAP -
       MARKET_PRESET_DIALOG_CHROME_HEIGHT;
