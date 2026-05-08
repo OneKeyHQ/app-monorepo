@@ -68,7 +68,7 @@ const ProtocolPositionSection = memo(
     priceUnavailableLabel: string;
   }) => {
     return (
-      <YStack bg="$bgSubdued" borderRadius="$2" px="$4" py="$3" gap="$2">
+      <YStack bg="$bgSubdued" borderRadius={6} px="$3" py="$2" gap="$1">
         <SizableText size="$headingXs" color="$text" textTransform="uppercase">
           {section.title}
         </SizableText>
@@ -78,7 +78,8 @@ const ProtocolPositionSection = memo(
             alignItems="center"
             justifyContent="space-between"
             gap="$3"
-            py="$1"
+            py="$0"
+            minHeight={44}
           >
             <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
               <Token
