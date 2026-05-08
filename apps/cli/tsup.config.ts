@@ -458,6 +458,7 @@ const deprecatedBufferPatchFilter = new RegExp(
     ['protobufjs', 'src', 'util', 'minimal'].join(pathSeparatorPattern),
     ['form-data', 'lib', 'form_data'].join(pathSeparatorPattern),
     ['tweetnacl-util', 'nacl-util'].join(pathSeparatorPattern),
+    ['wif', 'index'].join(pathSeparatorPattern),
   ].join('|')})\\.js$`,
 );
 
@@ -575,6 +576,16 @@ const patchDeprecatedBufferConstructorPlugin: Plugin = {
               "return new Uint8Array(Array.prototype.slice.call(new Buffer(s, 'base64'), 0));",
             replace:
               "return new Uint8Array(Array.prototype.slice.call(Buffer.from(s, 'base64'), 0));",
+          },
+        ]);
+        patched = true;
+      }
+
+      if (isNodeModuleFile(args.path, ['node_modules', 'wif', 'index.js'])) {
+        contents = replaceExact(contents, args.path, [
+          {
+            search: 'var result = new Buffer(compressed ? 34 : 33)',
+            replace: 'var result = Buffer.alloc(compressed ? 34 : 33)',
           },
         ]);
         patched = true;
