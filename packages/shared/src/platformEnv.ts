@@ -137,8 +137,6 @@ export type IPlatformEnv = {
   /** ios, tablet only */
   isNativeIOSPad?: boolean;
   isNativeIOSPadStore?: boolean;
-  /** ios 26+, used to opt into Liquid Glass UIKit defaults */
-  isNativeIOS26Plus?: boolean;
   isNativeAndroid?: boolean;
   isNativeAndroidGooglePlay?: boolean;
   isNativeAndroidHuawei?: boolean;
@@ -229,8 +227,6 @@ const isNativeIOSPhone =
   isNative && Platform.OS === 'ios' && !Platform.isPad && !Platform.isTV;
 const isNativeIOSPad = isNative && Platform.OS === 'ios' && Platform.isPad;
 const isNativeIOSPadStore = isNativeIOSPad && isProduction;
-const isNativeIOS26Plus =
-  isNativeIOS && parseInt(String(Platform.Version), 10) >= 26;
 const isNativeAndroid = isNative && Platform.OS === 'android';
 const androidChannel = ANDROID_CHANNEL;
 const isNativeAndroidGooglePlay =
@@ -583,7 +579,6 @@ const platformEnv: IPlatformEnv = {
   isNativeIOSPhone,
   isNativeIOSPad,
   isNativeIOSPadStore,
-  isNativeIOS26Plus,
   isNativeAndroid,
   isNativeAndroidGooglePlay,
   isNativeAndroidHuawei,
