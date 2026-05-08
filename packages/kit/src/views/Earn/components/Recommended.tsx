@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -10,6 +10,26 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useRecommendedRefreshTrigger } from '../hooks/useRecommendedRefreshTrigger';
 
 import { RecommendedSection } from './RecommendedSection';
+
+type IRecommendedTokensResult = {
+  tokens: IRecommendAsset[];
+  refreshVersion: number;
+};
+
+type IAccountRecommendedTokensResult = IRecommendedTokensResult & {
+  accountKey: string;
+  scopeNetworkKey: string;
+};
+
+function getRecommendedProtocolNetworkIds(tokens: IRecommendAsset[]) {
+  const networkIds = new Set<string>();
+  tokens.forEach((token) => {
+    token.protocols.forEach((protocol) => {
+      networkIds.add(protocol.networkId);
+    });
+  });
+  return Array.from(networkIds).toSorted();
+}
 
 function useRecommendedTokens({
   accountId,
@@ -24,9 +44,60 @@ function useRecommendedTokens({
   enableFetch: boolean;
   refreshVersion: number;
 }) {
-  const fetchRecommendedTokens = useCallback(async () => {
+  const fetchBaseRecommendedTokens = useCallback(async () => {
     if (!enableFetch) {
-      return [];
+      return { tokens: [], refreshVersion };
+    }
+
+    const recommendedAssets =
+      await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
+        accountId: '',
+        networkId,
+      });
+
+    return {
+      tokens: recommendedAssets?.tokens || [],
+      refreshVersion,
+    };
+  }, [enableFetch, networkId, refreshVersion]);
+
+  const {
+    result: baseRecommendedResult = { tokens: [], refreshVersion: -1 },
+    isLoading: isBaseLoading,
+  } = usePromiseResult<IRecommendedTokensResult>(
+    fetchBaseRecommendedTokens,
+    [fetchBaseRecommendedTokens],
+    {
+      initResult: { tokens: [], refreshVersion: -1 },
+      watchLoading: true,
+      overrideIsFocused: (isFocused) => isFocused && enableFetch,
+    },
+  );
+
+  const baseRecommendedTokens = baseRecommendedResult.tokens;
+  const hasSettledBaseRecommendedTokens =
+    baseRecommendedResult.refreshVersion === refreshVersion &&
+    isBaseLoading === false;
+  const recommendedNetworkIds = useMemo(
+    () => getRecommendedProtocolNetworkIds(baseRecommendedTokens),
+    [baseRecommendedTokens],
+  );
+  const recommendedNetworkScopeKey = recommendedNetworkIds.join('|');
+  const accountKey = `${accountId ?? ''}|${indexedAccountId ?? ''}`;
+  const shouldFetchAccountRecommendedTokens =
+    enableFetch &&
+    Boolean(accountId) &&
+    hasSettledBaseRecommendedTokens &&
+    recommendedNetworkIds.length > 0;
+
+  const fetchAccountRecommendedTokens = useCallback(async () => {
+    if (!shouldFetchAccountRecommendedTokens) {
+      return {
+        accountKey,
+        scopeNetworkKey: recommendedNetworkScopeKey,
+        tokens: [],
+        refreshVersion,
+      };
     }
 
     const recommendedAssets =
@@ -34,21 +105,72 @@ function useRecommendedTokens({
         accountId: accountId ?? '',
         networkId,
         indexedAccountId,
+        scopeNetworkIds: recommendedNetworkIds,
       });
 
-    return recommendedAssets?.tokens || [];
-  }, [accountId, enableFetch, indexedAccountId, networkId]);
+    return {
+      accountKey,
+      scopeNetworkKey: recommendedNetworkScopeKey,
+      tokens: recommendedAssets?.tokens || [],
+      refreshVersion,
+    };
+  }, [
+    accountKey,
+    accountId,
+    indexedAccountId,
+    networkId,
+    recommendedNetworkIds,
+    recommendedNetworkScopeKey,
+    refreshVersion,
+    shouldFetchAccountRecommendedTokens,
+  ]);
 
-  const { result: recommendedTokens = [], isLoading } = usePromiseResult<
-    IRecommendAsset[]
-  >(fetchRecommendedTokens, [fetchRecommendedTokens, refreshVersion], {
-    initResult: [],
-    watchLoading: true,
-    overrideIsFocused: (isFocused) => isFocused && enableFetch,
-  });
+  const {
+    result: accountRecommendedResult = {
+      accountKey: '',
+      scopeNetworkKey: '',
+      tokens: [],
+      refreshVersion: -1,
+    },
+    isLoading: isAccountLoading,
+  } = usePromiseResult<IAccountRecommendedTokensResult>(
+    fetchAccountRecommendedTokens,
+    [fetchAccountRecommendedTokens],
+    {
+      initResult: {
+        accountKey: '',
+        scopeNetworkKey: '',
+        tokens: [],
+        refreshVersion: -1,
+      },
+      watchLoading: true,
+      undefinedResultIfReRun: true,
+      overrideIsFocused: (isFocused) =>
+        isFocused && shouldFetchAccountRecommendedTokens,
+    },
+  );
+
+  const hasSettledAccountRecommendedTokens =
+    shouldFetchAccountRecommendedTokens &&
+    accountRecommendedResult.refreshVersion === refreshVersion &&
+    accountRecommendedResult.scopeNetworkKey === recommendedNetworkScopeKey &&
+    accountRecommendedResult.accountKey === accountKey &&
+    isAccountLoading === false;
+  const accountRecommendedTokens = accountRecommendedResult.tokens;
+  const canUseAccountRecommendedTokens =
+    hasSettledAccountRecommendedTokens && accountRecommendedTokens.length > 0;
+  const recommendedTokens = canUseAccountRecommendedTokens
+    ? accountRecommendedTokens
+    : baseRecommendedTokens;
 
   return {
-    isLoading,
+    isLoading: isBaseLoading,
+    isBalanceLoading:
+      Boolean(accountId) &&
+      baseRecommendedTokens.length > 0 &&
+      (!hasSettledBaseRecommendedTokens ||
+        (shouldFetchAccountRecommendedTokens &&
+          !hasSettledAccountRecommendedTokens)),
     recommendedTokens,
   };
 }
@@ -81,13 +203,14 @@ export function Recommended(
     setRefreshVersion((prev) => prev + 1);
   }, []);
 
-  const { recommendedTokens, isLoading } = useRecommendedTokens({
-    accountId: account?.id,
-    indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
-    networkId: allNetworkId,
-    enableFetch,
-    refreshVersion,
-  });
+  const { recommendedTokens, isLoading, isBalanceLoading } =
+    useRecommendedTokens({
+      accountId: account?.id,
+      indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+      networkId: allNetworkId,
+      enableFetch,
+      refreshVersion,
+    });
 
   useRecommendedRefreshTrigger({
     accountId: account?.id,
@@ -110,6 +233,7 @@ export function Recommended(
       showSkeleton={
         isLoading === true ? recommendedTokens.length === 0 : undefined
       }
+      isBalanceLoading={isBalanceLoading}
     />
   );
 }
