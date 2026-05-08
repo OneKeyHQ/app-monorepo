@@ -53,6 +53,7 @@ const buildBtcMetadata = (
   remainingSupply: '977825',
   totalSupply: '21000000',
   fdv: '1545781500232',
+  volume24h: '40906812011',
   blockHeight: '947103',
   blockReward: '3.125',
   nextHalving: {
@@ -157,6 +158,7 @@ describe('useBtcMetadata', () => {
       remainingSupply: '977825',
       totalSupply: '21000000',
       fdv: '1545781500232',
+      volume24h: '40906812011',
       blockHeight: '947103',
       blockReward: '3.125',
       nextHalvingDisplay: '~2Y 41D',

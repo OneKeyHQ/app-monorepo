@@ -75,7 +75,11 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Badge,
-    Icon: () => <span>icon</span>,
+    Icon: ({ color, name }: { color?: string; name: string }) => (
+      <span data-testid={`icon-${name}`} data-color={color}>
+        icon
+      </span>
+    ),
     SizableText: ({ children }: { children?: ReactNode }) => (
       <span>{children}</span>
     ),
@@ -201,6 +205,14 @@ describe('DesktopInformationTabs', () => {
 
     expect(mockResumeRealtimeUpdates).toHaveBeenCalledTimes(1);
     expect(mockScrollTransactionsToTop).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the inverse icon color for the updates arrow', () => {
+    render(<DesktopInformationTabs portfolioData={[]} />);
+
+    expect(
+      screen.getByTestId('icon-ArrowTopSolid').getAttribute('data-color'),
+    ).toBe('$iconInverse');
   });
 
   it('uses the shared max buffer size in the overflow updates label', () => {

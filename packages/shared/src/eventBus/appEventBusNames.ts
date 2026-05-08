@@ -55,6 +55,8 @@ export enum EAppEventBusNames {
   CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
   HardCloseHardwareUiStateDialog = 'CloseHardwareUiStateDialog',
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
+  LocalPendingTxConfirmed = 'LocalPendingTxConfirmed',
+  DeFiPositionRefreshed = 'DeFiPositionRefreshed',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   GasAccountSubmitRetryScheduled = 'gasAccountSubmitRetryScheduled',
   GasAccountSubmitRetryCleared = 'gasAccountSubmitRetryCleared',
@@ -148,4 +150,5 @@ export enum EAppEventBusNames {
   ShowRookieShare = 'ShowRookieShare',
   CreateNewBrowserTab = 'CreateNewBrowserTab',
   NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
+  TrayActionWillNavigate = 'TrayActionWillNavigate',
 }

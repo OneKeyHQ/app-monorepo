@@ -173,6 +173,7 @@ export type IBuildSwapReviewStateInput = {
   shouldFallback?: boolean;
   supportPreBuild: boolean;
   slippage?: number;
+  rateDifference?: ISwapPreSwapData['rateDifference'];
   texts: ISwapReviewStepTexts;
 };
 
@@ -189,6 +190,7 @@ export function buildSwapReviewState({
   shouldFallback,
   supportPreBuild,
   slippage,
+  rateDifference,
   texts,
 }: IBuildSwapReviewStateInput): {
   batchTransferType: ESwapBatchTransferType;
@@ -297,6 +299,10 @@ export function buildSwapReviewState({
       quoteResult?.unSupportSlippage
         ? undefined
         : slippage,
+    rateDifference:
+      quoteResult?.protocol === EProtocolOfExchange.LIMIT
+        ? undefined
+        : rateDifference,
     unSupportSlippage: quoteResult?.unSupportSlippage ?? false,
     isHWAndExBatchTransfer: shouldSignEveryTime,
     fee: quoteResult?.fee,

@@ -282,7 +282,8 @@ export type IPerpTokenSortField =
   | 'change24hPercent'
   | 'fundingRate'
   | 'volume24h'
-  | 'openInterest';
+  | 'openInterest'
+  | 'marketCap';
 
 export type IPerpTokenSortDirection = 'asc' | 'desc';
 

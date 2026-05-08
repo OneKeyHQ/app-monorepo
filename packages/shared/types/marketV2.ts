@@ -10,6 +10,7 @@ export interface IBtcMetadata {
   remainingSupply: string;
   totalSupply: string;
   fdv: string;
+  volume24h: string;
   blockHeight: string;
   blockReward: string;
   nextHalving: IBtcMetadataNextHalving;

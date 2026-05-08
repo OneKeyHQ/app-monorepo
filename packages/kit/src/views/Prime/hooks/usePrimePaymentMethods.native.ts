@@ -14,7 +14,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -173,17 +172,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const packages: IPackage[] = [];
 
     offerings.current?.availablePackages.forEach((p) => {
-      // eslint-disable-next-line prefer-const
-      let { subscriptionPeriod, pricePerYear, pricePerMonth } = p.product;
-
-      if (platformEnv.isNativeAndroid) {
-        pricePerYear = new BigNumber(pricePerYear || 0)
-          .div(1_000_000)
-          .toNumber();
-        pricePerMonth = new BigNumber(pricePerMonth || 0)
-          .div(1_000_000)
-          .toNumber();
-      }
+      const { subscriptionPeriod } = p.product;
+      const pricePerYear = primePaymentUtils.normalizeNativePrice(
+        p.product.pricePerYear || 0,
+      );
+      const pricePerMonth = primePaymentUtils.normalizeNativePrice(
+        p.product.pricePerMonth || 0,
+      );
 
       const currencyCode = p.product.currencyCode || '';
 
@@ -272,31 +267,16 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           );
           await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
 
-          // Track successful subscription
-          const planType = subscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
+          const rawPrice =
+            subscriptionPeriod === 'P1Y'
+              ? offering.product.pricePerYear
+              : offering.product.pricePerMonth;
+          const amount = primePaymentUtils.normalizeNativePrice(rawPrice || 0);
 
-          // Get actual price based on subscription period
-          let amount = 0;
-          if (subscriptionPeriod === 'P1Y') {
-            amount = platformEnv.isNativeAndroid
-              ? new BigNumber(offering.product.pricePerYear || 0)
-                  .div(1_000_000)
-                  .toNumber()
-              : offering.product.pricePerYear || 0;
-          } else {
-            amount = platformEnv.isNativeAndroid
-              ? new BigNumber(offering.product.pricePerMonth || 0)
-                  .div(1_000_000)
-                  .toNumber()
-              : offering.product.pricePerMonth || 0;
-          }
-
-          const currency = offering.product.currencyCode || 'USD';
-
-          defaultLogger.prime.subscription.primeSubscribeSuccess({
-            planType,
+          primePaymentUtils.trackPrimeSubscriptionSuccess({
             amount,
-            currency,
+            currency: offering.product.currencyCode,
+            subscriptionPeriod,
             featureName,
           });
 

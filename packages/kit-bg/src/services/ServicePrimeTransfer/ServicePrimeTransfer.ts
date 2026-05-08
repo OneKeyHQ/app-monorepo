@@ -49,9 +49,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { headerPlatform } from '@onekeyhq/shared/src/request/InterceptorConsts';
+import type { ICliBotWalletRevealableSeed } from '@onekeyhq/shared/src/types/cliBotWallet';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { exportBotWalletToCli } from '@onekeyhq/shared/src/utils/cliBotWalletExport/exportToCli';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -100,7 +102,8 @@ import { createE2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiPr
 import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
 import {
   filterTransferWallets,
-  shouldUseCliTransportDecryptedCredentials,
+  getCliBotWalletTransferWalletId,
+  shouldUseCliBotWalletEncryptedCredential,
 } from './servicePrimeTransferUtils';
 
 import type {
@@ -1368,58 +1371,45 @@ class ServicePrimeTransfer extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async sendTransferData({
+  private normalizeTransferCredential(
+    credential: { credential?: string } | string | null | undefined,
+  ) {
+    if (typeof credential === 'string') {
+      return credential;
+    }
+    if (typeof credential?.credential === 'string') {
+      return credential.credential;
+    }
+    return undefined;
+  }
+
+  private async buildCliBotWalletExportInput({
     transferData,
-    allowCliImportableCredentials,
+    walletId,
   }: {
     transferData: IPrimeTransferData;
-    allowCliImportableCredentials?: boolean;
+    walletId: string;
   }) {
-    // eslint-disable-next-line no-param-reassign
-    transferData = cloneDeep(transferData);
-    this.checkWebSocketConnected();
+    const transferWallet = transferData.privateData.wallets[walletId];
+    const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+      walletId,
+    });
+    const walletName = wallet?.name || transferWallet?.name || walletId;
 
-    if (!transferData.isWatchingOnly) {
-      const shouldSendDecryptedCredentialsToCli =
-        shouldUseCliTransportDecryptedCredentials({
-          transferData,
-          allowCliImportableCredentials,
-        });
-      const { password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify({
-          reason: EReasonForNeedPassword.Security,
-        });
+    // displayAddress is intentionally NOT included in the export input.
+    // The CLI receiver derives the first EVM address itself from the
+    // decrypted seed; trust nothing the sender claims about chain identity.
+    return {
+      walletId,
+      sourceLabel: `bot-wallet:${walletName}`.slice(0, 128),
+    };
+  }
 
-      if (!password) {
-        throw new OneKeyLocalError('Password is required');
-      }
-
-      await this.decryptTransferDataCredentials({
-        data: transferData,
-        clearWrappedCredentialsAfterDecrypt:
-          shouldSendDecryptedCredentialsToCli,
-      });
-      if (shouldSendDecryptedCredentialsToCli) {
-        // CLI bot-wallet import intentionally relies on the pairing-session
-        // E2EE payload and skips an extra receiver-side passcode prompt.
-        // Keep the decrypted credential only for this constrained CLI path.
-        transferData.privateData.decryptedCredentialsHex = undefined;
-      } else {
-        transferData.privateData.decryptedCredentialsHex =
-          await encryptStringAsync({
-            dataEncoding: 'utf8',
-            data: stringUtils.stableStringify(
-              transferData.privateData.decryptedCredentials,
-            ),
-            password,
-            allowRawPassword: true,
-          });
-        transferData.privateData.decryptedCredentials = undefined;
-      }
-    }
-
+  private async sendPreparedTransferData({
+    transferData,
+  }: {
+    transferData: IPrimeTransferData;
+  }) {
     const currentState = await primeTransferAtom.get();
     const pairedRoomId = currentState.pairedRoomId;
     if (!pairedRoomId) {
@@ -1448,10 +1438,125 @@ class ServicePrimeTransfer extends ServiceBase {
       password: encryptionKey,
       allowRawPassword: true,
     });
-    const result = await this.e2eeClientToClientApiProxy?.api.sendTransferData({
+    if (!this.e2eeClientToClientApiProxy) {
+      throw new OneKeyLocalError('Client to Client API not initialized');
+    }
+    return this.e2eeClientToClientApiProxy.api.sendTransferData({
       rawData: encryptedData.toString('base64'),
     });
-    return result;
+  }
+
+  private async sendCliBotWalletEncryptedCredentialTransferData({
+    transferData,
+    walletId,
+    password,
+  }: {
+    transferData: IPrimeTransferData;
+    walletId: string;
+    password: string;
+  }) {
+    const credential = this.normalizeTransferCredential(
+      transferData.privateData.credentials?.[walletId],
+    );
+    if (!credential) {
+      throw new OneKeyLocalError('Bot wallet credential is required');
+    }
+
+    const revealableSeed = (await decryptRevealableSeed({
+      rs: credential,
+      password,
+    })) as ICliBotWalletRevealableSeed;
+
+    const input = await this.buildCliBotWalletExportInput({
+      transferData,
+      walletId,
+    });
+
+    let sendResult: unknown;
+    try {
+      // BotWallet -> CLI export is intentionally Transfer-only. The encrypted
+      // credential payload must be embedded in Prime Transfer data and sent
+      // through the paired E2EE channel, not shown as Base64/QR/manual input.
+      await exportBotWalletToCli(input, {
+        getRevealableSeed: async () => revealableSeed,
+        onPayloadReady: async (payload) => {
+          transferData.privateData.cliBotWalletEncryptedCredential = payload;
+          transferData.privateData.credentials = {};
+          transferData.privateData.decryptedCredentials = undefined;
+          transferData.privateData.decryptedCredentialsHex = undefined;
+          try {
+            sendResult = await this.sendPreparedTransferData({ transferData });
+          } finally {
+            transferData.privateData.cliBotWalletEncryptedCredential =
+              undefined;
+          }
+        },
+      });
+    } finally {
+      revealableSeed.entropyWithLangPrefixed = '';
+      revealableSeed.seed = '';
+    }
+
+    return sendResult;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async sendTransferData({
+    transferData,
+    allowCliImportableCredentials,
+  }: {
+    transferData: IPrimeTransferData;
+    allowCliImportableCredentials?: boolean;
+  }) {
+    // eslint-disable-next-line no-param-reassign
+    transferData = cloneDeep(transferData);
+    this.checkWebSocketConnected();
+
+    if (!transferData.isWatchingOnly) {
+      const shouldSendCliBotWalletEncryptedCredential =
+        shouldUseCliBotWalletEncryptedCredential({
+          transferData,
+          allowCliImportableCredentials,
+        });
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify({
+          reason: EReasonForNeedPassword.Security,
+        });
+
+      if (!password) {
+        throw new OneKeyLocalError('Password is required');
+      }
+
+      if (shouldSendCliBotWalletEncryptedCredential) {
+        const walletId = getCliBotWalletTransferWalletId({ transferData });
+        if (!walletId) {
+          throw new OneKeyLocalError('Bot wallet transfer data is invalid');
+        }
+        return this.sendCliBotWalletEncryptedCredentialTransferData({
+          transferData,
+          walletId,
+          password,
+        });
+      }
+
+      await this.decryptTransferDataCredentials({
+        data: transferData,
+        clearWrappedCredentialsAfterDecrypt: false,
+      });
+      transferData.privateData.decryptedCredentialsHex =
+        await encryptStringAsync({
+          dataEncoding: 'utf8',
+          data: stringUtils.stableStringify(
+            transferData.privateData.decryptedCredentials,
+          ),
+          password,
+          allowRawPassword: true,
+        });
+      transferData.privateData.decryptedCredentials = undefined;
+    }
+
+    return this.sendPreparedTransferData({ transferData });
   }
 
   @backgroundMethod()

@@ -1,7 +1,6 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 import {
   InputAccessoryView,
   Keyboard,
@@ -11,8 +10,6 @@ import {
 
 import {
   Button,
-  Dialog,
-  SizableText,
   XStack,
   YStack,
   useIsKeyboardShown,
@@ -33,7 +30,6 @@ import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -41,13 +37,13 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
-  ESwapRateDifferenceUnit,
   ESwapTabSwitchType,
   SwapAmountInputAccessoryViewID,
   SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
+import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
@@ -148,7 +144,6 @@ const SwapInputContainer = ({
   });
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [alerts] = useSwapAlertsAtom();
-  const intl = useIntl();
   const { address, accountInfo } = useSwapAddressInfo(direction);
   const [rateDifference] = useRateDifferenceAtom();
   const amountPrice = useMemo(() => {
@@ -198,74 +193,21 @@ const SwapInputContainer = ({
     fromTokenAmount,
     fromToken,
   ]);
-  const onRateDifferencePress = useCallback(() => {
-    Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_price_impact_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.swap_page_price_impact_content_1,
-      }),
-      renderContent: (
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.swap_page_price_impact_content_2,
-          })}
-        </SizableText>
-      ),
-      showCancelButton: false,
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_ok,
-      }),
-    });
-  }, [intl]);
   const valueMoreComponent = useMemo(() => {
     if (
       rateDifference &&
       direction === ESwapDirectionType.TO &&
       swapTypeSwitch !== ESwapTabSwitchType.LIMIT
     ) {
-      let color = '$textSubdued';
-      if (inputLoading) {
-        color = '$textPlaceholder';
-      }
-      if (rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE) {
-        color = '$textCritical';
-      }
-      if (rateDifference.unit === ESwapRateDifferenceUnit.POSITIVE) {
-        color = '$textSuccess';
-      }
       return (
-        <XStack alignItems="center">
-          <SizableText size="$bodySm" color={color}>
-            (
-          </SizableText>
-          <SizableText
-            size="$bodySm"
-            color={color}
-            cursor="pointer"
-            onPress={onRateDifferencePress}
-            {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
-              textDecorationLine: 'underline',
-              textDecorationStyle: 'dotted',
-            })}
-          >
-            {rateDifference.value}
-          </SizableText>
-          <SizableText size="$bodySm" color={color}>
-            )
-          </SizableText>
-        </XStack>
+        <SwapRateDifferenceText
+          loading={inputLoading}
+          rateDifference={rateDifference}
+        />
       );
     }
     return null;
-  }, [
-    direction,
-    inputLoading,
-    onRateDifferencePress,
-    rateDifference,
-    swapTypeSwitch,
-  ]);
+  }, [direction, inputLoading, rateDifference, swapTypeSwitch]);
 
   const [percentageInputStageShow, setPercentageInputStageShow] =
     useState(false);

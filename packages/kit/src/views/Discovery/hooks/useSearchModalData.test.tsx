@@ -3,6 +3,19 @@
  */
 /* eslint-disable import/first */
 
+interface IServiceDiscoveryMock {
+  getBookmarkData: jest.Mock;
+  getHistoryData: jest.Mock;
+  fetchDiscoveryHomePageData: jest.Mock;
+  searchDApp: jest.Mock;
+}
+
+type IUseSearchModalDataMockGlobal = typeof globalThis & {
+  __useSearchModalDataMock?: {
+    serviceDiscovery: IServiceDiscoveryMock;
+  };
+};
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -45,7 +58,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     searchDApp: jest.fn(),
   };
 
-  (globalThis as any).__useSearchModalDataMock = {
+  const testGlobal = globalThis as IUseSearchModalDataMockGlobal;
+  testGlobal.__useSearchModalDataMock = {
     serviceDiscovery,
   };
 
@@ -69,13 +83,9 @@ import { DISCOVERY_LOCAL_SEARCH_CANDIDATE_LIMIT } from '../utils/searchResultRan
 import { useSearchModalData } from './useSearchModalData';
 
 const reviewControlMock = jest.mocked(useReviewControl);
-const serviceDiscoveryMock = (globalThis as any).__useSearchModalDataMock
-  .serviceDiscovery as {
-  getBookmarkData: jest.Mock;
-  getHistoryData: jest.Mock;
-  fetchDiscoveryHomePageData: jest.Mock;
-  searchDApp: jest.Mock;
-};
+const testGlobal = globalThis as IUseSearchModalDataMockGlobal;
+const serviceDiscoveryMock = testGlobal.__useSearchModalDataMock
+  ?.serviceDiscovery as IServiceDiscoveryMock;
 
 describe('useSearchModalData', () => {
   beforeEach(() => {

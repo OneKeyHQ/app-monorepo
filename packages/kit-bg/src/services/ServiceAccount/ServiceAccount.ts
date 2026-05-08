@@ -2243,7 +2243,14 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     address: string;
   }) {
-    return this.getAccountNameFromAddressMemo({ networkId, address });
+    const result = await this.getAccountNameFromAddressMemo({
+      networkId,
+      address,
+    });
+    if (isEmpty(result)) {
+      void this.getAccountNameFromAddressMemo.delete({ networkId, address });
+    }
+    return result;
   }
 
   @backgroundMethod()
@@ -3498,6 +3505,9 @@ class ServiceAccount extends ServiceBase {
         password,
         metadata,
       });
+      await this.ensureBotWalletFirstEvmAddress({
+        walletId: result.wallet.id,
+      });
       await this.syncBotWalletSyncItem({
         walletId: result.wallet.id,
       });
@@ -3506,6 +3516,38 @@ class ServiceAccount extends ServiceBase {
       this.scheduleWalletUpdateForBotMetadata();
       return result;
     });
+  }
+
+  private async ensureBotWalletFirstEvmAddress({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<void> {
+    try {
+      const wallet = await this.getWalletSafe({ walletId });
+      if (wallet?.firstEvmAddress) {
+        return;
+      }
+      const networkId = getNetworkIdsMap().eth;
+      const deriveType =
+        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
+      await this.addHDOrHWAccountsFn({
+        walletId,
+        networkId,
+        deriveType,
+        indexes: [0],
+        indexedAccountId: undefined,
+        skipDeviceCancel: true,
+        hideCheckingDeviceLoading: true,
+      });
+    } catch (error) {
+      // First EVM address derivation is best-effort: dependent callers (such
+      // as CLI export) display empty when the address is missing rather than
+      // block bot wallet creation on a derivation failure.
+      errorUtils.autoPrintErrorIgnore(error);
+    }
   }
 
   async createBotWalletFromCloudSync({
