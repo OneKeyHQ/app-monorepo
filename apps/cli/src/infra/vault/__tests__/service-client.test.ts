@@ -1,26 +1,37 @@
-import axios from 'axios';
-
+import { AppError, ERROR_CODES } from '../../../errors';
+import { apiClient } from '../../api-client';
 import { LOCK_TIMEOUT_MS, REVOKE_TIMEOUT_MS } from '../constants';
-import { serviceFetch, serviceRevoke } from '../service-client';
+import {
+  BOT_WALLET_KEY_API_PATH,
+  BOT_WALLET_KEY_API_TOKEN_HEADER,
+  serviceFetch,
+  serviceRevoke,
+} from '../service-client';
 
-import type { AxiosResponse } from 'axios';
-
-function createResponse<T>(status: number, data: T): AxiosResponse<T> {
-  return {
-    data,
-    status,
-    statusText: String(status),
-    headers: {},
-    config: { headers: {} },
-  } as AxiosResponse<T>;
+function createHttpError(status: number): AppError {
+  return new AppError(
+    ERROR_CODES.NET_HTTP_ERROR.code,
+    `HTTP ${status}`,
+    'Check request parameters',
+    {
+      details: {
+        statusCode: status,
+      },
+    },
+  );
 }
 
-function createHttpError(status: number): Error & {
-  response: AxiosResponse<{ error: string }>;
-} {
-  return Object.assign(new Error(`HTTP ${status}`), {
-    response: createResponse(status, { error: 'ERR' }),
-  });
+function createApiEnvelopeError(code: number): AppError {
+  return new AppError(
+    ERROR_CODES.BIZ_UNKNOWN.code,
+    `OneKey API error (code ${code})`,
+    'Check parameters or retry',
+    {
+      details: {
+        upstreamCode: code,
+      },
+    },
+  );
 }
 
 describe('service-client', () => {
@@ -30,8 +41,8 @@ describe('service-client', () => {
 
   it('maps 200 with keyBase64 to ok', async () => {
     const getSpy = jest
-      .spyOn(axios, 'get')
-      .mockResolvedValueOnce(createResponse(200, { keyBase64: 'abc' }));
+      .spyOn(apiClient, 'get')
+      .mockResolvedValueOnce({ keyBase64: 'abc' });
     const timeoutSpy = jest.spyOn(AbortSignal, 'timeout');
 
     await expect(
@@ -40,9 +51,11 @@ describe('service-client', () => {
 
     expect(timeoutSpy).toHaveBeenCalledWith(LOCK_TIMEOUT_MS);
     expect(getSpy).toHaveBeenCalledWith(
-      'http://127.0.0.1:8787/v1/bot-wallet-keys/key-1',
+      'prime',
+      `${BOT_WALLET_KEY_API_PATH}/key-1`,
+      undefined,
       expect.objectContaining({
-        headers: { Authorization: 'Bearer token-1' },
+        headers: { [BOT_WALLET_KEY_API_TOKEN_HEADER]: 'token-1' },
         signal: expect.any(AbortSignal),
       }),
     );
@@ -53,7 +66,7 @@ describe('service-client', () => {
     [403, 'REVOKED'],
     [404, 'KEY_NOT_FOUND'],
   ] as const)('maps HTTP %s to self-heal %s', async (status, reason) => {
-    jest.spyOn(axios, 'get').mockRejectedValueOnce(createHttpError(status));
+    jest.spyOn(apiClient, 'get').mockRejectedValueOnce(createHttpError(status));
 
     await expect(
       serviceFetch({ keyId: 'key-1', accessToken: 'token-1' }),
@@ -61,10 +74,27 @@ describe('service-client', () => {
   });
 
   it.each([
+    [401, 'TOKEN_INVALID'],
+    [403, 'REVOKED'],
+    [404, 'KEY_NOT_FOUND'],
+  ] as const)(
+    'maps Prime API envelope code %s to self-heal %s',
+    async (code, reason) => {
+      jest
+        .spyOn(apiClient, 'get')
+        .mockRejectedValueOnce(createApiEnvelopeError(code));
+
+      await expect(
+        serviceFetch({ keyId: 'key-1', accessToken: 'token-1' }),
+      ).resolves.toEqual({ kind: 'self-heal', reason });
+    },
+  );
+
+  it.each([
     ['HTTP 500', () => createHttpError(500)],
     ['network error', () => new Error('ECONNREFUSED')],
   ] as const)('maps %s to fail-secure', async (_name, createError) => {
-    jest.spyOn(axios, 'get').mockRejectedValueOnce(createError());
+    jest.spyOn(apiClient, 'get').mockRejectedValueOnce(createError());
 
     await expect(
       serviceFetch({ keyId: 'key-1', accessToken: 'token-1' }),
@@ -76,10 +106,10 @@ describe('service-client', () => {
 
   it('forwards ECONNREFUSED as a fail-secure cause for clearer downstream errors', async () => {
     const refusedError = Object.assign(
-      new Error('connect ECONNREFUSED 127.0.0.1:8787'),
+      new Error('connect ECONNREFUSED prime.onekeytest.com:443'),
       { code: 'ECONNREFUSED' },
     );
-    jest.spyOn(axios, 'get').mockRejectedValueOnce(refusedError);
+    jest.spyOn(apiClient, 'get').mockRejectedValueOnce(refusedError);
 
     await expect(
       serviceFetch({ keyId: 'key-1', accessToken: 'token-1' }),
@@ -88,15 +118,15 @@ describe('service-client', () => {
       reason: 'SERVICE_UNREACHABLE',
       cause: {
         code: 'ECONNREFUSED',
-        message: 'connect ECONNREFUSED 127.0.0.1:8787',
+        message: 'connect ECONNREFUSED prime.onekeytest.com:443',
       },
     });
   });
 
   it('maps malformed 200 response to fail-secure with an invalid-payload cause', async () => {
     jest
-      .spyOn(axios, 'get')
-      .mockResolvedValueOnce(createResponse(200, { key: 'missing' }));
+      .spyOn(apiClient, 'get')
+      .mockResolvedValueOnce({ key: 'missing' } as never);
 
     await expect(
       serviceFetch({ keyId: 'key-1', accessToken: 'token-1' }),
@@ -104,7 +134,7 @@ describe('service-client', () => {
       kind: 'fail-secure',
       reason: 'SERVICE_UNREACHABLE',
       cause: {
-        message: 'service returned an invalid key payload',
+        message: 'Prime API returned an invalid key payload',
       },
     });
   });
@@ -116,13 +146,13 @@ describe('service-client', () => {
       {
         code: 'ERR_BAD_RESPONSE',
         config: {
-          headers: { Authorization: 'Bearer token-1' },
+          headers: { [BOT_WALLET_KEY_API_TOKEN_HEADER]: 'token-1' },
         },
-        response: createResponse(500, { error: 'ERR' }),
+        details: { statusCode: 500 },
       },
     );
     const postSpy = jest
-      .spyOn(axios, 'post')
+      .spyOn(apiClient, 'post')
       .mockRejectedValueOnce(revokeError);
     const timeoutSpy = jest.spyOn(AbortSignal, 'timeout');
 
@@ -132,10 +162,11 @@ describe('service-client', () => {
 
     expect(timeoutSpy).toHaveBeenCalledWith(REVOKE_TIMEOUT_MS);
     expect(postSpy).toHaveBeenCalledWith(
-      'http://127.0.0.1:8787/v1/bot-wallet-keys/key-1/revoke',
+      'prime',
+      `${BOT_WALLET_KEY_API_PATH}/key-1/revoke`,
       undefined,
+      { [BOT_WALLET_KEY_API_TOKEN_HEADER]: 'token-1' },
       expect.objectContaining({
-        headers: { Authorization: 'Bearer token-1' },
         signal: expect.any(AbortSignal),
       }),
     );
