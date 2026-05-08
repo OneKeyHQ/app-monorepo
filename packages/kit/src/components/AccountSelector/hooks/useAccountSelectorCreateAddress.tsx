@@ -150,6 +150,17 @@ export function useAccountSelectorCreateAddress() {
           throw new OneKeyErrorAirGapAccountNotFound();
         }
 
+        if (
+          result?.failedAccounts?.length &&
+          !accountUtils.isQrWallet({ walletId: account.walletId })
+        ) {
+          for (const failedAccount of result.failedAccounts) {
+            Toast.error({
+              title: failedAccount.error.message || 'Unknown error',
+            });
+          }
+        }
+
         // If indexedAccountId was empty, get the first indexed account from wallet
         let resultIndexedAccountId = account?.indexedAccountId;
         if (!resultIndexedAccountId && account?.walletId) {
