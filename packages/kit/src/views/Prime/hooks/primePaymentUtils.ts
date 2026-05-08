@@ -5,7 +5,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
-import type { IPackageFreeTrial } from './usePrimePaymentTypes';
+import type {
+  IPackageFreeTrial,
+  ISubscriptionPeriod,
+} from './usePrimePaymentTypes';
 import type { Offerings, Purchases } from '@revenuecat/purchases-js';
 
 const SANDBOX_OFFERING_ID = 'Sandbox_testing';
@@ -158,45 +161,47 @@ function extractCurrencySymbol(
 }
 
 function trackPrimeSubscriptionSuccess({
-  paywallPackage,
+  amount,
+  currency,
   subscriptionPeriod,
   featureName,
 }: {
-  paywallPackage: {
-    rcBillingProduct: {
-      currentPrice: {
-        amountMicros: number;
-        currency: string;
-      };
-    };
-  };
-  subscriptionPeriod: string;
+  amount: number;
+  currency?: string;
+  subscriptionPeriod: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
 }) {
-  // Track successful subscription
   const planType = subscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
-
-  let amount = 0;
-  try {
-    const amountMicros =
-      paywallPackage.rcBillingProduct.currentPrice?.amountMicros;
-    if (amountMicros && typeof amountMicros === 'number') {
-      amount = new BigNumber(amountMicros).div(1_000_000).toNumber();
-    }
-  } catch (error) {
-    console.warn('Error converting price amount:', error);
-    amount = 0;
-  }
-
-  const currency =
-    paywallPackage.rcBillingProduct.currentPrice?.currency || 'USD';
-
   defaultLogger.prime.subscription.primeSubscribeSuccess({
     planType,
     amount,
-    currency,
+    currency: currency || 'USD',
     featureName,
   });
+}
+
+// RevenueCat React Native SDK returns prices in micros on Android, in major
+// units on iOS — normalize to major units here.
+function normalizeNativePrice(rawPrice: number): number {
+  if (!platformEnv.isNativeAndroid) return rawPrice;
+  return new BigNumber(rawPrice || 0).div(1_000_000).toNumber();
+}
+
+function extractWebPaywallPrice(paywallPackage: {
+  rcBillingProduct: {
+    currentPrice?: {
+      amountMicros?: number;
+      currency?: string;
+    } | null;
+  };
+}): { amount: number; currency: string | undefined } {
+  const { currentPrice } = paywallPackage.rcBillingProduct;
+  const amountMicros = currentPrice?.amountMicros;
+  const amount =
+    typeof amountMicros === 'number'
+      ? new BigNumber(amountMicros).div(1_000_000).toNumber()
+      : 0;
+  return { amount, currency: currentPrice?.currency };
 }
 
 function formatPriceString(
@@ -212,6 +217,8 @@ function formatPriceString(
 const primePaymentUtils = {
   extractCurrencySymbol,
   trackPrimeSubscriptionSuccess,
+  normalizeNativePrice,
+  extractWebPaywallPrice,
   formatPriceString,
   normalizeFreeTrialPeriodUnit,
   extractWebFreeTrial,
