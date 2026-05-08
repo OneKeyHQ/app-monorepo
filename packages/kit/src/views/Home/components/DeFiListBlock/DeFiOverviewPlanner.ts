@@ -24,6 +24,19 @@ export function getOverviewVisibleCollapsed(cols: IOverviewCols): number {
   return getOverviewCellsLimit(cols) - OVERVIEW_MORE_CELL_SPAN;
 }
 
+export function getOverviewCollapsedProtocolLimit({
+  cols,
+  protocolCount,
+}: {
+  cols: IOverviewCols;
+  protocolCount: number;
+}): number {
+  const cellsLimit = getOverviewCellsLimit(cols);
+  return protocolCount <= cellsLimit
+    ? protocolCount
+    : getOverviewVisibleCollapsed(cols);
+}
+
 export type IDeFiOverviewProtocolRenderCell = {
   kind: 'protocol';
   key: string;
@@ -84,7 +97,10 @@ export function buildDeFiOverviewRenderCells({
   const toCell = (c: IDeFiOverviewCell) => toProtocolCell(c, protocolMap);
 
   const cellsLimit = getOverviewCellsLimit(cols);
-  const visibleCollapsed = getOverviewVisibleCollapsed(cols);
+  const visibleCollapsed = getOverviewCollapsedProtocolLimit({
+    cols,
+    protocolCount: rankedProtocols.length,
+  });
 
   if (rankedProtocols.length <= cellsLimit) {
     return rankedProtocols.map(toCell);

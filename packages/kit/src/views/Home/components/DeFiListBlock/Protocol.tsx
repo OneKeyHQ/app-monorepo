@@ -249,7 +249,6 @@ const ProtocolDesktopLayout = memo(
                           <NumberSizeableTextWrapper
                             hideValue
                             size="$headingMd"
-                            color="$transparent"
                             formatter="value"
                             formatterOptions={{ currency: currencySymbol }}
                             textAlign="right"

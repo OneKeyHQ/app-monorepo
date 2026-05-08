@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -11,8 +12,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { buildStackedBarSegments } from './DeFiPortfolioStackedBarLayout';
+import { PORTFOLIO_OTHERS_KEY } from './DeFiPortfolioStats';
 import { formatPortfolioPercent } from './formatPortfolioPercent';
 
 import type { IPortfolioSlice } from './DeFiPortfolioStats';
@@ -68,12 +71,15 @@ const SEGMENT_OPACITY = 0.86;
 const SEGMENT_HOVER_OPACITY = 1;
 const LEGEND_DOT_SIZE = 6;
 
-function buildA11yLabel(slices: IPortfolioSlice[]): string {
-  if (slices.length === 0) return 'Portfolio allocation';
-  const parts = slices.map(
-    (s) => `${s.label} ${formatPortfolioPercent(s.percent, s.netWorth)}`,
+function buildA11yLabel(
+  segments: ReturnType<typeof buildStackedBarSegments>,
+  allocationLabel: string,
+): string {
+  if (segments.length === 0) return allocationLabel;
+  const parts = segments.map(
+    (s) => `${s.sliceLabel} ${formatPortfolioPercent(s.flexBasis, s.netWorth)}`,
   );
-  return `Portfolio allocation: ${parts.join(', ')}`;
+  return `${allocationLabel}: ${parts.join(', ')}`;
 }
 
 function renderTooltipContent(
@@ -114,7 +120,22 @@ function DeFiPortfolioStackedBar({
   gap = DEFAULT_GAP,
   isLoading,
 }: IDeFiPortfolioStackedBarProps) {
-  const segments = useMemo(() => buildStackedBarSegments(slices), [slices]);
+  const intl = useIntl();
+  const allocationLabel = intl.formatMessage({
+    id: ETranslations.defi_allocation,
+  });
+  const othersLabel = intl.formatMessage({
+    id: ETranslations.global_others,
+  });
+  const segments = useMemo(
+    () =>
+      buildStackedBarSegments(slices).map((seg) =>
+        seg.key === PORTFOLIO_OTHERS_KEY
+          ? { ...seg, sliceLabel: othersLabel }
+          : seg,
+      ),
+    [slices, othersLabel],
+  );
 
   if (isLoading) {
     return (
@@ -136,7 +157,7 @@ function DeFiPortfolioStackedBar({
         borderRadius="$2"
         bg="$bgSubdued"
         accessibilityRole="image"
-        accessibilityLabel="Portfolio allocation: empty"
+        accessibilityLabel={allocationLabel}
         {...STACKED_BAR_CHROME}
       >
         <Stack flex={1} bg="$bgStrong" opacity={0.42} />
@@ -151,7 +172,7 @@ function DeFiPortfolioStackedBar({
         borderRadius="$2"
         bg="$bgSubdued"
         accessibilityRole="image"
-        accessibilityLabel={buildA11yLabel(slices)}
+        accessibilityLabel={buildA11yLabel(segments, allocationLabel)}
         {...STACKED_BAR_CHROME}
       >
         {segments.map((seg, index) => (

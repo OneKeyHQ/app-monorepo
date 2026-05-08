@@ -4,7 +4,10 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import { buildDeFiOverviewRenderCells } from './DeFiOverviewPlanner';
+import {
+  buildDeFiOverviewRenderCells,
+  getOverviewCollapsedProtocolLimit,
+} from './DeFiOverviewPlanner';
 
 import type { IDeFiOverviewCell } from './hooks/useDeFiOverviewTopN';
 
@@ -117,5 +120,26 @@ describe('buildDeFiOverviewRenderCells with cols', () => {
       expect(cell).toMatchObject({ kind: 'protocol' });
       expect(cell).not.toHaveProperty('slice');
     }
+  });
+
+  it('returns the mounted protocol limit required by the collapsed overview', () => {
+    expect(
+      getOverviewCollapsedProtocolLimit({ cols: 4, protocolCount: 12 }),
+    ).toBe(12);
+    expect(
+      getOverviewCollapsedProtocolLimit({ cols: 4, protocolCount: 13 }),
+    ).toBe(10);
+    expect(
+      getOverviewCollapsedProtocolLimit({ cols: 5, protocolCount: 15 }),
+    ).toBe(15);
+    expect(
+      getOverviewCollapsedProtocolLimit({ cols: 5, protocolCount: 16 }),
+    ).toBe(13);
+    expect(
+      getOverviewCollapsedProtocolLimit({ cols: 6, protocolCount: 18 }),
+    ).toBe(18);
+    expect(
+      getOverviewCollapsedProtocolLimit({ cols: 6, protocolCount: 19 }),
+    ).toBe(16);
   });
 });

@@ -11,6 +11,7 @@ import {
   Skeleton,
   XStack,
   YStack,
+  useMedia,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -56,18 +57,18 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import { OVERVIEW_TOP_N } from '../../types';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import { deFiListLoadingReducer } from './deFiListLoadingReducer';
+import { getOverviewCollapsedProtocolLimit } from './DeFiOverviewPlanner';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
 import { buildDeFiOverviewCells } from './hooks/useDeFiOverviewTopN';
+import { resolveOverviewCols } from './overviewColsResolver';
 import { type IProtocolHandle, Protocol } from './Protocol';
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
-const MAX_PROTOCOLS_ON_LARGE_SCREEN = OVERVIEW_TOP_N;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
 
 function MobileProtocolDivider() {
@@ -160,6 +161,7 @@ function DeFiListBlock({
   const [{ protocols }] = useDeFiListProtocolsAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
   const [settingsValue] = useSettingsValuePersistAtom();
+  const media = useMedia();
 
   const deFiRawDataRef = useRef<IDeFiDBStruct | undefined>(undefined);
   const initializedRef = useRef(initialized);
@@ -173,8 +175,24 @@ function DeFiListBlock({
   const pendingRefreshRef = useRef(false);
 
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
+  const overviewCols = useMemo(
+    () =>
+      resolveOverviewCols({
+        gtXl: media.gtXl,
+        gtLg: media.gtLg,
+      }),
+    [media.gtXl, media.gtLg],
+  );
+  const maxProtocolsOnLargeScreen = useMemo(
+    () =>
+      getOverviewCollapsedProtocolLimit({
+        cols: overviewCols,
+        protocolCount: protocols.length,
+      }),
+    [overviewCols, protocols.length],
+  );
   const overflowThreshold = tableLayout
-    ? MAX_PROTOCOLS_ON_LARGE_SCREEN
+    ? maxProtocolsOnLargeScreen
     : MAX_PROTOCOLS_ON_SMALL_SCREEN;
   const isOverflow = protocols.length > overflowThreshold;
 
@@ -1112,12 +1130,19 @@ function DeFiListBlock({
 
     if (isOverflow && isSliced) {
       const limit = tableLayout
-        ? MAX_PROTOCOLS_ON_LARGE_SCREEN
+        ? maxProtocolsOnLargeScreen
         : MAX_PROTOCOLS_ON_SMALL_SCREEN;
       return sorted.slice(0, limit);
     }
     return sorted;
-  }, [protocols, protocolMap, isOverflow, isSliced, tableLayout]);
+  }, [
+    protocols,
+    protocolMap,
+    isOverflow,
+    isSliced,
+    tableLayout,
+    maxProtocolsOnLargeScreen,
+  ]);
 
   const protocolListLockUntilRef = useRef(0);
   const protocolListUnlockTimerRef = useRef<ReturnType<

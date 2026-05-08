@@ -19,6 +19,7 @@ import {
 } from 'react-native-reanimated';
 
 import {
+  SizableText,
   Skeleton,
   Stack,
   Tabs,
@@ -30,7 +31,10 @@ import {
 } from '@onekeyhq/components';
 import { useTabsContext } from '@onekeyhq/components/src/composite/Tabs/context';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
@@ -39,7 +43,6 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import type { WorkletFn } from '@onekeyhq/shared/types/worklet';
 
 import { BackToTopButton } from '../../../components/BackToTopButton';
-import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextDeFiList,
@@ -58,6 +61,7 @@ import {
   PinnedProtocolHeader,
 } from '../components/DeFiListBlock';
 import { buildPortfolioStats } from '../components/DeFiListBlock/DeFiPortfolioStats';
+import { formatPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
@@ -75,6 +79,7 @@ import {
 // the initial fold, shallow enough to not require a full viewport of scroll.
 const BACK_TO_TOP_NEAR_TOP_PX = 200;
 const PROTOCOL_PINNED_HEADER_EXIT_GAP = 64;
+const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 // Industry pattern: reveal on any upward scroll past the initial fold; hide
 // on downward scroll or when back near the top. rAF / animated-reaction
@@ -137,6 +142,7 @@ function DeFiContainer() {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
   const [settings] = useSettingsPersistAtom();
+  const [settingsValue] = useSettingsValuePersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
   const isAllNetworks = Boolean(network?.isAllNetworks);
 
@@ -462,15 +468,17 @@ function DeFiContainer() {
                 // approximate a typical "$XX,XXX.XX" measurement.
                 <Skeleton.HeadingXl w={120} />
               ) : (
-                <NumberSizeableTextWrapper
-                  hideValue
+                <SizableText
                   size="$headingXl"
                   color="$textSubdued"
-                  formatter="value"
-                  formatterOptions={{ currency: currencySymbol }}
+                  fontVariant={TABULAR_NUMS}
                 >
-                  {String(portfolioStats.total)}
-                </NumberSizeableTextWrapper>
+                  {formatPortfolioTotal(
+                    portfolioStats.total,
+                    currencySymbol,
+                    settingsValue.hideValue,
+                  )}
+                </SizableText>
               )
             }
             // pb=0 cancels RichBlockHeader's own py="$3" bottom padding so the
