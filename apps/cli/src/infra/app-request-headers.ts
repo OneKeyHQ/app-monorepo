@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 const DEFAULT_APP_VERSION = '6.3.0';
@@ -99,11 +98,13 @@ function getInstanceId(): string {
 }
 
 function getPlatformName(): string {
+  // NEVER fall back to os.hostname() — on macOS it commonly contains the user's
+  // real name (e.g. "Leons-MacBook-Pro.local"), which would leak as PII to the
+  // OneKey backend in `x-onekey-request-platform-name`. Require explicit opt-in.
   return (
     process.env.ONEKEY_REQUEST_PLATFORM_NAME ??
     process.env.ONEKEY_CLI_REQUEST_PLATFORM_NAME ??
-    os.hostname() ??
-    'Unknown'
+    'OneKey CLI'
   );
 }
 
