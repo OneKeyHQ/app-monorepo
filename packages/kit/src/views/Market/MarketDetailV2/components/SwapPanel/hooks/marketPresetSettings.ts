@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { isValidMarketPresetCustomPriorityFeeValue } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import { swapSlippageMaxValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapNetworkFeeLevel,
@@ -425,7 +426,7 @@ export function getMarketPresetNetworkFeeLevel(
 ) {
   if (
     settings?.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
-    !isPositiveMarketPresetCustomValue(settings.priorityFee.customValue)
+    !isValidMarketPresetCustomValue(settings.priorityFee.customValue)
   ) {
     return ESwapNetworkFeeLevel.MEDIUM;
   }
@@ -440,22 +441,8 @@ export function getMarketPresetNetworkFeeLevel(
   return ESwapNetworkFeeLevel.MEDIUM;
 }
 
-function getMarketPresetCustomValueBN(value?: string) {
-  if (!value) {
-    return undefined;
-  }
-
-  const valueBN = new BigNumber(value);
-  return valueBN.isFinite() ? valueBN : undefined;
-}
-
 export function isValidMarketPresetCustomValue(value?: string) {
-  return isPositiveMarketPresetCustomValue(value);
-}
-
-function isPositiveMarketPresetCustomValue(value?: string) {
-  const valueBN = getMarketPresetCustomValueBN(value);
-  return !!valueBN && valueBN.gt(0);
+  return isValidMarketPresetCustomPriorityFeeValue(value);
 }
 
 export function isInvalidMarketPresetSlippageSettings(
@@ -504,7 +491,7 @@ export function getMarketPresetPriorityFeeOverride(
   if (
     settings?.priorityFee.type !== EMarketPresetPriorityFeeType.CUSTOM ||
     !customValue ||
-    !isPositiveMarketPresetCustomValue(customValue)
+    !isValidMarketPresetCustomValue(customValue)
   ) {
     return undefined;
   }

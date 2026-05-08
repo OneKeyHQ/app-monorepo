@@ -19,6 +19,7 @@ import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import { swapSlippageCustomDefaultList } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
@@ -849,7 +850,10 @@ function MarketPresetSettingsDialog({
                           {
                             id: ETranslations.form_fee_rate_error_out_of_range,
                           },
-                          { min: 0, max: '999999999' },
+                          {
+                            min: 0,
+                            max: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+                          },
                         )}
                       </SizableText>
                     ) : null}
