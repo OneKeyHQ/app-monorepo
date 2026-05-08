@@ -101,6 +101,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
@@ -3128,8 +3129,20 @@ class ServiceAccount extends ServiceBase {
         | EHardwareVendor
         | undefined);
     const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
+    const isUsbTransport =
+      transportType === EHardwareTransportType.WEBUSB ||
+      transportType === EHardwareTransportType.Bridge;
+    if (
+      vendorProfile?.isThirdParty &&
+      !params.device.connectId &&
+      !isUsbTransport
+    ) {
+      throw new OneKeyLocalError(
+        'createHWWalletBase ERROR: connectId is required for non-USB third-party hardware',
+      );
+    }
 
-    // Vendors without persistent USB connectId don't need compatible resolution
+    // Skip compatibility lookup for vendors without persistent USB connectId.
     const compatibleConnectId =
       vendorProfile?.isThirdParty &&
       !vendorProfile.hasPersistentConnectId('usb')
@@ -3139,16 +3152,9 @@ class ServiceAccount extends ServiceBase {
             featuresDeviceId: params.device.deviceId ?? '',
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
-    const searchDeviceId = params.device.deviceId ?? '';
     const deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
       features,
-    });
-
-    console.log('createHWWalletBase paramsInfo', {
-      connectId: compatibleConnectId,
-      deviceId,
-      searchDeviceId,
     });
 
     let xfp: string | undefined;
@@ -3161,9 +3167,8 @@ class ServiceAccount extends ServiceBase {
         withUserInteraction: true,
         vendor,
       });
-      console.log('createHWWalletBase xfp', xfp, compatibleConnectId, deviceId);
     }
-    // if the connectId is not compatible, maybe the device is new bluetooth connection device, refresh the device info
+    // Refresh DB info when compatibility lookup resolves to another connectId.
     if (compatibleConnectId !== params.device.connectId) {
       const refreshedDevice = await localDb.getDeviceByQuery({
         connectId: params.device.connectId || compatibleConnectId,
@@ -3205,10 +3210,7 @@ class ServiceAccount extends ServiceBase {
           : undefined,
       transportType,
     });
-    // Chain fingerprints for third-party vendors (Ledger) are generated on-demand
-    // by ensureLedgerChainFingerprint() in KeyringHardwareBase when a chain's
-    // keyring is first used. This ensures the fingerprint is generated using the
-    // SDK's getChainFingerprint() method (single source of truth for hashing).
+    // Third-party chain fingerprints are generated lazily by the keyring via SDK.
 
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
@@ -4152,6 +4154,54 @@ class ServiceAccount extends ServiceBase {
       });
     }
     return result;
+  }
+
+  /** Onboarding orphan cleanup. HW + ledger + 0 accounts; no password prompt. */
+  @backgroundMethod()
+  async removeFailedOnboardingHwWallet({ walletId }: { walletId: string }) {
+    if (!walletId) {
+      throw new OneKeyLocalError('walletId is required');
+    }
+    if (!accountUtils.isHwWallet({ walletId })) {
+      throw new OneKeyLocalError(
+        'removeFailedOnboardingHwWallet: only HW wallet allowed',
+      );
+    }
+
+    const wallet = await this.getWalletSafe({ walletId });
+    if (!wallet) {
+      // Already removed; keep cleanup idempotent.
+      return;
+    }
+
+    const vendor = wallet.associatedDeviceInfo?.vendor;
+    if (vendor !== EHardwareVendor.ledger) {
+      throw new OneKeyLocalError(
+        `removeFailedOnboardingHwWallet: vendor must be ledger (got ${
+          vendor ?? 'undefined'
+        })`,
+      );
+    }
+
+    // Re-check every indexed account before treating it as an orphan.
+    const { accounts: indexedAccounts } = await this.getIndexedAccountsOfWallet(
+      {
+        walletId,
+      },
+    );
+    for (const indexed of indexedAccounts) {
+      const { accounts } = await this.getAccountsInSameIndexedAccountId({
+        indexedAccountId: indexed.id,
+      });
+      if (accounts.length > 0) {
+        throw new OneKeyLocalError(
+          `removeFailedOnboardingHwWallet: wallet ${walletId} has accounts; not an orphan`,
+        );
+      }
+    }
+
+    // localDb.removeWallet handles events, unused devices, and indexed accounts.
+    await localDb.removeWallet({ walletId });
   }
 
   async buildAccountXpubOrAddress({
@@ -5501,34 +5551,47 @@ class ServiceAccount extends ServiceBase {
 
       const isHwWallet = accountUtils.isHwWallet({ walletId });
       if (isHwWallet) {
-        const wallet = await localDb.getWalletSafe({ walletId });
-        if (
-          wallet &&
-          !wallet?.deprecated &&
-          !accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
-        ) {
-          await hardwareWalletXfpStatusAtom.set((v) => ({
-            ...v,
-            [walletId]: {
-              ...v?.[walletId],
-              xfpMissing: true,
-            },
-          }));
-        }
+        // Third-party HW uses chain fingerprints, not wallet xfp.
+        const isThirdParty = await this.isThirdPartyHwByWalletId({ walletId });
+        if (isThirdParty) {
+          const status = await hardwareWalletXfpStatusAtom.get();
+          if (status?.[walletId]?.xfpMissing) {
+            await hardwareWalletXfpStatusAtom.set((v) => ({
+              ...v,
+              [walletId]: { ...v?.[walletId], xfpMissing: false },
+            }));
+          }
+        } else {
+          const wallet = await localDb.getWalletSafe({ walletId });
+          if (
+            wallet &&
+            !wallet?.deprecated &&
+            !accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+          ) {
+            await hardwareWalletXfpStatusAtom.set((v) => ({
+              ...v,
+              [walletId]: {
+                ...v?.[walletId],
+                xfpMissing: true,
+              },
+            }));
+          }
 
-        const hardwareWalletXfpStatus = await hardwareWalletXfpStatusAtom.get();
-        if (
-          hardwareWalletXfpStatus?.[walletId]?.xfpMissing &&
-          wallet &&
-          accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
-        ) {
-          await hardwareWalletXfpStatusAtom.set((v) => ({
-            ...v,
-            [walletId]: {
-              ...v?.[walletId],
-              xfpMissing: false,
-            },
-          }));
+          const hardwareWalletXfpStatus =
+            await hardwareWalletXfpStatusAtom.get();
+          if (
+            hardwareWalletXfpStatus?.[walletId]?.xfpMissing &&
+            wallet &&
+            accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+          ) {
+            await hardwareWalletXfpStatusAtom.set((v) => ({
+              ...v,
+              [walletId]: {
+                ...v?.[walletId],
+                xfpMissing: false,
+              },
+            }));
+          }
         }
       }
     }
