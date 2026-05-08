@@ -41,7 +41,11 @@ import type {
   IVaultPlaintext,
   IVaultRecord,
 } from '../../infra/vault/types';
-import type { ISignTransactionPayload, ISigner } from '../types';
+import type {
+  ISignTransactionPayload,
+  ISigner,
+  ISignerGetAddressOptions,
+} from '../types';
 
 const CREDENTIAL_ALGORITHM = 'aes-256-gcm';
 const CREDENTIAL_KEY_BYTES = 32;
@@ -370,7 +374,10 @@ export class SignerSoftwareBase implements ISigner {
     this.now = options.now ?? getDefaultNow();
   }
 
-  getAddress(_networkId: string): Promise<ICoreApiGetAddressItem> {
+  getAddress(
+    _networkId: string,
+    _options?: ISignerGetAddressOptions,
+  ): Promise<ICoreApiGetAddressItem> {
     return Promise.reject(
       new Error('SignerSoftwareBase.getAddress must be overridden'),
     );

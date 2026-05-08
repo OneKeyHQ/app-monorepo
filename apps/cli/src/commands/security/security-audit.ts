@@ -1,5 +1,5 @@
 import { auditToken, resolveToken } from '../../core';
-import { resolveChain } from '../../core/chain-resolver';
+import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 
 import type { IAuditSummary } from '../../core';
@@ -25,6 +25,7 @@ export function registerSecurityAuditCommand(parent: Command): void {
 
       try {
         const chainConfig = resolveChain(options.chain);
+        assertChainCapability(chainConfig, 'evmTokenMarket', 'security-audit');
 
         const resolved = await resolveToken(options.token, options.chain);
 
