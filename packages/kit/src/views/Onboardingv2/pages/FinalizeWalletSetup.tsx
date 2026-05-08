@@ -548,8 +548,42 @@ function FinalizeWalletSetupPage({
       setIsExtensionTopRightVisible(false);
       return undefined;
     }
-    const timeout = setTimeout(() => setIsExtensionTopRightVisible(true), 1000);
-    return () => clearTimeout(timeout);
+
+    let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    void (async () => {
+      try {
+        // chrome.action.getUserSettings (Chrome 91+) reports whether the
+        // extension is already pinned to the toolbar. If pinned, the hint
+        // is redundant. Older Chrome / non-Chrome → fall through and show
+        // the hint as before.
+        const settings = await chrome.action?.getUserSettings?.();
+        if (cancelled) {
+          return;
+        }
+        if (settings?.isOnToolbar) {
+          return;
+        }
+      } catch {
+        // Permission / version edge cases — show the hint anyway.
+      }
+      if (cancelled) {
+        return;
+      }
+      timeout = setTimeout(() => {
+        if (!cancelled) {
+          setIsExtensionTopRightVisible(true);
+        }
+      }, 1000);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
   }, [isReadyActionVisible, setupError]);
 
   const enterWalletTransitionProps = {
