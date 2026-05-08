@@ -6,11 +6,13 @@ import {
   BTC_ADDRESS_TYPES,
   assertBtcAddressType,
   assertBtcImpl,
+  btcAddressEncodingsInclude,
   getBtcAddressTypeInfo,
   getBtcCoinType,
   isBtcAddressType,
   isBtcImpl,
   listBtcAddressTypeInfos,
+  normalizeBtcAddressEncoding,
 } from '../core/btc/address-types';
 
 describe('btc address types', () => {
@@ -119,5 +121,43 @@ describe('btc address types', () => {
   it('exports a reusable zod schema for btc address types', () => {
     expect(btcAddressType.parse('legacy')).toBe('legacy');
     expect(() => btcAddressType.parse('segwit')).toThrow();
+  });
+
+  describe('normalizeBtcAddressEncoding', () => {
+    it('normalizes case and separator variants to canonical EAddressEncodings', () => {
+      expect(normalizeBtcAddressEncoding('p2tr')).toBe('P2TR');
+      expect(normalizeBtcAddressEncoding('P2TR')).toBe('P2TR');
+      expect(normalizeBtcAddressEncoding('p2wpkh')).toBe('P2WPKH');
+      expect(normalizeBtcAddressEncoding('P2WPKH')).toBe('P2WPKH');
+      expect(normalizeBtcAddressEncoding('p2sh-p2wpkh')).toBe('P2SH_P2WPKH');
+      expect(normalizeBtcAddressEncoding('p2sh_p2wpkh')).toBe('P2SH_P2WPKH');
+      expect(normalizeBtcAddressEncoding('P2SH P2WPKH')).toBe('P2SH_P2WPKH');
+      expect(normalizeBtcAddressEncoding('p2pkh')).toBe('P2PKH');
+    });
+
+    it('returns undefined for unknown / non-string input', () => {
+      expect(normalizeBtcAddressEncoding('segwit')).toBeUndefined();
+      expect(normalizeBtcAddressEncoding('')).toBeUndefined();
+      expect(normalizeBtcAddressEncoding(undefined)).toBeUndefined();
+      expect(normalizeBtcAddressEncoding(null)).toBeUndefined();
+      expect(normalizeBtcAddressEncoding(42)).toBeUndefined();
+    });
+  });
+
+  describe('btcAddressEncodingsInclude', () => {
+    it('matches case-insensitively across provider/CLI conventions', () => {
+      expect(btcAddressEncodingsInclude(['p2wpkh', 'p2tr'], 'P2TR')).toBe(true);
+      expect(btcAddressEncodingsInclude(['P2WPKH'], 'p2wpkh')).toBe(true);
+      expect(btcAddressEncodingsInclude(['P2SH-P2WPKH'], 'P2SH_P2WPKH')).toBe(
+        true,
+      );
+    });
+
+    it('returns false when the target is not present or unrecognized', () => {
+      expect(btcAddressEncodingsInclude(['P2WPKH'], 'P2TR')).toBe(false);
+      expect(btcAddressEncodingsInclude(['unknown'], 'P2TR')).toBe(false);
+      expect(btcAddressEncodingsInclude(['P2WPKH'], 'segwit')).toBe(false);
+      expect(btcAddressEncodingsInclude([], 'P2WPKH')).toBe(false);
+    });
   });
 });

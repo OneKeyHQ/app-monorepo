@@ -128,3 +128,28 @@ export function listBtcAddressTypeInfos(impl: string): IBtcAddressTypeInfo[] {
     getBtcAddressTypeInfo(impl, addressType),
   );
 }
+
+// Provider/build-tx responses use varying casing/synonyms for BTC address
+// types (e.g. "p2wpkh"/"P2WPKH", "p2sh-p2wpkh"/"P2SH_P2WPKH"). Map any
+// recognized form to the canonical EAddressEncodings value so that downstream
+// equality/inclusion checks against `fromAddressMeta.addressEncoding` don't
+// falsely reject a valid PSBT.
+export function normalizeBtcAddressEncoding(
+  value: unknown,
+): EAddressEncodings | undefined {
+  if (typeof value !== 'string') return undefined;
+  const canonical = value.replace(/[-\s]/g, '_').toUpperCase();
+  const all = Object.values(EAddressEncodings) as string[];
+  return all.includes(canonical) ? (canonical as EAddressEncodings) : undefined;
+}
+
+export function btcAddressEncodingsInclude(
+  candidates: unknown[],
+  target: unknown,
+): boolean {
+  const normalizedTarget = normalizeBtcAddressEncoding(target);
+  if (!normalizedTarget) return false;
+  return candidates.some(
+    (candidate) => normalizeBtcAddressEncoding(candidate) === normalizedTarget,
+  );
+}

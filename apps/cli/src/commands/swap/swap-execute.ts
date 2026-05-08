@@ -9,6 +9,7 @@ import { formatPsbtHex } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtil
 import { loadPending, secureCache, updatePendingStatus } from '../../core';
 import {
   BTC_ADDRESS_TYPES,
+  btcAddressEncodingsInclude,
   getBtcAddressTypeInfo,
   isBtcImpl,
 } from '../../core/btc/address-types';
@@ -569,7 +570,10 @@ export function registerSwapExecuteCommand(parent: Command): void {
             if (
               !btcLocalTx &&
               btcData &&
-              !btcData.addressType.includes(fromAddressMeta.addressEncoding)
+              !btcAddressEncodingsInclude(
+                btcData.addressType,
+                fromAddressMeta.addressEncoding,
+              )
             ) {
               throw new AppError(
                 ERROR_CODES.BIZ_SWAP_FAILED.code,
