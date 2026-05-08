@@ -71,14 +71,20 @@ const readMetadataFileSha256 = async (signature: string) => {
 // Stamped by calculateSHA256 / verifySha256 before they return or throw, so
 // callers (notably DesktopApiBundleUpdate.verifyAndResolve) can attach a
 // specific subtype to telemetry — splitting the previously opaque
-// "Downloaded file is not valid" bucket into FILE_NOT_FOUND /
+// "Downloaded file is not valid" bucket into FILE_NOT_FOUND / FILE_EMPTY /
 // PERMISSION_DENIED / IS_DIRECTORY / OOM / IO_<code> / MISMATCH /
 // EMPTY_PATH / EMPTY_EXPECTED_HASH categories that match the iOS/Android
 // nitro module subtypes for cross-platform mixpanel funnels.
 //
-// Module-scoped is safe here because desktop main is single-threaded
-// (Node.js event loop) and bundle downloads serialize via isDownloading,
-// so no two SHA256 ops race on this variable.
+// Module-scoped is safe today because every call site stamps and reads
+// the reason synchronously without an `await` between them, and Node.js
+// runs each synchronous stretch to completion. DO NOT introduce an
+// `await` between a verifySha256 / calculateSHA256 call and the
+// corresponding lastSHA256FailureReason() read — a concurrent SHA op
+// landing in that gap would silently overwrite the stamp and cross-
+// contaminate analytics buckets. (The earlier "serialize via
+// isDownloading" claim was wrong: only downloadBundle is gated, not
+// the verify* / metadata SHA paths.)
 let _lastSHA256FailureReason: string | undefined;
 
 export const lastSHA256FailureReason = (): string | undefined =>
@@ -123,6 +129,15 @@ export const calculateSHA256 = (filePath: string) => {
     return '';
   }
   try {
+    // Reject empty files before hashing so the SHA-of-empty digest
+    // (e3b0c44…b855) doesn't silently propagate as a clean "MISMATCH"
+    // when the real cause is a truncated / zero-byte download. Mirrors
+    // the explicit FILE_EMPTY checks in the iOS / Android calculators.
+    const stat = fs.statSync(filePath);
+    if (stat.size === 0) {
+      stampSHA256Failure('FILE_EMPTY');
+      return '';
+    }
     const hashSum = crypto.createHash('sha256');
     const fileBuffer = fs.readFileSync(filePath);
     hashSum.update(fileBuffer);
