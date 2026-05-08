@@ -1,4 +1,4 @@
-import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/src/types/cliBotWallet';
+import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/types/cliBotWallet';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { extractBotWalletAuthSessionInputFromTransferData } from '../core/auth/app-transfer-payload';

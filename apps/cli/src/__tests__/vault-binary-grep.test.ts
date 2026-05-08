@@ -1,4 +1,4 @@
-import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/src/types/cliBotWallet';
+import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/types/cliBotWallet';
 
 // eslint-disable-next-line jest/no-mocks-import
 import { createFsMock } from '../__mocks__/fs.mock';
@@ -80,7 +80,7 @@ describe('vault.enc binary grep', () => {
           now: () => 1_774_630_800_000,
           // Stub out receiver-side address derivation so this test only
           // exercises vault writes — the default hook would lazy-load
-          // SignerHd and call the local key service (axios.get) to decrypt
+          // SignerHd and call the Bot Wallet key API to decrypt
           // the credential, which is covered by other tests.
           deriveDisplayAddress: async () => '',
         },

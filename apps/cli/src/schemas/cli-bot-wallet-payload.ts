@@ -1,5 +1,5 @@
-import { cliBotWalletEncryptedCredentialSchema } from '@onekeyhq/shared/src/types/cliBotWallet';
-import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/src/types/cliBotWallet';
+import { cliBotWalletEncryptedCredentialSchema } from '@onekeyhq/shared/types/cliBotWallet';
+import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/types/cliBotWallet';
 
 import type { z } from 'zod';
 

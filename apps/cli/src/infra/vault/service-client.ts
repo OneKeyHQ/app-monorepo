@@ -1,10 +1,12 @@
-import axios from 'axios';
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { apiClient } from '../api-client';
 
 import { LOCK_TIMEOUT_MS, REVOKE_TIMEOUT_MS } from './constants';
 
-export const BOT_WALLET_KEY_SERVICE_BASE_URL = 'http://127.0.0.1:8787';
+export const BOT_WALLET_KEY_API_SERVICE = 'prime';
+export const BOT_WALLET_KEY_API_PATH = '/prime/v1/bot-wallet-keys';
+export const BOT_WALLET_KEY_API_TOKEN_HEADER = 'X-Onekey-Request-Token';
 
 export type IFetchBotWalletKeyInput = {
   keyId: string;
@@ -56,6 +58,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function getHttpStatus(error: unknown): number | undefined {
   if (!isRecord(error)) {
     return undefined;
+  }
+  const details = error.details;
+  if (isRecord(details) && typeof details.statusCode === 'number') {
+    return details.statusCode;
+  }
+  if (isRecord(details) && typeof details.upstreamCode === 'number') {
+    switch (details.upstreamCode) {
+      case 401:
+      case 403:
+      case 404:
+        return details.upstreamCode;
+      default:
+        break;
+    }
   }
   const response = error.response;
   if (!isRecord(response)) {
@@ -123,7 +139,7 @@ function mapServiceError(error: unknown): IServiceResponse {
 }
 
 function toServiceWarningError(error: unknown): IServiceWarningError {
-  const fallbackMessage = 'Bot Wallet key service request failed';
+  const fallbackMessage = 'Bot Wallet key API request failed';
   if (!isRecord(error)) {
     return {
       message: typeof error === 'string' ? error : fallbackMessage,
@@ -154,29 +170,29 @@ export async function serviceFetch({
   signal,
 }: IFetchBotWalletKeyInput): Promise<IServiceResponse> {
   try {
-    const response = await axios.get<IFetchBotWalletKeyResult>(
-      `${BOT_WALLET_KEY_SERVICE_BASE_URL}/v1/bot-wallet-keys/${encodeURIComponent(
-        keyId,
-      )}`,
+    const data = await apiClient.get<IFetchBotWalletKeyResult>(
+      BOT_WALLET_KEY_API_SERVICE,
+      `${BOT_WALLET_KEY_API_PATH}/${encodeURIComponent(keyId)}`,
+      undefined,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          [BOT_WALLET_KEY_API_TOKEN_HEADER]: accessToken,
         },
         signal: signal ?? AbortSignal.timeout(LOCK_TIMEOUT_MS),
       },
     );
 
-    if (!hasValidKeyBase64(response.data)) {
+    if (!hasValidKeyBase64(data)) {
       return {
         kind: 'fail-secure',
         reason: 'SERVICE_UNREACHABLE',
         cause: {
-          message: 'service returned an invalid key payload',
+          message: 'Prime API returned an invalid key payload',
         },
       };
     }
 
-    return { kind: 'ok', keyBase64: response.data.keyBase64 };
+    return { kind: 'ok', keyBase64: data.keyBase64 };
   } catch (error) {
     return mapServiceError(error);
   }
@@ -206,15 +222,14 @@ export async function serviceRevoke({
   warn,
 }: IRevokeBotWalletKeyInput): Promise<void> {
   try {
-    await axios.post(
-      `${BOT_WALLET_KEY_SERVICE_BASE_URL}/v1/bot-wallet-keys/${encodeURIComponent(
-        keyId,
-      )}/revoke`,
+    await apiClient.post(
+      BOT_WALLET_KEY_API_SERVICE,
+      `${BOT_WALLET_KEY_API_PATH}/${encodeURIComponent(keyId)}/revoke`,
       undefined,
       {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        [BOT_WALLET_KEY_API_TOKEN_HEADER]: accessToken,
+      },
+      {
         signal: signal ?? AbortSignal.timeout(REVOKE_TIMEOUT_MS),
       },
     );

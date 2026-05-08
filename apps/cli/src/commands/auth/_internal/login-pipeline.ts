@@ -3,7 +3,7 @@ import type {
   ICliBotWalletEncryptedCredential,
   ILegacyDefaultPayload,
   IPersistAuthSessionInput,
-} from '@onekeyhq/shared/src/types/cliBotWallet';
+} from '@onekeyhq/shared/types/cliBotWallet';
 
 import { AUTH_DEFAULT_EVM_NETWORK_ID } from '../../../core/auth/auth-types';
 import {
@@ -48,7 +48,7 @@ export type ILoginPipelineDependencies = {
   /**
    * Receiver-side hook that derives the first EVM address from the just-
    * imported credential. Defaults to the lazy-loaded `SignerHd` wired
-   * against the live vault + local key service. Tests inject a stub.
+   * against the live vault + Bot Wallet key API. Tests inject a stub.
    *
    * Trust boundary: the sender does NOT supply `displayAddress` in the wire
    * payload. The CLI MUST derive it locally from the decrypted seed so that

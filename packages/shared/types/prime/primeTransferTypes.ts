@@ -10,8 +10,8 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 // };
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDeviceKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
-import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/src/types/cliBotWallet';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/types/cliBotWallet';
 
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '../../src/utils/avatarUtils';
 

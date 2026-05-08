@@ -2,7 +2,7 @@ import { performance } from 'node:perf_hooks';
 
 import { ZodError } from 'zod';
 
-import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/src/types/cliBotWallet';
+import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/types/cliBotWallet';
 
 import {
   createInitialVaultPlaintext,
@@ -113,7 +113,7 @@ describe('auth login pipeline', () => {
     };
     const deriveDisplayAddress = jest.fn(async () => {
       // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
-      throw new Error('key service unreachable');
+      throw new Error('key API unreachable');
     });
 
     await expect(
