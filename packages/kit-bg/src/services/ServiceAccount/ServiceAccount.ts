@@ -3576,10 +3576,10 @@ class ServiceAccount extends ServiceBase {
       index,
     });
     if (walletId !== expectedWalletId) {
-      console.warn(
-        'createBotWalletFromCloudSync skipped: walletId mismatch',
-        { walletId, expectedWalletId },
-      );
+      console.warn('createBotWalletFromCloudSync skipped: walletId mismatch', {
+        walletId,
+        expectedWalletId,
+      });
       return false;
     }
     const parentWallet = await this.getWalletSafe({
@@ -3592,7 +3592,10 @@ class ServiceAccount extends ServiceBase {
       // syncToSceneByAllPendingItems pass.
       console.warn(
         'createBotWalletFromCloudSync skipped: parent keyless wallet missing',
-        { walletId, parentKeylessWalletId },
+        {
+          walletId,
+          parentKeylessWalletId,
+        },
       );
       return false;
     }
@@ -3603,7 +3606,10 @@ class ServiceAccount extends ServiceBase {
       // forceSync pass triggered from setCachedPassword once it lands.
       console.warn(
         'createBotWalletFromCloudSync skipped: cached password missing',
-        { walletId, parentKeylessWalletId },
+        {
+          walletId,
+          parentKeylessWalletId,
+        },
       );
       return false;
     }
