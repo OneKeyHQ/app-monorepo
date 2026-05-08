@@ -19,6 +19,7 @@ import {
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import {
@@ -518,9 +519,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       params.messages.map(
         async (payload: { message: string; type?: string }) => {
           if (payload.type === 'bip322-simple') {
-            throw new NotImplemented(
-              'Ledger does not support BIP-322 message signing',
-            );
+            throw new NotImplemented({
+              key: ETranslations.hardware_third_party_method_not_supported,
+            });
           }
 
           const messageHex = Buffer.from(payload.message).toString('hex');
