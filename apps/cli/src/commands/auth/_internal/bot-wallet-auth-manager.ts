@@ -1,4 +1,4 @@
-import type { IPersistAuthSessionInput } from '@onekeyhq/shared/types/cliBotWallet';
+import type { IPersistAuthSessionInput } from '@onekeyhq/shared/src/types/cliBotWallet';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { startAppTransferLogin as startAppTransferLoginRuntime } from '../../../core/auth/app-transfer-login';

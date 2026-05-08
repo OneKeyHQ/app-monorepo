@@ -4,7 +4,7 @@ import type {
   ICliBotWalletEncryptedCredential,
   ILegacyDefaultPayload,
   IPersistAuthSessionInput,
-} from '@onekeyhq/shared/types/cliBotWallet';
+} from '@onekeyhq/shared/src/types/cliBotWallet';
 
 import {
   LoginPipelineError,

@@ -7,7 +7,7 @@ CLI_BIN="$CLI_DIR/bin/onekey"
 ONEKEY_E2E_ENV="${ONEKEY_E2E_ENV:-test}"
 
 die() {
-  printf 'e2e-poc: %s\n' "$*" >&2
+  printf 'e2e-bot-wallet-key-api: %s\n' "$*" >&2
   exit 1
 }
 
@@ -40,7 +40,7 @@ configure_key_api_base_url() {
 
 if [[ "${ONEKEY_E2E_ALLOW_REAL_KEYCHAIN:-}" != "1" ]]; then
   cat >&2 <<'EOF'
-This PoC script uses the real CLI entrypoint and the real OS keychain account:
+This E2E script uses the real CLI entrypoint and the real OS keychain account:
   bot-wallet/master-key
 
 It will run `onekey auth login --payload ...` and `onekey auth logout`.
@@ -51,7 +51,7 @@ By default it uses the online Prime test API; set ONEKEY_E2E_ENV=prod only when
 you intentionally want to exercise production.
 
 Re-run with:
-  ONEKEY_E2E_ALLOW_REAL_KEYCHAIN=1 bash apps/cli/scripts/e2e-poc.sh
+  ONEKEY_E2E_ALLOW_REAL_KEYCHAIN=1 bash apps/cli/scripts/e2e-bot-wallet-key-api.sh
 EOF
   exit 2
 fi

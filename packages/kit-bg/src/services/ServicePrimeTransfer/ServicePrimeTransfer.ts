@@ -49,6 +49,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { headerPlatform } from '@onekeyhq/shared/src/request/InterceptorConsts';
+import type { ICliBotWalletRevealableSeed } from '@onekeyhq/shared/src/types/cliBotWallet';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -58,7 +59,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { ICliBotWalletRevealableSeed } from '@onekeyhq/shared/types/cliBotWallet';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   EPrimeTransferDataType,

@@ -1,4 +1,4 @@
-import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/types/cliBotWallet';
+import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/src/types/cliBotWallet';
 
 // eslint-disable-next-line jest/no-mocks-import
 import { createFsMock } from '../__mocks__/fs.mock';

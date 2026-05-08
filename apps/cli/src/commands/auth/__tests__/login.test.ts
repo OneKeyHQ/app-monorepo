@@ -2,7 +2,7 @@ import { performance } from 'node:perf_hooks';
 
 import { ZodError } from 'zod';
 
-import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/types/cliBotWallet';
+import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/src/types/cliBotWallet';
 
 import {
   createInitialVaultPlaintext,

@@ -1,5 +1,5 @@
 /* eslint-disable onekey/no-raw-error -- tests intentionally simulate raw failures from injected deps */
-import type { ICliBotWalletRevealableSeed } from '@onekeyhq/shared/types/cliBotWallet';
+import type { ICliBotWalletRevealableSeed } from '@onekeyhq/shared/src/types/cliBotWallet';
 
 import { exportBotWalletToCli } from '../exportToCli';
 

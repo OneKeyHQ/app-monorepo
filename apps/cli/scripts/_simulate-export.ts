@@ -1,10 +1,12 @@
 import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 
+import safeStringify from 'fast-safe-stringify';
+
 import type {
   ICliBotWalletEncryptedCredential,
   ICliBotWalletRevealableSeed,
   IPersistAuthSessionInput,
-} from '@onekeyhq/shared/types/cliBotWallet';
+} from '@onekeyhq/shared/src/types/cliBotWallet';
 
 type IRegisterResponse = {
   accessToken: string;
@@ -86,7 +88,7 @@ function getSimulatedRevealableSeed(): ICliBotWalletRevealableSeed {
 export function encryptCredential(key: Buffer): string {
   const nonce = randomBytes(12);
   const plaintext = Buffer.from(
-    JSON.stringify(getSimulatedRevealableSeed()),
+    safeStringify.stableStringify(getSimulatedRevealableSeed()),
     'utf8',
   );
   const cipher = createCipheriv('aes-256-gcm', key, nonce);
@@ -115,7 +117,7 @@ export function createSimulatedExportFixture(
       sourceLabel:
         options.sourceLabel ??
         process.env.ONEKEY_E2E_SOURCE_LABEL ??
-        'PoC E2E Export',
+        'Bot Wallet E2E Export',
       algorithm: 'aes-256-gcm',
     };
 

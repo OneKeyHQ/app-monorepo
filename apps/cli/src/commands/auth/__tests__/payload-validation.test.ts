@@ -1,6 +1,6 @@
 import { ZodError } from 'zod';
 
-import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/types/cliBotWallet';
+import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/src/types/cliBotWallet';
 
 import { cliBotWalletPayloadSchema } from '../../../schemas/cli-bot-wallet-payload';
 import { executeLoginPipeline } from '../_internal/login-pipeline';

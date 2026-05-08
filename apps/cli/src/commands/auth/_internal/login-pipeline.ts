@@ -3,7 +3,7 @@ import type {
   ICliBotWalletEncryptedCredential,
   ILegacyDefaultPayload,
   IPersistAuthSessionInput,
-} from '@onekeyhq/shared/types/cliBotWallet';
+} from '@onekeyhq/shared/src/types/cliBotWallet';
 
 import { AUTH_DEFAULT_EVM_NETWORK_ID } from '../../../core/auth/auth-types';
 import {

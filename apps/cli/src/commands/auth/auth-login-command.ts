@@ -1,7 +1,7 @@
 import type {
   ICliBotWalletEncryptedCredential,
   IPersistAuthSessionInput,
-} from '@onekeyhq/shared/types/cliBotWallet';
+} from '@onekeyhq/shared/src/types/cliBotWallet';
 
 import {
   createAuthLoginInterruptionCleanup,
