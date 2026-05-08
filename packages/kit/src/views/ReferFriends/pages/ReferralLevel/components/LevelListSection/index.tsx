@@ -34,17 +34,20 @@ export function LevelListSection({
         const retentionConditions = isLowestLevel
           ? undefined
           : levels[ascendingIndex - 1].upgradeConditions;
+        const nextLevelLabel = isHighestLevel
+          ? undefined
+          : levels[ascendingIndex + 1]?.label;
 
         return (
           <LevelAccordionItem
             key={level.level}
             level={level}
             isCurrent={level.isCurrent}
-            isFirst={index === 0}
             isLast={index === displayLevels.length - 1}
             isHighestLevel={isHighestLevel}
             isLowestLevel={isLowestLevel}
             retentionConditions={retentionConditions}
+            nextLevelLabel={nextLevelLabel}
           />
         );
       })}
