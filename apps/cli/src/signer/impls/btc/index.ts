@@ -1,8 +1,9 @@
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import type { IBtcSignerImpl } from './btc-path';
 import type { ISignerBuilders } from '../../registry';
 
-function createBtcSignerBuilders(impl: 'btc' | 'tbtc'): ISignerBuilders {
+function createBtcSignerBuilders(impl: IBtcSignerImpl): ISignerBuilders {
   return {
     hd: async () => {
       const { SignerHd } = await import('./SignerHd');

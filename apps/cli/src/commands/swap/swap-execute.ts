@@ -137,19 +137,11 @@ function isValidBtcLocalTxData(value: unknown): value is IBtcLocalTx {
   );
 }
 
-// Validate tx hash: 0x + 64 hex chars
 const TX_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/;
-
-// Validate BTC txid: bare 64 hex chars
 const BTC_TX_HASH_PATTERN = /^[a-fA-F0-9]{64}$/;
-
-// Validate EVM address: 0x + 40 hex chars
 const EVM_ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/i;
-
-// Validate hex calldata: 0x + even number of hex chars (complete bytes)
 const HEX_BYTES_PATTERN = /^0x(?:[a-fA-F0-9]{2})*$/i;
-
-// Validate tx value: either "0x" hex quantity or plain decimal integer (API may return either)
+// API returns tx.value as either "0x" hex quantity or plain decimal integer.
 const TX_VALUE_PATTERN = /^(?:0x[a-fA-F0-9]+|\d+)$/i;
 
 // ERC-20 approve(address,uint256) function selector
@@ -197,7 +189,6 @@ async function checkAllowance(
       amount,
     },
   );
-  // Runtime validation: isApproved must be a boolean
   if (typeof raw.isApproved !== 'boolean') {
     throw new AppError(
       ERROR_CODES.BIZ_SWAP_FAILED.code,
@@ -212,7 +203,6 @@ async function checkAllowance(
       'This may indicate an API contract change — please report this issue',
     );
   }
-  // Verify the returned allowanceTarget matches the requested spender
   if (raw.allowanceTarget.toLowerCase() !== spenderAddress.toLowerCase()) {
     throw new AppError(
       ERROR_CODES.BIZ_SWAP_FAILED.code,

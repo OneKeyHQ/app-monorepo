@@ -5,7 +5,7 @@ import { coinSelectWithWitness } from '@onekeyhq/core/src/utils/coinSelectUtils'
 import { ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { getBtcAddressTypeInfo } from '../core/btc/address-types';
-import { buildBtcTransferTxForTest } from '../core/btc/tx-builder';
+import { buildBtcTransferTx } from '../core/btc/tx-builder';
 
 jest.mock('../infra', () => ({
   apiClient: {
@@ -95,7 +95,7 @@ describe('BTC transfer tx builder', () => {
       bytes: 154,
     } as never);
 
-    const result = await buildBtcTransferTxForTest(buildParams());
+    const result = await buildBtcTransferTx(buildParams());
 
     expect(mockGet).toHaveBeenCalledWith(
       'wallet',
@@ -228,7 +228,7 @@ describe('BTC transfer tx builder', () => {
       bytes: 184,
     } as never);
 
-    const result = await buildBtcTransferTxForTest(
+    const result = await buildBtcTransferTx(
       buildParams({ opReturn: 'thor-memo' }),
     );
 
@@ -271,7 +271,7 @@ describe('BTC transfer tx builder', () => {
   it('throws insufficient balance when the selected address has no UTXOs', async () => {
     mockGet.mockResolvedValue({ utxoList: [] });
 
-    await expect(buildBtcTransferTxForTest(buildParams())).rejects.toMatchObject(
+    await expect(buildBtcTransferTx(buildParams())).rejects.toMatchObject(
       {
         code: ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
         message: 'No usable BTC UTXOs found.',
@@ -282,7 +282,7 @@ describe('BTC transfer tx builder', () => {
 
   it('rejects amounts with more than 8 decimal places before converting satoshis', async () => {
     await expect(
-      buildBtcTransferTxForTest(buildParams({ amount: '0.000000001' })),
+      buildBtcTransferTx(buildParams({ amount: '0.000000001' })),
     ).rejects.toMatchObject({
       code: ERROR_CODES.PARAM_INVALID_AMOUNT.code,
     });
@@ -309,7 +309,7 @@ describe('BTC transfer tx builder', () => {
       bytes: undefined,
     });
 
-    await expect(buildBtcTransferTxForTest(buildParams())).rejects.toMatchObject(
+    await expect(buildBtcTransferTx(buildParams())).rejects.toMatchObject(
       {
         code: ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
         message: 'BTC coin selection failed.',
@@ -353,7 +353,7 @@ describe('BTC transfer tx builder', () => {
       bytes: 100,
     } as never);
 
-    await expect(buildBtcTransferTxForTest(buildParams())).rejects.toMatchObject(
+    await expect(buildBtcTransferTx(buildParams())).rejects.toMatchObject(
       {
         code: ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
         message: 'BTC coin selection failed.',

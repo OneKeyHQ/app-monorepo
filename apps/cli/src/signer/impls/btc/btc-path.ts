@@ -1,4 +1,8 @@
-import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_TBTC,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { getBtcAddressTypeInfo } from '../../../core/btc/address-types';
 import { AppError, ERROR_CODES } from '../../../errors';
@@ -8,7 +12,7 @@ import type {
   IBtcAddressTypeInfo,
 } from '../../../core/btc/address-types';
 
-export type IBtcSignerImpl = 'btc' | 'tbtc';
+export type IBtcSignerImpl = typeof IMPL_BTC | typeof IMPL_TBTC;
 
 export function validateBtcNetworkId(
   impl: IBtcSignerImpl,

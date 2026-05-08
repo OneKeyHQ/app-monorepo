@@ -29,14 +29,13 @@ interface IAccountResponse {
   nonce?: number;
 }
 
-export interface IBtcDerivedAddress {
-  addressType: BtcAddressType;
-  label: string;
-  deriveType: IBtcAddressTypeInfo['deriveType'];
-  addressEncoding: IBtcAddressTypeInfo['addressEncoding'];
+export type IBtcDerivedAddress = Pick<
+  IBtcAddressTypeInfo,
+  'addressType' | 'label' | 'deriveType' | 'addressEncoding'
+> & {
   address: string;
   path: string;
-}
+};
 
 export interface IBtcDerivedBalanceItem extends IBtcDerivedAddress {
   balance: string;

@@ -1,6 +1,7 @@
 import { Psbt, Transaction } from 'bitcoinjs-lib';
 
 import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import type {
   ICoreApiGetAddressItem,
@@ -267,11 +268,7 @@ export class SignerHardware extends SignerHardwareBase {
       }
     }
 
-    if (
-      isTaproot &&
-      params.accountPublicKey &&
-      typeof accountAddress === 'string'
-    ) {
+    if (isTaproot && params.accountPublicKey) {
       const accountPub = Buffer.from(params.accountPublicKey, 'hex');
       for (let i = 0; i < psbt.txOutputs.length; i += 1) {
         const output = psbt.txOutputs[i];
@@ -420,7 +417,7 @@ export class SignerHardware extends SignerHardwareBase {
   }
 
   private getCoin(): 'bitcoin' | 'testnet' {
-    return this.impl === 'tbtc' ? 'testnet' : 'bitcoin';
+    return this.impl === IMPL_TBTC ? 'testnet' : 'bitcoin';
   }
 
   private hasPsbtInputsToSign(

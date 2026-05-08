@@ -12,13 +12,13 @@ import type {
 } from '../../core/btc/address-types';
 import type { IChainConfig } from '../../core/chain-resolver';
 
-export interface IBtcSwapAddressMetadata {
-  addressType: BtcAddressType;
-  addressEncoding: IBtcAddressTypeInfo['addressEncoding'];
-  deriveType: IBtcAddressTypeInfo['deriveType'];
+export type IBtcSwapAddressMetadata = Pick<
+  IBtcAddressTypeInfo,
+  'addressType' | 'addressEncoding' | 'deriveType'
+> & {
   address: string;
   path: string;
-}
+};
 
 export interface IBtcSwapAddressing {
   from: IBtcSwapAddressMetadata | null;

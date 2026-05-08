@@ -65,10 +65,6 @@ const BTC_ADDRESS_TYPE_META: Record<
   },
 };
 
-function getSupportedAddressTypesText(): string {
-  return BTC_ADDRESS_TYPES.join(', ');
-}
-
 export function isBtcImpl(impl: string): boolean {
   return BTC_IMPLS.includes(impl as (typeof BTC_IMPLS)[number]);
 }
@@ -101,7 +97,7 @@ export function assertBtcAddressType(
     ERROR_CODES.PARAM_INVALID_ADDRESS.code,
     `Invalid BTC address type: "${String(
       value,
-    )}". Supported values: ${getSupportedAddressTypesText()}.`,
+    )}". Supported values: ${BTC_ADDRESS_TYPES.join(', ')}.`,
     'Choose a supported BTC address type.',
   );
 }

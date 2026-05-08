@@ -323,12 +323,12 @@ export async function buildBtcTransferTx(
     ),
   });
 
-  const selectionResult = {
-    ...selection,
+  const errCtx = {
     inputCount: inputsForCoinSelect.length,
     outputCount: outputsForCoinSelect.length,
     paymentAmount,
   };
+  const selectionResult = { ...selection, ...errCtx };
   assertCoinSelectionComplete(selectionResult);
 
   const selectedInputs =
@@ -339,11 +339,7 @@ export async function buildBtcTransferTx(
   const inputs: IBtcInput[] = selectedInputs.map((input) => {
     const txid = input.txId ?? input.txid;
     if (!txid) {
-      throw createCoinSelectionError({
-        inputCount: inputsForCoinSelect.length,
-        outputCount: outputsForCoinSelect.length,
-        paymentAmount,
-      });
+      throw createCoinSelectionError(errCtx);
     }
     return {
       txid,
@@ -366,11 +362,7 @@ export async function buildBtcTransferTx(
 
     const outputValue = getSelectedOutputAmount(output);
     if (outputValue === undefined) {
-      throw createCoinSelectionError({
-        inputCount: inputsForCoinSelect.length,
-        outputCount: outputsForCoinSelect.length,
-        paymentAmount,
-      });
+      throw createCoinSelectionError(errCtx);
     }
     const isPaymentOutput =
       !paymentOutputConsumed &&
@@ -449,5 +441,3 @@ export async function buildBtcTransferTx(
     },
   };
 }
-
-export const buildBtcTransferTxForTest = buildBtcTransferTx;
