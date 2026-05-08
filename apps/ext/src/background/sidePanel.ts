@@ -2,7 +2,10 @@ import { StackActions } from '@react-navigation/native';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
-import { ONBOARDING_FROM_EXT_PARAM } from '@onekeyhq/shared/src/consts/onboardingConsts';
+import {
+  ONBOARDING_CREATE_NEW_WALLET_PATH,
+  ONBOARDING_FROM_EXT_PARAM,
+} from '@onekeyhq/shared/src/consts/onboardingConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -309,6 +312,68 @@ async function openKeylessSidePanelByUserGesture({
   };
 }
 
+// Fallback when chrome.sidePanel.open is unavailable or fails (e.g. user-
+// gesture chain broken across contentScript → chrome.runtime.sendMessage →
+// BG service worker). Opens the keyless onboarding in a full-screen
+// expand-tab so the user lands on CreateNewWallet with auto-login params
+// instead of falling through to a popup-driven /onboarding/get-started
+// redirect that loses the provider hint.
+async function openKeylessExpandTabFallback({
+  sender,
+  payload,
+}: {
+  sender: chrome.runtime.MessageSender;
+  payload?: {
+    provider?: EOAuthSocialLoginProvider;
+    nonce?: string;
+  };
+}) {
+  if (!payload?.provider) {
+    throw new OneKeyLocalError('provider is required');
+  }
+  if (!isKeylessWebAutoConnectOriginAllowed(sender.url)) {
+    throw new OneKeyLocalError('origin is not allowed for keyless side panel');
+  }
+
+  const tabId = sender.tab?.id;
+  const windowId = sender.tab?.windowId;
+  if (typeof tabId !== 'number' || typeof windowId !== 'number') {
+    throw new OneKeyLocalError('sender tab info is invalid');
+  }
+
+  const getStartedParams = buildKeylessGetStartedParams({
+    senderUrl: sender.url,
+    provider: payload.provider,
+    nonce: payload.nonce,
+  });
+
+  // Persist the pending tab so the post-onboarding bridge can later trigger
+  // auto-connect on the originating web tab — same behavior as the
+  // side-panel path.
+  persistPendingKeylessWebTabForAutoConnect({ tabId, getStartedParams });
+
+  await extUtils.openExpandTab({
+    path: ONBOARDING_CREATE_NEW_WALLET_PATH,
+    params: {
+      ...ONBOARDING_FROM_EXT_PARAM,
+      ...(getStartedParams.autoConnectOrigin
+        ? { autoConnectOrigin: getStartedParams.autoConnectOrigin }
+        : {}),
+      autoLoginKeylessProvider: getStartedParams.autoLoginKeylessProvider,
+      ...(getStartedParams.autoConnectNonce
+        ? { autoConnectNonce: getStartedParams.autoConnectNonce }
+        : {}),
+    },
+  });
+
+  return {
+    success: true,
+    tabId,
+    windowId,
+    alreadyOpen: false,
+  };
+}
+
 async function tryImmediateOpenSidePanelOnMessage({
   sender,
   payload,
@@ -486,10 +551,26 @@ export const setupSidePanelPortInBg = () => {
         if (immediateResult) {
           return immediateResult;
         }
-        return openKeylessSidePanelByUserGesture({
-          sender,
-          payload: message.payload,
-        });
+        try {
+          return await openKeylessSidePanelByUserGesture({
+            sender,
+            payload: message.payload,
+          });
+        } catch (sidePanelError) {
+          // Side panel API can fail when the user-gesture chain doesn't
+          // survive the contentScript → BG roundtrip (Chrome version /
+          // dev-build / policy dependent). Fall back to the expand-tab
+          // path with the same auto-login params so the user still lands
+          // on CreateNewWallet rather than a generic onboarding entry.
+          const fallbackResult = await openKeylessExpandTabFallback({
+            sender,
+            payload: message.payload,
+          }).catch(() => undefined);
+          if (fallbackResult) {
+            return fallbackResult;
+          }
+          throw sidePanelError;
+        }
       })()
         .then((result) => sendResponse(result))
         .catch((error: unknown) => {
