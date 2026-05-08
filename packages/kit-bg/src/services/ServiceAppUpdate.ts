@@ -493,14 +493,29 @@ class ServiceAppUpdate extends ServiceBase {
     if (now - this.resumeStalledDownloadLastFiredAt < 30_000) {
       return false;
     }
+    // Claim the cooldown BEFORE yielding to the event loop. Two AppState
+    // listeners (UpdateReminder + MoreActionButton both mount
+    // useAppUpdateInfo) can race into this method on the same 'active'
+    // event. If we set the timestamp only after the await, both pass the
+    // `now - last < 30_000` check, both reach the eligible check, and
+    // both return true → double-fire downloadPackage. Claiming first
+    // means the second caller's check fails immediately and bails.
+    const claimedAt = now;
+    this.resumeStalledDownloadLastFiredAt = claimedAt;
     const { status } = await appUpdatePersistAtom.get();
     const eligible =
       status === EAppUpdateStatus.downloadPackageFailed ||
       status === EAppUpdateStatus.downloadASCFailed;
     if (!eligible) {
+      // Release the claim so a subsequent foreground transition that DOES
+      // find an eligible status can pass through promptly instead of
+      // waiting out the full 30s window. Guard against a concurrent
+      // sibling that claimed after us (only release if we still own it).
+      if (this.resumeStalledDownloadLastFiredAt === claimedAt) {
+        this.resumeStalledDownloadLastFiredAt = 0;
+      }
       return false;
     }
-    this.resumeStalledDownloadLastFiredAt = now;
     defaultLogger.app.appUpdate.log(
       `shouldResumeStalledDownload: green-lighting resume from status=${status}`,
     );

@@ -822,6 +822,63 @@ describe('useDownloadPackage', () => {
 
       expect(mockToastError).not.toHaveBeenCalled();
     });
+
+    test('concurrent calls collapse to a single in-flight attempt', async () => {
+      // Cold-launch useEffect, AppState 'active' listener, and user click
+      // can all enter downloadPackage() in the same JS tick. The mutex
+      // collapses them so only ONE native download starts and all
+      // observers await the same Promise. Without it, the duplicate path
+      // hits native's "Already downloading" → unrecoverable → status
+      // flips to failed mid-flow on the original attempt.
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.getDownloadEvent.mockResolvedValue({});
+      // Hold the native call open so the second invocation can pile up
+      // behind the first while it's still in-flight.
+      let releaseDownload: (v: any) => void = () => {};
+      appUpd.downloadPackage.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseDownload = resolve;
+          }),
+      );
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      let firstSettled = false;
+      let secondSettled = false;
+      await act(async () => {
+        const p1 = result.current.downloadPackage().then(() => {
+          firstSettled = true;
+        });
+        const p2 = result.current.downloadPackage().then(() => {
+          secondSettled = true;
+        });
+        // Drain enough microtasks for downloadPackage's several awaits
+        // (getFileTypeFromUpdateInfo / getUpdateInfo / getDownloadEvent /
+        // getRequestHeaders) to pass and the native call to be entered.
+        // The number is generous; the assertion below is what matters.
+        for (let i = 0; i < 20; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
+        }
+        // Native should have been entered exactly once because the mutex
+        // returned the in-flight Promise to caller 2.
+        expect(appUpd.downloadPackage).toHaveBeenCalledTimes(1);
+        expect(firstSettled).toBe(false);
+        expect(secondSettled).toBe(false);
+        releaseDownload({});
+        await p1;
+        await p2;
+      });
+      expect(firstSettled).toBe(true);
+      expect(secondSettled).toBe(true);
+      // No "Already downloading" path was hit, so no spurious failure.
+      expect(svc.downloadPackageFailed).not.toHaveBeenCalled();
+    });
   });
 
   // ----- B2. downloadASC -----

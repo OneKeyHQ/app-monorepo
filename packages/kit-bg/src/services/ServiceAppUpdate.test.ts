@@ -1015,6 +1015,19 @@ describe('ServiceAppUpdate state transitions', () => {
       resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
       expect(await service.shouldResumeStalledDownload()).toBe(true);
     });
+
+    test('concurrent callers race-safely: only one passes the gate', async () => {
+      // Two AppState listeners (UpdateReminder + MoreActionButton) race
+      // into shouldResumeStalledDownload on the same 'active' event. With
+      // a non-atomic gate both passed; with the claim-before-await guard
+      // only the first should return true.
+      resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
+      const [a, b] = await Promise.all([
+        service.shouldResumeStalledDownload(),
+        service.shouldResumeStalledDownload(),
+      ]);
+      expect([a, b].filter(Boolean).length).toBe(1);
+    });
   });
 
   // =========================================================================

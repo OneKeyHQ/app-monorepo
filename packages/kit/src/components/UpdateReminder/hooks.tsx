@@ -250,6 +250,17 @@ export function extractUpdateErrorCode(error: unknown): string | undefined {
 // shared across the entire update flow so all step events carry the same attemptId
 let currentUpdateAttemptId: string | undefined;
 
+// JS-process-wide mutex on the downloadPackage hook function. The cold-launch
+// useEffect, AppState 'active' listener, and user-driven button clicks can
+// all enter `downloadPackage()` concurrently within the same JS tick. Without
+// this mutex the second caller hits native's isDownloading guard with
+// "Already downloading", which the in-flight retry layer treats as
+// unrecoverable — flipping status to downloadPackageFailed mid-flow and
+// stranding the original (still healthy) download. Returning the in-flight
+// Promise to every concurrent caller collapses them into one logical
+// attempt that all observers await together.
+let inFlightDownloadPackage: Promise<void> | null = null;
+
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 const isShowToastError = (updateStrategy: EUpdateStrategy) => {
   return (
@@ -645,6 +656,15 @@ export const useDownloadPackage = () => {
   }, [getFileTypeFromUpdateInfo, getSkipGPGVerification, verifyASC]);
 
   const downloadPackage = useCallback(async () => {
+    // Concurrent-call mutex: if a downloadPackage attempt is already in
+    // flight in this JS process, await its outcome rather than starting a
+    // duplicate. This collapses cold-launch + user-click + AppState
+    // 'active' races into a single logical attempt and prevents the
+    // duplicate path from racing native's isDownloading guard.
+    if (inFlightDownloadPackage) {
+      return inFlightDownloadPackage;
+    }
+    const run = async () => {
     const fileType = await getFileTypeFromUpdateInfo();
     const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
     currentUpdateAttemptId = generateUUID();
@@ -726,6 +746,11 @@ export const useDownloadPackage = () => {
         });
       }
     }
+    };
+    inFlightDownloadPackage = run().finally(() => {
+      inFlightDownloadPackage = null;
+    });
+    return inFlightDownloadPackage;
   }, [downloadASC, getFileTypeFromUpdateInfo, getSkipGPGVerification, intl]);
 
   const resetToInComplete = useCallback(async () => {
