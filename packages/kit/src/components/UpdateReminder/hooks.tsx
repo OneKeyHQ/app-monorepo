@@ -98,6 +98,42 @@ function buildSoftwareUpdateParams(
   };
 }
 
+// Defense-in-depth scrubber for free-text error messages before they leave
+// the client. The native modules try not to embed PII, but Node.js fs errors
+// (ENOENT/EACCES on Desktop) and iOS NSError.localizedDescription can carry
+// the user's home-dir path with their OS username, e.g.
+//   "ENOENT: no such file ... open '/Users/john/Library/Application Support/OneKey/...'"
+// Redacting the username segment here means even an unsanitized native
+// payload cannot leak it into Mixpanel.
+//
+// Patterns redacted:
+//   - macOS  /Users/<name>/...           → /Users/<redacted>/...
+//   - Windows C:\Users\<name>\...        → C:\Users\<redacted>\...
+//   - Linux  /home/<name>/...            → /home/<redacted>/...
+//   - macOS  /var/mobile/Containers/...  → /var/mobile/Containers/<redacted>/... (iOS install UUID)
+// Also caps total length at 240 chars so a runaway stack trace cannot
+// inflate event payloads.
+const MAX_ERROR_MESSAGE_LENGTH = 240;
+export function sanitizeUpdateErrorMessage(error: unknown): string | undefined {
+  const raw =
+    typeof error === 'string'
+      ? error
+      : (error as { message?: string } | null)?.message;
+  if (!raw) return undefined;
+  let cleaned = raw
+    .replace(/(\/Users\/)([^/'"\s]+)/g, '$1<redacted>')
+    .replace(/(\\Users\\)([^\\'"\s]+)/g, '$1<redacted>')
+    .replace(/(\/home\/)([^/'"\s]+)/g, '$1<redacted>')
+    .replace(
+      /(\/var\/mobile\/Containers\/(?:Data|Bundle)\/Application\/)([^/'"\s]+)/g,
+      '$1<redacted>',
+    );
+  if (cleaned.length > MAX_ERROR_MESSAGE_LENGTH) {
+    cleaned = `${cleaned.slice(0, MAX_ERROR_MESSAGE_LENGTH)}…`;
+  }
+  return cleaned;
+}
+
 // Maps a thrown bundle-update error into a stable, low-cardinality code so
 // Mixpanel can aggregate failures by category instead of unique message
 // strings. Recognized payloads (in priority order):
@@ -369,7 +405,7 @@ export const useDownloadPackage = () => {
           ...buildSoftwareUpdateParams(fileType, data, currentUpdateAttemptId),
           status: 'failed',
           failedStep: 'install',
-          errorMessage: (e as Error)?.message,
+          errorMessage: sanitizeUpdateErrorMessage(e),
           errorCode: extractUpdateErrorCode(e),
         });
         if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
@@ -438,7 +474,7 @@ export const useDownloadPackage = () => {
         ),
         status: 'failed',
         failedStep: 'verifyPackage',
-        errorMessage: (e as Error)?.message,
+        errorMessage: sanitizeUpdateErrorMessage(e),
         errorCode: extractUpdateErrorCode(e),
       });
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
@@ -482,7 +518,7 @@ export const useDownloadPackage = () => {
         ),
         status: 'failed',
         failedStep: 'verifyASC',
-        errorMessage: (e as Error)?.message,
+        errorMessage: sanitizeUpdateErrorMessage(e),
         errorCode: extractUpdateErrorCode(e),
       });
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
@@ -526,7 +562,7 @@ export const useDownloadPackage = () => {
         ),
         status: 'failed',
         failedStep: 'downloadASC',
-        errorMessage: (e as Error)?.message,
+        errorMessage: sanitizeUpdateErrorMessage(e),
         errorCode: extractUpdateErrorCode(e),
       });
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
@@ -592,7 +628,7 @@ export const useDownloadPackage = () => {
         ...softwareUpdateParams,
         status: 'failed',
         failedStep: 'download',
-        errorMessage: (e as Error)?.message,
+        errorMessage: sanitizeUpdateErrorMessage(e),
         errorCode: extractUpdateErrorCode(e),
       });
       await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(

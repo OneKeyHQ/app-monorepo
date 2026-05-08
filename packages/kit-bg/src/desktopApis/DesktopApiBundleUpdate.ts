@@ -40,6 +40,27 @@ export interface IUpdateProgressUpdate {
   total: number;
   transferred: number;
 }
+// Wraps a Node.js fs/stream/http error into a sanitized OneKeyLocalError
+// before it can reach the analytics layer. Node's errno errors embed the
+// failing path (`ENOENT: no such file ... open '/Users/<name>/...'`) which
+// would otherwise leak the OS username through softwareUpdateResult's
+// errorMessage. The errno code itself is preserved as `IO_<errno>` so
+// downstream extractUpdateErrorCode can still split mixpanel buckets.
+// OneKeyLocalError instances pass through untouched — verifyAndResolve
+// already produces structured `Downloaded file is not valid: SHA256_<reason>`
+// payloads we want to keep verbatim.
+function wrapDownloadError(
+  error: unknown,
+  fallbackMessage: string,
+): OneKeyLocalError {
+  if (error instanceof OneKeyLocalError) return error;
+  const errno = (error as NodeJS.ErrnoException | null)?.code;
+  if (errno) {
+    return new OneKeyLocalError(`${fallbackMessage}: IO_${errno}`);
+  }
+  return new OneKeyLocalError(fallbackMessage);
+}
+
 class DesktopApiAppBundleUpdate {
   desktopApi: IDesktopApi;
 
@@ -255,7 +276,9 @@ class DesktopApiAppBundleUpdate {
                     });
                   } catch (error) {
                     this.isDownloading = false;
-                    safeReject(error);
+                    safeReject(
+                      wrapDownloadError(error, 'Failed to finalize download'),
+                    );
                   }
                   return;
                 }
@@ -363,7 +386,9 @@ class DesktopApiAppBundleUpdate {
                       bundleVersion,
                     });
                   } catch (error) {
-                    safeReject(error);
+                    safeReject(
+                      wrapDownloadError(error, 'Failed to finalize download'),
+                    );
                   }
                 } else {
                   logger.error(
@@ -383,7 +408,7 @@ class DesktopApiAppBundleUpdate {
                 }
                 this.isDownloading = false;
                 this.cancelCurrentDownload = () => {};
-                safeReject(error);
+                safeReject(wrapDownloadError(error, 'Write stream error'));
                 clearWindowProgressBar(this.getMainWindow());
               });
 
@@ -397,7 +422,7 @@ class DesktopApiAppBundleUpdate {
                 downloadRequest = null;
                 this.isDownloading = false;
                 this.cancelCurrentDownload = () => {};
-                safeReject(error);
+                safeReject(wrapDownloadError(error, 'Response stream error'));
                 clearWindowProgressBar(this.getMainWindow());
               });
             },
@@ -408,7 +433,7 @@ class DesktopApiAppBundleUpdate {
             downloadRequest = null;
             this.cancelCurrentDownload = null;
             this.isDownloading = false;
-            safeReject(error);
+            safeReject(wrapDownloadError(error, 'Request error'));
           });
 
           downloadRequest.setTimeout(1000 * 60 * 30, () => {

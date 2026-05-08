@@ -251,6 +251,7 @@ import {
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
+  sanitizeUpdateErrorMessage,
   useDownloadPackage,
 } from './hooks';
 
@@ -376,6 +377,86 @@ describe('Utility functions', () => {
         }),
       ).toBe(false);
     });
+  });
+});
+
+// =========================================================================
+// A.y sanitizeUpdateErrorMessage — strip OS-username paths before reporting
+// =========================================================================
+describe('sanitizeUpdateErrorMessage', () => {
+  test('redacts macOS /Users/<name>/ home directory', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          "ENOENT: no such file or directory, open '/Users/john/Library/Application Support/OneKey/x.zip'",
+        ),
+      ),
+    ).toBe(
+      "ENOENT: no such file or directory, open '/Users/<redacted>/Library/Application Support/OneKey/x.zip'",
+    );
+  });
+
+  test('redacts Windows C:\\Users\\<Name>\\ profile path', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'ENOENT: no such file, open C:\\Users\\Alice\\AppData\\Roaming\\OneKey\\x.zip',
+        ),
+      ),
+    ).toBe(
+      'ENOENT: no such file, open C:\\Users\\<redacted>\\AppData\\Roaming\\OneKey\\x.zip',
+    );
+  });
+
+  test('redacts Linux /home/<name>/ path', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error("EACCES: permission denied at /home/bob/.config/OneKey"),
+      ),
+    ).toBe('EACCES: permission denied at /home/<redacted>/.config/OneKey');
+  });
+
+  test('redacts iOS /var/mobile/Containers/Data/Application/<UUID>/', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          "Failed to unzip bundle: file at /var/mobile/Containers/Data/Application/8E9F1234-AAAA-BBBB-CCCC-DEADBEEF0001/Library/Caches/x.zip",
+        ),
+      ),
+    ).toBe(
+      'Failed to unzip bundle: file at /var/mobile/Containers/Data/Application/<redacted>/Library/Caches/x.zip',
+    );
+  });
+
+  test('preserves non-PII content unchanged', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error('Bundle SHA256 verification failed: MISMATCH'),
+      ),
+    ).toBe('Bundle SHA256 verification failed: MISMATCH');
+    expect(sanitizeUpdateErrorMessage(new Error('HTTP 416'))).toBe('HTTP 416');
+  });
+
+  test('caps over-long messages at 240 chars + ellipsis', () => {
+    const filler = 'X'.repeat(500);
+    const out = sanitizeUpdateErrorMessage(new Error(filler));
+    expect(out).toBeDefined();
+    expect((out as string).length).toBe(241); // 240 chars + "…"
+    expect((out as string).endsWith('…')).toBe(true);
+  });
+
+  test('returns undefined for empty / nullish input', () => {
+    expect(sanitizeUpdateErrorMessage(undefined)).toBe(undefined);
+    expect(sanitizeUpdateErrorMessage(null)).toBe(undefined);
+    expect(sanitizeUpdateErrorMessage(new Error(''))).toBe(undefined);
+  });
+
+  test('plain string input is also accepted', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        "ENOENT '/Users/eve/Library/Application Support/OneKey'",
+      ),
+    ).toBe("ENOENT '/Users/<redacted>/Library/Application Support/OneKey'");
   });
 });
 
