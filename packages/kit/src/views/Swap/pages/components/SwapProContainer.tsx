@@ -25,6 +25,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
+import { MarketPresetSelector } from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
 import SwapProErrorAlert from '../../components/SwapProErrorAlert';
 import {
   useSwapPositionsSupportTokenListAction,
@@ -38,6 +39,8 @@ import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
 import SwapProTradingPanel from './SwapProTradingPanel';
 import SwapTipsContainer from './SwapTipsContainer';
 
+import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
+
 interface ISwapProContainerProps {
   pageType?: EPageType;
   onProSelectToken: (autoSearch?: boolean) => void;
@@ -49,6 +52,7 @@ interface ISwapProContainerProps {
   onBalanceMaxPress: () => void;
   onTokenPress: (token: ISwapToken) => void;
   supportNetworksList: IMarketBasicConfigNetwork[];
+  marketPresetSettings?: IMarketPresetSettingsState;
   config: {
     isLoading: boolean;
     speedConfig: ISwapProSpeedConfig;
@@ -71,6 +75,7 @@ const SwapProContainer = ({
   onSelectPercentageStage,
   onTokenPress,
   supportNetworksList,
+  marketPresetSettings,
   config,
 }: ISwapProContainerProps) => {
   const {
@@ -161,6 +166,10 @@ const SwapProContainer = ({
       clearTimeout(timer);
     };
   }, []);
+  const showMarketPresetSelector =
+    shouldRenderHeavyComponents &&
+    swapProTradeType === ESwapProTradeType.MARKET &&
+    !!marketPresetSettings?.enabled;
 
   return (
     <ScrollView
@@ -203,7 +212,12 @@ const SwapProContainer = ({
           onPress={onProMarketDetail}
         />
       </XStack>
-      <XStack mt="$2" gap="$4" pb="$4" alignItems="stretch">
+      <XStack
+        mt="$2"
+        gap="$4"
+        pb={showMarketPresetSelector ? '$2.5' : '$4'}
+        alignItems="stretch"
+      >
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
           {shouldRenderHeavyComponents ? (
             <SwapProTradeInfoPanel
@@ -241,6 +255,7 @@ const SwapProContainer = ({
               hasEnoughBalance={hasEnoughBalance}
               handleSelectAccountClick={handleSelectAccountClick}
               cleanInputAmount={cleanInputAmount}
+              marketPresetSettings={marketPresetSettings}
             />
           ) : (
             <YStack gap="$6" flex={1} p="$3">
@@ -253,6 +268,14 @@ const SwapProContainer = ({
           )}
         </YStack>
       </XStack>
+      {showMarketPresetSelector && marketPresetSettings ? (
+        <YStack pb="$3">
+          <MarketPresetSelector
+            presetSettings={marketPresetSettings}
+            showAutoSlippageLabel
+          />
+        </YStack>
+      ) : null}
       <SwapProErrorAlert
         title={swapProErrorAlert?.title}
         message={swapProErrorAlert?.message}

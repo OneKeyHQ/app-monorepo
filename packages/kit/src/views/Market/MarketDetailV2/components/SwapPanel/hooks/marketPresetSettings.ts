@@ -1,6 +1,8 @@
 import BigNumber from 'bignumber.js';
 
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { isValidMarketPresetCustomPriorityFeeValue } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import { swapSlippageMaxValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapNetworkFeeLevel,
   ESwapSlippageSegmentKey,
@@ -97,6 +99,18 @@ const DEFAULT_MARKET_PRESET_DIRECTION_SETTINGS: IMarketPresetDirectionSettings =
     },
     priorityFee: {
       type: EMarketPresetPriorityFeeType.MARKET,
+    },
+  };
+
+const DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS: IMarketPresetDirectionSettings =
+  {
+    slippage: {
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 1,
+    },
+    priorityFee: {
+      type: EMarketPresetPriorityFeeType.CUSTOM,
+      customValue: '0',
     },
   };
 
@@ -217,6 +231,66 @@ export function getMarketPresetDefaultDirectionSettings(): IMarketPresetDirectio
   };
 }
 
+export function getMarketPresetDefaultEditableDirectionSettings(): IMarketPresetDirectionSettings {
+  return {
+    slippage: {
+      ...DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS.slippage,
+    },
+    priorityFee: {
+      ...DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS.priorityFee,
+    },
+  };
+}
+
+export function getMarketPresetDefaultDirectionSettingsForPreset({
+  config,
+  presetKey,
+}: {
+  config?: IMarketPresetConfig;
+  presetKey?: EMarketPresetKey;
+}): IMarketPresetDirectionSettings {
+  const defaultSettings = getMarketPresetDefaultDirectionSettings();
+
+  if (!config?.enabled || presetKey === EMarketPresetKey.AUTO) {
+    return defaultSettings;
+  }
+
+  return {
+    slippage: defaultSettings.slippage,
+    priorityFee: config.priorityFee.editable
+      ? defaultSettings.priorityFee
+      : {
+          type: EMarketPresetPriorityFeeType.AUTO,
+        },
+  };
+}
+
+export function getMarketPresetDefaultEditableDirectionSettingsForPreset({
+  config,
+  presetKey,
+}: {
+  config?: IMarketPresetConfig;
+  presetKey?: EMarketPresetKey;
+}): IMarketPresetDirectionSettings {
+  if (!config?.enabled || presetKey === EMarketPresetKey.AUTO) {
+    return getMarketPresetDefaultDirectionSettings();
+  }
+
+  const defaultSettings = getMarketPresetDefaultDirectionSettings();
+  const editableSettings = getMarketPresetDefaultEditableDirectionSettings();
+
+  return {
+    slippage: config.slippage.editable
+      ? editableSettings.slippage
+      : defaultSettings.slippage,
+    priorityFee: config.priorityFee.editable
+      ? editableSettings.priorityFee
+      : {
+          type: EMarketPresetPriorityFeeType.AUTO,
+        },
+  };
+}
+
 export function normalizeMarketPresetDirectionSettings(
   settings?: IMarketPresetDirectionSettings,
 ): IMarketPresetDirectionSettings {
@@ -272,7 +346,12 @@ export function resolveMarketPresetDirectionSettings({
       savedSettings,
       presetKey,
       tradeSide,
-    }) ?? configDefaultSettings,
+    }) ??
+      configDefaultSettings ??
+      getMarketPresetDefaultDirectionSettingsForPreset({
+        config,
+        presetKey,
+      }),
   );
 
   return {
@@ -346,6 +425,13 @@ export function getMarketPresetNetworkFeeLevel(
   settings?: IMarketPresetDirectionSettings,
 ) {
   if (
+    settings?.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
+    !isValidMarketPresetCustomValue(settings.priorityFee.customValue)
+  ) {
+    return ESwapNetworkFeeLevel.MEDIUM;
+  }
+
+  if (
     settings?.priorityFee.type === EMarketPresetPriorityFeeType.FAST ||
     settings?.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM
   ) {
@@ -356,15 +442,46 @@ export function getMarketPresetNetworkFeeLevel(
 }
 
 export function isValidMarketPresetCustomValue(value?: string) {
-  if (!value) {
+  return isValidMarketPresetCustomPriorityFeeValue(value);
+}
+
+export function isInvalidMarketPresetSlippageSettings(
+  settings?: IMarketPresetDirectionSettings,
+) {
+  if (!settings) {
     return false;
   }
 
-  const valueBN = new BigNumber(value);
-  // Reject NaN, Infinity, negatives, and zero. `new BigNumber('Infinity')`
-  // produces a non-NaN value that satisfies `gt(0)`, so the explicit
-  // `isFinite()` check is required to keep the value usable downstream.
-  return valueBN.isFinite() && valueBN.gt(0);
+  const slippageValueBN = new BigNumber(settings.slippage.value ?? Number.NaN);
+  return (
+    settings.slippage.key === ESwapSlippageSegmentKey.CUSTOM &&
+    (settings.slippage.value === undefined ||
+      slippageValueBN.isNaN() ||
+      slippageValueBN.isNegative() ||
+      slippageValueBN.gt(swapSlippageMaxValue))
+  );
+}
+
+export function isInvalidMarketPresetPriorityFeeSettings(
+  settings?: IMarketPresetDirectionSettings,
+) {
+  if (!settings) {
+    return false;
+  }
+
+  return (
+    settings.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
+    !isValidMarketPresetCustomValue(settings.priorityFee.customValue)
+  );
+}
+
+export function isInvalidMarketPresetDirectionSettings(
+  settings?: IMarketPresetDirectionSettings,
+) {
+  return (
+    isInvalidMarketPresetSlippageSettings(settings) ||
+    isInvalidMarketPresetPriorityFeeSettings(settings)
+  );
 }
 
 export function getMarketPresetPriorityFeeOverride(
