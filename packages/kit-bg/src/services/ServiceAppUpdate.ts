@@ -937,12 +937,13 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
     // Full-replace set: every field absent from the object literal becomes
-    // undefined. The explicit `undefined`s below document fields whose
-    // clearing is load-bearing — including lastUpdateDialogShownAt, so
-    // that "Clear update cache" in Settings (which calls this via
-    // clearCache) genuinely re-arms the 24h dialog throttle and a future
-    // refactor that switches to set(prev => ...) won't silently regress
-    // the user-visible behavior.
+    // undefined. The explicit values below document fields whose clearing
+    // is load-bearing — most notably lastUpdateDialogShownAt, so that
+    // "Clear update cache" in Settings (which calls this via clearCache)
+    // genuinely re-arms the 24h dialog throttle. We write `0` (not
+    // `undefined`) for that field because the jotai persist layer drops
+    // `undefined` keys during JSON serialization, which would leave the
+    // previous timestamp on disk and silently re-suppress the dialog.
     await appUpdatePersistAtom.set({
       latestVersion: platformEnv.version,
       jsBundleVersion: platformEnv.bundleVersion,
@@ -954,7 +955,7 @@ class ServiceAppUpdate extends ServiceBase {
       previousAppVersion: undefined,
       isRollbackTarget: undefined,
       downloadedEvent: undefined,
-      lastUpdateDialogShownAt: undefined,
+      lastUpdateDialogShownAt: 0,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
     // Schedule an immediate check so that if a newer version was released
@@ -1001,9 +1002,16 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async clearLastDialogShownAt() {
+    // Write `0`, not `undefined`. The jotai persist layer (AsyncStorage on
+    // native, electron-store on desktop) drops `undefined` fields during
+    // serialization — JSON.stringify({a: undefined}) === '{}' — so a
+    // previously-stored timestamp survives the "clear" call. `0` is a real
+    // number that round-trips through persist, and showUpdateDialogUI's
+    // truthy gate (`if (lastUpdateDialogShownAt && now - ... < INTERVAL)`)
+    // still treats it as "never shown".
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      lastUpdateDialogShownAt: undefined,
+      lastUpdateDialogShownAt: 0,
     }));
   }
 

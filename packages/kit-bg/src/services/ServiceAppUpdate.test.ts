@@ -737,14 +737,17 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.jsBundle).toBeUndefined();
     });
 
-    test('reset clears lastUpdateDialogShownAt so the 24h dialog throttle re-arms', async () => {
+    test('reset rewrites lastUpdateDialogShownAt to 0 so the 24h dialog throttle re-arms', async () => {
       // Settings → Clear update cache funnels through clearCache → reset.
       // The user-visible expectation is that after clearing, the next cold
       // launch shows the upgrade reminder dialog again (subject to other
       // gates: server has new version, manual strategy, native/desktop).
-      // If reset() ever stops including lastUpdateDialogShownAt in its
-      // full-replace object, this guarantee silently breaks — and the
-      // user just sees no dialog.
+      //
+      // Sentinel value 0 (not undefined): jotai persist's JSON.stringify
+      // drops undefined keys, so a missing field would leave the previous
+      // timestamp on disk and silently re-suppress the dialog. 0 survives
+      // serialization and showUpdateDialogUI's truthy gate still treats it
+      // as "never shown".
       resetAtom({
         status: EAppUpdateStatus.ready,
         lastUpdateDialogShownAt: Date.now() - 60_000, // shown 1 min ago
@@ -752,7 +755,7 @@ describe('ServiceAppUpdate state transitions', () => {
 
       await service.reset();
 
-      expect(atomValue.lastUpdateDialogShownAt).toBeUndefined();
+      expect(atomValue.lastUpdateDialogShownAt).toBe(0);
     });
 
     test('resetToManualInstall sets manualInstall status and clears error', async () => {
@@ -1061,12 +1064,17 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.lastUpdateDialogShownAt).toBeGreaterThanOrEqual(before);
     });
 
-    test('clearLastDialogShownAt removes timestamp', async () => {
+    test('clearLastDialogShownAt resets timestamp to 0 (persist-safe sentinel)', async () => {
+      // We write 0 instead of undefined because jotai persist drops
+      // undefined keys during JSON serialization, which would leave the
+      // previous timestamp on disk. 0 round-trips through persist and
+      // showUpdateDialogUI's `if (lastUpdateDialogShownAt && ...)` truthy
+      // gate still treats it as "never shown".
       resetAtom({ lastUpdateDialogShownAt: Date.now() });
 
       await service.clearLastDialogShownAt();
 
-      expect(atomValue.lastUpdateDialogShownAt).toBeUndefined();
+      expect(atomValue.lastUpdateDialogShownAt).toBe(0);
     });
   });
 
@@ -1112,13 +1120,15 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
     });
 
-    test('also clears lastUpdateDialogShownAt (re-arms the 24h dialog)', async () => {
+    test('also rewrites lastUpdateDialogShownAt to 0 (re-arms the 24h dialog)', async () => {
       // End-to-end guarantee for "Settings → Clear update cache":
       // pressing it must reset the dialog throttle so the user sees
       // the upgrade reminder again on the next cold launch. clearCache
       // delegates to reset() for this; this test pins the contract at
       // the public-API level so a refactor that breaks the chain is
       // caught here, not by an end-user not seeing the dialog.
+      // 0 (not undefined) — see the matching reset() test for the
+      // jotai-persist serialization rationale.
       resetAtom({
         status: EAppUpdateStatus.ready,
         lastUpdateDialogShownAt: Date.now() - 5 * 60_000,
@@ -1127,7 +1137,7 @@ describe('ServiceAppUpdate state transitions', () => {
 
       await service.clearCache();
 
-      expect(atomValue.lastUpdateDialogShownAt).toBeUndefined();
+      expect(atomValue.lastUpdateDialogShownAt).toBe(0);
     });
   });
 
