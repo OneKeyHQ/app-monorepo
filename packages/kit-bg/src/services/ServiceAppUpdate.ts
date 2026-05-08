@@ -459,6 +459,48 @@ class ServiceAppUpdate extends ServiceBase {
     return appInfo.status;
   }
 
+  // Last time resumeIfInterrupted actually flipped a status — guards against
+  // AppState 'active' bursts (foreground notifications, route changes, etc.)
+  // hammering the download pipeline. 30 seconds is short enough that a real
+  // user-noticed "still failed" reflects in the next foreground pass, long
+  // enough to swallow the typical 1-3 'change' events that fire in quick
+  // succession on iOS scene transitions.
+  private resumeIfInterruptedLastFiredAt = 0;
+
+  /**
+   * Re-arm the download pipeline when the user returns to the app and we
+   * were stuck mid-download (or a recent failure left status pinned to
+   * downloadPackageFailed / downloadASCFailed). Flips status back to
+   * downloadPackage; UpdateReminder/hooks.tsx's mount/refresh useEffect
+   * picks it up and re-calls downloadPackage(), which in turn reuses the
+   * on-disk resume artifact via downloadTask(withResumeData:) (iOS) or
+   * Range: bytes=<offset>- (Android/Desktop).
+   *
+   * Cooldown protects against AppState bursts. Verify-failed and final
+   * failed statuses are NOT eligible — those need user-facing decisions,
+   * not silent retries.
+   */
+  @backgroundMethod()
+  async resumeIfInterrupted() {
+    const now = Date.now();
+    if (now - this.resumeIfInterruptedLastFiredAt < 30_000) {
+      return;
+    }
+    const { status } = await appUpdatePersistAtom.get();
+    const eligible =
+      status === EAppUpdateStatus.downloadPackage ||
+      status === EAppUpdateStatus.downloadPackageFailed ||
+      status === EAppUpdateStatus.downloadASCFailed;
+    if (!eligible) {
+      return;
+    }
+    this.resumeIfInterruptedLastFiredAt = now;
+    defaultLogger.app.appUpdate.log(
+      `resumeIfInterrupted: re-arming downloadPackage from status=${status}`,
+    );
+    await this.downloadPackage();
+  }
+
   static FAILED_STATUSES: EAppUpdateStatus[] = [
     EAppUpdateStatus.downloadPackageFailed,
     EAppUpdateStatus.downloadASCFailed,

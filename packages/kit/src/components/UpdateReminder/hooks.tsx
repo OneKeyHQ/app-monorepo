@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { AppState, StyleSheet } from 'react-native';
 
 import {
   Dialog,
@@ -1151,6 +1151,30 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     installPackage,
     appUpdateInfo,
   ]);
+
+  // Re-arm the download pipeline whenever the user returns to the app,
+  // covering two interruption modes that the in-flight retry (C1) cannot
+  // catch on its own:
+  //   - iOS suspends the foreground URLSession after ~30s in background;
+  //     the task fails with -1005 / -1001, snapshotResumeDataForBackgrounding
+  //     persists the resume blob, status flips to downloadPackageFailed,
+  //     and the only thing left is to re-call downloadPackage() to consume
+  //     that blob via downloadTask(withResumeData:).
+  //   - Android may freeze / kill the JVM under memory pressure with the
+  //     stream still in flight. .partial holds the bytes that were flushed;
+  //     resumeIfInterrupted re-arms the pipeline so the next downloadPackage()
+  //     sends `Range: bytes=<flushed>-`.
+  // Service-side resumeIfInterrupted has its own 30s cooldown so AppState
+  // bursts (route changes, scene transitions on iOS) don't hammer the
+  // pipeline.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void backgroundApiProxy.serviceAppUpdate.resumeIfInterrupted();
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {

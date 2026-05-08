@@ -942,6 +942,84 @@ describe('ServiceAppUpdate state transitions', () => {
   });
 
   // =========================================================================
+  // resumeIfInterrupted — AppState 'active' re-arm
+  // =========================================================================
+  describe('resumeIfInterrupted', () => {
+    test("re-arms downloadPackage when status is 'downloadPackage'", async () => {
+      resetAtom({ status: EAppUpdateStatus.downloadPackage });
+
+      await service.resumeIfInterrupted();
+
+      // Re-armed — status is still downloadPackage but a fresh 30-min timer
+      // is set, downloadedEvent is cleared, and the side-effect path kicked.
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+    });
+
+    test("re-arms when status is 'downloadPackageFailed'", async () => {
+      resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
+
+      await service.resumeIfInterrupted();
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+    });
+
+    test("re-arms when status is 'downloadASCFailed'", async () => {
+      resetAtom({ status: EAppUpdateStatus.downloadASCFailed });
+
+      await service.resumeIfInterrupted();
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+    });
+
+    test('does not re-arm verify-failed states (need user decision)', async () => {
+      for (const status of [
+        EAppUpdateStatus.verifyASCFailed,
+        EAppUpdateStatus.verifyPackageFailed,
+        EAppUpdateStatus.failed,
+        EAppUpdateStatus.updateIncomplete,
+      ]) {
+        resetAtom({ status });
+        // eslint-disable-next-line no-await-in-loop
+        await service.resumeIfInterrupted();
+        expect(atomValue.status).toBe(status);
+      }
+    });
+
+    test('does not re-arm terminal/non-update states', async () => {
+      for (const status of [
+        EAppUpdateStatus.done,
+        EAppUpdateStatus.notify,
+        EAppUpdateStatus.ready,
+        EAppUpdateStatus.verifyASC,
+        EAppUpdateStatus.verifyPackage,
+      ]) {
+        resetAtom({ status });
+        // eslint-disable-next-line no-await-in-loop
+        await service.resumeIfInterrupted();
+        expect(atomValue.status).toBe(status);
+      }
+    });
+
+    test('30s cooldown prevents back-to-back fires', async () => {
+      resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
+
+      await service.resumeIfInterrupted();
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+
+      // Reset status to "failed" again, fire a second resume <30s later —
+      // cooldown should swallow it.
+      resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
+      await service.resumeIfInterrupted();
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+
+      // Past the cooldown window — fires again.
+      await jest.advanceTimersByTimeAsync(30_000);
+      await service.resumeIfInterrupted();
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+    });
+  });
+
+  // =========================================================================
   // updateLastDialogShownAt / clearLastDialogShownAt
   // =========================================================================
   describe('dialog shown tracking', () => {

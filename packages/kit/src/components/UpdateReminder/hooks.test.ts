@@ -39,6 +39,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     fetchChangeLog: jest.fn(),
     reset: jest.fn(),
     resetToInComplete: jest.fn(),
+    resumeIfInterrupted: jest.fn(),
     updateLastDialogShownAt: jest.fn(),
   };
   (globalThis as any).__mockSvc = svc;
@@ -232,6 +233,9 @@ jest.mock('@onekeyhq/shared/src/errors', () => ({
 
 jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 1 },
+  AppState: {
+    addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+  },
 }));
 
 // ---------------------------------------------------------------------------
@@ -1828,6 +1832,46 @@ describe('useAppUpdateInfo useEffect', () => {
         expect.objectContaining({ screen: 'DownloadVerify' }),
       );
       mockPlatformEnv.isNative = false;
+    });
+  });
+
+  describe('AppState foreground resume', () => {
+    test("AppState 'active' triggers serviceAppUpdate.resumeIfInterrupted", async () => {
+      const handlerHolder: { fn?: (state: string) => void } = {};
+      const RN = require('react-native');
+      RN.AppState.addEventListener.mockImplementationOnce(
+        (_event: string, fn: (state: string) => void) => {
+          handlerHolder.fn = fn;
+          return { remove: jest.fn() };
+        },
+      );
+
+      setAtom({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      expect(handlerHolder.fn).toBeDefined();
+      // Foreground transition fires resumeIfInterrupted
+      await act(async () => {
+        handlerHolder.fn?.('active');
+        await Promise.resolve();
+      });
+      expect(svc.resumeIfInterrupted).toHaveBeenCalledTimes(1);
+
+      // Background / inactive transitions are silent
+      svc.resumeIfInterrupted.mockClear();
+      await act(async () => {
+        handlerHolder.fn?.('background');
+        handlerHolder.fn?.('inactive');
+        await Promise.resolve();
+      });
+      expect(svc.resumeIfInterrupted).not.toHaveBeenCalled();
     });
   });
 });
