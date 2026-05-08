@@ -15,13 +15,24 @@ export type { DeviceInfo, IHardwareWallet, Response, IConnector };
 // UI Event types (OneKey-specific adapter UI layer)
 // =====================================================================
 
-export type IAdapterUiRequestType = EThirdPartyHardwareUiAction.requestUnlock;
+export type IAdapterUiRequestType =
+  | EThirdPartyHardwareUiAction.requestDeviceNotFound
+  | EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm;
 
 export type IAdapterUiRequest = {
   kind: 'request';
   type: IAdapterUiRequestType;
   payload?: {
+    /** Vendor that emitted the request, e.g. 'ledger'. */
+    vendor?: string;
+    /** Why the SDK is asking for a reconnect (e.g. 'device-not-found'). */
+    reason?: string;
+    /** Best-effort English fallback when vendor+reason isn't recognized. */
     message?: string;
+    /** BIP-44 path the SDK is asking about (BTC high-index confirm). */
+    path?: string;
+    /** Account index parsed from the path (BTC high-index confirm). */
+    accountIndex?: number;
   };
 };
 

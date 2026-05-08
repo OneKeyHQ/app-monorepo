@@ -12,6 +12,7 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import type { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -30,6 +31,7 @@ import type {
   IFetchAccountDeFiPositionsResp,
   IProtocolSummary,
 } from '../../types/defi';
+import type { EHardwareVendor } from '../../types/device';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type {
@@ -366,6 +368,10 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HideTabBar]: boolean;
   [EAppEventBusNames.RequestHardwareUIDialog]: {
     uiRequestType: EHardwareUiStateAction;
+  };
+  [EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog]: {
+    vendor: EHardwareVendor;
+    reason: EThirdPartyDevicePermissionDeniedReason;
   };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
   [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
