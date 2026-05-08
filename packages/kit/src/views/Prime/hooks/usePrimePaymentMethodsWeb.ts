@@ -172,7 +172,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       currency,
       featureName,
     }: {
-      subscriptionPeriod: string;
+      subscriptionPeriod: ISubscriptionPeriod;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
       currency?: string;
@@ -227,7 +227,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
           await Purchases.getSharedInstance().purchase(purchaseParams);
 
         primePaymentUtils.trackPrimeSubscriptionSuccess({
-          paywallPackage,
+          ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),
           subscriptionPeriod,
           featureName,
         });
