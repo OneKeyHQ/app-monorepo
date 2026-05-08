@@ -737,6 +737,24 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.jsBundle).toBeUndefined();
     });
 
+    test('reset clears lastUpdateDialogShownAt so the 24h dialog throttle re-arms', async () => {
+      // Settings → Clear update cache funnels through clearCache → reset.
+      // The user-visible expectation is that after clearing, the next cold
+      // launch shows the upgrade reminder dialog again (subject to other
+      // gates: server has new version, manual strategy, native/desktop).
+      // If reset() ever stops including lastUpdateDialogShownAt in its
+      // full-replace object, this guarantee silently breaks — and the
+      // user just sees no dialog.
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        lastUpdateDialogShownAt: Date.now() - 60_000, // shown 1 min ago
+      });
+
+      await service.reset();
+
+      expect(atomValue.lastUpdateDialogShownAt).toBeUndefined();
+    });
+
     test('resetToManualInstall sets manualInstall status and clears error', async () => {
       resetAtom({
         status: EAppUpdateStatus.verifyPackageFailed,
@@ -1092,6 +1110,24 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(AppUpdate.clearPackage).toHaveBeenCalled();
       expect(BundleUpdate.clearDownload).toHaveBeenCalled();
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
+    });
+
+    test('also clears lastUpdateDialogShownAt (re-arms the 24h dialog)', async () => {
+      // End-to-end guarantee for "Settings → Clear update cache":
+      // pressing it must reset the dialog throttle so the user sees
+      // the upgrade reminder again on the next cold launch. clearCache
+      // delegates to reset() for this; this test pins the contract at
+      // the public-API level so a refactor that breaks the chain is
+      // caught here, not by an end-user not seeing the dialog.
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        lastUpdateDialogShownAt: Date.now() - 5 * 60_000,
+        downloadedEvent: { downloadedFile: '/tmp/old.zip' },
+      });
+
+      await service.clearCache();
+
+      expect(atomValue.lastUpdateDialogShownAt).toBeUndefined();
     });
   });
 

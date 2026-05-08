@@ -936,6 +936,13 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(syncTimerId);
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
+    // Full-replace set: every field absent from the object literal becomes
+    // undefined. The explicit `undefined`s below document fields whose
+    // clearing is load-bearing — including lastUpdateDialogShownAt, so
+    // that "Clear update cache" in Settings (which calls this via
+    // clearCache) genuinely re-arms the 24h dialog throttle and a future
+    // refactor that switches to set(prev => ...) won't silently regress
+    // the user-visible behavior.
     await appUpdatePersistAtom.set({
       latestVersion: platformEnv.version,
       jsBundleVersion: platformEnv.bundleVersion,
@@ -947,6 +954,7 @@ class ServiceAppUpdate extends ServiceBase {
       previousAppVersion: undefined,
       isRollbackTarget: undefined,
       downloadedEvent: undefined,
+      lastUpdateDialogShownAt: undefined,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
     // Schedule an immediate check so that if a newer version was released
