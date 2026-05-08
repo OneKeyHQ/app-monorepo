@@ -1,23 +1,22 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  GOOGLE_LOGO_URL,
-  SEARCH_ITEM_ID,
-} from '@onekeyhq/shared/src/consts/discovery';
+import { SEARCH_ITEM_ID } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { useReviewControl } from '../../../components/ReviewControl';
 import {
+  buildDiscoverySearchDebugSnapshot,
+  buildDiscoverySearchListFromFactors,
+  setLatestDiscoverySearchDebugSnapshot,
+} from '../utils/searchDebugSnapshot';
+import {
   DISCOVERY_LOCAL_SEARCH_CANDIDATE_LIMIT,
   DISCOVERY_RANKING_HISTORY_LIMIT,
-  type IDiscoverySearchListItem,
-  mergeSearchResultsWithLocalData,
-  searchTrendingDappsByKeyword,
   shouldSkipRemoteSearchByKeyword,
 } from '../utils/searchResultRanking';
 
@@ -87,14 +86,12 @@ export function useSearchModalData(searchValue: string) {
     );
 
   const { result: rankingHistoryData, run: refreshRankingHistoryData } =
-    usePromiseResult(
-      () =>
-        serviceDiscovery.getHistoryData({
-          generateIcon: false,
-          sliceCount: DISCOVERY_RANKING_HISTORY_LIMIT,
-        }),
-      [serviceDiscovery],
-    );
+    usePromiseResult(async () => {
+      return serviceDiscovery.getHistoryData({
+        generateIcon: false,
+        sliceCount: DISCOVERY_RANKING_HISTORY_LIMIT,
+      });
+    }, [serviceDiscovery]);
 
   const { result: trendingData, run: refreshTrendingData } = usePromiseResult(
     async (): Promise<IDApp[]> => {
@@ -139,48 +136,59 @@ export function useSearchModalData(searchValue: string) {
     return res;
   }, [searchValue, serviceDiscovery, showSearchResult, shouldSkipRemoteSearch]);
 
-  const trendingSearchData = useMemo(() => {
-    if (!showSearchResult) {
-      return [];
-    }
-    return searchTrendingDappsByKeyword({
-      keyword: searchValue,
+  const searchActionTitle = useMemo(
+    () =>
+      `${intl.formatMessage({
+        id: ETranslations.explore_search_placeholder,
+      })} "${searchValue}"`,
+    [intl, searchValue],
+  );
+
+  const searchList = useMemo(() => {
+    return buildDiscoverySearchListFromFactors({
+      searchValue,
+      searchActionTitle,
+      showSearchResult,
+      searchResult,
+      rankingHistoryData,
+      localSearchData,
       trendingData,
-    });
-  }, [searchValue, showSearchResult, trendingData]);
-
-  const searchList = useMemo<IDiscoverySearchListItem[]>(() => {
-    if (!searchValue) {
-      return [];
-    }
-
-    return [
-      ...mergeSearchResultsWithLocalData({
-        keyword: searchValue,
-        searchResult,
-        rankingHistoryData,
-        bookmarkSearchData: localSearchData.bookmarkData,
-        historySearchData: localSearchData.historyData,
-        trendingSearchData,
-      }),
-      {
-        type: 'search-action',
-        key: SEARCH_ITEM_ID,
-        title: `${intl.formatMessage({
-          id: ETranslations.explore_search_placeholder,
-        })} "${searchValue}"`,
-        url: '',
-        logo: GOOGLE_LOGO_URL,
-      },
-    ];
+    }).searchList;
   }, [
-    searchValue,
-    searchResult,
+    localSearchData,
     rankingHistoryData,
-    localSearchData.bookmarkData,
-    localSearchData.historyData,
-    trendingSearchData,
-    intl,
+    searchActionTitle,
+    searchResult,
+    searchValue,
+    showSearchResult,
+    trendingData,
+  ]);
+
+  useEffect(() => {
+    setLatestDiscoverySearchDebugSnapshot(
+      buildDiscoverySearchDebugSnapshot({
+        source: 'latest-hook',
+        searchValue,
+        searchActionTitle,
+        showSearchResult,
+        shouldSkipRemoteSearch,
+        localData: localData ?? null,
+        localSearchData,
+        rankingHistoryData: rankingHistoryData ?? [],
+        trendingData,
+        searchResult,
+      }),
+    );
+  }, [
+    localData,
+    localSearchData,
+    rankingHistoryData,
+    searchActionTitle,
+    searchResult,
+    searchValue,
+    shouldSkipRemoteSearch,
+    showSearchResult,
+    trendingData,
   ]);
 
   // Determine what to display
