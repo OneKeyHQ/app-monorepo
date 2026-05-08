@@ -12,6 +12,7 @@ import {
   checkFileSha512,
   getBundleDirName,
   getBundleExtractDir,
+  lastSHA256FailureReason,
   testExtractedSha256FromVerifyAscFile,
   verifyMetadataFileSha256,
   verifySha256,
@@ -64,10 +65,21 @@ class DesktopApiAppBundleUpdate {
 
   async verifyAndResolve(filePath: string, sha256: string) {
     return new Promise<boolean>((resolve, reject) => {
-      setTimeout(async () => {
+      setTimeout(() => {
         const verified = verifySha256(filePath, sha256);
         if (!verified) {
-          reject(new OneKeyLocalError('Downloaded file is not valid'));
+          // Capture the side-channel reason verifySha256 stamped — splits the
+          // mixpanel "Downloaded file is not valid" bucket into actionable
+          // subtypes (FILE_NOT_FOUND / PERMISSION_DENIED / IS_DIRECTORY /
+          // OOM / IO_<code> / MISMATCH) that match the iOS/Android nitro
+          // module subtypes so cross-platform funnels can compare apples-to-
+          // apples.
+          const reason = lastSHA256FailureReason() ?? 'UNKNOWN';
+          reject(
+            new OneKeyLocalError(
+              `Downloaded file is not valid: SHA256_${reason}`,
+            ),
+          );
           return;
         }
         resolve(true);
