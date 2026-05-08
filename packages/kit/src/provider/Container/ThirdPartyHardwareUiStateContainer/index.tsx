@@ -4,6 +4,7 @@ import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core';
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
   DialogContainer,
   Icon,
   IconButton,
@@ -11,7 +12,6 @@ import {
   Portal,
   SizableText,
   Stack,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -26,11 +26,20 @@ import {
   thirdPartyHardwareUiStateAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  OpenBleSettingsDialog,
+  RequireBlePermissionDialog,
+} from '../../../components/Hardware/HardwareDialog';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import type { IntlShape } from 'react-intl';
@@ -39,9 +48,13 @@ const AUTO_CLOSED_FLAG = 'autoClosed';
 const SHOW_CLOSE_BUTTON_DELAY = 8000;
 const TOAST_VIEWPORT_NAME = 'THIRD_PARTY_HW_TOAST';
 
-// ---------------------------------------------------------------------------
-// Toast content for "confirm on device" — no Lottie, simple icon + text
-// ---------------------------------------------------------------------------
+function OpenBleSettingsDialogRender({ ref }: { ref: any }) {
+  return <OpenBleSettingsDialog ref={ref} />;
+}
+
+function RequireBlePermissionDialogRender({ ref }: { ref: any }) {
+  return <RequireBlePermissionDialog ref={ref} />;
+}
 
 function getDeviceLabel(vendor: string | undefined): string {
   const fallback = 'Device';
@@ -99,21 +112,24 @@ function getLedgerActionAnimation(
 function DeviceActionToast({
   action,
   vendor,
+  onCloseByUser,
 }: {
   action?: string;
   vendor: string;
+  onCloseByUser: () => void;
 }) {
   const intl = useIntl();
   const [showCloseButton, setShowCloseButton] = useState(false);
   const themeVariant = useThemeVariant();
 
   useEffect(() => {
+    setShowCloseButton(false);
     const timer = setTimeout(
       () => setShowCloseButton(true),
       SHOW_CLOSE_BUTTON_DELAY,
     );
     return () => clearTimeout(timer);
-  }, []);
+  }, [action, vendor]);
 
   const label = getToastLabel(action, vendor, intl);
 
@@ -153,19 +169,17 @@ function DeviceActionToast({
         </SizableText>
         <Stack minWidth="$8">
           {showCloseButton ? (
-            <Toast.Close>
-              <IconButton size="small" icon="CrossedSmallOutline" />
-            </Toast.Close>
+            <IconButton
+              size="small"
+              icon="CrossedSmallOutline"
+              onPress={onCloseByUser}
+            />
           ) : null}
         </Stack>
       </XStack>
     </XStack>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Dialog content config
-// ---------------------------------------------------------------------------
 
 function getDialogContent(
   state: IThirdPartyHardwareUiState,
@@ -204,22 +218,15 @@ function getDialogContent(
         ),
         showFooter: true,
       };
-    // open-app, searching, unlock-device, confirm-on-device → handled by Toast
-    // error → let withHardwareProcessing handle it, no separate dialog
     default:
       return { title: '', message: '', showFooter: false };
   }
 }
 
-// Actions that need confirm/cancel footer (blocking requests)
 const REQUEST_ACTIONS = new Set([
   EThirdPartyHardwareUiAction.requestDeviceNotFound,
   EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm,
 ]);
-
-// ---------------------------------------------------------------------------
-// Container
-// ---------------------------------------------------------------------------
 
 function ThirdPartyHardwareUiStateContainerCmp() {
   const intl = useIntl();
@@ -228,29 +235,57 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   uiStateRef.current = uiState;
 
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const permissionDialogInstanceRef = useRef<IDialogInstance | null>(null);
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
 
   const isToastAction = isThirdPartyToastAction(uiState?.action);
   const isDialogAction = !!uiState && !isToastAction;
 
-  // Toast / Dialog onClose are passive notifications only — they fire on every
-  // open=false transition (atom programmatic change, Confirm-driven clear,
-  // user dismiss, Esc, etc.) and Tamagui gives us no way to distinguish them.
-  // The "user-actually-cancelled" contract is bound to the explicit footer
-  // Cancel button (handleUserCancel) instead, which is the only path allowed
-  // to call thirdPartyHardwareCancel. This keeps programmatic atom transitions
-  // (handleConfirm clearing atom, SDK driving ui-state changes) from
-  // accidentally rejecting an in-flight SDK _uiRegistry.wait.
-  const handleToastClose = useCallback(async () => {
-    // intentional no-op
-  }, []);
+  // Close callbacks fire for programmatic transitions too, so only explicit
+  // user buttons are allowed to cancel SDK work.
+  const handleToastClose = useCallback(async () => undefined, []);
 
   const handleDialogClose = useCallback(async (params?: { flag?: string }) => {
     if (params?.flag === AUTO_CLOSED_FLAG) {
       await thirdPartyHardwareUiStateAtom.set(undefined);
     }
-    // intentional no-op for any other source — see comment above.
   }, []);
+
+  const handlePermissionDialogClose = useCallback(async () => {
+    await thirdPartyHardwareUiStateAtom.set(undefined);
+  }, []);
+
+  useEffect(() => {
+    const callback = async ({
+      vendor,
+      reason,
+    }: {
+      vendor: EHardwareVendor;
+      reason: EThirdPartyDevicePermissionDeniedReason;
+    }) => {
+      if (vendor !== EHardwareVendor.ledger) {
+        return;
+      }
+      await permissionDialogInstanceRef.current?.close();
+      permissionDialogInstanceRef.current = Dialog.show({
+        dialogContainer:
+          reason === EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff
+            ? OpenBleSettingsDialogRender
+            : RequireBlePermissionDialogRender,
+        onClose: handlePermissionDialogClose,
+      });
+    };
+    appEventBus.on(
+      EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog,
+      callback,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog,
+        callback,
+      );
+    };
+  }, [handlePermissionDialogClose]);
 
   const buildUiResponse = useCallback(
     (
@@ -334,9 +369,21 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     return REQUEST_ACTIONS.has(uiState.action);
   }, [uiState]);
 
+  const handleToastUserClose = useCallback(async () => {
+    const vendor = uiStateRef.current?.vendor;
+    try {
+      if (vendor) {
+        await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
+          vendor,
+        });
+      }
+    } finally {
+      await thirdPartyHardwareUiStateAtom.set(undefined);
+    }
+  }, []);
+
   return (
     <>
-      {/* Toast for "confirm on device" */}
       <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
         <ShowCustom
           ref={toastInstanceRef}
@@ -349,11 +396,11 @@ function ThirdPartyHardwareUiStateContainerCmp() {
           <DeviceActionToast
             action={uiState?.action}
             vendor={uiState?.vendor ?? ''}
+            onCloseByUser={handleToastUserClose}
           />
         </ShowCustom>
       </Portal.Body>
 
-      {/* Dialog for everything else */}
       <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
         {isDialogAction ? (
           <DialogContainer
