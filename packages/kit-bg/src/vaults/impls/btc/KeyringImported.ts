@@ -54,6 +54,7 @@ export class KeyringImported extends KeyringImportedBase {
     password: string;
     appName: string;
     context: string;
+    leafPath?: string;
   }): Promise<string> {
     return this.baseDeriveContextHashBtc(params);
   }

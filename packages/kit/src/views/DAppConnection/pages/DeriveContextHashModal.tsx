@@ -9,13 +9,14 @@ import {
   TextArea,
   YStack,
 } from '@onekeyhq/components';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
-import { DAppAccountListStandAloneItemReadonly } from '../components/DAppAccountList';
 import {
   DAppRequestFooter,
   DAppRequestLayout,
@@ -24,12 +25,13 @@ import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
-// TODO(i18n): three placeholders pending keys via OneKey translation pipeline.
+// TODO(i18n): four placeholders pending keys via OneKey translation pipeline.
 const COPY = {
   appNameLabel: 'Application name',
   contextLabel: 'Context (hex)',
+  boundAddressLabel: 'Bound to address',
   warning:
-    'A deterministic value will be derived from the connected address using the application name and context shown above. Anyone with the same key material, application name, and context can produce the same value. Output is bound to the connected address — a different connected address (different public key) will produce a different value.',
+    'A deterministic value will be derived from the address shown above using the application name and context. Anyone with the same key material, application name, and context can produce the same value. Output is bound to this exact address — a different address (different public key) will produce a different value.',
 };
 
 function DeriveContextHashModal() {
@@ -41,10 +43,13 @@ function DeriveContextHashModal() {
       payloadNonce: string;
     }>();
 
-  // Fetch appName/context in-memory — they MUST stay off the route params
-  // (logged via dappOpenModal). See ServiceDApp.openDeriveContextHashModal.
+  // Fetch appName/context/boundAddress in-memory — they MUST stay off the
+  // route params (logged via dappOpenModal). `boundAddress` is the address
+  // pinned at provider entry, shown so the user verifies the exact target
+  // even if BTC fresh-address has rotated since.
+  // See ServiceDApp.openDeriveContextHashModal.
   const [payload, setPayload] = useState<
-    { appName: string; context: string } | undefined
+    { appName: string; context: string; boundAddress?: string } | undefined
   >();
   const [payloadLoading, setPayloadLoading] = useState(true);
   const [payloadLoadFailed, setPayloadLoadFailed] = useState(false);
@@ -115,7 +120,17 @@ function DeriveContextHashModal() {
           close: () => close?.({ flag: EDAppModalPageStatus.Confirmed }),
         });
       } catch (e) {
-        // reject() expects { error?, close? }; raw Error would mask as user-rejection.
+        // Password-sheet cancel is a transient sub-prompt cancel, not a dApp
+        // rejection. Leave the modal open so the user can re-confirm. The
+        // payload nonce is only consumed on success (ServiceDApp.deriveContextHash),
+        // so retry works. Check className directly — OneKey errors may arrive
+        // as plain serialized objects across the bg/ui boundary.
+        if (
+          (e as IOneKeyError)?.className ===
+          EOneKeyErrorClassNames.PasswordPromptDialogCancel
+        ) {
+          return;
+        }
         const error = e instanceof Error ? e : new Error(String(e));
         dappApprove.reject({ error });
       } finally {
@@ -135,10 +150,6 @@ function DeriveContextHashModal() {
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
           >
-            <DAppAccountListStandAloneItemReadonly
-              accountId={accountId}
-              networkId={networkId}
-            />
             <YStack gap="$3" px="$5">
               {payloadLoadFailed ? (
                 <SizableText size="$bodyMd" color="$textCritical">
@@ -146,6 +157,27 @@ function DeriveContextHashModal() {
                 </SizableText>
               ) : (
                 <>
+                  {payload?.boundAddress ? (
+                    <Stack gap="$1">
+                      <SizableText size="$bodyMdMedium" color="$textSubdued">
+                        {COPY.boundAddressLabel}
+                      </SizableText>
+                      <Stack
+                        px="$3"
+                        py="$2"
+                        borderRadius="$2"
+                        backgroundColor="$bgSubdued"
+                      >
+                        <SizableText
+                          fontFamily="$monoRegular"
+                          style={{ wordBreak: 'break-all' }}
+                        >
+                          {payload.boundAddress}
+                        </SizableText>
+                      </Stack>
+                    </Stack>
+                  ) : null}
+
                   <Stack gap="$1">
                     <SizableText size="$bodyMdMedium" color="$textSubdued">
                       {COPY.appNameLabel}

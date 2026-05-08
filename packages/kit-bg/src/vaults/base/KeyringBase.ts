@@ -277,9 +277,17 @@ export abstract class KeyringBase extends VaultContext {
   abstract signMessage(params: ISignMessageParams): Promise<ISignedMessagePro>;
 
   // Software (HD/imported) BTC keyrings override this; everything else throws.
+  // `leafPath` is the connected leaf's BIP-32 path. HD: master-rooted (e.g.
+  // `m/44'/0'/0'/0/0`). Imported xpriv: relative to the imported root (e.g.
+  // `0/0`). Required for both software variants on BTC.
   async deriveContextHash(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    params: { password: string; appName: string; context: string },
+    params: {
+      password: string;
+      appName: string;
+      context: string;
+      leafPath?: string;
+    },
   ): Promise<string> {
     throw new NotImplemented(
       'deriveContextHash is not supported for this keyring type',

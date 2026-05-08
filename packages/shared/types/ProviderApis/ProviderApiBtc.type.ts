@@ -111,9 +111,10 @@ export type IPushPsbtParams = {
 
 /**
  * @experimental Params for `deriveContextHash`. Output is per-public-key:
- * the IKM is the connected leaf's BIP-32 private key (HD) or the raw
- * imported private key (imported). Different connected addresses produce
- * different outputs. See
+ * the IKM is the connected leaf's BIP-32 private key. Different connected
+ * addresses produce different outputs. Supported on HD (mnemonic) and
+ * imported (xpriv) software accounts; HW/QR/watching/external need
+ * firmware support and are not yet supported. See
  * `core/src/chains/btc/sdkBtc/deriveContextHashFromCredentials.ts` for the
  * full contract; `deriveContextHash.ts` for algorithm and validation.
  */

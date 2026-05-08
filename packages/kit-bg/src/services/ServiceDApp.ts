@@ -112,10 +112,19 @@ class ServiceDApp extends ServiceBase {
   private clipboardTextStore = new Map<string, string>();
 
   // Same pattern for `deriveContextHash` payloads — keep dApp-supplied
-  // context out of dappOpenModal logs and route-query JSON.
+  // context out of dappOpenModal logs and route-query JSON. `leafPath` and
+  // `boundAddress` are captured at provider entry to pin the connected leaf
+  // against fresh-address rotation between request-open and user confirm:
+  // `leafPath` is consumed by the keyring (server-side only); `boundAddress`
+  // is exposed to the modal so the user sees the address they're binding to.
   private deriveContextHashStore = new Map<
     string,
-    { appName: string; context: string }
+    {
+      appName: string;
+      context: string;
+      leafPath?: string;
+      boundAddress?: string;
+    }
   >();
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -335,7 +344,16 @@ class ServiceDApp extends ServiceBase {
   }
 
   // @experimental Open approval modal for deriveContextHash.
-  // appName/context stay in the nonce-keyed store, never in route params.
+  // appName/context/leafPath/boundAddress stay in the nonce-keyed store,
+  // never in route params. Account-type whitelisting (HD or imported) is
+  // enforced both here and at the provider entry — defense-in-depth in
+  // case a future caller invokes this service method directly without
+  // going through the BTC provider. `leafPath` and `boundAddress` are
+  // resolved from the canonical account state inside this method (not
+  // accepted from the caller) so privileged callers cannot forge the leaf
+  // used as IKM or the address shown for approval. They are pinned at
+  // request-open time to defeat fresh-address rotation between
+  // request-open and user confirm.
   @backgroundMethod()
   async openDeriveContextHashModal({
     request,
@@ -357,8 +375,40 @@ class ServiceDApp extends ServiceBase {
         'walletId, accountId and networkId are required',
       );
     }
+    const isHd = accountUtils.isHdAccount({ accountId });
+    const isImported = accountUtils.isImportedAccount({ accountId });
+    if (!isHd && !isImported) {
+      throw new OneKeyLocalError(
+        'deriveContextHash is only supported on HD (mnemonic) and imported software accounts',
+      );
+    }
+
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const account = await vault.getAccount();
+    // VaultBase.getAccount() already sets account.address = addressDetail.address.
+    const boundAddress = account.address;
+    // HD: master-rooted path (e.g. m/44'/0'/0'/0/0). Imported: relative to
+    // the imported xpriv root (e.g. 0/0). For imported BTC accounts today
+    // account.path = '' and account.relPath = '0/0' — the relPath alone is
+    // the connected leaf under the xpriv. Multi-leaf imported is a tracked
+    // follow-up; current single-address users get the right leaf for free.
+    const leafPath = isImported
+      ? (account.relPath ?? '0/0')
+      : (account.addressDetail?.receiveAddressPath ??
+        `${account.path}/${account.relPath ?? '0/0'}`);
+    if (!leafPath) {
+      throw new OneKeyLocalError(
+        'deriveContextHash could not resolve a leaf BIP-32 path for the connected account',
+      );
+    }
+
     const payloadNonce = generateUUID();
-    this.deriveContextHashStore.set(payloadNonce, { appName, context });
+    this.deriveContextHashStore.set(payloadNonce, {
+      appName,
+      context,
+      leafPath,
+      boundAddress,
+    });
     try {
       const result = await this.openModal({
         request,
@@ -389,11 +439,19 @@ class ServiceDApp extends ServiceBase {
 
   // Peek (no consume); nonce is consumed by `deriveContextHash` on success.
   // Lifetime is bounded by `openDeriveContextHashModal`'s finally-delete.
+  // Exposes the pinned `boundAddress` so the modal can show the user the
+  // exact address being bound (instead of fetching a live receive address
+  // that may have rotated). `leafPath` stays server-side.
   @backgroundMethod()
   async getDeriveContextHashPayload(
     nonce: string,
-  ): Promise<{ appName: string; context: string } | undefined> {
-    return this.deriveContextHashStore.get(nonce);
+  ): Promise<
+    { appName: string; context: string; boundAddress?: string } | undefined
+  > {
+    const payload = this.deriveContextHashStore.get(nonce);
+    if (!payload) return undefined;
+    const { appName, context, boundAddress } = payload;
+    return { appName, context, boundAddress };
   }
 
   // @experimental Invoked by the approval modal after user confirms. Nonce
@@ -417,7 +475,20 @@ class ServiceDApp extends ServiceBase {
         'deriveContextHash payload nonce is unknown or already consumed',
       );
     }
-    const { appName, context } = payload;
+    if (
+      !accountUtils.isHdAccount({ accountId }) &&
+      !accountUtils.isImportedAccount({ accountId })
+    ) {
+      throw new OneKeyLocalError(
+        'deriveContextHash is only supported on HD (mnemonic) and imported software accounts',
+      );
+    }
+    const { appName, context, leafPath } = payload;
+    if (!leafPath) {
+      throw new OneKeyLocalError(
+        'deriveContextHash requires a pinned leaf BIP-32 path',
+      );
+    }
 
     const { password } =
       await this.backgroundApi.servicePassword.getCachedPasswordOrDeviceParams({
@@ -429,16 +500,14 @@ class ServiceDApp extends ServiceBase {
       );
     }
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    // Defense-in-depth; hardware/QR/watching are also rejected at the provider.
-    if (typeof vault.keyring.deriveContextHash !== 'function') {
-      throw new OneKeyLocalError(
-        'Current keyring does not support deriveContextHash',
-      );
-    }
+    // KeyringBase.deriveContextHash throws NotImplemented for unsupported
+    // keyrings (HW/QR/watching/external); the provider whitelists HD-only
+    // and we re-validated above. No further guard needed here.
     const result = await vault.keyring.deriveContextHash({
       password,
       appName,
       context,
+      leafPath,
     });
     // Consume only after success — failures above stay retryable.
     this.deriveContextHashStore.delete(payloadNonce);

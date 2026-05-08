@@ -990,11 +990,13 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
 
-    // Whitelist: software-only. HW/QR/watching/external need firmware support.
-    const isHdOrImported =
-      accountUtils.isHdAccount({ accountId }) ||
-      accountUtils.isImportedAccount({ accountId });
-    if (!isHdOrImported) {
+    // Whitelist: HD (mnemonic) and imported software only. HW/QR/watching/
+    // external need firmware support. Imported BTC accounts are xpriv-based
+    // and treated as a BIP-32 root (leafPath is relative to the imported
+    // xpriv); HD accounts use master-rooted leafPath.
+    const isHd = accountUtils.isHdAccount({ accountId });
+    const isImported = accountUtils.isImportedAccount({ accountId });
+    if (!isHd && !isImported) {
       throw web3Errors.provider.custom({
         code: 4003,
         message:
@@ -1002,6 +1004,10 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
 
+    // Service resolves and pins `leafPath` / `boundAddress` from the
+    // canonical account state. We deliberately do NOT pass those from
+    // provider, so privileged callers cannot forge the leaf used as IKM
+    // or the address displayed for approval.
     return this.backgroundApi.serviceDApp.openDeriveContextHashModal({
       request: sanitizedRequest,
       walletId,

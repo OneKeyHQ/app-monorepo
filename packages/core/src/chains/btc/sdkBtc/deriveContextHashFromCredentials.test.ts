@@ -1,24 +1,57 @@
+import bs58check from 'bs58check';
+
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
 import {
   encryptImportedCredential,
   encryptRevealableSeed,
   mnemonicToRevealableSeed,
 } from '../../../secret';
 
+import { getBitcoinBip32 } from '.';
+
 import { deriveContextHashFromBtcCredentials } from './deriveContextHashFromCredentials';
 
 const TEST_MNEMONIC =
   'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+const ALT_MNEMONIC =
+  'legal winner thank year wave sausage worth useful legal winner thank yellow';
 const PASSWORD = 'a-test-password';
 // First receive address of BIP-44 Bitcoin account 0 — matches the §4.2
 // integration KAT in the babylon-toolkit deriveContextHash spec.
 const LEAF_PATH_DEFAULT = "m/44'/0'/0'/0/0";
+// Account-level node for BIP-44 Bitcoin account 0; relative leafPath under
+// this xpriv is "0/0", which corresponds to LEAF_PATH_DEFAULT under HD.
+const ACCOUNT_PATH_BIP44 = "m/44'/0'/0'";
 
 async function makeHdCredential(mnemonic: string, passphrase?: string) {
   const rs = mnemonicToRevealableSeed(mnemonic, passphrase);
   return encryptRevealableSeed({ rs, password: PASSWORD });
 }
 
-async function makeImportedCredential(privateKeyHex: string) {
+// Produces a serialized xpriv hex in the same shape OneKey persists for
+// imported BTC accounts (`bs58check.decode(xprvtBase58)` → 78-byte hex),
+// rooted at `accountPath` of `mnemonic`.
+function makeXprivHex(mnemonic: string, accountPath: string): string {
+  const rs = mnemonicToRevealableSeed(mnemonic);
+  const seed = Buffer.from(rs.seed, 'hex');
+  const accountNode = getBitcoinBip32().fromSeed(seed).derivePath(accountPath);
+  const xprivBase58 = accountNode.toBase58();
+  return bufferUtils.bytesToHex(Buffer.from(bs58check.decode(xprivBase58)));
+}
+
+async function makeImportedXprivCredential(
+  mnemonic: string,
+  accountPath: string,
+) {
+  const xprivHex = makeXprivHex(mnemonic, accountPath);
+  return encryptImportedCredential({
+    credential: { privateKey: xprivHex },
+    password: PASSWORD,
+  });
+}
+
+async function makeImportedRawKeyCredential(privateKeyHex: string) {
   return encryptImportedCredential({
     credential: { privateKey: privateKeyHex },
     password: PASSWORD,
@@ -144,46 +177,35 @@ describe('deriveContextHashFromBtcCredentials — contract', () => {
     });
   });
 
-  describe('Imported path: output is per-imported-key', () => {
-    it('different imported private keys produce different outputs', async () => {
-      const k1 = await makeImportedCredential('11'.repeat(32));
-      const k2 = await makeImportedCredential('22'.repeat(32));
-      const args = {
-        password: PASSWORD,
-        appName: 'test-app',
-        context: 'deadbeef',
-      };
-      const a = await deriveContextHashFromBtcCredentials({
-        ...args,
-        credentials: { imported: k1 },
-      });
-      const b = await deriveContextHashFromBtcCredentials({
-        ...args,
-        credentials: { imported: k2 },
-      });
-      expect(a).not.toBe(b);
-      expect(a).toMatch(/^[0-9a-f]{64}$/);
-      expect(b).toMatch(/^[0-9a-f]{64}$/);
-    });
-
-    it('same imported key produces identical output across invocations', async () => {
-      const imp = await makeImportedCredential('11'.repeat(32));
-      const args = {
+  describe('Imported xpriv path: per-public-key under imported root', () => {
+    // Cross-flow interop: importing the m/44'/0'/0' xpriv of the abandon
+    // mnemonic and deriving relative '0/0' from it MUST produce the same
+    // output as the HD flow at master-rooted m/44'/0'/0'/0/0. Same leaf
+    // privkey → same secret. This is the §4.2 KAT viewed from the imported
+    // entry point, and proves cross-wallet portability.
+    it("matches the §4.2 KAT when the same leaf is reached via imported xpriv at m/44'/0'/0' + leafPath 0/0", async () => {
+      const imp = await makeImportedXprivCredential(
+        TEST_MNEMONIC,
+        ACCOUNT_PATH_BIP44,
+      );
+      const out = await deriveContextHashFromBtcCredentials({
         credentials: { imported: imp },
         password: PASSWORD,
+        leafPath: '0/0',
         appName: 'test-app',
         context: 'deadbeef',
-      };
-      const a = await deriveContextHashFromBtcCredentials(args);
-      const b = await deriveContextHashFromBtcCredentials(args);
-      expect(a).toBe(b);
+      });
+      expect(out).toBe(
+        '650b3fa2cf958ecd258544af2b812c3e8a3f4f75ea5d030cb4dd175da551e356',
+      );
     });
-  });
 
-  describe('HD vs Imported produce different outputs (independent IKM)', () => {
-    it('HD leaf-derived IKM and a raw-key IKM produce different outputs', async () => {
+    it("HD at m/44'/0'/0'/0/0 and imported-xpriv at m/44'/0'/0' + 0/0 produce identical output (same leaf)", async () => {
       const hd = await makeHdCredential(TEST_MNEMONIC);
-      const imp = await makeImportedCredential('11'.repeat(32));
+      const imp = await makeImportedXprivCredential(
+        TEST_MNEMONIC,
+        ACCOUNT_PATH_BIP44,
+      );
       const args = {
         password: PASSWORD,
         appName: 'test-app',
@@ -197,15 +219,99 @@ describe('deriveContextHashFromBtcCredentials — contract', () => {
       const impOut = await deriveContextHashFromBtcCredentials({
         ...args,
         credentials: { imported: imp },
+        leafPath: '0/0',
       });
-      expect(hdOut).not.toBe(impOut);
+      expect(hdOut).toBe(impOut);
+    });
+
+    it('different leafPaths under the same imported xpriv produce different outputs', async () => {
+      const imp = await makeImportedXprivCredential(
+        TEST_MNEMONIC,
+        ACCOUNT_PATH_BIP44,
+      );
+      const args = {
+        credentials: { imported: imp },
+        password: PASSWORD,
+        appName: 'test-app',
+        context: 'deadbeef',
+      };
+      const a = await deriveContextHashFromBtcCredentials({
+        ...args,
+        leafPath: '0/0',
+      });
+      const b = await deriveContextHashFromBtcCredentials({
+        ...args,
+        leafPath: '0/1',
+      });
+      expect(a).not.toBe(b);
+    });
+
+    it('same imported xpriv + same leafPath produces identical output across invocations', async () => {
+      const imp = await makeImportedXprivCredential(
+        TEST_MNEMONIC,
+        ACCOUNT_PATH_BIP44,
+      );
+      const args = {
+        credentials: { imported: imp },
+        password: PASSWORD,
+        leafPath: '0/0',
+        appName: 'test-app',
+        context: 'deadbeef',
+      };
+      const a = await deriveContextHashFromBtcCredentials(args);
+      const b = await deriveContextHashFromBtcCredentials(args);
+      expect(a).toBe(b);
+    });
+
+    it('different imported xprivs (different mnemonics) produce different outputs at same leafPath', async () => {
+      const imp1 = await makeImportedXprivCredential(
+        TEST_MNEMONIC,
+        ACCOUNT_PATH_BIP44,
+      );
+      const imp2 = await makeImportedXprivCredential(
+        ALT_MNEMONIC,
+        ACCOUNT_PATH_BIP44,
+      );
+      const args = {
+        password: PASSWORD,
+        leafPath: '0/0',
+        appName: 'test-app',
+        context: 'deadbeef',
+      };
+      const a = await deriveContextHashFromBtcCredentials({
+        ...args,
+        credentials: { imported: imp1 },
+      });
+      const b = await deriveContextHashFromBtcCredentials({
+        ...args,
+        credentials: { imported: imp2 },
+      });
+      expect(a).not.toBe(b);
+    });
+
+    it('rejects when leafPath is missing for an imported credential', async () => {
+      const imp = await makeImportedXprivCredential(
+        TEST_MNEMONIC,
+        ACCOUNT_PATH_BIP44,
+      );
+      await expect(
+        deriveContextHashFromBtcCredentials({
+          credentials: { imported: imp },
+          password: PASSWORD,
+          appName: 'test-app',
+          context: 'deadbeef',
+        }),
+      ).rejects.toThrow('connected leaf BIP-32 path');
     });
   });
 
   describe('Fail-closed validation', () => {
     it('rejects when both hd and imported credentials are present', async () => {
       const hd = await makeHdCredential(TEST_MNEMONIC);
-      const imp = await makeImportedCredential('11'.repeat(32));
+      const imp = await makeImportedXprivCredential(
+        TEST_MNEMONIC,
+        ACCOUNT_PATH_BIP44,
+      );
       await expect(
         deriveContextHashFromBtcCredentials({
           credentials: { hd, imported: imp },
@@ -228,16 +334,70 @@ describe('deriveContextHashFromBtcCredentials — contract', () => {
       ).rejects.toThrow('requires HD or imported credentials');
     });
 
-    it('rejects when imported private key is the wrong length', async () => {
-      const imp = await makeImportedCredential('aa'.repeat(16));
+    it('rejects when imported credential is not a 78-byte serialized xpriv', async () => {
+      const imp = await makeImportedRawKeyCredential('aa'.repeat(16));
       await expect(
         deriveContextHashFromBtcCredentials({
           credentials: { imported: imp },
           password: PASSWORD,
+          leafPath: '0/0',
           appName: 'test-app',
           context: 'deadbeef',
         }),
-      ).rejects.toThrow('32-byte imported private key');
+      ).rejects.toThrow('78-byte serialized xpriv');
+    });
+
+    // Defends against accepting an imported xpub (or any 78-byte blob whose
+    // byte 45 isn't the 0x00 private-key prefix per BIP-32).
+    it('rejects when imported credential has wrong private-key prefix', async () => {
+      const validXprivHex = makeXprivHex(TEST_MNEMONIC, ACCOUNT_PATH_BIP44);
+      const corrupted = Buffer.from(validXprivHex, 'hex');
+      corrupted[45] = 0x02; // public-key prefix instead of 0x00
+      const imp = await makeImportedRawKeyCredential(corrupted.toString('hex'));
+      await expect(
+        deriveContextHashFromBtcCredentials({
+          credentials: { imported: imp },
+          password: PASSWORD,
+          leafPath: '0/0',
+          appName: 'test-app',
+          context: 'deadbeef',
+        }),
+      ).rejects.toThrow('xpriv key prefix invalid');
+    });
+
+    // Imported xpriv IS the BIP-32 root, so a master-rooted leafPath
+    // (`m/...`) is semantically wrong. bip32's derivePath would silently
+    // strip the prefix and produce a secret from the right leaf path
+    // bytes but wrong semantic intent — we fail-fast instead so caller
+    // bugs surface immediately.
+    it('rejects when imported leafPath is master-rooted (m/...) instead of relative', async () => {
+      const imp = await makeImportedXprivCredential(
+        TEST_MNEMONIC,
+        ACCOUNT_PATH_BIP44,
+      );
+      await expect(
+        deriveContextHashFromBtcCredentials({
+          credentials: { imported: imp },
+          password: PASSWORD,
+          leafPath: 'm/0/0',
+          appName: 'test-app',
+          context: 'deadbeef',
+        }),
+      ).rejects.toThrow('must be relative');
+    });
+
+    // Symmetric guard: HD leafPath must be master-rooted, not relative.
+    it('rejects when HD leafPath is relative instead of master-rooted', async () => {
+      const hd = await makeHdCredential(TEST_MNEMONIC);
+      await expect(
+        deriveContextHashFromBtcCredentials({
+          credentials: { hd },
+          password: PASSWORD,
+          leafPath: '0/0',
+          appName: 'test-app',
+          context: 'deadbeef',
+        }),
+      ).rejects.toThrow('must be master-rooted');
     });
   });
 });
