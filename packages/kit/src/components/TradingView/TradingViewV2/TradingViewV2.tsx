@@ -78,6 +78,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useHyperLiquidKlineSource(networkId, tokenAddress);
   const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
   const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
+  const effectiveDataSource =
+    dataSource === 'websocket' && !tokenAddress ? 'polling' : dataSource;
 
   const additionalParams = useMemo(() => {
     return {
@@ -100,7 +102,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && dataSource !== 'websocket' && !isHyperLiquidSource,
+    enabled:
+      isVisible && effectiveDataSource !== 'websocket' && !isHyperLiquidSource,
   });
 
   useAutoTokenDetailUpdate({
@@ -114,7 +117,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && dataSource === 'websocket' && !isHyperLiquidSource,
+    enabled:
+      isVisible && effectiveDataSource === 'websocket' && !isHyperLiquidSource,
     chartType: '1m',
   });
 
