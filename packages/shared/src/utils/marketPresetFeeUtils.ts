@@ -5,9 +5,24 @@ import type { ISwapGasInfo } from '../../types/swap/types';
 
 const EVM_GWEI_DECIMALS = 9;
 
+export const MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE = '999999999';
+
 export type ICustomPriorityFeeOverride = {
   customValue: string;
 };
+
+export function isValidMarketPresetCustomPriorityFeeValue(value?: string) {
+  if (!value) {
+    return false;
+  }
+
+  const valueBN = new BigNumber(value);
+  return (
+    valueBN.isFinite() &&
+    valueBN.gt(0) &&
+    valueBN.lte(MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE)
+  );
+}
 
 function convertEvmCustomPriorityFeeToFeeUnit({
   value,
@@ -33,9 +48,12 @@ export function applyCustomPriorityFeeToGasInfo({
   const customValueBN = new BigNumber(
     customPriorityFee?.customValue ?? Number.NaN,
   );
-  // Defense in depth: reject NaN, Infinity, non-positive values even though
-  // upstream `isValidMarketPresetCustomValue` should already filter these.
-  if (!customPriorityFee || !customValueBN.isFinite() || !customValueBN.gt(0)) {
+  // Defense in depth: upstream override creation should already apply the same
+  // range, but reject invalid persisted values before touching gas params.
+  if (
+    !customPriorityFee ||
+    !isValidMarketPresetCustomPriorityFeeValue(customPriorityFee.customValue)
+  ) {
     return gasInfo;
   }
 
