@@ -42,6 +42,7 @@ import {
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   SPOT_SELECTOR_MIN_VOLUME,
@@ -97,6 +98,14 @@ import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
 import type { LayoutChangeEvent } from 'react-native';
 
+function hasSpotVolumeData(
+  spotPriceMap: Record<string, { dayNtlVlm?: string | number } | undefined>,
+) {
+  return Object.values(spotPriceMap).some(
+    (ctx) => Number(ctx?.dayNtlVlm || 0) > 0,
+  );
+}
+
 const TabItem = memo(
   ({
     id,
@@ -149,20 +158,32 @@ function MobileTokenSelectorModal({
 
   // Spot data — try cache first, fallback to refresh if empty
   const [spotPriceMap] = useSpotAssetCtxsMapAtom();
+  const spotPriceMapRef = useRef(spotPriceMap);
+  spotPriceMapRef.current = spotPriceMap;
   const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);
   const [spotLoading, setSpotLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      let { universes } =
-        await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-      if (!universes?.length) {
-        await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
-        const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-        universes = res.universes;
+      let universes: ISpotUniverse[] = [];
+      try {
+        const cachedMeta =
+          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        universes = cachedMeta.universes ?? [];
+        if (!universes.length || !hasSpotVolumeData(spotPriceMapRef.current)) {
+          await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+          const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+          universes = res.universes ?? universes;
+        }
+      } catch (error) {
+        defaultLogger.app.error.log(
+          `Failed to load spot meta: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
       if (!cancelled) {
-        setSpotUniverses(universes ?? []);
+        setSpotUniverses(universes);
         setSpotLoading(false);
       }
     })();
@@ -316,8 +337,11 @@ function MobileTokenSelectorModal({
           activeTab: tab,
         }));
       });
+      actions.current.setTradeRouteViewState({
+        tokenSelectorTab: tab,
+      });
     },
-    [activeTab, setSelectorConfig],
+    [actions, activeTab, setSelectorConfig],
   );
 
   const computeSortValues = useCallback(
@@ -797,7 +821,11 @@ function MobileTokenSelectorModal({
   }
 
   let listEmptyComponent: ReactNode;
-  if (isPerpTokenSelectorSpotTab(displayActiveTab) && spotLoading) {
+  const shouldShowSpotLoadingEmptyState =
+    spotLoading &&
+    (isPerpTokenSelectorSpotTab(displayActiveTab) ||
+      isPerpTokenSelectorAllTab(displayActiveTab));
+  if (shouldShowSpotLoadingEmptyState) {
     listEmptyComponent = (
       <YStack p="$5" alignItems="center">
         <Spinner size="small" />

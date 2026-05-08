@@ -19,6 +19,7 @@ import {
   getDisplayPriceScaleDecimals,
   getHyperliquidTokenImageUrl,
   getMostFrequentDecimalPlaces,
+  getOrderBookSizeDisplaySymbol,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
@@ -106,6 +107,28 @@ describe('spot token display helpers', () => {
     expect(getHyperliquidTokenImageUrl('USDC')).toBe(
       'https://uni.onekey-asset.com/static/hyperliquid/USDC.png',
     );
+  });
+
+  test('formats order book size symbol from spot universe base name', () => {
+    expect(
+      getOrderBookSizeDisplaySymbol({
+        coin: '@107',
+        isSpot: true,
+        spotUniverse: { baseName: 'UETH' },
+      }),
+    ).toBe('ETH');
+    expect(
+      getOrderBookSizeDisplaySymbol({
+        coin: 'HPENGU/USDC',
+        isSpot: true,
+      }),
+    ).toBe('PENGU');
+    expect(
+      getOrderBookSizeDisplaySymbol({
+        coin: 'xyz:NVDA',
+        isSpot: false,
+      }),
+    ).toBe('NVDA');
   });
 });
 
