@@ -107,7 +107,8 @@ export function makeModalStackNavigatorOptions({
         pageType === EPageType.modal || pageType === EPageType.fullScreen,
       isOnboardingScreen:
         pageType === EPageType.onboarding ||
-        pageType === EPageType.fullScreenPush,
+        pageType === EPageType.fullScreenPush ||
+        pageType === EPageType.webView,
     }),
   } as any;
 
