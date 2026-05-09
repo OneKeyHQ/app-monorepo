@@ -37,6 +37,7 @@ import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { AprText } from './AprText';
+import { shouldShowRecommendedBalance } from './RecommendedSection.utils';
 
 const CARD_WIDTH = 240;
 const CARD_GAP = 12;
@@ -230,6 +231,9 @@ const RecommendedItem = memo(
       return <YStack width="$40" flexGrow={1} />;
     }
 
+    const showBalance =
+      !noWalletConnected && shouldShowRecommendedBalance(token);
+
     return (
       <YStack
         role="button"
@@ -273,7 +277,7 @@ const RecommendedItem = memo(
               maxAprInfo: token.maxAprInfo,
             }}
           />
-          {!noWalletConnected ? (
+          {showBalance ? (
             <YStack pt="$3" width="100%">
               <RecommendedBalanceLine
                 availableText={token.available?.text}
@@ -300,6 +304,8 @@ const RecommendedListItem = memo(
     isBalanceLoading?: boolean;
   }) => {
     const onPress = useRecommendedItemPress(token);
+    const showBalance =
+      !noWalletConnected && shouldShowRecommendedBalance(token);
 
     return (
       <ListItem
@@ -330,7 +336,7 @@ const RecommendedListItem = memo(
             </XStack>
           }
           secondary={
-            !noWalletConnected ? (
+            showBalance ? (
               <RecommendedBalanceLine
                 availableText={token.available?.text}
                 isLoading={isBalanceLoading}
