@@ -38,7 +38,7 @@ function CategoryTabs({
   tabs: Array<{ key: ICategoryKey; label: string }>;
 }) {
   return (
-    <XStack gap="$1" px="$2">
+    <XStack gap="$2" px="$5" pt="$2" pb="$1">
       {tabs.map((tab) => {
         const isFocused = selected === tab.key;
         return (
@@ -46,9 +46,8 @@ function CategoryTabs({
             key={tab.key}
             px="$2"
             py="$1.5"
-            bg={isFocused ? '$bgActive' : '$bg'}
-            borderRadius="$2"
-            borderCurve="continuous"
+            bg={isFocused ? '$bgActive' : '$bgSubdued'}
+            borderRadius="$full"
             onPress={() => onSelect(tab.key)}
             cursor="default"
           >
@@ -179,8 +178,8 @@ export function EarnAssetSearchContent({
   );
 
   return (
-    <YStack flex={1} gap="$2" py="$2">
-      <YStack px="$2">
+    <YStack flex={1}>
+      <YStack px="$5" pb="$4">
         <SearchBar
           autoFocus
           placeholder={intl.formatMessage({
@@ -197,6 +196,7 @@ export function EarnAssetSearchContent({
       />
       <ListView
         flex={1}
+        pt="$3"
         data={filteredAssets}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
