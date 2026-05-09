@@ -31,8 +31,17 @@ export function openWebView(params: IOpenWebViewParams) {
     return;
   }
 
+  // Three-level nesting required by RootModalNavigator + ModalFlowNavigator:
+  //   root stack ─ ERootRoutes.WebView         (RootModalNavigator)
+  //     └─ inner stack ─ EWebViewRoutes.WebView (ModalFlowNavigator wrapper)
+  //         └─ leaf screen ─ EWebViewRoutes.WebView (WebViewPage)
+  // Only the inner-most `params` reach `route.params` inside WebViewPage.
+  // Mirror the Onboarding navigate pattern (see useKeylessWallet.tsx).
   appGlobals.$rootAppNavigation?.navigate(ERootRoutes.WebView, {
     screen: EWebViewRoutes.WebView,
-    params,
+    params: {
+      screen: EWebViewRoutes.WebView,
+      params,
+    },
   });
 }

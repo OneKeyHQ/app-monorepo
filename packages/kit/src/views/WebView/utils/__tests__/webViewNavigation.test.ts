@@ -45,15 +45,18 @@ describe('openWebView', () => {
     expect(appGlobals.$rootAppNavigation.navigate).not.toHaveBeenCalled();
   });
 
-  it('navigates root app on native', () => {
+  it('navigates root app on native with three-level params nesting', () => {
     openWebView({ url: 'https://example.com', title: 'X' });
     expect(appGlobals.$rootAppNavigation.navigate).toHaveBeenCalledWith(
       ERootRoutes.WebView,
       expect.objectContaining({
         screen: EWebViewRoutes.WebView,
         params: expect.objectContaining({
-          url: 'https://example.com',
-          title: 'X',
+          screen: EWebViewRoutes.WebView,
+          params: expect.objectContaining({
+            url: 'https://example.com',
+            title: 'X',
+          }),
         }),
       }),
     );
