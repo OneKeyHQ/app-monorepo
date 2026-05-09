@@ -43,14 +43,17 @@ function RedeemSuccessPage() {
   const { rewardUsd, walletAddress, btcAmount, btcPriceUsd, payoutEligibleAt } =
     route.params;
 
-  const handleViewHistory = useCallback(() => {
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: EModalReferFriendsRoutes.RedemptionHistory }],
-      }),
-    );
-  }, [navigation]);
+  const handleViewHistory = useCallback(
+    (_close: () => void) => {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: EModalReferFriendsRoutes.RedemptionHistory }],
+        }),
+      );
+    },
+    [navigation],
+  );
 
   const handleDone = useCallback(() => {
     navigation.popStack();
