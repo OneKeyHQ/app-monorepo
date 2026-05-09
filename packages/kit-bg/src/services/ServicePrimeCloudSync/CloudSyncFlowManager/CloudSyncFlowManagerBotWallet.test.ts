@@ -173,6 +173,50 @@ describe('CloudSyncFlowManagerBotWallet', () => {
     expect(createBotWalletFromCloudSync).not.toHaveBeenCalled();
   });
 
+  test('isSupportSync rejects orphan target whose localDb wallet was removed', async () => {
+    // OK-53558: simulate an orphan bot wallet metadata entry — parent KW
+    // still exists but the bot wallet itself has been removed from localDb,
+    // so target.walletHash is undefined. isSupportSync must return false to
+    // keep the init sync flow from throwing "keyHash is required".
+    await expect(
+      manager.isSupportSync({
+        targetId: walletId,
+        dataType: EPrimeCloudSyncDataType.BotWallet,
+        walletId,
+        parentKeylessWalletId: 'hd-keyless-parent',
+        walletHash: undefined,
+        metadata: {
+          index: 1,
+          name: 'Bot #2',
+          visible: true,
+          status: BOT_WALLET_STATUS_ACTIVE,
+          createdAt: 123,
+        },
+        wallet: undefined,
+      } as any),
+    ).resolves.toBe(false);
+  });
+
+  test('isSupportSync accepts target whose walletHash is preserved by cloud payload', async () => {
+    await expect(
+      manager.isSupportSync({
+        targetId: walletId,
+        dataType: EPrimeCloudSyncDataType.BotWallet,
+        walletId,
+        parentKeylessWalletId: 'hd-keyless-parent',
+        walletHash: 'bot-wallet-hash',
+        metadata: {
+          index: 1,
+          name: 'Bot #2',
+          visible: true,
+          status: BOT_WALLET_STATUS_ACTIVE,
+          createdAt: 123,
+        },
+        wallet: undefined,
+      } as any),
+    ).resolves.toBe(true);
+  });
+
   test('syncToSceneEachItem creates missing local wallet from cloud payload', async () => {
     await expect(
       manager.syncToSceneEachItem({
