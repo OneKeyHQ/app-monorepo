@@ -7,6 +7,7 @@ import type {
   ICliBotWalletRevealableSeed,
   IPersistAuthSessionInput,
 } from '@onekeyhq/shared/src/types/cliBotWallet';
+import { BOT_WALLET_KEY_API_PATH } from '@onekeyhq/shared/src/utils/cliBotWalletExport/botWalletKeyApiConsts';
 
 type IRegisterResponse = {
   accessToken: string;
@@ -32,7 +33,6 @@ type IApiResponse<T> = {
   data: T;
 };
 
-const BOT_WALLET_KEY_API_PATH = '/prime/v1/bot-wallet-keys';
 const BOT_WALLET_HASH_SALT = 'onekey-cli-bot-wallet-key-api:v1';
 
 class SimulatedExportError extends Error {
