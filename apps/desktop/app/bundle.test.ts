@@ -97,14 +97,10 @@ describe('calculateSHA256', () => {
     expect(calculateSHA256('')).toBe('');
   });
 
-  test('calculates SHA256 for empty file', () => {
+  test('returns empty string for empty file (rejected to avoid SHA-of-empty masking truncated downloads)', () => {
     const filePath = createTempFile('');
     try {
-      const result = calculateSHA256(filePath);
-      expect(result).toBe(computeSha256(''));
-      expect(result).toBe(
-        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      );
+      expect(calculateSHA256(filePath)).toBe('');
     } finally {
       cleanupTempFile(filePath);
     }
