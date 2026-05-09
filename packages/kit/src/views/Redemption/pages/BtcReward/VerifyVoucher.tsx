@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -43,6 +43,7 @@ function VerifyVoucherPage() {
   const { codeInfo } = route.params;
 
   const [isVerifying, setIsVerifying] = useState(false);
+  const isVerifyingRef = useRef(false);
 
   const form = useForm<IFormValues>({
     defaultValues: { voucherCode: '' },
@@ -52,9 +53,14 @@ function VerifyVoucherPage() {
   const voucherCodeValue = form.watch('voucherCode');
 
   const handleVerify = useCallback(async () => {
+    if (isVerifyingRef.current) {
+      return;
+    }
+
     const voucherCode = form.getValues('voucherCode').trim();
     if (!voucherCode) return;
 
+    isVerifyingRef.current = true;
     setIsVerifying(true);
     form.clearErrors('voucherCode');
 
@@ -82,6 +88,7 @@ function VerifyVoucherPage() {
         }),
       });
     } finally {
+      isVerifyingRef.current = false;
       setIsVerifying(false);
     }
   }, [form, navigation, codeInfo, intl]);
