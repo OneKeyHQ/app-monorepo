@@ -22,7 +22,7 @@ function createWallet({
 }
 
 describe('filterTransferWallets', () => {
-  it('filters out keyless wallets from default transfer payloads', () => {
+  it('filters out keyless and bot wallets from default transfer payloads', () => {
     const wallets = filterTransferWallets({
       wallets: [
         createWallet({ id: 'hd-1' }),
@@ -31,13 +31,10 @@ describe('filterTransferWallets', () => {
       ],
     });
 
-    expect(wallets.map((wallet) => wallet.id)).toEqual([
-      'hd-1',
-      'hd-bot--parent-1--0',
-    ]);
+    expect(wallets.map((wallet) => wallet.id)).toEqual(['hd-1']);
   });
 
-  it('keeps only the requested wallet ids for scoped transfers', () => {
+  it('keeps requested bot wallet ids for scoped transfers (e.g. CLI export)', () => {
     const wallets = filterTransferWallets({
       wallets: [
         createWallet({ id: 'hd-1' }),

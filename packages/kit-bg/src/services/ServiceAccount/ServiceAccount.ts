@@ -3638,8 +3638,12 @@ class ServiceAccount extends ServiceBase {
 
   private async syncBotWalletSyncItem({
     walletId,
+    metadataOverride,
+    isDeleted = false,
   }: {
     walletId: string;
+    metadataOverride?: IBotWalletMetadata;
+    isDeleted?: boolean;
   }): Promise<void> {
     if (
       (await this.backgroundApi.serviceKeylessCloudSync.getActiveSyncMode()) !==
@@ -3648,7 +3652,10 @@ class ServiceAccount extends ServiceBase {
       return;
     }
 
-    const metadata = await simpleDb.botWallet.getMetadata(walletId);
+    // metadataOverride lets callers (e.g. cascade-removal) push a tombstone
+    // sync item after the local metadata has already been wiped.
+    const metadata =
+      metadataOverride ?? (await simpleDb.botWallet.getMetadata(walletId));
     if (!metadata) {
       return;
     }
@@ -3679,7 +3686,7 @@ class ServiceAccount extends ServiceBase {
             metadata,
           },
           dataTime: await this.backgroundApi.servicePrimeCloudSync.timeNow(),
-          isDeleted: false,
+          isDeleted,
         },
       );
 
@@ -3703,6 +3710,41 @@ class ServiceAccount extends ServiceBase {
       })().catch((error) => {
         errorUtils.autoPrintErrorIgnore(error);
       });
+    }
+  }
+
+  // OK-53556: Cascade-remove Bot Wallets associated with a Keyless wallet.
+  // Each child gets a tombstone sync item, then is removed from localDb and
+  // simpleDb.botWallet. Without this, child Bot Wallets become orphans in
+  // the wallet list and stay visible on other devices via cloud sync.
+  private async removeChildBotWalletsForKeylessParent({
+    parentKeylessWalletId,
+  }: {
+    parentKeylessWalletId: string;
+  }): Promise<void> {
+    const children = await simpleDb.botWallet.getBotWalletsForParent(
+      parentKeylessWalletId,
+    );
+    for (const child of children) {
+      try {
+        await this.syncBotWalletSyncItem({
+          walletId: child.walletId,
+          metadataOverride: child.metadata,
+          isDeleted: true,
+        });
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
+      try {
+        await localDb.removeWallet({ walletId: child.walletId });
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
+      try {
+        await simpleDb.botWallet.removeMetadata(child.walletId);
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
     }
   }
 
@@ -4242,6 +4284,15 @@ class ServiceAccount extends ServiceBase {
       walletId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
     });
+
+    // OK-53556: Cascade-remove child Bot Wallets before the Keyless parent
+    // so children don't become orphans and don't linger on other devices.
+    if (isKeylessWallet) {
+      await this.removeChildBotWalletsForKeylessParent({
+        parentKeylessWalletId: walletId,
+      });
+    }
+
     const result = await localDb.removeWallet({
       walletId,
       isRemoveToMocked,
