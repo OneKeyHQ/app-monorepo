@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { unionBy } from 'lodash';
 
@@ -8,6 +8,15 @@ import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 const NATIVE_LOAD_MORE_HARD_LIMIT = 30;
+
+// Coerce whatever the backend hands back as the next-page cursor into a
+// non-empty string. Some chains emit numeric offsets, but the request param
+// is always sent as a string. null / undefined / empty string mean "no more".
+function normalizeCursor(input: unknown): string | undefined {
+  if (input == null) return undefined;
+  const value = typeof input === 'string' ? input : String(input);
+  return value.length > 0 ? value : undefined;
+}
 
 export type IUseHistoryListLoadMoreParams = {
   enabled: boolean;
@@ -46,12 +55,19 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   const pageRef = useRef(1);
   const cursorRef = useRef<string | undefined>(undefined);
   const loadCountRef = useRef(0);
+  // Tracks an onEndReached call that arrived before pagination state was
+  // ready (e.g. the user reached the bottom while the first page was still
+  // loading, or the list was short enough that the threshold fired
+  // immediately). RN's SectionList won't refire onEndReached until content
+  // grows, so we replay the request once we're armed.
+  const pendingLoadMoreRef = useRef(false);
 
   const reset = useCallback(() => {
     initializedRef.current = false;
     pageRef.current = 1;
     cursorRef.current = undefined;
     loadCountRef.current = 0;
+    pendingLoadMoreRef.current = false;
     setAppendedTxs([]);
     setHasMore(false);
     setIsLoadingMore(false);
@@ -68,28 +84,36 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       }
       initializedRef.current = true;
       pageRef.current = 1;
-      cursorRef.current = meta.next;
-      setHasMore(!!meta.hasMore && !!meta.next);
+      // Cursor is opportunistic — indexer chains never produce one, non-indexer
+      // chains use it for the next request body. Either way, hasMore is the
+      // backend's word.
+      cursorRef.current = normalizeCursor(meta.next);
+      setHasMore(!!meta.hasMore);
     },
     [enabled],
   );
 
   const loadMore = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled) {
+      pendingLoadMoreRef.current = false;
+      return;
+    }
     if (isLoadingMore) return;
-    if (!hasMore) return;
     if (!accountId || !networkId) return;
     if (
       platformEnv.isNative &&
       loadCountRef.current >= NATIVE_LOAD_MORE_HARD_LIMIT
     ) {
+      pendingLoadMoreRef.current = false;
       return;
     }
+    if (!hasMore || !initializedRef.current) {
+      // Not ready yet — defer until the first page initialises pagination.
+      pendingLoadMoreRef.current = true;
+      return;
+    }
+    pendingLoadMoreRef.current = false;
     const cursor = cursorRef.current;
-    if (!cursor) {
-      setHasMore(false);
-      return;
-    }
     const nextPage = pageRef.current + 1;
     setIsLoadingMore(true);
     try {
@@ -105,13 +129,16 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
         currencyMap,
         limit,
         page: nextPage,
-        cursor,
+        ...(cursor ? { cursor } : {}),
       });
       pageRef.current = nextPage;
-      cursorRef.current = r.next;
+      cursorRef.current = normalizeCursor(r.next);
       loadCountRef.current += 1;
-      setHasMore(!!r.hasMoreOnChainHistory && !!r.next);
-      if (r.txs?.length) {
+      // Belt-and-suspenders: empty result also means "no more", protects
+      // against backend bugs where hasMore stays stuck on true.
+      const gotItems = !!r.txs?.length;
+      setHasMore(!!r.hasMoreOnChainHistory && gotItems);
+      if (gotItems) {
         setAppendedTxs((prev) => unionBy([...prev, ...r.txs], (tx) => tx.id));
       }
     } catch (error) {
@@ -134,6 +161,19 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     currencyMap,
     limit,
   ]);
+
+  // If onEndReached fired before we were ready (or while a request was in
+  // flight) replay it now that the pagination state is armed and idle.
+  useEffect(() => {
+    if (
+      enabled &&
+      hasMore &&
+      !isLoadingMore &&
+      pendingLoadMoreRef.current
+    ) {
+      void loadMore();
+    }
+  }, [enabled, hasMore, isLoadingMore, loadMore]);
 
   return {
     appendedTxs,

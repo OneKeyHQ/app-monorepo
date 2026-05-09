@@ -75,30 +75,38 @@ class ServiceHistory extends ServiceBase {
   private async _resolveHistoryRequestParams(
     params: IFetchAccountHistoryParams,
   ): Promise<IFetchAccountHistoryParams> {
-    if (params.minTimestampMs || params.maxTimestampMs) {
-      return params;
-    }
+    // AllNetworks aggregates server-side and does not accept the new pagination
+    // contract — keep its request body untouched.
     if (networkUtils.isAllNetwork({ networkId: params.networkId })) {
       return params;
+    }
+    // First-page callers omit `page`; the new contract requires page=1 so the
+    // backend can route consistently. Load-more callers already set page>1.
+    let resolved: IFetchAccountHistoryParams =
+      typeof params.page === 'number' ? params : { ...params, page: 1 };
+    if (resolved.minTimestampMs || resolved.maxTimestampMs) {
+      return resolved;
     }
     let network;
     try {
       network = await this.backgroundApi.serviceNetwork.getNetwork({
-        networkId: params.networkId,
+        networkId: resolved.networkId,
       });
     } catch {
       network = undefined;
     }
-    // Indexer-backed chains paginate without a time window; non-indexer chains
-    // default to the latest 6 months so RPC-based scans stay bounded.
-    if (network?.backendIndex !== false) {
-      return params;
+    // Indexer-backed chains (only EVM-like presets opt-in via
+    // `backendIndex: true`) paginate without a time window. Everything else —
+    // explicit `false`, or undefined — is treated as non-indexer so RPC-based
+    // scans stay bounded by a 6-month window.
+    if (network?.backendIndex === true) {
+      return resolved;
     }
     const HISTORY_TIME_RANGE_MS =
       HISTORY_TIME_RANGE_MONTHS * 30 * 24 * 60 * 60 * 1000;
     const now = Date.now();
     return {
-      ...params,
+      ...resolved,
       minTimestampMs: now - HISTORY_TIME_RANGE_MS,
       maxTimestampMs: now,
     };
@@ -110,7 +118,9 @@ class ServiceHistory extends ServiceBase {
     if (networkUtils.isAllNetwork({ networkId: params.networkId })) {
       return false;
     }
-    if (params.cursor) return true;
+    if (typeof params.cursor === 'string' && params.cursor.length > 0) {
+      return true;
+    }
     if (typeof params.page === 'number' && params.page > 1) return true;
     return false;
   }
@@ -975,6 +985,8 @@ class ServiceHistory extends ServiceBase {
           })),
         };
       }
+      const normalizedCursor =
+        typeof cursor === 'string' && cursor.length > 0 ? cursor : undefined;
       return client.post<{ data: IFetchAccountHistoryResp }>(
         '/wallet/v1/account/history/list',
         {
@@ -989,7 +1001,7 @@ class ServiceHistory extends ServiceBase {
           withoutDust: filterLowValue,
           limit,
           ...(typeof page === 'number' ? { page } : {}),
-          ...(cursor ? { cursor } : {}),
+          ...(normalizedCursor ? { cursor: normalizedCursor } : {}),
           ...(typeof minTimestampMs === 'number' ? { minTimestampMs } : {}),
           ...(typeof maxTimestampMs === 'number' ? { maxTimestampMs } : {}),
         },
@@ -1023,8 +1035,15 @@ class ServiceHistory extends ServiceBase {
       nfts,
       addressMap,
       hasMore,
-      next,
+      next: rawNext,
     } = resp.data.data;
+    // Backend contract: `next` is a string cursor, but some chains return a
+    // numeric offset that needs string-coercion before being sent back as the
+    // next request's `cursor`. null / undefined / empty string mean "no more".
+    const next =
+      rawNext == null || (rawNext as unknown) === ''
+        ? undefined
+        : String(rawNext);
 
     const dbAccountCache: {
       [accountId: string]: IDBAccount;
