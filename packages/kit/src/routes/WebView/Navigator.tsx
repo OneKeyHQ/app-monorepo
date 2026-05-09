@@ -40,7 +40,8 @@ function useDesktopOverlayParentPassthrough() {
     for (let i = 0; i < 2; i += 1) {
       if (!(parent instanceof HTMLElement)) break;
       const previous = parent.style.getPropertyValue('pointer-events');
-      const previousPriority = parent.style.getPropertyPriority('pointer-events');
+      const previousPriority =
+        parent.style.getPropertyPriority('pointer-events');
       const target = parent;
       target.style.setProperty('pointer-events', 'none', 'important');
       restoreFns.push(() => {
@@ -80,11 +81,7 @@ export function WebViewNavigator() {
     // Inner wrapper is absolute-positioned starting at sidebar width so the
     // WebView content occupies only the main-content area.
     return (
-      <Stack
-        flex={1}
-        pointerEvents="box-none"
-        testID="webview-overlay-outer"
-      >
+      <Stack flex={1} pointerEvents="box-none" testID="webview-overlay-outer">
         <Stack
           position="absolute"
           top={0}
