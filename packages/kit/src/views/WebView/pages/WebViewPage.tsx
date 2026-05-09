@@ -295,8 +295,12 @@ function WebViewPageContent() {
         {platformEnv.isDesktop ? (
           <Stack
             flex={1}
-            borderTopStartRadius="$3"
-            borderTopEndRadius="$3"
+            mx="$2"
+            mb="$2"
+            borderTopStartRadius="$5"
+            borderTopEndRadius="$5"
+            borderBottomStartRadius="$5"
+            borderBottomEndRadius="$5"
             outlineWidth="$px"
             outlineStyle="solid"
             outlineColor="$borderSubdued"
