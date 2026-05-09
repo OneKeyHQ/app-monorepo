@@ -966,6 +966,16 @@ class ServiceHistory extends ServiceBase {
       };
     }
 
+    let networkInfo;
+    try {
+      networkInfo = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId,
+      });
+    } catch {
+      networkInfo = undefined;
+    }
+    const isIndexerChain = networkInfo?.backendIndex === true;
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     let resp;
     let extraParams: any;
@@ -987,6 +997,32 @@ class ServiceHistory extends ServiceBase {
       }
       const normalizedCursor =
         typeof cursor === 'string' && cursor.length > 0 ? cursor : undefined;
+
+      // Indexer chains paginate via maxTimestampMs only — the backend's
+      // `next` is a millisecond timestamp that we feed back as the upper
+      // bound of the next request. They never carry `page` or `cursor` on
+      // the wire. Non-indexer chains keep the page+cursor contract.
+      const paginationBody: Record<string, number | string> = {};
+      if (isIndexerChain) {
+        if (normalizedCursor) {
+          const ts = Number(normalizedCursor);
+          if (Number.isFinite(ts)) {
+            paginationBody.maxTimestampMs = ts;
+          }
+        } else if (typeof maxTimestampMs === 'number') {
+          paginationBody.maxTimestampMs = maxTimestampMs;
+        }
+      } else {
+        if (typeof page === 'number') paginationBody.page = page;
+        if (normalizedCursor) paginationBody.cursor = normalizedCursor;
+        if (typeof minTimestampMs === 'number') {
+          paginationBody.minTimestampMs = minTimestampMs;
+        }
+        if (typeof maxTimestampMs === 'number') {
+          paginationBody.maxTimestampMs = maxTimestampMs;
+        }
+      }
+
       return client.post<{ data: IFetchAccountHistoryResp }>(
         '/wallet/v1/account/history/list',
         {
@@ -1000,10 +1036,7 @@ class ServiceHistory extends ServiceBase {
           onlySafe: filterScam,
           withoutDust: filterLowValue,
           limit,
-          ...(typeof page === 'number' ? { page } : {}),
-          ...(normalizedCursor ? { cursor: normalizedCursor } : {}),
-          ...(typeof minTimestampMs === 'number' ? { minTimestampMs } : {}),
-          ...(typeof maxTimestampMs === 'number' ? { maxTimestampMs } : {}),
+          ...paginationBody,
         },
         {
           headers:

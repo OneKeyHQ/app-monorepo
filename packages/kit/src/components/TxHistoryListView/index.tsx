@@ -32,10 +32,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
-import {
-  useHasMoreOnChainHistoryAtom,
-  useSearchKeyAtom,
-} from '../../states/jotai/contexts/historyList';
+import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { withBrowserProvider } from '../../views/Discovery/pages/Browser/WithBrowserProvider';
@@ -89,7 +86,7 @@ const ListFooterComponent = ({
   walletId,
   indexedAccountId,
   showFooter,
-  hasMoreOnChainHistory,
+  hasItems,
   isSingleAccount,
   isLoadingMore,
   hasMore,
@@ -99,7 +96,7 @@ const ListFooterComponent = ({
   walletId?: string;
   indexedAccountId?: string;
   showFooter?: boolean;
-  hasMoreOnChainHistory?: boolean;
+  hasItems?: boolean;
   isSingleAccount?: boolean;
   isLoadingMore?: boolean;
   hasMore?: boolean;
@@ -145,11 +142,13 @@ const ListFooterComponent = ({
     );
   }
 
-  // Suppress the explorer button while there are still more pages to fetch
-  // locally — only show it when the user has truly bottomed out.
+  // The "view on block explorer" button is the permanent end-of-list affordance
+  // — show it whenever the list has any items and the user has truly bottomed
+  // out (no more pages to fetch locally). Hide while pagination is in flight
+  // (handled above) and on empty / cap-suppressed lists.
   const showExplorerFooter =
     showFooter &&
-    hasMoreOnChainHistory &&
+    hasItems &&
     !hasMore &&
     (network?.isAllNetworks || !vaultSettings?.hideBlockExplorer);
 
@@ -306,7 +305,6 @@ function BaseTxHistoryListView(props: IProps) {
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
-  const [hasMoreOnChainHistory] = useHasMoreOnChainHistoryAtom();
 
   const filteredHistory = useMemo(
     () =>
@@ -503,9 +501,7 @@ function BaseTxHistoryListView(props: IProps) {
       ListFooterComponent={
         <ListFooterComponent
           showFooter={showFooter}
-          hasMoreOnChainHistory={
-            sections.length > 0 ? hasMoreOnChainHistory : false
-          }
+          hasItems={sections.length > 0}
           accountId={accountId}
           networkId={networkId}
           walletId={walletId}
