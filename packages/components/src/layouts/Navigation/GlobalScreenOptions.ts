@@ -167,7 +167,14 @@ export function makeWebviewScreenOptions(info: {
     detachPreviousScreen: false,
     headerShown: false,
     presentation: 'transparentModal',
-    cardStyle: { backgroundColor: 'transparent' },
+    // `pointerEvents: 'box-none'` lets the screen card itself pass clicks
+    // through to the underlying Main route where the WebView page doesn't
+    // render any opaque content (e.g. the sidebar passthrough column).
+    // RN-Web translates this to a CSS rule on the card View.
+    cardStyle: {
+      backgroundColor: 'transparent',
+      pointerEvents: 'box-none',
+    },
     // @ts-expect-error
     animation: 'custom-animation-on-web',
     ...makeModalOpenAnimationOptions(info),

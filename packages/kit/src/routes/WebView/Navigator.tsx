@@ -6,11 +6,6 @@ import type { EWebViewRoutes } from '@onekeyhq/shared/src/routes';
 
 import { webViewRouter } from './router';
 
-// macOS hidden-titleBar window still leaves a ~28-32px region at the top for
-// the traffic-light buttons. Match Onboarding's $10 (~40px) so we sit cleanly
-// below them with a little breathing room.
-const DESKTOP_TITLE_BAR_OFFSET = 36;
-
 export function WebViewNavigator() {
   const navigator = (
     <RootModalNavigator<EWebViewRoutes>
@@ -19,17 +14,13 @@ export function WebViewNavigator() {
     />
   );
   if (platformEnv.isDesktop) {
-    // Inset by sidebar width on the left and titlebar height on the top.
-    // `pointerEvents="box-none"` lets the empty (transparent) area pass
-    // pointer events through to the underlying Main route — so the sidebar
-    // and the macOS traffic-light buttons stay interactive.
+    // Inset by sidebar width only — the header covers the macOS hidden
+    // titlebar area on purpose so the close button reaches the top-left.
+    // `pointerEvents="box-none"` lets the empty padding-left pass through
+    // to the underlying Main route so the sidebar stays interactive while
+    // the WebView is open.
     return (
-      <Stack
-        flex={1}
-        pl={MIN_SIDEBAR_WIDTH}
-        pt={DESKTOP_TITLE_BAR_OFFSET}
-        pointerEvents="box-none"
-      >
+      <Stack flex={1} pl={MIN_SIDEBAR_WIDTH} pointerEvents="box-none">
         {navigator}
       </Stack>
     );
