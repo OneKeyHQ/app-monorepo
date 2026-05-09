@@ -16,9 +16,9 @@ import {
   isWhatsNewShown,
   markWhatsNewShown,
 } from '@onekeyhq/shared/src/appUpdate';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -27,17 +27,9 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { runAfterTokensDone } from '../../hooks/useRunAfterTokensDone';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
 
-import {
-  buildSoftwareUpdateParams,
-} from './updateAnalytics';
-import {
-  showSilentUpdateDialogUI,
-  showUpdateDialogUI,
-} from './updateDialogs';
-import {
-  isAutoUpdateStrategy,
-  isForceUpdateStrategy,
-} from './updateStrategy';
+import { buildSoftwareUpdateParams } from './updateAnalytics';
+import { showSilentUpdateDialogUI, showUpdateDialogUI } from './updateDialogs';
+import { isAutoUpdateStrategy, isForceUpdateStrategy } from './updateStrategy';
 import { useDownloadPackage } from './useDownloadPackage';
 
 // Module-level guard so the first-launch dispatch effect fires exactly

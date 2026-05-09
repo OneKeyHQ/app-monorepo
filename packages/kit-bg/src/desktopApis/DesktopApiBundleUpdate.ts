@@ -172,294 +172,297 @@ class DesktopApiAppBundleUpdate {
           reject(error);
         };
         try {
-        const tempDir = this.getDownloadDir();
-        logger.info('bundle-download', {
-          tempDir,
-        });
-        const fileName = `${appVersion}-${bundleVersion}.zip`;
-        const filePath = path.join(tempDir, fileName);
-        const partialFilePath = `${filePath}.partial`;
+          const tempDir = this.getDownloadDir();
+          logger.info('bundle-download', {
+            tempDir,
+          });
+          const fileName = `${appVersion}-${bundleVersion}.zip`;
+          const filePath = path.join(tempDir, fileName);
+          const partialFilePath = `${filePath}.partial`;
 
-        let downloadedBytes = 0;
-        let totalBytes = fileSize;
+          let downloadedBytes = 0;
+          let totalBytes = fileSize;
 
-        if (fs.existsSync(filePath)) {
-          try {
-            const result = await this.verifyAndResolve(filePath, sha256);
-            if (result) {
-              this.isDownloading = false;
-              safeResolve({
-                downloadedFile: filePath,
-                downloadUrl: bundleUrl,
-                latestVersion: appVersion,
-                bundleVersion,
-              });
-              return;
+          if (fs.existsSync(filePath)) {
+            try {
+              const result = await this.verifyAndResolve(filePath, sha256);
+              if (result) {
+                this.isDownloading = false;
+                safeResolve({
+                  downloadedFile: filePath,
+                  downloadUrl: bundleUrl,
+                  latestVersion: appVersion,
+                  bundleVersion,
+                });
+                return;
+              }
+            } catch (e) {
+              logger.error(
+                'bundle-download',
+                'Cached file verification failed, re-downloading',
+                e,
+              );
             }
-          } catch (e) {
-            logger.error(
+            await this.clearDownload();
+            fs.mkdirSync(tempDir, { recursive: true });
+          }
+          // Check if partial file exists for resume
+          if (fs.existsSync(partialFilePath)) {
+            const stats = fs.statSync(partialFilePath);
+            downloadedBytes = stats.size;
+            logger.info(
               'bundle-download',
-              'Cached file verification failed, re-downloading',
-              e,
+              `Resuming download from ${downloadedBytes} bytes`,
             );
           }
-          await this.clearDownload();
-          fs.mkdirSync(tempDir, { recursive: true });
-        }
-        // Check if partial file exists for resume
-        if (fs.existsSync(partialFilePath)) {
-          const stats = fs.statSync(partialFilePath);
-          downloadedBytes = stats.size;
-          logger.info(
-            'bundle-download',
-            `Resuming download from ${downloadedBytes} bytes`,
-          );
-        }
 
-        const options = {
-          headers:
-            downloadedBytes > 0 ? { Range: `bytes=${downloadedBytes}-` } : {},
-        };
+          const options = {
+            headers:
+              downloadedBytes > 0 ? { Range: `bytes=${downloadedBytes}-` } : {},
+          };
 
-        let downloadRequest: http.ClientRequest | null = null;
+          let downloadRequest: http.ClientRequest | null = null;
 
-        const makeDownloadRequest = (
-          url: string,
-          reqOptions: typeof options,
-          redirectCount = 0,
-        ) => {
-          const reqProtocol = url.startsWith('https://') ? https : http;
-          downloadRequest = reqProtocol.get(
-            url,
-            reqOptions,
-            async (response) => {
-              // Handle redirects (301, 302, 307, 308)
-              if (
-                response.statusCode &&
-                [301, 302, 307, 308].includes(response.statusCode) &&
-                response.headers.location
-              ) {
-                response.resume();
-                if (redirectCount >= 5) {
-                  logger.error('bundle-download', 'Too many redirects (>5)');
-                  this.isDownloading = false;
-                  safeReject(new Error('Too many redirects'));
-                  return;
-                }
-                const rawRedirectUrl = response.headers.location;
-                const resolvedRedirectUrl = new URL(
-                  rawRedirectUrl,
-                  url,
-                ).toString();
-                if (!resolvedRedirectUrl.startsWith('https://')) {
-                  logger.error(
-                    'bundle-download',
-                    `Redirect to non-HTTPS URL rejected: ${resolvedRedirectUrl}`,
-                  );
-                  this.isDownloading = false;
-                  safeReject(
-                    new Error('Redirect to non-HTTPS URL is not allowed'),
-                  );
-                  return;
-                }
-                makeDownloadRequest(
-                  resolvedRedirectUrl,
-                  reqOptions,
-                  redirectCount + 1,
-                );
-                return;
-              }
-
-              if (response.statusCode === 416) {
-                // Range not satisfiable, file might be complete
-                if (fs.existsSync(partialFilePath)) {
-                  try {
-                    fs.renameSync(partialFilePath, filePath);
-                    await this.verifyAndResolve(filePath, sha256);
+          const makeDownloadRequest = (
+            url: string,
+            reqOptions: typeof options,
+            redirectCount = 0,
+          ) => {
+            const reqProtocol = url.startsWith('https://') ? https : http;
+            downloadRequest = reqProtocol.get(
+              url,
+              reqOptions,
+              async (response) => {
+                // Handle redirects (301, 302, 307, 308)
+                if (
+                  response.statusCode &&
+                  [301, 302, 307, 308].includes(response.statusCode) &&
+                  response.headers.location
+                ) {
+                  response.resume();
+                  if (redirectCount >= 5) {
+                    logger.error('bundle-download', 'Too many redirects (>5)');
                     this.isDownloading = false;
-                    safeResolve({
-                      downloadedFile: filePath,
-                      downloadUrl: bundleUrl,
-                      latestVersion: appVersion,
-                      bundleVersion,
-                    });
-                  } catch (error) {
+                    safeReject(new Error('Too many redirects'));
+                    return;
+                  }
+                  const rawRedirectUrl = response.headers.location;
+                  const resolvedRedirectUrl = new URL(
+                    rawRedirectUrl,
+                    url,
+                  ).toString();
+                  if (!resolvedRedirectUrl.startsWith('https://')) {
+                    logger.error(
+                      'bundle-download',
+                      `Redirect to non-HTTPS URL rejected: ${resolvedRedirectUrl}`,
+                    );
                     this.isDownloading = false;
                     safeReject(
-                      wrapDownloadError(error, 'Failed to finalize download'),
+                      new Error('Redirect to non-HTTPS URL is not allowed'),
                     );
+                    return;
                   }
+                  makeDownloadRequest(
+                    resolvedRedirectUrl,
+                    reqOptions,
+                    redirectCount + 1,
+                  );
                   return;
                 }
-                logger.error(
-                  'bundle-download',
-                  'HTTP 416 with no partial file to resume',
-                );
-                this.isDownloading = false;
-                safeReject(new Error('HTTP 416'));
-                return;
-              }
 
-              if (response.statusCode !== 200 && response.statusCode !== 206) {
-                logger.error(
-                  'bundle-download',
-                  `Unexpected HTTP status: ${response.statusCode || 0}`,
-                );
-                this.isDownloading = false;
-                // Use the canonical "HTTP <code>" shape so
-                // extractUpdateErrorCode in hooks.tsx parses it as
-                // HTTP_<code> and can apply the unrecoverable-list
-                // (HTTP_403/404/410). Previously "Download failed with
-                // status: 404" did not match the regex, so 404s went
-                // through the retry-with-backoff loop pointlessly.
-                safeReject(new Error(`HTTP ${response.statusCode || 0}`));
-                return;
-              }
-
-              if (response.statusCode === 200) {
-                // Full download
-                totalBytes = parseInt(
-                  response.headers['content-length'] || '0',
-                  10,
-                );
-                downloadedBytes = 0;
-              } else if (response.statusCode === 206) {
-                // Partial download
-                const contentRange = response.headers['content-range'];
-                if (contentRange) {
-                  const match = contentRange.match(/bytes \d+-\d+\/(\d+)/);
-                  if (match) {
-                    totalBytes = parseInt(match[1], 10);
+                if (response.statusCode === 416) {
+                  // Range not satisfiable, file might be complete
+                  if (fs.existsSync(partialFilePath)) {
+                    try {
+                      fs.renameSync(partialFilePath, filePath);
+                      await this.verifyAndResolve(filePath, sha256);
+                      this.isDownloading = false;
+                      safeResolve({
+                        downloadedFile: filePath,
+                        downloadUrl: bundleUrl,
+                        latestVersion: appVersion,
+                        bundleVersion,
+                      });
+                    } catch (error) {
+                      this.isDownloading = false;
+                      safeReject(
+                        wrapDownloadError(error, 'Failed to finalize download'),
+                      );
+                    }
+                    return;
                   }
-                }
-              }
-
-              const writeStream = fs.createWriteStream(partialFilePath, {
-                flags: downloadedBytes > 0 ? 'a' : 'w',
-              });
-
-              // Handle download cancellation
-              const cancelDownload = () => {
-                if (downloadRequest) {
-                  this.isDownloading = false;
-                  downloadRequest.destroy();
-                  downloadRequest = null;
-                }
-                writeStream.destroy();
-                safeReject(new Error('Download cancelled'));
-              };
-
-              // Store cancel function for external access
-              this.cancelCurrentDownload = cancelDownload;
-
-              response.on('data', (chunk) => {
-                downloadedBytes += (chunk as Buffer).length;
-                writeStream.write(chunk);
-
-                // Emit progress
-                const percent =
-                  totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
-                this.getMainWindow()?.webContents.send(
-                  ipcMessageKeys.UPDATE_DOWNLOADING,
-                  {
-                    percent,
-                    transferred: downloadedBytes,
-                    total: totalBytes,
-                    bytesPerSecond: 0,
-                    delta: (chunk as Buffer).length,
-                  },
-                );
-                updateWindowProgressBar(this.getMainWindow(), percent);
-              });
-
-              response.on('end', () => {
-                writeStream.end();
-              });
-
-              writeStream.on('finish', async () => {
-                this.isDownloading = false;
-                logger.info(
-                  'bundle-download-end',
-                  downloadedBytes,
-                  totalBytes,
-                  partialFilePath,
-                  filePath,
-                );
-                if (downloadedBytes >= totalBytes) {
-                  try {
-                    // Download complete, rename and verify
-                    fs.renameSync(partialFilePath, filePath);
-                    await this.verifyAndResolve(filePath, sha256);
-                    safeResolve({
-                      downloadedFile: filePath,
-                      downloadUrl: bundleUrl,
-                      latestVersion: appVersion,
-                      bundleVersion,
-                    });
-                  } catch (error) {
-                    safeReject(
-                      wrapDownloadError(error, 'Failed to finalize download'),
-                    );
-                  }
-                } else {
                   logger.error(
                     'bundle-download',
-                    `Download incomplete: ${downloadedBytes}/${totalBytes} bytes`,
+                    'HTTP 416 with no partial file to resume',
                   );
-                  safeReject(new Error('Download incomplete'));
+                  this.isDownloading = false;
+                  safeReject(new Error('HTTP 416'));
+                  return;
                 }
-                clearWindowProgressBar(this.getMainWindow());
-              });
 
-              writeStream.on('error', (error) => {
-                logger.error('bundle-download writeStream error:', error);
-                if (downloadRequest) {
-                  downloadRequest.destroy();
+                if (
+                  response.statusCode !== 200 &&
+                  response.statusCode !== 206
+                ) {
+                  logger.error(
+                    'bundle-download',
+                    `Unexpected HTTP status: ${response.statusCode || 0}`,
+                  );
+                  this.isDownloading = false;
+                  // Use the canonical "HTTP <code>" shape so
+                  // extractUpdateErrorCode in hooks.tsx parses it as
+                  // HTTP_<code> and can apply the unrecoverable-list
+                  // (HTTP_403/404/410). Previously "Download failed with
+                  // status: 404" did not match the regex, so 404s went
+                  // through the retry-with-backoff loop pointlessly.
+                  safeReject(new Error(`HTTP ${response.statusCode || 0}`));
+                  return;
+                }
+
+                if (response.statusCode === 200) {
+                  // Full download
+                  totalBytes = parseInt(
+                    response.headers['content-length'] || '0',
+                    10,
+                  );
+                  downloadedBytes = 0;
+                } else if (response.statusCode === 206) {
+                  // Partial download
+                  const contentRange = response.headers['content-range'];
+                  if (contentRange) {
+                    const match = contentRange.match(/bytes \d+-\d+\/(\d+)/);
+                    if (match) {
+                      totalBytes = parseInt(match[1], 10);
+                    }
+                  }
+                }
+
+                const writeStream = fs.createWriteStream(partialFilePath, {
+                  flags: downloadedBytes > 0 ? 'a' : 'w',
+                });
+
+                // Handle download cancellation
+                const cancelDownload = () => {
+                  if (downloadRequest) {
+                    this.isDownloading = false;
+                    downloadRequest.destroy();
+                    downloadRequest = null;
+                  }
+                  writeStream.destroy();
+                  safeReject(new Error('Download cancelled'));
+                };
+
+                // Store cancel function for external access
+                this.cancelCurrentDownload = cancelDownload;
+
+                response.on('data', (chunk) => {
+                  downloadedBytes += (chunk as Buffer).length;
+                  writeStream.write(chunk);
+
+                  // Emit progress
+                  const percent =
+                    totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
+                  this.getMainWindow()?.webContents.send(
+                    ipcMessageKeys.UPDATE_DOWNLOADING,
+                    {
+                      percent,
+                      transferred: downloadedBytes,
+                      total: totalBytes,
+                      bytesPerSecond: 0,
+                      delta: (chunk as Buffer).length,
+                    },
+                  );
+                  updateWindowProgressBar(this.getMainWindow(), percent);
+                });
+
+                response.on('end', () => {
+                  writeStream.end();
+                });
+
+                writeStream.on('finish', async () => {
+                  this.isDownloading = false;
+                  logger.info(
+                    'bundle-download-end',
+                    downloadedBytes,
+                    totalBytes,
+                    partialFilePath,
+                    filePath,
+                  );
+                  if (downloadedBytes >= totalBytes) {
+                    try {
+                      // Download complete, rename and verify
+                      fs.renameSync(partialFilePath, filePath);
+                      await this.verifyAndResolve(filePath, sha256);
+                      safeResolve({
+                        downloadedFile: filePath,
+                        downloadUrl: bundleUrl,
+                        latestVersion: appVersion,
+                        bundleVersion,
+                      });
+                    } catch (error) {
+                      safeReject(
+                        wrapDownloadError(error, 'Failed to finalize download'),
+                      );
+                    }
+                  } else {
+                    logger.error(
+                      'bundle-download',
+                      `Download incomplete: ${downloadedBytes}/${totalBytes} bytes`,
+                    );
+                    safeReject(new Error('Download incomplete'));
+                  }
+                  clearWindowProgressBar(this.getMainWindow());
+                });
+
+                writeStream.on('error', (error) => {
+                  logger.error('bundle-download writeStream error:', error);
+                  if (downloadRequest) {
+                    downloadRequest.destroy();
+                    downloadRequest = null;
+                  }
+                  this.isDownloading = false;
+                  this.cancelCurrentDownload = () => {};
+                  safeReject(wrapDownloadError(error, 'Write stream error'));
+                  clearWindowProgressBar(this.getMainWindow());
+                });
+
+                response.on('error', (error) => {
+                  logger.error(
+                    'bundle-download',
+                    'Response stream error:',
+                    error,
+                  );
+                  writeStream.destroy();
                   downloadRequest = null;
-                }
-                this.isDownloading = false;
-                this.cancelCurrentDownload = () => {};
-                safeReject(wrapDownloadError(error, 'Write stream error'));
-                clearWindowProgressBar(this.getMainWindow());
-              });
+                  this.isDownloading = false;
+                  this.cancelCurrentDownload = () => {};
+                  safeReject(wrapDownloadError(error, 'Response stream error'));
+                  clearWindowProgressBar(this.getMainWindow());
+                });
+              },
+            );
 
-              response.on('error', (error) => {
-                logger.error(
-                  'bundle-download',
-                  'Response stream error:',
-                  error,
-                );
-                writeStream.destroy();
-                downloadRequest = null;
-                this.isDownloading = false;
-                this.cancelCurrentDownload = () => {};
-                safeReject(wrapDownloadError(error, 'Response stream error'));
-                clearWindowProgressBar(this.getMainWindow());
-              });
-            },
-          );
-
-          downloadRequest.on('error', (error) => {
-            logger.error('bundle-download', 'Request error:', error);
-            downloadRequest = null;
-            this.cancelCurrentDownload = null;
-            this.isDownloading = false;
-            safeReject(wrapDownloadError(error, 'Request error'));
-          });
-
-          downloadRequest.setTimeout(1000 * 60 * 30, () => {
-            logger.error('bundle-download', 'Download timed out (30min)');
-            if (downloadRequest) {
-              downloadRequest.destroy();
+            downloadRequest.on('error', (error) => {
+              logger.error('bundle-download', 'Request error:', error);
               downloadRequest = null;
-            }
-            this.isDownloading = false;
-            this.cancelCurrentDownload = null;
-            safeReject(new Error('Download timeout'));
-          });
-        };
+              this.cancelCurrentDownload = null;
+              this.isDownloading = false;
+              safeReject(wrapDownloadError(error, 'Request error'));
+            });
 
-        makeDownloadRequest(bundleUrl, options);
+            downloadRequest.setTimeout(1000 * 60 * 30, () => {
+              logger.error('bundle-download', 'Download timed out (30min)');
+              if (downloadRequest) {
+                downloadRequest.destroy();
+                downloadRequest = null;
+              }
+              this.isDownloading = false;
+              this.cancelCurrentDownload = null;
+              safeReject(new Error('Download timeout'));
+            });
+          };
+
+          makeDownloadRequest(bundleUrl, options);
         } catch (setupError) {
           logger.error('bundle-download', 'Setup error:', setupError);
           safeReject(wrapDownloadError(setupError, 'Download setup error'));

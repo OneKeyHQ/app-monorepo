@@ -3,12 +3,8 @@ import { useEffect, useRef } from 'react';
 import { throttle } from 'lodash';
 import { StyleSheet } from 'react-native';
 
-import {
-  Dialog,
-  LottieView,
-  YStack,
-  useInTabDialog,
-} from '@onekeyhq/components';
+import type { useInTabDialog } from '@onekeyhq/components';
+import { Dialog, LottieView, YStack } from '@onekeyhq/components';
 import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
 import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

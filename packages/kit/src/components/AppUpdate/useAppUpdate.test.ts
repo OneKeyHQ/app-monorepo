@@ -541,7 +541,7 @@ describe('sanitizeUpdateErrorMessage', () => {
   test('redacts Linux /home/<name>/ path', () => {
     expect(
       sanitizeUpdateErrorMessage(
-        new Error("EACCES: permission denied at /home/bob/.config/OneKey"),
+        new Error('EACCES: permission denied at /home/bob/.config/OneKey'),
       ),
     ).toBe('EACCES: permission denied at /home/<redacted>/.config/OneKey');
   });
@@ -550,7 +550,7 @@ describe('sanitizeUpdateErrorMessage', () => {
     expect(
       sanitizeUpdateErrorMessage(
         new Error(
-          "Failed to unzip bundle: file at /var/mobile/Containers/Data/Application/8E9F1234-AAAA-BBBB-CCCC-DEADBEEF0001/Library/Caches/x.zip",
+          'Failed to unzip bundle: file at /var/mobile/Containers/Data/Application/8E9F1234-AAAA-BBBB-CCCC-DEADBEEF0001/Library/Caches/x.zip',
         ),
       ),
     ).toBe(
@@ -574,7 +574,7 @@ describe('sanitizeUpdateErrorMessage', () => {
     expect(
       sanitizeUpdateErrorMessage(
         new Error(
-          "java.io.FileNotFoundException: /data/data/so.onekey.app.wallet/files/onekey-bundle-download/x.zip.partial: open failed: ENOSPC",
+          'java.io.FileNotFoundException: /data/data/so.onekey.app.wallet/files/onekey-bundle-download/x.zip.partial: open failed: ENOSPC',
         ),
       ),
     ).toBe(
@@ -589,9 +589,7 @@ describe('sanitizeUpdateErrorMessage', () => {
           'IOException: /data/user/0/so.onekey.app.wallet/files/foo: permission denied',
         ),
       ),
-    ).toBe(
-      'IOException: /data/user/0/<redacted>/files/foo: permission denied',
-    );
+    ).toBe('IOException: /data/user/0/<redacted>/files/foo: permission denied');
   });
 
   test('preserves non-PII content unchanged', () => {
@@ -653,12 +651,16 @@ describe('extractUpdateErrorCode', () => {
     // "IO_NSCocoaErrorDomain_257" was truncated to "IO_NSC".
     expect(
       extractUpdateErrorCode(
-        new Error('Bundle SHA256 verification failed: IO_NSCocoaErrorDomain_257'),
+        new Error(
+          'Bundle SHA256 verification failed: IO_NSCocoaErrorDomain_257',
+        ),
       ),
     ).toBe('SHA256_IO_NSCOCOAERRORDOMAIN_257');
     expect(
       extractUpdateErrorCode(
-        new Error('Bundle SHA256 verification failed: IO_FileNotFoundException'),
+        new Error(
+          'Bundle SHA256 verification failed: IO_FileNotFoundException',
+        ),
       ),
     ).toBe('SHA256_IO_FILENOTFOUNDEXCEPTION');
   });
@@ -698,9 +700,9 @@ describe('extractUpdateErrorCode', () => {
   });
 
   test('iOS NSURL session errors → NSURL_<code>', () => {
-    expect(
-      extractUpdateErrorCode(new Error('NSURLErrorDomain -1005')),
-    ).toBe('NSURL_-1005');
+    expect(extractUpdateErrorCode(new Error('NSURLErrorDomain -1005'))).toBe(
+      'NSURL_-1005',
+    );
     expect(
       extractUpdateErrorCode(new Error('NSURLErrorDomain code -1001')),
     ).toBe('NSURL_-1001');
@@ -762,7 +764,10 @@ describe('isUnrecoverableDownloadError', () => {
     ['HTTP_504', 'HTTP 504 Gateway Timeout'],
     ['HTTP_408', 'HTTP 408 Request Timeout'],
     ['HTTP_429', 'HTTP 429 Too Many Requests'],
-    ['SHA256_FILE_TRUNCATED', 'Bundle SHA256 verification failed: FILE_TRUNCATED'],
+    [
+      'SHA256_FILE_TRUNCATED',
+      'Bundle SHA256 verification failed: FILE_TRUNCATED',
+    ],
     ['NSURL_-1009', 'NSURLErrorDomain code -1009 (offline)'],
     ['IO_FileNotFoundException', 'IO_FileNotFoundException: open failed'],
   ])('%s code → recoverable (transient)', (_label, msg) => {
@@ -787,9 +792,9 @@ describe('isUnrecoverableDownloadError', () => {
   });
 
   test('plain unknown free-text error → recoverable (no false positive)', () => {
-    expect(
-      isUnrecoverableDownloadError(new Error('socket hang up')),
-    ).toBe(false);
+    expect(isUnrecoverableDownloadError(new Error('socket hang up'))).toBe(
+      false,
+    );
     expect(isUnrecoverableDownloadError(new Error(''))).toBe(false);
   });
 

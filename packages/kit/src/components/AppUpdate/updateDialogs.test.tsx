@@ -16,7 +16,7 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Dialog: { show: jest.fn() },
     LottieView: () => null,
-    YStack: ({ children }: any) => children,
+    YStack: ({ children }: { children: unknown }) => children as JSX.Element,
     useInTabDialog: () => ({ show: dialogShow }),
   };
 });
@@ -65,10 +65,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
 
 jest.mock('react-intl', () => ({}));
 
-import {
-  UPDATE_DIALOG_INTERVAL,
-  showUpdateDialogUI,
-} from './updateDialogs';
+import { UPDATE_DIALOG_INTERVAL, showUpdateDialogUI } from './updateDialogs';
 
 const dialogShow = (globalThis as any).__mockDialogShow as jest.Mock;
 const updateLastDialogShownAt = (globalThis as any)
@@ -123,9 +120,7 @@ describe('showUpdateDialogUI', () => {
     // The guard reads `now - lastShownAt < INTERVAL`. At exactly INTERVAL the
     // condition is false → dialog shows. Guards against off-by-one drift.
     const exactlyOneDayAgo = Date.now() - UPDATE_DIALOG_INTERVAL;
-    showUpdateDialogUI(
-      baseArgs({ lastUpdateDialogShownAt: exactlyOneDayAgo }),
-    );
+    showUpdateDialogUI(baseArgs({ lastUpdateDialogShownAt: exactlyOneDayAgo }));
     expect(dialogShow).toHaveBeenCalledTimes(1);
   });
 

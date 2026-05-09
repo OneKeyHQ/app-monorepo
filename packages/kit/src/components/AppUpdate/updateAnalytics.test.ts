@@ -14,7 +14,10 @@
 // rotation / lazy-init semantics without parsing real UUIDs.
 let uuidCounter = 0;
 jest.mock('@onekeyhq/shared/src/utils/miscUtils', () => ({
-  generateUUID: jest.fn(() => `uuid-${++uuidCounter}`),
+  generateUUID: jest.fn(() => {
+    uuidCounter += 1;
+    return `uuid-${uuidCounter}`;
+  }),
 }));
 
 // platformEnv is the only branch input for getUpdatePlatform / fromVersion.
@@ -160,7 +163,10 @@ describe('buildSoftwareUpdateParams', () => {
 
   test('appShell uses platformEnv.version as fromVersion + appUpdateInfo.latestVersion as toVersion', () => {
     platformEnv.isDesktop = true;
-    const params = buildSoftwareUpdateParams(EUpdateFileType.appShell, baseInfo);
+    const params = buildSoftwareUpdateParams(
+      EUpdateFileType.appShell,
+      baseInfo,
+    );
     expect(params.updateType).toBe('app');
     expect(params.fromVersion).toBe('1.2.3');
     expect(params.toVersion).toBe('2.0.0');
@@ -169,7 +175,10 @@ describe('buildSoftwareUpdateParams', () => {
 
   test('jsBundle uses platformEnv.bundleVersion as fromVersion + appUpdateInfo.jsBundleVersion as toVersion', () => {
     platformEnv.isNativeIOS = true;
-    const params = buildSoftwareUpdateParams(EUpdateFileType.jsBundle, baseInfo);
+    const params = buildSoftwareUpdateParams(
+      EUpdateFileType.jsBundle,
+      baseInfo,
+    );
     expect(params.updateType).toBe('bundle');
     expect(params.fromVersion).toBe('42');
     expect(params.toVersion).toBe('99');
@@ -186,7 +195,10 @@ describe('buildSoftwareUpdateParams', () => {
   });
 
   test('generates a UUID when attemptId is omitted', () => {
-    const params = buildSoftwareUpdateParams(EUpdateFileType.appShell, baseInfo);
+    const params = buildSoftwareUpdateParams(
+      EUpdateFileType.appShell,
+      baseInfo,
+    );
     expect(params.attemptId).toBe('uuid-1');
   });
 

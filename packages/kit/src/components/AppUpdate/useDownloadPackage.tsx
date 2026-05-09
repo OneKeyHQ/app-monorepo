@@ -27,7 +27,6 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
-import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -408,12 +407,7 @@ export const useDownloadPackage = () => {
         },
       });
     }
-  }, [
-    getFileTypeFromUpdateInfo,
-    intl,
-    navigation,
-    showUpdateInCompleteDialog,
-  ]);
+  }, [getFileTypeFromUpdateInfo, intl, navigation, showUpdateInCompleteDialog]);
 
   return useMemo(
     () => ({

@@ -75,7 +75,7 @@ export function extractUpdateErrorCode(error: unknown): string | undefined {
   const msg =
     typeof error === 'string'
       ? error
-      : (error as { message?: string } | null)?.message ?? '';
+      : ((error as { message?: string } | null)?.message ?? '');
   if (!msg) return undefined;
 
   // SHA reasons can include native error class names mixed with digits

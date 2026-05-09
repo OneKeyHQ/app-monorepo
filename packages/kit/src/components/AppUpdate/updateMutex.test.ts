@@ -100,7 +100,7 @@ describe('getInFlightDownloadPackage', () => {
 
 describe('__resetDownloadMutexForTests', () => {
   test('clears a stuck slot so the next case starts clean', () => {
-    withDownloadMutex(() => new Promise<void>(() => {}));
+    void withDownloadMutex(() => new Promise<void>(() => {}));
     expect(getInFlightDownloadPackage()).not.toBeNull();
     __resetDownloadMutexForTests();
     expect(getInFlightDownloadPackage()).toBeNull();

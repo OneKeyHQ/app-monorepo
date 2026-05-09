@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -12,7 +13,8 @@ const DOWNLOAD_RETRY_BASE_DELAY_MS = 1500;
 // Visible for testing; main callers go through runDownloadWithRetry.
 export function computeDownloadRetryDelayMs(attempt: number): number {
   return (
-    DOWNLOAD_RETRY_BASE_DELAY_MS * 2 ** attempt + Math.floor(Math.random() * 500)
+    DOWNLOAD_RETRY_BASE_DELAY_MS * 2 ** attempt +
+    Math.floor(Math.random() * 500)
   );
 }
 
@@ -55,5 +57,7 @@ export async function runDownloadWithRetry<T>(
       await timerUtils.wait(delayMs);
     }
   }
-  throw lastError;
+  throw new OneKeyLocalError(
+    lastError instanceof Error ? lastError.message : String(lastError),
+  );
 }
