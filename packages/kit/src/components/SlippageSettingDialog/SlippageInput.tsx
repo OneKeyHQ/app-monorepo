@@ -28,6 +28,28 @@ export function formatSlippageInputDisplayValue(value?: number) {
     .toFixed();
 }
 
+export function shouldSyncSlippageInputDisplayValue({
+  inputValue,
+  isEditingTrailingDot,
+  previousDisplayValue,
+  hasSyncedDisplayValue,
+}: {
+  inputValue: string;
+  isEditingTrailingDot: boolean;
+  previousDisplayValue: string;
+  hasSyncedDisplayValue: boolean;
+}) {
+  if (!hasSyncedDisplayValue) {
+    return true;
+  }
+
+  if (isEditingTrailingDot && inputValue !== previousDisplayValue) {
+    return false;
+  }
+
+  return inputValue === previousDisplayValue;
+}
+
 const BaseSlippageInput = ({
   swapSlippage,
   onChangeText,
@@ -38,11 +60,11 @@ const BaseSlippageInput = ({
   props?: IInputProps;
 }) => {
   const [inputValue, setInputValue] = useState('');
-  const isOriginalNumberDot = useRef(false);
+  const isEditingTrailingDotRef = useRef(false);
   const handleTextChange = useCallback(
     (text: string) => {
       if (validateAmountInput(text, swapSlippageDecimal)) {
-        isOriginalNumberDot.current = /^\d+\.$/.test(text);
+        isEditingTrailingDotRef.current = /^\d+\.$/.test(text);
         setInputValue(text);
         onChangeText(text);
       }
@@ -54,11 +76,30 @@ const BaseSlippageInput = ({
     () => formatSlippageInputDisplayValue(swapSlippage.value),
     [swapSlippage.value],
   );
+  const inputValueRef = useRef(inputValue);
+  const previousDisplayValueRef = useRef(displaySlippage);
+  const hasSyncedDisplayValueRef = useRef(false);
+  inputValueRef.current = inputValue;
 
   useEffect(() => {
-    if (!isOriginalNumberDot.current) {
+    const currentInputValue = inputValueRef.current;
+    const previousDisplayValue = previousDisplayValueRef.current;
+
+    if (
+      currentInputValue !== displaySlippage &&
+      shouldSyncSlippageInputDisplayValue({
+        inputValue: currentInputValue,
+        hasSyncedDisplayValue: hasSyncedDisplayValueRef.current,
+        isEditingTrailingDot: isEditingTrailingDotRef.current,
+        previousDisplayValue,
+      })
+    ) {
       setInputValue(displaySlippage);
+      inputValueRef.current = displaySlippage;
+      isEditingTrailingDotRef.current = false;
     }
+    previousDisplayValueRef.current = displaySlippage;
+    hasSyncedDisplayValueRef.current = true;
   }, [displaySlippage]);
 
   return (
