@@ -505,6 +505,13 @@ function DeFiListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
+      if (!refreshCacheOnly && accountId && networkId) {
+        await backgroundApiProxy.serviceDeFi.updateCurrentAccount({
+          accountId,
+          networkId,
+        });
+      }
+
       deFiRawDataRef.current =
         (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
 
