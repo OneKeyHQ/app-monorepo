@@ -17,6 +17,8 @@ interface ICategorySelectorProps {
   selectedCategoryId: string;
   onSelectCategory: (id: string) => void;
   triggerOnPressDown?: boolean;
+  showBorder?: boolean;
+  showHorizontalPadding?: boolean;
 }
 
 function CategorySelectorImpl({
@@ -24,6 +26,8 @@ function CategorySelectorImpl({
   selectedCategoryId,
   onSelectCategory,
   triggerOnPressDown = false,
+  showBorder = true,
+  showHorizontalPadding = true,
 }: ICategorySelectorProps) {
   const { md } = useMedia();
   const shouldUseScrollableBar = md || platformEnv.isNative;
@@ -81,10 +85,15 @@ function CategorySelectorImpl({
 
   return (
     <XStack
-      p="$1"
+      py="$1"
+      px={showHorizontalPadding ? '$1' : undefined}
       gap="$0.5"
-      borderWidth={1}
-      borderColor="$borderSubdued"
+      {...(showBorder
+        ? {
+            borderWidth: 1,
+            borderColor: '$borderSubdued',
+          }
+        : undefined)}
       borderRadius="$3"
       mt="$3"
       mb="$2"

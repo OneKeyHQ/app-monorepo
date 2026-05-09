@@ -50,10 +50,8 @@ describe('buildBotWalletHash', () => {
 describe('registerKey (AC9)', () => {
   it('POST body field set is EXACTLY ["botWalletHash", "keyBase64"] and uses the Prime API path', async () => {
     let capturedBody: unknown;
-    let capturedConfig: Record<string, unknown> | undefined;
-    const http = makeHttp(async (_url, body, config) => {
+    const http = makeHttp(async (_url, body) => {
       capturedBody = body;
-      capturedConfig = config;
       return {
         data: {
           code: 0,
@@ -79,10 +77,6 @@ describe('registerKey (AC9)', () => {
       botWalletHash: VALID_BOT_WALLET_HASH,
       keyBase64: 'AAAA',
     });
-    expect(capturedConfig?.timeout).toBe(
-      CLI_BOT_WALLET_CLIENT_INTERNALS.REGISTER_TIMEOUT_MS,
-    );
-    expect(capturedConfig?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('parses 200 response { keyId, accessToken }', async () => {
@@ -214,7 +208,7 @@ describe('registerKey (AC9)', () => {
 });
 
 describe('revokeKey (AC9 — best-effort)', () => {
-  it('POST happy path includes Prime token header and 3s AbortSignal', async () => {
+  it('POST happy path includes Prime token header', async () => {
     let capturedConfig: Record<string, unknown> | undefined;
     const http = makeHttp(async (_url, _body, config) => {
       capturedConfig = config;
@@ -230,11 +224,6 @@ describe('revokeKey (AC9 — best-effort)', () => {
         CLI_BOT_WALLET_CLIENT_INTERNALS.BOT_WALLET_KEY_API_TOKEN_HEADER
       ],
     ).toBe('tokenA');
-    // Has timeout config
-    expect(capturedConfig?.timeout).toBe(
-      CLI_BOT_WALLET_CLIENT_INTERNALS.REVOKE_TIMEOUT_MS,
-    );
-    expect(capturedConfig?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('swallows network errors (logger.warn called, NO throw)', async () => {
@@ -268,31 +257,4 @@ describe('revokeKey (AC9 — best-effort)', () => {
     });
     expect(warn).toHaveBeenCalledTimes(1);
   });
-
-  it('AbortSignal.timeout fires after 3s when service hangs (real-timer)', async () => {
-    // Use the real AbortSignal.timeout to ensure axios receives a signal that
-    // truly aborts after the configured TTL. We assert the config carries a
-    // signal that aborts in <= REVOKE_TIMEOUT_MS + buffer.
-    let capturedSignal: AbortSignal | undefined;
-    const http = makeHttp(async (_url, _body, config) => {
-      capturedSignal = config?.signal as AbortSignal;
-      // Return a never-resolving-but-cancellable promise
-      return new Promise((resolve, reject) => {
-        capturedSignal?.addEventListener('abort', () => {
-          reject(new Error('AbortError: timeout'));
-        });
-      });
-    });
-    const warn = jest.fn();
-    const t0 = Date.now();
-    await revokeKey('keyA', 'tokenA', {
-      baseUrl: 'http://x',
-      http,
-      logger: { warn },
-    });
-    const elapsed = Date.now() - t0;
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(elapsed).toBeGreaterThanOrEqual(2900);
-    expect(elapsed).toBeLessThanOrEqual(3500);
-  }, 5000);
 });

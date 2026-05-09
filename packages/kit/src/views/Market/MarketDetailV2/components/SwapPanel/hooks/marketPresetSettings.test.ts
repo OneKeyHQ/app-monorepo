@@ -1,18 +1,23 @@
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   ESwapNetworkFeeLevel,
+  ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
   EMarketPresetKey,
   EMarketPresetPriorityFeeType,
+  EMarketPresetSlippageWarningType,
   EMarketPresetTradeSide,
   fetchMarketPresetConfig,
   getMarketPresetCustomizedMap,
+  getMarketPresetDefaultEditableDirectionSettingsForPreset,
   getMarketPresetItem,
   getMarketPresetNetworkFeeLevel,
+  getMarketPresetSlippageCustomStatus,
   getMarketPresetSlippageValue,
+  isMarketPresetConfirmDisabled,
   resolveMarketPresetDirectionSettings,
 } from './marketPresetSettings';
 
@@ -121,6 +126,26 @@ describe('marketPresetSettings', () => {
     );
   });
 
+  it('uses editable preset defaults with empty custom fee', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.base.id,
+    });
+
+    const settings = getMarketPresetDefaultEditableDirectionSettingsForPreset({
+      config,
+      presetKey: EMarketPresetKey.P1,
+    });
+
+    expect(settings.slippage).toEqual({
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 1,
+    });
+    expect(settings.priorityFee).toEqual({
+      type: EMarketPresetPriorityFeeType.CUSTOM,
+      customValue: '',
+    });
+  });
+
   it('resolves saved preset settings per network direction', async () => {
     const config = await fetchMarketPresetConfig({
       networkId: presetNetworksMap.base.id,
@@ -161,6 +186,60 @@ describe('marketPresetSettings', () => {
           },
         },
       })[EMarketPresetKey.P2],
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      0.05,
+      ESwapSlippageCustomStatus.WRONG,
+      EMarketPresetSlippageWarningType.WILL_FAIL,
+    ],
+    [0.06, ESwapSlippageCustomStatus.NORMAL, undefined],
+    [10, ESwapSlippageCustomStatus.NORMAL, undefined],
+    [
+      10.01,
+      ESwapSlippageCustomStatus.WRONG,
+      EMarketPresetSlippageWarningType.WILL_AHEAD,
+    ],
+    [
+      50,
+      ESwapSlippageCustomStatus.WRONG,
+      EMarketPresetSlippageWarningType.WILL_AHEAD,
+    ],
+    [50.01, ESwapSlippageCustomStatus.ERROR, undefined],
+  ])(
+    'resolves custom slippage %s validation status',
+    (value, status, warningType) => {
+      const result = getMarketPresetSlippageCustomStatus({
+        slippage: {
+          key: ESwapSlippageSegmentKey.CUSTOM,
+          value,
+        },
+        priorityFee: {
+          type: EMarketPresetPriorityFeeType.MARKET,
+        },
+      });
+
+      expect(result.status).toBe(status);
+      expect(result.warningType).toBe(warningType);
+    },
+  );
+
+  it('keeps Auto confirmation enabled when edited preset drafts are invalid', () => {
+    expect(
+      isMarketPresetConfirmDisabled({
+        activePresetKey: EMarketPresetKey.AUTO,
+        currentSettingsInvalid: false,
+        hasInvalidDirtySettings: true,
+      }),
+    ).toBe(false);
+    expect(
+      isMarketPresetConfirmDisabled({
+        activePresetKey: EMarketPresetKey.P1,
+        currentSettingsInvalid: false,
+        hasInvalidDirtySettings: true,
+      }),
     ).toBe(true);
   });
 });

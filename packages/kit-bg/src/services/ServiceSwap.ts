@@ -1051,6 +1051,45 @@ export default class ServiceSwap extends ServiceBase {
   );
 
   @backgroundMethod()
+  async fetchApproveAllowanceForDisplay({
+    networkId,
+    tokenAddress,
+    spenderAddress,
+    walletAddress,
+    accountId,
+    amount,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    spenderAddress: string;
+    walletAddress: string;
+    accountId?: string;
+    amount: string;
+  }) {
+    // Read-only allowance lookup for passive display surfaces. Skips the
+    // shared abort controller so concurrent display queries (or the swap /
+    // bulk-send authorization state machines) don't cancel each other.
+    const params = {
+      networkId,
+      tokenAddress,
+      spenderAddress,
+      walletAddress,
+      amount,
+    };
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const { data } = await client.get<
+      IFetchResponse<ISwapApproveAllowanceResponse>
+    >('/swap/v1/allowance', {
+      params,
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+    });
+    return data?.data;
+  }
+
+  @backgroundMethod()
   async fetchApproveAllowance({
     networkId,
     tokenAddress,

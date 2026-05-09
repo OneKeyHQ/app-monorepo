@@ -5653,14 +5653,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/plist@npm:^0.1.3":
-  version: 0.1.3
-  resolution: "@expo/plist@npm:0.1.3"
+"@expo/plist@npm:^0.3.0":
+  version: 0.3.5
+  resolution: "@expo/plist@npm:0.3.5"
   dependencies:
-    "@xmldom/xmldom": "npm:~0.7.7"
+    "@xmldom/xmldom": "npm:^0.8.8"
     base64-js: "npm:^1.2.3"
-    xmlbuilder: "npm:^14.0.0"
-  checksum: 10/7026e45744784539a0a3534dc393f4d7ccc04cc5a4c71a194f61aa9c5577599e27066c43e60c6611a4d34ebc30bec9380190be1685040bc72b037704fe2d2aec
+    xmlbuilder: "npm:^15.1.1"
+  checksum: 10/a79f11e21c0072baf32444a0ca38883f966470df44d7bd30b244e4dba2aa1c66e186129d22c1ed7fd4139fd053ec9ae3d9d41a4f6fc36f51306a5b9a455d7676
   languageName: node
   linkType: hard
 
@@ -8867,18 +8867,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.11"
+"@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.12":
+  version: 1.1.26-alpha.12
+  resolution: "@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.12"
   dependencies:
     "@noble/hashes": "npm:^1.7.1"
-  checksum: 10/d99a811199cea9ee2287fabb5473e8fb4fb88063a90cacdc8e41d12fc054fde378a09cafe0c0177f5e914a6342b102c4f5b242e89c1ade60879515db70702d8b
+  checksum: 10/42ac8f63aa750bba9b1d6fb93300836e6600988cd3eb8d71c14c77daab2b34d5b9b532f0e02ab0eecdbb39e46b9f87e02dcaa995c085824331f618cbff7266f0
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.11"
+"@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.12":
+  version: 1.1.26-alpha.12
+  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.12"
   dependencies:
     "@ledgerhq/context-module": "npm:^1.0.0"
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
@@ -8887,39 +8887,39 @@ __metadata:
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/hw-app-trx": "npm:^6.34.1"
     "@ledgerhq/hw-transport": "npm:^6.34.1"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.11"
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.12"
     bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
-  checksum: 10/695326de044dd6be5c27164c03636046d6d2d0e0f21b7292b9cf5b8950ad59dab665e9ac8c8eb1b55c70b057512dfda942991fc360a155b31e21f3d53e5a3e61
+  checksum: 10/072f30c7dcdfbd90057bdbb216fd880c417b76a52402b29ea230fc2b5772c8b01a5aee9d7562db1db85463dc94adc75eff6f037cca104035b737df9f067c48ec
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.11"
+"@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.12":
+  version: 1.1.26-alpha.12
+  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.12"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/device-transport-kit-react-native-ble": "npm:^1.0.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.11"
-  checksum: 10/94f61e7ec55fa2f889f3e8072cf29487fb23aee9538b6122f6262612ed115db821bc30cf9519de5b8b7e699a641ae8465c9aea0cd77206fea540c87b4d5a5b8b
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.12"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.12"
+  checksum: 10/26e8981569bad306cf5b72f88938529e74e24e2f3f580e0618369ec1ec2e6056e57d5a9d0eea18251273b0ae11c03d1ebdaaf38b9459fcef243364b414368d7e
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.11"
+"@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.12":
+  version: 1.1.26-alpha.12
+  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.12"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/device-transport-kit-web-hid": "npm:^1.0.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.11"
-  checksum: 10/824bd0b637b091d09b4162a5f4def2678b8abb20ae3f400c840bdef0e12e6d366cc38d6b1a428d205b8a79776fcfbff8013cf0dda26ba1490fdf28fa20810d97
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.12"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.12"
+  checksum: 10/7d7d83fb885e4c0dce50d84809318e3d0464511eb58df402ad8d48c7826a44747836eaafe0b010693ad263aab86ef21632b1cda42b4a03b988614860c1ada787
   languageName: node
   linkType: hard
 
@@ -9541,7 +9541,7 @@ __metadata:
     "@cspell/eslint-plugin": "npm:^9.6.0"
     "@emurgo/cardano-message-signing-nodejs": "npm:^1.0.1"
     "@emurgo/cardano-serialization-lib-nodejs": "npm:13.2.0"
-    "@expo/plist": "npm:^0.1.3"
+    "@expo/plist": "npm:^0.3.0"
     "@expo/webpack-config": "npm:~19.0.1"
     "@glif/filecoin-rpc-client": "npm:3.0.2"
     "@intercom/messenger-js-sdk": "npm:^0.0.14"
@@ -9561,10 +9561,10 @@ __metadata:
     "@onekeyfe/hd-transport": "npm:1.1.26-alpha.11"
     "@onekeyfe/hd-transport-electron": "npm:1.1.26-alpha.11"
     "@onekeyfe/hd-web-sdk": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.1.26-alpha.11"
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.12"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.12"
+    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.1.26-alpha.12"
+    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.1.26-alpha.12"
     "@onekeyfe/onekey-cross-webview": "npm:2.2.68"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
@@ -9790,7 +9790,7 @@ __metadata:
     "@types/qrcode": "npm:^1.4.2"
     ethereum-blockies-base64: "npm:^1.0.2"
     iso-639-1: "npm:^2.1.13"
-    lodash: "npm:^4.17.23"
+    lodash: "npm:^4.18.1"
     moti: "npm:^0.25.3"
     qrcode: "npm:^1.5.0"
     react-hook-form: "npm:^7.22.1"
@@ -20747,13 +20747,6 @@ __metadata:
   version: 0.8.10
   resolution: "@xmldom/xmldom@npm:0.8.10"
   checksum: 10/62400bc5e0e75b90650e33a5ceeb8d94829dd11f9b260962b71a784cd014ddccec3e603fe788af9c1e839fa4648d8c521ebd80d8b752878d3a40edabc9ce7ccf
-  languageName: node
-  linkType: hard
-
-"@xmldom/xmldom@npm:~0.7.7":
-  version: 0.7.13
-  resolution: "@xmldom/xmldom@npm:0.7.13"
-  checksum: 10/a359d15fe3c24fe85a1e1b3bc4cfd23d4f014fb8aa382aa445cccaac545e42958b75e386dd4853c76d82036401400b8d5e33cbcbfb6af7cdadeba769eae6122a
   languageName: node
   linkType: hard
 
@@ -32903,9 +32896,9 @@ __metadata:
   linkType: hard
 
 "ip-address@npm:^10.0.1":
-  version: 10.1.0
-  resolution: "ip-address@npm:10.1.0"
-  checksum: 10/a6979629d1ad9c1fb424bc25182203fad739b40225aebc55ec6243bbff5035faf7b9ed6efab3a097de6e713acbbfde944baacfa73e11852bb43989c45a68d79e
+  version: 10.2.0
+  resolution: "ip-address@npm:10.2.0"
+  checksum: 10/12fec399e1af5753ac322e47a6d81a50d3a528b3abb17c09525b2a2edcaedcca628c40520706f7037bc4d8e951b0296c47e7b86d0a8e6e2335c8f0ba4afcfac1
   languageName: node
   linkType: hard
 
@@ -35959,10 +35952,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:^4.17.23":
-  version: 4.17.23
-  resolution: "lodash@npm:4.17.23"
-  checksum: 10/82504c88250f58da7a5a4289f57a4f759c44946c005dd232821c7688b5fcfbf4a6268f6a6cdde4b792c91edd2f3b5398c1d2a0998274432cff76def48735e233
+"lodash@npm:^4.18.1":
+  version: 4.18.1
+  resolution: "lodash@npm:4.18.1"
+  checksum: 10/306fea53dfd39dad1f03d45ba654a2405aebd35797b673077f401edb7df2543623dc44b9effbb98f69b32152295fff725a4cec99c684098947430600c6af0c3f
   languageName: node
   linkType: hard
 
@@ -49321,13 +49314,6 @@ __metadata:
   version: 15.1.1
   resolution: "xmlbuilder@npm:15.1.1"
   checksum: 10/e6f4bab2504afdd5f80491bda948894d2146756532521dbe7db33ae0931cd3000e3b4da19b3f5b3f51bedbd9ee06582144d28136d68bd1df96579ecf4d4404a2
-  languageName: node
-  linkType: hard
-
-"xmlbuilder@npm:^14.0.0":
-  version: 14.0.0
-  resolution: "xmlbuilder@npm:14.0.0"
-  checksum: 10/c134bfd15bd6efe0af0306939a8cd667efb6aeace3779043c6bdf18373c0192146907a4ab442fc24e799419a3033e3c99ce41c43016bdf580d40f8ab0e0dc841
   languageName: node
   linkType: hard
 

@@ -223,7 +223,7 @@ export function InformationPanel() {
             stock={stock}
             showAllInTrigger
             hideCommunityInTrigger
-            noTruncateSubtitle={isStockToken}
+            noTruncateSubtitle
           />
         </XStack>
       </YStack>
