@@ -171,6 +171,7 @@ function DialogFrame({
   sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
+  showHeader = true,
   trapFocus,
   showConfirmButton = true,
   showCancelButton = true,
@@ -246,7 +247,12 @@ function DialogFrame({
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
   const renderDialogContent = (
     <Animated.View style={safeKeyboardAnimationStyle}>
-      <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
+      {showHeader ? (
+        <DialogHeader
+          trackID={trackID}
+          onClose={handleHeaderCloseButtonPress}
+        />
+      ) : null}
       {/* extra children */}
       <Content
         testID={testID}

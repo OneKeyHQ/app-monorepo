@@ -95,6 +95,7 @@ interface IBasicDialogProps extends TMDialogProps {
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean; // Disable drag gesture to close
+  showHeader?: boolean; // When false, the header container is not rendered at all (defaults to true)
   trapFocus?: boolean; // Enable focus trapping within the dialog
   testID?: string;
   onConfirm?: IOnDialogConfirm;
