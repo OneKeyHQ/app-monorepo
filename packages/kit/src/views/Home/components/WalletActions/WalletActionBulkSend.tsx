@@ -14,6 +14,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useBulkSendModeDialog } from '../../../BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../../BulkSend/hooks/useNavigateToBulkSend';
+import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 
 export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
   const intl = useIntl();
@@ -23,6 +24,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
 
   const { user } = useOneKeyAuth();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const { isPrimeAvailable } = usePrimeAvailable();
 
   const navigateToBulkSend = useNavigateToBulkSend();
   const showBulkSendModeDialog = useBulkSendModeDialog();
@@ -65,6 +67,10 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
     account?.id,
     indexedAccount?.id,
   ]);
+
+  if (!isPrimeAvailable) {
+    return null;
+  }
 
   return (
     <ActionList.Item
