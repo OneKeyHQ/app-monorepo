@@ -78,6 +78,25 @@ import type { LayoutChangeEvent } from 'react-native';
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
 
+// Wallet page used to live inside `<Page.Container layout="regular">`, which
+// hard-clips the page to a 1140 max-width centered Stack on $gtMd. The vertical
+// scroll handler ends up living *inside* that 1140-wide box, so wheel events on
+// the empty gutters left and right of the centered content fail to scroll the
+// page. To keep the same visual width while making those gutters scrollable we
+// switch the outer Page.Container to `layout="full"` so the scroll container
+// spans the full viewport, and apply this max-width wrapper individually to the
+// visual content blocks (header, tab bar, alerts, tab content). Number matches
+// the `regular` layout's max-width in PageContentContainer.tsx.
+const HOME_PAGE_CONTENT_MAX_WIDTH = 1140;
+const homePageContentMaxWidthSx = {
+  width: '100%' as const,
+  $gtMd: {
+    maxWidth: HOME_PAGE_CONTENT_MAX_WIDTH,
+    width: '100%' as const,
+    mx: 'auto' as const,
+  },
+};
+
 interface IAndroidScrollContainerProps {
   children: React.ReactNode;
 }
@@ -417,7 +436,11 @@ export function HomePageView({
   // TabBar area — a partially-scrolled alert would leave a visible band
   // between TabPageHeader and the tabs.
   const renderHeader = useCallback(() => {
-    return <HomeHeaderContainer />;
+    return (
+      <Stack {...homePageContentMaxWidthSx}>
+        <HomeHeaderContainer />
+      </Stack>
+    );
   }, []);
 
   // Rendered on web only. On native the equivalent lives inside the history
@@ -551,6 +574,10 @@ export function HomePageView({
         );
       }
 
+      // Outer YStack stays full-width so the sticky bg covers the entire
+      // viewport when the user scrolls the tab bar to the top. The inner Stack
+      // applies the centered max-width so the actual TabBar pills line up with
+      // the rest of the page content blocks.
       return (
         <YStack
           ref={stickyHostRefCallback as any}
@@ -559,24 +586,26 @@ export function HomePageView({
           top={0}
           zIndex={10}
         >
-          <Tabs.TabBar
-            {...tabBarProps}
-            onTabPress={handleTabPress}
-            variant="pill"
-            renderItem={handleRenderItem}
-            renderToolbar={renderToolbar}
-            containerStyle={{ position: 'relative' as any }}
-          />
-          <div
-            ref={portalRefCallback}
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              zIndex: 1,
-            }}
-          />
+          <Stack {...homePageContentMaxWidthSx}>
+            <Tabs.TabBar
+              {...tabBarProps}
+              onTabPress={handleTabPress}
+              variant="pill"
+              renderItem={handleRenderItem}
+              renderToolbar={renderToolbar}
+              containerStyle={{ position: 'relative' as any }}
+            />
+            <div
+              ref={portalRefCallback}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                zIndex: 1,
+              }}
+            />
+          </Stack>
         </YStack>
       );
     },
@@ -864,15 +893,24 @@ export function HomePageView({
     return (
       <>
         <Page.Body>
-          <Page.Container flex={1} padded={false}>
+          {/*
+            layout="full" makes Page.Container span the full viewport width so
+            the vertical scroll container inside (Tabs.Container) fills the
+            viewport too — wheel events on the previously-empty side gutters
+            now reach the scroll handler. Visual width is preserved by wrapping
+            individual content blocks below in `homePageContentMaxWidthSx`.
+          */}
+          <Page.Container flex={1} padded={false} layout="full">
             {platformEnv.isNative ? (
               <Stack h={tabPageHeight} />
             ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
-            <RiskApprovalAlert />
-            <WatchOnlyAlert />
-            <NetworkAlert />
+            <Stack {...homePageContentMaxWidthSx}>
+              <RiskApprovalAlert />
+              <WatchOnlyAlert />
+              <NetworkAlert />
+            </Stack>
             {content}
             {platformEnv.isNative ? (
               <YStack

@@ -80,6 +80,12 @@ import {
 // the initial fold, shallow enough to not require a full viewport of scroll.
 const BACK_TO_TOP_NEAR_TOP_PX = 200;
 const PROTOCOL_PINNED_HEADER_EXIT_GAP = 64;
+
+// Mirrors HomePageView's `homePageContentMaxWidthSx` so the DeFi tab content
+// stays in horizontal alignment with the wallet header / tab bar / alerts.
+// Page.Container is now layout="full" so the scroll container fills the
+// viewport, and visual max-width is enforced one level down per content block.
+const DEFI_CONTAINER_CONTENT_MAX_WIDTH = 1140;
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 // Industry pattern: reveal on any upward scroll past the initial fold; hide
@@ -459,7 +465,15 @@ function DeFiContainer() {
 
     return (
       <>
-        <YStack pt="$4" pb="$8">
+        <YStack
+          pt="$4"
+          pb="$8"
+          width="100%"
+          $gtMd={{
+            maxWidth: DEFI_CONTAINER_CONTENT_MAX_WIDTH,
+            mx: 'auto',
+          }}
+        >
           <RichBlock
             withTitleSeparator
             title={intl.formatMessage({

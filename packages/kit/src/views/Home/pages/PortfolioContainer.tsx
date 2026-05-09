@@ -45,6 +45,12 @@ import {
 
 const SIDEBAR_STICKY_UNPIN_GAP = 8;
 
+// Visual max-width for the wallet page main content. Has to match the
+// `regular` layout previously applied at the Page.Container level so the page
+// doesn't suddenly widen when the page-level constraint was removed (see
+// HomePageView's `homePageContentMaxWidthSx` and the comment there).
+const PORTFOLIO_CONTENT_MAX_WIDTH = 1140;
+
 function PortfolioContainer() {
   const media = useMedia();
 
@@ -201,7 +207,13 @@ function PortfolioContainer() {
   // which causes the token list to be stuck in a loading state.
   return (
     <>
-      <Stack flexDirection={tableLayout ? 'row' : 'column'} pt="$3" gap="$6">
+      <Stack
+        flexDirection={tableLayout ? 'row' : 'column'}
+        pt="$3"
+        gap="$6"
+        width="100%"
+        $gtMd={{ maxWidth: PORTFOLIO_CONTENT_MAX_WIDTH, mx: 'auto' }}
+      >
         <YStack
           flex={1}
           gap={tableLayout ? '$10' : '$6'}
