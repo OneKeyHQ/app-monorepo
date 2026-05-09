@@ -728,6 +728,8 @@ export interface IEarnProtocolIntroItem {
   logoUrl?: string;
   logoUri?: string;
   providerLogoURI?: string;
+  providerLogoUrl?: string;
+  providerLogoUri?: string;
   icon?: IEarnIcon;
   description?: IEarnProtocolIntroText;
   tags?: IEarnProtocolIntroTag[];
