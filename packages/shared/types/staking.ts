@@ -727,6 +727,7 @@ export interface IEarnProtocolIntroItem {
   logoURI?: string;
   logoUrl?: string;
   logoUri?: string;
+  providerLogoURI?: string;
   icon?: IEarnIcon;
   description?: IEarnProtocolIntroText;
   tags?: IEarnProtocolIntroTag[];

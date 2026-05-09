@@ -109,6 +109,7 @@ function getProtocolLogoURI(
     | 'logoURI'
     | 'logoUrl'
     | 'logoUri'
+    | 'providerLogoURI'
     | 'provider'
     | 'slug'
     | 'title'
@@ -116,8 +117,8 @@ function getProtocolLogoURI(
     | 'name'
   >,
 ) {
-  if (item.logoURI || item.logoUrl || item.logoUri) {
-    return item.logoURI || item.logoUrl || item.logoUri;
+  if (item.logoURI || item.logoUrl || item.logoUri || item.providerLogoURI) {
+    return item.logoURI || item.logoUrl || item.logoUri || item.providerLogoURI;
   }
 
   const fallbackKey = [item.provider, item.slug, getText(getItemTitle(item))]
