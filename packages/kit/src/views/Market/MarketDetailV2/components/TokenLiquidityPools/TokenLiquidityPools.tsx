@@ -10,12 +10,15 @@ import {
   Icon,
   Image,
   InteractiveIcon,
+  NumberSizeableText,
   ScrollView,
   SizableText,
   Skeleton,
+  Tooltip,
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -87,6 +90,13 @@ const ADDRESS_ACTION_GAP = '$1.5';
 const ADDRESS_ACTION_ICON_SIZE = '$4';
 const DESKTOP_CONTENT_MIN_WIDTH = 960;
 const MIN_DISPLAY_PERCENTAGE_TEXT = '< 0.01%';
+const TOKEN_AMOUNT_COMPACT_THRESHOLD = 1000;
+const POOL_DETAIL_TOKEN_LIST_SCROLL_THRESHOLD = 6;
+const POOL_DETAIL_TOKEN_LIST_MAX_HEIGHT = '$64';
+const POOL_NAME_TOOLTIP_TEXT_STYLE = {
+  wordBreak: 'break-all',
+  whiteSpace: 'normal',
+} as const;
 const DESKTOP_HEADER_TEXT_PROPS = {
   size: '$bodySmMedium',
   color: '$textSubdued',
@@ -240,7 +250,7 @@ const TOKEN_FIELD_GROUPS = [
 ] as const;
 
 const MOBILE_COLUMN_STYLE = {
-  pool: { flex: 1, flexBasis: 0, minWidth: 0 },
+  pool: { flex: 1, flexBasis: 0, minWidth: 0, overflow: 'hidden' },
   liquidity: { flex: 1, flexBasis: 0, minWidth: 0 },
   feeRate: { flex: 1, flexBasis: 0, minWidth: 0 },
 } as const;
@@ -250,6 +260,7 @@ function useLiquidityPoolsLayoutDesktop() {
     pool: {
       width: '16%',
       minWidth: 0,
+      overflow: 'hidden' as const,
     },
     liquidity: {
       width: '15%',
@@ -364,16 +375,13 @@ function getPositiveBigNumber(value: unknown) {
   return numberValue;
 }
 
-function formatTokenAmount(value: unknown) {
+function getTokenAmountValue(value: unknown) {
   const numberValue = getPositiveBigNumber(value);
   if (!numberValue) {
     return FALLBACK_VALUE;
   }
 
-  const formatted = formatDisplayNumber(
-    NUMBER_FORMATTER.balance(numberValue.toFixed()),
-  );
-  return typeof formatted === 'string' ? formatted : FALLBACK_VALUE;
+  return numberValue.toFixed();
 }
 
 function formatUsdValue(value: unknown) {
@@ -479,7 +487,7 @@ function getTokenFromRecord(
 ): IDisplayPoolToken | undefined {
   const symbol = normalizeText(getFirstValue(tokenRecord, TOKEN_SYMBOL_FIELDS));
   const rawAmount = getFirstValue(tokenRecord, TOKEN_AMOUNT_FIELDS);
-  const amount = formatTokenAmount(rawAmount);
+  const amount = getTokenAmountValue(rawAmount);
 
   if (!symbol && amount === FALLBACK_VALUE) {
     return undefined;
@@ -509,7 +517,7 @@ function getTokenFromFieldGroup(
 
   const symbol = normalizeText(getFirstValue(record, group.symbolPaths));
   const rawAmount = getFirstValue(record, group.amountPaths);
-  const amount = formatTokenAmount(rawAmount);
+  const amount = getTokenAmountValue(rawAmount);
 
   if (!symbol && amount === FALLBACK_VALUE) {
     return undefined;
@@ -597,19 +605,80 @@ function PoolIdentity({
   item,
   logoSize = '$5',
   textSize = '$bodyLg',
+  nameNumberOfLines = 1,
+  truncateName = true,
 }: {
   item: IDisplayPool;
   logoSize?: SizeTokens;
   textSize?: '$bodyLg' | '$bodyMd';
+  nameNumberOfLines?: number;
+  truncateName?: boolean;
 }) {
+  const { gtMd } = useMedia();
+  const pairNameText = (
+    <SizableText
+      size={textSize}
+      color="$text"
+      display="block"
+      width="100%"
+      maxWidth="100%"
+      {...(truncateName
+        ? {
+            numberOfLines: nameNumberOfLines,
+            ellipsizeMode: 'tail' as const,
+            overflow: 'hidden' as const,
+          }
+        : undefined)}
+      flexShrink={1}
+    >
+      {item.pairName}
+    </SizableText>
+  );
+
   return (
-    <XStack ai="center" gap="$3" minWidth={0}>
+    <XStack
+      ai="center"
+      gap="$3"
+      width="100%"
+      minWidth={0}
+      overflow={truncateName ? 'hidden' : 'visible'}
+    >
       <PoolLogo uri={item.dexLogoUrl} size={logoSize} />
-      <YStack minWidth={0}>
-        <SizableText size={textSize} color="$text" numberOfLines={1}>
-          {item.pairName}
-        </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+      <YStack
+        flex={1}
+        minWidth={0}
+        maxWidth="100%"
+        overflow={truncateName ? 'hidden' : 'visible'}
+      >
+        {gtMd && truncateName && item.pairName !== FALLBACK_VALUE ? (
+          <Tooltip
+            placement="top"
+            renderContent={
+              <SizableText
+                size="$bodySm"
+                color="$text"
+                display="block"
+                maxWidth="$72"
+                style={POOL_NAME_TOOLTIP_TEXT_STYLE}
+              >
+                {item.pairName}
+              </SizableText>
+            }
+            renderTrigger={pairNameText}
+          />
+        ) : (
+          pairNameText
+        )}
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          display="block"
+          width="100%"
+          maxWidth="100%"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          overflow="hidden"
+        >
           {item.dexName}
         </SizableText>
       </YStack>
@@ -712,14 +781,17 @@ function TokenAmountLines({ tokens }: { tokens: IDisplayPoolToken[] }) {
           </SizableText>
         ) : (
           <XStack key={token.key} ai="center" gap="$1" minWidth={0}>
-            <SizableText
+            <NumberSizeableText
               size="$bodyMd"
               color="$text"
+              autoFormatter="balance-marketCap"
+              autoFormatterThreshold={TOKEN_AMOUNT_COMPACT_THRESHOLD}
               numberOfLines={1}
+              ellipsizeMode="tail"
               flexShrink={1}
             >
               {token.amount}
-            </SizableText>
+            </NumberSizeableText>
             <SizableText
               size="$bodyMd"
               color="$textSubdued"
@@ -826,7 +898,7 @@ function TokenLiquidityPoolsDesktop({ pools }: { pools: IDisplayPool[] }) {
             {...(index % 2 === 1 && { bg: '$bgSubdued' })}
           >
             <YStack {...styles.pool}>
-              <PoolIdentity item={item} textSize="$bodyLg" />
+              <PoolIdentity item={item} textSize="$bodyMd" />
             </YStack>
             <SizableText size="$bodyMd" color="$text" {...styles.liquidity}>
               {item.liquidity}
@@ -880,9 +952,16 @@ function DetailTokenRows({ tokens }: { tokens: IDisplayPoolToken[] }) {
             {token.symbol}
           </SizableText>
           <YStack ai="flex-end" flex={1} minWidth={0}>
-            <SizableText size="$bodyLg" color="$text" numberOfLines={1}>
+            <NumberSizeableText
+              size="$bodyLg"
+              color="$text"
+              autoFormatter="balance-marketCap"
+              autoFormatterThreshold={TOKEN_AMOUNT_COMPACT_THRESHOLD}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {token.amount}
-            </SizableText>
+            </NumberSizeableText>
           </YStack>
         </XStack>
       ))}
@@ -929,12 +1008,27 @@ function DetailInfoRow({
 function PoolDetailsContent({ item }: { item: IDisplayPool }) {
   const intl = useIntl();
   const labels = useLiquidityPoolLabels();
+  const shouldScrollTokenRows =
+    item.tokenAmounts.length > POOL_DETAIL_TOKEN_LIST_SCROLL_THRESHOLD;
+  const tokenRows = <DetailTokenRows tokens={item.tokenAmounts} />;
 
   return (
     <YStack pb="$5" gap="$6">
       <XStack ai="center" jc="space-between" gap="$4">
-        <PoolIdentity item={item} logoSize="$12" textSize="$bodyLg" />
-        <SizableText size="$headingSm" color="$text" numberOfLines={1}>
+        <YStack flex={1} minWidth={0}>
+          <PoolIdentity
+            item={item}
+            logoSize="$12"
+            textSize="$bodyLg"
+            truncateName={false}
+          />
+        </YStack>
+        <SizableText
+          size="$headingSm"
+          color="$text"
+          numberOfLines={1}
+          flexShrink={0}
+        >
           {item.liquidity}
         </SizableText>
       </XStack>
@@ -948,7 +1042,16 @@ function PoolDetailsContent({ item }: { item: IDisplayPool }) {
             {labels.tokenAmount}
           </SizableText>
         </XStack>
-        <DetailTokenRows tokens={item.tokenAmounts} />
+        {shouldScrollTokenRows ? (
+          <ScrollView
+            maxHeight={POOL_DETAIL_TOKEN_LIST_MAX_HEIGHT}
+            nestedScrollEnabled
+          >
+            {tokenRows}
+          </ScrollView>
+        ) : (
+          tokenRows
+        )}
       </YStack>
 
       <Divider />
@@ -997,7 +1100,7 @@ function MobilePoolRow({ item }: { item: IDisplayPool }) {
       hoverStyle={{ bg: '$bgHover' }}
     >
       <YStack {...MOBILE_COLUMN_STYLE.pool}>
-        <PoolIdentity item={item} textSize="$bodyLg" />
+        <PoolIdentity item={item} textSize="$bodyMd" />
       </YStack>
       <SizableText
         size="$bodyMd"

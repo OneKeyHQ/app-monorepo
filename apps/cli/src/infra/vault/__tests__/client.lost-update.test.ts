@@ -15,6 +15,11 @@ import type { IVaultClientPaths } from '../client';
 import type { IVaultLockRelease } from '../lock';
 import type { IVaultCacheEntry, IVaultPlaintext } from '../types';
 
+// Stress tests do 250 serialized encrypted writes; the default 5s Jest
+// timeout occasionally trips on slow CI runners (~5050ms), so widen the
+// per-test budget. The p95 assertion (150ms) still guards lock wait time.
+jest.setTimeout(30_000);
+
 const tempDirs: string[] = [];
 const MASTER_KEY = Buffer.alloc(32, 0xbb);
 const LOCK_WAIT_STRESS_CLIENTS = 5;

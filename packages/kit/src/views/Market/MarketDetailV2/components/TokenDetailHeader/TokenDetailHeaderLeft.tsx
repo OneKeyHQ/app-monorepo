@@ -130,13 +130,14 @@ export function TokenDetailHeaderLeft({
                 communityRecognized={communityRecognized}
                 stock={stock}
                 showAllInTrigger
+                noTruncateSubtitle
               />
             ) : (
               <>
                 <StockSourceLogo stock={stock} />
                 {communityRecognized ? <CommunityRecognizedBadge /> : null}
                 {stock?.subtitle ? (
-                  <SubtitleBadge subtitle={stock.subtitle} />
+                  <SubtitleBadge subtitle={stock.subtitle} noTruncate />
                 ) : null}
                 {stock ? <StockIsOpenBadge stock={stock} /> : null}
               </>
