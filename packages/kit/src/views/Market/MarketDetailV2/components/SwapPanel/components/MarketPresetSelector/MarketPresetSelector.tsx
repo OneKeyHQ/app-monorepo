@@ -269,7 +269,13 @@ function MarketPresetReadonlyRow({
   );
 }
 
-function MarketPresetDialogContentFrame({ children }: { children: ReactNode }) {
+function MarketPresetDialogContentFrame({
+  children,
+  footer,
+}: {
+  children: ReactNode;
+  footer?: ReactNode;
+}) {
   const keyboardHeight = useKeyboardHeight();
   const { top: safeAreaTop } = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -289,16 +295,72 @@ function MarketPresetDialogContentFrame({ children }: { children: ReactNode }) {
   }, [keyboardHeight, safeAreaTop, windowHeight]);
 
   return (
-    <ScrollView
-      mx="$-5"
-      px="$5"
-      pb="$5"
-      maxHeight={dialogContentMaxHeight}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      <YStack gap="$4">{children}</YStack>
-    </ScrollView>
+    <>
+      <ScrollView
+        mx="$-5"
+        px="$5"
+        pb="$5"
+        maxHeight={dialogContentMaxHeight}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <YStack gap="$4">{children}</YStack>
+      </ScrollView>
+      {footer}
+    </>
+  );
+}
+
+function MarketPresetDialogActions({
+  activePresetKey,
+  confirmDisabled,
+  intl,
+  isReadonlyPreset,
+  onConfirm,
+  onReset,
+}: {
+  activePresetKey: EMarketPresetKey;
+  confirmDisabled: boolean;
+  intl: ReturnType<typeof useIntl>;
+  isReadonlyPreset: boolean;
+  onConfirm: () => void;
+  onReset: () => void;
+}) {
+  if (activePresetKey === EMarketPresetKey.AUTO || isReadonlyPreset) {
+    return (
+      <XStack p="$5" pt="$0">
+        <Button
+          flex={1}
+          variant="primary"
+          size="medium"
+          disabled={confirmDisabled}
+          onPress={onConfirm}
+        >
+          {intl.formatMessage({
+            id: isReadonlyPreset
+              ? ETranslations.global_ok
+              : ETranslations.global_confirm,
+          })}
+        </Button>
+      </XStack>
+    );
+  }
+
+  return (
+    <XStack p="$5" pt="$0" gap="$3">
+      <Button flex={1} variant="secondary" size="medium" onPress={onReset}>
+        {intl.formatMessage({ id: ETranslations.global_reset })}
+      </Button>
+      <Button
+        flex={1}
+        variant="primary"
+        size="medium"
+        disabled={confirmDisabled}
+        onPress={onConfirm}
+      >
+        {intl.formatMessage({ id: ETranslations.global_confirm })}
+      </Button>
+    </XStack>
   );
 }
 
@@ -506,6 +568,8 @@ function MarketPresetSettingsDialog({
   const currentPriorityFeeInvalid =
     !!presetSettings.config?.priorityFee.editable &&
     isInvalidMarketPresetPriorityFeeSettings(currentSettings);
+  const currentPriorityFeeCustomValue =
+    currentSettings.priorityFee.customValue ?? '';
   const currentSettingsInvalid =
     !currentDirectionPendingReset &&
     (currentSlippageInvalid || currentPriorityFeeInvalid);
@@ -515,7 +579,9 @@ function MarketPresetSettingsDialog({
     !currentDirectionPendingReset &&
     currentSlippageCustomStatus.status === ESwapSlippageCustomStatus.WRONG;
   const showCurrentPriorityFeeError =
-    !currentDirectionPendingReset && currentPriorityFeeInvalid;
+    !currentDirectionPendingReset &&
+    currentPriorityFeeInvalid &&
+    currentPriorityFeeCustomValue.length > 0;
   const hasInvalidDirtySettings = Array.from(dirtyDirectionSetRef.current).some(
     (directionKey) => {
       if (resetDirectionSetRef.current.has(directionKey)) {
@@ -660,7 +726,27 @@ function MarketPresetSettingsDialog({
   }, [activePresetKey, activeTradeSide, close, presetSettings]);
 
   return (
-    <MarketPresetDialogContentFrame>
+    <MarketPresetDialogContentFrame
+      footer={
+        <Dialog.Footer
+          showFooter={false}
+          extraContent={
+            <MarketPresetDialogActions
+              activePresetKey={activePresetKey}
+              confirmDisabled={confirmDisabled}
+              intl={intl}
+              isReadonlyPreset={isReadonlyPreset}
+              onConfirm={() => {
+                void handleConfirm();
+              }}
+              onReset={() => {
+                void handleReset();
+              }}
+            />
+          }
+        />
+      }
+    >
       <MarketPresetDialogHeader networkId={presetSettings.config?.networkId} />
 
       <MarketPresetTabBar
@@ -701,16 +787,6 @@ function MarketPresetSettingsDialog({
               </SizableText>
             </YStack>
           </XStack>
-          <Button
-            variant="primary"
-            size="medium"
-            disabled={confirmDisabled}
-            onPress={() => {
-              void handleConfirm();
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_confirm })}
-          </Button>
         </YStack>
       ) : (
         <YStack gap="$4">
@@ -920,7 +996,7 @@ function MarketPresetSettingsDialog({
                           label: presetSettings.priorityFeeUnit,
                         },
                       ]}
-                      placeholder="0"
+                      placeholder=""
                       onChangeText={(text) => {
                         if (!validateAmountInput(text, 9)) {
                           return;
@@ -959,43 +1035,6 @@ function MarketPresetSettingsDialog({
               />
             )}
           </YStack>
-
-          {isReadonlyPreset ? (
-            <Button
-              variant="primary"
-              size="medium"
-              disabled={confirmDisabled}
-              onPress={() => {
-                void handleConfirm();
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_ok })}
-            </Button>
-          ) : (
-            <XStack gap="$3">
-              <Button
-                flex={1}
-                variant="secondary"
-                size="medium"
-                onPress={() => {
-                  void handleReset();
-                }}
-              >
-                {intl.formatMessage({ id: ETranslations.global_reset })}
-              </Button>
-              <Button
-                flex={1}
-                variant="primary"
-                size="medium"
-                disabled={confirmDisabled}
-                onPress={() => {
-                  void handleConfirm();
-                }}
-              >
-                {intl.formatMessage({ id: ETranslations.global_confirm })}
-              </Button>
-            </XStack>
-          )}
         </YStack>
       )}
     </MarketPresetDialogContentFrame>
