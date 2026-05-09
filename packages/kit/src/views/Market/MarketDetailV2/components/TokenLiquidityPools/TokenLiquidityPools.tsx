@@ -36,6 +36,8 @@ import type {
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
+import { formatDisplayPairName } from './utils';
+
 type IFieldPath = string | readonly string[];
 
 type IFeeFieldCandidate = {
@@ -458,7 +460,7 @@ function formatFeeRate(item: IMarketTokenTopLiquidityItem) {
 function getPairName(item: IMarketTokenTopLiquidityItem) {
   const pairName = getText(item, PAIR_NAME_CANDIDATES);
   if (pairName) {
-    return pairName;
+    return formatDisplayPairName(pairName);
   }
 
   const baseSymbol = getText(item, BASE_SYMBOL_CANDIDATES);
