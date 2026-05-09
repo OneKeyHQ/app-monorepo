@@ -13,12 +13,17 @@
  * payload cannot leak it into Mixpanel.
  *
  * Patterns redacted:
+ *   - URL query / fragment       https://host/file?token=… → https://host/file?<redacted>
  *   - macOS  /Users/<name>/...           → /Users/<redacted>/...
  *   - Windows C:\Users\<name>\...        → C:\Users\<redacted>\...
  *   - Linux  /home/<name>/...            → /home/<redacted>/...
  *   - macOS  /var/mobile/Containers/...  → /var/mobile/Containers/<redacted>/... (iOS install UUID)
  *   - Android /data/data/<pkg>/...       → /data/data/<redacted>/...
  *   - Android /data/user/<u>/<pkg>/...   → /data/user/<u>/<redacted>/...
+ *
+ * Username terminators omit `\s` so usernames containing spaces (common on
+ * macOS / Windows: "John Doe") don't half-leak via the trailing segment.
+ *
  * Also caps total length at 240 chars so a runaway stack trace cannot
  * inflate event payloads.
  */
@@ -30,9 +35,14 @@ export function sanitizeUpdateErrorMessage(error: unknown): string | undefined {
       : (error as { message?: string } | null)?.message;
   if (!raw) return undefined;
   let cleaned = raw
-    .replace(/(\/Users\/)([^/'"\s]+)/g, '$1<redacted>')
-    .replace(/(\\Users\\)([^\\'"\s]+)/g, '$1<redacted>')
-    .replace(/(\/home\/)([^/'"\s]+)/g, '$1<redacted>')
+    // Strip URL query / fragment (signed-download tokens, oauth state, etc.).
+    // Keep the path so the host + filename stay useful for debugging.
+    .replace(/\bhttps?:\/\/[^\s'")]+/gi, (url) =>
+      url.replace(/([?#]).*$/, '$1<redacted>'),
+    )
+    .replace(/(\/Users\/)([^/'"]+)/g, '$1<redacted>')
+    .replace(/(\\Users\\)([^\\'"]+)/g, '$1<redacted>')
+    .replace(/(\/home\/)([^/'"]+)/g, '$1<redacted>')
     .replace(
       /(\/var\/mobile\/Containers\/(?:Data|Bundle)\/Application\/)([^/'"\s]+)/g,
       '$1<redacted>',

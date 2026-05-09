@@ -46,6 +46,7 @@ jest.mock('./libs/store', () => ({
 import {
   calculateSHA256,
   checkFileSha512,
+  lastSHA256FailureReason,
   testExtractedSha256FromVerifyAscFile,
   verifySha256,
 } from './bundle';
@@ -97,10 +98,11 @@ describe('calculateSHA256', () => {
     expect(calculateSHA256('')).toBe('');
   });
 
-  test('returns empty string for empty file (rejected to avoid SHA-of-empty masking truncated downloads)', () => {
+  test('classifies empty file as FILE_EMPTY without returning SHA-of-empty', () => {
     const filePath = createTempFile('');
     try {
       expect(calculateSHA256(filePath)).toBe('');
+      expect(lastSHA256FailureReason()).toBe('FILE_EMPTY');
     } finally {
       cleanupTempFile(filePath);
     }

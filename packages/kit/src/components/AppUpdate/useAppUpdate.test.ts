@@ -622,6 +622,52 @@ describe('sanitizeUpdateErrorMessage', () => {
       ),
     ).toBe("ENOENT '/Users/<redacted>/Library/Application Support/OneKey'");
   });
+
+  test('redacts macOS username containing whitespace ("John Doe")', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          "ENOENT: no such file, open '/Users/John Doe/Library/Application Support/OneKey/x.zip'",
+        ),
+      ),
+    ).toBe(
+      "ENOENT: no such file, open '/Users/<redacted>/Library/Application Support/OneKey/x.zip'",
+    );
+  });
+
+  test('redacts Windows username containing whitespace ("John Doe")', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'ENOENT: no such file, open C:\\Users\\John Doe\\AppData\\Roaming\\OneKey\\x.zip',
+        ),
+      ),
+    ).toBe(
+      'ENOENT: no such file, open C:\\Users\\<redacted>\\AppData\\Roaming\\OneKey\\x.zip',
+    );
+  });
+
+  test('redacts URL query / fragment (signed-download tokens) but keeps host + path', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'Cannot derive file name from URL: https://cdn.example.com/onekey/x.dmg?token=abc123&exp=999',
+        ),
+      ),
+    ).toBe(
+      'Cannot derive file name from URL: https://cdn.example.com/onekey/x.dmg?<redacted>',
+    );
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error('Download failed: http://host/file#frag-with-PII'),
+      ),
+    ).toBe('Download failed: http://host/file#<redacted>');
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error('No-query URL stays intact: https://cdn.example.com/x.dmg'),
+      ),
+    ).toBe('No-query URL stays intact: https://cdn.example.com/x.dmg');
+  });
 });
 
 // =========================================================================
