@@ -61,17 +61,14 @@ export function ContainerChild({
   const syncFocusedTabVisibility = useCallback(
     (tabName: string) => {
       const focusedIndex = tabNames.findIndex((name) => name === tabName);
-      if (focusedIndex > -1 && listContainerRef.current) {
-        listContainerRef.current.childNodes.forEach((element, index) => {
-          if (element) {
-            (
-              (element as HTMLDivElement).style as unknown as {
-                contentVisibility: 'hidden' | 'visible';
-              }
-            ).contentVisibility = focusedIndex === index ? 'visible' : 'hidden';
-          }
-        });
-      }
+      if (focusedIndex < 0 || !listContainerRef.current) return;
+      listContainerRef.current.childNodes.forEach((element, index) => {
+        if (!element) return;
+        (element as HTMLElement).style.setProperty(
+          'content-visibility',
+          focusedIndex === index ? 'visible' : 'hidden',
+        );
+      });
     },
     [listContainerRef, tabNames],
   );
@@ -79,18 +76,7 @@ export function ContainerChild({
   useAnimatedReaction(
     () => focusedTab.value,
     (tabName) => {
-      const focusedIndex = tabNames.findIndex((name) => name === tabName);
-      if (focusedIndex > -1 && listContainerRef.current) {
-        listContainerRef.current.childNodes.forEach((element, index) => {
-          if (element) {
-            (
-              (element as HTMLDivElement).style as unknown as {
-                contentVisibility: 'hidden' | 'visible';
-              }
-            ).contentVisibility = focusedIndex === index ? 'visible' : 'hidden';
-          }
-        });
-      }
+      syncFocusedTabVisibility(tabName);
     },
   );
 
@@ -108,7 +94,10 @@ export function ContainerChild({
       >
         {Children.map(children, (child, index) => {
           const key =
-            isValidElement(child) && 'name' in (child.props as { name: string })
+            isValidElement(child) &&
+            child.props !== null &&
+            typeof child.props === 'object' &&
+            'name' in child.props
               ? (child.props as { name: string }).name
               : index;
           return (
@@ -220,7 +209,9 @@ export function Container({
     return Children.map(children, (child) => {
       if (
         isValidElement(child) &&
-        'name' in (child.props as { name: string })
+        child.props !== null &&
+        typeof child.props === 'object' &&
+        'name' in child.props
       ) {
         return (child.props as { name: string }).name;
       }

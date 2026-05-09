@@ -66,6 +66,10 @@ import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type { IAccountDeriveTypes } from '../vaults/types';
 
+const HISTORY_TIME_RANGE_MS = timerUtils.getTimeDurationMs({
+  month: HISTORY_TIME_RANGE_MONTHS,
+});
+
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -102,8 +106,6 @@ class ServiceHistory extends ServiceBase {
     if (network?.backendIndex === true) {
       return resolved;
     }
-    const HISTORY_TIME_RANGE_MS =
-      HISTORY_TIME_RANGE_MONTHS * 30 * 24 * 60 * 60 * 1000;
     const now = Date.now();
     return {
       ...resolved,
@@ -173,12 +175,15 @@ class ServiceHistory extends ServiceBase {
       filterLowValue,
     });
 
+    const networkLogoURIs = await Promise.all(
+      filtered.map((tx) =>
+        this.backgroundApi.serviceNetwork
+          .getNetwork({ networkId: tx.decodedTx.networkId })
+          .then((n: { logoURI?: string }) => n.logoURI),
+      ),
+    );
     for (let i = 0; i < filtered.length; i += 1) {
-      const tx = filtered[i];
-      const network = await this.backgroundApi.serviceNetwork.getNetwork({
-        networkId: tx.decodedTx.networkId,
-      });
-      tx.decodedTx.networkLogoURI = network.logoURI;
+      filtered[i].decodedTx.networkLogoURI = networkLogoURIs[i];
     }
 
     return {

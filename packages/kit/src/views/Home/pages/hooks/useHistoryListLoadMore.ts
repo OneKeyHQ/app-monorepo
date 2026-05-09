@@ -61,6 +61,9 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   // immediately). RN's SectionList won't refire onEndReached until content
   // grows, so we replay the request once we're armed.
   const pendingLoadMoreRef = useRef(false);
+  // Bumped on every reset so an in-flight response from a prior identity
+  // can detect it has been superseded and skip its state writes.
+  const generationRef = useRef(0);
 
   const reset = useCallback(() => {
     initializedRef.current = false;
@@ -68,6 +71,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     cursorRef.current = undefined;
     loadCountRef.current = 0;
     pendingLoadMoreRef.current = false;
+    generationRef.current += 1;
     setAppendedTxs([]);
     setHasMore(false);
     setIsLoadingMore(false);
@@ -115,6 +119,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     pendingLoadMoreRef.current = false;
     const cursor = cursorRef.current;
     const nextPage = pageRef.current + 1;
+    const generation = generationRef.current;
     setIsLoadingMore(true);
     try {
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
@@ -131,6 +136,10 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
         page: nextPage,
         ...(cursor ? { cursor } : {}),
       });
+      // reset() ran while we were awaiting — discard this response, its data
+      // belongs to a stale identity (account/network) and would clobber the
+      // newly-mounted state.
+      if (generation !== generationRef.current) return;
       pageRef.current = nextPage;
       cursorRef.current = normalizeCursor(r.next);
       loadCountRef.current += 1;
@@ -139,12 +148,20 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       const gotItems = !!r.txs?.length;
       setHasMore(!!r.hasMoreOnChainHistory && gotItems);
       if (gotItems) {
-        setAppendedTxs((prev) => unionBy([...prev, ...r.txs], (tx) => tx.id));
+        setAppendedTxs((prev) => {
+          const merged = unionBy([...prev, ...r.txs], (tx) => tx.id);
+          // Pages can return only duplicates (e.g. backend re-emits seen rows
+          // at chain reorgs). Returning the same reference avoids invalidating
+          // downstream `combinedHistoryData` memos and the resulting re-renders.
+          return merged.length === prev.length ? prev : merged;
+        });
       }
     } catch (error) {
       console.error('History loadMore failed:', error);
     } finally {
-      setIsLoadingMore(false);
+      if (generation === generationRef.current) {
+        setIsLoadingMore(false);
+      }
     }
   }, [
     enabled,
