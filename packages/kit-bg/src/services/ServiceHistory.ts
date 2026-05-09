@@ -82,7 +82,7 @@ class ServiceHistory extends ServiceBase {
     }
     // First-page callers omit `page`; the new contract requires page=1 so the
     // backend can route consistently. Load-more callers already set page>1.
-    let resolved: IFetchAccountHistoryParams =
+    const resolved: IFetchAccountHistoryParams =
       typeof params.page === 'number' ? params : { ...params, page: 1 };
     if (resolved.minTimestampMs || resolved.maxTimestampMs) {
       return resolved;
@@ -1074,7 +1074,7 @@ class ServiceHistory extends ServiceBase {
     // numeric offset that needs string-coercion before being sent back as the
     // next request's `cursor`. null / undefined / empty string mean "no more".
     const next =
-      rawNext == null || (rawNext as unknown) === ''
+      rawNext === null || rawNext === undefined || (rawNext as unknown) === ''
         ? undefined
         : String(rawNext);
 

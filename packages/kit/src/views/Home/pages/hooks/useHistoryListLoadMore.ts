@@ -13,7 +13,7 @@ const NATIVE_LOAD_MORE_HARD_LIMIT = 30;
 // non-empty string. Some chains emit numeric offsets, but the request param
 // is always sent as a string. null / undefined / empty string mean "no more".
 function normalizeCursor(input: unknown): string | undefined {
-  if (input == null) return undefined;
+  if (input === null || input === undefined) return undefined;
   const value = typeof input === 'string' ? input : String(input);
   return value.length > 0 ? value : undefined;
 }
@@ -108,7 +108,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       return;
     }
     if (!hasMore || !initializedRef.current) {
-      // Not ready yet — defer until the first page initialises pagination.
+      // Not ready yet — defer until the first page initializes pagination.
       pendingLoadMoreRef.current = true;
       return;
     }
@@ -165,12 +165,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   // If onEndReached fired before we were ready (or while a request was in
   // flight) replay it now that the pagination state is armed and idle.
   useEffect(() => {
-    if (
-      enabled &&
-      hasMore &&
-      !isLoadingMore &&
-      pendingLoadMoreRef.current
-    ) {
+    if (enabled && hasMore && !isLoadingMore && pendingLoadMoreRef.current) {
       void loadMore();
     }
   }, [enabled, hasMore, isLoadingMore, loadMore]);
