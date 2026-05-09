@@ -20,14 +20,21 @@ export function WebViewNavigator() {
     // WebView content explicitly occupies only the main-content area —
     // padding shorthand on Tamagui Stack didn't reliably constrain inner
     // descendants on web (pl was dropped in CSS class translation).
+    // testIDs translate to data-testid so DOM diagnostics (elementFromPoint)
+    // can confirm which intermediate layer captures pointer events.
     return (
-      <Stack flex={1} pointerEvents="box-none">
+      <Stack
+        flex={1}
+        pointerEvents="box-none"
+        testID="webview-overlay-outer"
+      >
         <Stack
           position="absolute"
           top={0}
           bottom={0}
           left={MIN_SIDEBAR_WIDTH}
           right={0}
+          testID="webview-overlay-inset"
         >
           {navigator}
         </Stack>
