@@ -80,14 +80,27 @@ export function WebViewNavigator() {
     // (left of sidebar inset) lets clicks reach the underlying Main route.
     // Inner wrapper is absolute-positioned starting at sidebar width so the
     // WebView content occupies only the main-content area.
+    //
+    // Inset visuals mimic OnboardingLayout's card look on desktop:
+    //   - top={36} leaves the macOS traffic-light strip visible above
+    //   - borderTopStartRadius/borderTopEndRadius give the rounded top
+    //   - outline matches the subtle 1px border around modal/onboarding cards
+    //   - overflow:hidden so the rounded corners actually clip child content
     return (
       <Stack flex={1} pointerEvents="box-none" testID="webview-overlay-outer">
         <Stack
           position="absolute"
-          top={0}
+          top={36}
           bottom={0}
           left={MIN_SIDEBAR_WIDTH}
           right={0}
+          borderTopStartRadius="$3"
+          borderTopEndRadius="$3"
+          overflow="hidden"
+          outlineWidth="$px"
+          outlineStyle="solid"
+          outlineColor="$borderSubdued"
+          bg="$bgApp"
           testID="webview-overlay-inset"
         >
           {navigator}
