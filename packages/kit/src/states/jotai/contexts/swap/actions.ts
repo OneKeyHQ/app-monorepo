@@ -2427,13 +2427,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           });
         const hasKLinePrice = isSameToken && currentTokenDetail?.lastUpdated;
 
-        const finalTokenData = hasKLinePrice
-          ? {
-              ...tokenData,
-              price: currentTokenDetail.price, // Always use K-line price
-              lastUpdated: currentTokenDetail.lastUpdated,
-            }
-          : tokenData;
+        const finalTokenData = {
+          ...(hasKLinePrice
+            ? {
+                ...tokenData,
+                price: currentTokenDetail.price, // Always use K-line price
+                lastUpdated: currentTokenDetail.lastUpdated,
+              }
+            : tokenData),
+          networkId,
+        };
         set(swapProTokenMarketDetailInfoAtom(), finalTokenData);
         set(swapProTokenDetailWebsocketAtom(), websocketConfig);
         if (
