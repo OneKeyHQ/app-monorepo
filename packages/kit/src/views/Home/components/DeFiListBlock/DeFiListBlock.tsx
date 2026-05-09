@@ -86,8 +86,8 @@ function buildSingleNetworkDeFiCacheKey({
 
 function MobileProtocolDivider() {
   return (
-    <YStack px="$5" pt="$1" pb="$2">
-      <Divider borderColor="$borderDisabled" />
+    <YStack px="$5" py="$1.5">
+      <Divider borderColor="$borderSubdued" />
     </YStack>
   );
 }
