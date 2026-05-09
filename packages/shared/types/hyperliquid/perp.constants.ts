@@ -50,7 +50,7 @@ export const CACHE_TIME_QUANTIZE_MS = 10_000;
 // Token Selector default values
 export const DEFAULT_PERP_TOKEN_SORT_FIELD = 'volume24h';
 export const DEFAULT_PERP_TOKEN_SORT_DIRECTION = 'desc';
-export const DEFAULT_PERP_TOKEN_ACTIVE_TAB = 'all';
+export const DEFAULT_PERP_TOKEN_ACTIVE_TAB = 'perps';
 
 // Perp Layout Configuration
 export const PERP_LAYOUT_CONFIG = {

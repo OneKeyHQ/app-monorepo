@@ -3578,6 +3578,10 @@ class ServiceAccount extends ServiceBase {
       index,
     });
     if (walletId !== expectedWalletId) {
+      console.warn('createBotWalletFromCloudSync skipped: walletId mismatch', {
+        walletId,
+        expectedWalletId,
+      });
       return false;
     }
     const parentWallet = await this.getWalletSafe({
@@ -3585,11 +3589,30 @@ class ServiceAccount extends ServiceBase {
       withoutRefill: true,
     });
     if (!parentWallet?.isKeyless) {
+      // Parent KW not yet imported on this peer. Item stays in pool
+      // (localSceneUpdated stays false) and gets retried on the next
+      // syncToSceneByAllPendingItems pass.
+      console.warn(
+        'createBotWalletFromCloudSync skipped: parent keyless wallet missing',
+        {
+          walletId,
+          parentKeylessWalletId,
+        },
+      );
       return false;
     }
     const password =
       await this.backgroundApi.servicePassword.getCachedPassword();
     if (!password) {
+      // Password not cached. Pending bot wallet items are reprocessed by the
+      // forceSync pass triggered from setCachedPassword once it lands.
+      console.warn(
+        'createBotWalletFromCloudSync skipped: cached password missing',
+        {
+          walletId,
+          parentKeylessWalletId,
+        },
+      );
       return false;
     }
 
@@ -3680,6 +3703,106 @@ class ServiceAccount extends ServiceBase {
       })().catch((error) => {
         errorUtils.autoPrintErrorIgnore(error);
       });
+    }
+  }
+
+  // OK-53558: Push a BotWallet deletion tombstone for cloud sync so other
+  // devices propagate the removal. Metadata is passed in by the caller
+  // because simpleDb.botWallet has typically been wiped (or is about to be)
+  // by the time we get here.
+  private async pushBotWalletDeletionTombstone({
+    walletId,
+    metadata,
+  }: {
+    walletId: string;
+    metadata: IBotWalletMetadata;
+  }): Promise<void> {
+    if (
+      (await this.backgroundApi.serviceKeylessCloudSync.getActiveSyncMode()) !==
+      ECloudSyncMode.Keyless
+    ) {
+      return;
+    }
+
+    const currentKeylessWalletId =
+      await this.backgroundApi.servicePrimeCloudSync.getCurrentCloudSyncKeylessWalletId();
+    if (
+      !isBotWalletInCurrentKeylessSyncScope({
+        walletId,
+        currentKeylessWalletId,
+      })
+    ) {
+      return;
+    }
+
+    const syncCredential =
+      await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+    if (!syncCredential) {
+      return;
+    }
+
+    const syncItem =
+      await this.backgroundApi.servicePrimeCloudSync.syncManagers.botWallet.buildSyncItemByDBQuery(
+        {
+          syncCredential,
+          dbRecord: {
+            walletId,
+            metadata,
+          },
+          dataTime: await this.backgroundApi.servicePrimeCloudSync.timeNow(),
+          isDeleted: true,
+        },
+      );
+
+    if (!syncItem) {
+      return;
+    }
+
+    await localDb.addAndUpdateSyncItems({
+      items: [syncItem],
+      skipUploadToServer: true,
+    });
+    void (async () => {
+      await timerUtils.wait(600);
+      const latestSyncItem = await localDb.getSyncItemSafe({
+        id: syncItem.id,
+      });
+      if (!latestSyncItem) {
+        return;
+      }
+      await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
+        localItems: [latestSyncItem],
+        noDebounceUpload: true,
+      });
+    })().catch((error) => {
+      errorUtils.autoPrintErrorIgnore(error);
+    });
+  }
+
+  // OK-53558: After a Bot Wallet is removed from localDb, push a sync
+  // tombstone and clear simpleDb.botWallet metadata. Without this, the
+  // orphan metadata makes the next initLocalSyncItemsDB iteration throw
+  // "keyHash is required" when the Keyless cloud sync toggle is turned on,
+  // because buildSyncTargetByDBQuery cannot resolve a wallet hash for a
+  // bot wallet whose localDb record is gone.
+  private async cleanupRemovedBotWalletCloudSyncState({
+    walletId,
+    metadata,
+  }: {
+    walletId: string;
+    metadata: IBotWalletMetadata | undefined;
+  }): Promise<void> {
+    if (metadata) {
+      try {
+        await this.pushBotWalletDeletionTombstone({ walletId, metadata });
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
+    }
+    try {
+      await simpleDb.botWallet.removeMetadata(walletId);
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
     }
   }
 
@@ -4108,6 +4231,12 @@ class ServiceAccount extends ServiceBase {
     const wallet = await this.getWalletSafe({ walletId });
     const keylessOwnerId = wallet?.keylessDetailsInfo?.keylessOwnerId;
     const isKeylessWallet = !!wallet?.isKeyless;
+    const isBotWallet = accountUtils.isBotWallet({ walletId });
+    // OK-53558: capture bot wallet metadata before localDb.removeWallet so we
+    // can push a deletion tombstone with the original payload after removal.
+    const botWalletMetadata = isBotWallet
+      ? await simpleDb.botWallet.getMetadata(walletId)
+      : undefined;
 
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
@@ -4117,6 +4246,12 @@ class ServiceAccount extends ServiceBase {
       walletId,
       isRemoveToMocked,
     });
+    if (isBotWallet) {
+      await this.cleanupRemovedBotWalletCloudSyncState({
+        walletId,
+        metadata: botWalletMetadata,
+      });
+    }
     if (isKeylessWallet) {
       const { wallets } = await localDb.getAllWallets();
       await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
