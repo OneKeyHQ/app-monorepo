@@ -21,6 +21,13 @@ function deriveHostFallback(url: string | undefined): string {
   }
 }
 
+// Push the close button and the MoreMenu trigger flush to the header edges.
+// react-navigation defaults to ~$4 padding on each side which leaves a
+// noticeable gap; the WebView header is dense and benefits from edge-aligned
+// buttons.
+const FLUSH_LEFT_CONTAINER_STYLE = { paddingLeft: 0, paddingHorizontal: 0 };
+const FLUSH_RIGHT_CONTAINER_STYLE = { paddingRight: 0, paddingHorizontal: 0 };
+
 /**
  * Page header for the WebView overlay route.
  *
@@ -51,7 +58,22 @@ function WebViewHeader({
     return <Page.Header headerShown={false} />;
   }
 
-  return <Page.Header title={resolvedTitle} headerRight={renderHeaderRight} />;
+  // `headerLeftContainerStyle` / `headerRightContainerStyle` are valid runtime
+  // props for HeaderView (see HeaderView.tsx:108) but aren't exposed on
+  // IPageHeaderProps' typed surface — Page.Header narrows to a subset of
+  // IStackNavigationOptions. Pass via spread + cast to avoid widening the
+  // shared type.
+  const extraContainerStyles = {
+    headerLeftContainerStyle: FLUSH_LEFT_CONTAINER_STYLE,
+    headerRightContainerStyle: FLUSH_RIGHT_CONTAINER_STYLE,
+  } as Record<string, unknown>;
+  return (
+    <Page.Header
+      title={resolvedTitle}
+      headerRight={renderHeaderRight}
+      {...extraContainerStyles}
+    />
+  );
 }
 
 export default WebViewHeader;
