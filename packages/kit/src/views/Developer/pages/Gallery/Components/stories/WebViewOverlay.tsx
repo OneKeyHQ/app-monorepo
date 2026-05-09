@@ -44,6 +44,22 @@ const REJECTION_CASES = [
     url: 'https://trusted.com@evil.com/',
   },
   {
+    label: 'localhost (SSRF guard)',
+    url: 'https://localhost:3000/',
+  },
+  {
+    label: 'private IP 192.168.x (SSRF guard)',
+    url: 'https://192.168.1.1/',
+  },
+  {
+    label: 'AWS metadata IP (SSRF guard)',
+    url: 'https://169.254.169.254/latest/meta-data/',
+  },
+  {
+    label: 'IPv6 loopback (SSRF guard)',
+    url: 'https://[::1]/',
+  },
+  {
     label: 'empty url (must reject)',
     url: '',
   },

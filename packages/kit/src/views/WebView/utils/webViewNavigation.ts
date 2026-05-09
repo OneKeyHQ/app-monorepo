@@ -6,6 +6,8 @@ import {
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
 
+import { isAllowedWebViewUrl } from './urlSafety';
+
 export type IOpenWebViewParams = IWebViewPageParams;
 
 /**
@@ -18,23 +20,12 @@ export type IOpenWebViewParams = IWebViewPageParams;
  * Caller MUST invoke from a sync user-gesture handler on web/extension
  * to avoid popup-blocker rejection.
  *
- * Security: only `https://` URLs are accepted. http, javascript, file, data,
- * about, intent, and any other scheme are silently rejected. URLs that embed
- * userinfo (`https://user@host` or `https://user:pass@host`) are rejected
- * because the visible host can mislead users about the real navigation target.
+ * Security: see `isAllowedWebViewUrl` for the full policy. Disallowed URLs
+ * are silently rejected — the caller gets no signal, by design.
  */
 export function openWebView(params: IOpenWebViewParams) {
   const { url } = params;
-  if (!url || !/^https:\/\//i.test(url)) {
-    return;
-  }
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return;
-  }
-  if (parsed.username || parsed.password) {
+  if (!isAllowedWebViewUrl(url)) {
     return;
   }
 

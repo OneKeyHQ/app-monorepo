@@ -4,9 +4,7 @@ import type {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 
 import type { IOpenWebViewParams } from '../../../views/WebView/utils/webViewNavigation';
-
-const HTTPS_REGEX = /^https:\/\//i;
-const MAX_URL_LENGTH = 2048;
+import { isAllowedWebViewUrl } from '../../../views/WebView/utils/urlSafety';
 
 /**
  * Parse and validate the query params of an `onekey-wallet://webview?...`
@@ -14,15 +12,14 @@ const MAX_URL_LENGTH = 2048;
  * throws). Extracted from the deeplink switch so the validation logic can be
  * unit-tested as a pure function.
  *
- * Safety checks (in order):
+ * Decoding-specific checks:
  *   1. `query.url` must be a string (expo-linking can return string[] for
  *      duplicated `?url=a&url=b` query keys).
- *   2. `decodeURIComponent` must succeed.
- *   3. Decoded URL must be non-empty, ≤ 2048 chars, and start with `https://`
- *      (rejects http, javascript, file, data, about, intent, custom schemes).
- *   4. URL must parse via the standard URL constructor.
- *   5. URL must NOT embed userinfo (`https://user@host` or
- *      `https://user:pass@host`) — these confuse users about the real host.
+ *   2. `decodeURIComponent` must succeed (rejects malformed escapes).
+ *
+ * URL-safety policy delegated to `isAllowedWebViewUrl` — see that helper for
+ * the full list (https-only, length cap, no userinfo, no local addresses,
+ * etc.).
  *
  * `title` defends against the same string[] coercion. Boolean params are
  * decoded from the `'0' | '1'` URL-query convention.
@@ -40,21 +37,7 @@ export function parseWebViewDeepLink(
     return null;
   }
 
-  if (
-    !decoded ||
-    decoded.length > MAX_URL_LENGTH ||
-    !HTTPS_REGEX.test(decoded)
-  ) {
-    return null;
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(decoded);
-  } catch {
-    return null;
-  }
-  if (parsed.username || parsed.password) {
+  if (!isAllowedWebViewUrl(decoded)) {
     return null;
   }
 

@@ -128,6 +128,30 @@ describe('parseWebViewDeepLink', () => {
       ).toBeNull();
     });
 
+    it('rejects localhost (delegates to isAllowedWebViewUrl)', () => {
+      expect(
+        parseWebViewDeepLink({
+          url: encodeURIComponent('https://localhost:3000/'),
+        }),
+      ).toBeNull();
+    });
+
+    it('rejects 127.0.0.1 (delegates to isAllowedWebViewUrl)', () => {
+      expect(
+        parseWebViewDeepLink({
+          url: encodeURIComponent('https://127.0.0.1/'),
+        }),
+      ).toBeNull();
+    });
+
+    it('rejects AWS metadata 169.254.169.254 (SSRF guard)', () => {
+      expect(
+        parseWebViewDeepLink({
+          url: encodeURIComponent('https://169.254.169.254/'),
+        }),
+      ).toBeNull();
+    });
+
     it('rejects javascript: scheme', () => {
       expect(
         parseWebViewDeepLink({ url: encodeURIComponent(JS_SCHEME) }),

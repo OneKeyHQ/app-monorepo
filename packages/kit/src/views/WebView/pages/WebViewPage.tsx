@@ -17,9 +17,13 @@ import {
 import AddressBar from '../components/AddressBar';
 import WebViewHeader from '../components/Header';
 import ProgressBar from '../components/ProgressBar';
+import { isAllowedWebViewUrl } from '../utils/urlSafety';
 
 import type { WebView as ReactNativeWebView } from 'react-native-webview';
-import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  ShouldStartLoadRequest,
+  WebViewNavigation,
+} from 'react-native-webview/lib/WebViewTypes';
 
 function WebViewPageContent() {
   const route = useRoute();
@@ -225,6 +229,20 @@ function WebViewPageContent() {
     [setWebViewRef],
   );
 
+  // Per-navigation URL safety guard. Called by react-native-webview before
+  // each main-frame load (clicks, redirects, JS pushState, etc.). Blocks any
+  // navigation whose target violates the WebView URL policy (non-https, local
+  // address, userinfo embed, javascript: bookmarklets injected via redirects).
+  // Iframe loads (`event.isTopFrame === false`) are passed through — those
+  // are the page's own composition, not user-visible navigation.
+  const onShouldStartLoadWithRequest = useCallback(
+    (event: ShouldStartLoadRequest): boolean => {
+      if (event?.isTopFrame === false) return true;
+      return isAllowedWebViewUrl(event?.url);
+    },
+    [],
+  );
+
   // Address bar is hidden by default — opt-in via params.showAddressBar.
   const showAddressBar = params.showAddressBar === true;
 
@@ -257,6 +275,7 @@ function WebViewPageContent() {
           onDidFinishLoad={onDidFinishLoad}
           onDidStopLoading={onDidFinishLoad}
           onDidFailLoad={onDidFinishLoad}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           allowpopups
         />
       </Page.Body>
