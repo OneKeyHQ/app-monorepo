@@ -8,6 +8,7 @@ type ITokenSelectorPerfDetail = {
   layout: ITokenSelectorPerfLayout;
   phase: ITokenSelectorPerfPhase;
   activeTab?: string;
+  primaryTab?: string;
   sortField?: string;
   sortDirection?: string;
   perpCount?: number;

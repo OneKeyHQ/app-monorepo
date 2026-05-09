@@ -88,13 +88,14 @@ import {
   startTokenSelectorPerfMeasure,
 } from '../../utils/tokenSelectorPerf';
 import {
+  buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
+  buildPrimaryTabs,
   getPerpTokenSelectorFallbackTabId,
-  isPerpTokenSelectorAllTab,
+  getPerpTokenSelectorPrimaryTabId,
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorSpotTab,
-  sortPerpTokenSelectorItemsBySortValue,
 } from '../../utils/tokenSelectorTabs';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
@@ -144,7 +145,7 @@ const DESKTOP_TOKEN_SELECTOR_TABLE_MIN_WIDTH = {
     TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING,
 } as const;
 
-const TabItem = memo(
+const PrimaryTabItem = memo(
   ({
     id,
     name,
@@ -165,7 +166,7 @@ const TabItem = memo(
         borderBottomWidth={isFocused ? '$0.5' : '$0'}
         borderBottomColor="$borderActive"
         onPress={handlePress}
-        cursor="default"
+        cursor="pointer"
       >
         <SizableText
           size="$headingXs"
@@ -177,7 +178,45 @@ const TabItem = memo(
     );
   },
 );
-TabItem.displayName = 'TabItem';
+PrimaryTabItem.displayName = 'PrimaryTabItem';
+
+const CategoryTabItem = memo(
+  ({
+    id,
+    name,
+    isFocused,
+    onPress,
+  }: {
+    id: string;
+    name: string;
+    isFocused: boolean;
+    onPress: (id: string) => void;
+  }) => {
+    const handlePress = useCallback(() => onPress(id), [id, onPress]);
+    return (
+      <XStack
+        alignItems="center"
+        justifyContent="center"
+        px="$2.5"
+        py="$1.5"
+        borderRadius="$full"
+        userSelect="none"
+        cursor="pointer"
+        backgroundColor={isFocused ? '$bgActive' : '$transparent'}
+        onPress={handlePress}
+      >
+        <SizableText
+          numberOfLines={1}
+          size="$bodySmMedium"
+          color={isFocused ? '$text' : '$textSubdued'}
+        >
+          {name}
+        </SizableText>
+      </XStack>
+    );
+  },
+);
+CategoryTabItem.displayName = 'CategoryTabItem';
 
 function TokenListHeader({
   layoutMode = 'perp',
@@ -193,13 +232,7 @@ function TokenListHeader({
     : SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT;
   const mixedColumnLayout = MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT;
   return (
-    <XStack
-      width="100%"
-      px="$4"
-      py="$3"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
-    >
+    <XStack width="100%" px="$4" py="$2">
       <SortableHeaderCell
         field="name"
         label={intl.formatMessage({
@@ -382,6 +415,18 @@ function BasePerpTokenSelectorContent({
   }, []);
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+  const primaryTabs = useMemo(
+    () => buildPrimaryTabs(fixedTabNames),
+    [fixedTabNames],
+  );
+  const categoryTabs = useMemo(
+    () =>
+      buildPerpTokenSelectorCategoryTabs({
+        serverTabs: dynamicTabs,
+        fixedTabNames,
+      }),
+    [dynamicTabs, fixedTabNames],
+  );
   const visibleTabs = useMemo(
     () =>
       buildPerpTokenSelectorTabs({
@@ -396,6 +441,11 @@ function BasePerpTokenSelectorContent({
     }
     return getPerpTokenSelectorFallbackTabId(visibleTabs);
   }, [activeTab, visibleTabs]);
+  const displayPrimaryTab = useMemo(
+    () => getPerpTokenSelectorPrimaryTabId(displayActiveTab),
+    [displayActiveTab],
+  );
+  const showCategoryTabs = displayPrimaryTab === 'perps';
 
   const setActiveTab = useCallback(
     (tab: string) => {
@@ -415,6 +465,15 @@ function BasePerpTokenSelectorContent({
       });
     },
     [actions, setSelectorConfig],
+  );
+  const setPrimaryTab = useCallback(
+    (tab: string) => {
+      if (tab === displayPrimaryTab) {
+        return;
+      }
+      setActiveTab(tab);
+    },
+    [displayPrimaryTab, setActiveTab],
   );
 
   const handleSelectToken = useCallback(
@@ -792,89 +851,6 @@ function BasePerpTokenSelectorContent({
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
 
-    const getPerpSortValue = (
-      item: ITokenSelectorListItem,
-    ): string | number | undefined => {
-      if (!sortField) {
-        return undefined;
-      }
-      const assetId = item.assetId ?? item.index;
-      const normalizedAssetId =
-        item.dexIndex === 1 ? assetId - XYZ_ASSET_ID_OFFSET : assetId;
-      const ctx = ctxSnapshotRef.current?.[item.dexIndex]?.[normalizedAssetId];
-      const markPrice = Number(ctx?.markPx || 0);
-      const prevDayPx = Number(ctx?.prevDayPx || 0);
-      switch (sortField) {
-        case 'name':
-          return item.tokenName ?? '';
-        case 'markPrice':
-          return markPrice;
-        case 'change24hPercent':
-          return prevDayPx > 0
-            ? ((markPrice - prevDayPx) / prevDayPx) * 100
-            : 0;
-        case 'fundingRate':
-          return Number(ctx?.funding || 0);
-        case 'volume24h':
-          return Number(ctx?.dayNtlVlm || 0);
-        case 'openInterest':
-          return Number(ctx?.openInterest || 0) * markPrice;
-        case 'marketCap':
-          return undefined;
-        default:
-          return undefined;
-      }
-    };
-
-    const getSpotSortValue = (
-      item: ITokenSelectorListItem,
-    ): string | number | undefined => {
-      const universe = item.spotUniverse;
-      if (!sortField || !universe) {
-        return undefined;
-      }
-      const ctx = spotPriceSnapshot[universe.name];
-      const markPrice = Number(ctx?.markPx || 0);
-      const prevDayPx = Number(ctx?.prevDayPx || 0);
-      switch (sortField) {
-        case 'name':
-          return universe.baseName;
-        case 'markPrice':
-          return markPrice;
-        case 'change24hPercent':
-          return prevDayPx > 0
-            ? ((markPrice - prevDayPx) / prevDayPx) * 100
-            : 0;
-        case 'volume24h':
-          return Number(ctx?.dayNtlVlm || 0);
-        case 'marketCap': {
-          const marketCapValue = getSpotMarketCapValue(
-            ctx,
-            universe.baseName,
-            spotMarketCaps,
-          );
-          return marketCapValue ? Number(marketCapValue) : undefined;
-        }
-        case 'fundingRate':
-        case 'openInterest':
-          return undefined;
-        default:
-          return undefined;
-      }
-    };
-
-    const sortMixedList = (items: ITokenSelectorListItem[]) => {
-      if (!sortField) {
-        return items;
-      }
-      return sortPerpTokenSelectorItemsBySortValue({
-        items,
-        direction: sortDirection,
-        getValue: (item) =>
-          item.spotUniverse ? getSpotSortValue(item) : getPerpSortValue(item),
-      });
-    };
-
     const getSpotListBySearch = () => {
       if (!searchQuery) return spotSortedList;
       const q = searchQuery.toLowerCase();
@@ -893,21 +869,19 @@ function BasePerpTokenSelectorContent({
 
     let result: ITokenSelectorListItem[];
 
-    if (isPerpTokenSelectorSpotTab(displayActiveTab)) {
+    if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
       result = getSpotListBySearch();
-    } else if (isPerpTokenSelectorFavoritesTab(displayActiveTab)) {
+    } else if (isPerpTokenSelectorFavoritesTab(displayPrimaryTab)) {
       const favoriteAssetIds = new Set(
         favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
       );
       result = perpSortedList.filter((item) =>
         favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
       );
-    } else if (isPerpTokenSelectorAllTab(displayActiveTab)) {
-      result = sortMixedList([...perpSortedList, ...getSpotListBySearch()]);
     } else if (isPerpTokenSelectorPerpsTab(displayActiveTab)) {
       result = perpSortedList;
     } else {
-      const dynamicTab = visibleTabs.find((t) => t.tabId === displayActiveTab);
+      const dynamicTab = categoryTabs.find((t) => t.tabId === displayActiveTab);
       if (dynamicTab) {
         const tokenSet = new Set(dynamicTab.tokens);
         const matchingIds = new Set<string>();
@@ -931,29 +905,29 @@ function BasePerpTokenSelectorContent({
         layout: 'desktop',
         phase: 'active-tab',
         activeTab: displayActiveTab,
+        primaryTab: displayPrimaryTab,
         sortField,
         sortDirection,
         perpCount: perpSortedList.length,
         spotCount: spotSortedList.length,
         resultCount: result.length,
         searchQueryLength: searchQuery.length,
-        dynamicTabCount: visibleTabs.length,
+        dynamicTabCount: categoryTabs.length,
       });
     }
 
     return result;
   }, [
     displayActiveTab,
+    displayPrimaryTab,
     assetsByDex,
+    categoryTabs,
     favoriteItems,
     perpSortedList,
     spotSortedList,
     searchQuery,
     selectorConfig?.direction,
     selectorConfig?.field,
-    spotPriceSnapshot,
-    spotMarketCaps,
-    visibleTabs,
   ]);
 
   usePerpActiveTabValidation({
@@ -972,14 +946,11 @@ function BasePerpTokenSelectorContent({
     [],
   );
   const desktopListLayout = useMemo((): 'perp' | 'spot' | 'mixed' => {
-    if (isPerpTokenSelectorAllTab(displayActiveTab)) {
-      return 'mixed';
-    }
-    if (isPerpTokenSelectorSpotTab(displayActiveTab)) {
+    if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
       return 'spot';
     }
     return 'perp';
-  }, [displayActiveTab]);
+  }, [displayPrimaryTab]);
   const desktopTableMinWidth =
     DESKTOP_TOKEN_SELECTOR_TABLE_MIN_WIDTH[desktopListLayout];
   const getRowDesktopLayout = useCallback(
@@ -1005,13 +976,13 @@ function BasePerpTokenSelectorContent({
   );
 
   const showFavoritesEmpty =
-    isPerpTokenSelectorFavoritesTab(displayActiveTab) &&
+    isPerpTokenSelectorFavoritesTab(displayPrimaryTab) &&
     activeTabData.length === 0 &&
     !searchQuery &&
     isFavoritesReady;
 
   const listEmptyComponent = useMemo(() => {
-    if (isPerpTokenSelectorSpotTab(displayActiveTab) && spotLoading) {
+    if (isPerpTokenSelectorSpotTab(displayPrimaryTab) && spotLoading) {
       return (
         <YStack p="$4" alignItems="center">
           <Spinner size="small" />
@@ -1034,7 +1005,7 @@ function BasePerpTokenSelectorContent({
         </SizableText>
       </XStack>
     );
-  }, [displayActiveTab, spotLoading, showFavoritesEmpty, searchQuery, intl]);
+  }, [displayPrimaryTab, spotLoading, showFavoritesEmpty, searchQuery, intl]);
 
   const content = (
     <YStack>
@@ -1068,18 +1039,41 @@ function BasePerpTokenSelectorContent({
             contentContainerStyle={{ minWidth: '100%' }}
           >
             <XStack minWidth="100%">
-              {visibleTabs.map((tab: IPerpDynamicTab) => (
-                <TabItem
+              {primaryTabs.map((tab: IPerpDynamicTab) => (
+                <PrimaryTabItem
                   key={tab.tabId}
                   id={tab.tabId}
                   name={tab.name}
-                  isFocused={displayActiveTab === tab.tabId}
-                  onPress={setActiveTab}
+                  isFocused={displayPrimaryTab === tab.tabId}
+                  onPress={setPrimaryTab}
                 />
               ))}
             </XStack>
           </ScrollView>
         </XStack>
+        {showCategoryTabs ? (
+          <XStack bg="$bg">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              bounces={false}
+              width="100%"
+              contentContainerStyle={{ minWidth: '100%' }}
+            >
+              <XStack minWidth="100%" pl="$2" pr="$4" py="$1.5" gap="$2">
+                {categoryTabs.map((tab: IPerpDynamicTab) => (
+                  <CategoryTabItem
+                    key={tab.tabId}
+                    id={tab.tabId}
+                    name={tab.name}
+                    isFocused={displayActiveTab === tab.tabId}
+                    onPress={setActiveTab}
+                  />
+                ))}
+              </XStack>
+            </ScrollView>
+          </XStack>
+        ) : null}
         <YStack>
           {showFavoritesEmpty ? (
             <YStack height={350}>

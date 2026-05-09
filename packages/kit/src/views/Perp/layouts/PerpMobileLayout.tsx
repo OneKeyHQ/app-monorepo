@@ -80,10 +80,7 @@ export const TabBarItem = memo(
     const tabTitle = intl.formatMessage({
       id: tabNameToTranslationKey[name],
     });
-    const displayTitle =
-      name === ETabName.Balances
-        ? `${tabTitle}${tabCount ?? ''}`
-        : `${tabTitle}${tabCount ? ` ${tabCount}` : ''}`;
+    const displayTitle = `${tabTitle}${tabCount ? ` ${tabCount}` : ''}`;
 
     return (
       <DebugRenderTracker
@@ -97,7 +94,9 @@ export const TabBarItem = memo(
           onPress={() => onPress(name)}
           mb={-2}
         >
-          <SizableText size="$bodyMdMedium">{displayTitle}</SizableText>
+          <SizableText size="$bodyMdMedium" pr="$0.5">
+            {displayTitle}
+          </SizableText>
         </XStack>
       </DebugRenderTracker>
     );
