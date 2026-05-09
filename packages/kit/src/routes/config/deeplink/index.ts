@@ -29,6 +29,8 @@ import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAc
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
+import { parseWebViewDeepLink } from './parseWebViewDeepLink';
+
 import { registerHandler } from './handler';
 
 type IDeepLinkUrlParsedResult = {
@@ -142,30 +144,10 @@ async function processDeepLinkUrlAccount(
         case EOneKeyDeepLinkPath.webview: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.webview];
-          const rawUrl = query.url;
-          if (typeof rawUrl !== 'string') {
-            break;
+          const webViewParams = parseWebViewDeepLink(query);
+          if (webViewParams) {
+            openWebView(webViewParams);
           }
-          let decoded = '';
-          try {
-            decoded = decodeURIComponent(rawUrl);
-          } catch {
-            break;
-          }
-          if (
-            !decoded ||
-            decoded.length > 2048 ||
-            !/^https?:\/\//i.test(decoded)
-          ) {
-            break;
-          }
-          openWebView({
-            url: decoded,
-            title: typeof query.title === 'string' ? query.title : undefined,
-            hideHeader: query.hideHeader === '1',
-            showAddressBar: query.showAddressBar === '1',
-            source: 'deeplink',
-          });
           break;
         }
         default:
