@@ -198,6 +198,10 @@ function TxHistoryListContainer(
   );
 
   const isManualRefresh = useRef(false);
+  // Identifies the most recently dispatched fetch. Older fetches that complete
+  // after a newer one started must NOT write their stale result into local
+  // state — they would clobber the new account/network's data.
+  const fetchDispatchKeyRef = useRef('');
   const { run } = usePromiseResult(
     async () => {
       if (!network) return;
@@ -208,12 +212,12 @@ function TxHistoryListContainer(
         accountId = indexedAccount?.id ?? '';
       } else if (!account) return;
 
-      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-        isRefreshing: true,
-        type: EHomeTab.HISTORY,
-        accountId,
-        networkId: network.id,
-      });
+      const refreshNetworkId = network.id;
+      const refreshAccountId = accountId;
+      const dispatchKey = `${refreshAccountId}-${refreshNetworkId}`;
+      fetchDispatchKeyRef.current = dispatchKey;
+      const isCurrentDispatch = () =>
+        fetchDispatchKeyRef.current === dispatchKey;
 
       let r: {
         allAccounts: IAllNetworkAccountInfo[];
@@ -234,100 +238,126 @@ function TxHistoryListContainer(
         next: undefined,
       };
 
-      if (mergeDeriveAddressData) {
-        let hasMoreOnChainHistory = false;
-        const { networkAccounts } =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId: network.id,
-              indexedAccountId: indexedAccount?.id ?? '',
-              excludeEmptyAccount: true,
-            },
+      let emittedTrue = false;
+      try {
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: true,
+          type: EHomeTab.HISTORY,
+          accountId: refreshAccountId,
+          networkId: refreshNetworkId,
+        });
+        emittedTrue = true;
+
+        if (mergeDeriveAddressData) {
+          let hasMoreOnChainHistory = false;
+          const { networkAccounts } =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId: network.id,
+                indexedAccountId: indexedAccount?.id ?? '',
+                excludeEmptyAccount: true,
+              },
+            );
+          const resp = await Promise.all(
+            networkAccounts.map((networkAccount) =>
+              backgroundApiProxy.serviceHistory.fetchAccountHistory({
+                accountId: networkAccount.account?.id ?? '',
+                networkId: network.id,
+                isManualRefresh: isManualRefresh.current,
+                filterScam: settings.isFilterScamHistoryEnabled,
+                filterLowValue: settings.isFilterLowValueHistoryEnabled,
+                sourceCurrency: settings.currencyInfo.id,
+                currencyMap,
+                limit,
+              }),
+            ),
           );
-        const resp = await Promise.all(
-          networkAccounts.map((networkAccount) =>
-            backgroundApiProxy.serviceHistory.fetchAccountHistory({
-              accountId: networkAccount.account?.id ?? '',
-              networkId: network.id,
-              isManualRefresh: isManualRefresh.current,
-              filterScam: settings.isFilterScamHistoryEnabled,
-              filterLowValue: settings.isFilterLowValueHistoryEnabled,
-              sourceCurrency: settings.currencyInfo.id,
-              currencyMap,
-              limit,
-            }),
-          ),
-        );
 
-        resp.forEach((item) => {
-          r.txs = [...r.txs, ...item.txs];
-          r.allAccounts = [...r.allAccounts, ...item.allAccounts];
-          r.accountsWithChangedTxs = [
-            ...r.accountsWithChangedTxs,
-            ...item.accountsWithChangedTxs,
-          ];
-          r.addressMap = { ...r.addressMap, ...item.addressMap };
-          if (item.hasMoreOnChainHistory) {
-            hasMoreOnChainHistory = true;
-          }
+          resp.forEach((item) => {
+            r.txs = [...r.txs, ...item.txs];
+            r.allAccounts = [...r.allAccounts, ...item.allAccounts];
+            r.accountsWithChangedTxs = [
+              ...r.accountsWithChangedTxs,
+              ...item.accountsWithChangedTxs,
+            ];
+            r.addressMap = { ...r.addressMap, ...item.addressMap };
+            if (item.hasMoreOnChainHistory) {
+              hasMoreOnChainHistory = true;
+            }
+          });
+
+          r.txs = r.txs
+            .toSorted(
+              (b, a) =>
+                (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+                (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+            )
+            .slice(0, HISTORY_PAGE_SIZE);
+          setHasMoreOnChainHistory(hasMoreOnChainHistory);
+          updateAddressesInfo({
+            data: r.addressMap ?? {},
+          });
+        } else {
+          r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+            accountId,
+            networkId: network.id,
+            isManualRefresh: isManualRefresh.current,
+            filterScam: settings.isFilterScamHistoryEnabled,
+            filterLowValue: settings.isFilterLowValueHistoryEnabled,
+            excludeTestNetwork: true,
+            sourceCurrency: settings.currencyInfo.id,
+            currencyMap,
+            limit,
+          });
+          setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
+          updateAddressesInfo({
+            data: r.addressMap ?? {},
+          });
+          onFirstPageResponse({
+            next: r.next,
+            hasMore: r.hasMoreOnChainHistory,
+          });
+        }
+
+        // Skip every state write past this point if a newer fetch already
+        // took over — otherwise this stale body would clobber the new
+        // account/network's data and leave the UI on stale or empty state.
+        if (!isCurrentDispatch()) {
+          return;
+        }
+
+        updateAllNetworksState({
+          visibleCount: uniqBy(r.allAccounts, 'networkId').length,
         });
 
-        r.txs = r.txs
-          .toSorted(
-            (b, a) =>
-              (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-              (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-          )
-          .slice(0, HISTORY_PAGE_SIZE);
-        setHasMoreOnChainHistory(hasMoreOnChainHistory);
-        updateAddressesInfo({
-          data: r.addressMap ?? {},
+        setHistoryState({
+          initialized: true,
+          isRefreshing: false,
         });
-      } else {
-        r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-          accountId,
-          networkId: network.id,
-          isManualRefresh: isManualRefresh.current,
-          filterScam: settings.isFilterScamHistoryEnabled,
-          filterLowValue: settings.isFilterLowValueHistoryEnabled,
-          excludeTestNetwork: true,
-          sourceCurrency: settings.currencyInfo.id,
-          currencyMap,
-          limit,
-        });
-        setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
-        updateAddressesInfo({
-          data: r.addressMap ?? {},
-        });
-        onFirstPageResponse({
-          next: r.next,
-          hasMore: r.hasMoreOnChainHistory,
-        });
+        updateHistoryData(r.txs);
+
+        if (r.accountsWithChangedTxs.length > 0) {
+          appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+            accounts: r.accountsWithChangedTxs,
+          });
+        }
+        isManualRefresh.current = false;
+      } finally {
+        // Always clear the overview spinner that we lit up — emit-false has
+        // to mirror emit-true regardless of error / abort / dispatch
+        // supersession, or the home header spinner gets stuck.
+        if (emittedTrue) {
+          appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+            isRefreshing: false,
+            type: EHomeTab.HISTORY,
+            accountId: refreshAccountId,
+            networkId: refreshNetworkId,
+          });
+        }
+        if (isCurrentDispatch()) {
+          setIsHeaderRefreshing(false);
+        }
       }
-
-      updateAllNetworksState({
-        visibleCount: uniqBy(r.allAccounts, 'networkId').length,
-      });
-
-      setHistoryState({
-        initialized: true,
-        isRefreshing: false,
-      });
-      setIsHeaderRefreshing(false);
-      updateHistoryData(r.txs);
-
-      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-        isRefreshing: false,
-        type: EHomeTab.HISTORY,
-        accountId,
-        networkId: network.id,
-      });
-      if (r.accountsWithChangedTxs.length > 0) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-          accounts: r.accountsWithChangedTxs,
-        });
-      }
-      isManualRefresh.current = false;
     },
     [
       network,
@@ -354,6 +384,13 @@ function TxHistoryListContainer(
     },
   );
 
+  // Track the last identity we ran initHistoryState for, so dep-only changes
+  // (settings/currency map/limit) don't re-run identity-bound side-effects
+  // like clearing historyData. When body's first-page fetch lands a moment
+  // later, an unrelated useEffect re-fire would otherwise wipe the new
+  // account's data right back to []. We only re-init when the identity tuple
+  // genuinely changes.
+  const lastInitIdentityRef = useRef<string>('');
   useEffect(() => {
     const initHistoryState = async (
       accountId: string,
@@ -412,6 +449,11 @@ function TxHistoryListContainer(
           isRefreshing: false,
         });
       } else {
+        // No local cache for the new account/network — drop any rows still
+        // hanging around from the previous account so the user sees a clean
+        // skeleton (driven by initialized=false) instead of stale data while
+        // the first-page fetch is in flight.
+        setHistoryData([]);
         setHistoryState({
           initialized: false,
           isRefreshing: true,
@@ -422,6 +464,19 @@ function TxHistoryListContainer(
       refreshAllNetworksHistory.current = false;
     };
     if ((account?.id || mergeDeriveAddressData) && network?.id && wallet?.id) {
+      const identity = [
+        account?.id ?? '',
+        indexedAccount?.id ?? '',
+        network.id,
+        wallet.id,
+        mergeDeriveAddressData ? '1' : '0',
+      ].join('|');
+      if (lastInitIdentityRef.current === identity) {
+        // Same account/network/wallet — let the body refresh; no need to
+        // re-clear local state.
+        return;
+      }
+      lastInitIdentityRef.current = identity;
       void initHistoryState(
         account?.id ?? '',
         network.id,
