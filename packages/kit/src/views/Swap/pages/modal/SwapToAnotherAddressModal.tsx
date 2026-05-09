@@ -13,7 +13,6 @@ import {
   XStack,
   useForm,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInputField } from '@onekeyhq/kit/src/components/AddressInput';
@@ -25,7 +24,7 @@ import {
   useSwapToAnotherAccountAddressAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
-import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -122,26 +121,18 @@ const SwapToAnotherAddressPage = () => {
     async (data) => {
       const finallyAddress = data.address.resolved;
       if (!finallyAddress || !networkId) return;
-      try {
-        const ownerItems =
-          await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
-            networkId,
-            address: finallyAddress,
-          });
-        for (const item of ownerItems) {
-          // eslint-disable-next-line no-await-in-loop
-          const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
-            accountId: item.accountId,
-          });
-          if (isDeactivatedBot) {
-            Toast.error({
-              title: '该 Bot 钱包已停用，无法作为接收地址',
-            });
-            return;
-          }
-        }
-      } catch {
-        // ignore
+      // Use the unified helper so BTC fresh addresses owned by a deactivated
+      // Bot Wallet are also rejected.
+      const isDeactivatedBotReceiver =
+        await isAddressOwnedByDeactivatedBotWallet({
+          networkId,
+          address: finallyAddress,
+        });
+      if (isDeactivatedBotReceiver) {
+        Toast.error({
+          title: '该 Bot 钱包已停用，无法作为接收地址',
+        });
+        return;
       }
       setSettings((v) => ({
         ...v,

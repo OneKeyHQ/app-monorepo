@@ -160,6 +160,11 @@ function BulkCopyAddresses({
       });
     };
 
+    // Reset the map alongside the list so a deactivated wallet that was
+    // previously selectable cannot stay reachable through walletsMap when its
+    // status flips.
+    walletsMap.current = {};
+
     for (const wallet of wallets) {
       if (
         !accountUtils.isQrWallet({ walletId: wallet.id }) &&
@@ -172,8 +177,8 @@ function BulkCopyAddresses({
         );
         if (!wallet.isMocked && !isWalletDeactivated) {
           availableWalletsTemp.push(wallet);
+          walletsMap.current[wallet.id] = wallet;
         }
-        walletsMap.current[wallet.id] = wallet;
         if (wallet.hiddenWallets?.length) {
           for (const hiddenWallet of wallet.hiddenWallets) {
             if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
@@ -185,11 +190,11 @@ function BulkCopyAddresses({
                   ...hiddenWallet,
                   parentWalletName: wallet.name,
                 });
+                walletsMap.current[hiddenWallet.id] = {
+                  ...hiddenWallet,
+                  parentWalletName: wallet.name,
+                };
               }
-              walletsMap.current[hiddenWallet.id] = {
-                ...hiddenWallet,
-                parentWalletName: wallet.name,
-              };
             }
           }
         }
@@ -198,6 +203,19 @@ function BulkCopyAddresses({
 
     return availableWalletsTemp;
   }, []);
+
+  // If the wallet that was passed in via route params (or previously selected)
+  // is no longer available — e.g. it became a deactivated Bot Wallet and was
+  // filtered out — fall back to the first available wallet so the page does
+  // not silently keep operating on a hidden, blocked wallet.
+  useEffect(() => {
+    if (!availableWallets || availableWallets.length === 0) {
+      return;
+    }
+    if (!selectedWalletId || !walletsMap.current[selectedWalletId]) {
+      form.setValue('selectedWalletId', availableWallets[0].id);
+    }
+  }, [availableWallets, selectedWalletId, form]);
 
   const selectedWallet = walletsMap.current[selectedWalletId ?? ''];
 

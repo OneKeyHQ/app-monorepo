@@ -8,7 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import {
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
@@ -570,35 +570,21 @@ function useMultiLineAddressValidation(
           }
         }
 
-        // Reject any address that resolves to a deactivated Bot Wallet account
+        // Reject any address that resolves to a deactivated Bot Wallet
+        // account. The helper resolves owners through the regular address
+        // index and falls back to fresh-address resolution for BTC, matching
+        // the allowlist resolver below.
         if (validAddresses.length > 0 && selectedNetworkId) {
           const botWalletResults = await Promise.all(
             validAddresses.map(({ index, address }) =>
               limit(async () => {
                 const trimmedAddress = address.trim();
-                try {
-                  const ownerItems =
-                    await backgroundApiProxy.serviceAccount.getAccountNameFromAddress(
-                      {
-                        networkId: selectedNetworkId,
-                        address: trimmedAddress,
-                      },
-                    );
-                  for (const item of ownerItems) {
-                    // eslint-disable-next-line no-await-in-loop
-                    const isDeactivated = await isAccountIdDeactivatedBotWallet(
-                      {
-                        accountId: item.accountId,
-                      },
-                    );
-                    if (isDeactivated) {
-                      return { index, isDeactivated: true as const };
-                    }
-                  }
-                } catch (e) {
-                  console.error(e);
-                }
-                return { index, isDeactivated: false as const };
+                const isDeactivated =
+                  await isAddressOwnedByDeactivatedBotWallet({
+                    networkId: selectedNetworkId,
+                    address: trimmedAddress,
+                  });
+                return { index, isDeactivated };
               }),
             ),
           );
