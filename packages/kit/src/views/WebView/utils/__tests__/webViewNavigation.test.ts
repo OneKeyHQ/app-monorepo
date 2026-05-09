@@ -34,6 +34,18 @@ describe('openWebView', () => {
     expect(globalThis.open).not.toHaveBeenCalled();
   });
 
+  it('rejects http:// scheme — https-only policy', () => {
+    openWebView({ url: 'http://example.com' });
+    expect(appGlobals.$rootAppNavigation.navigate).not.toHaveBeenCalled();
+    expect(globalThis.open).not.toHaveBeenCalled();
+  });
+
+  it('rejects userinfo embed (phishing vector)', () => {
+    openWebView({ url: 'https://trusted.com@evil.com/' });
+    expect(appGlobals.$rootAppNavigation.navigate).not.toHaveBeenCalled();
+    expect(globalThis.open).not.toHaveBeenCalled();
+  });
+
   it('opens window on web with noopener,noreferrer', () => {
     Object.assign(platformEnv, { isWeb: true });
     openWebView({ url: 'https://example.com' });

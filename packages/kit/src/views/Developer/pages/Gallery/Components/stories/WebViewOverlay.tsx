@@ -36,6 +36,14 @@ const REJECTION_CASES = [
     url: 'file:///etc/passwd',
   },
   {
+    label: 'http:// scheme (https-only policy)',
+    url: 'http://example.com',
+  },
+  {
+    label: 'userinfo embed (phishing vector)',
+    url: 'https://trusted.com@evil.com/',
+  },
+  {
     label: 'empty url (must reject)',
     url: '',
   },

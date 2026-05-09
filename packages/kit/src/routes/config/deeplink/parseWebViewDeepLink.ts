@@ -5,7 +5,7 @@ import type {
 
 import type { IOpenWebViewParams } from '../../../views/WebView/utils/webViewNavigation';
 
-const HTTPS_REGEX = /^https?:\/\//i;
+const HTTPS_REGEX = /^https:\/\//i;
 const MAX_URL_LENGTH = 2048;
 
 /**
@@ -18,8 +18,11 @@ const MAX_URL_LENGTH = 2048;
  *   1. `query.url` must be a string (expo-linking can return string[] for
  *      duplicated `?url=a&url=b` query keys).
  *   2. `decodeURIComponent` must succeed.
- *   3. Decoded URL must be non-empty, ≤ 2048 chars, and start with `http(s)://`
- *      (rejects `javascript:`, `file:`, `data:`, `about:`, custom schemes).
+ *   3. Decoded URL must be non-empty, ≤ 2048 chars, and start with `https://`
+ *      (rejects http, javascript, file, data, about, intent, custom schemes).
+ *   4. URL must parse via the standard URL constructor.
+ *   5. URL must NOT embed userinfo (`https://user@host` or
+ *      `https://user:pass@host`) — these confuse users about the real host.
  *
  * `title` defends against the same string[] coercion. Boolean params are
  * decoded from the `'0' | '1'` URL-query convention.
@@ -42,6 +45,16 @@ export function parseWebViewDeepLink(
     decoded.length > MAX_URL_LENGTH ||
     !HTTPS_REGEX.test(decoded)
   ) {
+    return null;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(decoded);
+  } catch {
+    return null;
+  }
+  if (parsed.username || parsed.password) {
     return null;
   }
 

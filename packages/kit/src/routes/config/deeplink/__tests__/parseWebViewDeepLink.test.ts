@@ -18,13 +18,6 @@ describe('parseWebViewDeepLink', () => {
       });
     });
 
-    it('accepts http URL (not just https)', () => {
-      const result = parseWebViewDeepLink({
-        url: encodeURIComponent('http://example.com'),
-      });
-      expect(result?.url).toBe('http://example.com');
-    });
-
     it('decodes percent-encoded query strings inside the URL', () => {
       const result = parseWebViewDeepLink({
         url: encodeURIComponent(
@@ -84,19 +77,57 @@ describe('parseWebViewDeepLink', () => {
       expect(result?.source).toBe('deeplink');
     });
 
-    it('accepts uppercase HTTP/HTTPS schemes', () => {
-      const httpsResult = parseWebViewDeepLink({
+    it('accepts uppercase HTTPS scheme', () => {
+      const result = parseWebViewDeepLink({
         url: encodeURIComponent('HTTPS://Onekey.SO'),
       });
-      expect(httpsResult?.url).toBe('HTTPS://Onekey.SO');
-      const httpResult = parseWebViewDeepLink({
-        url: encodeURIComponent('HTTP://example.com'),
-      });
-      expect(httpResult?.url).toBe('HTTP://example.com');
+      expect(result?.url).toBe('HTTPS://Onekey.SO');
     });
   });
 
   describe('rejection', () => {
+    it('rejects http:// scheme (https-only policy)', () => {
+      expect(
+        parseWebViewDeepLink({
+          url: encodeURIComponent('http://example.com'),
+        }),
+      ).toBeNull();
+    });
+
+    it('rejects uppercase HTTP:// scheme', () => {
+      expect(
+        parseWebViewDeepLink({
+          url: encodeURIComponent('HTTP://example.com'),
+        }),
+      ).toBeNull();
+    });
+
+    it('rejects userinfo embed (https://user@host)', () => {
+      // Classic phishing vector: user reads "trusted.com" but navigation
+      // actually goes to "evil.com".
+      expect(
+        parseWebViewDeepLink({
+          url: encodeURIComponent('https://trusted.com@evil.com/path'),
+        }),
+      ).toBeNull();
+    });
+
+    it('rejects userinfo with password (https://user:pass@host)', () => {
+      expect(
+        parseWebViewDeepLink({
+          url: encodeURIComponent('https://user:secret@example.com'),
+        }),
+      ).toBeNull();
+    });
+
+    it('rejects empty username with password (https://:pass@host)', () => {
+      expect(
+        parseWebViewDeepLink({
+          url: encodeURIComponent('https://:pass@example.com'),
+        }),
+      ).toBeNull();
+    });
+
     it('rejects javascript: scheme', () => {
       expect(
         parseWebViewDeepLink({ url: encodeURIComponent(JS_SCHEME) }),
