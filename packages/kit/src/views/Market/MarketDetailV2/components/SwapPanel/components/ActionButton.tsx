@@ -33,6 +33,11 @@ import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
+import {
+  shouldEnableFirstNoAmountAction,
+  shouldUseHardDisabledAction,
+} from './actionButtonUtils';
+
 import type { IToken } from '../types';
 import type { GestureResponderEvent } from 'react-native';
 
@@ -275,12 +280,20 @@ export function ActionButton({
     !noAccount,
   );
 
-  if (
-    !hasAmount &&
-    !hasClickedWithoutAmount &&
-    !shouldCreateAddress?.result &&
-    !createAddressLoading
-  ) {
+  const enableFirstNoAmountAction = shouldEnableFirstNoAmountAction({
+    createAddressLoading,
+    disabled,
+    hasAmount,
+    hasClickedWithoutAmount,
+    shouldCreateAddress: shouldCreateAddress?.result,
+  });
+  const shouldHardDisableAction = shouldUseHardDisabledAction({
+    disabled,
+    noAccount,
+    shouldCreateAddress: shouldCreateAddress?.result,
+  });
+
+  if (enableFirstNoAmountAction) {
     shouldUseColoredStyle = true;
     buttonText = `${actionText} ${truncatedTokenDetailSymbol}`.trim();
     isButtonDisabled = false;
@@ -326,19 +339,6 @@ export function ActionButton({
         showAccountSelector();
         return;
       }
-      if (!supportSpeedSwap) {
-        handleJumpToSwapAction();
-        return;
-      }
-      setHasClickedWithoutAmount(true);
-      if (
-        !hasAmount &&
-        !hasClickedWithoutAmount &&
-        !shouldCreateAddress?.result &&
-        !createAddressLoading
-      ) {
-        return;
-      }
       if (noAccount) {
         resetToRoute(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
@@ -368,6 +368,17 @@ export function ActionButton({
         }
         return;
       }
+      if (shouldHardDisableAction) {
+        return;
+      }
+      if (!supportSpeedSwap) {
+        handleJumpToSwapAction();
+        return;
+      }
+      setHasClickedWithoutAmount(true);
+      if (enableFirstNoAmountAction) {
+        return;
+      }
 
       // Log swap action before executing - with error protection
       try {
@@ -381,11 +392,10 @@ export function ActionButton({
     },
     [
       supportSpeedSwap,
-      hasAmount,
-      hasClickedWithoutAmount,
       noAccount,
-      createAddressLoading,
       shouldCreateAddress?.result,
+      shouldHardDisableAction,
+      enableFirstNoAmountAction,
       onPress,
       handleJumpToSwapAction,
       showAccountSelector,

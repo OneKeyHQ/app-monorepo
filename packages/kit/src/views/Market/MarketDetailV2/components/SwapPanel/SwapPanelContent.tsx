@@ -335,7 +335,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         balance={balance}
         isWrapped={isWrapped}
         networkId={networkId}
-        disabled={!!speedCheckError || isLoading}
+        disabled={
+          !!speedCheckError || isLoading || !!marketPresetSettings?.isLoading
+        }
         onSwapAction={() =>
           logSwapAction({
             tradeType,
