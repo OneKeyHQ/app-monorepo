@@ -647,70 +647,87 @@ function MarketPresetSettingsDialog({
     ];
   }, [currentSettings.slippage.key, intl]);
 
+  const flushPendingSettings = useCallback(
+    async ({
+      shouldChangePreset,
+      skipInvalidDirtySettings,
+    }: {
+      shouldChangePreset: boolean;
+      skipInvalidDirtySettings: boolean;
+    }) => {
+      const saveTasks: Array<() => Promise<void>> = [];
+
+      Array.from(resetDirectionSetRef.current).forEach((directionKey) => {
+        const parsed = parseDirectionKey(directionKey);
+        if (parsed && parsed.presetKey !== EMarketPresetKey.AUTO) {
+          saveTasks.push(() =>
+            presetSettings.onResetPresetDirectionSettings({
+              presetKey: parsed.presetKey,
+              tradeSide: parsed.tradeSide,
+            }),
+          );
+        }
+      });
+
+      Array.from(dirtyDirectionSetRef.current).forEach((directionKey) => {
+        const parsed = parseDirectionKey(directionKey);
+        if (
+          parsed &&
+          parsed.presetKey !== EMarketPresetKey.AUTO &&
+          !resetDirectionSetRef.current.has(directionKey)
+        ) {
+          const directionSettings = getDraftDirectionSettings({
+            draftSettings,
+            presetKey: parsed.presetKey,
+            tradeSide: parsed.tradeSide,
+          });
+          if (
+            directionSettings &&
+            (!skipInvalidDirtySettings ||
+              !isDirectionSettingsInvalid(directionSettings))
+          ) {
+            saveTasks.push(() =>
+              presetSettings.onSavePresetDirectionSettings({
+                presetKey: parsed.presetKey,
+                tradeSide: parsed.tradeSide,
+                settings: directionSettings,
+              }),
+            );
+          }
+        }
+      });
+
+      await saveTasks.reduce<Promise<void>>(async (promise, task) => {
+        await promise;
+        await task();
+      }, Promise.resolve());
+
+      if (
+        shouldChangePreset &&
+        activePresetKey !== presetSettings.selectedPresetKey
+      ) {
+        presetSettings.onPresetChange(activePresetKey);
+      }
+    },
+    [
+      activePresetKey,
+      draftSettings,
+      isDirectionSettingsInvalid,
+      presetSettings,
+    ],
+  );
+
   const handleConfirm = useCallback(async () => {
     if (confirmDisabled) {
       return;
     }
 
-    const saveTasks: Array<() => Promise<void>> = [];
-
-    Array.from(resetDirectionSetRef.current).forEach((directionKey) => {
-      const parsed = parseDirectionKey(directionKey);
-      if (parsed && parsed.presetKey !== EMarketPresetKey.AUTO) {
-        saveTasks.push(() =>
-          presetSettings.onResetPresetDirectionSettings({
-            presetKey: parsed.presetKey,
-            tradeSide: parsed.tradeSide,
-          }),
-        );
-      }
+    await flushPendingSettings({
+      shouldChangePreset: true,
+      skipInvalidDirtySettings: activePresetKey === EMarketPresetKey.AUTO,
     });
-
-    Array.from(dirtyDirectionSetRef.current).forEach((directionKey) => {
-      const parsed = parseDirectionKey(directionKey);
-      if (
-        parsed &&
-        parsed.presetKey !== EMarketPresetKey.AUTO &&
-        !resetDirectionSetRef.current.has(directionKey)
-      ) {
-        const directionSettings = getDraftDirectionSettings({
-          draftSettings,
-          presetKey: parsed.presetKey,
-          tradeSide: parsed.tradeSide,
-        });
-        if (
-          directionSettings &&
-          (activePresetKey !== EMarketPresetKey.AUTO ||
-            !isDirectionSettingsInvalid(directionSettings))
-        ) {
-          saveTasks.push(() =>
-            presetSettings.onSavePresetDirectionSettings({
-              presetKey: parsed.presetKey,
-              tradeSide: parsed.tradeSide,
-              settings: directionSettings,
-            }),
-          );
-        }
-      }
-    });
-
-    await saveTasks.reduce<Promise<void>>(async (promise, task) => {
-      await promise;
-      await task();
-    }, Promise.resolve());
-
-    if (activePresetKey !== presetSettings.selectedPresetKey) {
-      presetSettings.onPresetChange(activePresetKey);
-    }
     close();
-  }, [
-    activePresetKey,
-    close,
-    confirmDisabled,
-    draftSettings,
-    isDirectionSettingsInvalid,
-    presetSettings,
-  ]);
+  }, [activePresetKey, close, confirmDisabled, flushPendingSettings]);
 
   const handleReset = useCallback(async () => {
     if (activePresetKey === EMarketPresetKey.AUTO) {
@@ -728,17 +745,24 @@ function MarketPresetSettingsDialog({
     });
 
     dirtyDirectionSetRef.current.delete(directionKey);
-    resetDirectionSetRef.current.delete(directionKey);
-
     if (savedSettings) {
-      await presetSettings.onResetPresetDirectionSettings({
-        presetKey: activePresetKey,
-        tradeSide: activeTradeSide,
-      });
+      resetDirectionSetRef.current.add(directionKey);
+    } else {
+      resetDirectionSetRef.current.delete(directionKey);
     }
 
+    await flushPendingSettings({
+      shouldChangePreset: false,
+      skipInvalidDirtySettings: true,
+    });
     close();
-  }, [activePresetKey, activeTradeSide, close, presetSettings]);
+  }, [
+    activePresetKey,
+    activeTradeSide,
+    close,
+    flushPendingSettings,
+    presetSettings,
+  ]);
 
   return (
     <MarketPresetDialogContentFrame
