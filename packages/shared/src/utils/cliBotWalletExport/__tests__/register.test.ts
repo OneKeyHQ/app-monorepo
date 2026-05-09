@@ -257,5 +257,4 @@ describe('revokeKey (AC9 — best-effort)', () => {
     });
     expect(warn).toHaveBeenCalledTimes(1);
   });
-
 });

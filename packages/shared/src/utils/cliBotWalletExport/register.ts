@@ -6,11 +6,11 @@ import { appApiClient } from '../../appApiClient/appApiClient';
 import { getEndpointByServiceName } from '../../config/endpointsMap';
 import { OneKeyLocalError } from '../../errors';
 
+import { isBotWalletHash } from './botWalletHash';
 import {
   BOT_WALLET_KEY_API_PATH,
   BOT_WALLET_KEY_API_TOKEN_HEADER,
 } from './botWalletKeyApiConsts';
-import { isBotWalletHash } from './botWalletHash';
 
 function describeKeyServiceFailure(err: unknown): string {
   if (err && typeof err === 'object') {
