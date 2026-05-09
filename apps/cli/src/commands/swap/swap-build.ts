@@ -11,7 +11,11 @@ import {
   describeEncodedTxSpend,
 } from '../../core/btc/spend-validation';
 import { buildBtcTransferTx } from '../../core/btc/tx-builder';
-import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
+import {
+  assertChainCapability,
+  isSolChain,
+  resolveChain,
+} from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
@@ -284,6 +288,25 @@ export function registerSwapBuildCommand(parent: Command): void {
             : chainConfig;
           assertChainCapability(chainConfig, 'swap', 'swap-build');
           assertChainCapability(toChainConfig, 'swap', 'swap-build');
+
+          // SOL swap is not yet wired in the CLI execute path. The OneKey
+          // backend's /swap/v1/build-tx returns the SOL-encoded VersionedTx
+          // and the SOL signer is ready, but the swap-execute branch that
+          // forwards `solEncodedTx` to the signer hasn't been ported from
+          // the App. Reject early with a clear pointer so users don't see a
+          // confusing "tx field missing" deeper in the pipeline.
+          if (isSolChain(chainConfig) || isSolChain(toChainConfig)) {
+            throw new AppError(
+              ERROR_CODES.PARAM_INVALID_COMMAND.code,
+              'SOL swap is not yet wired in the CLI.',
+              [
+                'SOL swap requires the CLI swap-execute path to dispatch SOL',
+                'response payloads (mirrors how BTC swap is handled today).',
+                'Address derivation + balance work — try `onekey balance --chain sol`.',
+              ].join(' '),
+            );
+          }
+
           const fromNetworkId = chainConfig.networkId;
           const toNetworkId = toChainConfig.networkId;
           const protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);

@@ -3,11 +3,8 @@ import {
   fetchBtcDerivedHistory,
   fetchBtcExternalAddressHistory,
 } from '../core/btc/account';
-import {
-  assertChainCapability,
-  isEvmChain,
-  resolveChain,
-} from '../core/chain-resolver';
+import { isBtcImpl } from '../core/btc/address-types';
+import { assertChainCapability, resolveChain } from '../core/chain-resolver';
 import { fetchHistory, formatHistoryList } from '../core/history-fetcher';
 import { resolveToken } from '../core/token-resolver';
 import { AppError, ERROR_CODES } from '../errors';
@@ -55,7 +52,7 @@ export function registerWalletHistoryCommand(program: Command): void {
 
           // Resolve wallet address
           let address = options.address;
-          if (!isEvmChain(chainConfig)) {
+          if (isBtcImpl(chainConfig.impl)) {
             if (address && options.addressType) {
               throw new AppError(
                 ERROR_CODES.PARAM_INVALID_ADDRESS.code,

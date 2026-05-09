@@ -1,3 +1,6 @@
+import { PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
+
 import {
   getBtcForkNetwork,
   validateBtcAddress,
@@ -5,6 +8,7 @@ import {
 import {
   IMPL_BTC,
   IMPL_EVM,
+  IMPL_SOL,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -49,10 +53,34 @@ export function validateAddressForChain(
     }
   }
 
+  if (chainConfig.impl === IMPL_SOL) {
+    return validateSolAddress(address);
+  }
+
   return {
     isValid: false,
     normalizedAddress: '',
   };
+}
+
+// Mirrors kit-bg sol/Vault.validateAddress (1:1) — accept the address if
+// it is on-curve OR decodes to 32 bytes. PDAs are intentionally allowed:
+// they cannot receive lamports but can hold SPL tokens, so the App treats
+// them as valid recipients and the CLI must too.
+function validateSolAddress(address: string): IAddressValidationResult {
+  try {
+    const publicKey = new PublicKey(address);
+    if (
+      PublicKey.isOnCurve(address) ||
+      PublicKey.isOnCurve(publicKey.encode()) ||
+      bs58.decode(address).length === 32
+    ) {
+      return { isValid: true, normalizedAddress: address };
+    }
+    return { isValid: false, normalizedAddress: '' };
+  } catch {
+    return { isValid: false, normalizedAddress: '' };
+  }
 }
 
 export function assertAddressForChain(
@@ -79,5 +107,6 @@ export function sameAddress(
   if (chainConfig.impl === IMPL_EVM) {
     return left.toLowerCase() === right.toLowerCase();
   }
+  // SOL/BTC are case-sensitive (base58 / bech32) — stay strict.
   return left === right;
 }

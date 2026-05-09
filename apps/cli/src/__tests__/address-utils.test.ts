@@ -9,6 +9,7 @@ describe('address-utils', () => {
   const evm = resolveChain('eth');
   const btc = resolveChain('btc');
   const tbtc = resolveChain('tbtc');
+  const sol = resolveChain('sol');
 
   it('validates EVM addresses case-insensitively', () => {
     expect(
@@ -53,5 +54,47 @@ describe('address-utils', () => {
     expect(() =>
       assertAddressForChain(tbtc, '0x0000000000000000000000000000000000000001'),
     ).toThrow(/Invalid address/);
+  });
+
+  describe('SOL', () => {
+    // System Program ID — guaranteed on-curve, length 32, base58.
+    const ON_CURVE_SOL = '11111111111111111111111111111111';
+    // SPL Associated Token Program ID — a well-known *off-curve* program key
+    // (32 bytes base58 but not a valid ed25519 point). Mirrors kit-bg's
+    // validateAddress, which accepts any 32-byte key. Documents the lax
+    // behavior so anyone who tightens the rule must update both sides.
+    const OFF_CURVE_PROGRAM = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
+
+    it('accepts an on-curve SOL address', () => {
+      const result = validateAddressForChain(sol, ON_CURVE_SOL);
+      expect(result.isValid).toBe(true);
+      expect(result.normalizedAddress).toBe(ON_CURVE_SOL);
+    });
+
+    it('accepts an off-curve 32-byte program key (App parity — PDAs hold SPL tokens)', () => {
+      expect(validateAddressForChain(sol, OFF_CURVE_PROGRAM).isValid).toBe(
+        true,
+      );
+    });
+
+    it('rejects a clearly malformed (too short) address', () => {
+      expect(validateAddressForChain(sol, 'too-short').isValid).toBe(false);
+    });
+
+    it('rejects an EVM address on SOL', () => {
+      expect(
+        validateAddressForChain(
+          sol,
+          '0x0000000000000000000000000000000000000001',
+        ).isValid,
+      ).toBe(false);
+    });
+
+    it('is case-sensitive (base58 has no case-fold)', () => {
+      // Use an address with mixed-case letters so lowercase actually changes
+      // the bytes — the all-1's System Program ID would be a no-op.
+      const SOL_MIXED = '4Nd1mYgMnA73L1z9Mt9HBTppmKQGYP1qhwFQ7y5dQbpC';
+      expect(sameAddress(sol, SOL_MIXED, SOL_MIXED.toLowerCase())).toBe(false);
+    });
   });
 });
