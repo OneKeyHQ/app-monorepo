@@ -53,7 +53,7 @@ import type {
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import type { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
+import type { EApproveType, IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
 import type {
   IAccountDeriveInfoMapBtc,
@@ -642,7 +642,13 @@ export interface IBuildUnsignedTxParams {
   withUuid?: boolean;
 }
 
-export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
+export type ITokenApproveInfo = {
+  allowance: string;
+  isUnlimited: boolean;
+  // Preserved across re-encode so increaseAllowance/increaseApproval are not
+  // silently rewritten as approve(); undefined defaults to absolute approve.
+  approveType?: EApproveType;
+};
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: IFeeInfoUnit;

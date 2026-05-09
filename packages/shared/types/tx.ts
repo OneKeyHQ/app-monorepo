@@ -221,6 +221,12 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   swapReceivedNetworkId?: string;
 };
 
+export enum EApproveType {
+  Approve = 'approve',
+  IncreaseAllowance = 'increaseAllowance',
+  IncreaseApproval = 'increaseApproval',
+}
+
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amount: string;
   symbol: string;
@@ -230,6 +236,7 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   isInfiniteAmount: boolean;
   tokenIdOnNetwork: string;
   label?: string;
+  approveType?: EApproveType;
 };
 
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {

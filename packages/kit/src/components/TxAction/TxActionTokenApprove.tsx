@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,8 +6,10 @@ import { useIntl } from 'react-intl';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
+import { useTokenApproveAllowance } from '../../hooks/useTokenApproveAllowance';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
 import { useSendConfirmActions } from '../../states/jotai/contexts/sendConfirm';
 import { showApproveEditor } from '../../views/ApproveEditor';
@@ -37,6 +39,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const tokenAddress = tokenApprove?.tokenIdOnNetwork ?? '';
   const tokenDecimals = tokenApprove?.decimals ?? 0;
   const tokenSymbol = tokenApprove?.symbol ?? '';
+  const approveType = tokenApprove?.approveType ?? EApproveType.Approve;
 
   return {
     approveIcon,
@@ -51,6 +54,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
     tokenAddress,
     tokenDecimals,
     tokenSymbol,
+    approveType,
   };
 }
 
@@ -78,9 +82,18 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     approveSymbol,
     approveIsMax,
     approveLabel,
+    approveType,
   } = getTxActionTokenApproveInfo(props);
 
-  const isRevoke = new BigNumber(approveAmount).eq(0);
+  const isIncrease =
+    approveType === EApproveType.IncreaseAllowance ||
+    approveType === EApproveType.IncreaseApproval;
+  // increaseAllowance(MaxUint256) leaves "Infinite" in approveAmount even
+  // though isInfiniteAmount is only set on absolute approve.
+  const isIncreaseUnlimited =
+    isIncrease && !new BigNumber(approveAmount).isFinite();
+  const showUnlimitedAmount = approveIsMax || isIncreaseUnlimited;
+  const isRevoke = !isIncrease && new BigNumber(approveAmount).eq(0);
 
   let title = approveLabel;
   const avatar: ITxActionCommonListViewProps['avatar'] = {
@@ -108,6 +121,15 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
           symbol: approveSymbol,
         },
       );
+    } else if (isIncrease) {
+      title = intl.formatMessage(
+        {
+          id: ETranslations.approve_edit_increase_allowance,
+        },
+        {
+          symbol: approveSymbol,
+        },
+      );
     } else {
       title = intl.formatMessage({
         id: ETranslations.global_approve,
@@ -121,7 +143,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
   if (tableLayout) {
     if (isRevoke) {
       change = undefined;
-    } else if (approveIsMax) {
+    } else if (showUnlimitedAmount) {
       change = (
         <XStack gap="$1" alignItems="center">
           <Token size="xs" tokenImageUri={approveIcon} />
@@ -137,6 +159,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       change = (
         <XStack gap="$1" alignItems="center">
           <Token size="xs" tokenImageUri={approveIcon} />
+          {isIncrease ? <SizableText size="$bodyMd">+</SizableText> : null}
           <NumberSizeableTextWrapper
             hideValue={hideValue}
             formatter="balance"
@@ -154,24 +177,60 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     // Don't pass changeDescription in tableLayout
   } else {
     change = approveName;
-    changeDescription = (
-      <NumberSizeableTextWrapper
-        hideValue={hideValue}
-        formatter="balance"
-        formatterOptions={{
-          tokenSymbol: approveSymbol,
-        }}
-        size="$bodyMd"
-        color="$textSubdued"
-        numberOfLines={1}
-      >
-        {approveIsMax
-          ? intl.formatMessage({
-              id: ETranslations.swap_page_provider_approve_amount_un_limit,
-            })
-          : approveAmount}
-      </NumberSizeableTextWrapper>
-    );
+    if (showUnlimitedAmount) {
+      changeDescription = (
+        <NumberSizeableTextWrapper
+          hideValue={hideValue}
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: approveSymbol,
+          }}
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
+          {intl.formatMessage({
+            id: ETranslations.swap_page_provider_approve_amount_un_limit,
+          })}
+        </NumberSizeableTextWrapper>
+      );
+    } else if (isIncrease) {
+      // "+" lives outside the formatter so BigNumber doesn't strip it.
+      changeDescription = (
+        <XStack gap="$0.5" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            +
+          </SizableText>
+          <NumberSizeableTextWrapper
+            hideValue={hideValue}
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: approveSymbol,
+            }}
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {approveAmount}
+          </NumberSizeableTextWrapper>
+        </XStack>
+      );
+    } else {
+      changeDescription = (
+        <NumberSizeableTextWrapper
+          hideValue={hideValue}
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: approveSymbol,
+          }}
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
+          {approveAmount}
+        </NumberSizeableTextWrapper>
+      );
+    }
   }
 
   return (
@@ -214,6 +273,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     tokenAddress,
     tokenDecimals,
     tokenSymbol,
+    approveType,
   } = getTxActionTokenApproveInfo(props);
 
   const { vaultSettings } = useAccountData({
@@ -223,11 +283,62 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   const { updateTokenApproveInfo } = useSendConfirmActions().current;
   const approveInfoInit = useRef(false);
 
+  const isIncrease =
+    approveType === EApproveType.IncreaseAllowance ||
+    approveType === EApproveType.IncreaseApproval;
+
+  // Same "Infinite" sentinel handling as the list view.
+  const isIncreaseUnlimited =
+    isIncrease && !new BigNumber(originalApproveAmount).isFinite();
+
+  const { allowanceParsed: currentAllowanceParsed } = useTokenApproveAllowance({
+    enabled: isIncrease,
+    accountId: decodedTx.accountId,
+    networkId: decodedTx.networkId,
+    tokenAddress,
+    spender: approveSpender,
+  });
+
+  const finalAllowanceParsed = useMemo(() => {
+    if (!isIncrease || !currentAllowanceParsed) return null;
+    const deltaBN = new BigNumber(originalApproveAmount);
+    // null signals "unlimited" to the caller; finite delta is added.
+    if (!deltaBN.isFinite()) return null;
+    return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
+  }, [currentAllowanceParsed, isIncrease, originalApproveAmount]);
+
   let content: React.ReactNode = approveLabel;
   const amount = originalApproveAmount;
   const isUnlimited = approveIsMax;
   if (!content) {
-    if (new BigNumber(amount).eq(0)) {
+    if (isIncrease) {
+      if (isIncreaseUnlimited) {
+        content = intl.formatMessage(
+          { id: ETranslations.form__approve_str },
+          {
+            amount: intl.formatMessage({
+              id: ETranslations.swap_page_provider_approve_amount_un_limit,
+            }),
+            symbol: approveSymbol,
+          },
+        );
+      } else if (finalAllowanceParsed) {
+        content = intl.formatMessage(
+          { id: ETranslations.form__approve_str },
+          { amount: finalAllowanceParsed, symbol: approveSymbol },
+        );
+      } else {
+        content = intl.formatMessage(
+          {
+            id: ETranslations.approve_edit_increase_allowance_by_amount,
+          },
+          {
+            symbol: approveSymbol,
+            amount,
+          },
+        );
+      }
+    } else if (new BigNumber(amount).eq(0)) {
       content = intl.formatMessage(
         {
           id: ETranslations.global_revoke_approve,
@@ -253,7 +364,9 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
 
   if (
     vaultSettings?.editApproveAmountEnabled &&
-    (approveIsMax || new BigNumber(originalApproveAmount).gt(0))
+    (approveIsMax ||
+      isIncreaseUnlimited ||
+      new BigNumber(originalApproveAmount).gt(0))
   ) {
     content = (
       <XStack
@@ -286,6 +399,9 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
               tokenSymbol,
               tokenAddress,
               approveInfo: decodedTx.approveInfo,
+              approveType,
+              spender: approveSpender,
+              currentAllowanceParsed: currentAllowanceParsed ?? undefined,
             })
           }
         >
