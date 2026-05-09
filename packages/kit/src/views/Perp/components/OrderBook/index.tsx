@@ -45,6 +45,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useTradingPrice } from '../../hooks/useTradingPrice';
 import {
   ORDER_BOOK_SIDE_RATIO_GAP,
   ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT,
@@ -1607,6 +1608,8 @@ export function OrderBookMobile({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
+    useTradingPrice();
   const isSpot = activeTradeInstrument.mode === 'spot';
   const currentCtx = isSpot ? spotAssetCtx?.ctx : assetCtx?.ctx;
   const sizeDisplaySymbol = getOrderBookSizeDisplaySymbol({
@@ -1626,10 +1629,6 @@ export function OrderBookMobile({
   const localizedMarkPrice = hasMarkPrice
     ? formatLocalizedNumberString(markPrice)
     : '--';
-  let referencePriceDisplay = '--';
-  if (hasMarkPrice) {
-    referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
-  }
   const aggregatedData = useAggregatedBook(
     variant,
     bids,
@@ -1644,6 +1643,14 @@ export function OrderBookMobile({
     () => Array.from({ length: maxLevelsPerSide }, (_, index) => index),
     [maxLevelsPerSide],
   );
+  let referencePriceDisplay = '--';
+  if (!isEmpty && hasMarkPrice) {
+    referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
+  }
+  const emptyMidPrice =
+    hasTradingMidPrice && tradingMidPrice
+      ? formatLocalizedNumberString(tradingMidPrice)
+      : localizedMarkPrice;
 
   const bidDepth = useMemo(() => {
     return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
@@ -1653,7 +1660,7 @@ export function OrderBookMobile({
   }, [aggregatedData.asks]);
 
   const midPrice = isEmpty
-    ? localizedMarkPrice
+    ? emptyMidPrice
     : getMidPrice(
         parseFloat(bids[0]?.px ?? '0'),
         parseFloat(asks[0]?.px ?? '0'),
@@ -1889,7 +1896,7 @@ export function OrderBookMobile({
                     style={[
                       styles.monospaceText,
                       {
-                        color: textColor.red,
+                        color: textColor.text,
                         fontSize: 20,
                         fontWeight: '600',
                         lineHeight: 24,
