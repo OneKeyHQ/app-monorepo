@@ -3,12 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { useNavigation, useRoute } from '@react-navigation/core';
 
-import {
-  Page,
-  Stack,
-  useBackHandler,
-  useOnRouterChange,
-} from '@onekeyhq/components';
+import { Page, useBackHandler, useOnRouterChange } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -264,54 +259,25 @@ function WebViewPageContent() {
     [currentTitle, currentUrl, handleReload, params.hideHeader, params.title],
   );
 
-  // On desktop the header reads as a regular app navbar (rendered by the
-  // navigator with $bgApp around it via the inset). The body content sits in
-  // a rounded-top card below — matching the "regular page" look in the rest
-  // of the app where each tab page has a card-like content area.
-  const bodyContent = (
-    <>
-      {showAddressBar ? <AddressBar url={currentUrl} /> : null}
-      <ProgressBar progress={progress} />
-      <WebView
-        src={initialUrl}
-        onWebViewRef={onWebViewRef}
-        onProgress={setProgress}
-        onNavigationStateChange={onNavigationStateChange}
-        onDidStartNavigation={onDidStartNavigation}
-        onPageTitleUpdated={onPageTitleUpdated}
-        onDidFinishLoad={onDidFinishLoad}
-        onDidStopLoading={onDidFinishLoad}
-        onDidFailLoad={onDidFinishLoad}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        allowpopups
-      />
-    </>
-  );
-
   return (
     <Page>
       {headerNode}
       <Page.Body>
-        {platformEnv.isDesktop ? (
-          <Stack
-            flex={1}
-            mx="$2"
-            mb="$2"
-            borderTopStartRadius="$5"
-            borderTopEndRadius="$5"
-            borderBottomStartRadius="$5"
-            borderBottomEndRadius="$5"
-            outlineWidth="$px"
-            outlineStyle="solid"
-            outlineColor="$borderSubdued"
-            overflow="hidden"
-            bg="$bg"
-          >
-            {bodyContent}
-          </Stack>
-        ) : (
-          bodyContent
-        )}
+        {showAddressBar ? <AddressBar url={currentUrl} /> : null}
+        <ProgressBar progress={progress} />
+        <WebView
+          src={initialUrl}
+          onWebViewRef={onWebViewRef}
+          onProgress={setProgress}
+          onNavigationStateChange={onNavigationStateChange}
+          onDidStartNavigation={onDidStartNavigation}
+          onPageTitleUpdated={onPageTitleUpdated}
+          onDidFinishLoad={onDidFinishLoad}
+          onDidStopLoading={onDidFinishLoad}
+          onDidFailLoad={onDidFinishLoad}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          allowpopups
+        />
       </Page.Body>
     </Page>
   );
