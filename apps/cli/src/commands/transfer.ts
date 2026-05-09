@@ -8,8 +8,10 @@ import { buildBtcTransferTx } from '../core/btc/tx-builder';
 import {
   assertChainCapability,
   isEvmChain,
+  isSolChain,
   resolveChain,
 } from '../core/chain-resolver';
+import { buildSolTransferTx } from '../core/sol/tx-builder';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { transferOptionsSchema } from '../schemas';
@@ -147,6 +149,177 @@ export function registerTransferCommand(program: Command): void {
 
           const chainName = validated.chain ?? 'eth';
           const chainConfig = resolveChain(chainName);
+
+          if (isSolChain(chainConfig)) {
+            assertChainCapability(chainConfig, 'solTransfer', 'transfer');
+
+            if (validated.addressType) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_COMMAND.code,
+                '--address-type is BTC-only; not applicable to SOL.',
+                'Drop --address-type for SOL transfers.',
+              );
+            }
+
+            const signer = await getSignerByImpl(chainConfig.impl);
+            const addressInfo = await signer.getAddress(chainConfig.networkId);
+            const fromAddress = addressInfo.address;
+            const toAddress = assertAddressForChain(chainConfig, validated.to);
+
+            // Resolve token decimals + canonical mint address. For native SOL
+            // (no --token) the chain config provides the decimals; for SPL we
+            // hit the same /wallet/v1/account/token/search endpoint EVM uses.
+            let tokenDecimals = chainConfig.nativeDecimals;
+            let tokenMint: string | undefined;
+            let tokenSymbol = chainConfig.nativeSymbol;
+            if (validated.token) {
+              const tokenResults = await apiClient.post<ITokenDetailItem[]>(
+                'wallet',
+                '/wallet/v1/account/token/search',
+                {
+                  networkId: chainConfig.networkId,
+                  contractList: [validated.token],
+                },
+              );
+              const tokenInfo = tokenResults?.[0]?.info;
+              if (
+                !tokenInfo ||
+                tokenInfo.decimals === undefined ||
+                typeof tokenInfo.address !== 'string' ||
+                tokenInfo.address.length === 0
+              ) {
+                throw new AppError(
+                  ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                  `Cannot resolve SPL token ${validated.token}`,
+                  'Verify the SPL mint address is correct.',
+                );
+              }
+              // SPL mints are case-sensitive (base58) — strict equality only.
+              if (tokenInfo.address !== validated.token) {
+                throw new AppError(
+                  ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                  `Token address mismatch: expected ${validated.token}, got ${tokenInfo.address}`,
+                  'Verify the SPL mint address is correct.',
+                );
+              }
+              if (
+                !Number.isInteger(tokenInfo.decimals) ||
+                tokenInfo.decimals < 0 ||
+                tokenInfo.decimals > 18
+              ) {
+                throw new AppError(
+                  ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                  `SPL token has invalid decimals: ${tokenInfo.decimals}`,
+                  'Verify the SPL mint metadata.',
+                );
+              }
+              tokenDecimals = tokenInfo.decimals;
+              tokenMint = tokenInfo.address;
+              tokenSymbol = tokenInfo.symbol || 'SPL';
+            }
+
+            validateAmountDecimals(validated.amount, tokenDecimals);
+
+            const built = await buildSolTransferTx({
+              networkId: chainConfig.networkId,
+              fromAddress,
+              toAddress,
+              amount: validated.amount,
+              decimals: tokenDecimals,
+              tokenAddress: tokenMint,
+            });
+
+            if (validated.dryRun) {
+              output.success({
+                chain: chainName,
+                from: fromAddress,
+                to: toAddress,
+                amount: validated.amount,
+                token: tokenMint ?? 'native',
+                symbol: tokenSymbol,
+                ...(built.ataDetails
+                  ? { createsAssociatedTokenAccount: built.ataDetails }
+                  : {}),
+                dryRun: true,
+              });
+              return;
+            }
+
+            await confirmTransaction({
+              info: {
+                action: tokenMint
+                  ? `Transfer ${validated.amount} ${tokenSymbol}`
+                  : `Transfer ${validated.amount} SOL`,
+                to: toAddress,
+                value: validated.amount,
+                network: chainName,
+                ...(built.ataDetails
+                  ? {
+                      estimatedGas:
+                        'Includes Associated Token Account creation (sender pays rent)',
+                    }
+                  : {}),
+              },
+              output,
+              skipConfirmation,
+            });
+
+            const signedTx = await signer.signTransaction({
+              networkId: chainConfig.networkId,
+              account: {
+                address: fromAddress,
+                path: addressInfo.path ?? "m/44'/501'/0'/0'",
+                pub: addressInfo.publicKey,
+              },
+              unsignedTx: {
+                encodedTx: built.encodedTx as unknown as Record<
+                  string,
+                  unknown
+                >,
+                ...(built.ataDetails
+                  ? { payload: { ataDetails: built.ataDetails } }
+                  : {}),
+              } as unknown as { encodedTx: Record<string, unknown> },
+            });
+
+            const broadcastResult =
+              await apiClient.post<ISendTransactionResult>(
+                'wallet',
+                '/wallet/v1/account/send-transaction',
+                {
+                  networkId: chainConfig.networkId,
+                  accountAddress: fromAddress,
+                  tx: signedTx.rawTx,
+                },
+              );
+
+            // SOL signatures are base58, 64 bytes — typical encoded length 86–88.
+            const SOL_TXID_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{43,128}$/;
+            if (
+              !broadcastResult?.result ||
+              !SOL_TXID_PATTERN.test(broadcastResult.result)
+            ) {
+              throw new AppError(
+                ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+                `Broadcast returned invalid SOL txid: "${broadcastResult?.result ?? ''}"`,
+                'Check the transaction on a SOL explorer manually.',
+              );
+            }
+
+            output.success(
+              {
+                txid: broadcastResult.result,
+                from: fromAddress,
+                to: toAddress,
+                amount: validated.amount,
+                chain: chainName,
+                token: tokenMint ?? 'native',
+                symbol: tokenSymbol,
+              },
+              { chain: chainName },
+            );
+            return;
+          }
 
           if (!isEvmChain(chainConfig)) {
             assertChainCapability(chainConfig, 'btcTransfer', 'transfer');
