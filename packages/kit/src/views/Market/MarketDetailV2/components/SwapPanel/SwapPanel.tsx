@@ -124,6 +124,11 @@ export function SwapPanel({
     setSwapProJumpTokenAtom({
       token: swapToken,
       direction: ESwapProJumpTokenDirection.BUY,
+      marketPresetToken: {
+        networkId: swapToken.networkId,
+        contractAddress: swapToken.contractAddress,
+        isNative: swapToken.isNative,
+      },
     });
     navigation.pop();
     navigation.switchTab(ETabRoutes.Swap);

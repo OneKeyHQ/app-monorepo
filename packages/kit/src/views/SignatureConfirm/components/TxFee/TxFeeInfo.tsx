@@ -85,6 +85,7 @@ import {
   getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/shared/src/utils/feeUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
@@ -106,6 +107,7 @@ import {
   getGasAccountErrorEntry,
 } from '../../constants/gasAccountErrorCodes';
 
+import { buildPresetMultiTxsFee } from './presetFeeInfoUtils';
 import { TxFeeEditor } from './TxFeeEditor';
 import { TxFeeSelectorTrigger } from './TxFeeSelectorTrigger';
 
@@ -125,7 +127,7 @@ const SPONSORED_COUPON_SEPARATOR_STROKE = 2;
 const SPONSORED_COUPON_CUTOUT_SIZE = 18;
 const SPONSORED_COUPON_CUTOUT_OFFSET = SPONSORED_COUPON_CUTOUT_SIZE / 2;
 const SPONSORED_FEES_HELP_CENTER_URL =
-  'https://help.onekey.so/collections/15988402';
+  'https://help.onekey.so/articles/14994693';
 
 function buildGasAccountIdempotencyKey(quoteId?: string) {
   return quoteId ? `gas-account:${quoteId}` : '';
@@ -299,6 +301,39 @@ function TxFeeInfo(props: IProps) {
           errMessage: '',
           discountPercent: 0,
         });
+
+        const presetMultiTxsFee =
+          useFeeInTx && !feeInfoEditable
+            ? buildPresetMultiTxsFee(unsignedTxs)
+            : undefined;
+
+        if (presetMultiTxsFee) {
+          const { estimateFeeParams: e } =
+            await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+              accountId,
+              networkId,
+              encodedTx: unsignedTxs[0].encodedTx,
+            });
+          if (getStaleResult()) {
+            return staleResult;
+          }
+
+          updateEffectiveFeePayer('user');
+          resetGasAccountUiState();
+          resetMegafuelEligible();
+          updateGasAccountUiState({ payer: 'user' });
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Success,
+            errMessage: '',
+          });
+          updateTxFeeInfoInit(true);
+          updateTxAdvancedSettings({ dataChanged: false });
+          return {
+            r: undefined,
+            e,
+            m: presetMultiTxsFee,
+          };
+        }
 
         if (isMultiTxs) {
           const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -706,9 +741,11 @@ function TxFeeInfo(props: IProps) {
             errMessage: '',
             discountPercent: 0,
           });
-          Toast.warning({
-            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
-          });
+          if (!gasAccountEntry.suppressToast) {
+            Toast.warning({
+              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+            });
+          }
           appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
           return staleResult;
         }
@@ -727,9 +764,11 @@ function TxFeeInfo(props: IProps) {
             errMessage: '',
             discountPercent: 0,
           });
-          Toast.warning({
-            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
-          });
+          if (!gasAccountEntry.suppressToast) {
+            Toast.warning({
+              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+            });
+          }
           appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
           return staleResult;
         }
@@ -781,9 +820,11 @@ function TxFeeInfo(props: IProps) {
       isMultiTxs,
       isSecondApproveTxWithFeeInfo,
       isSingleTxWithFeesInfo,
+      feeInfoEditable,
       network?.isTestnet,
       networkId,
       unsignedTxs,
+      useFeeInTx,
       gasAccountTemporarilyDisabled,
       resetGasAccountTemporarilyDisabled,
       updateGasAccountTemporarilyDisabled,
@@ -1859,15 +1900,44 @@ function TxFeeInfo(props: IProps) {
   const sponsoredInfoDescription = intl.formatMessage({
     id: ETranslations.wallet_sponsorship_availability_rules__desc,
   });
+  const sponsoredConfirmationDelayDescription = intl.formatMessage({
+    id: ETranslations.wallet_sponsored_tx_confirmation_may_take_longer__desc,
+  });
   const sponsoredLearnMoreText = intl.formatMessage({
     id: ETranslations.wallet_learn_about_sponsored_fees__action,
   });
   const sponsoredSummaryTitle = intl.formatMessage({
     id: ETranslations.wallet_onekey_sponsored__title,
   });
-  const sponsoredSummaryDescription = intl.formatMessage({
-    id: ETranslations.wallet_you_pay_zero_network_fee__desc,
-  });
+  const sponsoredSavedFeeFiatValue = useMemo(() => {
+    const savedFeeFiat =
+      selectedFee?.originalTotalFiat ?? selectedFee?.totalFiatMinForDisplay;
+
+    if (!savedFeeFiat || new BigNumber(savedFeeFiat).lt(0.01)) {
+      return '';
+    }
+
+    return numberFormat(savedFeeFiat, {
+      formatter: 'value',
+      formatterOptions: {
+        currency: settings.currencyInfo.symbol,
+      },
+    });
+  }, [
+    selectedFee?.originalTotalFiat,
+    selectedFee?.totalFiatMinForDisplay,
+    settings.currencyInfo.symbol,
+  ]);
+  const sponsoredSummaryDescription = intl.formatMessage(
+    {
+      id: sponsoredSavedFeeFiatValue
+        ? ETranslations.wallet_saved_network_fee_you_pay_zero__desc
+        : ETranslations.wallet_you_pay_zero_network_fee__desc,
+    },
+    {
+      amount: sponsoredSavedFeeFiatValue,
+    },
+  );
   const handleOpenSponsoredFeesHelpCenter = useCallback(() => {
     openUrlExternal(SPONSORED_FEES_HELP_CENTER_URL);
   }, []);
@@ -1989,6 +2059,9 @@ function TxFeeInfo(props: IProps) {
             <SizableText size="$bodySm" color="$textSubdued">
               {sponsoredInfoDescription}
             </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {sponsoredConfirmationDelayDescription}
+            </SizableText>
             <SizableText
               size="$bodySmMedium"
               color="$text"
@@ -2018,6 +2091,7 @@ function TxFeeInfo(props: IProps) {
     handleOpenSponsoredFeesHelpCenter,
     intl,
     renderSponsoredCoupon,
+    sponsoredConfirmationDelayDescription,
     sponsoredInfoDescription,
     sponsoredInfoTitle,
     sponsoredLearnMoreText,

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
@@ -33,6 +33,7 @@ import {
   useSwapLimitPriceUseRateAtom,
   useSwapNativeTokenReserveGasAtom,
   useSwapNetworksAtom,
+  useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
@@ -55,6 +56,7 @@ import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -78,6 +80,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
+  IMarketPresetTokenContext,
   ISwapInitParams,
   ISwapPreSwapData,
   ISwapStep,
@@ -95,7 +98,11 @@ import {
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { EMarketPresetTradeSide } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
+import { useMarketPresetSettings } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
+import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
+import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
@@ -114,6 +121,7 @@ import {
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 import { buildSwapReviewState } from '../../utils/buildSwapReviewState';
+import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import PreSwapDialogContent from './PreSwapDialogContent';
@@ -176,7 +184,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const swapProToToken = useSwapProToToken();
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProJumpToken] = useSwapProJumpTokenAtom();
   const swapProAccount = useSwapProAccount();
   const tokenDetailActions = useTokenDetailActions();
 
@@ -192,6 +202,98 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
+  const [marketPresetTokenContext, setMarketPresetTokenContext] = useState<
+    IMarketPresetTokenContext | undefined
+  >(
+    () =>
+      swapInitParams?.marketPresetToken ?? swapProJumpToken.marketPresetToken,
+  );
+  const incomingMarketPresetToken =
+    swapInitParams?.marketPresetToken ?? swapProJumpToken.marketPresetToken;
+
+  useEffect(() => {
+    if (incomingMarketPresetToken) {
+      setMarketPresetTokenContext(incomingMarketPresetToken);
+    }
+  }, [
+    incomingMarketPresetToken,
+    incomingMarketPresetToken?.contractAddress,
+    incomingMarketPresetToken?.isNative,
+    incomingMarketPresetToken?.networkId,
+  ]);
+
+  const isSwapProMarketPresetToken = useMemo(
+    () =>
+      !!(
+        focusSwapPro &&
+        marketPresetTokenContext &&
+        swapProSelectToken &&
+        equalTokenNoCaseSensitive({
+          token1: swapProSelectToken,
+          token2: marketPresetTokenContext,
+        })
+      ),
+    [focusSwapPro, marketPresetTokenContext, swapProSelectToken],
+  );
+  const swapProMarketPresetTokenContext = useMemo<
+    IMarketPresetTokenContext | undefined
+  >(() => {
+    if (
+      !focusSwapPro ||
+      swapProTradeType !== ESwapProTradeType.MARKET ||
+      !swapProSelectToken
+    ) {
+      return undefined;
+    }
+
+    if (isSwapProMarketPresetToken) {
+      return marketPresetTokenContext;
+    }
+
+    return {
+      networkId: swapProSelectToken.networkId,
+      contractAddress: swapProSelectToken.contractAddress,
+      isNative: swapProSelectToken.isNative,
+    };
+  }, [
+    focusSwapPro,
+    isSwapProMarketPresetToken,
+    marketPresetTokenContext,
+    swapProSelectToken,
+    swapProTradeType,
+  ]);
+  useEffect(() => {
+    if (
+      focusSwapPro &&
+      marketPresetTokenContext &&
+      swapProSelectToken &&
+      !isSwapProMarketPresetToken
+    ) {
+      setMarketPresetTokenContext(undefined);
+    }
+  }, [
+    focusSwapPro,
+    isSwapProMarketPresetToken,
+    marketPresetTokenContext,
+    swapProSelectToken,
+  ]);
+
+  const swapProMarketPresetTradeSide =
+    swapProDirection === ESwapDirection.SELL
+      ? EMarketPresetTradeSide.SELL
+      : EMarketPresetTradeSide.BUY;
+  const swapProMarketPresetSettings = useMarketPresetSettings({
+    networkId: swapProMarketPresetTokenContext?.networkId,
+    tradeSide: swapProMarketPresetTradeSide,
+  });
+
+  // Reactively resolve Market preset overrides based on which side the market token sits on.
+  // Lets Swap and Swap Pro pick up BUY vs SELL preset as the user flips sides.
+  useMarketPresetSwapOverridesEffect({
+    marketPresetToken: focusSwapPro
+      ? swapProMarketPresetTokenContext
+      : marketPresetTokenContext,
+  });
   const currentQuoteRes = useMemo(() => {
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
       return swapProQuoteResult;
@@ -515,10 +617,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
 
   const supportPreBuild = useMemo(() => {
-    if (isWrapped) {
-      return false;
-    }
-    if (quoteEventFetching) {
+    if (isWrapped || !currentQuoteRes) {
       return false;
     }
     if (currentQuoteRes && !currentQuoteRes?.allowanceResult) {
@@ -530,12 +629,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         fromSelectToken?.networkId ?? '',
       )
     );
-  }, [
-    currentQuoteRes,
-    fromSelectToken?.networkId,
-    isWrapped,
-    quoteEventFetching,
-  ]);
+  }, [currentQuoteRes, fromSelectToken?.networkId, isWrapped]);
 
   const reviewStepTexts = useMemo(
     () => ({
@@ -594,6 +688,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return;
     }
 
+    const reviewRateDifference =
+      focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET
+        ? buildSwapRateDifference({
+            fromTokenPrice: fromSelectToken?.price,
+            toTokenPrice: toSelectToken?.price,
+            instantRate: currentQuoteRes.instantRate,
+          })
+        : rateDifference;
+
     const nextReviewState = buildSwapReviewState({
       accountId: swapFromAddressInfo.accountInfo?.account?.id,
       networkId: swapFromAddressInfo.networkId,
@@ -613,7 +716,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         ) || isCustomRpcUnavailable,
       supportPreBuild,
       slippage: swapSlippageRef.current.value,
-      rateDifference,
+      rateDifference: reviewRateDifference,
       texts: reviewStepTexts,
     });
 
@@ -1145,6 +1248,11 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               onProMarketDetail={onProMarketDetail}
               onTokenPress={onTokenPress}
               supportNetworksList={SwapProSupportNetworksList}
+              marketPresetSettings={
+                swapProMarketPresetTokenContext
+                  ? swapProMarketPresetSettings
+                  : undefined
+              }
               config={{
                 isLoading,
                 speedConfig,

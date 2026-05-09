@@ -958,6 +958,7 @@ function MoreActionGeneralGrid() {
             icon: 'PrimeOutline' as const,
             onPress: handlePrime,
             trackID: 'wallet-prime',
+            isPrimeFeature: true,
           }
         : undefined,
       !platformEnv.isWebDappMode

@@ -1,3 +1,4 @@
+// cspell:ignore rews
 import type {
   IApiErrorResponse,
   IApiRequestError,
@@ -277,6 +278,48 @@ export class HyperLiquidScene extends BaseScene {
     passed: boolean;
     reason?: string;
   }) {
+    return params;
+  }
+
+  // ============ WebSocket Subscription Lifecycle Logs ============
+
+  /**
+   * Defensive log for the socket "open" handler async body.
+   * Emitted when the open handler's body throws/rejects — caught to prevent
+   * unhandled rejection from escalating into a fatal RuntimeScheduler error.
+   */
+  @LogToLocal({ level: 'error' })
+  public subscriptionSocketOpenError(params: { error: unknown }) {
+    return params;
+  }
+
+  /**
+   * Defensive log for the WS subscription message hot path.
+   * Emitted when _handleSubscriptionData throws synchronously inside the
+   * SDK's HyperliquidEventTarget dispatch. Hyperliquid streams up to ~10
+   * L2 book updates per second; any uncaught throw here would propagate
+   * via dispatchEvent → fatal RuntimeScheduler task → SIGABRT.
+   */
+  @LogToLocal({ level: 'error' })
+  public subscriptionHandlerError(params: { type: string; error: unknown }) {
+    return params;
+  }
+
+  /**
+   * Trace log for socket transport dispose — fires when ServiceHyperliquid
+   * tears down the rews ReconnectingWebSocket. Useful to correlate orphan
+   * timer cleanup with rapid Perp/Discovery tab switching scenarios.
+   */
+  @LogToLocal({ level: 'info' })
+  public subscriptionTransportDispose(params: { clientId: string }) {
+    return params;
+  }
+
+  /**
+   * Defensive log for inner SDK SubscriptionClient dispose errors.
+   */
+  @LogToLocal({ level: 'error' })
+  public subscriptionInnerClientDisposeError(params: { error: unknown }) {
     return params;
   }
 }

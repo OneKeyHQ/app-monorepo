@@ -33,6 +33,14 @@ export function SizeInputModeSelector({
   const isTokenSelected = resolvedValue === 'token';
   const isUsdSelected = resolvedValue === 'usd' || resolvedValue === 'margin';
   const { gtMd } = useMedia();
+  const usdDesc = allowMarginInput
+    ? intl.formatMessage({
+        id: ETranslations.perp_size_input_usd_desc,
+      })
+    : intl.formatMessage(
+        { id: ETranslations.perp_size_input_token_desc },
+        { token: 'USD' },
+      );
 
   const handleUsdCardPress = useCallback(() => {
     if (!isUsdSelected) {
@@ -143,9 +151,7 @@ export function SizeInputModeSelector({
                 USD
               </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_size_input_usd_desc,
-                })}
+                {usdDesc}
               </SizableText>
             </YStack>
 

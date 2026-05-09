@@ -4,6 +4,7 @@ import { DEFAULT_TRANSFER_PAIRING_TIMEOUT_MS } from './transfer-types';
 import type {
   ITransferPairingRuntime,
   ITransferPairingTimeoutWindow,
+  TransferStateListener,
 } from './transfer-types';
 import type { AppError } from '../../errors';
 
@@ -85,8 +86,16 @@ export function createTransferPairingRuntime({
   const stateMachine = createTransferStateMachine({ now });
   let isDisposed = false;
   let verificationCode: string | null = null;
+  const auxiliaryListeners = new Set<TransferStateListener>();
   const runtimeRef: { current: ITransferPairingRuntime | null } = {
     current: null,
+  };
+
+  const notifyAuxiliaryListeners = () => {
+    const snapshot = stateMachine.getState();
+    for (const listener of auxiliaryListeners) {
+      listener(snapshot);
+    }
   };
 
   const transition: ITransferPairingRuntime['transition'] = (event) => {
@@ -110,9 +119,17 @@ export function createTransferPairingRuntime({
     getVerificationCode: () => verificationCode,
     setVerificationCode: (code) => {
       verificationCode = code;
+      notifyAuxiliaryListeners();
     },
     getState: () => stateMachine.getState(),
-    subscribe: (listener) => stateMachine.subscribe(listener),
+    subscribe: (listener) => {
+      const unsubscribeFromStateMachine = stateMachine.subscribe(listener);
+      auxiliaryListeners.add(listener);
+      return () => {
+        unsubscribeFromStateMachine();
+        auxiliaryListeners.delete(listener);
+      };
+    },
     transition,
     waitForState: (matcher) => stateMachine.waitForState(matcher),
     dispose: async () => {

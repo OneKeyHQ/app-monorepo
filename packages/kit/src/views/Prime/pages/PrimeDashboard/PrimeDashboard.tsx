@@ -146,6 +146,16 @@ export default function PrimeDashboard({
 
   const prevIsLoggedInRef = useRef(isLoggedIn);
 
+  const dashboardShownRef = useRef(false);
+  useEffect(() => {
+    if (dashboardShownRef.current) return;
+    dashboardShownRef.current = true;
+    defaultLogger.prime.subscription.primeDashboardShow({
+      featureName: fromFeature,
+      isPrimeActive: !!isPrimeSubscriptionActive,
+    });
+  }, [fromFeature, isPrimeSubscriptionActive]);
+
   useEffect(() => {
     const fn = async () => {
       // isFocused won't be triggered when Login Dialog is open or closed
@@ -370,6 +380,12 @@ export default function PrimeDashboard({
     if (isSubscribeLazyLoadingRef.current) {
       return;
     }
+
+    defaultLogger.prime.subscription.primeSubscribeButtonClick({
+      subscriptionPeriod: selectedSubscriptionPeriod,
+      featureName: fromFeature,
+      isLoggedIn,
+    });
 
     // If not logged in, store intent so we can resume after login
     if (!isLoggedIn) {

@@ -112,12 +112,19 @@ export enum ETokenRiskLevel {
   SCAM = 1002,
 }
 
+export interface IMarketPresetTokenContext {
+  networkId: string;
+  contractAddress: string;
+  isNative?: boolean;
+}
+
 export interface ISwapInitParams {
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
+  marketPresetToken?: IMarketPresetTokenContext;
 }
 
 // token & network
@@ -500,6 +507,7 @@ export interface ISwapPreSwapData {
   swapBuildLoading?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
+  stepBeforeActionsError?: boolean;
   providerInfo?: IFetchQuoteInfo;
   isHWAndExBatchTransfer?: boolean;
   slippage?: number;
@@ -693,7 +701,8 @@ export interface ISwapApproveAllowanceResponse {
   isApproved: boolean;
   allowanceTarget: string;
   shouldApproveAmount: string;
-  approvedAmount: string;
+  // sic — backend spelling. Value is already decimal-parsed, not raw wei.
+  approveAmounted: string;
   shouldResetApprove?: boolean;
 }
 

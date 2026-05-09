@@ -96,6 +96,7 @@ export enum EAppEventBusNames {
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   HideTabBar = 'HideTabBar',
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
+  ShowThirdPartyHardwarePermissionDialog = 'ShowThirdPartyHardwarePermissionDialog',
   RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
   RequestDeviceForSwitchFirmwareWebDevice = 'RequestDeviceForSwitchFirmwareWebDevice',
   EnabledNetworksChanged = 'EnabledNetworksChanged',
@@ -150,4 +151,5 @@ export enum EAppEventBusNames {
   ShowRookieShare = 'ShowRookieShare',
   CreateNewBrowserTab = 'CreateNewBrowserTab',
   NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
+  TrayActionWillNavigate = 'TrayActionWillNavigate',
 }

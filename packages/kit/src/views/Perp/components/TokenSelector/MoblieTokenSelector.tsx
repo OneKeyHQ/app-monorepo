@@ -16,6 +16,7 @@ import {
   Icon,
   ListView,
   Page,
+  ScrollView,
   SizableText,
   Spinner,
   Stack,
@@ -39,12 +40,16 @@ import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   useSpotAssetCtxsMapAtom,
+  useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   SPOT_SELECTOR_MIN_VOLUME,
+  compareSpotMarketCapValues,
   formatSpotPairDisplayName,
+  getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getTokenSubtitle,
   isSpotInstrument,
@@ -71,6 +76,20 @@ import {
 } from '../../hooks';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import {
+  markTokenSelectorPerfMeasure,
+  startTokenSelectorPerfMeasure,
+} from '../../utils/tokenSelectorPerf';
+import {
+  buildPerpTokenSelectorCategoryTabs,
+  buildPerpTokenSelectorTabs,
+  buildPrimaryTabs,
+  getPerpTokenSelectorFallbackTabId,
+  getPerpTokenSelectorPrimaryTabId,
+  isPerpTokenSelectorFavoritesTab,
+  isPerpTokenSelectorPerpsTab,
+  isPerpTokenSelectorSpotTab,
+} from '../../utils/tokenSelectorTabs';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
 import {
@@ -81,7 +100,51 @@ import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
 import type { LayoutChangeEvent } from 'react-native';
 
-const TabItem = memo(
+function hasSpotVolumeData(
+  spotPriceMap: Record<string, { dayNtlVlm?: string | number } | undefined>,
+) {
+  return Object.values(spotPriceMap).some(
+    (ctx) => Number(ctx?.dayNtlVlm || 0) > 0,
+  );
+}
+
+const PrimaryTabItem = memo(
+  ({
+    id,
+    name,
+    isFocused,
+    onPress,
+  }: {
+    id: string;
+    name: string;
+    isFocused: boolean;
+    onPress: (id: string) => void;
+  }) => {
+    const handlePress = useCallback(() => onPress(id), [id, onPress]);
+    return (
+      <XStack
+        pt="$0.5"
+        pb="$2"
+        ml="$4"
+        mr="$2"
+        borderBottomWidth={isFocused ? '$0.5' : '$0'}
+        borderBottomColor="$borderActive"
+        onPress={handlePress}
+        cursor="pointer"
+      >
+        <SizableText
+          size="$headingXs"
+          color={isFocused ? '$text' : '$textSubdued'}
+        >
+          {name}
+        </SizableText>
+      </XStack>
+    );
+  },
+);
+PrimaryTabItem.displayName = 'PrimaryTabItem';
+
+const CategoryTabItem = memo(
   ({
     id,
     name,
@@ -95,6 +158,7 @@ const TabItem = memo(
   }) => {
     const { handleItemLayout } = useScrollableFilterBar();
     const handlePress = useCallback(() => onPress(id), [id, onPress]);
+    const bgColor = isFocused ? '$bgActive' : '$transparent';
     return (
       <XStack
         alignItems="center"
@@ -103,14 +167,14 @@ const TabItem = memo(
         py="$1.5"
         borderRadius="$full"
         userSelect="none"
-        cursor="default"
-        backgroundColor={isFocused ? '$bgActive' : '$transparent'}
+        cursor="pointer"
+        backgroundColor={bgColor}
         onPress={handlePress}
         onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
       >
         <SizableText
           numberOfLines={1}
-          size="$bodyMdMedium"
+          size="$bodySmMedium"
           color={isFocused ? '$text' : '$textSubdued'}
         >
           {name}
@@ -119,7 +183,7 @@ const TabItem = memo(
     );
   },
 );
-TabItem.displayName = 'TabItem';
+CategoryTabItem.displayName = 'CategoryTabItem';
 
 function MobileTokenSelectorModal({
   onLoadingChange,
@@ -133,20 +197,32 @@ function MobileTokenSelectorModal({
 
   // Spot data — try cache first, fallback to refresh if empty
   const [spotPriceMap] = useSpotAssetCtxsMapAtom();
+  const spotPriceMapRef = useRef(spotPriceMap);
+  spotPriceMapRef.current = spotPriceMap;
   const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);
   const [spotLoading, setSpotLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      let { universes } =
-        await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-      if (!universes?.length) {
-        await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
-        const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-        universes = res.universes;
+      let universes: ISpotUniverse[] = [];
+      try {
+        const cachedMeta =
+          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        universes = cachedMeta.universes ?? [];
+        if (!universes.length || !hasSpotVolumeData(spotPriceMapRef.current)) {
+          await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+          const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+          universes = res.universes ?? universes;
+        }
+      } catch (error) {
+        defaultLogger.app.error.log(
+          `Failed to load spot meta: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
       if (!cancelled) {
-        setSpotUniverses(universes ?? []);
+        setSpotUniverses(universes);
         setSpotLoading(false);
       }
     })();
@@ -192,12 +268,73 @@ function MobileTokenSelectorModal({
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const dynamicTabs = useMemo(() => dynamicTabsRaw ?? [], [dynamicTabsRaw]);
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+  const fixedTabNames = useMemo(
+    () => ({
+      favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
+      all: intl.formatMessage({ id: ETranslations.global_all }),
+      perps: intl.formatMessage({
+        id: ETranslations.perps_token_selector_perps,
+      }),
+      spot: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
+    }),
+    [intl],
+  );
+  const primaryTabs = useMemo(
+    () => buildPrimaryTabs(fixedTabNames),
+    [fixedTabNames],
+  );
+  const categoryTabs = useMemo(
+    () =>
+      buildPerpTokenSelectorCategoryTabs({
+        serverTabs: dynamicTabs,
+        fixedTabNames,
+      }),
+    [dynamicTabs, fixedTabNames],
+  );
+  const visibleTabs = useMemo(
+    () =>
+      buildPerpTokenSelectorTabs({
+        serverTabs: dynamicTabs,
+        fixedTabNames,
+      }),
+    [dynamicTabs, fixedTabNames],
+  );
+  const displayActiveTab = useMemo(() => {
+    if (visibleTabs.some((tab) => tab.tabId === activeTab)) {
+      return activeTab;
+    }
+    return getPerpTokenSelectorFallbackTabId(visibleTabs);
+  }, [activeTab, visibleTabs]);
+  const displayPrimaryTab = useMemo(
+    () => getPerpTokenSelectorPrimaryTabId(displayActiveTab),
+    [displayActiveTab],
+  );
+  const showCategoryTabs = displayPrimaryTab === 'perps';
   const scrollListToTop = useCallback(() => {
     listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
   }, []);
+
+  useEffect(() => {
+    const currentActions = actions.current;
+    currentActions.setTradeRouteViewState({
+      tokenSelectorOpen: true,
+    });
+    return () => {
+      currentActions.setTradeRouteViewState({
+        tokenSelectorOpen: false,
+      });
+    };
+  }, [actions]);
+
+  useEffect(() => {
+    actions.current.setTradeRouteViewState({
+      tokenSelectorTab: displayActiveTab,
+    });
+  }, [actions, displayActiveTab]);
 
   // Mount FlashList only after the navigation transition animation completes.
   // transitionEnd fires via navigation listener, so this is exact — no guesswork.
@@ -244,14 +381,6 @@ function MobileTokenSelectorModal({
     };
   }, [actions]);
 
-  const tabLabels = useMemo(
-    () => ({
-      favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
-      all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
-      spot: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
-    }),
-    [intl],
-  );
   const setActiveTab = useCallback(
     (tab: string) => {
       if (tab === activeTab) {
@@ -264,8 +393,20 @@ function MobileTokenSelectorModal({
           activeTab: tab,
         }));
       });
+      actions.current.setTradeRouteViewState({
+        tokenSelectorTab: tab,
+      });
     },
-    [activeTab, setSelectorConfig],
+    [actions, activeTab, setSelectorConfig],
+  );
+  const setPrimaryTab = useCallback(
+    (tab: string) => {
+      if (tab === displayPrimaryTab) {
+        return;
+      }
+      setActiveTab(tab);
+    },
+    [displayPrimaryTab, setActiveTab],
   );
 
   const computeSortValues = useCallback(
@@ -330,6 +471,9 @@ function MobileTokenSelectorModal({
           compareResult =
             a.sortValues.openInterestValue - b.sortValues.openInterestValue;
           break;
+        case 'marketCap':
+          compareResult = 0;
+          break;
         default:
           break;
       }
@@ -341,6 +485,7 @@ function MobileTokenSelectorModal({
   // Layer 1: sort — only reruns when sort config or underlying assets change.
   // Does NOT depend on activeTab, so tab switches never retrigger the sort.
   const perpSortedList = useMemo(() => {
+    const perfStartTime = startTokenSelectorPerfMeasure();
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
     const assetCtxsByDexTyped: IPerpsAssetCtx[][] =
       ctxSnapshotRef.current || [];
@@ -371,21 +516,35 @@ function MobileTokenSelectorModal({
     });
 
     const sortField = selectorConfig?.field ?? '';
-    if (!sortField) {
-      return combinedEntries.map(mapEntry);
+    const sortDirection = selectorConfig?.direction ?? 'desc';
+    const result = sortField
+      ? combinedEntries
+          .toSorted((a, b) =>
+            sortCompare(
+              { asset: a.asset, sortValues: a.sortValues },
+              { asset: b.asset, sortValues: b.sortValues },
+            ),
+          )
+          .map(mapEntry)
+      : combinedEntries.map(mapEntry);
+
+    if (perfStartTime !== undefined) {
+      markTokenSelectorPerfMeasure(perfStartTime, {
+        layout: 'mobile',
+        phase: 'perp-sort',
+        sortField,
+        sortDirection,
+        perpCount: combinedEntries.length,
+        resultCount: result.length,
+      });
     }
-    return combinedEntries
-      .toSorted((a, b) =>
-        sortCompare(
-          { asset: a.asset, sortValues: a.sortValues },
-          { asset: b.asset, sortValues: b.sortValues },
-        ),
-      )
-      .map(mapEntry);
+
+    return result;
   }, [
     assetsByDex,
     computeSortValues,
     sortCompare,
+    selectorConfig?.direction,
     selectorConfig?.field,
     tokenSearchAliases,
   ]);
@@ -393,39 +552,46 @@ function MobileTokenSelectorModal({
   // Layer 1b: spot sort — isolated from perp. Reruns only when spot data or
   // sort config changes. spotPriceMap WS updates never touch the perp list.
   const spotSortedList = useMemo((): ITokenSelectorListItem[] => {
+    const perfStartTime = startTokenSelectorPerfMeasure();
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
 
-    const entries = spotUniverses
-      .map((u, index) => {
-        const ctx = spotPriceMap[u.name];
-        const markPrice = Number(ctx?.markPx || 0);
-        const prevDayPx = Number(ctx?.prevDayPx || 0);
-        const change24hPercent =
-          prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
-        const volume24h = Number(ctx?.dayNtlVlm || 0);
-        const circulatingSupply = Number(ctx?.circulatingSupply || 0);
-        const marketCap = circulatingSupply * markPrice;
-        return {
-          item: {
-            dexIndex: SPOT_DEX_INDEX,
-            index,
-            assetId: u.assetId,
-            tokenSubtitle:
-              getTokenSubtitle(
-                getSpotTokenDisplayName(u.baseName),
-                tokenSearchAliases,
-              ) ?? getTokenSubtitle(u.baseName, tokenSearchAliases),
-            spotUniverse: u,
-          } as ITokenSelectorListItem,
-          name: u.baseName,
-          markPrice,
-          change24hPercent,
-          volume24h,
-          marketCap,
-        };
-      })
-      .filter((e) => e.volume24h >= SPOT_SELECTOR_MIN_VOLUME);
+    const mappedEntries = spotUniverses.map((u, index) => {
+      const ctx = spotPriceMap[u.name];
+      const markPrice = Number(ctx?.markPx || 0);
+      const prevDayPx = Number(ctx?.prevDayPx || 0);
+      const change24hPercent =
+        prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
+      const volume24h = Number(ctx?.dayNtlVlm || 0);
+      const marketCapValue = getSpotMarketCapValue(
+        ctx,
+        u.baseName,
+        spotMarketCaps,
+      );
+      const marketCap = marketCapValue ? Number(marketCapValue) : undefined;
+      return {
+        item: {
+          dexIndex: SPOT_DEX_INDEX,
+          index,
+          assetId: u.assetId,
+          tokenSubtitle:
+            getTokenSubtitle(
+              getSpotTokenDisplayName(u.baseName),
+              tokenSearchAliases,
+            ) ?? getTokenSubtitle(u.baseName, tokenSearchAliases),
+          spotUniverse: u,
+        } as ITokenSelectorListItem,
+        name: u.baseName,
+        markPrice,
+        change24hPercent,
+        volume24h,
+        marketCap,
+      };
+    });
+    const hasVolumeData = mappedEntries.some((e) => e.volume24h > 0);
+    const entries = mappedEntries.filter(
+      (e) => !hasVolumeData || e.volume24h >= SPOT_SELECTOR_MIN_VOLUME,
+    );
 
     if (sortField) {
       entries.sort((a, b) => {
@@ -445,9 +611,13 @@ function MobileTokenSelectorModal({
           case 'volume24h':
             cmp = a.volume24h - b.volume24h;
             break;
+          case 'marketCap':
           case 'openInterest':
-            cmp = a.marketCap - b.marketCap;
-            break;
+            return compareSpotMarketCapValues(
+              a.marketCap,
+              b.marketCap,
+              sortDirection,
+            );
           default:
             break;
         }
@@ -455,10 +625,24 @@ function MobileTokenSelectorModal({
       });
     }
 
-    return entries.map((e) => e.item);
+    const result = entries.map((e) => e.item);
+    if (perfStartTime !== undefined) {
+      markTokenSelectorPerfMeasure(perfStartTime, {
+        layout: 'mobile',
+        phase: 'spot-sort',
+        sortField,
+        sortDirection,
+        spotCount: spotUniverses.length,
+        resultCount: result.length,
+        volumeFilteredCount: spotUniverses.length - result.length,
+      });
+    }
+
+    return result;
   }, [
     spotUniverses,
     spotPriceMap,
+    spotMarketCaps,
     tokenSearchAliases,
     selectorConfig?.field,
     selectorConfig?.direction,
@@ -467,7 +651,11 @@ function MobileTokenSelectorModal({
   // Layer 2: filter — cheap O(n) filter; never runs sort.
   // Tab switches and favorites changes only reach here, not the sort layer.
   const mockedListData = useMemo(() => {
-    if (activeTab === 'spot') {
+    const perfStartTime = startTokenSelectorPerfMeasure();
+    const sortField = selectorConfig?.field ?? '';
+    const sortDirection = selectorConfig?.direction ?? 'desc';
+
+    const getSpotListBySearch = () => {
       if (!searchQuery) return spotSortedList;
       const q = searchQuery.toLowerCase();
       return spotSortedList.filter((item) => {
@@ -481,54 +669,77 @@ function MobileTokenSelectorModal({
           pairDisplay.toLowerCase().includes(q)
         );
       });
-    }
+    };
 
-    if (activeTab === 'favorites') {
+    let result: ITokenSelectorListItem[];
+
+    if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
+      result = getSpotListBySearch();
+    } else if (isPerpTokenSelectorFavoritesTab(displayPrimaryTab)) {
       const favoriteAssetIds = new Set(
         favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
       );
-      return perpSortedList.filter((item) =>
+      result = perpSortedList.filter((item) =>
         favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
       );
-    }
-
-    const dynamicTab = dynamicTabs.find((t) => t.tabId === activeTab);
-    if (dynamicTab) {
-      const tokenSet = new Set(dynamicTab.tokens);
-      const matchingIds = new Set<string>();
-      (assetsByDex || []).forEach((assets, dexIndex) => {
-        assets?.forEach((asset) => {
-          if (tokenSet.has(asset.name)) {
-            matchingIds.add(`${dexIndex}-${asset.assetId}`);
-          }
+    } else if (isPerpTokenSelectorPerpsTab(displayActiveTab)) {
+      result = perpSortedList;
+    } else {
+      const dynamicTab = categoryTabs.find((t) => t.tabId === displayActiveTab);
+      if (dynamicTab) {
+        const tokenSet = new Set(dynamicTab.tokens);
+        const matchingIds = new Set<string>();
+        (assetsByDex || []).forEach((assets, dexIndex) => {
+          assets?.forEach((asset) => {
+            if (tokenSet.has(asset.name)) {
+              matchingIds.add(`${dexIndex}-${asset.assetId}`);
+            }
+          });
         });
-      });
-      return perpSortedList.filter((item) =>
-        matchingIds.has(`${item.dexIndex}-${item.assetId}`),
-      );
+        result = perpSortedList.filter((item) =>
+          matchingIds.has(`${item.dexIndex}-${item.assetId}`),
+        );
+      } else {
+        result = perpSortedList;
+      }
     }
 
-    return perpSortedList;
+    if (perfStartTime !== undefined) {
+      markTokenSelectorPerfMeasure(perfStartTime, {
+        layout: 'mobile',
+        phase: 'active-tab',
+        activeTab: displayActiveTab,
+        primaryTab: displayPrimaryTab,
+        sortField,
+        sortDirection,
+        perpCount: perpSortedList.length,
+        spotCount: spotSortedList.length,
+        resultCount: result.length,
+        searchQueryLength: searchQuery.length,
+        dynamicTabCount: categoryTabs.length,
+      });
+    }
+
+    return result;
   }, [
-    activeTab,
+    displayActiveTab,
+    displayPrimaryTab,
     assetsByDex,
-    dynamicTabs,
+    categoryTabs,
     favoriteItems,
     perpSortedList,
+    selectorConfig?.direction,
+    selectorConfig?.field,
     spotSortedList,
     searchQuery,
   ]);
-
-  // Show all server-configured dynamic tabs regardless of search results.
-  // Filtering by search-filtered assetsByDex would hide tabs during search.
-  const visibleDynamicTabs = dynamicTabs;
 
   usePerpActiveTabValidation({
     activeTab,
     setActiveTab,
     assetsByDex,
     dynamicTabs: dynamicTabsRaw,
-    visibleDynamicTabs,
+    visibleTabs,
   });
 
   const keyExtractor = useCallback(
@@ -590,13 +801,19 @@ function MobileTokenSelectorModal({
   }
 
   let listEmptyComponent: ReactNode;
-  if (activeTab === 'spot' && spotLoading) {
+  const shouldShowSpotLoadingEmptyState =
+    spotLoading && isPerpTokenSelectorSpotTab(displayPrimaryTab);
+  if (shouldShowSpotLoadingEmptyState) {
     listEmptyComponent = (
       <YStack p="$5" alignItems="center">
         <Spinner size="small" />
       </YStack>
     );
-  } else if (activeTab === 'favorites' && !searchQuery && isFavoritesReady) {
+  } else if (
+    isPerpTokenSelectorFavoritesTab(displayActiveTab) &&
+    !searchQuery &&
+    isFavoritesReady
+  ) {
     listEmptyComponent = <FavoritesEmptyState isMobile />;
   } else {
     listEmptyComponent = (
@@ -629,45 +846,55 @@ function MobileTokenSelectorModal({
           searchBarInputValue: undefined, // keep value undefined to make SearchBar Input debounce works
         }}
       />
-      <Stack
-        borderBottomWidth="$px"
-        borderBottomColor="$borderSubdued"
-        flexShrink={0}
-      >
-        <ScrollableFilterBar
-          selectedItemId={activeTab}
-          itemGap="$2"
-          itemPr="$3"
-          contentContainerStyle={{ px: '$4', pb: '$2.5' }}
-        >
-          {(['favorites', 'all', 'spot'] as const).map((tabKey) => (
-            <TabItem
-              key={tabKey}
-              id={tabKey}
-              name={tabLabels[tabKey]}
-              isFocused={activeTab === tabKey}
-              onPress={setActiveTab}
-            />
-          ))}
-          {visibleDynamicTabs.map((tab) => (
-            <TabItem
-              key={tab.tabId}
-              id={tab.tabId}
-              name={tab.name}
-              isFocused={activeTab === tab.tabId}
-              onPress={setActiveTab}
-            />
-          ))}
-        </ScrollableFilterBar>
+      <Stack flexShrink={0}>
+        <XStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            bounces={false}
+            width="100%"
+            contentContainerStyle={{ minWidth: '100%' }}
+          >
+            <XStack minWidth="100%">
+              {primaryTabs.map((tab) => (
+                <PrimaryTabItem
+                  key={tab.tabId}
+                  id={tab.tabId}
+                  name={tab.name}
+                  isFocused={displayPrimaryTab === tab.tabId}
+                  onPress={setPrimaryTab}
+                />
+              ))}
+            </XStack>
+          </ScrollView>
+        </XStack>
+        {showCategoryTabs ? (
+          <Stack>
+            <ScrollableFilterBar
+              selectedItemId={displayActiveTab}
+              itemGap="$2"
+              itemPr="$3"
+              contentContainerStyle={{
+                pl: '$2',
+                pr: '$4',
+                pt: '$2.5',
+                pb: '$1.5',
+              }}
+            >
+              {categoryTabs.map((tab) => (
+                <CategoryTabItem
+                  key={tab.tabId}
+                  id={tab.tabId}
+                  name={tab.name}
+                  isFocused={displayActiveTab === tab.tabId}
+                  onPress={setActiveTab}
+                />
+              ))}
+            </ScrollableFilterBar>
+          </Stack>
+        ) : null}
       </Stack>
-      <XStack
-        px="$5"
-        pb="$3"
-        pt="$3"
-        justifyContent="space-between"
-        borderBottomWidth="$px"
-        borderBottomColor="$borderSubdued"
-      >
+      <XStack px="$4" py="$2" justifyContent="space-between">
         <XStack
           gap="$1"
           alignItems="center"
@@ -676,7 +903,7 @@ function MobileTokenSelectorModal({
           cursor="default"
         >
           <SizableText
-            size="$bodySm"
+            size="$bodyXs"
             color={
               selectorConfig?.field === 'volume24h' ? '$text' : '$textSubdued'
             }
@@ -699,7 +926,7 @@ function MobileTokenSelectorModal({
           cursor="default"
         >
           <SizableText
-            size="$bodySm"
+            size="$bodyXs"
             color={
               selectorConfig?.field === 'change24hPercent'
                 ? '$text'

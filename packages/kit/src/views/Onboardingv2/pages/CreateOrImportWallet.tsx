@@ -149,7 +149,12 @@ function CreateOrImportWallet() {
         isFromOnboardingV2: true,
       },
     });
-  }, [navigation]);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'ImportWallet',
+      details: { importType: 'address' },
+      isSoftwareWalletOnlyUser,
+    });
+  }, [navigation, isSoftwareWalletOnlyUser]);
 
   const options: IImportOption[] = useMemo(() => {
     const isGoogleLoading =

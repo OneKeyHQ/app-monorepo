@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
 /* spell-checker: disable */
+// cspell:ignore rews
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
 import { cloneDeep, debounce } from 'lodash';
 
@@ -12,6 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -674,46 +676,58 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     event,
     ..._args
   ) => {
-    const socket = event.target as WebSocket | undefined;
-    const readyState = socket?.readyState;
-    this._lastReadyState = readyState;
-    // OK-53208: SDK transport wrapper reports readyState=undefined in the
-    // open event, which keeps perpsWebSocketConnectedAtom false forever.
-    void perpsWebSocketReadyStateAtom.set({
-      readyState: readyState ?? WebSocket.OPEN,
-    });
+    // OneKey: defensive try/catch around the entire async handler body.
+    // This handler is registered as a WebSocket "open" event listener but its
+    // body is async. Any rejection here would become an unhandled promise
+    // rejection. While RN routes those to reportError (soft) rather than
+    // reportFatalError (fatal), some downstream paths can re-throw on the
+    // event loop and turn into a RuntimeScheduler task error → SIGABRT.
+    // Catch-all here keeps the WS lifecycle robust regardless of which atom
+    // write or update fails.
+    try {
+      const socket = event.target as WebSocket | undefined;
+      const readyState = socket?.readyState;
+      this._lastReadyState = readyState;
+      // OK-53208: SDK transport wrapper reports readyState=undefined in the
+      // open event, which keeps perpsWebSocketConnectedAtom false forever.
+      void perpsWebSocketReadyStateAtom.set({
+        readyState: readyState ?? WebSocket.OPEN,
+      });
 
-    const prevNetworkStatus = await perpsNetworkStatusAtom.get();
-    const wasConnected = prevNetworkStatus?.connected;
+      const prevNetworkStatus = await perpsNetworkStatusAtom.get();
+      const wasConnected = prevNetworkStatus?.connected;
 
-    await timerUtils.wait(600); // wait network status atom update
+      await timerUtils.wait(600); // wait network status atom update
 
-    // OK-53014: Install atom watcher BEFORE initial updateSubscriptions so
-    // that any atom change arriving in the gap between these two calls is
-    // captured and re-triggers a reconcile.
-    this._watchSubscriptionAtoms();
+      // OK-53014: Install atom watcher BEFORE initial updateSubscriptions so
+      // that any atom change arriving in the gap between these two calls is
+      // captured and re-triggers a reconcile.
+      this._watchSubscriptionAtoms();
 
-    if (!wasConnected) {
-      // resubscribe when reconnecting
-      await this.updateSubscriptions();
+      if (!wasConnected) {
+        // resubscribe when reconnecting
+        await this.updateSubscriptions();
+      }
+
+      // Mark connected after handling potential resubscribe.
+      await perpsNetworkStatusAtom.set(
+        (prev): IPerpsNetworkStatus => ({
+          ...prev,
+          connected: true,
+        }),
+      );
+      this._currentState.isConnected = true;
+      this._startPingLoop();
+
+      // Skip initial connect — only notify iframe on reconnection
+      if (wasConnected === false && this._lastMessageAt !== null) {
+        appEventBus.emit(EAppEventBusNames.PerpsWebSocketRecovered, undefined);
+      }
+
+      this._startPostOpenDataCheck();
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.subscriptionSocketOpenError({ error });
     }
-
-    // Mark connected after handling potential resubscribe.
-    await perpsNetworkStatusAtom.set(
-      (prev): IPerpsNetworkStatus => ({
-        ...prev,
-        connected: true,
-      }),
-    );
-    this._currentState.isConnected = true;
-    this._startPingLoop();
-
-    // Skip initial connect — only notify iframe on reconnection
-    if (wasConnected === false && this._lastMessageAt !== null) {
-      appEventBus.emit(EAppEventBusNames.PerpsWebSocketRecovered, undefined);
-    }
-
-    this._startPostOpenDataCheck();
   };
 
   private _lastReadyState: number | undefined;
@@ -789,7 +803,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const registerSubscriptionHandler = (type: ESubscriptionType) => {
         if (!this.subscriptionHandlerByType[type]) {
           const handleData = (data: unknown) => {
-            void this._handleSubscriptionData(type, data as CustomEvent);
+            // OneKey: defensive try/catch on the WS message hot path.
+            // Hyperliquid streams up to ~10 L2 book updates per second; any
+            // synchronous throw inside _handleSubscriptionData (e.g. from a
+            // jotai atom setter or a downstream service call) would propagate
+            // through SDK's HyperliquidEventTarget.dispatchEvent and surface
+            // as a fatal RuntimeScheduler task error → SIGABRT. The void on
+            // the inner promise covers async rejections, but a sync throw
+            // before the first await can still escape — this catch handles it.
+            try {
+              void this._handleSubscriptionData(type, data as CustomEvent);
+            } catch (error) {
+              defaultLogger.perp.hyperliquid.subscriptionHandlerError({
+                type,
+                error,
+              });
+            }
           };
           this.subscriptionHandlerByType[type] = handleData;
         }
@@ -864,6 +893,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         subscribe,
         unsubscribe,
         dispose: async () => {
+          // OneKey: dispose order matters for orphan-timer cleanup. We must
+          // close the underlying socket BEFORE removing OUR listeners — the
+          // close() triggers rews's internal `cleanup` listener (registered
+          // with { once: true } on close/error/open) which calls clearTimeout
+          // on its connection-timeout timer. If we removed listeners first,
+          // any in-flight close event might be dropped before rews can clean
+          // up its 5s setTimeout, leaving an orphan timer that could fire
+          // after dispose and re-trigger the dispatchEvent path (now caught
+          // defensively by the rews patch, but harmless cleanup is preferred).
+          defaultLogger.perp.hyperliquid.subscriptionTransportDispose({
+            clientId,
+          });
+          try {
+            // Close socket first so rews's internal close listener fires and
+            // clears its connection-timeout setTimeout.
+            transport.socket.close();
+          } catch (error) {
+            console.error('dispose__transport.socket.close__error', error);
+          }
           try {
             removeAllSocketEventListeners();
           } catch (error) {
@@ -880,18 +928,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
               error,
             );
           }
-          try {
-            transport.socket.close();
-          } catch (error) {
-            console.error('dispose__transport.socket.close__error', error);
-          }
           const disposer = (
             innerClient as unknown as {
               [Symbol.asyncDispose]?: () => Promise<void>;
             }
           )[Symbol.asyncDispose];
           if (disposer) {
-            await disposer();
+            try {
+              await disposer();
+            } catch (error) {
+              defaultLogger.perp.hyperliquid.subscriptionInnerClientDisposeError(
+                { error },
+              );
+            }
           }
         },
       };
