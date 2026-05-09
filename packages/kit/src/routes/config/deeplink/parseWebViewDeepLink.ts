@@ -3,8 +3,9 @@ import type {
   IEOneKeyDeepLinkParams,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 
-import type { IOpenWebViewParams } from '../../../views/WebView/utils/webViewNavigation';
 import { isAllowedWebViewUrl } from '../../../views/WebView/utils/urlSafety';
+
+import type { IOpenWebViewParams } from '../../../views/WebView/utils/webViewNavigation';
 
 /**
  * Parse and validate the query params of an `onekey-wallet://webview?...`

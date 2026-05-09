@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 
-import { Page, useBackHandler, useOnRouterChange } from '@onekeyhq/components';
+import {
+  Page,
+  rootNavigationRef,
+  useBackHandler,
+  useOnRouterChange,
+} from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -25,10 +30,26 @@ import type {
   WebViewNavigation,
 } from 'react-native-webview/lib/WebViewTypes';
 
-function WebViewPageContent() {
+interface IWebViewPageContentProps {
+  // Desktop renders this page directly inside a portal slot (no inner
+  // navigator). Params are read by the source `WebViewDesktopPortal` from
+  // the WebView root route via `useRoute()` and passed in here as a prop.
+  // On native, `useRoute()` inside ModalFlowNavigator is the source of truth.
+  paramsOverride?: IWebViewPageParams;
+}
+
+// Always close via the root navigation ref so it works whether we're rendered
+// inside the React Navigation tree (native) or as portal content inside the
+// TabNavigator's slot (desktop). `useNavigation()` inside the slot would
+// resolve to the host tab's navigator, which has no concept of the WebView
+// root route.
+const closeWebViewOverlay = () => {
+  rootNavigationRef.current?.goBack();
+};
+
+function WebViewPageContent({ paramsOverride }: IWebViewPageContentProps) {
   const route = useRoute();
-  const navigation = useNavigation();
-  const params = (route.params ?? {}) as IWebViewPageParams;
+  const params = paramsOverride ?? ((route.params ?? {}) as IWebViewPageParams);
   const initialUrl = params.url ?? '';
 
   const { webviewRef, setWebViewRef } = useWebViewBridge();
@@ -149,11 +170,9 @@ function WebViewPageContent() {
     if (handleWebViewGoBack()) {
       return true;
     }
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
+    closeWebViewOverlay();
     return true;
-  }, [handleWebViewGoBack, navigation]);
+  }, [handleWebViewGoBack]);
 
   useBackHandler(onBackHandler, true);
 
@@ -168,9 +187,12 @@ function WebViewPageContent() {
     if (isClosingRef.current) return;
     if (!state) return;
     const top = state.routes?.[state.index ?? 0];
-    if (top?.name === ERootRoutes.Main && navigation.canGoBack?.()) {
+    if (
+      top?.name === ERootRoutes.Main &&
+      rootNavigationRef.current?.canGoBack?.()
+    ) {
       isClosingRef.current = true;
-      navigation.goBack();
+      closeWebViewOverlay();
     }
   });
 
@@ -254,6 +276,7 @@ function WebViewPageContent() {
         fallbackTitle={params.title}
         hidden={Boolean(params.hideHeader)}
         onReload={handleReload}
+        onClose={closeWebViewOverlay}
       />
     ),
     [currentTitle, currentUrl, handleReload, params.hideHeader, params.title],
@@ -283,10 +306,10 @@ function WebViewPageContent() {
   );
 }
 
-export default function WebViewPage() {
+export default function WebViewPage(props: { params?: IWebViewPageParams }) {
   return (
     <DiscoveryBrowserProviderMirror>
-      <WebViewPageContent />
+      <WebViewPageContent paramsOverride={props.params} />
     </DiscoveryBrowserProviderMirror>
   );
 }

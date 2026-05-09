@@ -34,7 +34,16 @@ export function openWebView(params: IOpenWebViewParams) {
     return;
   }
 
-  // Three-level nesting required by RootModalNavigator + ModalFlowNavigator:
+  if (platformEnv.isDesktop) {
+    // Desktop renders WebViewPage directly into a portal slot (see
+    // Navigator.desktop) — no inner navigator. Single-level params; read at
+    // the WebView root screen via `useRoute()` and passed as a prop.
+    appGlobals.$rootAppNavigation?.navigate(ERootRoutes.WebView, params);
+    return;
+  }
+
+  // Native: three-level nesting required by RootModalNavigator +
+  // ModalFlowNavigator:
   //   root stack ─ ERootRoutes.WebView         (RootModalNavigator)
   //     └─ inner stack ─ EWebViewRoutes.WebView (ModalFlowNavigator wrapper)
   //         └─ leaf screen ─ EWebViewRoutes.WebView (WebViewPage)

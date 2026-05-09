@@ -29,9 +29,8 @@ import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAc
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
-import { parseWebViewDeepLink } from './parseWebViewDeepLink';
-
 import { registerHandler } from './handler';
+import { parseWebViewDeepLink } from './parseWebViewDeepLink';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';
