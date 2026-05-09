@@ -14,14 +14,23 @@ export function WebViewNavigator() {
     />
   );
   if (platformEnv.isDesktop) {
-    // Inset by sidebar width only — the header covers the macOS hidden
-    // titlebar area on purpose so the close button reaches the top-left.
-    // `pointerEvents="box-none"` lets the empty padding-left pass through
-    // to the underlying Main route so the sidebar stays interactive while
-    // the WebView is open.
+    // Outer wrapper covers the full screen with pe=box-none so empty area
+    // (left of sidebar inset) lets clicks reach the underlying Main route.
+    // Inner wrapper is absolute-positioned starting at sidebar width so the
+    // WebView content explicitly occupies only the main-content area —
+    // padding shorthand on Tamagui Stack didn't reliably constrain inner
+    // descendants on web (pl was dropped in CSS class translation).
     return (
-      <Stack flex={1} pl={MIN_SIDEBAR_WIDTH} pointerEvents="box-none">
-        {navigator}
+      <Stack flex={1} pointerEvents="box-none">
+        <Stack
+          position="absolute"
+          top={0}
+          bottom={0}
+          left={MIN_SIDEBAR_WIDTH}
+          right={0}
+        >
+          {navigator}
+        </Stack>
       </Stack>
     );
   }
