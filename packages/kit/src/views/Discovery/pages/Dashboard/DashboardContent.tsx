@@ -3,12 +3,19 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import pRetry from 'p-retry';
 import { View } from 'react-native';
 
-import { Page, RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
+import {
+  Empty,
+  Page,
+  RefreshControl,
+  ScrollView,
+  Stack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -17,7 +24,11 @@ import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
 import { DashboardBanner } from './Banner';
 import { BookmarksSection } from './BookmarksSection';
+import { BrowserHomeModulesEditButton } from './BrowserHomeModulesEditButton';
+import { normalizeBrowserHomeModules } from './browserHomeModuleUtils';
 import { DiveInContent } from './DiveInContent';
+import { OpenBrowserTabsSection } from './OpenBrowserTabsSection';
+import { RecentlyClosedTabsSection } from './RecentlyClosedTabsSection';
 import { TrendingSection } from './TrendingSection';
 import { Welcome } from './Welcome';
 
@@ -102,11 +113,32 @@ function DashboardContent({
     }
   }, [displayHomePage, refreshBookmarks]);
 
-  // Check if both bookmarks and trending have no data
-  const hasBookmarks = bookmarksData && bookmarksData.length > 0;
-  const hasTrending =
-    homePageData?.trending && homePageData.trending.length > 0;
-  const showDiveInDescription = !hasBookmarks && !hasTrending;
+  const hasBookmarks = Boolean(bookmarksData?.length);
+  const hasTrending = Boolean(homePageData?.trending?.length);
+  const [{ browserHomeModules }] = useSettingsPersistAtom();
+  const visibleBrowserHomeModules = useMemo(
+    () =>
+      normalizeBrowserHomeModules(browserHomeModules).filter(
+        (module) => module.visible,
+      ),
+    [browserHomeModules],
+  );
+  const visibleDiveInModules = useMemo(
+    () =>
+      visibleBrowserHomeModules.filter(
+        (module) => module.id === 'bookmarks' || module.id === 'trending',
+      ),
+    [visibleBrowserHomeModules],
+  );
+  const hasVisibleDiveInModuleContent = visibleDiveInModules.some((module) =>
+    module.id === 'bookmarks' ? hasBookmarks : hasTrending,
+  );
+  const shouldShowDiveInDescription =
+    !isLoading &&
+    visibleDiveInModules.length > 0 &&
+    !hasVisibleDiveInModuleContent;
+  const shouldShowNoVisibleModulesEmpty =
+    visibleBrowserHomeModules.length === 0;
 
   const content = useMemo(
     () => (
@@ -132,26 +164,43 @@ function DashboardContent({
         />
 
         <Stack alignItems="center">
-          {!isLoading && showDiveInDescription ? (
-            <DiveInContent onReload={refresh} />
-          ) : (
-            <>
-              {hasBookmarks ? (
-                <Stack px="$pagePadding" width="100%">
-                  <BookmarksSection key="BookmarksSection" />
-                </Stack>
-              ) : null}
+          {visibleBrowserHomeModules.map((module) => {
+            switch (module.id) {
+              case 'openTabs':
+                return <OpenBrowserTabsSection key={module.id} />;
+              case 'bookmarks':
+                return hasBookmarks ? (
+                  <Stack key={module.id} width="100%" mt="$3">
+                    <BookmarksSection />
+                  </Stack>
+                ) : null;
+              case 'trending':
+                return shouldShowDiveInDescription ? null : (
+                  <Stack key={module.id} width="100%" mt="$3">
+                    <ReviewControl>
+                      <TrendingSection
+                        data={homePageData?.trending || []}
+                        isLoading={!!isLoading}
+                      />
+                    </ReviewControl>
+                  </Stack>
+                );
+              case 'recentlyClosed':
+                return <RecentlyClosedTabsSection key={module.id} />;
+              default:
+                return null;
+            }
+          })}
 
-              <Stack px="$pagePadding" width="100%" mt="$4">
-                <ReviewControl>
-                  <TrendingSection
-                    data={homePageData?.trending || []}
-                    isLoading={!!isLoading}
-                  />
-                </ReviewControl>
-              </Stack>
-            </>
-          )}
+          {shouldShowNoVisibleModulesEmpty ? (
+            <Empty illustration="TwoBlocks" width="100%" py="$8" />
+          ) : null}
+
+          {shouldShowDiveInDescription ? (
+            <DiveInContent onReload={refresh} />
+          ) : null}
+
+          <BrowserHomeModulesEditButton />
         </Stack>
       </>
     ),
@@ -159,9 +208,11 @@ function DashboardContent({
       hasActiveBanners,
       homePageData,
       isLoading,
-      showDiveInDescription,
+      shouldShowNoVisibleModulesEmpty,
+      shouldShowDiveInDescription,
       refresh,
       hasBookmarks,
+      visibleBrowserHomeModules,
     ],
   );
 
@@ -169,6 +220,7 @@ function DashboardContent({
     return (
       <ScrollView
         height="100%"
+        contentContainerStyle={{ pb: '$28' }}
         onScroll={isFocused ? (onScroll as any) : undefined}
         scrollEventThrottle={16}
         refreshControl={
@@ -181,7 +233,7 @@ function DashboardContent({
   }
 
   return (
-    <ScrollView>
+    <ScrollView contentContainerStyle={{ pb: '$16' }}>
       <Page.Container padded={false}>{content}</Page.Container>
     </ScrollView>
   );

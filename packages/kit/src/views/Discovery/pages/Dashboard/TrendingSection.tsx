@@ -40,7 +40,7 @@ export function TrendingSection({
 
   return (
     <Stack minHeight="$40">
-      <DashboardSectionHeader>
+      <DashboardSectionHeader px="$pagePadding">
         <DashboardSectionHeader.Heading selected>
           {intl.formatMessage({
             id: ETranslations.market_trending,

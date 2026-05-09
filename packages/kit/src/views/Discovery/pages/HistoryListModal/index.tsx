@@ -16,7 +16,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -24,9 +23,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
-import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
+
+import { HistoryListItem } from './HistoryListItem';
 
 import type { IBrowserHistory } from '../../types';
 
@@ -101,6 +101,37 @@ function HistoryListModal() {
       void run();
     }, 200);
   }, [run, removeAllBrowserHistory]);
+
+  const handleHistoryPress = useCallback(
+    (item: IBrowserHistory) => {
+      handleWebSite({
+        webSite: {
+          url: item.url,
+          title: item.title,
+          logo: item.logo,
+          sortIndex: undefined,
+        },
+        enterMethod: EEnterMethod.history,
+      });
+    },
+    [handleWebSite],
+  );
+
+  const handleDeleteHistory = useCallback(
+    (item: IBrowserHistory) => {
+      void removeBrowserHistory(item.id);
+      removeHistoryFlagRef.current = true;
+      setTimeout(() => {
+        void run();
+      }, 200);
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.explore_removed_success,
+        }),
+      });
+    },
+    [intl, removeBrowserHistory, run],
+  );
 
   useEffect(() => {
     if (removeHistoryFlagRef.current && dataSource?.length === 0) {
@@ -192,50 +223,12 @@ function HistoryListModal() {
           )}
           keyExtractor={keyExtractor}
           renderItem={({ item }: { item: IBrowserHistory }) => (
-            <ListItem
-              key={item.id}
-              renderAvatar={<DiscoveryIcon uri={item.logo} size="$10" />}
-              title={item.title}
-              titleProps={{
-                numberOfLines: 1,
-              }}
-              subtitle={item.url}
-              subtitleProps={{
-                numberOfLines: 1,
-              }}
-              testID={`search-modal-${item.url.toLowerCase()}`}
-              {...(!isEditing && {
-                onPress: () => {
-                  handleWebSite({
-                    webSite: {
-                      url: item.url,
-                      title: item.title,
-                      logo: item.logo,
-                      sortIndex: undefined,
-                    },
-                    enterMethod: EEnterMethod.history,
-                  });
-                },
-              })}
-            >
-              {isEditing ? (
-                <ListItem.IconButton
-                  icon="DeleteOutline"
-                  onPress={() => {
-                    void removeBrowserHistory(item.id);
-                    removeHistoryFlagRef.current = true;
-                    setTimeout(() => {
-                      void run();
-                    }, 200);
-                    Toast.success({
-                      title: intl.formatMessage({
-                        id: ETranslations.explore_removed_success,
-                      }),
-                    });
-                  }}
-                />
-              ) : null}
-            </ListItem>
+            <HistoryListItem
+              item={item}
+              isEditing={isEditing}
+              onPress={handleHistoryPress}
+              onDelete={handleDeleteHistory}
+            />
           )}
           onEndReached={debouncedOnEndReached}
           onEndReachedThreshold={0.2}

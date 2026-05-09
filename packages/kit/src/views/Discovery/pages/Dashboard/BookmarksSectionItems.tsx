@@ -29,7 +29,15 @@ export function BookmarksSectionItems({
   }, [media.gtXl, media.gt2Md, media.gtSm]);
 
   return (
-    <YStack py="$2" flexDirection="row" flexWrap="wrap" {...restProps}>
+    <YStack
+      px="$pagePadding"
+      mx="$-3"
+      py="$2"
+      flexDirection="row"
+      flexWrap="wrap"
+      rowGap="$4"
+      {...restProps}
+    >
       {dataSource.slice(0, numberOfItems).map(({ logo, title, url }) => (
         <YStack
           key={title + url}
@@ -37,6 +45,7 @@ export function BookmarksSectionItems({
           $gtSm={{ width: '20%' }}
           $gt2Md={{ width: '16.6%' }}
           $gtXl={{ width: '14.2%' }}
+          px="$3"
         >
           <BookmarksSectionItem
             logo={logo}

@@ -53,6 +53,8 @@ export function TrendingSectionItems({
 
   return (
     <YStack
+      px="$pagePadding"
+      mx="$-3"
       flexDirection="row"
       flexWrap="wrap"
       rowGap="$4"
@@ -66,6 +68,7 @@ export function TrendingSectionItems({
           $gtSm={{ width: '20%' }}
           $gt2Md={{ width: '16.6%' }}
           $gtXl={{ width: '10%' }}
+          px="$3"
         >
           <TrendingSectionItem
             logo={dApp.logo}

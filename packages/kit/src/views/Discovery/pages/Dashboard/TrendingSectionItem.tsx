@@ -28,6 +28,15 @@ export function TrendingSectionItem({
       isAd={dApp.isAd}
       handleOpenWebSite={handleOpenWebSite}
       isLoading={isLoading}
+      logoSize="$16"
+      logoIconSize="$14"
+      logoBorderRadius="$4"
+      logoFullWidth
+      contentPy="$1"
+      contentGap="$2"
+      titlePx="$0"
+      titleMx="$-2.5"
+      maxTitleWordLength={16}
     />
   );
 }

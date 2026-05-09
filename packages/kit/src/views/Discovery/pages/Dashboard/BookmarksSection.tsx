@@ -104,7 +104,7 @@ export function BookmarksSection() {
 
   return (
     <Stack minHeight="$40">
-      <DashboardSectionHeader>
+      <DashboardSectionHeader px="$pagePadding">
         <DashboardSectionHeader.Heading selected>
           {intl.formatMessage({ id: ETranslations.explore_bookmarks })}
         </DashboardSectionHeader.Heading>

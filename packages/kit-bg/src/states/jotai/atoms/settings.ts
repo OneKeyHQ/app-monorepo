@@ -14,6 +14,24 @@ export type IEndpointType = 'prod' | 'test';
 
 export type INewBrowserTabPosition = 'top' | 'bottom';
 
+export type IBrowserHomeModuleId =
+  | 'openTabs'
+  | 'bookmarks'
+  | 'trending'
+  | 'recentlyClosed';
+
+export type IBrowserHomeModuleConfig = {
+  id: IBrowserHomeModuleId;
+  visible: boolean;
+};
+
+export const DEFAULT_BROWSER_HOME_MODULES: IBrowserHomeModuleConfig[] = [
+  { id: 'openTabs', visible: true },
+  { id: 'bookmarks', visible: true },
+  { id: 'trending', visible: true },
+  { id: 'recentlyClosed', visible: true },
+];
+
 // don't use deviceUtils.getDefaultHardwareTransportType(), it will cause resource export order conflict
 function getDefaultHardwareTransportType(): EHardwareTransportType {
   if (platformEnv.isNative) {
@@ -72,6 +90,7 @@ export type ISettingsPersistAtom = {
   enableBTCFreshAddress?: boolean;
   enableMenuBarTray?: boolean;
   newBrowserTabPosition?: INewBrowserTabPosition;
+  browserHomeModules?: IBrowserHomeModuleConfig[];
   // Pay eligible network fees from Gas Account (sponsored gas) when available;
   // turning this off makes ServiceGas.estimateFee force gasAccountEnabled=false
   // for every caller (Send / Swap / Perps / Earn / dApp ...).
@@ -114,6 +133,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   enableBTCFreshAddress: true,
   enableMenuBarTray: true,
   newBrowserTabPosition: 'bottom',
+  browserHomeModules: DEFAULT_BROWSER_HOME_MODULES,
   useGasAccountByDefault: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
