@@ -1,3 +1,5 @@
+import { useLayoutEffect, useRef } from 'react';
+
 import { EPageType, Stack } from '@onekeyhq/components';
 import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
@@ -6,22 +8,66 @@ import type { EWebViewRoutes } from '@onekeyhq/shared/src/routes';
 
 import { webViewRouter } from './router';
 
-// react-navigation's CardContainer renders two intermediate `<View>` layers
-// between its pointerEvents=none wrapper and our overlay outer. Those two
-// layers default to pointerEvents=auto and capture clicks in the sidebar
-// passthrough column. RN-Web ignores `pointerEvents` set via the cardStyle
-// style object (it only translates the `pointerEvents` prop to a class), so
-// we override them via CSS `:has()` — supported in Chromium/Electron 105+.
-// The selectors target ONLY the two direct ancestors of `webview-overlay-outer`
-// so the rule doesn't leak to other navigators.
-const DESKTOP_CARD_PASSTHROUGH_CSS = `
-:has(> [data-testid="webview-overlay-outer"]),
-:has(> * > [data-testid="webview-overlay-outer"]) {
-  pointer-events: none !important;
+/**
+ * Disable pointer-events on the two react-navigation Card wrappers that sit
+ * directly above our overlay on desktop. They default to pointerEvents=auto
+ * and capture clicks in the sidebar passthrough column.
+ *
+ * Why we touch the DOM directly instead of fixing this at the screen-options
+ * level: react-navigation's Card renders these inner Views with a hardcoded
+ * `pointerEvents` based on focus state; `cardStyle` is a style-object so its
+ * `pointerEvents` value is dropped by react-native-web (which only translates
+ * `pointerEvents` from the prop, not from style). cardStyleInterpolator's
+ * containerStyle has the same translation gap.
+ *
+ * Scope: targeted by our specific testID, only while WebView is mounted on
+ * desktop, restored on unmount. CSS spec guarantees descendants with their
+ * own `pointer-events: auto` (the WebView itself) keep receiving events even
+ * when ancestors are `pointer-events: none`.
+ */
+function useDesktopOverlayParentPassthrough() {
+  const restoreRef = useRef<Array<() => void>>([]);
+
+  useLayoutEffect(() => {
+    if (!platformEnv.isDesktop) return undefined;
+    const node = document.querySelector(
+      '[data-testid="webview-overlay-outer"]',
+    );
+    if (!(node instanceof HTMLElement)) return undefined;
+
+    const restoreFns: Array<() => void> = [];
+    let parent = node.parentElement;
+    for (let i = 0; i < 2; i += 1) {
+      if (!(parent instanceof HTMLElement)) break;
+      const previous = parent.style.getPropertyValue('pointer-events');
+      const previousPriority = parent.style.getPropertyPriority('pointer-events');
+      const target = parent;
+      target.style.setProperty('pointer-events', 'none', 'important');
+      restoreFns.push(() => {
+        if (previous) {
+          target.style.setProperty(
+            'pointer-events',
+            previous,
+            previousPriority,
+          );
+        } else {
+          target.style.removeProperty('pointer-events');
+        }
+      });
+      parent = parent.parentElement;
+    }
+    restoreRef.current = restoreFns;
+
+    return () => {
+      restoreFns.forEach((fn) => fn());
+      restoreRef.current = [];
+    };
+  }, []);
 }
-`;
 
 export function WebViewNavigator() {
+  useDesktopOverlayParentPassthrough();
+
   const navigator = (
     <RootModalNavigator<EWebViewRoutes>
       config={webViewRouter}
@@ -29,37 +75,27 @@ export function WebViewNavigator() {
     />
   );
   if (platformEnv.isDesktop) {
-    // Outer wrapper covers the full screen with pe=box-none so empty area
+    // Outer wrapper covers full screen with pe=box-none so empty area
     // (left of sidebar inset) lets clicks reach the underlying Main route.
     // Inner wrapper is absolute-positioned starting at sidebar width so the
-    // WebView content explicitly occupies only the main-content area.
-    // The injected <style> turns the two react-navigation Card layers above
-    // us click-through (see DESKTOP_CARD_PASSTHROUGH_CSS comment).
-    // testIDs translate to data-testid so the CSS selector + DOM diagnostics
-    // can target the right layers.
+    // WebView content occupies only the main-content area.
     return (
-      <>
-        <style
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: DESKTOP_CARD_PASSTHROUGH_CSS }}
-        />
+      <Stack
+        flex={1}
+        pointerEvents="box-none"
+        testID="webview-overlay-outer"
+      >
         <Stack
-          flex={1}
-          pointerEvents="box-none"
-          testID="webview-overlay-outer"
+          position="absolute"
+          top={0}
+          bottom={0}
+          left={MIN_SIDEBAR_WIDTH}
+          right={0}
+          testID="webview-overlay-inset"
         >
-          <Stack
-            position="absolute"
-            top={0}
-            bottom={0}
-            left={MIN_SIDEBAR_WIDTH}
-            right={0}
-            testID="webview-overlay-inset"
-          >
-            {navigator}
-          </Stack>
+          {navigator}
         </Stack>
-      </>
+      </Stack>
     );
   }
   return navigator;
