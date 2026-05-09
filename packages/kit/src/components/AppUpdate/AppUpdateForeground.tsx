@@ -295,8 +295,16 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       const fileType = appUpdateInfo.jsBundleVersion
         ? EUpdateFileType.jsBundle
         : EUpdateFileType.appShell;
+      // Re-emit the persisted attemptId from the original
+      // softwareUpdateStarted so per-attempt funnels stay correlated
+      // across the install/relaunch boundary; falls back to a fresh UUID
+      // if the persist atom was wiped before this code ran.
       defaultLogger.app.appUpdate.softwareUpdateResult({
-        ...buildSoftwareUpdateParams(fileType, appUpdateInfo),
+        ...buildSoftwareUpdateParams(
+          fileType,
+          appUpdateInfo,
+          appUpdateInfo.currentUpdateAttemptId,
+        ),
         status: 'success',
       });
       const whatsNewAlreadyShown = isWhatsNewShown();

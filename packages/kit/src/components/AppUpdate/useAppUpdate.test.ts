@@ -41,6 +41,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     resetToInComplete: jest.fn(),
     shouldResumeStalledDownload: jest.fn(),
     updateLastDialogShownAt: jest.fn(),
+    setCurrentUpdateAttemptId: jest.fn(),
   };
   const dev = {
     getSkipBundleGPGVerification: jest.fn(),
@@ -257,6 +258,7 @@ import {
   EAppUpdateStatus,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
   computeDownloadRetryDelayMs,
@@ -884,6 +886,44 @@ describe('useDownloadPackage', () => {
       expect(svc.updateDownloadedEvent).toHaveBeenCalled();
       // Chain continues to downloadASC
       expect(svc.downloadASC).toHaveBeenCalled();
+    });
+
+    test('rotates attemptId AND persists it via setCurrentUpdateAttemptId so the post-relaunch success event can re-emit the same id', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.getDownloadEvent.mockResolvedValue({
+        downloadedFile: '/tmp/app.zip',
+      });
+      appUpd.downloadPackage.mockResolvedValue({
+        downloadedFile: '/tmp/app.zip',
+      });
+      appUpd.downloadASC.mockResolvedValue(undefined);
+      appUpd.verifyASC.mockResolvedValue(undefined);
+      appUpd.verifyPackage.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.downloadPackage();
+      });
+
+      // The attemptId passed to softwareUpdateStarted must match what we
+      // persisted via the service — otherwise the post-relaunch success
+      // event would correlate to a different id.
+      const startedCalls = (
+        defaultLogger.app.appUpdate.softwareUpdateStarted as jest.Mock
+      ).mock.calls;
+      expect(startedCalls.length).toBeGreaterThan(0);
+      const startedAttemptId = startedCalls[0][0]?.attemptId as
+        | string
+        | undefined;
+      expect(typeof startedAttemptId).toBe('string');
+      expect(startedAttemptId?.length).toBeGreaterThan(0);
+      expect(svc.setCurrentUpdateAttemptId).toHaveBeenCalledWith(
+        startedAttemptId,
+      );
     });
 
     test('jsBundle path uses BundleUpdate instead of AppUpdate', async () => {

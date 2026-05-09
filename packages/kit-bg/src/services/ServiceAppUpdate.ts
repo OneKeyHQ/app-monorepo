@@ -1000,6 +1000,17 @@ class ServiceAppUpdate extends ServiceBase {
     }));
   }
 
+  // Persist the in-flight attemptId so the post-install success event
+  // (fired after app/install relaunch, when JS module memory is gone) can
+  // re-emit the same id as the original softwareUpdateStarted event.
+  @backgroundMethod()
+  public async setCurrentUpdateAttemptId(attemptId: string | undefined) {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      currentUpdateAttemptId: attemptId,
+    }));
+  }
+
   @backgroundMethod()
   public async clearLastDialogShownAt() {
     // Write `0`, not `undefined`. The jotai persist layer (AsyncStorage on

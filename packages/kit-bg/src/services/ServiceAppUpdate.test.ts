@@ -1079,6 +1079,47 @@ describe('ServiceAppUpdate state transitions', () => {
   });
 
   // =========================================================================
+  // setCurrentUpdateAttemptId — persist attemptId across install / relaunch so
+  // the post-restart success event can re-emit the same id as
+  // softwareUpdateStarted.
+  // =========================================================================
+  describe('setCurrentUpdateAttemptId', () => {
+    test('persists the attemptId into the atom', async () => {
+      resetAtom({ currentUpdateAttemptId: undefined });
+
+      await service.setCurrentUpdateAttemptId('attempt-uuid-1');
+
+      expect(atomValue.currentUpdateAttemptId).toBe('attempt-uuid-1');
+    });
+
+    test('overwrites a previously persisted attemptId on next rotation', async () => {
+      resetAtom({ currentUpdateAttemptId: 'attempt-uuid-1' });
+
+      await service.setCurrentUpdateAttemptId('attempt-uuid-2');
+
+      expect(atomValue.currentUpdateAttemptId).toBe('attempt-uuid-2');
+    });
+
+    test('passing undefined clears the persisted id', async () => {
+      resetAtom({ currentUpdateAttemptId: 'attempt-uuid-1' });
+
+      await service.setCurrentUpdateAttemptId(undefined);
+
+      expect(atomValue.currentUpdateAttemptId).toBeUndefined();
+    });
+
+    test('reset() clears the persisted attemptId so the next cycle starts clean', async () => {
+      resetAtom({ currentUpdateAttemptId: 'attempt-uuid-1' });
+
+      await service.reset();
+
+      // reset() is a full-replace set; any field absent from the literal
+      // becomes undefined, which is exactly what we want here.
+      expect(atomValue.currentUpdateAttemptId).toBeUndefined();
+    });
+  });
+
+  // =========================================================================
   // updateErrorText
   // =========================================================================
   describe('updateErrorText', () => {

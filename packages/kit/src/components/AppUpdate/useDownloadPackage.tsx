@@ -253,8 +253,13 @@ export const useDownloadPackage = () => {
       const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       // Fresh attempt → rotate the attempt id so this download (and any
       // chained downloadASC / verifyASC / verifyPackage / install steps)
-      // get a stable id distinct from prior attempts.
+      // get a stable id distinct from prior attempts. Also persist it so
+      // the post-install / post-relaunch success event (fired in
+      // AppUpdateForeground after JS memory is gone) re-emits the same id.
       const attemptId = rotateUpdateAttemptId();
+      void backgroundApiProxy.serviceAppUpdate.setCurrentUpdateAttemptId(
+        attemptId,
+      );
       const softwareUpdateParams = buildSoftwareUpdateParams(
         fileType,
         params,
