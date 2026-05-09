@@ -77,6 +77,19 @@ interface IBuildTxResponse {
     [key: string]: unknown;
   };
   btcLocalTx?: Record<string, unknown>;
+  // SOL swap returns through the OKX aggregator path. Mirrors
+  // IFetchBuildTxResponse.OKXTxObject — for SOL the `data` field is the
+  // bs58-encoded VersionedTransaction (App: kit-bg sol/Vault.buildOkxSwapEncodedTx
+  // simply returns `params.okxTx.data`).
+  OKXTxObject?: {
+    data?: string;
+    [key: string]: unknown;
+  };
+  // Locally extracted SOL swap tx — populated in build to keep the saved
+  // order self-contained and the execute path symmetric with BTC's btcLocalTx.
+  solSwapTx?: {
+    encodedTx: string;
+  };
   orderId?: string;
   [key: string]: unknown;
 }
@@ -93,6 +106,13 @@ function hasValidBtcData(response: IBuildTxResponse): boolean {
     typeof btcData.hexStr === 'string' &&
     btcData.hexStr.length > 0 &&
     Array.isArray(btcData.addressType),
+  );
+}
+
+function hasValidSolSwapTx(response: IBuildTxResponse): boolean {
+  return (
+    typeof response.solSwapTx?.encodedTx === 'string' &&
+    response.solSwapTx.encodedTx.length > 0
   );
 }
 
@@ -288,24 +308,6 @@ export function registerSwapBuildCommand(parent: Command): void {
             : chainConfig;
           assertChainCapability(chainConfig, 'swap', 'swap-build');
           assertChainCapability(toChainConfig, 'swap', 'swap-build');
-
-          // SOL swap is not yet wired in the CLI execute path. The OneKey
-          // backend's /swap/v1/build-tx returns the SOL-encoded VersionedTx
-          // and the SOL signer is ready, but the swap-execute branch that
-          // forwards `solEncodedTx` to the signer hasn't been ported from
-          // the App. Reject early with a clear pointer so users don't see a
-          // confusing "tx field missing" deeper in the pipeline.
-          if (isSolChain(chainConfig) || isSolChain(toChainConfig)) {
-            throw new AppError(
-              ERROR_CODES.PARAM_INVALID_COMMAND.code,
-              'SOL swap is not yet wired in the CLI.',
-              [
-                'SOL swap requires the CLI swap-execute path to dispatch SOL',
-                'response payloads (mirrors how BTC swap is handled today).',
-                'Address derivation + balance work — try `onekey balance --chain sol`.',
-              ].join(' '),
-            );
-          }
 
           const fromNetworkId = chainConfig.networkId;
           const toNetworkId = toChainConfig.networkId;
@@ -731,24 +733,48 @@ export function registerSwapBuildCommand(parent: Command): void {
             }
           }
 
+          // SOL source routes go through the OKX aggregator path — extract the
+          // bs58-encoded VersionedTransaction at build time so the persisted
+          // order is self-contained and execute does not have to know about
+          // OKXTxObject. Mirrors kit-bg sol/Vault.buildOkxSwapEncodedTx, which
+          // is just a passthrough of okxTx.data.
+          const isSolSource = isSolChain(chainConfig);
+          if (isSolSource && !hasValidSolSwapTx(buildTxResponse)) {
+            const okxData = buildTxResponse.OKXTxObject?.data;
+            if (typeof okxData === 'string' && okxData.length > 0) {
+              buildTxResponse.solSwapTx = { encodedTx: okxData };
+            }
+          }
+
           // BTC source routes MUST sign a BTC PSBT — an EVM-style `tx` payload
           // cannot be signed on this code path, so we reject it at build time
           // instead of saving a pending order that execute will fail to sign.
-          const hasTxData = isBtcSource
-            ? hasValidBtcData(buildTxResponse) ||
-              hasValidBtcLocalTx(buildTxResponse)
-            : hasValidEvmTx(buildTxResponse);
+          let hasTxData: boolean;
+          if (isBtcSource) {
+            hasTxData =
+              hasValidBtcData(buildTxResponse) ||
+              hasValidBtcLocalTx(buildTxResponse);
+          } else if (isSolSource) {
+            hasTxData = hasValidSolSwapTx(buildTxResponse);
+          } else {
+            hasTxData = hasValidEvmTx(buildTxResponse);
+          }
 
           if (!hasTxData) {
             let message: string;
-            if (!isBtcSource) {
-              message = 'Build-tx API returned success but tx data is missing';
-            } else if (hasValidEvmTx(buildTxResponse)) {
+            if (isBtcSource) {
+              if (hasValidEvmTx(buildTxResponse)) {
+                message =
+                  'Build-tx API returned an EVM-style tx for a BTC source route; this provider/route is not supported';
+              } else {
+                message =
+                  'Build-tx API returned success but no BTC PSBT or provider deposit data is available';
+              }
+            } else if (isSolSource) {
               message =
-                'Build-tx API returned an EVM-style tx for a BTC source route; this provider/route is not supported';
+                'Build-tx API returned success but no SOL swap tx data is available';
             } else {
-              message =
-                'Build-tx API returned success but no BTC PSBT or provider deposit data is available';
+              message = 'Build-tx API returned success but tx data is missing';
             }
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,

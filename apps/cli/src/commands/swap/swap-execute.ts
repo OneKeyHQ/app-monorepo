@@ -1,4 +1,6 @@
+import { Transaction, VersionedTransaction } from '@solana/web3.js';
 import { Psbt } from 'bitcoinjs-lib';
+import bs58 from 'bs58';
 
 import {
   getBtcForkNetwork,
@@ -6,6 +8,11 @@ import {
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { formatPsbtHex } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
+import type {
+  IEncodedTxSol,
+  INativeTxSol,
+} from '@onekeyhq/core/src/chains/sol/types';
 import type { ICoreApiSignBtcExtraInfo } from '@onekeyhq/core/src/types';
 
 import { loadPending, secureCache, updatePendingStatus } from '../../core';
@@ -21,7 +28,12 @@ import {
   describePsbtSpend,
   filterPsbtInputsToOwnedOnly,
 } from '../../core/btc/spend-validation';
-import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
+import {
+  assertChainCapability,
+  isSolChain,
+  resolveChain,
+} from '../../core/chain-resolver';
+import { getSolLatestBlockhash } from '../../core/sol/rpc-client';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
@@ -889,6 +901,123 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 to: order.toToken.symbol,
                 amount: order.amount,
                 message: successMsg,
+              },
+              { chain: order.chain },
+            );
+            return;
+          }
+
+          if (isSolChain(chainConfig)) {
+            const solSwapTxRaw = (
+              txData as { solSwapTx?: { encodedTx?: unknown } }
+            ).solSwapTx;
+            const solEncodedTx =
+              typeof solSwapTxRaw?.encodedTx === 'string'
+                ? (solSwapTxRaw.encodedTx)
+                : undefined;
+            if (!solEncodedTx) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'SOL swap order is missing solSwapTx data',
+                'Run "onekey swap build" again to rebuild the SOL order',
+              );
+            }
+
+            // Refresh recentBlockhash. OKX returns a tx with a blockhash that
+            // may be stale by the time the user runs `swap execute`, so the
+            // App's _buildUnsignedTxFromEncodedTx (Vault.ts:1431) replaces it
+            // before signing. CLI mirrors that exactly.
+            const nativeTx = parseToNativeTx(solEncodedTx) as INativeTxSol;
+            if (!nativeTx) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'SOL swap order has an unparseable encodedTx',
+                'Run "onekey swap build" again',
+              );
+            }
+            const { recentBlockhash, lastValidBlockHeight } =
+              await getSolLatestBlockhash(chainConfig.networkId);
+            if (nativeTx instanceof Transaction) {
+              nativeTx.recentBlockhash = recentBlockhash;
+              nativeTx.lastValidBlockHeight = lastValidBlockHeight;
+            } else if (nativeTx instanceof VersionedTransaction) {
+              nativeTx.message.recentBlockhash = recentBlockhash;
+            }
+            const refreshedEncodedTx =
+              nativeTx instanceof VersionedTransaction
+                ? bs58.encode(Buffer.from(nativeTx.serialize()))
+                : bs58.encode(
+                    nativeTx.serialize({ requireAllSignatures: false }),
+                  );
+
+            const signer = await getSignerByImpl(chainConfig.impl);
+            const addressInfo = await signer.getAddress(chainConfig.networkId);
+            const fromAddress = addressInfo.address;
+
+            await confirmTransaction({
+              info: {
+                action: `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`,
+                to: order.provider ?? 'swap provider',
+                value: `${order.amount} ${order.fromToken.symbol}`,
+                network: chain,
+              },
+              output,
+              skipConfirmation,
+            });
+
+            const signedTx = await signer.signTransaction({
+              networkId: chainConfig.networkId,
+              account: {
+                address: fromAddress,
+                path: addressInfo.path ?? "m/44'/501'/0'/0'",
+                pub: addressInfo.publicKey,
+              },
+              unsignedTx: {
+                encodedTx: refreshedEncodedTx as unknown as Record<
+                  string,
+                  unknown
+                >,
+              },
+            });
+
+            const broadcastResult =
+              await apiClient.post<ISendTransactionResult>(
+                'wallet',
+                '/wallet/v1/account/send-transaction',
+                {
+                  networkId: chainConfig.networkId,
+                  accountAddress: fromAddress,
+                  tx: signedTx.rawTx,
+                },
+              );
+
+            const SOL_TXID_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{43,128}$/;
+            if (
+              !broadcastResult?.result ||
+              !SOL_TXID_PATTERN.test(broadcastResult.result)
+            ) {
+              throw new AppError(
+                ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+                `SOL swap broadcast returned invalid txid: "${broadcastResult?.result ?? ''}"`,
+                'Check the transaction on a SOL explorer manually',
+              );
+            }
+
+            updatePendingStatus(orderId, 'executed', {
+              txHash: broadcastResult.result,
+              executedAt: Date.now(),
+            });
+
+            output.success(
+              {
+                orderId,
+                status: 'executed',
+                txHash: broadcastResult.result,
+                chain: order.chain,
+                from: order.fromToken.symbol,
+                to: order.toToken.symbol,
+                amount: order.amount,
+                message: 'SOL swap broadcast successfully.',
               },
               { chain: order.chain },
             );
