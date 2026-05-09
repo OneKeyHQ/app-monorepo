@@ -1875,6 +1875,37 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(svc.refreshUpdateStatus).toHaveBeenCalled();
     });
 
+    test('softwareUpdateResult success re-emits the persisted attemptId from the pre-install softwareUpdateStarted', async () => {
+      // Regression: before currentUpdateAttemptId was persisted, this
+      // post-relaunch event would generate a fresh UUID via
+      // buildSoftwareUpdateParams's `attemptId ?? generateUUID()`
+      // fallback, breaking per-attempt funnel correlation against the
+      // original softwareUpdateStarted event.
+      const persistedId = 'attempt-uuid-from-pre-install';
+      setAtom({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        currentUpdateAttemptId: persistedId,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+
+      const resultCalls = (
+        defaultLogger.app.appUpdate.softwareUpdateResult as jest.Mock
+      ).mock.calls;
+      expect(resultCalls.length).toBeGreaterThan(0);
+      const successCall = resultCalls.find((c) => c[0]?.status === 'success');
+      expect(successCall).toBeDefined();
+      expect(successCall?.[0]?.attemptId).toBe(persistedId);
+    });
+
     test('isFirstLaunchAfterUpdated + seamless → no WhatsNew dialog', async () => {
       setAtom({
         status: EAppUpdateStatus.notify,
@@ -2130,10 +2161,12 @@ describe('useAppUpdateInfo useEffect', () => {
       const hooks = requireFreshHooks();
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
+      // Two waves of timers + microtasks need to drain inside a single
+      // act block — splitting them across two `await act(...)` calls let
+      // React detect dangling state between the calls and emit
+      // "act(async () => ...) without await". Drain everything here.
       await act(async () => {
         jest.runAllTimers();
-      });
-      await act(async () => {
         await Promise.resolve();
         jest.runAllTimers();
       });
