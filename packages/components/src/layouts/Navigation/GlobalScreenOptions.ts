@@ -155,6 +155,25 @@ export function makeOnboardingScreenOptions(info: {
   };
 }
 
+// Independent factory so WebView's screen options can diverge from Onboarding's
+// without coupling the two. Today the shape mirrors makeOnboardingScreenOptions;
+// keep them separate so future tweaks (e.g. a different animation curve, or a
+// webView-specific gesture config) only affect this surface.
+export function makeWebviewScreenOptions(info: {
+  isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
+}): StackNavigationOptions {
+  return {
+    detachPreviousScreen: false,
+    headerShown: false,
+    presentation: 'transparentModal',
+    cardStyle: { backgroundColor: 'transparent' },
+    // @ts-expect-error
+    animation: 'custom-animation-on-web',
+    ...makeModalOpenAnimationOptions(info),
+  };
+}
+
 export function makeRootModalStackOptions(_params?: {
   bgColor?: string;
 }): StackNavigationOptions {

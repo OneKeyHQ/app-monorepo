@@ -8,6 +8,7 @@ import {
   makeFullScreenOptions,
   makeModalScreenOptions,
   makeOnboardingScreenOptions,
+  makeWebviewScreenOptions,
 } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -83,8 +84,9 @@ export function RootStackNavigator<
             : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
         case 'fullScreenPush':
         case 'onboarding':
-        case 'webView':
           return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
+        case 'webView':
+          return makeWebviewScreenOptions({ isVerticalLayout, optionsInfo });
         default:
           return {};
       }
