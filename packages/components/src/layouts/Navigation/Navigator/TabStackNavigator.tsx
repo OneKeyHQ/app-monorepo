@@ -10,59 +10,13 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Portal } from '../../../hocs';
 import { useTheme } from '../../../hooks';
-import { Stack as PrimitiveStack } from '../../../primitives';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
 
 import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-
-// Keep this string in sync with WEB_VIEW_DESKTOP_SLOT_ID in
-// packages/kit/src/routes/WebView/desktopSlotConsts.ts
-// Inlined here because @onekeyhq/components must not import from @onekeyhq/kit
-// (see CLAUDE.md import hierarchy rules).
-const WEB_VIEW_DESKTOP_SLOT_ID = 'web-view-desktop-slot';
-
-// Render the desktop main-content portal slot only once across all tabs.
-// react-native-root-portal warns if multiple PortalContainers share the same
-// name; tabs lazily mount over the lifetime of the app and stay mounted, so
-// we gate on first mount to keep a single global container for the slot.
-let isWebViewDesktopSlotMounted = false;
-function WebViewDesktopMainContentSlot() {
-  const [isOwner] = useState(() => {
-    if (!isWebViewDesktopSlotMounted) {
-      isWebViewDesktopSlotMounted = true;
-      return true;
-    }
-    return false;
-  });
-  useEffect(
-    () => () => {
-      if (isOwner) {
-        isWebViewDesktopSlotMounted = false;
-      }
-    },
-    [isOwner],
-  );
-  if (!isOwner) {
-    return null;
-  }
-  return (
-    <PrimitiveStack
-      position="absolute"
-      top={0}
-      bottom={0}
-      left={0}
-      right={0}
-      pointerEvents="box-none"
-    >
-      <Portal.Container name={WEB_VIEW_DESKTOP_SLOT_ID} />
-    </PrimitiveStack>
-  );
-}
 
 const Stack = createStackNavigator();
 
@@ -114,22 +68,6 @@ function BasicTabSubStackNavigator({
 const TabSubStackNavigatorMemo = memo(BasicTabSubStackNavigator);
 
 export const TabSubStackNavigator = TabSubStackNavigatorMemo;
-
-const DesktopSlotWrappedSubStack = memo(function DesktopSlotWrappedSubStack({
-  config,
-}: {
-  config: ITabSubNavigatorConfig<string, any>[] | null;
-}) {
-  if (!platformEnv.isDesktop) {
-    return <TabSubStackNavigator config={config} />;
-  }
-  return (
-    <PrimitiveStack flex={1} position="relative">
-      <TabSubStackNavigator config={config} />
-      <WebViewDesktopMainContentSlot />
-    </PrimitiveStack>
-  );
-});
 
 const Tab = createBottomTabNavigator();
 
@@ -187,7 +125,7 @@ export function TabStackNavigator<RouteName extends string>({
         .map(({ children, ...options }) => ({
           ...options,
           // eslint-disable-next-line react/no-unstable-nested-components
-          children: () => <DesktopSlotWrappedSubStack config={children} />,
+          children: () => <TabSubStackNavigator config={children} />,
         })),
     [config],
   );
@@ -216,7 +154,7 @@ export function TabStackNavigator<RouteName extends string>({
 
     if (extraConfig) {
       const children = () => (
-        <DesktopSlotWrappedSubStack config={extraConfig.children} />
+        <TabSubStackNavigator config={extraConfig.children} />
       );
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
       const extraScreenOptions = {
