@@ -2161,14 +2161,15 @@ describe('useAppUpdateInfo useEffect', () => {
       const hooks = requireFreshHooks();
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
-      // Two waves of timers + microtasks need to drain inside a single
-      // act block — splitting them across two `await act(...)` calls let
-      // React detect dangling state between the calls and emit
-      // "act(async () => ...) without await". Drain everything here.
+      // showSilentUpdateDialog wraps three awaits inside a setTimeout
+      // (getUpdateInfo → whenAppUnlocked → showSilentUpdateDialogUI).
+      // jest.runAllTimers() is synchronous, so awaits inside the timer
+      // callback resolve outside the act() scope and React emits
+      // "act(async () => ...) without await". runAllTimersAsync awaits
+      // each scheduled microtask between fires, keeping every state
+      // update inside the act boundary.
       await act(async () => {
-        jest.runAllTimers();
-        await Promise.resolve();
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       // showSilentUpdateDialog uses setTimeout → Dialog.show
@@ -2188,12 +2189,11 @@ describe('useAppUpdateInfo useEffect', () => {
       const hooks = requireFreshHooks();
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
+      // Same drain pattern as the silent-strategy test above —
+      // showUpdateDialog also wraps async awaits inside setTimeout, so
+      // sync runAllTimers leaves microtasks dangling outside act().
       await act(async () => {
-        jest.runAllTimers();
-      });
-      await act(async () => {
-        await Promise.resolve();
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       // showUpdateDialog → dialog.show
