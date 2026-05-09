@@ -7,17 +7,25 @@ import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChang
 
 interface IFeaturedMediaProps extends PropsWithChildren {
   feature: IFeaturedItem;
+  /** Explicit pixel height for the media area. When omitted, falls back to flex=1 to fill parent. */
+  height?: number;
+  /** Whether this slide is the active (visible) one. Controls video play/pause. Defaults to true for backward compat. */
+  isActive?: boolean;
 }
 
-function FeaturedMedia({ feature, children }: IFeaturedMediaProps) {
+function FeaturedMedia({
+  feature,
+  height,
+  isActive = true,
+  children,
+}: IFeaturedMediaProps) {
   return (
     <Stack
-      flex={1}
+      {...(height !== undefined ? { width: '100%', height } : { flex: 1 })}
       overflow="hidden"
       position="relative"
-      borderRadius="$4"
       borderCurve="continuous"
-      borderWidth={StyleSheet.hairlineWidth}
+      borderBottomWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
     >
       {feature.mediaType === 'video' ? (
@@ -26,8 +34,8 @@ function FeaturedMedia({ feature, children }: IFeaturedMediaProps) {
           source={{ uri: feature.mediaUrl }}
           style={{ width: '100%', height: '100%' }}
           resizeMode="cover"
-          repeat
           muted
+          paused={!isActive}
         />
       ) : (
         <Image

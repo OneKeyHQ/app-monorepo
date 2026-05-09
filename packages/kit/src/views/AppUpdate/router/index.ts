@@ -7,10 +7,6 @@ const UpdatePreview = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AppUpdate/pages/UpdatePreview'),
 );
 
-const FeaturedChangelogPage = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/AppUpdate/pages/FeaturedChangelog'),
-);
-
 const WhatsNew = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AppUpdate/pages/WhatsNew'),
 );
@@ -31,10 +27,6 @@ export const AppUpdateRouter: IModalFlowNavigatorConfig<
     name: EAppUpdateRoutes.UpdatePreview,
     component: UpdatePreview,
     rewrite: '/preview',
-  },
-  {
-    name: EAppUpdateRoutes.FeaturedChangelog,
-    component: FeaturedChangelogPage,
   },
   {
     name: EAppUpdateRoutes.WhatsNew,

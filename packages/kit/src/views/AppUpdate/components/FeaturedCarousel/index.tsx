@@ -1,0 +1,386 @@
+import { useCallback, useEffect, useState } from 'react';
+
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+
+import { Badge, IconButton, Stack } from '@onekeyhq/components';
+import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChangelog';
+
+import {
+  CONTENT_SPRING_CONFIG,
+  MEDIA_HEIGHT,
+  OPACITY_FALLOFF,
+  SLIDE_TRANSLATE_FACTOR,
+  TAP_JUMP_DISTANCE,
+  TAP_JUMP_DURATION_MS,
+  TAP_JUMP_NEW_SLIDE_DELAY_MS,
+} from './constants';
+import { FeaturedIndicator } from './FeaturedIndicator';
+import { FeaturedContentSlide, FeaturedMediaSlide } from './FeaturedSlide';
+import { useCarouselGesture } from './useCarouselGesture';
+import { useHeightSpring } from './useHeightSpring';
+
+import type { LayoutChangeEvent } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
+
+export interface IFeaturedCarouselProps {
+  features: IFeaturedItem[];
+  badgeText: string;
+  showCloseButton: boolean;
+  onClose: () => void;
+  onActiveFeatureChange?: (feature: IFeaturedItem, index: number) => void;
+}
+
+interface ISlideWrapperProps {
+  index: number;
+  progress: SharedValue<number>;
+  slideWidth: number;
+  children: React.ReactNode;
+}
+
+function SlideWrapper({
+  index,
+  progress,
+  slideWidth,
+  children,
+}: ISlideWrapperProps) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const offset = index - progress.value;
+    const translateX = offset * slideWidth * SLIDE_TRANSLATE_FACTOR;
+    const opacity = Math.max(
+      0,
+      Math.min(1, 1 - Math.abs(offset) * OPACITY_FALLOFF),
+    );
+    return {
+      transform: [{ translateX }],
+      opacity,
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          width: '100%',
+        },
+        animatedStyle,
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+// 'slideRole' distinguishes old vs new slide in jump mode (avoids colliding with HTML/ARIA 'role')
+type IJumpSlideRole = 'old' | 'new';
+
+interface IJumpSlideWrapperProps {
+  slideRole: IJumpSlideRole;
+  jumpFromIndex: SharedValue<number>;
+  jumpToIndex: SharedValue<number>;
+  jumpProgress: SharedValue<number>;
+  children: React.ReactNode;
+}
+
+function JumpSlideWrapper({
+  slideRole,
+  jumpFromIndex,
+  jumpToIndex,
+  jumpProgress,
+  children,
+}: IJumpSlideWrapperProps) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const direction = Math.sign(jumpToIndex.value - jumpFromIndex.value);
+    const t = jumpProgress.value;
+
+    if (slideRole === 'old') {
+      // 0 → 1 mapped to translate 0 → -direction * TAP_JUMP_DISTANCE, opacity 1 → 0
+      return {
+        transform: [{ translateX: -direction * TAP_JUMP_DISTANCE * t }],
+        opacity: 1 - t,
+      };
+    }
+
+    // 'new': starts after delay, normalized to [0, 1] over remaining duration
+    const delayFraction = TAP_JUMP_NEW_SLIDE_DELAY_MS / TAP_JUMP_DURATION_MS;
+    const tNew = Math.max(
+      0,
+      Math.min(1, (t - delayFraction) / (1 - delayFraction)),
+    );
+    return {
+      transform: [{ translateX: direction * TAP_JUMP_DISTANCE * (1 - tNew) }],
+      opacity: tNew,
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        { position: 'absolute', top: 0, left: 0, right: 0, width: '100%' },
+        animatedStyle,
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+export function FeaturedCarousel({
+  features,
+  badgeText,
+  showCloseButton,
+  onClose,
+  onActiveFeatureChange,
+}: IFeaturedCarouselProps) {
+  const progress = useSharedValue(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  // measuredHeights[i] = onLayout-reported content height of slide i
+  const measuredHeights = useSharedValue<number[]>([]);
+
+  // Jump-mode shared values
+  const isJumping = useSharedValue(false);
+  const jumpFromIndex = useSharedValue(0);
+  const jumpToIndex = useSharedValue(0);
+  const jumpProgress = useSharedValue(0);
+
+  // React-side mirror so we can conditionally render in JSX
+  const [jumpIndices, setJumpIndices] = useState<{
+    from: number;
+    to: number;
+  } | null>(null);
+  const isJumpingJs = jumpIndices !== null;
+
+  const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    setContainerWidth((prev) => (prev === w ? prev : w));
+  }, []);
+
+  const handleContentLayout = useCallback(
+    (slideIndex: number, height: number) => {
+      const next = [...measuredHeights.value];
+      next[slideIndex] = height;
+      measuredHeights.value = next;
+    },
+    [measuredHeights],
+  );
+
+  const jumpTo = useCallback(
+    (target: number) => {
+      const clamped = Math.max(0, Math.min(features.length - 1, target));
+      const distance = Math.abs(clamped - activeIndex);
+
+      if (distance > 1) {
+        // Jump mode: snap progress immediately, run a short timing transition for old/new slides
+        jumpFromIndex.value = activeIndex;
+        jumpToIndex.value = clamped;
+        jumpProgress.value = 0;
+        isJumping.value = true;
+        progress.value = clamped; // snap so indicator is correct
+
+        // Set jumpIndices synchronously (before React re-renders from the
+        // setActiveIndex below) so the carousel enters jump-mode rendering
+        // on the very next frame. Relying solely on useAnimatedReaction to
+        // mirror isJumping → jumpIndices causes a 1-frame flicker where the
+        // snapped progress briefly shows the destination slide at full
+        // opacity in normal-mode rendering before jump-mode kicks in.
+        setJumpIndices({ from: activeIndex, to: clamped });
+
+        jumpProgress.value = withTiming(
+          1,
+          { duration: TAP_JUMP_DURATION_MS },
+          (finished) => {
+            'worklet';
+
+            if (finished) {
+              isJumping.value = false;
+            }
+          },
+        );
+        setActiveIndex(clamped);
+      } else {
+        // Single-step spring (existing behavior)
+        progress.value = withSpring(clamped, CONTENT_SPRING_CONFIG);
+        setActiveIndex(clamped);
+      }
+    },
+    [
+      activeIndex,
+      features.length,
+      isJumping,
+      jumpFromIndex,
+      jumpToIndex,
+      jumpProgress,
+      progress,
+    ],
+  );
+
+  const onCommit = useCallback((target: number) => {
+    setActiveIndex(target);
+  }, []);
+
+  const panGesture = useCarouselGesture({
+    progress,
+    slideWidth: containerWidth,
+    count: features.length,
+    onCommit,
+    enabled: !isJumpingJs, // disable swipe during jump animation
+  });
+
+  // Sync activeIndex from progress on settle (for video play/pause + CTA data)
+  useAnimatedReaction(
+    () => Math.round(progress.value),
+    (rounded, prev) => {
+      if (rounded !== prev) {
+        runOnJS(setActiveIndex)(rounded);
+      }
+    },
+  );
+
+  // Clear jumpIndices when the timing animation completes.
+  // (Entry to jump mode is set synchronously inside jumpTo to avoid a
+  // 1-frame normal-mode flash; only the exit needs worklet → JS bridge.)
+  useAnimatedReaction(
+    () => isJumping.value,
+    (current, prev) => {
+      if (prev === true && current === false) {
+        runOnJS(setJumpIndices)(null);
+      }
+    },
+  );
+
+  // Notify parent on active change
+  useEffect(() => {
+    const feature = features[activeIndex];
+    if (feature) onActiveFeatureChange?.(feature, activeIndex);
+  }, [activeIndex, features, onActiveFeatureChange]);
+
+  const heightSpring = useHeightSpring({ progress, measuredHeights });
+
+  const contentRegionStyle = useAnimatedStyle(() => ({
+    height: heightSpring.value,
+  }));
+
+  // Render window: activeIndex ± 1 (3 slides max)
+  const renderIndices = [activeIndex - 1, activeIndex, activeIndex + 1].filter(
+    (i) => i >= 0 && i < features.length,
+  );
+
+  function renderSlides(
+    keyPrefix: 'media' | 'content',
+    renderInner: (feature: IFeaturedItem, idx: number) => React.ReactNode,
+  ) {
+    if (containerWidth === 0) return null;
+
+    if (isJumpingJs && jumpIndices) {
+      const oldFeature = features[jumpIndices.from];
+      const newFeature = features[jumpIndices.to];
+      return (
+        <>
+          {oldFeature ? (
+            <JumpSlideWrapper
+              slideRole="old"
+              jumpFromIndex={jumpFromIndex}
+              jumpToIndex={jumpToIndex}
+              jumpProgress={jumpProgress}
+            >
+              {renderInner(oldFeature, jumpIndices.from)}
+            </JumpSlideWrapper>
+          ) : null}
+          {newFeature ? (
+            <JumpSlideWrapper
+              slideRole="new"
+              jumpFromIndex={jumpFromIndex}
+              jumpToIndex={jumpToIndex}
+              jumpProgress={jumpProgress}
+            >
+              {renderInner(newFeature, jumpIndices.to)}
+            </JumpSlideWrapper>
+          ) : null}
+        </>
+      );
+    }
+
+    return renderIndices.map((i) => {
+      const feature = features[i];
+      if (!feature) return null;
+      return (
+        <SlideWrapper
+          key={`${keyPrefix}-${i}`}
+          index={i}
+          progress={progress}
+          slideWidth={containerWidth}
+        >
+          {renderInner(feature, i)}
+        </SlideWrapper>
+      );
+    });
+  }
+
+  return (
+    <Stack onLayout={onContainerLayout}>
+      {/* Media region: fixed height, slides absolutely positioned */}
+      <GestureDetector gesture={panGesture}>
+        <Stack height={MEDIA_HEIGHT} position="relative" overflow="hidden">
+          {renderSlides('media', (feature, i) => (
+            <FeaturedMediaSlide
+              feature={feature}
+              isActive={i === activeIndex}
+            />
+          ))}
+          <Badge
+            position="absolute"
+            top="$5"
+            left="$5"
+            badgeType="default"
+            badgeSize="sm"
+          >
+            {badgeText}
+          </Badge>
+          {showCloseButton ? (
+            <IconButton
+              position="absolute"
+              top="$5"
+              right="$5"
+              icon="CrossedSmallOutline"
+              size="small"
+              onPress={onClose}
+            />
+          ) : null}
+          <FeaturedIndicator
+            count={features.length}
+            progress={progress}
+            onJump={jumpTo}
+          />
+        </Stack>
+      </GestureDetector>
+
+      {/* Content region: animated height, slides absolutely positioned */}
+      <Animated.View
+        style={[
+          { position: 'relative', overflow: 'hidden' },
+          contentRegionStyle,
+        ]}
+      >
+        {renderSlides('content', (feature, i) => (
+          <FeaturedContentSlide
+            feature={feature}
+            onContentLayout={(h) => handleContentLayout(i, h)}
+          />
+        ))}
+      </Animated.View>
+    </Stack>
+  );
+}
