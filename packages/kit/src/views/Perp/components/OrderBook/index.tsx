@@ -4,15 +4,19 @@ import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import {
-  Animated,
-  Easing,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import {
   DashText,
@@ -177,7 +181,6 @@ const styles = StyleSheet.create({
   },
   interactiveRow: {
     height: rowHeight,
-    marginTop: 1,
     position: 'relative',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -190,8 +193,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   colorBlock: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  colorBlockContainer: {
     position: 'relative',
-    height: rowHeight,
+    width: '100%',
+    overflow: 'hidden',
   },
   verticalHeaderContainer: {
     flex: 1,
@@ -361,6 +372,7 @@ type IColorBlockProps = {
   left?: number;
   right?: number;
   height?: number;
+  origin?: 'left' | 'right';
 };
 
 export type IOrderBookSelection = {
@@ -396,58 +408,79 @@ function useAnimatedOrderBookPercentage({
 }) {
   const targetValue = Math.max(0, Math.min(100, value));
   const reducedMotion = useReducedMotion();
-  const animatedValue = useRef(new Animated.Value(targetValue)).current;
+  const animatedValue = useSharedValue(targetValue);
   const isFirstRenderRef = useRef(true);
 
   useEffect(() => {
-    animatedValue.stopAnimation();
-
     if (isFirstRenderRef.current || reducedMotion) {
       isFirstRenderRef.current = false;
-      animatedValue.setValue(targetValue);
+      animatedValue.value = targetValue;
       return;
     }
 
-    Animated.timing(animatedValue, {
-      toValue: targetValue,
+    animatedValue.value = withTiming(targetValue, {
       duration,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
+    });
   }, [animatedValue, duration, reducedMotion, targetValue]);
 
   return animatedValue;
 }
 
-function ColorBlock({ color, width, left, right, height }: IColorBlockProps) {
+function ColorBlock({
+  color,
+  width,
+  left,
+  right,
+  height,
+  origin = 'left',
+}: IColorBlockProps) {
   const targetWidth = useMemo(() => normalizeDepthWidth(width), [width]);
   const widthAnim = useAnimatedOrderBookPercentage({
     duration: ORDER_BOOK_DEPTH_WIDTH_TRANSITION_MS,
     value: targetWidth,
   });
-  const animatedWidth = useMemo(
-    () =>
-      widthAnim.interpolate({
-        inputRange: [0, 100],
-        outputRange: ['0%', '100%'],
-        extrapolate: 'clamp',
-      }),
-    [widthAnim],
+  const blockWidth = useSharedValue(0);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      blockWidth.value = event.nativeEvent.layout.width;
+    },
+    [blockWidth],
   );
+  const animatedStyle = useAnimatedStyle(() => {
+    const scale = widthAnim.value / 100;
+    const translateX =
+      origin === 'right'
+        ? ((1 - scale) * blockWidth.value) / 2
+        : ((scale - 1) * blockWidth.value) / 2;
+
+    return {
+      transform: [{ translateX }, { scaleX: scale }],
+    };
+  });
 
   return (
-    <Animated.View
+    <View
+      onLayout={handleLayout}
       style={[
-        styles.colorBlock,
+        styles.colorBlockContainer,
         {
           height: height ?? rowHeight,
           right,
           left,
-          width: animatedWidth,
-          backgroundColor: color,
         },
       ]}
-    />
+    >
+      <Animated.View
+        style={[
+          styles.colorBlock,
+          {
+            backgroundColor: color,
+          },
+          animatedStyle,
+        ]}
+      />
+    </View>
   );
 }
 
@@ -610,6 +643,12 @@ function OrderBookSideRatio({
     duration: ORDER_BOOK_SIDE_RATIO_TRANSITION_MS,
     value: Math.max(askPercentage, 1),
   });
+  const bidSegmentStyle = useAnimatedStyle(() => ({
+    flex: bidSegmentFlex.value,
+  }));
+  const askSegmentStyle = useAnimatedStyle(() => ({
+    flex: askSegmentFlex.value,
+  }));
   const isCompact = size === 'compact' || size === 'mobile';
   const isMobile = size === 'mobile';
 
@@ -644,8 +683,8 @@ function OrderBookSideRatio({
           style={[
             styles.sideRatioSegment,
             styles.sideRatioSegmentStart,
+            bidSegmentStyle,
             {
-              flex: bidSegmentFlex,
               backgroundColor: sideRatioColors.long,
             },
           ]}
@@ -654,8 +693,8 @@ function OrderBookSideRatio({
           style={[
             styles.sideRatioSegment,
             styles.sideRatioSegmentEnd,
+            askSegmentStyle,
             {
-              flex: askSegmentFlex,
               backgroundColor: sideRatioColors.short,
             },
           ]}
@@ -883,12 +922,12 @@ export function OrderBook({
                     style={{
                       height: 24,
                       alignItems: 'flex-end',
-                      marginTop: 1,
                       position: 'relative',
                     }}
                   >
                     <ColorBlock
                       color={blockColors.green}
+                      origin="right"
                       right={0}
                       width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
                     />
@@ -901,7 +940,6 @@ export function OrderBook({
                     key={index}
                     style={{
                       height: 24,
-                      marginTop: 1,
                       position: 'relative',
                     }}
                   >
@@ -985,7 +1023,7 @@ export function OrderBook({
                               <PerpBookText
                                 style={[
                                   styles.monospaceText,
-                                  { color: textColor.text },
+                                  { color: textColor.textSubdued },
                                   isHovered ? styles.monospaceTextBold : null,
                                 ]}
                               >
