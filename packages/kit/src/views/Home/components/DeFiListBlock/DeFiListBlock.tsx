@@ -299,6 +299,7 @@ function DeFiListBlock({
       });
 
       try {
+        const shouldForceInitialRefresh = !initializedRef.current;
         const resp =
           await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
             accountId: account.id,
@@ -308,7 +309,8 @@ function DeFiListBlock({
             sourceCurrencyInfo,
             targetCurrencyInfo,
             saveToLocal: true,
-            isForceRefresh: isForceRefreshRef.current,
+            isForceRefresh:
+              isForceRefreshRef.current || shouldForceInitialRefresh,
           });
         updateAccountDeFiOverview({
           currency: settings.currencyInfo.id,
@@ -404,6 +406,7 @@ function DeFiListBlock({
         return;
       }
 
+      const shouldForceInitialRefresh = !allNetworkDataInit;
       const r = await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
         accountId,
         networkId,
@@ -414,7 +417,7 @@ function DeFiListBlock({
         excludeLowValueProtocols: true,
         sourceCurrencyInfo,
         targetCurrencyInfo,
-        isForceRefresh: isForceRefreshRef.current,
+        isForceRefresh: isForceRefreshRef.current || shouldForceInitialRefresh,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -890,9 +893,9 @@ function DeFiListBlock({
     };
 
     const onRefresh = () => {
+      isForceRefreshRef.current = true;
       if (isFocused) {
         pendingRefreshRef.current = false;
-        isForceRefreshRef.current = true;
         refresh();
       } else {
         pendingRefreshRef.current = true;
