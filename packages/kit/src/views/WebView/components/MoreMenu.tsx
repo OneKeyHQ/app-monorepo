@@ -7,6 +7,7 @@ import type { IActionListItemProps } from '@onekeyhq/components';
 import { ActionList, Toast, useClipboard } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { useBrowserBookmarkAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -119,4 +120,19 @@ function MoreMenu({ url, title, onReload }: IMoreMenuProps) {
   );
 }
 
-export default memo(MoreMenu);
+// React Native screens portals header content out of the page subtree, so
+// the parent <DiscoveryBrowserProviderMirror> wrapping WebViewPage doesn't
+// reach MoreMenu when it's rendered as `headerRight`. Re-attach the mirror
+// here — `getOrCreateStore` returns the same store, so this only adds a
+// provider, not a duplicate state.
+const MemoizedMoreMenu = memo(MoreMenu);
+
+function MoreMenuWithContext(props: IMoreMenuProps) {
+  return (
+    <DiscoveryBrowserProviderMirror>
+      <MemoizedMoreMenu {...props} />
+    </DiscoveryBrowserProviderMirror>
+  );
+}
+
+export default MoreMenuWithContext;
