@@ -66,7 +66,7 @@ function ProtocolHeaderRow({
       alignItems="center"
       px="$5"
       py="$3"
-      bg="$bgApp"
+      bg="$bgSubdued"
       // Hairline edge is conditional: when this header *is* the card
       // (overlay/pinned mode floating in a portal) it owns its own
       // outer edge; when it sits inside ProtocolDesktopLayout the
@@ -84,8 +84,10 @@ function ProtocolHeaderRow({
       animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
       opacity={shellOpacity}
       pointerEvents={!overlay && progress >= 0.999 ? 'none' : undefined}
-      hoverStyle={isInteractive ? { bg: '$bgApp' } : undefined}
-      pressStyle={isInteractive ? { bg: '$bgApp', scale: 0.995 } : undefined}
+      hoverStyle={isInteractive ? { bg: '$bgHover' } : undefined}
+      pressStyle={
+        isInteractive ? { bg: '$bgSubdued', scale: 0.995 } : undefined
+      }
       onPress={onPress}
       role={isInteractive ? 'button' : undefined}
       aria-label={isInteractive ? name : undefined}
@@ -122,7 +124,7 @@ function ProtocolHeaderRow({
           </SizableText>
           {positionCountText ? (
             <SizableText
-              size="$headingSm"
+              size="$bodyMd"
               numberOfLines={1}
               color="$textSubdued"
               animation={reducedMotion ? undefined : 'quick'}
