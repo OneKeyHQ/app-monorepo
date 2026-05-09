@@ -43,10 +43,7 @@ export async function resolveAddressOwnerAccountIds({
   } catch {
     walletAccountItems = [];
   }
-  if (
-    walletAccountItems.length === 0 &&
-    networkUtils.isBTCNetwork(networkId)
-  ) {
+  if (walletAccountItems.length === 0 && networkUtils.isBTCNetwork(networkId)) {
     try {
       walletAccountItems =
         await backgroundApiProxy.serviceFreshAddress.getAccountNameFromFreshAddress(
