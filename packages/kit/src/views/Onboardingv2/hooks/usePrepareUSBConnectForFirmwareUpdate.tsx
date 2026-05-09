@@ -4,6 +4,7 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
+import { useEnsureSnapRawUsbConnection } from '@onekeyhq/kit/src/hooks/useEnsureSnapRawUsbConnection';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -27,6 +28,7 @@ let globalOriginalTransport: EHardwareTransportType | undefined;
 
 export function usePrepareUSBConnectForFirmwareUpdate() {
   const intl = useIntl();
+  const ensureSnapRawUsbConnection = useEnsureSnapRawUsbConnection();
   const prepareUSBConnect = useCallback(
     async ({
       device,
@@ -35,6 +37,10 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
       device: SearchDevice;
       features: IOneKeyDeviceFeatures | undefined;
     }): Promise<IUSBConnectPrepareResult | null> => {
+      if (!(await ensureSnapRawUsbConnection())) {
+        return null;
+      }
+
       // Step 1: Check if USB device is available
       const isUSBDeviceAvailable =
         await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
@@ -98,7 +104,7 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
         needsRestore: globalOriginalTransport !== undefined,
       };
     },
-    [intl],
+    [ensureSnapRawUsbConnection, intl],
   );
 
   /**

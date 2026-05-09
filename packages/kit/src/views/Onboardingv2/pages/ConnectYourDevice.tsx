@@ -30,6 +30,7 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { useEnsureSnapRawUsbConnection } from '@onekeyhq/kit/src/hooks/useEnsureSnapRawUsbConnection';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -728,6 +729,11 @@ function USBOrBLEConnectionIndicator({
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const effectiveHardwareTransportType = useMemo(
+    () => deviceUtils.normalizeHardwareTransportType(hardwareTransportType),
+    [hardwareTransportType],
+  );
+  const ensureSnapRawUsbConnection = useEnsureSnapRawUsbConnection();
 
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
@@ -747,8 +753,8 @@ function USBOrBLEConnectionIndicator({
   } = deviceConnection;
 
   const isBLE = useMemo(() => {
-    return hardwareTransportType === EHardwareTransportType.BLE;
-  }, [hardwareTransportType]);
+    return effectiveHardwareTransportType === EHardwareTransportType.BLE;
+  }, [effectiveHardwareTransportType]);
 
   // USB/BLE specific logic only
   const checkBLEState = useCallback(async () => {
@@ -757,9 +763,21 @@ function USBOrBLEConnectionIndicator({
   }, []);
 
   const listingDevice = useCallback(async () => {
+    if (
+      effectiveHardwareTransportType === EHardwareTransportType.WEBUSB &&
+      !(await ensureSnapRawUsbConnection())
+    ) {
+      setConnectStatus(EConnectionStatus.init);
+      return;
+    }
     setConnectStatus(EConnectionStatus.listing);
     await scanDevice();
-  }, [scanDevice, setConnectStatus]);
+  }, [
+    effectiveHardwareTransportType,
+    ensureSnapRawUsbConnection,
+    scanDevice,
+    setConnectStatus,
+  ]);
 
   useEffect(() => {
     if (isFocused) {
@@ -815,6 +833,10 @@ function USBOrBLEConnectionIndicator({
   const onConnectWebDevice = useCallback(async () => {
     setIsChecking(true);
     try {
+      if (!(await ensureSnapRawUsbConnection())) {
+        return;
+      }
+
       // Set global transport type before device access
       const targetTransportType = await getForceTransportType(tabValue);
       if (targetTransportType) {
@@ -839,12 +861,20 @@ function USBOrBLEConnectionIndicator({
     } catch (error) {
       console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
+    } finally {
+      setIsChecking(false);
     }
-  }, [setIsChecking, tabValue, promptWebUsbDeviceAccess, navigation]);
+  }, [
+    ensureSnapRawUsbConnection,
+    setIsChecking,
+    tabValue,
+    promptWebUsbDeviceAccess,
+    navigation,
+  ]);
 
   useEffect(() => {
     if (
-      hardwareTransportType === EHardwareTransportType.WEBUSB &&
+      effectiveHardwareTransportType === EHardwareTransportType.WEBUSB &&
       !platformEnv.isDesktop
     ) {
       return;
@@ -860,7 +890,7 @@ function USBOrBLEConnectionIndicator({
     return () => clearTimeout(timeoutId);
   }, [
     listingDevice,
-    hardwareTransportType,
+    effectiveHardwareTransportType,
     tabValue,
     startBLEConnection,
     vendor,

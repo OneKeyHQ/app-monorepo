@@ -658,7 +658,9 @@ const BaseDevSettingsSection = () => {
                               title="USB 通信方式"
                               items={[
                                 { label: 'WebUSB', value: 'webusb' },
-                                { label: 'Bridge', value: 'bridge' },
+                                ...(platformEnv.isDesktopLinux
+                                  ? []
+                                  : [{ label: 'Bridge', value: 'bridge' }]),
                               ]}
                               placement="bottom-end"
                             />

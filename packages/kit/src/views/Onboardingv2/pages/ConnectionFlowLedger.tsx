@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useEnsureSnapRawUsbConnection } from '@onekeyhq/kit/src/hooks/useEnsureSnapRawUsbConnection';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { ThirdPartyDevicePermissionDenied } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -77,6 +78,7 @@ export default function LedgerConnectionFlow() {
   const isFocused = useIsFocused();
   const themeVariant = useThemeVariant();
   const { promptHidDeviceAccess } = usePromptWebDeviceAccess();
+  const ensureSnapRawUsbConnection = useEnsureSnapRawUsbConnection();
 
   const vendor = EHardwareVendor.ledger;
   const tabValue = EConnectDeviceChannel.usbOrBle;
@@ -219,9 +221,13 @@ export default function LedgerConnectionFlow() {
 
   // --- Listing mode ---
   const listingDevice = useCallback(async () => {
+    if (!(await ensureSnapRawUsbConnection())) {
+      setConnectStatus(EConnectionStatus.init);
+      return;
+    }
     setConnectStatus(EConnectionStatus.listing);
     await scanDevice();
-  }, [scanDevice]);
+  }, [ensureSnapRawUsbConnection, scanDevice]);
 
   // --- Start connection ---
   // Extension: HID permission popup first, then listing

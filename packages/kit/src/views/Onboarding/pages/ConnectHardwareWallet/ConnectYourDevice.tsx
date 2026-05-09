@@ -44,6 +44,7 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
 import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useEnsureSnapRawUsbConnection } from '@onekeyhq/kit/src/hooks/useEnsureSnapRawUsbConnection';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -143,6 +144,7 @@ async function getForceTransportType(
     case EConnectDeviceChannel.usbOrBle: {
       // For usbOrBle, constrain based on platform
       if (platformEnv.isNative) return EHardwareTransportType.BLE;
+      if (platformEnv.isDesktopLinux) return EHardwareTransportType.WEBUSB;
       if (platformEnv.isDesktop) {
         const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
         const usbCommunicationMode = dev?.settings?.usbCommunicationMode;
@@ -714,6 +716,11 @@ function ConnectByUSBOrBLE({
   const intl = useIntl();
   const isFocused = useIsFocused();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const effectiveHardwareTransportType = useMemo(
+    () => deviceUtils.normalizeHardwareTransportType(hardwareTransportType),
+    [hardwareTransportType],
+  );
+  const ensureSnapRawUsbConnection = useEnsureSnapRawUsbConnection();
 
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
@@ -738,9 +745,21 @@ function ConnectByUSBOrBLE({
   }, []);
 
   const listingDevice = useCallback(async () => {
+    if (
+      effectiveHardwareTransportType === EHardwareTransportType.WEBUSB &&
+      !(await ensureSnapRawUsbConnection())
+    ) {
+      setConnectStatus(EConnectionStatus.init);
+      return;
+    }
     setConnectStatus(EConnectionStatus.listing);
     await scanDevice();
-  }, [scanDevice, setConnectStatus]);
+  }, [
+    effectiveHardwareTransportType,
+    ensureSnapRawUsbConnection,
+    scanDevice,
+    setConnectStatus,
+  ]);
 
   useEffect(() => {
     if (isFocused) {
@@ -796,6 +815,10 @@ function ConnectByUSBOrBLE({
   const onConnectWebDevice = useCallback(async () => {
     setIsChecking(true);
     try {
+      if (!(await ensureSnapRawUsbConnection())) {
+        return;
+      }
+
       // Set global transport type before device access
       const targetTransportType = await getForceTransportType(tabValue);
       if (targetTransportType) {
@@ -820,12 +843,18 @@ function ConnectByUSBOrBLE({
     } finally {
       setIsChecking(false);
     }
-  }, [onDeviceConnect, promptWebUsbDeviceAccess, tabValue, setIsChecking]);
+  }, [
+    ensureSnapRawUsbConnection,
+    onDeviceConnect,
+    promptWebUsbDeviceAccess,
+    tabValue,
+    setIsChecking,
+  ]);
 
   useEffect(() => {
     if (
       platformEnv.isNative ||
-      (hardwareTransportType === EHardwareTransportType.WEBUSB &&
+      (effectiveHardwareTransportType === EHardwareTransportType.WEBUSB &&
         !platformEnv.isDesktop)
     ) {
       return;
@@ -833,7 +862,7 @@ function ConnectByUSBOrBLE({
     void (async () => {
       void listingDevice();
     })();
-  }, [listingDevice, hardwareTransportType, tabValue]);
+  }, [listingDevice, effectiveHardwareTransportType, tabValue]);
 
   useEffect(
     () =>
@@ -859,7 +888,7 @@ function ConnectByUSBOrBLE({
           <Heading size="$headingMd" textAlign="center">
             {intl.formatMessage({
               id:
-                hardwareTransportType === EHardwareTransportType.WEBUSB
+                effectiveHardwareTransportType === EHardwareTransportType.WEBUSB
                   ? ETranslations.device_connect_via_usb
                   : ETranslations.onboarding_bluetooth_prepare_to_connect,
             })}
@@ -874,7 +903,7 @@ function ConnectByUSBOrBLE({
           >
             {intl.formatMessage({
               id:
-                hardwareTransportType === EHardwareTransportType.WEBUSB
+                effectiveHardwareTransportType === EHardwareTransportType.WEBUSB
                   ? ETranslations.device_select_device_popup
                   : ETranslations.onboarding_bluetooth_prepare_to_connect_help_text,
             })}
@@ -885,7 +914,7 @@ function ConnectByUSBOrBLE({
             variant="primary"
             loading={isCheckingDeviceLoading}
             onPress={
-              hardwareTransportType === EHardwareTransportType.WEBUSB
+              effectiveHardwareTransportType === EHardwareTransportType.WEBUSB
                 ? onConnectWebDevice
                 : startBLEConnection
             }

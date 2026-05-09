@@ -17,6 +17,13 @@ export type IDesktopAppState = 'active' | 'background' | 'blur';
 
 export type IDesktopEventUnSubscribe = () => void;
 
+export type ISnapRawUsbConnectionStatus = {
+  isSnap: boolean;
+  connected: boolean;
+  command: string;
+  error?: string;
+};
+
 // Type for the legacy desktopApi exposed via contextBridge in preload.ts
 export type INobleBleApi = {
   enumerate: () => Promise<{ id: string; name: string }[]>;

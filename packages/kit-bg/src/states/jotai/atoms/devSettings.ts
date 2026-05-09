@@ -125,8 +125,7 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
-      // Linux Desktop use Bridge，avoiding WebUSB permission problem
-      usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
+      usbCommunicationMode: 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
     },

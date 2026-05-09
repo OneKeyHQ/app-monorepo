@@ -341,6 +341,7 @@ async function buildDeviceLabel({
     [EDeviceType.Mini]: 'OneKey Mini',
     [EDeviceType.Touch]: 'OneKey Touch',
     [EDeviceType.Pro]: 'OneKey Pro',
+    [EDeviceType.Pro2]: 'OneKey Pro 2',
     [EDeviceType.Unknown]: '',
   };
   const deviceType = await getDeviceTypeFromFeatures({
@@ -614,14 +615,25 @@ function getDefaultHardwareTransportType(): EHardwareTransportType {
   if (platformEnv.isNative) {
     return EHardwareTransportType.BLE;
   }
-  // Because of uDev rules, using http bridge in linux desktop
   if (platformEnv.isDesktopLinux) {
-    return EHardwareTransportType.Bridge;
+    return EHardwareTransportType.WEBUSB;
   }
   if (platformEnv.isSupportWebUSB) {
     return EHardwareTransportType.WEBUSB;
   }
   return EHardwareTransportType.Bridge;
+}
+
+function normalizeHardwareTransportType(
+  hardwareTransportType?: EHardwareTransportType,
+): EHardwareTransportType {
+  if (
+    platformEnv.isDesktopLinux &&
+    hardwareTransportType === EHardwareTransportType.Bridge
+  ) {
+    return EHardwareTransportType.WEBUSB;
+  }
+  return hardwareTransportType ?? getDefaultHardwareTransportType();
 }
 
 function getFirmwareTypeByCachedFeatures({
@@ -806,6 +818,7 @@ export default {
   getRawDeviceId,
   getDeviceConnectId,
   getDefaultHardwareTransportType,
+  normalizeHardwareTransportType,
   isBtcOnlyFirmware,
   getFirmwareTypeByCachedFeatures,
   getFirmwareType,

@@ -1,3 +1,4 @@
+import { execFile } from 'child_process';
 import os from 'os';
 import path from 'path';
 
@@ -16,7 +17,11 @@ import {
 } from '@onekeyhq/desktop/app/libs/utils';
 import { restartBridge } from '@onekeyhq/desktop/app/process';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
+import type {
+  IMediaType,
+  IPrefType,
+  ISnapRawUsbConnectionStatus,
+} from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
@@ -281,6 +286,48 @@ class DesktopApiSystem {
   async reloadBridgeProcess(): Promise<boolean> {
     await restartBridge();
     return true;
+  }
+
+  async checkSnapRawUsbConnection(): Promise<ISnapRawUsbConnectionStatus> {
+    const snapName = process.env.SNAP_NAME || 'onekey-wallet';
+    const command = `sudo snap connect ${snapName}:raw-usb`;
+
+    if (process.platform !== 'linux' || !process.env.SNAP) {
+      return {
+        isSnap: false,
+        connected: true,
+        command,
+      };
+    }
+
+    return new Promise<ISnapRawUsbConnectionStatus>((resolve) => {
+      execFile(
+        'snapctl',
+        ['is-connected', 'raw-usb'],
+        { timeout: 5000 },
+        (error, stdout, stderr) => {
+          if (!error) {
+            resolve({
+              isSnap: true,
+              connected: true,
+              command,
+            });
+            return;
+          }
+
+          const message = [error.message, stderr, stdout]
+            .filter(Boolean)
+            .join('\n')
+            .trim();
+          resolve({
+            isSnap: true,
+            connected: false,
+            command,
+            error: message || undefined,
+          });
+        },
+      );
+    });
   }
 
   async getAppName(): Promise<string> {

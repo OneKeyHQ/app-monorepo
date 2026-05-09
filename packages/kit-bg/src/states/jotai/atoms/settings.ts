@@ -19,9 +19,8 @@ function getDefaultHardwareTransportType(): EHardwareTransportType {
   if (platformEnv.isNative) {
     return EHardwareTransportType.BLE;
   }
-  // Linux 桌面端优先使用 Bridge（WebUSB 受 udev 等限制）
   if (platformEnv.isDesktopLinux) {
-    return EHardwareTransportType.Bridge;
+    return EHardwareTransportType.WEBUSB;
   }
   if (platformEnv.isSupportWebUSB) {
     return EHardwareTransportType.WEBUSB;

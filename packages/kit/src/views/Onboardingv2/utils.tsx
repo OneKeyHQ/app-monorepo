@@ -49,6 +49,7 @@ export async function getForceTransportType(
     case EConnectDeviceChannel.usbOrBle: {
       // For usbOrBle, constrain based on platform
       if (platformEnv.isNative) return EHardwareTransportType.BLE;
+      if (platformEnv.isDesktopLinux) return EHardwareTransportType.WEBUSB;
       if (platformEnv.isDesktop) {
         const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
         const usbCommunicationMode = dev?.settings?.usbCommunicationMode;
@@ -71,6 +72,7 @@ export async function getForceTransportType(
 
 export async function getDesktopForceUSBTransportType(): Promise<EHardwareTransportType | null> {
   if (platformEnv.isDesktop) {
+    if (platformEnv.isDesktopLinux) return EHardwareTransportType.WEBUSB;
     const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
     const usbCommunicationMode = dev?.settings?.usbCommunicationMode;
     if (usbCommunicationMode === 'bridge') return EHardwareTransportType.Bridge;
@@ -86,6 +88,8 @@ export const getDeviceLabel = (
   return deviceTypeItems
     .map((deviceType) => {
       switch (deviceType) {
+        case EDeviceType.Pro2:
+          return 'OneKey Pro 2';
         case EDeviceType.Pro:
           return 'OneKey Pro';
         case EDeviceType.Classic:
