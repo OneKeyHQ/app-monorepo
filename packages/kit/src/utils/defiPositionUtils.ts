@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EDeFiAssetType,
@@ -313,6 +314,270 @@ function buildLocalizedProtocolPositionItems({
   );
 }
 
+// ─── Category-grouped layout (desktop protocol list) ──────────────────────
+// Lending stays per-position because supplied/borrowed/rewards each get their
+// own row-section header; everything else collapses by category and merges
+// rows that share `poolName` so users see one logical position even when the
+// backend reports it as multiple groupIds.
+
+const LENDING_NORMALIZED_CATEGORY = 'lending';
+const DEPOSIT_NORMALIZED_CATEGORY = 'deposit';
+const LP_NORMALIZED_CATEGORIES: ReadonlySet<string> = new Set([
+  'liquidity',
+  'liquidity_pool',
+]);
+
+export type IUnifiedPositionDisplayKind = 'text' | 'icon-text' | 'lp-stack';
+
+export type IProtocolUnifiedPositionDisplay =
+  | { kind: 'text'; text: string }
+  | { kind: 'icon-text'; text: string; iconUrl?: string }
+  | {
+      kind: 'lp-stack';
+      tokens: { symbol: string; logoUrl?: string }[];
+      text: string;
+    };
+
+export type IProtocolUnifiedRow = {
+  rowKey: string;
+  positionDisplay: IProtocolUnifiedPositionDisplay;
+  // Drives the Supplied/Balance/USD columns. Equals the supplied bucket when
+  // the position has supplied assets; for rewards-only positions (e.g. a
+  // protocol whose category=='rewards' has no supplied bucket at all) this
+  // falls back to the rewards bucket so the row isn't empty.
+  primaryAssets: IDeFiAsset[];
+  // Only populated when the position has BOTH supplied and rewards. The
+  // dedicated Rewards column is hidden across the whole table when no row
+  // contributes to it.
+  rewardsExtraAssets: IDeFiAsset[];
+};
+
+export type IProtocolCategoryGroup =
+  | {
+      kind: 'lending';
+      groupKey: string;
+      category: string;
+      categoryLabel: string;
+      categoryLabelId?: ETranslations;
+      positions: IProtocolPositionItem[];
+    }
+  | {
+      kind: 'unified';
+      groupKey: string;
+      category: string;
+      categoryLabel: string;
+      categoryLabelId?: ETranslations;
+      displayKind: IUnifiedPositionDisplayKind;
+      rows: IProtocolUnifiedRow[];
+    };
+
+export type ILocalizedProtocolCategoryGroup =
+  | {
+      kind: 'lending';
+      groupKey: string;
+      category: string;
+      categoryLabel: string;
+      positions: ILocalizedProtocolPositionItem[];
+    }
+  | {
+      kind: 'unified';
+      groupKey: string;
+      category: string;
+      categoryLabel: string;
+      displayKind: IUnifiedPositionDisplayKind;
+      rows: IProtocolUnifiedRow[];
+    };
+
+function getUnifiedDisplayKind(
+  normalizedCategory: string,
+): IUnifiedPositionDisplayKind {
+  if (LP_NORMALIZED_CATEGORIES.has(normalizedCategory)) {
+    return 'lp-stack';
+  }
+  if (normalizedCategory === DEPOSIT_NORMALIZED_CATEGORY) {
+    return 'icon-text';
+  }
+  return 'text';
+}
+
+function buildUnifiedRowsFromPositions(
+  displayKind: IUnifiedPositionDisplayKind,
+  positions: IProtocolPositionItem[],
+): IProtocolUnifiedRow[] {
+  // Bucket by trimmed poolName; positions without a poolName collapse only
+  // with themselves so the merge is conservative when the upstream label is
+  // missing.
+  type Bucket = {
+    poolName?: string;
+    suppliedAssets: IDeFiAsset[];
+    rewardsAssets: IDeFiAsset[];
+    firstGroupId: string;
+  };
+  const orderedKeys: string[] = [];
+  const buckets = new Map<string, Bucket>();
+
+  for (const position of positions) {
+    const trimmedPoolName = position.poolName?.trim();
+    const bucketKey = trimmedPoolName
+      ? `name:${trimmedPoolName}`
+      : `id:${position.groupId}`;
+    let bucket = buckets.get(bucketKey);
+    if (!bucket) {
+      bucket = {
+        poolName: position.poolName,
+        suppliedAssets: [],
+        rewardsAssets: [],
+        firstGroupId: position.groupId,
+      };
+      buckets.set(bucketKey, bucket);
+      orderedKeys.push(bucketKey);
+    }
+    for (const section of position.sections) {
+      if (section.assetType === 'supplied' || section.assetType === 'other') {
+        // 'other' is rare and folds into supplied so it still surfaces in
+        // the table; without this it would silently disappear.
+        bucket.suppliedAssets.push(...section.assets);
+      } else if (section.assetType === 'rewards') {
+        bucket.rewardsAssets.push(...section.assets);
+      }
+      // 'borrowed' is intentionally dropped here: only lending uses the
+      // borrowed row-section, and lending is routed through a different
+      // builder. Non-lending positions with debts (e.g. leveraged farming)
+      // would need an extra column we don't render in this revision.
+    }
+  }
+
+  return orderedKeys.map((key) => {
+    const bucket = buckets.get(key);
+    if (!bucket) {
+      throw new OneKeyLocalError('protocol category bucket missing');
+    }
+    const hasSupplied = bucket.suppliedAssets.length > 0;
+    const hasRewards = bucket.rewardsAssets.length > 0;
+    const primaryAssets = hasSupplied
+      ? bucket.suppliedAssets
+      : bucket.rewardsAssets;
+    const rewardsExtraAssets =
+      hasSupplied && hasRewards ? bucket.rewardsAssets : [];
+
+    let positionDisplay: IProtocolUnifiedPositionDisplay;
+    if (displayKind === 'lp-stack') {
+      const tokens = bucket.suppliedAssets.map((asset) => ({
+        symbol: asset.symbol,
+        logoUrl: asset.meta?.logoUrl,
+      }));
+      const lpText = tokens.length
+        ? tokens.map((token) => token.symbol).join(' + ')
+        : (bucket.poolName ?? '');
+      positionDisplay = { kind: 'lp-stack', tokens, text: lpText };
+    } else if (displayKind === 'icon-text') {
+      const iconUrl =
+        bucket.suppliedAssets[0]?.meta?.logoUrl ??
+        bucket.rewardsAssets[0]?.meta?.logoUrl;
+      positionDisplay = {
+        kind: 'icon-text',
+        text: bucket.poolName ?? '',
+        iconUrl,
+      };
+    } else {
+      positionDisplay = { kind: 'text', text: bucket.poolName ?? '' };
+    }
+
+    return {
+      rowKey: bucket.poolName ? `name:${bucket.poolName}` : `id:${key}`,
+      positionDisplay,
+      primaryAssets,
+      rewardsExtraAssets,
+    };
+  });
+}
+
+function buildProtocolCategoryGroups(
+  protocol: IDeFiProtocol,
+): IProtocolCategoryGroup[] {
+  const items = buildProtocolPositionItems(protocol);
+  const orderedCategoryKeys: string[] = [];
+  const positionsByCategory = new Map<string, IProtocolPositionItem[]>();
+  for (const item of items) {
+    const normalized = normalizeDeFiCategory(item.category) || 'other';
+    let bucket = positionsByCategory.get(normalized);
+    if (!bucket) {
+      bucket = [];
+      positionsByCategory.set(normalized, bucket);
+      orderedCategoryKeys.push(normalized);
+    }
+    bucket.push(item);
+  }
+
+  return orderedCategoryKeys.map((normalized) => {
+    const bucketItems = positionsByCategory.get(normalized);
+    if (!bucketItems || bucketItems.length === 0) {
+      throw new OneKeyLocalError('protocol category bucket missing');
+    }
+    const sample = bucketItems[0];
+    if (normalized === LENDING_NORMALIZED_CATEGORY) {
+      return {
+        kind: 'lending',
+        groupKey: normalized,
+        category: sample.category,
+        categoryLabel: sample.categoryLabel,
+        categoryLabelId: sample.categoryLabelId,
+        positions: bucketItems,
+      };
+    }
+    const displayKind = getUnifiedDisplayKind(normalized);
+    return {
+      kind: 'unified',
+      groupKey: normalized,
+      category: sample.category,
+      categoryLabel: sample.categoryLabel,
+      categoryLabelId: sample.categoryLabelId,
+      displayKind,
+      rows: buildUnifiedRowsFromPositions(displayKind, bucketItems),
+    };
+  });
+}
+
+function buildLocalizedProtocolCategoryGroups({
+  protocol,
+  translate,
+}: {
+  protocol: IDeFiProtocol;
+  translate: ITranslatePositionLabel;
+}): ILocalizedProtocolCategoryGroup[] {
+  return buildProtocolCategoryGroups(protocol).map((group) => {
+    const translatedLabel = group.categoryLabelId
+      ? translate(group.categoryLabelId)
+      : group.categoryLabel;
+    if (group.kind === 'lending') {
+      return {
+        kind: 'lending',
+        groupKey: group.groupKey,
+        category: group.category,
+        categoryLabel: translatedLabel,
+        positions: group.positions.map((position) => ({
+          ...position,
+          categoryLabel: position.categoryLabelId
+            ? translate(position.categoryLabelId)
+            : position.categoryLabel,
+          sections: position.sections.map((section) => ({
+            ...section,
+            title: section.titleId ? translate(section.titleId) : section.title,
+          })),
+        })),
+      };
+    }
+    return {
+      kind: 'unified',
+      groupKey: group.groupKey,
+      category: group.category,
+      categoryLabel: translatedLabel,
+      displayKind: group.displayKind,
+      rows: group.rows,
+    };
+  });
+}
+
 function buildProtocolDisplayInfo({
   protocol,
   protocolInfo,
@@ -335,7 +600,9 @@ function buildProtocolDisplayInfo({
 }
 
 export {
+  buildLocalizedProtocolCategoryGroups,
   buildLocalizedProtocolPositionItems,
+  buildProtocolCategoryGroups,
   buildProtocolDisplayInfo,
   buildProtocolPositionItems,
   getPositionModuleLabel,
