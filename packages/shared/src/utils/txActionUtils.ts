@@ -12,6 +12,7 @@ import type {
   IDecodedTxActionUnknown,
 } from '@onekeyhq/shared/types/tx';
 import {
+  EApproveType,
   EDecodedTxActionType,
   EDecodedTxDirection,
 } from '@onekeyhq/shared/types/tx';
@@ -427,7 +428,12 @@ function convertTokenApproveActionToSignatureConfirmComponent({
   isMultiTxs?: boolean;
   networkId: string;
 }) {
-  const isRevoke = new BigNumber(action.amount).isZero();
+  // Only absolute `approve(spender, 0)` is a revoke. `increaseAllowance(spender, 0)`
+  // and `increaseApproval(spender, 0)` are no-op increments, not revocations.
+  // Treat undefined approveType as absolute approve for legacy chains that don't tag it.
+  const isAbsoluteApprove =
+    !action.approveType || action.approveType === EApproveType.Approve;
+  const isRevoke = isAbsoluteApprove && new BigNumber(action.amount).isZero();
   let approveLabel = '';
 
   if (isMultiTxs) {
@@ -462,6 +468,8 @@ function convertTokenApproveActionToSignatureConfirmComponent({
     isEditable: !isRevoke && !isMultiTxs,
     isInfiniteAmount: action.isInfiniteAmount,
     networkId,
+    approveType: action.approveType,
+    spender: action.spender,
   };
 
   const spenderComponent: IDisplayComponentAddress | null = isMultiTxs
@@ -697,7 +705,11 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
       action.type === EDecodedTxActionType.TOKEN_APPROVE &&
       action.tokenApprove
     ) {
-      const isRevoke = new BigNumber(action.tokenApprove.amount).isZero();
+      const isAbsoluteApprove =
+        !action.tokenApprove.approveType ||
+        action.tokenApprove.approveType === EApproveType.Approve;
+      const isRevoke =
+        isAbsoluteApprove && new BigNumber(action.tokenApprove.amount).isZero();
 
       return isRevoke
         ? appLocale.intl.formatMessage({

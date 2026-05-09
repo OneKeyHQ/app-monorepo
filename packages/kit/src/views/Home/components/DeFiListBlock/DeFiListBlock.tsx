@@ -72,6 +72,18 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
 
+function buildSingleNetworkDeFiCacheKey({
+  accountId,
+  networkId,
+  accountAddress,
+}: {
+  accountId: string;
+  networkId: string;
+  accountAddress?: string;
+}) {
+  return `${accountId}:${networkId}:${accountAddress ?? ''}`;
+}
+
 function MobileProtocolDivider() {
   return (
     <YStack px="$5" pt="$1" pb="$2">
@@ -176,6 +188,10 @@ function DeFiListBlock({
   protocolsRef.current = protocols;
   protocolMapRef.current = protocolMap;
   const pendingRefreshRef = useRef(false);
+  const singleNetworkLocalCacheRef = useRef<{
+    cacheKey?: string;
+    hasCache: boolean;
+  }>({ hasCache: false });
 
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
   const overviewCols = useMemo(
@@ -299,6 +315,14 @@ function DeFiListBlock({
       });
 
       try {
+        const cacheKey = buildSingleNetworkDeFiCacheKey({
+          accountId: account.id,
+          networkId: network.id,
+          accountAddress: account.address,
+        });
+        const shouldForceInitialRefresh =
+          singleNetworkLocalCacheRef.current.cacheKey !== cacheKey ||
+          !singleNetworkLocalCacheRef.current.hasCache;
         const resp =
           await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
             accountId: account.id,
@@ -308,8 +332,12 @@ function DeFiListBlock({
             sourceCurrencyInfo,
             targetCurrencyInfo,
             saveToLocal: true,
-            isForceRefresh: isForceRefreshRef.current,
+            isForceRefresh:
+              isForceRefreshRef.current || shouldForceInitialRefresh,
           });
+        if (singleNetworkLocalCacheRef.current.cacheKey === cacheKey) {
+          singleNetworkLocalCacheRef.current.hasCache = true;
+        }
         updateAccountDeFiOverview({
           currency: settings.currencyInfo.id,
           accountId: account.id,
@@ -404,6 +432,7 @@ function DeFiListBlock({
         return;
       }
 
+      const shouldForceInitialRefresh = !allNetworkDataInit;
       const r = await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
         accountId,
         networkId,
@@ -414,7 +443,7 @@ function DeFiListBlock({
         excludeLowValueProtocols: true,
         sourceCurrencyInfo,
         targetCurrencyInfo,
-        isForceRefresh: isForceRefreshRef.current,
+        isForceRefresh: isForceRefreshRef.current || shouldForceInitialRefresh,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -505,6 +534,13 @@ function DeFiListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
+      if (!refreshCacheOnly && accountId && networkId) {
+        await backgroundApiProxy.serviceDeFi.updateCurrentAccount({
+          accountId,
+          networkId,
+        });
+      }
+
       deFiRawDataRef.current =
         (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
 
@@ -770,6 +806,15 @@ function DeFiListBlock({
       accountId: string;
       networkId: string;
     }) => {
+      const cacheKey = buildSingleNetworkDeFiCacheKey({
+        accountId,
+        networkId,
+        accountAddress: account?.address,
+      });
+      singleNetworkLocalCacheRef.current = {
+        cacheKey,
+        hasCache: false,
+      };
       updateOverviewDeFiDataState({
         accountId,
         networkId,
@@ -798,6 +843,9 @@ function DeFiListBlock({
 
       if (localDeFiOverview) {
         const rawOverview = localDeFiOverview.overview[networkId];
+        if (singleNetworkLocalCacheRef.current.cacheKey === cacheKey) {
+          singleNetworkLocalCacheRef.current.hasCache = Boolean(rawOverview);
+        }
         if (rawOverview) {
           let convertedOverview = rawOverview;
           if (rawOverview.currency !== settings.currencyInfo.id) {
@@ -883,9 +931,9 @@ function DeFiListBlock({
     };
 
     const onRefresh = () => {
+      isForceRefreshRef.current = true;
       if (isFocused) {
         pendingRefreshRef.current = false;
-        isForceRefreshRef.current = true;
         refresh();
       } else {
         pendingRefreshRef.current = true;
