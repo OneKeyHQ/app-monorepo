@@ -28,7 +28,11 @@ import type {
 } from '@onekeyhq/shared/types/signatureConfirm';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
+import {
+  EApproveType,
+  type IDecodedTx,
+  type ISendTxBaseParams,
+} from '@onekeyhq/shared/types/tx';
 
 import {
   type IRecentRecipientEntry,
@@ -273,6 +277,63 @@ class ServiceSignatureConfirm extends ServiceBase {
         alerts: [],
       };
       decodedTx.isLocalParsed = true;
+    }
+
+    // Backfill approveType/spender/amount on server-built Approve components
+    // from the local decoder, which always reflects current calldata (the
+    // server's amountParsed lags re-encoding after the user edits the delta).
+    if (decodedTx.txDisplay?.components) {
+      const localApproves = decodedTx.actions
+        .map((a) => a.tokenApprove)
+        .filter((a): a is NonNullable<typeof a> => Boolean(a));
+      if (localApproves.length > 0) {
+        const localByToken = new Map<string, (typeof localApproves)[number]>();
+        for (const a of localApproves) {
+          if (a.tokenIdOnNetwork) {
+            localByToken.set(a.tokenIdOnNetwork.toLowerCase(), a);
+          }
+        }
+        // Prevent double-attribution: token-keyed hits must not be re-handed
+        // out by the positional fallback to a later component.
+        const usedLocal = new Set<(typeof localApproves)[number]>();
+        let fallbackIdx = 0;
+        for (const c of decodedTx.txDisplay.components) {
+          if (c.type === EParseTxComponentType.Approve) {
+            const tokenAddr = c.token?.info?.address?.toLowerCase();
+            let localApprove: (typeof localApproves)[number] | undefined;
+            const byToken = tokenAddr ? localByToken.get(tokenAddr) : undefined;
+            if (byToken && !usedLocal.has(byToken)) {
+              localApprove = byToken;
+            } else {
+              while (
+                fallbackIdx < localApproves.length &&
+                usedLocal.has(localApproves[fallbackIdx])
+              ) {
+                fallbackIdx += 1;
+              }
+              localApprove = localApproves[fallbackIdx];
+              fallbackIdx += 1;
+            }
+            if (localApprove) {
+              usedLocal.add(localApprove);
+              if (!c.approveType && localApprove.approveType) {
+                c.approveType = localApprove.approveType;
+              }
+              if (!c.spender && localApprove.spender) {
+                c.spender = localApprove.spender;
+              }
+              const localApproveType =
+                localApprove.approveType ?? c.approveType;
+              if (
+                localApproveType === EApproveType.IncreaseAllowance ||
+                localApproveType === EApproveType.IncreaseApproval
+              ) {
+                c.amountParsed = localApprove.amount;
+              }
+            }
+          }
+        }
+      }
     }
 
     if (transferPayload?.isCustomHexData) {

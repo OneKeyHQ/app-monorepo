@@ -239,6 +239,25 @@ describe('TransactionsHistory', () => {
     );
   });
 
+  it('keeps relative time ticking while realtime transactions are paused', () => {
+    mockMarketTransactionsResult.transactions = [createMockTransaction('0xtx')];
+    mockMarketTransactionsResult.isRealtimePaused = true;
+
+    render(
+      <TransactionsHistory
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        isTabFocused
+      />,
+    );
+
+    expect(mockTransactionsRelativeTimeProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isTickingEnabled: true,
+      }),
+    );
+  });
+
   it('waits for momentum scrolling to finish before resuming realtime updates on native', () => {
     getMockPlatformEnv().isNative = true;
 
