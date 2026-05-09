@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -32,6 +39,10 @@ import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialo
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapProTradeTypeAtom,
+  useSwapSlippageOverrideAtom,
+  useSwapSlippageOverrideContextKeyAtom,
+  useSwapSlippageOverrideSuppressedContextKeyAtom,
+  useSwapSlippageOverrideUserRevisionAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -142,8 +153,10 @@ const SWAP_SETTINGS_DIALOG_CHROME_HEIGHT = 220;
 const SWAP_SETTINGS_DIALOG_MIN_CONTENT_HEIGHT = 120;
 
 const SwapSlippageCustomContent = ({
+  onUserOverrideSlippage,
   swapSlippage,
 }: {
+  onUserOverrideSlippage?: () => void;
   swapSlippage: ISwapSlippageSegmentItem;
 }) => {
   const intl = useIntl();
@@ -152,58 +165,66 @@ const SwapSlippageCustomContent = ({
     status: ESwapSlippageCustomStatus;
     message: string;
   }>({ status: ESwapSlippageCustomStatus.NORMAL, message: '' });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleSlippageChange = useCallback(
-    debounce((value: string) => {
-      const valueBN = new BigNumber(value);
-      if (
-        valueBN.isNaN() ||
-        valueBN.isNegative() ||
-        valueBN.gt(swapSlippageMaxValue)
-      ) {
+  const handleSlippageChange = useMemo(
+    () =>
+      debounce((value: string) => {
+        const valueBN = new BigNumber(value);
+        if (
+          valueBN.isNaN() ||
+          valueBN.isNegative() ||
+          valueBN.gt(swapSlippageMaxValue)
+        ) {
+          setCustomValueState({
+            status: ESwapSlippageCustomStatus.ERROR,
+            message: intl.formatMessage({
+              id: ETranslations.slippage_tolerance_error_message,
+            }),
+          });
+          return;
+        }
+        onUserOverrideSlippage?.();
+        setSettings((s) => ({
+          ...s,
+          swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+          swapSlippagePercentageCustomValue: valueBN.toNumber(),
+        }));
+        if (valueBN.lte(swapSlippageWillFailMinValue)) {
+          setCustomValueState({
+            status: ESwapSlippageCustomStatus.WRONG,
+            message: intl.formatMessage(
+              {
+                id: ETranslations.slippage_tolerance_warning_message_2,
+              },
+              { number: swapSlippageWillFailMinValue },
+            ),
+          });
+          return;
+        }
+        if (valueBN.gte(swapSlippageWillAheadMinValue)) {
+          setCustomValueState({
+            status: ESwapSlippageCustomStatus.WRONG,
+            message: intl.formatMessage(
+              {
+                id: ETranslations.slippage_tolerance_warning_message_1,
+              },
+              { number: swapSlippageWillAheadMinValue },
+            ),
+          });
+          return;
+        }
         setCustomValueState({
-          status: ESwapSlippageCustomStatus.ERROR,
-          message: intl.formatMessage({
-            id: ETranslations.slippage_tolerance_error_message,
-          }),
+          status: ESwapSlippageCustomStatus.NORMAL,
+          message: '',
         });
-        return;
-      }
-      setSettings((s) => ({
-        ...s,
-        swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
-        swapSlippagePercentageCustomValue: valueBN.toNumber(),
-      }));
-      if (valueBN.lte(swapSlippageWillFailMinValue)) {
-        setCustomValueState({
-          status: ESwapSlippageCustomStatus.WRONG,
-          message: intl.formatMessage(
-            {
-              id: ETranslations.slippage_tolerance_warning_message_2,
-            },
-            { number: swapSlippageWillFailMinValue },
-          ),
-        });
-        return;
-      }
-      if (valueBN.gte(swapSlippageWillAheadMinValue)) {
-        setCustomValueState({
-          status: ESwapSlippageCustomStatus.WRONG,
-          message: intl.formatMessage(
-            {
-              id: ETranslations.slippage_tolerance_warning_message_1,
-            },
-            { number: swapSlippageWillAheadMinValue },
-          ),
-        });
-        return;
-      }
-      setCustomValueState({
-        status: ESwapSlippageCustomStatus.NORMAL,
-        message: '',
-      });
-    }, 350),
-    [],
+      }, 350),
+    [intl, onUserOverrideSlippage, setSettings],
+  );
+
+  useEffect(
+    () => () => {
+      handleSlippageChange.cancel();
+    },
+    [handleSlippageChange],
   );
   return (
     <YStack gap="$4">
@@ -214,9 +235,8 @@ const SwapSlippageCustomContent = ({
         />
         <XStack>
           {swapSlippageCustomDefaultList.map((item, index) => (
-            <>
+            <Fragment key={item}>
               <Button
-                key={item}
                 variant="secondary"
                 size="medium"
                 borderTopRightRadius={index !== 2 ? 0 : '$2'}
@@ -224,6 +244,7 @@ const SwapSlippageCustomContent = ({
                 borderTopLeftRadius={index !== 0 ? 0 : '$2'}
                 borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
                 onPress={() => {
+                  onUserOverrideSlippage?.();
                   setCustomValueState({
                     status: ESwapSlippageCustomStatus.NORMAL,
                     message: '',
@@ -240,7 +261,7 @@ const SwapSlippageCustomContent = ({
               {index !== swapSlippageCustomDefaultList.length - 1 ? (
                 <Divider vertical />
               ) : null}
-            </>
+            </Fragment>
           ))}
         </XStack>
       </XStack>
@@ -268,6 +289,13 @@ const SwapSettingsDialogContent = () => {
     useSettingsAtom();
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
+  const [, setSwapSlippageOverride] = useSwapSlippageOverrideAtom();
+  const [swapSlippageOverrideContextKey] =
+    useSwapSlippageOverrideContextKeyAtom();
+  const [, setSwapSlippageOverrideSuppressedContextKey] =
+    useSwapSlippageOverrideSuppressedContextKeyAtom();
+  const [, setSwapSlippageOverrideUserRevision] =
+    useSwapSlippageOverrideUserRevisionAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const keyboardHeight = useKeyboardHeight();
   const { top: safeAreaTop } = useSafeAreaInsets();
@@ -275,6 +303,20 @@ const SwapSettingsDialogContent = () => {
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
+  const clearSwapSlippageOverride = useCallback(() => {
+    setSwapSlippageOverride(undefined);
+    if (swapSlippageOverrideContextKey) {
+      setSwapSlippageOverrideSuppressedContextKey(
+        swapSlippageOverrideContextKey,
+      );
+    }
+    setSwapSlippageOverrideUserRevision((value) => value + 1);
+  }, [
+    setSwapSlippageOverride,
+    setSwapSlippageOverrideSuppressedContextKey,
+    setSwapSlippageOverrideUserRevision,
+    swapSlippageOverrideContextKey,
+  ]);
   const dialogContentMaxHeight = useMemo(() => {
     if (!platformEnv.isNative || keyboardHeight <= 0) {
       return undefined;
@@ -324,6 +366,7 @@ const SwapSettingsDialogContent = () => {
         })}
         onChange={(value) => {
           const keyValue = value as ESwapSlippageSegmentKey;
+          clearSwapSlippageOverride();
           setNoPersistSettings((s) => ({
             ...s,
             swapSlippagePercentageMode: keyValue,
@@ -331,7 +374,7 @@ const SwapSettingsDialogContent = () => {
         }}
       />
     ),
-    [intl, setNoPersistSettings, slippageItem.key],
+    [clearSwapSlippageOverride, intl, setNoPersistSettings, slippageItem.key],
   );
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   return (
@@ -355,7 +398,10 @@ const SwapSettingsDialogContent = () => {
                   rightTrigger={rightTrigger}
                 />
                 {slippageItem.key === ESwapSlippageSegmentKey.CUSTOM ? (
-                  <SwapSlippageCustomContent swapSlippage={slippageItem} />
+                  <SwapSlippageCustomContent
+                    onUserOverrideSlippage={clearSwapSlippageOverride}
+                    swapSlippage={slippageItem}
+                  />
                 ) : null}
               </YStack>
             </HeightTransition>

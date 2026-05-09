@@ -517,6 +517,21 @@ export const {
 >(undefined);
 
 export const {
+  atom: swapSlippageOverrideUserRevisionAtom,
+  use: useSwapSlippageOverrideUserRevisionAtom,
+} = contextAtom(0);
+
+export const {
+  atom: swapSlippageOverrideContextKeyAtom,
+  use: useSwapSlippageOverrideContextKeyAtom,
+} = contextAtom<string | undefined>(undefined);
+
+export const {
+  atom: swapSlippageOverrideSuppressedContextKeyAtom,
+  use: useSwapSlippageOverrideSuppressedContextKeyAtom,
+} = contextAtom<string | undefined>(undefined);
+
+export const {
   atom: swapSelectTokenNetworkAtom,
   use: useSwapSelectTokenNetworkAtom,
 } = contextAtom<ISwapNetwork | undefined>(undefined);

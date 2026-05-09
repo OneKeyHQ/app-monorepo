@@ -7,6 +7,9 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippageOverrideAtom,
+  useSwapSlippageOverrideContextKeyAtom,
+  useSwapSlippageOverrideSuppressedContextKeyAtom,
+  useSwapSlippageOverrideUserRevisionAtom,
   useSwapStepNetFeeLevelAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
@@ -19,14 +22,26 @@ import {
   type IMarketPresetTokenContext,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { EMarketPresetTradeSide } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
-import { loadMarketPresetSwapOverrides } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSwapOverrides';
+import {
+  type EMarketPresetKey,
+  EMarketPresetTradeSide,
+} from '../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
+import {
+  type IMarketPresetSwapOverrides,
+  loadMarketPresetSwapOverrides,
+} from '../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSwapOverrides';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+
+import { buildMarketPresetSwapOverrideContextKey } from './marketPresetSwapOverrideContext';
 
 export function useMarketPresetSwapOverridesEffect({
   marketPresetToken,
+  presetSwapOverrides,
+  selectedPresetKey,
 }: {
   marketPresetToken?: IMarketPresetTokenContext;
+  presetSwapOverrides?: IMarketPresetSwapOverrides;
+  selectedPresetKey?: EMarketPresetKey;
 }) {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -36,17 +51,36 @@ export function useMarketPresetSwapOverridesEffect({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [, setSwapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
   const [, setSwapSlippageOverride] = useSwapSlippageOverrideAtom();
+  const [, setSwapSlippageOverrideContextKey] =
+    useSwapSlippageOverrideContextKeyAtom();
+  const [
+    swapSlippageOverrideSuppressedContextKey,
+    setSwapSlippageOverrideSuppressedContextKey,
+  ] = useSwapSlippageOverrideSuppressedContextKeyAtom();
+  const [swapSlippageOverrideUserRevision] =
+    useSwapSlippageOverrideUserRevisionAtom();
   const requestIdRef = useRef(0);
+  const contextKeyRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    requestIdRef.current += 1;
+  }, [swapSlippageOverrideUserRevision]);
 
   useEffect(() => {
     // Bump request id at the very top so any in-flight async load from a prior
     // run is invalidated regardless of which branch we take below.
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-
-    if (!marketPresetToken?.networkId) {
+    const resetPresetOverrides = () => {
+      contextKeyRef.current = undefined;
       setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
       setSwapSlippageOverride(undefined);
+      setSwapSlippageOverrideContextKey(undefined);
+      setSwapSlippageOverrideSuppressedContextKey(undefined);
+    };
+
+    if (!marketPresetToken?.networkId) {
+      resetPresetOverrides();
       return;
     }
 
@@ -65,8 +99,7 @@ export function useMarketPresetSwapOverridesEffect({
     const focusSwapProMarket =
       focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET;
     if (focusSwapPro && !focusSwapProMarket) {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+      resetPresetOverrides();
       return;
     }
 
@@ -82,28 +115,53 @@ export function useMarketPresetSwapOverridesEffect({
     }
 
     if (!tradeSide) {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+      resetPresetOverrides();
+      return;
+    }
+
+    const contextKey = buildMarketPresetSwapOverrideContextKey({
+      marketPresetToken,
+      tradeSide,
+    });
+    setSwapSlippageOverrideContextKey(contextKey);
+    if (contextKeyRef.current !== contextKey) {
+      contextKeyRef.current = contextKey;
+      setSwapSlippageOverrideSuppressedContextKey(undefined);
+    }
+
+    const applyOverrides = (overrides?: IMarketPresetSwapOverrides) => {
+      setSwapStepNetFeeLevel({
+        networkFeeLevel:
+          overrides?.networkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM,
+        customPriorityFee: overrides?.customPriorityFee,
+      });
+      if (swapSlippageOverrideSuppressedContextKey === contextKey) {
+        setSwapSlippageOverride(undefined);
+      } else {
+        setSwapSlippageOverride(overrides?.slippage);
+      }
+    };
+
+    if (presetSwapOverrides) {
+      applyOverrides(presetSwapOverrides);
       return;
     }
 
     void (async () => {
       const overrides = await loadMarketPresetSwapOverrides({
         networkId: marketPresetToken.networkId,
+        presetKey: selectedPresetKey,
         tradeSide,
       });
       if (requestIdRef.current !== requestId) {
         return;
       }
-      setSwapStepNetFeeLevel({
-        networkFeeLevel:
-          overrides?.networkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM,
-        customPriorityFee: overrides?.customPriorityFee,
-      });
-      setSwapSlippageOverride(overrides?.slippage);
+      applyOverrides(overrides);
     })();
   }, [
     marketPresetToken,
+    presetSwapOverrides,
+    selectedPresetKey,
     fromToken,
     toToken,
     swapTypeSwitch,
@@ -112,13 +170,19 @@ export function useMarketPresetSwapOverridesEffect({
     swapProTradeType,
     setSwapStepNetFeeLevel,
     setSwapSlippageOverride,
+    setSwapSlippageOverrideContextKey,
+    setSwapSlippageOverrideSuppressedContextKey,
+    swapSlippageOverrideSuppressedContextKey,
   ]);
 
   useEffect(() => {
     return () => {
       requestIdRef.current += 1;
+      contextKeyRef.current = undefined;
       setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
       setSwapSlippageOverride(undefined);
+      setSwapSlippageOverrideContextKey(undefined);
+      setSwapSlippageOverrideSuppressedContextKey(undefined);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
