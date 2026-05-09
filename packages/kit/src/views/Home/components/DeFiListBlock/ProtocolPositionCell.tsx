@@ -28,7 +28,7 @@ const ProtocolPositionCell = memo(({ display }: IProtocolPositionCellProps) => {
             wrapperBorderColor="$bgApp"
           />
         ) : null}
-        <SizableText size="$bodyLg" color="$text" flex={1} minWidth={0}>
+        <SizableText size="$bodyMd" color="$text" flex={1} minWidth={0}>
           {display.text}
         </SizableText>
       </XStack>
@@ -41,7 +41,7 @@ const ProtocolPositionCell = memo(({ display }: IProtocolPositionCellProps) => {
         {display.iconUrl ? (
           <Token size="xs" tokenImageUri={display.iconUrl} bg="$bgStrong" />
         ) : null}
-        <SizableText size="$bodyLg" color="$text" flex={1} minWidth={0}>
+        <SizableText size="$bodyMd" color="$text" flex={1} minWidth={0}>
           {display.text}
         </SizableText>
       </XStack>
@@ -49,7 +49,7 @@ const ProtocolPositionCell = memo(({ display }: IProtocolPositionCellProps) => {
   }
 
   return (
-    <SizableText size="$bodyLg" color="$text" flex={1} minWidth={0}>
+    <SizableText size="$bodyMd" color="$text" flex={1} minWidth={0}>
       {display.text}
     </SizableText>
   );
