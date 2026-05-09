@@ -163,7 +163,7 @@ async function processDeepLinkUrlAccount(
             url: decoded,
             title: typeof query.title === 'string' ? query.title : undefined,
             hideHeader: query.hideHeader === '1',
-            hideAddressBar: query.hideAddressBar === '1',
+            showAddressBar: query.showAddressBar === '1',
             source: 'deeplink',
           });
           break;

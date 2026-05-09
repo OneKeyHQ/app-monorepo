@@ -27,7 +27,8 @@ export interface IWebViewPageParams {
   url: string;
   title?: string;
   hideHeader?: boolean;
-  hideAddressBar?: boolean;
+  /** Address bar is hidden by default — opt-in by passing `true`. */
+  showAddressBar?: boolean;
   /** Set by the entry layer (deeplink/notification handler or in-app caller); never a deeplink query param. */
   source?: 'deeplink' | 'notification' | 'in-app';
 }

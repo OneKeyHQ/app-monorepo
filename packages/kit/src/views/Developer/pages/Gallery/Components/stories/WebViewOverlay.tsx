@@ -21,7 +21,9 @@ const PRESETS = [
 
 // Use runtime-built strings to dodge eslint's `no-script-url` rule on the
 // literal — the whole point of these cases is that openWebView() rejects them.
-const SCRIPT_SCHEME_LABEL = ['java', 'script:', ' scheme (must reject)'].join('');
+const SCRIPT_SCHEME_LABEL = ['java', 'script:', ' scheme (must reject)'].join(
+  '',
+);
 const SCRIPT_SCHEME_URL = ['java', 'script:', 'alert(1)'].join('');
 
 const REJECTION_CASES = [
@@ -43,17 +45,17 @@ export default function WebViewOverlayGallery() {
   const [url, setUrl] = useState('https://onekey.so');
   const [title, setTitle] = useState('OneKey');
   const [hideHeader, setHideHeader] = useState(false);
-  const [hideAddressBar, setHideAddressBar] = useState(false);
+  const [showAddressBar, setShowAddressBar] = useState(false);
 
   const onOpen = useCallback(() => {
     openWebView({
       url,
       title: title || undefined,
       hideHeader,
-      hideAddressBar,
+      showAddressBar,
       source: 'in-app',
     });
-  }, [url, title, hideHeader, hideAddressBar]);
+  }, [url, title, hideHeader, showAddressBar]);
 
   return (
     <Page>
@@ -79,9 +81,9 @@ export default function WebViewOverlayGallery() {
             label="Hide header"
           />
           <Checkbox
-            value={hideAddressBar}
-            onChange={(v) => setHideAddressBar(Boolean(v))}
-            label="Hide address bar"
+            value={showAddressBar}
+            onChange={(v) => setShowAddressBar(Boolean(v))}
+            label="Show address bar"
           />
         </XStack>
 

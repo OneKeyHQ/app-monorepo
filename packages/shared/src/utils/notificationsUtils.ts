@@ -485,7 +485,8 @@ export const buildWebViewNotificationPayload = (params: {
   url: string;
   title?: string;
   hideHeader?: boolean;
-  hideAddressBar?: boolean;
+  /** Address bar is hidden by default — opt-in by passing `true`. */
+  showAddressBar?: boolean;
 }) => ({
   screen: ERootRoutes.WebView,
   params: {

@@ -225,7 +225,8 @@ function WebViewPageContent() {
     [setWebViewRef],
   );
 
-  const showAddressBar = !params.hideAddressBar;
+  // Address bar is hidden by default — opt-in via params.showAddressBar.
+  const showAddressBar = params.showAddressBar === true;
 
   const headerNode = useMemo(
     () => (
