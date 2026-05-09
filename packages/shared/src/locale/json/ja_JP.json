@@ -611,6 +611,7 @@
   "defi.safe_max": "安全な最大値",
   "defi.select_an_asset_to_borrow": "借りる資産を選択する",
   "defi.select_an_asset_to_supply": "供給する資産を選択してください",
+  "defi.select_protocol": "プロトコルを選択",
   "defi.sell_early": "早期売却",
   "defi.show_assets_with_0_balance": "残高 0 の資産を表示",
   "defi.show_underlying_apy": "原APYを表示",

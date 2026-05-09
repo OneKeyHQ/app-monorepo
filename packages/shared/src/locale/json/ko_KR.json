@@ -611,6 +611,7 @@
   "defi.safe_max": "안전 최대",
   "defi.select_an_asset_to_borrow": "빌릴 자산을 선택하세요",
   "defi.select_an_asset_to_supply": "공급할 자산을 선택하십시오",
+  "defi.select_protocol": "프로토콜 선택",
   "defi.sell_early": "조기 판매",
   "defi.show_assets_with_0_balance": "잔고 0 인 자산 표시",
   "defi.show_underlying_apy": "기본 APY 표시",

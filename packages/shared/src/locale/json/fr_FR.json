@@ -611,6 +611,7 @@
   "defi.safe_max": "Maximum sécurisé",
   "defi.select_an_asset_to_borrow": "Choisissez un actif à emprunter",
   "defi.select_an_asset_to_supply": "Sélectionnez un actif à fournir",
+  "defi.select_protocol": "Sélectionner le protocole",
   "defi.sell_early": "Vendre tôt",
   "defi.show_assets_with_0_balance": "Afficher les actifs avec 0 solde",
   "defi.show_underlying_apy": "Afficher l'APY sous-jacent",

@@ -611,6 +611,7 @@
   "defi.safe_max": "Massimo Sicuro",
   "defi.select_an_asset_to_borrow": "Seleziona un bene da prendere in prestito",
   "defi.select_an_asset_to_supply": "Seleziona un asset da fornire",
+  "defi.select_protocol": "Seleziona protocollo",
   "defi.sell_early": "Vendi in Anticipo",
   "defi.show_assets_with_0_balance": "Mostra Asset con Saldo 0",
   "defi.show_underlying_apy": "Mostra APY Sottostante",

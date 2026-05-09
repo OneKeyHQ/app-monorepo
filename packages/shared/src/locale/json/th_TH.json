@@ -611,6 +611,7 @@
   "defi.safe_max": "ปลอดภัยสูงสุด",
   "defi.select_an_asset_to_borrow": "เลือกสินทรัพย์ที่จะกู้ยืม",
   "defi.select_an_asset_to_supply": "เลือกสินทรัพย์ที่จะจัดหา",
+  "defi.select_protocol": "เลือกโปรโตคอล",
   "defi.sell_early": "ขายล่วงหน้า",
   "defi.show_assets_with_0_balance": "แสดงสินทรัพย์ที่มียอดคงเหลือ 0",
   "defi.show_underlying_apy": "แสดง APY พื้นฐาน",

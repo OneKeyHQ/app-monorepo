@@ -616,6 +616,7 @@ export enum ETranslations {
   defi_safe_max = 'defi.safe_max',
   defi_select_an_asset_to_borrow = 'defi.select_an_asset_to_borrow',
   defi_select_an_asset_to_supply = 'defi.select_an_asset_to_supply',
+  defi_select_protocol = 'defi.select_protocol',
   defi_sell_early = 'defi.sell_early',
   defi_show_assets_with_0_balance = 'defi.show_assets_with_0_balance',
   defi_show_underlying_apy = 'defi.show_underlying_apy',

@@ -611,6 +611,7 @@
   "defi.safe_max": "安全上限",
   "defi.select_an_asset_to_borrow": "選擇要借的資產",
   "defi.select_an_asset_to_supply": "選擇要存入的資產",
+  "defi.select_protocol": "選擇協議",
   "defi.sell_early": "提前出售",
   "defi.show_assets_with_0_balance": "顯示餘額為 0 的資產",
   "defi.show_underlying_apy": "顯示底層 APY",
