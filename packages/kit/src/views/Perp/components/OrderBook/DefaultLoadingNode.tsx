@@ -9,12 +9,20 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getOrderBookSizeDisplaySymbol } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import type { IOrderBookVariant } from './types';
 
-const MOBILE_ROW_HEIGHT = 12;
+const MOBILE_SKELETON_ROW_HEIGHT = 12;
+const MOBILE_VERTICAL_ROW_HEIGHT = 20;
+const MOBILE_VERTICAL_SPREAD_ROW_HEIGHT = 60;
+const MOBILE_VERTICAL_EMPTY_ROW_COUNT = 7;
+const MOBILE_VERTICAL_EMPTY_ROW_INDEXES = Array.from(
+  { length: MOBILE_VERTICAL_EMPTY_ROW_COUNT },
+  (_, index) => index,
+);
 const WEB_ORDER_BOOK_HEADER_SIDE_PADDING = 8;
 
 const MOBILE_HORIZONTAL_WIDTHS = [
@@ -31,11 +39,46 @@ const MOBILE_HORIZONTAL_WIDTHS = [
   '100%',
 ];
 
+function MobileVerticalEmptyRow({
+  priceColor,
+}: {
+  priceColor: '$red11' | '$green11';
+}) {
+  return (
+    <XStack
+      h={MOBILE_VERTICAL_ROW_HEIGHT}
+      px="$1"
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <SizableText
+        fontSize={11}
+        lineHeight={14}
+        fontFamily="$monoRegular"
+        fontVariant={['tabular-nums']}
+        color={priceColor}
+      >
+        --
+      </SizableText>
+      <SizableText
+        fontSize={11}
+        lineHeight={14}
+        fontFamily="$monoRegular"
+        fontVariant={['tabular-nums']}
+        color="$textSubdued"
+      >
+        --
+      </SizableText>
+    </XStack>
+  );
+}
+
 export type IDefaultLoadingNodeProps = {
   variant: IOrderBookVariant;
   symbol?: string;
   isSpot?: boolean;
   spotUniverse?: Pick<ISpotUniverse, 'baseName'> | null;
+  markPrice?: string;
 };
 
 export function DefaultLoadingNode({
@@ -43,6 +86,7 @@ export function DefaultLoadingNode({
   symbol,
   isSpot = false,
   spotUniverse,
+  markPrice,
 }: IDefaultLoadingNodeProps) {
   const intl = useIntl();
   const sizeDisplaySymbol =
@@ -51,6 +95,11 @@ export function DefaultLoadingNode({
       isSpot,
       spotUniverse,
     }) || '—';
+  const markPriceNumber = Number.parseFloat(markPrice ?? '');
+  const markPriceDisplay =
+    Number.isFinite(markPriceNumber) && markPriceNumber > 0
+      ? formatLocalizedNumberString(markPrice ?? '')
+      : '--';
 
   if (variant === 'mobileHorizontal') {
     return (
@@ -76,7 +125,7 @@ export function DefaultLoadingNode({
                 {widths.map((width, index) => (
                   <Stack
                     key={`${columnIdx}-${index}`}
-                    h={MOBILE_ROW_HEIGHT}
+                    h={MOBILE_SKELETON_ROW_HEIGHT}
                     overflow="hidden"
                     w={width}
                   >
@@ -127,19 +176,32 @@ export function DefaultLoadingNode({
           </YStack>
         </XStack>
 
-        <YStack gap="$1.5" flex={1}>
-          <XStack w="100%" h={MOBILE_ROW_HEIGHT}>
-            <Skeleton w="100%" h="100%" radius="round" />
-          </XStack>
-          <XStack w="80%" h={MOBILE_ROW_HEIGHT}>
-            <Skeleton w="100%" h="100%" radius="round" />
-          </XStack>
-          <XStack w="60%" h={MOBILE_ROW_HEIGHT}>
-            <Skeleton w="100%" h="100%" radius="round" />
-          </XStack>
-          <XStack w="40%" h={MOBILE_ROW_HEIGHT}>
-            <Skeleton w="100%" h="100%" radius="round" />
-          </XStack>
+        <YStack flex={1}>
+          {MOBILE_VERTICAL_EMPTY_ROW_INDEXES.map((index) => (
+            <MobileVerticalEmptyRow key={`ask-${index}`} priceColor="$red11" />
+          ))}
+          <YStack
+            h={MOBILE_VERTICAL_SPREAD_ROW_HEIGHT}
+            py="$1.5"
+            justifyContent="center"
+          >
+            <SizableText
+              fontSize={20}
+              lineHeight={24}
+              fontWeight="600"
+              fontFamily="$monoRegular"
+              fontVariant={['tabular-nums']}
+              color="$red11"
+            >
+              {markPriceDisplay}
+            </SizableText>
+          </YStack>
+          {MOBILE_VERTICAL_EMPTY_ROW_INDEXES.map((index) => (
+            <MobileVerticalEmptyRow
+              key={`bid-${index}`}
+              priceColor="$green11"
+            />
+          ))}
         </YStack>
       </YStack>
     );

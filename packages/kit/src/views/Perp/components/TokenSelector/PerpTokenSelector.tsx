@@ -975,19 +975,19 @@ function BasePerpTokenSelectorContent({
     [getRowDesktopLayout, handleSelectToken],
   );
 
-  const showFavoritesEmpty =
-    isPerpTokenSelectorFavoritesTab(displayPrimaryTab) &&
-    activeTabData.length === 0 &&
-    !searchQuery &&
-    isFavoritesReady;
-  const isFavoritesLoading =
-    isPerpTokenSelectorFavoritesTab(displayPrimaryTab) &&
-    !searchQuery &&
-    !isFavoritesReady;
   const hasPerpTokenDataLoaded = useMemo(
-    () => assetsByDex?.some((assets) => assets?.length > 0),
+    () => Boolean(assetsByDex?.some((assets) => assets?.length > 0)),
     [assetsByDex],
   );
+  const isFavoritesTab = isPerpTokenSelectorFavoritesTab(displayPrimaryTab);
+  const showFavoritesEmpty =
+    isFavoritesTab &&
+    !searchQuery &&
+    isFavoritesReady &&
+    hasPerpTokenDataLoaded &&
+    favoriteItems.length === 0;
+  const isFavoritesLoading =
+    isFavoritesTab && !searchQuery && !isFavoritesReady;
 
   const listEmptyComponent = useMemo(() => {
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab) && spotLoading) {

@@ -1478,6 +1478,56 @@ const MOBILE_ROW_HEIGHT = 20;
 const MOBILE_SPREAD_ROW_HEIGHT = 60;
 const MOBILE_PRICE_FLEX = 0.5;
 const MOBILE_SIZE_FLEX = 0.5;
+
+const MobileEmptyRow = ({
+  priceColor,
+  sizeColor,
+}: {
+  priceColor: string;
+  sizeColor: string;
+}) => (
+  <DebugRenderTracker name="OrderBookMobileEmptyRow" position="right-center">
+    <View
+      style={{
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: MOBILE_ROW_HEIGHT,
+        paddingHorizontal: 4,
+      }}
+    >
+      <View style={{ flex: MOBILE_PRICE_FLEX }}>
+        <PerpBookText
+          style={[
+            styles.monospaceText,
+            {
+              color: priceColor,
+              fontSize: 11,
+              lineHeight: 14,
+            },
+          ]}
+        >
+          --
+        </PerpBookText>
+      </View>
+      <View style={{ flex: MOBILE_SIZE_FLEX, alignItems: 'flex-end' }}>
+        <PerpBookText
+          style={[
+            styles.monospaceText,
+            {
+              color: sizeColor,
+              fontSize: 11,
+              lineHeight: 14,
+            },
+          ]}
+        >
+          --
+        </PerpBookText>
+      </View>
+    </View>
+  </DebugRenderTracker>
+);
+
 const MobileRow = ({
   item,
   priceFontSize,
@@ -1571,8 +1621,15 @@ export function OrderBookMobile({
     markPrice: '0',
     oraclePrice: '0',
   };
-  const localizedMarkPrice = formatLocalizedNumberString(markPrice);
-  const referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
+  const markPriceNumber = Number.parseFloat(markPrice);
+  const hasMarkPrice = Number.isFinite(markPriceNumber) && markPriceNumber > 0;
+  const localizedMarkPrice = hasMarkPrice
+    ? formatLocalizedNumberString(markPrice)
+    : '--';
+  let referencePriceDisplay = '--';
+  if (hasMarkPrice) {
+    referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
+  }
   const aggregatedData = useAggregatedBook(
     variant,
     bids,
@@ -1582,6 +1639,11 @@ export function OrderBookMobile({
     priceDecimals,
     sizeDecimals,
   );
+  const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
+  const emptyRowIndexes = useMemo(
+    () => Array.from({ length: maxLevelsPerSide }, (_, index) => index),
+    [maxLevelsPerSide],
+  );
 
   const bidDepth = useMemo(() => {
     return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
@@ -1590,10 +1652,12 @@ export function OrderBookMobile({
     return new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
   }, [aggregatedData.asks]);
 
-  const midPrice = getMidPrice(
-    parseFloat(bids[0]?.px ?? '0'),
-    parseFloat(asks[0]?.px ?? '0'),
-  );
+  const midPrice = isEmpty
+    ? localizedMarkPrice
+    : getMidPrice(
+        parseFloat(bids[0]?.px ?? '0'),
+        parseFloat(asks[0]?.px ?? '0'),
+      );
 
   const priceFontSize = useMemo(() => {
     if (!asks.length) {
@@ -1709,19 +1773,26 @@ export function OrderBookMobile({
       <View style={styles.relativeContainer}>
         {/* background depth bars */}
         <View style={styles.relativeContainer}>
-          {aggregatedData.asks.toReversed().map((itemData, index) => (
-            <View
-              key={index}
-              style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
-            >
-              <ColorBlock
-                color={blockColors.red}
-                left={0}
-                height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
-                width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
-              />
-            </View>
-          ))}
+          {isEmpty
+            ? emptyRowIndexes.map((index) => (
+                <View
+                  key={`ask-empty-bg-${index}`}
+                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+                />
+              ))
+            : aggregatedData.asks.toReversed().map((itemData, index) => (
+                <View
+                  key={index}
+                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+                >
+                  <ColorBlock
+                    color={blockColors.red}
+                    left={0}
+                    height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
+                    width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
+                  />
+                </View>
+              ))}
           <View
             style={{
               flexDirection: 'row',
@@ -1731,55 +1802,70 @@ export function OrderBookMobile({
               justifyContent: 'center',
             }}
           />
-          {aggregatedData.bids.map((itemData, index) => (
-            <View
-              key={index}
-              style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
-            >
-              <ColorBlock
-                color={blockColors.green}
-                left={0}
-                height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
-                width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
-              />
-            </View>
-          ))}
+          {isEmpty
+            ? emptyRowIndexes.map((index) => (
+                <View
+                  key={`bid-empty-bg-${index}`}
+                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+                />
+              ))
+            : aggregatedData.bids.map((itemData, index) => (
+                <View
+                  key={index}
+                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+                >
+                  <ColorBlock
+                    color={blockColors.green}
+                    left={0}
+                    height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
+                    width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
+                  />
+                </View>
+              ))}
         </View>
 
         {/* foreground texts */}
         <View style={styles.absoluteContainer}>
-          {aggregatedData.asks.toReversed().map((itemData, index) => {
-            const originalIndex = aggregatedData.asks.length - 1 - index;
-            return (
-              <Pressable
-                key={index}
-                disabled={!isInteractive}
-                onPress={() =>
-                  handleSelectLevel('ask', itemData, originalIndex)
-                }
-                style={() => [
-                  {
-                    height: MOBILE_ROW_HEIGHT,
-                    justifyContent: 'center',
-                    paddingHorizontal: 4,
-                  },
-                  isInteractive && !platformEnv.isNative
-                    ? styles.pointer
-                    : null,
-                ]}
-              >
-                {(state) => (
-                  <MobileRow
-                    priceFontSize={priceFontSize}
-                    item={itemData}
-                    priceColor={textColor.red}
-                    sizeColor={textColor.textSubdued}
-                    isHovered={getPressableHoverState(state)}
-                  />
-                )}
-              </Pressable>
-            );
-          })}
+          {isEmpty
+            ? emptyRowIndexes.map((index) => (
+                <MobileEmptyRow
+                  key={`ask-empty-${index}`}
+                  priceColor={textColor.red}
+                  sizeColor={textColor.textSubdued}
+                />
+              ))
+            : aggregatedData.asks.toReversed().map((itemData, index) => {
+                const originalIndex = aggregatedData.asks.length - 1 - index;
+                return (
+                  <Pressable
+                    key={index}
+                    disabled={!isInteractive}
+                    onPress={() =>
+                      handleSelectLevel('ask', itemData, originalIndex)
+                    }
+                    style={() => [
+                      {
+                        height: MOBILE_ROW_HEIGHT,
+                        justifyContent: 'center',
+                        paddingHorizontal: 4,
+                      },
+                      isInteractive && !platformEnv.isNative
+                        ? styles.pointer
+                        : null,
+                    ]}
+                  >
+                    {(state) => (
+                      <MobileRow
+                        priceFontSize={priceFontSize}
+                        item={itemData}
+                        priceColor={textColor.red}
+                        sizeColor={textColor.textSubdued}
+                        isHovered={getPressableHoverState(state)}
+                      />
+                    )}
+                  </Pressable>
+                );
+              })}
           <DebugRenderTracker
             name="OrderBookMobileSpreadRow"
             position="right-center"
@@ -1876,31 +1962,41 @@ export function OrderBookMobile({
               />
             </View>
           </DebugRenderTracker>
-          {aggregatedData.bids.map((itemData, index) => (
-            <Pressable
-              key={index}
-              disabled={!isInteractive}
-              onPress={() => handleSelectLevel('bid', itemData, index)}
-              style={() => [
-                {
-                  height: MOBILE_ROW_HEIGHT,
-                  justifyContent: 'center',
-                  paddingHorizontal: 4,
-                },
-                isInteractive && !platformEnv.isNative ? styles.pointer : null,
-              ]}
-            >
-              {(state) => (
-                <MobileRow
-                  item={itemData}
-                  priceFontSize={priceFontSize}
+          {isEmpty
+            ? emptyRowIndexes.map((index) => (
+                <MobileEmptyRow
+                  key={`bid-empty-${index}`}
                   priceColor={textColor.green}
                   sizeColor={textColor.textSubdued}
-                  isHovered={getPressableHoverState(state)}
                 />
-              )}
-            </Pressable>
-          ))}
+              ))
+            : aggregatedData.bids.map((itemData, index) => (
+                <Pressable
+                  key={index}
+                  disabled={!isInteractive}
+                  onPress={() => handleSelectLevel('bid', itemData, index)}
+                  style={() => [
+                    {
+                      height: MOBILE_ROW_HEIGHT,
+                      justifyContent: 'center',
+                      paddingHorizontal: 4,
+                    },
+                    isInteractive && !platformEnv.isNative
+                      ? styles.pointer
+                      : null,
+                  ]}
+                >
+                  {(state) => (
+                    <MobileRow
+                      item={itemData}
+                      priceFontSize={priceFontSize}
+                      priceColor={textColor.green}
+                      sizeColor={textColor.textSubdued}
+                      isHovered={getPressableHoverState(state)}
+                    />
+                  )}
+                </Pressable>
+              ))}
         </View>
       </View>
       <OrderBookSideRatio

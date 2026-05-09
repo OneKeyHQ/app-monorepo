@@ -24,6 +24,7 @@ import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsActiveAssetCtxAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
+  useSpotActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -330,6 +331,8 @@ export function PerpOrderBook({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
 
@@ -464,6 +467,8 @@ export function PerpOrderBook({
       loadingVariant =
         entry === 'perpMobileMarket' ? 'mobileHorizontal' : 'mobileVertical';
     }
+    const currentCtx =
+      activeTradeInstrument.mode === 'spot' ? spotAssetCtx?.ctx : assetCtx?.ctx;
     return (
       <YStack flex={1} justifyContent="center" alignItems="center">
         <DefaultLoadingNode
@@ -479,6 +484,7 @@ export function PerpOrderBook({
               ? activeTradeInstrument.universe
               : undefined
           }
+          markPrice={currentCtx?.markPrice}
         />
       </YStack>
     );
