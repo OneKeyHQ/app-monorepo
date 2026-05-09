@@ -1513,12 +1513,26 @@ class ServicePrimeTransfer extends ServiceBase {
     transferData = cloneDeep(transferData);
     this.checkWebSocketConnected();
 
+    // OK-53601: Bot Wallets are export-only to OneKey CLI via the dedicated
+    // single-wallet path below. Reject any other delivery whose payload
+    // includes a Bot Wallet — even if a caller bypassed the UI guard.
+    // Pairs with filterTransferWallets, which keeps Bot Wallets out of the
+    // default "transfer all" payload.
+    const shouldSendCliBotWalletEncryptedCredential =
+      shouldUseCliBotWalletEncryptedCredential({
+        transferData,
+        allowCliImportableCredentials,
+      });
+    const includesBotWallet = Object.keys(
+      transferData.privateData?.wallets ?? {},
+    ).some((id) => accountUtils.isBotWallet({ walletId: id }));
+    if (includesBotWallet && !shouldSendCliBotWalletEncryptedCredential) {
+      throw new OneKeyLocalError(
+        'Bot Wallet can only be transferred to OneKey CLI',
+      );
+    }
+
     if (!transferData.isWatchingOnly) {
-      const shouldSendCliBotWalletEncryptedCredential =
-        shouldUseCliBotWalletEncryptedCredential({
-          transferData,
-          allowCliImportableCredentials,
-        });
       const { password } =
         await this.backgroundApi.servicePassword.promptPasswordVerify({
           reason: EReasonForNeedPassword.Security,
