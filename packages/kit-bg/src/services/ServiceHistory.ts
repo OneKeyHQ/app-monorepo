@@ -175,15 +175,13 @@ class ServiceHistory extends ServiceBase {
       filterLowValue,
     });
 
-    const networkLogoURIs = await Promise.all(
-      filtered.map((tx) =>
-        this.backgroundApi.serviceNetwork
-          .getNetwork({ networkId: tx.decodedTx.networkId })
-          .then((n: { logoURI?: string }) => n.logoURI),
-      ),
-    );
-    for (let i = 0; i < filtered.length; i += 1) {
-      filtered[i].decodedTx.networkLogoURI = networkLogoURIs[i];
+    // Load-more is single-network (the AllNetworks branch never reaches here),
+    // so resolve the logo once and stamp every tx instead of per-tx fetching.
+    const logoNetwork = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    for (const tx of filtered) {
+      tx.decodedTx.networkLogoURI = logoNetwork.logoURI;
     }
 
     return {

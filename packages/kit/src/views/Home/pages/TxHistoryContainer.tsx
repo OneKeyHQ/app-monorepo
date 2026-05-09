@@ -286,6 +286,12 @@ function TxHistoryListContainer(
             }
           });
 
+          // Bail before any state writes if a newer fetch superseded this one;
+          // otherwise the stale body would clobber the new account/network's
+          // hasMore / addresses state and leave the UI inconsistent.
+          if (!isCurrentDispatch()) {
+            return;
+          }
           r.txs = r.txs
             .toSorted(
               (b, a) =>
@@ -309,6 +315,12 @@ function TxHistoryListContainer(
             currencyMap,
             limit,
           });
+          // Same reason as above: must check before writing pagination state,
+          // otherwise the new identity's load-more hook gets seeded with the
+          // previous identity's `next`/`hasMore`.
+          if (!isCurrentDispatch()) {
+            return;
+          }
           setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
           updateAddressesInfo({
             data: r.addressMap ?? {},
@@ -317,13 +329,6 @@ function TxHistoryListContainer(
             next: r.next,
             hasMore: r.hasMoreOnChainHistory,
           });
-        }
-
-        // Skip every state write past this point if a newer fetch already
-        // took over — otherwise this stale body would clobber the new
-        // account/network's data and leave the UI on stale or empty state.
-        if (!isCurrentDispatch()) {
-          return;
         }
 
         updateAllNetworksState({

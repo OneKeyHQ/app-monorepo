@@ -471,6 +471,7 @@ export function List<Item>({
   }, [updateMeasuredContentHeight]);
 
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
     if (keyExtractor) {
       // With keyExtractor, the cache is stable (not recreated on data changes).
       // Only recompute row positions for new rows without clearing measured heights.
@@ -483,13 +484,14 @@ export function List<Item>({
           (listRef.current as any)?.recomputeRowHeights();
         }
       }
-      scheduleListContainerHeightUpdate();
-      return;
+      cleanup = scheduleListContainerHeightUpdate();
+      return cleanup;
     }
     if (data?.length || sections?.length || numColumns || width || extraData) {
       recompute({ numColumns, width });
-      scheduleListContainerHeightUpdate();
+      cleanup = scheduleListContainerHeightUpdate();
     }
+    return cleanup;
   }, [
     data?.length,
     sections?.length,
@@ -624,9 +626,7 @@ export function List<Item>({
   const resolvedContentContainerStyle = useMemo<CSSProperties | undefined>(
     () =>
       contentHeight
-        ? Object.assign({}, baseContentContainerStyle, {
-            minHeight: contentHeight,
-          })
+        ? { ...baseContentContainerStyle, minHeight: contentHeight }
         : baseContentContainerStyle,
     [baseContentContainerStyle, contentHeight],
   );

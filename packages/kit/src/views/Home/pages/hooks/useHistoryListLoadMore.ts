@@ -64,6 +64,9 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   // Bumped on every reset so an in-flight response from a prior identity
   // can detect it has been superseded and skip its state writes.
   const generationRef = useRef(0);
+  // Mirror of appendedTxs ids so loadMore can detect "no progress" responses
+  // (duplicate-emit / chain reorg) without taking a stale state closure.
+  const appendedIdsRef = useRef<Set<string>>(new Set());
 
   const reset = useCallback(() => {
     initializedRef.current = false;
@@ -72,6 +75,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     loadCountRef.current = 0;
     pendingLoadMoreRef.current = false;
     generationRef.current += 1;
+    appendedIdsRef.current = new Set();
     setAppendedTxs([]);
     setHasMore(false);
     setIsLoadingMore(false);
@@ -141,20 +145,40 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       // newly-mounted state.
       if (generation !== generationRef.current) return;
       pageRef.current = nextPage;
-      cursorRef.current = normalizeCursor(r.next);
+      const previousCursor = cursor;
+      const nextCursor = normalizeCursor(r.next);
+      cursorRef.current = nextCursor;
       loadCountRef.current += 1;
-      // Belt-and-suspenders: empty result also means "no more", protects
-      // against backend bugs where hasMore stays stuck on true.
-      const gotItems = !!r.txs?.length;
-      setHasMore(!!r.hasMoreOnChainHistory && gotItems);
-      if (gotItems) {
-        setAppendedTxs((prev) => {
-          const merged = unionBy([...prev, ...r.txs], (tx) => tx.id);
-          // Pages can return only duplicates (e.g. backend re-emits seen rows
-          // at chain reorgs). Returning the same reference avoids invalidating
-          // downstream `combinedHistoryData` memos and the resulting re-renders.
-          return merged.length === prev.length ? prev : merged;
-        });
+      const incomingTxs = r.txs ?? [];
+      const newRows = incomingTxs.filter(
+        (tx) => !appendedIdsRef.current.has(tx.id),
+      );
+      // Stop conditions (any one of these terminates pagination):
+      //   - backend says no more
+      //   - response was empty
+      //   - no fresh ids merged in (duplicate-emit / reorg)
+      //   - cursor didn't advance: missing, equal, or — for indexer chains
+      //     where `next` is a millisecond timestamp — non-decreasing. Without
+      //     this guard a misbehaving backend can wedge the client into an
+      //     infinite onEndReached → loadMore loop on web/desktop (native is
+      //     bounded by NATIVE_LOAD_MORE_HARD_LIMIT but still wasteful).
+      const cursorAdvanced = (() => {
+        if (!nextCursor) return false;
+        if (!previousCursor) return true;
+        if (nextCursor === previousCursor) return false;
+        const a = Number(previousCursor);
+        const b = Number(nextCursor);
+        if (Number.isFinite(a) && Number.isFinite(b)) return b < a;
+        return true;
+      })();
+      const gotItems = incomingTxs.length > 0;
+      const addedNewRows = newRows.length > 0;
+      setHasMore(
+        !!r.hasMoreOnChainHistory && gotItems && addedNewRows && cursorAdvanced,
+      );
+      if (addedNewRows) {
+        for (const tx of newRows) appendedIdsRef.current.add(tx.id);
+        setAppendedTxs((prev) => unionBy([...prev, ...newRows], (tx) => tx.id));
       }
     } catch (error) {
       console.error('History loadMore failed:', error);
