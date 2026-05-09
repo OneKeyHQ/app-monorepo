@@ -10,9 +10,13 @@ describe('isAllowedWebViewUrl', () => {
       ['https://onekey.so/'],
       ['HTTPS://Onekey.SO'],
       ['https://onekey.so/promo?utm_source=campaign'],
-      ['https://example.com:8443/path'],
+      ['https://example.com:443/explicit-default-port'],
       ['https://sub.domain.example.com/'],
       ['https://example.com/#fragment'],
+      ['https://example.com/file.exe.html'], // extension not at end
+      ['https://example.com/installer/notes.html'],
+      ['https://example.com/article.pdf'], // documents render inline
+      ['https://example.com/video.mp4'], // media renders inline
     ])('%s', (url) => {
       expect(isAllowedWebViewUrl(url)).toBe(true);
     });
@@ -114,6 +118,48 @@ describe('isAllowedWebViewUrl', () => {
     });
   });
 
+  describe('rejects custom ports (only 443 allowed)', () => {
+    it.each([
+      ['https://example.com:80/'],
+      ['https://example.com:8080/'],
+      ['https://example.com:8443/'],
+      ['https://example.com:9000/'],
+      ['https://example.com:1/'],
+      ['https://example.com:65535/'],
+    ])('%s', (url) => {
+      expect(isAllowedWebViewUrl(url)).toBe(false);
+    });
+  });
+
+  describe('rejects direct-download URLs', () => {
+    it.each([
+      ['https://example.com/installer.zip'],
+      ['https://example.com/path/to/payload.zip'],
+      ['https://example.com/download/file.zip?token=abc'],
+      ['https://example.com/Setup.exe'],
+      ['https://example.com/SETUP.EXE'], // case-insensitive
+      ['https://example.com/installer.msi'],
+      ['https://example.com/app.dmg'],
+      ['https://example.com/app.pkg'],
+      ['https://example.com/release.apk'],
+      ['https://example.com/release.ipa'],
+      ['https://example.com/package.deb'],
+      ['https://example.com/package.rpm'],
+      ['https://example.com/disk.iso'],
+      ['https://example.com/firmware.img'],
+      ['https://example.com/firmware.bin'],
+      ['https://example.com/archive.7z'],
+      ['https://example.com/archive.rar'],
+      ['https://example.com/archive.tar'],
+      ['https://example.com/archive.tar.gz'],
+      ['https://example.com/archive.tgz'],
+      ['https://example.com/archive.gz'],
+      ['https://example.com/archive.bz2'],
+    ])('%s', (url) => {
+      expect(isAllowedWebViewUrl(url)).toBe(false);
+    });
+  });
+
   describe('format/length', () => {
     it('rejects empty string', () => {
       expect(isAllowedWebViewUrl('')).toBe(false);
@@ -129,7 +175,9 @@ describe('isAllowedWebViewUrl', () => {
     });
     it('rejects URL longer than 2048 characters', () => {
       const longTail = 'a'.repeat(2050);
-      expect(isAllowedWebViewUrl(`https://example.com/${longTail}`)).toBe(false);
+      expect(isAllowedWebViewUrl(`https://example.com/${longTail}`)).toBe(
+        false,
+      );
     });
     it('accepts URL exactly at the 2048-character boundary', () => {
       const padding = 'a'.repeat(2048 - 'https://x/'.length);

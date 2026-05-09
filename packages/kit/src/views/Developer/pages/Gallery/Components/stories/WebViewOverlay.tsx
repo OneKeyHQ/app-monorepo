@@ -60,6 +60,22 @@ const REJECTION_CASES = [
     url: 'https://[::1]/',
   },
   {
+    label: 'custom port (only 443 allowed)',
+    url: 'https://example.com:8443/',
+  },
+  {
+    label: 'direct download .exe (must reject)',
+    url: 'https://example.com/installer.exe',
+  },
+  {
+    label: 'direct download .apk (must reject)',
+    url: 'https://example.com/release.apk',
+  },
+  {
+    label: 'direct download .zip (must reject)',
+    url: 'https://example.com/archive.zip?token=x',
+  },
+  {
     label: 'empty url (must reject)',
     url: '',
   },

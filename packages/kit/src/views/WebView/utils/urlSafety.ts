@@ -13,6 +13,42 @@ const HTTPS_REGEX = /^https:\/\//i;
 const MAX_URL_LENGTH = 2048;
 const IPV4_REGEX = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
+// Only the default https port (443) is allowed. Custom ports may indicate
+// dev/internal services or SSRF-via-public-host attempts (e.g. an attacker
+// pointing the deeplink at `https://attacker.com:8443/exfil`).
+const ALLOWED_PORTS = new Set(['', '443']);
+
+// Direct-download URL extensions that should never auto-load in this overlay.
+// Limited to binary/archive/installer extensions where there's no legitimate
+// inline-rendering use case. Documents (.pdf/.docx) and media (.mp4/.mp3) are
+// intentionally NOT in this list because mobile webviews render them inline.
+const DOWNLOAD_EXTENSIONS = [
+  '.zip',
+  '.7z',
+  '.rar',
+  '.tar',
+  '.tar.gz',
+  '.tgz',
+  '.gz',
+  '.bz2',
+  '.exe',
+  '.msi',
+  '.dmg',
+  '.pkg',
+  '.apk',
+  '.ipa',
+  '.deb',
+  '.rpm',
+  '.iso',
+  '.img',
+  '.bin',
+];
+
+function isLikelyDownloadPath(pathname: string): boolean {
+  const lower = pathname.toLowerCase();
+  return DOWNLOAD_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
 /**
  * True when `host` is a loopback / private / link-local / multicast / reserved
  * address. Defends against SSRF-style deeplinks pointing at services on the
@@ -77,6 +113,11 @@ function isLocalAddress(host: string): boolean {
  *   5. Host must NOT be a loopback (localhost, 127.x, ::1), private (10/8,
  *      172.16/12, 192.168/16, fc00::/7), link-local (169.254/16, fe80::/10),
  *      multicast, or reserved range.
+ *   6. Only the default https port (443) is allowed.
+ *   7. URL pathname must NOT end in a known direct-download extension
+ *      (`.zip`, `.exe`, `.dmg`, `.apk`, `.ipa`, `.iso`, etc.). Documents and
+ *      media files are still allowed because mobile webviews render them
+ *      inline.
  */
 export function isAllowedWebViewUrl(url: string | undefined | null): boolean {
   if (typeof url !== 'string') return false;
@@ -91,7 +132,9 @@ export function isAllowedWebViewUrl(url: string | undefined | null): boolean {
   }
 
   if (parsed.username || parsed.password) return false;
+  if (!ALLOWED_PORTS.has(parsed.port)) return false;
   if (isLocalAddress(parsed.hostname)) return false;
+  if (isLikelyDownloadPath(parsed.pathname)) return false;
 
   return true;
 }
