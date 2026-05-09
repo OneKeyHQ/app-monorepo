@@ -1,29 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import {
   usePerpsActiveAssetAtom,
   usePerpsLayoutStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpCandles } from '../PerpCandles';
 
 import {
   PERP_MARKET_INFO_TAB_KEYS,
-  PERP_MARKET_TRADING_DATA_TAB_KEYS,
   PerpMarketDetailContent,
 } from './PerpMarketDetailContent';
 
-type IPerpMarketWorkspaceView = 'chart' | 'info' | 'tradingData';
+type IPerpMarketWorkspaceView = 'chart' | 'info';
 
 const WORKSPACE_VIEW_ITEMS: Array<{
   key: IPerpMarketWorkspaceView;
-  label: string;
+  translationId: ETranslations;
 }> = [
-  { key: 'chart', label: '图表' },
-  { key: 'info', label: '信息' },
-  { key: 'tradingData', label: '交易数据' },
+  { key: 'chart', translationId: ETranslations.market_chart },
+  { key: 'info', translationId: ETranslations.global_info },
 ];
 
 function WorkspaceTabButton({
@@ -37,11 +39,13 @@ function WorkspaceTabButton({
 }) {
   return (
     <XStack
-      py="$3"
+      h="100%"
+      alignItems="center"
+      justifyContent="center"
       borderBottomWidth="$0.5"
       borderBottomColor={active ? '$borderActive' : 'transparent'}
       onPress={onPress}
-      cursor="default"
+      cursor="pointer"
     >
       <SizableText
         size="$bodyMdMedium"
@@ -58,6 +62,7 @@ export function PerpMarketWorkspacePanel({
 }: {
   onTouchScroll?: (deltaY: number) => void;
 }) {
+  const intl = useIntl();
   const [activeView, setActiveView] =
     useState<IPerpMarketWorkspaceView>('chart');
   const [activeAsset] = usePerpsActiveAssetAtom();
@@ -79,9 +84,10 @@ export function PerpMarketWorkspacePanel({
   return (
     <YStack flex={1} minHeight={0}>
       <XStack
-        px="$4"
-        gap="$5"
-        alignItems="center"
+        h={PERP_LAYOUT_CONFIG.desktop.panelHeaderHeight}
+        px="$5"
+        gap="$6"
+        alignItems="stretch"
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
       >
@@ -89,7 +95,7 @@ export function PerpMarketWorkspacePanel({
           <WorkspaceTabButton
             key={item.key}
             active={activeView === item.key}
-            label={item.label}
+            label={intl.formatMessage({ id: item.translationId })}
             onPress={() => setActiveView(item.key)}
           />
         ))}
@@ -100,27 +106,22 @@ export function PerpMarketWorkspacePanel({
           <PerpCandles onTouchScroll={onTouchScroll} />
         ) : null}
 
-        {activeView === 'info' ? (
+        <YStack
+          flex={1}
+          minHeight={0}
+          display={activeView === 'info' ? 'flex' : 'none'}
+        >
           <PerpMarketDetailContent
             key={`info-${assetCoin || 'unknown'}`}
             coin={assetCoin}
             displayName={displayName}
             tabKeys={PERP_MARKET_INFO_TAB_KEYS}
             initialTab="overview"
+            paddingX="$5"
+            paddingTop="$5"
             combineInfoData
           />
-        ) : null}
-
-        {activeView === 'tradingData' ? (
-          <PerpMarketDetailContent
-            key={`trading-${assetCoin || 'unknown'}`}
-            coin={assetCoin}
-            displayName={displayName}
-            tabKeys={PERP_MARKET_TRADING_DATA_TAB_KEYS}
-            initialTab="trades"
-            combineTradingData
-          />
-        ) : null}
+        </YStack>
       </YStack>
     </YStack>
   );
