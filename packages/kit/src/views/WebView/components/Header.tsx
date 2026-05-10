@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Page, XStack } from '@onekeyhq/components';
 
 import MoreMenu from './MoreMenu';
 
@@ -43,7 +43,15 @@ function WebViewHeader({
   }, [fallbackTitle, title, url]);
 
   const renderHeaderRight = useCallback(
-    () => <MoreMenu url={url} title={resolvedTitle} onReload={onReload} />,
+    () => (
+      // The desktop header is a drag region (app-region: drag) so the user can
+      // drag the window from anywhere on the bar. The MoreMenu trigger needs
+      // an explicit no-drag wrapper so clicks reach the button instead of
+      // initiating a window drag.
+      <XStack className="app-region-no-drag">
+        <MoreMenu url={url} title={resolvedTitle} onReload={onReload} />
+      </XStack>
+    ),
     [onReload, resolvedTitle, url],
   );
 
