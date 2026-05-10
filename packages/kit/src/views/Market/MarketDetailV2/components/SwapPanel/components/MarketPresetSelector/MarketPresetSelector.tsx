@@ -90,7 +90,7 @@ function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
     return ETranslations.content__custom;
   }
 
-  return ETranslations.global_market;
+  return ETranslations.transaction_normal;
 }
 
 function getMarketPresetLabel({
