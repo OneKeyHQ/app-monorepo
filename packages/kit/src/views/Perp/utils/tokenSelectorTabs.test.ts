@@ -10,6 +10,7 @@ import {
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSpotTab,
+  shouldRefreshPerpTokenSelectorSortSnapshot,
   sortPerpTokenSelectorItemsBySortValue,
 } from './tokenSelectorTabs';
 
@@ -206,5 +207,33 @@ describe('tokenSelectorTabs', () => {
       }).map((item) => item.id),
     ).toEqual(['spot-btc', 'spot-eth', 'perp-btc']);
     expect(getValue).toHaveBeenCalledTimes(items.length);
+  });
+  it('only refreshes sort snapshots on sort changes or first data arrival', () => {
+    expect(
+      shouldRefreshPerpTokenSelectorSortSnapshot({
+        lastSort: { field: 'change24hPercent', direction: 'desc' },
+        field: 'change24hPercent',
+        direction: 'desc',
+        snapshotEmpty: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldRefreshPerpTokenSelectorSortSnapshot({
+        lastSort: { field: 'change24hPercent', direction: 'desc' },
+        field: 'change24hPercent',
+        direction: 'asc',
+        snapshotEmpty: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldRefreshPerpTokenSelectorSortSnapshot({
+        lastSort: { field: 'change24hPercent', direction: 'desc' },
+        field: 'change24hPercent',
+        direction: 'desc',
+        snapshotEmpty: true,
+      }),
+    ).toBe(true);
   });
 });

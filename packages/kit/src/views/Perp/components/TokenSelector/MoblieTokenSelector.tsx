@@ -37,6 +37,7 @@ import {
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
+  type ISpotAssetCtxsMap,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   useSpotAssetCtxsMapAtom,
@@ -89,6 +90,7 @@ import {
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorSpotTab,
+  shouldRefreshPerpTokenSelectorSortSnapshot,
 } from '../../utils/tokenSelectorTabs';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
@@ -197,7 +199,7 @@ function MobileTokenSelectorModal({
 
   // Spot data — try cache first, fallback to refresh if empty
   const [spotPriceMap] = useSpotAssetCtxsMapAtom();
-  const spotPriceMapRef = useRef(spotPriceMap);
+  const spotPriceMapRef = useRef<ISpotAssetCtxsMap>(spotPriceMap);
   spotPriceMapRef.current = spotPriceMap;
   const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);
   const [spotLoading, setSpotLoading] = useState(true);
@@ -352,17 +354,22 @@ function MobileTokenSelectorModal({
     const field = selectorConfig?.field;
     const direction = selectorConfig?.direction;
     const last = lastSortRef.current;
-    const sortChanged = last?.field !== field || last?.direction !== direction;
     // Also refresh when snapshot is empty (first WS data arrival after mount)
     const snapshotEmpty = !ctxSnapshotRef.current?.some(
       (arr) => arr?.length > 0,
     );
-    if (!sortChanged && !snapshotEmpty) {
+    const shouldRefresh = shouldRefreshPerpTokenSelectorSortSnapshot({
+      lastSort: last,
+      field,
+      direction,
+      snapshotEmpty,
+    });
+    if (!shouldRefresh) {
       return;
     }
     lastSortRef.current = { field, direction };
     ctxSnapshotRef.current = assetCtxsByDex;
-    if (sortChanged) {
+    if (last?.field !== field || last?.direction !== direction) {
       scrollListToTop();
     }
   }, [
@@ -370,6 +377,35 @@ function MobileTokenSelectorModal({
     selectorConfig?.field,
     assetCtxsByDex,
     scrollListToTop,
+  ]);
+
+  const [spotPriceSnapshot, setSpotPriceSnapshot] = useState<ISpotAssetCtxsMap>(
+    {},
+  );
+  const spotLastSortRef = useRef<{
+    field?: string;
+    direction?: IPerpTokenSelectorConfig['direction'];
+  } | null>(null);
+  useEffect(() => {
+    const field = selectorConfig?.field;
+    const direction = selectorConfig?.direction;
+    const snapshotEmpty = Object.keys(spotPriceSnapshot).length === 0;
+    const shouldRefresh = shouldRefreshPerpTokenSelectorSortSnapshot({
+      lastSort: spotLastSortRef.current,
+      field,
+      direction,
+      snapshotEmpty,
+    });
+    if (!shouldRefresh) {
+      return;
+    }
+    spotLastSortRef.current = { field, direction };
+    setSpotPriceSnapshot(spotPriceMapRef.current);
+  }, [
+    selectorConfig?.direction,
+    selectorConfig?.field,
+    spotPriceMap,
+    spotPriceSnapshot,
   ]);
 
   // Container-level mark instead of per-row
@@ -549,15 +585,16 @@ function MobileTokenSelectorModal({
     tokenSearchAliases,
   ]);
 
-  // Layer 1b: spot sort — isolated from perp. Reruns only when spot data or
-  // sort config changes. spotPriceMap WS updates never touch the perp list.
+  // Layer 1b: spot sort — isolated from perp. Sorts against a frozen snapshot
+  // so live WS updates refresh row values without reshuffling the list.
   const spotSortedList = useMemo((): ITokenSelectorListItem[] => {
     const perfStartTime = startTokenSelectorPerfMeasure();
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
+    const snapshot = spotPriceSnapshot;
 
     const mappedEntries = spotUniverses.map((u, index) => {
-      const ctx = spotPriceMap[u.name];
+      const ctx = snapshot[u.name];
       const markPrice = Number(ctx?.markPx || 0);
       const prevDayPx = Number(ctx?.prevDayPx || 0);
       const change24hPercent =
@@ -641,7 +678,7 @@ function MobileTokenSelectorModal({
     return result;
   }, [
     spotUniverses,
-    spotPriceMap,
+    spotPriceSnapshot,
     spotMarketCaps,
     tokenSearchAliases,
     selectorConfig?.field,
