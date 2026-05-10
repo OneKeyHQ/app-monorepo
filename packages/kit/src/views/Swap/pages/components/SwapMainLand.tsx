@@ -44,10 +44,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
-  useSwapSlippageOverrideAtom,
-  useSwapSlippageOverrideSuppressedContextKeyAtom,
   useSwapSpeedQuoteResultAtom,
-  useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -92,7 +89,6 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
-  ESwapNetworkFeeLevel,
   ESwapProTradeType,
   ESwapQuoteKind,
   ESwapSelectTokenSource,
@@ -103,11 +99,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { EMarketPresetTradeSide } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
-import { buildMarketPresetSwapOverridesFromDirectionSettings } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSwapOverrides';
-import {
-  type IMarketPresetBeforePresetChangeParams,
-  useMarketPresetSettings,
-} from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
+import { useMarketPresetSettings } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
@@ -195,10 +187,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
-  const [, setSwapSlippageOverride] = useSwapSlippageOverrideAtom();
-  const [, setSwapSlippageOverrideSuppressedContextKey] =
-    useSwapSlippageOverrideSuppressedContextKeyAtom();
-  const [, setSwapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
   const swapProAccount = useSwapProAccount();
   const tokenDetailActions = useTokenDetailActions();
 
@@ -294,42 +282,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapProDirection === ESwapDirection.SELL
       ? EMarketPresetTradeSide.SELL
       : EMarketPresetTradeSide.BUY;
-  const applyMarketPresetSwapOverridesOnPresetChange = useCallback(
-    ({ directionSettings }: IMarketPresetBeforePresetChangeParams) => {
-      const overrides =
-        buildMarketPresetSwapOverridesFromDirectionSettings(directionSettings);
-      setSwapSlippageOverrideSuppressedContextKey(undefined);
-      setSwapStepNetFeeLevel({
-        networkFeeLevel:
-          overrides?.networkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM,
-        customPriorityFee: overrides?.customPriorityFee,
-      });
-      setSwapSlippageOverride(overrides?.slippage);
-    },
-    [
-      setSwapSlippageOverride,
-      setSwapSlippageOverrideSuppressedContextKey,
-      setSwapStepNetFeeLevel,
-    ],
-  );
   const swapProMarketPresetSettings = useMarketPresetSettings({
     networkId: swapProMarketPresetTokenContext?.networkId,
     tradeSide: swapProMarketPresetTradeSide,
-    onBeforePresetChange: applyMarketPresetSwapOverridesOnPresetChange,
   });
-  const swapProMarketPresetSwapOverrides = useMemo(() => {
-    if (!focusSwapPro || !swapProMarketPresetSettings.enabled) {
-      return undefined;
-    }
-
-    return buildMarketPresetSwapOverridesFromDirectionSettings(
-      swapProMarketPresetSettings.selectedDirectionSettings,
-    );
-  }, [
-    focusSwapPro,
-    swapProMarketPresetSettings.enabled,
-    swapProMarketPresetSettings.selectedDirectionSettings,
-  ]);
 
   // Reactively resolve Market preset overrides based on which side the market token sits on.
   // Lets Swap and Swap Pro pick up BUY vs SELL preset as the user flips sides.
@@ -337,12 +293,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     marketPresetToken: focusSwapPro
       ? swapProMarketPresetTokenContext
       : marketPresetTokenContext,
-    presetSwapOverrides: focusSwapPro
-      ? swapProMarketPresetSwapOverrides
-      : undefined,
-    selectedPresetKey: focusSwapPro
-      ? swapProMarketPresetSettings.selectedPresetKey
-      : undefined,
   });
   const currentQuoteRes = useMemo(() => {
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {

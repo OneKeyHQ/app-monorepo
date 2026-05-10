@@ -73,24 +73,14 @@ export type IMarketPresetSettingsState = {
   >;
 };
 
-export type IMarketPresetBeforePresetChangeParams = {
-  presetKey: EMarketPresetKey;
-  tradeSide: EMarketPresetTradeSide;
-  directionSettings: IMarketPresetDirectionSettings;
-};
-
 export function useMarketPresetSettings({
   networkId,
   defaultSlippage = 0.5,
   tradeSide = EMarketPresetTradeSide.BUY,
-  onBeforePresetChange,
 }: {
   networkId?: string;
   defaultSlippage?: number;
   tradeSide?: EMarketPresetTradeSide;
-  onBeforePresetChange?: (
-    params: IMarketPresetBeforePresetChangeParams,
-  ) => void;
 }): IMarketPresetSettingsState {
   const selectedPresetRequestIdRef = useRef(0);
   const { result: config, isLoading: configLoading } = usePromiseResult(
@@ -200,15 +190,6 @@ export function useMarketPresetSettings({
         return;
       }
 
-      const directionSettings = getDirectionSettings({
-        presetKey,
-        tradeSide,
-      });
-      onBeforePresetChange?.({
-        presetKey,
-        tradeSide,
-        directionSettings,
-      });
       setSavedSettings((prev) => ({
         ...prev,
         selectedPresetKey: presetKey,
@@ -230,14 +211,7 @@ export function useMarketPresetSettings({
         }
       })();
     },
-    [
-      getDirectionSettings,
-      networkId,
-      onBeforePresetChange,
-      reloadSavedSettings,
-      setSavedSettings,
-      tradeSide,
-    ],
+    [networkId, reloadSavedSettings, setSavedSettings],
   );
 
   const onSavePresetDirectionSettings = useCallback(

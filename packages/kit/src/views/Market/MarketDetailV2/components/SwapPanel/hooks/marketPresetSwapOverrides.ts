@@ -7,7 +7,6 @@ import {
 import {
   EMarketPresetKey,
   type EMarketPresetTradeSide,
-  type IMarketPresetDirectionSettings,
   type IMarketPresetPriorityFeeOverride,
   type IMarketPresetSavedSettings,
   fetchMarketPresetConfig,
@@ -21,49 +20,20 @@ import {
 export type IMarketPresetSwapOverrides = {
   networkFeeLevel: ESwapNetworkFeeLevel;
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
+  // Only emitted when the preset explicitly chose a CUSTOM slippage with a
+  // valid value. AUTO is intentionally omitted so the standard Swap fallback
+  // (auto-suggested per quote) keeps owning slippage.
   slippage?: {
     key: ESwapSlippageSegmentKey;
-    value?: number;
+    value: number;
   };
 };
 
-export function buildMarketPresetSwapOverridesFromDirectionSettings(
-  directionSettings?: IMarketPresetDirectionSettings,
-): IMarketPresetSwapOverrides | undefined {
-  if (!directionSettings) {
-    return undefined;
-  }
-
-  let slippage: IMarketPresetSwapOverrides['slippage'] = {
-    key: ESwapSlippageSegmentKey.AUTO,
-  };
-  if (directionSettings.slippage?.key === ESwapSlippageSegmentKey.CUSTOM) {
-    const slippageValue = directionSettings.slippage?.value;
-    slippage =
-      typeof slippageValue === 'number' &&
-      Number.isFinite(slippageValue) &&
-      !isInvalidMarketPresetSlippageSettings(directionSettings)
-        ? {
-            key: ESwapSlippageSegmentKey.CUSTOM,
-            value: slippageValue,
-          }
-        : undefined;
-  }
-
-  return {
-    networkFeeLevel: getMarketPresetNetworkFeeLevel(directionSettings),
-    customPriorityFee: getMarketPresetPriorityFeeOverride(directionSettings),
-    slippage,
-  };
-}
-
 export async function loadMarketPresetSwapOverrides({
   networkId,
-  presetKey: presetKeyOverride,
   tradeSide,
 }: {
   networkId: string;
-  presetKey?: EMarketPresetKey;
   tradeSide: EMarketPresetTradeSide;
 }): Promise<IMarketPresetSwapOverrides | undefined> {
   if (!networkId) {
@@ -87,7 +57,6 @@ export async function loadMarketPresetSwapOverrides({
       savedSettings,
     });
     const presetKey =
-      presetKeyOverride ??
       normalized?.selectedPresetKey ??
       config?.defaultPresetKey ??
       EMarketPresetKey.AUTO;
@@ -98,9 +67,23 @@ export async function loadMarketPresetSwapOverrides({
       tradeSide,
     });
 
-    return buildMarketPresetSwapOverridesFromDirectionSettings(
-      directionSettings,
-    );
+    const slippageValue = directionSettings.slippage?.value;
+    const slippage =
+      directionSettings.slippage?.key === ESwapSlippageSegmentKey.CUSTOM &&
+      typeof slippageValue === 'number' &&
+      Number.isFinite(slippageValue) &&
+      !isInvalidMarketPresetSlippageSettings(directionSettings)
+        ? {
+            key: ESwapSlippageSegmentKey.CUSTOM,
+            value: slippageValue,
+          }
+        : undefined;
+
+    return {
+      networkFeeLevel: getMarketPresetNetworkFeeLevel(directionSettings),
+      customPriorityFee: getMarketPresetPriorityFeeOverride(directionSettings),
+      slippage,
+    };
   } catch (error) {
     // Falling back to defaults here is intentional (preset is non-critical),
     // but keep a minimal trace so SimpleDb / config drift is observable in
