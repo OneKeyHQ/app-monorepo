@@ -1,10 +1,6 @@
-import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
-
-export function shouldShowRecommendedBalance(
-  token: Pick<IRecommendAsset, 'protocols'>,
+export function shouldShowProtocolListBalances(
+  protocols: Array<{ network?: { networkId?: string } }>,
 ) {
-  const protocols = token.protocols ?? [];
-
   if (!protocols.length) {
     return true;
   }
@@ -12,7 +8,7 @@ export function shouldShowRecommendedBalance(
   const networkIds = new Set<string>();
 
   for (const protocol of protocols) {
-    const networkId = protocol.networkId?.trim();
+    const networkId = protocol.network?.networkId?.trim();
 
     if (!networkId) {
       return true;
