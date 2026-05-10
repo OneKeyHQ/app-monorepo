@@ -259,10 +259,22 @@ function WebViewPageContent() {
     [currentTitle, currentUrl, handleReload, params.hideHeader, params.title],
   );
 
+  // Desktop: render the body as a rounded card so its top edge curves out of
+  // the sidebar-colored wrapper underneath (set in createWebViewNavigator).
+  // `overflow: hidden` clips the embedded WebView to those corners.
+  const bodyDesktopProps = platformEnv.isDesktop
+    ? ({
+        bg: '$bgApp',
+        borderTopStartRadius: '$3',
+        borderTopEndRadius: '$3',
+        overflow: 'hidden',
+      } as const)
+    : undefined;
+
   return (
     <Page>
       {headerNode}
-      <Page.Body>
+      <Page.Body {...bodyDesktopProps}>
         {showAddressBar ? <AddressBar url={currentUrl} /> : null}
         <ProgressBar progress={progress} />
         <WebView

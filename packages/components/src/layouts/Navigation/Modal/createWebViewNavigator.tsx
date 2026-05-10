@@ -217,9 +217,13 @@ function WebViewModalNavigator({
     [currentRouteIndex],
   );
 
-  // Plain body — no rounded top corners or modal-card inset. The header and
-  // body share the standard $bgApp surface so the page reads as a regular
-  // stack page, not a presentation-modal card.
+  // On desktop the wrapper carries `$bgSidebar` so it visually continues the
+  // sidebar's top band, AND so the page body's rounded top corners (set on
+  // Page.Body in the consuming page) cut into a contrasting backdrop and
+  // become visible. On native there's no sidebar, so use the standard
+  // `$bgApp` like a normal stack page.
+  const wrapperBg = platformEnv.isDesktop ? '$bgSidebar' : '$bgApp';
+
   return (
     <NavigationContent>
       <ModalNavigatorContext.Provider value={contextValue}>
@@ -230,7 +234,7 @@ function WebViewModalNavigator({
               onPressIn={platformEnv.isNative ? undefined : onPagePressIn}
               testID="APP-WebView-Screen"
               className="app-region-no-drag"
-              bg="$bgApp"
+              bg={wrapperBg}
               overflow="hidden"
               width="100%"
               height="100%"

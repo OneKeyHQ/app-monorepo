@@ -272,12 +272,6 @@ function HeaderView({
     return null;
   }
 
-  // WebView-specific desktop padding: 80px on the left to clear macOS traffic
-  // lights (the user wants this slot reserved unconditionally — even in
-  // fullscreen — to keep the X close button at a stable horizontal position).
-  const webViewInnerPaddingLeft =
-    isWebViewScreen && platformEnv.isDesktop ? '$20' : undefined;
-
   return (
     <DesktopDragZoneBoxView disabled={isModelScreen}>
       <Stack
@@ -295,7 +289,6 @@ function HeaderView({
         <Stack
           alignSelf="stretch"
           px={isOnboardingScreen ? '$16' : '$5'}
-          pl={webViewInnerPaddingLeft}
           pr={
             (platformEnv.isDesktopWin || platformEnv.isDesktopLinux) &&
             !isOnboardingScreen &&
