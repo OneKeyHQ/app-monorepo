@@ -54,7 +54,20 @@ const VISIBILITY_TOLERANCE_PX = 1;
 // 70% of viewport so the rightmost chip from the previous "page" stays
 // visible as the user paginates with the arrow buttons.
 const ARROW_PAGE_FRACTION = 0.7;
-const RECENTER_DEBOUNCE_MS = 200;
+// Grace window after the last horizontal scroll of the strip itself.
+// Inside this window the snap-back recenter is held off so the user has
+// time to aim and click on a chip they just scrolled into view, then
+// runs once when the window closes. The browser's smooth-scroll on long
+// jumps is ~500ms; 1500ms covers a comfortable scroll-then-aim-then-click
+// sequence with margin.
+const STRIP_SCROLL_GRACE_MS = 1500;
+
+// Distinguishes "the strip's active chip changed because the page scrolled"
+// (must always recenter, even mid-grace) from automatic catch-ups
+// (debounced snap-back after the user scrolled the strip themselves,
+// ResizeObserver after a layout shift, gate-release catch-ups). Encoded
+// as a reason string at call sites so the intent is readable there.
+type IRecenterReason = 'activeKey' | 'auto';
 
 type IProtocolChipProps = {
   chipKey: string;
@@ -283,13 +296,46 @@ function ProtocolChipStripBase({
   const activeKeyRef = useRef<string | null>(null);
   activeKeyRef.current = activeKey;
 
+  // Two narrow gates that suppress recenter calls with reason 'auto' only;
+  // 'activeKey' recenter calls bypass both. `recentStripScrollRef` is held
+  // for STRIP_SCROLL_GRACE_MS after the strip's own scrollLeft changes;
+  // `isFocusInsideRef` mirrors keyboard focus-within.
+  //
+  // We *deliberately* do not key engagement off pointer hover. The strip
+  // is sticky at the viewport top, so the cursor can sit motionless
+  // inside its hit area through unbounded amounts of vertical page
+  // scroll. Worse, browsers fire synthetic `pointermove` events on
+  // hover-tracked elements during page scroll to keep `:hover` fresh —
+  // those keep resetting any move-driven engagement timer indefinitely.
+  // Either approach traps the gate latched-on whenever the user happens
+  // to leave their cursor over the bar, which is the "strip frozen
+  // during page scroll until I click somewhere" bug.
+  //
+  // Refs (not state) because the listeners reading them are stable across
+  // renders, and flipping these must not cascade into a re-render — a
+  // re-render would re-run the recenter useLayoutEffect and defeat the
+  // suppression.
+  const recentStripScrollRef = useRef(false);
+  const isFocusInsideRef = useRef(false);
+
   // Held in a ref so the merged scroll listener can stay attached through
   // every activeKey change without tear-down/re-attach churn — the latest
   // closure (with current activeKey) is plumbed in via the assignment
   // below, which runs on every render.
-  const recenterIfNeededRef = useRef<() => void>(() => {});
-  recenterIfNeededRef.current = () => {
+  const recenterIfNeededRef = useRef<(reason?: IRecenterReason) => void>(
+    () => {},
+  );
+  recenterIfNeededRef.current = (reason = 'auto') => {
     if (platformEnv.isNative || !activeKey) return;
+    // 'activeKey' bypasses gates because the user is reading the page,
+    // not the strip — suppressing here produced the "strip frozen during
+    // page scroll" bug.
+    if (
+      reason === 'auto' &&
+      (recentStripScrollRef.current || isFocusInsideRef.current)
+    ) {
+      return;
+    }
     const chipNode = chipNodesRef.current.get(activeKey);
     if (!chipNode || !chipNode.isConnected) return;
     const el = getScrollEl();
@@ -332,16 +378,68 @@ function ProtocolChipStripBase({
     const el = getScrollEl();
     if (!el) return undefined;
 
-    let recenterTimer: ReturnType<typeof setTimeout> | null = null;
+    let stripScrollGraceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Closes the strip-scroll grace window and runs a catch-up recenter.
+    // Called from both the natural timer expiry and the early-exit paths
+    // (pointerleave). The catch-up is gated ('auto') so a still-set
+    // focus gate keeps suppressing; it bails cheaply via
+    // isChipFullyVisible if the active chip is already in view.
+    const releaseScrollGate = () => {
+      if (stripScrollGraceTimer) {
+        clearTimeout(stripScrollGraceTimer);
+        stripScrollGraceTimer = null;
+      }
+      recentStripScrollRef.current = false;
+      recenterIfNeededRef.current();
+    };
+
     const onScroll = () => {
       updateArrows();
-      if (recenterTimer) clearTimeout(recenterTimer);
-      recenterTimer = setTimeout(
-        () => recenterIfNeededRef.current(),
-        RECENTER_DEBOUNCE_MS,
+      // The strip's own scrollLeft changed — wheel pagination, arrow
+      // button, programmatic scrollIntoView, etc. Open the snap-back
+      // grace window. Vertical wheel over the strip does NOT fire this
+      // (browsers don't redirect vertical wheel into horizontal
+      // scroll containers), which is intentional: vertical wheel means page
+      // navigation, not strip engagement.
+      recentStripScrollRef.current = true;
+      if (stripScrollGraceTimer) clearTimeout(stripScrollGraceTimer);
+      stripScrollGraceTimer = setTimeout(
+        releaseScrollGate,
+        STRIP_SCROLL_GRACE_MS,
       );
     };
     el.addEventListener('scroll', onScroll, { passive: true });
+
+    // Pointer events (not mouseenter/leave) so touch + pen + mouse all
+    // funnel through one code path. We listen ONLY to pointerleave and
+    // not to enter/move: enter/move are unreliable here (synthetic
+    // pointermove during page scroll keeps firing on the sticky strip
+    // because :hover bookkeeping demands it, which would re-arm any
+    // engagement timer indefinitely). pointerleave still fires correctly
+    // when the cursor genuinely exits the strip, which is when we want
+    // to short-circuit the grace window early.
+    el.addEventListener('pointerleave', releaseScrollGate);
+
+    // focusin/focusout (not focus/blur) so they bubble up from chip
+    // children to the scroll container. Tabbing between two chips inside
+    // the strip emits focusout-then-focusin in the same tick;
+    // `relatedTarget` is the chip receiving focus, so containing it inside
+    // `el` means focus stayed inside the strip — don't release the gate
+    // and don't recenter, or the chip the user just tabbed to would slide
+    // out from under them.
+    const onFocusIn = () => {
+      isFocusInsideRef.current = true;
+    };
+    const onFocusOut = (e: FocusEvent) => {
+      const next = e.relatedTarget as Node | null;
+      if (next && el.contains(next)) return;
+      isFocusInsideRef.current = false;
+      recenterIfNeededRef.current();
+    };
+    el.addEventListener('focusin', onFocusIn);
+    el.addEventListener('focusout', onFocusOut);
+
     const observer = new ResizeObserver(() => {
       updateArrows();
       // Strip/viewport width changed (window resize, drawer toggle, font
@@ -355,8 +453,11 @@ function ProtocolChipStripBase({
     updateArrows();
     return () => {
       el.removeEventListener('scroll', onScroll);
+      el.removeEventListener('pointerleave', releaseScrollGate);
+      el.removeEventListener('focusin', onFocusIn);
+      el.removeEventListener('focusout', onFocusOut);
       observer.disconnect();
-      if (recenterTimer) clearTimeout(recenterTimer);
+      if (stripScrollGraceTimer) clearTimeout(stripScrollGraceTimer);
     };
     // protocols.length is intentionally a dep: scroll geometry needs a
     // re-eval when the chip count changes.
@@ -366,7 +467,7 @@ function ProtocolChipStripBase({
   // dispatched before the browser paints the new highlight, otherwise
   // the active chip flashes off-screen for one frame on long jumps.
   useLayoutEffect(() => {
-    recenterIfNeededRef.current();
+    recenterIfNeededRef.current('activeKey');
   }, [activeKey]);
 
   const scrollByPage = useCallback(
@@ -398,9 +499,9 @@ function ProtocolChipStripBase({
       // If this chip's node arrived *after* it was already selected as
       // the active chip (concurrent rendering, mount during scroll), the
       // activeKey useLayoutEffect ran but bailed because the node was
-      // missing. Re-fire recenter the moment the node is known.
+      // missing. Re-fire as a continuation of that effect.
       if (node && key === activeKeyRef.current) {
-        recenterIfNeededRef.current();
+        recenterIfNeededRef.current('activeKey');
       }
     },
     [],

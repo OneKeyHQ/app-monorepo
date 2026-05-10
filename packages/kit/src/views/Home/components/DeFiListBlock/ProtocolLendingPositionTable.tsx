@@ -14,12 +14,22 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 // section title on the header row and the token logo+symbol on data rows
 // underneath. Column widths are absolute percentages so an empty cell never
 // collapses the header / data row out of alignment on web.
+//
+// The Supplied section's leftmost header is overridden to "Positions" so
+// it parallels ProtocolUnifiedTable's first column — "Supplied" reads as
+// jargon next to plain language like "Borrowed" / "Rewards", and the
+// asset rows below already convey the supplied semantic via the section
+// being grouped with Borrowed / Rewards in the same lending block.
+// Borrowed and Rewards section titles stay as-is because they are the
+// terms users actually scan for.
 
-const COLUMN_WIDTHS = {
-  asset: '42%',
-  balance: '33%',
-  usd: '25%',
-} as const;
+// Mirrors the unified table's first-column width so Lending /
+// Staking / LP / Yield tables in the same protocol card all begin their
+// data columns at the same x-coordinate. Keep these two constants in
+// sync — `POSITION_COLUMN_WIDTH` in ProtocolUnifiedTable.tsx.
+const ASSET_COLUMN_WIDTH = 240;
+const BALANCE_FLEX = 1.5;
+const VALUE_FLEX = 1;
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
@@ -38,6 +48,9 @@ const ProtocolLendingPositionTable = memo(
     const intl = useIntl();
     const labels = useMemo(
       () => ({
+        // Replaces section.title for the Supplied section; matches the
+        // first-column label used by ProtocolUnifiedTable.
+        position: intl.formatMessage({ id: ETranslations.earn_positions }),
         balance: intl.formatMessage({ id: ETranslations.global_balance }),
         value: intl.formatMessage({ id: ETranslations.global_value }),
       }),
@@ -58,21 +71,19 @@ const ProtocolLendingPositionTable = memo(
               alignItems="center"
               bg="$bgSubdued"
             >
-              <Stack width={COLUMN_WIDTHS.asset} minWidth={0}>
+              <Stack width={ASSET_COLUMN_WIDTH} flexShrink={0} minWidth={0}>
                 <SizableText size="$headingXs" color="$textSubdued">
-                  {section.title}
+                  {section.assetType === 'supplied'
+                    ? labels.position
+                    : section.title}
                 </SizableText>
               </Stack>
-              <Stack width={COLUMN_WIDTHS.balance} minWidth={0}>
+              <Stack flex={BALANCE_FLEX} minWidth={0}>
                 <SizableText size="$headingXs" color="$textSubdued">
                   {labels.balance}
                 </SizableText>
               </Stack>
-              <Stack
-                width={COLUMN_WIDTHS.usd}
-                minWidth={0}
-                alignItems="flex-end"
-              >
+              <Stack flex={VALUE_FLEX} minWidth={0} alignItems="flex-end">
                 <SizableText size="$headingXs" color="$textSubdued">
                   {labels.value}
                 </SizableText>
@@ -88,7 +99,8 @@ const ProtocolLendingPositionTable = memo(
                 minHeight={44}
               >
                 <XStack
-                  width={COLUMN_WIDTHS.asset}
+                  width={ASSET_COLUMN_WIDTH}
+                  flexShrink={0}
                   minWidth={0}
                   alignItems="center"
                   gap="$2"
@@ -107,22 +119,19 @@ const ProtocolLendingPositionTable = memo(
                     {asset.symbol}
                   </SizableText>
                 </XStack>
-                <Stack width={COLUMN_WIDTHS.balance} minWidth={0}>
+                <Stack flex={BALANCE_FLEX} minWidth={0}>
                   <NumberSizeableTextWrapper
                     hideValue
                     size="$bodyMd"
                     formatter="balance"
                     formatterOptions={{ tokenSymbol: asset.symbol }}
                     numberOfLines={1}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {asset.amount}
                   </NumberSizeableTextWrapper>
                 </Stack>
-                <Stack
-                  width={COLUMN_WIDTHS.usd}
-                  minWidth={0}
-                  alignItems="flex-end"
-                >
+                <Stack flex={VALUE_FLEX} minWidth={0} alignItems="flex-end">
                   <NumberSizeableTextWrapper
                     hideValue
                     size="$bodyMdMedium"
