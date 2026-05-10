@@ -358,7 +358,7 @@ export function PerpOrderBook({
   });
 
   const tickOptionsData = useTickOptions({
-    symbol: l2Book?.coin ?? activeTradeInstrument.coin,
+    symbol: l2Book?.coin,
     bids: l2Book?.bids ?? [],
     asks: l2Book?.asks ?? [],
   });
