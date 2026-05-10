@@ -7,6 +7,7 @@ import { useWindowDimensions } from 'react-native';
 import {
   Button,
   Dialog,
+  Divider,
   Icon,
   Input,
   ScrollView,
@@ -60,6 +61,7 @@ import {
 import type { IMarketPresetSettingsState } from '../../hooks/useMarketPresetSettings';
 
 type IMarketPresetSelectorProps = {
+  antiMEV: boolean;
   presetSettings: IMarketPresetSettingsState;
   slippageIconName?: IIconProps['name'];
   showAutoSlippageLabel?: boolean;
@@ -90,7 +92,7 @@ function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
     return ETranslations.content__custom;
   }
 
-  return ETranslations.global_market;
+  return ETranslations.transaction_normal;
 }
 
 function getMarketPresetLabel({
@@ -269,6 +271,44 @@ function MarketPresetReadonlyRow({
   );
 }
 
+function MarketPresetReadonlySwitch({ value }: { value: boolean }) {
+  return (
+    <XStack
+      w="$10"
+      h="$5"
+      p="$0.5"
+      alignItems="center"
+      justifyContent={value ? 'flex-end' : 'flex-start'}
+      borderRadius="$full"
+      bg={value ? '$success7' : '$neutral5'}
+      overflow="hidden"
+      pointerEvents="none"
+    >
+      <XStack w="$4" h="$4" borderRadius="$full" bg="$bg" />
+    </XStack>
+  );
+}
+
+function MarketPresetAntiMEVReadonlyRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: boolean;
+}) {
+  return (
+    <XStack alignItems="center" justifyContent="space-between" gap="$3">
+      <XStack alignItems="center" gap="$1.5" flex={1} minWidth={0}>
+        <Icon name="ShieldCheckDoneSolid" size="$3.5" color="$iconSuccess" />
+        <SizableText size="$bodyLgMedium" numberOfLines={1}>
+          {label}
+        </SizableText>
+      </XStack>
+      <MarketPresetReadonlySwitch value={value} />
+    </XStack>
+  );
+}
+
 function MarketPresetDialogContentFrame({
   children,
   footer,
@@ -421,9 +461,11 @@ function MarketPresetTabBar({
 }
 
 function MarketPresetSettingsDialog({
+  antiMEV,
   close,
   presetSettings,
 }: {
+  antiMEV: boolean;
   close: () => void;
   presetSettings: IMarketPresetSettingsState;
 }) {
@@ -828,7 +870,7 @@ function MarketPresetSettingsDialog({
           </XStack>
         </YStack>
       ) : (
-        <YStack gap="$4">
+        <YStack gap="$3">
           <SegmentControl
             fullWidth
             value={activeTradeSide}
@@ -983,6 +1025,8 @@ function MarketPresetSettingsDialog({
             )}
           </YStack>
 
+          <Divider />
+
           <YStack gap="$2">
             {presetSettings.config?.priorityFee.editable ? (
               <SizableText size="$bodyMdMedium">
@@ -1074,6 +1118,15 @@ function MarketPresetSettingsDialog({
               />
             )}
           </YStack>
+
+          <Divider />
+
+          <MarketPresetAntiMEVReadonlyRow
+            label={intl.formatMessage({
+              id: ETranslations.marketdex_anti_mev_title,
+            })}
+            value={antiMEV}
+          />
         </YStack>
       )}
     </MarketPresetDialogContentFrame>
@@ -1081,6 +1134,7 @@ function MarketPresetSettingsDialog({
 }
 
 export function MarketPresetSelector({
+  antiMEV,
   presetSettings,
   slippageIconName = 'SliderVerOutline',
   showAutoSlippageLabel = false,
@@ -1127,12 +1181,13 @@ export function MarketPresetSelector({
           close={() => {
             void dialog.close();
           }}
+          antiMEV={antiMEV}
           presetSettings={presetSettings}
         />
       ),
       showFooter: false,
     });
-  }, [intl, presetSettings]);
+  }, [antiMEV, intl, presetSettings]);
 
   const handleQuickPresetSwitch = useCallback(
     (event?: ITradingWidgetMainButtonPressEvent) => {
