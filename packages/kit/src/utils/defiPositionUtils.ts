@@ -599,11 +599,50 @@ function buildProtocolDisplayInfo({
   };
 }
 
+// Every image URL a fully-expanded DeFi list will render: protocol logos
+// (header + chip strip), and every supplied / debt / reward token icon
+// inside the position tables. Deduplicated — many positions share the
+// same asset (USDC, ETH, etc.). Used to warm the image cache up front so
+// the Tokens inside Accordion.Content / sliced-in protocol cards hit an
+// already-resolved cache entry the moment they mount, instead of flashing
+// a skeleton on first paint.
+function collectDeFiImageUrls({
+  protocols,
+  protocolMap,
+}: {
+  protocols: IDeFiProtocol[] | undefined | null;
+  protocolMap: Record<string, IProtocolSummary> | undefined | null;
+}): string[] {
+  const urls = new Set<string>();
+  if (protocolMap) {
+    for (const summary of Object.values(protocolMap)) {
+      if (summary?.protocolLogo) urls.add(summary.protocolLogo);
+    }
+  }
+  if (protocols) {
+    for (const protocol of protocols) {
+      for (const position of protocol.positions) {
+        for (const asset of position.assets) {
+          if (asset.meta?.logoUrl) urls.add(asset.meta.logoUrl);
+        }
+        for (const debt of position.debts) {
+          if (debt.meta?.logoUrl) urls.add(debt.meta.logoUrl);
+        }
+        for (const reward of position.rewards) {
+          if (reward.meta?.logoUrl) urls.add(reward.meta.logoUrl);
+        }
+      }
+    }
+  }
+  return Array.from(urls);
+}
+
 export {
   buildLocalizedProtocolCategoryGroups,
   buildLocalizedProtocolPositionItems,
   buildProtocolCategoryGroups,
   buildProtocolDisplayInfo,
   buildProtocolPositionItems,
+  collectDeFiImageUrls,
   getPositionModuleLabel,
 };

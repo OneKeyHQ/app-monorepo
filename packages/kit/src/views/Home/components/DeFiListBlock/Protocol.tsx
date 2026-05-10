@@ -44,7 +44,6 @@ export type IProtocolHandle = {
   expand: () => void;
   collapse: () => void;
   getAnchor: () => HTMLElement | null;
-  setCompactProgress: (progress: number) => void;
 };
 
 const ProtocolListLayout = memo(
@@ -103,7 +102,6 @@ const ProtocolDesktopLayout = memo(
       const anchorRef = useRef<HTMLElement | null>(null);
       const [accordionValue, setAccordionValue] =
         useState<string>(ACCORDION_OPEN_VALUE);
-      const [compactProgress, setCompactProgress] = useState(0);
 
       useImperativeHandle(
         forwardedRef,
@@ -115,11 +113,6 @@ const ProtocolDesktopLayout = memo(
             setAccordionValue('');
           },
           getAnchor: () => anchorRef.current,
-          setCompactProgress: (progress: number) => {
-            setCompactProgress((prev) =>
-              Math.abs(prev - progress) < 0.01 ? prev : progress,
-            );
-          },
         }),
         [],
       );
@@ -181,7 +174,6 @@ const ProtocolDesktopLayout = memo(
                     isAllNetworks={isAllNetworks}
                     positionCountText={positionCountText}
                     open={open}
-                    compactProgress={compactProgress}
                   />
                 )}
               </Accordion.Trigger>
