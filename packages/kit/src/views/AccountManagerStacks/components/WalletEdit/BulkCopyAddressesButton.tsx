@@ -44,7 +44,7 @@ export function BulkCopyAddressesButton({
             featureName: EPrimeFeatures.BulkCopyAddresses,
             entryPoint: 'walletEdit',
           });
-          navigation?.pushFullModal(EModalRoutes.PrimeModal, {
+          navigation?.pushModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeDashboard,
             params: {
               fromFeature: EPrimeFeatures.BulkCopyAddresses,
