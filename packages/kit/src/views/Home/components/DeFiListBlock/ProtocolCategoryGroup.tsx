@@ -45,7 +45,6 @@ const ProtocolCategoryGroup = memo(
         ) : (
           <ProtocolUnifiedTable
             rows={group.rows}
-            displayKind={group.displayKind}
             currencySymbol={currencySymbol}
           />
         )}

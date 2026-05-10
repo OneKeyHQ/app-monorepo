@@ -460,15 +460,20 @@ function buildUnifiedRowsFromPositions(
     const rewardsExtraAssets =
       hasSupplied && hasRewards ? bucket.rewardsAssets : [];
 
+    // Name precedence by displayKind: LP prefers the token-symbol join
+    // ("ETH + USDC") because the LP pair *is* the position identity;
+    // everything else prefers the upstream pool name and falls back to the
+    // same join when poolName is absent. The fallback prevents empty
+    // strings from rendering as a blank Position cell, and gives the user
+    // an asset-derived label that pairs with the avatar group on the left.
+    const symbolJoin = primaryAssets.map((a) => a.symbol).join(' + ');
     let positionDisplay: IProtocolUnifiedPositionDisplay;
     if (displayKind === 'lp-stack') {
       const tokens = bucket.suppliedAssets.map((asset) => ({
         symbol: asset.symbol,
         logoUrl: asset.meta?.logoUrl,
       }));
-      const lpText = tokens.length
-        ? tokens.map((token) => token.symbol).join(' + ')
-        : (bucket.poolName ?? '');
+      const lpText = symbolJoin || bucket.poolName || '';
       positionDisplay = { kind: 'lp-stack', tokens, text: lpText };
     } else if (displayKind === 'icon-text') {
       const iconUrl =
@@ -476,11 +481,14 @@ function buildUnifiedRowsFromPositions(
         bucket.rewardsAssets[0]?.meta?.logoUrl;
       positionDisplay = {
         kind: 'icon-text',
-        text: bucket.poolName ?? '',
+        text: bucket.poolName || symbolJoin,
         iconUrl,
       };
     } else {
-      positionDisplay = { kind: 'text', text: bucket.poolName ?? '' };
+      positionDisplay = {
+        kind: 'text',
+        text: bucket.poolName || symbolJoin,
+      };
     }
 
     return {
