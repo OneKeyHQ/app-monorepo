@@ -19,12 +19,18 @@ jest.mock('@onekeyhq/components', () => ({
   },
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+/* eslint-disable @typescript-eslint/no-var-requires, global-require */
+const components = require('@onekeyhq/components') as {
+  resetToRoute: jest.Mock;
+  rootNavigationRef: {
+    current: {
+      getRootState: jest.Mock;
+    };
+  };
+};
 const appGlobals = require('@onekeyhq/shared/src/appGlobals').default;
-// eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
 const platformEnv = require('@onekeyhq/shared/src/platformEnv').default;
-// eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-const components = require('@onekeyhq/components');
+/* eslint-enable @typescript-eslint/no-var-requires, global-require */
 
 // Avoid the literal `javascript:` URL form to satisfy `no-script-url`.
 const JS_SCHEME_URL = ['java', 'script:', 'alert(1)'].join('');
