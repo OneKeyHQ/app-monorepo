@@ -6,8 +6,10 @@ import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
-import { useBrowserTabActions } from './actions';
+import { useBrowserAction, useBrowserTabActions } from './actions';
 import {
   ProviderJotaiContextDiscovery,
   activeTabIdAtom,
@@ -49,6 +51,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
           mockSetBrowserHistoryRawData(payload);
         },
       },
+      browserBookmarks: {
+        getRawData: jest.fn(async () => ({ data: [] })),
+      },
       browserClosedTabs: {
         setRawData: (payload: unknown) => {
           mockSetBrowserClosedTabsRawData(payload);
@@ -63,6 +68,9 @@ jest.mock('@onekeyhq/kit/src/routes/config/deeplink', () => ({
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  devSettingsPersistAtom: {
+    atom: jest.fn(),
+  },
   settingsPersistAtom: {
     atom: jest.fn(),
   },
@@ -119,6 +127,7 @@ function createWrapper() {
 describe('useBrowserTabActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (jotaiDefaultStore.get as jest.Mock).mockReturnValue({});
   });
 
   it('persists active tab flags when switching to an existing tab', () => {
@@ -208,5 +217,66 @@ describe('useBrowserTabActions', () => {
         isActive: true,
       }),
     ]);
+  });
+
+  it('allows localhost webview URLs only when the developer setting is enabled', () => {
+    const { result } = renderHook(() => useBrowserAction().current, {
+      wrapper: createWrapper(),
+    });
+
+    expect(
+      result.current.validateWebviewSrc({
+        url: 'http://localhost:3000',
+        isTopFrame: true,
+      }),
+    ).toBe(EValidateUrlEnum.NotSupportProtocol);
+
+    (jotaiDefaultStore.get as jest.Mock).mockReturnValue({
+      enabled: true,
+      settings: {
+        allowLocalhostUrlInDAppBrowser: true,
+      },
+    });
+
+    expect(
+      result.current.validateWebviewSrc({
+        url: 'http://localhost:3000',
+        isTopFrame: true,
+      }),
+    ).toBe(EValidateUrlEnum.Valid);
+  });
+
+  it('keeps blocked localhost gotoSite in the browser so the block page is shown', async () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    let opened: boolean | void = undefined;
+    await act(async () => {
+      opened = await result.current.actions.gotoSite({
+        id: 'tab-1',
+        url: 'http://localhost:3000',
+        title: 'http://localhost:3000',
+      });
+    });
+
+    expect(opened).toBe(true);
+    expect(
+      result.current.tabs.some((tab) => tab.url === 'http://localhost:3000'),
+    ).toBe(true);
+    expect(
+      result.current.tabs.some((tab) => tab.url.includes('google.com/search')),
+    ).toBe(false);
   });
 });
