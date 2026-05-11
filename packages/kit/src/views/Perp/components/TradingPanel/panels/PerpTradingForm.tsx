@@ -638,11 +638,12 @@ function PerpTradingForm({
   const handleSpotAvailableTradePress = useCallback(() => {
     if (!spotAvailableTradeUniverse) return;
     void (async () => {
-      await actions.current.switchTradeInstrument({
+      const switched = await actions.current.switchTradeInstrument({
         mode: 'spot',
         coin: spotAvailableTradeUniverse.name,
         spotUniverse: spotAvailableTradeUniverse,
       });
+      if (!switched) return;
       actions.current.updateTradingForm({
         side: 'long',
         size: '',

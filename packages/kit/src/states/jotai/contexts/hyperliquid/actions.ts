@@ -94,6 +94,7 @@ type IChStateLite = {
 type IChPositionLite = HL.IPerpsAssetPosition;
 
 const MAX_LEDGER_UPDATES = 200;
+const ANDROID_ACTIVE_INSTRUMENT_SWITCH_SETTLE_MS = 120;
 
 function getLedgerUpdateKey(update: HL.IUserNonFundingLedgerUpdate): string {
   return (
@@ -175,6 +176,26 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private openOrdersByDexCache = new Map<string, HL.IPerpsFrontendOrder[]>();
 
   private openOrdersCacheAccountAddress: string | undefined;
+
+  private activeInstrumentChangeRequestId = 0;
+
+  private beginActiveInstrumentChange(): number {
+    this.activeInstrumentChangeRequestId += 1;
+    return this.activeInstrumentChangeRequestId;
+  }
+
+  private isLatestActiveInstrumentChange(requestId: number): boolean {
+    return requestId === this.activeInstrumentChangeRequestId;
+  }
+
+  private async waitForActiveInstrumentChangeSettle(
+    requestId: number,
+  ): Promise<boolean> {
+    if (platformEnv.isNativeAndroid) {
+      await timerUtils.wait(ANDROID_ACTIVE_INSTRUMENT_SWITCH_SETTLE_MS);
+    }
+    return this.isLatestActiveInstrumentChange(requestId);
+  }
 
   private async findChartOrder(
     get: (atom: ReturnType<typeof perpsActiveOpenOrdersAtom>) => {
@@ -854,7 +875,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   changeActiveAsset = contextAtomMethod(
-    async (get, set, { coin, force }: { coin: string; force?: boolean }) => {
+    async (
+      get,
+      set,
+      {
+        coin,
+        force,
+        requestId: existingRequestId,
+      }: { coin: string; force?: boolean; requestId?: number },
+    ) => {
+      const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const activeAsset = await perpsActiveAssetAtom.get();
       if (activeAsset?.coin === coin && !force) {
         // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
@@ -863,24 +894,39 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         const currentMode = await tradingModeAtom.get();
         if (currentMode === 'perp') {
           const next = await this._buildActiveTradeInstrument('perp');
+          if (!this.isLatestActiveInstrumentChange(requestId)) {
+            return false;
+          }
           const prev = get(activeTradeInstrumentAtom());
           if (
             !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
           ) {
             set(activeTradeInstrumentAtom(), next);
           }
-          return;
+          return true;
         }
       }
 
       const form = get(tradingFormAtom());
       const shouldUpdateLimitPrice = form.type === 'limit';
 
+      if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
+        return false;
+      }
       await this.clearActiveAssetData.call(set);
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
       await tradingModeAtom.set('perp');
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
       await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
         coin,
       });
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
 
       const nextFormUpdates: Partial<ITradingFormData> = {
         triggerPrice: '',
@@ -899,11 +945,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             : '';
       }
 
+      const nextInstrument = await this._buildActiveTradeInstrument('perp');
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
       this.updateTradingForm.call(set, nextFormUpdates);
-      set(
-        activeTradeInstrumentAtom(),
-        await this._buildActiveTradeInstrument('perp'),
-      );
+      set(activeTradeInstrumentAtom(), nextInstrument);
+      return true;
     },
   );
 
@@ -914,28 +962,47 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       {
         coin,
         spotUniverse,
-      }: { coin: string; spotUniverse: ISpotUniverse | undefined },
+        requestId: existingRequestId,
+      }: {
+        coin: string;
+        spotUniverse: ISpotUniverse | undefined;
+        requestId?: number;
+      },
     ) => {
+      const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const currentSpotAsset = await spotActiveAssetAtom.get();
       if (currentSpotAsset?.coin === coin) {
         const currentMode = await tradingModeAtom.get();
         if (currentMode === 'spot') {
           const next = await this._buildActiveTradeInstrument('spot');
+          if (!this.isLatestActiveInstrumentChange(requestId)) {
+            return false;
+          }
           const prev = get(activeTradeInstrumentAtom());
           if (
             !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
           ) {
             set(activeTradeInstrumentAtom(), next);
           }
-          return;
+          return true;
         }
       }
 
+      if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
+        return false;
+      }
       await this.clearActiveAssetData.call(set);
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
       await tradingModeAtom.set('spot');
 
       // Seed ticker bar from cached data to avoid skeleton flash
       const ctxsMap = await spotAssetCtxsMapAtom.get();
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
       const cached = ctxsMap[coin];
       if (cached) {
         await spotActiveAssetCtxAtom.set({
@@ -956,14 +1023,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       } else {
         await spotActiveAssetCtxAtom.set(undefined);
       }
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
 
       await spotActiveAssetAtom.set({
         coin,
         assetId: spotUniverse?.assetId,
         universe: spotUniverse,
       });
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
 
-      this.updateTradingForm.call(set, {
+      const nextFormUpdates: Partial<ITradingFormData> = {
         size: '',
         price: '',
         orderMode: 'standard',
@@ -974,19 +1047,28 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         sizePercent: 0,
         triggerPrice: '',
         executionPrice: '',
-      });
+      };
       // Spot doesn't have margin mode -- force to usd if currently set to margin
       const currentPrefs = await perpsTradingPreferencesAtom.get();
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
       if (currentPrefs.sizeInputUnit === 'margin') {
         await perpsTradingPreferencesAtom.set({
           ...currentPrefs,
           sizeInputUnit: 'usd',
         });
+        if (!this.isLatestActiveInstrumentChange(requestId)) {
+          return false;
+        }
       }
-      set(
-        activeTradeInstrumentAtom(),
-        await this._buildActiveTradeInstrument('spot'),
-      );
+      const nextInstrument = await this._buildActiveTradeInstrument('spot');
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
+      this.updateTradingForm.call(set, nextFormUpdates);
+      set(activeTradeInstrumentAtom(), nextInstrument);
+      return true;
     },
   );
 
@@ -1001,23 +1083,28 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         spotUniverse?: ISpotUniverse;
       },
     ) => {
+      const requestId = this.beginActiveInstrumentChange();
       if (params.mode === 'spot') {
         let spotUniverse = params.spotUniverse;
         if (!spotUniverse) {
           const { universes } =
             await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+          if (!this.isLatestActiveInstrumentChange(requestId)) {
+            return false;
+          }
           spotUniverse = universes.find((item) => item.name === params.coin);
         }
-        await this.changeActiveSpotAsset.call(set, {
+        return this.changeActiveSpotAsset.call(set, {
           coin: params.coin,
           spotUniverse,
+          requestId,
         });
-        return;
       }
 
-      await this.changeActiveAsset.call(set, {
+      return this.changeActiveAsset.call(set, {
         coin: params.coin,
         force: params.force,
+        requestId,
       });
     },
   );

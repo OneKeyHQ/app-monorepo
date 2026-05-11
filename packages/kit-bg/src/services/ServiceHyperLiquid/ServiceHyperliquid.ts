@@ -144,6 +144,13 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
 
+  private activeAssetChangeRequestId = 0;
+
+  @backgroundMethod()
+  async cancelPendingActiveAssetChange(): Promise<void> {
+    this.activeAssetChangeRequestId += 1;
+  }
+
   // Avoids async atom reads in the hot path — written to atom on a throttled schedule
   private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
 
@@ -1520,6 +1527,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     universeItems: IPerpsUniverse[];
     selectedUniverse: IPerpsUniverse | undefined;
   }> {
+    const requestId = (this.activeAssetChangeRequestId += 1);
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
@@ -1541,6 +1549,13 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     const selectedUniverse: IPerpsUniverse | undefined =
       dexUniverses?.find((item) => item.name === newCoin) || dexUniverses?.[0];
+    if (requestId !== this.activeAssetChangeRequestId) {
+      return {
+        universeItems: dexUniverses || [],
+        selectedUniverse: oldActiveAsset?.universe,
+      };
+    }
+
     const assetId =
       selectedUniverse?.assetId ??
       dexUniverses?.findIndex(
@@ -1548,6 +1563,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       ) ??
       -1;
     const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
+    if (requestId !== this.activeAssetChangeRequestId) {
+      return {
+        universeItems: dexUniverses || [],
+        selectedUniverse: oldActiveAsset?.universe,
+      };
+    }
+
     await perpsActiveAssetAtom.set({
       coin: selectedUniverse?.name || newCoin || '',
       assetId,
