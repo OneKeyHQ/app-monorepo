@@ -25,7 +25,10 @@ import type {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { cloudBackupStatusAtom } from '../../states/jotai/atoms/cloudBackup';
-import { encryptAsyncWithFormat } from '../../utils/secretEncryptFormat';
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptAsyncWithFormat,
+} from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 
 import { OneKeyBackupProvider } from './backupProviders/OneKeyBackupProvider';
@@ -249,7 +252,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
         password: backupPassword,
       }),
       allowRawPassword: true,
-      format: 'legacy',
+      sharedScene: EAppCryptoSharedEncryptScene.cloudBackupV2PrivateData,
     });
 
     console.log('serviceCloudBackupV2__toBase64');

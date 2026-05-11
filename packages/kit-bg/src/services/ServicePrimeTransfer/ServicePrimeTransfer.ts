@@ -91,6 +91,7 @@ import {
   primeTransferAtom,
 } from '../../states/jotai/atoms/prime';
 import {
+  EAppCryptoSharedEncryptScene,
   encryptAsyncWithFormat,
   encryptStringAsyncWithFormat,
 } from '../../utils/secretEncryptFormat';
@@ -607,7 +608,8 @@ class ServicePrimeTransfer extends ServiceBase {
           data: bufferUtils.utf8ToBytes(verifyString),
           password: pairingCode.toUpperCase(),
           allowRawPassword: true,
-          format: 'legacy',
+          sharedScene:
+            EAppCryptoSharedEncryptScene.primeTransferPairingVerification,
         }),
       );
 
@@ -1440,7 +1442,7 @@ class ServicePrimeTransfer extends ServiceBase {
       data: bufferUtils.utf8ToBytes(data),
       password: encryptionKey,
       allowRawPassword: true,
-      format: 'legacy',
+      sharedScene: EAppCryptoSharedEncryptScene.primeTransferPayload,
     });
     if (!this.e2eeClientToClientApiProxy) {
       throw new OneKeyLocalError('Client to Client API not initialized');
@@ -1570,7 +1572,7 @@ class ServicePrimeTransfer extends ServiceBase {
           ),
           password,
           allowRawPassword: true,
-          format: 'legacy',
+          sharedScene: EAppCryptoSharedEncryptScene.primeTransferCredentials,
         });
       transferData.privateData.decryptedCredentials = undefined;
     }

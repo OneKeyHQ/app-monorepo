@@ -1,4 +1,9 @@
 import appCrypto from '../appCrypto';
+import {
+  EAppCryptoSharedEncryptScene,
+  type IAppCryptoSharedEncryptFormat,
+  resolveSharedEncryptFormat,
+} from '../appCrypto/sharedEncryptPolicy';
 import { OneKeyLocalError } from '../errors';
 import bufferUtils from '../utils/bufferUtils';
 import stringUtils from '../utils/stringUtils';
@@ -31,8 +36,19 @@ type IKeyType = 'deviceKey' | 'cloudKey' | 'authKey';
 type IEncryptAsyncWithFormat = (
   params: Parameters<
     Awaited<ReturnType<typeof loadCoreSecret>>['encryptAsync']
-  >[0] & { format?: 'legacy' | 'v2' },
+  >[0] & {
+    format?: IAppCryptoSharedEncryptFormat;
+    sharedScene?: EAppCryptoSharedEncryptScene;
+  },
 ) => ReturnType<Awaited<ReturnType<typeof loadCoreSecret>>['encryptAsync']>;
+
+const encryptSharedAsync = (({ format, sharedScene, ...params }) =>
+  loadCoreSecret().then(({ encryptAsync }) =>
+    encryptAsync({
+      ...params,
+      format: resolveSharedEncryptFormat({ format, scene: sharedScene }),
+    } as Parameters<typeof encryptAsync>[0]),
+  )) as IEncryptAsyncWithFormat;
 
 const SHARE_KEY_PWD_FIXED_UUID: Record<IKeyType, string> = {
   deviceKey: '99C79104-F920-407B-9C2B-F4CDBC427F91',
@@ -208,8 +224,6 @@ async function generateKeylessWalletPacks(params: {
   mnemonicInfo: IKeylessMnemonicInfo;
   packSetId: string;
 }): Promise<IKeylessWalletPacks> {
-  const { encryptAsync: encryptAsyncBase } = await loadCoreSecret();
-  const encryptAsync = encryptAsyncBase as unknown as IEncryptAsyncWithFormat;
   const { userInfo, mnemonicInfo, packSetId } = params;
   // Validate the packSetId with regex: must match UUID (v4) without dashes (32 lowercase hex characters)
   if (!/^[0-9a-f]{32}$/.test(packSetId)) {
@@ -282,13 +296,13 @@ async function generateKeylessWalletPacks(params: {
     },
   };
   // Encrypt and return as base64 string
-  const deviceKeyPackEncryptedBuffer = await encryptAsync({
+  const deviceKeyPackEncryptedBuffer = await encryptSharedAsync({
     allowRawPassword: true,
     password: deviceKeyPwd,
     data: bufferUtils.utf8ToBytes(
       stringUtils.stableStringify(deviceKeyPackEncryptedData),
     ),
-    format: 'legacy',
+    sharedScene: EAppCryptoSharedEncryptScene.keylessWalletDeviceKeyPack,
   });
   const deviceKeyPackEncryptedString = bufferUtils.bytesToBase64(
     deviceKeyPackEncryptedBuffer,
@@ -321,13 +335,13 @@ async function generateKeylessWalletPacks(params: {
     xCoordination: { deviceKeyX, cloudKeyX, authKeyX },
   };
   // Encrypt and return as base64 string
-  const authKeyPackEncryptedBuffer = await encryptAsync({
+  const authKeyPackEncryptedBuffer = await encryptSharedAsync({
     allowRawPassword: true,
     password: authKeyPwd,
     data: bufferUtils.utf8ToBytes(
       stringUtils.stableStringify(authKeyPackEncryptedData),
     ),
-    format: 'legacy',
+    sharedScene: EAppCryptoSharedEncryptScene.keylessWalletAuthKeyPack,
   });
   const authKeyPackEncryptedString = bufferUtils.bytesToBase64(
     authKeyPackEncryptedBuffer,
@@ -351,13 +365,13 @@ async function generateKeylessWalletPacks(params: {
     xCoordination: { deviceKeyX, cloudKeyX, authKeyX },
   };
   // Encrypt and return as base64 string
-  const cloudKeyPackEncryptedBuffer = await encryptAsync({
+  const cloudKeyPackEncryptedBuffer = await encryptSharedAsync({
     allowRawPassword: true,
     password: cloudKeyPwd,
     data: bufferUtils.utf8ToBytes(
       stringUtils.stableStringify(cloudKeyPackEncryptedData),
     ),
-    format: 'legacy',
+    sharedScene: EAppCryptoSharedEncryptScene.keylessWalletCloudKeyPack,
   });
   const cloudKeyPackEncryptedString = bufferUtils.bytesToBase64(
     cloudKeyPackEncryptedBuffer,

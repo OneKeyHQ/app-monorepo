@@ -42,6 +42,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import {
+  EAppCryptoSharedEncryptScene,
   encryptAsyncWithFormat,
   encryptImportedCredentialWithFormat,
   encryptRevealableSeedWithFormat,
@@ -108,7 +109,7 @@ class ServiceCloudBackup extends ServiceBase {
             await encryptRevealableSeedWithFormat({
               rs,
               password,
-              format: 'legacy',
+              sharedScene: EAppCryptoSharedEncryptScene.cloudBackupV1Credential,
             }),
           ] as const;
         } catch {
@@ -125,7 +126,7 @@ class ServiceCloudBackup extends ServiceBase {
             await encryptImportedCredentialWithFormat({
               credential: importedCredential,
               password,
-              format: 'legacy',
+              sharedScene: EAppCryptoSharedEncryptScene.cloudBackupV1Credential,
             }),
           ] as const;
         } catch {
@@ -280,7 +281,7 @@ class ServiceCloudBackup extends ServiceBase {
           await encryptAsyncWithFormat({
             password,
             data: Buffer.from(JSON.stringify(privateBackupData), 'utf8'),
-            format: 'legacy',
+            sharedScene: EAppCryptoSharedEncryptScene.cloudBackupV1PrivateData,
           })
         ).toString('base64')
       : '';
@@ -524,7 +525,7 @@ class ServiceCloudBackup extends ServiceBase {
               seed: credentialRs.seed,
             },
             password: remotePassword,
-            format: 'legacy',
+            sharedScene: EAppCryptoSharedEncryptScene.cloudBackupV1Credential,
           });
         } catch {
           //

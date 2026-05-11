@@ -40,7 +40,10 @@ import type {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { primeMasterPasswordPersistAtom } from '../../states/jotai/atoms/prime';
-import { encryptStringAsyncWithFormat } from '../../utils/secretEncryptFormat';
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptStringAsyncWithFormat,
+} from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 
@@ -164,7 +167,8 @@ class ServiceMasterPassword extends ServiceBase {
       data: securityPassword,
       dataEncoding: 'utf-8',
       allowRawPassword: true,
-      format: 'legacy',
+      sharedScene:
+        EAppCryptoSharedEncryptScene.primeMasterPasswordServerPayload,
     });
     return `${ENCRYPTED_SECURITY_PASSWORD_R1_FOR_SERVER_PREFIX}${r}`;
   }

@@ -26,7 +26,10 @@ import type {
   IKeylessCloudSyncSignaturePayload,
 } from '@onekeyhq/shared/types/keylessCloudSync';
 
-import { encryptStringAsyncWithFormat } from '../../utils/secretEncryptFormat';
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptStringAsyncWithFormat,
+} from '../../utils/secretEncryptFormat';
 
 /**
  * Compute pwdHash for Keyless mode
@@ -129,7 +132,7 @@ async function encryptWithKeylessKey({
     iterations: 1,
     mode: EAppCryptoAesEncryptionMode.gcm,
     aad: `${KEYLESS_SYNC_DATA_GCM_AAD}:${itemId}:${dataType}`,
-    format: 'legacy',
+    sharedScene: EAppCryptoSharedEncryptScene.keylessCloudSyncItem,
   });
 }
 

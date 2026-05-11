@@ -67,7 +67,7 @@ Legacy 默认 iteration count 必须保留为一个具名常量，并与新的�
 
 - 低层 crypto primitive 继续保留显式 legacy/v2 能力，用于 legacy read、测试、兼容性 gate 和迁移工具。
 - 对 local-only human-password/passcode paths，storage owner 或 service-level helper 应默认写 v2，并使用 `PBKDF2_CURRENT_NUM_OF_ITERATIONS = 600_000` 或 benchmark 后确认的目标值。
-- 对 shared/server-visible paths，默认写入仍必须由 compatibility gate 决定；gate 关闭时写 legacy，gate 开启或 peer/server 标记兼容后写 v2。
+- 对 shared/server-visible paths，必须走统一 shared encrypt policy。该入口不传 `format` 时默认 legacy；后续只能按 `sharedScene`、compatibility gate、peer/server capability 或显式 `format` 精确切到 v2。
 - 新增持久化加密调用不应直接调用 bare `encryptAsync` / `encryptStringAsync` 选择默认值；应通过场景化 helper 或显式 policy，例如 local credential、local verify string、backup shared payload、cloud sync shared payload。
 - 后续测试必须覆盖“未显式选择 legacy 的 local-only write 默认产出 `1KENC_V2`”，避免回归到 legacy。
 
@@ -307,8 +307,8 @@ Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低�
 - [x] 第一个任务：Phase 0 golden vectors。已选择先做 legacy CBC、legacy GCM 和 custom-iteration behavior 的固定向量测试，用固定 salt、iv/nonce、password、plaintext 锁定现有 payload 格式和 KDF 参数兼容性。
 - [x] Phase 0 inventory。识别每一个持久化调用方：`encryptStringAsync`、`encryptAsync`、`encodeSensitiveTextAsync` 和 `encryptByInstanceId`，并按 local-only、shared/server-visible、migration/non-persistent 分类。
 - [ ] Phase 0 performance baseline。记录 iOS、Android、desktop、web 和 extension 上当前 PBKDF2 与 AES operations 的性能。
-- [x] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。低层 primitive 现在默认写 v2；需要旧客户端读取的共享入口必须显式传 legacy。
-- [x] Phase 1.5 non-native v2 write policy。底层默认写 v2 + current iterations；已知 shared/server-visible 入口显式传 legacy，后续 gate 开启后再按场景切 v2。Cloud Backup V1 导出会将本地 credentials 降级为 legacy，避免备份恢复旧客户端无法识别。
+- [x] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。低层 primitive 现在默认写 v2；需要旧客户端读取的共享入口必须走 shared encrypt policy。
+- [x] Phase 1.5 non-native v2 write policy。底层默认写 v2 + current iterations；已知 shared/server-visible 入口已统一到 shared encrypt policy，默认 legacy，后续 gate 开启后再按 `sharedScene` 精确切 v2。Cloud Backup V1 导出会将本地 credentials 降级为 legacy，避免备份恢复旧客户端无法识别。
 - [ ] Phase 2 local lazy upgrade。从 `Context.verifyString` 和 `Credential` 开始实现无阻塞、幂等、transaction-safe 的本地升级。
 - [ ] Phase 3 shared-data gates。为 Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payloads 添加兼容性 gate。
 - [ ] Phase 4 gated v2 rollout。在 shared compatibility gates 准备好之后，按 Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payload 的 gate 逐步启用 v2 writes；移动端全量默认 v2 仍需等待 native AES-GCM benchmark。
@@ -344,7 +344,7 @@ Phase 1.5: non-native write policy
 
 - 添加场景化 write helper 或 policy 层，避免业务直接依赖 `format: 'v2'` 参数。
 - Local-only human-password/passcode writes 默认 v2，并记录 current iterations。
-- Shared/server-visible writes 必须通过 compatibility gate 才能写 v2。
+- Shared/server-visible writes 统一通过 shared encrypt policy；未指定格式时默认 legacy，必须通过 compatibility gate 才能写 v2。
 - Legacy writes 只允许通过显式 legacy policy、测试 helper 或 protocol fallback。
 - 先覆盖 web、desktop、extension、Jest 和 native noble fallback 的 non-native path。
 

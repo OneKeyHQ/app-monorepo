@@ -7,7 +7,10 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
-import { encryptStringAsyncWithFormat } from '../../../utils/secretEncryptFormat';
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptStringAsyncWithFormat,
+} from '../../../utils/secretEncryptFormat';
 
 import keylessStorageUtils from './keylessStorageUtils';
 
@@ -53,7 +56,7 @@ async function writeMap(map: ICredentialMap): Promise<void> {
     iterations: 1,
     mode: EAppCryptoAesEncryptionMode.gcm,
     aad: KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
-    format: 'legacy',
+    sharedScene: EAppCryptoSharedEncryptScene.keylessCloudSyncCredentialStorage,
   });
   const base64 = bufferUtils.bytesToBase64(
     bufferUtils.hexToBytes(encryptedHex),

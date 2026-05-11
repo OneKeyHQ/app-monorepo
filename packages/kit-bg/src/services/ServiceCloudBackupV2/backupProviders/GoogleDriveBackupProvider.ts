@@ -29,7 +29,10 @@ import type {
 } from '@onekeyhq/shared/src/storage/GoogleDriveStorage/types';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { encryptStringAsyncWithFormat } from '../../../utils/secretEncryptFormat';
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptStringAsyncWithFormat,
+} from '../../../utils/secretEncryptFormat';
 
 import type { IOneKeyBackupProvider } from './IOneKeyBackupProvider';
 
@@ -68,7 +71,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
         password: params.password + CLOUD_BACKUP_PASSWORD_SALT,
         data: CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
         dataEncoding: 'utf8',
-        format: 'legacy',
+        sharedScene: EAppCryptoSharedEncryptScene.cloudBackupV2PasswordVerify,
       }),
     };
     manifest.backupPasswordVerify = content;

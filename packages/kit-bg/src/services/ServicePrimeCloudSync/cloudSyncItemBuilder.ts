@@ -22,7 +22,10 @@ import type {
   ICloudSyncRawDataJson,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
-import { encryptStringAsyncWithFormat } from '../../utils/secretEncryptFormat';
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptStringAsyncWithFormat,
+} from '../../utils/secretEncryptFormat';
 
 import keylessCloudSyncUtils from './keylessCloudSyncUtils';
 
@@ -239,7 +242,7 @@ class CloudSyncItemBuilder {
           allowRawPassword: true,
           data: rawData,
           dataEncoding: 'utf8',
-          format: 'legacy',
+          sharedScene: EAppCryptoSharedEncryptScene.primeCloudSyncItem,
         });
       }
     }

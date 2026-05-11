@@ -5,24 +5,76 @@ import {
   encryptStringAsync,
 } from '@onekeyhq/core/src/secret';
 
+import {
+  EAppCryptoSharedEncryptScene,
+  type IAppCryptoSharedEncryptFormat,
+  resolveSharedEncryptFormat,
+} from '../../../shared/src/appCrypto/sharedEncryptPolicy';
+
+export { EAppCryptoSharedEncryptScene };
+
 type IWithEncryptFormat<T> = T extends (params: infer P) => infer R
-  ? (params: P & { format?: 'legacy' | 'v2' }) => R
+  ? (
+      params: P & {
+        format?: IAppCryptoSharedEncryptFormat;
+        sharedScene?: EAppCryptoSharedEncryptScene;
+      },
+    ) => R
   : T;
 
-export const encryptAsyncWithFormat =
-  encryptAsync as unknown as IWithEncryptFormat<typeof encryptAsync>;
+type IEncryptAsyncWithFormat = IWithEncryptFormat<typeof encryptAsync>;
+type IEncryptStringAsyncWithFormat = IWithEncryptFormat<
+  typeof encryptStringAsync
+>;
+type IEncryptRevealableSeedWithFormat = IWithEncryptFormat<
+  typeof encryptRevealableSeed
+>;
+type IEncryptImportedCredentialWithFormat = IWithEncryptFormat<
+  typeof encryptImportedCredential
+>;
 
-export const encryptStringAsyncWithFormat =
-  encryptStringAsync as unknown as IWithEncryptFormat<
-    typeof encryptStringAsync
-  >;
+function resolveKitBgSharedEncryptFormat({
+  format,
+  scene,
+}: {
+  format?: IAppCryptoSharedEncryptFormat;
+  scene?: EAppCryptoSharedEncryptScene;
+}): IAppCryptoSharedEncryptFormat {
+  return resolveSharedEncryptFormat({ format, scene });
+}
 
-export const encryptRevealableSeedWithFormat =
-  encryptRevealableSeed as unknown as IWithEncryptFormat<
-    typeof encryptRevealableSeed
-  >;
+export const encryptAsyncWithFormat: IEncryptAsyncWithFormat = ({
+  format,
+  sharedScene,
+  ...params
+}) =>
+  (encryptAsync as unknown as IEncryptAsyncWithFormat)({
+    ...params,
+    format: resolveKitBgSharedEncryptFormat({ format, scene: sharedScene }),
+  });
 
-export const encryptImportedCredentialWithFormat =
-  encryptImportedCredential as unknown as IWithEncryptFormat<
-    typeof encryptImportedCredential
-  >;
+export const encryptStringAsyncWithFormat: IEncryptStringAsyncWithFormat = ({
+  format,
+  sharedScene,
+  ...params
+}) =>
+  (encryptStringAsync as unknown as IEncryptStringAsyncWithFormat)({
+    ...params,
+    format: resolveKitBgSharedEncryptFormat({ format, scene: sharedScene }),
+  });
+
+export const encryptRevealableSeedWithFormat: IEncryptRevealableSeedWithFormat =
+  ({ format, sharedScene, ...params }) =>
+    (encryptRevealableSeed as unknown as IEncryptRevealableSeedWithFormat)({
+      ...params,
+      format: resolveKitBgSharedEncryptFormat({ format, scene: sharedScene }),
+    });
+
+export const encryptImportedCredentialWithFormat: IEncryptImportedCredentialWithFormat =
+  ({ format, sharedScene, ...params }) =>
+    (
+      encryptImportedCredential as unknown as IEncryptImportedCredentialWithFormat
+    )({
+      ...params,
+      format: resolveKitBgSharedEncryptFormat({ format, scene: sharedScene }),
+    });
