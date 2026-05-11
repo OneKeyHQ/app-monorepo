@@ -19,8 +19,6 @@ export interface IFeaturedItem {
 
 export interface IFeaturedChangelog {
   version: string; // Target version, e.g. "6.1.0"
-  headline?: string; // Main title, e.g. "交易零负担，畅享极致体验" — falls back to "What's new in v{ver}"
-  subheadline?: string; // Subtitle, e.g. "本次更新带来 3 项重要升级" — falls back to generic text
   features: IFeaturedItem[]; // 1-3 items, ordered by priority
 }
 
@@ -111,8 +109,6 @@ export function normalizeFeaturedChangelog(
 
   return {
     version,
-    headline: optionalTrimmedString(src.headline),
-    subheadline: optionalTrimmedString(src.subheadline),
     features,
   };
 }
