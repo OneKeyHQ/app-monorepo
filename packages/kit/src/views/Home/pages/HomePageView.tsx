@@ -473,15 +473,6 @@ export function HomePageView({
     setPortalTarget((prev) => (prev === el ? prev : el));
   }, []);
 
-  const [tabBarRightPortalTarget, setTabBarRightPortalTarget] =
-    useState<HTMLElement | null>(null);
-  const tabBarRightPortalRefCallback = useCallback(
-    (el: HTMLDivElement | null) => {
-      setTabBarRightPortalTarget((prev) => (prev === el ? prev : el));
-    },
-    [],
-  );
-
   const [stickyHost, setStickyHost] = useState<HTMLElement | null>(null);
   const stickyHostRefCallback = useCallback((el: unknown) => {
     const next =
@@ -512,21 +503,10 @@ export function HomePageView({
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
       <XStack alignItems="center" gap="$3" flexShrink={0}>
-        {platformEnv.isNative ? null : (
-          <div
-            ref={tabBarRightPortalRefCallback}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              flexShrink: 0,
-              minWidth: 0,
-            }}
-          />
-        )}
         <TabHeaderSettings focusedTab={focusedTab} />
       </XStack>
     ),
-    [tabBarRightPortalRefCallback],
+    [],
   );
 
   const renderTabBar = useCallback(
@@ -601,18 +581,11 @@ export function HomePageView({
   const stickyHeaderCtx = useMemo(
     () => ({
       portalTarget,
-      tabBarRightPortalTarget,
       stickyHost,
       activeTabName,
       activeTabId,
     }),
-    [
-      portalTarget,
-      tabBarRightPortalTarget,
-      stickyHost,
-      activeTabName,
-      activeTabId,
-    ],
+    [portalTarget, stickyHost, activeTabName, activeTabId],
   );
 
   const tabs = useMemo(() => {
