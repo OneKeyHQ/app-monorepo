@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
-  Dialog,
   EVideoResizeMode,
   HeightTransition,
   SizableText,
@@ -28,7 +27,6 @@ import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { RequireBlePermissionDialog } from '../../../components/Hardware/HardwareDialog';
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -44,10 +42,6 @@ enum EConnectionStatus {
   init = 'init',
   searching = 'searching',
   listing = 'listing',
-}
-
-function RequireBlePermissionDialogRender({ ref }: { ref: any }) {
-  return <RequireBlePermissionDialog ref={ref} />;
 }
 
 function DeviceVideo({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
@@ -127,13 +121,7 @@ export default function LedgerConnectionFlow() {
         pollsCompleted += 1;
         if (!response.success) {
           const error = convertDeviceError(response.payload);
-          // BLE permission denied → show system-settings dialog instead of toast
-          // (shares RequireBlePermissionDialog with OneKey native BLE flow).
-          if (error instanceof ThirdPartyDevicePermissionDenied) {
-            Dialog.show({
-              dialogContainer: RequireBlePermissionDialogRender,
-            });
-          } else {
+          if (!(error instanceof ThirdPartyDevicePermissionDenied)) {
             Toast.error({
               title:
                 error.message ||

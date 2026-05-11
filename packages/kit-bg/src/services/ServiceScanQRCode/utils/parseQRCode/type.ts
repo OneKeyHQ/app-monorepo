@@ -8,6 +8,9 @@ import type {
   EQRCodeHandlerType,
 } from '@onekeyhq/shared/types/qrCode';
 import type { ITokenData } from '@onekeyhq/shared/types/token';
+import type { IUrlValue } from '@onekeyhq/shared/types/uri';
+
+export type { IUrlValue } from '@onekeyhq/shared/types/uri';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/no-empty-object-type
 export interface IBaseValue {}
@@ -86,16 +89,6 @@ export interface IAnimationValue extends IBaseValue {
   fullUr?: IAirGapUrJson;
   progress: number;
 }
-export interface IUrlValue extends IBaseValue {
-  url: string;
-  hostname: string;
-  origin: string;
-  pathname: string;
-  urlSchema: string;
-  urlPathList: string[];
-  urlParamList: { [key: string]: string };
-}
-
 export type IQRCodeHandlerResult<T extends IBaseValue> = {
   type: EQRCodeHandlerType;
   data: T;

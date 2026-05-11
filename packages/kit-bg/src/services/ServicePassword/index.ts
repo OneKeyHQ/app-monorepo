@@ -288,9 +288,13 @@ export default class ServicePassword extends ServiceBase {
         : '';
       if (password && prevPasswordRaw !== newPasswordRaw) {
         await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+        // forceSync re-applies items already marked localSceneUpdated, so bot
+        // wallet sync items that were skipped earlier (parent KW or password
+        // not yet ready) get reprocessed once the password is cached.
         await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
           {
             callerName: 'setCachedPassword',
+            forceSync: true,
           },
         );
       }

@@ -187,8 +187,13 @@ export function PrimeDebugPanel({
 }: {
   shouldShowConfirmButton: boolean;
 }) {
-  const { getAccessToken, logout, isReady, isSupabaseLoggedIn, loginOneKeyId } =
-    useOneKeyAuth();
+  const {
+    getAccessToken,
+    logoutWithPurchasesSdk,
+    isReady,
+    isSupabaseLoggedIn,
+    loginOneKeyId,
+  } = useOneKeyAuth();
   const { getCustomerInfo, getPackagesNative, getPackagesWeb } =
     usePrimePayment();
   const navigation = useAppNavigation();
@@ -311,7 +316,7 @@ export function PrimeDebugPanel({
             defaultLogger.prime.subscription.onekeyIdLogout({
               reason: 'PrimeDebugPanel Logout Button',
             });
-            void logout();
+            void logoutWithPurchasesSdk();
           }}
         >
           Logout

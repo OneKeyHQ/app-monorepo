@@ -549,23 +549,38 @@ export interface SwapBuildOutput {
   } | null;
 }
 
-/** Sign and broadcast a built swap transaction */
+/** Sign and broadcast a built swap transaction; BTC supports sign-only PSBT output */
 export interface SwapExecuteInput {
   /** Order ID from swap build */
   order: string;
+  /** BTC source address type */
+  fromAddressType?: "taproot" | "native-segwit" | "nested-segwit" | "legacy";
+  /** BTC only: sign the PSBT without broadcasting */
+  signOnly?: boolean;
   /** Approve unlimited allowance */
   approveUnlimited?: boolean;
 }
 
-export interface SwapExecuteOutput {
+export type SwapExecuteOutput = {
   orderId: string;
-  status: string;
+  status: "executed";
   txHash: string;
   approveTxHash?: string;
   chain: string;
   from: string;
   to: string;
   amount: string;
+  message: string;
+} | {
+  orderId: string;
+  status: "signed";
+  chain: string;
+  from: string;
+  to: string;
+  amount: string;
+  rawTx: string;
+  psbtHex: string | null;
+  finalizedPsbtHex: string | null;
   message: string;
 }
 
