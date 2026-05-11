@@ -30,6 +30,7 @@ import {
 } from './swap-display-utils';
 import { fetchSwapNetworks } from './swap-networks';
 import { getProtocolConfig } from './swap-protocol-config';
+import { tokenAddressMatchesForNetwork } from './swap-token-address';
 
 import type { IEndpointEnv } from '../../config';
 import type { IAuditSummary } from '../../core';
@@ -582,11 +583,13 @@ export function registerSwapQuoteCommand(parent: Command): void {
                 'API may have returned data for a different token pair',
               );
             }
-            // Also check contractAddress (case-insensitive, empty = native)
             if (
               q.fromTokenInfo?.contractAddress !== undefined &&
-              q.fromTokenInfo.contractAddress.toLowerCase() !==
-                fromResolved.contractAddress.toLowerCase()
+              !tokenAddressMatchesForNetwork(
+                fromResolved.networkId,
+                q.fromTokenInfo.contractAddress,
+                fromResolved.contractAddress,
+              )
             ) {
               throw new AppError(
                 ERROR_CODES.NET_HTTP_ERROR.code,
@@ -596,8 +599,11 @@ export function registerSwapQuoteCommand(parent: Command): void {
             }
             if (
               q.toTokenInfo?.contractAddress !== undefined &&
-              q.toTokenInfo.contractAddress.toLowerCase() !==
-                toResolved.contractAddress.toLowerCase()
+              !tokenAddressMatchesForNetwork(
+                toResolved.networkId,
+                q.toTokenInfo.contractAddress,
+                toResolved.contractAddress,
+              )
             ) {
               throw new AppError(
                 ERROR_CODES.NET_HTTP_ERROR.code,

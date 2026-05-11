@@ -1005,7 +1005,6 @@ export function registerSwapExecuteCommand(parent: Command): void {
 
             updatePendingStatus(orderId, 'executed', {
               txHash: broadcastResult.result,
-              executedAt: Date.now(),
             });
 
             output.success(

@@ -44,6 +44,7 @@ import {
 import { fetchSwapNetworks } from './swap-networks';
 import { getProtocolConfig } from './swap-protocol-config';
 import { fetchQuotesViaSSE } from './swap-quote';
+import { tokenAddressMatchesForNetwork } from './swap-token-address';
 
 import type { IEndpointEnv } from '../../config';
 import type { BtcAddressType } from '../../core/btc/address-types';
@@ -634,8 +635,11 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
           if (
             fromTokenInfo?.contractAddress !== undefined &&
-            fromTokenInfo.contractAddress.toLowerCase() !==
-              fromResolved.contractAddress.toLowerCase()
+            !tokenAddressMatchesForNetwork(
+              fromResolved.networkId,
+              fromTokenInfo.contractAddress,
+              fromResolved.contractAddress,
+            )
           ) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
@@ -645,8 +649,11 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
           if (
             toTokenInfo?.contractAddress !== undefined &&
-            toTokenInfo.contractAddress.toLowerCase() !==
-              toResolved.contractAddress.toLowerCase()
+            !tokenAddressMatchesForNetwork(
+              toResolved.networkId,
+              toTokenInfo.contractAddress,
+              toResolved.contractAddress,
+            )
           ) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,

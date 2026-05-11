@@ -275,8 +275,8 @@ describe('TransferReceiverAdapter', () => {
       status: 'pairing',
       loginMethod: 'app_transfer',
       createdAt: '2026-04-06T07:00:00.000Z',
-      timeoutMs: 120_000,
-      expiresAt: '2026-04-06T07:02:00.000Z',
+      timeoutMs: 300_000,
+      expiresAt: '2026-04-06T07:05:00.000Z',
       pairingPayload: {
         roomId: 'ABCDE-FGHIJ',
         transferType: EPrimeTransferDataType.keylessWallet,
