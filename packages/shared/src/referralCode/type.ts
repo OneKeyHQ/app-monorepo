@@ -755,9 +755,8 @@ export interface IBtcRewardCommitParams {
 
 export interface IBtcRewardCommitData {
   codeId: string;
-  btcAmount: string;
-  btcPriceUsd: string;
   payoutEligibleAt: string;
+  expectedPayoutAt: string;
 }
 
 export interface IBtcRewardHistoryParams {
@@ -774,11 +773,12 @@ export interface IBtcRewardHistoryItem {
   voucherCode: string;
   voucherSource: string;
   walletAddress: string;
-  btcAmount: string;
-  btcPriceUsd: string;
+  btcAmount?: string;
+  btcPriceUsd?: string;
   status: EBtcRewardStatus;
   submittedAt: string;
-  payoutEligibleAt: string;
+  payoutEligibleAt?: string;
+  expectedPayoutAt?: string;
   // Status-conditional fields. OAS marks them required but the value is an
   // empty string when not applicable (paidAt/txHash empty unless paid;
   // rejectReason empty unless rejected).

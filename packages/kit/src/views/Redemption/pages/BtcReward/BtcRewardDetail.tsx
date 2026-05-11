@@ -23,9 +23,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import {
+  formatBtcRewardServerDate,
   formatUsd,
-  getBtcRewardPayoutDate,
   getBtcRewardStatusConfig,
+  isBtcRewardSnapshotStatus,
 } from '../../utils';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -113,6 +114,9 @@ function BtcRewardDetailPage() {
   const statusConfig =
     statusConfigs[item.status] ?? statusConfigs[EBtcRewardStatus.Wait];
   const isPaid = item.status === EBtcRewardStatus.Paid;
+  const hasBtcSnapshot = isBtcRewardSnapshotStatus(item.status);
+  const btcAmount = hasBtcSnapshot ? item.btcAmount : undefined;
+  const btcPriceUsd = hasBtcSnapshot ? item.btcPriceUsd : undefined;
   // OAS marks these fields required, but the server uses empty string when
   // the field is not applicable to the current status — guard before render.
   const rejectReason =
@@ -132,12 +136,18 @@ function BtcRewardDetailPage() {
             <SizableText size="$heading4xl" textAlign="center" pt="$2">
               {formatUsd(item.rewardUsd)}
             </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-              {intl.formatMessage(
-                { id: ETranslations.redemption_btc_amount_on_base },
-                { amount: item.btcAmount },
-              )}
-            </SizableText>
+            {btcAmount ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {intl.formatMessage(
+                  { id: ETranslations.redemption_btc_amount_on_base },
+                  { amount: btcAmount },
+                )}
+              </SizableText>
+            ) : null}
             <SizableText
               size="$bodyMd"
               color={rejectReason ? '$textCritical' : '$textSubdued'}
@@ -170,12 +180,14 @@ function BtcRewardDetailPage() {
               value={item.voucherCode}
             />
 
-            <DescriptionItem
-              label={intl.formatMessage({
-                id: ETranslations.redemption_btc_label_btc_price_locked,
-              })}
-              value={formatUsd(item.btcPriceUsd)}
-            />
+            {btcPriceUsd ? (
+              <DescriptionItem
+                label={intl.formatMessage({
+                  id: ETranslations.redemption_btc_label_btc_price,
+                })}
+                value={formatUsd(btcPriceUsd)}
+              />
+            ) : null}
 
             <DescriptionItem
               label={intl.formatMessage({
@@ -185,20 +197,13 @@ function BtcRewardDetailPage() {
             />
 
             {item.status !== EBtcRewardStatus.Paid &&
-            item.status !== EBtcRewardStatus.Rejected ? (
+            item.status !== EBtcRewardStatus.Rejected &&
+            item.expectedPayoutAt ? (
               <DescriptionItem
                 label={intl.formatMessage({
                   id: ETranslations.redemption_btc_success_eligible_label_title,
                 })}
-                infoTooltip={intl.formatMessage({
-                  id: ETranslations.redemption_btc_success_eligible_label_tooltip,
-                })}
-                value={formatDate(
-                  getBtcRewardPayoutDate(item.payoutEligibleAt),
-                  {
-                    hideTimeForever: true,
-                  },
-                )}
+                value={formatBtcRewardServerDate(item.expectedPayoutAt)}
               />
             ) : null}
 
