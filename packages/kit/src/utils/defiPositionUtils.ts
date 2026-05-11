@@ -346,6 +346,10 @@ export type IProtocolUnifiedRow = {
   // protocol whose category=='rewards' has no supplied bucket at all) this
   // falls back to the rewards bucket so the row isn't empty.
   primaryAssets: IDeFiAsset[];
+  // Non-lending debt assets still explain net exposure, especially for
+  // leveraged farming. They render in a dedicated Borrowed column instead of
+  // being folded into Balance.
+  borrowedAssets: IDeFiAsset[];
   // Only populated when the position has BOTH supplied and rewards. The
   // dedicated Rewards column is hidden across the whole table when no row
   // contributes to it.
@@ -410,6 +414,7 @@ function buildUnifiedRowsFromPositions(
   type Bucket = {
     poolName?: string;
     suppliedAssets: IDeFiAsset[];
+    borrowedAssets: IDeFiAsset[];
     rewardsAssets: IDeFiAsset[];
     firstGroupId: string;
   };
@@ -426,6 +431,7 @@ function buildUnifiedRowsFromPositions(
       bucket = {
         poolName: position.poolName,
         suppliedAssets: [],
+        borrowedAssets: [],
         rewardsAssets: [],
         firstGroupId: position.groupId,
       };
@@ -439,11 +445,9 @@ function buildUnifiedRowsFromPositions(
         bucket.suppliedAssets.push(...section.assets);
       } else if (section.assetType === 'rewards') {
         bucket.rewardsAssets.push(...section.assets);
+      } else if (section.assetType === 'borrowed') {
+        bucket.borrowedAssets.push(...section.assets);
       }
-      // 'borrowed' is intentionally dropped here: only lending uses the
-      // borrowed row-section, and lending is routed through a different
-      // builder. Non-lending positions with debts (e.g. leveraged farming)
-      // would need an extra column we don't render in this revision.
     }
   }
 
@@ -466,7 +470,9 @@ function buildUnifiedRowsFromPositions(
     // same join when poolName is absent. The fallback prevents empty
     // strings from rendering as a blank Position cell, and gives the user
     // an asset-derived label that pairs with the avatar group on the left.
-    const symbolJoin = primaryAssets.map((a) => a.symbol).join(' + ');
+    const positionLabelAssets =
+      primaryAssets.length > 0 ? primaryAssets : bucket.borrowedAssets;
+    const symbolJoin = positionLabelAssets.map((a) => a.symbol).join(' + ');
     let positionDisplay: IProtocolUnifiedPositionDisplay;
     if (displayKind === 'lp-stack') {
       const tokens = bucket.suppliedAssets.map((asset) => ({
@@ -495,6 +501,7 @@ function buildUnifiedRowsFromPositions(
       rowKey: bucket.poolName ? `name:${bucket.poolName}` : `id:${key}`,
       positionDisplay,
       primaryAssets,
+      borrowedAssets: bucket.borrowedAssets,
       rewardsExtraAssets,
     };
   });

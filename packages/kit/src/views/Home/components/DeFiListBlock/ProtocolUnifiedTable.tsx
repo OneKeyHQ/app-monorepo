@@ -55,9 +55,9 @@ const POSITION_COLUMN_WIDTH = 240;
 
 // Flex weights for the trailing columns. Balance leads (amounts can be
 // long, especially when stacked); Value gets less because it's a single
-// right-aligned number; Rewards sits between when present.
+// right-aligned number; section columns sit between when present.
 const BALANCE_FLEX_WITH_REWARDS = 1.2;
-const REWARDS_FLEX = 1;
+const SECTION_FLEX = 1;
 const USD_FLEX_WITH_REWARDS = 0.8;
 const BALANCE_FLEX_WITHOUT_REWARDS = 1.5;
 const USD_FLEX_WITHOUT_REWARDS = 1;
@@ -82,11 +82,18 @@ const ProtocolUnifiedTable = memo(
       () => rows.some((row) => row.rewardsExtraAssets.length > 0),
       [rows],
     );
+    const showBorrowedColumn = useMemo(
+      () => rows.some((row) => row.borrowedAssets.length > 0),
+      [rows],
+    );
 
     const labels = useMemo(
       () => ({
         position: intl.formatMessage({ id: ETranslations.earn_positions }),
         balance: intl.formatMessage({ id: ETranslations.global_balance }),
+        borrowed: intl.formatMessage({
+          id: ETranslations.wallet_defi_asset_type_borrowed,
+        }),
         rewards: intl.formatMessage({
           id: ETranslations.wallet_defi_position_module_rewards,
         }),
@@ -114,10 +121,11 @@ const ProtocolUnifiedTable = memo(
       });
     }, []);
 
-    const balanceFlex = showRewardsColumn
+    const showSectionColumn = showBorrowedColumn || showRewardsColumn;
+    const balanceFlex = showSectionColumn
       ? BALANCE_FLEX_WITH_REWARDS
       : BALANCE_FLEX_WITHOUT_REWARDS;
-    const usdFlex = showRewardsColumn
+    const usdFlex = showSectionColumn
       ? USD_FLEX_WITH_REWARDS
       : USD_FLEX_WITHOUT_REWARDS;
 
@@ -134,8 +142,15 @@ const ProtocolUnifiedTable = memo(
               {labels.balance}
             </SizableText>
           </Stack>
+          {showBorrowedColumn ? (
+            <Stack flex={SECTION_FLEX} flexBasis={0} minWidth={0}>
+              <SizableText size="$headingXs" color="$textSubdued">
+                {labels.borrowed}
+              </SizableText>
+            </Stack>
+          ) : null}
           {showRewardsColumn ? (
-            <Stack flex={REWARDS_FLEX} flexBasis={0} minWidth={0}>
+            <Stack flex={SECTION_FLEX} flexBasis={0} minWidth={0}>
               <SizableText size="$headingXs" color="$textSubdued">
                 {labels.rewards}
               </SizableText>
@@ -166,7 +181,11 @@ const ProtocolUnifiedTable = memo(
             0,
             row.primaryAssets.length - MAX_BALANCE_LINES,
           );
-          const positionAvatars = row.primaryAssets.map((asset) => ({
+          const positionAvatarAssets =
+            row.primaryAssets.length > 0
+              ? row.primaryAssets
+              : row.borrowedAssets;
+          const positionAvatars = positionAvatarAssets.map((asset) => ({
             logoUrl: asset.meta?.logoUrl,
           }));
 
@@ -263,11 +282,21 @@ const ProtocolUnifiedTable = memo(
                   </XStack>
                 ) : null}
               </YStack>
+              {showBorrowedColumn ? (
+                <Stack flex={SECTION_FLEX} flexBasis={0} minWidth={0} pt="$1">
+                  {row.borrowedAssets.length > 0 ? (
+                    <ProtocolRewardsCell
+                      assets={row.borrowedAssets}
+                      currencySymbol={currencySymbol}
+                    />
+                  ) : null}
+                </Stack>
+              ) : null}
               {showRewardsColumn ? (
-                <Stack flex={REWARDS_FLEX} flexBasis={0} minWidth={0} pt="$1">
+                <Stack flex={SECTION_FLEX} flexBasis={0} minWidth={0} pt="$1">
                   {row.rewardsExtraAssets.length > 0 ? (
                     <ProtocolRewardsCell
-                      rewards={row.rewardsExtraAssets}
+                      assets={row.rewardsExtraAssets}
                       currencySymbol={currencySymbol}
                     />
                   ) : null}

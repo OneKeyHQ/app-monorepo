@@ -217,6 +217,29 @@ describe('buildProtocolCategoryGroups', () => {
     expect(group.rows[0].rewardsExtraAssets[0].symbol).toBe('sUSDe');
   });
 
+  it('keeps borrowed assets on non-lending unified rows', () => {
+    const protocol = makeMultiPositionProtocol([
+      makePosition({
+        groupId: 'farm-1',
+        category: 'leveraged_farming',
+        poolName: 'Leveraged ETH Farm',
+        assets: [makeAsset({ address: '0xa', symbol: 'ETH', value: 1500 })],
+        debts: [
+          {
+            ...makeAsset({ address: '0xd', symbol: 'USDC', value: 500 }),
+            type: EDeFiAssetType.DEBT,
+          },
+        ],
+      }),
+    ]);
+
+    const [group] = buildProtocolCategoryGroups(protocol);
+    expect(group.kind).toBe('unified');
+    if (group.kind !== 'unified') return;
+    expect(group.rows[0].primaryAssets.map((a) => a.symbol)).toEqual(['ETH']);
+    expect(group.rows[0].borrowedAssets.map((a) => a.symbol)).toEqual(['USDC']);
+  });
+
   it('falls back to rewards bucket when a position has no supplied assets', () => {
     const protocol = makeMultiPositionProtocol([
       makePosition({

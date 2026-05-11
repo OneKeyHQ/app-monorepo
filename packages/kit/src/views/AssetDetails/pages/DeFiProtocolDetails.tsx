@@ -8,6 +8,7 @@ import {
   Divider,
   IconButton,
   Page,
+  Popover,
   SizableText,
   Stack,
   XStack,
@@ -44,6 +45,9 @@ function DeFiProtocolDetails() {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
 
+  const positionNamePopoverTitle = intl.formatMessage({
+    id: ETranslations.wallet_defi_position_name_popover_title,
+  });
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
@@ -127,28 +131,50 @@ function DeFiProtocolDetails() {
         <YStack py="$3" gap="$5">
           {positions.map((position) => (
             <Stack key={position.positionKey} px="$5">
-              <XStack
-                alignItems="center"
-                justifyContent="space-between"
-                minHeight={40}
-                gap="$2"
-              >
+              <XStack alignItems="center" minHeight={40} gap="$2">
                 <Badge badgeType="success" badgeSize="sm">
                   {position.categoryLabel}
                 </Badge>
-                <NumberSizeableTextWrapper
-                  hideValue
-                  size="$headingMd"
-                  formatter="value"
-                  formatterOptions={{
-                    currency: settings.currencyInfo.symbol,
-                  }}
-                  numberOfLines={1}
-                  textAlign="right"
-                  maxWidth="70%"
-                >
-                  {position.value}
-                </NumberSizeableTextWrapper>
+                {position.poolName ? (
+                  <Stack flex={1} minWidth={0}>
+                    <Popover
+                      placement="top"
+                      title={positionNamePopoverTitle}
+                      renderTrigger={
+                        <SizableText
+                          size="$headingSm"
+                          color="$textSubdued"
+                          numberOfLines={1}
+                        >
+                          {position.poolName}
+                        </SizableText>
+                      }
+                      renderContent={
+                        <Stack px="$4" py="$2">
+                          <SizableText size="$bodyLgMedium">
+                            {position.poolFullName || position.poolName}
+                          </SizableText>
+                        </Stack>
+                      }
+                    />
+                  </Stack>
+                ) : (
+                  <Stack flex={1} />
+                )}
+                <Stack maxWidth="70%" flexShrink={0} ml="auto">
+                  <NumberSizeableTextWrapper
+                    hideValue
+                    size="$headingMd"
+                    formatter="value"
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
+                    }}
+                    numberOfLines={1}
+                    textAlign="right"
+                  >
+                    {position.value}
+                  </NumberSizeableTextWrapper>
+                </Stack>
               </XStack>
               <YStack gap="$2">
                 {position.sections.map((section) => (
