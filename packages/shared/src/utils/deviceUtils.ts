@@ -341,6 +341,7 @@ async function buildDeviceLabel({
     [EDeviceType.Mini]: 'OneKey Mini',
     [EDeviceType.Touch]: 'OneKey Touch',
     [EDeviceType.Pro]: 'OneKey Pro',
+    [EDeviceType.Pro2]: 'OneKey Pro2',
     [EDeviceType.Unknown]: '',
   };
   const deviceType = await getDeviceTypeFromFeatures({

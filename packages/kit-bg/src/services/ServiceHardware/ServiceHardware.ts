@@ -42,6 +42,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
   IDeviceHomeScreen,
+  IDeviceResponseResult,
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
@@ -153,6 +154,48 @@ const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
 ]);
+
+const PRO2_DEBUG_SDK_METHODS = [
+  'getProtoVersion',
+  'ping',
+  'devGetDeviceInfo',
+  'devGetOnboardingStatus',
+  'devGetFirmwareUpdateStatus',
+  'filesystemPathInfoQuery',
+  'filesystemDirList',
+  'filesystemDirMake',
+  'filesystemDirRemove',
+  'filesystemFileWrite',
+  'filesystemFileRead',
+  'filesystemFileDelete',
+  'filesystemFixPermission',
+  'devFirmwareUpdate',
+  'devReboot',
+  'filesystemFormat',
+] as const;
+
+type IPro2DebugSdkMethod = (typeof PRO2_DEBUG_SDK_METHODS)[number];
+
+type IPro2DebugCallParams = {
+  connectId: string;
+  method: string;
+  payload?: Record<string, unknown>;
+};
+
+type IPro2DebugFirmwareUpdateParams = {
+  connectId: string;
+  bleFirmwareBase64: string;
+  chunkSize?: number;
+};
+
+const PRO2_DEBUG_NO_PARAM_METHODS = new Set<IPro2DebugSdkMethod>([
+  'filesystemFixPermission',
+  'filesystemFormat',
+]);
+
+function isPro2DebugSdkMethod(method: string): method is IPro2DebugSdkMethod {
+  return PRO2_DEBUG_SDK_METHODS.some((item) => item === method);
+}
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -849,6 +892,64 @@ class ServiceHardware extends ServiceBase {
     const response = await hardwareSDK?.searchDevices();
     console.log('searchDevices response: ', response);
     return response;
+  }
+
+  @backgroundMethod()
+  async pro2DebugCallSdkMethod(params: IPro2DebugCallParams) {
+    const { connectId, method, payload } = params;
+    if (!connectId) {
+      throw new OneKeyLocalError('Pro2 debug connectId is required');
+    }
+    if (!isPro2DebugSdkMethod(method)) {
+      throw new OneKeyLocalError(
+        `Unsupported Pro2 debug method: ${String(method)}`,
+      );
+    }
+
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
+    const sdkMethod = hardwareSDK[method] as unknown as (
+      sdkConnectId: string,
+      sdkPayload?: Record<string, unknown>,
+    ) => Promise<IDeviceResponseResult<unknown>>;
+    const sdkPayload = PRO2_DEBUG_NO_PARAM_METHODS.has(method)
+      ? undefined
+      : {
+          connectProtocol: 'V2',
+          ...payload,
+        };
+
+    return convertDeviceResponse(async () => sdkMethod(connectId, sdkPayload));
+  }
+
+  @backgroundMethod()
+  async pro2DebugFirmwareUpdateV4(params: IPro2DebugFirmwareUpdateParams) {
+    const { connectId, bleFirmwareBase64, chunkSize } = params;
+    if (!connectId) {
+      throw new OneKeyLocalError('Pro2 debug connectId is required');
+    }
+    if (!bleFirmwareBase64) {
+      throw new OneKeyLocalError('Pro2 debug BLE firmware binary is required');
+    }
+
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
+    const bleBinary = Uint8Array.from(
+      Buffer.from(bleFirmwareBase64, 'base64'),
+    ).buffer;
+    const updateParams: Parameters<CoreApi['firmwareUpdateV4']>[1] = {
+      platform: 'native',
+      forcedUpdateRes: true,
+      bleBinary,
+      chunkSize,
+      connectProtocol: 'V2',
+    };
+
+    return convertDeviceResponse(async () =>
+      hardwareSDK.firmwareUpdateV4(connectId, updateParams),
+    );
   }
 
   @backgroundMethod()

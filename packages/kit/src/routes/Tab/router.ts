@@ -25,6 +25,7 @@ import { discoveryRouters } from './Discovery/router';
 import { earnRouters } from './Earn/router';
 import { marketRouters } from './Marktet/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
+import { pro2DebugRouters } from './Pro2Debug/router';
 import { referFriendsRouters } from './ReferFriends/router';
 import { swapRouters } from './Swap/router';
 
@@ -56,6 +57,10 @@ const nativeTabIcons = {
       ? require('@onekeyhq/components/svg/solid/coins.svg')
       : require('@onekeyhq/components/svg/outline/coins.svg'),
   developer: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/code-brackets.svg')
+      : require('@onekeyhq/components/svg/outline/code-brackets.svg'),
+  pro2Debug: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
     focused
       ? require('@onekeyhq/components/svg/solid/code-brackets.svg')
       : require('@onekeyhq/components/svg/outline/code-brackets.svg'),
@@ -245,6 +250,20 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             exact: true,
             children: developerRouters,
             trackId: 'global-dev',
+          }
+        : undefined,
+      platformEnv.isNative
+        ? {
+            name: ETabRoutes.Pro2Debug,
+            tabBarIcon: (focused?: boolean) =>
+              focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
+            translationId: ETranslations.global_dev_mode,
+            nativeTabBarIcon: nativeTabIcons.pro2Debug,
+            freezeOnBlur: Boolean(params?.freezeOnBlur),
+            rewrite: '/pro2-debug',
+            exact: true,
+            children: pro2DebugRouters,
+            trackId: 'global-pro2-debug',
           }
         : undefined,
     ].filter((i) => !!i);
