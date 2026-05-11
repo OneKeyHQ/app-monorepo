@@ -414,7 +414,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh ../../../node_modules/@sentry/react-native/scripts/sentry-xcode-debug-files.sh";
+			shellScript = "export SENTRY_ALLOW_FAILURE=true\n/bin/sh ../../../node_modules/@sentry/react-native/scripts/sentry-xcode-debug-files.sh";
 		};
 		3EDAD8685393FC102363B5F8 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -933,6 +933,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				VERSIONING_SYSTEM = "apple-generic";
 				CXX = "clang++";
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = BVJ3FU5H2K;
@@ -983,6 +984,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				VERSIONING_SYSTEM = "apple-generic";
 				CXX = "clang++";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = BVJ3FU5H2K;
