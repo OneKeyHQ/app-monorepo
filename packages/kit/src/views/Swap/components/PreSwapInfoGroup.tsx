@@ -26,9 +26,18 @@ import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap'
 
 import PreSwapInfoItem from './PreSwapInfoItem';
 
+// Sentinel value for the "Custom" dropdown item. Kept local instead of
+// extending ESwapNetworkFeeLevel so the 50+ downstream consumers that
+// switch on the enum exhaustively don't have to handle a 4th case.
+export const FEE_TIER_CUSTOM = 'custom' as const;
+
+export type IPreSwapFeeTierValue =
+  | ESwapNetworkFeeLevel
+  | typeof FEE_TIER_CUSTOM;
+
 interface IPreSwapInfoGroupProps {
   preSwapData: ISwapPreSwapData;
-  onSelectNetworkFeeLevel: (value: ESwapNetworkFeeLevel) => void;
+  onSelectNetworkFeeLevel: (value: IPreSwapFeeTierValue) => void;
 }
 
 const PreSwapInfoGroup = ({
@@ -45,30 +54,39 @@ const PreSwapInfoGroup = ({
       ESwapNetworkFeeLevel.MEDIUM,
       ESwapNetworkFeeLevel.HIGH,
     ];
-    const selectItems = feeArray.map((item) => {
-      let label = '';
-      if (item === ESwapNetworkFeeLevel.LOW) {
-        label = intl.formatMessage({
-          id: ETranslations.transaction_slow,
-        });
-      }
-      if (item === ESwapNetworkFeeLevel.MEDIUM) {
-        label = intl.formatMessage({
-          id: ETranslations.transaction_normal,
-        });
-      }
-      if (item === ESwapNetworkFeeLevel.HIGH) {
-        label = intl.formatMessage({
-          id: ETranslations.transaction_fast,
-        });
-      }
-      return {
-        label,
-        value: item,
-      };
-    });
+    const selectItems: { label: string; value: IPreSwapFeeTierValue }[] =
+      feeArray.map((item) => {
+        let label = '';
+        if (item === ESwapNetworkFeeLevel.LOW) {
+          label = intl.formatMessage({
+            id: ETranslations.transaction_slow,
+          });
+        }
+        if (item === ESwapNetworkFeeLevel.MEDIUM) {
+          label = intl.formatMessage({
+            id: ETranslations.transaction_normal,
+          });
+        }
+        if (item === ESwapNetworkFeeLevel.HIGH) {
+          label = intl.formatMessage({
+            id: ETranslations.transaction_fast,
+          });
+        }
+        return {
+          label,
+          value: item,
+        };
+      });
+    // Append "Custom" only when a Market preset's custom priority fee was
+    // memorized — otherwise there's nothing to switch back to.
+    if (swapStepNetFeeLevel.presetOverrides) {
+      selectItems.push({
+        label: intl.formatMessage({ id: ETranslations.transaction_custom }),
+        value: FEE_TIER_CUSTOM,
+      });
+    }
     return selectItems;
-  }, [intl]);
+  }, [intl, swapStepNetFeeLevel.presetOverrides]);
   const slippage = useMemo(() => {
     if (
       !preSwapData?.unSupportSlippage &&
@@ -124,13 +142,12 @@ const PreSwapInfoGroup = ({
               <Icon name="ChevronGrabberVerOutline" size="$4" />
             </XStack>
           )}
-          // While a Market preset's customPriorityFee is in effect, pass
-          // undefined so none of the slow/normal/fast rows shows the
-          // checkmark — the underlying tier (HIGH, derived from the preset
-          // CUSTOM type) would otherwise mark "Fast" as the selection.
+          // While a Market preset's customPriorityFee is in effect, point
+          // the checkmark at the "Custom" item so it reads as the active
+          // selection. Otherwise reflect the standard tier.
           value={
             swapStepNetFeeLevel.customPriorityFee
-              ? undefined
+              ? FEE_TIER_CUSTOM
               : swapStepNetFeeLevel.networkFeeLevel
           }
           title={intl.formatMessage({
