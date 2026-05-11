@@ -127,6 +127,107 @@ Lazy upgrade 不应作为隐式写入隐藏在低层 `decryptAsync` 内部。
 - CLI BotWallet export or transfer：
   - 如果 CLI 消费加密 payload，则 CLI format support 必须独立 versioned。
 
+## Phase 0 Inventory
+
+本节按生产持久化影响面整理当前调用方。测试、Developer Gallery、底层 wrapper implementation 不算 rollout 阻塞项，但需要随 v2 primitives 更新测试断言。
+
+### 本地持久化写入
+
+| Path | Call | Data | Current key source | Upgrade priority |
+| --- | --- | --- | --- | --- |
+| `packages/core/src/secret/index.ts:197` | `encryptVerifyString` -> `encryptAsync` | `IDBContext.verifyString` password verification string | App password / raw migration password | P0 local lazy upgrade。解锁入口，必须保持 legacy read。 |
+| `packages/core/src/secret/index.ts:236` | `encryptRevealableSeed` -> `encryptStringAsync` | HD revealable seed credential with `\|RP\|` prefix | App password | P0 local lazy upgrade。派生 private keys 所必需。 |
+| `packages/core/src/secret/index.ts:277` | `encryptImportedCredential` -> `encryptStringAsync` | Imported private key credential with `\|PK\|` prefix | App password | P0 local lazy upgrade。Imported accounts 所必需。 |
+| `packages/kit-bg/src/services/ServicePassword/biologyAuthUtils.ts:44` | `encodeSensitiveTextAsync` | Biology auth stored password | Background sensitive-text key or supplied key | P1 local migration。依赖 secure storage owner 控制 rewrite。 |
+| `packages/kit-bg/src/services/ServicePassword/biologyAuthUtils.ts:70` | `encodeSensitiveTextAsync` | Biology auth migration/re-key path | Supplied key | P1 local migration。需与 secure storage compatibility 一起处理。 |
+| `packages/kit-bg/src/services/ServicePassword/index.ts:182` | `encryptByInstanceId` -> `encodeSensitiveTextAsync` | Generic instance-id encrypted local strings | App instance id | P2 local migration。不是 password-hardening path，重点是 format versioning。 |
+| `packages/kit-bg/src/services/ServiceHistory.ts:1440` | `servicePassword.encryptByInstanceId` | `decodedTx.encodedTxEncrypted` local replace-tx payload | App instance id | P2 local migration。失败不应影响历史记录展示或 replace-tx flow。 |
+| `packages/kit-bg/src/services/ServiceMasterPassword/ServiceMasterPassword.tsx:238` | `encryptSecurityPassword` -> `encryptStringAsync` | Local `encryptedSecurityPasswordR1` cache | Local passcode-derived key | P1 local lazy upgrade。Human-entered passcode path，KDF upgrade 有价值。 |
+| `packages/kit-bg/src/services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage.ts:49` | `encryptStringAsync` | Local keyless sync credential map | Fixed storage key, `iterations: 1`, GCM | P2 format migration only。不是 KDF security hardening。 |
+| `packages/kit-bg/src/vaults/*/Vault.ts` | `encodeSensitiveTextAsync` | Imported private key input before credential creation | Background sensitive-text key | Usually transient/local handoff。Credential record 仍由 core credential encryptors 管控。 |
+| `apps/cli/src/signer/base/SignerSoftwareBase.ts:401` | `encodeSensitiveTextAsync` | CLI software signer password placeholder | CLI constant | CLI-specific compatibility review。不要混入 app local DB rollout。 |
+
+### 共享、跨设备或 server-visible 写入
+
+| Path | Call | Data | Current key source | Gate required |
+| --- | --- | --- | --- | --- |
+| `packages/kit-bg/src/services/ServicePrimeCloudSync/cloudSyncItemBuilder.ts:238` | `encryptStringAsync` | `CloudSyncItem.data` in OneKey ID mode | `primeAccountSalt + securityPasswordR1` | Yes。Server/client compatibility gate before v2 writes。 |
+| `packages/kit-bg/src/services/ServicePrimeCloudSync/keylessCloudSyncUtils.ts:125` | `encryptStringAsync` | Keyless Cloud Sync item data | Seed-derived encryption key, `iterations: 1`, GCM + AAD | Yes for format changes。No KDF iteration upgrade required by default。 |
+| `packages/kit-bg/src/services/ServiceCloudBackup/index.ts:225` | `encryptAsync` | Legacy Cloud Backup private data | Backup password | Yes。Backup format version selection required。 |
+| `packages/kit-bg/src/services/ServiceCloudBackupV2/ServiceCloudBackupV2.ts:245` | `encryptAsync` | Cloud Backup V2 `privateDataEncrypted` | Backup password plus backup salt | Yes。Backup V2 manifest/version gate required。 |
+| `packages/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/ICloudBackupProvider.ts:208` | `encryptStringAsync` | iCloud Backup V2 password verify record | Backup password plus fixed salt | Yes。Shared iCloud record must stay readable by supported clients。 |
+| `packages/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/GoogleDriveBackupProvider.ts:67` | `encryptStringAsync` | Google Drive Backup V2 password verify file | Backup password plus fixed salt | Yes。Shared file must stay readable by supported clients。 |
+| `packages/kit-bg/src/services/ServicePrimeTransfer/ServicePrimeTransfer.ts:604` | `encryptAsync` | Pairing-code verification payload | Short pairing code | Yes。Protocol capability/min-version gate required。 |
+| `packages/kit-bg/src/services/ServicePrimeTransfer/ServicePrimeTransfer.ts:1436` | `encryptAsync` | E2EE transfer payload | ECDHE/session-derived `connectedEncryptedKey` | Yes for format changes。Prefer HKDF/session envelope over PBKDF2 iteration increase。 |
+| `packages/kit-bg/src/services/ServicePrimeTransfer/ServicePrimeTransfer.ts:1562` | `encryptStringAsync` | `privateData.decryptedCredentialsHex` embedded in transfer payload | App password supplied during send | Yes。Peer/client compatibility gate required before v2. |
+| `packages/kit-bg/src/services/ServiceMasterPassword/ServiceMasterPassword.tsx:155` | `encryptSecurityPasswordForServer` -> `encryptStringAsync` | `encryptedSecurityPasswordR1ForServer` | Master-password-derived server key | Yes。Server-visible cross-device payload, gate required。 |
+| `packages/kit-bg/src/services/ServiceKeylessWallet/ServiceKeylessWallet.ts:1255` | `encryptKeylessMnemonic` -> `encryptStringAsync` | Keyless encrypted mnemonic | Mnemonic password, `KEYLESS_ENCRYPTION_ITERATIONS`, GCM + AAD | Yes。Human-entered/password-like path; preserve explicit iteration metadata in v2。 |
+| `packages/kit-bg/src/services/ServiceKeylessWallet/ServiceKeylessWallet.ts:1581` | `encryptStringAsync` | Keyless backend share payload | Fixed server payload key, `KEYLESS_ENCRYPTION_ITERATIONS`, GCM + AAD | Yes for format changes。KDF hardening value depends on replacing fixed key source。 |
+| `packages/shared/src/keylessWallet/keylessWalletUtils.ts:279` | `encryptAsync` | Device key pack | Runtime keyless package password | Gate if persisted/shared beyond temporary setup flow。 |
+| `packages/shared/src/keylessWallet/keylessWalletUtils.ts:317` | `encryptAsync` | Auth key pack | Runtime keyless package password | Gate if persisted/shared beyond temporary setup flow。 |
+| `packages/shared/src/keylessWallet/keylessWalletUtils.ts:346` | `encryptAsync` | Cloud key pack | Runtime keyless package password | Gate if persisted/shared beyond temporary setup flow。 |
+
+### Migration、derived-key cache 和非持久化输出
+
+| Path | Call | Classification |
+| --- | --- | --- |
+| `packages/kit-bg/src/migrations/v4ToV5Migration/v4local/V4LocalDbBase.ts:210` | `encryptAsync` | V4->V5 migration writes local credentials. Needs legacy read plus v2 target decision after local lazy upgrade APIs exist。 |
+| `packages/kit-bg/src/migrations/v4ToV5Migration/v4local/V4LocalDbBase.ts:235` | `encryptAsync` | V4->V5 migration re-encrypts seed data. Same local migration policy as credentials。 |
+| `packages/kit-bg/src/migrations/v4ToV5Migration/v4local/V4LocalDbBase.ts:238` | `encryptAsync` | V4->V5 migration re-encrypts imported credential data。 |
+| `packages/kit-bg/src/migrations/v4ToV5Migration/V4MigrationForAccount.ts:776` | `encodeSensitiveTextAsync` | Migration-only password wrapping before credential writes。 |
+| `packages/kit-bg/src/migrations/v4ToV5Migration/V4MigrationForSecurePassword.ts:13` | `encodeSensitiveTextAsync` | Migration-only secure password wrapping。 |
+| `packages/core/src/secret/index.ts:438` | `encryptAsync` | Derived private extended key returned to caller, not directly persisted by this helper。Keep compatible with decrypt helpers。 |
+| `packages/core/src/secret/index.ts:547` | `encryptAsync` | Derived private extended key returned to caller。 |
+| `packages/core/src/secret/index.ts:664` | `encryptAsync` | Generated master private key returned to caller。 |
+| `packages/core/src/secret/index.ts:708` | `encryptAsync` | Child private key returned to caller。 |
+| `packages/core/src/base/CoreChainApiBase.ts:145` | `encryptAsync` | Exported imported private key map returned to caller。Persistence depends on caller。 |
+| `packages/core/src/chains/btc/CoreChainSoftware.ts:538` | `encryptAsync` | Exported BTC private key map returned to caller。Persistence depends on caller。 |
+| `packages/core/src/chains/dot/CoreChainSoftware.ts:107` | `encryptAsync` | Exported DOT derived private key returned to caller。Persistence depends on caller。 |
+| `packages/core/src/chains/dot/CoreChainSoftware.ts:127` | `encryptAsync` | Exported DOT imported private key returned to caller。Persistence depends on caller。 |
+| `packages/core/src/chains/ada/CoreChainSoftware.ts:57` | `encryptAsync` | Exported ADA private key returned to caller。Persistence depends on caller。 |
+| `packages/kit-bg/src/webembeds/WebEmbedApiSecret.ts:27` | `encryptAsync` | Native/webembed proxy for the same core secret API。Not a separate data owner。 |
+| `packages/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery.tsx` | `encryptAsync` / `encodeSensitiveTextAsync` | Developer test UI only。Update examples after v2 API exists。 |
+
+## Phase 0 Performance Baseline
+
+Baseline 需要覆盖两类成本：
+
+- KDF latency：PBKDF2-SHA256 at legacy/current candidate iterations。
+- Cipher latency：AES-CBC legacy writes、AES-GCM candidate writes、AES-GCM decrypt/tag verify，payload sizes 至少覆盖 1KB、100KB、1MB。
+
+推荐每个平台记录：
+
+- Device / OS / runtime：例如 Android model + API level、iPhone model + iOS version、desktop OS、browser/extension runtime。
+- Crypto backend：Node crypto、WebCrypto、React Native native module、noble JS fallback、webembed proxy。
+- Measurements：avg、p50、p95、round count、payload size、iterations、mode、AAD on/off。
+- UX constraint：unlock path、backup/restore、cloud sync batch、Prime Transfer large payload 是否在 UI/main JS thread 上阻塞。
+
+当前本机参考样本，不作为 mobile/web/extension 决策依据：
+
+- Environment：macOS 26.4.1，Node v25.9.0，darwin arm64。CPU model 未记录，`sysctl -n machdep.cpu.brand_string` 在当前 sandbox 下返回 `Operation not permitted`。
+- Command shape：Node `crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256')`；Node `crypto.createCipheriv('aes-256-cbc' | 'aes-256-gcm')`；fixed salt/iv/nonce/AAD；CBC/GCM encryption only。
+
+| Operation | Avg | P50 | P95 | Rounds |
+| --- | ---: | ---: | ---: | ---: |
+| PBKDF2-SHA256 5,000 | 0.433ms | 0.376ms | 0.407ms | 20 |
+| PBKDF2-SHA256 100,000 | 7.342ms | 7.333ms | 7.466ms | 20 |
+| PBKDF2-SHA256 300,000 | 22.687ms | 22.683ms | 22.709ms | 5 |
+| PBKDF2-SHA256 600,000 | 45.036ms | 45.063ms | 45.381ms | 5 |
+| AES-256-CBC encrypt 1KB | 0.009ms | 0.003ms | 0.009ms | 50 |
+| AES-256-GCM encrypt 1KB | 0.005ms | 0.004ms | 0.010ms | 50 |
+| AES-256-CBC encrypt 100KB | 0.063ms | 0.060ms | 0.073ms | 50 |
+| AES-256-GCM encrypt 100KB | 0.028ms | 0.026ms | 0.035ms | 50 |
+| AES-256-CBC encrypt 1MB | 0.572ms | 0.541ms | 0.607ms | 50 |
+| AES-256-GCM encrypt 1MB | 0.186ms | 0.149ms | 0.289ms | 50 |
+
+待补测平台：
+
+- iOS native：older supported iPhone，React Native JS fallback vs native AES-GCM。
+- Android native：low-end supported Android，React Native JS fallback vs native AES-GCM。
+- Desktop app：Electron main/renderer path using actual app crypto implementation。
+- Web：Chrome/Safari/Firefox where supported，WebCrypto disabled/enabled path if rollout changes `ALLOW_USE_WEB_CRYPTO_SUBTLE`。
+- Extension：service worker and popup unlock path，尤其关注 service worker lifetime and main-thread responsiveness。
+
 ## 按 Key Source 制定 KDF Iteration 策略
 
 只有当 encryption secret 可能被离线猜测时，PBKDF2 iteration 升级才有价值。共享数据格式不应对每个 encrypted payload 套用同一套 iteration policy。正确策略取决于 encryption secret 的来源。
@@ -192,7 +293,7 @@ Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低�
 ## 执行 TODO
 
 - [x] 第一个任务：Phase 0 golden vectors。已选择先做 legacy CBC、legacy GCM 和 custom-iteration behavior 的固定向量测试，用固定 salt、iv/nonce、password、plaintext 锁定现有 payload 格式和 KDF 参数兼容性。
-- [ ] Phase 0 inventory。识别每一个持久化调用方：`encryptStringAsync`、`encryptAsync`、`encodeSensitiveTextAsync` 和 `encryptByInstanceId`。
+- [x] Phase 0 inventory。识别每一个持久化调用方：`encryptStringAsync`、`encryptAsync`、`encodeSensitiveTextAsync` 和 `encryptByInstanceId`，并按 local-only、shared/server-visible、migration/non-persistent 分类。
 - [ ] Phase 0 performance baseline。记录 iOS、Android、desktop、web 和 extension 上当前 PBKDF2 与 AES operations 的性能。
 - [ ] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。
 - [ ] Phase 1 native AES-GCM。为移动端添加 native AES-GCM support，并保留 noble fallback。
