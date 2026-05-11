@@ -34,31 +34,45 @@ export function FeaturedContentSlide({
 }: IContentSlideProps) {
   const ref = useRef<unknown>(null);
 
-  // Re-measure imperatively when web fonts become ready. Some browsers/Tamagui
-  // layers don't fire ResizeObserver (and therefore onLayout) when a webfont
-  // load reflows text, so the initial onLayout reading is stuck on the
-  // fallback-font wrap until something forces a re-layout (e.g., a window
-  // drag). This bypass takes a direct getBoundingClientRect once fonts.ready
-  // resolves.
+  // Re-measure imperatively after the slide has had time to settle. The
+  // initial onLayout sometimes fires before layout is fully stable — on web
+  // it's because webfont swap doesn't trigger ResizeObserver; on native it's
+  // due to dialog/sheet entry animations. Both manifest as a content height
+  // that's too small until something forces a re-layout (e.g. a window drag).
+  // We work around it by imperatively measuring the underlying view at a few
+  // deferred ticks.
   useEffect(() => {
-    if (typeof document === 'undefined' || !document.fonts) return undefined;
     let cancelled = false;
     const measure = () => {
       if (cancelled) return;
       const node = ref.current as {
         getBoundingClientRect?: () => DOMRect;
+        measure?: (
+          cb: (x: number, y: number, w: number, h: number) => void,
+        ) => void;
       } | null;
-      if (node && typeof node.getBoundingClientRect === 'function') {
+      if (!node) return;
+      if (typeof node.getBoundingClientRect === 'function') {
         const rect = node.getBoundingClientRect();
         if (rect.height > 0) onContentLayout(rect.height);
+      } else if (typeof node.measure === 'function') {
+        node.measure((_x, _y, _w, h) => {
+          if (!cancelled && h > 0) onContentLayout(h);
+        });
       }
     };
-    void document.fonts.ready.then(() => {
-      // wait one frame so layout has settled after the font swap before reading
-      requestAnimationFrame(measure);
-    });
+
+    const timers = [setTimeout(measure, 100), setTimeout(measure, 300)];
+
+    if (typeof document !== 'undefined' && document.fonts) {
+      void document.fonts.ready.then(() => {
+        requestAnimationFrame(measure);
+      });
+    }
+
     return () => {
       cancelled = true;
+      timers.forEach(clearTimeout);
     };
   }, [feature.title, feature.description, onContentLayout]);
 

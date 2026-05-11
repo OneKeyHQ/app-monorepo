@@ -2,7 +2,14 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Stack, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Button,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -24,6 +31,10 @@ function FeaturedFooter({
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { md } = useMedia();
+  const { bottom } = useSafeAreaInsets();
+  // 20 = "$5" default. Use the system safe-area inset when larger so the
+  // footer clears the iOS home indicator on bottom-sheet dialogs.
+  const paddingBottom = Math.max(bottom, 20);
 
   const handleViewChangelog = useCallback(async () => {
     await closeDialog();
@@ -34,7 +45,11 @@ function FeaturedFooter({
 
   if (md) {
     return (
-      <YStack px="$5" pb="$5" gap="$4">
+      <YStack
+        px="$5"
+        gap="$4"
+        paddingBottom={paddingBottom ? paddingBottom + 20 : undefined}
+      >
         <Button size="large" variant="primary" onPress={onCtaPress}>
           {ctaText}
         </Button>
@@ -52,7 +67,12 @@ function FeaturedFooter({
   }
 
   return (
-    <XStack px="$5" pb="$5" justifyContent="space-between" alignItems="center">
+    <XStack
+      px="$5"
+      paddingBottom={paddingBottom}
+      justifyContent="space-between"
+      alignItems="center"
+    >
       {showFullChangelog ? (
         <Button size="medium" variant="tertiary" onPress={handleViewChangelog}>
           {intl.formatMessage({ id: ETranslations.view_full_changelog })}
