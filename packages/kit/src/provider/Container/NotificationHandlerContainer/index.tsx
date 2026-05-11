@@ -15,10 +15,7 @@ import {
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
 import { navigateToNotificationDetailByLocalParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
-import {
-  openUrlExternal,
-  openUrlInApp,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationViewDialogActionType,
@@ -100,7 +97,7 @@ function BaseNotificationHandlerContainer() {
               }
               break;
             case ENotificationViewDialogActionType.openInApp:
-              openUrlInApp(payload as string);
+              openWebView({ url: payload as string, source: 'notification' });
               break;
             case ENotificationViewDialogActionType.openInBrowser:
               openUrlExternal(payload as string);

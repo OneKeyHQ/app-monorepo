@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -12,7 +13,7 @@ export function useDesktopNewWindow() {
   const { gtMd } = useMedia();
   const onNewWindow = useCallback(
     (data: { url: string }) => {
-      if (data.url) {
+      if (data.url && isAllowedWebViewUrl(data.url)) {
         handleOpenWebSite({
           useCurrentWindow: false,
           webSite: {
