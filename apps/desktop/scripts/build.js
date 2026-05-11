@@ -85,7 +85,12 @@ build({
     'process.env.VERSION': JSON.stringify(process.env.VERSION || '1.0.0'),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER || '1'),
     'process.env.BUNDLE_VERSION': JSON.stringify(
-      process.env.BUNDLE_VERSION || '1',
+      // Sentinel '0' marks "CI did not inject BUNDLE_VERSION here";
+      // matches the iOS Info.plist sentinel and the Android Gradle
+      // defEnvStr fallback so leaks land in a single recognizable
+      // mixpanel bucket instead of the legacy '1' that collides with
+      // the JS-side `?? '1'` fallback.
+      process.env.BUNDLE_VERSION || '0',
     ),
     'process.env.NODE_ENV': JSON.stringify(
       process.env.NODE_ENV || 'development',

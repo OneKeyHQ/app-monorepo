@@ -12,7 +12,11 @@ export * from './utils';
 export * from './type';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';
-const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '1';
+// '0' sentinel mirrors the iOS Info.plist / Android Gradle / Desktop
+// build fallbacks: a clearly identifiable "BUNDLE_VERSION not injected"
+// marker that won't collide with any real CI-computed value (which is
+// seconds-since-2026-01-01, so always > 1M).
+const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '0';
 
 export function encodeBundleVersionForDisplay(version: string): string {
   // BUNDLE_VERSION is seconds since 2026-01-01T00:00:00Z epoch, base36 encode for short display
