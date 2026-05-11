@@ -8,7 +8,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
-
 import { PerpCandles } from '../PerpCandles';
 
 import {
