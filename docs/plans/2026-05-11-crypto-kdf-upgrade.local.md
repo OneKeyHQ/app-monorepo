@@ -77,7 +77,9 @@ Lazy upgrade 不应作为隐式写入隐藏在低层 `decryptAsync` 内部。
 
 推荐 API 形态：
 
-- 新增 parser 或 decrypt helper，返回 plaintext 加 metadata，例如 `{ plaintext, format, version, iterations, cipher, needsUpgrade }`。
+- 普通业务读路径继续使用 `decryptAsync`。它必须自动兼容 legacy CBC、legacy GCM 和 v2，并且只返回 plaintext。
+- Metadata decrypt helper 只用于本地 lazy upgrade 决策，返回 plaintext 加 metadata，例如 `{ plaintext, format, version, iterations, cipher, needsUpgrade }`。
+- `decryptAsyncWithMetadata` 不应被当成普通业务 read API 到处调用；后续应收窄为 owner-specific helpers，例如 `decryptVerifyStringWithMetadata`、`decryptRevealableSeedWithMetadata`、`decryptImportedCredentialWithMetadata`，只给 local DB / credential owner 用。
 - 保持低层 crypto layer 无副作用。
 - 由 storage owner 决定 record 是否可以安全重写。
 - 仅在密码验证成功或本地解密成功之后重写。
@@ -382,6 +384,8 @@ Crypto unit tests：
 - Legacy CBC with default iterations still decrypts。
 - Legacy GCM with default iterations still decrypts。
 - v2 decrypts using header iterations without caller-provided iterations。
+- Plain `decryptAsync` reads legacy CBC、legacy GCM and v2 without requiring callers to know the payload format。
+- Metadata helpers are only used by local migration owners to decide `needsUpgrade`; shared/server-visible flows must not auto-rewrite based on metadata。
 - Wrong password fails。
 - Wrong AAD fails。
 - Tampered ciphertext fails。
