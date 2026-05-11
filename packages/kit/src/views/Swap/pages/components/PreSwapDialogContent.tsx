@@ -102,7 +102,7 @@ const PreSwapDialogContent = ({
       ? defaultCustomPriorityFee
       : swapStepNetFeeLevel.customPriorityFee;
 
-    if (!showCustomNetworkFeeOption && !optionCustomPriorityFee) {
+    if (!optionCustomPriorityFee) {
       return undefined;
     }
 
