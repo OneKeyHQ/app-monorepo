@@ -680,30 +680,39 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     showSilentUpdateDialog,
     showUpdateInCompleteDialog,
   } = useDownloadPackage();
+  // Returns true when the featured changelog dialog handled the open; false
+  // tells the caller to fall through to its legacy modal-push.
+  // Dynamic import breaks the cycle: showFeaturedChangelogDialog imports
+  // useDownloadPackage + isForceUpdateStrategy from this file.
+  const tryShowFeaturedDialog = useCallback(async (isPreInstall: boolean) => {
+    const currentInfo =
+      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    if (!hasFeaturedChangelog(currentInfo.featuredChangelog)) return false;
+    const { showFeaturedChangelogDialog } =
+      await import('@onekeyhq/kit/src/views/AppUpdate/dialogs/showFeaturedChangelogDialog');
+    showFeaturedChangelogDialog({ isPreInstall });
+    return true;
+  }, []);
+
   const onViewReleaseInfo = useCallback(() => {
     if (platformEnv.isE2E) {
       return;
     }
     setTimeout(async () => {
-      const currentInfo =
-        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      if (await tryShowFeaturedDialog(false)) return;
       const pushModal = isFullModal
         ? navigation.pushFullModal
         : navigation.pushModal;
-
-      if (hasFeaturedChangelog(currentInfo.featuredChangelog)) {
-        // Dynamic import to break the cycle: showFeaturedChangelogDialog
-        // imports useDownloadPackage + isForceUpdateStrategy from this file.
-        const { showFeaturedChangelogDialog } =
-          await import('@onekeyhq/kit/src/views/AppUpdate/dialogs/showFeaturedChangelogDialog');
-        showFeaturedChangelogDialog({ isPreInstall: false });
-      } else {
-        pushModal(EModalRoutes.AppUpdateModal, {
-          screen: EAppUpdateRoutes.WhatsNew,
-        });
-      }
+      pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.WhatsNew,
+      });
     });
-  }, [isFullModal, navigation.pushFullModal, navigation.pushModal]);
+  }, [
+    isFullModal,
+    navigation.pushFullModal,
+    navigation.pushModal,
+    tryShowFeaturedDialog,
+  ]);
 
   const toUpdatePreviewPage = useCallback(
     (
@@ -714,36 +723,31 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       },
     ) => {
       setTimeout(async () => {
+        if (await tryShowFeaturedDialog(true)) return;
         const currentAppUpdateInfo =
           await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
         const pushModal = isFull
           ? navigation.pushFullModal
           : navigation.pushModal;
-
-        if (hasFeaturedChangelog(currentAppUpdateInfo.featuredChangelog)) {
-          const { showFeaturedChangelogDialog } =
-            await import('@onekeyhq/kit/src/views/AppUpdate/dialogs/showFeaturedChangelogDialog');
-          showFeaturedChangelogDialog({ isPreInstall: true });
-        } else {
-          pushModal(EModalRoutes.AppUpdateModal, {
-            screen: EAppUpdateRoutes.UpdatePreview,
-            params: {
-              latestVersion:
-                params?.latestVersion ?? currentAppUpdateInfo.latestVersion,
-              isForceUpdate:
-                params?.isForceUpdate ??
-                isForceUpdateStrategy(appUpdateInfo.updateStrategy),
-              autoClose: isFull,
-              ...params,
-            },
-          });
-        }
+        pushModal(EModalRoutes.AppUpdateModal, {
+          screen: EAppUpdateRoutes.UpdatePreview,
+          params: {
+            latestVersion:
+              params?.latestVersion ?? currentAppUpdateInfo.latestVersion,
+            isForceUpdate:
+              params?.isForceUpdate ??
+              isForceUpdateStrategy(appUpdateInfo.updateStrategy),
+            autoClose: isFull,
+            ...params,
+          },
+        });
       }, 0);
     },
     [
       appUpdateInfo.updateStrategy,
       navigation.pushFullModal,
       navigation.pushModal,
+      tryShowFeaturedDialog,
     ],
   );
 

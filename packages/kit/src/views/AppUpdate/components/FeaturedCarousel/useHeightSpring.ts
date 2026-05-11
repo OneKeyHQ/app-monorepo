@@ -39,16 +39,10 @@ export function useHeightSpring({
         fallback: ESTIMATED_FALLBACK_HEIGHT,
       }),
     (target, prev) => {
-      // Snap (no spring animation) when progress is stable on an integer.
-      // This is the steady-state case: the height target only moves because
-      // the underlying content was re-measured (e.g., during the dialog's
-      // open scale animation the carousel width grows from ~80% → 100% and
-      // text re-wraps). Spring on these measurement updates would lag
-      // noticeably and look like a slow climb after the dialog appears.
-      //
-      // Only use spring with lag/overshoot during real transitions — when
-      // progress is animating between slides and the height genuinely needs
-      // to ease from one slide's measured height to the next.
+      // Snap on measurement-only changes (steady-state re-layout from the
+      // dialog scale animation or webfont swap); spring only during real
+      // slide-to-slide transitions, otherwise the height visibly climbs
+      // after the dialog opens.
       const isStableProgress =
         Math.abs(progress.value - Math.round(progress.value)) <
         PROGRESS_SNAP_TOLERANCE;

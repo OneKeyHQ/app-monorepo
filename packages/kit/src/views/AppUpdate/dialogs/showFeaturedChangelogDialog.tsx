@@ -15,9 +15,11 @@ import {
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate';
+import { ONEKEY_APP_DEEP_LINK_NAME } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 
@@ -38,7 +40,7 @@ export interface IShowFeaturedChangelogDialogParams {
 const ALLOWED_HREF_SCHEMES = new Set([
   'https:',
   'http:',
-  'onekey-wallet:',
+  `${ONEKEY_APP_DEEP_LINK_NAME}:`,
   'onekey:',
 ]);
 
@@ -49,6 +51,20 @@ function isAllowedHref(href: string | undefined): href is string {
   } catch {
     return false;
   }
+}
+
+function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
+  const href = activeFeature?.href;
+  if (!isAllowedHref(href)) return;
+  if (activeFeature?.hrefType === 'external') {
+    openUrlExternal(href);
+    return;
+  }
+  parseNotificationPayload(
+    activeFeature?.mode ?? ENotificationPushMessageMode.openInBrowser,
+    href,
+    () => handleDeepLinkUrl({ url: href }),
+  );
 }
 
 function useFeaturedCta({
@@ -111,23 +127,8 @@ function useFeaturedCta({
       return;
     }
 
-    const href = activeFeature?.href;
-    if (!isAllowedHref(href)) {
-      await closeDialog();
-      return;
-    }
-
     await closeDialog();
-    setTimeout(() => {
-      if (
-        activeFeature?.hrefType === 'external' ||
-        activeFeature?.mode === ENotificationPushMessageMode.openInBrowser
-      ) {
-        openUrlExternal(href);
-      } else {
-        handleDeepLinkUrl({ url: href });
-      }
-    }, 300);
+    setTimeout(() => dispatchFeatureCta(activeFeature), 300);
   }, [
     isPreInstall,
     shouldOpenStore,
@@ -138,32 +139,29 @@ function useFeaturedCta({
     downloadPackage,
     navigation,
     closeDialog,
-    activeFeature?.href,
-    activeFeature?.hrefType,
-    activeFeature?.mode,
+    activeFeature,
   ]);
 
-  const isForceUpdate = isForceUpdateStrategy(appUpdateInfo.updateStrategy);
-
-  return { ctaText, onCtaPress, isForceUpdate };
+  return { ctaText, onCtaPress };
 }
 
 function FeaturedChangelogContent({
   isPreInstall,
+  isLocked,
   closeDialog,
 }: {
   isPreInstall: boolean;
+  isLocked: boolean;
   closeDialog: () => Promise<void>;
 }) {
   const intl = useIntl();
-  const [appUpdateInfo] = useAppUpdatePersistAtom();
-  const features = appUpdateInfo.featuredChangelog?.features ?? [];
+  const features = useFeatures();
 
   const [activeFeature, setActiveFeature] = useState<IFeaturedItem | undefined>(
     features[0],
   );
 
-  const { ctaText, onCtaPress, isForceUpdate } = useFeaturedCta({
+  const { ctaText, onCtaPress } = useFeaturedCta({
     isPreInstall,
     activeFeature,
     closeDialog,
@@ -174,8 +172,6 @@ function FeaturedChangelogContent({
   const badgeText = intl.formatMessage({
     id: ETranslations.settings_whats_new,
   });
-
-  const isLockedUI = isForceUpdate && isPreInstall;
 
   return (
     <Stack
@@ -191,17 +187,27 @@ function FeaturedChangelogContent({
       <FeaturedCarousel
         features={features}
         badgeText={badgeText}
-        showCloseButton={!isLockedUI}
+        showCloseButton={!isLocked}
         onClose={() => void closeDialog()}
-        onActiveFeatureChange={(feature) => setActiveFeature(feature)}
+        onActiveFeatureChange={setActiveFeature}
       />
       <FeaturedFooter
         ctaText={ctaText}
         onCtaPress={() => void onCtaPress()}
-        showFullChangelog={!isLockedUI}
+        showFullChangelog={!isLocked}
         closeDialog={closeDialog}
       />
     </Stack>
+  );
+}
+
+function useFeatures(): IFeaturedItem[] {
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
+  // Memoize so a fresh `?? []` reference doesn't ripple through downstream
+  // effects on every unrelated atom-field change.
+  return useMemo(
+    () => appUpdateInfo.featuredChangelog?.features ?? [],
+    [appUpdateInfo.featuredChangelog?.features],
   );
 }
 
@@ -216,13 +222,12 @@ export function showFeaturedChangelogDialog(
   const features = info.featuredChangelog?.features ?? [];
   if (features.length === 0) return undefined;
 
-  const isForceUpdate = isForceUpdateStrategy(info.updateStrategy);
   // Prevent dismissal when a force-update is pending pre-install
-  const isLocked = isForceUpdate && isPreInstall;
+  const isLocked = isForceUpdateStrategy(info.updateStrategy) && isPreInstall;
 
   const mountTime = Date.now();
 
-  // Use a mutable ref object so the closeDialog closure always sees the live instance.
+  // Mutable ref so the closeDialog closure always sees the live instance.
   const instanceRef: { current: IDialogInstance | undefined } = {
     current: undefined,
   };
@@ -239,6 +244,7 @@ export function showFeaturedChangelogDialog(
     renderContent: (
       <FeaturedChangelogContent
         isPreInstall={isPreInstall}
+        isLocked={isLocked}
         closeDialog={closeDialog}
       />
     ),

@@ -13,6 +13,8 @@ import Animated, {
 import { Badge, IconButton, LinearGradient, Stack } from '@onekeyhq/components';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChangelog';
 
+import { FeaturedMedia } from '../FeaturedMedia';
+
 import {
   CONTENT_SPRING_CONFIG,
   MEDIA_HEIGHT,
@@ -23,7 +25,7 @@ import {
   TAP_JUMP_NEW_SLIDE_DELAY_MS,
 } from './constants';
 import { FeaturedIndicator } from './FeaturedIndicator';
-import { FeaturedContentSlide, FeaturedMediaSlide } from './FeaturedSlide';
+import { FeaturedContentSlide } from './FeaturedSlide';
 import { useCarouselGesture } from './useCarouselGesture';
 import { useHeightSpring } from './useHeightSpring';
 
@@ -156,7 +158,6 @@ export function FeaturedCarousel({
   const jumpToIndex = useSharedValue(0);
   const jumpProgress = useSharedValue(0);
 
-  // React-side mirror so we can conditionally render in JSX
   const [jumpIndices, setJumpIndices] = useState<{
     from: number;
     to: number;
@@ -172,6 +173,7 @@ export function FeaturedCarousel({
 
   const handleContentLayout = useCallback(
     (slideIndex: number, height: number) => {
+      if (measuredHeights.value[slideIndex] === height) return;
       const next = [...measuredHeights.value];
       next[slideIndex] = height;
       measuredHeights.value = next;
@@ -213,7 +215,6 @@ export function FeaturedCarousel({
         );
         setActiveIndex(clamped);
       } else {
-        // Single-step spring (existing behavior)
         progress.value = withSpring(clamped, CONTENT_SPRING_CONFIG);
         setActiveIndex(clamped);
       }
@@ -346,8 +347,9 @@ export function FeaturedCarousel({
       <GestureDetector gesture={panGesture}>
         <Stack height={MEDIA_HEIGHT} position="relative" overflow="hidden">
           {renderSlides('media', (feature, i) => (
-            <FeaturedMediaSlide
+            <FeaturedMedia
               feature={feature}
+              height={MEDIA_HEIGHT}
               isActive={i === activeIndex}
             />
           ))}
@@ -406,7 +408,8 @@ export function FeaturedCarousel({
         {renderSlides('content', (feature, i) => (
           <FeaturedContentSlide
             feature={feature}
-            onContentLayout={(h) => handleContentLayout(i, h)}
+            slideIndex={i}
+            onContentLayout={handleContentLayout}
           />
         ))}
       </Animated.View>
