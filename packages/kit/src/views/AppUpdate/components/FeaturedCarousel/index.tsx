@@ -163,6 +163,8 @@ export function FeaturedCarousel({
   } | null>(null);
   const isJumpingJs = jumpIndices !== null;
 
+  const heightSpring = useHeightSpring({ progress, measuredHeights });
+
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
     setContainerWidth((prev) => (prev === w ? prev : w));
@@ -267,8 +269,6 @@ export function FeaturedCarousel({
     if (feature) onActiveFeatureChange?.(feature, activeIndex);
   }, [activeIndex, features, onActiveFeatureChange]);
 
-  const heightSpring = useHeightSpring({ progress, measuredHeights });
-
   const contentRegionStyle = useAnimatedStyle(() => ({
     height: heightSpring.value,
   }));
@@ -367,7 +367,7 @@ export function FeaturedCarousel({
         </Stack>
       </GestureDetector>
 
-      {/* Content region: animated height, slides absolutely positioned */}
+      {/* Content region: animated height, slides absolutely positioned. */}
       <Animated.View
         style={[
           { position: 'relative', overflow: 'hidden' },

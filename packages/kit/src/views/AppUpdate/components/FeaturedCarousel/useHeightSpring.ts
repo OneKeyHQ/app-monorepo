@@ -36,9 +36,22 @@ export function useHeightSpring({
         fallback: ESTIMATED_FALLBACK_HEIGHT,
       }),
     (target, prev) => {
-      // Skip restarting the spring on sub-pixel changes — during a continuous
-      // swipe this reaction runs ~60fps and would otherwise preempt every
-      // in-flight spring, defeating the lag and overshoot.
+      // Snap (no spring animation) when progress is stable on an integer.
+      // This is the steady-state case: the height target only moves because
+      // the underlying content was re-measured (e.g., during the dialog's
+      // open scale animation the carousel width grows from ~80% → 100% and
+      // text re-wraps). Spring on these measurement updates would lag
+      // noticeably and look like a slow climb after the dialog appears.
+      //
+      // Only use spring with lag/overshoot during real transitions — when
+      // progress is animating between slides and the height genuinely needs
+      // to ease from one slide's measured height to the next.
+      const isStableProgress =
+        Math.abs(progress.value - Math.round(progress.value)) < 0.01;
+      if (isStableProgress) {
+        heightSpring.value = target;
+        return;
+      }
       if (prev !== null && Math.abs(target - prev) < 1) return;
       heightSpring.value = withDelay(
         HEIGHT_SPRING_DELAY_MS,
