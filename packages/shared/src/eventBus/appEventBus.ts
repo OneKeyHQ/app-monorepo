@@ -53,7 +53,7 @@ import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { EDecodedTxStatus } from '../../types/tx';
 import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
-import type { EModalRoutes, ETabRoutes } from '../routes';
+import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
 
@@ -466,6 +466,7 @@ export interface IAppEventBusPayload {
     };
   };
   [EAppEventBusNames.ShowNotificationInDappPage]: string;
+  [EAppEventBusNames.ShowNotificationInWebViewOverlay]: IWebViewPageParams;
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;

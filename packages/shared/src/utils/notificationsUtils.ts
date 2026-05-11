@@ -24,7 +24,7 @@ import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
 import extUtils from './extUtils';
-import { openUrlExternal, openUrlInApp } from './openUrlUtils';
+import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
 import timerUtils from './timerUtils';
 
@@ -33,6 +33,7 @@ import type {
   ENotificationPushTopicTypes,
   INotificationPushMessageInfo,
 } from '../../types/notification';
+import type { IWebViewPageParams } from '../routes';
 
 function convertWebPermissionToEnum(
   permission: NotificationPermission,
@@ -288,7 +289,44 @@ export function parseNotificationPayload(
       break;
     case ENotificationPushMessageMode.openInApp:
       if (payload) {
-        openUrlInApp(payload);
+        // payload accepts two shapes — both end up in the root-level WebView
+        // overlay; the kit-side subscriber runs the same URL safety policy
+        // as in-app callers:
+        //   1. JSON object       → { url, title?, hideHeader?, showAddressBar? }
+        //   2. plain URL string  → 'https://onekey.so'
+        let webViewParams: IWebViewPageParams | null = null;
+        try {
+          const parsed: unknown = JSON.parse(payload);
+          if (
+            parsed &&
+            typeof parsed === 'object' &&
+            typeof (parsed as { url?: unknown }).url === 'string'
+          ) {
+            const obj = parsed as Record<string, unknown>;
+            webViewParams = {
+              url: obj.url as string,
+              title: typeof obj.title === 'string' ? obj.title : undefined,
+              hideHeader:
+                typeof obj.hideHeader === 'boolean'
+                  ? obj.hideHeader
+                  : undefined,
+              showAddressBar:
+                typeof obj.showAddressBar === 'boolean'
+                  ? obj.showAddressBar
+                  : undefined,
+              source: 'notification',
+            };
+          }
+        } catch (_error) {
+          // not JSON — treat payload as a plain URL string below
+        }
+        if (!webViewParams) {
+          webViewParams = { url: payload, source: 'notification' };
+        }
+        appEventBus.emit(
+          EAppEventBusNames.ShowNotificationInWebViewOverlay,
+          webViewParams,
+        );
       }
       break;
     case ENotificationPushMessageMode.openInDapp:

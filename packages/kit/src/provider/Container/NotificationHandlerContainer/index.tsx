@@ -10,7 +10,10 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabRoutes,
+  type IWebViewPageParams,
+} from '@onekeyhq/shared/src/routes';
 import { navigateToNotificationDetailByLocalParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   openUrlExternal,
@@ -30,6 +33,7 @@ import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useBrowserAction } from '../../../states/jotai/contexts/discovery';
 import { DiscoveryBrowserProviderMirror } from '../../../views/Discovery/components/DiscoveryBrowserProviderMirror';
+import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
 import { executeNotificationCommand } from './commandRegistry';
 import { useInitialNotification } from './hooks';
@@ -180,6 +184,11 @@ function BaseNotificationHandlerContainer() {
         openUrlExternal(url);
       }
     };
+    const handleShowNotificationInWebViewOverlay = (
+      params: IWebViewPageParams,
+    ) => {
+      openWebView(params);
+    };
     appEventBus.on(
       EAppEventBusNames.ShowNotificationPageNavigation,
       handleShowNotificationPageNavigation,
@@ -187,6 +196,10 @@ function BaseNotificationHandlerContainer() {
     appEventBus.on(
       EAppEventBusNames.ShowNotificationInDappPage,
       handleShowNotificationDappNavigation,
+    );
+    appEventBus.on(
+      EAppEventBusNames.ShowNotificationInWebViewOverlay,
+      handleShowNotificationInWebViewOverlay,
     );
 
     const handleExecuteCommand = ({
@@ -223,6 +236,10 @@ function BaseNotificationHandlerContainer() {
       appEventBus.off(
         EAppEventBusNames.ShowNotificationInDappPage,
         handleShowNotificationDappNavigation,
+      );
+      appEventBus.off(
+        EAppEventBusNames.ShowNotificationInWebViewOverlay,
+        handleShowNotificationInWebViewOverlay,
       );
       appEventBus.off(
         EAppEventBusNames.ExecuteNotificationCommand,
