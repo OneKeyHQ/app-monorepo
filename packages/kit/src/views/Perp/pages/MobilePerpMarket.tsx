@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   HeaderScrollGestureWrapper,
   Icon,
   NavBackButton,
   Page,
+  ScrollView,
   SizableText,
   Tabs,
   XStack,
@@ -17,6 +20,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -26,6 +30,7 @@ import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useMobileTabTouchScrollBridge } from '../../../hooks/useMobileTabTouchScrollBridge';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { PerpMarketIntroContent } from '../components/MarketDetail/PerpMarketIntroContent';
 import { PerpCandles } from '../components/PerpCandles';
 import PerpMarketFooter from '../components/PerpMarketFooter';
 import { PerpOrderBook } from '../components/PerpOrderBook';
@@ -35,11 +40,95 @@ import {
   TradingModeBadge,
 } from '../components/TokenSelector/PerpTokenSelectorRow';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
+import { usePerpResolvedMarketDetail } from '../hooks/usePerpMarketDetail';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
 const IOS_CHART_HEIGHT = 500;
 const IOS_CHART_BOTTOM_OVERLAP = 56;
+type IMobilePerpMarketTab = 'orderbook' | 'info';
+
+const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
+  key: IMobilePerpMarketTab;
+  translationId?: ETranslations;
+  label?: string;
+}> = [
+  { key: 'orderbook', translationId: ETranslations.market_chart },
+  { key: 'info', translationId: ETranslations.global_info },
+];
+
+function MobilePerpMarketTabBarItem({
+  tab,
+  isFocused,
+  onChange,
+  isFirst,
+}: {
+  tab: {
+    key: IMobilePerpMarketTab;
+    translationId?: ETranslations;
+    label?: string;
+  };
+  isFocused: boolean;
+  onChange: (tab: IMobilePerpMarketTab) => void;
+  isFirst: boolean;
+}) {
+  const intl = useIntl();
+
+  return (
+    <XStack
+      pt="$0.5"
+      pb="$2"
+      ml={isFirst ? '$5' : '$4'}
+      mr="$2"
+      borderBottomWidth={isFocused ? '$0.5' : '$0'}
+      borderBottomColor="$borderActive"
+      onPress={() => onChange(tab.key)}
+      cursor="pointer"
+    >
+      <SizableText
+        size="$headingXs"
+        color={isFocused ? '$text' : '$textSubdued'}
+      >
+        {tab.label ||
+          (tab.translationId
+            ? intl.formatMessage({ id: tab.translationId })
+            : '')}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function MobilePerpMarketTabBar({
+  activeTab,
+  onChange,
+}: {
+  activeTab: IMobilePerpMarketTab;
+  onChange: (tab: IMobilePerpMarketTab) => void;
+}) {
+  return (
+    <XStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        width="100%"
+        contentContainerStyle={{ minWidth: '100%' }}
+      >
+        <XStack minWidth="100%">
+          {MOBILE_PERP_MARKET_TAB_ITEMS.map((tab, index) => (
+            <MobilePerpMarketTabBarItem
+              key={tab.key}
+              tab={tab}
+              isFocused={activeTab === tab.key}
+              onChange={onChange}
+              isFirst={index === 0}
+            />
+          ))}
+        </XStack>
+      </ScrollView>
+    </XStack>
+  );
+}
 
 function useNativeGestureTouchScrollGuard({
   onTouchScroll,
@@ -139,6 +228,13 @@ function MobilePerpMarket() {
   const { baseName, displayName, mode } = useActiveTradeDisplay();
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+  const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>('orderbook');
+  const shouldLoadMarketDetail = activeTab === 'info';
+  const marketDetailDisplayName = mode === 'spot' ? baseName : displayName;
+  const resolvedMarketDetail = usePerpResolvedMarketDetail({
+    coin: shouldLoadMarketDetail ? activeTradeInstrument.coin : undefined,
+    displayName: shouldLoadMarketDetail ? marketDetailDisplayName : undefined,
+  });
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
@@ -211,6 +307,10 @@ function MobilePerpMarket() {
     };
   }, [isLandscape, isTablet]);
 
+  const handleChangeActiveTab = useCallback((tab: IMobilePerpMarketTab) => {
+    setActiveTab(tab);
+  }, []);
+
   const renderHeaderRight = useCallback(
     () => (
       <FavoriteButton
@@ -236,11 +336,27 @@ function MobilePerpMarket() {
 
   const orderBookContent = useMemo(
     () => (
-      <YStack bg="$bgApp" px={2}>
+      <YStack bg="$bgApp">
         <PerpOrderBook entry="perpMobileMarket" />
       </YStack>
     ),
     [],
+  );
+  const infoContent = useMemo(
+    () => (
+      <PerpMarketIntroContent
+        coin={activeTradeInstrument.coin}
+        displayName={marketDetailDisplayName}
+        enabled={activeTab === 'info'}
+        resolvedMarketDetail={resolvedMarketDetail}
+      />
+    ),
+    [
+      activeTab,
+      activeTradeInstrument.coin,
+      marketDetailDisplayName,
+      resolvedMarketDetail,
+    ],
   );
 
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);
@@ -251,20 +367,30 @@ function MobilePerpMarket() {
         {pageHeader}
         <Page.Body p="$0">
           <YStack flex={1} bg="$bgApp">
-            <Tabs.Container
-              initialTabName="orderbook"
-              renderHeader={() => <MobilePerpCandlesTouchBridge />}
-              renderTabBar={() => null}
-            >
-              <Tabs.Tab name="orderbook">
-                <Tabs.ScrollView
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
-                >
-                  <YStack>{orderBookContent}</YStack>
-                </Tabs.ScrollView>
-              </Tabs.Tab>
-            </Tabs.Container>
+            <MobilePerpMarketTabBar
+              activeTab={activeTab}
+              onChange={handleChangeActiveTab}
+            />
+            {activeTab === 'orderbook' ? (
+              <Tabs.Container
+                initialTabName="orderbook"
+                renderHeader={() => <MobilePerpCandlesTouchBridge />}
+                renderTabBar={() => null}
+              >
+                <Tabs.Tab name="orderbook">
+                  <Tabs.ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
+                  >
+                    <YStack>{orderBookContent}</YStack>
+                  </Tabs.ScrollView>
+                </Tabs.Tab>
+              </Tabs.Container>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <YStack>{infoContent}</YStack>
+              </ScrollView>
+            )}
           </YStack>
         </Page.Body>
         {pageFooter}
@@ -273,13 +399,22 @@ function MobilePerpMarket() {
   }
 
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled={activeTab === 'info'}>
       {pageHeader}
       <Page.Body p="$0">
-        <YStack flex={1} bg="$bgApp" gap="$1.5">
-          {marketHeaderContent}
-
-          <YStack flexShrink={0}>{orderBookContent}</YStack>
+        <YStack flex={1} bg="$bgApp">
+          <MobilePerpMarketTabBar
+            activeTab={activeTab}
+            onChange={handleChangeActiveTab}
+          />
+          {activeTab === 'orderbook' ? (
+            <YStack flexShrink={0}>
+              {marketHeaderContent}
+              {orderBookContent}
+            </YStack>
+          ) : (
+            <YStack flexShrink={0}>{infoContent}</YStack>
+          )}
         </YStack>
       </Page.Body>
       {pageFooter}

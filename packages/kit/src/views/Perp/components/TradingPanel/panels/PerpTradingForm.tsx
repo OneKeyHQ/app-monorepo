@@ -55,6 +55,7 @@ import {
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
+import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
@@ -82,6 +83,8 @@ interface IPerpTradingFormProps {
 }
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
+const DESKTOP_TRADING_HEADER_HEIGHT =
+  PERP_LAYOUT_CONFIG.desktop.panelHeaderHeight;
 
 // Migrate old persisted trigger order types to new values
 function migrateTriggerOrderType(raw: string): ETriggerOrderType {
@@ -1300,7 +1303,7 @@ function PerpTradingForm({
   return (
     <YStack
       gap={isMobile ? '$2.5' : '$4'}
-      pt={isMobile ? '$0' : '$2.5'}
+      pt={isMobile || isSpot ? '$0' : '$2.5'}
       flex={isSpot && isMobile ? 1 : undefined}
     >
       {isMobile ? (
@@ -1392,7 +1395,7 @@ function PerpTradingForm({
             )}
 
             <XStack
-              h={38}
+              h={DESKTOP_TRADING_HEADER_HEIGHT}
               alignItems="center"
               borderBottomWidth="$px"
               borderBottomColor="$borderSubdued"
@@ -1401,7 +1404,7 @@ function PerpTradingForm({
                 const isFocused = primaryOrderType === option.value;
                 return (
                   <XStack
-                    h={38}
+                    h={DESKTOP_TRADING_HEADER_HEIGHT}
                     key={option.value}
                     mr="$4"
                     alignItems="center"
@@ -1445,7 +1448,7 @@ function PerpTradingForm({
                   floatingPanelProps={{ width: 180 }}
                   renderTrigger={({ onPress, disabled: disabledTrigger }) => (
                     <XStack
-                      h={38}
+                      h={DESKTOP_TRADING_HEADER_HEIGHT}
                       alignItems="center"
                       position="relative"
                       gap="$1"
