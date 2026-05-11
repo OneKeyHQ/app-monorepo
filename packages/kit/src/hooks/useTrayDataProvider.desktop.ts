@@ -1050,10 +1050,7 @@ export function useTrayDataProvider() {
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
           const coin = action.perpsCoin;
-          setTimeout(async () => {
-            nav.navigate(ERootRoutes.Main, {
-              screen: ETabRoutes.Perp,
-            });
+          void switchTabAsync(ETabRoutes.Perp).then(async () => {
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
                 coin,
@@ -1069,7 +1066,7 @@ export function useTrayDataProvider() {
               mode: 'perp',
               coin,
             });
-          }, 80);
+          });
           return;
         }
 
