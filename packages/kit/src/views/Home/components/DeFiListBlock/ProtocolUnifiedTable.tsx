@@ -7,11 +7,11 @@ import {
   ProtocolValueCell,
   isProtocolValueUnavailable,
 } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
+import { ProtocolAssetBalanceText } from './ProtocolAssetBalanceText';
 import { ProtocolPositionCell } from './ProtocolPositionCell';
 import { ProtocolRewardsCell } from './ProtocolRewardsCell';
 
@@ -57,8 +57,8 @@ function topAssetsByValue(assets: IDeFiAsset[], max: number): IDeFiAsset[] {
 // Layout: one logical row per position regardless of asset count. Multi-
 // asset positions stack their content inside each cell — Position cell
 // stacks avatars (overlapped, +N overflow), Balance cell stacks amounts
-// and per-asset USD when the total Value column is ambiguous (top-N by USD,
-// +N more overflow). Pre-change, multi-asset positions rendered as N
+// and per-asset USD values (top-N by USD, +N more overflow). Pre-change,
+// multi-asset positions rendered as N
 // separate XStack rows with Position/Rewards/Value attached to the first row
 // only, which made it look like N independent positions instead of one.
 //
@@ -87,55 +87,6 @@ export const USD_FLEX_WITHOUT_REWARDS = 1;
 const MAX_BALANCE_LINES = 3;
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
-type IAssetBalanceTextProps = {
-  asset: IDeFiAsset;
-  currencySymbol: string;
-  priceUnavailableLabel: string;
-  showFiatValue: boolean;
-};
-
-function AssetBalanceText({
-  asset,
-  currencySymbol,
-  priceUnavailableLabel,
-  showFiatValue,
-}: IAssetBalanceTextProps) {
-  return (
-    <XStack alignItems="baseline" flexWrap="wrap" minWidth={0}>
-      <NumberSizeableTextWrapper
-        hideValue
-        size="$bodyMd"
-        formatter="balance"
-        formatterOptions={{ tokenSymbol: asset.symbol }}
-        numberOfLines={1}
-        fontVariant={TABULAR_NUMS}
-      >
-        {asset.amount}
-      </NumberSizeableTextWrapper>
-      {showFiatValue ? (
-        <>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {' ('}
-          </SizableText>
-          <ProtocolValueCell
-            value={asset.value}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-            size="$bodyMd"
-            color="$textSubdued"
-            fontVariant={TABULAR_NUMS}
-            numberOfLines={1}
-            justifyContent="flex-start"
-          />
-          <SizableText size="$bodyMd" color="$textSubdued">
-            )
-          </SizableText>
-        </>
-      ) : null}
-    </XStack>
-  );
-}
 
 type IProtocolUnifiedTableProps = {
   rows: IProtocolUnifiedRow[];
@@ -243,8 +194,6 @@ const ProtocolUnifiedTable = memo(
             0,
             row.primaryAssets.length - MAX_BALANCE_LINES,
           );
-          const showBalanceAssetValues =
-            showRewardsColumn || row.primaryAssets.length > 1;
           const positionAvatars = row.primaryAssets.map((asset) => ({
             logoUrl: asset.meta?.logoUrl,
           }));
@@ -278,12 +227,11 @@ const ProtocolUnifiedTable = memo(
                 pt="$1"
               >
                 {visibleBalanceAssets.map((asset, assetIndex) => (
-                  <AssetBalanceText
+                  <ProtocolAssetBalanceText
                     key={`${row.rowKey}-balance-${asset.address}-${assetIndex}`}
                     asset={asset}
                     currencySymbol={currencySymbol}
                     priceUnavailableLabel={priceUnavailableLabel}
-                    showFiatValue={showBalanceAssetValues}
                   />
                 ))}
                 {balanceOverflow > 0 ? (

@@ -4,11 +4,11 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ILocalizedProtocolPositionItem } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ProtocolAssetBalanceText } from './ProtocolAssetBalanceText';
 import {
   BALANCE_FLEX_WITHOUT_REWARDS,
   POSITION_COLUMN_WIDTH,
@@ -126,16 +126,11 @@ const ProtocolSectionedPositionTable = memo(
                   </SizableText>
                 </XStack>
                 <Stack flex={BALANCE_FLEX_WITHOUT_REWARDS} minWidth={0}>
-                  <NumberSizeableTextWrapper
-                    hideValue
-                    size="$bodyMd"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: asset.symbol }}
-                    numberOfLines={1}
-                    fontVariant={TABULAR_NUMS}
-                  >
-                    {asset.amount}
-                  </NumberSizeableTextWrapper>
+                  <ProtocolAssetBalanceText
+                    asset={asset}
+                    currencySymbol={currencySymbol}
+                    priceUnavailableLabel={priceUnavailableLabel}
+                  />
                 </Stack>
                 <Stack
                   flex={USD_FLEX_WITHOUT_REWARDS}

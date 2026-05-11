@@ -10,10 +10,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ILocalizedProtocolPositionItem } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { ProtocolAssetBalanceText } from './ProtocolAssetBalanceText';
 
 // Lending positions keep the original row-section shape (Supplied / Borrowed
 // / Rewards) because they are the only category that legitimately uses more
@@ -155,16 +156,11 @@ const ProtocolLendingPositionTable = memo(
                   </SizableText>
                 </XStack>
                 <Stack flex={BALANCE_FLEX} minWidth={0}>
-                  <NumberSizeableTextWrapper
-                    hideValue
-                    size="$bodyMd"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: asset.symbol }}
-                    numberOfLines={1}
-                    fontVariant={TABULAR_NUMS}
-                  >
-                    {asset.amount}
-                  </NumberSizeableTextWrapper>
+                  <ProtocolAssetBalanceText
+                    asset={asset}
+                    currencySymbol={currencySymbol}
+                    priceUnavailableLabel={priceUnavailableLabel}
+                  />
                 </Stack>
                 <Stack flex={VALUE_FLEX} minWidth={0} alignItems="flex-end">
                   <ProtocolValueCell
