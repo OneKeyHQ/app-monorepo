@@ -15,7 +15,7 @@ export { EAppCryptoSharedEncryptScene };
 
 type IWithEncryptFormat<T> = T extends (params: infer P) => infer R
   ? (
-      params: P & {
+      params: Omit<P, 'format'> & {
         format?: IAppCryptoSharedEncryptFormat;
         sharedScene?: EAppCryptoSharedEncryptScene;
       },
