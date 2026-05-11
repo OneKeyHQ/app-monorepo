@@ -57,7 +57,7 @@ v2 envelope 应明确包含：
 代码中这三类 payload mode/version 必须用枚举表达，并在注释里保持语义清晰：
 
 - `legacyCbc`：最老的格式，`salt + iv + ciphertext`，没有 magic header、version、cipher/KDF metadata 或 authenticated header。
-- `legacyGcm`：带 `1K_AES_GCM` magic header 的 legacy AES-GCM 格式，能认证 ciphertext/AAD，但没有完整 version、KDF 或 iterations metadata。
+- `legacyGcm`：带 `1K_AES_GCM` magic header 的 legacy AES-GCM 格式，能认证 ciphertext/AAD，但没有完整 version、KDF 或 iterations metadata。它只用于 Keyless 相关特定路径，例如 Keyless Cloud Sync item、Keyless encrypted mnemonic、Keyless backend share payload 和本地 keyless sync credential map；大部分历史 legacy payload 仍是 `legacyCbc`。
 - `v2`：本次升级的新 envelope，magic header 为 `1K_ENC_V2`，包含 version、cipher、KDF、iterations、salt、nonce 和 authenticated `dataType` metadata。
 
 Legacy 默认 iteration count 必须保留为一个具名常量，并与新的写入目标分离。例如：

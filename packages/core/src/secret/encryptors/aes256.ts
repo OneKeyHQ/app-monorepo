@@ -240,6 +240,9 @@ export enum ESecretEncryptPayloadVersion {
   legacyCbc = 'legacy-cbc',
   // Legacy AES-GCM payload with the 1K_AES_GCM magic header. It authenticates
   // ciphertext/AAD, but still does not carry version, KDF, or iteration metadata.
+  // This format is only used by specific Keyless paths such as keyless cloud
+  // sync items, keyless mnemonic payloads, and keyless backend share payloads.
+  // Most legacy payloads in the app are still legacyCbc.
   legacyGcm = 'legacy-gcm',
   // Current v2 envelope with the 1K_ENC_V2 magic header. It stores version,
   // cipher, KDF, iterations, salt, nonce, and authenticated dataType metadata.
