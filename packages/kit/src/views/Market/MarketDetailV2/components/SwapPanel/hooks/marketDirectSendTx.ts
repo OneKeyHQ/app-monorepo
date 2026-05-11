@@ -39,8 +39,6 @@ import type { IMarketPresetPriorityFeeOverride } from './marketPresetSettings';
 export type IMarketGasInfoEntry = {
   encodeTx: IEncodedTx;
   gasInfo: ISwapGasInfo;
-  // Required by calculateFeeForSend's SOL branch — without it only baseFee
-  // leaks through and a custom priority fee is masked as "< $0.01".
   estimateFeeParams?: IEstimateFeeParams;
 };
 
@@ -169,14 +167,14 @@ async function estimateUnsignedTxGasInfo({
   networkFeeLevel?: ESwapNetworkFeeLevel;
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
 }): Promise<Omit<IMarketGasInfoEntry, 'encodeTx'>> {
-  const estimateFeeParams =
+  const estimateFeeParamsResult =
     await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
       networkId,
       accountId,
       encodedTx: unsignedTxItem.encodedTx,
     });
   const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
-    ...estimateFeeParams,
+    ...estimateFeeParamsResult,
     accountAddress,
     networkId,
     accountId,
@@ -188,25 +186,9 @@ async function estimateUnsignedTxGasInfo({
       gasRes.common,
       networkFeeLevel,
       customPriorityFee,
-      estimateFeeParams.estimateFeeParams,
+      estimateFeeParamsResult.estimateFeeParams,
     ),
-    estimateFeeParams: estimateFeeParams.estimateFeeParams,
-  };
-}
-
-async function estimateGasInfoEntry(args: {
-  accountAddress: string;
-  accountId: string;
-  networkId: string;
-  unsignedTxItem: IUnsignedTxPro;
-  networkFeeLevel?: ESwapNetworkFeeLevel;
-  customPriorityFee?: IMarketPresetPriorityFeeOverride;
-}): Promise<IMarketGasInfoEntry> {
-  const { gasInfo, estimateFeeParams } = await estimateUnsignedTxGasInfo(args);
-  return {
-    encodeTx: args.unsignedTxItem.encodedTx,
-    gasInfo,
-    estimateFeeParams,
+    estimateFeeParams: estimateFeeParamsResult.estimateFeeParams,
   };
 }
 
@@ -296,7 +278,7 @@ async function resolveMarketGasInfosSequentially({
           },
         });
       } else {
-        const entry = await estimateGasInfoEntry({
+        const gasInfoEntry = await estimateUnsignedTxGasInfo({
           accountAddress,
           accountId,
           networkId,
@@ -306,10 +288,13 @@ async function resolveMarketGasInfosSequentially({
         });
 
         if (i === unsignedTxArr.length - 2) {
-          lastTxUseGasInfo = entry.gasInfo as IFeeInfoUnit;
+          lastTxUseGasInfo = gasInfoEntry.gasInfo as IFeeInfoUnit;
         }
 
-        gasInfos.push(entry);
+        gasInfos.push({
+          encodeTx: unsignedTxItem.encodedTx,
+          ...gasInfoEntry,
+        });
       }
     }
 
@@ -317,14 +302,17 @@ async function resolveMarketGasInfosSequentially({
   }
 
   return [
-    await estimateGasInfoEntry({
-      accountAddress,
-      accountId,
-      networkId,
-      unsignedTxItem: unsignedTx,
-      networkFeeLevel,
-      customPriorityFee,
-    }),
+    {
+      encodeTx: unsignedTx.encodedTx,
+      ...(await estimateUnsignedTxGasInfo({
+        accountAddress,
+        accountId,
+        networkId,
+        unsignedTxItem: unsignedTx,
+        networkFeeLevel,
+        customPriorityFee,
+      })),
+    },
   ];
 }
 
@@ -454,16 +442,19 @@ async function resolveExactUnsignedTxGasInfos({
     if (gasResArr.txFees.length !== unsignedTxArr.length) {
       const fallbackGasInfos: IMarketGasInfoEntry[] = [];
       for (const unsignedTxItem of unsignedTxArr) {
-        fallbackGasInfos.push(
-          await estimateGasInfoEntry({
-            accountAddress,
-            accountId,
-            networkId,
-            unsignedTxItem,
-            networkFeeLevel,
-            customPriorityFee,
-          }),
-        );
+        const gasInfoEntry = await estimateUnsignedTxGasInfo({
+          accountAddress,
+          accountId,
+          networkId,
+          unsignedTxItem,
+          networkFeeLevel,
+          customPriorityFee,
+        });
+
+        fallbackGasInfos.push({
+          encodeTx: unsignedTxItem.encodedTx,
+          ...gasInfoEntry,
+        });
       }
 
       return fallbackGasInfos;
@@ -483,16 +474,18 @@ async function resolveExactUnsignedTxGasInfos({
   }
 
   for (const unsignedTxItem of unsignedTxArr) {
-    gasInfos.push(
-      await estimateGasInfoEntry({
-        accountAddress,
-        accountId,
-        networkId,
-        unsignedTxItem,
-        networkFeeLevel,
-        customPriorityFee,
-      }),
-    );
+    const gasInfoEntry = await estimateUnsignedTxGasInfo({
+      accountAddress,
+      accountId,
+      networkId,
+      unsignedTxItem,
+      networkFeeLevel,
+      customPriorityFee,
+    });
+    gasInfos.push({
+      encodeTx: unsignedTxItem.encodedTx,
+      ...gasInfoEntry,
+    });
   }
 
   return gasInfos;
@@ -636,18 +629,19 @@ async function updateUnsignedTxAndSendTx({
   accountId,
   networkId,
   unsignedTxItem,
-  gasInfoEntry,
+  gasInfo,
+  estimateFeeParams,
   tronResourceRentalInfo,
   useDefaultRpc,
 }: {
   accountId: string;
   networkId: string;
   unsignedTxItem: IUnsignedTxPro;
-  gasInfoEntry: Pick<IMarketGasInfoEntry, 'gasInfo' | 'estimateFeeParams'>;
+  gasInfo: ISwapGasInfo;
+  estimateFeeParams?: IEstimateFeeParams;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   useDefaultRpc?: boolean;
 }): Promise<ISendTxOnSuccessData> {
-  const { gasInfo, estimateFeeParams } = gasInfoEntry;
   const feeInfo = buildMarketGasInfoFeeInfo(gasInfo);
 
   const updatedUnsignedTxItem =
@@ -803,8 +797,9 @@ export async function sendMarketDirectUnsignedTxs({
   }
 
   for (const unsignedTxItem of unsignedTxArr) {
-    const entry = findGasInfo(gasInfosFinal, unsignedTxItem.encodedTx);
-    if (!entry?.gasInfo) {
+    const gasInfoEntry = findGasInfo(gasInfosFinal, unsignedTxItem.encodedTx);
+    const gasInfo = gasInfoEntry?.gasInfo;
+    if (!gasInfo) {
       throw new OneKeyError('gas info not found');
     }
 
@@ -813,7 +808,8 @@ export async function sendMarketDirectUnsignedTxs({
         accountId,
         networkId,
         unsignedTxItem,
-        gasInfoEntry: entry,
+        gasInfo,
+        estimateFeeParams: gasInfoEntry.estimateFeeParams,
         tronResourceRentalInfo,
         useDefaultRpc,
       }),

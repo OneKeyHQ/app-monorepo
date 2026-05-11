@@ -37,7 +37,9 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
         metadataStack.push(callContext);
       }
 
-      if (!originalMethod[LOGGER_DECORATOR_WRAPPER]) {
+      const wrapsAnotherDecorator = !!originalMethod[LOGGER_DECORATOR_WRAPPER];
+
+      if (!wrapsAnotherDecorator) {
         callContext.isCollectingDecorators = false;
       }
 
@@ -53,8 +55,11 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
       try {
         let result = originalMethod.apply(this, args);
 
-        // Inner decorator error → propagate skip to outer
-        if (result === undefined) {
+        // Inner decorator's catch path returns undefined to signal skip — propagate
+        // only when wrapping another decorator. The innermost wrapper sees the user
+        // method's real return; an undefined there is the "no payload, just log the
+        // event" case (e.g. `appStart() {}`) and must still be emitted.
+        if (result === undefined && wrapsAnotherDecorator) {
           cleanupContext();
           return undefined;
         }

@@ -8,7 +8,6 @@ import {
   Divider,
   Popover,
   SizableText,
-  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -29,6 +28,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
+import { useTradingPrice } from '../hooks/useTradingPrice';
 
 import {
   type IOrderBookSelection,
@@ -41,7 +41,11 @@ import { useTickOptions } from './OrderBook/useTickOptions';
 import type { ITickParam } from './OrderBook/tickSizeUtils';
 import type { IOrderBookVariant } from './OrderBook/types';
 
-function MobileHeader() {
+function MobileHeader({
+  showPlaceholder = false,
+}: {
+  showPlaceholder?: boolean;
+}) {
   const intl = useIntl();
   const countdown = useFundingCountdown();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
@@ -102,8 +106,10 @@ function MobileHeader() {
             })}
           </DashText>
 
-          {showSkeleton ? (
-            <Skeleton width={180} height={14} radius="round" />
+          {showPlaceholder || showSkeleton ? (
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              --
+            </SizableText>
           ) : (
             <XStack alignItems="center" gap={6}>
               <SizableText size="$bodySmMedium" color={fundingColor}>
@@ -330,6 +336,7 @@ export function PerpOrderBook({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
+  const { midPrice } = useTradingPrice();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
 
@@ -420,7 +427,18 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
-          loadingNode={<DefaultLoadingNode variant="mobileHorizontal" />}
+          loadingNode={
+            <DefaultLoadingNode
+              variant="mobileHorizontal"
+              maxLevelsPerSide={13}
+            />
+          }
+          style={{
+            paddingLeft: 16,
+            paddingRight: 16,
+            paddingTop: 8,
+            paddingBottom: 8,
+          }}
           variant="mobileHorizontal"
         />
       );
@@ -464,6 +482,54 @@ export function PerpOrderBook({
       loadingVariant =
         entry === 'perpMobileMarket' ? 'mobileHorizontal' : 'mobileVertical';
     }
+    if (!gtMd && loadingVariant === 'mobileVertical') {
+      return (
+        <YStack flex={1} bg="$bgApp" gap="$1">
+          <MobileHeaderMemo showPlaceholder />
+          <OrderBookMobile
+            symbol={activeTradeInstrument.coin}
+            bids={[]}
+            asks={[]}
+            maxLevelsPerSide={mobileMaxLevelsPerSide}
+            selectedTickOption={selectedTickOption}
+            onTickOptionChange={handleTickOptionChange}
+            tickOptions={tickOptions}
+            showTickSelector
+            priceDecimals={priceDecimals}
+            sizeDecimals={sizeDecimals}
+            onSelectLevel={handleLevelSelect}
+            variant="mobileVertical"
+          />
+        </YStack>
+      );
+    }
+    if (!gtMd && loadingVariant === 'mobileHorizontal') {
+      return (
+        <YStack flex={1} bg="$bgApp">
+          <OrderBook
+            horizontal
+            symbol={activeTradeInstrument.coin}
+            bids={[]}
+            asks={[]}
+            maxLevelsPerSide={13}
+            selectedTickOption={selectedTickOption}
+            onTickOptionChange={handleTickOptionChange}
+            tickOptions={tickOptions}
+            showTickSelector
+            priceDecimals={priceDecimals}
+            sizeDecimals={sizeDecimals}
+            onSelectLevel={handleLevelSelect}
+            loadingNode={
+              <DefaultLoadingNode
+                variant="mobileHorizontal"
+                maxLevelsPerSide={13}
+              />
+            }
+            variant="mobileHorizontal"
+          />
+        </YStack>
+      );
+    }
     return (
       <YStack flex={1} justifyContent="center" alignItems="center">
         <DefaultLoadingNode
@@ -477,6 +543,12 @@ export function PerpOrderBook({
           spotUniverse={
             activeTradeInstrument.mode === 'spot'
               ? activeTradeInstrument.universe
+              : undefined
+          }
+          midPrice={midPrice}
+          maxLevelsPerSide={
+            loadingVariant === 'mobileVertical'
+              ? mobileMaxLevelsPerSide
               : undefined
           }
         />

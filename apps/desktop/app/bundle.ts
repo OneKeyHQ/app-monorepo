@@ -67,27 +67,115 @@ const readMetadataFileSha256 = async (signature: string) => {
   }
 };
 
+// Side-channel reason from the most recent SHA256 operation.
+// Stamped by calculateSHA256 / verifySha256 before they return or throw, so
+// callers (notably DesktopApiBundleUpdate.verifyAndResolve) can attach a
+// specific subtype to telemetry — splitting the previously opaque
+// "Downloaded file is not valid" bucket into FILE_NOT_FOUND / FILE_EMPTY /
+// PERMISSION_DENIED / IS_DIRECTORY / OOM / IO_<code> / MISMATCH /
+// EMPTY_PATH / EMPTY_EXPECTED_HASH categories that match the iOS/Android
+// nitro module subtypes for cross-platform mixpanel funnels.
+//
+// Module-scoped is safe today because every call site stamps and reads
+// the reason synchronously without an `await` between them, and Node.js
+// runs each synchronous stretch to completion. DO NOT introduce an
+// `await` between a verifySha256 / calculateSHA256 call and the
+// corresponding lastSHA256FailureReason() read — a concurrent SHA op
+// landing in that gap would silently overwrite the stamp and cross-
+// contaminate analytics buckets. (The earlier "serialize via
+// isDownloading" claim was wrong: only downloadBundle is gated, not
+// the verify* / metadata SHA paths.)
+let _lastSHA256FailureReason: string | undefined;
+
+export const lastSHA256FailureReason = (): string | undefined =>
+  _lastSHA256FailureReason;
+
+const stampSHA256Failure = (reason: string | undefined) => {
+  _lastSHA256FailureReason = reason;
+};
+
+const classifySHA256Error = (error: unknown): string => {
+  const errno = (error as NodeJS.ErrnoException | null)?.code;
+  switch (errno) {
+    case 'ENOENT':
+      return 'FILE_NOT_FOUND';
+    case 'EACCES':
+    case 'EPERM':
+      return 'PERMISSION_DENIED';
+    case 'EISDIR':
+      return 'IS_DIRECTORY';
+    case 'ENOSPC':
+      return 'DISK_FULL';
+    case 'EMFILE':
+    case 'ENFILE':
+      return 'TOO_MANY_OPEN_FILES';
+    default:
+      break;
+  }
+  if (error instanceof RangeError) {
+    // V8 buffer allocation overflow on multi-GB files / heap exhaustion.
+    return 'OOM';
+  }
+  if (errno) return `IO_${errno}`;
+  const ctor = (error as { constructor?: { name?: string } } | null)
+    ?.constructor?.name;
+  return ctor ? `IO_${ctor}` : 'IO_UNKNOWN';
+};
+
 export const calculateSHA256 = (filePath: string) => {
+  stampSHA256Failure(undefined);
   if (!filePath) {
+    stampSHA256Failure('EMPTY_PATH');
     return '';
   }
-  const hashSum = crypto.createHash('sha256');
-  const fileBuffer = fs.readFileSync(filePath);
-  hashSum.update(fileBuffer);
-  const fileSha256 = hashSum.digest('hex');
-  return fileSha256;
+  try {
+    // Reject empty files before hashing so the SHA-of-empty digest
+    // (e3b0c44…b855) doesn't silently propagate as a clean "MISMATCH"
+    // when the real cause is a truncated / zero-byte download. Mirrors
+    // the explicit FILE_EMPTY checks in the iOS / Android calculators.
+    const stat = fs.statSync(filePath);
+    if (stat.size === 0) {
+      stampSHA256Failure('FILE_EMPTY');
+      return '';
+    }
+    const hashSum = crypto.createHash('sha256');
+    const fileBuffer = fs.readFileSync(filePath);
+    hashSum.update(fileBuffer);
+    return hashSum.digest('hex');
+  } catch (error) {
+    stampSHA256Failure(classifySHA256Error(error));
+    throw error;
+  }
 };
 
 export const verifySha256 = (filePath: string, sha256: string) => {
-  if (!filePath || !sha256) {
+  stampSHA256Failure(undefined);
+  if (!filePath) {
+    stampSHA256Failure('EMPTY_PATH');
     return false;
   }
-  const fileSha256 = calculateSHA256(filePath);
+  if (!sha256) {
+    stampSHA256Failure('EMPTY_EXPECTED_HASH');
+    return false;
+  }
+  // calculateSHA256 stamps its own reason before throwing; preserve it by
+  // catching here so the upstream Promise-based callers (verifyAndResolve)
+  // can still read lastSHA256FailureReason() on a false result.
+  let fileSha256: string;
+  try {
+    fileSha256 = calculateSHA256(filePath);
+  } catch {
+    return false;
+  }
   if (!fileSha256) {
     return false;
   }
   logger.info('bundle-download-verifySha256', sha256, fileSha256);
-  return fileSha256 === sha256;
+  if (fileSha256 !== sha256) {
+    stampSHA256Failure('MISMATCH');
+    return false;
+  }
+  return true;
 };
 
 export const getBundleDirName = () => {

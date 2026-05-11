@@ -1,3 +1,5 @@
+/* cspell:ignore Fundings */
+
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
 import { isEqual, isNil, omit } from 'lodash';
@@ -27,7 +29,9 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
-import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
+import perpsUtils, {
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -42,12 +46,18 @@ import type {
   IApiRequestError,
   IApiRequestResult,
   IFill,
+  IFundingHistoryRecord,
   IHex,
   IMarginTable,
   IMarginTableMap,
+  IPerpAnnotation,
+  IPerpContractInfo,
+  IPerpMarketOverview,
+  IPerpPredictedFundingVenue,
   IPerpsActiveAssetData,
   IPerpsActiveAssetDataRaw,
   IPerpsUniverse,
+  IRecentTrade,
   ISpotUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
@@ -229,6 +239,27 @@ export default class ServiceHyperliquid extends ServiceBase {
     return coin.startsWith(XYZ_DEX_PREFIX) ? 1 : 0;
   }
 
+  private resolveInfoRequestCoin(coin: string) {
+    const { dexLabel } = parseDexCoin(coin);
+    return {
+      apiCoin: coin,
+      dex: dexLabel,
+    };
+  }
+
+  private async getAssetCtxByCoin(coin: string) {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin, dex } = this.resolveInfoRequestCoin(coin);
+    const [meta, assetCtxs] = dex
+      ? await infoClient.metaAndAssetCtxs({ dex })
+      : await infoClient.metaAndAssetCtxs();
+    const ctxIndex = meta.universe.findIndex((item) => item.name === apiCoin);
+    if (ctxIndex < 0) {
+      return undefined;
+    }
+    return assetCtxs[ctxIndex];
+  }
+
   private getAssetIdWithDexPrefix({
     dexIndex,
     index,
@@ -305,6 +336,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       hyperLiquidErrorLocales,
       tokenSearchAliases,
       tokenSelectorTabs,
+      perpsAssetMetaMap,
       activityCards,
     }: IPerpServerConfigResponse,
     options?: { fromServerConfig?: boolean },
@@ -388,6 +420,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             hyperLiquidErrorLocales || prev?.hyperliquidErrorLocales,
           tokenSearchAliases: tokenSearchAliases || prev?.tokenSearchAliases,
           tokenSelectorTabs: tokenSelectorTabs ?? prev?.tokenSelectorTabs,
+          perpsAssetMetaMap: perpsAssetMetaMap || prev?.perpsAssetMetaMap,
         };
         if (isEqual(newConfig, prev)) {
           return (
@@ -458,6 +491,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
         tokenSearchAliases: resData?.data?.tokenSearchAliases,
         tokenSelectorTabs: resData?.data?.tokenSelectorTabs,
+        perpsAssetMetaMap: resData?.data?.perpsAssetMetaMap,
         activityCards: resData?.data?.activityCards,
       },
       { fromServerConfig: true },
@@ -489,6 +523,17 @@ export default class ServiceHyperliquid extends ServiceBase {
     void this.updatePerpsConfigByServerWithCache();
     const config = await this.backgroundApi.simpleDb.perp.getPerpData();
     return config.tokenSearchAliases;
+  }
+
+  @backgroundMethod()
+  async getPerpsAssetMetaMap() {
+    try {
+      await this.updatePerpsConfigByServerWithCache();
+    } catch {
+      // Use the persisted config if the refresh fails.
+    }
+    const config = await this.backgroundApi.simpleDb.perp.getPerpData();
+    return config.perpsAssetMetaMap;
   }
 
   private _getFillKey(fill: IFill): string {
@@ -784,6 +829,137 @@ export default class ServiceHyperliquid extends ServiceBase {
     const map = await this.getSymbolsMetaMap({ coins: [coin] });
     const meta = map[coin];
     return meta;
+  }
+
+  @backgroundMethod()
+  async getPerpMarketOverview({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IPerpMarketOverview | undefined> {
+    const [symbolMeta, assetCtx] = await Promise.all([
+      this.getSymbolMeta({ coin }),
+      this.getAssetCtxByCoin(coin),
+    ]);
+
+    if (!assetCtx) {
+      return undefined;
+    }
+
+    const ctx = perpsUtils.formatAssetCtx(assetCtx);
+    const openInterestNotionalBN = new BigNumber(
+      assetCtx.openInterest || 0,
+    ).multipliedBy(assetCtx.markPx || 0);
+
+    return {
+      coin,
+      assetId: symbolMeta?.assetId,
+      ctx,
+      premium: assetCtx.premium ?? null,
+      dayBaseVolume: assetCtx.dayBaseVlm || '0',
+      openInterestNotional: openInterestNotionalBN.isFinite()
+        ? openInterestNotionalBN.toFixed()
+        : null,
+    };
+  }
+
+  @backgroundMethod()
+  async getPerpContractInfo({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IPerpContractInfo | undefined> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin, dex } = this.resolveInfoRequestCoin(coin);
+    const [symbolMeta, perpsAtCap] = await Promise.all([
+      this.getSymbolMeta({ coin }),
+      (dex
+        ? infoClient.perpsAtOpenInterestCap({ dex })
+        : infoClient.perpsAtOpenInterestCap()
+      ).catch((): string[] => []),
+    ]);
+
+    if (!symbolMeta) {
+      return undefined;
+    }
+
+    return {
+      coin,
+      assetId: symbolMeta.assetId,
+      szDecimals: symbolMeta.universe?.szDecimals,
+      maxLeverage: symbolMeta.universe?.maxLeverage,
+      marginMode: symbolMeta.universe?.marginMode,
+      onlyIsolated: symbolMeta.universe?.onlyIsolated === true,
+      marginTable: symbolMeta.marginTable,
+      isAtOpenInterestCap:
+        perpsAtCap.includes(apiCoin) || perpsAtCap.includes(coin),
+    };
+  }
+
+  @backgroundMethod()
+  async getPerpFundingHistory({
+    coin,
+    startTime,
+    endTime,
+  }: {
+    coin: string;
+    startTime: number;
+    endTime?: number;
+  }): Promise<IFundingHistoryRecord[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    return infoClient.fundingHistory({
+      coin: apiCoin,
+      startTime,
+      endTime,
+    });
+  }
+
+  @backgroundMethod()
+  async getPerpRecentTrades({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IRecentTrade[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    return infoClient.recentTrades({
+      coin: apiCoin,
+    });
+  }
+
+  @backgroundMethod()
+  async getPerpPredictedFundings({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IPerpPredictedFundingVenue[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    const items = await infoClient.predictedFundings();
+    const matched = items.find(([asset]) => asset === apiCoin);
+    if (!matched) {
+      return [];
+    }
+    return matched[1].map(([exchange, data]) => ({
+      exchange,
+      fundingRate: data?.fundingRate ?? null,
+      nextFundingTime: data?.nextFundingTime ?? null,
+      fundingIntervalHours: data?.fundingIntervalHours,
+    }));
+  }
+
+  @backgroundMethod()
+  async getPerpAnnotation({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IPerpAnnotation> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    return infoClient.perpAnnotation({
+      coin: apiCoin,
+    });
   }
 
   async updateActiveAssetCtx(data: IWsActiveAssetCtx | undefined) {

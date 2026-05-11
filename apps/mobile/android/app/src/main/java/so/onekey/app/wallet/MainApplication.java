@@ -339,7 +339,12 @@ public class MainApplication extends Application implements ReactApplication {
     try {
       android.content.pm.ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), android.content.pm.PackageManager.GET_META_DATA);
       if (ai.metaData != null) {
-        builtinBundleVersion = ai.metaData.getString("BUNDLE_VERSION", "");
+        // BUNDLE_VERSION value is a numeric string (e.g. "9197881"); AAPT
+        // stores it as Integer in the metadata bundle, so getString() returns
+        // the default. Read via get().toString() — same pattern as
+        // ReactNativeBundleUpdate.kt#getBuiltinBundleVersion.
+        Object bundleVersionObj = ai.metaData.get("BUNDLE_VERSION");
+        builtinBundleVersion = bundleVersionObj != null ? bundleVersionObj.toString() : "";
       }
     } catch (Exception ignored) {}
     OneKeyLog.info("App", "nativeAppVersion: " + BuildConfig.VERSION_NAME + ", buildNumber: " + BuildConfig.VERSION_CODE + ", builtinBundleVersion: " + builtinBundleVersion);

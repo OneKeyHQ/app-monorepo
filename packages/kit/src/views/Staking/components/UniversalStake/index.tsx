@@ -40,6 +40,8 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -997,6 +999,17 @@ export function UniversalStake({
 
   const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
+
+    // Bot Wallet deactivated warning
+    const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
+      accountId,
+    });
+    if (isDeactivatedBot) {
+      const confirmed = await showBotWalletDeactivatedWarningDialog();
+      if (!confirmed) {
+        return;
+      }
+    }
 
     // Stakefish: get permit signature for create new validator
     if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {

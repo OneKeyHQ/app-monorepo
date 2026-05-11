@@ -26,7 +26,10 @@ import {
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
-import { EMarketPresetTradeSide } from './hooks/marketPresetSettings';
+import {
+  EMarketPresetTradeSide,
+  getMarketPresetReviewNetworkFeeOptionLabel,
+} from './hooks/marketPresetSettings';
 import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
@@ -201,7 +204,6 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const effectiveCustomPriorityFee = marketPresetSettings.enabled
     ? marketPresetSettings.selectedPriorityFeeOverride
     : undefined;
-
   const useSpeedSwapActionsParams = {
     slippage: effectiveSlippage,
     spenderAddress: speedConfig.spenderAddress,
@@ -491,6 +493,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       const requestId = reviewDialogRequestIdRef.current + 1;
       reviewDialogRequestIdRef.current = requestId;
       setIsReviewOpening(true);
+      const reviewNetworkFeeOptionLabel =
+        getMarketPresetReviewNetworkFeeOptionLabel(marketPresetSettings);
 
       try {
         const nextReviewState = await prepareMarketSwapReview({
@@ -527,6 +531,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
               adapter={reviewAdapter}
               defaultNetworkFeeLevel={effectiveNetworkFeeLevel}
               defaultCustomPriorityFee={effectiveCustomPriorityFee}
+              customNetworkFeeOptionLabel={reviewNetworkFeeOptionLabel}
               reviewState={nextReviewState}
               onDone={() => void dialog?.close()}
             />
@@ -563,7 +568,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       isReviewOpening,
       effectiveCustomPriorityFee,
       effectiveNetworkFeeLevel,
-      marketPresetSettings.isLoading,
+      marketPresetSettings,
       prepareMarketSwapReview,
       reviewAdapter,
     ],
@@ -630,9 +635,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
-      isLoading={
-        isActionLoading || isReviewOpening || marketPresetSettings.isLoading
-      }
+      isLoading={isActionLoading || isReviewOpening}
+      isActionDisabled={marketPresetSettings.isLoading}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
       slippageAutoValue={speedConfig?.slippage}

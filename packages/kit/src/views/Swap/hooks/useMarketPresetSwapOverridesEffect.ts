@@ -100,15 +100,6 @@ export function useMarketPresetSwapOverridesEffect({
       setSwapStepNetFeeLevel({
         networkFeeLevel: resolvedNetworkFeeLevel,
         customPriorityFee: overrides?.customPriorityFee,
-        // Remember the preset's tier + custom fee so the user can switch
-        // back to the "Custom" item in the dropdown after picking a
-        // Standard tier. Only set when a custom fee actually exists.
-        presetOverrides: overrides?.customPriorityFee
-          ? {
-              networkFeeLevel: resolvedNetworkFeeLevel,
-              customPriorityFee: overrides.customPriorityFee,
-            }
-          : undefined,
       });
       setSwapSlippageOverride(overrides?.slippage);
     })();

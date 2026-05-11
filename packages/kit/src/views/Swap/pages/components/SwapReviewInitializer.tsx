@@ -70,15 +70,6 @@ export function SwapReviewInitializer({
     setSwapStepNetFeeLevel({
       networkFeeLevel: defaultNetworkFeeLevel,
       customPriorityFee: defaultCustomPriorityFee,
-      // Remember the preset's tier + custom fee so the user can switch
-      // back to the "Custom" item in the dropdown after picking a
-      // Standard tier. Only set when a custom fee actually exists.
-      presetOverrides: defaultCustomPriorityFee
-        ? {
-            networkFeeLevel: defaultNetworkFeeLevel,
-            customPriorityFee: defaultCustomPriorityFee,
-          }
-        : undefined,
     });
 
     return () => {

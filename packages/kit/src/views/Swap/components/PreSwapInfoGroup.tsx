@@ -26,53 +26,68 @@ import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap'
 
 import PreSwapInfoItem from './PreSwapInfoItem';
 
-// Local sentinel: "Custom" is a dropdown-only UI value, not a fee tier.
-export const FEE_TIER_CUSTOM = 'custom' as const;
+export const SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE = 'CUSTOM' as const;
 
-export type IPreSwapFeeTierValue =
+export type ISwapReviewNetworkFeeSelectValue =
   | ESwapNetworkFeeLevel
-  | typeof FEE_TIER_CUSTOM;
-
-const FEE_LEVEL_LABEL_MAP: Record<ESwapNetworkFeeLevel, ETranslations> = {
-  [ESwapNetworkFeeLevel.LOW]: ETranslations.transaction_slow,
-  [ESwapNetworkFeeLevel.MEDIUM]: ETranslations.transaction_normal,
-  [ESwapNetworkFeeLevel.HIGH]: ETranslations.transaction_fast,
-};
-const FEE_LEVEL_ORDER: ESwapNetworkFeeLevel[] = [
-  ESwapNetworkFeeLevel.LOW,
-  ESwapNetworkFeeLevel.MEDIUM,
-  ESwapNetworkFeeLevel.HIGH,
-];
+  | typeof SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE;
 
 interface IPreSwapInfoGroupProps {
   preSwapData: ISwapPreSwapData;
-  onSelectNetworkFeeLevel: (value: IPreSwapFeeTierValue) => void;
+  onSelectNetworkFeeLevel: (value: ISwapReviewNetworkFeeSelectValue) => void;
+  customNetworkFeeOptionLabel?: string;
+  networkFeeSelectValue?: ISwapReviewNetworkFeeSelectValue;
 }
 
 const PreSwapInfoGroup = ({
   preSwapData,
   onSelectNetworkFeeLevel,
+  customNetworkFeeOptionLabel,
+  networkFeeSelectValue,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const [swapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
 
   const networkFeeLevelArray = useMemo(() => {
-    const selectItems: { label: string; value: IPreSwapFeeTierValue }[] =
-      FEE_LEVEL_ORDER.map((item) => ({
-        label: intl.formatMessage({ id: FEE_LEVEL_LABEL_MAP[item] }),
+    const feeArray = [
+      ESwapNetworkFeeLevel.LOW,
+      ESwapNetworkFeeLevel.MEDIUM,
+      ESwapNetworkFeeLevel.HIGH,
+    ];
+    const selectItems: {
+      label: string;
+      value: ISwapReviewNetworkFeeSelectValue;
+    }[] = feeArray.map((item) => {
+      let label = '';
+      if (item === ESwapNetworkFeeLevel.LOW) {
+        label = intl.formatMessage({
+          id: ETranslations.transaction_slow,
+        });
+      }
+      if (item === ESwapNetworkFeeLevel.MEDIUM) {
+        label = intl.formatMessage({
+          id: ETranslations.transaction_normal,
+        });
+      }
+      if (item === ESwapNetworkFeeLevel.HIGH) {
+        label = intl.formatMessage({
+          id: ETranslations.transaction_fast,
+        });
+      }
+      return {
+        label,
         value: item,
-      }));
-    // Append "Custom" only when a Market preset's custom priority fee was
-    // memorized — otherwise there's nothing to switch back to.
-    if (swapStepNetFeeLevel.presetOverrides) {
+      };
+    });
+    if (customNetworkFeeOptionLabel) {
       selectItems.push({
-        label: intl.formatMessage({ id: ETranslations.transaction_custom }),
-        value: FEE_TIER_CUSTOM,
+        label: customNetworkFeeOptionLabel,
+        value: SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE,
       });
     }
     return selectItems;
-  }, [intl, swapStepNetFeeLevel.presetOverrides]);
+  }, [customNetworkFeeOptionLabel, intl]);
   const slippage = useMemo(() => {
     if (
       !preSwapData?.unSupportSlippage &&
@@ -85,24 +100,46 @@ const PreSwapInfoGroup = ({
     return undefined;
   }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
 
+  const activeNetworkFeeSelectValue =
+    networkFeeSelectValue ??
+    (swapStepNetFeeLevel.customPriorityFee
+      ? SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE
+      : swapStepNetFeeLevel.networkFeeLevel);
+
   const networkFeeLevelLabel = useMemo(() => {
-    // A custom priority fee overrides the tier, so the label follows it.
-    if (swapStepNetFeeLevel.customPriorityFee) {
-      return intl.formatMessage({ id: ETranslations.transaction_custom });
+    if (activeNetworkFeeSelectValue === SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE) {
+      return (
+        customNetworkFeeOptionLabel ??
+        intl.formatMessage({
+          id: ETranslations.transaction_custom,
+        })
+      );
     }
-    const labelId = FEE_LEVEL_LABEL_MAP[swapStepNetFeeLevel.networkFeeLevel];
-    return labelId ? intl.formatMessage({ id: labelId }) : '-';
-  }, [
-    intl,
-    swapStepNetFeeLevel.networkFeeLevel,
-    swapStepNetFeeLevel.customPriorityFee,
-  ]);
+    if (activeNetworkFeeSelectValue === ESwapNetworkFeeLevel.LOW) {
+      return intl.formatMessage({
+        id: ETranslations.transaction_slow,
+      });
+    }
+    if (activeNetworkFeeSelectValue === ESwapNetworkFeeLevel.MEDIUM) {
+      return intl.formatMessage({
+        id: ETranslations.transaction_normal,
+      });
+    }
+    if (activeNetworkFeeSelectValue === ESwapNetworkFeeLevel.HIGH) {
+      return intl.formatMessage({
+        id: ETranslations.transaction_fast,
+      });
+    }
+    return '-';
+  }, [activeNetworkFeeSelectValue, customNetworkFeeOptionLabel, intl]);
 
   const networkFeeSelect = useMemo(() => {
     return (
       <XStack alignItems="center" gap="$2">
         <Select
-          onChange={onSelectNetworkFeeLevel}
+          onChange={(value) =>
+            onSelectNetworkFeeLevel(value as ISwapReviewNetworkFeeSelectValue)
+          }
           renderTrigger={() => (
             <XStack cursor="pointer" gap="$1" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -111,15 +148,10 @@ const PreSwapInfoGroup = ({
               <Icon name="ChevronGrabberVerOutline" size="$4" />
             </XStack>
           )}
-          // Point the checkmark at "Custom" while a preset fee is in effect.
-          value={
-            swapStepNetFeeLevel.customPriorityFee
-              ? FEE_TIER_CUSTOM
-              : swapStepNetFeeLevel.networkFeeLevel
-          }
           title={intl.formatMessage({
             id: ETranslations.swap_review_transaction_speed,
           })}
+          value={activeNetworkFeeSelectValue}
           items={networkFeeLevelArray}
         />
         {preSwapData.stepBeforeActionsLoading ? (
@@ -138,13 +170,12 @@ const PreSwapInfoGroup = ({
     );
   }, [
     intl,
+    activeNetworkFeeSelectValue,
     networkFeeLevelArray,
     networkFeeLevelLabel,
     onSelectNetworkFeeLevel,
     preSwapData.netWorkFee?.gasFeeFiatValue,
     settings.currencyInfo.symbol,
-    swapStepNetFeeLevel.networkFeeLevel,
-    swapStepNetFeeLevel.customPriorityFee,
     preSwapData.stepBeforeActionsLoading,
   ]);
 

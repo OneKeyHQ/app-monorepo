@@ -32,7 +32,9 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type {
+  ESwapNetworkFeeLevel,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IQuoteTip,
@@ -51,7 +53,8 @@ import {
 
 import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
 import PreSwapInfoGroup, {
-  FEE_TIER_CUSTOM,
+  type ISwapReviewNetworkFeeSelectValue,
+  SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE,
 } from '../../components/PreSwapInfoGroup';
 import PreSwapStep from '../../components/PreSwapStep';
 import { PreSwapTipInfo } from '../../components/PreSwapTipInfo';
@@ -72,6 +75,9 @@ interface IPreSwapDialogContentProps {
     preSwapData: ISwapPreSwapData;
     quoteResult?: IFetchQuoteResult;
   }) => void | Promise<void>;
+  defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
+  defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
+  customNetworkFeeOptionLabel?: string;
 }
 
 const PreSwapDialogContent = ({
@@ -80,11 +86,85 @@ const PreSwapDialogContent = ({
   disableGlobalApproveSync = false,
   preSwapBeforeStepActions,
   preSwapStepsStart,
+  defaultNetworkFeeLevel,
+  defaultCustomPriorityFee,
+  customNetworkFeeOptionLabel,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [swapStepNetFeeLevel, setSwapStepNetFeeLevel] =
     useSwapStepNetFeeLevelAtom();
+  const effectiveCustomPriorityFee =
+    defaultCustomPriorityFee ?? swapStepNetFeeLevel.customPriorityFee;
+  const effectiveNetworkFeeLevel =
+    defaultNetworkFeeLevel ?? swapStepNetFeeLevel.networkFeeLevel;
+  const customNetworkFeeOption = useMemo(() => {
+    const label =
+      customNetworkFeeOptionLabel ??
+      (effectiveCustomPriorityFee
+        ? intl.formatMessage({ id: ETranslations.transaction_custom })
+        : undefined);
+
+    if (!label) {
+      return undefined;
+    }
+
+    return {
+      label,
+      networkFeeLevel: effectiveNetworkFeeLevel,
+      customPriorityFee: effectiveCustomPriorityFee,
+    };
+  }, [
+    customNetworkFeeOptionLabel,
+    effectiveCustomPriorityFee,
+    effectiveNetworkFeeLevel,
+    intl,
+  ]);
+  const [networkFeeSelectValue, setNetworkFeeSelectValue] =
+    useState<ISwapReviewNetworkFeeSelectValue>(
+      customNetworkFeeOption
+        ? SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE
+        : effectiveNetworkFeeLevel,
+    );
+  const customNetworkFeeOptionRef = useRef(customNetworkFeeOption);
+  const customNetworkFeeOptionKey = useMemo(() => {
+    if (!customNetworkFeeOption) {
+      return undefined;
+    }
+
+    return [
+      customNetworkFeeOption.label,
+      customNetworkFeeOption.networkFeeLevel,
+      customNetworkFeeOption.customPriorityFee?.customValue ?? '',
+    ].join('|');
+  }, [customNetworkFeeOption]);
+  const initializedCustomNetworkFeeOptionKeyRef = useRef(
+    customNetworkFeeOptionKey,
+  );
+  useEffect(() => {
+    customNetworkFeeOptionRef.current = customNetworkFeeOption;
+
+    if (!customNetworkFeeOptionKey) {
+      if (networkFeeSelectValue === SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE) {
+        setNetworkFeeSelectValue(swapStepNetFeeLevel.networkFeeLevel);
+      }
+      return;
+    }
+
+    if (
+      initializedCustomNetworkFeeOptionKeyRef.current !==
+      customNetworkFeeOptionKey
+    ) {
+      initializedCustomNetworkFeeOptionKeyRef.current =
+        customNetworkFeeOptionKey;
+      setNetworkFeeSelectValue(SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE);
+    }
+  }, [
+    customNetworkFeeOption,
+    customNetworkFeeOptionKey,
+    networkFeeSelectValue,
+    swapStepNetFeeLevel.networkFeeLevel,
+  ]);
   const swapStepsRef = useRef(swapSteps);
   if (!isEqual(swapStepsRef.current, swapSteps)) {
     swapStepsRef.current = swapSteps;
@@ -247,13 +327,34 @@ const PreSwapDialogContent = ({
         swapStepsRef.current.preSwapData.toToken,
       );
     }
-    // Depend on both axes: toggling between Custom and the matching Standard
-    // tier changes only customPriorityFee and would leave the fee stale.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     swapStepNetFeeLevel.networkFeeLevel,
-    swapStepNetFeeLevel.customPriorityFee,
+    swapStepNetFeeLevel.customPriorityFee?.customValue,
   ]);
+
+  const handleSelectNetworkFeeLevel = useCallback(
+    (value: ISwapReviewNetworkFeeSelectValue) => {
+      if (value === SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE) {
+        const customNetworkFeeOptionValue = customNetworkFeeOptionRef.current;
+        if (!customNetworkFeeOptionValue) {
+          return;
+        }
+        setNetworkFeeSelectValue(SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE);
+        setSwapStepNetFeeLevel({
+          networkFeeLevel: customNetworkFeeOptionValue.networkFeeLevel,
+          customPriorityFee: customNetworkFeeOptionValue.customPriorityFee,
+        });
+        return;
+      }
+
+      setNetworkFeeSelectValue(value);
+      setSwapStepNetFeeLevel({
+        networkFeeLevel: value,
+      });
+    },
+    [setSwapStepNetFeeLevel],
+  );
 
   const lastStep = useMemo(() => {
     return swapSteps.steps[swapSteps.steps.length - 1];
@@ -481,38 +582,11 @@ const PreSwapDialogContent = ({
                 <>
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
-                    onSelectNetworkFeeLevel={(value) => {
-                      // Read prev from the setter callback so two clicks landing
-                      // in the same render frame don't replay against a stale
-                      // closure copy and silently drop one of them.
-                      setSwapStepNetFeeLevel((prev) => {
-                        const {
-                          presetOverrides,
-                          customPriorityFee,
-                          networkFeeLevel,
-                        } = prev;
-                        if (value === FEE_TIER_CUSTOM) {
-                          if (!presetOverrides || customPriorityFee)
-                            return prev;
-                          return {
-                            networkFeeLevel: presetOverrides.networkFeeLevel,
-                            customPriorityFee:
-                              presetOverrides.customPriorityFee,
-                            presetOverrides,
-                          };
-                        }
-                        // Clear customPriorityFee explicitly; otherwise the trigger
-                        // label stays "Custom" and the tier select looks no-op.
-                        if (value === networkFeeLevel && !customPriorityFee) {
-                          return prev;
-                        }
-                        return {
-                          networkFeeLevel: value,
-                          customPriorityFee: undefined,
-                          presetOverrides,
-                        };
-                      });
-                    }}
+                    onSelectNetworkFeeLevel={handleSelectNetworkFeeLevel}
+                    customNetworkFeeOptionLabel={
+                      customNetworkFeeOptionRef.current?.label
+                    }
+                    networkFeeSelectValue={networkFeeSelectValue}
                   />
                   {/* Primary button */}
                   <Button
