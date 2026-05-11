@@ -14,22 +14,50 @@ import {
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
+import type { Verify } from '@walletconnect/types';
+
 function useRiskDetection({
   origin,
   unsignedMessage,
+  walletConnectVerifyContext,
 }: {
   origin: string;
   unsignedMessage?: IUnsignedMessage;
+  // WalletConnect identity attestation from the SDK (proposal/request).
+  // When present, its validation/isScam fields override OneKey's reputation
+  // score in the negative direction — a peer that can't prove its origin
+  // must not be rendered as "Security" regardless of how the claimed URL
+  // scores against our backend.
+  walletConnectVerifyContext?: Verify.Context;
 }) {
   const [continueOperate, setContinueOperate] = useState(false);
 
-  const { result: urlSecurityInfo } = usePromiseResult(async () => {
+  const { result: backendSecurityInfo } = usePromiseResult(async () => {
     if (!origin) return {} as IHostSecurity;
     return backgroundApiProxy.serviceDiscovery.checkUrlSecurity({
       url: origin,
       from: 'app',
     });
   }, [origin]);
+
+  const urlSecurityInfo = useMemo<IHostSecurity | undefined>(() => {
+    if (!walletConnectVerifyContext) return backendSecurityInfo;
+    const { validation, isScam } = walletConnectVerifyContext.verified;
+    // isScam takes precedence per Reown's Verify API UX guidance.
+    if (isScam || validation === 'INVALID') {
+      return {
+        ...(backendSecurityInfo ?? ({} as IHostSecurity)),
+        level: EHostSecurityLevel.High,
+      };
+    }
+    if (validation === 'UNKNOWN') {
+      return {
+        ...(backendSecurityInfo ?? ({} as IHostSecurity)),
+        level: EHostSecurityLevel.Unknown,
+      };
+    }
+    return backendSecurityInfo;
+  }, [backendSecurityInfo, walletConnectVerifyContext]);
 
   const riskLevel = useMemo(
     () => urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown,

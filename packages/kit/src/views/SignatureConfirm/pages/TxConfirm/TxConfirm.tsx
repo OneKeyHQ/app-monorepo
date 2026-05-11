@@ -101,6 +101,7 @@ function TxConfirm() {
 
   const { urlSecurityInfo } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
+    walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
   });
 
   const { result: decodedTxs, isLoading: isBuildingDecodedTxs } =
