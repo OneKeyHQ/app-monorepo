@@ -324,30 +324,7 @@ export const urlAccountNavigation = {
       contextNetworkId?: string;
     },
   ) {
-    const networkSegment = await buildUrlNetworkSegment({
-      realNetworkId: params.networkId || '',
-      realNetworkIdFallback: params.networkId || '',
-      contextNetworkId: params.contextNetworkId || '',
-    });
-    // If not in URL account page, switch to Home tab and push
-    defaultLogger.app.router.switchTab(ETabRoutes.Home);
-    navigation.switchTab(ETabRoutes.Home);
-    defaultLogger.app.router.switchTabDone(ETabRoutes.Home);
-    rootNavigationRef.current?.navigate(ETabRoutes.Home, {
-      screen: ETabHomeRoutes.TabHome,
-    });
-    await timerUtils.wait(100);
-    defaultLogger.app.router.pushRoute({
-      action: 'replaceUrlAccountPage',
-      address: params.address,
-      routeName: ETabHomeRoutes.TabHomeUrlAccountPage,
-    });
-    rootNavigationRef.current?.dispatch(
-      StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, {
-        address: params.address,
-        networkId: networkSegment,
-      }),
-    );
+    await urlAccountNavigation.pushUrlAccountPage(navigation, params);
   },
   pushUrlAccountPageLanding(
     navigation: IAppNavigation,

@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useMemo } from 'react';
 
+import { StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, {
@@ -215,14 +216,8 @@ export function HeaderLeft({
               ) {
                 rootNavigationRef.current?.goBack();
               } else {
-                rootNavigationRef.current?.navigate(
-                  ETabRoutes.Home,
-                  {
-                    screen: ETabHomeRoutes.TabHome,
-                  },
-                  {
-                    pop: true,
-                  },
+                rootNavigationRef.current?.dispatch(
+                  StackActions.replace(ETabHomeRoutes.TabHome),
                 );
               }
             }}
