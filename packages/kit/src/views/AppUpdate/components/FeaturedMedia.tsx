@@ -1,7 +1,5 @@
 import type { PropsWithChildren } from 'react';
 
-import { StyleSheet } from 'react-native';
-
 import { Image, Skeleton, Stack, Video } from '@onekeyhq/components';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChangelog';
 
@@ -24,24 +22,29 @@ function FeaturedMedia({
       height={height}
       overflow="hidden"
       position="relative"
-      borderBottomWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderSubdued"
     >
-      {/* Loading placeholder behind the media. Image overlays it via the
-          Image component's own loading machinery; Video covers it once the
-          first frame paints (web HTMLVideoElement / native react-native-video). */}
+      {/* Loading placeholder. Media is absolutely positioned so it stacks
+          above the skeleton via DOM order (web: positioned elements with
+          same stacking layer go by source order). */}
       <Skeleton
         position="absolute"
         top={0}
         left={0}
         width="100%"
         height="100%"
+        borderRadius={0}
       />
       {feature.mediaType === 'video' ? (
         <Video
           key={feature.mediaUrl}
           source={{ uri: feature.mediaUrl }}
-          style={{ width: '100%', height: '100%' }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+          }}
           resizeMode="cover"
           muted
           paused={!isActive}
@@ -49,11 +52,13 @@ function FeaturedMedia({
       ) : (
         <Image
           src={feature.mediaUrl}
+          position="absolute"
+          top={0}
+          left={0}
           width="100%"
           height="100%"
           contentFit="cover"
           resizeMode="cover"
-          fallback={<Skeleton width="100%" height="100%" />}
         />
       )}
       {children}
