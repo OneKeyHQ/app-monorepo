@@ -17,6 +17,19 @@ describe('aes256', () => {
   const testPassword = 'testPassword123';
   const testData = 'Hello, World!';
   const testBuffer = Buffer.from(testData);
+  const goldenVectorPassword = 'golden-vector-password';
+  const goldenVectorPlaintext = 'golden vector plaintext';
+  const goldenVectorPlaintextBuffer = Buffer.from(goldenVectorPlaintext);
+  const goldenVectorSalt = Buffer.from(
+    '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f',
+    'hex',
+  );
+  const goldenVectorCbcIv = Buffer.from(
+    '202122232425262728292a2b2c2d2e2f',
+    'hex',
+  );
+  const goldenVectorGcmNonce = Buffer.from('303132333435363738393a3b', 'hex');
+  const goldenVectorAad = 'golden-vector-aad-v1';
 
   describe('encrypt/decrypt', () => {
     it('should encrypt and decrypt data correctly using sync methods', async () => {
@@ -154,6 +167,89 @@ describe('aes256', () => {
           ignoreLogger: false,
           allowRawPassword: true,
           aad: 'aes256-test-gcm-aad-v1',
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('golden vectors', () => {
+    it('should keep legacy AES-CBC default-iteration payload compatible', async () => {
+      const expectedPayloadHex =
+        '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2fc3d3c7af07504bb7142fece30c944197be663ce7a86c78d5b3baa38b806844dd';
+
+      const encrypted = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorCbcIv,
+      });
+      expect(encrypted.toString('hex')).toBe(expectedPayloadHex);
+
+      const decrypted = await decryptAsync({
+        password: goldenVectorPassword,
+        data: Buffer.from(expectedPayloadHex, 'hex'),
+        ignoreLogger: false,
+        allowRawPassword: true,
+      });
+      expect(decrypted.toString()).toBe(goldenVectorPlaintext);
+    });
+
+    it('should keep legacy AES-GCM default-iteration payload compatible', async () => {
+      const expectedPayloadHex =
+        '314b5f4145535f47434d000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f303132333435363738393a3bca961ba8e44619d55335f5de7fa8e6b74ca14ab210f8409b32f4ff48a4117254fc76021827ea30';
+
+      const encrypted = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorGcmNonce,
+        mode: EAppCryptoAesEncryptionMode.gcm,
+        aad: goldenVectorAad,
+      });
+      expect(encrypted.toString('hex')).toBe(expectedPayloadHex);
+
+      const decrypted = await decryptAsync({
+        password: goldenVectorPassword,
+        data: Buffer.from(expectedPayloadHex, 'hex'),
+        ignoreLogger: false,
+        allowRawPassword: true,
+        aad: goldenVectorAad,
+      });
+      expect(decrypted.toString()).toBe(goldenVectorPlaintext);
+    });
+
+    it('should require caller-provided iterations for legacy custom-iteration payloads', async () => {
+      const customIterations = 1234;
+      const expectedPayloadHex =
+        '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f656a5d6dd1b3adab1c01ce09273164f2bb1080ed6072a18f6f9519a62af21f51';
+
+      const encrypted = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorCbcIv,
+        iterations: customIterations,
+      });
+      expect(encrypted.toString('hex')).toBe(expectedPayloadHex);
+
+      const decrypted = await decryptAsync({
+        password: goldenVectorPassword,
+        data: Buffer.from(expectedPayloadHex, 'hex'),
+        ignoreLogger: false,
+        allowRawPassword: true,
+        iterations: customIterations,
+      });
+      expect(decrypted.toString()).toBe(goldenVectorPlaintext);
+
+      await expect(
+        decryptAsync({
+          password: goldenVectorPassword,
+          data: Buffer.from(expectedPayloadHex, 'hex'),
+          ignoreLogger: false,
+          allowRawPassword: true,
         }),
       ).rejects.toThrow();
     });
