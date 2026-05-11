@@ -1,6 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 
 import { Dialog, Stack } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
@@ -172,6 +177,20 @@ function FeaturedChangelogContent({
     closeDialog,
   });
 
+  // Drive an explicit pixel height on the dialog content. The dialog frame on
+  // desktop (TMDialog.Content) doesn't transition auto-height when child layout
+  // changes, so we give it a single child with a Reanimated-driven height that
+  // smoothly animates per frame, and the frame's natural height tracks it.
+  const totalCarouselHeight = useSharedValue(0);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const dialogHeightStyle = useAnimatedStyle(() => {
+    const carousel = totalCarouselHeight.value;
+    if (carousel === 0 || footerHeight === 0) {
+      return {};
+    }
+    return { height: carousel + footerHeight };
+  });
+
   if (!features.length) return null;
 
   const badgeText = intl.formatMessage({
@@ -179,15 +198,22 @@ function FeaturedChangelogContent({
   });
 
   return (
-    <Stack
-      mx="$-5"
-      mb="$-5"
-      $platform-native={{
-        overflow: 'hidden',
-        borderTopLeftRadius: '$6',
-        borderTopRightRadius: '$6',
-        borderCurve: 'continuous',
-      }}
+    <Animated.View
+      style={[
+        {
+          marginLeft: -20,
+          marginRight: -20,
+          marginBottom: -20,
+          overflow: 'hidden',
+          ...(Platform.OS !== 'web'
+            ? {
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+              }
+            : null),
+        },
+        dialogHeightStyle,
+      ]}
     >
       <FeaturedCarousel
         features={features}
@@ -195,14 +221,17 @@ function FeaturedChangelogContent({
         showCloseButton={!isLocked}
         onClose={() => void closeDialog()}
         onActiveFeatureChange={setActiveFeature}
+        totalHeight={totalCarouselHeight}
       />
-      <FeaturedFooter
-        ctaText={ctaText}
-        onCtaPress={() => void onCtaPress()}
-        showFullChangelog={!isLocked}
-        closeDialog={closeDialog}
-      />
-    </Stack>
+      <Stack onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
+        <FeaturedFooter
+          ctaText={ctaText}
+          onCtaPress={() => void onCtaPress()}
+          showFullChangelog={!isLocked}
+          closeDialog={closeDialog}
+        />
+      </Stack>
+    </Animated.View>
   );
 }
 

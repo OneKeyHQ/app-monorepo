@@ -17,12 +17,7 @@ function FeaturedMedia({
   children,
 }: IFeaturedMediaProps) {
   return (
-    <Stack
-      width="100%"
-      height={height}
-      overflow="hidden"
-      position="relative"
-    >
+    <Stack width="100%" height={height} overflow="hidden" position="relative">
       {/* Loading placeholder. Media is absolutely positioned so it stacks
           above the skeleton via DOM order (web: positioned elements with
           same stacking layer go by source order). */}
@@ -38,13 +33,11 @@ function FeaturedMedia({
         <Video
           key={feature.mediaUrl}
           source={{ uri: feature.mediaUrl }}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-          }}
+          position="absolute"
+          top={0}
+          left={0}
+          width="100%"
+          height="100%"
           resizeMode="cover"
           muted
           paused={!isActive}

@@ -38,6 +38,10 @@ export interface IFeaturedCarouselProps {
   showCloseButton: boolean;
   onClose: () => void;
   onActiveFeatureChange?: (feature: IFeaturedItem) => void;
+  /** Optional out-prop: gets `MEDIA_HEIGHT + content height` written each frame
+   * so a parent can drive its own explicit-height wrapper for a smooth dialog
+   * resize on platforms whose container doesn't transition auto-height. */
+  totalHeight?: SharedValue<number>;
 }
 
 interface ISlideWrapperProps {
@@ -144,6 +148,7 @@ export function FeaturedCarousel({
   showCloseButton,
   onClose,
   onActiveFeatureChange,
+  totalHeight,
 }: IFeaturedCarouselProps) {
   const progress = useSharedValue(0);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -285,12 +290,17 @@ export function FeaturedCarousel({
     height: heightSpring.value,
   }));
 
-  // Total carousel height drives the outer wrapper's explicit pixel height so
-  // the dialog frame transitions smoothly on desktop (Tamagui's TMDialog.Content
-  // doesn't animate height changes when child layout reflows naturally).
+  // Total carousel height = media + content. Drives outer wrapper height AND
+  // optionally exposes to parent so it can size the dialog frame explicitly.
   const totalHeightStyle = useAnimatedStyle(() => ({
     height: MEDIA_HEIGHT + heightSpring.value,
   }));
+  useAnimatedReaction(
+    () => MEDIA_HEIGHT + heightSpring.value,
+    (h) => {
+      if (totalHeight) totalHeight.value = h;
+    },
+  );
 
   // Render window: activeIndex ± 1 (3 slides max)
   const renderIndices = [activeIndex - 1, activeIndex, activeIndex + 1].filter(
