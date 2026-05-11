@@ -72,6 +72,7 @@ const DesktopWebView = forwardRef(
       style,
       receiveHandler,
       allowpopups,
+      disableBridge,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -364,7 +365,7 @@ const DesktopWebView = forwardRef(
 
     useEffect(() => {
       const webview = webviewRef.current;
-      if (!webview || !isWebviewReady) {
+      if (!webview || !isWebviewReady || disableBridge) {
         return;
       }
 
@@ -441,7 +442,7 @@ const DesktopWebView = forwardRef(
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
 
-    if (!preloadJsUrl) {
+    if (!preloadJsUrl && !disableBridge) {
       return null;
     }
 
@@ -471,7 +472,7 @@ const DesktopWebView = forwardRef(
         ) : null}
         <webview
           ref={initWebviewByRef}
-          preload={preloadJsUrl}
+          {...(disableBridge ? {} : { preload: preloadJsUrl })}
           src={src}
           partition="persist:onekey"
           style={{

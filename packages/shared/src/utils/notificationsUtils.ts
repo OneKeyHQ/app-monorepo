@@ -534,9 +534,16 @@ async function navigateToNotificationDetail({
  * route when the notification is tapped.
  *
  * Intended primarily as a reference for the backend that composes push payloads:
- * the resulting `{ screen, params: { screen, params } }` object is the exact
- * shape `navigateToNotificationDetailByLocalParams` already routes through, so
- * no additional app-side wiring is required.
+ * the resulting object is the exact shape `navigateToNotificationDetailByLocalParams`
+ * routes through, so no additional app-side wiring is required.
+ *
+ * Three-level nesting is required by RootModalNavigator + ModalFlowNavigator:
+ *   ERootRoutes.WebView         (root stack push target)
+ *     └─ EWebViewRoutes.WebView  (RootModalNavigator / outer screen)
+ *         └─ EWebViewRoutes.WebView  (ModalFlowNavigator / inner screen → WebViewPage)
+ *
+ * Only the innermost `params` reach `route.params` inside WebViewPage.
+ * Mirror the structure used by openWebView() (see webViewNavigation.ts).
  *
  * Backend MUST validate the URL (https/http only) before sending; the app-side
  * `openWebView()` enforces the same rule defensively.
@@ -551,7 +558,10 @@ export const buildWebViewNotificationPayload = (params: {
   screen: ERootRoutes.WebView,
   params: {
     screen: EWebViewRoutes.WebView,
-    params: { ...params, source: 'notification' as const },
+    params: {
+      screen: EWebViewRoutes.WebView,
+      params: { ...params, source: 'notification' as const },
+    },
   },
 });
 

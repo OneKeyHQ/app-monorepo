@@ -106,7 +106,10 @@ function isLocalAddress(host: string): boolean {
   }
   if (v6) {
     if (v6 === '::1' || v6 === '::') return true;
-    if (v6.startsWith('fe80:') || v6.startsWith('fe80::')) return true; // link-local
+    // fe80::/10 link-local: covers fe80:: through febf:: (first hextet & 0xffc0 === 0xfe80).
+    // Simple prefix check would miss fe90::-febf:: which are valid link-local addresses.
+    const firstHextet = parseInt(v6.split(':')[0] ?? '0', 16);
+    if ((firstHextet & 0xffc0) === 0xfe80) return true; // link-local
     if (v6.startsWith('fc') || v6.startsWith('fd')) return true; // fc00::/7 unique-local
     if (v6.startsWith('::ffff:')) return true; // IPv4-mapped — re-check via mapped address
     if (v6.startsWith('ff')) return true; // multicast ff00::/8

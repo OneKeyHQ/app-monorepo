@@ -95,6 +95,13 @@ export interface IInpageProviderWebViewProps
    * @description Whitelisted origins that may request camera or microphone access.
    */
   mediaPermissionWhitelist?: string[];
+  /** Disable OneKey inpage provider injection and bridge connection.
+   * Use for content-only WebViews (e.g. WebView overlay from deeplink/notification)
+   * that must not be treated as DApp pages.
+   * - Native: skips injectedNativeCode (overrides useInjectedNativeCode to false)
+   * - Desktop: skips preload script and backgroundApiProxy.connectBridge()
+   */
+  disableBridge?: boolean;
 }
 
 export type IWebViewRef = {

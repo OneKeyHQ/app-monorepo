@@ -328,6 +328,8 @@ function WebViewPageContent() {
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           onOpenWindow={onOpenWindow}
           allowpopups
+          disableBridge
+          useInjectedNativeCode={false}
         />
       </Page.Body>
     </Page>
