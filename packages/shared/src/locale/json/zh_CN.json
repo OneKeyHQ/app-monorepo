@@ -328,6 +328,8 @@
   "check_my_deviceLabel": "检查我的 {deviceLabel}",
   "clear_build_in_networks_data": "内置网络",
   "click_below_to_copy": "点击下方复制",
+  "clipboard_copy_may_fail__msg": "您的设备可能限制了剪贴板访问，请前往系统设置检查剪贴板权限。",
+  "clipboard_copy_may_fail__title": "复制可能未生效",
   "clipboard_read__desc": "这个网站想要读取您的剪贴簿内容",
   "clipboard_read__title": "读取剪贴簿",
   "clipboard_remember__action": "记住此站点的选择",

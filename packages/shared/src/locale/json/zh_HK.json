@@ -328,6 +328,8 @@
   "check_my_deviceLabel": "檢查我的 {deviceLabel}",
   "clear_build_in_networks_data": "內建網絡",
   "click_below_to_copy": "按下方以複製",
+  "clipboard_copy_may_fail__msg": "Your device may restrict clipboard access. Please check clipboard permissions in your device settings.",
+  "clipboard_copy_may_fail__title": "Copy may not be working",
   "clipboard_read__desc": "這個網站想要讀取您的剪貼簿內容",
   "clipboard_read__title": "讀取剪貼簿",
   "clipboard_remember__action": "記住此站點",

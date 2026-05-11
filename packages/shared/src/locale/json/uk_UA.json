@@ -328,6 +328,8 @@
   "check_my_deviceLabel": "Перевірити мій {deviceLabel}",
   "clear_build_in_networks_data": "Вбудовані мережі",
   "click_below_to_copy": "Натисніть нижче, щоб скопіювати",
+  "clipboard_copy_may_fail__msg": "Your device may restrict clipboard access. Please check clipboard permissions in your device settings.",
+  "clipboard_copy_may_fail__title": "Copy may not be working",
   "clipboard_read__desc": "Цей сайт хоче прочитати вміст вашого буфера обміну",
   "clipboard_read__title": "Читати буфер обміну",
   "clipboard_remember__action": "Пам'ятати для цього сайту",
