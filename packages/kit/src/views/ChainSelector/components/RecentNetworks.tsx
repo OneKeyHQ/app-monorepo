@@ -1,11 +1,4 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -148,25 +141,12 @@ function RecentNetworks({
   //      threshold but comfortably past the image-load remeasure.
   const maxHeightRef = useRef(0);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const recentNetworksKey = useMemo(
-    () => recentNetworks.map((network) => network.id).join('|'),
-    [recentNetworks],
-  );
   useEffect(
     () => () => {
       if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
     },
     [],
   );
-  useLayoutEffect(() => {
-    maxHeightRef.current = 0;
-    if (settleTimerRef.current) {
-      clearTimeout(settleTimerRef.current);
-    }
-    if (recentNetworks.length === 0) {
-      setRecentNetworksHeight?.(0);
-    }
-  }, [recentNetworks.length, recentNetworksKey, setRecentNetworksHeight]);
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
       const h = event.nativeEvent.layout.height;

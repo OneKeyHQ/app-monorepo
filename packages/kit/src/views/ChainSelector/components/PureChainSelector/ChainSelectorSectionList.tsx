@@ -33,11 +33,6 @@ import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys
 
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
 import { CELL_HEIGHT } from '../../types';
-import {
-  getSectionListSelectedItemLocation,
-  getSectionListSelectedItemScrollOffset,
-  scheduleSectionListAutoScroll,
-} from '../../utils/sectionListScroll';
 import RecentNetworks from '../RecentNetworks';
 
 import type {
@@ -237,10 +232,6 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   const [isPending, _setIsPending] = usePending();
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const [isTyping, setIsTyping] = useState(false);
-  const [recentNetworksHeight, setRecentNetworksHeight] = useState(0);
-  const [hasCompletedInitialAutoScroll, setHasCompletedInitialAutoScroll] =
-    useState(platformEnv.isNative);
-  const lastAutoScrollOffsetRef = useRef<number | undefined>(undefined);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const onChangeText = useCallback((value: string) => {
@@ -277,30 +268,56 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     unavailableNetworks: unavailable,
   });
 
-  const selectedScrollLocation = useMemo(() => {
-    if (text.trim()) {
-      return undefined;
-    }
-    return getSectionListSelectedItemLocation({
-      sections,
-      selectedId: networkId,
+  const layoutList = useMemo(() => {
+    let offset = 16;
+    const layouts: {
+      offset: number;
+      length: number;
+      index: number;
+      sectionIndex?: number;
+    }[] = [];
+    sections.forEach((section, sectionIndex) => {
+      if (sectionIndex !== 0) {
+        layouts.push({
+          offset,
+          length: 20,
+          index: layouts.length,
+          sectionIndex,
+        });
+        offset += 20;
+      }
+      const headerHeight = section.title ? 36 : 0;
+      layouts.push({
+        offset,
+        length: headerHeight,
+        index: layouts.length,
+        sectionIndex,
+      });
+      offset += headerHeight;
+      section.data.forEach(() => {
+        layouts.push({
+          offset,
+          length: CELL_HEIGHT,
+          index: layouts.length,
+          sectionIndex,
+        });
+        offset += CELL_HEIGHT;
+      });
+      const footerHeight = 0;
+      layouts.push({
+        offset,
+        length: footerHeight,
+        index: layouts.length,
+        sectionIndex,
+      });
+      offset += footerHeight;
     });
-  }, [networkId, sections, text]);
-
-  const selectedScrollOffset = useMemo(() => {
-    if (!selectedScrollLocation) {
-      return undefined;
-    }
-    return getSectionListSelectedItemScrollOffset({
-      sections,
-      sectionIndex: selectedScrollLocation.sectionIndex,
-      itemIndex: selectedScrollLocation.itemIndex,
-      rowHeight: CELL_HEIGHT,
-    });
-  }, [sections, selectedScrollLocation]);
+    layouts.push({ offset, length: 16, index: layouts.length });
+    return layouts;
+  }, [sections]);
 
   const initialScrollIndex = useMemo(() => {
-    if (!platformEnv.isNative || text.trim()) {
+    if (text.trim()) {
       return undefined;
     }
     let _initialScrollIndex:
@@ -367,49 +384,37 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   }, [sections, networkId, text]);
 
   useEffect(() => {
-    // For non-native platforms, initialScrollIndex causes display bugs.
-    // Use exact offsets so the first rows in a section do not depend on
-    // SectionList's estimated header layout.
-    if (!platformEnv.isNative && selectedScrollOffset !== undefined) {
-      if (
-        hasCompletedInitialAutoScroll &&
-        lastAutoScrollOffsetRef.current === selectedScrollOffset
-      ) {
-        return;
+    // For non-native platforms, initialScrollIndex causes display bugs
+    // Handle it by manually scrolling to the target position
+    if (!platformEnv.isNative) {
+      if (!initialScrollIndex || layoutList.length === 0) return;
+
+      let offset = 0;
+
+      if (initialScrollIndex.sectionIndex === 0) {
+        offset = CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      } else {
+        const index = layoutList.findIndex(
+          (item) => item.sectionIndex === initialScrollIndex.sectionIndex,
+        );
+
+        if (index === -1) return;
+
+        offset =
+          layoutList[index].offset +
+          CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
       }
 
-      let cancelled = false;
-      const cancelAutoScroll = scheduleSectionListAutoScroll(() => {
-        if (cancelled) {
-          return;
-        }
-        if (!listRef.current?.scrollToOffset) {
-          return false;
-        }
-        listRef.current.scrollToOffset({
-          offset: selectedScrollOffset,
+      setTimeout(() => {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        listRef.current?.scrollTo?.({
+          y: offset,
           animated: false,
         });
-        lastAutoScrollOffsetRef.current = selectedScrollOffset;
-        setHasCompletedInitialAutoScroll(true);
-        return true;
-      });
-
-      return () => {
-        cancelled = true;
-        cancelAutoScroll();
-      };
+      }, 100);
     }
-  }, [
-    hasCompletedInitialAutoScroll,
-    recentNetworksHeight,
-    selectedScrollOffset,
-  ]);
-
-  const shouldHideListForAutoScroll =
-    !platformEnv.isNative &&
-    selectedScrollOffset !== undefined &&
-    !hasCompletedInitialAutoScroll;
+  }, [initialScrollIndex, layoutList]);
 
   const renderSections = useCallback(
     () =>
@@ -419,11 +424,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           sections={sections}
           networkId={networkId}
           onPressItem={onPressItem}
-          initialScrollIndex={
-            platformEnv.isNative
-              ? (initialScrollIndex?.initialScrollIndexNumber ?? 0)
-              : undefined
-          }
+          initialScrollIndex={initialScrollIndex?.initialScrollIndexNumber ?? 0}
           recentNetworksEnabled={recentNetworksEnabled}
           listRef={listRef as any}
           accountNetworkValues={accountNetworkValues}
@@ -475,13 +476,10 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           onPressItem={onPressItem}
           availableNetworks={networks}
           swrKeyScope={EAppSWRCacheScopes.pureChainSelector}
-          setRecentNetworksHeight={setRecentNetworksHeight}
         />
       ) : null}
       {/* Re-render the entire list after each text update */}
-      <Stack flex={1} opacity={shouldHideListForAutoScroll ? 0 : 1}>
-        {loading ? loadingElement : renderSections()}
-      </Stack>
+      {loading ? loadingElement : renderSections()}
     </Stack>
   );
 };

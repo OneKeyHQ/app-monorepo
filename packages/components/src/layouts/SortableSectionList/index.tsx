@@ -83,11 +83,6 @@ type IScrollToLocationParams = {
   viewPosition?: number;
 };
 
-type IScrollToOffsetParams = {
-  animated?: boolean | null;
-  offset: number;
-};
-
 export type ISortableSectionListRef<T> = ISortableListViewRef<T> & {
   scrollToLocation: (info: IScrollToLocationParams) => void;
 };
@@ -181,9 +176,6 @@ function BaseSortableSectionList<T>(
 
   const ref = useRef<ISortableListViewRef<T>>(null);
   useImperativeHandle(parentRef as any, () => ({
-    scrollToOffset: (params: IScrollToOffsetParams) => {
-      ref.current?.scrollToOffset?.(params);
-    },
     scrollToLocation: ({
       animated,
       itemIndex = 0,
