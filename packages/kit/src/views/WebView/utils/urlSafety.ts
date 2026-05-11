@@ -56,7 +56,14 @@ function isLikelyDownloadPath(pathname: string): boolean {
  */
 function isLocalAddress(host: string): boolean {
   if (!host) return true;
-  const lower = host.toLowerCase();
+  // Strip trailing dot(s) so that `localhost.` / `api.localhost.` / `127.0.0.1.`
+  // are normalized to the same form the hostname/IP checks below expect. DNS
+  // resolvers treat a trailing dot as the absolute (FQDN) form and resolve it
+  // to the same address as the version without a trailing dot, so without this
+  // normalization a deeplink with `https://localhost./` would slip past every
+  // check below.
+  const lower = host.toLowerCase().replace(/\.+$/, '');
+  if (!lower) return true;
 
   // Hostname-based blocks
   if (lower === 'localhost' || lower.endsWith('.localhost')) return true;

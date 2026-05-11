@@ -3,11 +3,16 @@ import { parseWebViewDeepLink } from '../parseWebViewDeepLink';
 // Avoid the literal `javascript:` URL form to satisfy `no-script-url` lint.
 const JS_SCHEME = ['java', 'script:', 'alert(1)'].join('');
 
+// `Linking.parse` (expo-linking) returns query values that are already
+// URL-decoded once, so production inputs to `parseWebViewDeepLink` are the
+// decoded URL string — NOT the percent-encoded form. Tests pass decoded URLs
+// directly to mirror that contract.
+
 describe('parseWebViewDeepLink', () => {
   describe('happy path', () => {
     it('accepts a plain https URL with all flags off by default', () => {
       const result = parseWebViewDeepLink({
-        url: encodeURIComponent('https://onekey.so'),
+        url: 'https://onekey.so',
       });
       expect(result).toEqual({
         url: 'https://onekey.so',
@@ -18,20 +23,20 @@ describe('parseWebViewDeepLink', () => {
       });
     });
 
-    it('decodes percent-encoded query strings inside the URL', () => {
+    it('preserves encoded characters inside the path/query (no second decode)', () => {
+      // Signed-URL style: `%2F` in the path must NOT be unescaped to `/`,
+      // otherwise the server-side signature check fails.
       const result = parseWebViewDeepLink({
-        url: encodeURIComponent(
-          'https://onekey.so/promo?utm_source=campaign&id=123',
-        ),
+        url: 'https://onekey.so/promo/path%2Fwith%2Fslashes?utm_source=campaign&id=123',
       });
       expect(result?.url).toBe(
-        'https://onekey.so/promo?utm_source=campaign&id=123',
+        'https://onekey.so/promo/path%2Fwith%2Fslashes?utm_source=campaign&id=123',
       );
     });
 
     it('decodes title and forwards it', () => {
       const result = parseWebViewDeepLink({
-        url: encodeURIComponent('https://onekey.so'),
+        url: 'https://onekey.so',
         title: '活动',
       });
       expect(result?.title).toBe('活动');
@@ -39,7 +44,7 @@ describe('parseWebViewDeepLink', () => {
 
     it('parses hideHeader=1 as true', () => {
       const result = parseWebViewDeepLink({
-        url: encodeURIComponent('https://onekey.so'),
+        url: 'https://onekey.so',
         hideHeader: '1',
       });
       expect(result?.hideHeader).toBe(true);
@@ -47,7 +52,7 @@ describe('parseWebViewDeepLink', () => {
 
     it('parses hideHeader=0 as false', () => {
       const result = parseWebViewDeepLink({
-        url: encodeURIComponent('https://onekey.so'),
+        url: 'https://onekey.so',
         hideHeader: '0',
       });
       expect(result?.hideHeader).toBe(false);
@@ -55,7 +60,7 @@ describe('parseWebViewDeepLink', () => {
 
     it('parses showAddressBar=1 as true', () => {
       const result = parseWebViewDeepLink({
-        url: encodeURIComponent('https://onekey.so'),
+        url: 'https://onekey.so',
         showAddressBar: '1',
       });
       expect(result?.showAddressBar).toBe(true);
@@ -64,7 +69,7 @@ describe('parseWebViewDeepLink', () => {
     it('omits title when it is not a string (defends against array coercion)', () => {
       // expo-linking can return string[] for ?title=a&title=b
       const result = parseWebViewDeepLink({
-        url: encodeURIComponent('https://onekey.so'),
+        url: 'https://onekey.so',
         title: ['a', 'b'] as unknown as string,
       });
       expect(result?.title).toBeUndefined();
@@ -72,14 +77,14 @@ describe('parseWebViewDeepLink', () => {
 
     it('always tags source as "deeplink"', () => {
       const result = parseWebViewDeepLink({
-        url: encodeURIComponent('https://onekey.so'),
+        url: 'https://onekey.so',
       });
       expect(result?.source).toBe('deeplink');
     });
 
     it('accepts uppercase HTTPS scheme', () => {
       const result = parseWebViewDeepLink({
-        url: encodeURIComponent('HTTPS://Onekey.SO'),
+        url: 'HTTPS://Onekey.SO',
       });
       expect(result?.url).toBe('HTTPS://Onekey.SO');
     });
@@ -89,7 +94,7 @@ describe('parseWebViewDeepLink', () => {
     it('rejects http:// scheme (https-only policy)', () => {
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent('http://example.com'),
+          url: 'http://example.com',
         }),
       ).toBeNull();
     });
@@ -97,7 +102,7 @@ describe('parseWebViewDeepLink', () => {
     it('rejects uppercase HTTP:// scheme', () => {
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent('HTTP://example.com'),
+          url: 'HTTP://example.com',
         }),
       ).toBeNull();
     });
@@ -107,7 +112,7 @@ describe('parseWebViewDeepLink', () => {
       // actually goes to "evil.com".
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent('https://trusted.com@evil.com/path'),
+          url: 'https://trusted.com@evil.com/path',
         }),
       ).toBeNull();
     });
@@ -115,7 +120,7 @@ describe('parseWebViewDeepLink', () => {
     it('rejects userinfo with password (https://user:pass@host)', () => {
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent('https://user:secret@example.com'),
+          url: 'https://user:secret@example.com',
         }),
       ).toBeNull();
     });
@@ -123,7 +128,7 @@ describe('parseWebViewDeepLink', () => {
     it('rejects empty username with password (https://:pass@host)', () => {
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent('https://:pass@example.com'),
+          url: 'https://:pass@example.com',
         }),
       ).toBeNull();
     });
@@ -131,7 +136,7 @@ describe('parseWebViewDeepLink', () => {
     it('rejects localhost (delegates to isAllowedWebViewUrl)', () => {
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent('https://localhost:3000/'),
+          url: 'https://localhost:3000/',
         }),
       ).toBeNull();
     });
@@ -139,7 +144,7 @@ describe('parseWebViewDeepLink', () => {
     it('rejects 127.0.0.1 (delegates to isAllowedWebViewUrl)', () => {
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent('https://127.0.0.1/'),
+          url: 'https://127.0.0.1/',
         }),
       ).toBeNull();
     });
@@ -147,41 +152,39 @@ describe('parseWebViewDeepLink', () => {
     it('rejects AWS metadata 169.254.169.254 (SSRF guard)', () => {
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent('https://169.254.169.254/'),
+          url: 'https://169.254.169.254/',
         }),
       ).toBeNull();
     });
 
     it('rejects javascript: scheme', () => {
-      expect(
-        parseWebViewDeepLink({ url: encodeURIComponent(JS_SCHEME) }),
-      ).toBeNull();
+      // Percent-encoded scheme smuggling (e.g. starting with %6A) is already
+      // unescaped by expo-linking before we receive `query.url`, so by the
+      // time it reaches this function it looks like the plain decoded form
+      // tested here.
+      expect(parseWebViewDeepLink({ url: JS_SCHEME })).toBeNull();
     });
 
     it('rejects file: scheme', () => {
-      expect(
-        parseWebViewDeepLink({ url: encodeURIComponent('file:///etc/passwd') }),
-      ).toBeNull();
+      expect(parseWebViewDeepLink({ url: 'file:///etc/passwd' })).toBeNull();
     });
 
     it('rejects data: scheme', () => {
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent('data:text/html,<script>alert(1)</script>'),
+          url: 'data:text/html,<script>alert(1)</script>',
         }),
       ).toBeNull();
     });
 
     it('rejects about: scheme', () => {
-      expect(
-        parseWebViewDeepLink({ url: encodeURIComponent('about:blank') }),
-      ).toBeNull();
+      expect(parseWebViewDeepLink({ url: 'about:blank' })).toBeNull();
     });
 
     it('rejects intent: scheme', () => {
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent('intent://example.com#Intent;end'),
+          url: 'intent://example.com#Intent;end',
         }),
       ).toBeNull();
     });
@@ -210,7 +213,7 @@ describe('parseWebViewDeepLink', () => {
       const longTail = 'a'.repeat(2050);
       expect(
         parseWebViewDeepLink({
-          url: encodeURIComponent(`https://example.com/${longTail}`),
+          url: `https://example.com/${longTail}`,
         }),
       ).toBeNull();
     });
@@ -220,22 +223,14 @@ describe('parseWebViewDeepLink', () => {
       const padding = 'a'.repeat(2048 - 10);
       const url = `https://x/${padding}`;
       expect(url.length).toBe(2048);
-      const result = parseWebViewDeepLink({ url: encodeURIComponent(url) });
+      const result = parseWebViewDeepLink({ url });
       expect(result?.url).toBe(url);
     });
 
-    it('rejects malformed percent-encoding (decodeURIComponent throws)', () => {
-      // '%E0%A4%A' is incomplete UTF-8 sequence
-      expect(parseWebViewDeepLink({ url: '%E0%A4%A' })).toBeNull();
-    });
-
-    it('does NOT bypass scheme check via percent-encoded scheme', () => {
-      // %6A decodes to 'j', so the encoded form smuggles a `javascript:` URL
-      // past a regex that runs on the encoded string. We decode FIRST, then
-      // run the regex, so this must still be rejected.
-      // oxlint-disable-next-line @cspell/spellchecker
-      const sneaky = '%6A'.concat('avascript:alert(1)');
-      expect(parseWebViewDeepLink({ url: sneaky })).toBeNull();
+    it('rejects localhost FQDN form (trailing dot)', () => {
+      // `https://localhost./` resolves to the same loopback as `localhost`,
+      // so the safety policy must catch the trailing-dot variant too.
+      expect(parseWebViewDeepLink({ url: 'https://localhost./' })).toBeNull();
     });
   });
 });

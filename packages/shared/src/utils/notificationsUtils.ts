@@ -323,10 +323,20 @@ export function parseNotificationPayload(
         if (!webViewParams) {
           webViewParams = { url: payload, source: 'notification' };
         }
-        appEventBus.emit(
-          EAppEventBusNames.ShowNotificationInWebViewOverlay,
-          webViewParams,
-        );
+        // `appEventBus` is in-process per runtime, and the
+        // `ShowNotificationInWebViewOverlay` subscriber lives in the kit UI
+        // layer. In the extension background runtime (notification click
+        // handler) that subscriber doesn't exist, so an emit would silently
+        // drop the click. Fall back to the legacy chrome.tabs.create path
+        // (same one `openInBrowser` already uses) so the link still opens.
+        if (platformEnv.isExtensionBackground) {
+          openUrlExternal(webViewParams.url);
+        } else {
+          appEventBus.emit(
+            EAppEventBusNames.ShowNotificationInWebViewOverlay,
+            webViewParams,
+          );
+        }
       }
       break;
     case ENotificationPushMessageMode.openInDapp:

@@ -13,14 +13,18 @@ import type { IOpenWebViewParams } from '../../../views/WebView/utils/webViewNav
  * throws). Extracted from the deeplink switch so the validation logic can be
  * unit-tested as a pure function.
  *
- * Decoding-specific checks:
- *   1. `query.url` must be a string (expo-linking can return string[] for
- *      duplicated `?url=a&url=b` query keys).
- *   2. `decodeURIComponent` must succeed (rejects malformed escapes).
+ * `expo-linking`'s `Linking.parse` already URL-decodes each query value, so by
+ * the time we see `query.url` it is the decoded target string. We deliberately
+ * do NOT decode a second time: a legitimate URL may contain encoded characters
+ * in its path or query (e.g. signed S3 URLs with `%2F`, base64 with `%2B`),
+ * and double-decoding would rewrite them — at best changing the target, at
+ * worst making `decodeURIComponent` throw on a lone `%` and rejecting a valid
+ * deeplink.
  *
- * URL-safety policy delegated to `isAllowedWebViewUrl` — see that helper for
- * the full list (https-only, length cap, no userinfo, no local addresses,
- * etc.).
+ * `query.url` is still checked to be a string (expo-linking returns string[]
+ * for duplicated `?url=a&url=b` keys). URL-safety policy is delegated to
+ * `isAllowedWebViewUrl` — see that helper for the full list (https-only,
+ * length cap, no userinfo, no local addresses, etc.).
  *
  * `title` defends against the same string[] coercion. Boolean params are
  * decoded from the `'0' | '1'` URL-query convention.
@@ -28,22 +32,15 @@ import type { IOpenWebViewParams } from '../../../views/WebView/utils/webViewNav
 export function parseWebViewDeepLink(
   query: IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.webview],
 ): IOpenWebViewParams | null {
-  const rawUrl = query.url;
-  if (typeof rawUrl !== 'string') return null;
+  const url = query.url;
+  if (typeof url !== 'string') return null;
 
-  let decoded = '';
-  try {
-    decoded = decodeURIComponent(rawUrl);
-  } catch {
-    return null;
-  }
-
-  if (!isAllowedWebViewUrl(decoded)) {
+  if (!isAllowedWebViewUrl(url)) {
     return null;
   }
 
   return {
-    url: decoded,
+    url,
     title: typeof query.title === 'string' ? query.title : undefined,
     hideHeader: query.hideHeader === '1',
     showAddressBar: query.showAddressBar === '1',

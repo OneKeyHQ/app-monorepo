@@ -13,6 +13,7 @@ import {
   ERootRoutes,
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import AddressBar from '../components/AddressBar';
 import WebViewHeader from '../components/Header';
@@ -23,6 +24,7 @@ import type { WebView as ReactNativeWebView } from 'react-native-webview';
 import type {
   ShouldStartLoadRequest,
   WebViewNavigation,
+  WebViewOpenWindowEvent,
 } from 'react-native-webview/lib/WebViewTypes';
 
 function WebViewPageContent() {
@@ -243,6 +245,21 @@ function WebViewPageContent() {
     [],
   );
 
+  // Popup safety guard. `onShouldStartLoadWithRequest` only fires for the
+  // main WebView's own navigation; popups opened via `window.open` or
+  // `target=_blank` go through a separate code path (native: onOpenWindow,
+  // Electron: new-window event) that bypasses the per-navigation check.
+  // Without this handler, a page that passed the initial https/local-host
+  // gate could then call `window.open('javascript:…')` or
+  // `window.open('https://127.0.0.1/')` and escape the policy. We run the
+  // same `isAllowedWebViewUrl` here and route allowed popups to the system
+  // browser (matching normal `_blank` semantics).
+  const onOpenWindow = useCallback((event: WebViewOpenWindowEvent) => {
+    const targetUrl = event?.nativeEvent?.targetUrl;
+    if (!isAllowedWebViewUrl(targetUrl)) return;
+    openUrlExternal(targetUrl);
+  }, []);
+
   // Address bar is hidden by default — opt-in via params.showAddressBar.
   const showAddressBar = params.showAddressBar === true;
 
@@ -288,6 +305,7 @@ function WebViewPageContent() {
           onDidStopLoading={onDidFinishLoad}
           onDidFailLoad={onDidFinishLoad}
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          onOpenWindow={onOpenWindow}
           allowpopups
         />
       </Page.Body>

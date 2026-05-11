@@ -61,6 +61,12 @@ describe('isAllowedWebViewUrl', () => {
       ['https://broadcasthost/'],
       ['https://ip6-localhost/'],
       ['https://ip6-loopback/'],
+      // FQDN form (trailing dot) — resolvers treat it as the same address but
+      // a naive equality / suffix check would miss it.
+      ['https://localhost./'],
+      ['https://localhost.../'],
+      ['https://api.localhost./'],
+      ['https://LocalHost./admin'],
     ])('%s', (url) => {
       expect(isAllowedWebViewUrl(url)).toBe(false);
     });

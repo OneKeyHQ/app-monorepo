@@ -14,7 +14,6 @@ import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../../hocs';
-import { useBackHandler } from '../../../hooks';
 import {
   ModalNavigatorContext,
   createPortalId,
@@ -110,16 +109,12 @@ function WebViewModalNavigator({
       screenOptions,
     });
 
-  const goBackCall = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
-
-  const handleBackPress = useCallback(() => {
-    if (navigation.isFocused()) goBackCall();
-    return true;
-  }, [navigation, goBackCall]);
-
-  useBackHandler(handleBackPress, true, false);
+  // Escape / Android-back is handled inside `WebViewPage` itself: it first
+  // tries `webview.goBack()` (in-page history), then falls back to
+  // `navigation.goBack()` to dismiss the overlay. Registering a duplicate
+  // `useBackHandler` here would race with that — a single Escape press would
+  // both navigate the WebView back AND close the overlay, losing the user's
+  // place. Keep this navigator passive and let the screen own the policy.
 
   const rootNavigation = navigation.getParent()?.getParent?.();
   const currentRouteIndex = useMemo(
