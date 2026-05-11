@@ -17,6 +17,7 @@ import {
   Page,
   SizableText,
   TextArea,
+  Toast,
   XStack,
   useForm,
   useMedia,
@@ -35,6 +36,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useValidateMemoField } from '@onekeyhq/kit/src/hooks/useValidateMemoField';
+import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import type {
   IChainValue,
   IQRCodeHandlerParseResult,
@@ -374,6 +376,21 @@ function SendDataInputContainer() {
     try {
       // Use already-watched toResolved instead of re-getting from form
       if (!toResolved) return;
+
+      // Reject sending to a deactivated Bot Wallet account. The helper covers
+      // the BTC fresh-address fallback so the regular index miss does not
+      // silently let the deactivated Bot Wallet through.
+      const isDeactivatedBotReceiver =
+        await isAddressOwnedByDeactivatedBotWallet({
+          networkId: currentAccount.networkId,
+          address: toResolved,
+        });
+      if (isDeactivatedBotReceiver) {
+        Toast.error({
+          title: '该 Bot 钱包已停用，无法作为接收地址',
+        });
+        return;
+      }
 
       // Validate memo/paymentId/note fields before navigating
       const isValid = await form.trigger();

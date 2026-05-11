@@ -22,7 +22,11 @@ import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { getBtcRewardStatusConfig } from '../utils';
+import {
+  formatUsd,
+  getBtcRewardStatusConfig,
+  isBtcRewardSnapshotStatus,
+} from '../utils';
 
 const baseNetworkId = getNetworkIdsMap().base;
 
@@ -78,11 +82,17 @@ function BtcRewardRecordRow({
   const statusConfig =
     statusConfigs[record.status] ?? statusConfigs[EBtcRewardStatus.Wait];
   const handlePress = useCallback(() => onPress(record), [onPress, record]);
+  const hasBtcSnapshot = isBtcRewardSnapshotStatus(record.status);
 
-  const subtitle = `~${record.btcAmount} cbBTC · ${formatDate(
-    record.submittedAt,
-    { hideSeconds: true },
-  )}`;
+  const subtitle =
+    hasBtcSnapshot && record.btcAmount
+      ? `${record.btcAmount} cbBTC · ${formatDate(
+          record.paidAt || record.submittedAt,
+          { hideSeconds: true },
+        )}`
+      : `${formatUsd(record.rewardUsd)} · ${formatDate(record.submittedAt, {
+          hideSeconds: true,
+        })}`;
 
   return (
     <ListItem

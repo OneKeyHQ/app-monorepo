@@ -65,6 +65,9 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
     [privacyLink, renderAnchor],
   );
 
+  const { $gtMd: userGtMd, ...restContentProps } =
+    props?.contentContainerProps ?? {};
+
   return (
     <SizableText
       alignSelf="center"
@@ -74,8 +77,9 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
       $gtMd={{
         size: '$bodyMd',
         alignSelf: 'flex-start',
+        ...(userGtMd as any),
       }}
-      {...(props?.contentContainerProps as any)}
+      {...(restContentProps as any)}
     >
       {intl.formatMessage(
         { id: ETranslations.terms_privacy },

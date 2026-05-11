@@ -3,12 +3,14 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { ActionList } from '@onekeyhq/components';
+import { ActionList, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useCopyAddressWithDeriveType } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { shouldBlockBotWalletCopyAddress } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -42,7 +44,28 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isCopyDisabled = shouldBlockBotWalletCopyAddress({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
+
   const handleCopyAddress = useCallback(async () => {
+    if (
+      shouldBlockBotWalletCopyAddress({
+        isBotWallet,
+        isBotWalletDeactivated,
+      })
+    ) {
+      Toast.error({
+        title: '该钱包已停用，无法复制地址',
+      });
+      return;
+    }
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
@@ -131,6 +154,8 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
     indexedAccount?.id,
     copyAddressWithDeriveType,
     deriveInfoItems,
+    isBotWallet,
+    isBotWalletDeactivated,
   ]);
 
   return (
@@ -140,6 +165,7 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
       label={intl.formatMessage({ id: ETranslations.global_copy_address })}
       onClose={() => {}}
       onPress={handleCopyAddress}
+      disabled={isCopyDisabled}
     />
   );
 }
