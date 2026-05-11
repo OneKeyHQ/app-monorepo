@@ -28,10 +28,8 @@ import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificatio
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  isForceUpdateStrategy,
-  useDownloadPackage,
-} from '../../../components/UpdateReminder/hooks';
+import { isForceUpdateStrategy } from '../../../components/AppUpdate/updateStrategy';
+import { useDownloadPackage } from '../../../components/AppUpdate/useDownloadPackage';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
