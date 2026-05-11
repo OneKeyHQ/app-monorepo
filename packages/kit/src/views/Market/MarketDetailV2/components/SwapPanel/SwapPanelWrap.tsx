@@ -82,6 +82,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const {
     isLoading: speedSwapInitLoading,
     speedConfig,
+    speedConfigReady,
     supportSpeedSwap: originalSupportSpeedSwap,
     onlySupportCrossChain,
     defaultTokens,
@@ -96,6 +97,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         ? EMarketPresetTradeSide.SELL
         : EMarketPresetTradeSide.BUY,
     speedConfig,
+    speedConfigReady,
   });
   const { activeAccount } = useActiveAccount({ num: 0 });
 

@@ -152,6 +152,7 @@ const MARKET_PRESET_EVM_NETWORK_IDS = new Set([
   presetNetworksMap.optimism.id,
   presetNetworksMap.base.id,
   presetNetworksMap.avalanche.id,
+  presetNetworksMap.okb.id,
 ]);
 
 const MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS = new Set([
@@ -653,11 +654,13 @@ export function getMarketPresetCustomizedMap(
 
 export function getMarketPresetReviewNetworkFeeOptionLabel({
   enabled,
+  presetCustomizedMap,
   presets,
   selectedPreset,
   selectedPresetKey,
 }: {
   enabled: boolean;
+  presetCustomizedMap: Partial<Record<EMarketPresetKey, boolean>>;
   presets: IMarketPresetItem[];
   selectedPreset?: IMarketPresetItem;
   selectedPresetKey: EMarketPresetKey;
@@ -671,7 +674,7 @@ export function getMarketPresetReviewNetworkFeeOptionLabel({
     presets.find((preset) => preset.key === selectedPresetKey);
   const label = selectedPresetItem?.label ?? selectedPresetKey.toUpperCase();
 
-  return label;
+  return `${label}${presetCustomizedMap[selectedPresetKey] ? '*' : ''}`;
 }
 
 export function getMarketPresetSlippageValue({
