@@ -124,7 +124,15 @@ const PreSwapInfoGroup = ({
               <Icon name="ChevronGrabberVerOutline" size="$4" />
             </XStack>
           )}
-          value={swapStepNetFeeLevel.networkFeeLevel}
+          // While a Market preset's customPriorityFee is in effect, pass
+          // undefined so none of the slow/normal/fast rows shows the
+          // checkmark — the underlying tier (HIGH, derived from the preset
+          // CUSTOM type) would otherwise mark "Fast" as the selection.
+          value={
+            swapStepNetFeeLevel.customPriorityFee
+              ? undefined
+              : swapStepNetFeeLevel.networkFeeLevel
+          }
           title={intl.formatMessage({
             id: ETranslations.swap_review_transaction_speed,
           })}
@@ -152,6 +160,7 @@ const PreSwapInfoGroup = ({
     preSwapData.netWorkFee?.gasFeeFiatValue,
     settings.currencyInfo.symbol,
     swapStepNetFeeLevel.networkFeeLevel,
+    swapStepNetFeeLevel.customPriorityFee,
     preSwapData.stepBeforeActionsLoading,
   ]);
 

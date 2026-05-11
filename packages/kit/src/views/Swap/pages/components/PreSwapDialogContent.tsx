@@ -475,13 +475,13 @@ const PreSwapDialogContent = ({
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
                     onSelectNetworkFeeLevel={(value) => {
-                      // Spread previous state so a Market preset's
-                      // customPriorityFee is preserved when the user changes
-                      // the fee tier in the review dialog.
-                      setSwapStepNetFeeLevel((prev) => ({
-                        ...prev,
+                      // Explicit tier pick wins over any active Market preset
+                      // customPriorityFee — otherwise applyCustomPriorityFeeToGasInfo
+                      // keeps using the preset value and the trigger label
+                      // stays "Custom", making the tier select look no-op.
+                      setSwapStepNetFeeLevel({
                         networkFeeLevel: value,
-                      }));
+                      });
                     }}
                   />
                   {/* Primary button */}

@@ -129,7 +129,11 @@ type IMarketReviewExecutionSnapshot = {
   buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
   swapInfo: ISwapTxInfo;
   buildRes?: IFetchBuildTxResponse;
-  customPriorityFee?: ISwapReviewCustomPriorityFee;
+  // Intentionally no `customPriorityFee`: it is owned by the swap fee atom
+  // (`swapStepNetFeeLevel.customPriorityFee`), which the dialog reads directly
+  // each time the user changes the tier. Storing a snapshot copy used to make
+  // a Market preset's initial value resurrect via `?? snapshot.customPriorityFee`
+  // even after the user switched to a preset tier, freezing the preview fee.
 };
 
 type ICheckSwapLatestBalanceSufficient = (params: {
@@ -1106,8 +1110,11 @@ export function useSpeedSwapActions(props: {
       networkFeeLevel: ESwapNetworkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
       customPriorityFee?: ISwapReviewCustomPriorityFee,
     ) => {
-      const effectiveCustomPriorityFee =
-        customPriorityFee ?? snapshot.customPriorityFee;
+      // Trust the caller's value verbatim — when the user explicitly picks a
+      // preset tier in the review dialog, the atom clears customPriorityFee
+      // and the dialog passes `undefined` here. Falling back to a snapshotted
+      // value would silently keep using the Market preset's custom fee.
+      const effectiveCustomPriorityFee = customPriorityFee;
       const nextReviewState = buildMarketReviewState({
         accountId: snapshot.accountId,
         networkId: snapshot.networkId,
@@ -1269,7 +1276,6 @@ export function useSpeedSwapActions(props: {
             disableMev: !antiMEV,
           } as ISendTxBaseParams & IBuildUnsignedTxParams,
           swapInfo,
-          customPriorityFee,
         };
 
         return buildMarketReviewStateFromSnapshot(
@@ -1342,7 +1348,6 @@ export function useSpeedSwapActions(props: {
         } as ISendTxBaseParams & IBuildUnsignedTxParams,
         swapInfo,
         buildRes,
-        customPriorityFee,
       };
 
       return buildMarketReviewStateFromSnapshot(
@@ -1990,8 +1995,7 @@ export function useSpeedSwapActions(props: {
       onCancel,
     } = {}) => {
       const snapshot = requireReviewExecutionSnapshot('swap');
-      const effectiveCustomPriorityFee =
-        customPriorityFee ?? snapshot.customPriorityFee;
+      const effectiveCustomPriorityFee = customPriorityFee;
 
       try {
         await assertLatestFromTokenBalanceSufficient({
@@ -2100,8 +2104,7 @@ export function useSpeedSwapActions(props: {
       onCancel,
     } = {}) => {
       const snapshot = requireReviewExecutionSnapshot('wrap');
-      const effectiveCustomPriorityFee =
-        customPriorityFee ?? snapshot.customPriorityFee;
+      const effectiveCustomPriorityFee = customPriorityFee;
 
       try {
         if (snapshot.shouldFallback) {
@@ -2268,7 +2271,6 @@ export function useSpeedSwapActions(props: {
           } as ISendTxBaseParams & IBuildUnsignedTxParams,
           swapInfo,
           buildRes: buildResFinal,
-          customPriorityFee: snapshot.customPriorityFee,
         };
 
         if (shouldPersistSignedOrder) {
@@ -2332,8 +2334,7 @@ export function useSpeedSwapActions(props: {
       onCancel,
     }) => {
       const snapshot = reviewExecutionSnapshotRef.current;
-      const effectiveCustomPriorityFee =
-        customPriorityFee ?? snapshot?.customPriorityFee;
+      const effectiveCustomPriorityFee = customPriorityFee;
       const userAddress =
         snapshot?.accountAddress ??
         netAccountRes.result?.addressDetail.address ??
