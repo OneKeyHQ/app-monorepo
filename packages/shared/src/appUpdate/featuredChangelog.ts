@@ -1,7 +1,6 @@
 import { ENotificationPushMessageMode } from '../../types/notification';
 
 export interface IFeaturedItem {
-  tabLabel: string;
   title?: string;
   description?: string;
   mediaUrl: string;
@@ -52,9 +51,8 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
   // fields already have the right type, which we cannot trust.
   const src = raw as Record<string, unknown>;
 
-  const tabLabel = optionalTrimmedString(src.tabLabel);
   const mediaUrl = optionalTrimmedString(src.mediaUrl);
-  if (!tabLabel || !mediaUrl) return undefined;
+  if (!mediaUrl) return undefined;
 
   const mediaType = src.mediaType;
   if (mediaType !== 'image' && mediaType !== 'video') return undefined;
@@ -72,7 +70,6 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
       : undefined;
 
   return {
-    tabLabel,
     title: optionalTrimmedString(src.title),
     description: optionalTrimmedString(src.description),
     mediaUrl,
