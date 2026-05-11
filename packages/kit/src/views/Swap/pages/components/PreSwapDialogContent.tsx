@@ -492,10 +492,12 @@ const PreSwapDialogContent = ({
                           networkFeeLevel,
                         } = prev;
                         if (value === FEE_TIER_CUSTOM) {
-                          if (!presetOverrides || customPriorityFee) return prev;
+                          if (!presetOverrides || customPriorityFee)
+                            return prev;
                           return {
                             networkFeeLevel: presetOverrides.networkFeeLevel,
-                            customPriorityFee: presetOverrides.customPriorityFee,
+                            customPriorityFee:
+                              presetOverrides.customPriorityFee,
                             presetOverrides,
                           };
                         }
