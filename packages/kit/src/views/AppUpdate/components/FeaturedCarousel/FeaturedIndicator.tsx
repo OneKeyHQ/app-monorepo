@@ -4,9 +4,12 @@ import { Stack } from '@onekeyhq/components';
 
 import type { SharedValue } from 'react-native-reanimated';
 
-const DOT_HIT_AREA = 14;
-const DOT_SIZE = 6;
+const DOT_HEIGHT = 6;
+const DOT_INACTIVE_WIDTH = 6;
+const DOT_ACTIVE_WIDTH = 18;
+const HIT_AREA_HEIGHT = 14;
 const HIT_AREA_BORDER_WIDTH = 2;
+const HIT_AREA_PADDING_X = 3;
 
 interface IIndicatorDotProps {
   index: number;
@@ -17,28 +20,32 @@ interface IIndicatorDotProps {
 function IndicatorDot({ index, progress, onPress }: IIndicatorDotProps) {
   const animatedStyle = useAnimatedStyle(() => {
     const distance = Math.min(1, Math.abs(index - progress.value));
+    // Pill-shaped active dot, round inactive dot. Width interpolates with
+    // distance so the transition mirrors the carousel's slide motion.
+    const width =
+      DOT_INACTIVE_WIDTH +
+      (DOT_ACTIVE_WIDTH - DOT_INACTIVE_WIDTH) * (1 - distance);
     const opacity = 1 - distance * 0.5;
-    return { opacity };
+    return { width, opacity };
   });
 
   return (
     <Stack
-      width={DOT_HIT_AREA}
-      height={DOT_HIT_AREA}
+      height={HIT_AREA_HEIGHT}
+      paddingHorizontal={HIT_AREA_PADDING_X}
       alignItems="center"
       justifyContent="center"
       borderWidth={HIT_AREA_BORDER_WIDTH}
       borderColor="transparent"
-      borderRadius={DOT_HIT_AREA / 2}
+      borderRadius={HIT_AREA_HEIGHT / 2}
       hoverStyle={{ borderColor: 'rgba(255,255,255,0.3)' }}
       onPress={() => onPress(index)}
     >
       <Animated.View
         style={[
           {
-            width: DOT_SIZE,
-            height: DOT_SIZE,
-            borderRadius: DOT_SIZE / 2,
+            height: DOT_HEIGHT,
+            borderRadius: DOT_HEIGHT / 2,
             backgroundColor: 'white',
             borderWidth: 1,
             borderColor: 'rgba(255,255,255,0.3)',
@@ -69,7 +76,7 @@ export function FeaturedIndicator({
       bottom={16}
       left={16}
       flexDirection="row"
-      gap={8}
+      gap={4}
       zIndex={2}
     >
       {Array.from({ length: count }).map((_, i) => (
