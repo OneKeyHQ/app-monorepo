@@ -3,6 +3,10 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  ProtocolValueCell,
+  isProtocolValueUnavailable,
+} from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,6 +31,17 @@ function sumPositionUsd(
     total += asset.value;
   }
   return total;
+}
+
+function hasUnavailableAssetValue(...assetGroups: IDeFiAsset[][]): boolean {
+  for (const assets of assetGroups) {
+    for (const asset of assets) {
+      if (isProtocolValueUnavailable(asset.value)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 // Returns the most valuable up to `max` assets in USD-descending order.
@@ -76,12 +91,14 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 type IAssetBalanceTextProps = {
   asset: IDeFiAsset;
   currencySymbol: string;
+  priceUnavailableLabel: string;
   showFiatValue: boolean;
 };
 
 function AssetBalanceText({
   asset,
   currencySymbol,
+  priceUnavailableLabel,
   showFiatValue,
 }: IAssetBalanceTextProps) {
   return (
@@ -101,17 +118,16 @@ function AssetBalanceText({
           <SizableText size="$bodyMd" color="$textSubdued">
             {' ('}
           </SizableText>
-          <NumberSizeableTextWrapper
-            hideValue
+          <ProtocolValueCell
+            value={asset.value}
+            currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
             size="$bodyMd"
             color="$textSubdued"
-            formatter="value"
-            formatterOptions={{ currency: currencySymbol }}
-            numberOfLines={1}
             fontVariant={TABULAR_NUMS}
-          >
-            {asset.value}
-          </NumberSizeableTextWrapper>
+            numberOfLines={1}
+            justifyContent="flex-start"
+          />
           <SizableText size="$bodyMd" color="$textSubdued">
             )
           </SizableText>
@@ -124,10 +140,15 @@ function AssetBalanceText({
 type IProtocolUnifiedTableProps = {
   rows: IProtocolUnifiedRow[];
   currencySymbol: string;
+  priceUnavailableLabel: string;
 };
 
 const ProtocolUnifiedTable = memo(
-  ({ rows, currencySymbol }: IProtocolUnifiedTableProps) => {
+  ({
+    rows,
+    currencySymbol,
+    priceUnavailableLabel,
+  }: IProtocolUnifiedTableProps) => {
     const intl = useIntl();
 
     const showRewardsColumn = useMemo(
@@ -210,6 +231,10 @@ const ProtocolUnifiedTable = memo(
             row.primaryAssets,
             row.rewardsExtraAssets,
           );
+          const isPositionUsdUnavailable = hasUnavailableAssetValue(
+            row.primaryAssets,
+            row.rewardsExtraAssets,
+          );
           const isExpanded = expandedRows.has(row.rowKey);
           const visibleBalanceAssets = isExpanded
             ? row.primaryAssets
@@ -257,6 +282,7 @@ const ProtocolUnifiedTable = memo(
                     key={`${row.rowKey}-balance-${asset.address}-${assetIndex}`}
                     asset={asset}
                     currencySymbol={currencySymbol}
+                    priceUnavailableLabel={priceUnavailableLabel}
                     showFiatValue={showBalanceAssetValues}
                   />
                 ))}
@@ -318,6 +344,7 @@ const ProtocolUnifiedTable = memo(
                     <ProtocolRewardsCell
                       rewards={row.rewardsExtraAssets}
                       currencySymbol={currencySymbol}
+                      priceUnavailableLabel={priceUnavailableLabel}
                     />
                   ) : null}
                 </Stack>
@@ -329,17 +356,16 @@ const ProtocolUnifiedTable = memo(
                 alignItems="flex-end"
                 pt="$1"
               >
-                <NumberSizeableTextWrapper
-                  hideValue
+                <ProtocolValueCell
+                  value={positionUsd}
+                  currencySymbol={currencySymbol}
+                  priceUnavailableLabel={priceUnavailableLabel}
+                  isUnavailable={isPositionUsdUnavailable}
                   size="$bodyMdMedium"
-                  formatter="value"
-                  formatterOptions={{ currency: currencySymbol }}
                   textAlign="right"
                   numberOfLines={1}
                   fontVariant={TABULAR_NUMS}
-                >
-                  {positionUsd}
-                </NumberSizeableTextWrapper>
+                />
               </Stack>
             </XStack>
           );

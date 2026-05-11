@@ -45,6 +45,7 @@ const ProtocolCategoryGroup = memo(
           <ProtocolUnifiedTable
             rows={group.rows}
             currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
           />
         )}
       </YStack>

@@ -3,6 +3,7 @@ import { Fragment, memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ILocalizedProtocolPositionItem } from '@onekeyhq/kit/src/utils/defiPositionUtils';
@@ -46,7 +47,7 @@ const ProtocolSectionedPositionTable = memo(
   ({
     position,
     currencySymbol,
-    priceUnavailableLabel: _priceUnavailableLabel,
+    priceUnavailableLabel,
   }: IProtocolSectionedPositionTableProps) => {
     const intl = useIntl();
     const labels = useMemo(
@@ -141,17 +142,15 @@ const ProtocolSectionedPositionTable = memo(
                   minWidth={0}
                   alignItems="flex-end"
                 >
-                  <NumberSizeableTextWrapper
-                    hideValue
+                  <ProtocolValueCell
+                    value={asset.value}
+                    currencySymbol={currencySymbol}
+                    priceUnavailableLabel={priceUnavailableLabel}
                     size="$bodyMdMedium"
-                    formatter="value"
-                    formatterOptions={{ currency: currencySymbol }}
                     textAlign="right"
                     numberOfLines={1}
                     fontVariant={TABULAR_NUMS}
-                  >
-                    {asset.value}
-                  </NumberSizeableTextWrapper>
+                  />
                 </Stack>
               </XStack>
             ))}

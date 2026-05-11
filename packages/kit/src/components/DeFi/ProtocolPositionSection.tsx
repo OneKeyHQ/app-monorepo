@@ -1,62 +1,15 @@
 import { memo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  SizableText,
-  Stack,
-  Tooltip,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import type { ILocalizedProtocolPositionSection } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
-const ProtocolAssetValue = memo(
-  ({
-    value,
-    currencySymbol,
-    priceUnavailableLabel,
-  }: {
-    value: IDeFiAsset['value'];
-    currencySymbol: string;
-    priceUnavailableLabel: string;
-  }) => {
-    const valueBN = new BigNumber(value);
-    const isValueUnavailable = valueBN.isNaN() || valueBN.isZero();
-
-    return (
-      <XStack alignItems="center" justifyContent="flex-end" gap="$1">
-        {isValueUnavailable ? (
-          <Stack width="$4" height="$4">
-            <Tooltip
-              renderContent={priceUnavailableLabel}
-              renderTrigger={
-                <Icon name="ErrorOutline" size="$4" color="$iconCritical" />
-              }
-            />
-          </Stack>
-        ) : null}
-        <NumberSizeableTextWrapper
-          hideValue
-          size="$bodyMdMedium"
-          formatter="value"
-          formatterOptions={{ currency: currencySymbol }}
-          color={isValueUnavailable ? '$text' : undefined}
-        >
-          {isValueUnavailable ? '--' : valueBN.toFixed()}
-        </NumberSizeableTextWrapper>
-      </XStack>
-    );
-  },
-);
-ProtocolAssetValue.displayName = 'ProtocolAssetValue';
+import { ProtocolValueCell } from './ProtocolValueCell';
 
 const ProtocolPositionSection = memo(
   ({
@@ -114,7 +67,7 @@ const ProtocolPositionSection = memo(
               </SizableText>
             </XStack>
             <YStack alignItems="flex-end" maxWidth="55%">
-              <ProtocolAssetValue
+              <ProtocolValueCell
                 value={asset.value}
                 currencySymbol={currencySymbol}
                 priceUnavailableLabel={priceUnavailableLabel}
