@@ -109,6 +109,9 @@ function getProtocolLogoURI(
     | 'logoURI'
     | 'logoUrl'
     | 'logoUri'
+    | 'providerLogoURI'
+    | 'providerLogoUrl'
+    | 'providerLogoUri'
     | 'provider'
     | 'slug'
     | 'title'
@@ -116,8 +119,16 @@ function getProtocolLogoURI(
     | 'name'
   >,
 ) {
-  if (item.logoURI || item.logoUrl || item.logoUri) {
-    return item.logoURI || item.logoUrl || item.logoUri;
+  const logoURI =
+    item.logoURI ||
+    item.logoUrl ||
+    item.logoUri ||
+    item.providerLogoURI ||
+    item.providerLogoUrl ||
+    item.providerLogoUri;
+
+  if (logoURI) {
+    return logoURI;
   }
 
   const fallbackKey = [item.provider, item.slug, getText(getItemTitle(item))]
@@ -349,6 +360,9 @@ function ProtocolLogo({
     | 'logoURI'
     | 'logoUrl'
     | 'logoUri'
+    | 'providerLogoURI'
+    | 'providerLogoUrl'
+    | 'providerLogoUri'
     | 'icon'
     | 'type'
     | 'provider'
@@ -399,34 +413,66 @@ function ProtocolLogo({
 
 const DESCRIPTION_LINE_HEIGHT = 20;
 const DESCRIPTION_MAX_LINES = 3;
+const DESCRIPTION_PENDING_MEASURE_MAX_CHARS = 132;
+
+function getCollapsedDescriptionText(description: string, target: number) {
+  let cut = description.slice(0, target);
+  const lastSpace = cut.lastIndexOf(' ');
+  if (lastSpace > target * 0.6) {
+    cut = cut.slice(0, lastSpace);
+  }
+  return cut.trimEnd();
+}
 
 function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
   const intl = useIntl();
-  const [expanded, setExpanded] = useState(false);
-  const [fullHeight, setFullHeight] = useState(0);
-
   const description = getText(text) || '';
   const color = toEarnText(text)?.color || '$textSubdued';
+  const [measurement, setMeasurement] = useState({
+    description,
+    expanded: false,
+    fullHeight: 0,
+  });
 
-  useEffect(() => {
-    setExpanded(false);
-    setFullHeight(0);
-  }, [description]);
+  if (measurement.description !== description) {
+    setMeasurement({
+      description,
+      expanded: false,
+      fullHeight: 0,
+    });
+  }
+
+  const expanded =
+    measurement.description === description ? measurement.expanded : false;
+  const fullHeight =
+    measurement.description === description ? measurement.fullHeight : 0;
 
   const handleMeasureLayout = useCallback(
     (event: { nativeEvent: { layout: { height: number } } }) => {
       const next = event.nativeEvent.layout.height;
-      setFullHeight((prev) => (prev === next ? prev : next));
+      setMeasurement((prev) =>
+        prev.description === description && prev.fullHeight !== next
+          ? { ...prev, fullHeight: next }
+          : prev,
+      );
     },
-    [],
+    [description],
   );
 
-  const handleExpand = useCallback(() => {
-    setExpanded(true);
-  }, []);
+  const handleExpand = useCallback(
+    () =>
+      setMeasurement((prev) =>
+        prev.description === description ? { ...prev, expanded: true } : prev,
+      ),
+    [description],
+  );
 
   const maxVisibleHeight = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES + 1;
-  const hasOverflow = fullHeight > maxVisibleHeight;
+  const hasPendingMeasurement = fullHeight === 0;
+  const hasOverflow =
+    fullHeight > maxVisibleHeight ||
+    (hasPendingMeasurement &&
+      description.length > DESCRIPTION_PENDING_MEASURE_MAX_CHARS);
 
   // Estimate how many characters fit within DESCRIPTION_MAX_LINES, based on
   // the ratio of the visible-line height to the full text height. Height-based
@@ -434,19 +480,19 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
   // reliable on react-native-web here).
   const truncatedText = useMemo(() => {
     if (!hasOverflow || !fullHeight) {
-      return description;
+      return hasOverflow
+        ? getCollapsedDescriptionText(
+            description,
+            DESCRIPTION_PENDING_MEASURE_MAX_CHARS,
+          )
+        : description;
     }
     const ratio =
       (DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES) / fullHeight;
     // Reserve room for the inline "… more" suffix.
     const buffer = 14;
     const target = Math.max(0, Math.floor(description.length * ratio) - buffer);
-    let cut = description.slice(0, target);
-    const lastSpace = cut.lastIndexOf(' ');
-    if (lastSpace > target * 0.6) {
-      cut = cut.slice(0, lastSpace);
-    }
-    return cut.trimEnd();
+    return getCollapsedDescriptionText(description, target);
   }, [description, fullHeight, hasOverflow]);
 
   if (!description) {
@@ -767,6 +813,30 @@ function getAudits(audits?: IEarnProtocolIntroAudits) {
   return audits?.button?.data?.auditItems?.length
     ? audits.button.data.auditItems
     : audits?.items || [];
+}
+
+function addProtocolIntroImageUrl(urls: Set<string>, url?: string | null) {
+  const safeUrl = getSafeExternalUrl(url);
+  if (safeUrl) {
+    urls.add(safeUrl);
+  }
+}
+
+function collectProtocolIntroImageUrls(
+  item: IEarnProtocolIntroItem,
+  urls: Set<string>,
+) {
+  addProtocolIntroImageUrl(urls, getProtocolLogoURI(item));
+
+  [item.team, item.teamMembers].forEach((team) => {
+    getTeamMembers(team).forEach((member) => {
+      addProtocolIntroImageUrl(urls, getMemberAvatar(member));
+    });
+  });
+
+  getAudits(item.audits).forEach((audit) => {
+    addProtocolIntroImageUrl(urls, audit.auditorLogoUrl || audit.logoURI);
+  });
 }
 
 function getInvestorTitle(round?: IEarnProtocolIntroInvestorRound) {
@@ -1402,6 +1472,20 @@ function ProtocolIntroSectionComponent({
       : protocolInfo?.items;
     return (items ?? []).filter(hasProtocolIntroItemContent);
   }, [protocolInfo]);
+  const imageUrls = useMemo(() => {
+    const urls = new Set<string>();
+    protocolItems.forEach((item) => collectProtocolIntroImageUrls(item, urls));
+    return Array.from(urls);
+  }, [protocolItems]);
+
+  useEffect(() => {
+    if (!imageUrls.length) {
+      return;
+    }
+    void Image.preloadImages(imageUrls.map((uri) => ({ uri }))).catch(
+      () => undefined,
+    );
+  }, [imageUrls]);
 
   const selectedIndex =
     selection.protocolInfo === protocolInfo &&
