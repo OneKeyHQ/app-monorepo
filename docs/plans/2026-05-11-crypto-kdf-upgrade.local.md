@@ -123,6 +123,8 @@ Lazy upgrade 不应作为隐式写入隐藏在低层 `decryptAsync` 内部。
 
 共享数据不能仅仅因为新客户端读取了它就升级。如果共享 payload 被重写为旧客户端无法理解的格式，旧客户端可能立即失去访问能力。
 
+当前执行决策：共享数据改造暂时后置，不作为下一阶段任务。所有 shared/server-visible writes 默认继续保持 legacy 加密方式；后续遇到具体业务场景时，再针对单个 scene 设计 compatibility gate 和 v2 rollout。
+
 受影响的共享场景：
 
 - Prime Cloud Sync：
@@ -318,9 +320,9 @@ Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低�
 - [x] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。低层 primitive 现在默认写 v2；需要旧客户端读取的共享入口必须走 shared encrypt policy。
 - [x] Phase 1.5 non-native v2 write policy。底层默认写 v2 + current iterations；已知 shared/server-visible 入口已统一到 shared encrypt policy，默认 legacy，后续 gate 开启后再按 `sharedScene` 精确切 v2。Cloud Backup V1 导出会将本地 credentials 降级为 legacy，避免备份恢复旧客户端无法识别。
 - [x] Phase 2 local lazy upgrade。从 `Context.verifyString` 和 `Credential` 开始实现无阻塞、幂等、transaction-safe 的本地升级；解锁成功后异步触发，使用 metadata helper 判断 legacy payload，并在重写时比较原 ciphertext，避免覆盖并发变更。每次只处理一个小批次 credential，剩余项目后续解锁继续，避免大量钱包时连续 PBKDF2/AES-GCM 压住 JS thread。分批期间用 `Context.localPasswordKdfUpgradeLastScannedCredentialId` 记录逻辑进度；它不是 IndexedDB cursor，而是基于稳定 `credential.id` 排序的跨 IndexedDB/Realm checkpoint。每条 credential 是否已升级仍由 v2 magic 精确判断。全部完成后写入 `Context.localPasswordKdfUpgraded` 持久化标记，后续解锁直接跳过空检。失败只记录聚合错误，不阻断正常解锁。
-- [ ] Phase 3 shared-data gates。为 Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payloads 添加兼容性 gate。
-- [ ] Phase 4 gated v2 rollout。在 shared compatibility gates 准备好之后，按 Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payload 的 gate 逐步启用 v2 writes；移动端全量默认 v2 仍需等待 native AES-GCM benchmark。
-- [ ] Phase 5 native AES-GCM。为移动端添加 native AES-GCM support，并保留 noble fallback；移动端全量默认 v2 需等待 native benchmark 和真机验证。
+- [ ] Phase 3 local-only follow-up。继续收尾不涉及共享兼容性的本地路径，例如 Biology auth secure storage、Prime master password 本地缓存、instance-id local strings，以及 migration-only wrapping；保持 shared/server-visible writes 走 legacy policy。
+- [ ] Phase 4 native AES-GCM。为移动端添加 native AES-GCM support，并保留 noble fallback；移动端全量默认 v2 需等待 native implementation 和真机验证。
+- [ ] Backlog shared-data gates。Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payloads 暂不主动改造，继续保持 legacy 加密方式；后续只有遇到具体业务需求或单独安排时，才针对该 shared scene 增加 gate 并启用 v2。
 
 ### Phase 2 Implementation Notes
 
@@ -419,24 +421,25 @@ Phase 2: local lazy upgrade
 - 让升级过程 idempotent。
 - 如果重写失败但 decrypt 成功，不要阻塞正常解锁。记录失败并稍后重试。
 
-Phase 3: shared-data gates
+Phase 3: local-only follow-up
 
-- 为 Cloud Backup 和 Prime Transfer protocol payloads 添加显式 format version fields。
-- 为 Prime Transfer 添加 capability 或 minimum-version gates。
-- 为 Prime Cloud Sync 和 master-password server payloads 添加 server 或 feature-flag gating。
-- 在 gate 启用前，shared writes 保持 legacy。
+- 继续只处理本地、非共享、非 server-visible 数据。
+- 优先评估 Biology auth secure storage password、Prime master password 本地缓存、instance-id encrypted local strings 和 migration-only wrapping。
+- 每个 owner 自行决定是否需要 lazy upgrade、batching、completion marker 或仅新写入 v2。
+- Shared/server-visible writes 继续保持 legacy policy，不主动添加 gate 或 v2 rollout。
 
-Phase 4: gated v2 rollout
-
-- 通过 rollout gates 逐步启用 shared v2 writes。
-- Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payload 必须分别有 gate。
-- 至少在一个较长 compatibility window 内保留 legacy read support。
-
-Phase 5: native AES-GCM
+Phase 4: native AES-GCM
 
 - 为移动端添加 native AES-GCM support。
 - 对比 native、noble fallback 和低端设备性能。
 - native benchmark 通过后，移动端再进入全量 v2 写入 rollout。
+
+Backlog: shared-data gates
+
+- Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payloads 暂不主动改造。
+- 默认策略：共享数据继续写 legacy，保持旧客户端和跨设备兼容。
+- 后续只有遇到具体业务需求、单独排期或某个 shared scene 必须升级时，才为该 scene 添加显式 compatibility gate。
+- 任何 shared scene 启用 v2 前，仍必须有 format version、peer/server capability、minimum client version 或 feature flag 之一。
 
 ## 测试要求
 
