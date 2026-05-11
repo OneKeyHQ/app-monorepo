@@ -10,78 +10,77 @@ import type {
   IPerpPredictedFundingVenue,
   IRecentTrade,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type {
-  IMarketToken,
-  IMarketTokenDetail,
-} from '@onekeyhq/shared/types/market';
+import type { IPerpsAssetMetaMap } from '@onekeyhq/shared/types/hyperliquid/types';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 export type IPerpFundingHistoryRange = '24h' | '7d' | '30d';
 
 export type IPerpResolvedMarketDetail = {
-  matchedToken: IMarketToken;
+  assetMetaKey: string;
+  assetId: string;
+  assetType?: string;
   detail: IMarketTokenDetail;
 };
 
-function normalizeMarketMatchText(value?: string) {
-  return (value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
+function addPerpAssetMetaLookupCandidate(
+  candidateSet: Set<string>,
+  value?: string,
+) {
+  const trimmedValue = value?.trim();
+  if (!trimmedValue) {
+    return;
+  }
+
+  candidateSet.add(trimmedValue);
 }
 
-function buildPerpMarketQueries({
+function buildPerpAssetMetaLookupKeys({
   coin,
   displayName,
 }: {
   coin?: string;
   displayName?: string;
 }) {
-  const querySet = new Set<string>();
+  const candidateSet = new Set<string>();
 
   [displayName, coin].forEach((value) => {
-    if (!value) {
-      return;
-    }
-
-    const trimmedValue = value.trim();
-    if (!trimmedValue) {
-      return;
-    }
-
-    querySet.add(trimmedValue);
-
-    const symbolCandidate = trimmedValue.split(/[-/:\s]/)[0];
-    if (symbolCandidate) {
-      querySet.add(symbolCandidate);
-    }
-
-    const withoutNumericPrefix = trimmedValue.replace(/^\d+/, '');
-    if (withoutNumericPrefix) {
-      querySet.add(withoutNumericPrefix);
-    }
+    addPerpAssetMetaLookupCandidate(candidateSet, value);
   });
 
-  return [...querySet].filter(Boolean);
+  return [...candidateSet];
 }
 
-function getMarketCandidateScore(token: IMarketToken, query: string) {
-  const normalizedQuery = normalizeMarketMatchText(query);
-  if (!normalizedQuery) {
-    return -1;
+function resolvePerpAssetMeta({
+  assetMetaMap,
+  lookupKeys,
+}: {
+  assetMetaMap?: IPerpsAssetMetaMap;
+  lookupKeys: string[];
+}) {
+  if (!assetMetaMap || !lookupKeys.length) {
+    return undefined;
   }
 
-  const normalizedSymbol = normalizeMarketMatchText(token.symbol);
-  const normalizedName = normalizeMarketMatchText(token.name);
-
-  if (normalizedSymbol === normalizedQuery) {
-    return 400;
+  for (const lookupKey of lookupKeys) {
+    if (Object.prototype.hasOwnProperty.call(assetMetaMap, lookupKey)) {
+      const meta = assetMetaMap[lookupKey];
+      return meta?.assetId ? { key: lookupKey, meta } : undefined;
+    }
   }
 
-  if (normalizedName === normalizedQuery) {
-    return 320;
+  const assetMetaEntries = Object.entries(assetMetaMap);
+  for (const lookupKey of lookupKeys) {
+    const normalizedLookupKey = lookupKey.toLowerCase();
+    const matchedEntry = assetMetaEntries.find(
+      ([assetKey]) => assetKey.toLowerCase() === normalizedLookupKey,
+    );
+    if (matchedEntry?.[1]?.assetId) {
+      const [key, meta] = matchedEntry;
+      return { key, meta };
+    }
   }
 
-  return -1;
+  return undefined;
 }
 
 async function resolvePerpMarketDetail({
@@ -91,48 +90,31 @@ async function resolvePerpMarketDetail({
   coin?: string;
   displayName?: string;
 }): Promise<IPerpResolvedMarketDetail | undefined> {
-  const queries = buildPerpMarketQueries({ coin, displayName });
+  const lookupKeys = buildPerpAssetMetaLookupKeys({ coin, displayName });
 
-  if (!queries.length) {
+  if (!lookupKeys.length) {
     return undefined;
   }
 
-  let matchedToken: IMarketToken | undefined;
-  let matchedScore = -1;
+  const assetMetaMap =
+    await backgroundApiProxy.serviceHyperliquid.getPerpsAssetMetaMap();
+  const resolvedAssetMeta = resolvePerpAssetMeta({
+    assetMetaMap,
+    lookupKeys,
+  });
 
-  for (const query of queries) {
-    const results = await backgroundApiProxy.serviceMarket.searchToken(query);
-
-    for (const token of results) {
-      const score = getMarketCandidateScore(token, query);
-      if (score >= 0) {
-        const hasHigherScore = score >= matchedScore;
-        const hasHigherMarketCap =
-          score > matchedScore ||
-          (token.marketCap || 0) > (matchedToken?.marketCap || 0);
-
-        if (hasHigherScore && hasHigherMarketCap) {
-          matchedToken = token;
-          matchedScore = score;
-        }
-      }
-    }
-
-    if (matchedScore >= 320) {
-      break;
-    }
-  }
-
-  if (!matchedToken || matchedScore < 320) {
+  if (!resolvedAssetMeta) {
     return undefined;
   }
 
   const detail = await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
-    matchedToken.coingeckoId,
+    resolvedAssetMeta.meta.assetId,
   );
 
   return {
-    matchedToken,
+    assetMetaKey: resolvedAssetMeta.key,
+    assetId: resolvedAssetMeta.meta.assetId,
+    assetType: resolvedAssetMeta.meta.assetType,
     detail,
   };
 }

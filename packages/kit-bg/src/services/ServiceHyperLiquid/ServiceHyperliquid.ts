@@ -336,6 +336,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       hyperLiquidErrorLocales,
       tokenSearchAliases,
       tokenSelectorTabs,
+      perpsAssetMetaMap,
       activityCards,
     }: IPerpServerConfigResponse,
     options?: { fromServerConfig?: boolean },
@@ -419,6 +420,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             hyperLiquidErrorLocales || prev?.hyperliquidErrorLocales,
           tokenSearchAliases: tokenSearchAliases || prev?.tokenSearchAliases,
           tokenSelectorTabs: tokenSelectorTabs ?? prev?.tokenSelectorTabs,
+          perpsAssetMetaMap: perpsAssetMetaMap || prev?.perpsAssetMetaMap,
         };
         if (isEqual(newConfig, prev)) {
           return (
@@ -489,6 +491,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
         tokenSearchAliases: resData?.data?.tokenSearchAliases,
         tokenSelectorTabs: resData?.data?.tokenSelectorTabs,
+        perpsAssetMetaMap: resData?.data?.perpsAssetMetaMap,
         activityCards: resData?.data?.activityCards,
       },
       { fromServerConfig: true },
@@ -520,6 +523,17 @@ export default class ServiceHyperliquid extends ServiceBase {
     void this.updatePerpsConfigByServerWithCache();
     const config = await this.backgroundApi.simpleDb.perp.getPerpData();
     return config.tokenSearchAliases;
+  }
+
+  @backgroundMethod()
+  async getPerpsAssetMetaMap() {
+    try {
+      await this.updatePerpsConfigByServerWithCache();
+    } catch {
+      // Use the persisted config if the refresh fails.
+    }
+    const config = await this.backgroundApi.simpleDb.perp.getPerpData();
+    return config.perpsAssetMetaMap;
   }
 
   private _getFillKey(fill: IFill): string {

@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
-import {
-  usePerpsActiveAssetAtom,
-  usePerpsLayoutStateAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+
+import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 
 import { PerpCandles } from '../PerpCandles';
 
@@ -65,13 +63,8 @@ export function PerpMarketWorkspacePanel({
   const intl = useIntl();
   const [activeView, setActiveView] =
     useState<IPerpMarketWorkspaceView>('chart');
-  const [activeAsset] = usePerpsActiveAssetAtom();
   const [, setLayoutState] = usePerpsLayoutStateAtom();
-  const assetCoin = activeAsset?.coin;
-  const { displayName } = useMemo(
-    () => parseDexCoin(assetCoin ?? ''),
-    [assetCoin],
-  );
+  const { baseName, coin, displayName } = useActiveTradeDisplay();
 
   useEffect(() => {
     if (activeView !== 'chart') {
@@ -112,9 +105,9 @@ export function PerpMarketWorkspacePanel({
           display={activeView === 'info' ? 'flex' : 'none'}
         >
           <PerpMarketDetailContent
-            key={`info-${assetCoin || 'unknown'}`}
-            coin={assetCoin}
-            displayName={displayName}
+            key={`info-${coin || displayName || baseName || 'unknown'}`}
+            coin={coin}
+            displayName={baseName || displayName}
             tabKeys={PERP_MARKET_INFO_TAB_KEYS}
             initialTab="overview"
             paddingX="$5"

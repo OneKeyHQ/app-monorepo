@@ -54,8 +54,8 @@ import {
   getTriggerEffectivePrice,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
+import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';

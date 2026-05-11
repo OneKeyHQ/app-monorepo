@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Icon,
+  Illustration,
   SizableText,
   Spinner,
   XStack,
@@ -25,7 +26,7 @@ import {
 import { formatExternalLinkLabel } from './linkLabelUtils';
 
 const MARKET_DETAIL_REFERENCE_NOTE =
-  '* 基础数据由第三方提供，仅供参考。此信息以“原样”呈现，不构成任何形式的陈述或保证。';
+  '* 基础数据由第三方提供，为全局市场数据，仅供参考，可能与 Hyperliquid 的交易价格、成交量等数据不同。此信息以“原样”呈现，不构成任何形式的陈述或保证。';
 const INTRO_INFO_COLUMN_GAP = '$5';
 const INTRO_LINK_LABEL_WIDTH = 96;
 const INTRO_LINK_CHIP_MAX_WIDTH = 180;
@@ -38,6 +39,18 @@ function formatUsdValue(value?: string | number | null) {
     formatter: 'marketCap',
   });
   return formatted ? `$${formatted}` : '--';
+}
+
+function formatUsdPriceValue(value?: string | number | null) {
+  if (value === null || value === undefined || value === '') {
+    return '--';
+  }
+  return (
+    numberFormat(String(value), {
+      formatter: 'price',
+      formatterOptions: { currency: '$' },
+    }) || '--'
+  );
 }
 
 function formatPlainNumber(value?: string | number | null) {
@@ -279,13 +292,13 @@ export function PerpMarketIntroContent({
             ath: {
               key: 'ath',
               label: '历史最高价',
-              value: formatUsdValue(marketDetail.stats.ath.value),
+              value: formatUsdPriceValue(marketDetail.stats.ath.value),
               secondaryValue: formatMarketDate(marketDetail.stats.ath.time),
             },
             atl: {
               key: 'atl',
               label: '历史最低价',
-              value: formatUsdValue(marketDetail.stats.atl.value),
+              value: formatUsdPriceValue(marketDetail.stats.atl.value),
               secondaryValue: formatMarketDate(marketDetail.stats.atl.time),
             },
           } satisfies Record<string, IIntroInfoItemData>)
@@ -392,9 +405,16 @@ export function PerpMarketIntroContent({
         minHeight={180}
         alignItems="center"
         justifyContent="center"
+        gap="$4"
       >
-        <SizableText size="$bodyMd" color="$textSubdued">
-          暂无可用介绍内容。
+        <Illustration name="SearchDocument" size={100} />
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="center"
+          maxWidth={320}
+        >
+          该标的的全局市场数据暂未接入，我们会尽快补齐。
         </SizableText>
       </YStack>
     );
@@ -410,10 +430,11 @@ export function PerpMarketIntroContent({
         <Token
           size="sm"
           tokenImageUri={
-            marketDetail.image ||
-            getHyperliquidTokenImageUrl(
-              displayName || marketDetail.symbol || coin || '',
-            )
+            displayName || marketDetail.symbol || coin
+              ? getHyperliquidTokenImageUrl(
+                  displayName || marketDetail.symbol || coin || '',
+                )
+              : marketDetail.image
           }
         />
         <XStack flex={1} minWidth={0} alignItems="baseline" gap="$2.5">

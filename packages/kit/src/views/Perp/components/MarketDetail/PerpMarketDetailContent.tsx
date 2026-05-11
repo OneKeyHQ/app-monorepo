@@ -9,6 +9,7 @@ import {
   DashText,
   Divider,
   Icon,
+  Illustration,
   ScrollView,
   SizableText,
   Spinner,
@@ -65,7 +66,7 @@ const POSITIVE_TOP_COLOR = 'rgba(46, 170, 64, 0.24)';
 const POSITIVE_BOTTOM_COLOR = 'rgba(46, 170, 64, 0)';
 const NEGATIVE_LINE_COLOR = '#E5484D';
 const MARKET_DETAIL_REFERENCE_NOTE =
-  '* 基础数据由第三方提供，仅供参考。此信息以“原样”呈现，不构成任何形式的陈述或保证。';
+  '* 基础数据由第三方提供，为全局市场数据，仅供参考，可能与 Hyperliquid 的交易价格、成交量等数据不同。此信息以“原样”呈现，不构成任何形式的陈述或保证。';
 const DETAIL_LINK_LABEL_WIDTH = 96;
 const DETAIL_LINK_CHIP_MAX_WIDTH = 200;
 
@@ -88,6 +89,18 @@ function formatUsdValue(value?: string | null) {
     formatter: 'marketCap',
   });
   return formatted ? `$${formatted}` : '--';
+}
+
+function formatUsdPriceValue(value?: string | number | null) {
+  if (value === null || value === undefined || value === '') {
+    return '--';
+  }
+  return (
+    numberFormat(String(value), {
+      formatter: 'price',
+      formatterOptions: { currency: '$' },
+    }) || '--'
+  );
 }
 
 function formatPlainNumber(value?: string | null) {
@@ -426,6 +439,29 @@ function EmptyState({ text }: { text: string }) {
     <YStack py="$8" alignItems="center" justifyContent="center">
       <SizableText size="$bodyMd" color="$textSubdued">
         {text}
+      </SizableText>
+    </YStack>
+  );
+}
+
+function MarketInfoEmptyState() {
+  return (
+    <YStack
+      flex={1}
+      minHeight={320}
+      px="$6"
+      alignItems="center"
+      justifyContent="center"
+      gap="$4"
+    >
+      <Illustration name="SearchDocument" size={100} />
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        textAlign="center"
+        maxWidth={360}
+      >
+        该标的的全局市场数据暂未接入，我们会尽快补齐。
       </SizableText>
     </YStack>
   );
@@ -778,7 +814,7 @@ export function PerpMarketDetailContent({
     }
 
     if (!marketDetail) {
-      return <EmptyState text="Market information is unavailable." />;
+      return <MarketInfoEmptyState />;
     }
 
     const marketReferenceRows = marketDetail
@@ -831,24 +867,24 @@ export function PerpMarketDetailContent({
           },
           {
             label: '历史最高价',
-            value: formatUsdValue(String(marketDetail.stats.ath.value)),
+            value: formatUsdPriceValue(marketDetail.stats.ath.value),
             secondaryValue: formatMarketDate(marketDetail.stats.ath.time),
             tooltip: '历史最高成交价格。',
           },
           {
             label: '历史最低价',
-            value: formatUsdValue(String(marketDetail.stats.atl.value)),
+            value: formatUsdPriceValue(marketDetail.stats.atl.value),
             secondaryValue: formatMarketDate(marketDetail.stats.atl.time),
             tooltip: '历史最低成交价格。',
           },
           {
             label: '24h 最高价',
-            value: formatUsdValue(String(marketDetail.stats.high24h)),
+            value: formatUsdPriceValue(marketDetail.stats.high24h),
             tooltip: '过去 24 小时的最高价格。',
           },
           {
             label: '24h 最低价',
-            value: formatUsdValue(String(marketDetail.stats.low24h)),
+            value: formatUsdPriceValue(marketDetail.stats.low24h),
             tooltip: '过去 24 小时的最低价格。',
           },
           {
@@ -898,10 +934,11 @@ export function PerpMarketDetailContent({
           <Token
             size="sm"
             tokenImageUri={
-              marketDetail?.image ||
-              getHyperliquidTokenImageUrl(
-                displayName || marketDetail?.symbol || coin || '',
-              )
+              displayName || marketDetail?.symbol || coin
+                ? getHyperliquidTokenImageUrl(
+                    displayName || marketDetail?.symbol || coin || '',
+                  )
+                : marketDetail?.image
             }
           />
           <SizableText size="$headingLg">
@@ -918,7 +955,7 @@ export function PerpMarketDetailContent({
           flexWrap="wrap"
           gap="$6"
           alignItems="flex-start"
-          $gtMd={{ flexWrap: 'nowrap', gap: '$11' } as any}
+          $gtMd={{ flexWrap: 'nowrap', gap: '$16' } as any}
         >
           <YStack flex={1} flexBasis={0} minWidth={0} width="100%" gap="$2.5">
             <SizableText size="$headingSm">币种信息</SizableText>

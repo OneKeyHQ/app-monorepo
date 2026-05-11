@@ -231,7 +231,7 @@ function MobilePerpMarket() {
   const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>('orderbook');
   const resolvedMarketDetail = usePerpResolvedMarketDetail({
     coin: activeTradeInstrument.coin,
-    displayName,
+    displayName: mode === 'spot' ? baseName : displayName,
   });
 
   const onPressTokenSelector = useCallback(() => {
@@ -344,12 +344,19 @@ function MobilePerpMarket() {
     () => (
       <PerpMarketIntroContent
         coin={activeTradeInstrument.coin}
-        displayName={displayName}
+        displayName={mode === 'spot' ? baseName : displayName}
         enabled={activeTab === 'info'}
         resolvedMarketDetail={resolvedMarketDetail}
       />
     ),
-    [activeTab, activeTradeInstrument.coin, displayName, resolvedMarketDetail],
+    [
+      activeTab,
+      activeTradeInstrument.coin,
+      baseName,
+      displayName,
+      mode,
+      resolvedMarketDetail,
+    ],
   );
 
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);
