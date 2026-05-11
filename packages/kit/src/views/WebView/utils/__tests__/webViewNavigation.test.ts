@@ -11,7 +11,7 @@ jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
 
 jest.mock('@onekeyhq/components', () => ({
   __esModule: true,
-  popToMainRoute: jest.fn(() => Promise.resolve()),
+  resetToRoute: jest.fn(),
   rootNavigationRef: {
     current: {
       getRootState: jest.fn(() => ({ routes: [{ name: 'main' }], index: 0 })),
@@ -107,7 +107,7 @@ describe('openWebView', () => {
     expect(appGlobals.$rootAppNavigation.navigate).not.toHaveBeenCalled();
   });
 
-  describe('iOS modal-dismiss-before-navigate', () => {
+  describe('iOS atomic-overlay-swap', () => {
     beforeEach(() => {
       Object.assign(platformEnv, { isNativeIOS: true });
     });
@@ -118,29 +118,36 @@ describe('openWebView', () => {
         index: 0,
       });
       openWebView({ url: 'https://example.com' });
-      expect(components.popToMainRoute).not.toHaveBeenCalled();
+      expect(components.resetToRoute).not.toHaveBeenCalled();
       expect(appGlobals.$rootAppNavigation.navigate).toHaveBeenCalledWith(
         ERootRoutes.WebView,
         expect.any(Object),
       );
     });
 
-    it('dismisses stacked overlays via popToMainRoute, then navigates', async () => {
+    it('atomically swaps to [Main, WebView] via resetToRoute when an overlay is stacked', () => {
       components.rootNavigationRef.current.getRootState.mockReturnValue({
         routes: [{ name: 'main' }, { name: 'modal' }],
         index: 1,
       });
-      openWebView({ url: 'https://example.com' });
-      // popToMainRoute is invoked synchronously; the navigate is chained
-      // onto its returned promise, so it runs on the next microtask.
-      expect(components.popToMainRoute).toHaveBeenCalledTimes(1);
-      expect(appGlobals.$rootAppNavigation.navigate).not.toHaveBeenCalled();
-      // Flush the pending microtask so the .then(navigate) fires.
-      await Promise.resolve();
-      expect(appGlobals.$rootAppNavigation.navigate).toHaveBeenCalledWith(
+      openWebView({ url: 'https://example.com', title: 'X' });
+      // resetToRoute is called synchronously with the nested payload — no
+      // promise chain, no setTimeout, one dispatch.
+      expect(components.resetToRoute).toHaveBeenCalledWith(
         ERootRoutes.WebView,
-        expect.any(Object),
+        expect.objectContaining({
+          screen: EWebViewRoutes.WebView,
+          params: expect.objectContaining({
+            screen: EWebViewRoutes.WebView,
+            params: expect.objectContaining({
+              url: 'https://example.com',
+              title: 'X',
+            }),
+          }),
+        }),
       );
+      // navigate() must NOT also fire — that would be a double-dispatch.
+      expect(appGlobals.$rootAppNavigation.navigate).not.toHaveBeenCalled();
     });
   });
 });

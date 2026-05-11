@@ -1,4 +1,4 @@
-import { popToMainRoute, rootNavigationRef } from '@onekeyhq/components';
+import { resetToRoute, rootNavigationRef } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -41,33 +41,33 @@ export function openWebView(params: IOpenWebViewParams) {
   //         └─ leaf screen ─ EWebViewRoutes.WebView (WebViewPage)
   // Only the inner-most `params` reach `route.params` inside WebViewPage.
   // Mirror the Onboarding navigate pattern (see useKeylessWallet.tsx).
-  const navigateToWebView = () => {
-    appGlobals.$rootAppNavigation?.navigate(ERootRoutes.WebView, {
+  const webViewNavigatePayload = {
+    screen: EWebViewRoutes.WebView,
+    params: {
       screen: EWebViewRoutes.WebView,
-      params: {
-        screen: EWebViewRoutes.WebView,
-        params,
-      },
-    });
+      params,
+    },
   };
 
   // iOS: a native presentation already on screen (Modal / iOSFullScreen /
-  // Onboarding / FullScreenPush) blocks the WebView overlay from layering
-  // on top — iOS won't present a second view controller above an active
-  // one. Dismiss the stacked overlays first via popToMainRoute(), which
-  // atomically resets the root stack to Main and waits 100ms for UIKit's
-  // dismiss animation to settle (see NavigationContainer.tsx — same fix
-  // pattern as switchTabAsync, avoiding the RNSScreenStack orphan race).
+  // Onboarding / FullScreenPush) blocks the WebView overlay from layering on
+  // top — iOS won't present a second view controller above an active one.
+  // Atomically swap the root stack to `[Main, WebView]` in a single
+  // CommonActions.reset dispatch via resetToRoute(). UIKit handles the
+  // dismiss + present as one transition, avoiding the RNSScreenStack orphan
+  // race that a goBack-then-navigate sequence would risk. Same pattern as
+  // useCreateQrWallet / useParseQRCode / useAddAccount.
   if (platformEnv.isNativeIOS) {
     const rootState = rootNavigationRef.current?.getRootState();
-    const stackedOverlayCount = rootState
-      ? Math.max(rootState.routes.length - 1, 0)
-      : 0;
-    if (stackedOverlayCount > 0) {
-      void popToMainRoute().then(navigateToWebView);
+    const hasStackedOverlay = (rootState?.routes?.length ?? 0) > 1;
+    if (hasStackedOverlay) {
+      resetToRoute(ERootRoutes.WebView, webViewNavigatePayload);
       return;
     }
   }
 
-  navigateToWebView();
+  appGlobals.$rootAppNavigation?.navigate(
+    ERootRoutes.WebView,
+    webViewNavigatePayload,
+  );
 }
