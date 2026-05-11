@@ -146,11 +146,13 @@ function buildPresetConfig({
   networkId,
   slippageEditable = true,
   priorityFeeEditable,
+  priorityFeeSupportedTypes,
   customUnit,
 }: {
   networkId: string;
   slippageEditable?: boolean;
   priorityFeeEditable: boolean;
+  priorityFeeSupportedTypes?: EMarketPresetPriorityFeeType[];
   customUnit?: string;
 }): IMarketPresetConfig {
   return {
@@ -163,13 +165,15 @@ function buildPresetConfig({
     },
     priorityFee: {
       editable: priorityFeeEditable,
-      supportedTypes: priorityFeeEditable
-        ? [
-            EMarketPresetPriorityFeeType.MARKET,
-            EMarketPresetPriorityFeeType.FAST,
-            EMarketPresetPriorityFeeType.CUSTOM,
-          ]
-        : [EMarketPresetPriorityFeeType.AUTO],
+      supportedTypes:
+        priorityFeeSupportedTypes ??
+        (priorityFeeEditable
+          ? [
+              EMarketPresetPriorityFeeType.MARKET,
+              EMarketPresetPriorityFeeType.FAST,
+              EMarketPresetPriorityFeeType.CUSTOM,
+            ]
+          : [EMarketPresetPriorityFeeType.AUTO]),
       customUnit,
     },
   };
@@ -192,6 +196,10 @@ async function fetchMarketPresetDashboardConfig({
     return buildPresetConfig({
       networkId,
       priorityFeeEditable: true,
+      priorityFeeSupportedTypes: [
+        EMarketPresetPriorityFeeType.MARKET,
+        EMarketPresetPriorityFeeType.CUSTOM,
+      ],
       customUnit: 'SOL',
     });
   }
@@ -320,6 +328,26 @@ export function normalizeMarketPresetDirectionSettings(
   };
 }
 
+function getMarketPresetResolvedPriorityFeeSettings({
+  config,
+  settings,
+}: {
+  config?: IMarketPresetConfig;
+  settings: IMarketPresetDirectionSettings;
+}): IMarketPresetPriorityFeeSettings {
+  if (!config?.priorityFee.editable) {
+    return {
+      type: EMarketPresetPriorityFeeType.AUTO,
+    };
+  }
+
+  if (config.priorityFee.supportedTypes.includes(settings.priorityFee.type)) {
+    return settings.priorityFee;
+  }
+
+  return getMarketPresetDefaultDirectionSettings().priorityFee;
+}
+
 export function getMarketPresetSavedDirectionSettings({
   savedSettings,
   presetKey,
@@ -368,11 +396,10 @@ export function resolveMarketPresetDirectionSettings({
     slippage: config?.slippage.editable
       ? normalized.slippage
       : getMarketPresetDefaultDirectionSettings().slippage,
-    priorityFee: config?.priorityFee.editable
-      ? normalized.priorityFee
-      : {
-          type: EMarketPresetPriorityFeeType.AUTO,
-        },
+    priorityFee: getMarketPresetResolvedPriorityFeeSettings({
+      config,
+      settings: normalized,
+    }),
   };
 }
 
@@ -412,6 +439,31 @@ export function getMarketPresetCustomizedMap(
     },
     {},
   );
+}
+
+export function getMarketPresetReviewNetworkFeeOptionLabel({
+  enabled,
+  presetCustomizedMap,
+  presets,
+  selectedPreset,
+  selectedPresetKey,
+}: {
+  enabled: boolean;
+  presetCustomizedMap: Partial<Record<EMarketPresetKey, boolean>>;
+  presets: IMarketPresetItem[];
+  selectedPreset?: IMarketPresetItem;
+  selectedPresetKey: EMarketPresetKey;
+}) {
+  if (!enabled || selectedPresetKey === EMarketPresetKey.AUTO) {
+    return undefined;
+  }
+
+  const selectedPresetItem =
+    selectedPreset ??
+    presets.find((preset) => preset.key === selectedPresetKey);
+  const label = selectedPresetItem?.label ?? selectedPresetKey.toUpperCase();
+
+  return `${label}${presetCustomizedMap[selectedPresetKey] ? '*' : ''}`;
 }
 
 export function getMarketPresetSlippageValue({

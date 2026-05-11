@@ -4153,7 +4153,7 @@
   "settings_prefer_gas_account__title": "ต้องการใช้ Gas Account",
   "settings_protection.allowlist_content": "เมื่อเปิดใช้งานฟีเจอร์นี้ คุณจะสามารถส่งเงินได้เฉพาะไปยังบัญชีในกระเป๋าเงินของคุณหรือที่อยู่ที่บันทึกไว้ในสมุดที่อยู่เท่านั้น",
   "settings_protection.allowlist_title": "โอนรายการที่อนุญาต",
-  "settings_split_view": "Split view",
+  "settings_split_view": "มุมมองแบบแยก",
   "settings_split_view_desc": "แสดงสองคอลัมน์เคียงข้างกันบนแท็บเล็ตและอุปกรณ์พับได้ แอปจะรีสตาร์ทเมื่อสลับโหมด",
   "setup_choose_option_create_new_wallet": "สร้างกระเป๋าใหม่: หากนี่คือกระเป๋าใบแรกของคุณ",
   "setup_choose_option_import_wallet": "นำเข้ากระเป๋าเงิน: หากคุณมีวลีกู้คืน (Recovery Phrase) อยู่แล้ว",

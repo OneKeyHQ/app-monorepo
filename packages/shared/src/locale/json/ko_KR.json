@@ -4153,7 +4153,7 @@
   "settings_prefer_gas_account__title": "Gas Account 우선 사용",
   "settings_protection.allowlist_content": "이 기능을 활성화하면 지갑 내 계정이나 주소록에 저장된 주소로만 자금을 전송할 수 있습니다.",
   "settings_protection.allowlist_title": "전송 허용 목록",
-  "settings_split_view": "Split view",
+  "settings_split_view": "분할 보기",
   "settings_split_view_desc": "태블릿과 폴더블 기기에서 두 개의 열을 나란히 표시합니다. 전환하면 앱이 재시작됩니다.",
   "setup_choose_option_create_new_wallet": "새 지갑 만들기: 첫 지갑이라면",
   "setup_choose_option_import_wallet": "지갑 가져오기: 기존 복구 구문이 있는 경우",

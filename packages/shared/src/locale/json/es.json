@@ -4153,7 +4153,7 @@
   "settings_prefer_gas_account__title": "Preferir Gas Account",
   "settings_protection.allowlist_content": "Cuando esta función está activada, solo puedes enviar fondos a cuentas de tu billetera o direcciones guardadas en la libreta de direcciones.",
   "settings_protection.allowlist_title": "Transferir lista de permitidos",
-  "settings_split_view": "Split view",
+  "settings_split_view": "Vista dividida",
   "settings_split_view_desc": "Muestra dos columnas una junto a la otra en tabletas y dispositivos plegables. La aplicación se reinicia al cambiar.",
   "setup_choose_option_create_new_wallet": "Crear billetera nueva: Si esta es tu primera billetera",
   "setup_choose_option_import_wallet": "Importar billetera: si ya tienes una frase de recuperación",

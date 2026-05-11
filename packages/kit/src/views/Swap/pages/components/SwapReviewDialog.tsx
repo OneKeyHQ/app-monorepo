@@ -25,6 +25,7 @@ type ISwapReviewDialogProps = {
   storeName: EJotaiContextStoreNames;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
+  customNetworkFeeOptionLabel?: string;
   disableGlobalApproveSync?: boolean;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
   accountSelectorConfig?: {
@@ -40,11 +41,17 @@ function SwapReviewDialogContent({
   adapter,
   approveTransactionSource,
   disableGlobalApproveSync,
+  defaultCustomPriorityFee,
+  defaultNetworkFeeLevel,
+  customNetworkFeeOptionLabel,
   onDone,
 }: {
   adapter: ISwapReviewAdapter;
   approveTransactionSource: ESwapReviewApproveTransactionSource;
   disableGlobalApproveSync?: boolean;
+  defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
+  defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
+  customNetworkFeeOptionLabel?: string;
   onDone: () => void;
 }) {
   const { onConfirm, preSwapBeforeStepActions, preSwapStepsStart } =
@@ -60,6 +67,9 @@ function SwapReviewDialogContent({
       onDone={onDone}
       preSwapBeforeStepActions={preSwapBeforeStepActions}
       preSwapStepsStart={preSwapStepsStart}
+      defaultNetworkFeeLevel={defaultNetworkFeeLevel}
+      defaultCustomPriorityFee={defaultCustomPriorityFee}
+      customNetworkFeeOptionLabel={customNetworkFeeOptionLabel}
     />
   );
 }
@@ -71,6 +81,7 @@ export function SwapReviewDialog({
   storeName,
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
+  customNetworkFeeOptionLabel,
   disableGlobalApproveSync,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
   accountSelectorConfig = {
@@ -104,6 +115,9 @@ export function SwapReviewDialog({
             adapter={adapter}
             approveTransactionSource={approveTransactionSource}
             disableGlobalApproveSync={disableGlobalApproveSync}
+            defaultNetworkFeeLevel={defaultNetworkFeeLevel}
+            defaultCustomPriorityFee={defaultCustomPriorityFee}
+            customNetworkFeeOptionLabel={customNetworkFeeOptionLabel}
             onDone={onDone}
           />
         </SwapReviewInitializer>

@@ -24,7 +24,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function PrimeDeleteAccount() {
-  const { logout, user, getAccessToken, sendEmailOTP } = useOneKeyAuth();
+  const { logoutWithPurchasesSdk, user, getAccessToken, sendEmailOTP } =
+    useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
@@ -88,7 +89,7 @@ export default function PrimeDeleteAccount() {
           defaultLogger.prime.subscription.onekeyIdLogout({
             reason: 'PrimeDeleteAccount: handleDeleteAccount',
           });
-          await logout();
+          await logoutWithPurchasesSdk();
         } catch (error) {
           console.error('logout error', error);
         }
@@ -182,7 +183,7 @@ export default function PrimeDeleteAccount() {
     //     }),
     //   });
     // }
-  }, [intl, navigation, sendEmailOTP, logout]);
+  }, [intl, logoutWithPurchasesSdk, navigation, sendEmailOTP]);
 
   const [checked, changeChecked] = useState(false);
 

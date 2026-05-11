@@ -4153,7 +4153,7 @@
   "settings_prefer_gas_account__title": "Preferisci Gas Account",
   "settings_protection.allowlist_content": "Quando questa funzione è attiva, puoi inviare fondi solo verso account del tuo portafoglio o indirizzi salvati nella rubrica.",
   "settings_protection.allowlist_title": "Trasferisci lista di autorizzazione",
-  "settings_split_view": "Split view",
+  "settings_split_view": "Vista divisa",
   "settings_split_view_desc": "Mostra due colonne affiancate su tablet e dispositivi pieghevoli. L’app si riavvia quando si cambia opzione.",
   "setup_choose_option_create_new_wallet": "Crea un nuovo wallet: se è il tuo primo wallet",
   "setup_choose_option_import_wallet": "Importa wallet: se hai una recovery phrase esistente",

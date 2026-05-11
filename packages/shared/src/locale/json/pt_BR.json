@@ -4153,7 +4153,7 @@
   "settings_prefer_gas_account__title": "Preferir Gas Account",
   "settings_protection.allowlist_content": "Quando esta função está ativada, você só pode enviar fundos para contas da sua carteira ou endereços salvos no livro de endereços.",
   "settings_protection.allowlist_title": "Transferir lista de permitidos",
-  "settings_split_view": "Split view",
+  "settings_split_view": "Visualização dividida",
   "settings_split_view_desc": "Exibe duas colunas lado a lado em tablets e dispositivos dobráveis. O app reinicia ao alternar.",
   "setup_choose_option_create_new_wallet": "Criar Nova Carteira: Se esta for sua primeira carteira",
   "setup_choose_option_import_wallet": "Importar Carteira: Se você já possui uma frase de recuperação",
