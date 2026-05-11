@@ -7,7 +7,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function LogoutButton() {
   const intl = useIntl();
-  const { logout } = useOneKeyAuth();
+  const { logoutWithPurchasesSdk } = useOneKeyAuth();
 
   const handlePress = () => {
     Dialog.show({
@@ -25,7 +25,7 @@ export function LogoutButton() {
         defaultLogger.prime.subscription.onekeyIdLogout({
           reason: 'Referral Logout Button',
         });
-        await logout();
+        await logoutWithPurchasesSdk();
       },
     });
   };

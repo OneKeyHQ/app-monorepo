@@ -7,11 +7,10 @@ import { getEndpointByServiceName } from '../../config/endpointsMap';
 import { OneKeyLocalError } from '../../errors';
 
 import { isBotWalletHash } from './botWalletHash';
-
-const BOT_WALLET_KEY_API_PATH = '/prime/v1/bot-wallet-keys';
-const BOT_WALLET_KEY_API_TOKEN_HEADER = 'X-Onekey-Request-Token';
-const REGISTER_TIMEOUT_MS = 3000;
-const REVOKE_TIMEOUT_MS = 3000;
+import {
+  BOT_WALLET_KEY_API_PATH,
+  BOT_WALLET_KEY_API_TOKEN_HEADER,
+} from './botWalletKeyApiConsts';
 
 function describeKeyServiceFailure(err: unknown): string {
   if (err && typeof err === 'object') {
@@ -215,8 +214,6 @@ export async function registerKey(
       { data: IApiClientResponse<IRegisterKeyResponse> }
     >(BOT_WALLET_KEY_API_PATH, body, {
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(REGISTER_TIMEOUT_MS),
-      timeout: REGISTER_TIMEOUT_MS,
     });
   } catch (err) {
     throw buildKeyServiceUnreachableError(endpoint, err);
@@ -239,8 +236,7 @@ export async function registerKey(
 /**
  * Best-effort POST /prime/v1/bot-wallet-keys/:keyId/revoke. **Never throws** — any
  * failure (network / 4xx / 5xx / timeout) is swallowed and surfaced as a
- * single `logger.warn` call. Hard-capped at 3s with `AbortSignal.timeout`
- * so that a wedged request cannot block the rollback path.
+ * single `logger.warn` call.
  */
 export async function revokeKey(
   keyId: string,
@@ -255,8 +251,6 @@ export async function revokeKey(
       undefined,
       {
         headers: { [BOT_WALLET_KEY_API_TOKEN_HEADER]: accessToken },
-        signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
-        timeout: REVOKE_TIMEOUT_MS,
       },
     );
   } catch (e) {
@@ -271,6 +265,4 @@ export async function revokeKey(
 export const CLI_BOT_WALLET_CLIENT_INTERNALS = {
   BOT_WALLET_KEY_API_PATH,
   BOT_WALLET_KEY_API_TOKEN_HEADER,
-  REGISTER_TIMEOUT_MS,
-  REVOKE_TIMEOUT_MS,
 } as const;

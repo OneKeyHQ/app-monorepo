@@ -89,6 +89,7 @@ import {
 } from './marketDirectSendTx';
 import { resolveMarketReviewAllowanceState } from './marketReviewAllowance';
 import {
+  buildMarketReviewRateDifference,
   buildMarketReviewState,
   shouldAutoContinueMarketResetApprove,
   shouldSkipMarketSignedPrebuild,
@@ -1119,6 +1120,10 @@ export function useSpeedSwapActions(props: {
         quoteResult: snapshot.quoteResult,
         shouldFallback: snapshot.shouldFallback,
         slippage,
+        rateDifference: buildMarketReviewRateDifference({
+          quoteResult: snapshot.quoteResult,
+          swapInfo: snapshot.swapInfo,
+        }),
         texts: buildReviewStepTexts(snapshot.quoteResult.info.providerName),
       });
 

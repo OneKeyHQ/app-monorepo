@@ -90,6 +90,8 @@ export interface IDevSettings {
   // When true, buildCustomUA() returns null, all call sites fall back to
   // the runtime default UA.
   disableCustomUA?: boolean;
+  // Allow Discovery browser to load local development URLs.
+  allowLocalhostUrlInDAppBrowser?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -125,6 +127,7 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop use Bridge，avoiding WebUSB permission problem
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default

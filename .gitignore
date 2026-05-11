@@ -146,6 +146,7 @@ debug.log
 /apps/mobile/ios-bundle
 
 docs/superpowers/**/*
+docs/plans/
 apps/mobile/android/app/src/main/assets/modules.json
 # bmad
 /_bmad/

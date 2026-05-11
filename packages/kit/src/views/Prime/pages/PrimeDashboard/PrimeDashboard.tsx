@@ -126,6 +126,10 @@ export default function PrimeDashboard({
     IPrimeServerUserInfo | undefined
   >(undefined);
 
+  const handleLogoutSuccess = useCallback(async () => {
+    setServerUserInfo(undefined);
+  }, []);
+
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
@@ -541,7 +545,9 @@ export default function PrimeDashboard({
             >
               <PrimeLottieAnimation />
               <PrimeBanner isPrimeActive={isPrimeSubscriptionActive} />
-              {isLoggedInMaybe ? <PrimeUserInfo /> : null}
+              {isLoggedInMaybe ? (
+                <PrimeUserInfo onLogoutSuccess={handleLogoutSuccess} />
+              ) : null}
             </Stack>
 
             {shouldShowSubscriptionPlans ? (

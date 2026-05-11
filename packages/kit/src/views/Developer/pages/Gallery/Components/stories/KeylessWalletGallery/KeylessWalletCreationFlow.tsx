@@ -21,7 +21,7 @@ import type { IStepState } from './types';
 export const KeylessWalletCreationFlow = () => {
   const { generatePacks, saveDevicePack, uploadCloudPack, uploadAuthPack } =
     useKeylessWallet();
-  const { logout } = useOneKeyAuth();
+  const { logoutWithPurchasesSdk } = useOneKeyAuth();
 
   const [step1, setStep1] = useState<IStepState>({ status: 'pending' });
   const [step2, setStep2] = useState<IStepState>({ status: 'pending' });
@@ -162,7 +162,7 @@ export const KeylessWalletCreationFlow = () => {
           size="small"
           variant="secondary"
           onPress={async () => {
-            await logout();
+            await logoutWithPurchasesSdk();
             Toast.success({
               title: 'OneKey ID Logged Out',
               message: 'OneKey ID has been logged out.',

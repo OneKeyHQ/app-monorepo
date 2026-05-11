@@ -92,6 +92,41 @@ describe('marketPresetSettings', () => {
     expect(config?.priorityFee.editable).toBe(false);
   });
 
+  it('removes the Fast priority fee option from Solana presets', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.sol.id,
+    });
+
+    expect(config?.priorityFee.editable).toBe(true);
+    expect(config?.priorityFee.customUnit).toBe('SOL');
+    expect(config?.priorityFee.supportedTypes).toEqual([
+      EMarketPresetPriorityFeeType.MARKET,
+      EMarketPresetPriorityFeeType.CUSTOM,
+    ]);
+
+    const settings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P1,
+      tradeSide: EMarketPresetTradeSide.BUY,
+      savedSettings: {
+        presets: {
+          [EMarketPresetKey.P1]: {
+            [EMarketPresetTradeSide.BUY]: {
+              slippage: {
+                key: ESwapSlippageSegmentKey.AUTO,
+              },
+              priorityFee: {
+                type: EMarketPresetPriorityFeeType.FAST,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(settings.priorityFee.type).toBe(EMarketPresetPriorityFeeType.MARKET);
+  });
+
   it('falls back to Auto when the selected preset is unavailable', async () => {
     const config = await fetchMarketPresetConfig({
       networkId: presetNetworksMap.eth.id,
