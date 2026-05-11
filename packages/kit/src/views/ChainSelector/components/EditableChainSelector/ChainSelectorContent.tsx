@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import {
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -27,13 +28,18 @@ import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
+import {
+  getSectionListSelectedItemLocation,
+  getSectionListSelectedItemScrollOffset,
+  scheduleSectionListAutoScroll,
+} from '../../utils/sectionListScroll';
 import ChainSelectorTooltip from '../ChainSelectorTooltip';
 import DottedLine from '../DottedLine';
 import RecentNetworks from '../RecentNetworks';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import { CELL_HEIGHT } from './type';
+import { CELL_HEIGHT, ZERO_VALUE_TOOLTIP_HEIGHT } from './type';
 
 import type {
   IEditableChainSelectorContext,
@@ -157,6 +163,10 @@ export const EditableChainSelectorContent = ({
   );
   const listRef = useRef<ISectionListRef<any> | null>(null);
   const hasRenderedSectionListRef = useRef(false);
+  const [recentNetworksHeight, setRecentNetworksHeight] = useState(0);
+  const [hasCompletedInitialAutoScroll, setHasCompletedInitialAutoScroll] =
+    useState(platformEnv.isNative);
+  const lastAutoScrollOffsetRef = useRef<number | undefined>(undefined);
 
   useLayoutEffect(() => {
     setTempFrequentlyUsedItems(frequentlyUsedItems);
@@ -247,8 +257,51 @@ export const EditableChainSelectorContent = ({
     networkFuseSearch,
   ]);
 
-  const initialScrollIndex = useMemo(() => {
+  const selectedScrollLocation = useMemo(() => {
     if (searchText.trim() || tempFrequentlyUsedItems !== frequentlyUsedItems) {
+      return undefined;
+    }
+    return getSectionListSelectedItemLocation({
+      sections,
+      selectedId: networkId,
+    });
+  }, [
+    frequentlyUsedItems,
+    networkId,
+    searchText,
+    sections,
+    tempFrequentlyUsedItems,
+  ]);
+
+  const listHeaderHeight = useMemo(() => {
+    if (searchText.trim() || (zeroValue && !allNetworkItem)) {
+      return 0;
+    }
+    return (
+      (zeroValue ? 0 : ZERO_VALUE_TOOLTIP_HEIGHT) +
+      (allNetworkItem ? CELL_HEIGHT : 0)
+    );
+  }, [allNetworkItem, searchText, zeroValue]);
+
+  const selectedScrollOffset = useMemo(() => {
+    if (!selectedScrollLocation) {
+      return undefined;
+    }
+    return getSectionListSelectedItemScrollOffset({
+      sections,
+      sectionIndex: selectedScrollLocation.sectionIndex,
+      itemIndex: selectedScrollLocation.itemIndex,
+      rowHeight: CELL_HEIGHT,
+      listHeaderHeight,
+    });
+  }, [listHeaderHeight, sections, selectedScrollLocation]);
+
+  const initialScrollIndex = useMemo(() => {
+    if (
+      !platformEnv.isNative ||
+      searchText.trim() ||
+      tempFrequentlyUsedItems !== frequentlyUsedItems
+    ) {
       return undefined;
     }
     let _initialScrollIndex:
@@ -294,8 +347,13 @@ export const EditableChainSelectorContent = ({
       return { sectionIndex: 0, itemIndex: undefined };
     }
     return _initialScrollIndex;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sections, networkId, searchText]);
+  }, [
+    frequentlyUsedItems,
+    networkId,
+    searchText,
+    sections,
+    tempFrequentlyUsedItems,
+  ]);
 
   const shouldRenderList = sections.length > 0 && !isFrequentlyUsedItemsSyncing;
   const shouldRenderEmpty = sections.length === 0;
@@ -306,6 +364,53 @@ export const EditableChainSelectorContent = ({
     }
   }, [shouldRenderList]);
 
+  useEffect(() => {
+    if (
+      platformEnv.isNative ||
+      !shouldRenderList ||
+      selectedScrollOffset === undefined
+    ) {
+      return;
+    }
+    if (
+      hasCompletedInitialAutoScroll &&
+      lastAutoScrollOffsetRef.current === selectedScrollOffset
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const cancelAutoScroll = scheduleSectionListAutoScroll(() => {
+      if (cancelled) {
+        return;
+      }
+      if (!listRef.current?.scrollToOffset) {
+        return false;
+      }
+      listRef.current.scrollToOffset({
+        offset: selectedScrollOffset,
+        animated: false,
+      });
+      lastAutoScrollOffsetRef.current = selectedScrollOffset;
+      setHasCompletedInitialAutoScroll(true);
+      return true;
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAutoScroll();
+    };
+  }, [
+    hasCompletedInitialAutoScroll,
+    recentNetworksHeight,
+    selectedScrollOffset,
+    shouldRenderList,
+  ]);
+
+  // Native keeps the legacy section/item target. Non-native scrolls after
+  // layout so the selected row sits inside the viewport, away from sticky
+  // header boundaries.
+  //
   // Convert `initialScrollIndex` (section/item) into the flat data index
   // that FlashList (via SectionList) uses for `initialScrollIndex` prop.
   //
@@ -321,6 +426,9 @@ export const EditableChainSelectorContent = ({
   // scroll event to settle (StickyHeaders.tsx / useEffect reads
   // getLastScrollOffset which is 0 at mount).
   const initialScrollFlatIndex = useMemo(() => {
+    if (!platformEnv.isNative) {
+      return undefined;
+    }
     if (!initialScrollIndex || !sections.length) return undefined;
     // Build up to the flat index of the *target section's header*, then
     // add itemIndex. Matches SectionList's own scrollToLocation semantics
@@ -404,6 +512,11 @@ export const EditableChainSelectorContent = ({
     [],
   );
 
+  const shouldHideListForAutoScroll =
+    !platformEnv.isNative &&
+    selectedScrollOffset !== undefined &&
+    !hasCompletedInitialAutoScroll;
+
   return (
     <EditableChainSelectorContext.Provider value={context}>
       <Stack flex={1} position="relative">
@@ -416,12 +529,19 @@ export const EditableChainSelectorContent = ({
             value={searchText}
             onChangeText={(text) => {
               // Reset list to the top whenever the user types in search.
-              listRef.current?.scrollToLocation?.({
-                sectionIndex: 0,
-                itemIndex: 0,
-                viewPosition: 0,
-                animated: false,
-              });
+              if (platformEnv.isNative) {
+                listRef.current?.scrollToLocation?.({
+                  sectionIndex: 0,
+                  itemIndex: 0,
+                  viewPosition: 0,
+                  animated: false,
+                });
+              } else {
+                listRef.current?.scrollToOffset?.({
+                  offset: 0,
+                  animated: false,
+                });
+              }
               setSearchText(text);
             }}
             {...(!platformEnv.isNative && {
@@ -444,9 +564,10 @@ export const EditableChainSelectorContent = ({
             swrKeyScope={EAppSWRCacheScopes.editableChainSelector}
             walletId={walletId}
             accountId={accountId}
+            setRecentNetworksHeight={setRecentNetworksHeight}
           />
         ) : null}
-        <Stack flex={1}>
+        <Stack flex={1} opacity={shouldHideListForAutoScroll ? 0 : 1}>
           {shouldRenderList ? (
             <SectionList
               ref={listRef}
