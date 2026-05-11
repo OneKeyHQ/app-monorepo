@@ -23,23 +23,38 @@ export type ICustomPriorityFeeOverride = {
 export function normalizeMarketPresetCustomPriorityFeeRange(
   range?: IMarketPresetCustomPriorityFeeRange,
 ) {
-  const minBN = new BigNumber(
+  const defaultMinBN = new BigNumber(
+    MARKET_PRESET_CUSTOM_PRIORITY_FEE_MIN_VALUE,
+  );
+  const defaultMaxBN = new BigNumber(
+    MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+  );
+  const rawMinBN = new BigNumber(
     range?.min ?? MARKET_PRESET_CUSTOM_PRIORITY_FEE_MIN_VALUE,
   );
-  const maxBN = new BigNumber(
+  const rawMaxBN = new BigNumber(
     range?.max ?? MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
   );
-  const min = minBN.isFinite()
-    ? minBN.toFixed()
-    : MARKET_PRESET_CUSTOM_PRIORITY_FEE_MIN_VALUE;
-  const max =
-    maxBN.isFinite() && maxBN.gt(min)
-      ? maxBN.toFixed()
-      : MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE;
+  const minBN =
+    rawMinBN.isFinite() && rawMinBN.gte(defaultMinBN) ? rawMinBN : defaultMinBN;
+
+  if (rawMaxBN.isFinite() && rawMaxBN.gt(minBN)) {
+    return {
+      min: minBN.toFixed(),
+      max: rawMaxBN.toFixed(),
+    };
+  }
+
+  if (range?.max === undefined && defaultMaxBN.gt(minBN)) {
+    return {
+      min: minBN.toFixed(),
+      max: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+    };
+  }
 
   return {
-    min,
-    max,
+    min: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MIN_VALUE,
+    max: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
   };
 }
 
