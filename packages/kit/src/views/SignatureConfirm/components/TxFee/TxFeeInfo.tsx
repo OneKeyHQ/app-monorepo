@@ -795,6 +795,11 @@ function TxFeeInfo(props: IProps) {
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
+          // Clear discount here because the loading reset above intentionally
+          // preserves it for no-flicker polling; the downstream recompute effect
+          // only depends on fee/rental inputs, so an error path would otherwise
+          // strand the TRON rental "减免 X%" / "优惠发送" badge over an Error UI.
+          discountPercent: 0,
           // Inner JSON-RPC error first so `execution reverted: ...` from the
           // upstream node survives the OneKey API response wrapper — the outer
           // `translatedMessage/message` is generic server-side packaging text

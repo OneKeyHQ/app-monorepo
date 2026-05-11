@@ -482,28 +482,33 @@ const PreSwapDialogContent = ({
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
                     onSelectNetworkFeeLevel={(value) => {
-                      const {
-                        presetOverrides,
-                        customPriorityFee,
-                        networkFeeLevel,
-                      } = swapStepNetFeeLevel;
-                      if (value === FEE_TIER_CUSTOM) {
-                        if (!presetOverrides || customPriorityFee) return;
-                        setSwapStepNetFeeLevel({
-                          networkFeeLevel: presetOverrides.networkFeeLevel,
-                          customPriorityFee: presetOverrides.customPriorityFee,
+                      // Read prev from the setter callback so two clicks landing
+                      // in the same render frame don't replay against a stale
+                      // closure copy and silently drop one of them.
+                      setSwapStepNetFeeLevel((prev) => {
+                        const {
                           presetOverrides,
-                        });
-                        return;
-                      }
-                      // Clear customPriorityFee explicitly; otherwise the trigger
-                      // label stays "Custom" and the tier select looks no-op.
-                      if (value === networkFeeLevel && !customPriorityFee)
-                        return;
-                      setSwapStepNetFeeLevel({
-                        networkFeeLevel: value,
-                        customPriorityFee: undefined,
-                        presetOverrides,
+                          customPriorityFee,
+                          networkFeeLevel,
+                        } = prev;
+                        if (value === FEE_TIER_CUSTOM) {
+                          if (!presetOverrides || customPriorityFee) return prev;
+                          return {
+                            networkFeeLevel: presetOverrides.networkFeeLevel,
+                            customPriorityFee: presetOverrides.customPriorityFee,
+                            presetOverrides,
+                          };
+                        }
+                        // Clear customPriorityFee explicitly; otherwise the trigger
+                        // label stays "Custom" and the tier select looks no-op.
+                        if (value === networkFeeLevel && !customPriorityFee) {
+                          return prev;
+                        }
+                        return {
+                          networkFeeLevel: value,
+                          customPriorityFee: undefined,
+                          presetOverrides,
+                        };
                       });
                     }}
                   />
