@@ -227,6 +227,23 @@ describe('SwapPanelContent', () => {
     );
   });
 
+  it('disables the preview entry without showing loading for guarded states', () => {
+    const props = createProps();
+    props.isActionDisabled = true;
+
+    render(<SwapPanelContent {...props} />);
+
+    const actionButton = screen.getByTestId('action-button');
+
+    expect((actionButton as HTMLButtonElement).disabled).toBe(true);
+    expect(actionButtonMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        disabled: true,
+        loading: false,
+      }),
+    );
+  });
+
   it('resets panel state when the market token changes', () => {
     const props = createProps();
     const { rerender } = render(<SwapPanelContent {...props} />);

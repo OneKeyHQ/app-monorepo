@@ -635,9 +635,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
-      isLoading={
-        isActionLoading || isReviewOpening || marketPresetSettings.isLoading
-      }
+      isLoading={isActionLoading || isReviewOpening}
+      isActionDisabled={marketPresetSettings.isLoading}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
       slippageAutoValue={speedConfig?.slippage}
