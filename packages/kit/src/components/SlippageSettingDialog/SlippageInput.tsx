@@ -30,11 +30,13 @@ export function formatSlippageInputDisplayValue(value?: number) {
 
 export function shouldSyncSlippageInputDisplayValue({
   inputValue,
+  displaySlippage,
   isEditingTrailingDot,
   previousDisplayValue,
   hasSyncedDisplayValue,
 }: {
   inputValue: string;
+  displaySlippage: string;
   isEditingTrailingDot: boolean;
   previousDisplayValue: string;
   hasSyncedDisplayValue: boolean;
@@ -43,8 +45,10 @@ export function shouldSyncSlippageInputDisplayValue({
     return true;
   }
 
-  if (isEditingTrailingDot && inputValue !== previousDisplayValue) {
-    return false;
+  if (isEditingTrailingDot) {
+    return (
+      formatSlippageInputDisplayValue(Number(inputValue)) !== displaySlippage
+    );
   }
 
   return inputValue === previousDisplayValue;
@@ -89,6 +93,7 @@ const BaseSlippageInput = ({
       currentInputValue !== displaySlippage &&
       shouldSyncSlippageInputDisplayValue({
         inputValue: currentInputValue,
+        displaySlippage,
         hasSyncedDisplayValue: hasSyncedDisplayValueRef.current,
         isEditingTrailingDot: isEditingTrailingDotRef.current,
         previousDisplayValue,
