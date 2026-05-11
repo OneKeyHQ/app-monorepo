@@ -178,6 +178,17 @@ describe('trayDataProviderUtils', () => {
     expect(result.normalizedTokenAddress).toBe('');
   });
 
+  test('getTrayWatchlistNativeInfo treats empty-address spot rows as native even when isNative is false', () => {
+    const result = getTrayWatchlistNativeInfo({
+      contractAddress: '',
+      isNative: false,
+    });
+
+    expect(result.isNative).toBe(true);
+    expect(result.tokenAddress).toBe('');
+    expect(result.normalizedTokenAddress).toBe('');
+  });
+
   test('getTrayMarketNavigationTarget uses native route for SUI native actions', () => {
     const result = getTrayMarketNavigationTarget({
       network: 'sui',
@@ -193,6 +204,22 @@ describe('trayDataProviderUtils', () => {
       },
     });
     expect(result?.params).not.toHaveProperty('tokenAddress');
+  });
+
+  test('getTrayMarketNavigationTarget uses native route for empty-address spot actions', () => {
+    const result = getTrayMarketNavigationTarget({
+      network: 'bsc',
+      tokenAddress: '',
+      isNative: false,
+    });
+
+    expect(result).toEqual({
+      screen: ETabMarketRoutes.MarketNativeDetail,
+      params: {
+        network: 'bsc',
+        isNative: true,
+      },
+    });
   });
 
   test('getTrayMarketNavigationTarget uses token route for contract token actions', () => {
