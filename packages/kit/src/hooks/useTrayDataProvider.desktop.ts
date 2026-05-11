@@ -1071,7 +1071,7 @@ export function useTrayDataProvider() {
         }
 
         const isNative = action.isNative || false;
-        if (action.networkId && (isNative || action.tokenAddress)) {
+        if (action.networkId) {
           const networkId = action.networkId;
           const shortCode = networkUtils.getNetworkShortCode({ networkId });
           const target = getTrayMarketNavigationTarget({
