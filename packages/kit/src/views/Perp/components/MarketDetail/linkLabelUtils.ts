@@ -3,9 +3,9 @@ const LINK_LABELS_TO_KEEP = new Set([
   'Telegram',
   'Discord',
   'LinkedIn',
-  '网站',
-  '白皮书',
-  '官网',
+  'Website',
+  'White paper',
+  'Official website',
 ]);
 
 function getHostname(url?: string) {

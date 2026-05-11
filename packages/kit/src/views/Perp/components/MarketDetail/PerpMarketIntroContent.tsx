@@ -25,8 +25,6 @@ import {
 
 import { formatExternalLinkLabel } from './linkLabelUtils';
 
-const MARKET_DETAIL_REFERENCE_NOTE =
-  '* 基础数据由第三方提供，为全局市场数据，仅供参考，可能与 Hyperliquid 的交易价格、成交量等数据不同。此信息以“原样”呈现，不构成任何形式的陈述或保证。';
 const INTRO_INFO_COLUMN_GAP = '$5';
 const INTRO_LINK_LABEL_WIDTH = 96;
 const INTRO_LINK_CHIP_MAX_WIDTH = 180;
@@ -234,6 +232,9 @@ export function PerpMarketIntroContent({
     resolvedMarketDetail ?? internalResolvedMarketDetail;
 
   const marketDetail = effectiveResolvedMarketDetail.result?.detail;
+  const marketDetailReferenceNote = intl.formatMessage({
+    id: ETranslations.perp_market_info_reference_note__desc,
+  });
   const aboutText = useMemo(
     () => sanitizeDescriptionText(marketDetail?.about) || '',
     [marketDetail?.about],
@@ -245,29 +246,39 @@ export function PerpMarketIntroContent({
         ? ({
             marketCapRank: {
               key: 'marketCapRank',
-              label: '排名',
+              label: intl.formatMessage({
+                id: ETranslations.dexmarket_details_holders_rank,
+              }),
               value: marketDetail.stats.marketCapRank
                 ? `#${marketDetail.stats.marketCapRank}`
                 : '--',
             },
             marketCap: {
               key: 'marketCap',
-              label: '市值',
+              label: intl.formatMessage({
+                id: ETranslations.global_market_cap,
+              }),
               value: formatUsdValue(marketDetail.stats.marketCap),
             },
             fdv: {
               key: 'fdv',
-              label: '完全稀释估值',
+              label: intl.formatMessage({
+                id: ETranslations.perp_market_info_fully_diluted_valuation__title,
+              }),
               value: formatUsdValue(marketDetail.stats.fdv),
             },
             volume24h: {
               key: 'volume24h',
-              label: '24h 成交量',
+              label: intl.formatMessage({
+                id: ETranslations.market_twenty_four_hour_volume,
+              }),
               value: formatUsdValue(marketDetail.stats.volume24h),
             },
             circulatingSupply: {
               key: 'circulatingSupply',
-              label: '流通数量',
+              label: intl.formatMessage({
+                id: ETranslations.global_circulating_supply,
+              }),
               value: formatTokenAmount(
                 marketDetail.stats.circulatingSupply,
                 marketDetail.symbol,
@@ -275,7 +286,9 @@ export function PerpMarketIntroContent({
             },
             totalSupply: {
               key: 'totalSupply',
-              label: '总供应',
+              label: intl.formatMessage({
+                id: ETranslations.global_total_supply,
+              }),
               value: formatTokenAmount(
                 marketDetail.stats.totalSupply,
                 marketDetail.symbol,
@@ -283,7 +296,9 @@ export function PerpMarketIntroContent({
             },
             maxSupply: {
               key: 'maxSupply',
-              label: '最大供应',
+              label: intl.formatMessage({
+                id: ETranslations.global_max_supply,
+              }),
               value: formatTokenAmount(
                 marketDetail.stats.maxSupply,
                 marketDetail.symbol,
@@ -291,19 +306,23 @@ export function PerpMarketIntroContent({
             },
             ath: {
               key: 'ath',
-              label: '历史最高价',
+              label: intl.formatMessage({
+                id: ETranslations.market_all_time_high,
+              }),
               value: formatUsdPriceValue(marketDetail.stats.ath.value),
               secondaryValue: formatMarketDate(marketDetail.stats.ath.time),
             },
             atl: {
               key: 'atl',
-              label: '历史最低价',
+              label: intl.formatMessage({
+                id: ETranslations.market_all_time_low,
+              }),
               value: formatUsdPriceValue(marketDetail.stats.atl.value),
               secondaryValue: formatMarketDate(marketDetail.stats.atl.time),
             },
           } satisfies Record<string, IIntroInfoItemData>)
         : undefined,
-    [marketDetail],
+    [intl, marketDetail],
   );
 
   const linkRows = useMemo(
@@ -311,11 +330,13 @@ export function PerpMarketIntroContent({
       marketDetail
         ? [
             {
-              label: '网站',
+              label: intl.formatMessage({
+                id: ETranslations.global_website,
+              }),
               items: [
                 {
                   label: intl.formatMessage({
-                    id: ETranslations.global_website,
+                    id: ETranslations.global_official_website,
                   }),
                   url: marketDetail.links.homePageUrl,
                 },
@@ -331,7 +352,9 @@ export function PerpMarketIntroContent({
               }>,
             },
             {
-              label: '区块链浏览器',
+              label: intl.formatMessage({
+                id: ETranslations.global_block_explorer,
+              }),
               items:
                 marketDetail.explorers
                   ?.slice(0, 2)
@@ -342,7 +365,9 @@ export function PerpMarketIntroContent({
                   .filter((item) => Boolean(item.url)) ?? [],
             },
             {
-              label: '社交媒体',
+              label: intl.formatMessage({
+                id: ETranslations.perp_market_info_social_media__title,
+              }),
               items: [
                 { label: 'X', url: marketDetail.links.twitterUrl },
                 { label: 'Telegram', url: marketDetail.links.telegramUrl },
@@ -390,7 +415,9 @@ export function PerpMarketIntroContent({
       >
         <Spinner size="small" />
         <SizableText size="$bodySm" color="$textSubdued">
-          Loading introduction...
+          {intl.formatMessage({
+            id: ETranslations.perp_market_info_loading_introduction__desc,
+          })}
         </SizableText>
       </YStack>
     );
@@ -414,7 +441,9 @@ export function PerpMarketIntroContent({
           textAlign="center"
           maxWidth={320}
         >
-          该标的的全局市场数据暂未接入，我们会尽快补齐。
+          {intl.formatMessage({
+            id: ETranslations.perp_market_info_data_unavailable__desc,
+          })}
         </SizableText>
       </YStack>
     );
@@ -423,7 +452,7 @@ export function PerpMarketIntroContent({
   return (
     <YStack px={paddingX} pt={paddingTop} pb={paddingBottom} gap="$6">
       <SizableText size="$bodySm" color="$textSubdued" lineHeight={20}>
-        {MARKET_DETAIL_REFERENCE_NOTE}
+        {`* ${marketDetailReferenceNote}`}
       </SizableText>
 
       <XStack alignItems="center" gap="$3">
@@ -451,7 +480,11 @@ export function PerpMarketIntroContent({
 
       {infoRows.length ? (
         <YStack gap="$3.5">
-          <SizableText size="$headingSm">币种信息</SizableText>
+          <SizableText size="$headingSm">
+            {intl.formatMessage({
+              id: ETranslations.perp_market_info_coin_info__title,
+            })}
+          </SizableText>
           <YStack gap="$4">
             {infoRows.map((row, rowIndex) => (
               <XStack
@@ -488,7 +521,9 @@ export function PerpMarketIntroContent({
 
       {hasAnyLinks ? (
         <YStack gap="$3.5">
-          <SizableText size="$headingSm">友情链接</SizableText>
+          <SizableText size="$headingSm">
+            {intl.formatMessage({ id: ETranslations.global_links })}
+          </SizableText>
           <YStack gap="$3.5">
             {linkRows.map((row) => (
               <IntroLinkRow
@@ -503,7 +538,11 @@ export function PerpMarketIntroContent({
 
       {aboutText ? (
         <YStack gap="$3.5">
-          <SizableText size="$headingSm">介绍</SizableText>
+          <SizableText size="$headingSm">
+            {intl.formatMessage({
+              id: ETranslations.perp_market_info_introduction__title,
+            })}
+          </SizableText>
           <SizableText
             size="$bodyMd"
             color="$textSubdued"
@@ -520,7 +559,11 @@ export function PerpMarketIntroContent({
               onPress={() => setIsDescriptionExpanded((prev) => !prev)}
             >
               <SizableText size="$bodyMd" color="$textSubdued">
-                {isDescriptionExpanded ? '收起' : '展开'}
+                {intl.formatMessage({
+                  id: isDescriptionExpanded
+                    ? ETranslations.global_collapse
+                    : ETranslations.global_expand,
+                })}
               </SizableText>
               <Icon
                 name={

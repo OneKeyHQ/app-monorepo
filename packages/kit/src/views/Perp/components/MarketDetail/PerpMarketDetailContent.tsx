@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -20,6 +21,7 @@ import {
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -49,12 +51,15 @@ export type IPerpMarketDetailTab =
   | 'contract'
   | 'about';
 
-const TAB_CONFIG: Record<IPerpMarketDetailTab, { label: string }> = {
-  overview: { label: 'Overview' },
-  funding: { label: 'Funding' },
-  trades: { label: 'Trades' },
-  contract: { label: 'Contract' },
-  about: { label: 'About' },
+const TAB_CONFIG: Record<
+  IPerpMarketDetailTab,
+  { translationId: ETranslations }
+> = {
+  overview: { translationId: ETranslations.dexmarket_details_overview },
+  funding: { translationId: ETranslations.perp_position_funding },
+  trades: { translationId: ETranslations.perp_trades_history_title },
+  contract: { translationId: ETranslations.global_contract },
+  about: { translationId: ETranslations.global_about },
 };
 
 const FUNDING_RANGE_ITEMS: IPerpFundingHistoryRange[] = ['24h', '7d', '30d'];
@@ -65,8 +70,6 @@ const POSITIVE_LINE_COLOR = '#2EAA40';
 const POSITIVE_TOP_COLOR = 'rgba(46, 170, 64, 0.24)';
 const POSITIVE_BOTTOM_COLOR = 'rgba(46, 170, 64, 0)';
 const NEGATIVE_LINE_COLOR = '#E5484D';
-const MARKET_DETAIL_REFERENCE_NOTE =
-  '* 基础数据由第三方提供，为全局市场数据，仅供参考，可能与 Hyperliquid 的交易价格、成交量等数据不同。此信息以“原样”呈现，不构成任何形式的陈述或保证。';
 const DETAIL_LINK_LABEL_WIDTH = 96;
 const DETAIL_LINK_CHIP_MAX_WIDTH = 200;
 
@@ -445,6 +448,8 @@ function EmptyState({ text }: { text: string }) {
 }
 
 function MarketInfoEmptyState() {
+  const intl = useIntl();
+
   return (
     <YStack
       flex={1}
@@ -461,7 +466,9 @@ function MarketInfoEmptyState() {
         textAlign="center"
         maxWidth={360}
       >
-        该标的的全局市场数据暂未接入，我们会尽快补齐。
+        {intl.formatMessage({
+          id: ETranslations.perp_market_info_data_unavailable__desc,
+        })}
       </SizableText>
     </YStack>
   );
@@ -575,6 +582,7 @@ export function PerpMarketDetailContent({
   combineTradingData?: boolean;
   combineInfoData?: boolean;
 }) {
+  const intl = useIntl();
   const resolvedInitialTab =
     (initialTab && tabKeys.includes(initialTab) ? initialTab : tabKeys[0]) ??
     'overview';
@@ -671,6 +679,9 @@ export function PerpMarketDetailContent({
     | undefined;
 
   const marketDetail = resolvedMarketDetail.result?.detail;
+  const marketDetailReferenceNote = intl.formatMessage({
+    id: ETranslations.perp_market_info_reference_note__desc,
+  });
 
   const aboutText = useMemo(
     () => sanitizeDescriptionText(marketDetail?.about) || '',
@@ -820,77 +831,121 @@ export function PerpMarketDetailContent({
     const marketReferenceRows = marketDetail
       ? [
           {
-            label: '排名',
+            label: intl.formatMessage({
+              id: ETranslations.dexmarket_details_holders_rank,
+            }),
             value: marketDetail.stats.marketCapRank
               ? `#${marketDetail.stats.marketCapRank}`
               : '--',
-            tooltip: '按市值计算的市场排名。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.perp_market_info_rank_tooltip__desc,
+            }),
           },
           {
-            label: '市值',
+            label: intl.formatMessage({ id: ETranslations.global_market_cap }),
             value: formatUsdValue(String(marketDetail.stats.marketCap)),
-            tooltip: '当前价格乘以流通供应量。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.perp_market_info_market_cap_tooltip__desc,
+            }),
           },
           {
-            label: '完全稀释估值',
+            label: intl.formatMessage({
+              id: ETranslations.perp_market_info_fully_diluted_valuation__title,
+            }),
             value: formatUsdValue(String(marketDetail.stats.fdv)),
-            tooltip: '按完全稀释供应量估算的总市值。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.dexmarket_fdv_desc,
+            }),
           },
           {
-            label: '24h 成交量',
+            label: intl.formatMessage({
+              id: ETranslations.market_twenty_four_hour_volume,
+            }),
             value: formatUsdValue(String(marketDetail.stats.volume24h)),
-            tooltip: '过去 24 小时的成交额。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.perp_market_info_24h_volume_tooltip__desc,
+            }),
           },
           {
-            label: '流通数量',
+            label: intl.formatMessage({
+              id: ETranslations.global_circulating_supply,
+            }),
             value: formatTokenAmount(
               marketDetail.stats.circulatingSupply,
               marketDetail.symbol,
             ),
-            tooltip: '当前市场中可流通的代币数量。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.dexmarket_circulating_supply_tips,
+            }),
           },
           {
-            label: '最大供应',
+            label: intl.formatMessage({ id: ETranslations.global_max_supply }),
             value: formatTokenAmount(
               marketDetail.stats.maxSupply,
               marketDetail.symbol,
             ),
-            tooltip: '协议定义的最大供应量上限。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.dexmarket_max_supply_tips,
+            }),
           },
           {
-            label: '总供应',
+            label: intl.formatMessage({
+              id: ETranslations.global_total_supply,
+            }),
             value: formatTokenAmount(
               marketDetail.stats.totalSupply,
               marketDetail.symbol,
             ),
-            tooltip: '当前已发行的代币总量。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.perp_market_info_total_supply_tooltip__desc,
+            }),
           },
           {
-            label: '历史最高价',
+            label: intl.formatMessage({
+              id: ETranslations.market_all_time_high,
+            }),
             value: formatUsdPriceValue(marketDetail.stats.ath.value),
             secondaryValue: formatMarketDate(marketDetail.stats.ath.time),
-            tooltip: '历史最高成交价格。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.perp_market_info_all_time_high_tooltip__desc,
+            }),
           },
           {
-            label: '历史最低价',
+            label: intl.formatMessage({
+              id: ETranslations.market_all_time_low,
+            }),
             value: formatUsdPriceValue(marketDetail.stats.atl.value),
             secondaryValue: formatMarketDate(marketDetail.stats.atl.time),
-            tooltip: '历史最低成交价格。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.perp_market_info_all_time_low_tooltip__desc,
+            }),
           },
           {
-            label: '24h 最高价',
+            label: intl.formatMessage({
+              id: ETranslations.perp_market_info_24h_high__title,
+            }),
             value: formatUsdPriceValue(marketDetail.stats.high24h),
-            tooltip: '过去 24 小时的最高价格。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.perp_market_info_24h_high_tooltip__desc,
+            }),
           },
           {
-            label: '24h 最低价',
+            label: intl.formatMessage({
+              id: ETranslations.perp_market_info_24h_low__title,
+            }),
             value: formatUsdPriceValue(marketDetail.stats.low24h),
-            tooltip: '过去 24 小时的最低价格。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.perp_market_info_24h_low_tooltip__desc,
+            }),
           },
           {
-            label: '最近更新',
+            label: intl.formatMessage({
+              id: ETranslations.market_last_updated,
+            }),
             value: formatMarketDate(marketDetail.stats.lastUpdated),
-            tooltip: '第三方资料最近一次更新时间。',
+            tooltip: intl.formatMessage({
+              id: ETranslations.perp_market_info_last_updated_tooltip__desc,
+            }),
           },
         ]
       : [];
@@ -898,14 +953,26 @@ export function PerpMarketDetailContent({
     const linkRows = marketDetail
       ? [
           {
-            label: '网站',
+            label: intl.formatMessage({ id: ETranslations.global_website }),
             items: [
-              { label: '官网', url: marketDetail.links.homePageUrl },
-              { label: '白皮书', url: marketDetail.links.whitepaper },
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.global_official_website,
+                }),
+                url: marketDetail.links.homePageUrl,
+              },
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.global_white_paper,
+                }),
+                url: marketDetail.links.whitepaper,
+              },
             ].filter((item) => Boolean(item.url)),
           },
           {
-            label: '区块链浏览器',
+            label: intl.formatMessage({
+              id: ETranslations.global_block_explorer,
+            }),
             items:
               marketDetail.explorers
                 ?.slice(0, 2)
@@ -916,7 +983,9 @@ export function PerpMarketDetailContent({
                 .filter((item) => Boolean(item.url)) ?? [],
           },
           {
-            label: '社交媒体',
+            label: intl.formatMessage({
+              id: ETranslations.perp_market_info_social_media__title,
+            }),
             items: [
               { label: 'X', url: marketDetail.links.twitterUrl },
               { label: 'Telegram', url: marketDetail.links.telegramUrl },
@@ -958,18 +1027,26 @@ export function PerpMarketDetailContent({
           $gtMd={{ flexWrap: 'nowrap', gap: '$16' } as any}
         >
           <YStack flex={1} flexBasis={0} minWidth={0} width="100%" gap="$2.5">
-            <SizableText size="$headingSm">币种信息</SizableText>
+            <SizableText size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.perp_market_info_coin_info__title,
+              })}
+            </SizableText>
             {marketReferenceRows.length ? (
               <DetailInfoTable rows={marketReferenceRows} />
             ) : (
               <SizableText size="$bodySm" color="$textSubdued">
-                暂无可用的现货参考信息。
+                {intl.formatMessage({
+                  id: ETranslations.perp_market_info_no_reference_data__desc,
+                })}
               </SizableText>
             )}
           </YStack>
 
           <YStack flex={1} flexBasis={0} width="100%" minWidth={0} gap="$2.5">
-            <SizableText size="$headingSm">友情链接</SizableText>
+            <SizableText size="$headingSm">
+              {intl.formatMessage({ id: ETranslations.global_links })}
+            </SizableText>
             {linkRows.some((item) => item.items.length > 0) ? (
               <YStack gap="$3">
                 <DetailLinkTable rows={linkRows} />
@@ -980,12 +1057,14 @@ export function PerpMarketDetailContent({
                   numberOfLines={1}
                   whiteSpace="nowrap"
                 >
-                  {MARKET_DETAIL_REFERENCE_NOTE}
+                  {`* ${marketDetailReferenceNote}`}
                 </SizableText>
               </YStack>
             ) : (
               <SizableText size="$bodySm" color="$textSubdued">
-                暂无可用的外部链接。
+                {intl.formatMessage({
+                  id: ETranslations.perp_market_info_no_external_links__desc,
+                })}
               </SizableText>
             )}
           </YStack>
@@ -994,7 +1073,11 @@ export function PerpMarketDetailContent({
         {aboutText ? (
           <YStack gap="$3.5">
             <XStack alignItems="center" justifyContent="space-between" gap="$3">
-              <SizableText size="$headingSm">介绍</SizableText>
+              <SizableText size="$headingSm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_market_info_introduction__title,
+                })}
+              </SizableText>
               <Tooltip
                 placement="top"
                 renderTrigger={
@@ -1006,12 +1089,16 @@ export function PerpMarketDetailContent({
                     cursor="help"
                     alignSelf="flex-start"
                   >
-                    原始资料
+                    {intl.formatMessage({
+                      id: ETranslations.perp_market_info_raw_source__title,
+                    })}
                   </DashText>
                 }
                 renderContent={
                   <SizableText size="$bodySm">
-                    当前展示第三方原始资料，暂未接入自动翻译。
+                    {intl.formatMessage({
+                      id: ETranslations.perp_market_info_raw_source_tooltip__desc,
+                    })}
                   </SizableText>
                 }
               />
@@ -1033,7 +1120,11 @@ export function PerpMarketDetailContent({
                 cursor="default"
               >
                 <SizableText size="$bodyMd" color="$textSubdued">
-                  {isInfoDescriptionExpanded ? '收起' : '展开'}
+                  {intl.formatMessage({
+                    id: isInfoDescriptionExpanded
+                      ? ETranslations.global_collapse
+                      : ETranslations.global_expand,
+                  })}
                 </SizableText>
                 <Icon
                   name={
@@ -1724,7 +1815,7 @@ export function PerpMarketDetailContent({
             <TabButton
               key={item}
               active={activeTab === item}
-              label={TAB_CONFIG[item].label}
+              label={intl.formatMessage({ id: TAB_CONFIG[item].translationId })}
               onPress={() => setActiveTab(item)}
             />
           ))}
