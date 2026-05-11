@@ -3,14 +3,13 @@ import { memo } from 'react';
 import { Badge, YStack } from '@onekeyhq/components';
 import type { ILocalizedProtocolCategoryGroup } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 
-import { ProtocolLendingPositionTable } from './ProtocolLendingPositionTable';
+import { ProtocolSectionedPositionTable } from './ProtocolSectionedPositionTable';
 import { ProtocolUnifiedTable } from './ProtocolUnifiedTable';
 
-// One-stop renderer for a category subgroup inside a protocol card. Lending
-// expands into N tables (one per position) so each can carry its own
-// per-position metadata (Health Rate, market name, etc. — those still defer
-// to a follow-up); every other category collapses into a single unified
-// table built upstream by the category grouping helper.
+// One badge + one block per group. A category that mixes clean and
+// debt-bearing positions is emitted upstream as two adjacent groups
+// (each with its own badge), so the leveraged/CDP block reads as a
+// distinct surface instead of being nested under the clean rows.
 
 type IProtocolCategoryGroupProps = {
   group: ILocalizedProtocolCategoryGroup;
@@ -31,10 +30,10 @@ const ProtocolCategoryGroup = memo(
             {group.categoryLabel}
           </Badge>
         </YStack>
-        {group.kind === 'lending' ? (
+        {group.kind === 'sectioned' ? (
           <YStack gap="$4">
             {group.positions.map((position) => (
-              <ProtocolLendingPositionTable
+              <ProtocolSectionedPositionTable
                 key={position.positionKey}
                 position={position}
                 currencySymbol={currencySymbol}

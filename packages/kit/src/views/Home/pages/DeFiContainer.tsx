@@ -324,6 +324,30 @@ function DeFiContainer() {
     [getLiveStickyOffset, reducedMotion],
   );
 
+  const handleCollapseToProtocol = useCallback(
+    (p: IDeFiProtocol) => {
+      if (platformEnv.isNative || typeof requestAnimationFrame !== 'function') {
+        return;
+      }
+
+      const key = defiUtils.buildProtocolMapKey({
+        protocol: p.protocol,
+        networkId: p.networkId,
+      });
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const anchor = protocolRefs.current.get(key)?.getAnchor();
+          if (!anchor) return;
+          const behavior: ScrollBehavior = reducedMotion ? 'auto' : 'smooth';
+          scrollToAnchor(anchor, getLiveStickyOffset(), behavior);
+          triggerPinCheckRef.current();
+        });
+      });
+    },
+    [getLiveStickyOffset, reducedMotion],
+  );
+
   // Chip strip click handler: same destination as handleTilePress (and
   // shares the scroll/expand machinery), but also expands the list when
   // the target protocol is currently hidden behind the "Show more" cut so
@@ -709,6 +733,7 @@ function DeFiContainer() {
               hideInternalTitle
               isDeFiEnabled={isDeFiEnabled}
               registerProtocol={registerProtocol}
+              onCollapseToProtocol={handleCollapseToProtocol}
             />
             <Upgrade />
             <SupportHub />

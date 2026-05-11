@@ -215,6 +215,31 @@ function normalizeDeFiCategory(value?: string) {
   );
 }
 
+// Some upstreams (notably f(x) Protocol) stamp a placeholder like "x" into
+// poolName when the position has no real market label. Without filtering
+// we'd both render the literal "x" in the Position cell and let the
+// unified-row bucketer merge every placeholder-named position into a
+// single phantom row. `sanitizePoolName` returns undefined for these so
+// callers fall back to symbol-join for display and per-groupId bucketing.
+const POOL_NAME_PLACEHOLDERS: ReadonlySet<string> = new Set([
+  'x',
+  '-',
+  '--',
+  '?',
+  'n/a',
+  'na',
+  'null',
+  'undefined',
+  'tbd',
+]);
+
+function sanitizePoolName(name?: string): string | undefined {
+  const trimmed = name?.trim();
+  if (!trimmed) return undefined;
+  if (POOL_NAME_PLACEHOLDERS.has(trimmed.toLowerCase())) return undefined;
+  return trimmed;
+}
+
 function getPositionModuleLabel(category: string) {
   return (
     POSITION_MODULE_LABELS[normalizeDeFiCategory(category)] ??
@@ -293,6 +318,22 @@ function buildProtocolPositionItems(protocol: IDeFiProtocol) {
   });
 }
 
+function localizePositionItem(
+  position: IProtocolPositionItem,
+  translate: ITranslatePositionLabel,
+): ILocalizedProtocolPositionItem {
+  return {
+    ...position,
+    categoryLabel: position.categoryLabelId
+      ? translate(position.categoryLabelId)
+      : position.categoryLabel,
+    sections: position.sections.map((section) => ({
+      ...section,
+      title: section.titleId ? translate(section.titleId) : section.title,
+    })),
+  };
+}
+
 function buildLocalizedProtocolPositionItems({
   protocol,
   translate,
@@ -300,17 +341,8 @@ function buildLocalizedProtocolPositionItems({
   protocol: IDeFiProtocol;
   translate: ITranslatePositionLabel;
 }) {
-  return buildProtocolPositionItems(protocol).map(
-    (position): ILocalizedProtocolPositionItem => ({
-      ...position,
-      categoryLabel: position.categoryLabelId
-        ? translate(position.categoryLabelId)
-        : position.categoryLabel,
-      sections: position.sections.map((section) => ({
-        ...section,
-        title: section.titleId ? translate(section.titleId) : section.title,
-      })),
-    }),
+  return buildProtocolPositionItems(protocol).map((position) =>
+    localizePositionItem(position, translate),
   );
 }
 
@@ -352,9 +384,14 @@ export type IProtocolUnifiedRow = {
   rewardsExtraAssets: IDeFiAsset[];
 };
 
+// One badge per group, one block per group. A category that mixes clean
+// and debt-bearing positions is split into two adjacent groups (each
+// with its own badge) by buildProtocolCategoryGroups, so the
+// leveraged/CDP block reads as a distinct surface rather than a
+// sub-section anchored to the clean rows.
 export type IProtocolCategoryGroup =
   | {
-      kind: 'lending';
+      kind: 'sectioned';
       groupKey: string;
       category: string;
       categoryLabel: string;
@@ -373,7 +410,7 @@ export type IProtocolCategoryGroup =
 
 export type ILocalizedProtocolCategoryGroup =
   | {
-      kind: 'lending';
+      kind: 'sectioned';
       groupKey: string;
       category: string;
       categoryLabel: string;
@@ -404,27 +441,33 @@ function buildUnifiedRowsFromPositions(
   displayKind: IUnifiedPositionDisplayKind,
   positions: IProtocolPositionItem[],
 ): IProtocolUnifiedRow[] {
-  // Bucket by trimmed poolName; positions without a poolName collapse only
-  // with themselves so the merge is conservative when the upstream label is
-  // missing.
-  type Bucket = {
+  // Bucket by sanitized poolName (placeholder strings like "x" / "n/a" are
+  // treated as no-name so they don't collapse distinct positions into a
+  // single phantom row). Positions without a meaningful poolName bucket by
+  // groupId so they only ever merge with themselves.
+  type IUnifiedRowBucket = {
     poolName?: string;
     suppliedAssets: IDeFiAsset[];
     rewardsAssets: IDeFiAsset[];
     firstGroupId: string;
   };
   const orderedKeys: string[] = [];
-  const buckets = new Map<string, Bucket>();
+  const buckets = new Map<string, IUnifiedRowBucket>();
 
   for (const position of positions) {
-    const trimmedPoolName = position.poolName?.trim();
-    const bucketKey = trimmedPoolName
-      ? `name:${trimmedPoolName}`
+    // Falls back to poolFullName when the short name is a placeholder so
+    // the unified row still gets a real label (and a real bucket key)
+    // when the upstream only filled in the long name.
+    const cleanPoolName =
+      sanitizePoolName(position.poolName) ??
+      sanitizePoolName(position.poolFullName);
+    const bucketKey = cleanPoolName
+      ? `name:${cleanPoolName}`
       : `id:${position.groupId}`;
     let bucket = buckets.get(bucketKey);
     if (!bucket) {
       bucket = {
-        poolName: position.poolName,
+        poolName: cleanPoolName,
         suppliedAssets: [],
         rewardsAssets: [],
         firstGroupId: position.groupId,
@@ -440,10 +483,11 @@ function buildUnifiedRowsFromPositions(
       } else if (section.assetType === 'rewards') {
         bucket.rewardsAssets.push(...section.assets);
       }
-      // 'borrowed' is intentionally dropped here: only lending uses the
-      // borrowed row-section, and lending is routed through a different
-      // builder. Non-lending positions with debts (e.g. leveraged farming)
-      // would need an extra column we don't render in this revision.
+      // 'borrowed' is never expected here — buildProtocolCategoryGroups
+      // partitions debt-bearing positions out into a sectioned block
+      // before this builder runs, because the unified table has no
+      // Borrowed column to render them in. If you see a debt slip through
+      // anyway, fix the partition; do not silently swallow it here.
     }
   }
 
@@ -500,6 +544,17 @@ function buildUnifiedRowsFromPositions(
   });
 }
 
+// Suffix on the groupKey of the second group when a non-lending category
+// is split into [clean, debt-bearing]. Keeps React from deduping the two
+// adjacent groups that share the same normalized category key.
+const DEBT_GROUP_KEY_SUFFIX = ':debt';
+
+function positionHasBorrowed(position: IProtocolPositionItem): boolean {
+  return position.sections.some(
+    (section) => section.assetType === 'borrowed' && section.assets.length > 0,
+  );
+}
+
 function buildProtocolCategoryGroups(
   protocol: IDeFiProtocol,
 ): IProtocolCategoryGroup[] {
@@ -517,32 +572,64 @@ function buildProtocolCategoryGroups(
     bucket.push(item);
   }
 
-  return orderedCategoryKeys.map((normalized) => {
+  return orderedCategoryKeys.flatMap<IProtocolCategoryGroup>((normalized) => {
     const bucketItems = positionsByCategory.get(normalized);
     if (!bucketItems || bucketItems.length === 0) {
       throw new OneKeyLocalError('protocol category bucket missing');
     }
     const sample = bucketItems[0];
-    if (normalized === LENDING_NORMALIZED_CATEGORY) {
-      return {
-        kind: 'lending',
-        groupKey: normalized,
-        category: sample.category,
-        categoryLabel: sample.categoryLabel,
-        categoryLabelId: sample.categoryLabelId,
-        positions: bucketItems,
-      };
-    }
-    const displayKind = getUnifiedDisplayKind(normalized);
-    return {
-      kind: 'unified',
-      groupKey: normalized,
+    const sharedMeta = {
       category: sample.category,
       categoryLabel: sample.categoryLabel,
       categoryLabelId: sample.categoryLabelId,
-      displayKind,
-      rows: buildUnifiedRowsFromPositions(displayKind, bucketItems),
     };
+
+    if (normalized === LENDING_NORMALIZED_CATEGORY) {
+      // Lending is always sectioned and never merges by poolName — every
+      // market keeps its own block.
+      return [
+        {
+          kind: 'sectioned',
+          groupKey: normalized,
+          ...sharedMeta,
+          positions: bucketItems,
+        },
+      ];
+    }
+
+    // Non-lending: clean positions stay in the compact unified table;
+    // debt-bearing positions split out into an adjacent sectioned group
+    // (own badge, own table) so Borrowed renders as a labelled section
+    // instead of being dropped on the unified-row floor.
+    const cleanItems: IProtocolPositionItem[] = [];
+    const debtItems: IProtocolPositionItem[] = [];
+    for (const item of bucketItems) {
+      if (positionHasBorrowed(item)) {
+        debtItems.push(item);
+      } else {
+        cleanItems.push(item);
+      }
+    }
+    const groups: IProtocolCategoryGroup[] = [];
+    const displayKind = getUnifiedDisplayKind(normalized);
+    if (cleanItems.length > 0) {
+      groups.push({
+        kind: 'unified',
+        groupKey: normalized,
+        ...sharedMeta,
+        displayKind,
+        rows: buildUnifiedRowsFromPositions(displayKind, cleanItems),
+      });
+    }
+    if (debtItems.length > 0) {
+      groups.push({
+        kind: 'sectioned',
+        groupKey: `${normalized}${DEBT_GROUP_KEY_SUFFIX}`,
+        ...sharedMeta,
+        positions: debtItems,
+      });
+    }
+    return groups;
   });
 }
 
@@ -553,26 +640,21 @@ function buildLocalizedProtocolCategoryGroups({
   protocol: IDeFiProtocol;
   translate: ITranslatePositionLabel;
 }): ILocalizedProtocolCategoryGroup[] {
-  return buildProtocolCategoryGroups(protocol).map((group) => {
+  return buildProtocolCategoryGroups(
+    protocol,
+  ).map<ILocalizedProtocolCategoryGroup>((group) => {
     const translatedLabel = group.categoryLabelId
       ? translate(group.categoryLabelId)
       : group.categoryLabel;
-    if (group.kind === 'lending') {
+    if (group.kind === 'sectioned') {
       return {
-        kind: 'lending',
+        kind: 'sectioned',
         groupKey: group.groupKey,
         category: group.category,
         categoryLabel: translatedLabel,
-        positions: group.positions.map((position) => ({
-          ...position,
-          categoryLabel: position.categoryLabelId
-            ? translate(position.categoryLabelId)
-            : position.categoryLabel,
-          sections: position.sections.map((section) => ({
-            ...section,
-            title: section.titleId ? translate(section.titleId) : section.title,
-          })),
-        })),
+        positions: group.positions.map((position) =>
+          localizePositionItem(position, translate),
+        ),
       };
     }
     return {

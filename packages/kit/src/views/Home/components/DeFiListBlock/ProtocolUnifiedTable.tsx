@@ -42,25 +42,29 @@ function topAssetsByValue(assets: IDeFiAsset[], max: number): IDeFiAsset[] {
 // Layout: one logical row per position regardless of asset count. Multi-
 // asset positions stack their content inside each cell — Position cell
 // stacks avatars (overlapped, +N overflow), Balance cell stacks amounts
-// (top-N by USD, +N more overflow). Pre-change, multi-asset positions
-// rendered as N separate XStack rows with Position/Rewards/Value attached
-// to the first row only, which made it look like N independent positions
-// instead of one.
+// and per-asset USD when the total Value column is ambiguous (top-N by USD,
+// +N more overflow). Pre-change, multi-asset positions rendered as N
+// separate XStack rows with Position/Rewards/Value attached to the first row
+// only, which made it look like N independent positions instead of one.
 //
 // Position column is a *fixed* width (not %) so every category table in
 // a protocol card — Lending, LP, stake, yield — starts its data columns
 // at the same x-coordinate. Without the fix, each table picked its own
 // percent split and the columns visibly jagged across categories.
-const POSITION_COLUMN_WIDTH = 240;
+// Exported so the sectioned table can align its first column too.
+export const POSITION_COLUMN_WIDTH = 240;
 
 // Flex weights for the trailing columns. Balance leads (amounts can be
 // long, especially when stacked); Value gets less because it's a single
 // right-aligned number; Rewards sits between when present.
+// `*_WITHOUT_REWARDS` are exported because the sectioned table never has
+// a rewards column and lands on the same proportions as the unified
+// no-rewards layout.
 const BALANCE_FLEX_WITH_REWARDS = 1.2;
 const REWARDS_FLEX = 1;
 const USD_FLEX_WITH_REWARDS = 0.8;
-const BALANCE_FLEX_WITHOUT_REWARDS = 1.5;
-const USD_FLEX_WITHOUT_REWARDS = 1;
+export const BALANCE_FLEX_WITHOUT_REWARDS = 1.5;
+export const USD_FLEX_WITHOUT_REWARDS = 1;
 
 // Cap the visible amount lines in the Balance column. Above this we show
 // the top-by-USD rows + a "+N more" chip, so an 8-token yield position
@@ -68,6 +72,54 @@ const USD_FLEX_WITHOUT_REWARDS = 1;
 const MAX_BALANCE_LINES = 3;
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
+
+type IAssetBalanceTextProps = {
+  asset: IDeFiAsset;
+  currencySymbol: string;
+  showFiatValue: boolean;
+};
+
+function AssetBalanceText({
+  asset,
+  currencySymbol,
+  showFiatValue,
+}: IAssetBalanceTextProps) {
+  return (
+    <XStack alignItems="baseline" flexWrap="wrap" minWidth={0}>
+      <NumberSizeableTextWrapper
+        hideValue
+        size="$bodyMd"
+        formatter="balance"
+        formatterOptions={{ tokenSymbol: asset.symbol }}
+        numberOfLines={1}
+        fontVariant={TABULAR_NUMS}
+      >
+        {asset.amount}
+      </NumberSizeableTextWrapper>
+      {showFiatValue ? (
+        <>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {' ('}
+          </SizableText>
+          <NumberSizeableTextWrapper
+            hideValue
+            size="$bodyMd"
+            color="$textSubdued"
+            formatter="value"
+            formatterOptions={{ currency: currencySymbol }}
+            numberOfLines={1}
+            fontVariant={TABULAR_NUMS}
+          >
+            {asset.value}
+          </NumberSizeableTextWrapper>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            )
+          </SizableText>
+        </>
+      ) : null}
+    </XStack>
+  );
+}
 
 type IProtocolUnifiedTableProps = {
   rows: IProtocolUnifiedRow[];
@@ -166,6 +218,8 @@ const ProtocolUnifiedTable = memo(
             0,
             row.primaryAssets.length - MAX_BALANCE_LINES,
           );
+          const showBalanceAssetValues =
+            showRewardsColumn || row.primaryAssets.length > 1;
           const positionAvatars = row.primaryAssets.map((asset) => ({
             logoUrl: asset.meta?.logoUrl,
           }));
@@ -199,17 +253,12 @@ const ProtocolUnifiedTable = memo(
                 pt="$1"
               >
                 {visibleBalanceAssets.map((asset, assetIndex) => (
-                  <NumberSizeableTextWrapper
+                  <AssetBalanceText
                     key={`${row.rowKey}-balance-${asset.address}-${assetIndex}`}
-                    hideValue
-                    size="$bodyMd"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: asset.symbol }}
-                    numberOfLines={1}
-                    fontVariant={TABULAR_NUMS}
-                  >
-                    {asset.amount}
-                  </NumberSizeableTextWrapper>
+                    asset={asset}
+                    currencySymbol={currencySymbol}
+                    showFiatValue={showBalanceAssetValues}
+                  />
                 ))}
                 {balanceOverflow > 0 ? (
                   // Compact ghost button. Sits flush-left in the Balance
