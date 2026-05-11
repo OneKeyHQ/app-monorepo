@@ -27,6 +27,16 @@ function FeaturedMedia({
       borderBottomWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
     >
+      {/* Loading placeholder behind the media. Image overlays it via the
+          Image component's own loading machinery; Video covers it once the
+          first frame paints (web HTMLVideoElement / native react-native-video). */}
+      <Skeleton
+        position="absolute"
+        top={0}
+        left={0}
+        width="100%"
+        height="100%"
+      />
       {feature.mediaType === 'video' ? (
         <Video
           key={feature.mediaUrl}
@@ -41,9 +51,9 @@ function FeaturedMedia({
           src={feature.mediaUrl}
           width="100%"
           height="100%"
+          contentFit="cover"
           resizeMode="cover"
           fallback={<Skeleton width="100%" height="100%" />}
-          skeleton={<Skeleton width="100%" height="100%" />}
         />
       )}
       {children}

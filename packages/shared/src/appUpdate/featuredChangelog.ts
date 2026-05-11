@@ -8,10 +8,13 @@ export interface IFeaturedItem {
   mediaType: 'image' | 'video';
   // CTA text — falls back to "Done" when absent
   ctaText?: string;
-  // CTA action — same pattern as IWalletBanner
+  // CTA action — same pattern as IWalletBanner. When `mode` is set, `payload`
+  // carries the URL/payload string and is dispatched via parseNotificationPayload.
+  // When `mode` is absent, `href` + `hrefType` drive a simpler external/internal split.
   href?: string;
   hrefType?: 'internal' | 'external';
   mode?: ENotificationPushMessageMode;
+  payload?: string;
 }
 
 export interface IFeaturedChangelog {
@@ -78,6 +81,7 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
     href: optionalTrimmedString(src.href),
     hrefType,
     mode,
+    payload: optionalTrimmedString(src.payload),
   };
 }
 

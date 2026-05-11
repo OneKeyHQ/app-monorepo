@@ -21,7 +21,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -54,17 +53,23 @@ function isAllowedHref(href: string | undefined): href is string {
 }
 
 function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
-  const href = activeFeature?.href;
-  if (!isAllowedHref(href)) return;
-  if (activeFeature?.hrefType === 'external') {
-    openUrlExternal(href);
+  if (!activeFeature) return;
+  // Mode-driven dispatch (IWalletBanner pattern): payload carries the URL.
+  if (activeFeature.mode !== undefined) {
+    parseNotificationPayload(activeFeature.mode, activeFeature.payload, () => {
+      if (isAllowedHref(activeFeature.href)) {
+        handleDeepLinkUrl({ url: activeFeature.href });
+      }
+    });
     return;
   }
-  parseNotificationPayload(
-    activeFeature?.mode ?? ENotificationPushMessageMode.openInBrowser,
-    href,
-    () => handleDeepLinkUrl({ url: href }),
-  );
+  // No mode → fall back to href + hrefType.
+  if (!isAllowedHref(activeFeature.href)) return;
+  if (activeFeature.hrefType === 'external') {
+    openUrlExternal(activeFeature.href);
+  } else {
+    handleDeepLinkUrl({ url: activeFeature.href });
+  }
 }
 
 function useFeaturedCta({

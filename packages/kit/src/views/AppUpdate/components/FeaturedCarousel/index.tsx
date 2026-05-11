@@ -285,6 +285,13 @@ export function FeaturedCarousel({
     height: heightSpring.value,
   }));
 
+  // Total carousel height drives the outer wrapper's explicit pixel height so
+  // the dialog frame transitions smoothly on desktop (Tamagui's TMDialog.Content
+  // doesn't animate height changes when child layout reflows naturally).
+  const totalHeightStyle = useAnimatedStyle(() => ({
+    height: MEDIA_HEIGHT + heightSpring.value,
+  }));
+
   // Render window: activeIndex ± 1 (3 slides max)
   const renderIndices = [activeIndex - 1, activeIndex, activeIndex + 1].filter(
     (i) => i >= 0 && i < features.length,
@@ -342,7 +349,7 @@ export function FeaturedCarousel({
   }
 
   return (
-    <Stack onLayout={onContainerLayout}>
+    <Animated.View onLayout={onContainerLayout} style={totalHeightStyle}>
       {/* Media region: fixed height, slides absolutely positioned */}
       <GestureDetector gesture={panGesture}>
         <Stack height={MEDIA_HEIGHT} position="relative" overflow="hidden">
@@ -413,6 +420,6 @@ export function FeaturedCarousel({
           />
         ))}
       </Animated.View>
-    </Stack>
+    </Animated.View>
   );
 }
