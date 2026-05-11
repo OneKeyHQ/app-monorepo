@@ -263,6 +263,17 @@ export function FeaturedCarousel({
     },
   );
 
+  // If features shrinks below the current activeIndex (e.g., a refetch while
+  // the dialog is open), clamp before reading. Without this, both the indicator
+  // and the visible slide can drift out of sync (progress stays past max).
+  useEffect(() => {
+    if (features.length > 0 && activeIndex >= features.length) {
+      const lastIdx = features.length - 1;
+      setActiveIndex(lastIdx);
+      progress.value = lastIdx;
+    }
+  }, [features.length, activeIndex, progress]);
+
   // Notify parent on active change
   useEffect(() => {
     const feature = features[activeIndex];

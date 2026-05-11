@@ -51,39 +51,46 @@ function optionalTrimmedString(value: unknown): string | undefined {
 
 function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
-  const src = raw as Partial<IFeaturedItem>;
+  // Record<string, unknown> is honest about untrusted input — every field is
+  // validated below. Casting to Partial<IFeaturedItem> would imply present
+  // fields already have the right type, which we cannot trust.
+  const src = raw as Record<string, unknown>;
 
   const tabLabel = optionalTrimmedString(src.tabLabel);
   const mediaUrl = optionalTrimmedString(src.mediaUrl);
   if (!tabLabel || !mediaUrl) return undefined;
 
-  if (src.mediaType !== 'image' && src.mediaType !== 'video') return undefined;
+  const mediaType = src.mediaType;
+  if (mediaType !== 'image' && mediaType !== 'video') return undefined;
 
+  const rawHrefType = src.hrefType;
   const hrefType =
-    src.hrefType === 'internal' || src.hrefType === 'external'
-      ? src.hrefType
+    rawHrefType === 'internal' || rawHrefType === 'external'
+      ? rawHrefType
       : undefined;
 
+  const rawMode = src.mode;
   const mode =
-    typeof src.mode === 'number' && VALID_MODE_VALUES.has(src.mode)
-      ? src.mode
+    typeof rawMode === 'number' && VALID_MODE_VALUES.has(rawMode)
+      ? (rawMode as ENotificationPushMessageMode)
       : undefined;
+
+  const rawUseSystemBrowser = src.useSystemBrowser;
+  const useSystemBrowser =
+    typeof rawUseSystemBrowser === 'boolean' ? rawUseSystemBrowser : undefined;
 
   return {
     tabLabel,
     title: optionalTrimmedString(src.title),
     description: optionalTrimmedString(src.description),
     mediaUrl,
-    mediaType: src.mediaType,
+    mediaType,
     ctaText: optionalTrimmedString(src.ctaText),
     href: optionalTrimmedString(src.href),
     hrefType,
     mode,
     payload: optionalTrimmedString(src.payload),
-    useSystemBrowser:
-      typeof src.useSystemBrowser === 'boolean'
-        ? src.useSystemBrowser
-        : undefined,
+    useSystemBrowser,
   };
 }
 
@@ -91,7 +98,7 @@ export function normalizeFeaturedChangelog(
   raw: unknown,
 ): IFeaturedChangelog | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
-  const src = raw as Partial<IFeaturedChangelog>;
+  const src = raw as Record<string, unknown>;
 
   const version = optionalTrimmedString(src.version);
   if (!version || !Array.isArray(src.features)) return undefined;
