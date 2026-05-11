@@ -45,11 +45,7 @@ function FeaturedFooter({
 
   if (md) {
     return (
-      <YStack
-        px="$5"
-        gap="$4"
-        paddingBottom={paddingBottom ? paddingBottom + 20 : undefined}
-      >
+      <YStack px="$5" gap="$4" paddingBottom={paddingBottom + 20}>
         <Button size="large" variant="primary" onPress={onCtaPress}>
           {ctaText}
         </Button>

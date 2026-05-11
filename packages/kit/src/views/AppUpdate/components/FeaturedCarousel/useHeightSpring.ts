@@ -11,6 +11,9 @@ import { interpolateHeight } from './interpolateHeight';
 import type { SharedValue } from 'react-native-reanimated';
 
 const ESTIMATED_FALLBACK_HEIGHT = 100;
+// progress is treated as "settled on a slide" within this tolerance, so we
+// snap instead of spring (avoids slow catch-up on layout-driven re-measures).
+const PROGRESS_SNAP_TOLERANCE = 0.01;
 
 interface IUseHeightSpringParams {
   progress: SharedValue<number>;
@@ -47,9 +50,10 @@ export function useHeightSpring({
       // progress is animating between slides and the height genuinely needs
       // to ease from one slide's measured height to the next.
       const isStableProgress =
-        Math.abs(progress.value - Math.round(progress.value)) < 0.01;
+        Math.abs(progress.value - Math.round(progress.value)) <
+        PROGRESS_SNAP_TOLERANCE;
       if (isStableProgress) {
-        heightSpring.value = target;
+        if (heightSpring.value !== target) heightSpring.value = target;
         return;
       }
       if (prev !== null && Math.abs(target - prev) < 1) return;

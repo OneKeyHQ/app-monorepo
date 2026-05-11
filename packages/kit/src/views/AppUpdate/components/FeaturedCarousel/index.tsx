@@ -340,8 +340,10 @@ export function FeaturedCarousel({
               isActive={i === activeIndex}
             />
           ))}
-          {/* Top scrim so the badge + close button stay readable on bright
-              or low-contrast media. Subtle dark gradient fading to transparent. */}
+          {/* Top scrim covers the badge + close-button zone so the chrome
+              stays readable on bright or low-contrast media. The $blackA* /
+              $whiteA* tokens are theme-independent absolutes — appropriate
+              here because this chrome sits over arbitrary media, not theme. */}
           <LinearGradient
             pointerEvents="none"
             position="absolute"
@@ -349,7 +351,7 @@ export function FeaturedCarousel({
             left={0}
             right={0}
             height={80}
-            colors={['rgba(0,0,0,0.5)', 'transparent']}
+            colors={['$blackA7', 'transparent']}
           />
           <Badge
             position="absolute"
@@ -357,9 +359,9 @@ export function FeaturedCarousel({
             left="$5"
             badgeType="default"
             badgeSize="sm"
-            bg="rgba(255,255,255,0.2)"
+            bg="$whiteA4"
           >
-            <Badge.Text color="rgba(255,255,255,0.92)">{badgeText}</Badge.Text>
+            <Badge.Text color="$whiteA12">{badgeText}</Badge.Text>
           </Badge>
           {showCloseButton ? (
             <IconButton
@@ -369,14 +371,10 @@ export function FeaturedCarousel({
               icon="CrossedSmallOutline"
               size="small"
               onPress={onClose}
-              bg="rgba(255,255,255,0.2)"
-              hoverStyle={{ bg: 'rgba(255,255,255,0.28)' }}
-              pressStyle={{ bg: 'rgba(255,255,255,0.32)' }}
-              // Cast: iconProps.color is typed as ColorTokens, but Tamagui
-              // forwards any color string to the underlying SVG fill at
-              // runtime. We need a hardcoded white-alpha that doesn't follow
-              // the theme (this chrome sits on top of arbitrary media).
-              iconProps={{ color: 'rgba(255,255,255,0.8)' as never }}
+              bg="$whiteA4"
+              hoverStyle={{ bg: '$whiteA5' }}
+              pressStyle={{ bg: '$whiteA6' }}
+              iconProps={{ color: '$whiteA10' }}
             />
           ) : null}
           <FeaturedIndicator
