@@ -1922,6 +1922,7 @@
   "global.private_key_copy_check": "I’ve known my private key provides full access to my assets",
   "global.private_key_copy_information": "Never disclose this key. Anyone with your private keys can steal any assets held in your account.",
   "global.private_key_error": "This account does not have a {network} {path} address yet. Please create one to continue.",
+  "global.pro2_debug": "Pro2 Debug",
   "global.process": "Process",
   "global.processing": "Processing",
   "global.profit": "Profit",

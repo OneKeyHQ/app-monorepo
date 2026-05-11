@@ -138,6 +138,20 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
 
   return useMemo(() => {
     const tabs = [
+      platformEnv.isNative
+        ? {
+            name: ETabRoutes.Pro2Debug,
+            tabBarIcon: (focused?: boolean) =>
+              focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
+            translationId: ETranslations.global_pro2_debug,
+            nativeTabBarIcon: nativeTabIcons.pro2Debug,
+            freezeOnBlur: Boolean(params?.freezeOnBlur),
+            rewrite: '/pro2-debug',
+            exact: true,
+            children: pro2DebugRouters,
+            trackId: 'global-pro2-debug',
+          }
+        : undefined,
       {
         name: ETabRoutes.Home,
         tabBarIcon: (focused?: boolean) =>
@@ -238,7 +252,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       !platformEnv.isNative ? referFriendsTabConfig : undefined,
       isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
       isShowDesktopDiscover ? getDiscoverRouterConfig(params) : undefined,
-      platformEnv.isDev
+      platformEnv.isDev && !platformEnv.isNative
         ? {
             name: ETabRoutes.Developer,
             tabBarIcon: (focused?: boolean) =>
@@ -250,20 +264,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             exact: true,
             children: developerRouters,
             trackId: 'global-dev',
-          }
-        : undefined,
-      platformEnv.isNative
-        ? {
-            name: ETabRoutes.Pro2Debug,
-            tabBarIcon: (focused?: boolean) =>
-              focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
-            translationId: ETranslations.global_dev_mode,
-            nativeTabBarIcon: nativeTabIcons.pro2Debug,
-            freezeOnBlur: Boolean(params?.freezeOnBlur),
-            rewrite: '/pro2-debug',
-            exact: true,
-            children: pro2DebugRouters,
-            trackId: 'global-pro2-debug',
           }
         : undefined,
     ].filter((i) => !!i);

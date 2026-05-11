@@ -1922,6 +1922,7 @@
   "global.private_key_copy_check": "我知道我的私钥能够完全控制我的资产",
   "global.private_key_copy_information": "切勿泄露此密钥。任何拥有您的私钥的人都可以窃取您账户中的任何资产。",
   "global.private_key_error": "此账户尚未拥有 {network} {path} 地址，请创建一个以继续。",
+  "global.pro2_debug": "Pro2 调试",
   "global.process": "进程",
   "global.processing": "处理中",
   "global.profit": "利润",

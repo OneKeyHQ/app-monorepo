@@ -428,7 +428,7 @@ export default function TabPro2Debug() {
           px="$5"
           contentContainerStyle={{ paddingBottom: tabBarHeight ?? 24 }}
         >
-          <YStack gap="$5" py="$4">
+          <YStack gap="$5" pt="$16" pb="$4">
             <Section title="Device">
               <XStack gap="$2" flexWrap="wrap">
                 <Button

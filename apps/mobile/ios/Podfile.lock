@@ -4763,7 +4763,7 @@ DEPENDENCIES:
   - SocketRocket (~> 0.7.1)
   - "SplitBundleLoader (from `../../../node_modules/@onekeyfe/react-native-split-bundle-loader`)"
   - TcpSocket (from `../../../node_modules/react-native-tcp-socket`)
-  - TOCropViewController (from `https://raw.githubusercontent.com/OneKeyHQ/app-modules/main/native-views/TOCropViewController/TOCropViewController.podspec`)
+  - TOCropViewController (from `./TOCropViewControllerLocal`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
   - ZipArchive (from `../../../node_modules/react-native-zip-archive`)
 
@@ -5137,16 +5137,11 @@ EXTERNAL SOURCES:
   TcpSocket:
     :path: "../../../node_modules/react-native-tcp-socket"
   TOCropViewController:
-    :podspec: https://raw.githubusercontent.com/OneKeyHQ/app-modules/main/native-views/TOCropViewController/TOCropViewController.podspec
+    :path: "./TOCropViewControllerLocal"
   Yoga:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
   ZipArchive:
     :path: "../../../node_modules/react-native-zip-archive"
-
-CHECKOUT OPTIONS:
-  TOCropViewController:
-    :commit: 2ba1a0b5a55fd9f678abbcb44a55cc5d5bcd5380
-    :git: https://github.com/OneKeyHQ/app-modules.git
 
 SPEC CHECKSUMS:
   AesCrypto: 2a30b9b46c2d6e2dc36ef6f32ef7eaa6398d5767
@@ -5343,11 +5338,11 @@ SPEC CHECKSUMS:
   SplitBundleLoader: f54ccbdc6913c22ccc82a5dab79db2586d1ad1f5
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
   TcpSocket: d41058ec30d090dc526f279b3715587112eead7d
-  TOCropViewController: f7863f38e4c5f45a5db9b52c4a2cc759a61ab550
+  TOCropViewController: d252de7b8699f612738154bd11f5e4060d65a0fe
   Yoga: 728df40394d49f3f471688747cf558158b3a3bd1
   ZipArchive: d295729cac53de9169c85a4a24a63292fa063b93
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 2430ff9e6b7aa2cc39982650e3ad77e67fc8093d
+PODFILE CHECKSUM: 3241a760b905eb20f4e11f8d2193a19b73b25941
 
 COCOAPODS: 1.16.2

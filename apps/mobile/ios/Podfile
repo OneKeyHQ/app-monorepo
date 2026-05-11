@@ -114,7 +114,7 @@ target 'OneKeyWallet' do
   pod 'EMASCurl', :modular_headers => true
 
   # Use patched TOCropViewController with rotation crop-box shrink fix (OK-51551)
-  pod 'TOCropViewController', :podspec => 'https://raw.githubusercontent.com/OneKeyHQ/app-modules/main/native-views/TOCropViewController/TOCropViewController.podspec'
+  pod 'TOCropViewController', :path => './TOCropViewControllerLocal'
 
   # Manually add RNGoogleSignin pod (expo-module.config.json only includes the Expo adapter, not the TurboModule)
   # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'
