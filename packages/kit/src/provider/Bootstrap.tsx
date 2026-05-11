@@ -72,12 +72,12 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../components/AccountSelector';
-import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import {
   AppUpdateForeground,
   isAutoUpdateStrategy,
   useAppUpdateInfo,
 } from '../components/AppUpdate';
+import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
