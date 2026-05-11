@@ -190,7 +190,7 @@ export function usePerpFundingHistory(
     [coin, range],
     {
       watchLoading: true,
-      pollingInterval: 60 * 1000,
+      pollingInterval: coin ? 60 * 1000 : undefined,
       initResult: [],
       undefinedResultIfError: true,
     },
@@ -210,7 +210,7 @@ export function usePerpRecentTrades(coin?: string) {
     [coin],
     {
       watchLoading: true,
-      pollingInterval: 3 * 1000,
+      pollingInterval: coin ? 3 * 1000 : undefined,
       initResult: [],
       undefinedResultIfError: true,
     },
@@ -230,7 +230,7 @@ export function usePerpPredictedFundings(coin?: string) {
     [coin],
     {
       watchLoading: true,
-      pollingInterval: 60 * 1000,
+      pollingInterval: coin ? 60 * 1000 : undefined,
       initResult: [],
       undefinedResultIfError: true,
     },

@@ -229,9 +229,11 @@ function MobilePerpMarket() {
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
   const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>('orderbook');
+  const shouldLoadMarketDetail = activeTab === 'info';
+  const marketDetailDisplayName = mode === 'spot' ? baseName : displayName;
   const resolvedMarketDetail = usePerpResolvedMarketDetail({
-    coin: activeTradeInstrument.coin,
-    displayName: mode === 'spot' ? baseName : displayName,
+    coin: shouldLoadMarketDetail ? activeTradeInstrument.coin : undefined,
+    displayName: shouldLoadMarketDetail ? marketDetailDisplayName : undefined,
   });
 
   const onPressTokenSelector = useCallback(() => {
@@ -344,7 +346,7 @@ function MobilePerpMarket() {
     () => (
       <PerpMarketIntroContent
         coin={activeTradeInstrument.coin}
-        displayName={mode === 'spot' ? baseName : displayName}
+        displayName={marketDetailDisplayName}
         enabled={activeTab === 'info'}
         resolvedMarketDetail={resolvedMarketDetail}
       />
@@ -352,9 +354,7 @@ function MobilePerpMarket() {
     [
       activeTab,
       activeTradeInstrument.coin,
-      baseName,
-      displayName,
-      mode,
+      marketDetailDisplayName,
       resolvedMarketDetail,
     ],
   );

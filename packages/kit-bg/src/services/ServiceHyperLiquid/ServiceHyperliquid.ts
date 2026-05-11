@@ -240,9 +240,9 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   private resolveInfoRequestCoin(coin: string) {
-    const { displayName, dexLabel } = parseDexCoin(coin);
+    const { dexLabel } = parseDexCoin(coin);
     return {
-      apiCoin: displayName,
+      apiCoin: coin,
       dex: dexLabel,
     };
   }
