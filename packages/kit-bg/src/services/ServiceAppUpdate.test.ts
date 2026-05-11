@@ -1017,7 +1017,9 @@ describe('ServiceAppUpdate state transitions', () => {
       resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
 
       // First call passes — cooldown consumed.
-      expect(await service.shouldResumeStalledDownload()).toBe('downloadPackage');
+      expect(await service.shouldResumeStalledDownload()).toBe(
+        'downloadPackage',
+      );
 
       // Second call <30s later is rejected even though status is still
       // eligible. Mirrors the AppState 'change' burst that fires multiple
@@ -1026,7 +1028,9 @@ describe('ServiceAppUpdate state transitions', () => {
 
       // Past the cooldown — passes again.
       await jest.advanceTimersByTimeAsync(30_000);
-      expect(await service.shouldResumeStalledDownload()).toBe('downloadPackage');
+      expect(await service.shouldResumeStalledDownload()).toBe(
+        'downloadPackage',
+      );
     });
 
     test('cooldown is consumed only when the call returns a step', async () => {
@@ -1037,7 +1041,9 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(await service.shouldResumeStalledDownload()).toBeNull();
 
       resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
-      expect(await service.shouldResumeStalledDownload()).toBe('downloadPackage');
+      expect(await service.shouldResumeStalledDownload()).toBe(
+        'downloadPackage',
+      );
     });
 
     test('concurrent callers race-safely: only one passes the gate', async () => {

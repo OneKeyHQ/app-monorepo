@@ -9,6 +9,7 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
+import { isNativeTablet } from '@onekeyhq/components';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
@@ -69,6 +70,7 @@ import {
   MenuBarTrayListItem,
   ResetAppListItem,
   ResetPinListItem,
+  SplitViewListItem,
   ThemeListItem,
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
@@ -358,6 +360,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.settings_menu_bar_tray_desc,
                   }),
                   renderElement: <MenuBarTrayListItem />,
+                }
+              : undefined,
+          ],
+          [
+            isNativeTablet()
+              ? {
+                  icon: 'LayoutColumnOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_split_view,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_split_view_desc,
+                  }),
+                  renderElement: <SplitViewListItem />,
                 }
               : undefined,
           ],

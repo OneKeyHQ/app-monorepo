@@ -328,6 +328,8 @@
   "check_my_deviceLabel": "Check my {deviceLabel}",
   "clear_build_in_networks_data": "Build-in networks",
   "click_below_to_copy": "Click Below to Copy",
+  "clipboard_copy_may_fail__msg": "Your device may restrict clipboard access. Please check clipboard permissions in your device settings.",
+  "clipboard_copy_may_fail__title": "Copy may not be working",
   "clipboard_read__desc": "This site wants to read your clipboard content",
   "clipboard_read__title": "Read Clipboard",
   "clipboard_remember__action": "Remember for This Site",

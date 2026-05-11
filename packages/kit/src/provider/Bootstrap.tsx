@@ -72,6 +72,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../components/AccountSelector';
+import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import {
   AppUpdateForeground,
   isAutoUpdateStrategy,
@@ -891,6 +892,7 @@ export function Bootstrap() {
           per-mount useEffect that previously lived in
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
+      <SplitViewPrompt />
       {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}
     </>
   );
