@@ -19,6 +19,8 @@ export function computeTargetIndex({
   velocityX,
   count,
 }: IComputeTargetIndexParams): number {
+  'worklet';
+
   const maxIndex = Math.max(count - 1, 0);
   const clamp = (n: number) => Math.max(0, Math.min(maxIndex, n));
 
