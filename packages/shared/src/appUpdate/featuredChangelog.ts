@@ -42,6 +42,20 @@ const VALID_MODE_VALUES = new Set<number>([
   ENotificationPushMessageMode.command,
 ]);
 
+// Modes whose `payload` is a URL the runtime dispatches to. These payloads
+// must clear the same allowlist as `href`; the JSON-payload modes (page /
+// dialog / command) parse their payload server-side and aren't URL targets.
+const URL_PAYLOAD_MODES = new Set<number>([
+  ENotificationPushMessageMode.openInBrowser,
+  ENotificationPushMessageMode.openInApp,
+  ENotificationPushMessageMode.openInDapp,
+]);
+
+// Cap the visible features. The UI / spec is designed for 1-3; an oversized
+// list would flood the indicator and leave force-update users stuck in an
+// unwieldy blocker.
+const MAX_FEATURED_ITEMS = 3;
+
 function optionalTrimmedString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -100,6 +114,17 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
   const rawHref = optionalTrimmedString(src.href);
   const href = isAllowedFeaturedHref(rawHref) ? rawHref : undefined;
 
+  // For URL-class modes the payload IS the dispatch target; gate it on the
+  // same allowlist as href. JSON-payload modes (page/dialog/command) keep the
+  // trimmed payload as-is because parseNotificationPayload JSON.parses it.
+  const rawPayload = optionalTrimmedString(src.payload);
+  const payload =
+    mode !== undefined &&
+    URL_PAYLOAD_MODES.has(mode) &&
+    !isAllowedFeaturedHref(rawPayload)
+      ? undefined
+      : rawPayload;
+
   return {
     title: optionalTrimmedString(src.title),
     description: optionalTrimmedString(src.description),
@@ -109,7 +134,7 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
     href,
     hrefType,
     mode,
-    payload: optionalTrimmedString(src.payload),
+    payload,
   };
 }
 
@@ -124,7 +149,8 @@ export function normalizeFeaturedChangelog(
 
   const features = src.features
     .map((f) => normalizeFeaturedItem(f))
-    .filter((f): f is IFeaturedItem => f !== undefined);
+    .filter((f): f is IFeaturedItem => f !== undefined)
+    .slice(0, MAX_FEATURED_ITEMS);
 
   if (features.length === 0) return undefined;
 
