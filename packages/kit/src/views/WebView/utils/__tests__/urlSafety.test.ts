@@ -137,6 +137,21 @@ describe('isAllowedWebViewUrl', () => {
     });
   });
 
+  describe('rejects punycode / IDN homograph hostnames', () => {
+    it.each([
+      // Raw punycode (xn--…) — exact form an attacker would put on the wire.
+      ['https://xn--s7y.co/'], // 短 a-with-acute
+      ['https://xn--fiq228c.com/'], // generic punycode
+      // Unicode/IDN homographs that V8 normalizes to xn-- and Hermes keeps as
+      // Unicode; either way `containsPunycode` flags both directions.
+      ['https://аррӏе.com/'], // Cyrillic look-alike of "apple.com"
+      ['https://新华网.cn/'], // Han script
+      ['https://例え.テスト/'], // mixed Han + Kana
+    ])('%s', (url) => {
+      expect(isAllowedWebViewUrl(url)).toBe(false);
+    });
+  });
+
   describe('rejects direct-download URLs', () => {
     it.each([
       ['https://example.com/installer.zip'],

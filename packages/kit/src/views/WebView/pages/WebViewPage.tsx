@@ -18,6 +18,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import AddressBar from '../components/AddressBar';
 import WebViewHeader from '../components/Header';
 import ProgressBar from '../components/ProgressBar';
+import { resolveOverlayDisplay } from '../utils/displayPolicy';
 import { isAllowedWebViewUrl } from '../utils/urlSafety';
 
 import type { WebView as ReactNativeWebView } from 'react-native-webview';
@@ -260,20 +261,40 @@ function WebViewPageContent() {
     openUrlExternal(targetUrl);
   }, []);
 
-  // Address bar is hidden by default — opt-in via params.showAddressBar.
-  const showAddressBar = params.showAddressBar === true;
+  // External entries (deeplink / notification) cannot suppress the header,
+  // pass a caller-supplied title, or hide the address bar — those params are
+  // untrusted and would otherwise enable header / title spoofing of any
+  // https page. See `resolveOverlayDisplay` for the rule.
+  const display = useMemo(
+    () =>
+      resolveOverlayDisplay({
+        source: params.source,
+        title: params.title,
+        hideHeader: params.hideHeader,
+        showAddressBar: params.showAddressBar,
+      }),
+    [params.source, params.title, params.hideHeader, params.showAddressBar],
+  );
+
+  const showAddressBar = display.showAddressBar;
 
   const headerNode = useMemo(
     () => (
       <WebViewHeader
         url={currentUrl}
         title={currentTitle}
-        fallbackTitle={params.title}
-        hidden={Boolean(params.hideHeader)}
+        fallbackTitle={display.fallbackTitle}
+        hidden={display.hideHeader}
         onReload={handleReload}
       />
     ),
-    [currentTitle, currentUrl, handleReload, params.hideHeader, params.title],
+    [
+      currentTitle,
+      currentUrl,
+      display.fallbackTitle,
+      display.hideHeader,
+      handleReload,
+    ],
   );
 
   // Desktop: render the body as a rounded card so its top edge curves out of

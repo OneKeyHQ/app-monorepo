@@ -9,6 +9,8 @@
  * All checks fail closed (silent reject; never throws).
  */
 
+import { containsPunycode } from '@onekeyhq/shared/src/utils/uriUtils';
+
 const HTTPS_REGEX = /^https:\/\//i;
 const MAX_URL_LENGTH = 2048;
 const IPV4_REGEX = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -125,6 +127,11 @@ function isLocalAddress(host: string): boolean {
  *      (`.zip`, `.exe`, `.dmg`, `.apk`, `.ipa`, `.iso`, etc.). Documents and
  *      media files are still allowed because mobile webviews render them
  *      inline.
+ *   8. Host must NOT contain punycode / Unicode IDN characters. Mixes the
+ *      same defense Discovery's `validateWebviewSrc` uses, blocking visually
+ *      confusable lookalike domains (raw `xn--…` punycode or any non-ASCII
+ *      script that decodes to an ASCII-looking domain) that would otherwise
+ *      pass every other check.
  */
 export function isAllowedWebViewUrl(url: string | undefined | null): boolean {
   if (typeof url !== 'string') return false;
@@ -142,6 +149,8 @@ export function isAllowedWebViewUrl(url: string | undefined | null): boolean {
   if (!ALLOWED_PORTS.has(parsed.port)) return false;
   if (isLocalAddress(parsed.hostname)) return false;
   if (isLikelyDownloadPath(parsed.pathname)) return false;
+  // Heavier check last — relies on URL parsing + IDN normalization tables.
+  if (containsPunycode(url)) return false;
 
   return true;
 }
