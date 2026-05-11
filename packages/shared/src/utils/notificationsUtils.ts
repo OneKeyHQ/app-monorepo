@@ -264,6 +264,23 @@ export function parseNotificationPayload(
     case ENotificationPushMessageMode.page:
       try {
         const payloadObj = JSON.parse(payload || '');
+        // When mode=page targets the WebView overlay, apply the same URL safety
+        // and source enforcement as mode=openInApp to prevent policy bypass.
+        // Without this guard an attacker could craft a page payload that routes
+        // to ERootRoutes.WebView with an http://, local-address, or userinfo URL
+        // and omits source:'notification', skipping resolveOverlayDisplay checks.
+        if (payloadObj.screen === ERootRoutes.WebView) {
+          // Traverse to the leaf params (same logic as navigateToNotificationDetailByLocalParams).
+          let leaf: Record<string, unknown> = payloadObj.params ?? {};
+          while (leaf.params && typeof leaf.params === 'object') {
+            leaf = leaf.params as Record<string, unknown>;
+          }
+          const url = typeof leaf.url === 'string' ? leaf.url : null;
+          if (!url || !isAllowedWebViewUrl(url)) break;
+          // Force source so resolveOverlayDisplay enforces notification-entry
+          // display restrictions (hides attacker-supplied title, etc.).
+          leaf.source = 'notification';
+        }
         appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
           payload: payloadObj,
           extras,

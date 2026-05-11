@@ -77,6 +77,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       allowingReadAccessToURL,
       onError,
       onHttpError,
+      disableBridge,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -202,7 +203,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           ref={setWebViewRef}
           src={src}
           onSrcChange={onSrcChange}
-          receiveHandler={receiveHandler}
+          receiveHandler={disableBridge ? undefined : receiveHandler}
+          disableBridge={disableBridge}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
           onLoadProgress={({ nativeEvent }) => {
             const p = Math.ceil(nativeEvent.progress * 100);
