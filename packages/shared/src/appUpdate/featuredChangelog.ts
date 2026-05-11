@@ -1,4 +1,5 @@
 import { ENotificationPushMessageMode } from '../../types/notification';
+import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
 
 export interface IFeaturedItem {
   title?: string;
@@ -47,6 +48,28 @@ function optionalTrimmedString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+// Featured Changelog is a high-trust update surface: media is rendered
+// directly and CTAs can open external content. Enforce HTTPS for media and
+// for CTA URLs that open externally; allow OneKey deep links for in-app
+// navigation. Keep this list in sync with isAllowedHref in the dialog.
+const ALLOWED_HREF_PROTOCOLS = new Set([
+  'https:',
+  `${ONEKEY_APP_DEEP_LINK_NAME}:`,
+  'onekey:',
+]);
+
+function isHttps(url: string): boolean {
+  return url.startsWith('https://');
+}
+
+function hasAllowedHrefProtocol(url: string): boolean {
+  try {
+    return ALLOWED_HREF_PROTOCOLS.has(new URL(url).protocol);
+  } catch {
+    return false;
+  }
+}
+
 function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   // Record<string, unknown> is honest about untrusted input — every field is
@@ -55,7 +78,7 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
   const src = raw as Record<string, unknown>;
 
   const mediaUrl = optionalTrimmedString(src.mediaUrl);
-  if (!mediaUrl) return undefined;
+  if (!mediaUrl || !isHttps(mediaUrl)) return undefined;
 
   const mediaType = src.mediaType;
   if (mediaType !== 'image' && mediaType !== 'video') return undefined;
@@ -72,13 +95,16 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
       ? (rawMode as ENotificationPushMessageMode)
       : undefined;
 
+  const rawHref = optionalTrimmedString(src.href);
+  const href = rawHref && hasAllowedHrefProtocol(rawHref) ? rawHref : undefined;
+
   return {
     title: optionalTrimmedString(src.title),
     description: optionalTrimmedString(src.description),
     mediaUrl,
     mediaType,
     ctaText: optionalTrimmedString(src.ctaText),
-    href: optionalTrimmedString(src.href),
+    href,
     hrefType,
     mode,
     payload: optionalTrimmedString(src.payload),

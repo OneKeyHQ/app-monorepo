@@ -39,9 +39,10 @@ export interface IShowFeaturedChangelogDialogParams {
   isPreInstall?: boolean;
 }
 
+// Defense-in-depth: matches the scheme allowlist the normalizer enforces.
+// HTTPS-only for external links, OneKey deep-link schemes for internal.
 const ALLOWED_HREF_SCHEMES = new Set([
   'https:',
-  'http:',
   `${ONEKEY_APP_DEEP_LINK_NAME}:`,
   'onekey:',
 ]);
@@ -57,16 +58,21 @@ function isAllowedHref(href: string | undefined): href is string {
 
 function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
   if (!activeFeature) return;
-  // Mode-driven dispatch (IWalletBanner pattern): payload carries the URL.
+  // Mode-driven dispatch (IWalletBanner pattern). payload is the canonical
+  // carrier for the URL/JSON; fall back to href so backends that only set
+  // href still work for the URL-opening modes.
   if (activeFeature.mode !== undefined) {
-    parseNotificationPayload(activeFeature.mode, activeFeature.payload, () => {
-      if (isAllowedHref(activeFeature.href)) {
-        handleDeepLinkUrl({ url: activeFeature.href });
-      }
-    });
+    parseNotificationPayload(
+      activeFeature.mode,
+      activeFeature.payload ?? activeFeature.href,
+      () => {
+        if (isAllowedHref(activeFeature.href)) {
+          handleDeepLinkUrl({ url: activeFeature.href });
+        }
+      },
+    );
     return;
   }
-  // No mode → fall back to href + hrefType.
   if (!isAllowedHref(activeFeature.href)) return;
   if (activeFeature.hrefType === 'external') {
     openUrlExternal(activeFeature.href);
@@ -77,10 +83,12 @@ function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
 
 function useFeaturedCta({
   isPreInstall,
+  isLocked,
   activeFeature,
   closeDialog,
 }: {
   isPreInstall: boolean;
+  isLocked: boolean;
   activeFeature: IFeaturedItem | undefined;
   closeDialog: () => Promise<void>;
 }) {
@@ -114,8 +122,10 @@ function useFeaturedCta({
   const onCtaPress = useCallback(async () => {
     if (isPreInstall) {
       if (shouldOpenStore && storeUrl) {
+        // Force-update: keep the dialog open so the user stays blocked after
+        // returning from the store. Non-blocking flows close as before.
         openUrlExternal(storeUrl);
-        await closeDialog();
+        if (!isLocked) await closeDialog();
         return;
       }
       if (downloadUrl || jsBundle?.downloadUrl) {
@@ -123,15 +133,18 @@ function useFeaturedCta({
           void downloadPackage();
         }
         await closeDialog();
-        // Wait for close animation before pushing the next modal
+        // Wait for close animation, then hand off to DownloadVerify. Pass
+        // isForceUpdate so DownloadVerify's usePreventRemove keeps the
+        // force-update blocker intact.
         setTimeout(() => {
           navigation.pushModal(EModalRoutes.AppUpdateModal, {
             screen: EAppUpdateRoutes.DownloadVerify,
+            params: { isForceUpdate: isLocked },
           });
         }, 300);
         return;
       }
-      await closeDialog();
+      if (!isLocked) await closeDialog();
       return;
     }
 
@@ -139,6 +152,7 @@ function useFeaturedCta({
     setTimeout(() => dispatchFeatureCta(activeFeature), 300);
   }, [
     isPreInstall,
+    isLocked,
     shouldOpenStore,
     storeUrl,
     downloadUrl,
@@ -171,6 +185,7 @@ function FeaturedChangelogContent({
 
   const { ctaText, onCtaPress } = useFeaturedCta({
     isPreInstall,
+    isLocked,
     activeFeature,
     closeDialog,
   });
