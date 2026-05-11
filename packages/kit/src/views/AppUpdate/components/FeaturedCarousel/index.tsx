@@ -341,9 +341,9 @@ export function FeaturedCarousel({
             />
           ))}
           {/* Top scrim covers the badge + close-button zone so the chrome
-              stays readable on bright or low-contrast media. The $blackA* /
-              $whiteA* tokens are theme-independent absolutes — appropriate
-              here because this chrome sits over arbitrary media, not theme. */}
+              stays readable on bright or low-contrast media. Raw rgba on
+              purpose: LinearGradient.colors is an array prop and Tamagui
+              does not resolve theme tokens inside it. */}
           <LinearGradient
             pointerEvents="none"
             position="absolute"
@@ -351,7 +351,7 @@ export function FeaturedCarousel({
             left={0}
             right={0}
             height={80}
-            colors={['$blackA7', 'transparent']}
+            colors={['rgba(0,0,0,0.5)', 'transparent']}
           />
           <Badge
             position="absolute"
