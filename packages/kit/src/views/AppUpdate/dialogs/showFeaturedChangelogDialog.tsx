@@ -7,7 +7,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 
-import { Dialog, Stack } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
   appUpdatePersistAtom,
@@ -18,9 +18,9 @@ import {
   EAppUpdateStatus,
   EUpdateFileType,
   getUpdateFileType,
+  isAllowedFeaturedHref,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate';
-import { ONEKEY_APP_DEEP_LINK_NAME } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -39,23 +39,6 @@ export interface IShowFeaturedChangelogDialogParams {
   isPreInstall?: boolean;
 }
 
-// Defense-in-depth: matches the scheme allowlist the normalizer enforces.
-// HTTPS-only for external links, OneKey deep-link schemes for internal.
-const ALLOWED_HREF_SCHEMES = new Set([
-  'https:',
-  `${ONEKEY_APP_DEEP_LINK_NAME}:`,
-  'onekey:',
-]);
-
-function isAllowedHref(href: string | undefined): href is string {
-  if (!href) return false;
-  try {
-    return ALLOWED_HREF_SCHEMES.has(new URL(href).protocol);
-  } catch {
-    return false;
-  }
-}
-
 function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
   if (!activeFeature) return;
   // Mode-driven dispatch (IWalletBanner pattern). payload is the canonical
@@ -66,14 +49,14 @@ function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
       activeFeature.mode,
       activeFeature.payload ?? activeFeature.href,
       () => {
-        if (isAllowedHref(activeFeature.href)) {
+        if (isAllowedFeaturedHref(activeFeature.href)) {
           handleDeepLinkUrl({ url: activeFeature.href });
         }
       },
     );
     return;
   }
-  if (!isAllowedHref(activeFeature.href)) return;
+  if (!isAllowedFeaturedHref(activeFeature.href)) return;
   if (activeFeature.hrefType === 'external') {
     openUrlExternal(activeFeature.href);
   } else {
@@ -120,12 +103,15 @@ function useFeaturedCta({
       intl.formatMessage({ id: ETranslations.global_done }));
 
   const onCtaPress = useCallback(async () => {
+    // Keep the dialog as the force-update blocker when there's no follow-on
+    // route to take over (store / no-action). The download branch closes
+    // because DownloadVerify takes over the blocker.
+    const closeIfUnlocked = isLocked ? () => undefined : closeDialog;
+
     if (isPreInstall) {
       if (shouldOpenStore && storeUrl) {
-        // Force-update: keep the dialog open so the user stays blocked after
-        // returning from the store. Non-blocking flows close as before.
         openUrlExternal(storeUrl);
-        if (!isLocked) await closeDialog();
+        await closeIfUnlocked();
         return;
       }
       if (downloadUrl || jsBundle?.downloadUrl) {
@@ -133,9 +119,6 @@ function useFeaturedCta({
           void downloadPackage();
         }
         await closeDialog();
-        // Wait for close animation, then hand off to DownloadVerify. Pass
-        // isForceUpdate so DownloadVerify's usePreventRemove keeps the
-        // force-update blocker intact.
         setTimeout(() => {
           navigation.pushModal(EModalRoutes.AppUpdateModal, {
             screen: EAppUpdateRoutes.DownloadVerify,
@@ -144,7 +127,7 @@ function useFeaturedCta({
         }, 300);
         return;
       }
-      if (!isLocked) await closeDialog();
+      await closeIfUnlocked();
       return;
     }
 
@@ -236,14 +219,13 @@ function FeaturedChangelogContent({
         onActiveFeatureChange={setActiveFeature}
         totalHeight={totalCarouselHeight}
       />
-      <Stack onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
-        <FeaturedFooter
-          ctaText={ctaText}
-          onCtaPress={() => void onCtaPress()}
-          showFullChangelog={!isLocked}
-          closeDialog={closeDialog}
-        />
-      </Stack>
+      <FeaturedFooter
+        ctaText={ctaText}
+        onCtaPress={() => void onCtaPress()}
+        showFullChangelog={!isLocked}
+        closeDialog={closeDialog}
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+      />
     </Animated.View>
   );
 }

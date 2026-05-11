@@ -51,8 +51,9 @@ function optionalTrimmedString(value: unknown): string | undefined {
 // Featured Changelog is a high-trust update surface: media is rendered
 // directly and CTAs can open external content. Enforce HTTPS for media and
 // for CTA URLs that open externally; allow OneKey deep links for in-app
-// navigation. Keep this list in sync with isAllowedHref in the dialog.
-const ALLOWED_HREF_PROTOCOLS = new Set([
+// navigation. Exported so the dialog's runtime dispatch reuses the same list
+// (defense in depth — no chance of the two lists drifting).
+export const ALLOWED_FEATURED_HREF_PROTOCOLS = new Set([
   'https:',
   `${ONEKEY_APP_DEEP_LINK_NAME}:`,
   'onekey:',
@@ -62,9 +63,10 @@ function isHttps(url: string): boolean {
   return url.startsWith('https://');
 }
 
-function hasAllowedHrefProtocol(url: string): boolean {
+export function isAllowedFeaturedHref(url: string | undefined): url is string {
+  if (!url) return false;
   try {
-    return ALLOWED_HREF_PROTOCOLS.has(new URL(url).protocol);
+    return ALLOWED_FEATURED_HREF_PROTOCOLS.has(new URL(url).protocol);
   } catch {
     return false;
   }
@@ -96,7 +98,7 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
       : undefined;
 
   const rawHref = optionalTrimmedString(src.href);
-  const href = rawHref && hasAllowedHrefProtocol(rawHref) ? rawHref : undefined;
+  const href = isAllowedFeaturedHref(rawHref) ? rawHref : undefined;
 
   return {
     title: optionalTrimmedString(src.title),

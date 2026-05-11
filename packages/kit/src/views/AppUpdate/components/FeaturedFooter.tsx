@@ -15,11 +15,14 @@ import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 interface IFeaturedFooterProps {
   ctaText: string;
   onCtaPress: () => void;
   showFullChangelog?: boolean;
   closeDialog: () => Promise<void>;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }
 
 function FeaturedFooter({
@@ -27,6 +30,7 @@ function FeaturedFooter({
   onCtaPress,
   showFullChangelog = true,
   closeDialog,
+  onLayout,
 }: IFeaturedFooterProps) {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -45,7 +49,12 @@ function FeaturedFooter({
 
   if (md) {
     return (
-      <YStack px="$5" gap="$4" paddingBottom={paddingBottom + 20}>
+      <YStack
+        px="$5"
+        gap="$4"
+        paddingBottom={paddingBottom + 20}
+        onLayout={onLayout}
+      >
         <Button size="large" variant="primary" onPress={onCtaPress}>
           {ctaText}
         </Button>
@@ -68,6 +77,7 @@ function FeaturedFooter({
       paddingBottom={paddingBottom}
       justifyContent="space-between"
       alignItems="center"
+      onLayout={onLayout}
     >
       {showFullChangelog ? (
         <Button size="small" variant="tertiary" onPress={handleViewChangelog}>

@@ -14,6 +14,7 @@ export {
   type IFeaturedItem,
   type IFeaturedChangelog,
   hasFeaturedChangelog,
+  isAllowedFeaturedHref,
   normalizeFeaturedChangelog,
 } from './featuredChangelog';
 
