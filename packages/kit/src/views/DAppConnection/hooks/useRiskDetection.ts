@@ -16,6 +16,24 @@ import {
 
 import type { Verify } from '@walletconnect/types';
 
+function overrideSecurityLevel(
+  base: IHostSecurity | undefined,
+  level: EHostSecurityLevel,
+  host: string,
+): IHostSecurity {
+  if (base) return { ...base, level };
+  return {
+    host,
+    level,
+    attackTypes: [],
+    phishingSite: false,
+    checkSources: [],
+    alert: '',
+    projectName: '',
+    createdAt: '',
+  };
+}
+
 function useRiskDetection({
   origin,
   unsignedMessage,
@@ -45,19 +63,21 @@ function useRiskDetection({
     const { validation, isScam } = walletConnectVerifyContext.verified;
     // isScam takes precedence per Reown's Verify API UX guidance.
     if (isScam || validation === 'INVALID') {
-      return {
-        ...(backendSecurityInfo ?? ({} as IHostSecurity)),
-        level: EHostSecurityLevel.High,
-      };
+      return overrideSecurityLevel(
+        backendSecurityInfo,
+        EHostSecurityLevel.High,
+        origin,
+      );
     }
     if (validation === 'UNKNOWN') {
-      return {
-        ...(backendSecurityInfo ?? ({} as IHostSecurity)),
-        level: EHostSecurityLevel.Unknown,
-      };
+      return overrideSecurityLevel(
+        backendSecurityInfo,
+        EHostSecurityLevel.Unknown,
+        origin,
+      );
     }
     return backendSecurityInfo;
-  }, [backendSecurityInfo, walletConnectVerifyContext]);
+  }, [backendSecurityInfo, walletConnectVerifyContext, origin]);
 
   const riskLevel = useMemo(
     () => urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown,
