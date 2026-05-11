@@ -70,7 +70,7 @@ function FeaturedFooter({
       alignItems="center"
     >
       {showFullChangelog ? (
-        <Button size="medium" variant="tertiary" onPress={handleViewChangelog}>
+        <Button size="small" variant="tertiary" onPress={handleViewChangelog}>
           {intl.formatMessage({ id: ETranslations.view_full_changelog })}
         </Button>
       ) : (
