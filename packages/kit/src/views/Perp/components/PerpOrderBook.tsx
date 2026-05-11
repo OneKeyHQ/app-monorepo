@@ -433,6 +433,12 @@ export function PerpOrderBook({
               maxLevelsPerSide={13}
             />
           }
+          style={{
+            paddingLeft: 16,
+            paddingRight: 16,
+            paddingTop: 8,
+            paddingBottom: 8,
+          }}
           variant="mobileHorizontal"
         />
       );

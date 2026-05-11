@@ -3,13 +3,15 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { ActionList } from '@onekeyhq/components';
+import { ActionList, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useCopyAddressWithDeriveType } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { shouldBlockBotWalletCopyAddress } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -54,7 +56,28 @@ export function AccountCopyButton({
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isCopyDisabled = shouldBlockBotWalletCopyAddress({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
+
   const handleCopyAddress = useCallback(async () => {
+    if (
+      shouldBlockBotWalletCopyAddress({
+        isBotWallet,
+        isBotWalletDeactivated,
+      })
+    ) {
+      Toast.error({
+        title: '该钱包已停用，无法复制地址',
+      });
+      return;
+    }
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
@@ -135,6 +158,8 @@ export function AccountCopyButton({
     indexedAccount?.id,
     copyAddressWithDeriveType,
     activeAccount?.deriveInfoItems,
+    isBotWallet,
+    isBotWalletDeactivated,
   ]);
 
   return (
@@ -144,6 +169,7 @@ export function AccountCopyButton({
       label={intl.formatMessage({ id: ETranslations.global_copy_address })}
       onClose={() => {}}
       onPress={handleCopyAddress}
+      disabled={isCopyDisabled}
     />
   );
 }
