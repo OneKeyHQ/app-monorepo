@@ -119,17 +119,36 @@ describe('showUpdateDialogUI', () => {
   test('boundary: exactly 24h elapsed → shows the dialog (>= boundary, not >)', () => {
     // The guard reads `now - lastShownAt < INTERVAL`. At exactly INTERVAL the
     // condition is false → dialog shows. Guards against off-by-one drift.
-    const exactlyOneDayAgo = Date.now() - UPDATE_DIALOG_INTERVAL;
-    showUpdateDialogUI(baseArgs({ lastUpdateDialogShownAt: exactlyOneDayAgo }));
-    expect(dialogShow).toHaveBeenCalledTimes(1);
+    // Pin Date.now so the test-side timestamp and the production-side `now`
+    // read the same value — without this, a slow CI runner can elapse ≥1ms
+    // between the two reads and flip the boundary.
+    const fixedNow = 1_700_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    try {
+      const exactlyOneDayAgo = fixedNow - UPDATE_DIALOG_INTERVAL;
+      showUpdateDialogUI(
+        baseArgs({ lastUpdateDialogShownAt: exactlyOneDayAgo }),
+      );
+      expect(dialogShow).toHaveBeenCalledTimes(1);
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   test('boundary: 1ms before 24h → suppresses', () => {
-    const justUnderOneDayAgo = Date.now() - (UPDATE_DIALOG_INTERVAL - 1);
-    showUpdateDialogUI(
-      baseArgs({ lastUpdateDialogShownAt: justUnderOneDayAgo }),
-    );
-    expect(dialogShow).not.toHaveBeenCalled();
+    // See note above — boundary tests must pin Date.now to avoid drift
+    // between the test-side timestamp and the production-side `now` read.
+    const fixedNow = 1_700_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    try {
+      const justUnderOneDayAgo = fixedNow - (UPDATE_DIALOG_INTERVAL - 1);
+      showUpdateDialogUI(
+        baseArgs({ lastUpdateDialogShownAt: justUnderOneDayAgo }),
+      );
+      expect(dialogShow).not.toHaveBeenCalled();
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   test('lastUpdateDialogShownAt=0 (uninitialized epoch) is treated as "never shown"', () => {
