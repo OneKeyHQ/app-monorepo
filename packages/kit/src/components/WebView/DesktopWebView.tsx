@@ -436,7 +436,7 @@ const DesktopWebView = forwardRef(
       return () => {
         webview.removeEventListener('ipc-message', handleMessage);
       };
-    }, [jsBridgeHost, isWebviewReady, src]);
+    }, [jsBridgeHost, isWebviewReady, src, disableBridge]);
 
     useEffect(() => {
       flushPendingScripts();

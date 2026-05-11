@@ -115,7 +115,7 @@ describe('isAllowedWebViewUrl', () => {
       ['https://[::]/'],
       ['https://[fe80::1]/'],
       ['https://[fe80::1234:5678]/'],
-      // full fe80::/10 range — fe90::-febf:: are valid link-local per RFC 4291
+      // upper half of fe80::/10 — also link-local per RFC 4291
       ['https://[fe90::1]/'],
       ['https://[fea0::1]/'],
       ['https://[feb0::1]/'],
