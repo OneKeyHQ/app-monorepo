@@ -44,9 +44,18 @@ export function useMarketPresetSwapOverridesEffect({
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
 
+    const resetToDefaults = () => {
+      setSwapStepNetFeeLevel((prev) =>
+        prev.networkFeeLevel === ESwapNetworkFeeLevel.MEDIUM &&
+        prev.customPriorityFee === undefined
+          ? prev
+          : { networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM },
+      );
+      setSwapSlippageOverride((prev) => (prev === undefined ? prev : undefined));
+    };
+
     if (!marketPresetToken?.networkId) {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+      resetToDefaults();
       return;
     }
 
@@ -65,8 +74,7 @@ export function useMarketPresetSwapOverridesEffect({
     const focusSwapProMarket =
       focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET;
     if (focusSwapPro && !focusSwapProMarket) {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+      resetToDefaults();
       return;
     }
 
@@ -82,8 +90,7 @@ export function useMarketPresetSwapOverridesEffect({
     }
 
     if (!tradeSide) {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+      resetToDefaults();
       return;
     }
 
@@ -97,11 +104,19 @@ export function useMarketPresetSwapOverridesEffect({
       }
       const resolvedNetworkFeeLevel =
         overrides?.networkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM;
-      setSwapStepNetFeeLevel({
-        networkFeeLevel: resolvedNetworkFeeLevel,
-        customPriorityFee: overrides?.customPriorityFee,
-      });
-      setSwapSlippageOverride(overrides?.slippage);
+      const resolvedCustomPriorityFee = overrides?.customPriorityFee;
+      setSwapStepNetFeeLevel((prev) =>
+        prev.networkFeeLevel === resolvedNetworkFeeLevel &&
+        prev.customPriorityFee === resolvedCustomPriorityFee
+          ? prev
+          : {
+              networkFeeLevel: resolvedNetworkFeeLevel,
+              customPriorityFee: resolvedCustomPriorityFee,
+            },
+      );
+      setSwapSlippageOverride((prev) =>
+        prev === overrides?.slippage ? prev : overrides?.slippage,
+      );
     })();
   }, [
     marketPresetToken,
