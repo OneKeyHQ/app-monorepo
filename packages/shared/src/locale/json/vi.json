@@ -328,6 +328,8 @@
   "check_my_deviceLabel": "Kiểm tra {deviceLabel} của tôi",
   "clear_build_in_networks_data": "Mạng tích hợp sẵn",
   "click_below_to_copy": "Nhấp vào bên dưới để sao chép",
+  "clipboard_copy_may_fail__msg": "Your device may restrict clipboard access. Please check clipboard permissions in your device settings.",
+  "clipboard_copy_may_fail__title": "Copy may not be working",
   "clipboard_read__desc": "Trang web này muốn đọc nội dung clipboard của bạn",
   "clipboard_read__title": "Đọc clipboard",
   "clipboard_remember__action": "Nhớ cho trang này",

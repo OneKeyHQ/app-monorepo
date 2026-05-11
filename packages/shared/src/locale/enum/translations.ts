@@ -333,6 +333,8 @@ export enum ETranslations {
   check_my_deviceLabel = 'check_my_deviceLabel',
   clear_build_in_networks_data = 'clear_build_in_networks_data',
   click_below_to_copy = 'click_below_to_copy',
+  clipboard_copy_may_fail__msg = 'clipboard_copy_may_fail__msg',
+  clipboard_copy_may_fail__title = 'clipboard_copy_may_fail__title',
   clipboard_read__desc = 'clipboard_read__desc',
   clipboard_read__title = 'clipboard_read__title',
   clipboard_remember__action = 'clipboard_remember__action',
