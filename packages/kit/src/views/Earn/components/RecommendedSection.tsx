@@ -184,14 +184,45 @@ function useRecommendedItemPress(token?: IRecommendAsset) {
   }, [navigation, token]);
 }
 
+const RecommendedBalanceLine = memo(
+  ({
+    availableText,
+    isLoading,
+  }: {
+    availableText?: string;
+    isLoading?: boolean;
+  }) => (
+    <XStack gap="$1" ai="center">
+      <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
+      {isLoading ? (
+        <Skeleton w={96} h={16} borderRadius="$2" />
+      ) : (
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          flexShrink={1}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {availableText}
+        </SizableText>
+      )}
+    </XStack>
+  ),
+);
+
+RecommendedBalanceLine.displayName = 'RecommendedBalanceLine';
+
 const RecommendedItem = memo(
   ({
     token,
     noWalletConnected,
+    isBalanceLoading,
     ...rest
   }: {
     token?: IRecommendAsset;
     noWalletConnected: boolean;
+    isBalanceLoading?: boolean;
   } & IYStackProps) => {
     const onPress = useRecommendedItemPress(token);
 
@@ -243,17 +274,12 @@ const RecommendedItem = memo(
             }}
           />
           {!noWalletConnected ? (
-            <XStack gap="$1" ai="center" pt="$3">
-              <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {token.available?.text}
-              </SizableText>
-            </XStack>
+            <YStack pt="$3" width="100%">
+              <RecommendedBalanceLine
+                availableText={token.available?.text}
+                isLoading={isBalanceLoading}
+              />
+            </YStack>
           ) : null}
         </YStack>
       </YStack>
@@ -267,9 +293,11 @@ const RecommendedListItem = memo(
   ({
     token,
     noWalletConnected,
+    isBalanceLoading,
   }: {
     token: IRecommendAsset;
     noWalletConnected: boolean;
+    isBalanceLoading?: boolean;
   }) => {
     const onPress = useRecommendedItemPress(token);
 
@@ -303,16 +331,10 @@ const RecommendedListItem = memo(
           }
           secondary={
             !noWalletConnected ? (
-              <XStack gap="$1" ai="center">
-                <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                >
-                  {token.available?.text}
-                </SizableText>
-              </XStack>
+              <RecommendedBalanceLine
+                availableText={token.available?.text}
+                isLoading={isBalanceLoading}
+              />
             ) : undefined
           }
         />
@@ -689,6 +711,7 @@ export function RecommendedSection({
   disableHorizontalBleed = false,
   recommendedItemContainerProps,
   showSkeleton = false,
+  isBalanceLoading = false,
 }: {
   tokens: IRecommendAsset[];
   noWalletConnected: boolean;
@@ -696,6 +719,7 @@ export function RecommendedSection({
   disableHorizontalBleed?: boolean;
   recommendedItemContainerProps?: IYStackProps;
   showSkeleton?: boolean;
+  isBalanceLoading?: boolean;
 }) {
   const media = useMedia();
   const [showAll, setShowAll] = useState(false);
@@ -737,6 +761,7 @@ export function RecommendedSection({
               key={token.symbol}
               token={token}
               noWalletConnected={noWalletConnected}
+              isBalanceLoading={isBalanceLoading}
             />
           ))}
           {showMoreButton}
@@ -756,6 +781,7 @@ export function RecommendedSection({
       <RecommendedItem
         token={token}
         noWalletConnected={noWalletConnected}
+        isBalanceLoading={isBalanceLoading}
         {...recommendedItemContainerProps}
       />
     </YStack>

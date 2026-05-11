@@ -109,6 +109,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     setSlippage,
     networkId,
   } = swapPanel;
+  const isMEV = useMemo(
+    () => swapMevNetConfig?.includes(swapPanel.networkId ?? '') ?? false,
+    [swapMevNetConfig, swapPanel.networkId],
+  );
   const tokenBuyInputRef = useRef<ITokenInputSectionRef>(null);
   const tokenSellInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
@@ -316,6 +320,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
       {showMarketPresetSelector && marketPresetSettings ? (
         <MarketPresetSelector
+          antiMEV={isMEV}
           presetSettings={marketPresetSettings}
           variant={onCloseDialog ? 'compact' : 'full'}
         />
@@ -350,7 +355,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {suppressStandaloneSlippage ? null : (
         <SlippageSetting
           autoDefaultValue={slippageAutoValue}
-          isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
+          isMEV={isMEV}
           onSlippageChange={(item) => {
             setSlippage(item.value);
             setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);

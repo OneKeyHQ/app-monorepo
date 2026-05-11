@@ -9,12 +9,31 @@ import { swapSlippageDecimal } from '@onekeyhq/shared/types/swap/SwapProvider.co
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
+type ISlippageInputSegmentItem = Omit<ISwapSlippageSegmentItem, 'value'> & {
+  value?: number;
+};
+
+export function formatSlippageInputDisplayValue(value?: number) {
+  if (value === undefined) {
+    return '';
+  }
+
+  const valueBN = new BigNumber(value);
+  if (!valueBN.isFinite()) {
+    return '';
+  }
+
+  return valueBN
+    .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
+    .toFixed();
+}
+
 const BaseSlippageInput = ({
   swapSlippage,
   onChangeText,
   props,
 }: {
-  swapSlippage: ISwapSlippageSegmentItem;
+  swapSlippage: ISlippageInputSegmentItem;
   onChangeText: (text: string) => void;
   props?: IInputProps;
 }) => {
@@ -32,10 +51,7 @@ const BaseSlippageInput = ({
   );
 
   const displaySlippage = useMemo(
-    () =>
-      new BigNumber(swapSlippage.value)
-        .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
-        .toFixed(),
+    () => formatSlippageInputDisplayValue(swapSlippage.value),
     [swapSlippage.value],
   );
 

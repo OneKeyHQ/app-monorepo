@@ -13,7 +13,7 @@
     "@react-navigation/stack": "7.6.16",
     "ethereum-blockies-base64": "^1.0.2",
     "iso-639-1": "^2.1.13",
-    "lodash": "^4.17.23",
+    "lodash": "^4.18.1",
     "moti": "^0.25.3",
     "qrcode": "^1.5.0",
     "react-hook-form": "^7.22.1",

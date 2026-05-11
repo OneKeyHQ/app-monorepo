@@ -205,7 +205,7 @@ function useBulkRevoke() {
                       contractMap,
                     });
                   } else {
-                    navigation.pushFullModal(EModalRoutes.PrimeModal, {
+                    navigation.pushModal(EModalRoutes.PrimeModal, {
                       screen: EPrimePages.PrimeDashboard,
                       params: {
                         fromFeature: EPrimeFeatures.BulkRevoke,

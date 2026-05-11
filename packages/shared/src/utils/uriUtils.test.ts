@@ -1,8 +1,11 @@
 import platformEnv from '../platformEnv';
 
 import uriUtils, {
+  buildGoogleSearchUrl,
   containsPunycode,
+  ensureHttpPrefix,
   ensureHttpsPrefix,
+  isLocalhostUrl,
   isUrlWithoutProtocol,
   parseUrl,
   validateUrl,
@@ -112,6 +115,83 @@ describe('validateUrl', () => {
       );
     });
   });
+
+  test('allows HTTP localhost only when explicitly enabled', () => {
+    const testCases = [
+      {
+        input: 'http://localhost:3000/path?query=value',
+        expected: 'http://localhost:3000/path?query=value',
+      },
+      { input: 'http://127.0.0.1:5173/', expected: 'http://127.0.0.1:5173/' },
+      { input: 'localhost', expected: 'http://localhost' },
+      { input: 'localhost:3000', expected: 'http://localhost:3000' },
+      { input: '127.0.0.1:5173', expected: 'http://127.0.0.1:5173' },
+      { input: '[::1]:5173', expected: 'http://[::1]:5173' },
+    ];
+    testCases.forEach(({ input, expected }) => {
+      expect(validateUrl(input)).not.toBe(expected);
+      expect(validateUrl(input, { allowLocalhostUrl: true })).toBe(expected);
+    });
+  });
+});
+
+describe('parseDappRedirect', () => {
+  test('allows localhost redirects only when explicitly enabled', () => {
+    const localUrls = [
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      'http://[::1]:5173',
+    ];
+    localUrls.forEach((url) => {
+      expect(uriUtils.parseDappRedirect(url, []).action).toBe(
+        uriUtils.EDAppOpenActionEnum.DENY,
+      );
+      expect(
+        uriUtils.parseDappRedirect(url, [], {
+          allowLocalhostUrl: true,
+        }).action,
+      ).toBe(uriUtils.EDAppOpenActionEnum.ALLOW);
+    });
+  });
+
+  test('does not bypass protocol checks for localhost redirects', () => {
+    ['ftp://localhost', 'file://127.0.0.1'].forEach((url) => {
+      expect(
+        uriUtils.parseDappRedirect(url, [], {
+          allowLocalhostUrl: true,
+        }).action,
+      ).toBe(uriUtils.EDAppOpenActionEnum.DENY);
+    });
+  });
+});
+
+describe('isLocalhostUrl', () => {
+  test('matches localhost and 127.0.0.1 inputs with or without protocol', () => {
+    [
+      'localhost',
+      'localhost:3000',
+      'http://localhost:3000/path',
+      '127.0.0.1',
+      '127.0.0.1:5173',
+      'http://127.0.0.1:5173/',
+      '[::1]:5173',
+      'http://[::1]:5173/',
+    ].forEach((url) => {
+      expect(isLocalhostUrl(url)).toBe(true);
+    });
+  });
+
+  test('rejects non-localhost hostnames', () => {
+    [
+      'localhost.com',
+      'example.com',
+      'http://example.com/localhost',
+      'search query',
+      'http://',
+    ].forEach((url) => {
+      expect(isLocalhostUrl(url)).toBe(false);
+    });
+  });
 });
 
 describe('isUrlWithoutProtocol', () => {
@@ -197,6 +277,33 @@ describe('ensureHttpsPrefix', () => {
 
   test('returns empty string for empty input', () => {
     expect(ensureHttpsPrefix('')).toBe('');
+  });
+});
+
+describe('ensureHttpPrefix', () => {
+  test('returns URL unchanged if it already has a protocol', () => {
+    expect(ensureHttpPrefix('http://localhost:3000')).toBe(
+      'http://localhost:3000',
+    );
+    expect(ensureHttpPrefix('https://example.com')).toBe('https://example.com');
+    expect(ensureHttpPrefix('onekey-wallet:account/list')).toBe(
+      'onekey-wallet:account/list',
+    );
+    expect(ensureHttpPrefix('mailto:test@example.com')).toBe(
+      'mailto:test@example.com',
+    );
+  });
+
+  test('adds http:// prefix to URL-like text without protocol', () => {
+    expect(ensureHttpPrefix('localhost:3000')).toBe('http://localhost:3000');
+  });
+});
+
+describe('buildGoogleSearchUrl', () => {
+  test('builds an explicit Google search URL for localhost keywords', () => {
+    expect(buildGoogleSearchUrl('http://localhost:3000')).toBe(
+      'https://www.google.com/search?q=http%3A%2F%2Flocalhost%3A3000',
+    );
   });
 });
 

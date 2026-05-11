@@ -3,10 +3,13 @@ import type { IPerpTokenSortDirection } from '@onekeyhq/shared/types/hyperliquid
 
 type IFixedTabNames = Record<'favorites' | 'all' | 'perps' | 'spot', string>;
 type ITokenSelectorSortValue = string | number | null | undefined;
+type IPerpTokenSelectorPrimaryTabId = 'favorites' | 'perps' | 'spot';
 
+const PRIMARY_TAB_IDS = ['favorites', 'perps', 'spot'] as const;
 const FIXED_TAB_IDS = ['favorites', 'all', 'perps', 'spot'] as const;
 const ALL_TAB_IDS = new Set(['all']);
 const PERPS_TAB_IDS = new Set(['perps']);
+const PRIMARY_TAB_ID_SET = new Set<string>(PRIMARY_TAB_IDS);
 
 function normalizeTabId(tabId: string) {
   return tabId.trim().toLowerCase();
@@ -25,8 +28,8 @@ function getCanonicalTabId(tabId: string) {
   return tabId.trim();
 }
 
-function buildFixedTabs(fixedTabNames: IFixedTabNames): IPerpDynamicTab[] {
-  return FIXED_TAB_IDS.map((tabId) => ({
+function buildPrimaryTabs(fixedTabNames: IFixedTabNames): IPerpDynamicTab[] {
+  return PRIMARY_TAB_IDS.map((tabId) => ({
     tabId,
     name: fixedTabNames[tabId],
     tokens: [],
@@ -66,13 +69,32 @@ function buildPerpTokenSelectorTabs({
   serverTabs: IPerpDynamicTab[] | null | undefined;
   fixedTabNames: IFixedTabNames;
 }) {
-  const fixedTabs = buildFixedTabs(fixedTabNames);
+  const primaryTabs = buildPrimaryTabs(fixedTabNames);
+  const categoryTabs = buildPerpTokenSelectorCategoryTabs({
+    serverTabs,
+    fixedTabNames,
+  });
+  return [...primaryTabs, ...categoryTabs];
+}
+
+function buildPerpTokenSelectorCategoryTabs({
+  serverTabs,
+  fixedTabNames,
+}: {
+  serverTabs: IPerpDynamicTab[] | null | undefined;
+  fixedTabNames: IFixedTabNames;
+}) {
+  const categoryAllTab: IPerpDynamicTab = {
+    tabId: 'perps',
+    name: fixedTabNames.all,
+    tokens: [],
+  };
   const normalizedServerTabs = normalizeServerTabs(serverTabs);
-  const fixedTabIdSet = new Set(fixedTabs.map((tab) => tab.tabId));
+  const fixedTabIdSet = new Set<string>(FIXED_TAB_IDS);
   const serverCategoryTabs = normalizedServerTabs.filter(
     (tab) => !fixedTabIdSet.has(tab.tabId),
   );
-  return [...fixedTabs, ...serverCategoryTabs];
+  return [categoryAllTab, ...serverCategoryTabs];
 }
 
 function isPerpTokenSelectorAllTab(tabId: string) {
@@ -93,10 +115,25 @@ function isPerpTokenSelectorSpotTab(tabId: string) {
 
 function getPerpTokenSelectorFallbackTabId(tabs: IPerpDynamicTab[]) {
   return (
+    tabs.find((tab) => isPerpTokenSelectorPerpsTab(tab.tabId))?.tabId ??
     tabs.find((tab) => isPerpTokenSelectorAllTab(tab.tabId))?.tabId ??
     tabs[0]?.tabId ??
-    'all'
+    'perps'
   );
+}
+
+function getPerpTokenSelectorPrimaryTabId(
+  activeTab: string,
+): IPerpTokenSelectorPrimaryTabId {
+  const normalizedTabId = normalizeTabId(activeTab);
+  if (normalizedTabId === 'favorites' || normalizedTabId === 'spot') {
+    return normalizedTabId;
+  }
+  return 'perps';
+}
+
+function isPerpTokenSelectorPrimaryTab(tabId: string) {
+  return PRIMARY_TAB_ID_SET.has(normalizeTabId(tabId));
 }
 
 function isMissingSortValue(value: ITokenSelectorSortValue) {
@@ -160,12 +197,18 @@ function sortPerpTokenSelectorItemsBySortValue<T>({
 }
 
 export {
+  buildPrimaryTabs,
+  buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
   comparePerpTokenSelectorSortValues,
   getPerpTokenSelectorFallbackTabId,
+  getPerpTokenSelectorPrimaryTabId,
   isPerpTokenSelectorAllTab,
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
+  isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSpotTab,
   sortPerpTokenSelectorItemsBySortValue,
 };
+
+export type { IPerpTokenSelectorPrimaryTabId };

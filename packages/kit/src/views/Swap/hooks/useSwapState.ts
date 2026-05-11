@@ -61,6 +61,7 @@ import {
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
   isSwapQuoteEventFetching,
+  isSwapZeroProviderQuoteCompleted,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
 
@@ -177,6 +178,20 @@ export function useSwapQuoteProgressState() {
   );
 }
 
+export function useSwapZeroProviderQuoteCompleted() {
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
+
+  return useMemo(
+    () =>
+      isSwapZeroProviderQuoteCompleted({
+        quoteEventTotalCount,
+        quoteEventCompleted,
+      }),
+    [quoteEventCompleted, quoteEventTotalCount],
+  );
+}
+
 export function useSwapBatchTransferType(
   networkId?: string,
   accountId?: string,
@@ -223,6 +238,7 @@ export function useSwapActionState() {
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const [{ swapApprovingLoading, swapApprovingTransaction }] =
     useInAppNotificationAtom();
+  const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
 
   const swapApprovingMatchLoading = useMemo(() => {
     return (
@@ -342,9 +358,10 @@ export function useSwapActionState() {
       infoRes.disable = true;
     } else {
       if (
-        quoteCurrentSelect &&
-        !quoteCurrentSelect.toAmount &&
-        !quoteCurrentSelect.limit
+        isZeroProviderQuoteCompleted ||
+        (quoteCurrentSelect &&
+          !quoteCurrentSelect.toAmount &&
+          !quoteCurrentSelect.limit)
       ) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
@@ -441,6 +458,7 @@ export function useSwapActionState() {
     toToken,
     quoteResultNoMatchDebounce,
     swapUseLimitPrice.rate,
+    isZeroProviderQuoteCompleted,
   ]);
   const stepState: ISwapState = {
     label: actionInfo.label,

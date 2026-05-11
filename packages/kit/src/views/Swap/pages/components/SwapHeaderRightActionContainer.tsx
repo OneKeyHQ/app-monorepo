@@ -275,6 +275,9 @@ const SwapSettingsDialogContent = () => {
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
+  const showSwapSettingsSlippage = swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
+  const showSmartModeSetting =
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro;
   const dialogContentMaxHeight = useMemo(() => {
     if (!platformEnv.isNative || keyboardHeight <= 0) {
       return undefined;
@@ -344,7 +347,7 @@ const SwapSettingsDialogContent = () => {
       showsVerticalScrollIndicator={false}
     >
       <YStack gap="$5">
-        {swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro ? (
+        {showSwapSettingsSlippage ? (
           <>
             <HeightTransition>
               <YStack gap="$5">
@@ -360,23 +363,25 @@ const SwapSettingsDialogContent = () => {
               </YStack>
             </HeightTransition>
             <Divider />
-            <SwapSettingsCommonItem
-              title={intl.formatMessage({
-                id: ETranslations.swap_page_settings_simple_mode,
-              })}
-              content={intl.formatMessage({
-                id: ETranslations.swap_page_settings_simple_mode_content,
-              })}
-              badgeContent="Beta"
-              value={swapBatchApproveAndSwap}
-              onChange={(v) => {
-                setPersistSettings((s) => ({
-                  ...s,
-                  swapBatchApproveAndSwap: v,
-                }));
-              }}
-            />
           </>
+        ) : null}
+        {showSmartModeSetting ? (
+          <SwapSettingsCommonItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_page_settings_simple_mode,
+            })}
+            content={intl.formatMessage({
+              id: ETranslations.swap_page_settings_simple_mode_content,
+            })}
+            badgeContent="Beta"
+            value={swapBatchApproveAndSwap}
+            onChange={(v) => {
+              setPersistSettings((s) => ({
+                ...s,
+                swapBatchApproveAndSwap: v,
+              }));
+            }}
+          />
         ) : null}
         {focusSwapPro ? null : (
           <SwapSettingsCommonItem
@@ -486,7 +491,11 @@ const SwapHeaderRightActionContainer = ({
   );
   const historyBadgeCount =
     swapPendingStatusList.length + limitOpenStatusList.length;
+  const showHeaderSlippageValue = swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
   const slippageTitle = useMemo(() => {
+    if (!showHeaderSlippageValue) {
+      return null;
+    }
     if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
       return (
         <SizableText
@@ -500,7 +509,7 @@ const SwapHeaderRightActionContainer = ({
       );
     }
     return null;
-  }, [slippageItem.key, slippageItem.value]);
+  }, [showHeaderSlippageValue, slippageItem.key, slippageItem.value]);
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {

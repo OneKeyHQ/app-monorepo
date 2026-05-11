@@ -2,9 +2,14 @@ import BigNumber from 'bignumber.js';
 
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { isValidMarketPresetCustomPriorityFeeValue } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
-import { swapSlippageMaxValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  swapSlippageMaxValue,
+  swapSlippageWillAheadMinValue,
+  swapSlippageWillFailMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapNetworkFeeLevel,
+  ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -68,6 +73,11 @@ export type IMarketPresetSavedSettings = {
   >;
 };
 
+export enum EMarketPresetSlippageWarningType {
+  WILL_FAIL = 'willFail',
+  WILL_AHEAD = 'willAhead',
+}
+
 export type IMarketPresetConfig = {
   enabled: boolean;
   networkId: string;
@@ -110,7 +120,7 @@ const DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS: IMarketPresetDirectionS
     },
     priorityFee: {
       type: EMarketPresetPriorityFeeType.CUSTOM,
-      customValue: '0',
+      customValue: '',
     },
   };
 
@@ -136,11 +146,13 @@ function buildPresetConfig({
   networkId,
   slippageEditable = true,
   priorityFeeEditable,
+  priorityFeeSupportedTypes,
   customUnit,
 }: {
   networkId: string;
   slippageEditable?: boolean;
   priorityFeeEditable: boolean;
+  priorityFeeSupportedTypes?: EMarketPresetPriorityFeeType[];
   customUnit?: string;
 }): IMarketPresetConfig {
   return {
@@ -153,13 +165,15 @@ function buildPresetConfig({
     },
     priorityFee: {
       editable: priorityFeeEditable,
-      supportedTypes: priorityFeeEditable
-        ? [
-            EMarketPresetPriorityFeeType.MARKET,
-            EMarketPresetPriorityFeeType.FAST,
-            EMarketPresetPriorityFeeType.CUSTOM,
-          ]
-        : [EMarketPresetPriorityFeeType.AUTO],
+      supportedTypes:
+        priorityFeeSupportedTypes ??
+        (priorityFeeEditable
+          ? [
+              EMarketPresetPriorityFeeType.MARKET,
+              EMarketPresetPriorityFeeType.FAST,
+              EMarketPresetPriorityFeeType.CUSTOM,
+            ]
+          : [EMarketPresetPriorityFeeType.AUTO]),
       customUnit,
     },
   };
@@ -182,6 +196,10 @@ async function fetchMarketPresetDashboardConfig({
     return buildPresetConfig({
       networkId,
       priorityFeeEditable: true,
+      priorityFeeSupportedTypes: [
+        EMarketPresetPriorityFeeType.MARKET,
+        EMarketPresetPriorityFeeType.CUSTOM,
+      ],
       customUnit: 'SOL',
     });
   }
@@ -310,6 +328,26 @@ export function normalizeMarketPresetDirectionSettings(
   };
 }
 
+function getMarketPresetResolvedPriorityFeeSettings({
+  config,
+  settings,
+}: {
+  config?: IMarketPresetConfig;
+  settings: IMarketPresetDirectionSettings;
+}): IMarketPresetPriorityFeeSettings {
+  if (!config?.priorityFee.editable) {
+    return {
+      type: EMarketPresetPriorityFeeType.AUTO,
+    };
+  }
+
+  if (config.priorityFee.supportedTypes.includes(settings.priorityFee.type)) {
+    return settings.priorityFee;
+  }
+
+  return getMarketPresetDefaultDirectionSettings().priorityFee;
+}
+
 export function getMarketPresetSavedDirectionSettings({
   savedSettings,
   presetKey,
@@ -358,11 +396,10 @@ export function resolveMarketPresetDirectionSettings({
     slippage: config?.slippage.editable
       ? normalized.slippage
       : getMarketPresetDefaultDirectionSettings().slippage,
-    priorityFee: config?.priorityFee.editable
-      ? normalized.priorityFee
-      : {
-          type: EMarketPresetPriorityFeeType.AUTO,
-        },
+    priorityFee: getMarketPresetResolvedPriorityFeeSettings({
+      config,
+      settings: normalized,
+    }),
   };
 }
 
@@ -448,18 +485,51 @@ export function isValidMarketPresetCustomValue(value?: string) {
 export function isInvalidMarketPresetSlippageSettings(
   settings?: IMarketPresetDirectionSettings,
 ) {
+  return (
+    getMarketPresetSlippageCustomStatus(settings).status ===
+    ESwapSlippageCustomStatus.ERROR
+  );
+}
+
+export function getMarketPresetSlippageCustomStatus(
+  settings?: IMarketPresetDirectionSettings,
+): {
+  status: ESwapSlippageCustomStatus;
+  warningType?: EMarketPresetSlippageWarningType;
+} {
   if (!settings) {
-    return false;
+    return { status: ESwapSlippageCustomStatus.NORMAL };
+  }
+
+  if (settings.slippage.key !== ESwapSlippageSegmentKey.CUSTOM) {
+    return { status: ESwapSlippageCustomStatus.NORMAL };
   }
 
   const slippageValueBN = new BigNumber(settings.slippage.value ?? Number.NaN);
-  return (
-    settings.slippage.key === ESwapSlippageSegmentKey.CUSTOM &&
-    (settings.slippage.value === undefined ||
-      slippageValueBN.isNaN() ||
-      slippageValueBN.isNegative() ||
-      slippageValueBN.gt(swapSlippageMaxValue))
-  );
+  if (
+    settings.slippage.value === undefined ||
+    slippageValueBN.isNaN() ||
+    slippageValueBN.isNegative() ||
+    slippageValueBN.gt(swapSlippageMaxValue)
+  ) {
+    return { status: ESwapSlippageCustomStatus.ERROR };
+  }
+
+  if (slippageValueBN.lte(swapSlippageWillFailMinValue)) {
+    return {
+      status: ESwapSlippageCustomStatus.WRONG,
+      warningType: EMarketPresetSlippageWarningType.WILL_FAIL,
+    };
+  }
+
+  if (slippageValueBN.gt(swapSlippageWillAheadMinValue)) {
+    return {
+      status: ESwapSlippageCustomStatus.WRONG,
+      warningType: EMarketPresetSlippageWarningType.WILL_AHEAD,
+    };
+  }
+
+  return { status: ESwapSlippageCustomStatus.NORMAL };
 }
 
 export function isInvalidMarketPresetPriorityFeeSettings(
@@ -482,6 +552,22 @@ export function isInvalidMarketPresetDirectionSettings(
     isInvalidMarketPresetSlippageSettings(settings) ||
     isInvalidMarketPresetPriorityFeeSettings(settings)
   );
+}
+
+export function isMarketPresetConfirmDisabled({
+  activePresetKey,
+  currentSettingsInvalid,
+  hasInvalidDirtySettings,
+}: {
+  activePresetKey: EMarketPresetKey;
+  currentSettingsInvalid: boolean;
+  hasInvalidDirtySettings: boolean;
+}) {
+  if (activePresetKey === EMarketPresetKey.AUTO) {
+    return false;
+  }
+
+  return currentSettingsInvalid || hasInvalidDirtySettings;
 }
 
 export function getMarketPresetPriorityFeeOverride(

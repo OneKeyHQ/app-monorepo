@@ -9,6 +9,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
+import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -161,7 +162,8 @@ export function usePerpTokenSelector() {
   );
 
   useEffect(() => {
-    const activeTab = selectorConfig?.activeTab ?? 'all';
+    const activeTab =
+      selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
 
