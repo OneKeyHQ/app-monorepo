@@ -72,6 +72,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../components/AccountSelector';
+import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import {
   isAutoUpdateStrategy,
   useAppUpdateInfo,
@@ -876,5 +877,10 @@ export function Bootstrap() {
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
-  return platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null;
+  return (
+    <>
+      <SplitViewPrompt />
+      {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}
+    </>
+  );
 }

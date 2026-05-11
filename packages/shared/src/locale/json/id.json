@@ -328,6 +328,8 @@
   "check_my_deviceLabel": "Periksa {deviceLabel} saya",
   "clear_build_in_networks_data": "Jaringan bawaan",
   "click_below_to_copy": "Klik di Bawah untuk Menyalin",
+  "clipboard_copy_may_fail__msg": "Your device may restrict clipboard access. Please check clipboard permissions in your device settings.",
+  "clipboard_copy_may_fail__title": "Copy may not be working",
   "clipboard_read__desc": "Situs ini ingin membaca konten papan klip Anda",
   "clipboard_read__title": "Baca Clipboard",
   "clipboard_remember__action": "Ingat untuk situs ini",

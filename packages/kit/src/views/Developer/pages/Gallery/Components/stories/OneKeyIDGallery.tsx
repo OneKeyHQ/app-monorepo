@@ -90,7 +90,7 @@ function OneKeyIDApiTests() {
     isReady,
   } = useSupabaseAuth();
 
-  const { logout, signInWithSocialLogin } = useOneKeyAuth();
+  const { logoutWithPurchasesSdk, signInWithSocialLogin } = useOneKeyAuth();
 
   const onTryCloseWindow = async () => {
     if (platformEnv.isNative) {
@@ -587,7 +587,7 @@ function OneKeyIDApiTests() {
           try {
             setLoading('signOut');
             // Sign out from both Supabase and Prime service
-            await logout();
+            await logoutWithPurchasesSdk();
             demoLog({ success: true }, 'logout');
           } catch (e) {
             demoError(e, 'logout');

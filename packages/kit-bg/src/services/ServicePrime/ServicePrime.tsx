@@ -204,8 +204,12 @@ class ServicePrime extends ServiceBase {
         error.autoToast = false;
       }
       throw e;
+    } finally {
+      // Server logout is best-effort; local state must always clear so
+      // the UI cannot keep rendering the previously-logged-in account.
+      await this.backgroundApi.simpleDb.prime.saveAuthToken('');
+      await this.setPrimePersistAtomNotLoggedIn();
     }
-    await this.setPrimePersistAtomNotLoggedIn();
   }
 
   @backgroundMethod()
