@@ -15,15 +15,15 @@ import type { IRookieShareData } from '@onekeyhq/shared/types/rookieGuide';
 import {
   BACKGROUND_GRADIENT_COLORS,
   CANVAS_CONFIG,
-  DEFAULT_DOWNLOAD_SUBTITLE,
-  DEFAULT_QR_CAPTION,
-  DEFAULT_REFERRAL_LABEL,
   ONEKEY_LOGO_URL,
   resolveFooterCtaText,
 } from './constants';
 
+import type { IRookieShareLocaleText } from './constants';
+
 interface IShareContentRendererProps {
   data: IRookieShareData;
+  localeText: IRookieShareLocaleText;
   onImagesReady?: () => void;
 }
 
@@ -43,6 +43,7 @@ const SHARE_IMAGE_COUNT = 2;
 
 export function ShareContentRenderer({
   data,
+  localeText,
   onImagesReady,
 }: IShareContentRendererProps) {
   const { imageUrl, title, subtitle, footerText, referralCode, referralUrl } =
@@ -61,7 +62,7 @@ export function ShareContentRenderer({
     imageLoadCountRef.current = 0;
   }, [imageUrl]);
 
-  const line1Text = resolveFooterCtaText(referralCode, footerText);
+  const line1Text = resolveFooterCtaText(referralCode, footerText, localeText);
 
   return (
     <YStack
@@ -163,6 +164,7 @@ export function ShareContentRenderer({
             source={{ uri: ONEKEY_LOGO_URL }}
             width={logo.size}
             height={logo.size}
+            transform={[{ translateY: logo.footerOffsetY }]}
             onLoad={handleImageLoad}
             onError={handleImageLoad}
           />
@@ -193,7 +195,7 @@ export function ShareContentRenderer({
                     fonts.referralLabel.size * fonts.referralLabel.lineHeight
                   }
                 >
-                  {DEFAULT_REFERRAL_LABEL}
+                  {localeText.referralLabel}
                 </SizableText>
                 <Stack
                   backgroundColor={referralPill.backgroundColor}
@@ -223,7 +225,7 @@ export function ShareContentRenderer({
                   fonts.referralLabel.size * fonts.referralLabel.lineHeight
                 }
               >
-                {DEFAULT_DOWNLOAD_SUBTITLE}
+                {localeText.downloadSubtitle}
               </SizableText>
             )}
           </YStack>
@@ -245,7 +247,7 @@ export function ShareContentRenderer({
                 letterSpacing={fonts.qrCaption.letterSpacing}
                 lineHeight={fonts.qrCaption.size * fonts.qrCaption.lineHeight}
               >
-                {DEFAULT_QR_CAPTION}
+                {localeText.qrCaption}
               </SizableText>
             </YStack>
           ) : null}
