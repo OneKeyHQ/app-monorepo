@@ -497,10 +497,8 @@ export const {
 } = contextAtom<{
   networkFeeLevel: ESwapNetworkFeeLevel;
   customPriorityFee?: ICustomPriorityFeeOverride;
-  // Snapshot of the Market preset's original tier + custom fee. Survives
-  // user dropdown selections so a user who switches from Custom to a
-  // Standard tier can still see and switch back to the Custom item.
-  // Cleared together with the rest of the atom on initializer teardown.
+  // Snapshot of the Market preset so the user can switch back to "Custom"
+  // after picking a Standard tier in the review dialog.
   presetOverrides?: {
     networkFeeLevel: ESwapNetworkFeeLevel;
     customPriorityFee: ICustomPriorityFeeOverride;

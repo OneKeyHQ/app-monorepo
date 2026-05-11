@@ -247,10 +247,8 @@ const PreSwapDialogContent = ({
         swapStepsRef.current.preSwapData.toToken,
       );
     }
-    // Re-estimate when EITHER axis changes: tier alone is insufficient,
-    // since toggling between Custom and the matching Standard tier (or
-    // between Custom values without touching the tier) leaves the label
-    // updated but the displayed fee stale until the next re-estimate.
+    // Depend on both axes: toggling between Custom and the matching Standard
+    // tier changes only customPriorityFee and would leave the fee stale.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     swapStepNetFeeLevel.networkFeeLevel,
@@ -484,31 +482,28 @@ const PreSwapDialogContent = ({
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
                     onSelectNetworkFeeLevel={(value) => {
-                      // Picking "Custom" restores the Market preset's
-                      // memorized tier + custom fee so the user can toggle
-                      // back after experimenting with a Standard tier.
-                      // Picking a Standard tier explicitly clears the
-                      // custom fee — otherwise applyCustomPriorityFeeToGasInfo
-                      // keeps using the preset value and the trigger label
-                      // stays "Custom", making the tier select look no-op.
-                      // presetOverrides is preserved in both branches so
-                      // the "Custom" item stays available for re-selection.
+                      const {
+                        presetOverrides,
+                        customPriorityFee,
+                        networkFeeLevel,
+                      } = swapStepNetFeeLevel;
                       if (value === FEE_TIER_CUSTOM) {
-                        if (!swapStepNetFeeLevel.presetOverrides) return;
+                        if (!presetOverrides || customPriorityFee) return;
                         setSwapStepNetFeeLevel({
-                          networkFeeLevel:
-                            swapStepNetFeeLevel.presetOverrides.networkFeeLevel,
-                          customPriorityFee:
-                            swapStepNetFeeLevel.presetOverrides
-                              .customPriorityFee,
-                          presetOverrides: swapStepNetFeeLevel.presetOverrides,
+                          networkFeeLevel: presetOverrides.networkFeeLevel,
+                          customPriorityFee: presetOverrides.customPriorityFee,
+                          presetOverrides,
                         });
                         return;
                       }
+                      // Clear customPriorityFee explicitly; otherwise the trigger
+                      // label stays "Custom" and the tier select looks no-op.
+                      if (value === networkFeeLevel && !customPriorityFee)
+                        return;
                       setSwapStepNetFeeLevel({
                         networkFeeLevel: value,
                         customPriorityFee: undefined,
-                        presetOverrides: swapStepNetFeeLevel.presetOverrides,
+                        presetOverrides,
                       });
                     }}
                   />

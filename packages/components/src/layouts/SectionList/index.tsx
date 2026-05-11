@@ -267,10 +267,6 @@ function BaseSectionList<T>(
   );
   const layoutList = useMemo(() => {
     // `offset` is the START of the row (per RN getItemLayout contract).
-    // The previous version incremented `offset` BEFORE returning, which
-    // reported the END of each row — causing FlatList web's
-    // scrollToIndex / initialScrollIndex to land one row past the target
-    // and hiding it behind sticky section headers.
     let offset = 0;
     return reloadSections.map((item, index) => {
       const size = tokenSizeNumberList[item.type] ?? 0;

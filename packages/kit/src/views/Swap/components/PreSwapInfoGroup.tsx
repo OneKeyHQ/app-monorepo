@@ -26,14 +26,23 @@ import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap'
 
 import PreSwapInfoItem from './PreSwapInfoItem';
 
-// Sentinel value for the "Custom" dropdown item. Kept local instead of
-// extending ESwapNetworkFeeLevel so the 50+ downstream consumers that
-// switch on the enum exhaustively don't have to handle a 4th case.
+// Local sentinel: "Custom" is a dropdown-only UI value, not a fee tier.
 export const FEE_TIER_CUSTOM = 'custom' as const;
 
 export type IPreSwapFeeTierValue =
   | ESwapNetworkFeeLevel
   | typeof FEE_TIER_CUSTOM;
+
+const FEE_LEVEL_LABEL_MAP: Record<ESwapNetworkFeeLevel, ETranslations> = {
+  [ESwapNetworkFeeLevel.LOW]: ETranslations.transaction_slow,
+  [ESwapNetworkFeeLevel.MEDIUM]: ETranslations.transaction_normal,
+  [ESwapNetworkFeeLevel.HIGH]: ETranslations.transaction_fast,
+};
+const FEE_LEVEL_ORDER: ESwapNetworkFeeLevel[] = [
+  ESwapNetworkFeeLevel.LOW,
+  ESwapNetworkFeeLevel.MEDIUM,
+  ESwapNetworkFeeLevel.HIGH,
+];
 
 interface IPreSwapInfoGroupProps {
   preSwapData: ISwapPreSwapData;
@@ -49,34 +58,11 @@ const PreSwapInfoGroup = ({
   const [swapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
 
   const networkFeeLevelArray = useMemo(() => {
-    const feeArray = [
-      ESwapNetworkFeeLevel.LOW,
-      ESwapNetworkFeeLevel.MEDIUM,
-      ESwapNetworkFeeLevel.HIGH,
-    ];
     const selectItems: { label: string; value: IPreSwapFeeTierValue }[] =
-      feeArray.map((item) => {
-        let label = '';
-        if (item === ESwapNetworkFeeLevel.LOW) {
-          label = intl.formatMessage({
-            id: ETranslations.transaction_slow,
-          });
-        }
-        if (item === ESwapNetworkFeeLevel.MEDIUM) {
-          label = intl.formatMessage({
-            id: ETranslations.transaction_normal,
-          });
-        }
-        if (item === ESwapNetworkFeeLevel.HIGH) {
-          label = intl.formatMessage({
-            id: ETranslations.transaction_fast,
-          });
-        }
-        return {
-          label,
-          value: item,
-        };
-      });
+      FEE_LEVEL_ORDER.map((item) => ({
+        label: intl.formatMessage({ id: FEE_LEVEL_LABEL_MAP[item] }),
+        value: item,
+      }));
     // Append "Custom" only when a Market preset's custom priority fee was
     // memorized — otherwise there's nothing to switch back to.
     if (swapStepNetFeeLevel.presetOverrides) {
@@ -100,29 +86,12 @@ const PreSwapInfoGroup = ({
   }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
 
   const networkFeeLevelLabel = useMemo(() => {
-    // A Market preset's custom priority fee always wins over the tier label
-    // because it overrides the priority fee component regardless of tier.
+    // A custom priority fee overrides the tier, so the label follows it.
     if (swapStepNetFeeLevel.customPriorityFee) {
-      return intl.formatMessage({
-        id: ETranslations.transaction_custom,
-      });
+      return intl.formatMessage({ id: ETranslations.transaction_custom });
     }
-    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW) {
-      return intl.formatMessage({
-        id: ETranslations.transaction_slow,
-      });
-    }
-    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.MEDIUM) {
-      return intl.formatMessage({
-        id: ETranslations.transaction_normal,
-      });
-    }
-    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.HIGH) {
-      return intl.formatMessage({
-        id: ETranslations.transaction_fast,
-      });
-    }
-    return '-';
+    const labelId = FEE_LEVEL_LABEL_MAP[swapStepNetFeeLevel.networkFeeLevel];
+    return labelId ? intl.formatMessage({ id: labelId }) : '-';
   }, [
     intl,
     swapStepNetFeeLevel.networkFeeLevel,
@@ -142,9 +111,7 @@ const PreSwapInfoGroup = ({
               <Icon name="ChevronGrabberVerOutline" size="$4" />
             </XStack>
           )}
-          // While a Market preset's customPriorityFee is in effect, point
-          // the checkmark at the "Custom" item so it reads as the active
-          // selection. Otherwise reflect the standard tier.
+          // Point the checkmark at "Custom" while a preset fee is in effect.
           value={
             swapStepNetFeeLevel.customPriorityFee
               ? FEE_TIER_CUSTOM

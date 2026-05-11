@@ -130,11 +130,8 @@ type IMarketReviewExecutionSnapshot = {
   buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
   swapInfo: ISwapTxInfo;
   buildRes?: IFetchBuildTxResponse;
-  // Intentionally no `customPriorityFee`: it is owned by the swap fee atom
-  // (`swapStepNetFeeLevel.customPriorityFee`), which the dialog reads directly
-  // each time the user changes the tier. Storing a snapshot copy used to make
-  // a Market preset's initial value resurrect via `?? snapshot.customPriorityFee`
-  // even after the user switched to a preset tier, freezing the preview fee.
+  // customPriorityFee is owned by the swapStepNetFeeLevel atom; never snapshot
+  // it here, or a cleared preset fee would resurrect via `?? snapshot.value`.
 };
 
 type ICheckSwapLatestBalanceSufficient = (params: {
@@ -1111,10 +1108,8 @@ export function useSpeedSwapActions(props: {
       networkFeeLevel: ESwapNetworkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
       customPriorityFee?: ISwapReviewCustomPriorityFee,
     ) => {
-      // Trust the caller's value verbatim — when the user explicitly picks a
-      // preset tier in the review dialog, the atom clears customPriorityFee
-      // and the dialog passes `undefined` here. Falling back to a snapshotted
-      // value would silently keep using the Market preset's custom fee.
+      // Trust the caller's value verbatim; falling back to a snapshot would
+      // resurrect a cleared preset fee.
       const effectiveCustomPriorityFee = customPriorityFee;
       const nextReviewState = buildMarketReviewState({
         accountId: snapshot.accountId,
@@ -1500,13 +1495,9 @@ export function useSpeedSwapActions(props: {
         !buildUnsignedParams.encodedTx &&
         !buildUnsignedParams.transfersInfo?.length &&
         !buildUnsignedParams.swapInfo;
-      // TRON's fee includes energy/bandwidth and dynamic resource rental
-      // (createOrderParams), both of which must be detected by TxFeeInfo's
-      // own polling estimate. We still run pre-estimation to build encodedTx,
-      // but the resulting feeInfo is dropped before navigating so it doesn't
-      // trip the isLastSwapTxWithFeeInfo shortcut in TxFeeInfo — that
-      // shortcut would silence fee polling and skip the rental UI detection
-      // on the confirm page.
+      // TRON fee includes dynamic resource rental that only TxFeeInfo's
+      // own polling can detect. Drop the pre-estimated feeInfo so it doesn't
+      // trip the isLastSwapTxWithFeeInfo shortcut and skip the rental UI.
       const isTronTx = networkUtils.isTronNetworkByNetworkId(networkId);
       const canAttachPresetFeeInfo =
         Boolean(accountAddress && accountId && networkId) &&

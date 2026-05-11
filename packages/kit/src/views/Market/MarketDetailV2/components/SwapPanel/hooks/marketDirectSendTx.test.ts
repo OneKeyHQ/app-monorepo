@@ -440,12 +440,8 @@ describe('marketDirectSendTx', () => {
       computeUnitLimit: '200000',
       computeUnitPriceDecimals: 6,
     });
-    // 5,000,000 microLamports * 200,000 CU / 1e6 + 5000 baseFee
-    //   = 1,000,000 + 5000 = 1,005,000 lamports
-    //   = 0.001005 SOL × $100/SOL = $0.1005
-    // Regression guard: without estimateFeeParams plumbed through to the
-    // fee-fiat calculation, the SOL branch in calculateTotalFeeRange used
-    // to short-circuit and leak just the baseFee (~$0.0005) here.
+    // Regression guard: without estimateFeeParams plumbed through, the SOL
+    // branch returns only baseFee (~$0.0005) instead of ~$0.1005.
     expect(result.gasFeeFiatValue).toBeDefined();
     expect(Number(result.gasFeeFiatValue)).toBeCloseTo(0.1005, 4);
   });
