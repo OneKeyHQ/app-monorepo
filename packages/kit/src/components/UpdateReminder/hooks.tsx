@@ -14,8 +14,6 @@ import {
 import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
 import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-// Dynamic import used at call-site to avoid circular dependency with showFeaturedChangelogDialog.tsx
-// (that file imports useDownloadPackage + isForceUpdateStrategy from this module)
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
@@ -694,6 +692,8 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         : navigation.pushModal;
 
       if (hasFeaturedChangelog(currentInfo.featuredChangelog)) {
+        // Dynamic import to break the cycle: showFeaturedChangelogDialog
+        // imports useDownloadPackage + isForceUpdateStrategy from this file.
         const { showFeaturedChangelogDialog } =
           await import('@onekeyhq/kit/src/views/AppUpdate/dialogs/showFeaturedChangelogDialog');
         showFeaturedChangelogDialog({ isPreInstall: false });
