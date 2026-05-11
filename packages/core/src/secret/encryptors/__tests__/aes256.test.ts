@@ -1,7 +1,10 @@
 import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
 
 import {
+  ESecretEncryptPayloadFormat,
+  ESecretEncryptPayloadVersion,
   decryptAsync,
+  decryptAsyncWithMetadata,
   decryptStringAsync,
   encryptAsync,
   encryptStringAsync,
@@ -255,6 +258,128 @@ describe('aes256', () => {
     });
   });
 
+  describe('v2 envelope', () => {
+    it('should encrypt and decrypt v2 payload using header iterations', async () => {
+      const encrypted = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorGcmNonce,
+        iterations: 1234,
+        format: ESecretEncryptPayloadFormat.v2,
+        aad: goldenVectorAad,
+        dataType: 'golden-vector',
+      });
+
+      expect(encrypted.slice(0, 8).toString('utf8')).toBe('1KENC_V2');
+
+      const decrypted = await decryptAsync({
+        password: goldenVectorPassword,
+        data: encrypted,
+        ignoreLogger: false,
+        allowRawPassword: true,
+        aad: goldenVectorAad,
+        dataType: 'golden-vector',
+      });
+      expect(decrypted.toString()).toBe(goldenVectorPlaintext);
+    });
+
+    it('should return metadata for v2 and legacy payloads', async () => {
+      const encryptedV2 = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorGcmNonce,
+        iterations: 1234,
+        format: ESecretEncryptPayloadFormat.v2,
+        dataType: 'metadata-test',
+      });
+      const v2Result = await decryptAsyncWithMetadata({
+        password: goldenVectorPassword,
+        data: encryptedV2,
+        ignoreLogger: false,
+        allowRawPassword: true,
+        dataType: 'metadata-test',
+      });
+      expect(v2Result.plaintext.toString()).toBe(goldenVectorPlaintext);
+      expect(v2Result.format).toBe(ESecretEncryptPayloadFormat.v2);
+      expect(v2Result.version).toBe(ESecretEncryptPayloadVersion.v2);
+      expect(v2Result.cipher).toBe(EAppCryptoAesEncryptionMode.gcm);
+      expect(v2Result.iterations).toBe(1234);
+      expect(v2Result.dataType).toBe('metadata-test');
+      expect(v2Result.needsUpgrade).toBe(false);
+
+      const encryptedLegacy = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorCbcIv,
+      });
+      const legacyResult = await decryptAsyncWithMetadata({
+        password: goldenVectorPassword,
+        data: encryptedLegacy,
+        ignoreLogger: false,
+        allowRawPassword: true,
+      });
+      expect(legacyResult.plaintext.toString()).toBe(goldenVectorPlaintext);
+      expect(legacyResult.format).toBe(ESecretEncryptPayloadFormat.legacy);
+      expect(legacyResult.version).toBe(ESecretEncryptPayloadVersion.legacyCbc);
+      expect(legacyResult.needsUpgrade).toBe(true);
+    });
+
+    it('should fail v2 decrypt when AAD, dataType, or authenticated header is wrong', async () => {
+      const encrypted = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorGcmNonce,
+        iterations: 1234,
+        format: ESecretEncryptPayloadFormat.v2,
+        aad: goldenVectorAad,
+        dataType: 'tamper-test',
+      });
+
+      await expect(
+        decryptAsync({
+          password: goldenVectorPassword,
+          data: encrypted,
+          ignoreLogger: false,
+          allowRawPassword: true,
+          aad: 'wrong-aad',
+          dataType: 'tamper-test',
+        }),
+      ).rejects.toThrow();
+
+      await expect(
+        decryptAsync({
+          password: goldenVectorPassword,
+          data: encrypted,
+          ignoreLogger: false,
+          allowRawPassword: true,
+          aad: goldenVectorAad,
+          dataType: 'wrong-data-type',
+        }),
+      ).rejects.toThrow();
+
+      const tamperedHeader = Buffer.from(encrypted);
+      tamperedHeader[16] = (tamperedHeader[16] + 1) % 256;
+      await expect(
+        decryptAsync({
+          password: goldenVectorPassword,
+          data: tamperedHeader,
+          ignoreLogger: false,
+          allowRawPassword: true,
+          aad: goldenVectorAad,
+          dataType: 'tamper-test',
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
   describe('encryptString/decryptString', () => {
     it('should encrypt and decrypt strings correctly using sync methods', async () => {
       const encrypted = await encryptStringAsync({
@@ -326,6 +451,29 @@ describe('aes256', () => {
         allowRawPassword: true,
         mode: EAppCryptoAesEncryptionMode.gcm,
         aad,
+      });
+      expect(decrypted).toBe(testData);
+    });
+
+    it('should encrypt and decrypt strings correctly using v2 format', async () => {
+      const encrypted = await encryptStringAsync({
+        password: testPassword,
+        data: testData,
+        dataEncoding: 'utf8',
+        allowRawPassword: true,
+        iterations: 1234,
+        format: ESecretEncryptPayloadFormat.v2,
+        aad: 'aes256-test-v2-string-aad',
+        dataType: 'string-test',
+      });
+      const decrypted = await decryptStringAsync({
+        password: testPassword,
+        data: encrypted,
+        dataEncoding: 'hex',
+        resultEncoding: 'utf8',
+        allowRawPassword: true,
+        aad: 'aes256-test-v2-string-aad',
+        dataType: 'string-test',
       });
       expect(decrypted).toBe(testData);
     });

@@ -295,7 +295,7 @@ Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低�
 - [x] 第一个任务：Phase 0 golden vectors。已选择先做 legacy CBC、legacy GCM 和 custom-iteration behavior 的固定向量测试，用固定 salt、iv/nonce、password、plaintext 锁定现有 payload 格式和 KDF 参数兼容性。
 - [x] Phase 0 inventory。识别每一个持久化调用方：`encryptStringAsync`、`encryptAsync`、`encodeSensitiveTextAsync` 和 `encryptByInstanceId`，并按 local-only、shared/server-visible、migration/non-persistent 分类。
 - [ ] Phase 0 performance baseline。记录 iOS、Android、desktop、web 和 extension 上当前 PBKDF2 与 AES operations 的性能。
-- [ ] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。
+- [x] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。默认写入仍保持 legacy；只有显式 `format: 'v2'` 写入 `1KENC_V2`。
 - [ ] Phase 1 native AES-GCM。为移动端添加 native AES-GCM support，并保留 noble fallback。
 - [ ] Phase 2 local lazy upgrade。从 `Context.verifyString` 和 `Credential` 开始实现无阻塞、幂等、transaction-safe 的本地升级。
 - [ ] Phase 3 shared-data gates。为 Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payloads 添加兼容性 gate。
