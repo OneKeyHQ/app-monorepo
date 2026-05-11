@@ -71,6 +71,9 @@ export type ISettingsPersistAtom = {
   enableDesktopBluetooth?: boolean;
   enableBTCFreshAddress?: boolean;
   enableMenuBarTray?: boolean;
+  // Split-view layout for tablets / Android foldable devices. Undefined === enabled
+  // (default-on for back-compat). Toggling triggers app restart.
+  enableSplitView?: boolean;
   newBrowserTabPosition?: INewBrowserTabPosition;
   // Pay eligible network fees from Gas Account (sponsored gas) when available;
   // turning this off makes ServiceGas.estimateFee force gasAccountEnabled=false

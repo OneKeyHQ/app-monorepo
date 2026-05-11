@@ -1050,10 +1050,7 @@ export function useTrayDataProvider() {
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
           const coin = action.perpsCoin;
-          setTimeout(async () => {
-            nav.navigate(ERootRoutes.Main, {
-              screen: ETabRoutes.Perp,
-            });
+          void switchTabAsync(ETabRoutes.Perp).then(async () => {
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
                 coin,
@@ -1069,12 +1066,12 @@ export function useTrayDataProvider() {
               mode: 'perp',
               coin,
             });
-          }, 80);
+          });
           return;
         }
 
         const isNative = action.isNative || false;
-        if (action.networkId && (isNative || action.tokenAddress)) {
+        if (action.networkId) {
           const networkId = action.networkId;
           const shortCode = networkUtils.getNetworkShortCode({ networkId });
           const target = getTrayMarketNavigationTarget({

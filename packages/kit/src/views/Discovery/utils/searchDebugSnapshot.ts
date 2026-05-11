@@ -326,7 +326,7 @@ export function buildDiscoverySearchListFromFactors({
       type: 'search-action',
       key: SEARCH_ITEM_ID,
       title: searchActionTitle,
-      url: '',
+      url: uriUtils.buildGoogleSearchUrl(searchValue),
       logo: GOOGLE_LOGO_URL,
     },
   ];

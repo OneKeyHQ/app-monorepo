@@ -73,9 +73,11 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../components/AccountSelector';
 import {
+  AppUpdateForeground,
   isAutoUpdateStrategy,
   useAppUpdateInfo,
-} from '../components/UpdateReminder/hooks';
+} from '../components/AppUpdate';
+import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
@@ -91,6 +93,13 @@ const useAppUpdateInfoCallback = platformEnv.isDesktop
   ? useAppUpdateInfo
   : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
 
+// useAppUpdateInfo no longer accepts `autoCheck` — first-launch dispatch
+// and AppState 'active' resume listener now live in <AppUpdateForeground />,
+// mounted once below in Bootstrap's render output. Existing callers in
+// Bootstrap (Desktop only) pulled `useAppUpdateInfo(false, false)` for the
+// data side; that signature is preserved by treating the second arg as
+// ignored.
+
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
       const formInstances = getFormInstances();
@@ -102,7 +111,7 @@ const useDesktopEvents = platformEnv.isDesktop
       useOnLockRef.current = onLock;
 
       const { checkForUpdates, downloadPackage, onUpdateAction } =
-        useAppUpdateInfoCallback(false, false);
+        useAppUpdateInfoCallback(false);
       const isCheckingUpdate = useRef(false);
 
       const onCheckUpdate = useCallback(async () => {
@@ -876,5 +885,15 @@ export function Bootstrap() {
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
-  return platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null;
+  return (
+    <>
+      {/* Mount-once container for app-update side effects (first-launch
+          dispatch + AppState 'active' resume listener). Replaces the
+          per-mount useEffect that previously lived in
+          UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
+      <AppUpdateForeground />
+      <SplitViewPrompt />
+      {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}
+    </>
+  );
 }

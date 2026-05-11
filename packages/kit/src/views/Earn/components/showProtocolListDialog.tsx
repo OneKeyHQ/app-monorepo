@@ -39,6 +39,7 @@ import {
 import { capitalizeString } from '../../Staking/utils/utils';
 
 import { AprText } from './AprText';
+import { shouldShowProtocolListBalances } from './showProtocolListDialog.utils';
 
 import type { IntlShape } from 'react-intl';
 
@@ -284,6 +285,10 @@ export function ProtocolListContent({
     () => protocolData.flatMap((section) => section.data),
     [protocolData],
   );
+  const shouldShowProtocolBalances = useMemo(
+    () => shouldShowProtocolListBalances(flatProtocolData),
+    [flatProtocolData],
+  );
   const {
     result: protocolBalanceMap = {},
     isLoading: isProtocolBalanceLoading,
@@ -292,6 +297,7 @@ export function ProtocolListContent({
       if (
         variant !== 'switcher' ||
         !isOpen ||
+        !shouldShowProtocolBalances ||
         flatProtocolData.length === 0 ||
         (!accountId && !indexedAccountId)
       ) {
@@ -348,7 +354,15 @@ export function ProtocolListContent({
         return acc;
       }, {});
     },
-    [accountId, flatProtocolData, indexedAccountId, isOpen, symbol, variant],
+    [
+      accountId,
+      flatProtocolData,
+      indexedAccountId,
+      isOpen,
+      shouldShowProtocolBalances,
+      symbol,
+      variant,
+    ],
     {
       initResult: {},
       watchLoading: true,
@@ -510,7 +524,8 @@ export function ProtocolListContent({
             <SizableText size="$bodyLgMedium">
               {getProtocolAprValue(item)}
             </SizableText>
-            {balanceText || isProtocolBalanceLoading ? (
+            {shouldShowProtocolBalances &&
+            (balanceText || isProtocolBalanceLoading) ? (
               <XStack ai="center" gap="$1">
                 <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
                 {balanceText ? (
@@ -535,6 +550,7 @@ export function ProtocolListContent({
       isProtocolBalanceLoading,
       protocolBalanceMap,
       selectedProtocolKey,
+      shouldShowProtocolBalances,
     ],
   );
 

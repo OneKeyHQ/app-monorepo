@@ -128,14 +128,12 @@ function DeFiProtocolDetails() {
           ) : null}
         </XStack>
         <Divider />
-        <YStack py="$3">
-          {positions.map((position, index) => (
+        <YStack py="$3" gap="$5">
+          {positions.map((position) => (
             <Stack key={position.positionKey} px="$5">
               <XStack alignItems="center" minHeight={40} gap="$2">
-                <Badge bg={position.categoryConfig.bg} badgeSize="sm">
-                  <Badge.Text color={position.categoryConfig.text}>
-                    {position.categoryLabel}
-                  </Badge.Text>
+                <Badge badgeType="success" badgeSize="sm">
+                  {position.categoryLabel}
                 </Badge>
                 {position.poolName ? (
                   <Stack flex={1} minWidth={0}>
@@ -189,9 +187,6 @@ function DeFiProtocolDetails() {
                   />
                 ))}
               </YStack>
-              {index !== positions.length - 1 ? (
-                <Divider mt="$2" mb="$3" />
-              ) : null}
             </Stack>
           ))}
         </YStack>
