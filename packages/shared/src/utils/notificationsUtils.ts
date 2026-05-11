@@ -142,6 +142,18 @@ export async function navigateToNotificationDetailByLocalParams({
       }
     }
   }
+
+  // Guard WebView navigation: enforce URL safety and source tag after template
+  // replacement so an attacker cannot smuggle a blocked URL via {local_xxx}
+  // variables, and so mode=dialog callers (which bypass parseNotificationPayload)
+  // are also protected here — the single authoritative check before dispatch.
+  if (screen === ERootRoutes.WebView) {
+    if (!targetParams || !isAllowedWebViewUrl(targetParams.url as string)) {
+      return;
+    }
+    targetParams.source = 'notification';
+  }
+
   // Handle Market/Earn tab redirection for native platforms
   // On native, Market and Earn are sub-tabs within Discovery, not separate tabs
   // Returns a function that performs the redirection when called

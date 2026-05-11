@@ -118,7 +118,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     );
 
     const nativeInjectedJsCode = useMemo(() => {
-      let code: string = useInjectedNativeCode ? injectedNativeCode : '';
+      let code: string =
+        useInjectedNativeCode && !disableBridge ? injectedNativeCode : '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
         code += `
         ;(function() {
@@ -137,6 +138,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       }
       return code;
     }, [
+      disableBridge,
       isDesktopMode,
       nativeInjectedJavaScriptBeforeContentLoaded,
       useInjectedNativeCode,
