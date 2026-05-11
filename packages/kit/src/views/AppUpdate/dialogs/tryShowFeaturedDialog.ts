@@ -10,12 +10,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 export async function tryShowFeaturedDialog(
   isPreInstall: boolean,
 ): Promise<boolean> {
-  const currentInfo =
-    await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+  const currentInfo = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
   if (!hasFeaturedChangelog(currentInfo.featuredChangelog)) return false;
-  const { showFeaturedChangelogDialog } = await import(
-    './showFeaturedChangelogDialog'
-  );
+  const { showFeaturedChangelogDialog } =
+    await import('./showFeaturedChangelogDialog');
   showFeaturedChangelogDialog({ isPreInstall });
   return true;
 }
