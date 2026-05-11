@@ -28,6 +28,11 @@ async function loadCoreSecret() {
 
 // Password derivation functions
 type IKeyType = 'deviceKey' | 'cloudKey' | 'authKey';
+type IEncryptAsyncWithFormat = (
+  params: Parameters<
+    Awaited<ReturnType<typeof loadCoreSecret>>['encryptAsync']
+  >[0] & { format?: 'legacy' | 'v2' },
+) => ReturnType<Awaited<ReturnType<typeof loadCoreSecret>>['encryptAsync']>;
 
 const SHARE_KEY_PWD_FIXED_UUID: Record<IKeyType, string> = {
   deviceKey: '99C79104-F920-407B-9C2B-F4CDBC427F91',
@@ -203,7 +208,8 @@ async function generateKeylessWalletPacks(params: {
   mnemonicInfo: IKeylessMnemonicInfo;
   packSetId: string;
 }): Promise<IKeylessWalletPacks> {
-  const { encryptAsync } = await loadCoreSecret();
+  const { encryptAsync: encryptAsyncBase } = await loadCoreSecret();
+  const encryptAsync = encryptAsyncBase as unknown as IEncryptAsyncWithFormat;
   const { userInfo, mnemonicInfo, packSetId } = params;
   // Validate the packSetId with regex: must match UUID (v4) without dashes (32 lowercase hex characters)
   if (!/^[0-9a-f]{32}$/.test(packSetId)) {
@@ -282,6 +288,7 @@ async function generateKeylessWalletPacks(params: {
     data: bufferUtils.utf8ToBytes(
       stringUtils.stableStringify(deviceKeyPackEncryptedData),
     ),
+    format: 'legacy',
   });
   const deviceKeyPackEncryptedString = bufferUtils.bytesToBase64(
     deviceKeyPackEncryptedBuffer,
@@ -320,6 +327,7 @@ async function generateKeylessWalletPacks(params: {
     data: bufferUtils.utf8ToBytes(
       stringUtils.stableStringify(authKeyPackEncryptedData),
     ),
+    format: 'legacy',
   });
   const authKeyPackEncryptedString = bufferUtils.bytesToBase64(
     authKeyPackEncryptedBuffer,
@@ -349,6 +357,7 @@ async function generateKeylessWalletPacks(params: {
     data: bufferUtils.utf8ToBytes(
       stringUtils.stableStringify(cloudKeyPackEncryptedData),
     ),
+    format: 'legacy',
   });
   const cloudKeyPackEncryptedString = bufferUtils.bytesToBase64(
     cloudKeyPackEncryptedBuffer,

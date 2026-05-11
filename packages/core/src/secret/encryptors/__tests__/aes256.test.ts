@@ -55,6 +55,7 @@ describe('aes256', () => {
         password: testPassword,
         data: testBuffer,
       });
+      expect(encrypted.slice(0, 8).toString('utf8')).toBe('1KENC_V2');
       const decrypted = await decryptAsync({
         password: testPassword,
         data: encrypted,
@@ -186,6 +187,7 @@ describe('aes256', () => {
         allowRawPassword: true,
         customSalt: goldenVectorSalt,
         customIv: goldenVectorCbcIv,
+        format: ESecretEncryptPayloadFormat.legacy,
       });
       expect(encrypted.toString('hex')).toBe(expectedPayloadHex);
 
@@ -210,6 +212,7 @@ describe('aes256', () => {
         customIv: goldenVectorGcmNonce,
         mode: EAppCryptoAesEncryptionMode.gcm,
         aad: goldenVectorAad,
+        format: ESecretEncryptPayloadFormat.legacy,
       });
       expect(encrypted.toString('hex')).toBe(expectedPayloadHex);
 
@@ -235,6 +238,7 @@ describe('aes256', () => {
         customSalt: goldenVectorSalt,
         customIv: goldenVectorCbcIv,
         iterations: customIterations,
+        format: ESecretEncryptPayloadFormat.legacy,
       });
       expect(encrypted.toString('hex')).toBe(expectedPayloadHex);
 
@@ -317,6 +321,7 @@ describe('aes256', () => {
         allowRawPassword: true,
         customSalt: goldenVectorSalt,
         customIv: goldenVectorCbcIv,
+        format: ESecretEncryptPayloadFormat.legacy,
       });
       const legacyResult = await decryptAsyncWithMetadata({
         password: goldenVectorPassword,
@@ -487,6 +492,7 @@ describe('aes256', () => {
         data: testBuffer,
         allowRawPassword: true,
         iterations: customIterations,
+        format: ESecretEncryptPayloadFormat.legacy,
       });
       const decrypted = await decryptAsync({
         password: testPassword,
@@ -527,6 +533,7 @@ describe('aes256', () => {
         data: testBuffer,
         allowRawPassword: true,
         iterations: customIterations,
+        format: ESecretEncryptPayloadFormat.legacy,
       });
 
       await expect(

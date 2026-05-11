@@ -3,14 +3,12 @@ import { debounce } from 'lodash';
 
 import {
   decryptImportedCredential,
+  decryptRevealableSeed,
   encryptImportedCredential,
   encryptRevealableSeed,
   mnemonicFromEntropy,
 } from '@onekeyhq/core/src/secret';
-import {
-  decryptAsync,
-  encryptAsync,
-} from '@onekeyhq/core/src/secret/encryptors/aes256';
+import { decryptAsync } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { cloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -43,6 +41,11 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import {
+  encryptAsyncWithFormat,
+  encryptImportedCredentialWithFormat,
+  encryptRevealableSeedWithFormat,
+} from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 
 import { ERestoreResult } from './types';
@@ -86,6 +89,53 @@ class ServiceCloudBackup extends ServiceBase {
     return `${RNFS.DocumentDirectoryPath ?? ''}/${filename}`;
   }
 
+  private async buildLegacyCredentialsForBackup({
+    credentials,
+    password,
+  }: {
+    credentials: Record<string, string>;
+    password: string;
+  }) {
+    const entries = await Promise.all(
+      Object.entries(credentials).map(async ([id, credential]) => {
+        try {
+          const rs = await decryptRevealableSeed({
+            rs: credential,
+            password,
+          });
+          return [
+            id,
+            await encryptRevealableSeedWithFormat({
+              rs,
+              password,
+              format: 'legacy',
+            }),
+          ] as const;
+        } catch {
+          // continue to imported credential fallback
+        }
+
+        try {
+          const importedCredential = await decryptImportedCredential({
+            credential,
+            password,
+          });
+          return [
+            id,
+            await encryptImportedCredentialWithFormat({
+              credential: importedCredential,
+              password,
+              format: 'legacy',
+            }),
+          ] as const;
+        } catch {
+          return [id, credential] as const;
+        }
+      }),
+    );
+    return Object.fromEntries(entries);
+  }
+
   @backgroundMethod()
   async getDataForBackup(password: string): Promise<IBackupData> {
     defaultLogger.cloudBackup.getDataForBackupScene.getDataForBackup();
@@ -99,7 +149,12 @@ class ServiceCloudBackup extends ServiceBase {
       discoverBookmarks: [],
     };
 
-    const credentials = password ? await serviceAccount.dumpCredentials() : {};
+    const credentials = password
+      ? await this.buildLegacyCredentialsForBackup({
+          credentials: await serviceAccount.dumpCredentials(),
+          password,
+        })
+      : {};
     defaultLogger.cloudBackup.getDataForBackupScene.dumpCredentials(
       Object.keys(credentials).length,
     );
@@ -222,9 +277,10 @@ class ServiceCloudBackup extends ServiceBase {
 
     const privateData = password
       ? (
-          await encryptAsync({
+          await encryptAsyncWithFormat({
             password,
             data: Buffer.from(JSON.stringify(privateBackupData), 'utf8'),
+            format: 'legacy',
           })
         ).toString('base64')
       : '';
@@ -462,12 +518,13 @@ class ServiceCloudBackup extends ServiceBase {
             entropy: string;
             seed: string;
           };
-          privateData.credentials[key] = await encryptRevealableSeed({
+          privateData.credentials[key] = await encryptRevealableSeedWithFormat({
             rs: {
               entropyWithLangPrefixed: credentialRs.entropy,
               seed: credentialRs.seed,
             },
             password: remotePassword,
+            format: 'legacy',
           });
         } catch {
           //

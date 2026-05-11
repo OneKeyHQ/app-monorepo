@@ -1,7 +1,4 @@
-import {
-  decryptStringAsync,
-  encryptStringAsync,
-} from '@onekeyhq/core/src/secret';
+import { decryptStringAsync } from '@onekeyhq/core/src/secret';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import {
   CLOUD_BACKUP_PASSWORD_SALT,
@@ -28,6 +25,8 @@ import { appleCloudKitStorage } from '@onekeyhq/shared/src/storage/AppleCloudKit
 import { appleKeyChainStorage } from '@onekeyhq/shared/src/storage/AppleKeyChainStorage';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IPrimeTransferPublicData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+
+import { encryptStringAsyncWithFormat } from '../../../utils/secretEncryptFormat';
 
 import type { IOneKeyBackupProvider } from './IOneKeyBackupProvider';
 
@@ -205,11 +204,12 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     }
 
     const content: IBackupDataPasswordVerify = {
-      content: await encryptStringAsync({
+      content: await encryptStringAsyncWithFormat({
         allowRawPassword: true,
         password: params.password + CLOUD_BACKUP_PASSWORD_SALT,
         data: CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
         dataEncoding: 'utf8',
+        format: 'legacy',
       }),
     };
     try {

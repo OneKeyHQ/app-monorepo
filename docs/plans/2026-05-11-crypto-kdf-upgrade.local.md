@@ -300,25 +300,25 @@ Baseline 需要覆盖两类成本：
 - Decrypt input 也必须接受 `ciphertext || tag`。
 - 添加 native test vectors，对比 iOS、Android、noble 和 non-native implementations。
 
-Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低端移动设备上的 JS thread。但在 native GCM 完成前，移动端不得贸然把所有新写入默认切到 v2；可以先让 web/desktop/extension/Jest 和受控 non-native flows 验证 envelope/read/write/migration 行为。
+Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低端移动设备上的 JS thread。低层 API 已默认写 v2，但移动端共享场景和大范围业务 rollout 仍不得跳过 shared compatibility gates 与 native benchmark；native GCM 完成前可以先让 web、desktop、extension、Jest 和受控 non-native flows 验证 envelope/read/write/migration 行为。
 
 ## 执行 TODO
 
 - [x] 第一个任务：Phase 0 golden vectors。已选择先做 legacy CBC、legacy GCM 和 custom-iteration behavior 的固定向量测试，用固定 salt、iv/nonce、password、plaintext 锁定现有 payload 格式和 KDF 参数兼容性。
 - [x] Phase 0 inventory。识别每一个持久化调用方：`encryptStringAsync`、`encryptAsync`、`encodeSensitiveTextAsync` 和 `encryptByInstanceId`，并按 local-only、shared/server-visible、migration/non-persistent 分类。
 - [ ] Phase 0 performance baseline。记录 iOS、Android、desktop、web 和 extension 上当前 PBKDF2 与 AES operations 的性能。
-- [x] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。当前低层 primitive 默认 legacy 仅用于兼容阶段；后续必须通过中心化 write policy 切 local-only 默认 v2，避免业务调用忘记传 `format: 'v2'`。
-- [ ] Phase 1.5 non-native v2 write policy。新增中心化 write helper/policy：local-only human-password/passcode paths 默认 v2 + current iterations；shared paths 必须显式 gate；legacy writes 只能通过显式 legacy policy 或 fallback path。
+- [x] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。低层 primitive 现在默认写 v2；需要旧客户端读取的共享入口必须显式传 legacy。
+- [x] Phase 1.5 non-native v2 write policy。底层默认写 v2 + current iterations；已知 shared/server-visible 入口显式传 legacy，后续 gate 开启后再按场景切 v2。Cloud Backup V1 导出会将本地 credentials 降级为 legacy，避免备份恢复旧客户端无法识别。
 - [ ] Phase 2 local lazy upgrade。从 `Context.verifyString` 和 `Credential` 开始实现无阻塞、幂等、transaction-safe 的本地升级。
 - [ ] Phase 3 shared-data gates。为 Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payloads 添加兼容性 gate。
-- [ ] Phase 4 non-native default switch。在 non-native 流程和 gates 准备好之后，先切 web、desktop、extension、Jest 以及受控 local-only writes 到 v2。
+- [ ] Phase 4 gated v2 rollout。在 shared compatibility gates 准备好之后，按 Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payload 的 gate 逐步启用 v2 writes；移动端全量默认 v2 仍需等待 native AES-GCM benchmark。
 - [ ] Phase 5 native AES-GCM。为移动端添加 native AES-GCM support，并保留 noble fallback；移动端全量默认 v2 需等待 native benchmark 和真机验证。
 
 ### Golden vectors 测试基线意图
 
 当前新增的 golden vectors 只锁定 legacy payload 的可读性和当前 legacy writer 的基线行为，不表示默认写入路径要永久停留在 legacy。
 
-后续切换默认写入到 v2 时，应按以下方式调整测试：
+默认写入切到 v2 后，测试应保持以下约束：
 
 - Legacy read tests 保留：直接用固定 legacy hex 调用 decrypt helper，确保老数据仍可读。
 - Default write tests 改为 v2：默认 encrypt path 应断言输出 `1KENC_V2` envelope。
@@ -363,17 +363,17 @@ Phase 3: shared-data gates
 - 为 Prime Cloud Sync 和 master-password server payloads 添加 server 或 feature-flag gating。
 - 在 gate 启用前，shared writes 保持 legacy。
 
-Phase 4: default switch
+Phase 4: gated v2 rollout
 
-- 在 non-native 测试和 policy 准备好之后，将受控新的 local writes 切换到 v2。
 - 通过 rollout gates 逐步启用 shared v2 writes。
+- Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payload 必须分别有 gate。
 - 至少在一个较长 compatibility window 内保留 legacy read support。
 
 Phase 5: native AES-GCM
 
 - 为移动端添加 native AES-GCM support。
 - 对比 native、noble fallback 和低端设备性能。
-- native benchmark 通过后，移动端再进入默认 v2 写入 rollout。
+- native benchmark 通过后，移动端再进入全量 v2 写入 rollout。
 
 ## 测试要求
 

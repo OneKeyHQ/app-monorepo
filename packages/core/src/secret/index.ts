@@ -14,6 +14,7 @@ import {
 } from './bip39';
 import { ed25519, nistp256, secp256k1 } from './curves';
 import {
+  ESecretEncryptPayloadFormat,
   decryptAsync,
   encryptAsync,
   encryptStringAsync,
@@ -189,15 +190,19 @@ async function encryptVerifyString({
   password,
   addPrefixString = true,
   allowRawPassword,
+  format = ESecretEncryptPayloadFormat.v2,
 }: {
   password: string;
   addPrefixString?: boolean;
   allowRawPassword?: boolean;
+  format?: ESecretEncryptPayloadFormat;
 }): Promise<string> {
   const encrypted = await encryptAsync({
     password,
     data: Buffer.from(DEFAULT_VERIFY_STRING),
     allowRawPassword,
+    format,
+    dataType: 'local-verify-string',
   });
   return (
     (addPrefixString ? EncryptPrefixVerifyString : '') +
@@ -226,9 +231,11 @@ async function decryptRevealableSeed({
 async function encryptRevealableSeed({
   rs,
   password,
+  format = ESecretEncryptPayloadFormat.v2,
 }: {
   rs: IBip39RevealableSeed;
   password: string;
+  format?: ESecretEncryptPayloadFormat;
 }): Promise<IBip39RevealableSeedEncryptHex> {
   if (!rs || !rs.entropyWithLangPrefixed || !rs.seed) {
     throw new OneKeyLocalError('Invalid seed object');
@@ -237,6 +244,8 @@ async function encryptRevealableSeed({
     password,
     data: JSON.stringify(rs),
     dataEncoding: 'utf8',
+    format,
+    dataType: 'local-revealable-seed',
   });
   return EncryptPrefixHdCredential + bufferUtils.bytesToHex(encrypted);
 }
@@ -266,10 +275,12 @@ async function encryptImportedCredential({
   credential,
   password,
   allowRawPassword,
+  format = ESecretEncryptPayloadFormat.v2,
 }: {
   credential: ICoreImportedCredential;
   password: string;
   allowRawPassword?: boolean;
+  format?: ESecretEncryptPayloadFormat;
 }): Promise<ICoreImportedCredentialEncryptHex> {
   if (!credential || !credential.privateKey) {
     throw new OneKeyLocalError('Invalid credential object');
@@ -279,6 +290,8 @@ async function encryptImportedCredential({
     password,
     data: JSON.stringify(credential),
     dataEncoding: 'utf8',
+    format,
+    dataType: 'local-imported-credential',
   });
   return EncryptPrefixImportedCredential + encrypted;
 }

@@ -4,7 +4,6 @@ import { isEqual } from 'lodash';
 import {
   decryptRevealableSeed,
   decryptStringAsync,
-  encryptStringAsync,
   generateMnemonic,
   mnemonicToEntropy,
   revealEntropyToMnemonic,
@@ -74,6 +73,7 @@ import {
   primePersistAtom,
 } from '../../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+import { encryptStringAsyncWithFormat } from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
@@ -1252,7 +1252,7 @@ class ServiceKeylessWallet extends ServiceBase {
     mnemonicPassword: string;
   }): Promise<string> {
     const { mnemonic, mnemonicPassword } = params;
-    return encryptStringAsync({
+    return encryptStringAsyncWithFormat({
       data: mnemonic,
       dataEncoding: 'utf-8',
       password: mnemonicPassword,
@@ -1260,6 +1260,7 @@ class ServiceKeylessWallet extends ServiceBase {
       iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_MNEMONIC_GCM_AAD,
+      format: 'legacy',
     });
   }
 
@@ -1578,7 +1579,7 @@ class ServiceKeylessWallet extends ServiceBase {
 
     // Encrypt the backend share payload before uploading
     const jsonPayload = JSON.stringify(backendShareData);
-    const encryptedPayload = await encryptStringAsync({
+    const encryptedPayload = await encryptStringAsyncWithFormat({
       data: jsonPayload,
       dataEncoding: 'utf-8',
       password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
@@ -1586,6 +1587,7 @@ class ServiceKeylessWallet extends ServiceBase {
       iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
+      format: 'legacy',
     });
     const encryptedPayloadWithPrefix = `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX}${encryptedPayload}`;
 

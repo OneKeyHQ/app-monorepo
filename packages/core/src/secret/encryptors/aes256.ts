@@ -53,6 +53,7 @@ const ENCRYPTION_V2_FIXED_HEADER_LENGTH =
   PBKDF2_SALT_LENGTH +
   AES_GCM_NONCE_LENGTH +
   1; // dataType length
+const PBKDF2_CURRENT_NUM_OF_ITERATIONS = 600_000;
 
 function normalizeAad(aad?: Buffer | string): Buffer | undefined {
   if (!aad) {
@@ -273,7 +274,7 @@ async function encryptAsync({
   iterations,
   mode = EAppCryptoAesEncryptionMode.cbc,
   aad,
-  format = ESecretEncryptPayloadFormat.legacy,
+  format = ESecretEncryptPayloadFormat.v2,
   dataType,
 }: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
@@ -282,6 +283,7 @@ async function encryptAsync({
 
   if (
     useWebembedApi &&
+    format === ESecretEncryptPayloadFormat.legacy &&
     mode !== EAppCryptoAesEncryptionMode.gcm &&
     platformEnv.isNative &&
     !platformEnv.isJest &&
@@ -325,10 +327,14 @@ async function encryptAsync({
   //   ? await keyFromPasswordAndSalt(passwordDecoded, salt)
   //   : keyFromPasswordAndSaltSync(passwordDecoded, salt);
   // const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
+  const resolvedIterations =
+    format === ESecretEncryptPayloadFormat.v2
+      ? iterations || PBKDF2_CURRENT_NUM_OF_ITERATIONS
+      : iterations;
   const key: Buffer = await keyFromPasswordAndSalt({
     password: passwordDecoded,
     salt,
-    iterations,
+    iterations: resolvedIterations,
   });
 
   // const dataEncrypted = platformEnv.isNative
@@ -371,7 +377,7 @@ async function encryptAsync({
     header.writeUInt8(ENCRYPTION_V2_KDF_PBKDF2_SHA256, offset);
     offset += 1;
     header.writeUInt32BE(
-      iterations || appCrypto.consts.PBKDF2_NUM_OF_ITERATIONS,
+      resolvedIterations || PBKDF2_CURRENT_NUM_OF_ITERATIONS,
       offset,
     );
     offset += 4;
