@@ -317,10 +317,65 @@ Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低�
 - [ ] Phase 0 performance baseline。记录 iOS、Android、desktop、web 和 extension 上当前 PBKDF2 与 AES operations 的性能。
 - [x] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。低层 primitive 现在默认写 v2；需要旧客户端读取的共享入口必须走 shared encrypt policy。
 - [x] Phase 1.5 non-native v2 write policy。底层默认写 v2 + current iterations；已知 shared/server-visible 入口已统一到 shared encrypt policy，默认 legacy，后续 gate 开启后再按 `sharedScene` 精确切 v2。Cloud Backup V1 导出会将本地 credentials 降级为 legacy，避免备份恢复旧客户端无法识别。
-- [ ] Phase 2 local lazy upgrade。从 `Context.verifyString` 和 `Credential` 开始实现无阻塞、幂等、transaction-safe 的本地升级。
+- [x] Phase 2 local lazy upgrade。从 `Context.verifyString` 和 `Credential` 开始实现无阻塞、幂等、transaction-safe 的本地升级；解锁成功后异步触发，使用 metadata helper 判断 legacy payload，并在重写时比较原 ciphertext，避免覆盖并发变更。每次只处理一个小批次 credential，剩余项目后续解锁继续，避免大量钱包时连续 PBKDF2/AES-GCM 压住 JS thread。分批期间用 `Context.localPasswordKdfUpgradeLastScannedCredentialId` 记录逻辑进度；它不是 IndexedDB cursor，而是基于稳定 `credential.id` 排序的跨 IndexedDB/Realm checkpoint。每条 credential 是否已升级仍由 v2 magic 精确判断。全部完成后写入 `Context.localPasswordKdfUpgraded` 持久化标记，后续解锁直接跳过空检。失败只记录聚合错误，不阻断正常解锁。
 - [ ] Phase 3 shared-data gates。为 Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payloads 添加兼容性 gate。
 - [ ] Phase 4 gated v2 rollout。在 shared compatibility gates 准备好之后，按 Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payload 的 gate 逐步启用 v2 writes；移动端全量默认 v2 仍需等待 native AES-GCM benchmark。
 - [ ] Phase 5 native AES-GCM。为移动端添加 native AES-GCM support，并保留 noble fallback；移动端全量默认 v2 需等待 native benchmark 和真机验证。
+
+### Phase 2 Implementation Notes
+
+已实现范围：
+
+- `packages/core/src/secret/index.ts`
+  - 新增 owner-specific metadata helpers：
+    - `decryptVerifyStringWithMetadata`
+    - `decryptRevealableSeedWithMetadata`
+    - `decryptImportedCredentialWithMetadata`
+  - 普通业务读仍使用原来的 `decryptVerifyString`、`decryptRevealableSeed`、`decryptImportedCredential`。
+- `packages/kit-bg/src/dbs/local/LocalDbBase.ts`
+  - `verifyPassword` 成功后通过 `void this.lazyUpgradeLocalPasswordEncryptedRecords({ password })` 异步触发。
+  - `Context.verifyString` 优先升级。
+  - `Credential` 每次最多处理 `LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3` 条候选记录。
+  - 候选范围仅包括 `hd*`、`imported*` 和 Ton mnemonic credential；HyperLiquid `|HLP|` plaintext credential 和其它 credential 跳过。
+  - 每条 credential 是否已升级由 payload v2 magic `1K_ENC_V2` 判断，不依赖钱包级状态。
+  - 写回时比较原 ciphertext，避免覆盖并发变更。
+  - 失败只记录错误，不阻塞解锁、读取、签名或交易。
+- `packages/kit-bg/src/dbs/local/types.ts`
+  - `IDBContext.localPasswordKdfUpgraded?: boolean`
+  - `IDBContext.localPasswordKdfUpgradeLastScannedCredentialId?: string`
+- `packages/kit-bg/src/dbs/local/realm/schemas/RealmSchemaContext.ts`
+  - Realm schema 同步新增以上两个字段，默认分别为 `false` 和 `''`。
+
+分批进度语义：
+
+- `localPasswordKdfUpgradeLastScannedCredentialId` 不是 IndexedDB cursor。
+- 它是跨 IndexedDB 和 Realm 通用的逻辑 checkpoint。
+- 每次先取 `getAllCredentials()`，再在 JS 内按 `credential.id.localeCompare(...)` 做确定性排序，所以不依赖底层 DB 返回顺序。
+- 下次从 `credential.id > localPasswordKdfUpgradeLastScannedCredentialId` 的位置继续。
+- 所有候选处理完成后清空 `localPasswordKdfUpgradeLastScannedCredentialId`，并设置 `localPasswordKdfUpgraded = true`。
+- `localPasswordKdfUpgraded = true` 后，后续解锁只读 `Context` 标记并直接跳过 credential 检测。
+
+已覆盖测试：
+
+- legacy `verifyString`、HD credential、imported credential 升级到 v2。
+- `|HLP|` 跳过。
+- 并发变更时不覆盖新 ciphertext。
+- 单次 lazy upgrade 只处理一个小批次。
+- 分批期间从 `localPasswordKdfUpgradeLastScannedCredentialId` 后继续。
+- `localPasswordKdfUpgraded` 已设置时不调用 `getAllCredentials()`。
+
+已运行验证：
+
+- `yarn jest packages/core/src/secret/encryptors/__tests__/aes256.test.ts packages/kit-bg/src/dbs/local/LocalDbBase.test.ts`
+- `yarn tsc:staged`
+- `npx oxlint --tsconfig ./tsconfig.json --type-aware --fix --deny-warnings packages/core/src/secret/index.ts packages/kit-bg/src/dbs/local/LocalDbBase.ts packages/kit-bg/src/dbs/local/LocalDbBase.test.ts packages/kit-bg/src/dbs/local/types.ts packages/kit-bg/src/dbs/local/realm/schemas/RealmSchemaContext.ts`
+- `git diff --check`
+
+后续注意：
+
+- 如果未来新增本地 password-encrypted credential 类型，必须更新 `isLocalPasswordKdfCredentialUpgradeCandidate` 和对应 decrypt/encrypt helper。
+- 如果 credential id 的格式规则变更，需确认 `localeCompare` 排序仍能稳定覆盖所有候选。
+- 如果需要更强的移动端体验，可把 batch size 做成平台配置或按 benchmark 调整。
 
 ### Golden vectors 测试基线意图
 

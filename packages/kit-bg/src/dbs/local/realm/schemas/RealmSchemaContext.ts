@@ -15,6 +15,10 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
 
   public verifyString!: string;
 
+  public localPasswordKdfUpgraded?: boolean;
+
+  public localPasswordKdfUpgradeLastScannedCredentialId?: string;
+
   public networkOrderChanged?: boolean;
 
   public backupUUID!: string;
@@ -33,6 +37,11 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
       nextHD: 'int',
       nextWalletNo: 'int',
       verifyString: 'string',
+      localPasswordKdfUpgraded: { type: 'bool', default: false },
+      localPasswordKdfUpgradeLastScannedCredentialId: {
+        type: 'string',
+        default: '',
+      },
       networkOrderChanged: { type: 'bool', default: false },
       backupUUID: { type: 'string', default: '' },
       nextSignatureMessageId: { type: 'int', default: 1 },
@@ -47,6 +56,9 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
       nextHD: this.nextHD,
       nextWalletNo: this.nextWalletNo,
       verifyString: this.verifyString,
+      localPasswordKdfUpgraded: this.localPasswordKdfUpgraded || false,
+      localPasswordKdfUpgradeLastScannedCredentialId:
+        this.localPasswordKdfUpgradeLastScannedCredentialId || '',
       networkOrderChanged: this.networkOrderChanged || false,
       backupUUID: this.backupUUID,
       nextSignatureMessageId: this.nextSignatureMessageId,

@@ -16,6 +16,7 @@ import { ed25519, nistp256, secp256k1 } from './curves';
 import {
   ESecretEncryptPayloadFormat,
   decryptAsync,
+  decryptAsyncWithMetadata,
   encryptAsync,
   encryptStringAsync,
   ensureSensitiveTextEncoded,
@@ -186,6 +187,27 @@ async function decryptVerifyString({
   return decrypted.toString();
 }
 
+async function decryptVerifyStringWithMetadata({
+  password,
+  verifyString,
+}: {
+  verifyString: string;
+  password: string;
+}) {
+  const result = await decryptAsyncWithMetadata({
+    password,
+    data: Buffer.from(
+      verifyString.replace(EncryptPrefixVerifyString, ''),
+      'hex',
+    ),
+    dataType: 'local-verify-string',
+  });
+  return {
+    ...result,
+    plaintext: result.plaintext.toString(),
+  };
+}
+
 async function encryptVerifyString({
   password,
   addPrefixString = true,
@@ -226,6 +248,28 @@ async function decryptRevealableSeed({
   });
   const rsJsonStr = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(rsJsonStr) as IBip39RevealableSeed;
+}
+
+async function decryptRevealableSeedWithMetadata({
+  rs,
+  password,
+  allowRawPassword,
+}: {
+  rs: IBip39RevealableSeedEncryptHex;
+  password: string;
+  allowRawPassword?: boolean;
+}) {
+  const result = await decryptAsyncWithMetadata({
+    allowRawPassword,
+    password,
+    data: rs.replace(EncryptPrefixHdCredential, ''),
+    dataType: 'local-revealable-seed',
+  });
+  const rsJsonStr = bufferUtils.bytesToUtf8(result.plaintext);
+  return {
+    ...result,
+    plaintext: JSON.parse(rsJsonStr) as IBip39RevealableSeed,
+  };
 }
 
 async function encryptRevealableSeed({
@@ -269,6 +313,31 @@ async function decryptImportedCredential({
   });
   const text = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(text) as ICoreImportedCredential;
+}
+
+async function decryptImportedCredentialWithMetadata({
+  credential,
+  password,
+  allowRawPassword,
+}: {
+  credential: ICoreImportedCredentialEncryptHex;
+  password: string;
+  allowRawPassword?: boolean;
+}) {
+  const result = await decryptAsyncWithMetadata({
+    allowRawPassword,
+    password,
+    data:
+      typeof credential === 'string'
+        ? credential.replace(EncryptPrefixImportedCredential, '')
+        : credential,
+    dataType: 'local-imported-credential',
+  });
+  const text = bufferUtils.bytesToUtf8(result.plaintext);
+  return {
+    ...result,
+    plaintext: JSON.parse(text) as ICoreImportedCredential,
+  };
 }
 
 async function encryptImportedCredential({
@@ -899,8 +968,11 @@ export {
   compressPublicKey,
   decryptHyperLiquidAgentCredential,
   decryptImportedCredential,
+  decryptImportedCredentialWithMetadata,
   decryptRevealableSeed,
+  decryptRevealableSeedWithMetadata,
   decryptVerifyString,
+  decryptVerifyStringWithMetadata,
   encryptHyperLiquidAgentCredential,
   encryptImportedCredential,
   encryptRevealableSeed,
