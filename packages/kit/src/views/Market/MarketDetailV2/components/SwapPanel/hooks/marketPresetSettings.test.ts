@@ -15,10 +15,12 @@ import {
   getMarketPresetDefaultEditableDirectionSettingsForPreset,
   getMarketPresetItem,
   getMarketPresetNetworkFeeLevel,
+  getMarketPresetPriorityFeeOverride,
   getMarketPresetSlippageCustomStatus,
   getMarketPresetSlippageValue,
   isMarketPresetConfirmDisabled,
   resolveMarketPresetDirectionSettings,
+  shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './marketPresetSettings';
 
 describe('marketPresetSettings', () => {
@@ -222,6 +224,95 @@ describe('marketPresetSettings', () => {
         },
       })[EMarketPresetKey.P2],
     ).toBe(true);
+  });
+
+  it('shows the review Custom fee option only for valid custom priority fee overrides', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.base.id,
+    });
+    const defaultPresetSettings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P1,
+      tradeSide: EMarketPresetTradeSide.BUY,
+    });
+    const fastPresetSettings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P1,
+      tradeSide: EMarketPresetTradeSide.BUY,
+      savedSettings: {
+        presets: {
+          [EMarketPresetKey.P1]: {
+            [EMarketPresetTradeSide.BUY]: {
+              slippage: {
+                key: ESwapSlippageSegmentKey.AUTO,
+              },
+              priorityFee: {
+                type: EMarketPresetPriorityFeeType.FAST,
+              },
+            },
+          },
+        },
+      },
+    });
+    const customPresetSettings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P1,
+      tradeSide: EMarketPresetTradeSide.BUY,
+      savedSettings: {
+        presets: {
+          [EMarketPresetKey.P1]: {
+            [EMarketPresetTradeSide.BUY]: {
+              slippage: {
+                key: ESwapSlippageSegmentKey.AUTO,
+              },
+              priorityFee: {
+                type: EMarketPresetPriorityFeeType.CUSTOM,
+                customValue: '1',
+              },
+            },
+          },
+        },
+      },
+    });
+    const customPriorityFeeOverride =
+      getMarketPresetPriorityFeeOverride(customPresetSettings);
+
+    expect(getMarketPresetNetworkFeeLevel(defaultPresetSettings)).toBe(
+      ESwapNetworkFeeLevel.MEDIUM,
+    );
+    expect(getMarketPresetNetworkFeeLevel(fastPresetSettings)).toBe(
+      ESwapNetworkFeeLevel.HIGH,
+    );
+    expect(customPriorityFeeOverride).toEqual({
+      customValue: '1',
+    });
+    expect(
+      shouldShowMarketPresetReviewCustomNetworkFeeOption({
+        enabled: true,
+        selectedPriorityFeeOverride: getMarketPresetPriorityFeeOverride(
+          defaultPresetSettings,
+        ),
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowMarketPresetReviewCustomNetworkFeeOption({
+        enabled: true,
+        selectedPriorityFeeOverride:
+          getMarketPresetPriorityFeeOverride(fastPresetSettings),
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowMarketPresetReviewCustomNetworkFeeOption({
+        enabled: true,
+        selectedPriorityFeeOverride: customPriorityFeeOverride,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowMarketPresetReviewCustomNetworkFeeOption({
+        enabled: false,
+        selectedPriorityFeeOverride: customPriorityFeeOverride,
+      }),
+    ).toBe(false);
   });
 
   it.each([

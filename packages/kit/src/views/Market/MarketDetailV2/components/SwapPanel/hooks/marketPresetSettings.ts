@@ -441,14 +441,14 @@ export function getMarketPresetCustomizedMap(
   );
 }
 
-export function shouldShowMarketPresetReviewNetworkFeeOption({
+export function shouldShowMarketPresetReviewCustomNetworkFeeOption({
   enabled,
-  selectedPresetKey,
+  selectedPriorityFeeOverride,
 }: {
   enabled: boolean;
-  selectedPresetKey: EMarketPresetKey;
+  selectedPriorityFeeOverride?: IMarketPresetPriorityFeeOverride;
 }) {
-  return enabled && selectedPresetKey !== EMarketPresetKey.AUTO;
+  return enabled && !!selectedPriorityFeeOverride;
 }
 
 export function getMarketPresetSlippageValue({
