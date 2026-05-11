@@ -16,7 +16,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
-import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { runAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
@@ -60,6 +59,7 @@ import type {
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import { deFiListLoadingReducer } from './deFiListLoadingReducer';
+import { DeFiListSkeleton } from './DeFiListSkeleton';
 import { getOverviewCollapsedProtocolLimit } from './DeFiOverviewPlanner';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
 import { buildDeFiOverviewCells } from './hooks/useDeFiOverviewTopN';
@@ -86,8 +86,8 @@ function buildSingleNetworkDeFiCacheKey({
 
 function MobileProtocolDivider() {
   return (
-    <YStack px="$5" pt="$1" pb="$2">
-      <Divider borderColor="$borderDisabled" />
+    <YStack px="$5" py="$1.5">
+      <Divider borderColor="$borderSubdued" />
     </YStack>
   );
 }
@@ -1228,7 +1228,10 @@ function DeFiListBlock({
 
   const renderSubTitle = useCallback(() => {
     if (!initialized && isRefreshing) {
-      return <Skeleton.HeadingXl />;
+      // w=120 widens the preset's default 103 px to better approximate
+      // a typical "$XX,XXX.XX" measurement; same width as DeFiContainer
+      // for one canonical loading shape across both surfaces.
+      return <Skeleton.HeadingXl w={120} />;
     }
 
     return (
@@ -1340,10 +1343,13 @@ function DeFiListBlock({
         subTitle={hideInternalTitle ? undefined : renderSubTitle()}
         subTitleProps={tableLayout ? undefined : { color: '$text' }}
         headerContainerProps={{ px: '$pagePadding' }}
+        // Match the loaded branch's content inset so the loading-state
+        // skeleton sits in the same column as the eventual cards.
+        contentContainerProps={tableLayout ? { px: '$pagePadding' } : undefined}
         plainContentContainer
         content={
           !initialized || isRefreshing ? (
-            <ListLoading isTokenSelectorView={false} />
+            <DeFiListSkeleton tableLayout={tableLayout} />
           ) : (
             <EmptyDeFi tableLayout={tableLayout} />
           )
