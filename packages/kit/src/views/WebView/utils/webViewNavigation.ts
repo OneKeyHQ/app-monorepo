@@ -6,8 +6,7 @@ import {
   EWebViewRoutes,
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
-
-import { isAllowedWebViewUrl } from './urlSafety';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 
 export type IOpenWebViewParams = IWebViewPageParams;
 

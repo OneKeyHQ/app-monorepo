@@ -2,8 +2,7 @@ import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-
-import { isAllowedWebViewUrl } from '../../../views/WebView/utils/urlSafety';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 
 import type { IOpenWebViewParams } from '../../../views/WebView/utils/webViewNavigation';
 

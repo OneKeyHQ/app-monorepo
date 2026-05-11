@@ -1,4 +1,4 @@
-import { isAllowedWebViewUrl } from '../urlSafety';
+import { isAllowedWebViewUrl } from './webViewUrlSafety';
 
 // Avoid the literal `javascript:` URL form to satisfy `no-script-url`.
 const JS_SCHEME_URL = ['java', 'script:', 'alert(1)'].join('');

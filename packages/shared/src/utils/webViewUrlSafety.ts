@@ -5,11 +5,18 @@
  *   - `openWebView()` (in-app entry function)
  *   - `parseWebViewDeepLink()` (deeplink decoder)
  *   - `WebViewPage`'s `onShouldStartLoadWithRequest` (per-navigation guard)
+ *   - `notificationsUtils.parseNotificationPayload`'s `openInApp` branch
+ *     (including the extension-background `openUrlExternal` fallback, so the
+ *     notification entry stays platform-independent — see PR #11542 review).
+ *
+ * Lives in `@onekeyhq/shared` so background runtimes (extension service worker,
+ * shared notification handlers) can import it without violating the
+ * shared → kit import-hierarchy rule.
  *
  * All checks fail closed (silent reject; never throws).
  */
 
-import { containsPunycode } from '@onekeyhq/shared/src/utils/uriUtils';
+import { containsPunycode } from './uriUtils';
 
 const HTTPS_REGEX = /^https:\/\//i;
 const MAX_URL_LENGTH = 2048;

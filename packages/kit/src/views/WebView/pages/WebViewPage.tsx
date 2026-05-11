@@ -14,12 +14,12 @@ import {
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 
 import AddressBar from '../components/AddressBar';
 import WebViewHeader from '../components/Header';
 import ProgressBar from '../components/ProgressBar';
 import { resolveOverlayDisplay } from '../utils/displayPolicy';
-import { isAllowedWebViewUrl } from '../utils/urlSafety';
 
 import type { WebView as ReactNativeWebView } from 'react-native-webview';
 import type {

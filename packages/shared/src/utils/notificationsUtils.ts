@@ -27,6 +27,7 @@ import extUtils from './extUtils';
 import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
 import timerUtils from './timerUtils';
+import { isAllowedWebViewUrl } from './webViewUrlSafety';
 
 import type { INetworkAccount } from '../../types/account';
 import type {
@@ -322,6 +323,17 @@ export function parseNotificationPayload(
         }
         if (!webViewParams) {
           webViewParams = { url: payload, source: 'notification' };
+        }
+        // Fail closed before dispatching, so the WebView overlay's URL policy
+        // (https-only, no userinfo, no local addresses, no custom ports, no
+        // download targets, no IDN homographs) also gates the extension
+        // background `openUrlExternal` fallback below. Without this, the
+        // notification entry would have a platform-dependent security
+        // boundary: desktop/native runs `openWebView`'s `isAllowedWebViewUrl`
+        // check inside the kit subscriber, but extension background bypasses
+        // it because the subscriber doesn't exist in that runtime.
+        if (!isAllowedWebViewUrl(webViewParams.url)) {
+          break;
         }
         // `appEventBus` is in-process per runtime, and the
         // `ShowNotificationInWebViewOverlay` subscriber lives in the kit UI
