@@ -77,7 +77,7 @@ interface IPreSwapDialogContentProps {
   }) => void | Promise<void>;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
-  showCustomNetworkFeeOption?: boolean;
+  customNetworkFeeOptionLabel?: string;
 }
 
 const PreSwapDialogContent = ({
@@ -88,34 +88,39 @@ const PreSwapDialogContent = ({
   preSwapStepsStart,
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
-  showCustomNetworkFeeOption,
+  customNetworkFeeOptionLabel,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [swapStepNetFeeLevel, setSwapStepNetFeeLevel] =
     useSwapStepNetFeeLevelAtom();
   const customNetworkFeeOption = useMemo(() => {
-    const optionNetworkFeeLevel = showCustomNetworkFeeOption
+    const optionNetworkFeeLevel = customNetworkFeeOptionLabel
       ? (defaultNetworkFeeLevel ?? swapStepNetFeeLevel.networkFeeLevel)
       : swapStepNetFeeLevel.networkFeeLevel;
-    const optionCustomPriorityFee = showCustomNetworkFeeOption
+    const optionCustomPriorityFee = customNetworkFeeOptionLabel
       ? defaultCustomPriorityFee
       : swapStepNetFeeLevel.customPriorityFee;
+    const label =
+      customNetworkFeeOptionLabel ??
+      (optionCustomPriorityFee
+        ? intl.formatMessage({ id: ETranslations.transaction_custom })
+        : undefined);
 
-    if (!showCustomNetworkFeeOption && !optionCustomPriorityFee) {
+    if (!label) {
       return undefined;
     }
 
     return {
-      label: intl.formatMessage({ id: ETranslations.transaction_custom }),
+      label,
       networkFeeLevel: optionNetworkFeeLevel,
       customPriorityFee: optionCustomPriorityFee,
     };
   }, [
+    customNetworkFeeOptionLabel,
     defaultCustomPriorityFee,
     defaultNetworkFeeLevel,
     intl,
-    showCustomNetworkFeeOption,
     swapStepNetFeeLevel.customPriorityFee,
     swapStepNetFeeLevel.networkFeeLevel,
   ]);

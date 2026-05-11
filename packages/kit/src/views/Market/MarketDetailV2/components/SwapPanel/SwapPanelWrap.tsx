@@ -28,7 +28,7 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import {
   EMarketPresetTradeSide,
-  shouldShowMarketPresetReviewNetworkFeeOption,
+  getMarketPresetReviewNetworkFeeOptionLabel,
 } from './hooks/marketPresetSettings';
 import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
@@ -493,8 +493,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       const requestId = reviewDialogRequestIdRef.current + 1;
       reviewDialogRequestIdRef.current = requestId;
       setIsReviewOpening(true);
-      const showCustomNetworkFeeOption =
-        shouldShowMarketPresetReviewNetworkFeeOption(marketPresetSettings);
+      const customNetworkFeeOptionLabel =
+        getMarketPresetReviewNetworkFeeOptionLabel(marketPresetSettings);
 
       try {
         const nextReviewState = await prepareMarketSwapReview({
@@ -531,7 +531,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
               adapter={reviewAdapter}
               defaultNetworkFeeLevel={effectiveNetworkFeeLevel}
               defaultCustomPriorityFee={effectiveCustomPriorityFee}
-              showCustomNetworkFeeOption={showCustomNetworkFeeOption}
+              customNetworkFeeOptionLabel={customNetworkFeeOptionLabel}
               reviewState={nextReviewState}
               onDone={() => void dialog?.close()}
             />

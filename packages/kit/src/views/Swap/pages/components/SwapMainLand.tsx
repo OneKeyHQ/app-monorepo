@@ -100,7 +100,7 @@ import {
 
 import {
   EMarketPresetTradeSide,
-  shouldShowMarketPresetReviewNetworkFeeOption,
+  getMarketPresetReviewNetworkFeeOptionLabel,
 } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
 import { useMarketPresetSettings } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
@@ -289,7 +289,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     networkId: swapProMarketPresetTokenContext?.networkId,
     tradeSide: swapProMarketPresetTradeSide,
   });
-  const showSwapProReviewCustomNetworkFeeOption = useMemo(() => {
+  const swapProReviewCustomNetworkFeeOptionLabel = useMemo(() => {
     if (
       !focusSwapPro ||
       swapProTradeType !== ESwapProTradeType.MARKET ||
@@ -298,16 +298,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return undefined;
     }
 
-    return shouldShowMarketPresetReviewNetworkFeeOption(
+    return getMarketPresetReviewNetworkFeeOptionLabel(
       swapProMarketPresetSettings,
     );
   }, [focusSwapPro, swapProMarketPresetSettings, swapProTradeType]);
   const swapProReviewDefaultNetworkFeeLevel =
-    showSwapProReviewCustomNetworkFeeOption
+    swapProReviewCustomNetworkFeeOptionLabel
       ? swapProMarketPresetSettings.selectedNetworkFeeLevel
       : undefined;
   const swapProReviewDefaultCustomPriorityFee =
-    showSwapProReviewCustomNetworkFeeOption
+    swapProReviewCustomNetworkFeeOptionLabel
       ? swapProMarketPresetSettings.selectedPriorityFeeOverride
       : undefined;
 
@@ -946,8 +946,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                       defaultCustomPriorityFee={
                         swapProReviewDefaultCustomPriorityFee
                       }
-                      showCustomNetworkFeeOption={
-                        showSwapProReviewCustomNetworkFeeOption
+                      customNetworkFeeOptionLabel={
+                        swapProReviewCustomNetworkFeeOptionLabel
                       }
                       onConfirm={handleConfirm}
                       onDone={onPreSwapClose}
@@ -988,8 +988,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                       defaultCustomPriorityFee={
                         swapProReviewDefaultCustomPriorityFee
                       }
-                      showCustomNetworkFeeOption={
-                        showSwapProReviewCustomNetworkFeeOption
+                      customNetworkFeeOptionLabel={
+                        swapProReviewCustomNetworkFeeOptionLabel
                       }
                       onDone={onPreSwapClose}
                       onConfirm={handleConfirm}
@@ -1018,7 +1018,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     preSwapStepsStart,
     swapProReviewDefaultCustomPriorityFee,
     swapProReviewDefaultNetworkFeeLevel,
-    showSwapProReviewCustomNetworkFeeOption,
+    swapProReviewCustomNetworkFeeOptionLabel,
     handleConfirm,
     InTabDialog,
   ]);

@@ -451,6 +451,33 @@ export function shouldShowMarketPresetReviewNetworkFeeOption({
   return enabled && selectedPresetKey !== EMarketPresetKey.AUTO;
 }
 
+export function getMarketPresetReviewNetworkFeeOptionLabel({
+  enabled,
+  presets,
+  selectedPreset,
+  selectedPresetKey,
+}: {
+  enabled: boolean;
+  presets: IMarketPresetItem[];
+  selectedPreset?: IMarketPresetItem;
+  selectedPresetKey: EMarketPresetKey;
+}) {
+  if (
+    !shouldShowMarketPresetReviewNetworkFeeOption({
+      enabled,
+      selectedPresetKey,
+    })
+  ) {
+    return undefined;
+  }
+
+  const selectedPresetItem =
+    selectedPreset ??
+    presets.find((preset) => preset.key === selectedPresetKey);
+
+  return selectedPresetItem?.label ?? selectedPresetKey.toUpperCase();
+}
+
 export function getMarketPresetSlippageValue({
   settings,
   defaultSlippage,
