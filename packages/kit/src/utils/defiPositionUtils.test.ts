@@ -82,6 +82,7 @@ function makePosition({
   groupId,
   category,
   poolName,
+  value = '0',
   assets = [],
   rewards = [],
   debts = [],
@@ -89,6 +90,7 @@ function makePosition({
   groupId: string;
   category: string;
   poolName: string;
+  value?: string;
   assets?: IProtocolPositionAsset[];
   rewards?: IProtocolPositionAsset[];
   debts?: IProtocolPositionAsset[];
@@ -98,7 +100,7 @@ function makePosition({
     category,
     poolName,
     poolFullName: poolName,
-    value: '0',
+    value,
     assets,
     debts,
     rewards,
@@ -172,12 +174,14 @@ describe('buildProtocolCategoryGroups', () => {
         groupId: 'pendle-1',
         category: 'yield',
         poolName: 'PT-USDe-30JUL2025',
+        value: '1500.25',
         assets: [makeAsset({ address: '0xa', symbol: 'sUSDe', value: 1500 })],
       }),
       makePosition({
         groupId: 'pendle-2',
         category: 'yield',
         poolName: 'PT-USDe-30JUL2025',
+        value: '999.75',
         assets: [makeAsset({ address: '0xb', symbol: 'USDe', value: 1000 })],
       }),
     ]);
@@ -190,6 +194,7 @@ describe('buildProtocolCategoryGroups', () => {
       'sUSDe',
       'USDe',
     ]);
+    expect(group.rows[0].netValue).toBe('2500');
     expect(group.rows[0].rewardsExtraAssets).toHaveLength(0);
   });
 
@@ -223,6 +228,7 @@ describe('buildProtocolCategoryGroups', () => {
         groupId: 'farm-1',
         category: 'leveraged_farming',
         poolName: 'Leveraged ETH Farm',
+        value: '1000',
         assets: [makeAsset({ address: '0xa', symbol: 'ETH', value: 1500 })],
         debts: [
           {
@@ -238,6 +244,7 @@ describe('buildProtocolCategoryGroups', () => {
     if (group.kind !== 'unified') return;
     expect(group.rows[0].primaryAssets.map((a) => a.symbol)).toEqual(['ETH']);
     expect(group.rows[0].borrowedAssets.map((a) => a.symbol)).toEqual(['USDC']);
+    expect(group.rows[0].netValue).toBe('1000');
   });
 
   it('falls back to rewards bucket when a position has no supplied assets', () => {

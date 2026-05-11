@@ -341,6 +341,9 @@ export type IProtocolUnifiedPositionDisplay =
 export type IProtocolUnifiedRow = {
   rowKey: string;
   positionDisplay: IProtocolUnifiedPositionDisplay;
+  // Upstream net value for the logical row. `position.value` already accounts
+  // for debts, so table rendering must not recompute value from visible assets.
+  netValue: string;
   // Drives the Supplied/Balance/USD columns. Equals the supplied bucket when
   // the position has supplied assets; for rewards-only positions (e.g. a
   // protocol whose category=='rewards' has no supplied bucket at all) this
@@ -416,6 +419,7 @@ function buildUnifiedRowsFromPositions(
     suppliedAssets: IDeFiAsset[];
     borrowedAssets: IDeFiAsset[];
     rewardsAssets: IDeFiAsset[];
+    netValue: BigNumber;
     firstGroupId: string;
   };
   const orderedKeys: string[] = [];
@@ -433,11 +437,13 @@ function buildUnifiedRowsFromPositions(
         suppliedAssets: [],
         borrowedAssets: [],
         rewardsAssets: [],
+        netValue: new BigNumber(0),
         firstGroupId: position.groupId,
       };
       buckets.set(bucketKey, bucket);
       orderedKeys.push(bucketKey);
     }
+    bucket.netValue = bucket.netValue.plus(position.value);
     for (const section of position.sections) {
       if (section.assetType === 'supplied' || section.assetType === 'other') {
         // 'other' is rare and folds into supplied so it still surfaces in
@@ -500,6 +506,7 @@ function buildUnifiedRowsFromPositions(
     return {
       rowKey: bucket.poolName ? `name:${bucket.poolName}` : `id:${key}`,
       positionDisplay,
+      netValue: bucket.netValue.toFixed(),
       primaryAssets,
       borrowedAssets: bucket.borrowedAssets,
       rewardsExtraAssets,

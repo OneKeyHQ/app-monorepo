@@ -11,24 +11,6 @@ import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 import { ProtocolPositionCell } from './ProtocolPositionCell';
 import { ProtocolRewardsCell } from './ProtocolRewardsCell';
 
-// Position-level USD total = supplied assets + reward assets. The Rewards
-// column already itemizes the reward USD separately; the Value column on
-// the right is a "what's this position worth as a whole" single number,
-// which is why rewards still add into it.
-function sumPositionUsd(
-  primaryAssets: IDeFiAsset[],
-  rewardsExtraAssets: IDeFiAsset[],
-): number {
-  let total = 0;
-  for (const asset of primaryAssets) {
-    total += asset.value;
-  }
-  for (const asset of rewardsExtraAssets) {
-    total += asset.value;
-  }
-  return total;
-}
-
 // Returns the most valuable up to `max` assets in USD-descending order.
 // Used for the Balance column when a position has more rows than we want
 // to stack — surfacing the biggest holdings first reads more usefully
@@ -169,10 +151,6 @@ const ProtocolUnifiedTable = memo(
         </XStack>
 
         {rows.map((row, rowIndex) => {
-          const positionUsd = sumPositionUsd(
-            row.primaryAssets,
-            row.rewardsExtraAssets,
-          );
           const isExpanded = expandedRows.has(row.rowKey);
           const visibleBalanceAssets = isExpanded
             ? row.primaryAssets
@@ -318,7 +296,7 @@ const ProtocolUnifiedTable = memo(
                   numberOfLines={1}
                   fontVariant={TABULAR_NUMS}
                 >
-                  {positionUsd}
+                  {row.netValue}
                 </NumberSizeableTextWrapper>
               </Stack>
             </XStack>
