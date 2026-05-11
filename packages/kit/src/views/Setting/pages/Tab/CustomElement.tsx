@@ -814,6 +814,33 @@ export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
   );
 }
 
+export function SplitViewListItem(props: ICustomElementProps) {
+  const [{ enableSplitView }] = useSettingsPersistAtom();
+  const checked = enableSplitView !== false;
+  const toggleSplitView = useCallback(
+    async (value: boolean) => {
+      if (value === checked) return;
+      await backgroundApiProxy.serviceSetting.setEnableSplitView(value);
+      // Layout swap requires a fresh app boot; small delay lets the Switch
+      // animate before the native restart kicks in.
+      setTimeout(() => {
+        void backgroundApiProxy.serviceApp.restartApp();
+      }, 200);
+    },
+    [checked],
+  );
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        alignSelf="flex-start"
+        size={ESwitchSize.small}
+        value={checked}
+        onChange={toggleSplitView}
+      />
+    </TabSettingsListItem>
+  );
+}
+
 export function ResetPinListItem(props: ICustomElementProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
