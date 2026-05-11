@@ -2268,12 +2268,12 @@ describe('useAppUpdateInfo useEffect', () => {
       return holder;
     }
 
-    test("AppState 'active' + service greenlight → fires JS downloadPackage", async () => {
+    test("AppState 'active' + service returns 'downloadPackage' → fires JS downloadPackage", async () => {
       // Critical assertion: it's the JS-side downloadPackage that ultimately
       // calls BundleUpdate.downloadBundle. A foreground-resume that only
       // pokes the service (and not the JS hook) would not start any bytes.
       const handlerHolder = captureAppStateHandler();
-      svc.shouldResumeStalledDownload.mockResolvedValue(true);
+      svc.shouldResumeStalledDownload.mockResolvedValue('downloadPackage');
 
       // Wire enough state that downloadPackage()'s body completes its
       // first await without reaching the network — we only need to prove
@@ -2298,11 +2298,47 @@ describe('useAppUpdateInfo useEffect', () => {
       // The JS downloadPackage hook is what guarantees byte flow — it
       // begins with svc.downloadPackage() before any native call.
       expect(svc.downloadPackage).toHaveBeenCalled();
+      // ASC must NOT have been routed in the package-step branch.
+      expect(svc.downloadASC).not.toHaveBeenCalled();
     });
 
-    test("AppState 'active' + service rejects → does NOT fire downloadPackage", async () => {
+    test("AppState 'active' + service returns 'downloadASC' → fires JS downloadASC, NOT downloadPackage", async () => {
+      // Critical: an ASC-only failure must resume via downloadASC().
+      // Routing it through downloadPackage() would clear downloadedEvent
+      // and force a full re-download of an already-on-disk package —
+      // wasted bandwidth, especially under foreground/background churn
+      // or a permanent 403/404 on the ASC URL.
       const handlerHolder = captureAppStateHandler();
-      svc.shouldResumeStalledDownload.mockResolvedValue(false);
+      svc.shouldResumeStalledDownload.mockResolvedValue('downloadASC');
+
+      setAtom({
+        status: EAppUpdateStatus.downloadASCFailed,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.getDownloadEvent.mockResolvedValue({});
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      svc.downloadPackage.mockClear();
+      svc.downloadASC.mockClear();
+
+      await act(async () => {
+        handlerHolder.fn?.('active');
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(svc.shouldResumeStalledDownload).toHaveBeenCalledTimes(1);
+      expect(svc.downloadASC).toHaveBeenCalled();
+      // Regression guard for the original review feedback:
+      // downloadPackage MUST NOT be invoked on an ASC-only resume.
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+    });
+
+    test("AppState 'active' + service returns null → does NOT fire downloadPackage", async () => {
+      const handlerHolder = captureAppStateHandler();
+      svc.shouldResumeStalledDownload.mockResolvedValue(null);
 
       // Use status===notify so the run-once useEffect on first mount
       // does not itself fire downloadPackage(); we want to attribute any
@@ -2325,6 +2361,7 @@ describe('useAppUpdateInfo useEffect', () => {
         await Promise.resolve();
       });
       svc.downloadPackage.mockClear();
+      svc.downloadASC.mockClear();
 
       await act(async () => {
         handlerHolder.fn?.('active');
@@ -2337,6 +2374,7 @@ describe('useAppUpdateInfo useEffect', () => {
       // a duplicate downloadPackage call → "Already downloading" →
       // unrecoverable → status flipped to failed, killing a healthy flow.
       expect(svc.downloadPackage).not.toHaveBeenCalled();
+      expect(svc.downloadASC).not.toHaveBeenCalled();
     });
 
     test("non-'active' transitions are no-ops (no service call at all)", async () => {

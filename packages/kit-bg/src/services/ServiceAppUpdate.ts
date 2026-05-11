@@ -473,40 +473,54 @@ class ServiceAppUpdate extends ServiceBase {
 
   /**
    * Pure query (no atom mutation, no side effects on download timers):
-   * returns true iff the caller should now invoke the JS downloadPackage()
-   * hook to resume a stalled bundle download.
+   * returns the step to resume ('downloadPackage' | 'downloadASC') iff
+   * the caller should now invoke the matching JS hook, or null otherwise.
    *
-   * Eligibility deliberately excludes status === downloadPackage. That
-   * status either means a download is in flight (don't disturb) or that
-   * C1's in-flight retry is mid-backoff (also don't disturb). Verify-
-   * failed / install-failed / final-failed statuses are likewise excluded
-   * because those need a user-facing decision (different signature,
-   * different bundle, etc.) — silent re-download won't help.
+   * Returning a step (rather than a boolean) lets the caller pick the
+   * narrowest recovery: an ASC-only failure must NOT re-trigger
+   * downloadPackage() because that path clears downloadedEvent and
+   * forces a full-package re-download. With foreground/background
+   * churn (and especially a permanent ASC 403/404), that would
+   * repeatedly burn bandwidth and time on a package that was already
+   * successfully downloaded.
    *
-   * Returning true *consumes* the cooldown atomically so that two
-   * concurrent foreground-listeners (UpdateReminder + MoreActionButton)
-   * cannot both fire downloadPackage on the same AppState event.
+   * Eligibility deliberately excludes status === downloadPackage /
+   * downloadASC. Those mean a transfer is in flight (or C1's in-flight
+   * retry is mid-backoff) — don't disturb. Verify-failed / install-
+   * failed / final-failed statuses are likewise excluded because they
+   * need a user-facing decision (different signature, different
+   * bundle, etc.) — silent re-download won't help.
+   *
+   * Returning a non-null step *consumes* the cooldown atomically so
+   * that two concurrent foreground-listeners (UpdateReminder +
+   * MoreActionButton) cannot both fire a download on the same
+   * AppState event.
    */
   @backgroundMethod()
-  async shouldResumeStalledDownload(): Promise<boolean> {
+  async shouldResumeStalledDownload(): Promise<
+    'downloadPackage' | 'downloadASC' | null
+  > {
     const now = Date.now();
     if (now - this.resumeStalledDownloadLastFiredAt < 30_000) {
-      return false;
+      return null;
     }
     // Claim the cooldown BEFORE yielding to the event loop. Two AppState
     // listeners (UpdateReminder + MoreActionButton both mount
     // useAppUpdateInfo) can race into this method on the same 'active'
     // event. If we set the timestamp only after the await, both pass the
     // `now - last < 30_000` check, both reach the eligible check, and
-    // both return true → double-fire downloadPackage. Claiming first
-    // means the second caller's check fails immediately and bails.
+    // both return a non-null step → double-fire. Claiming first means
+    // the second caller's check fails immediately and bails.
     const claimedAt = now;
     this.resumeStalledDownloadLastFiredAt = claimedAt;
     const { status } = await appUpdatePersistAtom.get();
-    const eligible =
-      status === EAppUpdateStatus.downloadPackageFailed ||
-      status === EAppUpdateStatus.downloadASCFailed;
-    if (!eligible) {
+    let step: 'downloadPackage' | 'downloadASC' | null = null;
+    if (status === EAppUpdateStatus.downloadPackageFailed) {
+      step = 'downloadPackage';
+    } else if (status === EAppUpdateStatus.downloadASCFailed) {
+      step = 'downloadASC';
+    }
+    if (step === null) {
       // Release the claim so a subsequent foreground transition that DOES
       // find an eligible status can pass through promptly instead of
       // waiting out the full 30s window. Guard against a concurrent
@@ -514,12 +528,12 @@ class ServiceAppUpdate extends ServiceBase {
       if (this.resumeStalledDownloadLastFiredAt === claimedAt) {
         this.resumeStalledDownloadLastFiredAt = 0;
       }
-      return false;
+      return null;
     }
     defaultLogger.app.appUpdate.log(
-      `shouldResumeStalledDownload: green-lighting resume from status=${status}`,
+      `shouldResumeStalledDownload: green-lighting resume from status=${status} → ${step}`,
     );
-    return true;
+    return step;
   }
 
   static FAILED_STATUSES: EAppUpdateStatus[] = [
@@ -794,9 +808,14 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async downloadASC() {
     const { status } = await appUpdatePersistAtom.get();
+    // downloadASCFailed is an explicit retry entry: the package itself is
+    // already on disk (downloadedEvent is intact), only the ASC fetch
+    // tripped. Foreground resume routes here instead of re-running the
+    // full package download.
     if (
       status !== EAppUpdateStatus.downloadPackage &&
-      status !== EAppUpdateStatus.downloadASC
+      status !== EAppUpdateStatus.downloadASC &&
+      status !== EAppUpdateStatus.downloadASCFailed
     ) {
       defaultLogger.app.appUpdate.log(
         `downloadASC: rejected, current status=${status}`,
@@ -804,6 +823,7 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
     clearTimeout(downloadTimeoutId);
+    clearTimeout(failedRecoveryTimerId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.downloadASC,

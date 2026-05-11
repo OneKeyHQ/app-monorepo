@@ -966,32 +966,35 @@ describe('ServiceAppUpdate state transitions', () => {
   // shouldResumeStalledDownload — pure eligibility query for AppState 'active'
   // =========================================================================
   describe('shouldResumeStalledDownload', () => {
-    test("greenlights resume when status is 'downloadPackageFailed'", async () => {
+    test("returns 'downloadPackage' when status is 'downloadPackageFailed'", async () => {
       resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
-      const should = await service.shouldResumeStalledDownload();
-      expect(should).toBe(true);
+      const step = await service.shouldResumeStalledDownload();
+      expect(step).toBe('downloadPackage');
       // Pure query — atom must NOT be mutated.
       expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
     });
 
-    test("greenlights resume when status is 'downloadASCFailed'", async () => {
+    test("returns 'downloadASC' when status is 'downloadASCFailed'", async () => {
+      // Critical: ASC-only failures must NOT route through downloadPackage,
+      // which would clear downloadedEvent and force a full package
+      // re-download even though the bytes are already on disk.
       resetAtom({ status: EAppUpdateStatus.downloadASCFailed });
-      const should = await service.shouldResumeStalledDownload();
-      expect(should).toBe(true);
+      const step = await service.shouldResumeStalledDownload();
+      expect(step).toBe('downloadASC');
       expect(atomValue.status).toBe(EAppUpdateStatus.downloadASCFailed);
     });
 
-    test("does NOT greenlight when status is 'downloadPackage' (in-flight)", async () => {
+    test("returns null when status is 'downloadPackage' (in-flight)", async () => {
       // Critical regression guard: foreground transitions during an
       // in-flight download must NOT re-fire downloadPackage(); the native
       // module's isDownloading guard would throw "Already downloading"
       // (unrecoverable in the JS retry layer) and corrupt the active flow.
       resetAtom({ status: EAppUpdateStatus.downloadPackage });
-      const should = await service.shouldResumeStalledDownload();
-      expect(should).toBe(false);
+      const step = await service.shouldResumeStalledDownload();
+      expect(step).toBeNull();
     });
 
-    test('does NOT greenlight verify-failed / install-failed / terminal states', async () => {
+    test('returns null for verify-failed / install-failed / terminal states', async () => {
       for (const status of [
         EAppUpdateStatus.verifyASCFailed,
         EAppUpdateStatus.verifyPackageFailed,
@@ -1005,8 +1008,8 @@ describe('ServiceAppUpdate state transitions', () => {
       ]) {
         resetAtom({ status });
         // eslint-disable-next-line no-await-in-loop
-        const should = await service.shouldResumeStalledDownload();
-        expect(should).toBe(false);
+        const step = await service.shouldResumeStalledDownload();
+        expect(step).toBeNull();
       }
     });
 
@@ -1014,40 +1017,40 @@ describe('ServiceAppUpdate state transitions', () => {
       resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
 
       // First call passes — cooldown consumed.
-      expect(await service.shouldResumeStalledDownload()).toBe(true);
+      expect(await service.shouldResumeStalledDownload()).toBe('downloadPackage');
 
       // Second call <30s later is rejected even though status is still
       // eligible. Mirrors the AppState 'change' burst that fires multiple
       // 'active' events on iOS scene transitions.
-      expect(await service.shouldResumeStalledDownload()).toBe(false);
+      expect(await service.shouldResumeStalledDownload()).toBeNull();
 
       // Past the cooldown — passes again.
       await jest.advanceTimersByTimeAsync(30_000);
-      expect(await service.shouldResumeStalledDownload()).toBe(true);
+      expect(await service.shouldResumeStalledDownload()).toBe('downloadPackage');
     });
 
-    test('cooldown is consumed only when the call returns true', async () => {
+    test('cooldown is consumed only when the call returns a step', async () => {
       // Sequence: ineligible → eligible → ineligible.
       // The first ineligible call must NOT consume cooldown, so the
       // immediately-following eligible call still passes.
       resetAtom({ status: EAppUpdateStatus.downloadPackage });
-      expect(await service.shouldResumeStalledDownload()).toBe(false);
+      expect(await service.shouldResumeStalledDownload()).toBeNull();
 
       resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
-      expect(await service.shouldResumeStalledDownload()).toBe(true);
+      expect(await service.shouldResumeStalledDownload()).toBe('downloadPackage');
     });
 
     test('concurrent callers race-safely: only one passes the gate', async () => {
       // Two AppState listeners (UpdateReminder + MoreActionButton) race
       // into shouldResumeStalledDownload on the same 'active' event. With
       // a non-atomic gate both passed; with the claim-before-await guard
-      // only the first should return true.
+      // only the first should return a non-null step.
       resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
       const [a, b] = await Promise.all([
         service.shouldResumeStalledDownload(),
         service.shouldResumeStalledDownload(),
       ]);
-      expect([a, b].filter(Boolean).length).toBe(1);
+      expect([a, b].filter((v) => v !== null).length).toBe(1);
     });
   });
 
@@ -2756,13 +2759,44 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.status).toBe(EAppUpdateStatus.notify);
     });
 
-    test('downloadASC is rejected from failed states', async () => {
+    test('downloadASC is rejected from downloadPackageFailed (package itself failed)', async () => {
+      // A failed package download must NOT short-cut to ASC — the package
+      // bytes aren't on disk. Only downloadPackage() can recover from this.
       resetAtom({
         status: EAppUpdateStatus.downloadPackageFailed,
         latestVersion: '2.0.0',
       });
       await service.downloadASC();
       expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+    });
+
+    test('downloadASC allows retry from downloadASCFailed (foreground resume)', async () => {
+      // Foreground-resume routes ASC-only failures back into downloadASC()
+      // so the already-downloaded package bytes are reused. The previous
+      // implementation rejected this transition and forced callers to
+      // funnel through downloadPackage(), which wiped downloadedEvent and
+      // re-downloaded the full package — wasted bandwidth, especially
+      // under repeated foreground churn or a permanent ASC 403/404.
+      resetAtom({
+        status: EAppUpdateStatus.downloadASCFailed,
+        latestVersion: '2.0.0',
+      });
+      await service.downloadASC();
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadASC);
+    });
+
+    test('downloadASC is rejected from other failed states', async () => {
+      for (const status of [
+        EAppUpdateStatus.verifyASCFailed,
+        EAppUpdateStatus.verifyPackageFailed,
+        EAppUpdateStatus.failed,
+        EAppUpdateStatus.updateIncomplete,
+      ]) {
+        resetAtom({ status, latestVersion: '2.0.0' });
+        // eslint-disable-next-line no-await-in-loop
+        await service.downloadASC();
+        expect(atomValue.status).toBe(status);
+      }
     });
 
     test('downloadASC is allowed from downloadPackage', async () => {

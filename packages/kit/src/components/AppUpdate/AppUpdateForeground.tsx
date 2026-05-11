@@ -393,14 +393,21 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     if (!enabled) return undefined;
     const sub = AppState.addEventListener('change', async (state) => {
       if (state !== 'active') return;
-      const should =
+      const step =
         await backgroundApiProxy.serviceAppUpdate.shouldResumeStalledDownload();
-      if (should) {
+      // Route by step so an ASC-only failure resumes via downloadASC()
+      // instead of downloadPackage(). The latter clears downloadedEvent
+      // and forces a full re-download of an already-on-disk package —
+      // wasted bandwidth, especially under foreground/background churn
+      // or a permanent 403/404 on the ASC URL.
+      if (step === 'downloadPackage') {
         void downloadPackage();
+      } else if (step === 'downloadASC') {
+        void downloadASC();
       }
     });
     return () => sub.remove();
-  }, [downloadPackage, enabled]);
+  }, [downloadASC, downloadPackage, enabled]);
 }
 
 /**
