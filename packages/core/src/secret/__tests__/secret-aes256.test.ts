@@ -5,8 +5,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
+  ESecretEncryptPayloadFormat,
+  ESecretEncryptPayloadVersion,
   decodePasswordAsync,
   decodeSensitiveTextAsync,
+  decodeSensitiveTextAsyncWithMetadata,
   decryptAsync,
   decryptStringAsync,
   encodePasswordAsync,
@@ -385,6 +388,47 @@ describe('AES256 Encryption Tests', () => {
         key: 'test-key',
       });
       expect(decoded).toBe(TEST_DATA);
+    });
+
+    it('should return metadata for current sensitive text encoding', async () => {
+      const encoded = await encodeSensitiveTextAsync({
+        text: TEST_DATA,
+        key: 'test-key',
+      });
+
+      const result = await decodeSensitiveTextAsyncWithMetadata({
+        encodedText: encoded,
+        key: 'test-key',
+      });
+
+      expect(result.text).toBe(TEST_DATA);
+      expect(result.encoding).toBe('aes');
+      expect(result.format).toBe(ESecretEncryptPayloadFormat.v2);
+      expect(result.version).toBe(ESecretEncryptPayloadVersion.v2);
+      expect(result.needsUpgrade).toBe(false);
+    });
+
+    it('should mark legacy sensitive text as needing upgrade', async () => {
+      const legacyPayload = await encryptAsync({
+        password: 'test-key',
+        data: Buffer.from(TEST_DATA, 'utf-8'),
+        allowRawPassword: true,
+        format: ESecretEncryptPayloadFormat.legacy,
+      });
+      const encoded = `SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::${legacyPayload.toString(
+        'hex',
+      )}`;
+
+      const result = await decodeSensitiveTextAsyncWithMetadata({
+        encodedText: encoded,
+        key: 'test-key',
+      });
+
+      expect(result.text).toBe(TEST_DATA);
+      expect(result.encoding).toBe('aes');
+      expect(result.format).toBe(ESecretEncryptPayloadFormat.legacy);
+      expect(result.version).toBe(ESecretEncryptPayloadVersion.legacyCbc);
+      expect(result.needsUpgrade).toBe(true);
     });
 
     it('should throw on incorrect key (sync)', async () => {

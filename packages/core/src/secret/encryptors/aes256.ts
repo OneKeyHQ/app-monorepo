@@ -260,6 +260,15 @@ export type IDecryptAsyncResultWithMetadata = {
   needsUpgrade: boolean;
 };
 
+export type IDecodeSensitiveTextAsyncResultWithMetadata = {
+  text: string;
+  encoding: 'aes' | 'xor' | 'plain';
+  format?: ESecretEncryptPayloadFormat;
+  version?: ESecretEncryptPayloadVersion;
+  iterations?: number;
+  needsUpgrade: boolean;
+};
+
 export type IEncryptAsyncParams = {
   password: string;
   data: Buffer | string;
@@ -863,16 +872,74 @@ async function decodeSensitiveTextAsync({
   return encodedText;
 }
 
+async function decodeSensitiveTextAsyncWithMetadata({
+  encodedText,
+  key,
+  ignoreLogger,
+  allowRawPassword,
+}: {
+  encodedText: string;
+  key?: string;
+  // avoid recursive call log output order confusion
+  ignoreLogger?: boolean;
+  allowRawPassword?: boolean;
+}): Promise<IDecodeSensitiveTextAsyncResultWithMetadata> {
+  checkKeyPassedOnExtUi(key);
+  const theKey = key || encodeKey;
+  ensureEncodeKeyExists(theKey);
+  if (isEncodedSensitiveText(encodedText)) {
+    if (encodedText.startsWith(ENCODE_TEXT_PREFIX.aes)) {
+      const result = await decryptAsyncWithMetadata({
+        password: theKey,
+        data: Buffer.from(
+          encodedText.slice(ENCODE_TEXT_PREFIX.aes.length),
+          'hex',
+        ),
+        ignoreLogger,
+        allowRawPassword,
+      });
+      return {
+        text: result.plaintext.toString('utf-8'),
+        encoding: 'aes',
+        format: result.format,
+        version: result.version,
+        iterations: result.iterations,
+        needsUpgrade: result.needsUpgrade,
+      };
+    }
+    if (encodedText.startsWith(ENCODE_TEXT_PREFIX.xor)) {
+      const text = xorDecrypt({
+        encryptedDataHex: encodedText.slice(ENCODE_TEXT_PREFIX.xor.length),
+        key: theKey,
+      });
+      return {
+        text,
+        encoding: 'xor',
+        needsUpgrade: true,
+      };
+    }
+  }
+  // Plaintext is accepted for backward compatibility, but local owners should
+  // rewrite it through the current sensitive-text encoder after a successful read.
+  return {
+    text: encodedText,
+    encoding: 'plain',
+    needsUpgrade: true,
+  };
+}
+
 async function encodeSensitiveTextAsync({
   text,
   key,
   customIv,
   customSalt,
+  format,
 }: {
   text: string;
   key?: string;
   customSalt?: Buffer;
   customIv?: Buffer;
+  format?: ESecretEncryptPayloadFormat;
 }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -902,6 +969,7 @@ async function encodeSensitiveTextAsync({
         allowRawPassword: true,
         customSalt,
         customIv,
+        format,
       })
     ).toString('hex');
     return `${ENCODE_TEXT_PREFIX.aes}${encoded}`;
@@ -945,6 +1013,7 @@ function setBgSensitiveTextEncodeKey(key: string) {
 export {
   decodePasswordAsync,
   decodeSensitiveTextAsync,
+  decodeSensitiveTextAsyncWithMetadata,
   decryptAsync,
   decryptAsyncWithMetadata,
   decryptStringAsync,

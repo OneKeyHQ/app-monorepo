@@ -162,8 +162,8 @@ Lazy upgrade 不应作为隐式写入隐藏在低层 `decryptAsync` 内部。
 | `packages/core/src/secret/index.ts:277` | `encryptImportedCredential` -> `encryptStringAsync` | Imported private key credential with `\|PK\|` prefix | App password | P0 local lazy upgrade。Imported accounts 所必需。 |
 | `packages/kit-bg/src/services/ServicePassword/biologyAuthUtils.ts:44` | `encodeSensitiveTextAsync` | Biology auth stored password | Background sensitive-text key or supplied key | P1 local migration。依赖 secure storage owner 控制 rewrite。 |
 | `packages/kit-bg/src/services/ServicePassword/biologyAuthUtils.ts:70` | `encodeSensitiveTextAsync` | Biology auth migration/re-key path | Supplied key | P1 local migration。需与 secure storage compatibility 一起处理。 |
-| `packages/kit-bg/src/services/ServicePassword/index.ts:182` | `encryptByInstanceId` -> `encodeSensitiveTextAsync` | Generic instance-id encrypted local strings | App instance id | P2 local migration。不是 password-hardening path，重点是 format versioning。 |
-| `packages/kit-bg/src/services/ServiceHistory.ts:1440` | `servicePassword.encryptByInstanceId` | `decodedTx.encodedTxEncrypted` local replace-tx payload | App instance id | P2 local migration。失败不应影响历史记录展示或 replace-tx flow。 |
+| `packages/kit-bg/src/services/ServicePassword/index.ts:182` | `encryptByInstanceId` -> `encodeSensitiveTextAsync` | Generic instance-id encrypted local strings | App instance id | No v2 upgrade。Instance id 是高熵 UUID，不是 human password；保持 legacy，避免无收益迁移。 |
+| `packages/kit-bg/src/services/ServiceHistory.ts:1440` | `servicePassword.encryptByInstanceId` | `decodedTx.encodedTxEncrypted` local replace-tx payload | App instance id | No v2 upgrade。仅用于本地 speed up/cancel replace-tx 时恢复原始 encodedTx；随 instance-id policy 保持 legacy。 |
 | `packages/kit-bg/src/services/ServiceMasterPassword/ServiceMasterPassword.tsx:238` | `encryptSecurityPassword` -> `encryptStringAsync` | Local `encryptedSecurityPasswordR1` cache | Local passcode-derived key | P1 local lazy upgrade。Human-entered passcode path，KDF upgrade 有价值。 |
 | `packages/kit-bg/src/services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage.ts:49` | `encryptStringAsync` | Local keyless sync credential map | Fixed storage key, `iterations: 1`, GCM | P2 format migration only。不是 KDF security hardening。 |
 | `packages/kit-bg/src/vaults/*/Vault.ts` | `encodeSensitiveTextAsync` | Imported private key input before credential creation | Background sensitive-text key | Usually transient/local handoff。Credential record 仍由 core credential encryptors 管控。 |
@@ -193,11 +193,11 @@ Lazy upgrade 不应作为隐式写入隐藏在低层 `decryptAsync` 内部。
 
 | Path | Call | Classification |
 | --- | --- | --- |
-| `packages/kit-bg/src/migrations/v4ToV5Migration/v4local/V4LocalDbBase.ts:210` | `encryptAsync` | V4->V5 migration writes local credentials. Needs legacy read plus v2 target decision after local lazy upgrade APIs exist。 |
-| `packages/kit-bg/src/migrations/v4ToV5Migration/v4local/V4LocalDbBase.ts:235` | `encryptAsync` | V4->V5 migration re-encrypts seed data. Same local migration policy as credentials。 |
-| `packages/kit-bg/src/migrations/v4ToV5Migration/v4local/V4LocalDbBase.ts:238` | `encryptAsync` | V4->V5 migration re-encrypts imported credential data。 |
-| `packages/kit-bg/src/migrations/v4ToV5Migration/V4MigrationForAccount.ts:776` | `encodeSensitiveTextAsync` | Migration-only password wrapping before credential writes。 |
-| `packages/kit-bg/src/migrations/v4ToV5Migration/V4MigrationForSecurePassword.ts:13` | `encodeSensitiveTextAsync` | Migration-only secure password wrapping。 |
+| `packages/kit-bg/src/migrations/v4ToV5Migration/v4local/V4LocalDbBase.ts:210` | `encryptAsync` | V4->V5 migration writes local credentials. No further KDF upgrade work planned because current app line is already V6 and this path is legacy migration only。 |
+| `packages/kit-bg/src/migrations/v4ToV5Migration/v4local/V4LocalDbBase.ts:235` | `encryptAsync` | V4->V5 migration re-encrypts seed data. No further KDF upgrade work planned。 |
+| `packages/kit-bg/src/migrations/v4ToV5Migration/v4local/V4LocalDbBase.ts:238` | `encryptAsync` | V4->V5 migration re-encrypts imported credential data。No further KDF upgrade work planned。 |
+| `packages/kit-bg/src/migrations/v4ToV5Migration/V4MigrationForAccount.ts:776` | `encodeSensitiveTextAsync` | Migration-only password wrapping before credential writes。No further KDF upgrade work planned。 |
+| `packages/kit-bg/src/migrations/v4ToV5Migration/V4MigrationForSecurePassword.ts:13` | `encodeSensitiveTextAsync` | Migration-only secure password wrapping。No further KDF upgrade work planned。 |
 | `packages/core/src/secret/index.ts:438` | `encryptAsync` | Derived private extended key returned to caller, not directly persisted by this helper。Keep compatible with decrypt helpers。 |
 | `packages/core/src/secret/index.ts:547` | `encryptAsync` | Derived private extended key returned to caller。 |
 | `packages/core/src/secret/index.ts:664` | `encryptAsync` | Generated master private key returned to caller。 |
@@ -320,7 +320,7 @@ Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低�
 - [x] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。低层 primitive 现在默认写 v2；需要旧客户端读取的共享入口必须走 shared encrypt policy。
 - [x] Phase 1.5 non-native v2 write policy。底层默认写 v2 + current iterations；已知 shared/server-visible 入口已统一到 shared encrypt policy，默认 legacy，后续 gate 开启后再按 `sharedScene` 精确切 v2。Cloud Backup V1 导出会将本地 credentials 降级为 legacy，避免备份恢复旧客户端无法识别。
 - [x] Phase 2 local lazy upgrade。从 `Context.verifyString` 和 `Credential` 开始实现无阻塞、幂等、transaction-safe 的本地升级；解锁成功后异步触发，使用 metadata helper 判断 legacy payload，并在重写时比较原 ciphertext，避免覆盖并发变更。每次只处理一个小批次 credential，剩余项目后续解锁继续，避免大量钱包时连续 PBKDF2/AES-GCM 压住 JS thread。分批期间用 `Context.localPasswordKdfUpgradeLastScannedCredentialId` 记录逻辑进度；它不是 IndexedDB cursor，而是基于稳定 `credential.id` 排序的跨 IndexedDB/Realm checkpoint。每条 credential 是否已升级仍由 v2 magic 精确判断。全部完成后写入 `Context.localPasswordKdfUpgraded` 持久化标记，后续解锁直接跳过空检。失败只记录聚合错误，不阻断正常解锁。
-- [ ] Phase 3 local-only follow-up。继续收尾不涉及共享兼容性的本地路径，例如 Biology auth secure storage、Prime master password 本地缓存、instance-id local strings，以及 migration-only wrapping；保持 shared/server-visible writes 走 legacy policy。
+- [x] Phase 3 local-only follow-up。Biology auth secure storage 已在成功读取后 lazy rewrite legacy sensitive-text 到当前 v2；Prime master password 本地缓存明确保持 legacy，不做 v2 升级；instance-id local strings 明确保持 legacy，因为 instance id 是高熵 UUID 而不是 human password；V4->V5 migration-only wrapping 不再投入升级，因为当前 app line 已是 V6。保持 shared/server-visible writes 走 legacy policy。
 - [ ] Phase 4 native AES-GCM。为移动端添加 native AES-GCM support，并保留 noble fallback；移动端全量默认 v2 需等待 native implementation 和真机验证。
 - [ ] Backlog shared-data gates。Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payloads 暂不主动改造，继续保持 legacy 加密方式；后续只有遇到具体业务需求或单独安排时，才针对该 shared scene 增加 gate 并启用 v2。
 
@@ -378,6 +378,30 @@ Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低�
 - 如果未来新增本地 password-encrypted credential 类型，必须更新 `isLocalPasswordKdfCredentialUpgradeCandidate` 和对应 decrypt/encrypt helper。
 - 如果 credential id 的格式规则变更，需确认 `localeCompare` 排序仍能稳定覆盖所有候选。
 - Phase 2 local lazy upgrade 的 batch size 固定为 `3`。该值已被产品/工程决策接受，不再要求低端 Android 额外 benchmark 作为阻塞项；后续只在出现真实用户体验问题时再调整。
+
+### Phase 3 Implementation Notes
+
+已开始处理本地、非共享、非 server-visible 的 follow-up 路径。
+
+Biology auth secure storage：
+
+- 新增 `decodeSensitiveTextAsyncWithMetadata`，用于 owner 在成功 decode 后判断 sensitive-text 是否仍是 legacy CBC、legacy GCM、xor 或 plaintext fallback。
+- `biologyAuthUtils.getPassword` 读取 secure storage item `password` 后，如果发现 `needsUpgrade`，会用当前 sensitive-text encoder 和当前 `settings.sensitiveEncodeKey` 重写同一个 secure storage key。
+- 重写失败不会阻断正常 get password 流程；只记录聚合错误，不记录 password、ciphertext 或 decrypted text。
+- 返回给调用方的 password 仍会重新用 background sensitive-text key 包装，保持原 API 行为不变。
+
+已覆盖测试：
+
+- 当前 `encodeSensitiveTextAsync` 默认输出 v2，并且 metadata decode 返回 `needsUpgrade = false`。
+- 显式 legacy sensitive-text payload 可被 metadata decode 读取，并返回 `needsUpgrade = true`。
+- 旧 sensitive-text snapshots 已更新到 `1K_ENC_V2` baseline；legacy read coverage 由 explicit legacy tests 保留。
+
+明确不处理：
+
+- Prime master password 本地缓存保持 legacy。该功能后续可能不再迭代，不投入 v2 加密升级，也不做 lazy rewrite；`encryptSecurityPassword` 写入时显式传 `format: 'legacy'`，避免被底层默认 v2 策略带动。
+- Instance-id local strings 保持 legacy。Instance id 是本地高熵 UUID，不是用户可猜测密码；PBKDF2 iteration/v2 rollout 不是有效安全收益。`servicePassword.encryptByInstanceId` 写入时显式传 `format: 'legacy'`。
+- `decodedTx.encodedTxEncrypted` 是 instance-id local string 的一个使用方，仅用于 replace-tx/speed-up/cancel 交易时恢复原始 `encodedTx` 做二次构建，不作为 password-hardening path 迁移。
+- V4->V5 migration-only wrapping 不再投入升级。它是从 V4 app 数据库迁移到 V5 app 数据库的历史逻辑；当前 app line 已是 V6，不再把这部分作为 KDF upgrade scope。
 
 ### Golden vectors 测试基线意图
 
