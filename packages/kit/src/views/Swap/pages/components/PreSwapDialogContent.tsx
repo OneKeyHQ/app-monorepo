@@ -497,21 +497,18 @@ const PreSwapDialogContent = ({
                         if (!swapStepNetFeeLevel.presetOverrides) return;
                         setSwapStepNetFeeLevel({
                           networkFeeLevel:
-                            swapStepNetFeeLevel.presetOverrides
-                              .networkFeeLevel,
+                            swapStepNetFeeLevel.presetOverrides.networkFeeLevel,
                           customPriorityFee:
                             swapStepNetFeeLevel.presetOverrides
                               .customPriorityFee,
-                          presetOverrides:
-                            swapStepNetFeeLevel.presetOverrides,
+                          presetOverrides: swapStepNetFeeLevel.presetOverrides,
                         });
                         return;
                       }
                       setSwapStepNetFeeLevel({
                         networkFeeLevel: value,
                         customPriorityFee: undefined,
-                        presetOverrides:
-                          swapStepNetFeeLevel.presetOverrides,
+                        presetOverrides: swapStepNetFeeLevel.presetOverrides,
                       });
                     }}
                   />
