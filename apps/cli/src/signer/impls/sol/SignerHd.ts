@@ -15,8 +15,7 @@ import type {
   ISignerGetAddressOptions,
 } from '../../types';
 
-// Lazy-loaded SOL scope — avoids bundling the @solana/web3.js stack at CLI
-// startup when the user is operating on EVM/BTC.
+// Lazy-loaded to avoid pulling @solana/web3.js into the EVM/BTC startup path.
 let solScopePromise: Promise<
   InstanceType<typeof import('@onekeyhq/core/src/chains/sol').default>
 > | null = null;
@@ -31,13 +30,6 @@ async function getSolScope() {
   return solScopePromise;
 }
 
-/**
- * HD (software) SOL signer. Mirrors EVM/BTC pattern: fetches the encrypted
- * mnemonic from the Bot Wallet vault, hands it to `@onekeyhq/core/src/chains/sol`
- * for ed25519 derivation + signing, returns the result. SOL message signing
- * is delegated through the same scope (EMessageTypesCommon.SIGN_MESSAGE +
- * EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE are handled by core).
- */
 export class SignerHd extends SignerSoftwareBase {
   override async getAddress(
     networkId: string,

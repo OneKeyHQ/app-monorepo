@@ -31,11 +31,8 @@ import {
 
 import type { TransactionInstruction } from '@solana/web3.js';
 
-/**
- * Output shape of `buildSolTransferTx` — mirrors how kit-bg's Vault returns
- * the encoded tx + the ATA-creation hint that flows down to the hardware
- * signer (so the device can render a "create token account" prompt).
- */
+// `ataDetails` flows to the hardware signer so the device can render a
+// "create token account" prompt; software signing ignores it.
 export interface IBuildSolTransferResult {
   encodedTx: IEncodedTxSol;
   ataDetails?: IATADetails[];
@@ -54,24 +51,8 @@ export interface IBuildSolTransferParams {
   tokenAddress?: string;
 }
 
-/**
- * Build an unsigned SOL transfer transaction (native or SPL). 1:1 mirror of
- * `kit-bg/src/vaults/impls/sol/Vault._buildEncodedTxFromBatchTransfer` for the
- * single-recipient + fungible case:
- *
- *  1. Fetch a recent blockhash.
- *  2. Add a ComputeBudgetProgram priority fee (max of recent max-prioritization
- *     fees observed on the source account; falls back to 0).
- *  3. For native: SystemProgram.transfer.
- *     For SPL: probe whether the mint lives under SPL Token vs Token-2022,
- *     compute source/destination ATAs locally, look up the destination ATA;
- *     if absent, prepend a createAssociatedTokenAccount instruction (paid by
- *     the sender) so the SPL TransferChecked succeeds atomically.
- *  4. Compile to V0 message → VersionedTransaction → bs58 string.
- *
- * NFTs / Programmable NFTs / Open Creator Protocol are intentionally out of
- * scope for the CLI's `transfer` command — keep `transfer` for fungibles.
- */
+// Fungible-only: NFTs / pNFTs / Open Creator Protocol are intentionally
+// out of scope for the CLI's `transfer` command.
 export async function buildSolTransferTx(
   params: IBuildSolTransferParams,
 ): Promise<IBuildSolTransferResult> {
@@ -81,7 +62,8 @@ export async function buildSolTransferTx(
   const source = new PublicKey(fromAddress);
   const destination = new PublicKey(toAddress);
 
-  if (!new BigNumber(amount).isFinite() || new BigNumber(amount).lte(0)) {
+  const amountBn = new BigNumber(amount);
+  if (!amountBn.isFinite() || amountBn.lte(0)) {
     throw new AppError(
       ERROR_CODES.PARAM_INVALID_CONFIG.code,
       `Invalid SOL transfer amount: ${amount}`,
@@ -89,7 +71,7 @@ export async function buildSolTransferTx(
     );
   }
 
-  const rawAmount = new BigNumber(amount).shiftedBy(decimals);
+  const rawAmount = amountBn.shiftedBy(decimals);
   if (!rawAmount.isInteger()) {
     throw new AppError(
       ERROR_CODES.PARAM_INVALID_CONFIG.code,
@@ -106,9 +88,7 @@ export async function buildSolTransferTx(
     getSolRecentMaxPrioritizationFee(networkId, [fromAddress]),
   ]);
 
-  // App always prepends a setComputeUnitPrice instruction (unless the dev flag
-  // disableSolanaPriorityFee is on — there is no equivalent flag in the CLI,
-  // so the priority fee is unconditional, matching production App behavior).
+  // Priority fee is unconditional in the CLI (no disableSolanaPriorityFee flag).
   instructions.push(
     ComputeBudgetProgram.setComputeUnitPrice({
       microLamports: prioritizationFee,
@@ -157,9 +137,6 @@ export async function buildSolTransferTx(
           programId,
         ),
       );
-      // Forwarded to the hardware signer via unsignedTx.payload.ataDetails so
-      // the device UI can show "create token account for X". Software signing
-      // ignores the field.
       ataDetails = [
         {
           owner: destination.toBase58(),
@@ -195,13 +172,8 @@ export async function buildSolTransferTx(
   return ataDetails ? { encodedTx, ataDetails } : { encodedTx };
 }
 
-/**
- * Probe which token program owns the mint by listing the source account's
- * token accounts under both program IDs and finding the one whose mint
- * matches. Mirrors kit-bg Vault._getTokenProgramId. Falls back to the
- * original SPL Token program when the source has no account for the mint
- * yet — same default as the App.
- */
+// Falls back to the original SPL Token program when the source has no
+// account for the mint yet (matches App default).
 async function resolveSplTokenProgramId(args: {
   networkId: string;
   mint: PublicKey;

@@ -1,21 +1,9 @@
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 
 import type { AccountInfo } from '@solana/web3.js';
-
-/**
- * Thin SOL RPC client for the CLI. Mirrors `kit-bg sdkSol/ClientSol` 1:1 in
- * shape (route + method + params), but goes through the OneKey CLI's
- * `apiClient` instead of `serviceAccountProfile.sendProxyRequest`.
- *
- * The backend endpoint `/wallet/v1/proxy/wallet` accepts a batch of
- * `{ route, params }` items and returns `{ data: [{ success, data, error? }] }`
- * after `apiClient.unwrap` strips the outer code/message envelope.
- *
- * Only the methods the CLI actually needs for transfer + swap are wired —
- * adding a new RPC method is two lines (enum + helper). Resist the urge to
- * port the full ClientSol surface speculatively.
- */
 
 export enum ESolRpcMethod {
   GET_LATEST_BLOCK_HASH = 'getLatestBlockhash',
@@ -85,7 +73,6 @@ async function rpc<T>(
   return item.data;
 }
 
-/** Fetch the latest blockhash. Mirrors ClientSol.getLatestBlockHash. */
 export async function getSolLatestBlockhash(
   networkId: string,
 ): Promise<ISolBlockhashInfo> {
@@ -100,11 +87,8 @@ export async function getSolLatestBlockhash(
   };
 }
 
-/**
- * Fetch a single account's info. Returns null if the account does not exist
- * (matches the SOL RPC contract — the `value` field is null for non-existent
- * accounts, which is how the App detects missing ATAs).
- */
+// Returns null when the account does not exist — callers rely on this to
+// detect missing ATAs.
 export async function getSolAccountInfo(
   networkId: string,
   address: string,
@@ -116,11 +100,6 @@ export async function getSolAccountInfo(
   return response.value;
 }
 
-/**
- * Recent prioritization fees, used to compute the compute-unit price for the
- * priority-fee instruction. Matches the App's `getRecentMaxPrioritizationFees`
- * post-processing (max across the slot window, fallback 0).
- */
 export async function getSolRecentMaxPrioritizationFee(
   networkId: string,
   accountAddresses: string[],
@@ -155,11 +134,7 @@ export interface ISolTokenAccountByOwner {
   pubkey: string;
 }
 
-/**
- * Returns parsed SPL token accounts owned by `owner`. Used to detect whether
- * the mint lives under the original SPL Token program or the Token-2022
- * program. If `programId` is omitted, the original program is queried.
- */
+// If programId is omitted, defaults to the original SPL Token program.
 export async function getSolTokenAccountsByOwner(
   networkId: string,
   owner: string,
@@ -167,7 +142,7 @@ export async function getSolTokenAccountsByOwner(
 ): Promise<ISolTokenAccountByOwner[]> {
   const filter = programId
     ? { programId }
-    : { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' };
+    : { programId: TOKEN_PROGRAM_ID.toBase58() };
   const response = await rpc<{ value: ISolTokenAccountByOwner[] }>(
     networkId,
     ESolRpcMethod.GET_TOKEN_ACCOUNTS_BY_OWNER,
@@ -176,11 +151,6 @@ export async function getSolTokenAccountsByOwner(
   return response.value ?? [];
 }
 
-/**
- * Broadcasts a base64-encoded SOL transaction via the OneKey wallet RPC
- * proxy. Returns the bs58-encoded signature (txid). Mirrors the App's
- * sendTransaction RPC call shape.
- */
 export async function sendSolRawTransaction(
   networkId: string,
   rawTxBase64: string,

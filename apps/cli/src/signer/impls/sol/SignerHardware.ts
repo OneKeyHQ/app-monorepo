@@ -47,11 +47,6 @@ interface ISolSignTransactionExtraInfo {
   }>;
 }
 
-/**
- * SOL hardware signer. Mirrors `kit-bg/src/vaults/impls/sol/KeyringHardware`:
- * parse the bs58-encoded VersionedTransaction (or legacy Transaction), serialize
- * the message bytes to hex, ask the device to sign, then assemble the rawTx.
- */
 export class SignerHardware extends SignerHardwareBase {
   async getAddress(
     networkId: string,
@@ -118,10 +113,8 @@ export class SignerHardware extends SignerHardwareBase {
       ? Buffer.from(transaction.message.serialize()).toString('hex')
       : transaction.serializeMessage().toString('hex');
 
-    // ATA details are forwarded by the caller via unsignedTx.payload when SPL
-    // transfers create a destination ATA — kit-bg does the same so the device
-    // can render a clear "create token account" prompt. The CLI keeps the same
-    // shape so the firmware UI is identical.
+    // Firmware expects snake_case ata_details fields; forwarded when the
+    // build step created a destination ATA so the device can render the prompt.
     const ataDetails = (
       payload.unsignedTx as unknown as {
         payload?: {

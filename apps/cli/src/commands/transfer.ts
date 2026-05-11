@@ -1,4 +1,4 @@
-import { assertAddressForChain } from '../core/address-utils';
+import { SOL_TXID_PATTERN, assertAddressForChain } from '../core/address-utils';
 import {
   BTC_ADDRESS_TYPES,
   getBtcAddressTypeInfo,
@@ -12,6 +12,7 @@ import {
   resolveChain,
 } from '../core/chain-resolver';
 import { buildSolTransferTx } from '../core/sol/tx-builder';
+import { resolveSolPath } from '../signer/impls/sol/sol-path';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { transferOptionsSchema } from '../schemas';
@@ -268,7 +269,7 @@ export function registerTransferCommand(program: Command): void {
               networkId: chainConfig.networkId,
               account: {
                 address: fromAddress,
-                path: addressInfo.path ?? "m/44'/501'/0'/0'",
+                path: addressInfo.path ?? resolveSolPath(0),
                 pub: addressInfo.publicKey,
               },
               unsignedTx: {
@@ -293,8 +294,6 @@ export function registerTransferCommand(program: Command): void {
                 },
               );
 
-            // SOL signatures are base58, 64 bytes — typical encoded length 86–88.
-            const SOL_TXID_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{43,128}$/;
             if (
               !broadcastResult?.result ||
               !SOL_TXID_PATTERN.test(broadcastResult.result)

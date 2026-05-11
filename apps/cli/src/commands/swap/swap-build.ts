@@ -78,16 +78,13 @@ interface IBuildTxResponse {
     [key: string]: unknown;
   };
   btcLocalTx?: Record<string, unknown>;
-  // SOL swap returns through the OKX aggregator path. Mirrors
-  // IFetchBuildTxResponse.OKXTxObject — for SOL the `data` field is the
-  // bs58-encoded VersionedTransaction (App: kit-bg sol/Vault.buildOkxSwapEncodedTx
-  // simply returns `params.okxTx.data`).
+  // SOL aggregator response: `data` is the bs58-encoded VersionedTransaction.
   OKXTxObject?: {
     data?: string;
     [key: string]: unknown;
   };
-  // Locally extracted SOL swap tx — populated in build to keep the saved
-  // order self-contained and the execute path symmetric with BTC's btcLocalTx.
+  // Locally extracted SOL swap tx, populated in build to keep the order
+  // self-contained (mirrors BTC's btcLocalTx).
   solSwapTx?: {
     encodedTx: string;
   };
@@ -740,11 +737,8 @@ export function registerSwapBuildCommand(parent: Command): void {
             }
           }
 
-          // SOL source routes go through the OKX aggregator path — extract the
-          // bs58-encoded VersionedTransaction at build time so the persisted
-          // order is self-contained and execute does not have to know about
-          // OKXTxObject. Mirrors kit-bg sol/Vault.buildOkxSwapEncodedTx, which
-          // is just a passthrough of okxTx.data.
+          // SOL swap = passthrough of OKXTxObject.data; persist it on the order
+          // so execute does not need to know about OKXTxObject.
           const isSolSource = isSolChain(chainConfig);
           if (isSolSource && !hasValidSolSwapTx(buildTxResponse)) {
             const okxData = buildTxResponse.OKXTxObject?.data;

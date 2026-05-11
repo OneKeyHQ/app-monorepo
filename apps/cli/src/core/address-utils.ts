@@ -23,6 +23,9 @@ export interface IAddressValidationResult {
 
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
+// SOL signatures are base58, 64 bytes — typical encoded length 86–88.
+export const SOL_TXID_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{43,128}$/;
+
 export function validateAddressForChain(
   chainConfig: IChainConfig,
   address: string,

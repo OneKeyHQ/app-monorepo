@@ -33,10 +33,12 @@ import {
   isSolChain,
   resolveChain,
 } from '../../core/chain-resolver';
+import { SOL_TXID_PATTERN } from '../../core/address-utils';
 import { getSolLatestBlockhash } from '../../core/sol/rpc-client';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
+import { resolveSolPath } from '../../signer/impls/sol/sol-path';
 import { confirmTransaction } from '../../utils/confirm-transaction';
 import { amountToSmallestUnit, feeToWeiHex } from '../../utils/tx-utils';
 import {
@@ -969,7 +971,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               networkId: chainConfig.networkId,
               account: {
                 address: fromAddress,
-                path: addressInfo.path ?? "m/44'/501'/0'/0'",
+                path: addressInfo.path ?? resolveSolPath(0),
                 pub: addressInfo.publicKey,
               },
               unsignedTx: {
@@ -991,7 +993,6 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 },
               );
 
-            const SOL_TXID_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{43,128}$/;
             if (
               !broadcastResult?.result ||
               !SOL_TXID_PATTERN.test(broadcastResult.result)

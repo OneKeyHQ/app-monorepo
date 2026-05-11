@@ -29,7 +29,6 @@ import {
   renderQuoteTable,
 } from './swap-display-utils';
 import { fetchSwapNetworks } from './swap-networks';
-import { getProtocolConfig } from './swap-protocol-config';
 import { tokenAddressMatchesForNetwork } from './swap-token-address';
 
 import type { IEndpointEnv } from '../../config';
@@ -512,8 +511,6 @@ export function registerSwapQuoteCommand(parent: Command): void {
                 )
               : sourceWalletAddress);
 
-          // Build SSE quote params
-          const _protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
           const quoteParams: Record<string, string | number> = {
             fromTokenAddress: fromResolved.contractAddress,
             toTokenAddress: toResolved.contractAddress,
