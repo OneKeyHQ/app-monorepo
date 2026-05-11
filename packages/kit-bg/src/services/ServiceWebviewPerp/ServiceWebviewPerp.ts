@@ -31,7 +31,10 @@ import type {
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
-import type { IHyperLiquidErrorLocaleItem } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  IHyperLiquidErrorLocaleItem,
+  IPerpsAssetMetaMap,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -265,6 +268,7 @@ export interface IPerpServerConfigResponse {
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   tokenSearchAliases?: ITokenSearchAliases;
   tokenSelectorTabs?: IPerpDynamicTab[];
+  perpsAssetMetaMap?: IPerpsAssetMetaMap;
   activityCards?: IPerpServerActivityCard[];
 }
 @backgroundClass()
