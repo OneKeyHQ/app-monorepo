@@ -81,7 +81,7 @@ export function FeaturedContentSlide({
       ref={ref as never}
       px="$5"
       pt="$5"
-      pb="$5"
+      pb="$8"
       gap="$2"
       onLayout={(e) => onContentLayout(e.nativeEvent.layout.height)}
     >
