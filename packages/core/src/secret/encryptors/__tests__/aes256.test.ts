@@ -55,7 +55,7 @@ describe('aes256', () => {
         password: testPassword,
         data: testBuffer,
       });
-      expect(encrypted.slice(0, 8).toString('utf8')).toBe('1KENC_V2');
+      expect(encrypted.slice(0, 9).toString('utf8')).toBe('1K_ENC_V2');
       const decrypted = await decryptAsync({
         password: testPassword,
         data: encrypted,
@@ -276,7 +276,7 @@ describe('aes256', () => {
         dataType: 'golden-vector',
       });
 
-      expect(encrypted.slice(0, 8).toString('utf8')).toBe('1KENC_V2');
+      expect(encrypted.slice(0, 9).toString('utf8')).toBe('1K_ENC_V2');
 
       const decrypted = await decryptAsync({
         password: goldenVectorPassword,

@@ -28,7 +28,7 @@
 
 ## 新 Payload 格式
 
-为新写入引入 versioned envelope，例如 `1KENC_V2`。
+为新写入引入 versioned envelope，例如 `1K_ENC_V2`。
 
 v2 envelope 应明确包含：
 
@@ -50,9 +50,15 @@ v2 envelope 应明确包含：
 
 解密分发顺序应为：
 
-1. 如果 payload 以 `1KENC_V2` 开头，解析 v2 header，并使用 header 中定义的参数解密。
+1. 如果 payload 以 `1K_ENC_V2` 开头，解析 v2 header，并使用 header 中定义的参数解密。
 2. 否则，如果 payload 以 `1K_AES_GCM` 开头，按 legacy GCM 解密；除非调用方显式传入 `iterations`，否则使用 legacy 默认 iteration count。
 3. 否则，按 legacy CBC 解密；除非调用方显式传入 `iterations`，否则使用 legacy 默认 iteration count。
+
+代码中这三类 payload mode/version 必须用枚举表达，并在注释里保持语义清晰：
+
+- `legacyCbc`：最老的格式，`salt + iv + ciphertext`，没有 magic header、version、cipher/KDF metadata 或 authenticated header。
+- `legacyGcm`：带 `1K_AES_GCM` magic header 的 legacy AES-GCM 格式，能认证 ciphertext/AAD，但没有完整 version、KDF 或 iterations metadata。
+- `v2`：本次升级的新 envelope，magic header 为 `1K_ENC_V2`，包含 version、cipher、KDF、iterations、salt、nonce 和 authenticated `dataType` metadata。
 
 Legacy 默认 iteration count 必须保留为一个具名常量，并与新的写入目标分离。例如：
 
@@ -69,7 +75,7 @@ Legacy 默认 iteration count 必须保留为一个具名常量，并与新的�
 - 对 local-only human-password/passcode paths，storage owner 或 service-level helper 应默认写 v2，并使用 `PBKDF2_CURRENT_NUM_OF_ITERATIONS = 600_000` 或 benchmark 后确认的目标值。
 - 对 shared/server-visible paths，必须走统一 shared encrypt policy。该入口不传 `format` 时默认 legacy；后续只能按 `sharedScene`、compatibility gate、peer/server capability 或显式 `format` 精确切到 v2。
 - 新增持久化加密调用不应直接调用 bare `encryptAsync` / `encryptStringAsync` 选择默认值；应通过场景化 helper 或显式 policy，例如 local credential、local verify string、backup shared payload、cloud sync shared payload。
-- 后续测试必须覆盖“未显式选择 legacy 的 local-only write 默认产出 `1KENC_V2`”，避免回归到 legacy。
+- 后续测试必须覆盖“未显式选择 legacy 的 local-only write 默认产出 `1K_ENC_V2`”，避免回归到 legacy。
 
 ## Lazy Upgrade 策略
 
@@ -323,7 +329,7 @@ Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低�
 默认写入切到 v2 后，测试应保持以下约束：
 
 - Legacy read tests 保留：直接用固定 legacy hex 调用 decrypt helper，确保老数据仍可读。
-- Default write tests 改为 v2：默认 encrypt path 应断言输出 `1KENC_V2` envelope。
+- Default write tests 改为 v2：默认 encrypt path 应断言输出 `1K_ENC_V2` envelope。
 - Legacy write tests 仅在保留显式 legacy writer、兼容性 gate 或 protocol fallback 时存在，并且必须通过显式参数或专用 helper 触发。
 - Shared data tests 必须验证 gate 未开启时仍写旧客户端可读格式，gate 开启或 peer/server 标记兼容后才写 v2。
 

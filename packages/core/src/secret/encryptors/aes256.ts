@@ -40,7 +40,7 @@ const AES_GCM_ENCRYPTION_MAGIC = Buffer.from(
   AES_GCM_ENCRYPTION_MAGIC_TEXT,
   'utf8',
 );
-const ENCRYPTION_V2_MAGIC = Buffer.from('1KENC_V2', 'utf8');
+const ENCRYPTION_V2_MAGIC = Buffer.from('1K_ENC_V2', 'utf8');
 const ENCRYPTION_V2_VERSION = 2;
 const ENCRYPTION_V2_CIPHER_AES_256_GCM = 1;
 const ENCRYPTION_V2_KDF_PBKDF2_SHA256 = 1;
@@ -232,9 +232,17 @@ export enum ESecretEncryptPayloadFormat {
   v2 = 'v2',
 }
 
+// The decrypt metadata uses this enum to distinguish the three supported
+// payload modes during read dispatch.
 export enum ESecretEncryptPayloadVersion {
+  // The oldest payload format: salt + iv + ciphertext. It has no magic header,
+  // no version marker, no cipher/KDF metadata, and no authenticated header.
   legacyCbc = 'legacy-cbc',
+  // Legacy AES-GCM payload with the 1K_AES_GCM magic header. It authenticates
+  // ciphertext/AAD, but still does not carry version, KDF, or iteration metadata.
   legacyGcm = 'legacy-gcm',
+  // Current v2 envelope with the 1K_ENC_V2 magic header. It stores version,
+  // cipher, KDF, iterations, salt, nonce, and authenticated dataType metadata.
   v2 = 'v2',
 }
 
