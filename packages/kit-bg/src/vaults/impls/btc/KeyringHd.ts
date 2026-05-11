@@ -1,6 +1,7 @@
 import { checkBtcAddressIsUsed } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { type ISignedTxPro } from '@onekeyhq/core/src/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
@@ -16,6 +17,7 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 export class KeyringHd extends KeyringHdBase {
   override coreApi = coreChainApi.btc.hd;
@@ -72,5 +74,17 @@ export class KeyringHd extends KeyringHdBase {
 
   override async signMessage(params: ISignMessageParams): Promise<string[]> {
     return this.baseSignMessageBtc(params);
+  }
+
+  override async deriveContextHash(
+    params: IDeriveContextHashKeyringParams,
+  ): Promise<string> {
+    if (!this.coreApi) {
+      throw new OneKeyLocalError('coreApi is not defined');
+    }
+    const credentials = await this.baseGetCredentialsInfo({
+      password: params.password,
+    });
+    return this.coreApi.deriveContextHashBtc({ ...params, credentials });
   }
 }
