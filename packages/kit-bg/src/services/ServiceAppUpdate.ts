@@ -459,6 +459,83 @@ class ServiceAppUpdate extends ServiceBase {
     return appInfo.status;
   }
 
+  // Last time the foreground-resume gate let a caller through. Guards
+  // against AppState 'active' bursts (foreground notifications, route
+  // changes, scene transitions on iOS) hammering the download pipeline.
+  // 30s is short enough that a real user-noticed "still failed" reflects
+  // in the next foreground pass, long enough to swallow the 1-3 'change'
+  // events that fire in quick succession on iOS scene transitions.
+  // Module-scoped on the single ServiceAppUpdate instance so that multiple
+  // useAppUpdateInfo mounts (UpdateReminder + MoreActionButton, etc.)
+  // share one cooldown window — without this, each listener would race
+  // through its own ref-based cooldown and we'd double-fire downloadPackage.
+  private resumeStalledDownloadLastFiredAt = 0;
+
+  /**
+   * Pure query (no atom mutation, no side effects on download timers):
+   * returns the step to resume ('downloadPackage' | 'downloadASC') iff
+   * the caller should now invoke the matching JS hook, or null otherwise.
+   *
+   * Returning a step (rather than a boolean) lets the caller pick the
+   * narrowest recovery: an ASC-only failure must NOT re-trigger
+   * downloadPackage() because that path clears downloadedEvent and
+   * forces a full-package re-download. With foreground/background
+   * churn (and especially a permanent ASC 403/404), that would
+   * repeatedly burn bandwidth and time on a package that was already
+   * successfully downloaded.
+   *
+   * Eligibility deliberately excludes status === downloadPackage /
+   * downloadASC. Those mean a transfer is in flight (or C1's in-flight
+   * retry is mid-backoff) — don't disturb. Verify-failed / install-
+   * failed / final-failed statuses are likewise excluded because they
+   * need a user-facing decision (different signature, different
+   * bundle, etc.) — silent re-download won't help.
+   *
+   * Returning a non-null step *consumes* the cooldown atomically so
+   * that two concurrent foreground-listeners (UpdateReminder +
+   * MoreActionButton) cannot both fire a download on the same
+   * AppState event.
+   */
+  @backgroundMethod()
+  async shouldResumeStalledDownload(): Promise<
+    'downloadPackage' | 'downloadASC' | null
+  > {
+    const now = Date.now();
+    if (now - this.resumeStalledDownloadLastFiredAt < 30_000) {
+      return null;
+    }
+    // Claim the cooldown BEFORE yielding to the event loop. Two AppState
+    // listeners (UpdateReminder + MoreActionButton both mount
+    // useAppUpdateInfo) can race into this method on the same 'active'
+    // event. If we set the timestamp only after the await, both pass the
+    // `now - last < 30_000` check, both reach the eligible check, and
+    // both return a non-null step → double-fire. Claiming first means
+    // the second caller's check fails immediately and bails.
+    const claimedAt = now;
+    this.resumeStalledDownloadLastFiredAt = claimedAt;
+    const { status } = await appUpdatePersistAtom.get();
+    let step: 'downloadPackage' | 'downloadASC' | null = null;
+    if (status === EAppUpdateStatus.downloadPackageFailed) {
+      step = 'downloadPackage';
+    } else if (status === EAppUpdateStatus.downloadASCFailed) {
+      step = 'downloadASC';
+    }
+    if (step === null) {
+      // Release the claim so a subsequent foreground transition that DOES
+      // find an eligible status can pass through promptly instead of
+      // waiting out the full 30s window. Guard against a concurrent
+      // sibling that claimed after us (only release if we still own it).
+      if (this.resumeStalledDownloadLastFiredAt === claimedAt) {
+        this.resumeStalledDownloadLastFiredAt = 0;
+      }
+      return null;
+    }
+    defaultLogger.app.appUpdate.log(
+      `shouldResumeStalledDownload: green-lighting resume from status=${status} → ${step}`,
+    );
+    return step;
+  }
+
   static FAILED_STATUSES: EAppUpdateStatus[] = [
     EAppUpdateStatus.downloadPackageFailed,
     EAppUpdateStatus.downloadASCFailed,
@@ -731,9 +808,14 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async downloadASC() {
     const { status } = await appUpdatePersistAtom.get();
+    // downloadASCFailed is an explicit retry entry: the package itself is
+    // already on disk (downloadedEvent is intact), only the ASC fetch
+    // tripped. Foreground resume routes here instead of re-running the
+    // full package download.
     if (
       status !== EAppUpdateStatus.downloadPackage &&
-      status !== EAppUpdateStatus.downloadASC
+      status !== EAppUpdateStatus.downloadASC &&
+      status !== EAppUpdateStatus.downloadASCFailed
     ) {
       defaultLogger.app.appUpdate.log(
         `downloadASC: rejected, current status=${status}`,
@@ -741,6 +823,7 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
     clearTimeout(downloadTimeoutId);
+    clearTimeout(failedRecoveryTimerId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.downloadASC,
@@ -873,6 +956,14 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(syncTimerId);
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
+    // Full-replace set: every field absent from the object literal becomes
+    // undefined. The explicit values below document fields whose clearing
+    // is load-bearing — most notably lastUpdateDialogShownAt, so that
+    // "Clear update cache" in Settings (which calls this via clearCache)
+    // genuinely re-arms the 24h dialog throttle. We write `0` (not
+    // `undefined`) for that field because the jotai persist layer drops
+    // `undefined` keys during JSON serialization, which would leave the
+    // previous timestamp on disk and silently re-suppress the dialog.
     await appUpdatePersistAtom.set({
       latestVersion: platformEnv.version,
       jsBundleVersion: platformEnv.bundleVersion,
@@ -884,6 +975,7 @@ class ServiceAppUpdate extends ServiceBase {
       previousAppVersion: undefined,
       isRollbackTarget: undefined,
       downloadedEvent: undefined,
+      lastUpdateDialogShownAt: 0,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
     // Schedule an immediate check so that if a newer version was released
@@ -928,11 +1020,29 @@ class ServiceAppUpdate extends ServiceBase {
     }));
   }
 
+  // Persist the in-flight attemptId so the post-install success event
+  // (fired after app/install relaunch, when JS module memory is gone) can
+  // re-emit the same id as the original softwareUpdateStarted event.
   @backgroundMethod()
-  public async clearLastDialogShownAt() {
+  public async setCurrentUpdateAttemptId(attemptId: string | undefined) {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      lastUpdateDialogShownAt: undefined,
+      currentUpdateAttemptId: attemptId,
+    }));
+  }
+
+  @backgroundMethod()
+  public async clearLastDialogShownAt() {
+    // Write `0`, not `undefined`. The jotai persist layer (AsyncStorage on
+    // native, electron-store on desktop) drops `undefined` fields during
+    // serialization — JSON.stringify({a: undefined}) === '{}' — so a
+    // previously-stored timestamp survives the "clear" call. `0` is a real
+    // number that round-trips through persist, and showUpdateDialogUI's
+    // truthy gate (`if (lastUpdateDialogShownAt && now - ... < INTERVAL)`)
+    // still treats it as "never shown".
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      lastUpdateDialogShownAt: 0,
     }));
   }
 

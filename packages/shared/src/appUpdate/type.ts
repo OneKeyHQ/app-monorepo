@@ -173,6 +173,12 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   ignoredTargets?: Record<string, IIgnoredUpdateTargetInfo>;
   fullFlowRetryByTarget?: Record<string, IFullFlowRetryInfo>;
   lastRequestSeq?: number;
+  // In-flight attemptId for the current update cycle. Persisted (rather than
+  // module-memory only) so the post-install / post-relaunch
+  // `firstLaunchAfterUpdated` success event can re-emit the same id as the
+  // original `softwareUpdateStarted` event, keeping per-attempt funnels
+  // correlated across the install boundary. Cleared by reset().
+  currentUpdateAttemptId?: string;
 }
 
 export enum EAppUpdateStatus {

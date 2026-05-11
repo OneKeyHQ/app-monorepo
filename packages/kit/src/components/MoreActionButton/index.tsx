@@ -88,12 +88,9 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId';
 import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from '../AppUpdate';
 import { useEditPrimeProfileDialog } from '../RenameDialog';
 import { UpdateReminder } from '../UpdateReminder';
-import {
-  isShowAppUpdateUIWhenUpdating,
-  useAppUpdateInfo,
-} from '../UpdateReminder/hooks';
 import { WalletAvatar } from '../WalletAvatar';
 
 import type { IDeviceManagementListItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
