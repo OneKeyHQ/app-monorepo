@@ -37,4 +37,30 @@ describe('shouldSyncSlippageInputDisplayValue', () => {
       }),
     ).toBe(true);
   });
+
+  it('keeps non-normalized input while the parent echoes the same value', () => {
+    expect(
+      shouldSyncSlippageInputDisplayValue({
+        inputValue: '0.50',
+        displaySlippage: '0.5',
+        isEditingTrailingDot: false,
+        previousDisplayValue: '0.3',
+        hasSyncedDisplayValue: true,
+        localInputDisplayValue: '0.5',
+      }),
+    ).toBe(false);
+  });
+
+  it('syncs external preset changes after a non-normalized input echo', () => {
+    expect(
+      shouldSyncSlippageInputDisplayValue({
+        inputValue: '0.50',
+        displaySlippage: '3',
+        isEditingTrailingDot: false,
+        previousDisplayValue: '0.5',
+        hasSyncedDisplayValue: true,
+        localInputDisplayValue: '0.5',
+      }),
+    ).toBe(true);
+  });
 });

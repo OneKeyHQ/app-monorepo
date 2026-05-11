@@ -34,15 +34,21 @@ export function shouldSyncSlippageInputDisplayValue({
   isEditingTrailingDot,
   previousDisplayValue,
   hasSyncedDisplayValue,
+  localInputDisplayValue,
 }: {
   inputValue: string;
   displaySlippage: string;
   isEditingTrailingDot: boolean;
   previousDisplayValue: string;
   hasSyncedDisplayValue: boolean;
+  localInputDisplayValue?: string;
 }) {
   if (!hasSyncedDisplayValue) {
     return true;
+  }
+
+  if (localInputDisplayValue !== undefined) {
+    return displaySlippage !== localInputDisplayValue;
   }
 
   if (isEditingTrailingDot) {
@@ -52,6 +58,14 @@ export function shouldSyncSlippageInputDisplayValue({
   }
 
   return inputValue === previousDisplayValue;
+}
+
+function formatLocalInputDisplayValue(text: string) {
+  if (!text) {
+    return '';
+  }
+
+  return formatSlippageInputDisplayValue(Number(text));
 }
 
 const BaseSlippageInput = ({
@@ -65,10 +79,12 @@ const BaseSlippageInput = ({
 }) => {
   const [inputValue, setInputValue] = useState('');
   const isEditingTrailingDotRef = useRef(false);
+  const localInputDisplayValueRef = useRef<string | undefined>(undefined);
   const handleTextChange = useCallback(
     (text: string) => {
       if (validateAmountInput(text, swapSlippageDecimal)) {
         isEditingTrailingDotRef.current = /^\d+\.$/.test(text);
+        localInputDisplayValueRef.current = formatLocalInputDisplayValue(text);
         setInputValue(text);
         onChangeText(text);
       }
@@ -97,11 +113,13 @@ const BaseSlippageInput = ({
         hasSyncedDisplayValue: hasSyncedDisplayValueRef.current,
         isEditingTrailingDot: isEditingTrailingDotRef.current,
         previousDisplayValue,
+        localInputDisplayValue: localInputDisplayValueRef.current,
       })
     ) {
       setInputValue(displaySlippage);
       inputValueRef.current = displaySlippage;
       isEditingTrailingDotRef.current = false;
+      localInputDisplayValueRef.current = undefined;
     }
     previousDisplayValueRef.current = displaySlippage;
     hasSyncedDisplayValueRef.current = true;
