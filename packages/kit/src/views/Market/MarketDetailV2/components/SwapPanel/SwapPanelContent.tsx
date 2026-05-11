@@ -36,6 +36,7 @@ import type { IMarketPresetSettingsState } from './hooks/useMarketPresetSettings
 export type ISwapPanelContentProps = {
   swapPanel: ReturnType<typeof useSwapPanel>;
   isLoading: boolean;
+  isActionDisabled?: boolean;
   balanceLoading: boolean;
   slippageAutoValue?: number;
   supportSpeedSwap: {
@@ -76,6 +77,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     enableAddressTypeSelector,
     swapPanel,
     isLoading,
+    isActionDisabled,
     balanceLoading,
     slippageAutoValue,
     supportSpeedSwap,
@@ -340,7 +342,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         balance={balance}
         isWrapped={isWrapped}
         networkId={networkId}
-        disabled={!!speedCheckError || isLoading}
+        disabled={!!speedCheckError || isLoading || !!isActionDisabled}
         onSwapAction={() =>
           logSwapAction({
             tradeType,
