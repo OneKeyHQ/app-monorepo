@@ -2,6 +2,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   type ESwapNetworkFeeLevel,
   ESwapSlippageSegmentKey,
+  type ISwapProSpeedConfig,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -31,20 +32,30 @@ export type IMarketPresetSwapOverrides = {
 
 export async function loadMarketPresetSwapOverrides({
   networkId,
+  speedConfig,
+  speedConfigReady,
   tradeSide,
 }: {
   networkId: string;
+  speedConfig?: ISwapProSpeedConfig;
+  speedConfigReady?: boolean;
   tradeSide: EMarketPresetTradeSide;
 }): Promise<IMarketPresetSwapOverrides | undefined> {
   if (!networkId) {
     return undefined;
   }
 
+  if (speedConfigReady === false) {
+    return undefined;
+  }
+
   try {
     const [speedSwapConfig, savedSettings] = await Promise.all([
-      backgroundApiProxy.serviceSwap
-        .fetchSpeedSwapConfig({ networkId })
-        .catch(() => undefined),
+      speedConfig
+        ? Promise.resolve({ speedConfig })
+        : backgroundApiProxy.serviceSwap
+            .fetchSpeedSwapConfig({ networkId })
+            .catch(() => undefined),
       backgroundApiProxy.simpleDb.marketPresetSettings.getSettings({
         networkId,
       }) as Promise<IMarketPresetSavedSettings | undefined>,

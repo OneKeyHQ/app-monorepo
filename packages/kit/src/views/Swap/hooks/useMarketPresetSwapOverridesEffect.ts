@@ -17,6 +17,7 @@ import {
   ESwapProTradeType,
   ESwapTabSwitchType,
   type IMarketPresetTokenContext,
+  type ISwapProSpeedConfig,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { EMarketPresetTradeSide } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
@@ -25,8 +26,12 @@ import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel
 
 export function useMarketPresetSwapOverridesEffect({
   marketPresetToken,
+  speedConfig,
+  speedConfigReady,
 }: {
   marketPresetToken?: IMarketPresetTokenContext;
+  speedConfig?: ISwapProSpeedConfig;
+  speedConfigReady?: boolean;
 }) {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -43,10 +48,18 @@ export function useMarketPresetSwapOverridesEffect({
     // run is invalidated regardless of which branch we take below.
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-
-    if (!marketPresetToken?.networkId) {
+    const resetOverrides = () => {
       setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
       setSwapSlippageOverride(undefined);
+    };
+
+    if (!marketPresetToken?.networkId) {
+      resetOverrides();
+      return;
+    }
+
+    if (speedConfigReady === false) {
+      resetOverrides();
       return;
     }
 
@@ -65,8 +78,7 @@ export function useMarketPresetSwapOverridesEffect({
     const focusSwapProMarket =
       focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET;
     if (focusSwapPro && !focusSwapProMarket) {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+      resetOverrides();
       return;
     }
 
@@ -82,15 +94,17 @@ export function useMarketPresetSwapOverridesEffect({
     }
 
     if (!tradeSide) {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+      resetOverrides();
       return;
     }
 
+    resetOverrides();
     void (async () => {
       const overrides = await loadMarketPresetSwapOverrides({
         networkId: marketPresetToken.networkId,
         tradeSide,
+        speedConfig,
+        speedConfigReady,
       });
       if (requestIdRef.current !== requestId) {
         return;
@@ -110,6 +124,8 @@ export function useMarketPresetSwapOverridesEffect({
     swapProSelectToken,
     swapProDirection,
     swapProTradeType,
+    speedConfig,
+    speedConfigReady,
     setSwapStepNetFeeLevel,
     setSwapSlippageOverride,
   ]);
