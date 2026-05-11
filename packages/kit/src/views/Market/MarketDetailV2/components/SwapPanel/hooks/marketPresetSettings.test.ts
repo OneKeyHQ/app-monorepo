@@ -19,6 +19,7 @@ import {
   getMarketPresetSlippageValue,
   isMarketPresetConfirmDisabled,
   resolveMarketPresetDirectionSettings,
+  shouldShowMarketPresetReviewNetworkFeeOption,
 } from './marketPresetSettings';
 
 describe('marketPresetSettings', () => {
@@ -276,5 +277,26 @@ describe('marketPresetSettings', () => {
         hasInvalidDirtySettings: true,
       }),
     ).toBe(true);
+  });
+
+  it('uses a custom review fee option for selected manual presets only', () => {
+    expect(
+      shouldShowMarketPresetReviewNetworkFeeOption({
+        enabled: true,
+        selectedPresetKey: EMarketPresetKey.P1,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowMarketPresetReviewNetworkFeeOption({
+        enabled: true,
+        selectedPresetKey: EMarketPresetKey.AUTO,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowMarketPresetReviewNetworkFeeOption({
+        enabled: false,
+        selectedPresetKey: EMarketPresetKey.P2,
+      }),
+    ).toBe(false);
   });
 });
