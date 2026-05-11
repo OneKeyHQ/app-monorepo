@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  type INumberSizeableTextProps,
   Icon,
   SizableText,
   Stack,
@@ -18,16 +19,28 @@ import type { ILocalizedProtocolPositionSection } from '@onekeyhq/kit/src/utils/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
+type IProtocolAssetValueProps = {
+  value: IDeFiAsset['value'];
+  currencySymbol: string;
+  priceUnavailableLabel: string;
+  size?: INumberSizeableTextProps['size'];
+  color?: INumberSizeableTextProps['color'];
+  textAlign?: INumberSizeableTextProps['textAlign'];
+  numberOfLines?: INumberSizeableTextProps['numberOfLines'];
+  fontVariant?: INumberSizeableTextProps['fontVariant'];
+};
+
 const ProtocolAssetValue = memo(
   ({
     value,
     currencySymbol,
     priceUnavailableLabel,
-  }: {
-    value: IDeFiAsset['value'];
-    currencySymbol: string;
-    priceUnavailableLabel: string;
-  }) => {
+    size = '$bodyMdMedium',
+    color,
+    textAlign,
+    numberOfLines,
+    fontVariant,
+  }: IProtocolAssetValueProps) => {
     const valueBN = new BigNumber(value);
     const isValueUnavailable = valueBN.isNaN() || valueBN.isZero();
 
@@ -45,10 +58,13 @@ const ProtocolAssetValue = memo(
         ) : null}
         <NumberSizeableTextWrapper
           hideValue
-          size="$bodyMdMedium"
+          size={size}
           formatter="value"
           formatterOptions={{ currency: currencySymbol }}
-          color={isValueUnavailable ? '$text' : undefined}
+          color={isValueUnavailable ? '$text' : color}
+          textAlign={textAlign}
+          numberOfLines={numberOfLines}
+          fontVariant={fontVariant}
         >
           {isValueUnavailable ? '--' : valueBN.toFixed()}
         </NumberSizeableTextWrapper>
@@ -137,4 +153,5 @@ const ProtocolPositionSection = memo(
 );
 ProtocolPositionSection.displayName = 'ProtocolPositionSection';
 
-export { ProtocolPositionSection };
+export { ProtocolAssetValue, ProtocolPositionSection };
+export type { IProtocolAssetValueProps };

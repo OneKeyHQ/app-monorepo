@@ -7,10 +7,9 @@ import { ProtocolLendingPositionTable } from './ProtocolLendingPositionTable';
 import { ProtocolUnifiedTable } from './ProtocolUnifiedTable';
 
 // One-stop renderer for a category subgroup inside a protocol card. Lending
-// expands into N tables (one per position) so each can carry its own
-// per-position metadata (Health Rate, market name, etc. — those still defer
-// to a follow-up); every other category collapses into a single unified
-// table built upstream by the category grouping helper.
+// expands into N tables (one per position) so each can carry its own pool /
+// market label; every other category collapses into a single unified table
+// built upstream by the category grouping helper.
 
 type IProtocolCategoryGroupProps = {
   group: ILocalizedProtocolCategoryGroup;
@@ -46,6 +45,7 @@ const ProtocolCategoryGroup = memo(
           <ProtocolUnifiedTable
             rows={group.rows}
             currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
           />
         )}
       </YStack>

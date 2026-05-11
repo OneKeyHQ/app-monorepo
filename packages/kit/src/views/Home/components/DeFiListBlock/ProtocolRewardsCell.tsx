@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ProtocolAssetValue } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
@@ -13,10 +14,15 @@ import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 type IProtocolRewardsCellProps = {
   assets: IDeFiAsset[];
   currencySymbol: string;
+  priceUnavailableLabel: string;
 };
 
 const ProtocolRewardsCell = memo(
-  ({ assets, currencySymbol }: IProtocolRewardsCellProps) => {
+  ({
+    assets,
+    currencySymbol,
+    priceUnavailableLabel,
+  }: IProtocolRewardsCellProps) => {
     return (
       <YStack gap="$0.5" flex={1} minWidth={0}>
         {assets.map((asset, index) => (
@@ -36,15 +42,13 @@ const ProtocolRewardsCell = memo(
             <SizableText size="$bodyMd" color="$textSubdued">
               {' ('}
             </SizableText>
-            <NumberSizeableTextWrapper
-              hideValue
+            <ProtocolAssetValue
+              value={asset.value}
               size="$bodyMd"
               color="$textSubdued"
-              formatter="value"
-              formatterOptions={{ currency: currencySymbol }}
-            >
-              {asset.value}
-            </NumberSizeableTextWrapper>
+              currencySymbol={currencySymbol}
+              priceUnavailableLabel={priceUnavailableLabel}
+            />
             <SizableText size="$bodyMd" color="$textSubdued">
               )
             </SizableText>

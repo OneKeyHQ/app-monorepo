@@ -54,10 +54,15 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 type IProtocolUnifiedTableProps = {
   rows: IProtocolUnifiedRow[];
   currencySymbol: string;
+  priceUnavailableLabel: string;
 };
 
 const ProtocolUnifiedTable = memo(
-  ({ rows, currencySymbol }: IProtocolUnifiedTableProps) => {
+  ({
+    rows,
+    currencySymbol,
+    priceUnavailableLabel,
+  }: IProtocolUnifiedTableProps) => {
     const intl = useIntl();
 
     const showRewardsColumn = useMemo(
@@ -266,6 +271,7 @@ const ProtocolUnifiedTable = memo(
                     <ProtocolRewardsCell
                       assets={row.borrowedAssets}
                       currencySymbol={currencySymbol}
+                      priceUnavailableLabel={priceUnavailableLabel}
                     />
                   ) : null}
                 </Stack>
@@ -276,6 +282,7 @@ const ProtocolUnifiedTable = memo(
                     <ProtocolRewardsCell
                       assets={row.rewardsExtraAssets}
                       currencySymbol={currencySymbol}
+                      priceUnavailableLabel={priceUnavailableLabel}
                     />
                   ) : null}
                 </Stack>

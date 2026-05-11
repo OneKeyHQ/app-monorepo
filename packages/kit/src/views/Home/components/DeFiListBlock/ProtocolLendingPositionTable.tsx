@@ -2,7 +2,14 @@ import { Fragment, memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Popover,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { ProtocolAssetValue } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ILocalizedProtocolPositionItem } from '@onekeyhq/kit/src/utils/defiPositionUtils';
@@ -43,7 +50,7 @@ const ProtocolLendingPositionTable = memo(
   ({
     position,
     currencySymbol,
-    priceUnavailableLabel: _priceUnavailableLabel,
+    priceUnavailableLabel,
   }: IProtocolLendingPositionTableProps) => {
     const intl = useIntl();
     const labels = useMemo(
@@ -53,14 +60,42 @@ const ProtocolLendingPositionTable = memo(
         position: intl.formatMessage({ id: ETranslations.earn_positions }),
         balance: intl.formatMessage({ id: ETranslations.global_balance }),
         value: intl.formatMessage({ id: ETranslations.global_value }),
+        poolNameTitle: intl.formatMessage({
+          id: ETranslations.wallet_defi_position_name_popover_title,
+        }),
       }),
       [intl],
     );
 
     const sections = position.sections.filter((s) => s.assets.length > 0);
+    const poolDisplayName = position.poolName?.trim();
+    const poolFullName = position.poolFullName || poolDisplayName;
 
     return (
       <YStack>
+        {poolDisplayName ? (
+          <Stack mx="$5" px="$2" pt="$1" pb="$0.5">
+            <Popover
+              hoverable
+              placement="top"
+              title={labels.poolNameTitle}
+              renderTrigger={
+                <SizableText
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {poolDisplayName}
+                </SizableText>
+              }
+              renderContent={
+                <Stack px="$4" py="$2">
+                  <SizableText size="$bodyLgMedium">{poolFullName}</SizableText>
+                </Stack>
+              }
+            />
+          </Stack>
+        ) : null}
         {sections.map((section, sectionIndex) => (
           <Fragment key={section.key}>
             <XStack
@@ -132,17 +167,15 @@ const ProtocolLendingPositionTable = memo(
                   </NumberSizeableTextWrapper>
                 </Stack>
                 <Stack flex={VALUE_FLEX} minWidth={0} alignItems="flex-end">
-                  <NumberSizeableTextWrapper
-                    hideValue
+                  <ProtocolAssetValue
+                    value={asset.value}
                     size="$bodyMdMedium"
-                    formatter="value"
-                    formatterOptions={{ currency: currencySymbol }}
+                    currencySymbol={currencySymbol}
+                    priceUnavailableLabel={priceUnavailableLabel}
                     textAlign="right"
                     numberOfLines={1}
                     fontVariant={TABULAR_NUMS}
-                  >
-                    {asset.value}
-                  </NumberSizeableTextWrapper>
+                  />
                 </Stack>
               </XStack>
             ))}
