@@ -5,8 +5,11 @@ import { useIntl } from 'react-intl';
 import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { shouldWarnBotWalletInteract } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
+import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -37,6 +40,12 @@ export function WalletActionViewInExplorer({
     return true;
   }, [network?.isCustomNetwork, network?.explorerURL]);
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+
   const handleViewInExplorer = useCallback(async () => {
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
@@ -44,6 +53,18 @@ export function WalletActionViewInExplorer({
       })
     ) {
       return;
+    }
+
+    if (
+      shouldWarnBotWalletInteract({
+        isBotWallet,
+        isBotWalletDeactivated,
+      })
+    ) {
+      const confirmed = await showBotWalletDeactivatedWarningDialog();
+      if (!confirmed) {
+        return;
+      }
     }
 
     defaultLogger.wallet.walletActions.actionViewInExplorer({
@@ -58,7 +79,15 @@ export function WalletActionViewInExplorer({
       networkId: network?.id,
       address: account?.address,
     });
-  }, [account?.address, network?.id, onClose, wallet?.id, wallet?.type]);
+  }, [
+    account?.address,
+    network?.id,
+    onClose,
+    wallet?.id,
+    wallet?.type,
+    isBotWallet,
+    isBotWalletDeactivated,
+  ]);
 
   if (
     !viewExplorerDisabled &&
@@ -88,6 +117,17 @@ export function WalletActionViewInExplorer({
         }: {
           account: INetworkAccount | undefined;
         }) => {
+          if (
+            shouldWarnBotWalletInteract({
+              isBotWallet,
+              isBotWalletDeactivated,
+            })
+          ) {
+            const confirmed = await showBotWalletDeactivatedWarningDialog();
+            if (!confirmed) {
+              return;
+            }
+          }
           defaultLogger.wallet.walletActions.actionViewInExplorer({
             walletType: wallet?.type ?? '',
             networkId: network?.id ?? '',

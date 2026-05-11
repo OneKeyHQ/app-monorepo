@@ -13,6 +13,7 @@ import type {
 import type {
   IHyperLiquidErrorLocaleItem,
   IPerpOrderBookTickOptionPersist,
+  IPerpsAssetMetaMap,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -67,6 +68,7 @@ export interface ISimpleDbPerpData {
   perpsSharePromptShown?: boolean; // whether the once-per-app Perps share prompt has been shown
   tokenSearchAliases?: ITokenSearchAliases; // token search aliases from server
   tokenSelectorTabs?: IPerpDynamicTab[]; // dynamic token selector tabs from server
+  perpsAssetMetaMap?: IPerpsAssetMetaMap; // perps asset metadata map from server
   spotTokens?: ISpotToken[]; // all spot tokens metadata
   spotUniverses?: ISpotUniverse[]; // spot trading pairs with resolved names
 }

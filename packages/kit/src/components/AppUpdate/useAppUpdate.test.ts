@@ -39,10 +39,19 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     fetchChangeLog: jest.fn(),
     reset: jest.fn(),
     resetToInComplete: jest.fn(),
+    shouldResumeStalledDownload: jest.fn(),
     updateLastDialogShownAt: jest.fn(),
+    setCurrentUpdateAttemptId: jest.fn(),
+  };
+  const dev = {
+    getSkipBundleGPGVerification: jest.fn(),
   };
   (globalThis as any).__mockSvc = svc;
-  return { __esModule: true, default: { serviceAppUpdate: svc } };
+  (globalThis as any).__mockDevSvc = dev;
+  return {
+    __esModule: true,
+    default: { serviceAppUpdate: svc, serviceDevSetting: dev },
+  };
 });
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => {
@@ -180,6 +189,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     app: {
       appUpdate: {
+        log: jest.fn(),
         softwareUpdateStarted: jest.fn(),
         softwareUpdateResult: jest.fn(),
         startCheckForUpdates: jest.fn(),
@@ -231,6 +241,9 @@ jest.mock('@onekeyhq/shared/src/errors', () => ({
 
 jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 1 },
+  AppState: {
+    addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+  },
 }));
 
 // ---------------------------------------------------------------------------
@@ -245,13 +258,19 @@ import {
   EAppUpdateStatus,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
+  computeDownloadRetryDelayMs,
+  extractUpdateErrorCode,
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
+  isUnrecoverableDownloadError,
+  runDownloadWithRetry,
+  sanitizeUpdateErrorMessage,
   useDownloadPackage,
-} from './hooks';
+} from './useAppUpdate';
 
 // Keep a reference to the shared React so isolated modules can reuse it
 (globalThis as any).__sharedReact = React;
@@ -262,6 +281,7 @@ import {
 
 const g = globalThis as any;
 const svc = g.__mockSvc;
+const devSvc = g.__mockDevSvc;
 const nav = g.__mockNav;
 const appUpd = g.__mockAppUpd;
 const bundleUpd = g.__mockBundleUpd;
@@ -307,6 +327,9 @@ function resetAllMocks() {
   svc.resetToInComplete.mockResolvedValue(undefined);
   svc.fetchChangeLog.mockResolvedValue(undefined);
   svc.updateLastDialogShownAt.mockResolvedValue(undefined);
+  // Defaults match the safe baseline: native disallows skip, dev setting off.
+  bundleUpd.isSkipGpgVerificationAllowed.mockResolvedValue(false);
+  devSvc.getSkipBundleGPGVerification.mockResolvedValue(false);
 }
 
 // ---------------------------------------------------------------------------
@@ -379,6 +402,458 @@ describe('Utility functions', () => {
 });
 
 // =========================================================================
+// A.z runDownloadWithRetry — exponential-backoff retry for transient errors
+// =========================================================================
+describe('runDownloadWithRetry', () => {
+  // Drive backoff via fake timers so tests are instant.
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  // Helper: kick off pending timers as soon as the operation rejects, so
+  // the next attempt can run without real wall-clock waits.
+  const flush = async () => {
+    // Multiple awaits because each retry chains through Promise + setTimeout.
+    for (let i = 0; i < 8; i += 1) {
+      await Promise.resolve();
+      jest.runOnlyPendingTimers();
+    }
+  };
+
+  test('returns immediately on success without retrying', async () => {
+    const op = jest.fn().mockResolvedValue('ok');
+    const result = await runDownloadWithRetry(op, 'test');
+    expect(result).toBe('ok');
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries on transient error and succeeds on a later attempt', async () => {
+    const op = jest
+      .fn<Promise<string>, []>()
+      .mockRejectedValueOnce(new Error('NSURLErrorDomain -1005'))
+      .mockRejectedValueOnce(new Error('HTTP error 504'))
+      .mockResolvedValueOnce('ok');
+    const promise = runDownloadWithRetry(op, 'test');
+    await flush();
+    await flush();
+    const result = await promise;
+    expect(result).toBe('ok');
+    expect(op).toHaveBeenCalledTimes(3);
+  });
+
+  test('bails immediately on SHA256_MISMATCH (unrecoverable)', async () => {
+    const err = new Error('Bundle SHA256 verification failed: MISMATCH');
+    const op = jest.fn().mockRejectedValue(err);
+    await expect(runDownloadWithRetry(op, 'test')).rejects.toBe(err);
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  test('bails immediately on HTTP 403 / 404 / 410', async () => {
+    for (const code of [403, 404, 410]) {
+      const err = new Error(`HTTP ${code}`);
+      const op = jest.fn().mockRejectedValue(err);
+      // eslint-disable-next-line no-await-in-loop
+      await expect(runDownloadWithRetry(op, 'test')).rejects.toBe(err);
+      expect(op).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  test('bails immediately on programmer/config errors (HTTPS, invalid version)', async () => {
+    const cases = [
+      'Bundle download URL must use HTTPS',
+      'Invalid version string format',
+      'Invalid URL',
+      'Already downloading',
+    ];
+    for (const msg of cases) {
+      const err = new Error(msg);
+      const op = jest.fn().mockRejectedValue(err);
+      // eslint-disable-next-line no-await-in-loop
+      await expect(runDownloadWithRetry(op, 'test')).rejects.toBe(err);
+      expect(op).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  test('throws the last error after exhausting all 3 retries', async () => {
+    const e1 = new Error('NSURLErrorDomain -1005');
+    const e2 = new Error('NSURLErrorDomain -1001');
+    const e3 = new Error('HTTP 502');
+    const e4 = new Error('IO_SocketTimeoutException');
+    const op = jest
+      .fn<Promise<string>, []>()
+      .mockRejectedValueOnce(e1)
+      .mockRejectedValueOnce(e2)
+      .mockRejectedValueOnce(e3)
+      .mockRejectedValueOnce(e4);
+    const promise = runDownloadWithRetry(op, 'test').catch((err) => err);
+    await flush();
+    await flush();
+    await flush();
+    const finalErr = await promise;
+    expect(finalErr).toBe(e4);
+    expect(op).toHaveBeenCalledTimes(4); // initial + 3 retries
+  });
+
+  test('computeDownloadRetryDelayMs grows exponentially with jitter floor', () => {
+    // Backoff base = 1500. attempt 0 → ≥1500, attempt 1 → ≥3000, attempt 2 → ≥6000.
+    // Cap upper bound at base*2^attempt + 500 (jitter window).
+    const a0 = computeDownloadRetryDelayMs(0);
+    const a1 = computeDownloadRetryDelayMs(1);
+    const a2 = computeDownloadRetryDelayMs(2);
+    expect(a0).toBeGreaterThanOrEqual(1500);
+    expect(a0).toBeLessThan(2000);
+    expect(a1).toBeGreaterThanOrEqual(3000);
+    expect(a1).toBeLessThan(3500);
+    expect(a2).toBeGreaterThanOrEqual(6000);
+    expect(a2).toBeLessThan(6500);
+  });
+});
+
+// =========================================================================
+// A.y sanitizeUpdateErrorMessage — strip OS-username paths before reporting
+// =========================================================================
+describe('sanitizeUpdateErrorMessage', () => {
+  test('redacts macOS /Users/<name>/ home directory', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          "ENOENT: no such file or directory, open '/Users/john/Library/Application Support/OneKey/x.zip'",
+        ),
+      ),
+    ).toBe(
+      "ENOENT: no such file or directory, open '/Users/<redacted>/Library/Application Support/OneKey/x.zip'",
+    );
+  });
+
+  test('redacts Windows C:\\Users\\<Name>\\ profile path', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'ENOENT: no such file, open C:\\Users\\Alice\\AppData\\Roaming\\OneKey\\x.zip',
+        ),
+      ),
+    ).toBe(
+      'ENOENT: no such file, open C:\\Users\\<redacted>\\AppData\\Roaming\\OneKey\\x.zip',
+    );
+  });
+
+  test('redacts Linux /home/<name>/ path', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error('EACCES: permission denied at /home/bob/.config/OneKey'),
+      ),
+    ).toBe('EACCES: permission denied at /home/<redacted>/.config/OneKey');
+  });
+
+  test('redacts iOS /var/mobile/Containers/Data/Application/<UUID>/', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'Failed to unzip bundle: file at /var/mobile/Containers/Data/Application/8E9F1234-AAAA-BBBB-CCCC-DEADBEEF0001/Library/Caches/x.zip',
+        ),
+      ),
+    ).toBe(
+      'Failed to unzip bundle: file at /var/mobile/Containers/Data/Application/<redacted>/Library/Caches/x.zip',
+    );
+  });
+
+  test('redacts iOS /var/mobile/Containers/Shared/AppGroup/<UUID>/', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'open failed at /var/mobile/Containers/Shared/AppGroup/AAAA-BBBB/onekey/x',
+        ),
+      ),
+    ).toBe(
+      'open failed at /var/mobile/Containers/Shared/AppGroup/<redacted>/onekey/x',
+    );
+  });
+
+  test('redacts Android /data/data/<pkg>/ internal storage path', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'java.io.FileNotFoundException: /data/data/so.onekey.app.wallet/files/onekey-bundle-download/x.zip.partial: open failed: ENOSPC',
+        ),
+      ),
+    ).toBe(
+      'java.io.FileNotFoundException: /data/data/<redacted>/files/onekey-bundle-download/x.zip.partial: open failed: ENOSPC',
+    );
+  });
+
+  test('redacts Android /data/user/<id>/<pkg>/ multi-user storage path', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'IOException: /data/user/0/so.onekey.app.wallet/files/foo: permission denied',
+        ),
+      ),
+    ).toBe('IOException: /data/user/0/<redacted>/files/foo: permission denied');
+  });
+
+  test('preserves non-PII content unchanged', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error('Bundle SHA256 verification failed: MISMATCH'),
+      ),
+    ).toBe('Bundle SHA256 verification failed: MISMATCH');
+    expect(sanitizeUpdateErrorMessage(new Error('HTTP 416'))).toBe('HTTP 416');
+  });
+
+  test('caps over-long messages at 240 chars + ellipsis', () => {
+    const filler = 'X'.repeat(500);
+    const out = sanitizeUpdateErrorMessage(new Error(filler));
+    expect(out).toBeDefined();
+    expect((out as string).length).toBe(241); // 240 chars + "…"
+    expect((out as string).endsWith('…')).toBe(true);
+  });
+
+  test('returns undefined for empty / nullish input', () => {
+    expect(sanitizeUpdateErrorMessage(undefined)).toBe(undefined);
+    expect(sanitizeUpdateErrorMessage(null)).toBe(undefined);
+    expect(sanitizeUpdateErrorMessage(new Error(''))).toBe(undefined);
+  });
+
+  test('plain string input is also accepted', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        "ENOENT '/Users/eve/Library/Application Support/OneKey'",
+      ),
+    ).toBe("ENOENT '/Users/<redacted>/Library/Application Support/OneKey'");
+  });
+
+  test('redacts macOS username containing whitespace ("John Doe")', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          "ENOENT: no such file, open '/Users/John Doe/Library/Application Support/OneKey/x.zip'",
+        ),
+      ),
+    ).toBe(
+      "ENOENT: no such file, open '/Users/<redacted>/Library/Application Support/OneKey/x.zip'",
+    );
+  });
+
+  test('redacts Windows username containing whitespace ("John Doe")', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'ENOENT: no such file, open C:\\Users\\John Doe\\AppData\\Roaming\\OneKey\\x.zip',
+        ),
+      ),
+    ).toBe(
+      'ENOENT: no such file, open C:\\Users\\<redacted>\\AppData\\Roaming\\OneKey\\x.zip',
+    );
+  });
+
+  test('redacts URL query / fragment (signed-download tokens) but keeps host + path', () => {
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error(
+          'Cannot derive file name from URL: https://cdn.example.com/onekey/x.dmg?token=abc123&exp=999',
+        ),
+      ),
+    ).toBe(
+      'Cannot derive file name from URL: https://cdn.example.com/onekey/x.dmg?<redacted>',
+    );
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error('Download failed: http://host/file#frag-with-PII'),
+      ),
+    ).toBe('Download failed: http://host/file#<redacted>');
+    expect(
+      sanitizeUpdateErrorMessage(
+        new Error('No-query URL stays intact: https://cdn.example.com/x.dmg'),
+      ),
+    ).toBe('No-query URL stays intact: https://cdn.example.com/x.dmg');
+  });
+});
+
+// =========================================================================
+// A.x extractUpdateErrorCode — error → stable mixpanel code mapping
+// =========================================================================
+describe('extractUpdateErrorCode', () => {
+  test('iOS / Android SHA256 verification failure → SHA256_<reason>', () => {
+    expect(
+      extractUpdateErrorCode(
+        new Error('Bundle SHA256 verification failed: MISMATCH'),
+      ),
+    ).toBe('SHA256_MISMATCH');
+    expect(
+      extractUpdateErrorCode(
+        new Error('Bundle SHA256 verification failed: FILE_TRUNCATED'),
+      ),
+    ).toBe('SHA256_FILE_TRUNCATED');
+    expect(
+      extractUpdateErrorCode(
+        new Error('Bundle SHA256 verification failed: OOM'),
+      ),
+    ).toBe('SHA256_OOM');
+  });
+
+  test('iOS native error class names with mixed case + digits survive intact', () => {
+    // Regression: previously the regex was [A-Z][A-Z0-9_]* so
+    // "IO_NSCocoaErrorDomain_257" was truncated to "IO_NSC".
+    expect(
+      extractUpdateErrorCode(
+        new Error(
+          'Bundle SHA256 verification failed: IO_NSCocoaErrorDomain_257',
+        ),
+      ),
+    ).toBe('SHA256_IO_NSCOCOAERRORDOMAIN_257');
+    expect(
+      extractUpdateErrorCode(
+        new Error(
+          'Bundle SHA256 verification failed: IO_FileNotFoundException',
+        ),
+      ),
+    ).toBe('SHA256_IO_FILENOTFOUNDEXCEPTION');
+  });
+
+  test('Desktop legacy "Download failed with status: <code>" still maps to HTTP_<code>', () => {
+    // Back-compat: pre-fix Desktop reject sites used this shape. New
+    // sites should use "HTTP <code>"; both work via the extractor.
+    expect(
+      extractUpdateErrorCode(new Error('Download failed with status: 404')),
+    ).toBe('HTTP_404');
+    expect(
+      extractUpdateErrorCode(new Error('Download failed with status: 502')),
+    ).toBe('HTTP_502');
+  });
+
+  test('Desktop SHA256 failure → SHA256_<reason>', () => {
+    expect(
+      extractUpdateErrorCode(
+        new Error('Downloaded file is not valid: SHA256_FILE_NOT_FOUND'),
+      ),
+    ).toBe('SHA256_FILE_NOT_FOUND');
+    expect(
+      extractUpdateErrorCode(
+        new Error('Downloaded file is not valid: SHA256_PERMISSION_DENIED'),
+      ),
+    ).toBe('SHA256_PERMISSION_DENIED');
+  });
+
+  test('HTTP errors → HTTP_<status>', () => {
+    expect(extractUpdateErrorCode(new Error('HTTP 416'))).toBe('HTTP_416');
+    expect(extractUpdateErrorCode(new Error('HTTP error 504'))).toBe(
+      'HTTP_504',
+    );
+    expect(
+      extractUpdateErrorCode(new Error('Download failed with HTTP 502')),
+    ).toBe('HTTP_502');
+  });
+
+  test('iOS NSURL session errors → NSURL_<code>', () => {
+    expect(extractUpdateErrorCode(new Error('NSURLErrorDomain -1005'))).toBe(
+      'NSURL_-1005',
+    );
+    expect(
+      extractUpdateErrorCode(new Error('NSURLErrorDomain code -1001')),
+    ).toBe('NSURL_-1001');
+  });
+
+  test('Generic IO bubble → IO_<class>', () => {
+    expect(
+      extractUpdateErrorCode(
+        new Error('something IO_FileNotFoundException happened'),
+      ),
+    ).toBe('IO_FileNotFoundException');
+  });
+
+  test('SHA256 token wins over HTTP / IO when both appear', () => {
+    expect(
+      extractUpdateErrorCode(
+        new Error('SHA256_MISMATCH after HTTP 200 and IO_Wrap'),
+      ),
+    ).toBe('SHA256_MISMATCH');
+  });
+
+  test('returns undefined for noise that does not match any pattern', () => {
+    expect(extractUpdateErrorCode(new Error('Already downloading'))).toBe(
+      undefined,
+    );
+    expect(
+      extractUpdateErrorCode(new Error('Bundle download URL must use HTTPS')),
+    ).toBe(undefined);
+    expect(extractUpdateErrorCode(undefined)).toBe(undefined);
+    expect(extractUpdateErrorCode(null)).toBe(undefined);
+    expect(extractUpdateErrorCode(new Error(''))).toBe(undefined);
+  });
+
+  test('plain string error is also accepted', () => {
+    expect(
+      extractUpdateErrorCode(
+        'Bundle SHA256 verification failed: FILE_DISAPPEARED',
+      ),
+    ).toBe('SHA256_FILE_DISAPPEARED');
+  });
+});
+
+// =========================================================================
+// A4. isUnrecoverableDownloadError
+// =========================================================================
+describe('isUnrecoverableDownloadError', () => {
+  test.each([
+    ['SHA256_MISMATCH', 'Bundle SHA256 verification failed: MISMATCH'],
+    ['HTTP_403', 'HTTP 403 Forbidden'],
+    ['HTTP_404', 'HTTP error 404 Not Found'],
+    ['HTTP_410', 'Download failed with status: 410'],
+  ])('%s code → unrecoverable', (_label, msg) => {
+    expect(isUnrecoverableDownloadError(new Error(msg))).toBe(true);
+  });
+
+  test.each([
+    ['HTTP_500', 'HTTP 500 Internal Server Error'],
+    ['HTTP_502', 'HTTP error 502 Bad Gateway'],
+    ['HTTP_504', 'HTTP 504 Gateway Timeout'],
+    ['HTTP_408', 'HTTP 408 Request Timeout'],
+    ['HTTP_429', 'HTTP 429 Too Many Requests'],
+    [
+      'SHA256_FILE_TRUNCATED',
+      'Bundle SHA256 verification failed: FILE_TRUNCATED',
+    ],
+    ['NSURL_-1009', 'NSURLErrorDomain code -1009 (offline)'],
+    ['IO_FileNotFoundException', 'IO_FileNotFoundException: open failed'],
+  ])('%s code → recoverable (transient)', (_label, msg) => {
+    expect(isUnrecoverableDownloadError(new Error(msg))).toBe(false);
+  });
+
+  test.each([
+    'Bundle download URL must use HTTPS',
+    'Invalid version string format',
+    'Already downloading',
+    'Invalid URL: not-a-url',
+  ])('programmer/config-error message %p → unrecoverable', (msg) => {
+    expect(isUnrecoverableDownloadError(new Error(msg))).toBe(true);
+  });
+
+  test('matches programmer-error message even when it is a substring of a longer message', () => {
+    expect(
+      isUnrecoverableDownloadError(
+        new Error('OneKeyError: Already downloading bundle x'),
+      ),
+    ).toBe(true);
+  });
+
+  test('plain unknown free-text error → recoverable (no false positive)', () => {
+    expect(isUnrecoverableDownloadError(new Error('socket hang up'))).toBe(
+      false,
+    );
+    expect(isUnrecoverableDownloadError(new Error(''))).toBe(false);
+  });
+
+  test('handles non-Error inputs without throwing', () => {
+    expect(isUnrecoverableDownloadError(null)).toBe(false);
+    expect(isUnrecoverableDownloadError(undefined)).toBe(false);
+    expect(isUnrecoverableDownloadError('HTTP 404 Not Found')).toBe(true);
+  });
+});
+
+// =========================================================================
 // B. useDownloadPackage
 // =========================================================================
 describe('useDownloadPackage', () => {
@@ -411,6 +886,44 @@ describe('useDownloadPackage', () => {
       expect(svc.updateDownloadedEvent).toHaveBeenCalled();
       // Chain continues to downloadASC
       expect(svc.downloadASC).toHaveBeenCalled();
+    });
+
+    test('rotates attemptId AND persists it via setCurrentUpdateAttemptId so the post-relaunch success event can re-emit the same id', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.getDownloadEvent.mockResolvedValue({
+        downloadedFile: '/tmp/app.zip',
+      });
+      appUpd.downloadPackage.mockResolvedValue({
+        downloadedFile: '/tmp/app.zip',
+      });
+      appUpd.downloadASC.mockResolvedValue(undefined);
+      appUpd.verifyASC.mockResolvedValue(undefined);
+      appUpd.verifyPackage.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.downloadPackage();
+      });
+
+      // The attemptId passed to softwareUpdateStarted must match what we
+      // persisted via the service — otherwise the post-relaunch success
+      // event would correlate to a different id.
+      const startedCalls = (
+        defaultLogger.app.appUpdate.softwareUpdateStarted as jest.Mock
+      ).mock.calls;
+      expect(startedCalls.length).toBeGreaterThan(0);
+      const startedAttemptId = startedCalls[0][0]?.attemptId as
+        | string
+        | undefined;
+      expect(typeof startedAttemptId).toBe('string');
+      expect(startedAttemptId?.length).toBeGreaterThan(0);
+      expect(svc.setCurrentUpdateAttemptId).toHaveBeenCalledWith(
+        startedAttemptId,
+      );
     });
 
     test('jsBundle path uses BundleUpdate instead of AppUpdate', async () => {
@@ -530,6 +1043,63 @@ describe('useDownloadPackage', () => {
       });
 
       expect(mockToastError).not.toHaveBeenCalled();
+    });
+
+    test('concurrent calls collapse to a single in-flight attempt', async () => {
+      // Cold-launch useEffect, AppState 'active' listener, and user click
+      // can all enter downloadPackage() in the same JS tick. The mutex
+      // collapses them so only ONE native download starts and all
+      // observers await the same Promise. Without it, the duplicate path
+      // hits native's "Already downloading" → unrecoverable → status
+      // flips to failed mid-flow on the original attempt.
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.getDownloadEvent.mockResolvedValue({});
+      // Hold the native call open so the second invocation can pile up
+      // behind the first while it's still in-flight.
+      let releaseDownload: (v: any) => void = () => {};
+      appUpd.downloadPackage.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseDownload = resolve;
+          }),
+      );
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      let firstSettled = false;
+      let secondSettled = false;
+      await act(async () => {
+        const p1 = result.current.downloadPackage().then(() => {
+          firstSettled = true;
+        });
+        const p2 = result.current.downloadPackage().then(() => {
+          secondSettled = true;
+        });
+        // Drain enough microtasks for downloadPackage's several awaits
+        // (getFileTypeFromUpdateInfo / getUpdateInfo / getDownloadEvent /
+        // getRequestHeaders) to pass and the native call to be entered.
+        // The number is generous; the assertion below is what matters.
+        for (let i = 0; i < 20; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
+        }
+        // Native should have been entered exactly once because the mutex
+        // returned the in-flight Promise to caller 2.
+        expect(appUpd.downloadPackage).toHaveBeenCalledTimes(1);
+        expect(firstSettled).toBe(false);
+        expect(secondSettled).toBe(false);
+        releaseDownload({});
+        await p1;
+        await p2;
+      });
+      expect(firstSettled).toBe(true);
+      expect(secondSettled).toBe(true);
+      // No "Already downloading" path was hit, so no spurious failure.
+      expect(svc.downloadPackageFailed).not.toHaveBeenCalled();
     });
   });
 
@@ -743,6 +1313,113 @@ describe('useDownloadPackage', () => {
     });
   });
 
+  // ----- B4b. getSkipGPGVerification routing through verifyPackage -----
+  // The skip-GPG branch is security-sensitive: it lets a developer bypass
+  // bundle signature verification on debug builds. The native
+  // `BundleUpdate.isSkipGpgVerificationAllowed()` gate is the *first*
+  // line of defense (only debug/dev builds return true); the dev-setting
+  // toggle is the second. Both must be true for the flag to propagate
+  // into BundleUpdate.verifyBundle. We assert this precise AND-chain
+  // here so a regression that flips either gate (or removes one)
+  // surfaces as a failing test instead of a release-build code-signing
+  // bypass.
+  describe('getSkipGPGVerification (via verifyPackage)', () => {
+    const baseInfo = {
+      latestVersion: '1.0.0',
+      jsBundleVersion: '5',
+    };
+
+    test('appShell verify never reads the dev setting (branch short-circuits at fileType)', async () => {
+      svc.getUpdateInfo.mockResolvedValue({ latestVersion: '2.0.0' });
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/a.zip' });
+      appUpd.verifyPackage.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(bundleUpd.isSkipGpgVerificationAllowed).not.toHaveBeenCalled();
+      expect(devSvc.getSkipBundleGPGVerification).not.toHaveBeenCalled();
+    });
+
+    test('bundle + native gate disallows skip → skipGPGVerification:false (dev setting never read)', async () => {
+      svc.getUpdateInfo.mockResolvedValue(baseInfo);
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/b.zip' });
+      bundleUpd.isSkipGpgVerificationAllowed.mockResolvedValue(false);
+      bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(bundleUpd.verifyBundle).toHaveBeenCalledWith(
+        expect.objectContaining({ skipGPGVerification: false }),
+      );
+      // Critical: the dev-setting branch must NOT be reached when the
+      // native gate denies. Otherwise a misconfigured prod build with a
+      // stale `skipBundleGPGVerification=true` setting would bypass.
+      expect(devSvc.getSkipBundleGPGVerification).not.toHaveBeenCalled();
+    });
+
+    test('bundle + native gate allows skip + dev setting OFF → skipGPGVerification:false', async () => {
+      svc.getUpdateInfo.mockResolvedValue(baseInfo);
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/b.zip' });
+      bundleUpd.isSkipGpgVerificationAllowed.mockResolvedValue(true);
+      devSvc.getSkipBundleGPGVerification.mockResolvedValue(false);
+      bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(devSvc.getSkipBundleGPGVerification).toHaveBeenCalledTimes(1);
+      expect(bundleUpd.verifyBundle).toHaveBeenCalledWith(
+        expect.objectContaining({ skipGPGVerification: false }),
+      );
+    });
+
+    test('bundle + native gate allows skip + dev setting ON → skipGPGVerification:true (the only path that bypasses)', async () => {
+      svc.getUpdateInfo.mockResolvedValue(baseInfo);
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/b.zip' });
+      bundleUpd.isSkipGpgVerificationAllowed.mockResolvedValue(true);
+      devSvc.getSkipBundleGPGVerification.mockResolvedValue(true);
+      bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(bundleUpd.verifyBundle).toHaveBeenCalledWith(
+        expect.objectContaining({ skipGPGVerification: true }),
+      );
+    });
+
+    test('bundle + native gate throws → falls back to skipGPGVerification:false (catch path)', async () => {
+      svc.getUpdateInfo.mockResolvedValue(baseInfo);
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/b.zip' });
+      bundleUpd.isSkipGpgVerificationAllowed.mockRejectedValue(
+        new Error('JNI bridge unavailable'),
+      );
+      bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      // Fail-closed: a thrown native gate must not be interpreted as a
+      // pass-through to the dev-setting branch.
+      expect(devSvc.getSkipBundleGPGVerification).not.toHaveBeenCalled();
+      expect(bundleUpd.verifyBundle).toHaveBeenCalledWith(
+        expect.objectContaining({ skipGPGVerification: false }),
+      );
+    });
+  });
+
   // ----- B5. installPackage -----
   describe('installPackage', () => {
     test('appShell success → calls AppUpdate.installPackage + onSuccess', async () => {
@@ -946,12 +1623,12 @@ describe('useAppUpdateInfo useEffect', () => {
   // We use jest.isolateModules to get a fresh copy of ./hooks while
   // pinning 'react' to the shared instance (so renderHook works).
 
-  function requireFreshHooks(): typeof import('./hooks') {
-    let hooks: typeof import('./hooks') = undefined as any;
+  function requireFreshHooks(): typeof import('./useAppUpdate') {
+    let hooks: typeof import('./useAppUpdate') = undefined as any;
     jest.isolateModules(() => {
       // Pin react so the isolated hooks share the same React with renderHook
       jest.mock('react', () => (globalThis as any).__sharedReact);
-      hooks = require('./hooks');
+      hooks = require('./useAppUpdate');
     });
     return hooks;
   }
@@ -1196,6 +1873,37 @@ describe('useAppUpdateInfo useEffect', () => {
 
       // Should call refreshUpdateStatus then schedule fetch
       expect(svc.refreshUpdateStatus).toHaveBeenCalled();
+    });
+
+    test('softwareUpdateResult success re-emits the persisted attemptId from the pre-install softwareUpdateStarted', async () => {
+      // Regression: before currentUpdateAttemptId was persisted, this
+      // post-relaunch event would generate a fresh UUID via
+      // buildSoftwareUpdateParams's `attemptId ?? generateUUID()`
+      // fallback, breaking per-attempt funnel correlation against the
+      // original softwareUpdateStarted event.
+      const persistedId = 'attempt-uuid-from-pre-install';
+      setAtom({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        currentUpdateAttemptId: persistedId,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+
+      const resultCalls = (
+        defaultLogger.app.appUpdate.softwareUpdateResult as jest.Mock
+      ).mock.calls;
+      expect(resultCalls.length).toBeGreaterThan(0);
+      const successCall = resultCalls.find((c) => c[0]?.status === 'success');
+      expect(successCall).toBeDefined();
+      expect(successCall?.[0]?.attemptId).toBe(persistedId);
     });
 
     test('isFirstLaunchAfterUpdated + seamless → no WhatsNew dialog', async () => {
@@ -1453,12 +2161,15 @@ describe('useAppUpdateInfo useEffect', () => {
       const hooks = requireFreshHooks();
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
+      // showSilentUpdateDialog wraps three awaits inside a setTimeout
+      // (getUpdateInfo → whenAppUnlocked → showSilentUpdateDialogUI).
+      // jest.runAllTimers() is synchronous, so awaits inside the timer
+      // callback resolve outside the act() scope and React emits
+      // "act(async () => ...) without await". runAllTimersAsync awaits
+      // each scheduled microtask between fires, keeping every state
+      // update inside the act boundary.
       await act(async () => {
-        jest.runAllTimers();
-      });
-      await act(async () => {
-        await Promise.resolve();
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       // showSilentUpdateDialog uses setTimeout → Dialog.show
@@ -1478,12 +2189,11 @@ describe('useAppUpdateInfo useEffect', () => {
       const hooks = requireFreshHooks();
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
+      // Same drain pattern as the silent-strategy test above —
+      // showUpdateDialog also wraps async awaits inside setTimeout, so
+      // sync runAllTimers leaves microtasks dangling outside act().
       await act(async () => {
-        jest.runAllTimers();
-      });
-      await act(async () => {
-        await Promise.resolve();
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       // showUpdateDialog → dialog.show
@@ -1543,17 +2253,241 @@ describe('useAppUpdateInfo useEffect', () => {
       mockPlatformEnv.isNative = false;
     });
   });
+
+  describe('AppState foreground resume', () => {
+    // Capture the AppState handler so each test can fire transitions.
+    function captureAppStateHandler() {
+      const holder: { fn?: (state: string) => void } = {};
+      const RN = require('react-native');
+      RN.AppState.addEventListener.mockImplementationOnce(
+        (_event: string, fn: (state: string) => void) => {
+          holder.fn = fn;
+          return { remove: jest.fn() };
+        },
+      );
+      return holder;
+    }
+
+    test("AppState 'active' + service returns 'downloadPackage' → fires JS downloadPackage", async () => {
+      // Critical assertion: it's the JS-side downloadPackage that ultimately
+      // calls BundleUpdate.downloadBundle. A foreground-resume that only
+      // pokes the service (and not the JS hook) would not start any bytes.
+      const handlerHolder = captureAppStateHandler();
+      svc.shouldResumeStalledDownload.mockResolvedValue('downloadPackage');
+
+      // Wire enough state that downloadPackage()'s body completes its
+      // first await without reaching the network — we only need to prove
+      // the JS download function was entered.
+      setAtom({
+        status: EAppUpdateStatus.downloadPackageFailed,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.getDownloadEvent.mockResolvedValue({});
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        handlerHolder.fn?.('active');
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(svc.shouldResumeStalledDownload).toHaveBeenCalledTimes(1);
+      // The JS downloadPackage hook is what guarantees byte flow — it
+      // begins with svc.downloadPackage() before any native call.
+      expect(svc.downloadPackage).toHaveBeenCalled();
+      // ASC must NOT have been routed in the package-step branch.
+      expect(svc.downloadASC).not.toHaveBeenCalled();
+    });
+
+    test("AppState 'active' + service returns 'downloadASC' → fires JS downloadASC, NOT downloadPackage", async () => {
+      // Critical: an ASC-only failure must resume via downloadASC().
+      // Routing it through downloadPackage() would clear downloadedEvent
+      // and force a full re-download of an already-on-disk package —
+      // wasted bandwidth, especially under foreground/background churn
+      // or a permanent 403/404 on the ASC URL.
+      const handlerHolder = captureAppStateHandler();
+      svc.shouldResumeStalledDownload.mockResolvedValue('downloadASC');
+
+      setAtom({
+        status: EAppUpdateStatus.downloadASCFailed,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.getDownloadEvent.mockResolvedValue({});
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      svc.downloadPackage.mockClear();
+      svc.downloadASC.mockClear();
+
+      await act(async () => {
+        handlerHolder.fn?.('active');
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(svc.shouldResumeStalledDownload).toHaveBeenCalledTimes(1);
+      expect(svc.downloadASC).toHaveBeenCalled();
+      // Regression guard for the original review feedback:
+      // downloadPackage MUST NOT be invoked on an ASC-only resume.
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+    });
+
+    test("AppState 'active' + service returns null → does NOT fire downloadPackage", async () => {
+      const handlerHolder = captureAppStateHandler();
+      svc.shouldResumeStalledDownload.mockResolvedValue(null);
+
+      // Use status===notify so the run-once useEffect on first mount
+      // does not itself fire downloadPackage(); we want to attribute any
+      // svc.downloadPackage call SOLELY to the AppState handler under test.
+      setAtom({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      // Drain the cold-launch useEffect before clearing — that effect can
+      // schedule its own setTimeout/microtask chain which would otherwise
+      // race the AppState handler under test.
+      await act(async () => {
+        jest.runAllTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      svc.downloadPackage.mockClear();
+      svc.downloadASC.mockClear();
+
+      await act(async () => {
+        handlerHolder.fn?.('active');
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(svc.shouldResumeStalledDownload).toHaveBeenCalledTimes(1);
+      // Critical regression guard: when the gate says no, no JS download
+      // call must happen. Otherwise an in-flight download would race with
+      // a duplicate downloadPackage call → "Already downloading" →
+      // unrecoverable → status flipped to failed, killing a healthy flow.
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+      expect(svc.downloadASC).not.toHaveBeenCalled();
+    });
+
+    test("non-'active' transitions are no-ops (no service call at all)", async () => {
+      const handlerHolder = captureAppStateHandler();
+      setAtom({
+        status: EAppUpdateStatus.downloadPackageFailed,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      svc.shouldResumeStalledDownload.mockClear();
+      svc.downloadPackage.mockClear();
+
+      await act(async () => {
+        handlerHolder.fn?.('background');
+        handlerHolder.fn?.('inactive');
+        await Promise.resolve();
+      });
+      expect(svc.shouldResumeStalledDownload).not.toHaveBeenCalled();
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // C-extra: once-per-app-lifetime guard
+  // -------------------------------------------------------------------------
+  // The first-launch dispatch effect lives on a module-scoped flag in
+  // AppUpdateForeground.tsx (didRunFirstLaunchDispatch). It must fire
+  // exactly once across the lifetime of the JS context, even if the
+  // hook (or the <AppUpdateForeground /> component) is unmounted and
+  // remounted — StrictMode double-invoke and hot-reload both remount.
+  // The component-local `cancelled` flag would not catch this on its own.
+  describe('once-per-app-lifetime guard', () => {
+    function requireFreshHooksWithForeground(): {
+      hooks: typeof import('./useAppUpdate');
+      foreground: typeof import('./AppUpdateForeground');
+    } {
+      let hooks: typeof import('./useAppUpdate') = undefined as any;
+      let foreground: typeof import('./AppUpdateForeground') = undefined as any;
+      jest.isolateModules(() => {
+        jest.mock('react', () => (globalThis as any).__sharedReact);
+        hooks = require('./useAppUpdate');
+        foreground = require('./AppUpdateForeground');
+      });
+      return { hooks, foreground };
+    }
+
+    test('remount within the same app lifecycle does NOT re-fire the first-launch dispatch', async () => {
+      setAtom({
+        status: EAppUpdateStatus.downloadPackage,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const { hooks } = requireFreshHooksWithForeground();
+      const r1 = renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      expect(svc.downloadPackage).toHaveBeenCalledTimes(1);
+
+      r1.unmount();
+      svc.downloadPackage.mockClear();
+
+      // Same module instance → didRunFirstLaunchDispatch is still true.
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+    });
+
+    test('__resetAppUpdateForegroundForTests clears the guard so the next mount re-fires', async () => {
+      setAtom({
+        status: EAppUpdateStatus.downloadPackage,
+        latestVersion: '2.0.0',
+      });
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const { hooks, foreground } = requireFreshHooksWithForeground();
+      const r1 = renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      expect(svc.downloadPackage).toHaveBeenCalledTimes(1);
+
+      r1.unmount();
+      svc.downloadPackage.mockClear();
+      foreground.__resetAppUpdateForegroundForTests();
+
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      expect(svc.downloadPackage).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 // =========================================================================
 // D. onUpdateAction routing
 // =========================================================================
 describe('onUpdateAction', () => {
-  function requireFreshHooks(): typeof import('./hooks') {
-    let hooks: typeof import('./hooks') = undefined as any;
+  function requireFreshHooks(): typeof import('./useAppUpdate') {
+    let hooks: typeof import('./useAppUpdate') = undefined as any;
     jest.isolateModules(() => {
       jest.mock('react', () => (globalThis as any).__sharedReact);
-      hooks = require('./hooks');
+      hooks = require('./useAppUpdate');
     });
     return hooks;
   }

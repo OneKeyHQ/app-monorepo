@@ -17,6 +17,7 @@ import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -276,6 +277,21 @@ function SingleLineReceiverInput() {
           },
           { network: networkName },
         );
+      }
+
+      // Reject when the receiver address resolves to a deactivated Bot Wallet
+      // account. The helper falls back to BTC fresh-address resolution to
+      // match the allowlist resolver below.
+      if (selectedNetworkId) {
+        const isDeactivatedBotReceiver =
+          await isAddressOwnedByDeactivatedBotWallet({
+            networkId: selectedNetworkId,
+            address: trimmedAddress,
+          });
+        if (isDeactivatedBotReceiver) {
+          setReceiverValidationErrors([]);
+          return '该 Bot 钱包已停用，无法作为接收地址';
+        }
       }
 
       // Allowlist check
