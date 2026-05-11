@@ -13,8 +13,6 @@ export interface IFeaturedItem {
   href?: string;
   hrefType?: 'internal' | 'external';
   mode?: ENotificationPushMessageMode;
-  payload?: string;
-  useSystemBrowser?: boolean;
 }
 
 export interface IFeaturedChangelog {
@@ -73,10 +71,6 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
       ? (rawMode as ENotificationPushMessageMode)
       : undefined;
 
-  const rawUseSystemBrowser = src.useSystemBrowser;
-  const useSystemBrowser =
-    typeof rawUseSystemBrowser === 'boolean' ? rawUseSystemBrowser : undefined;
-
   return {
     tabLabel,
     title: optionalTrimmedString(src.title),
@@ -87,8 +81,6 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
     href: optionalTrimmedString(src.href),
     hrefType,
     mode,
-    payload: optionalTrimmedString(src.payload),
-    useSystemBrowser,
   };
 }
 

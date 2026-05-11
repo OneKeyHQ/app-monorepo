@@ -35,7 +35,7 @@ export interface IFeaturedCarouselProps {
   badgeText: string;
   showCloseButton: boolean;
   onClose: () => void;
-  onActiveFeatureChange?: (feature: IFeaturedItem, index: number) => void;
+  onActiveFeatureChange?: (feature: IFeaturedItem) => void;
 }
 
 interface ISlideWrapperProps {
@@ -277,7 +277,7 @@ export function FeaturedCarousel({
   // Notify parent on active change
   useEffect(() => {
     const feature = features[activeIndex];
-    if (feature) onActiveFeatureChange?.(feature, activeIndex);
+    if (feature) onActiveFeatureChange?.(feature);
   }, [activeIndex, features, onActiveFeatureChange]);
 
   const contentRegionStyle = useAnimatedStyle(() => ({

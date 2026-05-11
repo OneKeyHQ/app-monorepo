@@ -7,21 +7,21 @@ import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChang
 
 interface IFeaturedMediaProps extends PropsWithChildren {
   feature: IFeaturedItem;
-  /** Explicit pixel height for the media area. When omitted, falls back to flex=1 to fill parent. */
-  height?: number;
-  /** Whether this slide is the active (visible) one. Controls video play/pause. Defaults to true for backward compat. */
-  isActive?: boolean;
+  height: number;
+  /** Whether this slide is the active (visible) one. Controls video play/pause. */
+  isActive: boolean;
 }
 
 function FeaturedMedia({
   feature,
   height,
-  isActive = true,
+  isActive,
   children,
 }: IFeaturedMediaProps) {
   return (
     <Stack
-      {...(height !== undefined ? { width: '100%', height } : { flex: 1 })}
+      width="100%"
+      height={height}
       overflow="hidden"
       position="relative"
       borderBottomWidth={StyleSheet.hairlineWidth}

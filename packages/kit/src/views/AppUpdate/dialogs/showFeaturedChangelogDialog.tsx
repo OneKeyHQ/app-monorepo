@@ -99,7 +99,7 @@ function useFeaturedCta({
           void downloadPackage();
         }
         await closeDialog();
-        // Wait for close animation before pushing — same 300ms used by old page
+        // Wait for close animation before pushing the next modal
         setTimeout(() => {
           navigation.pushModal(EModalRoutes.AppUpdateModal, {
             screen: EAppUpdateRoutes.DownloadVerify,
@@ -211,7 +211,7 @@ export function showFeaturedChangelogDialog(
   const { isPreInstall = false } = params;
 
   // Synchronous atom read — safe because jotaiDefaultStore is always available
-  // on the JS thread after app init. Pattern taken from discovery/actions.ts.
+  // on the JS thread after app init.
   const info = jotaiDefaultStore.get(appUpdatePersistAtom.atom());
   const features = info.featuredChangelog?.features ?? [];
   if (features.length === 0) return undefined;

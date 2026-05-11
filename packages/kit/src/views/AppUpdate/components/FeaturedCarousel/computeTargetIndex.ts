@@ -32,5 +32,3 @@ export function computeTargetIndex({
   }
   return clamp(Math.round(progress));
 }
-
-export const FLICK_VELOCITY = FLICK_VELOCITY_THRESHOLD;
