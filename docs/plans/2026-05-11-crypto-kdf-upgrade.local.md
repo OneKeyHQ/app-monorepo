@@ -57,7 +57,19 @@ v2 envelope 应明确包含：
 Legacy 默认 iteration count 必须保留为一个具名常量，并与新的写入目标分离。例如：
 
 - `PBKDF2_LEGACY_NUM_OF_ITERATIONS = 5000`
-- `PBKDF2_CURRENT_NUM_OF_ITERATIONS = <new target>`
+- `PBKDF2_CURRENT_NUM_OF_ITERATIONS = 600_000`
+
+### 默认写入策略
+
+不能长期依赖业务调用方手动传 `format: 'v2'`。这个参数只适合 Phase 1 primitive tests、少量兼容性 fallback 和协议 gate 内部使用；如果让每个业务调用自行记住传参，新增路径很容易静默落回 legacy CBC + 5000 iterations。
+
+后续 non-native rollout 应引入中心化 write policy，而不是把格式选择散落到业务层：
+
+- 低层 crypto primitive 继续保留显式 legacy/v2 能力，用于 legacy read、测试、兼容性 gate 和迁移工具。
+- 对 local-only human-password/passcode paths，storage owner 或 service-level helper 应默认写 v2，并使用 `PBKDF2_CURRENT_NUM_OF_ITERATIONS = 600_000` 或 benchmark 后确认的目标值。
+- 对 shared/server-visible paths，默认写入仍必须由 compatibility gate 决定；gate 关闭时写 legacy，gate 开启或 peer/server 标记兼容后写 v2。
+- 新增持久化加密调用不应直接调用 bare `encryptAsync` / `encryptStringAsync` 选择默认值；应通过场景化 helper 或显式 policy，例如 local credential、local verify string、backup shared payload、cloud sync shared payload。
+- 后续测试必须覆盖“未显式选择 legacy 的 local-only write 默认产出 `1KENC_V2`”，避免回归到 legacy。
 
 ## Lazy Upgrade 策略
 
@@ -275,7 +287,7 @@ Baseline 需要覆盖两类成本：
 
 ## Mobile Native AES-GCM
 
-如果 v2 默认使用 AES-GCM，移动端应支持原生 AES-GCM。
+如果 v2 默认使用 AES-GCM，移动端最终应支持原生 AES-GCM。但 rollout 顺序调整为：先跑通 non-native v2 envelope、metadata helper、本地 lazy upgrade 和 shared gates；native AES-GCM 作为后置性能优化和移动端默认切换前置条件。
 
 实现方向：
 
@@ -288,18 +300,19 @@ Baseline 需要覆盖两类成本：
 - Decrypt input 也必须接受 `ciphertext || tag`。
 - 添加 native test vectors，对比 iOS、Android、noble 和 non-native implementations。
 
-Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低端移动设备上的 JS thread。
+Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低端移动设备上的 JS thread。但在 native GCM 完成前，移动端不得贸然把所有新写入默认切到 v2；可以先让 web/desktop/extension/Jest 和受控 non-native flows 验证 envelope/read/write/migration 行为。
 
 ## 执行 TODO
 
 - [x] 第一个任务：Phase 0 golden vectors。已选择先做 legacy CBC、legacy GCM 和 custom-iteration behavior 的固定向量测试，用固定 salt、iv/nonce、password、plaintext 锁定现有 payload 格式和 KDF 参数兼容性。
 - [x] Phase 0 inventory。识别每一个持久化调用方：`encryptStringAsync`、`encryptAsync`、`encodeSensitiveTextAsync` 和 `encryptByInstanceId`，并按 local-only、shared/server-visible、migration/non-persistent 分类。
 - [ ] Phase 0 performance baseline。记录 iOS、Android、desktop、web 和 extension 上当前 PBKDF2 与 AES operations 的性能。
-- [x] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。默认写入仍保持 legacy；只有显式 `format: 'v2'` 写入 `1KENC_V2`。
-- [ ] Phase 1 native AES-GCM。为移动端添加 native AES-GCM support，并保留 noble fallback。
+- [x] Phase 1 v2 primitives。添加 v2 envelope parser/serializer、AES-GCM encrypt/decrypt support 和 metadata decrypt helper。当前低层 primitive 默认 legacy 仅用于兼容阶段；后续必须通过中心化 write policy 切 local-only 默认 v2，避免业务调用忘记传 `format: 'v2'`。
+- [ ] Phase 1.5 non-native v2 write policy。新增中心化 write helper/policy：local-only human-password/passcode paths 默认 v2 + current iterations；shared paths 必须显式 gate；legacy writes 只能通过显式 legacy policy 或 fallback path。
 - [ ] Phase 2 local lazy upgrade。从 `Context.verifyString` 和 `Credential` 开始实现无阻塞、幂等、transaction-safe 的本地升级。
 - [ ] Phase 3 shared-data gates。为 Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payloads 添加兼容性 gate。
-- [ ] Phase 4 default switch。在测试和 native support 准备好之后逐步切换新写入到 v2。
+- [ ] Phase 4 non-native default switch。在 non-native 流程和 gates 准备好之后，先切 web、desktop、extension、Jest 以及受控 local-only writes 到 v2。
+- [ ] Phase 5 native AES-GCM。为移动端添加 native AES-GCM support，并保留 noble fallback；移动端全量默认 v2 需等待 native benchmark 和真机验证。
 
 ### Golden vectors 测试基线意图
 
@@ -326,7 +339,14 @@ Phase 1: v2 read/write primitives
 - 添加 v2 AES-GCM encrypt/decrypt support。
 - 保持旧 public APIs 向后兼容。
 - 添加返回 metadata 的 decrypt helper，用于迁移决策。
-- 在移动端添加 native AES-GCM support。
+
+Phase 1.5: non-native write policy
+
+- 添加场景化 write helper 或 policy 层，避免业务直接依赖 `format: 'v2'` 参数。
+- Local-only human-password/passcode writes 默认 v2，并记录 current iterations。
+- Shared/server-visible writes 必须通过 compatibility gate 才能写 v2。
+- Legacy writes 只允许通过显式 legacy policy、测试 helper 或 protocol fallback。
+- 先覆盖 web、desktop、extension、Jest 和 native noble fallback 的 non-native path。
 
 Phase 2: local lazy upgrade
 
@@ -345,9 +365,15 @@ Phase 3: shared-data gates
 
 Phase 4: default switch
 
-- 在测试和 native support 准备好之后，将新的 local writes 切换到 v2。
+- 在 non-native 测试和 policy 准备好之后，将受控新的 local writes 切换到 v2。
 - 通过 rollout gates 逐步启用 shared v2 writes。
 - 至少在一个较长 compatibility window 内保留 legacy read support。
+
+Phase 5: native AES-GCM
+
+- 为移动端添加 native AES-GCM support。
+- 对比 native、noble fallback 和低端设备性能。
+- native benchmark 通过后，移动端再进入默认 v2 写入 rollout。
 
 ## 测试要求
 
