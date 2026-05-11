@@ -98,22 +98,20 @@ export function PerpMarketWorkspacePanel({
           <PerpCandles onTouchScroll={onTouchScroll} />
         ) : null}
 
-        <YStack
-          flex={1}
-          minHeight={0}
-          display={activeView === 'info' ? 'flex' : 'none'}
-        >
-          <PerpMarketDetailContent
-            key={`info-${coin || displayName || baseName || 'unknown'}`}
-            coin={coin}
-            displayName={baseName || displayName}
-            tabKeys={PERP_MARKET_INFO_TAB_KEYS}
-            initialTab="overview"
-            paddingX="$5"
-            paddingTop="$5"
-            combineInfoData
-          />
-        </YStack>
+        {activeView === 'info' ? (
+          <YStack flex={1} minHeight={0}>
+            <PerpMarketDetailContent
+              key={`info-${coin || displayName || baseName || 'unknown'}`}
+              coin={coin}
+              displayName={baseName || displayName}
+              tabKeys={PERP_MARKET_INFO_TAB_KEYS}
+              initialTab="overview"
+              paddingX="$5"
+              paddingTop="$5"
+              combineInfoData
+            />
+          </YStack>
+        ) : null}
       </YStack>
     </YStack>
   );
