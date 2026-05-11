@@ -375,7 +375,7 @@ Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低�
 
 - 如果未来新增本地 password-encrypted credential 类型，必须更新 `isLocalPasswordKdfCredentialUpgradeCandidate` 和对应 decrypt/encrypt helper。
 - 如果 credential id 的格式规则变更，需确认 `localeCompare` 排序仍能稳定覆盖所有候选。
-- 如果需要更强的移动端体验，可把 batch size 做成平台配置或按 benchmark 调整。
+- Phase 2 local lazy upgrade 的 batch size 固定为 `3`。该值已被产品/工程决策接受，不再要求低端 Android 额外 benchmark 作为阻塞项；后续只在出现真实用户体验问题时再调整。
 
 ### Golden vectors 测试基线意图
 
