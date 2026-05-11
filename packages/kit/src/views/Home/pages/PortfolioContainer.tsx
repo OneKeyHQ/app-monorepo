@@ -42,6 +42,7 @@ import {
   findScrollableAncestorFromLocalNode,
   getStickySidebarMaxHeight,
 } from './defiDesktopStickyDom';
+import { HOME_PAGE_CONTENT_MAX_WIDTH } from './homePageContentMaxWidth';
 
 const SIDEBAR_STICKY_UNPIN_GAP = 8;
 
@@ -201,7 +202,13 @@ function PortfolioContainer() {
   // which causes the token list to be stuck in a loading state.
   return (
     <>
-      <Stack flexDirection={tableLayout ? 'row' : 'column'} pt="$3" gap="$6">
+      <Stack
+        flexDirection={tableLayout ? 'row' : 'column'}
+        pt="$3"
+        gap="$6"
+        width="100%"
+        $gtMd={{ maxWidth: HOME_PAGE_CONTENT_MAX_WIDTH, mx: 'auto' }}
+      >
         <YStack
           flex={1}
           gap={tableLayout ? '$10' : '$6'}

@@ -67,6 +67,7 @@ import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
+import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
@@ -143,6 +144,14 @@ function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
     >
       {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
     </ScrollView>
+  );
+}
+
+function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
+  return (
+    <Stack flex={1} {...homePageContentMaxWidthSx}>
+      {children}
+    </Stack>
   );
 }
 
@@ -417,13 +426,21 @@ export function HomePageView({
   // TabBar area — a partially-scrolled alert would leave a visible band
   // between TabPageHeader and the tabs.
   const renderHeader = useCallback(() => {
-    return <HomeHeaderContainer />;
+    return (
+      <Stack {...homePageContentMaxWidthSx}>
+        <HomeHeaderContainer />
+      </Stack>
+    );
   }, []);
 
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
   const renderSubHeader = useCallback(
-    () => <HistoryTabNotificationAlertSlot />,
+    () => (
+      <Stack {...homePageContentMaxWidthSx}>
+        <HistoryTabNotificationAlertSlot />
+      </Stack>
+    ),
     [],
   );
 
@@ -451,7 +468,11 @@ export function HomePageView({
             name: intl.formatMessage({
               id: ETranslations.global_nft,
             }),
-            component: <NFTListContainerWithProvider />,
+            component: (
+              <HomeTabContentMaxWidth>
+                <NFTListContainerWithProvider />
+              </HomeTabContentMaxWidth>
+            ),
           }
         : undefined,
       {
@@ -459,7 +480,11 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.global_history,
         }),
-        component: <TxHistoryListContainerWithProvider />,
+        component: (
+          <HomeTabContentMaxWidth>
+            <TxHistoryListContainerWithProvider />
+          </HomeTabContentMaxWidth>
+        ),
       },
     ].filter(Boolean);
   }, [intl, isDeFiEnabled, isNFTEnabled]);
@@ -551,6 +576,10 @@ export function HomePageView({
         );
       }
 
+      // Outer YStack stays full-width so the sticky bg covers the entire
+      // viewport when the user scrolls the tab bar to the top. The inner Stack
+      // applies the centered max-width so the actual TabBar pills line up with
+      // the rest of the page content blocks.
       return (
         <YStack
           ref={stickyHostRefCallback as any}
@@ -559,24 +588,26 @@ export function HomePageView({
           top={0}
           zIndex={10}
         >
-          <Tabs.TabBar
-            {...tabBarProps}
-            onTabPress={handleTabPress}
-            variant="pill"
-            renderItem={handleRenderItem}
-            renderToolbar={renderToolbar}
-            containerStyle={{ position: 'relative' as any }}
-          />
-          <div
-            ref={portalRefCallback}
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              zIndex: 1,
-            }}
-          />
+          <Stack {...homePageContentMaxWidthSx}>
+            <Tabs.TabBar
+              {...tabBarProps}
+              onTabPress={handleTabPress}
+              variant="pill"
+              renderItem={handleRenderItem}
+              renderToolbar={renderToolbar}
+              containerStyle={{ position: 'relative' as any }}
+            />
+            <div
+              ref={portalRefCallback}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                zIndex: 1,
+              }}
+            />
+          </Stack>
         </YStack>
       );
     },
@@ -864,15 +895,24 @@ export function HomePageView({
     return (
       <>
         <Page.Body>
-          <Page.Container flex={1} padded={false}>
+          {/*
+            layout="full" makes Page.Container span the full viewport width so
+            the vertical scroll container inside (Tabs.Container) fills the
+            viewport too — wheel events on the previously-empty side gutters
+            now reach the scroll handler. Visual width is preserved by wrapping
+            individual content blocks below in `homePageContentMaxWidthSx`.
+          */}
+          <Page.Container flex={1} padded={false} layout="full">
             {platformEnv.isNative ? (
               <Stack h={tabPageHeight} />
             ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
-            <RiskApprovalAlert />
-            <WatchOnlyAlert />
-            <NetworkAlert />
+            <Stack {...homePageContentMaxWidthSx}>
+              <RiskApprovalAlert />
+              <WatchOnlyAlert />
+              <NetworkAlert />
+            </Stack>
             {content}
             {platformEnv.isNative ? (
               <YStack
