@@ -296,10 +296,17 @@ function TxFeeInfo(props: IProps) {
           return staleResult;
         }
 
+        // Do NOT reset `discountPercent` here. Polling re-enters this branch
+        // every tick; clearing the discount would flicker the TRON rental
+        // "减免 X%" label and the "优惠发送" confirm-button text on each
+        // refresh until the new estimate returns. The downstream effect that
+        // recomputes `discountPercent` from `originalTotalFiat / totalFiat`
+        // refreshes it once the new estimate lands — or sets it back to 0 if
+        // rental is no longer applicable — so the stale value is naturally
+        // overwritten.
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
           errMessage: '',
-          discountPercent: 0,
         });
 
         const presetMultiTxsFee =
