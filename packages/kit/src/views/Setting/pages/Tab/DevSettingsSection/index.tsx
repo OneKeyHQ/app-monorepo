@@ -1484,6 +1484,14 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="BrowserOutline"
+                        name="allowLocalhostUrlInDAppBrowser"
+                        title="Allow local URLs in DApp Browser"
+                        subtitle="Allow http://localhost and http://127.0.0.1"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,

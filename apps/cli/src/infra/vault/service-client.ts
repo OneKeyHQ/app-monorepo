@@ -1,12 +1,19 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  BOT_WALLET_KEY_API_PATH,
+  BOT_WALLET_KEY_API_TOKEN_HEADER,
+} from '@onekeyhq/shared/src/utils/cliBotWalletExport/botWalletKeyApiConsts';
 
 import { apiClient } from '../api-client';
 
 import { LOCK_TIMEOUT_MS, REVOKE_TIMEOUT_MS } from './constants';
 
+export {
+  BOT_WALLET_KEY_API_PATH,
+  BOT_WALLET_KEY_API_TOKEN_HEADER,
+} from '@onekeyhq/shared/src/utils/cliBotWalletExport/botWalletKeyApiConsts';
+
 export const BOT_WALLET_KEY_API_SERVICE = 'prime';
-export const BOT_WALLET_KEY_API_PATH = '/prime/v1/bot-wallet-keys';
-export const BOT_WALLET_KEY_API_TOKEN_HEADER = 'X-Onekey-Request-Token';
 
 export type IFetchBotWalletKeyInput = {
   keyId: string;

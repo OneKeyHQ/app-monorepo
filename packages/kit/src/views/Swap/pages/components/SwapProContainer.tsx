@@ -271,6 +271,7 @@ const SwapProContainer = ({
       {showMarketPresetSelector && marketPresetSettings ? (
         <YStack pb="$3">
           <MarketPresetSelector
+            antiMEV={isMEV}
             presetSettings={marketPresetSettings}
             showAutoSlippageLabel
           />

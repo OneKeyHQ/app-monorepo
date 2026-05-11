@@ -9,7 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
+import { useAppChangeLog } from '../../../components/AppUpdate';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 

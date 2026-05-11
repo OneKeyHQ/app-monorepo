@@ -11,6 +11,7 @@ import {
   IconButton,
   NATIVE_HIT_SLOP,
   SizableText,
+  Toast,
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
@@ -25,12 +26,14 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useBotWalletDeactivatedStatus } from '../../hooks/useBotWalletDeactivatedStatus';
 import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { shouldBlockBotWalletCopyAddress } from '../../utils/botWalletStatusUtils';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
@@ -48,6 +51,16 @@ const AllNetworkAccountSelector = ({
     useAllNetworkCopyAddressHandler({
       activeAccount,
     });
+
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: activeAccount?.wallet?.id,
+    },
+  );
+  const isCopyDisabled = shouldBlockBotWalletCopyAddress({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
 
   if (!isAllNetworkEnabled) {
     return null;
@@ -84,7 +97,15 @@ const AllNetworkAccountSelector = ({
             top: 8,
           }}
           userSelect="none"
+          opacity={isCopyDisabled ? 0.5 : 1}
+          disabled={isCopyDisabled}
           onPress={async () => {
+            if (isCopyDisabled) {
+              Toast.error({
+                title: '该钱包已停用，无法复制地址',
+              });
+              return;
+            }
             if (
               await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
                 walletId: activeAccount?.wallet?.id ?? '',
@@ -180,6 +201,16 @@ export function AccountSelectorActiveAccountHome({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isCopyDisabled = shouldBlockBotWalletCopyAddress({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
+
   const logActiveAccount = useCallback(() => {
     console.log({
       selectedAccount,
@@ -192,6 +223,18 @@ export function AccountSelectorActiveAccountHome({
 
   const handleAddressOnPress = useCallback(async () => {
     if (!account?.address || !network || !wallet) {
+      return;
+    }
+
+    if (
+      shouldBlockBotWalletCopyAddress({
+        isBotWallet,
+        isBotWalletDeactivated,
+      })
+    ) {
+      Toast.error({
+        title: '该钱包已停用，无法复制地址',
+      });
       return;
     }
 
@@ -275,6 +318,8 @@ export function AccountSelectorActiveAccountHome({
     network,
     vaultSettings?.mergeDeriveAssetsEnabled,
     wallet,
+    isBotWallet,
+    isBotWalletDeactivated,
   ]);
 
   useShortcutsOnRouteFocused(
@@ -308,6 +353,7 @@ export function AccountSelectorActiveAccountHome({
             <XStack
               alignItems="center"
               onPress={handleAddressOnPress}
+              opacity={isCopyDisabled ? 0.5 : 1}
               py="$1"
               px="$2"
               my="$-1"

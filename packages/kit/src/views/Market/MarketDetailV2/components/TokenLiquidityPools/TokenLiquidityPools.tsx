@@ -36,6 +36,8 @@ import type {
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
+import { formatDisplayPairName } from './utils';
+
 type IFieldPath = string | readonly string[];
 
 type IFeeFieldCandidate = {
@@ -52,6 +54,7 @@ type IDisplayPoolToken = {
 type IDisplayPool = {
   key: string;
   pairName: string;
+  fullPairName: string;
   dexName: string;
   dexLogoUrl?: string;
   liquidity: string;
@@ -455,7 +458,7 @@ function formatFeeRate(item: IMarketTokenTopLiquidityItem) {
   return FALLBACK_VALUE;
 }
 
-function getPairName(item: IMarketTokenTopLiquidityItem) {
+function getFullPairName(item: IMarketTokenTopLiquidityItem) {
   const pairName = getText(item, PAIR_NAME_CANDIDATES);
   if (pairName) {
     return pairName;
@@ -559,9 +562,14 @@ function toDisplayPool(
   const poolAddress = getValidAddress(item, POOL_ADDRESS_CANDIDATES);
   const creatorAddress = getValidAddress(item, CREATOR_ADDRESS_CANDIDATES);
   const networkId = item.networkId || fallbackNetworkId;
+  const fullPairName = getFullPairName(item);
   return {
     key: poolAddress ?? `${networkId}:${index}`,
-    pairName: getPairName(item),
+    pairName:
+      fullPairName === FALLBACK_VALUE
+        ? FALLBACK_VALUE
+        : formatDisplayPairName(fullPairName),
+    fullPairName,
     dexName: getText(item, DEX_NAME_CANDIDATES) ?? FALLBACK_VALUE,
     dexLogoUrl: getText(item, DEX_LOGO_CANDIDATES),
     liquidity: formatLiquidity(item),
@@ -650,7 +658,7 @@ function PoolIdentity({
         maxWidth="100%"
         overflow={truncateName ? 'hidden' : 'visible'}
       >
-        {gtMd && truncateName && item.pairName !== FALLBACK_VALUE ? (
+        {gtMd && truncateName && item.fullPairName !== FALLBACK_VALUE ? (
           <Tooltip
             placement="top"
             renderContent={
@@ -661,7 +669,7 @@ function PoolIdentity({
                 maxWidth="$72"
                 style={POOL_NAME_TOOLTIP_TEXT_STYLE}
               >
-                {item.pairName}
+                {item.fullPairName}
               </SizableText>
             }
             renderTrigger={pairNameText}

@@ -12,7 +12,6 @@ import { StyleSheet } from 'react-native';
 import {
   Icon,
   Image,
-  RichSizeableText,
   SizableText,
   Skeleton,
   Stack,
@@ -20,12 +19,15 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  EModalSettingRoutes,
 } from '@onekeyhq/shared/src/routes';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { useWebSiteHandler } from '../hooks/useWebSiteHandler';
 import { DappSearchModalSectionHeader } from '../pages/SearchModal/DappSearchModalSectionHeader';
@@ -60,6 +62,71 @@ interface ISearchResultContentProps {
   innerRef?: React.RefObject<ISearchResultContentRef>;
 }
 
+const HTML_ANCHOR_TAG_REGEXP = /<\/?a(?:\s[^>]*)?>/giu;
+
+function escapeRegExp(value: string) {
+  return value.replace(/[[\]()+?*^$.|\\{}]/g, '\\$&');
+}
+
+function stripSearchResultTitleMarkup(title: string) {
+  return title.replace(HTML_ANCHOR_TAG_REGEXP, '');
+}
+
+function getSearchResultTitleParts({
+  title,
+  keyword,
+}: {
+  title: string;
+  keyword?: string;
+}) {
+  const normalizedTitle = stripSearchResultTitleMarkup(title);
+  const normalizedKeyword = keyword?.trim();
+  if (!normalizedKeyword) {
+    return [{ text: normalizedTitle, highlighted: false }];
+  }
+
+  const keywordRegExp = new RegExp(
+    `(${escapeRegExp(normalizedKeyword)})`,
+    'ig',
+  );
+  return normalizedTitle
+    .split(keywordRegExp)
+    .filter(Boolean)
+    .map((text) => ({
+      text,
+      highlighted: text.toLowerCase() === normalizedKeyword.toLowerCase(),
+    }));
+}
+
+function DappSearchResultTitle({
+  item,
+}: {
+  item: Extract<IDiscoverySearchListItem, { type: 'dapp' }>;
+}) {
+  const titleParts = getSearchResultTitleParts({
+    title: item.title,
+    keyword: item.keyword,
+  });
+
+  return (
+    <SizableText numberOfLines={1} size="$bodyLgMedium" flex={1}>
+      {titleParts.map((part, index) =>
+        part.highlighted ? (
+          <SizableText
+            key={`${part.text}-${index}`}
+            size="$bodyLgMedium"
+            color="$textInfo"
+          >
+            {part.text}
+          </SizableText>
+        ) : (
+          part.text
+        ),
+      )}
+    </SizableText>
+  );
+}
+
 export function SearchResultContent({
   searchValue,
   localData,
@@ -77,6 +144,7 @@ export function SearchResultContent({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const handleWebSite = useWebSiteHandler();
+  const [devSettings] = useDevSettingsPersistAtom();
 
   // State for keeping track of which section is active
   const [selectedSection, setSelectedSection] = useState<
@@ -101,6 +169,19 @@ export function SearchResultContent({
   const historyCount = displayHistoryList
     ? localData?.historyData?.length || 0
     : 0;
+  const showLocalhostDevSettingHint =
+    devSettings.enabled &&
+    !devSettings.settings?.allowLocalhostUrlInDAppBrowser &&
+    uriUtils.isLocalhostUrl(searchValue);
+
+  const handleOpenLocalhostDevSetting = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListSubModal,
+      params: {
+        name: 'Dev',
+      },
+    });
+  }, [navigation]);
 
   // Helper functions to calculate adjusted indices
   const getAdjustedBookmarkIndex = useCallback(() => {
@@ -244,14 +325,15 @@ export function SearchResultContent({
       }
 
       if (item.type === 'search-action') {
+        const searchUrl = uriUtils.buildGoogleSearchUrl(searchValue);
         onItemClick?.({
-          url: searchValue,
+          url: searchUrl,
           title: searchValue,
           logo: undefined,
         });
         handleWebSite({
           webSite: {
-            url: searchValue,
+            url: searchUrl,
             title: searchValue,
             logo: undefined,
             sortIndex: undefined,
@@ -402,24 +484,7 @@ export function SearchResultContent({
           }}
           {...(item.type === 'dapp'
             ? {
-                renderItemText: () => (
-                  <RichSizeableText
-                    linkList={{ a: { url: undefined, cursor: 'auto' } }}
-                    numberOfLines={1}
-                    size="$bodyLgMedium"
-                    flex={1}
-                  >
-                    {item.keyword
-                      ? item.title.replace(
-                          new RegExp(
-                            item.keyword.replace(/[[\]()+?*^$.|\\{}]/g, '\\$&'),
-                            'ig',
-                          ),
-                          (match) => `<a>${match}</a>`,
-                        )
-                      : item.title}
-                  </RichSizeableText>
-                ),
+                renderItemText: () => <DappSearchResultTitle item={item} />,
                 subtitleProps: {
                   numberOfLines: 1,
                 },
@@ -448,6 +513,19 @@ export function SearchResultContent({
 
   return (
     <>
+      {showLocalhostDevSettingHint ? (
+        <ListItem
+          icon="CodeOutline"
+          title="Local URLs are blocked by default"
+          subtitle='Enable "Allow local URLs in DApp Browser" in Developer settings'
+          subtitleProps={{
+            numberOfLines: 2,
+          }}
+          drillIn
+          onPress={handleOpenLocalhostDevSetting}
+          testID="discovery-localhost-dev-setting-hint"
+        />
+      ) : null}
       {displaySearchList ? (
         <Stack ref={searchListRef}>{renderList(searchList)}</Stack>
       ) : null}

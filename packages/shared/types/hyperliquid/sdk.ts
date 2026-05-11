@@ -1,4 +1,6 @@
-import type { ESubscriptionType } from './types';
+/* cspell:ignore Fundings */
+
+import type { ESubscriptionType, IPerpsFormattedAssetCtx } from './types';
 import type * as HL from '@nktkas/hyperliquid';
 
 // WebSocket event types
@@ -79,6 +81,39 @@ export type ISpotAssetCtx = IWsSpotAssetCtxs[number];
 
 export type IMarginTable = HL.MarginTableResponse;
 export type IMarginTableMap = Partial<Record<number, IMarginTable>>;
+export type IMetaAndAssetCtxsResponse = HL.MetaAndAssetCtxsResponse;
+export type IFundingHistoryRecord = HL.FundingHistoryResponse[number];
+export type IRecentTrade = HL.RecentTradesResponse[number];
+export type IPerpAnnotation = HL.PerpAnnotationResponse;
+export type IPerpsAtOpenInterestCapResponse = HL.PerpsAtOpenInterestCapResponse;
+export type IPredictedFundingEntry = HL.PredictedFundingsResponse[number];
+
+export interface IPerpPredictedFundingVenue {
+  exchange: string;
+  fundingRate: string | null;
+  nextFundingTime: number | null;
+  fundingIntervalHours?: number;
+}
+
+export interface IPerpMarketOverview {
+  coin: string;
+  assetId: number | undefined;
+  ctx: IPerpsFormattedAssetCtx;
+  premium: string | null;
+  dayBaseVolume: string;
+  openInterestNotional: string | null;
+}
+
+export interface IPerpContractInfo {
+  coin: string;
+  assetId: number | undefined;
+  szDecimals?: number;
+  maxLeverage?: number;
+  marginMode?: string;
+  onlyIsolated?: boolean;
+  marginTable?: IMarginTable;
+  isAtOpenInterestCap: boolean;
+}
 
 // Orders
 export type IPerpsFrontendOrder = HL.OpenOrdersWsEvent['orders'][number];

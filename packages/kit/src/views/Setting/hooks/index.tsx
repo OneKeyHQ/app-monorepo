@@ -36,7 +36,7 @@ export function useResetApp(
 ) {
   const { inAppStateLock = false, silentReset = false } = params || {};
   const intl = useIntl();
-  const { logout: logoutOnekeyID } = useOneKeyAuthMethods();
+  const { logoutWithPurchasesSdk: logoutOnekeyID } = useOneKeyAuthMethods();
 
   const doReset = useCallback(async () => {
     // reset app
@@ -49,8 +49,7 @@ export function useResetApp(
         defaultLogger.prime.subscription.onekeyIdLogout({
           reason: 'useResetApp.doReset',
         });
-        void logoutOnekeyID();
-        await timerUtils.wait(1000);
+        await logoutOnekeyID();
       } catch (error) {
         console.error('failed to logoutSupabase', error);
       }

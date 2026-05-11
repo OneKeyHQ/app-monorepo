@@ -50,7 +50,7 @@ function PerpMarketFooter() {
 
   return (
     <Page.Footer
-      px="$2"
+      px="$5"
       pt="$3"
       pb="$10"
       cancelButton={

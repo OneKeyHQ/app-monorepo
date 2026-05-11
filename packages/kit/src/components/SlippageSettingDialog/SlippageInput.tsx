@@ -28,6 +28,46 @@ export function formatSlippageInputDisplayValue(value?: number) {
     .toFixed();
 }
 
+export function shouldSyncSlippageInputDisplayValue({
+  inputValue,
+  displaySlippage,
+  isEditingTrailingDot,
+  previousDisplayValue,
+  hasSyncedDisplayValue,
+  localInputDisplayValue,
+}: {
+  inputValue: string;
+  displaySlippage: string;
+  isEditingTrailingDot: boolean;
+  previousDisplayValue: string;
+  hasSyncedDisplayValue: boolean;
+  localInputDisplayValue?: string;
+}) {
+  if (!hasSyncedDisplayValue) {
+    return true;
+  }
+
+  if (localInputDisplayValue !== undefined) {
+    return displaySlippage !== localInputDisplayValue;
+  }
+
+  if (isEditingTrailingDot) {
+    return (
+      formatSlippageInputDisplayValue(Number(inputValue)) !== displaySlippage
+    );
+  }
+
+  return inputValue === previousDisplayValue;
+}
+
+function formatLocalInputDisplayValue(text: string) {
+  if (!text) {
+    return '';
+  }
+
+  return formatSlippageInputDisplayValue(Number(text));
+}
+
 const BaseSlippageInput = ({
   swapSlippage,
   onChangeText,
@@ -38,11 +78,13 @@ const BaseSlippageInput = ({
   props?: IInputProps;
 }) => {
   const [inputValue, setInputValue] = useState('');
-  const isOriginalNumberDot = useRef(false);
+  const isEditingTrailingDotRef = useRef(false);
+  const localInputDisplayValueRef = useRef<string | undefined>(undefined);
   const handleTextChange = useCallback(
     (text: string) => {
       if (validateAmountInput(text, swapSlippageDecimal)) {
-        isOriginalNumberDot.current = /^\d+\.$/.test(text);
+        isEditingTrailingDotRef.current = /^\d+\.$/.test(text);
+        localInputDisplayValueRef.current = formatLocalInputDisplayValue(text);
         setInputValue(text);
         onChangeText(text);
       }
@@ -54,11 +96,33 @@ const BaseSlippageInput = ({
     () => formatSlippageInputDisplayValue(swapSlippage.value),
     [swapSlippage.value],
   );
+  const inputValueRef = useRef(inputValue);
+  const previousDisplayValueRef = useRef(displaySlippage);
+  const hasSyncedDisplayValueRef = useRef(false);
+  inputValueRef.current = inputValue;
 
   useEffect(() => {
-    if (!isOriginalNumberDot.current) {
+    const currentInputValue = inputValueRef.current;
+    const previousDisplayValue = previousDisplayValueRef.current;
+
+    if (
+      currentInputValue !== displaySlippage &&
+      shouldSyncSlippageInputDisplayValue({
+        inputValue: currentInputValue,
+        displaySlippage,
+        hasSyncedDisplayValue: hasSyncedDisplayValueRef.current,
+        isEditingTrailingDot: isEditingTrailingDotRef.current,
+        previousDisplayValue,
+        localInputDisplayValue: localInputDisplayValueRef.current,
+      })
+    ) {
       setInputValue(displaySlippage);
+      inputValueRef.current = displaySlippage;
+      isEditingTrailingDotRef.current = false;
+      localInputDisplayValueRef.current = undefined;
     }
+    previousDisplayValueRef.current = displaySlippage;
+    hasSyncedDisplayValueRef.current = true;
   }, [displaySlippage]);
 
   return (

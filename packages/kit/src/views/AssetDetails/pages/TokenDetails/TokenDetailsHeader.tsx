@@ -13,6 +13,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   YStack,
   useTabIsRefreshingFocused,
@@ -22,11 +23,16 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { useDisplayAccountAddress } from '@onekeyhq/kit/src/hooks/useDisplayAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import {
+  shouldBlockBotWalletCopyAddress,
+  shouldBlockBotWalletReceive,
+} from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -197,6 +203,20 @@ function TokenDetailsHeader(props: IProps) {
     networkId,
     walletId,
     indexedAccountId: indexedAccountId ?? '',
+  });
+
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId,
+    },
+  );
+  const isBotWalletReceiveBlocked = shouldBlockBotWalletReceive({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
+  const isBotWalletCopyBlocked = shouldBlockBotWalletCopyAddress({
+    isBotWallet,
+    isBotWalletDeactivated,
   });
 
   const { isFocused } = useTabIsRefreshingFocused();
@@ -423,13 +443,26 @@ function TokenDetailsHeader(props: IProps) {
   }, [account?.address, walletId]);
 
   const handleCopyAddressPress = useCallback(() => {
+    if (isBotWalletCopyBlocked) {
+      Toast.error({
+        title: '该钱包已停用，无法复制地址',
+      });
+      return;
+    }
     void copyAccountAddress({
       accountId,
       networkId,
       token: tokenInfo,
       deriveInfo,
     });
-  }, [copyAccountAddress, accountId, networkId, tokenInfo, deriveInfo]);
+  }, [
+    copyAccountAddress,
+    accountId,
+    networkId,
+    tokenInfo,
+    deriveInfo,
+    isBotWalletCopyBlocked,
+  ]);
 
   return (
     <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
@@ -487,8 +520,15 @@ function TokenDetailsHeader(props: IProps) {
               trackID="wallet-token-details-send"
             />
             <RawActions.Receive
-              disabled={isWatchOnly}
+              disabled={isWatchOnly || isBotWalletReceiveBlocked}
+              allowPressWhenDisabled={isBotWalletReceiveBlocked}
               onPress={async () => {
+                if (isBotWalletReceiveBlocked) {
+                  Toast.error({
+                    title: '该钱包已停用，无法接收资产',
+                  });
+                  return;
+                }
                 if (
                   await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(
                     {

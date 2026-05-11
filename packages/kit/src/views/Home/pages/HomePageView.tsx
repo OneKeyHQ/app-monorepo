@@ -67,6 +67,7 @@ import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
+import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
@@ -77,25 +78,6 @@ import type { LayoutChangeEvent } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
-
-// Wallet page used to live inside `<Page.Container layout="regular">`, which
-// hard-clips the page to a 1140 max-width centered Stack on $gtMd. The vertical
-// scroll handler ends up living *inside* that 1140-wide box, so wheel events on
-// the empty gutters left and right of the centered content fail to scroll the
-// page. To keep the same visual width while making those gutters scrollable we
-// switch the outer Page.Container to `layout="full"` so the scroll container
-// spans the full viewport, and apply this max-width wrapper individually to the
-// visual content blocks (header, tab bar, alerts, tab content). Number matches
-// the `regular` layout's max-width in PageContentContainer.tsx.
-const HOME_PAGE_CONTENT_MAX_WIDTH = 1140;
-const homePageContentMaxWidthSx = {
-  width: '100%' as const,
-  $gtMd: {
-    maxWidth: HOME_PAGE_CONTENT_MAX_WIDTH,
-    width: '100%' as const,
-    mx: 'auto' as const,
-  },
-};
 
 interface IAndroidScrollContainerProps {
   children: React.ReactNode;
@@ -162,6 +144,14 @@ function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
     >
       {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
     </ScrollView>
+  );
+}
+
+function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
+  return (
+    <Stack flex={1} {...homePageContentMaxWidthSx}>
+      {children}
+    </Stack>
   );
 }
 
@@ -446,7 +436,11 @@ export function HomePageView({
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
   const renderSubHeader = useCallback(
-    () => <HistoryTabNotificationAlertSlot />,
+    () => (
+      <Stack {...homePageContentMaxWidthSx}>
+        <HistoryTabNotificationAlertSlot />
+      </Stack>
+    ),
     [],
   );
 
@@ -474,7 +468,11 @@ export function HomePageView({
             name: intl.formatMessage({
               id: ETranslations.global_nft,
             }),
-            component: <NFTListContainerWithProvider />,
+            component: (
+              <HomeTabContentMaxWidth>
+                <NFTListContainerWithProvider />
+              </HomeTabContentMaxWidth>
+            ),
           }
         : undefined,
       {
@@ -482,7 +480,11 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.global_history,
         }),
-        component: <TxHistoryListContainerWithProvider />,
+        component: (
+          <HomeTabContentMaxWidth>
+            <TxHistoryListContainerWithProvider />
+          </HomeTabContentMaxWidth>
+        ),
       },
     ].filter(Boolean);
   }, [intl, isDeFiEnabled, isNFTEnabled]);

@@ -1,6 +1,7 @@
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import {
+  isWebUrlLikeSearchKeyword,
   mergeSearchResultsWithLocalData,
   rankSearchResultsChromeLike,
   searchTrendingDappsByKeyword,
@@ -1553,5 +1554,17 @@ describe('searchResultRanking', () => {
         'app.uniswap.org/swap?inputCurrency=ETH&outputCurrency=USDC&chain=ethereum',
       ),
     ).toBe(false);
+  });
+
+  it('detects URL-like search keywords without parsing invalid input', () => {
+    expect(isWebUrlLikeSearchKeyword('https://app.uniswap.org/swap')).toBe(
+      true,
+    );
+    expect(isWebUrlLikeSearchKeyword('app.uniswap.org/swap')).toBe(true);
+    expect(isWebUrlLikeSearchKeyword('http://localhost:3000')).toBe(true);
+    expect(isWebUrlLikeSearchKeyword('localhost:3000')).toBe(true);
+    expect(isWebUrlLikeSearchKeyword('http://')).toBe(false);
+    expect(isWebUrlLikeSearchKeyword('https:// app.uniswap.org')).toBe(false);
+    expect(isWebUrlLikeSearchKeyword('search query')).toBe(false);
   });
 });
