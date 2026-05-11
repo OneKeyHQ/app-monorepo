@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Badge, IconButton, Stack } from '@onekeyhq/components';
+import { Badge, IconButton, LinearGradient, Stack } from '@onekeyhq/components';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChangelog';
 
 import {
@@ -340,14 +340,26 @@ export function FeaturedCarousel({
               isActive={i === activeIndex}
             />
           ))}
+          {/* Top scrim so the badge + close button stay readable on bright
+              or low-contrast media. Subtle dark gradient fading to transparent. */}
+          <LinearGradient
+            pointerEvents="none"
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            height={80}
+            colors={['rgba(0,0,0,0.5)', 'transparent']}
+          />
           <Badge
             position="absolute"
             top="$5"
             left="$5"
             badgeType="default"
             badgeSize="sm"
+            bg="rgba(255,255,255,0.2)"
           >
-            {badgeText}
+            <Badge.Text color="rgba(255,255,255,0.92)">{badgeText}</Badge.Text>
           </Badge>
           {showCloseButton ? (
             <IconButton
@@ -357,6 +369,14 @@ export function FeaturedCarousel({
               icon="CrossedSmallOutline"
               size="small"
               onPress={onClose}
+              bg="rgba(255,255,255,0.2)"
+              hoverStyle={{ bg: 'rgba(255,255,255,0.28)' }}
+              pressStyle={{ bg: 'rgba(255,255,255,0.32)' }}
+              // Cast: iconProps.color is typed as ColorTokens, but Tamagui
+              // forwards any color string to the underlying SVG fill at
+              // runtime. We need a hardcoded white-alpha that doesn't follow
+              // the theme (this chrome sits on top of arbitrary media).
+              iconProps={{ color: 'rgba(255,255,255,0.8)' as never }}
             />
           ) : null}
           <FeaturedIndicator

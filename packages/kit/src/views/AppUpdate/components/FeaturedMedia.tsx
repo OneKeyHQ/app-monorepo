@@ -24,7 +24,6 @@ function FeaturedMedia({
       {...(height !== undefined ? { width: '100%', height } : { flex: 1 })}
       overflow="hidden"
       position="relative"
-      borderCurve="continuous"
       borderBottomWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
     >

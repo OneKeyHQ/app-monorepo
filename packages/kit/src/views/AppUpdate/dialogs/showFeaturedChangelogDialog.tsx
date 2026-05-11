@@ -172,15 +172,22 @@ function FeaturedChangelogContent({
   if (!features.length) return null;
 
   const badgeText = intl.formatMessage({
-    id: isPreInstall
-      ? ETranslations.settings_update_available
-      : ETranslations.settings_whats_new,
+    id: ETranslations.settings_whats_new,
   });
 
   const isLockedUI = isForceUpdate && isPreInstall;
 
   return (
-    <Stack mx="$-5" mb="$-5">
+    <Stack
+      mx="$-5"
+      mb="$-5"
+      $platform-native={{
+        overflow: 'hidden',
+        borderTopLeftRadius: '$6',
+        borderTopRightRadius: '$6',
+        borderCurve: 'continuous',
+      }}
+    >
       <FeaturedCarousel
         features={features}
         badgeText={badgeText}
