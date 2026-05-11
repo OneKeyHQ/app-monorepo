@@ -91,6 +91,7 @@ const BACK_TO_TOP_NEAR_TOP_PX = 200;
 // viewport, and visual max-width is enforced one level down per content block.
 const DEFI_CONTAINER_CONTENT_MAX_WIDTH = 1140;
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
+const CHIP_NAV_PENDING_TARGET_TIMEOUT_MS = 5000;
 
 // Industry pattern: reveal on any upward scroll past the initial fold; hide
 // on downward scroll or when back near the top. rAF / animated-reaction
@@ -213,22 +214,49 @@ function DeFiContainer() {
   const pinLockSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const registerProtocol = useCallback(
-    (key: string, handle: IProtocolHandle | null) => {
-      const currentHandle = protocolRefs.current.get(key) ?? null;
-      const changed = currentHandle !== handle;
+  // Hidden chip targets are registration-driven: clicking a protocol hidden
+  // behind the slice cut first expands the list, then waits for that protocol
+  // to register its anchor before attempting expand + scroll.
+  const pendingChipTargetRef = useRef<{
+    key: string;
+    protocol: IDeFiProtocol;
+  } | null>(null);
+  const pendingChipTargetTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
-      if (handle) {
-        protocolRefs.current.set(key, handle);
-      } else {
-        protocolRefs.current.delete(key);
+  const clearPendingChipTarget = useCallback(() => {
+    pendingChipTargetRef.current = null;
+    if (pendingChipTargetTimerRef.current) {
+      clearTimeout(pendingChipTargetTimerRef.current);
+      pendingChipTargetTimerRef.current = null;
+    }
+  }, []);
+
+  const clearPinLockSafetyTimer = useCallback(() => {
+    if (pinLockSafetyTimerRef.current) {
+      clearTimeout(pinLockSafetyTimerRef.current);
+      pinLockSafetyTimerRef.current = null;
+    }
+  }, []);
+
+  const clearChipNavigationState = useCallback(() => {
+    clearPendingChipTarget();
+    pinLockTargetRef.current = null;
+    clearPinLockSafetyTimer();
+  }, [clearPendingChipTarget, clearPinLockSafetyTimer]);
+
+  const armPendingChipTargetTimer = useCallback(
+    (safetyMs: number) => {
+      if (pendingChipTargetTimerRef.current) {
+        clearTimeout(pendingChipTargetTimerRef.current);
       }
-
-      if (changed && !platformEnv.isNative && tableLayout) {
+      pendingChipTargetTimerRef.current = setTimeout(() => {
+        clearPendingChipTarget();
         triggerPinCheckRef.current();
-      }
+      }, safetyMs);
     },
-    [tableLayout],
+    [clearPendingChipTarget],
   );
 
   const getNetWorth = useCallback(
@@ -324,6 +352,64 @@ function DeFiContainer() {
     [getLiveStickyOffset, reducedMotion],
   );
 
+  const lockActiveAndScrollToProtocol = useCallback(
+    (p: IDeFiProtocol) => {
+      const key = defiUtils.buildProtocolMapKey({
+        protocol: p.protocol,
+        networkId: p.networkId,
+      });
+
+      clearPendingChipTarget();
+      clearPinLockSafetyTimer();
+      pinLockTargetRef.current = key;
+      setPinnedKey(key);
+      handleTilePress(p);
+      // Fallback for the rare case where the scroll never settles on
+      // the target (target unreachable, layout collapse). Generous so
+      // it almost never fires — condition-release is the normal path.
+      const safetyMs = reducedMotion ? 250 : 2000;
+      pinLockSafetyTimerRef.current = setTimeout(() => {
+        pinLockSafetyTimerRef.current = null;
+        pinLockTargetRef.current = null;
+        triggerPinCheckRef.current();
+      }, safetyMs);
+    },
+    [
+      clearPendingChipTarget,
+      clearPinLockSafetyTimer,
+      handleTilePress,
+      reducedMotion,
+    ],
+  );
+
+  const registerProtocol = useCallback(
+    (key: string, handle: IProtocolHandle | null) => {
+      const currentHandle = protocolRefs.current.get(key) ?? null;
+      const changed = currentHandle !== handle;
+
+      if (handle) {
+        protocolRefs.current.set(key, handle);
+      } else {
+        protocolRefs.current.delete(key);
+      }
+
+      if (changed && !platformEnv.isNative && tableLayout) {
+        triggerPinCheckRef.current();
+      }
+
+      const pendingTarget = pendingChipTargetRef.current;
+      if (
+        handle &&
+        pendingTarget?.key === key &&
+        !platformEnv.isNative &&
+        tableLayout
+      ) {
+        lockActiveAndScrollToProtocol(pendingTarget.protocol);
+      }
+    },
+    [lockActiveAndScrollToProtocol, tableLayout],
+  );
+
   const handleCollapseToProtocol = useCallback(
     (p: IDeFiProtocol) => {
       if (platformEnv.isNative || typeof requestAnimationFrame !== 'function') {
@@ -364,44 +450,18 @@ function DeFiContainer() {
         networkId: p.networkId,
       });
 
-      const lockActiveAndScroll = () => {
-        // The new click supersedes any in-flight lock.
-        if (pinLockSafetyTimerRef.current) {
-          clearTimeout(pinLockSafetyTimerRef.current);
-          pinLockSafetyTimerRef.current = null;
-        }
-        pinLockTargetRef.current = key;
-        setPinnedKey(key);
-        handleTilePress(p);
-        // Fallback for the rare case where the scroll never settles on
-        // the target (target unreachable, layout collapse). Generous so
-        // it almost never fires — condition-release is the normal path.
-        const safetyMs = reducedMotion ? 250 : 2000;
-        pinLockSafetyTimerRef.current = setTimeout(() => {
-          pinLockSafetyTimerRef.current = null;
-          pinLockTargetRef.current = null;
-          triggerPinCheckRef.current();
-        }, safetyMs);
-      };
-
       if (protocolRefs.current.has(key)) {
-        lockActiveAndScroll();
+        lockActiveAndScrollToProtocol(p);
         return;
       }
 
-      // Hidden behind the slice cut: unslice, wait for DeFiListBlock to
-      // re-render and register the new anchor, then expand + scroll.
+      // Hidden behind the slice cut: unslice and let registerProtocol drive
+      // expand + scroll when the target anchor is actually mounted.
+      pendingChipTargetRef.current = { key, protocol: p };
+      armPendingChipTargetTimer(CHIP_NAV_PENDING_TARGET_TIMEOUT_MS);
       setIsSliced(false);
-      if (platformEnv.isNative || typeof requestAnimationFrame !== 'function') {
-        return;
-      }
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          lockActiveAndScroll();
-        });
-      });
     },
-    [handleTilePress, reducedMotion, setIsSliced],
+    [armPendingChipTargetTimer, lockActiveAndScrollToProtocol, setIsSliced],
   );
 
   // Protocol count alone isn't a sufficient gate: a wallet with 2+
@@ -625,25 +685,18 @@ function DeFiContainer() {
     setPinnedKey(null);
     chipRevealShared.value = 0;
     lastChipRevealRef.current = 0;
-    // Drop any in-flight chip-click pin lock so it can't fire on a
+    // Drop any in-flight chip-click navigation so it can't fire on a
     // stale pinnedKey after the user has navigated away.
-    pinLockTargetRef.current = null;
-    if (pinLockSafetyTimerRef.current) {
-      clearTimeout(pinLockSafetyTimerRef.current);
-      pinLockSafetyTimerRef.current = null;
-    }
-  }, [isTabFocused, chipRevealShared]);
+    clearChipNavigationState();
+  }, [isTabFocused, chipRevealShared, clearChipNavigationState]);
 
-  // The lock timer survives effect re-runs (it's owned by handleChipPress),
-  // so the unmount path needs its own cleanup.
+  // Chip navigation timers survive effect re-runs (they're owned by
+  // handleChipPress), so the unmount path needs its own cleanup.
   useEffect(
     () => () => {
-      if (pinLockSafetyTimerRef.current) {
-        clearTimeout(pinLockSafetyTimerRef.current);
-        pinLockSafetyTimerRef.current = null;
-      }
+      clearChipNavigationState();
     },
-    [],
+    [clearChipNavigationState],
   );
 
   useEffect(() => {
