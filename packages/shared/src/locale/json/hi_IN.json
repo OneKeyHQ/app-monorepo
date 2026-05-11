@@ -328,6 +328,8 @@
   "check_my_deviceLabel": "मेरे {deviceLabel} को जांचें",
   "clear_build_in_networks_data": "बिल्ट-इन नेटवर्क्स",
   "click_below_to_copy": "कॉपी करने के लिए नीचे क्लिक करें",
+  "clipboard_copy_may_fail__msg": "Your device may restrict clipboard access. Please check clipboard permissions in your device settings.",
+  "clipboard_copy_may_fail__title": "Copy may not be working",
   "clipboard_read__desc": "यह साइट आपके क्लिपबोर्ड सामग्री को पढ़ना चाहती है",
   "clipboard_read__title": "क्लिपबोर्ड पढ़ें",
   "clipboard_remember__action": "इस साइट के लिए याद रखें",
