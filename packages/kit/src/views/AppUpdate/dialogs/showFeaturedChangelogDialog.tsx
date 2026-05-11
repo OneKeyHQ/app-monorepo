@@ -150,6 +150,16 @@ function useFeaturedCta({
   return { ctaText, onCtaPress };
 }
 
+function useFeatures(): IFeaturedItem[] {
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
+  // Memoize so a fresh `?? []` reference doesn't ripple through downstream
+  // effects on every unrelated atom-field change.
+  return useMemo(
+    () => appUpdateInfo.featuredChangelog?.features ?? [],
+    [appUpdateInfo.featuredChangelog?.features],
+  );
+}
+
 function FeaturedChangelogContent({
   isPreInstall,
   isLocked,
@@ -227,16 +237,6 @@ function FeaturedChangelogContent({
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
       />
     </Animated.View>
-  );
-}
-
-function useFeatures(): IFeaturedItem[] {
-  const [appUpdateInfo] = useAppUpdatePersistAtom();
-  // Memoize so a fresh `?? []` reference doesn't ripple through downstream
-  // effects on every unrelated atom-field change.
-  return useMemo(
-    () => appUpdateInfo.featuredChangelog?.features ?? [],
-    [appUpdateInfo.featuredChangelog?.features],
   );
 }
 
