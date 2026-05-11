@@ -7,6 +7,7 @@ import {
 import {
   buildLocalizedProtocolPositionItems,
   buildProtocolCategoryGroups,
+  getProtocolPositionDisplayName,
 } from './defiPositionUtils';
 
 type IProtocolPosition = IDeFiProtocol['positions'][number];
@@ -130,6 +131,15 @@ describe('defiPositionUtils', () => {
     expect(items[0].sections[0].title).toBe(
       `translated:${ETranslations.wallet_defi_asset_type_supplied}`,
     );
+  });
+
+  it('falls back to poolFullName for placeholder poolName display', () => {
+    expect(
+      getProtocolPositionDisplayName({
+        poolName: 'x',
+        poolFullName: 'PT-USDe-30JUL2025',
+      }),
+    ).toBe('PT-USDe-30JUL2025');
   });
 });
 

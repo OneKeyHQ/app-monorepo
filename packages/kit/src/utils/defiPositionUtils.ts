@@ -240,6 +240,16 @@ function sanitizePoolName(name?: string): string | undefined {
   return trimmed;
 }
 
+function getProtocolPositionDisplayName({
+  poolName,
+  poolFullName,
+}: {
+  poolName?: string;
+  poolFullName?: string;
+}): string | undefined {
+  return sanitizePoolName(poolName) ?? sanitizePoolName(poolFullName);
+}
+
 function getPositionModuleLabel(category: string) {
   return (
     POSITION_MODULE_LABELS[normalizeDeFiCategory(category)] ??
@@ -458,9 +468,7 @@ function buildUnifiedRowsFromPositions(
     // Falls back to poolFullName when the short name is a placeholder so
     // the unified row still gets a real label (and a real bucket key)
     // when the upstream only filled in the long name.
-    const cleanPoolName =
-      sanitizePoolName(position.poolName) ??
-      sanitizePoolName(position.poolFullName);
+    const cleanPoolName = getProtocolPositionDisplayName(position);
     const bucketKey = cleanPoolName
       ? `name:${cleanPoolName}`
       : `id:${position.groupId}`;
@@ -734,5 +742,6 @@ export {
   buildProtocolDisplayInfo,
   buildProtocolPositionItems,
   collectDeFiImageUrls,
+  getProtocolPositionDisplayName,
   getPositionModuleLabel,
 };

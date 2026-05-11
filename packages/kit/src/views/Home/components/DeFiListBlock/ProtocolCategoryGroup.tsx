@@ -1,15 +1,17 @@
 import { memo } from 'react';
 
-import { Badge, YStack } from '@onekeyhq/components';
-import type { ILocalizedProtocolCategoryGroup } from '@onekeyhq/kit/src/utils/defiPositionUtils';
+import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  type ILocalizedProtocolCategoryGroup,
+  getProtocolPositionDisplayName,
+} from '@onekeyhq/kit/src/utils/defiPositionUtils';
 
 import { ProtocolSectionedPositionTable } from './ProtocolSectionedPositionTable';
 import { ProtocolUnifiedTable } from './ProtocolUnifiedTable';
 
-// One badge + one block per group. A category that mixes clean and
-// debt-bearing positions is emitted upstream as two adjacent groups
-// (each with its own badge), so the leveraged/CDP block reads as a
-// distinct surface instead of being nested under the clean rows.
+// Unified groups keep the position name in the first table column. Sectioned
+// groups replace that first column with Supplied/Borrowed/Rewards
+// sections, so each position gets its pool name beside the type badge instead.
 
 type IProtocolCategoryGroupProps = {
   group: ILocalizedProtocolCategoryGroup;
@@ -23,6 +25,54 @@ const ProtocolCategoryGroup = memo(
     currencySymbol,
     priceUnavailableLabel,
   }: IProtocolCategoryGroupProps) => {
+    if (group.kind === 'sectioned') {
+      return (
+        <YStack gap="$4">
+          {group.positions.map((position) => {
+            const positionDisplayName =
+              getProtocolPositionDisplayName(position);
+
+            return (
+              <YStack key={position.positionKey} gap="$2">
+                <XStack
+                  px="$5"
+                  pt="$3"
+                  alignItems="center"
+                  gap="$2"
+                  minWidth={0}
+                >
+                  <Badge
+                    badgeType="success"
+                    badgeSize="lg"
+                    alignSelf="flex-start"
+                    flexShrink={0}
+                  >
+                    {group.categoryLabel}
+                  </Badge>
+                  {positionDisplayName ? (
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color="$text"
+                      numberOfLines={1}
+                      flex={1}
+                      minWidth={0}
+                    >
+                      {positionDisplayName}
+                    </SizableText>
+                  ) : null}
+                </XStack>
+                <ProtocolSectionedPositionTable
+                  position={position}
+                  currencySymbol={currencySymbol}
+                  priceUnavailableLabel={priceUnavailableLabel}
+                />
+              </YStack>
+            );
+          })}
+        </YStack>
+      );
+    }
+
     return (
       <YStack gap="$2">
         <YStack px="$5" pt="$3">
@@ -30,24 +80,11 @@ const ProtocolCategoryGroup = memo(
             {group.categoryLabel}
           </Badge>
         </YStack>
-        {group.kind === 'sectioned' ? (
-          <YStack gap="$4">
-            {group.positions.map((position) => (
-              <ProtocolSectionedPositionTable
-                key={position.positionKey}
-                position={position}
-                currencySymbol={currencySymbol}
-                priceUnavailableLabel={priceUnavailableLabel}
-              />
-            ))}
-          </YStack>
-        ) : (
-          <ProtocolUnifiedTable
-            rows={group.rows}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-          />
-        )}
+        <ProtocolUnifiedTable
+          rows={group.rows}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+        />
       </YStack>
     );
   },

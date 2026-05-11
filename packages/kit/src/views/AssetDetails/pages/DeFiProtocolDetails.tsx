@@ -19,6 +19,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   buildLocalizedProtocolPositionItems,
   buildProtocolDisplayInfo,
+  getProtocolPositionDisplayName,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -125,44 +126,62 @@ function DeFiProtocolDetails() {
         </XStack>
         <Divider />
         <YStack py="$3" gap="$5">
-          {positions.map((position) => (
-            <Stack key={position.positionKey} px="$5">
-              <XStack
-                alignItems="center"
-                justifyContent="space-between"
-                minHeight={40}
-                gap="$2"
-              >
-                <Badge badgeType="success" badgeSize="sm">
-                  {position.categoryLabel}
-                </Badge>
-                <NumberSizeableTextWrapper
-                  hideValue
-                  size="$headingMd"
-                  formatter="value"
-                  formatterOptions={{
-                    currency: settings.currencyInfo.symbol,
-                  }}
-                  numberOfLines={1}
-                  textAlign="right"
-                  maxWidth="70%"
+          {positions.map((position) => {
+            const positionDisplayName =
+              getProtocolPositionDisplayName(position);
+
+            return (
+              <Stack key={position.positionKey} px="$5">
+                <XStack
+                  alignItems="center"
+                  justifyContent="space-between"
+                  minHeight={40}
+                  gap="$2"
                 >
-                  {position.value}
-                </NumberSizeableTextWrapper>
-              </XStack>
-              <YStack gap="$2">
-                {position.sections.map((section) => (
-                  <ProtocolPositionSection
-                    key={section.key}
-                    itemKeyPrefix={position.positionKey}
-                    section={section}
-                    currencySymbol={settings.currencyInfo.symbol}
-                    priceUnavailableLabel={priceUnavailableLabel}
-                  />
-                ))}
-              </YStack>
-            </Stack>
-          ))}
+                  <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
+                    <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
+                      {position.categoryLabel}
+                    </Badge>
+                    {positionDisplayName ? (
+                      <SizableText
+                        size="$bodyMdMedium"
+                        color="$text"
+                        numberOfLines={1}
+                        flex={1}
+                        minWidth={0}
+                      >
+                        {positionDisplayName}
+                      </SizableText>
+                    ) : null}
+                  </XStack>
+                  <NumberSizeableTextWrapper
+                    hideValue
+                    size="$headingMd"
+                    formatter="value"
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
+                    }}
+                    numberOfLines={1}
+                    textAlign="right"
+                    maxWidth="45%"
+                  >
+                    {position.value}
+                  </NumberSizeableTextWrapper>
+                </XStack>
+                <YStack gap="$2">
+                  {position.sections.map((section) => (
+                    <ProtocolPositionSection
+                      key={section.key}
+                      itemKeyPrefix={position.positionKey}
+                      section={section}
+                      currencySymbol={settings.currencyInfo.symbol}
+                      priceUnavailableLabel={priceUnavailableLabel}
+                    />
+                  ))}
+                </YStack>
+              </Stack>
+            );
+          })}
         </YStack>
       </Page.Body>
     </Page>
