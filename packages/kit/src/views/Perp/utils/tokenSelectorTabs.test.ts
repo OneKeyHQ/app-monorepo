@@ -236,4 +236,30 @@ describe('tokenSelectorTabs', () => {
       }),
     ).toBe(true);
   });
+
+  it('keeps all-tab instruments visible when sorting unsupported mixed columns', () => {
+    const items = [
+      { id: 'perp-btc', type: 'perp', fundingRate: 0.01 },
+      { id: 'spot-eth', type: 'spot', marketCap: 300 },
+      { id: 'spot-sol', type: 'spot', marketCap: 100 },
+      { id: 'perp-doge', type: 'perp', fundingRate: 0.02 },
+    ];
+
+    expect(
+      sortPerpTokenSelectorItemsBySortValue({
+        items,
+        getValue: (item) =>
+          item.type === 'spot' ? undefined : item.fundingRate,
+        direction: 'desc',
+      }).map((item) => item.id),
+    ).toEqual(['perp-doge', 'perp-btc', 'spot-eth', 'spot-sol']);
+
+    expect(
+      sortPerpTokenSelectorItemsBySortValue({
+        items,
+        getValue: (item) => (item.type === 'perp' ? undefined : item.marketCap),
+        direction: 'desc',
+      }).map((item) => item.id),
+    ).toEqual(['spot-eth', 'spot-sol', 'perp-btc', 'perp-doge']);
+  });
 });
