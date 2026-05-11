@@ -82,16 +82,6 @@ describe('marketPresetSettings', () => {
     expect(settings.priorityFee.type).toBe(EMarketPresetPriorityFeeType.AUTO);
   });
 
-  it('supports readonly priority fee networks from hardcoded dashboard config', async () => {
-    const config = await fetchMarketPresetConfig({
-      networkId: presetNetworksMap.sui.id,
-    });
-
-    expect(config?.enabled).toBe(true);
-    expect(config?.slippage.editable).toBe(true);
-    expect(config?.priorityFee.editable).toBe(false);
-  });
-
   it('removes the Fast priority fee option from Solana presets', async () => {
     const config = await fetchMarketPresetConfig({
       networkId: presetNetworksMap.sol.id,

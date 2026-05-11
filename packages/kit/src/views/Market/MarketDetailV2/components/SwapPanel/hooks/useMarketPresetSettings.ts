@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { ISwapProSpeedConfig } from '@onekeyhq/shared/types/swap/types';
 
 import {
   EMarketPresetKey,
@@ -14,6 +15,8 @@ import {
   getMarketPresetCustomizedMap,
   getMarketPresetItem,
   getMarketPresetNetworkFeeLevel,
+  getMarketPresetPriorityFeeCustomPlaceholder,
+  getMarketPresetPriorityFeeCustomRange,
   getMarketPresetPriorityFeeOverride,
   getMarketPresetPriorityFeeUnit,
   getMarketPresetSavedDirectionSettings,
@@ -28,6 +31,10 @@ export type IMarketPresetSettingsState = {
   isLoading: boolean;
   presets: IMarketPresetItem[];
   presetCustomizedMap: Partial<Record<EMarketPresetKey, boolean>>;
+  priorityFeeCustomPlaceholder: string;
+  priorityFeeCustomRange: ReturnType<
+    typeof getMarketPresetPriorityFeeCustomRange
+  >;
   priorityFeeUnit: string;
   savedSettings?: IMarketPresetSavedSettings;
   selectedPresetKey: EMarketPresetKey;
@@ -77,10 +84,12 @@ export function useMarketPresetSettings({
   networkId,
   defaultSlippage = 0.5,
   tradeSide = EMarketPresetTradeSide.BUY,
+  speedConfig,
 }: {
   networkId?: string;
   defaultSlippage?: number;
   tradeSide?: EMarketPresetTradeSide;
+  speedConfig?: ISwapProSpeedConfig;
 }): IMarketPresetSettingsState {
   const selectedPresetRequestIdRef = useRef(0);
   const { result: config, isLoading: configLoading } = usePromiseResult(
@@ -89,9 +98,21 @@ export function useMarketPresetSettings({
         return undefined;
       }
 
-      return fetchMarketPresetConfig({ networkId });
+      if (speedConfig) {
+        return fetchMarketPresetConfig({ networkId, speedConfig });
+      }
+
+      const configRes = await backgroundApiProxy.serviceSwap
+        .fetchSpeedSwapConfig({
+          networkId,
+        })
+        .catch(() => undefined);
+      return fetchMarketPresetConfig({
+        networkId,
+        speedConfig: configRes?.speedConfig,
+      });
     },
-    [networkId],
+    [networkId, speedConfig],
     {
       watchLoading: true,
     },
@@ -299,6 +320,9 @@ export function useMarketPresetSettings({
     isLoading: !!configLoading || !!savedSettingsLoading,
     presets: config?.presets ?? [],
     presetCustomizedMap,
+    priorityFeeCustomPlaceholder:
+      getMarketPresetPriorityFeeCustomPlaceholder(config),
+    priorityFeeCustomRange: getMarketPresetPriorityFeeCustomRange(config),
     priorityFeeUnit: getMarketPresetPriorityFeeUnit(config),
     savedSettings,
     selectedPresetKey,
@@ -306,9 +330,11 @@ export function useMarketPresetSettings({
     selectedDirectionSettings,
     selectedNetworkFeeLevel: getMarketPresetNetworkFeeLevel(
       selectedDirectionSettings,
+      config,
     ),
     selectedPriorityFeeOverride: getMarketPresetPriorityFeeOverride(
       selectedDirectionSettings,
+      config,
     ),
     selectedSlippageValue: getMarketPresetSlippageValue({
       settings: selectedDirectionSettings,

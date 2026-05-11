@@ -95,6 +95,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       tradeType === ESwapDirection.SELL
         ? EMarketPresetTradeSide.SELL
         : EMarketPresetTradeSide.BUY,
+    speedConfig,
   });
   const { activeAccount } = useActiveAccount({ num: 0 });
 

@@ -1279,6 +1279,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               defaultSwapType={swapInitParams?.swapTabSwitchType}
               showSwapPro={platformEnv.isNative}
               hideRightActions={showDesktopProviderPanel}
+              marketPresetSettings={
+                focusSwapPro ? swapProMarketPresetSettings : undefined
+              }
             />
           )}
           {focusSwapPro ? (

@@ -41,12 +41,18 @@ export async function loadMarketPresetSwapOverrides({
   }
 
   try {
-    const [config, savedSettings] = await Promise.all([
-      fetchMarketPresetConfig({ networkId }),
+    const [speedSwapConfig, savedSettings] = await Promise.all([
+      backgroundApiProxy.serviceSwap
+        .fetchSpeedSwapConfig({ networkId })
+        .catch(() => undefined),
       backgroundApiProxy.simpleDb.marketPresetSettings.getSettings({
         networkId,
       }) as Promise<IMarketPresetSavedSettings | undefined>,
     ]);
+    const config = await fetchMarketPresetConfig({
+      networkId,
+      speedConfig: speedSwapConfig?.speedConfig,
+    });
 
     if (!config?.enabled) {
       return undefined;
@@ -80,8 +86,14 @@ export async function loadMarketPresetSwapOverrides({
         : undefined;
 
     return {
-      networkFeeLevel: getMarketPresetNetworkFeeLevel(directionSettings),
-      customPriorityFee: getMarketPresetPriorityFeeOverride(directionSettings),
+      networkFeeLevel: getMarketPresetNetworkFeeLevel(
+        directionSettings,
+        config,
+      ),
+      customPriorityFee: getMarketPresetPriorityFeeOverride(
+        directionSettings,
+        config,
+      ),
       slippage,
     };
   } catch (error) {
