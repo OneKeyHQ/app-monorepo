@@ -4,7 +4,7 @@ import { CommonActions, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
-  Divider,
+  Alert,
   Icon,
   Page,
   SizableText,
@@ -17,9 +17,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
-import { formatUsd, getBtcRewardPayoutDate } from '../../utils';
+import { formatBtcRewardServerDate, formatUsd } from '../../utils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -28,9 +27,7 @@ type IRouteParams = RouteProp<
     BtcRewardSuccess: {
       rewardUsd: number;
       walletAddress: string;
-      btcAmount: string;
-      btcPriceUsd: string;
-      payoutEligibleAt: string;
+      expectedPayoutAt: string;
     };
   },
   'BtcRewardSuccess'
@@ -40,8 +37,7 @@ function RedeemSuccessPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route = useRoute<IRouteParams>();
-  const { rewardUsd, walletAddress, btcAmount, btcPriceUsd, payoutEligibleAt } =
-    route.params;
+  const { rewardUsd, walletAddress, expectedPayoutAt } = route.params;
 
   const handleViewHistory = useCallback(
     (_close: () => void) => {
@@ -65,8 +61,8 @@ function RedeemSuccessPage() {
         title={intl.formatMessage({ id: ETranslations.global_success })}
         headerLeft={() => null}
       />
-      <Page.Body px="$5" py="$8">
-        <YStack alignItems="center" gap="$6" pt="$6">
+      <Page.Body px="$5" py="$8" $gtMd={{ py: '$5' }}>
+        <YStack alignItems="center" gap="$6" pt="$6" $gtMd={{ pt: '$2' }}>
           <Stack
             bg="$bgSuccessStrong"
             borderRadius="$full"
@@ -98,24 +94,7 @@ function RedeemSuccessPage() {
                 })}
               </SizableText>
               <SizableText size="$bodyMdMedium">
-                {intl.formatMessage(
-                  { id: ETranslations.redemption_btc_success_reward_value },
-                  {
-                    amount: btcAmount,
-                    usd: formatUsd(rewardUsd),
-                  },
-                )}
-              </SizableText>
-            </XStack>
-
-            <XStack justifyContent="space-between">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.redemption_btc_label_btc_price_locked,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {formatUsd(btcPriceUsd)}
+                {formatUsd(rewardUsd)}
               </SizableText>
             </XStack>
 
@@ -137,8 +116,6 @@ function RedeemSuccessPage() {
               </SizableText>
             </XStack>
 
-            <Divider />
-
             <DescriptionItem
               label={intl.formatMessage({
                 id: ETranslations.redemption_btc_success_eligible_label_title,
@@ -146,11 +123,17 @@ function RedeemSuccessPage() {
               infoTooltip={intl.formatMessage({
                 id: ETranslations.redemption_btc_success_eligible_label_tooltip,
               })}
-              value={formatDate(getBtcRewardPayoutDate(payoutEligibleAt), {
-                hideTimeForever: true,
-              })}
+              value={formatBtcRewardServerDate(expectedPayoutAt)}
             />
           </YStack>
+
+          <Alert
+            type="info"
+            icon="ClockTimeHistoryOutline"
+            description={intl.formatMessage({
+              id: ETranslations.redemption_btc_success_alert_desc,
+            })}
+          />
         </YStack>
       </Page.Body>
 
