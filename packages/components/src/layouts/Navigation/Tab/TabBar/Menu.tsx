@@ -8,6 +8,7 @@ import type {
   IMenu,
   IMenuItem,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiSystem';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const MENU_ICON_STYLE = {
   width: 16,
@@ -31,6 +32,42 @@ const MENU_TRIGGER_BASE_STYLE = {
   width: 'auto',
   fontSize: '13px',
 } as const;
+
+const MAC_MODIFIER_SYMBOLS: Record<string, string> = {
+  CommandOrControl: '⌘',
+  CmdOrCtrl: '⌘',
+  Command: '⌘',
+  Cmd: '⌘',
+  Control: '⌃',
+  Ctrl: '⌃',
+  Shift: '⇧',
+  Alt: '⌥',
+  Option: '⌥',
+  Super: '⌘',
+  Meta: '⌘',
+};
+
+const WIN_MODIFIER_NAMES: Record<string, string> = {
+  CommandOrControl: 'Ctrl',
+  CmdOrCtrl: 'Ctrl',
+  Control: 'Ctrl',
+  Ctrl: 'Ctrl',
+  Command: 'Win',
+  Cmd: 'Win',
+  Super: 'Win',
+  Meta: 'Win',
+  Shift: 'Shift',
+  Alt: 'Alt',
+  Option: 'Alt',
+};
+
+const formatAccelerator = (accelerator: string): string => {
+  const tokens = accelerator.split('+');
+  if (platformEnv.isDesktopMac) {
+    return tokens.map((t) => MAC_MODIFIER_SYMBOLS[t] ?? t).join('');
+  }
+  return tokens.map((t) => WIN_MODIFIER_NAMES[t] ?? t).join('+');
+};
 
 function MenuItemComponent({
   item,
@@ -112,11 +149,7 @@ function MenuItemComponent({
       <span className="desktop-menu-item-label">{item.label}</span>
       {item.accelerator ? (
         <span className="desktop-menu-item-accelerator">
-          {item.accelerator
-            .replace('CmdOrCtrl', '⌘')
-            .replace('Shift', '⇧')
-            .replace('Alt', '⌥')
-            .replace('+', '')}
+          {formatAccelerator(item.accelerator)}
         </span>
       ) : null}
       {hasSubmenu ? (
