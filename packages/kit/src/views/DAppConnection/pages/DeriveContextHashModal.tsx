@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { useIntl } from 'react-intl';
 
 import {
   Page,
@@ -12,7 +11,6 @@ import {
 } from '@onekeyhq/components';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -31,12 +29,15 @@ const EXPIRED_ERROR_MESSAGE =
   'deriveContextHash request expired, please retry from the site';
 
 const COPY = {
+  title: 'Authorize key derivation',
+  subtitle:
+    'A site is requesting a deterministic value derived from your wallet key.',
   accountLabel: 'Bound to account',
   networkLabel: 'Network',
   appNameLabel: 'Application name',
   contextLabel: 'Context (hex)',
   warning:
-    'A deterministic value will be derived from this BTC account using the application name and context. Anyone with the same key material, application name, and context, on the same network, can produce the same value.',
+    'This is not a signature. A deterministic value will be derived from this BTC account using the application name and context. Anyone with the same key material, application name, and context, on the same network, can produce the same value.',
 };
 
 function networkLabelFromId(networkId: string): string {
@@ -54,7 +55,6 @@ function networkLabelFromId(networkId: string): string {
 
 function DeriveContextHashModal() {
   const { $sourceInfo, nonce } = useDappQuery<{ nonce: string }>();
-  const intl = useIntl();
   const navigation = useAppNavigation();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
@@ -126,9 +126,7 @@ function DeriveContextHashModal() {
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
-  const title = intl.formatMessage({
-    id: ETranslations.dapp_connect_signature_request,
-  });
+  const title = COPY.title;
 
   const onConfirm = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
@@ -178,6 +176,7 @@ function DeriveContextHashModal() {
         <Page.Body>
           <DAppRequestLayout
             title={title}
+            subtitle={COPY.subtitle}
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
           >
