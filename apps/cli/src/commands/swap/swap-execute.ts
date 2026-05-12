@@ -910,6 +910,13 @@ export function registerSwapExecuteCommand(parent: Command): void {
           }
 
           if (isSolChain(chainConfig)) {
+            if (options.signOnly) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_CONFIG.code,
+                '--sign-only is only supported for BTC source swap orders.',
+                'Remove --sign-only for SOL swap execution.',
+              );
+            }
             const solSwapTxRaw = (
               txData as { solSwapTx?: { encodedTx?: unknown } }
             ).solSwapTx;

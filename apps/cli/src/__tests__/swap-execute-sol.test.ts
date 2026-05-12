@@ -230,6 +230,22 @@ describe('swap execute SOL OKX path', () => {
     expect(parsed.error.message).toMatch(/solSwapTx/);
   });
 
+  it('rejects --sign-only on SOL orders (BTC-only flag, must fail closed before broadcasting)', async () => {
+    savePending('sol_order', makePendingOrder());
+
+    const result = await runExecute(['--sign-only']);
+
+    expect(result.exitCode).not.toBe(0);
+    // Must reject BEFORE refreshing blockhash / signing / broadcasting.
+    // Otherwise the user who passed --sign-only expecting "no broadcast"
+    // would have their swap silently sent.
+    expect(mockGetSolLatestBlockhash).not.toHaveBeenCalled();
+    expect(mockGetSignerByImpl).not.toHaveBeenCalled();
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.error.code).toBe('PARAM_INVALID_CONFIG');
+    expect(parsed.error.message).toMatch(/sign-only.*BTC/i);
+  });
+
   it('rejects when broadcast returns an invalid SOL txid', async () => {
     savePending('sol_order', makePendingOrder());
     mockPost.mockResolvedValueOnce({ result: 'not-a-valid-sol-sig!' });
