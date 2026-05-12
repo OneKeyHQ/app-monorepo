@@ -42,9 +42,11 @@ async function buildDeviceMetaStatic(
     firmwareType,
     displayFormat: 'withSpace',
   });
-  const firmwareVersionDisplay = versions?.firmwareVersion
-    ? `${firmwareTypeLabel}v${versions?.firmwareVersion}`
-    : '-';
+  const firmwareVersionDisplay = deviceUtils.isValidDeviceVersion(
+    versions?.firmwareVersion,
+  )
+    ? `${firmwareTypeLabel}v${versions?.firmwareVersion ?? ''}`
+    : '';
 
   const deviceName = deviceUtils.buildDeviceBleName({
     features,

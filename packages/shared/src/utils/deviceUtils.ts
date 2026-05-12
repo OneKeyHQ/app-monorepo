@@ -148,6 +148,15 @@ async function getDeviceVersionStr(params: IGetDeviceVersionParams) {
   return `${bootloaderVersion}--${bleVersion}--${firmwareVersion}`;
 }
 
+function isValidDeviceVersion(version?: string) {
+  if (!version || version === '0.0.0') {
+    return false;
+  }
+
+  const cleanVersion = semver.clean(version);
+  return Boolean(cleanVersion && semver.valid(cleanVersion));
+}
+
 function isTouchDevice(deviceType: IDeviceType) {
   return [EDeviceType.Touch, EDeviceType.Pro].includes(deviceType);
 }
@@ -783,6 +792,7 @@ function supportSettings({
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
+  isValidDeviceVersion,
   getDeviceSerialNoFromFeatures,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,

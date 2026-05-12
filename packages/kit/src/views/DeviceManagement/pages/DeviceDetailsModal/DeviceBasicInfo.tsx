@@ -125,9 +125,11 @@ function DeviceBasicInfo() {
           ) : null}
           {isQrWallet ? null : (
             <XStack mt="$4" gap="$2">
-              <Badge badgeSize="sm" badgeType="default">
-                {deviceMetaStatic.firmwareVersionDisplay}
-              </Badge>
+              {deviceMetaStatic.firmwareVersionDisplay ? (
+                <Badge badgeSize="sm" badgeType="default">
+                  {deviceMetaStatic.firmwareVersionDisplay}
+                </Badge>
+              ) : null}
               <Badge
                 badgeSize="sm"
                 badgeType={deviceVerifiedBadge.verifiedBadgeType}

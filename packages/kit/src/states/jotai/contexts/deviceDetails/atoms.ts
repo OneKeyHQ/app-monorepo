@@ -51,7 +51,7 @@ const emptyMetaStatic: IDeviceMetaStatic = {
   deviceType: undefined,
   firmwareType: undefined,
   firmwareVersion: '0.0.0',
-  firmwareVersionDisplay: '-',
+  firmwareVersionDisplay: '',
   firmwareTypeLabel: '',
   addWallpaperTitleId: ETranslations.global_wallpaper,
 };
