@@ -46,6 +46,8 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 
+import { SendTestIDs } from '../../testIDs';
+
 type IFeeInfoItem = {
   label: string;
   nativeValue?: string;
@@ -967,7 +969,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="send-input"
+                testID={SendTestIDs.feeDotExtraTipInput}
                 flex={1}
                 addOns={[
                   {
@@ -1010,7 +1012,7 @@ function FeeEditor(props: IProps) {
                 }}
               >
                 <Input
-                  testID="send-input"
+                  testID={SendTestIDs.feeMaxBaseFeeInput}
                   flex={1}
                   addOns={[
                     {
@@ -1047,7 +1049,7 @@ function FeeEditor(props: IProps) {
                 }}
               >
                 <Input
-                  testID="send-input"
+                  testID={SendTestIDs.feePriorityFeeInput}
                   flex={1}
                   addOns={[
                     {
@@ -1081,7 +1083,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="send-input"
+                testID={SendTestIDs.feeGasLimitInput}
                 flex={1}
                 addOns={[
                   {
@@ -1124,7 +1126,7 @@ function FeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} testID="send-input" />
+              <Input flex={1} testID={SendTestIDs.feeGasSuiPriceInput} />
             </Form.Field>
             <Form.Field
               label={intl.formatMessage({
@@ -1143,7 +1145,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="send-input"
+                testID={SendTestIDs.feeGasSuiBudgetInput}
                 flex={1}
                 addOns={[
                   {
@@ -1189,7 +1191,7 @@ function FeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} testID="send-input" />
+              <Input flex={1} testID={SendTestIDs.feeGasPriceInput} />
             </Form.Field>
             <Form.Field
               label={intl.formatMessage({
@@ -1209,7 +1211,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="send-input"
+                testID={SendTestIDs.feeGasLimitInput}
                 flex={1}
                 addOns={[
                   {
@@ -1244,7 +1246,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="send-input"
+                testID={SendTestIDs.feeRateUtxoInput}
                 addOns={[
                   {
                     label: 'sat/vB',
@@ -1278,7 +1280,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="send-input"
+                testID={SendTestIDs.feeComputeUnitPriceInput}
                 flex={1}
                 addOns={[
                   {
@@ -1313,7 +1315,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="send-input"
+                testID={SendTestIDs.feeRateCkbInput}
                 flex={1}
                 addOns={[
                   {
