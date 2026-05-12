@@ -99,7 +99,7 @@ function TxConfirm() {
     closeWindowAfterResolved: true,
   });
 
-  const { urlSecurityInfo } = useRiskDetection({
+  const { urlSecurityInfo, showContinueOperate } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
     walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
   });
@@ -448,6 +448,7 @@ function TxConfirm() {
         {...route.params}
         accountId={accountId}
         networkId={networkId}
+        forceTakeRiskAlert={showContinueOperate}
       />
     </Page>
   );

@@ -164,11 +164,7 @@ function SignMessageModal() {
     riskLevel,
     urlSecurityInfo,
     isRiskSignMethod,
-  } = useRiskDetection({
-    origin: $sourceInfo?.origin ?? '',
-    unsignedMessage,
-    walletConnectVerifyContext: $sourceInfo?.walletConnectVerifyContext,
-  });
+  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', unsignedMessage });
 
   const handleSignMessage = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
