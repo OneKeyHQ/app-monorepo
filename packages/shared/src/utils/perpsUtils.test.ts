@@ -23,6 +23,7 @@ import {
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
+  isPredictionMarketInstrument,
 } from './perpsUtils';
 
 describe('getValidPriceDecimals - HyperLiquid Perp Rules', () => {
@@ -129,6 +130,15 @@ describe('spot token display helpers', () => {
         isSpot: false,
       }),
     ).toBe('NVDA');
+  });
+});
+
+describe('isPredictionMarketInstrument', () => {
+  test('recognizes Hyperliquid HIP-4 prediction market aliases', () => {
+    expect(isPredictionMarketInstrument('#12')).toBe(true);
+    expect(isPredictionMarketInstrument('BTC')).toBe(false);
+    expect(isPredictionMarketInstrument('@107')).toBe(false);
+    expect(isPredictionMarketInstrument(undefined)).toBe(false);
   });
 });
 

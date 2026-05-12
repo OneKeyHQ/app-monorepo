@@ -119,6 +119,9 @@ function PerpTradesHistoryList({
 
   const handleShare = useCallback(
     async (fill: IFill) => {
+      if (isSpotInstrument(fill.coin)) {
+        return;
+      }
       const closedPnlBN = new BigNumber(fill.closedPnl).minus(
         new BigNumber(fill.fee),
       );

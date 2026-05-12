@@ -25,7 +25,6 @@ import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialo
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import {
   swapSlippageCustomDefaultList,
   swapSlippageWillAheadMinValue,
@@ -112,16 +111,6 @@ function getMarketPresetLabel({
   // future preset entry forgets to set one, returning empty would render an
   // invisible segment. Use the key as a last-resort label.
   return label ?? presetKey.toUpperCase();
-}
-
-function getMarketPresetCustomizedLabel({
-  customized,
-  label,
-}: {
-  customized?: boolean;
-  label: string;
-}) {
-  return customized ? `${label}*` : label;
 }
 
 function getPriorityFeeLabel({
@@ -485,18 +474,15 @@ function MarketPresetSettingsDialog({
   const presetOptions = useMemo(
     () =>
       presetSettings.presets.map((preset) => ({
-        label: getMarketPresetCustomizedLabel({
-          customized: presetSettings.presetCustomizedMap[preset.key],
-          label: getMarketPresetLabel({
-            intl,
-            label: preset.label,
-            presetKey: preset.key,
-          }),
+        label: getMarketPresetLabel({
+          intl,
+          label: preset.label,
+          presetKey: preset.key,
         }),
         testID: `market-preset-dialog-tab-${preset.key}`,
         value: preset.key,
       })),
-    [intl, presetSettings.presetCustomizedMap, presetSettings.presets],
+    [intl, presetSettings.presets],
   );
 
   const sideOptions = useMemo(
@@ -609,7 +595,10 @@ function MarketPresetSettingsDialog({
     currentSlippageCustomStatus.status === ESwapSlippageCustomStatus.ERROR;
   const currentPriorityFeeInvalid =
     !!presetSettings.config?.priorityFee.editable &&
-    isInvalidMarketPresetPriorityFeeSettings(currentSettings);
+    isInvalidMarketPresetPriorityFeeSettings(
+      currentSettings,
+      presetSettings.config,
+    );
   const currentPriorityFeeCustomValue =
     currentSettings.priorityFee.customValue ?? '';
   const currentSettingsInvalid =
@@ -629,9 +618,12 @@ function MarketPresetSettingsDialog({
       if (!presetSettings.config?.priorityFee.editable) {
         return isInvalidMarketPresetSlippageSettings(directionSettings);
       }
-      return isInvalidMarketPresetDirectionSettings(directionSettings);
+      return isInvalidMarketPresetDirectionSettings(
+        directionSettings,
+        presetSettings.config,
+      );
     },
-    [presetSettings.config?.priorityFee.editable],
+    [presetSettings.config],
   );
   const hasInvalidDirtySettings = Array.from(dirtyDirectionSetRef.current).some(
     (directionKey) => {
@@ -1079,7 +1071,7 @@ function MarketPresetSettingsDialog({
                           label: presetSettings.priorityFeeUnit,
                         },
                       ]}
-                      placeholder=""
+                      placeholder={presetSettings.priorityFeeCustomPlaceholder}
                       onChangeText={(text) => {
                         if (!validateAmountInput(text, 9)) {
                           return;
@@ -1100,8 +1092,8 @@ function MarketPresetSettingsDialog({
                             id: ETranslations.form_fee_rate_error_out_of_range,
                           },
                           {
-                            min: 0,
-                            max: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+                            min: presetSettings.priorityFeeCustomRange.min,
+                            max: presetSettings.priorityFeeCustomRange.max,
                           },
                         )}
                       </SizableText>
@@ -1145,7 +1137,6 @@ export function MarketPresetSelector({
   const {
     enabled,
     presets,
-    presetCustomizedMap,
     selectedPreset,
     selectedDirectionSettings,
     selectedPresetKey,
@@ -1157,18 +1148,15 @@ export function MarketPresetSelector({
   const presetOptions = useMemo(
     () =>
       presets.map((preset) => ({
-        label: getMarketPresetCustomizedLabel({
-          customized: presetCustomizedMap[preset.key],
-          label: getMarketPresetLabel({
-            intl,
-            label: preset.label,
-            presetKey: preset.key,
-          }),
+        label: getMarketPresetLabel({
+          intl,
+          label: preset.label,
+          presetKey: preset.key,
         }),
         value: preset.key,
         testID: `market-preset-${preset.key}`,
       })),
-    [intl, presetCustomizedMap, presets],
+    [intl, presets],
   );
 
   const openPresetDialog = useCallback(() => {
@@ -1226,13 +1214,10 @@ export function MarketPresetSelector({
     selectedPreset ??
     presets.find((preset) => preset.key === selectedPresetKey);
   const selectedPresetLabel = selectedPresetItem
-    ? getMarketPresetCustomizedLabel({
-        customized: presetCustomizedMap[selectedPresetItem.key],
-        label: getMarketPresetLabel({
-          intl,
-          label: selectedPresetItem.label,
-          presetKey: selectedPresetItem.key,
-        }),
+    ? getMarketPresetLabel({
+        intl,
+        label: selectedPresetItem.label,
+        presetKey: selectedPresetItem.key,
       })
     : intl.formatMessage({ id: ETranslations.global_auto });
 
