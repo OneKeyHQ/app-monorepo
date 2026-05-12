@@ -74,4 +74,20 @@ export const SignatureConfirmTestIDs = {
 
   // -- Sponsored fees dialog --
   TxFeeSponsoredGotItButton: 'sig-confirm-fee-sponsored-got-it-btn',
+
+  // -- Fee editor custom inputs (one per Form.Field name, per fee shape) --
+  FeeDotExtraTipInput: 'sig-confirm-fee-dot-extra-tip-input',
+  FeeMaxBaseFeeInput: 'sig-confirm-fee-max-base-fee-input',
+  FeePriorityFeeInput: 'sig-confirm-fee-priority-fee-input',
+  FeeGasEIP1559LimitInput: 'sig-confirm-fee-gas-eip1559-limit-input',
+  FeeGasSuiPriceInput: 'sig-confirm-fee-gas-sui-price-input',
+  FeeGasSuiBudgetInput: 'sig-confirm-fee-gas-sui-budget-input',
+  FeeGasPriceInput: 'sig-confirm-fee-gas-price-input',
+  FeeGasLimitLegacyInput: 'sig-confirm-fee-gas-limit-legacy-input',
+  FeeRateUtxoInput: 'sig-confirm-fee-rate-utxo-input',
+  FeeRateCkbInput: 'sig-confirm-fee-rate-ckb-input',
+  FeeComputeUnitPriceInput: 'sig-confirm-fee-compute-unit-price-input',
+  FeeNeoN3PriorityFeeInput: 'sig-confirm-fee-neo-n3-priority-fee-input',
+  FeeNeoN3NetworkFeeInput: 'sig-confirm-fee-neo-n3-network-fee-input',
+  FeeNeoN3SystemFeeInput: 'sig-confirm-fee-neo-n3-system-fee-input',
 } as const;

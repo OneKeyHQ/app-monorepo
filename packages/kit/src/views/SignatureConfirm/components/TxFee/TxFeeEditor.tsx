@@ -49,6 +49,8 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
+
 type IFeeInfoItem = {
   label: string;
   nativeValue?: string;
@@ -1105,7 +1107,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="signature-confirm-input"
+                testID={SignatureConfirmTestIDs.FeeDotExtraTipInput}
                 flex={1}
                 addOns={[
                   {
@@ -1148,7 +1150,7 @@ function TxFeeEditor(props: IProps) {
                 }}
               >
                 <Input
-                  testID="signature-confirm-input"
+                  testID={SignatureConfirmTestIDs.FeeMaxBaseFeeInput}
                   flex={1}
                   addOns={[
                     {
@@ -1185,7 +1187,7 @@ function TxFeeEditor(props: IProps) {
                 }}
               >
                 <Input
-                  testID="signature-confirm-input"
+                  testID={SignatureConfirmTestIDs.FeePriorityFeeInput}
                   flex={1}
                   addOns={[
                     {
@@ -1219,7 +1221,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="signature-confirm-input"
+                testID={SignatureConfirmTestIDs.FeeGasEIP1559LimitInput}
                 flex={1}
                 addOns={[
                   {
@@ -1265,7 +1267,10 @@ function TxFeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} testID="signature-confirm-input" />
+              <Input
+                flex={1}
+                testID={SignatureConfirmTestIDs.FeeGasSuiPriceInput}
+              />
             </Form.Field>
             <Form.Field
               label={intl.formatMessage({
@@ -1284,7 +1289,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="signature-confirm-input"
+                testID={SignatureConfirmTestIDs.FeeGasSuiBudgetInput}
                 flex={1}
                 addOns={[
                   {
@@ -1330,7 +1335,10 @@ function TxFeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} testID="signature-confirm-input" />
+              <Input
+                flex={1}
+                testID={SignatureConfirmTestIDs.FeeGasPriceInput}
+              />
             </Form.Field>
             <Form.Field
               label={intl.formatMessage({
@@ -1350,7 +1358,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="signature-confirm-input"
+                testID={SignatureConfirmTestIDs.FeeGasLimitLegacyInput}
                 flex={1}
                 addOns={[
                   {
@@ -1388,7 +1396,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="signature-confirm-input"
+                testID={SignatureConfirmTestIDs.FeeRateUtxoInput}
                 addOns={[
                   {
                     label: 'sat/vB',
@@ -1422,7 +1430,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="signature-confirm-input"
+                testID={SignatureConfirmTestIDs.FeeComputeUnitPriceInput}
                 flex={1}
                 addOns={[
                   {
@@ -1457,7 +1465,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="signature-confirm-input"
+                testID={SignatureConfirmTestIDs.FeeRateCkbInput}
                 flex={1}
                 addOns={[
                   {
@@ -1491,7 +1499,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="signature-confirm-input"
+                testID={SignatureConfirmTestIDs.FeeNeoN3PriorityFeeInput}
                 flex={1}
                 addOns={[
                   {
@@ -1517,7 +1525,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="signature-confirm-input"
+                testID={SignatureConfirmTestIDs.FeeNeoN3NetworkFeeInput}
                 flex={1}
                 addOns={[
                   {
@@ -1543,7 +1551,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
-                testID="signature-confirm-input"
+                testID={SignatureConfirmTestIDs.FeeNeoN3SystemFeeInput}
                 flex={1}
                 addOns={[
                   {
