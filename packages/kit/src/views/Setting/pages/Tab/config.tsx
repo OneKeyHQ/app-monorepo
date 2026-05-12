@@ -10,12 +10,12 @@ import type {
   IStackStyle,
 } from '@onekeyhq/components';
 import { isNativeTablet } from '@onekeyhq/components';
-import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
-} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+} from '@onekeyhq/kit/src/components/AppUpdate';
+import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';

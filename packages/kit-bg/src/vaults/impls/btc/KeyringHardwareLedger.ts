@@ -17,9 +17,9 @@ import {
   type ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
-import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import {
@@ -519,9 +519,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       params.messages.map(
         async (payload: { message: string; type?: string }) => {
           if (payload.type === 'bip322-simple') {
-            throw new NotImplemented({
-              key: ETranslations.hardware_third_party_method_not_supported,
-            });
+            throw new ThirdPartyMethodNotSupported();
           }
 
           const messageHex = Buffer.from(payload.message).toString('hex');

@@ -23,14 +23,15 @@ import type { IOverviewCols } from './overviewColsResolver';
  */
 const SKELETON_TILE_HEIGHT = 68;
 /**
- * Skeleton row count is a hedge, not a prediction: we don't know how
- * many protocols are coming until the fetch lands. Two rows reads as
- * "the typical wallet is loading" without claiming more cells than
- * exist — most users have 4 to 8 protocols, well under the 3*cols
- * ceiling the bento grid can grow to. Real data drives the eventual
- * grid; the skeleton merely warms up the area.
+ * Skeleton tile count is a hedge, not a prediction: we don't know how
+ * many protocols are coming until the fetch lands. We render up to
+ * `SKELETON_TILE_CAP` cells, but never more than two rows worth — most
+ * users have 4 to 8 protocols, well under the 3*cols ceiling the bento
+ * grid can grow to. The cap keeps a 4-col wide-desktop grid from
+ * advertising 8 tiles when the median wallet only fills 5–6.
  */
 const SKELETON_ROWS = 2;
+const SKELETON_TILE_CAP = 6;
 
 const OVERVIEW_TOGGLE_PRESS_LOCK_MS = 600;
 
@@ -96,7 +97,7 @@ function DeFiOverviewGrid({
   );
 
   if (isLoading) {
-    const skeletonCount = cols * SKELETON_ROWS;
+    const skeletonCount = Math.min(cols * SKELETON_ROWS, SKELETON_TILE_CAP);
     // Tamagui's $gtMd prop is typed against StackStyle (which doesn't allow
     // `display: 'grid'`). Cast through `unknown` so we can pass a CSS-grid
     // template object without spreading `any` into the call site.

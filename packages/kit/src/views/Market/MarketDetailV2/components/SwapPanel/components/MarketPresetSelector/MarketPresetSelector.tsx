@@ -25,7 +25,6 @@ import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialo
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import {
   swapSlippageCustomDefaultList,
   swapSlippageWillAheadMinValue,
@@ -61,7 +60,8 @@ import {
 import type { IMarketPresetSettingsState } from '../../hooks/useMarketPresetSettings';
 
 type IMarketPresetSelectorProps = {
-  antiMEV: boolean;
+  // Only `true` is surfaced because anti-MEV is read-only when supported.
+  antiMEV?: boolean;
   presetSettings: IMarketPresetSettingsState;
   slippageIconName?: IIconProps['name'];
   showAutoSlippageLabel?: boolean;
@@ -78,6 +78,10 @@ type IDraftPresetSettings = Partial<
 const MARKET_PRESET_DIALOG_TOP_SAFE_GAP = 16;
 const MARKET_PRESET_DIALOG_CHROME_HEIGHT = 220;
 const MARKET_PRESET_DIALOG_MIN_CONTENT_HEIGHT = 120;
+const READONLY_PRIORITY_FEE_DISPLAY_TYPES = [
+  EMarketPresetPriorityFeeType.AUTO,
+  EMarketPresetPriorityFeeType.CUSTOM,
+];
 
 function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   if (type === EMarketPresetPriorityFeeType.AUTO) {
@@ -112,16 +116,6 @@ function getMarketPresetLabel({
   // future preset entry forgets to set one, returning empty would render an
   // invisible segment. Use the key as a last-resort label.
   return label ?? presetKey.toUpperCase();
-}
-
-function getMarketPresetCustomizedLabel({
-  customized,
-  label,
-}: {
-  customized?: boolean;
-  label: string;
-}) {
-  return customized ? `${label}*` : label;
 }
 
 function getPriorityFeeLabel({
@@ -160,6 +154,7 @@ function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
         }) ??
         getMarketPresetDefaultEditableDirectionSettingsForPreset({
           config: presetSettings.config,
+          defaultSlippage: presetSettings.defaultSlippageValue,
           presetKey: preset.key,
         }),
       [EMarketPresetTradeSide.SELL]:
@@ -169,6 +164,7 @@ function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
         }) ??
         getMarketPresetDefaultEditableDirectionSettingsForPreset({
           config: presetSettings.config,
+          defaultSlippage: presetSettings.defaultSlippageValue,
           presetKey: preset.key,
         }),
     };
@@ -465,7 +461,7 @@ function MarketPresetSettingsDialog({
   close,
   presetSettings,
 }: {
-  antiMEV: boolean;
+  antiMEV?: boolean;
   close: () => void;
   presetSettings: IMarketPresetSettingsState;
 }) {
@@ -485,18 +481,15 @@ function MarketPresetSettingsDialog({
   const presetOptions = useMemo(
     () =>
       presetSettings.presets.map((preset) => ({
-        label: getMarketPresetCustomizedLabel({
-          customized: presetSettings.presetCustomizedMap[preset.key],
-          label: getMarketPresetLabel({
-            intl,
-            label: preset.label,
-            presetKey: preset.key,
-          }),
+        label: getMarketPresetLabel({
+          intl,
+          label: preset.label,
+          presetKey: preset.key,
         }),
         testID: `market-preset-dialog-tab-${preset.key}`,
         value: preset.key,
       })),
-    [intl, presetSettings.presetCustomizedMap, presetSettings.presets],
+    [intl, presetSettings.presets],
   );
 
   const sideOptions = useMemo(
@@ -513,21 +506,30 @@ function MarketPresetSettingsDialog({
     [intl],
   );
 
-  const priorityFeeOptions = useMemo(
-    () =>
-      (
-        presetSettings.config?.priorityFee.supportedTypes ?? [
-          EMarketPresetPriorityFeeType.MARKET,
-        ]
-      ).map((type) => ({
-        label: intl.formatMessage({ id: getPriorityFeeTranslationId(type) }),
-        value: type,
-      })),
-    [intl, presetSettings.config?.priorityFee.supportedTypes],
-  );
+  const priorityFeeOptions = useMemo(() => {
+    const supportedTypes = presetSettings.config?.priorityFee
+      .supportedTypes ?? [EMarketPresetPriorityFeeType.MARKET];
+    const displayTypes =
+      presetSettings.config?.priorityFee.editable === false &&
+      supportedTypes.length === 1 &&
+      supportedTypes[0] === EMarketPresetPriorityFeeType.AUTO
+        ? READONLY_PRIORITY_FEE_DISPLAY_TYPES
+        : supportedTypes;
+
+    return displayTypes.map((type) => ({
+      label: intl.formatMessage({ id: getPriorityFeeTranslationId(type) }),
+      value: type,
+    }));
+  }, [
+    intl,
+    presetSettings.config?.priorityFee.editable,
+    presetSettings.config?.priorityFee.supportedTypes,
+  ]);
   const isReadonlyPreset =
     !presetSettings.config?.slippage.editable &&
     !presetSettings.config?.priorityFee.editable;
+  const isPriorityFeeEditable = !!presetSettings.config?.priorityFee.editable;
+  const shouldShowAntiMEV = antiMEV === true;
 
   const currentSettings = useMemo(() => {
     if (activePresetKey === EMarketPresetKey.AUTO) {
@@ -561,6 +563,7 @@ function MarketPresetSettingsDialog({
       const defaultSettings =
         getMarketPresetDefaultEditableDirectionSettingsForPreset({
           config: presetSettings.config,
+          defaultSlippage: presetSettings.defaultSlippageValue,
           presetKey: activePresetKey,
         });
       const matchesDefault = areMarketPresetDirectionSettingsEqual(
@@ -609,7 +612,10 @@ function MarketPresetSettingsDialog({
     currentSlippageCustomStatus.status === ESwapSlippageCustomStatus.ERROR;
   const currentPriorityFeeInvalid =
     !!presetSettings.config?.priorityFee.editable &&
-    isInvalidMarketPresetPriorityFeeSettings(currentSettings);
+    isInvalidMarketPresetPriorityFeeSettings(
+      currentSettings,
+      presetSettings.config,
+    );
   const currentPriorityFeeCustomValue =
     currentSettings.priorityFee.customValue ?? '';
   const currentSettingsInvalid =
@@ -629,9 +635,12 @@ function MarketPresetSettingsDialog({
       if (!presetSettings.config?.priorityFee.editable) {
         return isInvalidMarketPresetSlippageSettings(directionSettings);
       }
-      return isInvalidMarketPresetDirectionSettings(directionSettings);
+      return isInvalidMarketPresetDirectionSettings(
+        directionSettings,
+        presetSettings.config,
+      );
     },
-    [presetSettings.config?.priorityFee.editable],
+    [presetSettings.config],
   );
   const hasInvalidDirtySettings = Array.from(dirtyDirectionSetRef.current).some(
     (directionKey) => {
@@ -853,21 +862,27 @@ function MarketPresetSettingsDialog({
               </SizableText>
             </YStack>
           </XStack>
-          <XStack gap="$3" py="$2">
-            <Icon name="ShieldCheckDoneSolid" size="$6" color="$iconSubdued" />
-            <YStack flex={1} minWidth={0}>
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.marketdex_anti_mev_title,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.marketdex_anti_mev_description,
-                })}
-              </SizableText>
-            </YStack>
-          </XStack>
+          {shouldShowAntiMEV ? (
+            <XStack gap="$3" py="$2">
+              <Icon
+                name="ShieldCheckDoneSolid"
+                size="$6"
+                color="$iconSubdued"
+              />
+              <YStack flex={1} minWidth={0}>
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.marketdex_anti_mev_title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.marketdex_anti_mev_description,
+                  })}
+                </SizableText>
+              </YStack>
+            </XStack>
+          ) : null}
         </YStack>
       ) : (
         <YStack gap="$3">
@@ -1025,50 +1040,57 @@ function MarketPresetSettingsDialog({
             )}
           </YStack>
 
-          <Divider />
+          {presetSettings.config?.priorityFee ? (
+            <>
+              <Divider />
 
-          <YStack gap="$2">
-            {presetSettings.config?.priorityFee.editable ? (
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.marketdex_priority_fee,
-                })}
-              </SizableText>
-            ) : null}
-            {presetSettings.config?.priorityFee.editable ? (
-              <>
-                <SegmentControl
-                  fullWidth
-                  value={currentSettings.priorityFee.type}
-                  options={priorityFeeOptions}
-                  borderRadius="$2.5"
-                  gap="$0.5"
-                  p="$0.5"
-                  slotBackgroundColor="$neutral5"
-                  activeBackgroundColor="$bg"
-                  activeTextColor="$text"
-                  inactiveTextColor="$textSubdued"
-                  segmentControlItemStyleProps={{
-                    borderRadius: '$2',
-                    px: '$2',
-                    py: '$1',
-                  }}
-                  onChange={(value) => {
-                    const type = value as EMarketPresetPriorityFeeType;
-                    updateCurrentSettings((settings) => ({
-                      ...settings,
-                      priorityFee: {
-                        type,
-                        customValue:
-                          type === EMarketPresetPriorityFeeType.CUSTOM
-                            ? (settings.priorityFee.customValue ?? '')
-                            : undefined,
-                      },
-                    }));
-                  }}
-                />
-                {currentSettings.priorityFee.type ===
-                EMarketPresetPriorityFeeType.CUSTOM ? (
+              <YStack gap="$2">
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.marketdex_priority_fee,
+                  })}
+                </SizableText>
+                <XStack
+                  pointerEvents={isPriorityFeeEditable ? undefined : 'none'}
+                  opacity={isPriorityFeeEditable ? undefined : 0.5}
+                >
+                  <SegmentControl
+                    fullWidth
+                    value={currentSettings.priorityFee.type}
+                    options={priorityFeeOptions}
+                    borderRadius="$2.5"
+                    gap="$0.5"
+                    p="$0.5"
+                    slotBackgroundColor="$neutral5"
+                    activeBackgroundColor="$bg"
+                    activeTextColor="$text"
+                    inactiveTextColor="$textSubdued"
+                    segmentControlItemStyleProps={{
+                      borderRadius: '$2',
+                      px: '$2',
+                      py: '$1',
+                    }}
+                    onChange={(value) => {
+                      if (!isPriorityFeeEditable) {
+                        return;
+                      }
+                      const type = value as EMarketPresetPriorityFeeType;
+                      updateCurrentSettings((settings) => ({
+                        ...settings,
+                        priorityFee: {
+                          type,
+                          customValue:
+                            type === EMarketPresetPriorityFeeType.CUSTOM
+                              ? (settings.priorityFee.customValue ?? '')
+                              : undefined,
+                        },
+                      }));
+                    }}
+                  />
+                </XStack>
+                {isPriorityFeeEditable &&
+                currentSettings.priorityFee.type ===
+                  EMarketPresetPriorityFeeType.CUSTOM ? (
                   <>
                     <Input
                       size="medium"
@@ -1079,7 +1101,7 @@ function MarketPresetSettingsDialog({
                           label: presetSettings.priorityFeeUnit,
                         },
                       ]}
-                      placeholder=""
+                      placeholder={presetSettings.priorityFeeCustomPlaceholder}
                       onChangeText={(text) => {
                         if (!validateAmountInput(text, 9)) {
                           return;
@@ -1100,33 +1122,30 @@ function MarketPresetSettingsDialog({
                             id: ETranslations.form_fee_rate_error_out_of_range,
                           },
                           {
-                            min: 0,
-                            max: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+                            min: presetSettings.priorityFeeCustomRange.min,
+                            max: presetSettings.priorityFeeCustomRange.max,
                           },
                         )}
                       </SizableText>
                     ) : null}
                   </>
                 ) : null}
-              </>
-            ) : (
-              <MarketPresetReadonlyRow
+              </YStack>
+            </>
+          ) : null}
+
+          {shouldShowAntiMEV ? (
+            <>
+              <Divider />
+
+              <MarketPresetAntiMEVReadonlyRow
                 label={intl.formatMessage({
-                  id: ETranslations.marketdex_priority_fee,
+                  id: ETranslations.marketdex_anti_mev_title,
                 })}
-                value={intl.formatMessage({ id: ETranslations.global_auto })}
+                value
               />
-            )}
-          </YStack>
-
-          <Divider />
-
-          <MarketPresetAntiMEVReadonlyRow
-            label={intl.formatMessage({
-              id: ETranslations.marketdex_anti_mev_title,
-            })}
-            value={antiMEV}
-          />
+            </>
+          ) : null}
         </YStack>
       )}
     </MarketPresetDialogContentFrame>
@@ -1145,7 +1164,6 @@ export function MarketPresetSelector({
   const {
     enabled,
     presets,
-    presetCustomizedMap,
     selectedPreset,
     selectedDirectionSettings,
     selectedPresetKey,
@@ -1157,18 +1175,15 @@ export function MarketPresetSelector({
   const presetOptions = useMemo(
     () =>
       presets.map((preset) => ({
-        label: getMarketPresetCustomizedLabel({
-          customized: presetCustomizedMap[preset.key],
-          label: getMarketPresetLabel({
-            intl,
-            label: preset.label,
-            presetKey: preset.key,
-          }),
+        label: getMarketPresetLabel({
+          intl,
+          label: preset.label,
+          presetKey: preset.key,
         }),
         value: preset.key,
         testID: `market-preset-${preset.key}`,
       })),
-    [intl, presetCustomizedMap, presets],
+    [intl, presets],
   );
 
   const openPresetDialog = useCallback(() => {
@@ -1222,17 +1237,15 @@ export function MarketPresetSelector({
     settings: selectedDirectionSettings,
     unit: presetSettings.priorityFeeUnit,
   });
+  const showAntiMEV = antiMEV === true;
   const selectedPresetItem =
     selectedPreset ??
     presets.find((preset) => preset.key === selectedPresetKey);
   const selectedPresetLabel = selectedPresetItem
-    ? getMarketPresetCustomizedLabel({
-        customized: presetCustomizedMap[selectedPresetItem.key],
-        label: getMarketPresetLabel({
-          intl,
-          label: selectedPresetItem.label,
-          presetKey: selectedPresetItem.key,
-        }),
+    ? getMarketPresetLabel({
+        intl,
+        label: selectedPresetItem.label,
+        presetKey: selectedPresetItem.key,
       })
     : intl.formatMessage({ id: ETranslations.global_auto });
 
@@ -1245,6 +1258,7 @@ export function MarketPresetSelector({
       slippageIconName={slippageIconName}
       slippageLabel={slippageLabel}
       priorityFeeLabel={priorityFeeLabel}
+      showAntiMEV={showAntiMEV}
       onPresetChange={onPresetChange}
       onOpenSettings={openPresetDialog}
       onQuickPresetPress={handleQuickPresetSwitch}

@@ -30,6 +30,7 @@ import {
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
 import {
@@ -37,6 +38,7 @@ import {
   useWalletTopBannersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import {
   HYPERLIQUID_REFERRAL_CODE,
   PERPS_NETWORK_ID,
@@ -775,15 +777,37 @@ function WalletBanner() {
     [vaultSettings?.hasResource, account?.id, network?.id],
   );
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isBotWalletReceiveBlocked = shouldBlockBotWalletReceive({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
+
   const wrappedHandleBannerOnPress = useCallback(
     (item: IWalletBanner) => {
       if (item.id === PERPS_REFERRAL_BANNER_ID) {
         handleReferralBannerPress();
         return;
       }
+      const href = (item.href ?? '').toLowerCase();
+      const looksLikeDepositTarget =
+        href.includes('receive') ||
+        href.includes('deposit') ||
+        href.includes('/buy') ||
+        href.includes('fund');
+      if (isBotWalletReceiveBlocked && looksLikeDepositTarget) {
+        Toast.error({
+          title: '该钱包已停用，无法接收资产',
+        });
+        return;
+      }
       void handleBannerOnPress(item);
     },
-    [handleBannerOnPress, handleReferralBannerPress],
+    [handleBannerOnPress, handleReferralBannerPress, isBotWalletReceiveBlocked],
   );
 
   if (banners.length === 0 && !tronCard) {

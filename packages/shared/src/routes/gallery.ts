@@ -100,6 +100,7 @@ export enum EGalleryRoutes {
   ComponentWalletAvatar = 'component-WalletAvatar',
   ComponentWebEmbed = 'component-WebEmbed',
   ComponentWebview = 'component-Webview',
+  ComponentWebViewOverlay = 'component-WebViewOverlay',
   HapticsGallery = 'component-Haptics',
   HyperlinkTextGallery = 'component-HyperlinkText',
   LetterAvatarGallery = 'component-LetterAvatar',

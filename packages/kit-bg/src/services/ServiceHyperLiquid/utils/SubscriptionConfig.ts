@@ -1,5 +1,6 @@
 import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { DEX_PREFIXES } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IEventAllDexsClearinghouseStateParameters,
   IEventL2BookParameters,
@@ -247,16 +248,19 @@ export function calculateRequiredSubscriptions(
       }),
     );
 
-    const openOrdersParams: IEventOpenOrdersParameters = {
-      user: state.currentUser,
-      dex: '',
-    };
-    specs.push(
-      buildSubscriptionSpec({
-        type: ESubscriptionType.OPEN_ORDERS,
-        params: openOrdersParams,
-      }),
-    );
+    const openOrdersDexes = ['', ...DEX_PREFIXES];
+    openOrdersDexes.forEach((dex) => {
+      const openOrdersParams: IEventOpenOrdersParameters = {
+        user: state.currentUser as IHex,
+        dex,
+      };
+      specs.push(
+        buildSubscriptionSpec({
+          type: ESubscriptionType.OPEN_ORDERS,
+          params: openOrdersParams,
+        }),
+      );
+    });
     specs.push(
       buildSubscriptionSpec({
         type: ESubscriptionType.WEB_DATA3,

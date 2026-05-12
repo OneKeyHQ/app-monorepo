@@ -11,24 +11,13 @@ import {
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import {
-  Accordion,
-  Badge,
-  Divider,
-  Popover,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { Accordion, Stack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import {
   type IDeFiProtocolDisplayInfo,
-  type ILocalizedProtocolPositionItem,
-  buildLocalizedProtocolPositionItems,
+  type ILocalizedProtocolCategoryGroup,
+  buildLocalizedProtocolCategoryGroups,
   buildProtocolDisplayInfo,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -41,6 +30,7 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
+import { ProtocolCategoryGroup } from './ProtocolCategoryGroup';
 import { ProtocolHeaderRow } from './ProtocolHeaderRow';
 import { ProtocolRow } from './ProtocolRow';
 
@@ -54,7 +44,6 @@ export type IProtocolHandle = {
   expand: () => void;
   collapse: () => void;
   getAnchor: () => HTMLElement | null;
-  setCompactProgress: (progress: number) => void;
 };
 
 const ProtocolListLayout = memo(
@@ -92,9 +81,8 @@ const ProtocolDesktopLayout = memo(
       isAllNetworks?: boolean;
       currencySymbol: string;
       positionCountText: string;
-      positionNamePopoverTitle: string;
       priceUnavailableLabel: string;
-      positions: ILocalizedProtocolPositionItem[];
+      categoryGroups: ILocalizedProtocolCategoryGroup[];
     }
   >(
     (
@@ -104,9 +92,8 @@ const ProtocolDesktopLayout = memo(
         isAllNetworks,
         currencySymbol,
         positionCountText,
-        positionNamePopoverTitle,
         priceUnavailableLabel,
-        positions,
+        categoryGroups,
       },
       forwardedRef,
     ) => {
@@ -115,7 +102,6 @@ const ProtocolDesktopLayout = memo(
       const anchorRef = useRef<HTMLElement | null>(null);
       const [accordionValue, setAccordionValue] =
         useState<string>(ACCORDION_OPEN_VALUE);
-      const [compactProgress, setCompactProgress] = useState(0);
 
       useImperativeHandle(
         forwardedRef,
@@ -127,11 +113,6 @@ const ProtocolDesktopLayout = memo(
             setAccordionValue('');
           },
           getAnchor: () => anchorRef.current,
-          setCompactProgress: (progress: number) => {
-            setCompactProgress((prev) =>
-              Math.abs(prev - progress) < 0.01 ? prev : progress,
-            );
-          },
         }),
         [],
       );
@@ -193,90 +174,19 @@ const ProtocolDesktopLayout = memo(
                     isAllNetworks={isAllNetworks}
                     positionCountText={positionCountText}
                     open={open}
-                    compactProgress={compactProgress}
                   />
                 )}
               </Accordion.Trigger>
               <Accordion.Content exitStyle={{ opacity: 0 }} px="$0" py="$0">
-                <YStack pt="$2">
-                  {positions.map((position, index) => {
-                    const isLastPosition = index === positions.length - 1;
-                    return (
-                      <YStack
-                        key={position.positionKey}
-                        pb={isLastPosition ? '$3' : '$0'}
-                      >
-                        <XStack
-                          alignItems="center"
-                          gap="$2"
-                          px="$5"
-                          minHeight={40}
-                        >
-                          <Badge bg={position.categoryConfig.bg} badgeSize="lg">
-                            <Badge.Text color={position.categoryConfig.text}>
-                              {position.categoryLabel}
-                            </Badge.Text>
-                          </Badge>
-                          {position.poolName ? (
-                            <Stack flex={1} minWidth={0}>
-                              <Popover
-                                hoverable
-                                placement="top"
-                                title={positionNamePopoverTitle}
-                                renderTrigger={
-                                  <SizableText
-                                    size="$headingSm"
-                                    color="$textSubdued"
-                                    numberOfLines={1}
-                                    minWidth={0}
-                                  >
-                                    {position.poolName}
-                                  </SizableText>
-                                }
-                                renderContent={
-                                  <Stack px="$4" py="$2">
-                                    <SizableText size="$bodyLgMedium">
-                                      {position.poolFullName ||
-                                        position.poolName}
-                                    </SizableText>
-                                  </Stack>
-                                }
-                              />
-                            </Stack>
-                          ) : (
-                            <Stack flex={1} />
-                          )}
-                          <NumberSizeableTextWrapper
-                            hideValue
-                            size="$headingMd"
-                            formatter="value"
-                            formatterOptions={{ currency: currencySymbol }}
-                            textAlign="right"
-                            numberOfLines={1}
-                            maxWidth="45%"
-                          >
-                            {position.value}
-                          </NumberSizeableTextWrapper>
-                        </XStack>
-                        <YStack gap="$2" px="$5">
-                          {position.sections.map((section) => (
-                            <ProtocolPositionSection
-                              key={section.key}
-                              itemKeyPrefix={position.positionKey}
-                              section={section}
-                              currencySymbol={currencySymbol}
-                              priceUnavailableLabel={priceUnavailableLabel}
-                            />
-                          ))}
-                        </YStack>
-                        {index !== positions.length - 1 ? (
-                          <Stack px="$5" pt="$3" pb="$2">
-                            <Divider />
-                          </Stack>
-                        ) : null}
-                      </YStack>
-                    );
-                  })}
+                <YStack pb="$3" gap="$3">
+                  {categoryGroups.map((group) => (
+                    <ProtocolCategoryGroup
+                      key={group.groupKey}
+                      group={group}
+                      currencySymbol={currencySymbol}
+                      priceUnavailableLabel={priceUnavailableLabel}
+                    />
+                  ))}
                 </YStack>
               </Accordion.Content>
             </Accordion.Item>
@@ -310,17 +220,18 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
-  const positionNamePopoverTitle = intl.formatMessage({
-    id: ETranslations.wallet_defi_position_name_popover_title,
-  });
-  const positions = useMemo<ILocalizedProtocolPositionItem[]>(
+  const categoryGroups = useMemo<ILocalizedProtocolCategoryGroup[]>(
     () =>
-      buildLocalizedProtocolPositionItems({
+      buildLocalizedProtocolCategoryGroups({
         protocol,
         translate,
       }),
     [protocol, translate],
   );
+  // Position count drives the header sub-label and is independent of the
+  // category grouping; we still want the raw count of upstream positions, not
+  // the merged row count.
+  const positionsLength = protocol.positions.length;
   const protocolDisplayInfo = useMemo(
     () =>
       buildProtocolDisplayInfo({
@@ -331,10 +242,10 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
   );
   const positionCountText = useMemo(
     () =>
-      `${positions.length} ${intl.formatMessage({
+      `${positionsLength} ${intl.formatMessage({
         id: ETranslations.earn_positions,
       })}`,
-    [intl, positions.length],
+    [intl, positionsLength],
   );
 
   const onPressProtocol = useCallback(() => {
@@ -348,11 +259,10 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
   }, [navigation, protocol, protocolInfo]);
 
   return {
+    categoryGroups,
     currencySymbol,
     onPressProtocol,
     positionCountText,
-    positionNamePopoverTitle,
-    positions,
     priceUnavailableLabel,
     protocolDisplayInfo,
     protocolInfo,
@@ -386,9 +296,8 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
         isAllNetworks={isAllNetworks}
         currencySymbol={viewModel.currencySymbol}
         positionCountText={viewModel.positionCountText}
-        positionNamePopoverTitle={viewModel.positionNamePopoverTitle}
         priceUnavailableLabel={viewModel.priceUnavailableLabel}
-        positions={viewModel.positions}
+        categoryGroups={viewModel.categoryGroups}
       />
     );
   },

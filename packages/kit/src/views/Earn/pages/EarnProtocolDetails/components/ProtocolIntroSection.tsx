@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import Svg, { Path } from 'react-native-svg';
@@ -572,8 +579,8 @@ function SocialLinkButton({ link }: { link: IEarnProtocolIntroSocialLink }) {
 
   return (
     <Button
-      size="small"
-      variant="secondary"
+      size="medium"
+      variant="tertiary"
       borderRadius="$full"
       icon={getLinkIcon(link)}
       onPress={handlePress}
@@ -1600,12 +1607,22 @@ function ProtocolIntroSectionComponent({
           onShowAudits={handleShowAudits}
         />
         {visibleSocialLinks.length ? (
-          <XStack gap="$2.5" flexWrap="wrap" py="$3">
+          <XStack
+            ai="center"
+            columnGap="$4"
+            rowGap="$6"
+            flexWrap="wrap"
+            py="$2"
+          >
             {visibleSocialLinks.map((link, index) => (
-              <SocialLinkButton
+              <Fragment
                 key={`${getLinkUrl(link) || link.type || 'social'}-${index}`}
-                link={link}
-              />
+              >
+                {index > 0 ? (
+                  <Divider vertical h={20} borderColor="$border" />
+                ) : null}
+                <SocialLinkButton link={link} />
+              </Fragment>
             ))}
           </XStack>
         ) : null}

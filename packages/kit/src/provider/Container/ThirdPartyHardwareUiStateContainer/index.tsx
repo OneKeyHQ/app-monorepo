@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import {
   Dialog,
@@ -18,7 +17,6 @@ import {
 import type { IDialogInstance, ILottieViewProps } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
-import type { IAdapterUiResponse } from '@onekeyhq/kit-bg/src/services/ServiceHardware/adapters/types';
 import type { IThirdPartyHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EThirdPartyHardwareUiAction,
@@ -42,7 +40,10 @@ import {
 } from '../../../components/Hardware/HardwareDialog';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
-import type { IntlShape } from 'react-intl';
+import {
+  buildThirdPartyHardwareUiResponse,
+  cancelThirdPartyHardwareUiRequest,
+} from './utils';
 
 const AUTO_CLOSED_FLAG = 'autoClosed';
 const SHOW_CLOSE_BUTTON_DELAY = 8000;
@@ -241,19 +242,39 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const isToastAction = isThirdPartyToastAction(uiState?.action);
   const isDialogAction = !!uiState && !isToastAction;
 
-  // Close callbacks fire for programmatic transitions too, so only explicit
-  // user buttons are allowed to cancel SDK work.
+  // Programmatic closes pass autoClosed; unflagged closes come from user exits.
   const handleToastClose = useCallback(async () => undefined, []);
 
-  const handleDialogClose = useCallback(async (params?: { flag?: string }) => {
-    if (params?.flag === AUTO_CLOSED_FLAG) {
-      await thirdPartyHardwareUiStateAtom.set(undefined);
-    }
-  }, []);
-
-  const handlePermissionDialogClose = useCallback(async () => {
+  const clearCurrentUiState = useCallback(async () => {
+    uiStateRef.current = undefined;
     await thirdPartyHardwareUiStateAtom.set(undefined);
   }, []);
+
+  const handleDialogClose = useCallback(
+    async (params?: { flag?: string }) => {
+      if (params?.flag === AUTO_CLOSED_FLAG) {
+        await clearCurrentUiState();
+        return;
+      }
+      await cancelThirdPartyHardwareUiRequest({
+        state: uiStateRef.current,
+        uiResponse: (requestParams) =>
+          backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse(
+            requestParams,
+          ),
+        cancel: (requestParams) =>
+          backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel(
+            requestParams,
+          ),
+        clearState: clearCurrentUiState,
+      });
+    },
+    [clearCurrentUiState],
+  );
+
+  const handlePermissionDialogClose = useCallback(async () => {
+    await clearCurrentUiState();
+  }, [clearCurrentUiState]);
 
   useEffect(() => {
     const callback = async ({
@@ -287,56 +308,30 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     };
   }, [handlePermissionDialogClose]);
 
-  const buildUiResponse = useCallback(
-    (
-      action: EThirdPartyHardwareUiAction | undefined,
-      confirmed: boolean,
-    ): IAdapterUiResponse | null => {
-      switch (action) {
-        case EThirdPartyHardwareUiAction.requestDeviceNotFound:
-          return {
-            type: UI_RESPONSE.RECEIVE_DEVICE_CONNECT,
-            payload: { confirmed },
-          };
-        case EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm:
-          return {
-            type: UI_RESPONSE.RECEIVE_BTC_HIGH_INDEX_CONFIRM,
-            payload: { confirmed },
-          };
-        default:
-          return null;
-      }
-    },
-    [],
-  );
-
   const handleUserCancel = useCallback(
     async (close: () => Promise<void>) => {
-      const vendor = uiStateRef.current?.vendor;
-      const action = uiStateRef.current?.action;
-      if (vendor) {
-        const response = buildUiResponse(action, false);
-        if (response) {
-          await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse(
-            { vendor, response },
-          );
-        } else {
-          await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
-            vendor,
-          });
-        }
-      }
-      await thirdPartyHardwareUiStateAtom.set(undefined);
+      await cancelThirdPartyHardwareUiRequest({
+        state: uiStateRef.current,
+        uiResponse: (requestParams) =>
+          backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse(
+            requestParams,
+          ),
+        cancel: (requestParams) =>
+          backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel(
+            requestParams,
+          ),
+        clearState: clearCurrentUiState,
+      });
       await close();
     },
-    [buildUiResponse],
+    [clearCurrentUiState],
   );
 
   const handleConfirm = useCallback(async () => {
     const vendor = uiStateRef.current?.vendor;
     const action = uiStateRef.current?.action;
     if (vendor) {
-      const response = buildUiResponse(action, true);
+      const response = buildThirdPartyHardwareUiResponse(action, true);
       if (response) {
         await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse({
           vendor,
@@ -344,8 +339,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         });
       }
     }
-    await thirdPartyHardwareUiStateAtom.set(undefined);
-  }, [buildUiResponse]);
+    await clearCurrentUiState();
+  }, [clearCurrentUiState]);
 
   const dialogContent = useMemo(() => {
     if (!uiState || isToastAction) return null;
@@ -378,9 +373,9 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         });
       }
     } finally {
-      await thirdPartyHardwareUiStateAtom.set(undefined);
+      await clearCurrentUiState();
     }
-  }, []);
+  }, [clearCurrentUiState]);
 
   return (
     <>

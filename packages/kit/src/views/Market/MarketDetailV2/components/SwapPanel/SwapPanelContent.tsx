@@ -36,6 +36,7 @@ import type { IMarketPresetSettingsState } from './hooks/useMarketPresetSettings
 export type ISwapPanelContentProps = {
   swapPanel: ReturnType<typeof useSwapPanel>;
   isLoading: boolean;
+  isActionDisabled?: boolean;
   balanceLoading: boolean;
   slippageAutoValue?: number;
   supportSpeedSwap: {
@@ -51,7 +52,7 @@ export type ISwapPanelContentProps = {
   balanceToken?: IToken;
   onSwap: () => void;
   onWrappedSwap: () => void;
-  swapMevNetConfig: string[];
+  swapMevNetConfig?: string[];
   swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
   isWrapped: boolean;
   onCloseDialog?: () => void;
@@ -76,6 +77,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     enableAddressTypeSelector,
     swapPanel,
     isLoading,
+    isActionDisabled,
     balanceLoading,
     slippageAutoValue,
     supportSpeedSwap,
@@ -110,7 +112,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     networkId,
   } = swapPanel;
   const isMEV = useMemo(
-    () => swapMevNetConfig?.includes(swapPanel.networkId ?? '') ?? false,
+    () =>
+      Array.isArray(swapMevNetConfig)
+        ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
+        : undefined,
     [swapMevNetConfig, swapPanel.networkId],
   );
   const tokenBuyInputRef = useRef<ITokenInputSectionRef>(null);
@@ -340,7 +345,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         balance={balance}
         isWrapped={isWrapped}
         networkId={networkId}
-        disabled={!!speedCheckError || isLoading}
+        disabled={!!speedCheckError || isLoading || !!isActionDisabled}
         onSwapAction={() =>
           logSwapAction({
             tradeType,
@@ -355,7 +360,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {suppressStandaloneSlippage ? null : (
         <SlippageSetting
           autoDefaultValue={slippageAutoValue}
-          isMEV={isMEV}
+          isMEV={!!isMEV}
           onSlippageChange={(item) => {
             setSlippage(item.value);
             setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);

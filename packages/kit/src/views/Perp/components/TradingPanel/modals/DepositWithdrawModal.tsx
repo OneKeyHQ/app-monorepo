@@ -36,6 +36,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
@@ -1115,6 +1117,19 @@ function DepositWithdrawContent({
 
     const canSubmit = validateAmountBeforeSubmit();
     if (!canSubmit) return;
+
+    // Bot Wallet deactivated warning
+    if (selectedAccount.accountId) {
+      const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
+        accountId: selectedAccount.accountId,
+      });
+      if (isDeactivatedBot) {
+        const confirmed = await showBotWalletDeactivatedWarningDialog();
+        if (!confirmed) {
+          return;
+        }
+      }
+    }
 
     try {
       if (checkRefreshQuote) {
