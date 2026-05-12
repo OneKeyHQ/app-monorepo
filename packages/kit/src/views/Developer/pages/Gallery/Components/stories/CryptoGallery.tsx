@@ -1,9 +1,7 @@
 /* eslint-disable prefer-const */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import crypto from 'crypto';
-
-import { NativeModules } from 'react-native';
 
 import {
   Button,
@@ -41,71 +39,6 @@ import { Layout } from './utils/Layout';
 // Core secret functions are loaded dynamically to avoid kit->core value import
 async function loadCoreSecret() {
   return import('@onekeyhq/core/src/secret');
-}
-
-// Forward dev logs from the device/simulator back to the Metro terminal.
-// RN 0.74+ no longer pipes JS console.log to Metro stdout, so we POST the
-// payload to a Metro middleware that prints it and also appends to
-// /tmp/onekey-rn.log (see apps/mobile/metro.config.js applyOnekeyLogMiddleware).
-function getMetroScriptURL(): string | undefined {
-  return (NativeModules as { SourceCode?: { scriptURL?: string } })?.SourceCode
-    ?.scriptURL;
-}
-
-// On a real device, localhost / 127.0.0.1 resolves to the phone itself, not
-// the Mac running Metro. So we need to fetch the Mac's LAN IP directly.
-// Update this when switching Wi-Fi or after a DHCP lease change. The current
-// Mac IP is also printed by apps/mobile/metro.config.js on startup.
-const DEV_METRO_LAN_HOSTS = ['http://192.168.31.246:8081'];
-
-function getMetroHostCandidates(): string[] {
-  const scriptURL = getMetroScriptURL();
-  const fromScriptUrl = scriptURL?.match(/https?:\/\/[^/]+/)?.[0];
-  const candidates = new Set<string>();
-  // Only trust scriptURL's host if it isn't a loopback address — those would
-  // resolve to the device itself, never the Mac.
-  if (
-    fromScriptUrl &&
-    !/\/\/(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(fromScriptUrl)
-  ) {
-    candidates.add(fromScriptUrl);
-  }
-  for (const host of DEV_METRO_LAN_HOSTS) candidates.add(host);
-  return Array.from(candidates);
-}
-
-async function logToMetro(
-  label: string,
-  payload: unknown,
-  options?: { showToastOnFail?: boolean },
-) {
-  if (!platformEnv.isNative) return;
-  const hosts = getMetroHostCandidates();
-  const body = `${label}\n${
-    typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)
-  }`;
-  const errors: string[] = [];
-  for (const host of hosts) {
-    try {
-      const res = await fetch(`${host}/onekey-log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body,
-      });
-      if (res.ok) return;
-      errors.push(`${host} -> HTTP ${res.status}`);
-    } catch (e) {
-      errors.push(`${host} -> ${(e as Error).message}`);
-    }
-  }
-  if (options?.showToastOnFail) {
-    Toast.error({
-      title: 'logToMetro failed',
-      message: `scriptURL=${getMetroScriptURL() ?? '<none>'} | ${errors.join(
-        ' ; ',
-      )}`,
-    });
-  }
 }
 
 function PartContainer({
@@ -480,24 +413,9 @@ function AESGcmV2Test() {
   const [running, setRunning] = useState(false);
   const { copyText } = useClipboard();
 
-  // Dev-only probe: ping Metro middleware on mount so we know whether the
-  // logToMetro pipeline is reachable from this device before running tests.
-  useEffect(() => {
-    void logToMetro(
-      'AESGcmV2Test mounted',
-      { scriptURL: getMetroScriptURL() ?? '<none>' },
-      { showToastOnFail: true },
-    );
-  }, []);
-
   const testAESGcmV2 = async (
     iterationsToRun: number[] = [AES_GCM_V2_DEFAULT_ITER],
   ) => {
-    await logToMetro(
-      `testAESGcmV2 start (iterations=${iterationsToRun.join(',')})`,
-      { scriptURL: getMetroScriptURL() ?? '<none>' },
-      { showToastOnFail: true },
-    );
     try {
       const { decryptAsync, decryptAsyncWithMetadata, encryptAsync } =
         await loadCoreSecret();
@@ -1014,10 +932,6 @@ function AESGcmV2Test() {
       const allPassed = tasks.every(
         (t) => t.isCorrect === AppCryptoTestEmoji.isCorrect,
       );
-      await logToMetro(
-        `testAESGcmV2 done (allPassed=${allPassed}, taskCount=${tasks.length})`,
-        resultPayload,
-      );
       if (allPassed) {
         Toast.success({
           title: 'AES-GCM v2 test passed',
@@ -1031,10 +945,6 @@ function AESGcmV2Test() {
       setErrorMessage((error as Error).message);
       setResultJson('');
       setTableRows([]);
-      await logToMetro('testAESGcmV2 error', {
-        message: (error as Error).message,
-        stack: (error as Error).stack,
-      });
       Toast.error({
         title: `AES-GCM v2 failed: ${(error as Error).message}`,
       });

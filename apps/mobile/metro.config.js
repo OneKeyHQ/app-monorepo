@@ -411,63 +411,6 @@ const AssetsPaths = [
   '/packages/kit/assets',
 ];
 
-// Receives logs forwarded from the running RN app (device or simulator).
-// JS side POSTs plain text or JSON to /onekey-log. Body is echoed to
-// Metro stdout (so the dev terminal shows it) and appended to a file
-// at /tmp/onekey-rn.log for offline inspection.
-const ONEKEY_LOG_FILE = '/tmp/onekey-rn.log';
-
-// Print the Mac's reachable LAN IPs on Metro startup so the device-side
-// logToMetro helper can be updated when the IP changes (Wi-Fi switch /
-// DHCP renew).
-const os = require('os');
-const onekeyLanHosts = Object.entries(os.networkInterfaces())
-  .flatMap(([name, addrs]) =>
-    (addrs || [])
-      .filter(
-        (a) =>
-          a.family === 'IPv4' &&
-          !a.internal &&
-          !a.address.startsWith('169.254.'),
-      )
-      .map((a) => `${name}: http://${a.address}:8081`),
-  )
-  .join('\n  ');
-process.stdout.write(
-  `\n[onekey-metro] LAN hosts for device fetch (update DEV_METRO_LAN_HOSTS in CryptoGallery.tsx):\n  ${onekeyLanHosts}\n\n`,
-);
-const applyOnekeyLogMiddleware = (middleware) => {
-  return (req, res, next) => {
-    if (req.method === 'POST' && req.url && req.url.startsWith('/onekey-log')) {
-      const chunks = [];
-      req.on('data', (chunk) => chunks.push(chunk));
-      req.on('end', () => {
-        const body = Buffer.concat(chunks).toString('utf8');
-        const ts = new Date().toISOString();
-        const line = `\n===== [onekey-rn ${ts}] =====\n${body}\n`;
-        process.stdout.write(line);
-        try {
-          fs.appendFileSync(ONEKEY_LOG_FILE, line);
-        } catch (e) {
-          process.stdout.write(
-            `[onekey-rn] failed to write ${ONEKEY_LOG_FILE}: ${e.message}\n`,
-          );
-        }
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'text/plain');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.end('ok');
-      });
-      req.on('error', () => {
-        res.statusCode = 500;
-        res.end('error');
-      });
-      return;
-    }
-    return middleware(req, res, next);
-  };
-};
-
 const applyFixImageAssetsMiddleware = (middleware) => {
   return (req, res, next) => {
     console.log('metro-sever: >>>>>', req.url);
@@ -504,9 +447,7 @@ const applyFixImageAssetsMiddleware = (middleware) => {
 };
 
 config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
-  connect().use(
-    applyOnekeyLogMiddleware(applyFixImageAssetsMiddleware(metroMiddleware)),
-  );
+  connect().use(applyFixImageAssetsMiddleware(metroMiddleware));
 
 module.exports = withRozenite(splitCodePlugin(config, projectRoot), {
   enabled: process.env.WITH_ROZENITE === 'true',
