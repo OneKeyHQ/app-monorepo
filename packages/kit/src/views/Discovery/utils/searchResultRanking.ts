@@ -1216,6 +1216,46 @@ function appendDappSearchResults({
   });
 }
 
+function collectVisibleDappUrlKeys({
+  groupedItems,
+  originDedupeKeySet,
+}: {
+  groupedItems: IDApp[][];
+  originDedupeKeySet: Set<string>;
+}) {
+  const visibleDappUrlKeySet = new Set<string>();
+  const simulatedOriginDedupeKeySet = new Set(originDedupeKeySet);
+
+  groupedItems.forEach((items) => {
+    items.forEach((item) => {
+      const keys = getOriginMatchKeys({
+        url: item.url,
+        origins: item.origins,
+      });
+      if (
+        hasMatchKeyOverlap({
+          keys,
+          dedupeKeySet: simulatedOriginDedupeKeySet,
+        })
+      ) {
+        return;
+      }
+
+      appendMatchKeys({
+        keys,
+        dedupeKeySet: simulatedOriginDedupeKeySet,
+      });
+
+      const urlKey = getExactUrlVisitKey(item.url);
+      if (urlKey) {
+        visibleDappUrlKeySet.add(urlKey);
+      }
+    });
+  });
+
+  return visibleDappUrlKeySet;
+}
+
 export function mergeSearchResultsWithLocalData({
   keyword,
   searchResult,
@@ -1314,9 +1354,18 @@ export function mergeSearchResultsWithLocalData({
     reserveLocalUrlKey: true,
   });
 
+  const deferredDappUrlKeySet = collectVisibleDappUrlKeys({
+    groupedItems: [otherTrendingResults, remainingRemoteResults],
+    originDedupeKeySet: dappOriginDedupeKeySet,
+  });
+
   rankedLocalItems.forEach((candidate) => {
     const urlKey = getExactUrlVisitKey(candidate.item.url);
-    if (urlKey && urlDedupeKeySet.has(urlKey)) {
+    if (
+      urlKey &&
+      (urlDedupeKeySet.has(urlKey) ||
+        (candidate.type === 'history' && deferredDappUrlKeySet.has(urlKey)))
+    ) {
       return;
     }
     if (urlKey) {
