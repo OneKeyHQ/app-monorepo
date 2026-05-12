@@ -48,10 +48,11 @@ let lastPbkdf2Invocation: IPbkdf2Invocation | undefined;
 const pbkdf2InvocationsByProbeId = new Map<string, IPbkdf2Invocation>();
 
 function recordPbkdf2Invocation(invocation: IPbkdf2Invocation) {
-  lastPbkdf2Invocation = invocation;
-  if (invocation.debugCryptoProbeId) {
-    pbkdf2InvocationsByProbeId.set(invocation.debugCryptoProbeId, invocation);
+  if (!invocation.debugCryptoProbeId || platformEnv.isProduction) {
+    return;
   }
+  lastPbkdf2Invocation = invocation;
+  pbkdf2InvocationsByProbeId.set(invocation.debugCryptoProbeId, invocation);
 }
 
 function clearLastPbkdf2Invocation() {

@@ -48,10 +48,11 @@ let lastAesGcmInvocation: IAesGcmInvocation | undefined;
 const aesGcmInvocationsByProbeId = new Map<string, IAesGcmInvocation>();
 
 function recordAesGcmInvocation(invocation: IAesGcmInvocation) {
-  lastAesGcmInvocation = invocation;
-  if (invocation.debugCryptoProbeId) {
-    aesGcmInvocationsByProbeId.set(invocation.debugCryptoProbeId, invocation);
+  if (!invocation.debugCryptoProbeId || platformEnv.isProduction) {
+    return;
   }
+  lastAesGcmInvocation = invocation;
+  aesGcmInvocationsByProbeId.set(invocation.debugCryptoProbeId, invocation);
 }
 
 function clearLastAesGcmInvocation() {
