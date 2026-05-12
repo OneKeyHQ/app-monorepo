@@ -1,5 +1,6 @@
 import {
   assertAddressForChain,
+  assertTokenAddressForChain,
   sameAddress,
   validateAddressForChain,
 } from '../core/address-utils';
@@ -95,6 +96,39 @@ describe('address-utils', () => {
       // the bytes — the all-1's System Program ID would be a no-op.
       const SOL_MIXED = '4Nd1mYgMnA73L1z9Mt9HBTppmKQGYP1qhwFQ7y5dQbpC';
       expect(sameAddress(sol, SOL_MIXED, SOL_MIXED.toLowerCase())).toBe(false);
+    });
+  });
+
+  describe('assertTokenAddressForChain', () => {
+    const USDC_EVM = '0xdac17f958d2ee523a2206206994597c13d831ec7';
+    const USDC_SPL_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
+    it('accepts a valid ERC-20 contract address on EVM', () => {
+      expect(assertTokenAddressForChain(evm, USDC_EVM)).toBe(USDC_EVM);
+    });
+
+    it('rejects a base58 SPL mint on EVM', () => {
+      expect(() => assertTokenAddressForChain(evm, USDC_SPL_MINT)).toThrow(
+        /Invalid ERC-20 contract address/,
+      );
+    });
+
+    it('accepts a valid SPL mint on SOL', () => {
+      expect(assertTokenAddressForChain(sol, USDC_SPL_MINT)).toBe(
+        USDC_SPL_MINT,
+      );
+    });
+
+    it('rejects an EVM-shaped token on SOL', () => {
+      expect(() => assertTokenAddressForChain(sol, USDC_EVM)).toThrow(
+        /Invalid SPL mint address/,
+      );
+    });
+
+    it('rejects tokens on BTC entirely', () => {
+      expect(() => assertTokenAddressForChain(btc, USDC_EVM)).toThrow(
+        /Token transfers not supported/,
+      );
     });
   });
 });

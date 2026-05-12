@@ -1,4 +1,8 @@
-import { SOL_TXID_PATTERN, assertAddressForChain } from '../core/address-utils';
+import {
+  SOL_TXID_PATTERN,
+  assertAddressForChain,
+  assertTokenAddressForChain,
+} from '../core/address-utils';
 import {
   BTC_ADDRESS_TYPES,
   getBtcAddressTypeInfo,
@@ -151,6 +155,17 @@ export function registerTransferCommand(program: Command): void {
           const chainName = validated.chain ?? 'eth';
           const chainConfig = resolveChain(chainName);
 
+          // Fail-fast token format check. The schema is intentionally
+          // chain-agnostic (EVM contract address, SPL mint, etc.), so the
+          // strict per-chain validation happens here — before signer / auth
+          // work, otherwise a bad --token surfaces as AUTH_NO_WALLET.
+          // BTC has a native-only constraint enforced later in its branch
+          // with a clearer error; skip here.
+          const validatedToken =
+            validated.token && !isBtcImpl(chainConfig.impl)
+              ? assertTokenAddressForChain(chainConfig, validated.token)
+              : validated.token;
+
           if (isSolChain(chainConfig)) {
             assertChainCapability(chainConfig, 'solTransfer', 'transfer');
 
@@ -173,13 +188,14 @@ export function registerTransferCommand(program: Command): void {
             let tokenDecimals = chainConfig.nativeDecimals;
             let tokenMint: string | undefined;
             let tokenSymbol = chainConfig.nativeSymbol;
-            if (validated.token) {
+            if (validatedToken) {
+              const splMint = validatedToken;
               const tokenResults = await apiClient.post<ITokenDetailItem[]>(
                 'wallet',
                 '/wallet/v1/account/token/search',
                 {
                   networkId: chainConfig.networkId,
-                  contractList: [validated.token],
+                  contractList: [splMint],
                 },
               );
               const tokenInfo = tokenResults?.[0]?.info;
@@ -196,10 +212,10 @@ export function registerTransferCommand(program: Command): void {
                 );
               }
               // SPL mints are case-sensitive (base58) — strict equality only.
-              if (tokenInfo.address !== validated.token) {
+              if (tokenInfo.address !== splMint) {
                 throw new AppError(
                   ERROR_CODES.PARAM_INVALID_TOKEN.code,
-                  `Token address mismatch: expected ${validated.token}, got ${tokenInfo.address}`,
+                  `Token address mismatch: expected ${splMint}, got ${tokenInfo.address}`,
                   'Verify the SPL mint address is correct.',
                 );
               }
@@ -464,14 +480,15 @@ export function registerTransferCommand(program: Command): void {
 
           // Build encoded tx
           let encodedTx: Record<string, string>;
-          if (validated.token) {
+          if (validatedToken) {
+            const erc20Address = validatedToken;
             // #2 fix: POST with contractList as array, read from resp[0].info
             const tokenResults = await apiClient.post<ITokenDetailItem[]>(
               'wallet',
               '/wallet/v1/account/token/search',
               {
                 networkId: chainConfig.networkId,
-                contractList: [validated.token],
+                contractList: [erc20Address],
               },
             );
             const tokenInfo = tokenResults?.[0]?.info;
@@ -495,11 +512,11 @@ export function registerTransferCommand(program: Command): void {
             }
             // Guard against API returning a different token than requested
             if (
-              tokenInfo.address.toLowerCase() !== validated.token.toLowerCase()
+              tokenInfo.address.toLowerCase() !== erc20Address.toLowerCase()
             ) {
               throw new AppError(
                 ERROR_CODES.PARAM_INVALID_TOKEN.code,
-                `Token address mismatch: expected ${validated.token}, got ${tokenInfo.address}`,
+                `Token address mismatch: expected ${erc20Address}, got ${tokenInfo.address}`,
                 'Verify the token contract address is correct',
               );
             }
@@ -520,7 +537,7 @@ export function registerTransferCommand(program: Command): void {
               fromAddress,
               toAddress,
               validated.amount,
-              validated.token,
+              erc20Address,
               tokenInfo.decimals,
             );
           } else {

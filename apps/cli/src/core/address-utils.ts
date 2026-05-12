@@ -102,6 +102,43 @@ export function assertAddressForChain(
   );
 }
 
+// Token identifier format check by chain.
+// EVM: 0x + 40 hex (ERC-20 contract address).
+// SOL: 32-byte base58 PublicKey (SPL mint).
+// BTC/TBTC: no tokens.
+// Validates pre-API call so we fail fast with a chain-specific error.
+export function assertTokenAddressForChain(
+  chainConfig: IChainConfig,
+  token: string,
+): string {
+  if (chainConfig.impl === IMPL_EVM) {
+    if (!EVM_ADDRESS_RE.test(token)) {
+      throw new AppError(
+        ERROR_CODES.PARAM_INVALID_TOKEN.code,
+        `Invalid ERC-20 contract address for ${chainConfig.networkId}: ${token}`,
+        'Provide a 0x-prefixed, 40 hex character contract address.',
+      );
+    }
+    return token;
+  }
+  if (chainConfig.impl === IMPL_SOL) {
+    const validation = validateSolAddress(token);
+    if (!validation.isValid) {
+      throw new AppError(
+        ERROR_CODES.PARAM_INVALID_TOKEN.code,
+        `Invalid SPL mint address for ${chainConfig.networkId}: ${token}`,
+        'Provide a base58 SPL mint pubkey (32 bytes).',
+      );
+    }
+    return validation.normalizedAddress || token;
+  }
+  throw new AppError(
+    ERROR_CODES.PARAM_INVALID_TOKEN.code,
+    `Token transfers not supported on ${chainConfig.networkId}.`,
+    'Send the chain native asset instead.',
+  );
+}
+
 export function sameAddress(
   chainConfig: IChainConfig,
   left: string,
