@@ -296,10 +296,13 @@ function TxFeeInfo(props: IProps) {
           return staleResult;
         }
 
+        // Don't reset discountPercent: polling re-enters every tick and a
+        // transient 0 would flicker the TRON rental "减免 X%" label and the
+        // "优惠发送" button text. A downstream effect refreshes it from
+        // originalTotalFiat / totalFiat once the new estimate lands.
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
           errMessage: '',
-          discountPercent: 0,
         });
 
         const presetMultiTxsFee =
@@ -792,6 +795,11 @@ function TxFeeInfo(props: IProps) {
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
+          // Clear discount here because the loading reset above intentionally
+          // preserves it for no-flicker polling; the downstream recompute effect
+          // only depends on fee/rental inputs, so an error path would otherwise
+          // strand the TRON rental "减免 X%" / "优惠发送" badge over an Error UI.
+          discountPercent: 0,
           // Inner JSON-RPC error first so `execution reverted: ...` from the
           // upstream node survives the OneKey API response wrapper — the outer
           // `translatedMessage/message` is generic server-side packaging text

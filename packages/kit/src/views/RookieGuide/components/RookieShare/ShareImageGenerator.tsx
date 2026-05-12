@@ -12,16 +12,16 @@ import type {
 
 import {
   BACKGROUND_GRADIENT_COLORS,
-  DEFAULT_DOWNLOAD_SUBTITLE,
-  DEFAULT_QR_CAPTION,
-  DEFAULT_REFERRAL_LABEL,
   ONEKEY_LOGO_URL,
   getCanvasConfig,
   resolveFooterCtaText,
 } from './constants';
 
+import type { IRookieShareLocaleText } from './constants';
+
 interface IShareImageGeneratorProps {
   data: IRookieShareData;
+  localeText: IRookieShareLocaleText;
 }
 
 const imageCache = new Map<string, HTMLImageElement>();
@@ -81,18 +81,47 @@ function wrapText(
   text: string,
   maxWidth: number,
 ): string[] {
-  const words = text.split(' ');
+  const words = text.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let currentLine = '';
+  const fitsLine = (line: string): boolean =>
+    ctx.measureText(line).width <= maxWidth;
+
+  const breakLongWord = (word: string): string[] => {
+    const brokenLines: string[] = [];
+    let line = '';
+    for (const char of Array.from(word)) {
+      const nextLine = `${line}${char}`;
+      if (ctx.measureText(nextLine).width > maxWidth && line) {
+        brokenLines.push(line);
+        line = char;
+      } else {
+        line = nextLine;
+      }
+    }
+    if (line) {
+      brokenLines.push(line);
+    }
+    return brokenLines;
+  };
 
   for (const word of words) {
     const testLine = currentLine ? `${currentLine} ${word}` : word;
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
+    if (fitsLine(testLine)) {
       currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = '';
+      }
+
+      if (fitsLine(word)) {
+        currentLine = word;
+      } else {
+        const brokenWordLines = breakLongWord(word);
+        lines.push(...brokenWordLines.slice(0, -1));
+        currentLine = brokenWordLines[brokenWordLines.length - 1] || '';
+      }
     }
   }
   if (currentLine) {
@@ -122,7 +151,7 @@ const CANVAS_CONFIG = getCanvasConfig(CANVAS_SIZE);
 export const ShareImageGenerator = forwardRef<
   IRookieShareImageGeneratorRef,
   IShareImageGeneratorProps
->(({ data }, ref) => {
+>(({ data, localeText }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { imageUrl, title, subtitle, footerText, referralCode, referralUrl } =
     data;
@@ -250,12 +279,17 @@ export const ShareImageGenerator = forwardRef<
 
       if (logoImg) {
         const logoX = footer.paddingX;
-        const logoY = footer.y + (footer.height - logo.size) / 2;
+        const logoY =
+          footer.y + (footer.height - logo.size) / 2 + logo.footerOffsetY;
         ctx.drawImage(logoImg, logoX, logoY, logo.size, logo.size);
       }
 
       const textX = footer.paddingX + logo.size + spacing.footerLogoTextGap;
-      const line1Text = resolveFooterCtaText(referralCode, footerText);
+      const line1Text = resolveFooterCtaText(
+        referralCode,
+        footerText,
+        localeText,
+      );
 
       const line1Height = fonts.footerCta.size * fonts.footerCta.lineHeight;
       const codeTextHeight =
@@ -285,8 +319,8 @@ export const ShareImageGenerator = forwardRef<
           fonts.referralLabel.weight,
         );
         ctx.textBaseline = 'middle';
-        ctx.fillText(DEFAULT_REFERRAL_LABEL, textX, line2CenterY);
-        const labelWidth = ctx.measureText(DEFAULT_REFERRAL_LABEL).width;
+        ctx.fillText(localeText.referralLabel, textX, line2CenterY);
+        const labelWidth = ctx.measureText(localeText.referralLabel).width;
 
         const pillX = textX + labelWidth + spacing.footerReferralInlineGap;
         ctx.font = toCanvasFont(
@@ -319,7 +353,7 @@ export const ShareImageGenerator = forwardRef<
           fonts.referralLabel.weight,
         );
         ctx.textBaseline = 'top';
-        ctx.fillText(DEFAULT_DOWNLOAD_SUBTITLE, textX, line2Y);
+        ctx.fillText(localeText.downloadSubtitle, textX, line2Y);
       }
 
       if (referralUrl) {
@@ -360,7 +394,7 @@ export const ShareImageGenerator = forwardRef<
         ctx.textBaseline = 'top';
         setLetterSpacing(ctx, fonts.qrCaption.letterSpacing);
         ctx.fillText(
-          DEFAULT_QR_CAPTION,
+          localeText.qrCaption,
           qrCodeX + qrCode.size / 2,
           qrCodeY + qrCode.size + spacing.qrCaptionGap,
         );
@@ -374,7 +408,15 @@ export const ShareImageGenerator = forwardRef<
       }
       return '';
     }
-  }, [imageUrl, title, subtitle, footerText, referralCode, referralUrl]);
+  }, [
+    imageUrl,
+    title,
+    subtitle,
+    footerText,
+    referralCode,
+    referralUrl,
+    localeText,
+  ]);
 
   useImperativeHandle(ref, () => ({ generate }));
 

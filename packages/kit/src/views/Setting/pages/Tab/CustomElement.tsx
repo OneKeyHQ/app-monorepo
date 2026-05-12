@@ -35,14 +35,14 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  useAppUpdateInfo,
+} from '@onekeyhq/kit/src/components/AppUpdate';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
-import {
-  isShowAppUpdateUIWhenUpdating,
-  useAppUpdateInfo,
-} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import {
@@ -809,6 +809,33 @@ export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
         size={ESwitchSize.small}
         value={useGasAccountByDefault ?? true}
         onChange={toggleUseGasAccountByDefault}
+      />
+    </TabSettingsListItem>
+  );
+}
+
+export function SplitViewListItem(props: ICustomElementProps) {
+  const [{ enableSplitView }] = useSettingsPersistAtom();
+  const checked = enableSplitView !== false;
+  const toggleSplitView = useCallback(
+    async (value: boolean) => {
+      if (value === checked) return;
+      await backgroundApiProxy.serviceSetting.setEnableSplitView(value);
+      // Layout swap requires a fresh app boot; small delay lets the Switch
+      // animate before the native restart kicks in.
+      setTimeout(() => {
+        void backgroundApiProxy.serviceApp.restartApp();
+      }, 200);
+    },
+    [checked],
+  );
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        alignSelf="flex-start"
+        size={ESwitchSize.small}
+        value={checked}
+        onChange={toggleSplitView}
       />
     </TabSettingsListItem>
   );

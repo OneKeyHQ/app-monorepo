@@ -733,6 +733,14 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setEnableSplitView(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableSplitView: value,
+    }));
+  }
+
+  @backgroundMethod()
   public async getEnableMenuBarTray() {
     const { enableMenuBarTray } = await settingsPersistAtom.get();
     // Fall back to true to match settingsAtomInitialValue for upgrades.
