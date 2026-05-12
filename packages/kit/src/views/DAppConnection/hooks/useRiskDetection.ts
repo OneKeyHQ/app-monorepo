@@ -70,6 +70,16 @@ function useRiskDetection({
       );
     }
     if (validation === 'UNKNOWN') {
+      // Only strip the verified-site affordance when the backend has nothing
+      // worse to say. A backend-flagged High/Medium origin must keep its
+      // severity — UNKNOWN means "can't attest identity", not "safe".
+      const backendLevel = backendSecurityInfo?.level;
+      if (
+        backendLevel === EHostSecurityLevel.High ||
+        backendLevel === EHostSecurityLevel.Medium
+      ) {
+        return backendSecurityInfo;
+      }
       return overrideSecurityLevel(
         backendSecurityInfo,
         EHostSecurityLevel.Unknown,
