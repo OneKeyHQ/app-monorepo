@@ -14,6 +14,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { SettingTestIDs } from '@onekeyhq/kit/src/views/Setting/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -118,13 +119,13 @@ export function ApiEndpointForm({
         >
           <Input
             placeholder="Enter a name for this endpoint"
-            testID="setting-input"
+            testID={SettingTestIDs.apiEndpointNameInput}
           />
         </Form.Field>
 
         <Form.Field name="serviceModule" label="Service Module">
           <Select
-            testID="setting-select"
+            testID={SettingTestIDs.apiEndpointServiceModuleSelect}
             title="Service Module"
             items={serviceModuleOptions}
             placeholder="Select a service module"
@@ -134,7 +135,7 @@ export function ApiEndpointForm({
         <Form.Field name="api" label="API Endpoint">
           <Input
             placeholder="https://api.example.com or 192.168.1.100:8080"
-            testID="setting-input"
+            testID={SettingTestIDs.apiEndpointUrlInput}
           />
         </Form.Field>
 
@@ -142,15 +143,22 @@ export function ApiEndpointForm({
           name="enabled"
           label={intl.formatMessage({ id: ETranslations.global_enabled })}
         >
-          <Switch size="small" testID="setting-switch" />
+          <Switch
+            size="small"
+            testID={SettingTestIDs.apiEndpointEnabledSwitch}
+          />
         </Form.Field>
 
         <Stack flexDirection="row" gap="$3" justifyContent="flex-end">
-          <Button variant="secondary" onPress={onCancel} testID="setting-btn">
+          <Button
+            variant="secondary"
+            onPress={onCancel}
+            testID={SettingTestIDs.apiEndpointCancelButton}
+          >
             {intl.formatMessage({ id: ETranslations.global_cancel })}
           </Button>
           <Button
-            testID="setting-btn"
+            testID={SettingTestIDs.apiEndpointSaveButton}
             variant="primary"
             loading={isSubmitting}
             onPress={form.handleSubmit(handleSave)}

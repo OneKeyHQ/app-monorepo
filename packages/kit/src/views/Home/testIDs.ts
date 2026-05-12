@@ -28,7 +28,9 @@ export const HomeTestIDs = {
   totalBalance: 'home-total-balance',
 
   // Token list
-  tokenListItem: (symbol: string) => `home-token-item-${symbol}`,
+  tokenItemTestIDPrefix: 'home-token-item',
+  tokenListItem: (networkId: string, symbol: string) =>
+    `home-token-item-${networkId}-${symbol}`,
 
   // Risk approval
   riskApprovalAlert: 'home-risk-approval-alert',

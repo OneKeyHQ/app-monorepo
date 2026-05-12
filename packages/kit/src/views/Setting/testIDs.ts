@@ -47,4 +47,12 @@ export const SettingTestIDs = {
   devSplitBundleRefreshBtn: 'setting-dev-split-bundle-refresh-btn',
   devSplitBundleRunTestsBtn: 'setting-dev-split-bundle-run-tests-btn',
   devSplitBundleConcurrentBtn: 'setting-dev-split-bundle-concurrent-btn',
+
+  // API endpoint dialog form
+  apiEndpointNameInput: 'setting-api-endpoint-name-input',
+  apiEndpointUrlInput: 'setting-api-endpoint-url-input',
+  apiEndpointServiceModuleSelect: 'setting-api-endpoint-service-module-select',
+  apiEndpointEnabledSwitch: 'setting-api-endpoint-enabled-switch',
+  apiEndpointCancelButton: 'setting-api-endpoint-cancel-btn',
+  apiEndpointSaveButton: 'setting-api-endpoint-save-btn',
 } as const;

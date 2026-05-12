@@ -511,6 +511,9 @@ function TokenSelector() {
       <Page.Body>
         <TokenListView
           testID={AssetSelectorTestIDs.tokenSelectorList}
+          tokenItemTestIDPrefix={
+            AssetSelectorTestIDs.tokenSelectorItemTestIDPrefix
+          }
           accountId={accountId}
           networkId={networkId}
           indexedAccountId={indexedAccountId}
