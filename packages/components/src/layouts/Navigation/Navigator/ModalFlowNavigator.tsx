@@ -10,6 +10,7 @@ import { useTheme } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createOnBoardingNavigator from '../Modal/createOnBoardingNavigator';
 import createWebModalNavigator from '../Modal/createWebModalNavigator';
+import createWebViewNavigator from '../Modal/createWebViewNavigator';
 import { createStackNavigator } from '../StackNavigator';
 
 import { hasStackNavigatorModal } from './CommonConfig';
@@ -44,6 +45,10 @@ const ModalStack = hasStackNavigatorModal
 const OnBoardingStack = hasStackNavigatorModal
   ? createStackNavigator()
   : createOnBoardingNavigator();
+
+const WebViewStack = hasStackNavigatorModal
+  ? createStackNavigator()
+  : createWebViewNavigator();
 
 /**
  * Renders a modal stack navigator with configurable screens and lifecycle hooks.
@@ -81,6 +86,10 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
     [pageTypeFromProps],
   );
   const ModalStackComponent = useMemo(() => {
+    if (contextValue.pageType === EPageType.webView) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return WebViewStack;
+    }
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return contextValue.pageType === EPageType.onboarding ||
       contextValue.pageType === EPageType.fullScreenPush

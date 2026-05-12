@@ -27,8 +27,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
+import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
 import { registerHandler } from './handler';
+import { parseWebViewDeepLink } from './parseWebViewDeepLink';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';
@@ -138,6 +140,15 @@ async function processDeepLinkUrlAccount(
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');
           break;
+        case EOneKeyDeepLinkPath.webview: {
+          const query =
+            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.webview];
+          const webViewParams = parseWebViewDeepLink(query);
+          if (webViewParams) {
+            openWebView(webViewParams);
+          }
+          break;
+        }
         default:
           break;
       }
