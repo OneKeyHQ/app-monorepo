@@ -12,4 +12,8 @@ export const BulkSendTestIDs = {
 
   // --- Review ---
   reviewConfirmBtn: 'bulk-send-review-confirm-btn',
+
+  // --- Amounts interval header ---
+  amountIntervalModeSelect: 'bulk-send-amount-interval-mode-select',
+  amountIntervalModeTriggerBtn: 'bulk-send-amount-interval-mode-trigger-btn',
 } as const;

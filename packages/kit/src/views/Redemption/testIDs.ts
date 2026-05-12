@@ -11,4 +11,11 @@ export const RedemptionTestIDs = {
   // --- Redemption History ---
   historyList: 'redemption-history-list',
   historyItem: 'redemption-history-item',
+
+  // --- BTC reward detail ---
+  btcRewardCopyBtn: 'redemption-btc-reward-copy-btn',
+  btcRewardOpenExplorerBtn: 'redemption-btc-reward-open-explorer-btn',
+
+  // --- Verify voucher ---
+  verifyVoucherInput: 'redemption-verify-voucher-input',
 } as const;

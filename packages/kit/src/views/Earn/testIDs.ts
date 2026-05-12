@@ -36,4 +36,14 @@ export const EarnTestIDs = {
   // Risk notice
   riskNoticeDialog: 'earn-risk-notice-dialog',
   riskNoticeConfirmButton: 'earn-risk-notice-confirm',
+
+  // Protocol intro section
+  protocolIntroLinkButton: (title: string) =>
+    `earn-protocol-intro-link-${title}`,
+  protocolIntroAuditButton: (title: string) =>
+    `earn-protocol-intro-audit-${title}`,
+
+  // Network filter
+  networkFilterResetButton: 'earn-network-filter-reset-button',
+  networkFilterCheckbox: (id: string) => `earn-network-filter-checkbox-${id}`,
 } as const;

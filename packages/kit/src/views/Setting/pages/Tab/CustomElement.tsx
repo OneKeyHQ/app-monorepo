@@ -787,6 +787,7 @@ export function MenuBarTrayListItem(props: ICustomElementProps) {
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
+        testID={SettingTestIDs.tabMenuBarTraySwitch}
         size={ESwitchSize.small}
         value={isEnabled}
         onChange={toggleMenuBarTray}
@@ -828,6 +829,7 @@ export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
+        testID={SettingTestIDs.tabUseGasAccountByDefaultSwitch}
         alignSelf="flex-start"
         size={ESwitchSize.small}
         value={useGasAccountByDefault ?? true}
@@ -855,6 +857,7 @@ export function SplitViewListItem(props: ICustomElementProps) {
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
+        testID={SettingTestIDs.tabSplitViewSwitch}
         alignSelf="flex-start"
         size={ESwitchSize.small}
         value={checked}

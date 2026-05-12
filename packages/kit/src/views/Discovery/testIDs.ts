@@ -33,4 +33,9 @@ export const DiscoveryTestIDs = {
 
   // History
   historyListPage: 'discovery-history-list-page',
+
+  // Page translation
+  pageTranslationRetryBtn: 'discovery-page-translation-retry-btn',
+  pageTranslationSwitchEngineBtn:
+    'discovery-page-translation-switch-engine-btn',
 } as const;

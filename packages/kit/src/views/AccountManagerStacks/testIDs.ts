@@ -41,4 +41,14 @@ export const AccountManagerTestIDs = {
   // Wallet remove
   walletRemoveButton: 'account-manager-wallet-remove-button',
   walletRemoveConfirm: 'account-manager-wallet-remove-confirm',
+
+  // Bot wallet manager
+  botWalletVisibilityToggleBtn: 'bot-wallet-manager-visibility-toggle-btn',
+  botWalletExportMnemonicBtn: 'bot-wallet-manager-export-mnemonic-btn',
+  botWalletExportToCliBtn: 'bot-wallet-manager-export-to-cli-btn',
+  botWalletDeactivateBtn: 'bot-wallet-manager-deactivate-btn',
+  botWalletReactivateBtn: 'bot-wallet-manager-reactivate-btn',
+  botWalletCreateNameInput: 'bot-wallet-manager-create-name-input',
+  botWalletRefreshBtn: 'bot-wallet-manager-refresh-btn',
+  botWalletCreateBtn: 'bot-wallet-manager-create-btn',
 } as const;

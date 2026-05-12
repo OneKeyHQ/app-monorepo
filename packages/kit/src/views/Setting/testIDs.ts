@@ -36,4 +36,15 @@ export const SettingTestIDs = {
   eraseDataInput: 'erase-data-input', // preserve existing
   eraseDataConfirm: 'erase-data-confirm', // preserve existing
   confirmButton: 'confirm-button', // preserve existing
+
+  // Tab custom elements (desktop tab settings)
+  tabMenuBarTraySwitch: 'setting-tab-menu-bar-tray-switch',
+  tabUseGasAccountByDefaultSwitch:
+    'setting-tab-use-gas-account-by-default-switch',
+  tabSplitViewSwitch: 'setting-tab-split-view-switch',
+
+  // Dev split bundle test page
+  devSplitBundleRefreshBtn: 'setting-dev-split-bundle-refresh-btn',
+  devSplitBundleRunTestsBtn: 'setting-dev-split-bundle-run-tests-btn',
+  devSplitBundleConcurrentBtn: 'setting-dev-split-bundle-concurrent-btn',
 } as const;

@@ -20,6 +20,7 @@ import {
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { BulkSendTestIDs } from '@onekeyhq/kit/src/views/BulkSend/testIDs';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -109,6 +110,7 @@ function IntervalCard() {
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size="$bodyLgMedium">{title}</SizableText>
         <Select
+          testID={BulkSendTestIDs.amountIntervalModeSelect}
           title=""
           value={intervalSettings.mode}
           onChange={handleModeChange}
@@ -116,6 +118,7 @@ function IntervalCard() {
           placement="bottom-end"
           renderTrigger={({ label, onPress }) => (
             <Button
+              testID={BulkSendTestIDs.amountIntervalModeTriggerBtn}
               variant="tertiary"
               size="small"
               iconAfter="ChevronDownSmallOutline"
