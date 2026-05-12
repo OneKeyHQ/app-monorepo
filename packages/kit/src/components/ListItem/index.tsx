@@ -227,12 +227,9 @@ const ListItemText = (props: IListItemTextProps) => {
 
 /* IconButton */
 const ListItemIconButton = (props: IIconButtonProps) => (
-  <IconButton
-    testID="list-item-icon-btn"
-    variant="tertiary"
-    size="medium"
-    {...props}
-  />
+  // testID flows through {...props}.
+  // oxlint-disable-next-line onekey/require-testid
+  <IconButton variant="tertiary" size="medium" {...props} />
 );
 
 // CheckMark

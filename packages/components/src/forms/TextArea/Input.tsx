@@ -64,8 +64,9 @@ function BaseTextArea(
   useImperativeHandle(forwardedRef, () => ref.current as TextInput);
   useAutoScrollToTop(ref);
   return (
+    // testID is forwarded via the rest props the caller supplies.
+    // oxlint-disable-next-line onekey/require-testid
     <Input
-      testID="src-ref-input"
       containerProps={textAreaContainerProps}
       addOnsContainerProps={textAreaAddOnsContainerProps}
       addOnsItemProps={textAreaAddOnsItemProps}

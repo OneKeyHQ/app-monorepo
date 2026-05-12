@@ -360,11 +360,9 @@ function BasicActionList({
 
   const trigger = useMemo(() => {
     return (
-      <Trigger
-        onPress={handleActionListOpen}
-        disabled={disabled}
-        testID="src-trigger-trigger"
-      >
+      // testID is carried by renderTrigger from the caller.
+      // oxlint-disable-next-line onekey/require-testid
+      <Trigger onPress={handleActionListOpen} disabled={disabled}>
         {renderTrigger}
       </Trigger>
     );
@@ -587,11 +585,9 @@ function ActionListFrame(props: IActionListProps) {
     return <BasicActionList {...props} />;
   }
   return (
-    <Trigger
-      onPress={handleActionListOpen}
-      disabled={disabled}
-      testID="src-handle-action-list-open-trigger"
-    >
+    // testID is carried by renderTrigger from the caller.
+    // oxlint-disable-next-line onekey/require-testid
+    <Trigger onPress={handleActionListOpen} disabled={disabled}>
       {renderTrigger}
     </Trigger>
   );

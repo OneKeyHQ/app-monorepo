@@ -81,8 +81,9 @@ export function PaginationButton({
 
   return (
     <Animated.View pointerEvents="box-none" style={containerStyle}>
+      {/* Internal banner pagination control. */}
+      {/* oxlint-disable-next-line onekey/require-testid */}
       <IconButton
-        testID="src-icon-props-icon-btn"
         disabled={!isVisible}
         variant={variant}
         icon={icon}

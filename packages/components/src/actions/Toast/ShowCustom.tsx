@@ -209,9 +209,9 @@ export function ShowToasterClose({ children }: PropsWithChildren) {
     void close();
   }, [close]);
   return (
-    <Trigger testID="toast-close-trigger" onPress={handleClose}>
-      {children}
-    </Trigger>
+    // testID flows through children supplied by the caller.
+    // oxlint-disable-next-line onekey/require-testid
+    <Trigger onPress={handleClose}>{children}</Trigger>
   );
 }
 

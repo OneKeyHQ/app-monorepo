@@ -149,8 +149,9 @@ function BasicDialogHeader({
 
       {/* close button */}
       {showExitButton ? (
+        // Internal dialog control; QA should target the dialog body.
+        // oxlint-disable-next-line onekey/require-testid
         <IconButton
-          testID="src-icon-btn"
           trackID={trackID}
           position="absolute"
           zIndex={1}

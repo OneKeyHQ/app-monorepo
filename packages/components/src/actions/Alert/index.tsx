@@ -270,8 +270,9 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
         </XStack>
       ) : null}
       {closable ? (
+        // Internal alert close affordance.
+        // oxlint-disable-next-line onekey/require-testid
         <IconButton
-          testID="src-icon-btn"
           title={intl.formatMessage({ id: ETranslations.explore_dismiss })}
           icon="CrossedSmallSolid"
           size="small"

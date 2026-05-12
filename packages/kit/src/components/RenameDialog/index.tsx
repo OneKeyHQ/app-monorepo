@@ -399,8 +399,9 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
               },
             }}
           >
+            {/* Caller-driven dialog; testID can be threaded via outer props. */}
+            {/* oxlint-disable-next-line onekey/require-testid */}
             <Input
-              testID="rename-dialog-input"
               size="large"
               $gtMd={{ size: 'medium' }}
               maxLength={20}

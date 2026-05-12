@@ -26,13 +26,9 @@ interface IEmptyProps extends YStackProps {
 
 export function EmptyButton(props: IButtonProps) {
   return (
-    <Button
-      testID="empty-btn"
-      variant="primary"
-      size="medium"
-      mt="$6"
-      {...props}
-    />
+    // testID flows through {...props}.
+    // oxlint-disable-next-line onekey/require-testid
+    <Button variant="primary" size="medium" mt="$6" {...props} />
   );
 }
 export function Empty(props: IEmptyProps) {

@@ -626,8 +626,9 @@ function BaseInputUnControlled(
   );
 
   return (
+    // testID flows through {...inputProps}; caller supplies it via the page registry.
+    // oxlint-disable-next-line onekey/require-testid
     <Input
-      testID="src-handle-change-input"
       ref={inputRef}
       allowFontScaling={false}
       {...(inputProps as any)}

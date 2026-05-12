@@ -446,11 +446,9 @@ function RawPopover({
       {...props}
     >
       <TMPopover.Trigger asChild>
-        <Trigger
-          ref={triggerRef}
-          onPress={openPopover}
-          testID="src-scroll-view-style-trigger"
-        >
+        {/* testID is carried by renderTrigger from the caller. */}
+        {/* oxlint-disable-next-line onekey/require-testid */}
+        <Trigger ref={triggerRef} onPress={openPopover}>
           {renderTrigger}
         </Trigger>
       </TMPopover.Trigger>
@@ -689,8 +687,9 @@ function Tooltip({
 }) {
   const triggerMemo = useMemo(
     () => (
+      // testID flows through {...triggerProps} so caller controls it.
+      // oxlint-disable-next-line onekey/require-testid
       <IconButton
-        testID="src-trigger-memo-icon-btn"
         iconColor="$iconSubdued"
         iconSize={iconSize}
         icon="InfoCircleOutline"

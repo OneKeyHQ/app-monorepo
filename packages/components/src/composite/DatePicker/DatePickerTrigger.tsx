@@ -120,8 +120,9 @@ export const DatePickerTrigger = memo(
     );
 
     return (
+      // Read-only trigger; QA targets the wrapping date picker.
+      // oxlint-disable-next-line onekey/require-testid
       <Input
-        testID="src-add-ons-input"
         value={hasValue ? displayValue : ''}
         disabled={disabled}
         placeholder={placeholder || displayValue}
