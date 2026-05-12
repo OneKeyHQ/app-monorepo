@@ -27,6 +27,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { ITokenListItemProps } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
+import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -104,6 +105,7 @@ const SwapTokenSelectPage = ({
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const [showLpTokensOnly, setShowLpTokensOnly] = useState(false);
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   if (fromTokenRef.current !== fromToken) {
@@ -162,6 +164,13 @@ const SwapTokenSelectPage = ({
   const [currentSelectNetwork, setCurrentSelectNetwork] =
     useSwapSelectTokenNetworkAtom();
   const listViewRef = useRef<FlatList>(null);
+  const handleLpTokenFilterChange = useCallback((value: boolean) => {
+    setShowLpTokensOnly(value);
+    listViewRef.current?.scrollToOffset({
+      offset: 0,
+      animated: false,
+    });
+  }, []);
 
   useEffect(() => {
     setCurrentSelectNetwork(syncDefaultNetworkSelect);
@@ -193,6 +202,7 @@ const SwapTokenSelectPage = ({
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
     swapTypeSwitch,
+    showLpTokensOnly,
   );
   const alertIndex = useMemo(
     () =>
@@ -574,19 +584,33 @@ const SwapTokenSelectPage = ({
         }}
       />
       <Page.Body>
-        <XStack px="$5" pb="$2">
-          <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
-            {intl.formatMessage({
-              id: ETranslations.token_selector_network,
-            })}
-          </SizableText>
-          <XStack>
-            <SizableText size="$bodyMd">
-              {currentSelectNetwork?.isAllNetworks
-                ? intl.formatMessage({ id: ETranslations.global_all_networks })
-                : currentSelectNetwork?.name}
+        <XStack
+          px="$5"
+          pb="$2"
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$3"
+        >
+          <XStack alignItems="center" flexShrink={1}>
+            <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
+              {intl.formatMessage({
+                id: ETranslations.token_selector_network,
+              })}
             </SizableText>
+            <XStack flexShrink={1}>
+              <SizableText size="$bodyMd" numberOfLines={1}>
+                {currentSelectNetwork?.isAllNetworks
+                  ? intl.formatMessage({
+                      id: ETranslations.global_all_networks,
+                    })
+                  : currentSelectNetwork?.name}
+              </SizableText>
+            </XStack>
           </XStack>
+          <TokenSelectorLpTokenSwitch
+            value={showLpTokensOnly}
+            onChange={handleLpTokenFilterChange}
+          />
         </XStack>
         <NetworkToggleGroup
           onMoreNetwork={() => {

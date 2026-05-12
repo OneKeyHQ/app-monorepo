@@ -16,6 +16,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import { buildSwapAllNetworkTokenListCacheKey } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -1935,6 +1936,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountAddress?: string,
       isFirstFetch?: boolean,
       allNetAccountId?: string,
+      lpToken?: boolean,
     ) => {
       const protocol = get(swapTypeSwitchAtom());
       const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
@@ -1945,6 +1947,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         onlyAccountTokens: true,
         isAllNetworkFetchAccountTokens: true,
         protocol,
+        lpToken,
       });
       if (result?.length) {
         if (isFirstFetch && allNetAccountId) {
@@ -2002,6 +2005,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       indexedAccountId?: string,
       otherWalletTypeAccountId?: string,
+      lpToken?: boolean,
     ) => {
       const swapAllNetworkActionLock = get(swapAllNetworkActionLockAtom());
       if (swapAllNetworkActionLock) {
@@ -2020,11 +2024,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           otherWalletTypeAccountId,
           swapSupportNetworks: currentTypeSupportNetworks,
         });
+      const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
+        accountId: accountIdKey,
+        lpToken,
+      });
       if (swapSupportAccounts.length > 0) {
         set(swapAllNetworkActionLockAtom(), true);
         const currentSwapAllNetworkTokenList = get(
           swapAllNetworkTokenListMapAtom(),
-        )[accountIdKey];
+        )[tokenListCacheKey];
         const accountAddressList = swapSupportAccounts
           .filter((item) => item.apiAddress)
           .filter(
@@ -2045,7 +2053,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               accountId,
               apiAddress,
               !currentSwapAllNetworkTokenList,
-              indexedAccountId ?? otherWalletTypeAccountId ?? '',
+              tokenListCacheKey,
+              lpToken,
             );
         });
 
@@ -2064,14 +2073,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             .flat();
           set(swapAllNetworkTokenListMapAtom(), (v) => ({
             ...v,
-            [accountIdKey]: allTokensResult,
+            [tokenListCacheKey]: allTokensResult,
           }));
         }
         set(swapAllNetworkActionLockAtom(), false);
       } else {
         set(swapAllNetworkTokenListMapAtom(), (v) => ({
           ...v,
-          [accountIdKey]: [],
+          [tokenListCacheKey]: [],
         }));
       }
     },

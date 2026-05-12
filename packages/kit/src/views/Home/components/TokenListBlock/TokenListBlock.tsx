@@ -17,6 +17,7 @@ import {
   IconButton,
   Skeleton,
   Stack,
+  XStack,
   onVisibilityStateChange,
   useOnRouterChange,
   useTabIsRefreshingFocused,
@@ -27,6 +28,7 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
 import { getTokenListOwnerCacheAccountId } from '@onekeyhq/kit/src/components/TokenListView/utils';
+import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
@@ -78,6 +80,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import { buildTokenSelectorDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildAggregateTokenListData,
   buildLocalAggregateTokenMapKey,
@@ -137,6 +140,7 @@ function TokenListBlock({
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
+  const [showLpTokensOnly, setShowLpTokensOnly] = useState(false);
   const [tokenListState] = useTokenListStateAtom();
   const [allNetworkAccounts, setAllNetworkAccounts] = useState<
     IAllNetworkAccountInfo[] | undefined
@@ -150,6 +154,14 @@ function TokenListBlock({
 
   const [accountTokensWorth] = useAccountWorthAtom();
   const [, setOverviewTokenCacheState] = useOverviewTokenCacheStateAtom();
+
+  const tokenSelectorFilterParams = useMemo(
+    () =>
+      buildTokenSelectorDappTokenFilterParams({
+        lpToken: showLpTokensOnly,
+      }),
+    [showLpTokensOnly],
+  );
 
   const accountTokensValue = useMemo(() => {
     return calculateAccountTokensValue({
@@ -311,8 +323,9 @@ function TokenListBlock({
                 mergeTokens: true,
                 networkId: network.id,
                 flag: 'home-token-list',
-                saveToLocal: true,
+                saveToLocal: !showLpTokensOnly,
                 indexedAccountId: indexedAccount?.id,
+                ...tokenSelectorFilterParams,
               }),
             ),
           );
@@ -392,8 +405,9 @@ function TokenListBlock({
             mergeTokens: true,
             networkId: network.id,
             flag: 'home-token-list',
-            saveToLocal: true,
+            saveToLocal: !showLpTokensOnly,
             indexedAccountId: indexedAccount?.id,
+            ...tokenSelectorFilterParams,
           });
 
           let accountWorth = new BigNumber(0);
@@ -458,7 +472,7 @@ function TokenListBlock({
             tokens: r.allTokens.map,
           });
           const mergedTokens = r.allTokens.data;
-          if (mergedTokens && mergedTokens.length) {
+          if (!showLpTokensOnly && mergedTokens && mergedTokens.length) {
             void backgroundApiProxy.serviceToken.updateLocalTokens({
               networkId: network.id,
               tokens: mergedTokens,
@@ -514,6 +528,8 @@ function TokenListBlock({
       refreshAllTokenListMap,
       updateTokenListState,
       setIsHeaderRefreshing,
+      tokenSelectorFilterParams,
+      showLpTokensOnly,
     ],
     {
       overrideIsFocused: (isPageFocused) =>
@@ -584,7 +600,8 @@ function TokenListBlock({
         isManualRefresh: isAllNetworkManualRefresh.current,
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
-        saveToLocal: true,
+        saveToLocal: !showLpTokensOnly,
+        ...tokenSelectorFilterParams,
         customTokensRawData: customTokensRawData.current,
         blockedTokensRawData: riskTokenManagementRawData.current.blockedTokens,
         unblockedTokensRawData:
@@ -839,6 +856,8 @@ function TokenListBlock({
       updateAccountWorth,
       updateAllNetworkData,
       updateTokenListState,
+      tokenSelectorFilterParams,
+      showLpTokensOnly,
     ],
   );
 
@@ -993,6 +1012,10 @@ function TokenListBlock({
       xpub?: string;
       accountAddress: string;
     }) => {
+      if (showLpTokensOnly) {
+        return null;
+      }
+
       const perf = perfUtils.createPerf({
         name: EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
       });
@@ -1033,7 +1056,7 @@ function TokenListBlock({
         networkId,
       };
     },
-    [],
+    [showLpTokensOnly],
   );
 
   const handleAllNetworkCacheData = useCallback(
@@ -1614,6 +1637,10 @@ function TokenListBlock({
     });
     const currentNetworkId = network?.id;
     if (!currentAccountId || !currentNetworkId) return;
+    if (showLpTokensOnly) {
+      handleClearAllNetworkData();
+      return;
+    }
     // Every `refreshAllTokenList` writer in this file (the `run` polling
     // fn, `initTokenListData`, `updateAllNetworksTokenList`) stamps
     // `account?.id` into `allTokenList.accountId`. In merge mode
@@ -1695,6 +1722,8 @@ function TokenListBlock({
     refreshSmallBalanceTokensFiatValue,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
+    handleClearAllNetworkData,
+    showLpTokensOnly,
   ]);
 
   useEffect(() => {
@@ -1729,6 +1758,24 @@ function TokenListBlock({
 
       if (networkId === networkIdsMap.onekeyall) {
         perfTokenListView.markStart('tokenListRefreshing_1');
+        updateTokenListState({
+          initialized: false,
+          isRefreshing: true,
+        });
+        updateAccountOverviewState({
+          initialized: false,
+          isRefreshing: true,
+        });
+        handleClearAllNetworkData();
+        return;
+      }
+
+      if (showLpTokensOnly) {
+        setOverviewTokenCacheState({
+          ownerKey: buildOverviewOwnerKey(account?.id, networkId),
+          hasCache: false,
+        });
+        perfTokenListView.markStart('tokenListRefreshing_2');
         updateTokenListState({
           initialized: false,
           isRefreshing: true,
@@ -2028,6 +2075,7 @@ function TokenListBlock({
     updateSearchKey,
     updateTokenListState,
     wallet?.id,
+    showLpTokensOnly,
   ]);
 
   useEffect(() => {
@@ -2259,22 +2307,38 @@ function TokenListBlock({
   ]);
 
   const renderHeaderActions = useCallback(() => {
+    const filterSwitch = (
+      <TokenSelectorLpTokenSwitch
+        value={showLpTokensOnly}
+        onChange={setShowLpTokensOnly}
+      />
+    );
+
     if (manageTokenEnabled && tableLayout) {
       return (
-        <IconButton
-          title={intl.formatMessage({
-            id: ETranslations.manage_token_title,
-          })}
-          variant="tertiary"
-          icon="SliderHorOutline"
-          onPress={handleOnManageToken}
-          size="medium"
-        />
+        <XStack alignItems="center" gap="$2">
+          {filterSwitch}
+          <IconButton
+            title={intl.formatMessage({
+              id: ETranslations.manage_token_title,
+            })}
+            variant="tertiary"
+            icon="SliderHorOutline"
+            onPress={handleOnManageToken}
+            size="medium"
+          />
+        </XStack>
       );
     }
 
-    return null;
-  }, [tableLayout, intl, manageTokenEnabled, handleOnManageToken]);
+    return filterSwitch;
+  }, [
+    tableLayout,
+    intl,
+    manageTokenEnabled,
+    handleOnManageToken,
+    showLpTokensOnly,
+  ]);
 
   const renderContent = useCallback(() => {
     return (
@@ -2287,7 +2351,7 @@ function TokenListBlock({
         inTabList
         hideValue
         withSwapAction
-        hideDeFiMarkedTokens
+        hideDeFiMarkedTokens={!showLpTokensOnly}
         accountId={account?.id ?? ''}
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}
@@ -2347,6 +2411,7 @@ function TokenListBlock({
     network?.id,
     network?.isAllNetworks,
     network?.name,
+    showLpTokensOnly,
   ]);
 
   return (

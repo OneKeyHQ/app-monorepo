@@ -296,6 +296,7 @@ export default class ServiceSwap extends ServiceBase {
     onlyAccountTokens,
     isAllNetworkFetchAccountTokens,
     protocol,
+    lpToken,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
     if (!isAllNetworkFetchAccountTokens) {
       await this.cancelFetchTokenList();
@@ -317,6 +318,7 @@ export default class ServiceSwap extends ServiceBase {
       accountNetworkId,
       skipReservationValue: true,
       onlyAccountTokens,
+      ...(lpToken ? { lpToken } : {}),
     };
     if (!isAllNetworkFetchAccountTokens) {
       this._tokenListAbortController = new AbortController();
