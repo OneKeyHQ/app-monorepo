@@ -985,6 +985,19 @@ async function createMainWindow() {
   const overlaySession = session.fromPartition(
     DESKTOP_WEBVIEW_OVERLAY_PARTITION,
   );
+  // Overlay loads arbitrary external https pages from deeplinks /
+  // notifications; the renderer's media-permission whitelist already
+  // denies getUserMedia at the react-native-webview layer, but the
+  // desktop session needs its own deny handlers because Electron
+  // defaults to granting permission requests when none are set
+  // (https://www.electronjs.org/docs/latest/tutorial/security#5-handle-session-permission-requests-from-remote-content).
+  overlaySession.setPermissionCheckHandler(() => false);
+  overlaySession.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => {
+      callback(false);
+    },
+  );
+  overlaySession.setDevicePermissionHandler(() => false);
 
   // Prevents clicking on links to open new Windows
   app.removeAllListeners('web-contents-created');

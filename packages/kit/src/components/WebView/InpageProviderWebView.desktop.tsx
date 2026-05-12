@@ -28,6 +28,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       isSpinnerLoading,
       displayProgressBar,
       disableBridge,
+      partition,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -141,6 +142,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onSrcChange={onSrcChange}
           receiveHandler={receiveHandler}
           disableBridge={disableBridge}
+          partition={partition}
           // Warning: any string work, any bool not work
           // @ts-expect-error
           allowpopups={allowpopups.toString()}
