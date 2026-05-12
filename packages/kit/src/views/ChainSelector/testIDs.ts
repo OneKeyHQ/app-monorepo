@@ -10,11 +10,11 @@ export const ChainSelectorTestIDs = {
     'chain-selector-add-custom-network-edit-mode-btn',
 
   // --- AllNetworksManager ---
-  allNetworksSearchBar: 'chain-selector-all-networks-search-bar',
+  allNetworksSearchBar: 'all-networks-manager-search-bar', // preserve existing
   allNetworksToggleAllBtn: 'chain-selector-all-networks-toggle-all-btn',
   allNetworksConfirmBtn: 'chain-selector-all-networks-confirm-btn',
 
   // --- UnifiedNetworkSelector ---
   unifiedAddNetworkBtn: 'chain-selector-unified-add-network-btn',
-  unifiedPortfolioConfirmBtn: 'chain-selector-unified-portfolio-confirm-btn',
+  unifiedPortfolioConfirmBtn: 'page-footer-confirm', // preserve existing
 } as const;

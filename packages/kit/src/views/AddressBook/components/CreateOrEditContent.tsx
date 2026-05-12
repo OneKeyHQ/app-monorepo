@@ -322,7 +322,7 @@ export function CreateOrEditContent({
                 });
               },
             }}
-            testID={AddressBookTestIDs.formNameInput}
+            testID={AddressBookTestIDs.formNameField}
           >
             <Input
               placeholder={intl.formatMessage({
@@ -375,7 +375,7 @@ export function CreateOrEditContent({
                 });
               },
             }}
-            testID={AddressBookTestIDs.formAddressInput}
+            testID={AddressBookTestIDs.formAddressField}
           >
             <AddressInput
               networkId={networkId}

@@ -11,9 +11,9 @@ export const DiscoveryTestIDs = {
   searchModalItem: (title: string) => `search-modal-${title.toLowerCase()}`, // preserve existing
 
   // Browser tabs
-  browserTabItem: (id: string) => `discovery-browser-tab-${id}`,
-  newTabButton: 'discovery-new-tab-button',
-  tabListButton: 'discovery-tab-list-button',
+  browserTabItem: (id: string) => `tab-modal-list-item-${id}`, // preserve existing
+  newTabButton: 'browser-bar-add', // preserve existing
+  tabListButton: 'browser-bar-tabs', // preserve existing
 
   // Tab actions
   tabActionPin: (isPinned: boolean) =>
@@ -22,9 +22,9 @@ export const DiscoveryTestIDs = {
   tabActionBookmark: 'discovery-tab-action-bookmark',
 
   // Browser navigation
-  browserBackButton: 'discovery-browser-back',
-  browserForwardButton: 'discovery-browser-forward',
-  browserRefreshButton: 'discovery-browser-refresh',
+  browserBackButton: 'browser-bar-go-back', // preserve existing
+  browserForwardButton: 'browser-bar-go-forward', // preserve existing
+  browserRefreshButton: 'browser-bar-refresh', // preserve existing
   browserShareButton: 'discovery-browser-share',
 
   // Search modal

@@ -14,7 +14,7 @@ export const SendTestIDs = {
   pasteButton: 'send-paste-button',
 
   // Send confirm
-  confirmPage: 'send-confirm-page',
+  confirmPage: 'tx-confirmation-body', // preserve existing (shared with SignatureConfirm)
   confirmButton: 'send-confirm-button',
   cancelButton: 'send-cancel-button',
 
@@ -47,4 +47,16 @@ export const SendTestIDs = {
   // Recipient quick select
   recipientQuickSelectWalletToggle: 'send-recipient-quick-wallet-toggle',
   recipientQuickSelectNetworkTrigger: 'send-recipient-quick-network-trigger',
+
+  // Fee editor custom inputs (one per Form.Field name, derived per fee shape)
+  feeDotExtraTipInput: 'send-fee-dot-extra-tip-input',
+  feeMaxBaseFeeInput: 'send-fee-max-base-fee-input',
+  feePriorityFeeInput: 'send-fee-priority-fee-input',
+  feeGasLimitInput: 'send-fee-gas-limit-input',
+  feeGasSuiPriceInput: 'send-fee-gas-sui-price-input',
+  feeGasSuiBudgetInput: 'send-fee-gas-sui-budget-input',
+  feeGasPriceInput: 'send-fee-gas-price-input',
+  feeRateUtxoInput: 'send-fee-rate-utxo-input',
+  feeRateCkbInput: 'send-fee-rate-ckb-input',
+  feeComputeUnitPriceInput: 'send-fee-compute-unit-price-input',
 } as const;

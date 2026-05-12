@@ -3,7 +3,7 @@ export const DeveloperTestIDs = {
   galleryBtn: 'developer-gallery-btn',
   devHomeBtn: 'developer-dev-home-btn',
   signatureRecordsBtn: 'developer-signature-records-btn',
-  settingsBtn: 'developer-settings-btn',
+  settingsBtn: 'me-settings', // preserve existing
   walletConnectInput: 'developer-wallet-connect-input',
   walletConnectBtn: 'developer-wallet-connect-btn',
 

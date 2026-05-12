@@ -1,6 +1,6 @@
 export const PrimeTestIDs = {
   // --- Prime Dashboard ---
-  primeHeaderBtn: 'prime-header-btn',
+  primeHeaderBtn: 'headerRightPrimeButton', // preserve existing
   userInfoMoreBtn: 'prime-user-info-more-btn',
 
   // --- Login Email Dialog ---

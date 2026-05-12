@@ -72,7 +72,7 @@ export const DAppConnectionTestIDs = {
   ExtFloatingSwitchCancel: 'dapp-connection-ext-floating-switch-cancel-btn',
 
   // Account List Items
-  AccountListStandAlone: 'dapp-connection-account-list-standalone',
+  AccountListStandAlone: 'DAppAccountListStandAloneItem', // preserve existing
   AccountListItem: 'dapp-connection-account-list-item',
   NetworkSelector: 'dapp-connection-network-selector',
   AccountSelector: 'dapp-connection-account-selector-trigger',
