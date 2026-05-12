@@ -838,6 +838,7 @@ function SelectPrivateKeyNetworkView() {
             name="accountName"
           >
             <Input
+              testID={OnboardingTestIDs.selectPrivateKeyNetworkAccountNameInput}
               maxLength={MAX_LENGTH_ACCOUNT_NAME}
               placeholder={intl.formatMessage({
                 id: ETranslations.form_enter_account_name_placeholder,
@@ -861,6 +862,7 @@ function SelectPrivateKeyNetworkView() {
 
   const submitButton = (
     <Button
+      testID={OnboardingTestIDs.selectPrivateKeyNetworkSubmitBtn}
       w="100%"
       disabled={submitButtonDisabled}
       loading={submitButtonLoading}

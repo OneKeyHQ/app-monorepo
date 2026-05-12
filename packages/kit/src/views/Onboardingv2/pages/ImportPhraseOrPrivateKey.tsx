@@ -433,7 +433,12 @@ export default function ImportPhraseOrPrivateKey() {
               )}
             </HeightTransition>
             {gtMd ? (
-              <Button size="large" variant="primary" onPress={handleConfirm}>
+              <Button
+                testID={OnboardingTestIDs.importPhraseConfirmBtn}
+                size="large"
+                variant="primary"
+                onPress={handleConfirm}
+              >
                 {intl.formatMessage({ id: ETranslations.global_confirm })}
               </Button>
             ) : null}
@@ -492,6 +497,7 @@ export default function ImportPhraseOrPrivateKey() {
                         </XStack>
                       </HeightTransition>
                       <Button
+                        testID={OnboardingTestIDs.importPhraseConfirmBtn}
                         size="large"
                         variant="primary"
                         onPress={handleConfirm}
@@ -510,6 +516,7 @@ export default function ImportPhraseOrPrivateKey() {
           ) : (
             <YStack w="100%" pb="$5">
               <Button
+                testID={OnboardingTestIDs.importPhraseConfirmBtn}
                 size="large"
                 variant="primary"
                 onPress={handleConfirm}

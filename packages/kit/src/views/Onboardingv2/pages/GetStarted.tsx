@@ -413,12 +413,14 @@ function GetStarted() {
       icon: 'PlusCircleSolid',
       onPress: handleCreateNewWallet,
       mobileButtonProps: { variant: 'primary' },
+      testID: OnboardingTestIDs.createWalletButton,
     },
     {
       labelId: ETranslations.add_existing_wallet,
       icon: 'ArrowBottomCircleSolid',
       onPress: handleMoreOptions,
       mobileButtonProps: { variant: 'secondary' },
+      testID: OnboardingTestIDs.importWalletButton,
     },
     {
       labelId: ETranslations.global_connect_hardware_wallet,
@@ -429,6 +431,7 @@ function GetStarted() {
         borderWidth: 1,
         borderColor: '$borderSubdued',
       },
+      testID: OnboardingTestIDs.connectHardwareButton,
     },
   ] as const;
 
@@ -524,6 +527,7 @@ function GetStarted() {
             {actions.map((action) => (
               <Button
                 key={action.labelId}
+                testID={action.testID}
                 size="large"
                 alignSelf="stretch"
                 onPress={action.onPress}

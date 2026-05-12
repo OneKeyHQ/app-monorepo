@@ -129,7 +129,12 @@ function ConnectQRCodePage() {
                 </SizableText>
               </XStack>
             ))}
-            <Button mt="$2" variant="primary" onPress={handleScanQRCode}>
+            <Button
+              testID={OnboardingTestIDs.connectQRCodeScanBtn}
+              mt="$2"
+              variant="primary"
+              onPress={handleScanQRCode}
+            >
               {intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
             </Button>
           </ConnectionIndicator.Content>
