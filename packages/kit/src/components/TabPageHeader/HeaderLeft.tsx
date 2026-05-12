@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import useAppNavigation from '../../hooks/useAppNavigation';
 import { getHomeTabStackLength } from '../../views/Home/pages/urlAccount/urlAccountUtils';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
@@ -189,6 +190,7 @@ export function HeaderLeft({
   pageScrollPosition?: SharedValue<number>;
 }) {
   const { gtMd: _gtMd } = useMedia();
+  const navigation = useAppNavigation();
 
   const items = useMemo(() => {
     if (customHeaderLeftItems) {
@@ -216,9 +218,16 @@ export function HeaderLeft({
               ) {
                 rootNavigationRef.current?.goBack();
               } else {
-                rootNavigationRef.current?.dispatch(
-                  StackActions.replace(ETabHomeRoutes.TabHome),
-                );
+                if (platformEnv.isNative) {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: ETabHomeRoutes.TabHome }],
+                  });
+                } else {
+                  rootNavigationRef.current?.dispatch(
+                    StackActions.replace(ETabHomeRoutes.TabHome),
+                  );
+                }
               }
             }}
           />
@@ -242,6 +251,7 @@ export function HeaderLeft({
     return <WalletConnectionGroup tabRoute={tabRoute} />;
   }, [
     customHeaderLeftItems,
+    navigation,
     sceneName,
     tabRoute,
     selectedHeaderTab,
