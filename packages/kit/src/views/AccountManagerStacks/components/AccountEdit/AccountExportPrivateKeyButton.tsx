@@ -1,10 +1,11 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IExportKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { navigateToBackupWalletReminderPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
+import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -14,6 +15,7 @@ import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 
 export function AccountExportPrivateKeyButton({
   testID,
@@ -37,6 +39,20 @@ export function AccountExportPrivateKeyButton({
   wallet?: IDBWallet;
 }) {
   const navigation = useAppNavigation();
+
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  if (
+    shouldHideBotWalletExport({
+      isBotWallet,
+      isBotWalletDeactivated,
+    })
+  ) {
+    return null;
+  }
 
   return (
     <ActionList.Item

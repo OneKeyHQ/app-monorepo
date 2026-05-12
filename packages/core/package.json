@@ -5,7 +5,6 @@
   "main": "index.js",
   "description": "",
   "scripts": {
-    "_folderslint": "yarn folderslint",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
@@ -26,7 +25,7 @@
     "@mymonero/mymonero-keyimage-cache": "^3.0.0",
     "@noble/secp256k1": "1.7.1",
     "@onekeyfe/bitcoinforksjs-lib": "7.0.0-rc.0",
-    "@onekeyfe/cardano-coin-selection-asmjs": "1.1.10-alpha.8",
+    "@onekeyfe/cardano-coin-selection-asmjs": "1.1.11",
     "@onekeyfe/coinselect": "3.1.17",
     "@onekeyfe/kaspa-core-lib": "^1.0.2",
     "@onekeyfe/kaspa-wasm": "^1.0.2",
@@ -53,6 +52,7 @@
     "ecpair": "^2.1.0",
     "elliptic": "^6.6.0",
     "eth-sig-util": "^3.0.1",
+    "ethereumjs-util": "7.1.5",
     "js-conflux-sdk": "^2.1.12",
     "jsrsasign": "^10.8.6",
     "near-api-js": "^2.1.4",
@@ -65,7 +65,6 @@
   "devDependencies": {
     "@types/bchaddrjs": "^0.4.2",
     "@types/bs58": "^4.0.3",
-    "@types/jsrsasign": "^10.5.11",
-    "folderslint": "1.2.0"
+    "@types/jsrsasign": "^10.5.11"
   }
 }

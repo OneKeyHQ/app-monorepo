@@ -306,7 +306,7 @@ const MarketSelectorMobile = ({
             <SizableText
               size="$headingMd"
               textAlign="center"
-              color={isActive ? '$textText' : '$text'}
+              color={isActive ? '$text' : '$textSubdued'}
             >
               {intl.formatMessage({ id: messageId })}
             </SizableText>
@@ -324,7 +324,7 @@ const MarketSelectorMobile = ({
               bottom={0}
               left={0}
               right={0}
-              h="$0.5"
+              h={2}
               bg="$text"
               borderRadius={1}
             />
@@ -363,6 +363,8 @@ const MarketSelectorMobile = ({
         value={mode}
         options={options}
         fullWidth
+        h="auto"
+        overflow="visible"
         onChange={(value) => onModeChange?.(value as IEarnHomeMode)}
         slotBackgroundColor="$transparent"
         activeBackgroundColor="$transparent"

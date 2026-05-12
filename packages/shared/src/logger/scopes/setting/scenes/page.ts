@@ -169,4 +169,10 @@ export class PageScene extends BaseScene {
   public settingsEnableBTCFreshAddress({ enabled }: { enabled: boolean }) {
     return { enabled };
   }
+
+  // TODO(biologyAuth-debug): temporary log to diagnose biology auth visibility
+  @LogToLocal({ level: 'info' })
+  public biologyAuthDebug(tag: string, state: Record<string, unknown>) {
+    return { tag, ...state };
+  }
 }

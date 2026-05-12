@@ -12,7 +12,6 @@ import { StyleSheet } from 'react-native';
 import {
   Icon,
   Image,
-  RichSizeableText,
   SizableText,
   Skeleton,
   Stack,
@@ -20,13 +19,15 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  EModalSettingRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IDApp } from '@onekeyhq/shared/types/discovery';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { useWebSiteHandler } from '../hooks/useWebSiteHandler';
 import { DappSearchModalSectionHeader } from '../pages/SearchModal/DappSearchModalSectionHeader';
@@ -35,6 +36,7 @@ import { DiscoveryTestIDs } from '../testIDs';
 import { DiscoveryIcon } from './DiscoveryIcon';
 
 import type { ILocalDataType } from '../hooks/useSearchModalData';
+import type { IDiscoverySearchListItem } from '../utils/searchResultRanking';
 
 const LoadingSkeleton = (
   <Image.Loading>
@@ -49,18 +51,81 @@ export interface ISearchResultContentRef {
 interface ISearchResultContentProps {
   searchValue: string;
   localData: ILocalDataType | null;
-  searchList: IDApp[];
+  searchList: IDiscoverySearchListItem[];
   displaySearchList: boolean;
   displayBookmarkList: boolean;
   displayHistoryList: boolean;
   SEARCH_ITEM_ID: string;
   useCurrentWindow?: boolean;
   tabId?: string;
-  onItemClick?: (
-    item: IDApp | { url: string; title: string; logo?: string },
-  ) => void;
+  onItemClick?: (item: { url: string; title: string; logo?: string }) => void;
   selectedIndex?: number;
   innerRef?: React.RefObject<ISearchResultContentRef>;
+}
+
+const HTML_ANCHOR_TAG_REGEXP = /<\/?a(?:\s[^>]*)?>/giu;
+
+function escapeRegExp(value: string) {
+  return value.replace(/[[\]()+?*^$.|\\{}]/g, '\\$&');
+}
+
+function stripSearchResultTitleMarkup(title: string) {
+  return title.replace(HTML_ANCHOR_TAG_REGEXP, '');
+}
+
+function getSearchResultTitleParts({
+  title,
+  keyword,
+}: {
+  title: string;
+  keyword?: string;
+}) {
+  const normalizedTitle = stripSearchResultTitleMarkup(title);
+  const normalizedKeyword = keyword?.trim();
+  if (!normalizedKeyword) {
+    return [{ text: normalizedTitle, highlighted: false }];
+  }
+
+  const keywordRegExp = new RegExp(
+    `(${escapeRegExp(normalizedKeyword)})`,
+    'ig',
+  );
+  return normalizedTitle
+    .split(keywordRegExp)
+    .filter(Boolean)
+    .map((text) => ({
+      text,
+      highlighted: text.toLowerCase() === normalizedKeyword.toLowerCase(),
+    }));
+}
+
+function DappSearchResultTitle({
+  item,
+}: {
+  item: Extract<IDiscoverySearchListItem, { type: 'dapp' }>;
+}) {
+  const titleParts = getSearchResultTitleParts({
+    title: item.title,
+    keyword: item.keyword,
+  });
+
+  return (
+    <SizableText numberOfLines={1} size="$bodyLgMedium" flex={1}>
+      {titleParts.map((part, index) =>
+        part.highlighted ? (
+          <SizableText
+            key={`${part.text}-${index}`}
+            size="$bodyLgMedium"
+            color="$textInfo"
+          >
+            {part.text}
+          </SizableText>
+        ) : (
+          part.text
+        ),
+      )}
+    </SizableText>
+  );
 }
 
 export function SearchResultContent({
@@ -80,6 +145,7 @@ export function SearchResultContent({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const handleWebSite = useWebSiteHandler();
+  const [devSettings] = useDevSettingsPersistAtom();
 
   // State for keeping track of which section is active
   const [selectedSection, setSelectedSection] = useState<
@@ -104,6 +170,19 @@ export function SearchResultContent({
   const historyCount = displayHistoryList
     ? localData?.historyData?.length || 0
     : 0;
+  const showLocalhostDevSettingHint =
+    devSettings.enabled &&
+    !devSettings.settings?.allowLocalhostUrlInDAppBrowser &&
+    uriUtils.isLocalhostUrl(searchValue);
+
+  const handleOpenLocalhostDevSetting = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListSubModal,
+      params: {
+        name: 'Dev',
+      },
+    });
+  }, [navigation]);
 
   // Helper functions to calculate adjusted indices
   const getAdjustedBookmarkIndex = useCallback(() => {
@@ -196,42 +275,6 @@ export function SearchResultContent({
     historyCount,
   ]);
 
-  // Handlers for different types of items
-  const handleSearchItemClick = useCallback(
-    (item: IDApp) => {
-      onItemClick?.(item);
-
-      if (item.dappId === SEARCH_ITEM_ID) {
-        handleWebSite({
-          webSite: {
-            url: searchValue,
-            title: searchValue,
-            logo: undefined,
-            sortIndex: undefined,
-          },
-          useCurrentWindow,
-          tabId,
-          enterMethod: EEnterMethod.search,
-        });
-      } else {
-        handleWebSite({
-          dApp: item,
-          useCurrentWindow,
-          tabId,
-          enterMethod: EEnterMethod.search,
-        });
-      }
-    },
-    [
-      SEARCH_ITEM_ID,
-      handleWebSite,
-      onItemClick,
-      searchValue,
-      tabId,
-      useCurrentWindow,
-    ],
-  );
-
   const handleBookmarkItemClick = useCallback(
     (item: { url: string; title: string; logo?: string }) => {
       onItemClick?.(item);
@@ -270,12 +313,69 @@ export function SearchResultContent({
     [handleWebSite, onItemClick, tabId, useCurrentWindow],
   );
 
+  // Handlers for different types of items
+  const handleSearchItemClick = useCallback(
+    (item: IDiscoverySearchListItem) => {
+      if (item.type === 'bookmark') {
+        handleBookmarkItemClick(item.bookmark);
+        return;
+      }
+      if (item.type === 'history') {
+        handleHistoryItemClick(item.history);
+        return;
+      }
+
+      if (item.type === 'search-action') {
+        const searchUrl = uriUtils.buildGoogleSearchUrl(searchValue);
+        onItemClick?.({
+          url: searchUrl,
+          title: searchValue,
+          logo: undefined,
+        });
+        handleWebSite({
+          webSite: {
+            url: searchUrl,
+            title: searchValue,
+            logo: undefined,
+            sortIndex: undefined,
+          },
+          useCurrentWindow,
+          tabId,
+          enterMethod: EEnterMethod.search,
+        });
+        return;
+      }
+
+      onItemClick?.({
+        url: item.dapp.url,
+        title: item.dapp.name,
+        logo: item.dapp.logo,
+      });
+      handleWebSite({
+        dApp: item.dapp,
+        useCurrentWindow,
+        tabId,
+        enterMethod: EEnterMethod.search,
+      });
+    },
+    [
+      handleBookmarkItemClick,
+      handleHistoryItemClick,
+      handleWebSite,
+      onItemClick,
+      searchValue,
+      tabId,
+      useCurrentWindow,
+    ],
+  );
+
   const openSelectedItem = useCallback(() => {
     // Priority: Check if first item is exact URL match when no item is manually selected
     try {
       if (
         displaySearchList &&
         searchList.length > 0 &&
+        searchList[0].type === 'dapp' &&
         searchList[0].isExactUrl &&
         selectedIndex === -1
       ) {
@@ -321,13 +421,11 @@ export function SearchResultContent({
 
     if (searchValue) {
       handleSearchItemClick({
-        dappId: SEARCH_ITEM_ID,
-        name: searchValue,
-        logo: '',
-        description: '',
+        type: 'search-action',
+        key: SEARCH_ITEM_ID,
+        title: searchValue,
         url: searchValue,
-        networkIds: [],
-        tags: [],
+        logo: '',
       });
       return { type: 'search' };
     }
@@ -361,10 +459,10 @@ export function SearchResultContent({
   );
 
   const renderList = useCallback(
-    (list: IDApp[]) =>
+    (list: IDiscoverySearchListItem[]) =>
       list.map((item, index) => (
         <ListItem
-          key={index}
+          key={item.key}
           // @ts-expect-error
           ref={
             ((el: any) => {
@@ -372,7 +470,8 @@ export function SearchResultContent({
             }) as any
           }
           avatarProps={{
-            src: item.logo || item.originLogo,
+            src:
+              item.type === 'dapp' ? item.logo || item.originLogo : item.logo,
             loading: LoadingSkeleton,
             bg: '$bgStrong',
             fallbackProps: {
@@ -384,27 +483,27 @@ export function SearchResultContent({
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: '$borderSubdued',
           }}
-          renderItemText={() => (
-            <RichSizeableText
-              linkList={{ a: { url: undefined, cursor: 'auto' } }}
-              numberOfLines={1}
-              size="$bodyLgMedium"
-              flex={1}
-            >
-              {item?.keyword
-                ? item.name.replace(
-                    new RegExp(
-                      item.keyword.replace(/[[\]()+?*^$.|\\{}]/g, '\\$&'),
-                      'ig',
-                    ),
-                    (match) => `<a>${match}</a>`,
-                  )
-                : item.name}
-            </RichSizeableText>
-          )}
-          subtitleProps={{
-            numberOfLines: 1,
-          }}
+          {...(item.type === 'dapp'
+            ? {
+                renderItemText: () => <DappSearchResultTitle item={item} />,
+                subtitleProps: {
+                  numberOfLines: 1,
+                },
+              }
+            : {
+                title: item.title,
+                titleMatch:
+                  item.type === 'search-action' ? undefined : item.titleMatch,
+                titleProps: {
+                  numberOfLines: 1,
+                },
+                subtitle: item.type === 'search-action' ? undefined : item.url,
+                subTitleMatch:
+                  item.type === 'search-action' ? undefined : item.urlMatch,
+                subtitleProps: {
+                  numberOfLines: 1,
+                },
+              })}
           bg={searchIndex(index) ? '$bgActive' : undefined}
           onPress={() => handleSearchItemClick(item)}
           testID={DiscoveryTestIDs.dappSearchItem(index)}
@@ -415,6 +514,19 @@ export function SearchResultContent({
 
   return (
     <>
+      {showLocalhostDevSettingHint ? (
+        <ListItem
+          icon="CodeOutline"
+          title="Local URLs are blocked by default"
+          subtitle='Enable "Allow local URLs in DApp Browser" in Developer settings'
+          subtitleProps={{
+            numberOfLines: 2,
+          }}
+          drillIn
+          onPress={handleOpenLocalhostDevSetting}
+          testID="discovery-localhost-dev-setting-hint"
+        />
+      ) : null}
       {displaySearchList ? (
         <Stack ref={searchListRef}>{renderList(searchList)}</Stack>
       ) : null}

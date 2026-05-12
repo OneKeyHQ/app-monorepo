@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { RefreshControl, ScrollView } from 'react-native';
 
@@ -12,6 +13,13 @@ import {
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import {
+  usePerpsAbstractionModeAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAccountSummaryAtom,
+  useSpotActiveOpenOrdersAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
@@ -25,15 +33,18 @@ import {
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
+import { SpotBalanceList } from '../components/OrderInfoPanel/List/SpotBalanceList';
 import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
+import { isHyperLiquidUnifiedAccountMode } from '../utils';
 
 export enum ETabName {
   Positions = 'Positions',
   OpenOrders = 'OpenOrders',
+  Balances = 'Balances',
   SwapProOpenOrders = 'SwapProOpenOrders',
   SwapOrderHistory = 'SwapOrderHistory',
 }
@@ -42,11 +53,13 @@ const tabNameToTranslationKey: Record<
   ETabName,
   | ETranslations.perp_position_title
   | ETranslations.perp_open_orders_title
+  | ETranslations.perp_holdings_tokens
   | ETranslations.Limit_open_order
   | ETranslations.Limit_order_history
 > = {
   [ETabName.Positions]: ETranslations.perp_position_title,
   [ETabName.OpenOrders]: ETranslations.perp_open_orders_title,
+  [ETabName.Balances]: ETranslations.perp_holdings_tokens,
   [ETabName.SwapProOpenOrders]: ETranslations.Limit_open_order,
   [ETabName.SwapOrderHistory]: ETranslations.Limit_order_history,
 };
@@ -64,6 +77,10 @@ export const TabBarItem = memo(
     tabCount?: string;
   }) => {
     const intl = useIntl();
+    const tabTitle = intl.formatMessage({
+      id: tabNameToTranslationKey[name],
+    });
+    const displayTitle = `${tabTitle}${tabCount ? ` ${tabCount}` : ''}`;
 
     return (
       <DebugRenderTracker
@@ -77,10 +94,8 @@ export const TabBarItem = memo(
           onPress={() => onPress(name)}
           mb={-2}
         >
-          <SizableText size="$bodyMdMedium">
-            {`${intl.formatMessage({
-              id: tabNameToTranslationKey[name],
-            })}${tabCount ? ` ${tabCount}` : ''}`}
+          <SizableText size="$bodyMdMedium" pr="$0.5">
+            {displayTitle}
           </SizableText>
         </XStack>
       </DebugRenderTracker>
@@ -118,8 +133,33 @@ export function PerpMobileLayout() {
     }
   }, [actions]);
 
-  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [perpOpenOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
+  const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
   const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [{ balances }] = useSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
+  );
+
+  const holdingsCount = useMemo(() => {
+    // Mirrors the USDC merge in SpotBalanceList.
+    const nonUsdcSpotCount = balances.filter(
+      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
+    ).length;
+    const hasSpotUsdc = balances.some(
+      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
+    );
+    const hasPerpsUsdc =
+      !isUnifiedAccountMode &&
+      !!accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0);
+    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
+  }, [accountSummary?.totalRawUsd, balances, isUnifiedAccountMode]);
 
   const positionsTabCount = useMemo(() => {
     if (positionsLength > 0) {
@@ -134,6 +174,13 @@ export function PerpMobileLayout() {
     }
     return '';
   }, [openOrdersLength]);
+
+  const holdingsTabCount = useMemo(() => {
+    if (holdingsCount > 0) {
+      return `(${holdingsCount})`;
+    }
+    return '';
+  }, [holdingsCount]);
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
@@ -180,6 +227,12 @@ export function PerpMobileLayout() {
             onPress={setActiveTab}
             tabCount={openOrdersTabCount}
           />
+          <TabBarItem
+            name={ETabName.Balances}
+            isFocused={activeTab === ETabName.Balances}
+            onPress={setActiveTab}
+            tabCount={holdingsTabCount}
+          />
         </XStack>
         <IconButton
           testID="perp-icon-btn"
@@ -207,6 +260,12 @@ export function PerpMobileLayout() {
           flex={1}
         >
           <PerpOpenOrdersList isMobile useTabsList={false} disableListScroll />
+        </YStack>
+        <YStack
+          display={activeTab === ETabName.Balances ? 'flex' : 'none'}
+          flex={1}
+        >
+          <SpotBalanceList isMobile useTabsList={false} disableListScroll />
         </YStack>
       </YStack>
     </ScrollView>

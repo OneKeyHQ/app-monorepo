@@ -7,52 +7,21 @@ import {
   Image,
   Popover,
   SizableText,
-  Stack,
   XStack,
 } from '@onekeyhq/components';
-import { ChainSelectorListView } from '@onekeyhq/kit/src/views/ChainSelector/components/PureChainSelector/ChainSelectorListView';
-import type { IServerNetworkMatch } from '@onekeyhq/kit/src/views/ChainSelector/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useMarketNetworks } from '../../../hooks/useMarketNetworks';
+import {
+  NETWORKS_SEARCH_PANEL_MAX_HEIGHT,
+  NetworksSearchPanel,
+} from '../MarketTokenListNetworkSelector/NetworksSearchPanel';
 
 interface IMobileNetworkDropdownProps {
   selectedNetworkId?: string;
   onNetworkIdChange?: (id: string) => void;
-}
-
-function NetworkDropdownContent({
-  networks,
-  selectedNetworkId,
-  onSelect,
-  closePopover,
-}: {
-  networks: IServerNetwork[];
-  selectedNetworkId?: string;
-  onSelect: (network: IServerNetwork) => void;
-  closePopover: () => void;
-}) {
-  const networksForListView = networks as IServerNetworkMatch[];
-
-  const handleNetworkPress = useCallback(
-    (network: IServerNetworkMatch) => {
-      onSelect(network as IServerNetwork);
-      closePopover();
-    },
-    [onSelect, closePopover],
-  );
-
-  return (
-    <Stack pt="$4">
-      <ChainSelectorListView
-        networkId={selectedNetworkId}
-        networks={networksForListView}
-        onPressItem={handleNetworkPress}
-      />
-    </Stack>
-  );
 }
 
 function MobileNetworkDropdownImpl({
@@ -86,7 +55,7 @@ function MobileNetworkDropdownImpl({
     () => (
       <XStack gap="$1" alignItems="center" cursor="pointer" userSelect="none">
         {isAllNetworks || !selectedNetwork?.logoURI ? (
-          <Icon name="AllNetworksSolid" size="$4.5" color="$icon" />
+          <Icon name="AllNetworksSolid" size="$4.5" color="$iconStrong" />
         ) : (
           <Image
             width={18}
@@ -103,12 +72,21 @@ function MobileNetworkDropdownImpl({
   );
 
   const RenderContent = useCallback(
-    ({ closePopover }: { isOpen?: boolean; closePopover: () => void }) => (
-      <NetworkDropdownContent
+    ({
+      isOpen,
+      closePopover,
+    }: {
+      isOpen?: boolean;
+      closePopover: () => void;
+    }) => (
+      <NetworksSearchPanel
+        isOpen={isOpen}
         networks={marketNetworks}
-        selectedNetworkId={selectedNetworkId}
-        onSelect={handleNetworkSelect}
-        closePopover={closePopover}
+        networkId={selectedNetworkId}
+        onNetworkSelect={(network) => {
+          handleNetworkSelect(network);
+          closePopover();
+        }}
       />
     ),
     [marketNetworks, selectedNetworkId, handleNetworkSelect],
@@ -120,6 +98,11 @@ function MobileNetworkDropdownImpl({
       placement="bottom-start"
       floatingPanelProps={{
         maxWidth: 384,
+        maxHeight: NETWORKS_SEARCH_PANEL_MAX_HEIGHT,
+      }}
+      sheetProps={{
+        dismissOnSnapToBottom: false,
+        disableDrag: true,
       }}
       renderTrigger={renderTrigger}
       renderContent={RenderContent}

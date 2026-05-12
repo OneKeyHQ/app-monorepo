@@ -1,3 +1,4 @@
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -45,13 +46,19 @@ export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
     accountId: string;
     initialized: boolean;
     updateAll?: boolean;
-  }>({
-    worth: {},
-    createAtNetworkWorth: '0',
-    accountId: '',
-    initialized: false,
-    updateAll: false,
-  });
+  }>(
+    {
+      worth: {},
+      createAtNetworkWorth: '0',
+      accountId: '',
+      initialized: false,
+      updateAll: false,
+    },
+    {
+      coldStartCache: true,
+      coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountWorthAtom,
+    },
+  );
 
 export const {
   atom: accountOverviewStateAtom,
@@ -70,10 +77,17 @@ export const {
 } = contextAtom<{
   latest: string;
   byOwner: Record<string, string>;
-}>({
-  latest: '',
-  byOwner: {},
-});
+}>(
+  {
+    latest: '',
+    byOwner: {},
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.lastConfirmedOverviewBalanceAtom,
+  },
+);
 
 export const {
   atom: overviewTokenCacheStateAtom,
@@ -81,10 +95,17 @@ export const {
 } = contextAtom<{
   ownerKey: string;
   hasCache?: boolean;
-}>({
-  ownerKey: '',
-  hasCache: undefined,
-});
+}>(
+  {
+    ownerKey: '',
+    hasCache: undefined,
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.overviewTokenCacheStateAtom,
+  },
+);
 
 export const {
   atom: overviewDeFiDataStateAtom,
@@ -92,10 +113,17 @@ export const {
 } = contextAtom<{
   ownerKey: string;
   isReady?: boolean;
-}>({
-  ownerKey: '',
-  isReady: undefined,
-});
+}>(
+  {
+    ownerKey: '',
+    isReady: undefined,
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.overviewDeFiDataStateAtom,
+  },
+);
 
 export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
   contextAtom<{
@@ -116,9 +144,16 @@ export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
 export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
   contextAtom<{
     banners: IWalletBanner[];
-  }>({
-    banners: [],
-  });
+  }>(
+    {
+      banners: [],
+    },
+    {
+      coldStartCache: true,
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.walletTopBannersAtom,
+    },
+  );
 
 export const {
   atom: accountDeFiOverviewAtom,

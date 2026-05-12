@@ -11,7 +11,7 @@
 
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 
-import { createElement, createRef, useEffect } from 'react';
+import { createElement } from 'react';
 import type { ComponentType } from 'react';
 
 import TestRenderer from 'react-test-renderer';
@@ -86,13 +86,11 @@ function renderHook<Result, Props = undefined>(
     concurrentRoot?: boolean;
   },
 ) {
-  const result = createRef<Result>() as { current: Result };
+  const result = { current: undefined as Result };
 
   function HookContainer({ hookProps }: { hookProps: Props }) {
     const renderResult = hookToRender(hookProps);
-    useEffect(() => {
-      result.current = renderResult;
-    }, [renderResult]);
+    result.current = renderResult;
     return null;
   }
 
@@ -101,7 +99,7 @@ function renderHook<Result, Props = undefined>(
   let renderer: TestRenderer.ReactTestRenderer;
   syncAct(() => {
     const element = createElement(HookContainer, {
-      hookProps: initialProps as Props,
+      hookProps: initialProps as unknown as Props,
     }) as any;
     const wrappedElement = Wrapper
       ? (createElement(Wrapper, null, element) as any)
@@ -119,12 +117,12 @@ function renderHook<Result, Props = undefined>(
         ? (createElement(Wrapper, null, element) as any)
         : element;
       syncAct(() => {
-        renderer!.update(wrappedElement);
+        renderer.update(wrappedElement);
       });
     },
     unmount: () => {
       syncAct(() => {
-        renderer!.unmount();
+        renderer.unmount();
       });
     },
   };

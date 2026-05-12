@@ -1,7 +1,10 @@
 import { memo, useEffect } from 'react';
 
 import { XStack } from '@onekeyhq/components';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsFooterTickerModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { usePerpsFavorites } from '../../hooks/usePerpsFavorites';
@@ -27,8 +30,12 @@ const PopularTickerList = memo(() => {
           coinName={item.coinName}
           dexIndex={item.dexIndex}
           assetId={item.assetId}
+          mode={item.mode}
           onPress={() =>
-            void actions.current.changeActiveAsset({ coin: item.coinName })
+            void actions.current.switchTradeInstrument({
+              coin: item.coinName,
+              mode: item.mode,
+            })
           }
         />
       ))}
@@ -39,7 +46,7 @@ PopularTickerList.displayName = 'PopularTickerList';
 
 // Ticker list for Favorites mode
 const FavoritesTickerList = memo(() => {
-  const { favoriteItems } = usePerpsFavorites();
+  const { favoriteItems } = usePerpsFavorites({ mode: 'current' });
   const actions = useHyperliquidActions();
 
   if (!favoriteItems.length) return null;
@@ -53,8 +60,12 @@ const FavoritesTickerList = memo(() => {
           coinName={item.coinName}
           dexIndex={item.dexIndex}
           assetId={item.assetId}
+          mode={item.mode}
           onPress={() =>
-            void actions.current.changeActiveAsset({ coin: item.coinName })
+            void actions.current.switchTradeInstrument({
+              coin: item.coinName,
+              mode: item.mode,
+            })
           }
         />
       ))}
@@ -64,20 +75,21 @@ const FavoritesTickerList = memo(() => {
 FavoritesTickerList.displayName = 'FavoritesTickerList';
 
 function PerpFooterTicker() {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [footerMode] = usePerpsFooterTickerModePersistAtom();
   const actions = useHyperliquidActions();
   const isVisible = footerMode.mode !== 'none';
 
   // Request batch asset ctx updates when footer is visible
   useEffect(() => {
-    if (isVisible) {
+    if (isVisible && activeTradeInstrument.mode === 'perp') {
       const currentActions = actions.current;
       currentActions.markAllAssetCtxsRequired();
       return () => {
         currentActions.markAllAssetCtxsNotRequired();
       };
     }
-  }, [actions, isVisible]);
+  }, [actions, activeTradeInstrument.mode, isVisible]);
 
   // Embedded inside PerpContentFooter — no own container, just fills flex space
   if (!isVisible) {

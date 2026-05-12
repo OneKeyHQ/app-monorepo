@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Dialog, Heading, Icon, Stack } from '@onekeyhq/components';
 import {
@@ -8,8 +9,8 @@ import {
   usePerpsTradesHistoryDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
@@ -27,12 +28,14 @@ function calculateTotalVolume(fills: { sz: string; px: string }[]): BigNumber {
 }
 
 export function usePerpsSharePrompt() {
+  const intl = useIntl();
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [tradesData] = usePerpsTradesHistoryDataAtom();
   const { shareReferRewards } = useReferFriends();
   const hasShownRef = useRef(false);
   const checkingRef = useRef(false);
   const hasBeenFocusedRef = useRef(false);
+  const isFocusedRef = useRef(false);
   const pendingLoadRef = useRef(false);
   const pendingCheckRef = useRef(false);
   const currentAccountAddressRef = useRef(currentAccount?.accountAddress);
@@ -66,8 +69,14 @@ export function usePerpsSharePrompt() {
     if (!accountAddress || hasShownRef.current || checkingRef.current) {
       return;
     }
+    if (!isFocusedRef.current) {
+      pendingCheckRef.current = true;
+      return;
+    }
 
-    const fills = tradesData?.fills;
+    const fills = tradesData?.fills?.filter(
+      (fill) => !isSpotInstrument(fill.coin),
+    );
     if (
       !fills ||
       !tradesData?.isLoaded ||
@@ -90,6 +99,12 @@ export function usePerpsSharePrompt() {
       const hasPromptShown =
         await backgroundApiProxy.simpleDb.perp.getPerpsSharePromptShown();
       if (hasPromptShown) {
+        return;
+      }
+
+      // Re-check focus after async gap — user may have navigated away
+      if (!isFocusedRef.current) {
+        pendingCheckRef.current = true;
         return;
       }
 
@@ -118,16 +133,16 @@ export function usePerpsSharePrompt() {
               py="$px"
               style={{ whiteSpace: 'pre-line' }}
             >
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perps_enjoy_perps,
               })}
             </Heading>
           </>
         ),
-        onCancelText: appLocale.intl.formatMessage({
+        onCancelText: intl.formatMessage({
           id: ETranslations.global_later,
         }),
-        onConfirmText: appLocale.intl.formatMessage({
+        onConfirmText: intl.formatMessage({
           id: ETranslations.explore_share,
         }),
         onClose: () => {
@@ -140,13 +155,17 @@ export function usePerpsSharePrompt() {
     } finally {
       checkingRef.current = false;
     }
-  }, [currentAccount?.accountAddress, tradesData, shareReferRewards]);
+  }, [currentAccount?.accountAddress, tradesData, shareReferRewards, intl]);
 
   const checkAndShowPromptRef = useRef(checkAndShowPrompt);
   checkAndShowPromptRef.current = checkAndShowPrompt;
 
-  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
-    if (isFocus && !hasBeenFocusedRef.current) {
+  useListenTabFocusState(ETabRoutes.Perp, (isFocus, isHideByModal) => {
+    isFocusedRef.current = isFocus && !isHideByModal;
+    if (!isFocusedRef.current) {
+      return;
+    }
+    if (!hasBeenFocusedRef.current) {
       hasBeenFocusedRef.current = true;
       if (pendingLoadRef.current) {
         pendingLoadRef.current = false;
@@ -157,10 +176,10 @@ export function usePerpsSharePrompt() {
           );
         }
       }
-      if (pendingCheckRef.current) {
-        pendingCheckRef.current = false;
-        void checkAndShowPromptRef.current();
-      }
+    }
+    if (pendingCheckRef.current) {
+      pendingCheckRef.current = false;
+      void checkAndShowPromptRef.current();
     }
   });
 

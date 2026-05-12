@@ -404,7 +404,7 @@ function BasicEarnHome({
   //   setTabPageHeight(height);
   // }, []);
 
-  if (!isFetchingBlockResult && blockResult?.blockData) {
+  if (blockResult?.blockData) {
     return (
       <EarnBlockedOverview
         showHeader={showHeader}

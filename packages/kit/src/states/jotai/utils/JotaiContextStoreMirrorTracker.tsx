@@ -133,6 +133,12 @@ function JotaiContextRootProvidersAutoMountCmp() {
               />
             );
           }
+          case EJotaiContextStoreNames.homeAccountOverview:
+          case EJotaiContextStoreNames.urlAccountOverview: {
+            // AccountOverview is mounted by page-level root providers, so
+            // it does not use global mirror auto-mount here.
+            return null;
+          }
           case EJotaiContextStoreNames.homeTokenList: {
             return <HomeTokenListRootProvider key={key} />;
           }
@@ -156,6 +162,10 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.swapModal: {
             return <SwapModalRootProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.marketSwapReview: {
+            // Market review owns its local store lifecycle inside the dialog.
+            return null;
           }
           case EJotaiContextStoreNames.earn: {
             return <EarnProvider key={key} />;

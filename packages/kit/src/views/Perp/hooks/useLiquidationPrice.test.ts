@@ -78,6 +78,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms', () => ({
   useTradingFormAtom: () => [mockFormData],
   useTradingFormComputedAtom: () => [mockTradingComputed],
   usePerpsActivePositionAtom: () => [{ activePositions: mockPositions }],
+  useActiveTradeInstrumentAtom: () => [{ mode: 'perp', coin: 'ETH' }],
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/perps', () => ({
@@ -91,6 +92,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useTradingFormAtom: () => [mockFormData],
   useTradingFormComputedAtom: () => [mockTradingComputed],
   usePerpsActivePositionAtom: () => [{ activePositions: mockPositions }],
+  useActiveTradeInstrumentAtom: () => [{ mode: 'perp', coin: 'ETH' }],
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -98,6 +100,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsActiveAssetAtom: () => [mockActiveAsset],
   usePerpsActiveAssetCtxAtom: () => [mockActiveAssetCtx],
   usePerpsActiveAssetDataAtom: () => [mockActiveAssetData],
+  usePerpsComputedAccountValueAtom: () => [
+    { accountValue: '10000', isLoading: false },
+  ],
 }));
 
 jest.mock('./useOrderPrice', () => ({

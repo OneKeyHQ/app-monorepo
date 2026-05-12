@@ -249,6 +249,7 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.getBuiltinBundleVersion(),
   getJsBundlePath: () =>
     globalThis.desktopApiProxy.bundleUpdate.getJsBundlePath(),
+  getBackgroundJsBundlePath: () => Promise.resolve(''),
   getSha256FromFilePath: (filePath) =>
     globalThis.desktopApiProxy.bundleUpdate.getSha256FromFilePath(filePath),
 };

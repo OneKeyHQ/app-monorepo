@@ -1,0 +1,60 @@
+name: 05-security-checks
+
+on:
+  pull_request:
+    branches:
+      - onekey
+      - x
+      - hotfix/*
+      - release/*
+  push:
+    branches:
+      - onekey
+      - x
+
+# Cancel a currently running workflow from the same PR/branch/tag
+# when a new workflow is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  supply-chain:
+    name: Supply Chain - Minimum Release Age
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependency
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          yarn install --immutable
+
+      - name: Check minimum release age
+        run: |
+          npx tsx development/scripts/minimum-release-age/run.ts diff origin/${{ github.base_ref }}

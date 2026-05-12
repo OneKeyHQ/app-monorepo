@@ -41,3 +41,6 @@ export const { atom: deFiListStateAtom, use: useDeFiListStateAtom } =
     isRefreshing: true,
     initialized: false,
   });
+
+export const { atom: deFiListSlicedAtom, use: useDeFiListSlicedAtom } =
+  contextAtom<boolean>(true);

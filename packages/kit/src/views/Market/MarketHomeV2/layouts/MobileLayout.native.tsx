@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { RefObject } from 'react';
@@ -36,7 +37,7 @@ import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileM
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
 
-import { useMarketTabsLogic } from './hooks';
+import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 
 import type {
   ILiquidityFilter,
@@ -51,6 +52,7 @@ interface IMobileLayoutProps {
   liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
   tabsRef?: RefObject<ITabContainerRef | null>;
+  isFocused?: boolean;
   nestedPager?: boolean;
 }
 
@@ -77,6 +79,7 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
 }
 
 const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 85;
+const MARKET_ANDROID_SPOT_SECONDARY_HEADER_HEIGHT = 120;
 
 function MarketHomeTabBar({
   watchlistTabName,
@@ -95,8 +98,16 @@ function MarketHomeTabBar({
       return undefined;
     }
 
+    if (showWatchlistSubHeader && ctx.isWatchlistEmpty) {
+      return 0;
+    }
+
+    if (showSpotSubHeader) {
+      return MARKET_ANDROID_SPOT_SECONDARY_HEADER_HEIGHT;
+    }
+
     return MARKET_ANDROID_SECONDARY_HEADER_HEIGHT;
-  }, []);
+  }, [ctx.isWatchlistEmpty, showSpotSubHeader, showWatchlistSubHeader]);
 
   const renderWatchlistSubHeaderContent = useCallback(
     () => (
@@ -219,6 +230,7 @@ function MobileLayoutComponent({
   selectedNetworkId,
   onTabChange,
   tabsRef,
+  isFocused = true,
   nestedPager = false,
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
@@ -229,7 +241,7 @@ function MobileLayoutComponent({
     perpsTabName,
     showPerpsTab,
     handleTabChange,
-    selectedTab,
+    selectedTabName,
   } = useMarketTabsLogic(onTabChange);
 
   const tabBarHeight = useTabBarHeight();
@@ -269,19 +281,16 @@ function MobileLayoutComponent({
     }
   }, [initialCategoryId, selectedCategoryId]);
 
-  const initialTabName = useMemo(() => {
-    if (selectedTab === 'watchlist') return watchlistTabName;
-    if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
-    return spotTabName;
-  }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
-  const [activeTabName, setActiveTabName] = useState(initialTabName);
+  const {
+    activeTabName,
+    setActiveTabName,
+    tabsRef: currentTabsRef,
+  } = useSyncedMarketTab(selectedTabName, tabsRef, isFocused);
+  const setActiveTabNameRef = useRef(setActiveTabName);
+  setActiveTabNameRef.current = setActiveTabName;
   const useNativeHeaderAnimation = platformEnv.isNativeAndroid
     ? !nestedPager
     : false;
-
-  useEffect(() => {
-    setActiveTabName(initialTabName);
-  }, [initialTabName]);
 
   const containerProps = useMemo(
     () => ({
@@ -319,15 +328,23 @@ function MobileLayoutComponent({
 
   // Stable renderTabBar — reads dynamic values from context, not props.
   const renderTabBar = useCallback(
-    (tabBarProps: TabBarProps<string>) => (
-      <MarketHomeTabBar
-        {...tabBarProps}
-        watchlistTabName={watchlistTabName}
-        spotTabName={spotTabName}
-        perpsTabName={perpsTabName}
-      />
-    ),
-    [watchlistTabName, spotTabName, perpsTabName],
+    (tabBarProps: TabBarProps<string>) => {
+      const handleTabPress = (name: string) => {
+        setActiveTabNameRef.current(name);
+        tabBarProps.onTabPress?.(name);
+      };
+
+      return (
+        <MarketHomeTabBar
+          {...tabBarProps}
+          onTabPress={handleTabPress}
+          watchlistTabName={watchlistTabName}
+          spotTabName={spotTabName}
+          perpsTabName={perpsTabName}
+        />
+      );
+    },
+    [perpsTabName, spotTabName, watchlistTabName],
   );
 
   const onTabChangeHandler = useCallback(
@@ -335,7 +352,7 @@ function MobileLayoutComponent({
       setActiveTabName(tabName);
       handleTabChange(tabName);
     },
-    [handleTabChange],
+    [handleTabChange, setActiveTabName],
   );
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
@@ -366,10 +383,10 @@ function MobileLayoutComponent({
     <TabBarDynamicContext.Provider value={dynamicCtx}>
       <Tabs.Container
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ref={tabsRef as any}
+        ref={currentTabsRef as any}
         width={platformEnv.isNative ? tabContainerWidth : undefined}
         renderTabBar={renderTabBar}
-        initialTabName={initialTabName}
+        initialTabName={selectedTabName}
         onTabChange={onTabChangeHandler}
         useNativeHeaderAnimation={useNativeHeaderAnimation}
         pagerProps={

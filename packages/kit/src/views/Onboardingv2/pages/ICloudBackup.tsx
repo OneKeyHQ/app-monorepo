@@ -8,7 +8,6 @@ import {
   Button,
   Dialog,
   Icon,
-  Page,
   SizableText,
   Toast,
   YStack,
@@ -43,7 +42,7 @@ import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 import { CloudBackupListEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingPage } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 
 export default function ICloudBackup() {
@@ -127,7 +126,8 @@ export default function ICloudBackup() {
             }}
             borderRadius="$5"
             borderCurve="continuous"
-            p="$3"
+            py="$3"
+            px="$5"
             m="$0"
             onPress={() => handleBackupPress(item)}
             userSelect="none"
@@ -144,7 +144,6 @@ export default function ICloudBackup() {
                   : 'ERROR: Invalid Backup'}
               </SizableText>
               <SizableText
-                size="$bodySm"
                 color="$textSubdued"
                 $platform-native={{
                   size: '$bodyMd',
@@ -168,310 +167,284 @@ export default function ICloudBackup() {
     );
   };
 
+  const showLegacyBackupsButton =
+    Boolean(legacyBackups?.length) && !hideRestoreButton;
+
+  const handleOpenLegacyBackups = useCallback(() => {
+    navigation?.pushModal(EModalRoutes.CloudBackupModal, {
+      screen: ECloudBackupRoutes.CloudBackupHome,
+    });
+  }, [navigation]);
+
+  const title =
+    platformEnv.isNativeIOS || platformEnv.isDesktopMac
+      ? intl.formatMessage({ id: ETranslations.settings_icloud_backup })
+      : intl.formatMessage({ id: ETranslations.settings_google_drive_backup });
+
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header
-          title={
-            platformEnv.isNativeIOS || platformEnv.isDesktopMac
-              ? intl.formatMessage({ id: ETranslations.settings_icloud_backup })
-              : intl.formatMessage({
-                  id: ETranslations.settings_google_drive_backup,
-                })
-          }
-        />
-        <OnboardingLayout.Body>
-          <CloudAccountBar />
-          {renderContent()}
-          {legacyBackups?.length && !hideRestoreButton ? (
+    <OnboardingPage
+      safeAreaEnabled={false}
+      scrollable
+      headerTitle={title}
+      contentContainerProps={{ maxWidth: 480, gap: '$3', paddingVertical: 20 }}
+    >
+      <CloudAccountBar />
+      {renderContent()}
+      {showLegacyBackupsButton ? (
+        <Button size="large" onPress={handleOpenLegacyBackups}>
+          {intl.formatMessage({ id: ETranslations.view_older_backups })}
+        </Button>
+      ) : null}
+
+      <MultipleClickStack
+        h="$10"
+        showDevBgColor
+        debugComponent={
+          <YStack gap="$2">
+            <SizableText>备份数：{allBackups?.items?.length}</SizableText>
             <Button
-              testID="onboardingv2-btn"
               onPress={async () => {
-                // Dialog.debugMessage({
-                //   debugMessage: legacyBackups,
-                // });
-                navigation?.pushModal(EModalRoutes.CloudBackupModal, {
-                  screen: ECloudBackupRoutes.CloudBackupHome,
+                setAllBackupsMocked({
+                  items: [],
+                  total: 0,
+                  backupPasswordVerify: undefined,
                 });
               }}
             >
-              {intl.formatMessage({ id: ETranslations.view_older_backups })}
+              Mock Empty Backups
             </Button>
-          ) : null}
+            <Button
+              variant="destructive"
+              onPress={async () => {
+                Dialog.show({
+                  title: 'Clear Backup Password',
+                  description:
+                    'This will permanently delete the backup password from the cloud.',
+                  onConfirm: async () => {
+                    await backgroundApiProxy.serviceCloudBackupV2.clearBackupPassword();
+                  },
+                });
+              }}
+            >
+              clearBackupPassword
+            </Button>
+            <Button
+              onPress={async () =>
+                Dialog.debugMessage({
+                  debugMessage:
+                    await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet(),
+                })
+              }
+            >
+              isBackupPasswordSet
+            </Button>
+            <Button
+              onPress={async () =>
+                showCloudBackupPasswordDialog({
+                  intl,
+                  onSubmit: async (password) => {
+                    const result =
+                      await backgroundApiProxy.serviceCloudBackupV2.verifyBackupPassword(
+                        {
+                          password,
+                        },
+                      );
+                    Dialog.debugMessage({
+                      debugMessage: result,
+                    });
+                  },
+                })
+              }
+            >
+              verifyBackupPassword
+            </Button>
+            <Button
+              onPress={async () => {
+                showCloudBackupPasswordDialog({
+                  intl,
+                  onSubmit: async (password) => {
+                    const result =
+                      await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
+                        {
+                          password,
+                        },
+                      );
+                    Dialog.debugMessage({
+                      debugMessage: result,
+                    });
+                  },
+                });
+              }}
+            >
+              setBackupPassword
+            </Button>
 
-          <MultipleClickStack
-            h="$10"
-            showDevBgColor
-            debugComponent={
-              <YStack gap="$2">
-                <SizableText>备份数：{allBackups?.items?.length}</SizableText>
-                <Button
-                  testID="onboardingv2-btn"
-                  onPress={async () => {
-                    setAllBackupsMocked({
-                      items: [],
-                      total: 0,
-                      backupPasswordVerify: undefined,
+            <Button
+              onPress={async () =>
+                Dialog.debugMessage({
+                  debugMessage:
+                    await backgroundApiProxy.serviceCloudBackupV2.getAllBackups(),
+                })
+              }
+            >
+              getAllBackups
+            </Button>
+            <Button
+              onPress={async () =>
+                Dialog.debugMessage({
+                  debugMessage:
+                    await backgroundApiProxy.serviceCloudBackupV2.iOSQueryAllRecords(),
+                })
+              }
+            >
+              iOSQueryAllRecords
+            </Button>
+            <Button
+              onPress={async () =>
+                Dialog.debugMessage({
+                  debugMessage:
+                    await backgroundApiProxy.serviceCloudBackupV2.androidListAllFiles(),
+                })
+              }
+            >
+              androidListAllFiles
+            </Button>
+            <Button
+              onPress={async () =>
+                Dialog.debugMessage({
+                  debugMessage:
+                    await backgroundApiProxy.serviceCloudBackupV2.androidGetManifest(),
+                })
+              }
+            >
+              androidGetManifest
+            </Button>
+            <Button
+              onPress={async () =>
+                Dialog.debugMessage({
+                  debugMessage:
+                    await backgroundApiProxy.serviceCloudBackupV2.androidGetLegacyMetaData(),
+                })
+              }
+            >
+              androidGetLegacyMetaData
+            </Button>
+            <Button
+              onPress={async () =>
+                Dialog.debugMessage({
+                  debugMessage:
+                    await backgroundApiProxy.serviceCloudBackupV2.androidGetManifestFileObject(),
+                })
+              }
+            >
+              androidGetManifestFileObject
+            </Button>
+            <Button
+              variant="destructive"
+              onPress={async () => {
+                Dialog.show({
+                  title: 'remove manifest file',
+                  description:
+                    'This will permanently delete the manifest file from the cloud.',
+                  onConfirm: async () => {
+                    Dialog.debugMessage({
+                      debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.androidRemoveManifestFile(),
                     });
-                  }}
-                >
-                  Mock Empty Backups
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  variant="destructive"
-                  onPress={async () => {
-                    Dialog.show({
-                      title: 'Clear Backup Password',
-                      description:
-                        'This will permanently delete the backup password from the cloud.',
-                      onConfirm: async () => {
-                        await backgroundApiProxy.serviceCloudBackupV2.clearBackupPassword();
+                  },
+                });
+              }}
+            >
+              androidRemoveManifestFile
+            </Button>
+            <Button
+              onPress={async () => {
+                await startBackup({
+                  alwaysGoToBackupDetail: true,
+                });
+              }}
+            >
+              BackupNow(ToDetailPage)
+            </Button>
+            <Button
+              onPress={async () => {
+                await startBackup();
+              }}
+            >
+              BackupNow
+            </Button>
+            <Button
+              onPress={async () => {
+                const info =
+                  await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
+                Dialog.debugMessage({
+                  debugMessage: info,
+                });
+              }}
+            >
+              GetCloudAccountInfo
+            </Button>
+            <Button
+              variant="destructive"
+              onPress={async () => {
+                const data =
+                  await backgroundApiProxy.serviceCloudBackupV2.getAllBackups();
+                const items = data?.items ?? [];
+                if (!items.length) {
+                  Toast.success({
+                    title: 'No backups to delete',
+                  });
+                  return;
+                }
+                Dialog.show({
+                  icon: 'DeleteOutline',
+                  tone: 'destructive',
+                  title: 'Delete all backups?',
+                  description:
+                    "This will permanently delete all backups from iCloud. Make sure you've saved Recovery phrases, otherwise you won't be able to restore the wallets.",
+                  onConfirmText: 'Delete',
+                  confirmButtonProps: {
+                    variant: 'destructive',
+                  },
+                  onCancelText: 'Cancel',
+                  onConfirm: async () => {
+                    await backgroundApiProxy.servicePassword.promptPasswordVerify(
+                      {
+                        reason: EReasonForNeedPassword.Security,
                       },
-                    });
-                  }}
-                >
-                  clearBackupPassword
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  onPress={async () =>
-                    Dialog.debugMessage({
-                      debugMessage:
-                        await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet(),
-                    })
-                  }
-                >
-                  isBackupPasswordSet
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  onPress={async () =>
-                    showCloudBackupPasswordDialog({
-                      onSubmit: async (password) => {
-                        const result =
-                          await backgroundApiProxy.serviceCloudBackupV2.verifyBackupPassword(
-                            {
-                              password,
-                            },
-                          );
-                        Dialog.debugMessage({
-                          debugMessage: result,
-                        });
-                      },
-                    })
-                  }
-                >
-                  verifyBackupPassword
-                </Button>
-                <Button
-                  testID="onboardingv2-result-btn"
-                  onPress={async () => {
-                    showCloudBackupPasswordDialog({
-                      onSubmit: async (password) => {
-                        const result =
-                          await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
-                            {
-                              password,
-                            },
-                          );
-                        Dialog.debugMessage({
-                          debugMessage: result,
-                        });
-                      },
-                    });
-                  }}
-                >
-                  setBackupPassword
-                </Button>
-
-                <Button
-                  testID="onboardingv2-result-btn"
-                  onPress={async () =>
-                    Dialog.debugMessage({
-                      debugMessage:
-                        await backgroundApiProxy.serviceCloudBackupV2.getAllBackups(),
-                    })
-                  }
-                >
-                  getAllBackups
-                </Button>
-                <Button
-                  testID="onboardingv2-result-btn"
-                  onPress={async () =>
-                    Dialog.debugMessage({
-                      debugMessage:
-                        await backgroundApiProxy.serviceCloudBackupV2.iOSQueryAllRecords(),
-                    })
-                  }
-                >
-                  iOSQueryAllRecords
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  onPress={async () =>
-                    Dialog.debugMessage({
-                      debugMessage:
-                        await backgroundApiProxy.serviceCloudBackupV2.androidListAllFiles(),
-                    })
-                  }
-                >
-                  androidListAllFiles
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  onPress={async () =>
-                    Dialog.debugMessage({
-                      debugMessage:
-                        await backgroundApiProxy.serviceCloudBackupV2.androidGetManifest(),
-                    })
-                  }
-                >
-                  androidGetManifest
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  onPress={async () =>
-                    Dialog.debugMessage({
-                      debugMessage:
-                        await backgroundApiProxy.serviceCloudBackupV2.androidGetLegacyMetaData(),
-                    })
-                  }
-                >
-                  androidGetLegacyMetaData
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  onPress={async () =>
-                    Dialog.debugMessage({
-                      debugMessage:
-                        await backgroundApiProxy.serviceCloudBackupV2.androidGetManifestFileObject(),
-                    })
-                  }
-                >
-                  androidGetManifestFileObject
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  variant="destructive"
-                  onPress={async () => {
-                    Dialog.show({
-                      title: 'remove manifest file',
-                      description:
-                        'This will permanently delete the manifest file from the cloud.',
-                      onConfirm: async () => {
-                        Dialog.debugMessage({
-                          debugMessage:
-                            await backgroundApiProxy.serviceCloudBackupV2.androidRemoveManifestFile(),
-                        });
-                      },
-                    });
-                  }}
-                >
-                  androidRemoveManifestFile
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  onPress={async () => {
-                    await startBackup({
-                      alwaysGoToBackupDetail: true,
-                    });
-                  }}
-                >
-                  BackupNow(ToDetailPage)
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  onPress={async () => {
-                    await startBackup();
-                  }}
-                >
-                  BackupNow
-                </Button>
-                <Button
-                  testID="onboardingv2-btn"
-                  onPress={async () => {
-                    const info =
-                      await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
-                    Dialog.debugMessage({
-                      debugMessage: info,
-                    });
-                  }}
-                >
-                  GetCloudAccountInfo
-                </Button>
-                <Button
-                  testID="onboardingv2-info-btn"
-                  variant="destructive"
-                  onPress={async () => {
-                    const data =
-                      await backgroundApiProxy.serviceCloudBackupV2.getAllBackups();
-                    const items = data?.items ?? [];
-                    if (!items.length) {
-                      Toast.success({
-                        title: 'No backups to delete',
-                      });
-                      return;
-                    }
-                    Dialog.show({
-                      icon: 'DeleteOutline',
-                      tone: 'destructive',
-                      title: 'Delete all backups?',
-                      description:
-                        "This will permanently delete all backups from iCloud. Make sure you've saved Recovery phrases, otherwise you won't be able to restore the wallets.",
-                      onConfirmText: 'Delete',
-                      confirmButtonProps: {
-                        variant: 'destructive',
-                      },
-                      onCancelText: 'Cancel',
-                      onConfirm: async () => {
-                        await backgroundApiProxy.servicePassword.promptPasswordVerify(
+                    );
+                    for (const item of items) {
+                      try {
+                        await backgroundApiProxy.serviceCloudBackupV2.deleteSilently(
                           {
-                            reason: EReasonForNeedPassword.Security,
+                            recordId: item.recordID,
+                            skipManifestUpdate: false,
                           },
                         );
-                        for (const item of items) {
-                          try {
-                            await backgroundApiProxy.serviceCloudBackupV2.deleteSilently(
-                              {
-                                recordId: item.recordID,
-                                skipManifestUpdate: false,
-                              },
-                            );
-                          } catch (_e) {
-                            // continue deleting other items; errors are already toasted by @toastIfError
-                          }
-                        }
-                        await onboardingCloudBackupListRefreshAtom.set(
-                          (v) => v + 1,
-                        );
-                        Toast.success({
-                          title: 'All backups deleted',
-                        });
-                      },
+                      } catch (_e) {
+                        // continue deleting other items; errors are already toasted by @toastIfError
+                      }
+                    }
+                    await onboardingCloudBackupListRefreshAtom.set(
+                      (v) => v + 1,
+                    );
+                    Toast.success({
+                      title: 'All backups deleted',
                     });
-                  }}
-                >
-                  Remove All Backups
-                </Button>
-                <Button
-                  testID="onboardingv2-item-btn"
-                  onPress={async () => {
-                    // Dialog.debugMessage({
-                    //   debugMessage: legacyBackups,
-                    // });
-                    navigation?.pushModal(EModalRoutes.CloudBackupModal, {
-                      screen: ECloudBackupRoutes.CloudBackupHome,
-                    });
-                  }}
-                >
-                  {intl.formatMessage({ id: ETranslations.view_older_backups })}
-                </Button>
-              </YStack>
-            }
-          />
-        </OnboardingLayout.Body>
-      </OnboardingLayout>
-    </Page>
+                  },
+                });
+              }}
+            >
+              Remove All Backups
+            </Button>
+            <Button onPress={handleOpenLegacyBackups}>
+              {intl.formatMessage({
+                id: ETranslations.view_older_backups,
+              })}
+            </Button>
+          </YStack>
+        }
+      />
+    </OnboardingPage>
   );
 }

@@ -1,12 +1,12 @@
 import { useCallback } from 'react';
 
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalKeyTagRoutes,
   EModalRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 

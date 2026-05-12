@@ -9,7 +9,6 @@ import {
   Anchor,
   AnimatePresence,
   Icon,
-  Page,
   SizableText,
   Spinner,
   Toast,
@@ -17,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { OAuthLoginCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,7 +33,7 @@ import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWa
 import { ListItem } from '../../../components/ListItem';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import { useAppRoute } from '../../../hooks/useAppRoute';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingPage } from '../components/Layout';
 
 import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
 
@@ -159,8 +159,30 @@ function OneKeyIDLoginPage() {
       if (loggingInProviderRef.current) {
         return;
       }
+      // Close the same-tick re-entry window before React state updates commit.
+      loggingInProviderRef.current = provider;
+      const reportOAuthFailure = () => {
+        if (!isVerifyMode) {
+          defaultLogger.account.wallet.walletAdded({
+            status: 'failure',
+            addMethod: 'CreateKeylessWallet',
+            isSoftwareWalletOnlyUser: true,
+            details: { provider },
+          });
+        }
+      };
       try {
         setLoggingInProvider(provider);
+        // Pair every wallet-creation OAuth attempt with a start event so failure
+        // events have a matching denominator. Reset/verify flows reuse OAuth for
+        // identity only and don't create a wallet.
+        if (!isVerifyMode && !isResetMode) {
+          defaultLogger.account.wallet.addWalletStarted({
+            addMethod: 'CreateKeylessWallet',
+            isSoftwareWalletOnlyUser: true,
+            details: { provider },
+          });
+        }
         const result = await signInWithSocialLogin(provider);
         if (result?.session?.accessToken) {
           if (isResetMode) {
@@ -174,27 +196,23 @@ function OneKeyIDLoginPage() {
             });
             setIsResetMode(false);
           } else {
-            // Track wallet creation started after OAuth login succeeds
-            if (!isVerifyMode) {
-              defaultLogger.account.wallet.addWalletStarted({
-                addMethod: 'CreateKeylessWallet',
-                isSoftwareWalletOnlyUser: true,
-                details: {
-                  provider:
-                    provider === EOAuthSocialLoginProvider.Google
-                      ? 'google'
-                      : 'apple',
-                },
-              });
-            }
             await checkKeylessWalletCreatedOnServer({
               token: result.session.accessToken,
               refreshToken: result.session.refreshToken,
               mode,
             });
           }
+        } else {
+          reportOAuthFailure();
         }
+      } catch (error) {
+        // User cancellation is normal behavior, not a failure metric.
+        if (!(error instanceof OAuthLoginCancelError)) {
+          reportOAuthFailure();
+        }
+        throw error;
       } finally {
+        loggingInProviderRef.current = null;
         setLoggingInProvider(null);
       }
     },
@@ -215,91 +233,78 @@ function OneKeyIDLoginPage() {
     await handleSocialLogin(EOAuthSocialLoginProvider.Apple);
   }, [handleSocialLogin]);
 
+  const title = isVerifyMode
+    ? intl.formatMessage({ id: ETranslations.keyless_verify_identity_title })
+    : intl.formatMessage({ id: ETranslations.select_your_email });
+  const desc = isVerifyMode
+    ? intl.formatMessage(
+        { id: ETranslations.keyless_verify_identity_desc },
+        {
+          provider:
+            requiredProvider === EOAuthSocialLoginProvider.Apple
+              ? 'Apple'
+              : 'Google',
+        },
+      )
+    : intl.formatMessage({ id: ETranslations.select_your_email_desc });
+
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header />
-        <OnboardingLayout.Body
-          constrained={false}
-          scrollable={!platformEnv.isNative}
-        >
-          <OnboardingLayout.ConstrainedContent gap="$10">
-            <YStack gap="$2">
-              <SizableText size="$heading3xl">
-                {isVerifyMode
-                  ? intl.formatMessage({
-                      id: ETranslations.keyless_verify_identity_title,
-                    })
-                  : intl.formatMessage({ id: ETranslations.select_your_email })}
-              </SizableText>
-              <SizableText size="$bodyLg" color="$textSubdued">
-                {isVerifyMode
-                  ? intl.formatMessage(
-                      { id: ETranslations.keyless_verify_identity_desc },
-                      {
-                        provider:
-                          requiredProvider === EOAuthSocialLoginProvider.Apple
-                            ? 'Apple'
-                            : 'Google',
-                      },
-                    )
-                  : intl.formatMessage({
-                      id: ETranslations.select_your_email_desc,
-                    })}
-              </SizableText>
-            </YStack>
-            <YStack gap="$3">
-              {!requiredProvider ||
-              requiredProvider === EOAuthSocialLoginProvider.Google ? (
-                <OptionItem
-                  icon="GoogleIllus"
-                  title="Google"
-                  onPress={handleGoogleLogin}
-                  isLoading={
-                    loggingInProvider === EOAuthSocialLoginProvider.Google
-                  }
-                />
-              ) : null}
-              {!requiredProvider ||
-              requiredProvider === EOAuthSocialLoginProvider.Apple ? (
-                <OptionItem
-                  icon="AppleBrand"
-                  title="Apple"
-                  mt={!requiredProvider ? '$3' : undefined}
-                  iconProps={{
-                    color: '$iconActive',
-                    y: -1,
-                  }}
-                  onPress={handleAppleLogin}
-                  isLoading={
-                    loggingInProvider === EOAuthSocialLoginProvider.Apple
-                  }
-                />
-              ) : null}
-            </YStack>
-            <KeylessOnboardingDebugPanel
-              isResetMode={isResetMode}
-              onResetModeChange={setIsResetMode}
-            />
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
-        {isVerifyMode ? null : (
-          <OnboardingLayout.Footer>
-            <Anchor
-              href="https://help.onekey.so/articles/13348049"
-              target="_blank"
-              size="$bodySm"
-              color="$textSubdued"
-              textAlign="center"
-            >
-              {intl.formatMessage({
-                id: ETranslations.keyless_wallet_help_center_link_label,
-              })}
-            </Anchor>
-          </OnboardingLayout.Footer>
-        )}
-      </OnboardingLayout>
-    </Page>
+    <OnboardingPage
+      scrollable={!platformEnv.isNative}
+      narrow
+      contentContainerProps={{ gap: '$10' }}
+    >
+      <YStack gap="$2">
+        <SizableText size="$heading3xl">{title}</SizableText>
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {desc}
+        </SizableText>
+      </YStack>
+      <YStack gap="$3">
+        {!requiredProvider ||
+        requiredProvider === EOAuthSocialLoginProvider.Google ? (
+          <OptionItem
+            icon="GoogleIllus"
+            title="Google"
+            onPress={loggingInProvider ? undefined : handleGoogleLogin}
+            isLoading={loggingInProvider === EOAuthSocialLoginProvider.Google}
+          />
+        ) : null}
+        {!requiredProvider ||
+        requiredProvider === EOAuthSocialLoginProvider.Apple ? (
+          <OptionItem
+            icon="AppleBrand"
+            title="Apple"
+            mt={!requiredProvider ? '$3' : undefined}
+            iconProps={{
+              color: '$iconActive',
+              y: -1,
+            }}
+            onPress={loggingInProvider ? undefined : handleAppleLogin}
+            isLoading={loggingInProvider === EOAuthSocialLoginProvider.Apple}
+          />
+        ) : null}
+      </YStack>
+      <KeylessOnboardingDebugPanel
+        isResetMode={isResetMode}
+        onResetModeChange={setIsResetMode}
+      />
+      {isVerifyMode ? null : (
+        <YStack mt="auto" pt="$8" alignItems="center">
+          <Anchor
+            href="https://help.onekey.so/articles/13348049"
+            target="_blank"
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign="center"
+          >
+            {intl.formatMessage({
+              id: ETranslations.keyless_wallet_help_center_link_label,
+            })}
+          </Anchor>
+        </YStack>
+      )}
+    </OnboardingPage>
   );
 }
 

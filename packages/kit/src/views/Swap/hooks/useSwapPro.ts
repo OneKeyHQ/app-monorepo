@@ -41,6 +41,7 @@ import type {
 import {
   ESwapDirectionType,
   ESwapProTradeType,
+  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -125,6 +126,7 @@ export function useSwapProInit() {
       setSwapProJumpToken({
         token: undefined,
         direction: ESwapProJumpTokenDirection.BUY,
+        marketPresetToken: undefined,
       });
     }
   }, [
@@ -536,6 +538,7 @@ export function useSwapProTokenInit() {
     defaultLimitTokens,
     isLoading,
     speedConfig,
+    speedConfigReady,
     swapMevNetConfig,
     speedDefaultSelectToken,
     supportSpeedSwap,
@@ -832,7 +835,9 @@ export function useSwapProTokenInit() {
   }, [swapProSelectToken, syncSelectTokenNative]);
 
   const isMEV = useMemo(() => {
-    return swapMevNetConfig?.includes(swapProSelectToken?.networkId ?? '');
+    return Array.isArray(swapMevNetConfig)
+      ? swapMevNetConfig.includes(swapProSelectToken?.networkId ?? '')
+      : undefined;
   }, [swapMevNetConfig, swapProSelectToken?.networkId]);
 
   const hasEnoughBalance = useMemo(() => {
@@ -863,6 +868,7 @@ export function useSwapProTokenInit() {
     isLoading,
     balanceLoading,
     speedConfig,
+    speedConfigReady,
     swapMevNetConfig,
     swapProSelectToken,
     isMEV,
@@ -1457,6 +1463,10 @@ export function useSwapProActionsQuote() {
   if (slippageItemRef.current !== slippageItem) {
     slippageItemRef.current = slippageItem;
   }
+  const swapProMarketQuoteCustomSlippage =
+    slippageItem.key === ESwapSlippageSegmentKey.CUSTOM
+      ? slippageItem.value
+      : undefined;
   const enableSwapProMarketQuote = useMemo(
     () =>
       swapTabSwitchType === ESwapTabSwitchType.LIMIT &&
@@ -1492,6 +1502,8 @@ export function useSwapProActionsQuote() {
     enableSwapProMarketQuote,
     swapProAccount.result?.addressDetail.address,
     swapProAccount.result?.id,
+    slippageItem.key,
+    swapProMarketQuoteCustomSlippage,
   ]);
 
   useEffect(() => {

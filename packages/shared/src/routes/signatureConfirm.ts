@@ -18,6 +18,7 @@ import type {
 } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
+import type { IGasAccountScenario } from '../../types/fee';
 import type { IAccountHistoryTx } from '../../types/history';
 import type {
   ILNURLAuthServiceResponse,
@@ -31,6 +32,7 @@ import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 
 export enum EModalSignatureConfirmRoutes {
   TxDataInput = 'TxDataInput',
+  TxAmountInput = 'TxAmountInput',
   TxConfirm = 'TxConfirm',
   MessageConfirm = 'MessageConfirm',
   TxConfirmFromDApp = 'TxConfirmFromDApp',
@@ -69,6 +71,24 @@ export type IModalSignatureConfirmParamList = {
     disableAddressTypeSelector?: boolean;
     showAddressTypeSelectorWhenDisabled?: boolean;
   };
+  [EModalSignatureConfirmRoutes.TxAmountInput]: {
+    networkId: string;
+    accountId: string;
+    isNFT: boolean;
+    token?: IToken | null;
+    nfts?: IAccountNFT[];
+    recipientAddress: string;
+    recipientMemo?: string;
+    recipientPaymentId?: string;
+    recipientNote?: string;
+    recipientIsContract?: boolean;
+    amount?: string;
+    isInvoiceAmountLocked?: boolean;
+    isAllNetworks?: boolean;
+    onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
+    onFail?: (error: Error) => void;
+    onCancel?: () => void;
+  };
   [EModalSignatureConfirmRoutes.TxConfirm]: {
     networkId: string;
     accountId: string;
@@ -85,6 +105,7 @@ export type IModalSignatureConfirmParamList = {
     popStack?: boolean;
     isQueueMode?: boolean;
     unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
+    gasAccountScenario?: IGasAccountScenario;
   };
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
     accountId: string;
@@ -112,6 +133,7 @@ export type IModalSignatureConfirmParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
+    gasAccountScenario?: IGasAccountScenario;
   };
   [EModalSignatureConfirmRoutes.TxReplace]: {
     networkId: string;

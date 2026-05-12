@@ -27,6 +27,22 @@ const RedemptionHistory = LazyLoadPage(
 );
 const PerpsReward = LazyLoadPage(() => import('../pages/PerpsReward'));
 
+const BtcRewardVerifyVoucher = LazyLoadPage(
+  () => import('../../Redemption/pages/BtcReward/VerifyVoucher'),
+);
+const BtcRewardSelectAddress = LazyLoadPage(
+  () => import('../../Redemption/pages/BtcReward/SelectAddress'),
+);
+const BtcRewardConfirm = LazyLoadPage(
+  () => import('../../Redemption/pages/BtcReward/ConfirmRedeem'),
+);
+const BtcRewardSuccess = LazyLoadPage(
+  () => import('../../Redemption/pages/BtcReward/RedeemSuccess'),
+);
+const BtcRewardDetail = LazyLoadPage(
+  () => import('../../Redemption/pages/BtcReward/BtcRewardDetail'),
+);
+
 export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   EModalReferFriendsRoutes,
   IModalReferFriendsParamList
@@ -82,5 +98,25 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalReferFriendsRoutes.PerpsReward,
     component: PerpsReward,
+  },
+  {
+    name: EModalReferFriendsRoutes.BtcRewardVerifyVoucher,
+    component: BtcRewardVerifyVoucher,
+  },
+  {
+    name: EModalReferFriendsRoutes.BtcRewardSelectAddress,
+    component: BtcRewardSelectAddress,
+  },
+  {
+    name: EModalReferFriendsRoutes.BtcRewardConfirm,
+    component: BtcRewardConfirm,
+  },
+  {
+    name: EModalReferFriendsRoutes.BtcRewardSuccess,
+    component: BtcRewardSuccess,
+  },
+  {
+    name: EModalReferFriendsRoutes.BtcRewardDetail,
+    component: BtcRewardDetail,
   },
 ];

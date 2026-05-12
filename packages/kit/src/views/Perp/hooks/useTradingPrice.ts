@@ -2,11 +2,12 @@ import { useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
-import { usePerpsAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+  useActiveTradeInstrumentAtom,
+  usePerpsAllMidsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 
 export interface IUseTradingPriceReturn {
   midPrice: string | undefined;
@@ -16,11 +17,12 @@ export interface IUseTradingPriceReturn {
 
 export function useTradingPrice(): IUseTradingPriceReturn {
   const [allMids] = usePerpsAllMidsAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [activeSpotAssetCtx] = useSpotActiveAssetCtxAtom();
 
   const result = useMemo<IUseTradingPriceReturn>(() => {
-    const coin = activeAsset?.coin;
+    const coin = activeTradeInstrument?.coin;
     if (!coin) {
       return {
         midPrice: undefined,
@@ -29,9 +31,12 @@ export function useTradingPrice(): IUseTradingPriceReturn {
       };
     }
 
-    // Priority 1: Use activeAssetCtx.ctx.midPrice (higher update frequency for active token)
-    // Priority 2: Fallback to allMids (lower frequency but covers all tokens)
-    const midPrice = activeAssetCtx?.ctx?.midPrice || allMids?.mids?.[coin];
+    const midPrice =
+      activeTradeInstrument.mode === 'spot'
+        ? activeSpotAssetCtx?.ctx?.midPrice ||
+          activeSpotAssetCtx?.ctx?.markPrice ||
+          allMids?.mids?.[coin]
+        : activeAssetCtx?.ctx?.midPrice || allMids?.mids?.[coin];
 
     if (!midPrice) {
       return {
@@ -49,7 +54,13 @@ export function useTradingPrice(): IUseTradingPriceReturn {
       midPriceBN,
       isValid,
     };
-  }, [activeAssetCtx?.ctx?.midPrice, allMids?.mids, activeAsset?.coin]);
+  }, [
+    activeAssetCtx?.ctx?.midPrice,
+    activeSpotAssetCtx?.ctx?.markPrice,
+    activeSpotAssetCtx?.ctx?.midPrice,
+    allMids?.mids,
+    activeTradeInstrument,
+  ]);
 
   return result;
 }

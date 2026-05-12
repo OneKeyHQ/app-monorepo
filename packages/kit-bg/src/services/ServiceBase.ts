@@ -21,6 +21,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { getEndpointInfo } from '../endpoints';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
@@ -256,6 +257,21 @@ export default class ServiceBase {
 
   @backgroundMethod()
   async showToast(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
+    appEventBus.emit(EAppEventBusNames.ShowToast, params);
+  }
+
+  async isDevModeEnabled() {
+    const devSettings = await devSettingsPersistAtom.get();
+    return !!devSettings.enabled;
+  }
+
+  @backgroundMethod()
+  async showToastIfDevMode(
+    params: IAppEventBusPayload[EAppEventBusNames.ShowToast],
+  ) {
+    if (!(await this.isDevModeEnabled())) {
+      return;
+    }
     appEventBus.emit(EAppEventBusNames.ShowToast, params);
   }
 }

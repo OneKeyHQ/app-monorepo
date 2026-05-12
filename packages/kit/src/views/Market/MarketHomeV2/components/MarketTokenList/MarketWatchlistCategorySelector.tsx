@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { ScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 import {
@@ -150,8 +151,9 @@ function MarketWatchlistCategorySelectorImpl(
   props: IMarketWatchlistCategorySelectorProps,
 ) {
   const { md } = useMedia();
+  const shouldUseMobileSelector = md || platformEnv.isNative;
 
-  if (md) {
+  if (shouldUseMobileSelector) {
     return <MarketWatchlistCategorySelectorMobile {...props} />;
   }
 

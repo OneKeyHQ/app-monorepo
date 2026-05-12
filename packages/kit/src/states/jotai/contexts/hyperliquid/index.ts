@@ -7,6 +7,8 @@ export {
   useOrderBookTickOptionsAtom,
   usePerpsActiveOpenOrdersAtom,
   usePerpsOpenOrdersByCoin,
+  useActiveTradeInstrumentAtom,
+  useTradeRouteViewStateAtom,
   useTradingFormAtom,
   useTradingFormEnvAtom,
   useTradingFormComputedAtom,
@@ -17,7 +19,12 @@ export {
   usePerpsLedgerUpdatesAtom,
 } from './atoms';
 
-export type { ITradingFormData, IBBOPriceMode } from './atoms';
+export type {
+  ITradingFormData,
+  IBBOPriceMode,
+  IActiveTradeInstrument,
+  ITradeRouteViewState,
+} from './atoms';
 
 export { useHyperliquidActions } from './actions';
 

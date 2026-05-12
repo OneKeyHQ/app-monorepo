@@ -57,7 +57,7 @@ function ListPage() {
         {gtMd ? (
           <IconButton
             variant="tertiary"
-            icon="AddPeopleOutline"
+            icon="PlusLargeOutline"
             onPress={onCreate}
             testID={AddressBookTestIDs.addIconBtn}
           />
@@ -76,7 +76,6 @@ function ListPage() {
         <ContentContainer
           loading={isLoading}
           error={Boolean(!isLoading && !result)}
-          unsafe={result?.isSafe === false}
         >
           <AddressBookListContent items={result?.items ?? []} showActions />
         </ContentContainer>

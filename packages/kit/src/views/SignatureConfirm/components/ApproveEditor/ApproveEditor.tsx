@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
@@ -10,12 +10,16 @@ import {
   Form,
   Input,
   NumberSizeableText,
+  SizableText,
   Skeleton,
   Switch,
+  XStack,
+  YStack,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useTokenApproveAllowance } from '@onekeyhq/kit/src/hooks/useTokenApproveAllowance';
 import {
   useSignatureConfirmActions,
   useTokenApproveInfoAtom,
@@ -24,6 +28,7 @@ import {
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import { SignatureConfirmTestIDs } from '../../testIDs';
 import { SignatureConfirmProviderMirror } from '../SignatureConfirmProvider/SignatureConfirmProviderMirror';
@@ -38,6 +43,10 @@ export type IProps = {
   tokenDecimals: number;
   tokenSymbol: string;
   approveInfo?: IApproveInfo;
+  approveType?: EApproveType;
+  spender?: string;
+  // Skips the editor's own allowance fetch when the caller has it.
+  currentAllowanceParsed?: string;
   onResetTokenApproveInfo?: () => void;
   onChangeTokenApproveInfo?: ({
     allowance,
@@ -69,7 +78,17 @@ function ApproveEditor(props: IProps) {
     onResetTokenApproveInfo,
     onChangeTokenApproveInfo,
     approveInfo,
+    approveType = EApproveType.Approve,
+    spender,
+    currentAllowanceParsed: currentAllowanceParsedFromProps,
   } = props;
+
+  const isIncrease =
+    approveType === EApproveType.IncreaseAllowance ||
+    approveType === EApproveType.IncreaseApproval;
+  // Unlimited would silently rewrite the call to approve(MAX); only allow it
+  // for absolute approve.
+  const showUnlimitedToggle = !isIncrease;
 
   const handleUpdateUnsignedTxs = useCallback(
     async ({
@@ -87,11 +106,12 @@ function ApproveEditor(props: IProps) {
           tokenApproveInfo: {
             allowance: newAllowance,
             isUnlimited: newIsUnlimited,
+            approveType,
           },
         });
       updateUnsignedTxs([newUnsignedTx]);
     },
-    [accountId, networkId, unsignedTxs, updateUnsignedTxs],
+    [accountId, approveType, networkId, unsignedTxs, updateUnsignedTxs],
   );
 
   const { result, isLoading } = usePromiseResult(
@@ -122,6 +142,20 @@ function ApproveEditor(props: IProps) {
 
   const tokenBalanceParsed = result?.tokenBalanceParsed;
 
+  const {
+    allowanceParsed: fetchedAllowanceParsed,
+    isLoading: isAllowanceLoading,
+  } = useTokenApproveAllowance({
+    enabled: isIncrease && !currentAllowanceParsedFromProps,
+    accountId,
+    networkId,
+    tokenAddress,
+    spender,
+  });
+
+  const currentAllowanceParsed =
+    currentAllowanceParsedFromProps ?? fetchedAllowanceParsed;
+
   const unlimitedText = intl.formatMessage({
     id: ETranslations.swap_page_provider_approve_amount_un_limit,
   });
@@ -143,7 +177,8 @@ function ApproveEditor(props: IProps) {
         return 'RESET';
       }
 
-      if (approveInfo) {
+      // approveInfo.amount is an absolute minimum; deltas can't be compared.
+      if (approveInfo && !isIncrease) {
         if (form.getValues('isUnlimited')) {
           return true;
         }
@@ -157,16 +192,36 @@ function ApproveEditor(props: IProps) {
 
       return true;
     },
-    [approveInfo, form, intl],
+    [approveInfo, form, intl, isIncrease],
   );
+
+  const amountFieldLabel = intl.formatMessage({
+    id: isIncrease
+      ? ETranslations.approve_edit_increase_amount
+      : ETranslations.approve_edit_approve_amount,
+  });
+
+  const finalAllowanceParsed = useMemo(() => {
+    if (!isIncrease || !currentAllowanceParsed) return null;
+    const deltaStr = watchAllFields.allowance;
+    if (!deltaStr || deltaStr === unlimitedText) return currentAllowanceParsed;
+    const deltaBN = new BigNumber(deltaStr);
+    if (!deltaBN.isFinite()) return currentAllowanceParsed;
+    return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
+  }, [
+    currentAllowanceParsed,
+    isIncrease,
+    unlimitedText,
+    watchAllFields.allowance,
+  ]);
+
+  const showAllowancePreview = isIncrease && Boolean(spender);
 
   return (
     <>
       <Form form={form}>
         <Form.Field
-          label={intl.formatMessage({
-            id: ETranslations.approve_edit_approve_amount,
-          })}
+          label={amountFieldLabel}
           name="allowance"
           rules={{
             validate: handleValidateApproveAmount,
@@ -186,7 +241,10 @@ function ApproveEditor(props: IProps) {
                 return;
               }
 
-              if (valueBN.isGreaterThanOrEqualTo(ALLOWANCE_MAX)) {
+              if (
+                !isIncrease &&
+                valueBN.isGreaterThanOrEqualTo(ALLOWANCE_MAX)
+              ) {
                 form.setValue('allowance', unlimitedText);
                 form.setValue('isUnlimited', true);
                 void form.trigger('allowance');
@@ -254,30 +312,72 @@ function ApproveEditor(props: IProps) {
             }
           />
         </Form.Field>
-        <Form.Field
-          horizontal
-          label={intl.formatMessage({
-            id: ETranslations.approve_edit_unlimited_amount,
-          })}
-          name="isUnlimited"
-          rules={{
-            onChange: (e: { target: { name: string; value: boolean } }) => {
-              const value = e.target?.value;
-              if (value) {
-                form.setValue('allowance', unlimitedText);
-              } else {
-                form.setValue('allowance', isUnlimited ? '' : allowance);
-              }
-              void form.trigger('allowance');
-            },
-          }}
-        >
-          <Switch
-            testID={SignatureConfirmTestIDs.ApproveEditorUnlimitedSwitch}
-            size="small"
-          />
-        </Form.Field>
+        {showUnlimitedToggle ? (
+          <Form.Field
+            horizontal
+            label={intl.formatMessage({
+              id: ETranslations.approve_edit_unlimited_amount,
+            })}
+            name="isUnlimited"
+            rules={{
+              onChange: (e: { target: { name: string; value: boolean } }) => {
+                const value = e.target?.value;
+                if (value) {
+                  form.setValue('allowance', unlimitedText);
+                } else {
+                  form.setValue('allowance', isUnlimited ? '' : allowance);
+                }
+                void form.trigger('allowance');
+              },
+            }}
+          >
+            <Switch
+              testID={SignatureConfirmTestIDs.ApproveEditorUnlimitedSwitch}
+              size="small"
+            />
+          </Form.Field>
+        ) : null}
       </Form>
+      {showAllowancePreview ? (
+        <YStack gap="$2" pt="$3">
+          <XStack jc="space-between" ai="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.approve_edit_current_allowance,
+              })}
+            </SizableText>
+            {isAllowanceLoading ? (
+              <Skeleton height={16} width={120} />
+            ) : (
+              <NumberSizeableText
+                size="$bodyMdMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol }}
+              >
+                {currentAllowanceParsed ?? '-'}
+              </NumberSizeableText>
+            )}
+          </XStack>
+          <XStack jc="space-between" ai="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.approve_edit_final_allowance,
+              })}
+            </SizableText>
+            {isAllowanceLoading ? (
+              <Skeleton height={16} width={120} />
+            ) : (
+              <NumberSizeableText
+                size="$bodyMdMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol }}
+              >
+                {finalAllowanceParsed ?? '-'}
+              </NumberSizeableText>
+            )}
+          </XStack>
+        </YStack>
+      ) : null}
       <Dialog.Footer
         confirmButtonProps={{
           disabled: !form.formState.isValid,
@@ -325,6 +425,7 @@ function ApproveEditor(props: IProps) {
 
 const showApproveEditor = (props: IProps) => {
   Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.approve_edit_title,
     }),

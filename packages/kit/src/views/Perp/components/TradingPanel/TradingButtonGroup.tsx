@@ -17,7 +17,10 @@ import {
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useActiveTradeInstrumentAtom,
+  useTradingFormAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountStatusAtom,
@@ -25,15 +28,20 @@ import {
   usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsTradingPreferencesAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getSpotTokenDisplayName,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
+import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -68,15 +76,27 @@ function SideButtonInternal({
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
   const [tradingPreferences] = usePerpsTradingPreferencesAtom();
+  const [tradingMode] = useTradingModeAtom();
+  const isSpot = tradingMode === 'spot';
+  // SizeInput already collapses 'margin' → 'usd' in spot to keep the input
+  // box consistent. Mirror that here so secondary text and minimum-order
+  // hints stay aligned with what the user actually sees.
+  const resolvedSizeInputUnit =
+    isSpot && tradingPreferences.sizeInputUnit === 'margin'
+      ? 'usd'
+      : tradingPreferences.sizeInputUnit;
   const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
 
   const { handleConfirm } = useOrderConfirm();
   const { midPriceBN } = useTradingPrice();
 
-  const szDecimals = useMemo(
-    () => activeAsset?.universe?.szDecimals ?? 2,
-    [activeAsset?.universe?.szDecimals],
-  );
+  const szDecimals = useMemo(() => {
+    if (isSpot && activeTradeInstrument.mode === 'spot') {
+      return activeTradeInstrument.universe?.baseSzDecimals ?? 2;
+    }
+    return activeAsset?.universe?.szDecimals ?? 2;
+  }, [isSpot, activeTradeInstrument, activeAsset?.universe?.szDecimals]);
 
   const calculations = useTradingCalculationsForSide(side);
   const {
@@ -94,10 +114,26 @@ function SideButtonInternal({
   const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
 
   const isMinimumOrderNotMetForSide = useMemo(() => {
+    if (
+      !shouldApplyMinimumOrderGuard({
+        isSpot,
+        orderMode: formData.orderMode,
+        orderType: formData.type,
+        hasBboPriceMode: Boolean(formData.bboPriceMode),
+      })
+    ) {
+      return false;
+    }
     if (!orderValue || !orderValue.isFinite() || orderValue.lte(0))
       return false;
     return orderValue.lt(10);
-  }, [orderValue]);
+  }, [
+    formData.bboPriceMode,
+    formData.orderMode,
+    formData.type,
+    isSpot,
+    orderValue,
+  ]);
 
   const isAccountLoading = useMemo<boolean>(() => {
     return (
@@ -131,7 +167,7 @@ function SideButtonInternal({
   const buttonSecondaryText = useMemo(() => {
     if (orderValue.isZero() || !orderValue.isFinite()) return null;
 
-    if (tradingPreferences.sizeInputUnit === 'usd') {
+    if (resolvedSizeInputUnit === 'usd') {
       const usdValue = orderValue
         .decimalPlaces(2, BigNumber.ROUND_DOWN)
         .toFixed(2);
@@ -141,16 +177,33 @@ function SideButtonInternal({
     const sizeValue = computedSizeForSide
       .decimalPlaces(szDecimals, BigNumber.ROUND_DOWN)
       .toFixed(szDecimals);
-    const symbol = activeAsset?.coin || '';
-    const displayName = symbol ? parseDexCoin(symbol).displayName : '';
+    const displayName = (() => {
+      if (isSpot && activeTradeInstrument.mode === 'spot') {
+        const u = activeTradeInstrument.universe;
+        return u ? getSpotTokenDisplayName(u.displayName || u.baseName) : '';
+      }
+      const symbol = activeAsset?.coin || '';
+      return symbol ? parseDexCoin(symbol).displayName : '';
+    })();
     return `${sizeValue} ${displayName}`;
   }, [
     orderValue,
-    tradingPreferences.sizeInputUnit,
+    resolvedSizeInputUnit,
     computedSizeForSide,
     szDecimals,
+    isSpot,
+    activeTradeInstrument,
     activeAsset?.coin,
   ]);
+
+  const spotTradeSymbol = useMemo(() => {
+    if (!isSpot || activeTradeInstrument.mode !== 'spot') {
+      return '';
+    }
+    const u = activeTradeInstrument.universe;
+    if (!u) return '';
+    return getSpotTokenDisplayName(u.displayName || u.baseName);
+  }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
     if (priceError === 'bbo_unavailable')
@@ -167,15 +220,43 @@ function SideButtonInternal({
       });
     if (isNoEnoughMargin)
       return intl.formatMessage({
-        id: ETranslations.perp_trading_button_no_enough_margin,
+        id: isSpot
+          ? ETranslations.dexmarket_insufficient_balance
+          : ETranslations.perp_trading_button_no_enough_margin,
       });
+    if (isSpot) {
+      if (!spotTradeSymbol) {
+        return side === 'long'
+          ? intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_buy,
+            })
+          : intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_sell,
+            });
+      }
+      return side === 'long'
+        ? intl.formatMessage(
+            {
+              id: ETranslations.dexmarket_buy_token_default,
+            },
+            { TokenName: spotTradeSymbol },
+          )
+        : intl.formatMessage(
+            {
+              id: ETranslations.dexmarket_sell_token_default,
+            },
+            { TokenName: spotTradeSymbol },
+          );
+    }
     return side === 'long'
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
     priceError,
     isNoEnoughMargin,
+    isSpot,
     side,
+    spotTradeSymbol,
     intl,
     perpConfigCommon?.ipDisablePerp,
     perpConfigCommon?.disablePerpActionPerp,
@@ -303,21 +384,27 @@ function SideButtonInternal({
           const minSize = new BigNumber(10)
             .dividedBy(effectivePriceBN)
             .decimalPlaces(szDecimals, BigNumber.ROUND_UP);
-          if (tradingPreferences.sizeInputUnit === 'token') {
-            const coinSymbol = activeAsset?.coin
-              ? parseDexCoin(activeAsset.coin).displayName
-              : '';
+          if (resolvedSizeInputUnit === 'token') {
+            const coinSymbol = (() => {
+              if (isSpot && activeTradeInstrument.mode === 'spot') {
+                const u = activeTradeInstrument.universe;
+                return u
+                  ? getSpotTokenDisplayName(u.displayName || u.baseName)
+                  : '';
+              }
+              return activeAsset?.coin
+                ? parseDexCoin(activeAsset.coin).displayName
+                : '';
+            })();
             minAmount = `${minSize.toFixed(szDecimals)} ${coinSymbol}`;
-          } else if (tradingPreferences.sizeInputUnit === 'margin') {
+          } else if (resolvedSizeInputUnit === 'margin') {
             const leverageBN = new BigNumber(leverage || 1);
             if (leverageBN.isFinite() && leverageBN.gt(0)) {
-              // System uses toFixed (ROUND_HALF_UP) to convert margin to token size.
-              // The smallest raw value that rounds up to minSize is: minSize - 0.5 * 10^(-szDecimals)
-              const halfStep = new BigNumber(5).times(
-                new BigNumber(10).pow(-(szDecimals + 1)),
-              );
+              // SizeInput floors (margin × leverage / price) to szDecimals via
+              // formatHlSize, so the smallest margin that produces ≥ `minSize`
+              // tokens is exactly `minSize × effectivePrice / leverage`,
+              // rounded up to 2 cents to keep the displayed amount on the safe side.
               const minMargin = minSize
-                .minus(halfStep)
                 .multipliedBy(effectivePriceBN)
                 .dividedBy(leverageBN)
                 .decimalPlaces(2, BigNumber.ROUND_UP)
@@ -449,7 +536,7 @@ function SideButtonInternal({
       if (perpsCustomSettings.skipOrderConfirm) {
         void handleConfirm(side);
       } else {
-        showOrderConfirmDialog(side);
+        showOrderConfirmDialog({ overrideSide: side, intl });
       }
     },
     1000,
@@ -461,8 +548,9 @@ function SideButtonInternal({
   if (isMobile) {
     return (
       <YStack gap="$2" flex={1}>
-        <YStack gap="$1.5">
-          {/* <XStack justifyContent="space-between">
+        {isSpot ? null : (
+          <YStack gap="$1.5">
+            {/* <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
           </SizableText>
@@ -476,75 +564,76 @@ function SideButtonInternal({
           </NumberSizeableText>
         </XStack> */}
 
-          <XStack justifyContent="space-between">
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.perp_trade_margin_required,
-              })}
-              renderTrigger={
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.3}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_cost,
-                  })}
-                </DashText>
-              }
-              renderContent={
-                <YStack px="$5" pb="$4">
-                  <SizableText>
+            <XStack justifyContent="space-between">
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_trade_margin_required,
+                })}
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                  >
                     {intl.formatMessage({
-                      id: ETranslations.perp_trade_margin_tooltip,
+                      id: ETranslations.perp_cost,
                     })}
-                  </SizableText>
-                </YStack>
-              }
-            />
+                  </DashText>
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.perp_trade_margin_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                }
+              />
 
-            <NumberSizeableText
-              size="$bodySm"
-              color="$text"
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-            >
-              {marginRequired.toNumber()}
-            </NumberSizeableText>
-          </XStack>
+              <NumberSizeableText
+                size="$bodySm"
+                color="$text"
+                formatter="value"
+                formatterOptions={{ currency: '$' }}
+              >
+                {marginRequired.toNumber()}
+              </NumberSizeableText>
+            </XStack>
 
-          <XStack justifyContent="space-between">
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.perp_est_liq_price,
-              })}
-              renderTrigger={
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price,
-                  })}
-                </DashText>
-              }
-              renderContent={
-                <YStack px="$5" pb="$4">
-                  <SizableText>
+            <XStack justifyContent="space-between">
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price,
+                })}
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                  >
                     {intl.formatMessage({
-                      id: ETranslations.perp_est_liq_price_tooltip,
+                      id: ETranslations.perp_est_liq_price,
                     })}
-                  </SizableText>
-                </YStack>
-              }
-            />
+                  </DashText>
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.perp_est_liq_price_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                }
+              />
 
-            {renderLiquidationPrice()}
-          </XStack>
-        </YStack>
+              {renderLiquidationPrice()}
+            </XStack>
+          </YStack>
+        )}
 
         <Button
           testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
@@ -627,76 +716,78 @@ function SideButtonInternal({
           ) : null}
         </YStack>
       </Button>
-      <YStack gap="$1.5">
-        {/* <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
-          </SizableText>
-          <NumberSizeableText
-            size="$bodySm"
-            color="$text"
-            formatter="value"
-            formatterOptions={{ currency: '$' }}
-          >
-            {orderValue.toNumber()}
-          </NumberSizeableText>
-        </XStack> */}
+      {isSpot ? null : (
+        <YStack gap="$1.5">
+          {/* <XStack justifyContent="space-between">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
+            </SizableText>
+            <NumberSizeableText
+              size="$bodySm"
+              color="$text"
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
+              {orderValue.toNumber()}
+            </NumberSizeableText>
+          </XStack> */}
 
-        <XStack gap="$2" justifyContent={justifyContent}>
-          <Tooltip
-            placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_trade_margin_tooltip,
-            })}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="default"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_cost,
-                })}
-              </DashText>
-            }
-          />
+          <XStack gap="$2" justifyContent={justifyContent}>
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_tooltip,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_cost,
+                  })}
+                </DashText>
+              }
+            />
 
-          <NumberSizeableText
-            size="$bodySm"
-            color="$text"
-            formatter="value"
-            formatterOptions={{ currency: '$' }}
-          >
-            {marginRequired.toNumber()}
-          </NumberSizeableText>
-        </XStack>
+            <NumberSizeableText
+              size="$bodySm"
+              color="$text"
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
+              {marginRequired.toNumber()}
+            </NumberSizeableText>
+          </XStack>
 
-        <XStack gap="$2" justifyContent={justifyContent}>
-          <Tooltip
-            placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_est_liq_price_tooltip,
-            })}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="default"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_est_liq_price,
-                })}
-              </DashText>
-            }
-          />
+          <XStack gap="$2" justifyContent={justifyContent}>
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price_tooltip,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_est_liq_price,
+                  })}
+                </DashText>
+              }
+            />
 
-          {renderLiquidationPrice()}
-        </XStack>
-      </YStack>
+            {renderLiquidationPrice()}
+          </XStack>
+        </YStack>
+      )}
     </YStack>
   );
 }
@@ -704,6 +795,18 @@ function SideButtonInternal({
 const SideButton = memo(SideButtonInternal);
 
 function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
+  const [tradingMode] = useTradingModeAtom();
+  const [formData] = useTradingFormAtom();
+  const isSpot = tradingMode === 'spot';
+
+  if (isSpot) {
+    return (
+      <YStack {...(!isMobile && { mt: '$4' })}>
+        <SideButton side={formData.side} isMobile={isMobile} />
+      </YStack>
+    );
+  }
+
   return isMobile ? (
     <YStack gap="$3">
       <SideButton side="long" isMobile={isMobile} />

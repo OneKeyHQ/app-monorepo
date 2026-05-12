@@ -24,6 +24,15 @@ export function wrapAtomPro(
     Promise<void> | undefined
   >,
 ) {
+  const shouldProxyStateUpdateFromUiToBg =
+    platformEnv.isExtensionUi ||
+    (platformEnv.isNativeMainThread &&
+      platformEnv.enableNativeBackgroundThread);
+  const shouldBroadcastStateUpdateFromBgToUi =
+    platformEnv.isExtensionBackground ||
+    (platformEnv.isNativeBackgroundThread &&
+      platformEnv.enableNativeBackgroundThread);
+
   const doSet = async ({
     payload,
     proxyToBg,
@@ -33,7 +42,7 @@ export function wrapAtomPro(
     proxyToBg: boolean;
     set: IJotaiSetter;
   }) => {
-    if (proxyToBg && platformEnv.isExtensionUi) {
+    if (proxyToBg && shouldProxyStateUpdateFromUiToBg) {
       await appGlobals.$jotaiBgSync?.proxyStateUpdateActionFromUiToBg({
         name,
         payload,
@@ -41,7 +50,7 @@ export function wrapAtomPro(
       return;
     }
     await set(baseAtom, payload);
-    if (platformEnv.isExtensionBackground) {
+    if (shouldBroadcastStateUpdateFromBgToUi) {
       await appGlobals.$jotaiBgSync?.broadcastStateUpdateFromBgToUi({
         name,
         payload,
@@ -76,7 +85,7 @@ export function wrapAtomPro(
       jotaiVerify.ensureNotPromise(nextValue);
 
       let proxyToBg = false;
-      if (platformEnv.isExtensionUi && name) {
+      if (shouldProxyStateUpdateFromUiToBg && name) {
         proxyToBg = true;
         const nextValueFromBg = nextValue as IGlobalStatesSyncBroadcastParams;
         if (

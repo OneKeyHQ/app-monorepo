@@ -20,6 +20,7 @@ export enum EAtomNames {
   addressBookPersistAtom = 'addressBookPersistAtom',
   hardwareUiStateAtom = 'hardwareUiStateAtom',
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
+  thirdPartyHardwareUiStateAtom = 'thirdPartyHardwareUiStateAtom',
   hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
   // firmwareUpdatesDetectStatusAtom is reserved for firmwareUpdatesDetectStatusPersistAtom
   firmwareUpdatesDetectStatusPersistAtom = 'firmwareUpdatesDetectStatusPersistAtom', // persist
@@ -95,7 +96,22 @@ export enum EAtomNames {
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
+  perpsAbstractionModeAtom = 'perpsAbstractionModeAtom',
+  perpsSpotBalancesAtom = 'perpsSpotBalancesAtom',
   perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
+  // trading mode
+  tradingModeAtom = 'tradingModeAtom',
+  // spot
+  spotActiveAssetAtom = 'spotActiveAssetAtom',
+  spotActiveAssetCtxAtom = 'spotActiveAssetCtxAtom',
+  spotBalancesAtom = 'spotBalancesAtom',
+  spotTokenSelectorConfigPersistAtom = 'spotTokenSelectorConfigPersistAtom',
+  spotTokenFavoritesPersistAtom = 'spotTokenFavoritesPersistAtom',
+  spotAssetCtxsMapAtom = 'spotAssetCtxsMapAtom',
+  spotActiveOpenOrdersAtom = 'spotActiveOpenOrdersAtom',
+  spotPairDisplayMapAtom = 'spotPairDisplayMapAtom',
+  spotExternalMarketCapsAtom = 'spotExternalMarketCapsAtom',
+  perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 

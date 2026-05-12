@@ -37,6 +37,8 @@ export enum EPrimeFeatures {
   Notifications = 'Notifications',
   HistoryExport = 'HistoryExport',
   DAppTranslate = 'DAppTranslate',
+  BlockaidSiteScan = 'BlockaidSiteScan',
+  ExtendedHistory = 'ExtendedHistory',
 }
 
 export type IPrimeParamList = {

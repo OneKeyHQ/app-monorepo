@@ -35,6 +35,7 @@ export default function PagePrimeTransfer() {
   const routeParamsCode = route.params?.code;
   const routeParamsServer = route.params?.server;
   const routeParamsTransferType = route.params?.transferType;
+  const routeParamsBotWalletId = route.params?.botWalletId;
   const routeParamsDefaultTab = route.params?.defaultTab;
 
   const initialCode = routeParamsCode || '';
@@ -53,25 +54,30 @@ export default function PagePrimeTransfer() {
     }
   }, [primeTransferAtom.status, initialCode]);
 
+  const isBotWalletExport = !!routeParamsBotWalletId;
+
   const { result } = usePromiseResult(async () => {
     noop(primeTransferAtom.websocketEndpointUpdatedAt);
-    const serverConfig =
-      await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
+    const serverConfig = isBotWalletExport
+      ? undefined
+      : await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
     const endpoint =
-      await backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint();
+      await backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint({
+        forceOfficialServer: isBotWalletExport,
+      });
     // remove last slash
     const endpointWithoutLastSlash = endpoint.replace(/\/+$/, '');
     return {
       endpoint: endpointWithoutLastSlash,
       serverConfig,
     };
-  }, [primeTransferAtom.websocketEndpointUpdatedAt]);
+  }, [primeTransferAtom.websocketEndpointUpdatedAt, isBotWalletExport]);
 
   useEffect(() => {
     if (!result?.endpoint) {
       return;
     }
-    noop(result.serverConfig?.serverType);
+    noop(result?.serverConfig?.serverType);
     // TODO show websocket connection status by global atom
     void backgroundApiProxy.servicePrimeTransfer.initWebSocket({
       endpoint: result.endpoint,
@@ -90,7 +96,7 @@ export default function PagePrimeTransfer() {
       // Disconnect WebSocket
       void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
     };
-  }, [result?.endpoint, result?.serverConfig?.serverType]);
+  }, [result?.endpoint, result?.serverConfig?.serverType, isBotWalletExport]);
 
   useEffect(() => {
     if (platformEnv.isExtension) {
@@ -136,6 +142,7 @@ export default function PagePrimeTransfer() {
           autoConnect={!!routeParamsCode}
           autoConnectCustomServer={routeParamsServer || undefined}
           defaultTab={routeParamsDefaultTab}
+          botWalletId={routeParamsBotWalletId}
         />
       );
     }
@@ -147,6 +154,7 @@ export default function PagePrimeTransfer() {
         <>
           <PrimeTransferDirection
             remotePairingCode={remotePairingCode}
+            botWalletId={routeParamsBotWalletId}
             transferType={routeParamsTransferType}
           />
         </>
@@ -156,6 +164,7 @@ export default function PagePrimeTransfer() {
   }, [
     routeParamsCode,
     routeParamsServer,
+    routeParamsBotWalletId,
     routeParamsDefaultTab,
     routeParamsTransferType,
     primeTransferAtom.status,

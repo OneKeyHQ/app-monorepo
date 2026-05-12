@@ -87,3 +87,116 @@ describe('Lightning Path Transformation', () => {
     ).toThrow('buildLightningAccountId ERROR: invalid accountId');
   });
 });
+
+describe('Bot Wallet ID Parsing', () => {
+  test('builds hd wallet hash with the shared mnemonic salt algorithm', () => {
+    expect(
+      accountUtils.buildHdWalletHash({
+        mnemonic: 'test test test test test test test test test test test junk',
+      }),
+    ).toBe('7038aa6c08d7f30cd0f0aa1214e728da6c4aa2dbffe51fab738be48b7776f034');
+  });
+
+  test('parses bot indexedAccountId without truncating walletId', () => {
+    const botWalletId = accountUtils.buildBotWalletId({
+      parentKeylessWalletId: 'hd-keyless-test-parent',
+      index: 3,
+    });
+    const indexedAccountId = accountUtils.buildIndexedAccountId({
+      walletId: botWalletId,
+      index: 7,
+    });
+
+    expect(accountUtils.parseIndexedAccountId({ indexedAccountId })).toEqual({
+      walletId: botWalletId,
+      index: 7,
+    });
+  });
+
+  test('parses bot indexedAccountId when parent keyless wallet id contains separators', () => {
+    const botWalletId = accountUtils.buildBotWalletId({
+      parentKeylessWalletId: 'hd-keyless--test-parent',
+      index: 3,
+    });
+    const indexedAccountId = accountUtils.buildIndexedAccountId({
+      walletId: botWalletId,
+      index: 7,
+    });
+
+    expect(
+      accountUtils.getWalletIdFromAccountId({ accountId: indexedAccountId }),
+    ).toBe(botWalletId);
+    expect(accountUtils.parseIndexedAccountId({ indexedAccountId })).toEqual({
+      walletId: botWalletId,
+      index: 7,
+    });
+  });
+
+  test('parses bot accountId without truncating walletId', () => {
+    const botWalletId = accountUtils.buildBotWalletId({
+      parentKeylessWalletId: 'hd-keyless-test-parent',
+      index: 1,
+    });
+    const accountId = accountUtils.buildHDAccountId({
+      walletId: botWalletId,
+      path: `m/44'/60'/0'/0/0`,
+    });
+
+    expect(accountUtils.getWalletIdFromAccountId({ accountId })).toBe(
+      botWalletId,
+    );
+    expect(accountUtils.parseAccountId({ accountId })).toEqual({
+      walletId: botWalletId,
+      usedPath: `m/44'/60'/0'/0/0`,
+      idSuffix: undefined,
+    });
+  });
+
+  test('preserves bot accountId suffix when parsing', () => {
+    const botWalletId = accountUtils.buildBotWalletId({
+      parentKeylessWalletId: 'hd-keyless-test-parent',
+      index: 2,
+    });
+    const accountId = accountUtils.buildHDAccountId({
+      walletId: botWalletId,
+      path: `m/44'/60'/0'/0/0`,
+      idSuffix: 'LedgerLive',
+    });
+
+    expect(accountUtils.parseAccountId({ accountId })).toEqual({
+      walletId: botWalletId,
+      usedPath: `m/44'/60'/0'/0/0`,
+      idSuffix: 'LedgerLive',
+    });
+  });
+
+  test('preserves bot account parsing when parent keyless wallet id contains separators', () => {
+    const botWalletId = accountUtils.buildBotWalletId({
+      parentKeylessWalletId: 'hd-keyless--test-parent',
+      index: 2,
+    });
+    const accountId = accountUtils.buildHDAccountId({
+      walletId: botWalletId,
+      path: `m/44'/60'/0'/0/0`,
+      idSuffix: 'LedgerLive',
+    });
+
+    expect(accountUtils.getWalletIdFromAccountId({ accountId })).toBe(
+      botWalletId,
+    );
+    expect(accountUtils.parseAccountId({ accountId })).toEqual({
+      walletId: botWalletId,
+      usedPath: `m/44'/60'/0'/0/0`,
+      idSuffix: 'LedgerLive',
+    });
+  });
+
+  test('rejects bot wallet ids with non-digit suffixes', () => {
+    expect(accountUtils.parseBotWalletId('hd-bot--hd-keyless-parent--1x')).toBe(
+      undefined,
+    );
+    expect(accountUtils.parseBotWalletId('hd-bot--hd-keyless-parent--+1')).toBe(
+      undefined,
+    );
+  });
+});

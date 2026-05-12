@@ -281,6 +281,7 @@ function AssetProtocolList() {
         indexedAccountId,
         networkId,
         filterNetworkId: filter ? networkId : undefined,
+        includeWithdrawOnly: true,
       }),
     [filter, symbol, networkId, accountId, indexedAccountId],
     { watchLoading: true },

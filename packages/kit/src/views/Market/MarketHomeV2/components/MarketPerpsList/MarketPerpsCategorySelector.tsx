@@ -7,6 +7,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 import {
@@ -128,8 +129,9 @@ function MarketPerpsCategorySelectorImpl(
   props: IMarketPerpsCategorySelectorProps,
 ) {
   const { md } = useMedia();
+  const shouldUseMobileSelector = md || platformEnv.isNative;
 
-  if (md) {
+  if (shouldUseMobileSelector) {
     return <MarketPerpsCategorySelectorMobile {...props} />;
   }
 

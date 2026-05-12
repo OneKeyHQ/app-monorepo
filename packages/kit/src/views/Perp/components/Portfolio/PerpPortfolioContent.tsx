@@ -19,7 +19,10 @@ import {
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsActiveAccountMmrAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountMmrAtom,
+  usePerpsComputedAccountValueAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatChartUsdPrice,
@@ -44,6 +47,13 @@ import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
 interface IPerpPortfolioContentProps {
   isMobile?: boolean;
 }
+
+const WIN_RATE_TOOLTIP_MAP: Record<IPortfolioTimePeriod, ETranslations> = {
+  day: ETranslations.perp_portfolio_win_rate_tooltip_day__desc,
+  week: ETranslations.perp_portfolio_win_rate_tooltip_week__desc,
+  month: ETranslations.perp_portfolio_win_rate_tooltip_month__desc,
+  allTime: ETranslations.perp_portfolio_win_rate_tooltip_all_time__desc,
+};
 
 // Time period and chart type options are built inside the component using intl
 
@@ -287,6 +297,7 @@ function PerpPortfolioContentComponent({
     totalPnl,
     isLoading,
   } = usePerpPortfolioData(timePeriod);
+  const [computedValue] = usePerpsComputedAccountValueAtom();
 
   const chartSeriesData = useMemo((): IMarketTokenChart => {
     if (!chartData) return [];
@@ -296,10 +307,10 @@ function PerpPortfolioContentComponent({
   }, [chartData, chartType]);
 
   const accountValue = formatPerpsUsd(
-    parseFloat(accountSummary?.accountValue ?? '0'),
+    parseFloat(computedValue?.accountValue ?? '0'),
   );
   const withdrawable = formatPerpsUsd(
-    parseFloat(accountSummary?.withdrawable ?? '0'),
+    parseFloat(computedValue?.withdrawable ?? '0'),
   );
 
   const unrealizedPnlRaw = parseFloat(
@@ -311,6 +322,12 @@ function PerpPortfolioContentComponent({
   const totalPnlVal = totalPnl ?? fillsStats.realizedPnl;
   const realizedPnl = formatPerpsUsd(totalPnlVal, true);
   const realizedColor = getPerpsValueColor(totalPnlVal);
+  const totalPnlTooltip = intl.formatMessage({
+    id: ETranslations.perp_portfolio_total_pnl_tooltip__desc,
+  });
+  const winRateTooltip = intl.formatMessage({
+    id: WIN_RATE_TOOLTIP_MAP[timePeriod],
+  });
 
   const vlm = chartData?.vlm
     ? formatPerpsCompactUsd(parseFloat(chartData.vlm))
@@ -325,10 +342,10 @@ function PerpPortfolioContentComponent({
   // Account Health computed values
   const leverageRaw = useMemo(() => {
     const ntlPos = parseFloat(accountSummary?.totalNtlPos ?? '0');
-    const acctVal = parseFloat(accountSummary?.accountValue ?? '0');
+    const acctVal = parseFloat(computedValue?.accountValue ?? '0');
     if (acctVal <= 0) return acctVal < 0 ? MAX_LEVERAGE_GAUGE : 0;
     return Math.abs(ntlPos) / acctVal;
-  }, [accountSummary]);
+  }, [accountSummary?.totalNtlPos, computedValue?.accountValue]);
   const leverageText = leverageRaw > 0 ? `${leverageRaw.toFixed(2)}x` : '--';
   const leverageGaugePct = Math.min(
     (leverageRaw / MAX_LEVERAGE_GAUGE) * 100,
@@ -337,7 +354,7 @@ function PerpPortfolioContentComponent({
 
   const marginUsedRaw = parseFloat(accountSummary?.totalMarginUsed ?? '0');
   const marginUsedText = formatPerpsCompactUsd(marginUsedRaw);
-  const acctValRaw = parseFloat(accountSummary?.accountValue ?? '0');
+  const acctValRaw = parseFloat(computedValue?.accountValue ?? '0');
   // Gauge: margin used as % of account value
   const marginUsedGaugePct =
     acctValRaw > 0 ? (marginUsedRaw / acctValRaw) * 100 : 0;
@@ -564,11 +581,17 @@ function PerpPortfolioContentComponent({
             </SizableText>
           </YStack>
           <YStack flex={1} gap="$0.5" alignItems="center">
-            <SizableText size="$bodyXs" color="$textDisabled">
+            <DashText
+              size="$bodyXs"
+              color="$textDisabled"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+              tooltip={totalPnlTooltip}
+            >
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_total_pnl,
               })}
-            </SizableText>
+            </DashText>
             <SizableText
               size="$headingSm"
               color={realizedColor}
@@ -855,11 +878,17 @@ function PerpPortfolioContentComponent({
         <YStack gap="$2">
           <XStack justifyContent="space-between" alignItems="flex-end">
             <YStack gap="$0.5">
-              <SizableText size="$bodyXs" color="$textDisabled">
+              <DashText
+                size="$bodyXs"
+                color="$textDisabled"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={winRateTooltip}
+              >
                 {intl.formatMessage({
                   id: ETranslations.perp_portfolio_win_rate,
                 })}
-              </SizableText>
+              </DashText>
               <SizableText size="$headingLg" color={winRateClr}>
                 {winRateVal}
               </SizableText>

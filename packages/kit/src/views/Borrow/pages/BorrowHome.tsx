@@ -110,12 +110,14 @@ const BorrowHomeContent = memo(
         hasConnectedWallet &&
         Boolean(accountId || indexedAccountId) &&
         Boolean(market?.networkId) &&
+        !earnAccount.loading &&
         !earnAccount.data?.accountAddress,
       [
         hasConnectedWallet,
         accountId,
         indexedAccountId,
         market?.networkId,
+        earnAccount.loading,
         earnAccount.data?.accountAddress,
       ],
     );

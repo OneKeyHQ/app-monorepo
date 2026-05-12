@@ -103,6 +103,31 @@ class ServiceApp extends ServiceBase {
       console.error('syncStorage.clear() error');
     }
     defaultLogger.setting.page.clearDataStep('syncStorage-clearAll');
+
+    // Clean jotai MMKV per-key storage (separate instance from syncStorage)
+    if (platformEnv.isNative) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { default: jotaiMMKV } =
+          require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
+        jotaiMMKV.clearAll();
+      } catch {
+        console.error('jotaiMMKV.clearAll() error');
+      }
+      defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
+    }
+
+    // Clean cold-start cache MMKV (contextAtom snapshot + SWR cache)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { coldStartCacheStorage } =
+        require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+      coldStartCacheStorage.clearAll();
+    } catch {
+      console.error('coldStartCacheStorage.clearAll() error');
+    }
+    defaultLogger.setting.page.clearDataStep('coldStartCache-clearAll');
+
     await timerUtils.wait(100);
 
     try {

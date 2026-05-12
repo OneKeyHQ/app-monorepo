@@ -47,4 +47,9 @@ export class JotaiCrossAtom<T extends () => any> {
     >;
     return jotaiDefaultStore.set(a, ...args);
   };
+
+  sub = (callback: () => void): (() => void) => {
+    const a = this.atom();
+    return jotaiDefaultStore.sub(a, callback);
+  };
 }

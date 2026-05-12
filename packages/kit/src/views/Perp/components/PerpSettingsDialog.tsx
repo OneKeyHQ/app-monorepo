@@ -6,29 +6,126 @@ import {
   ESwitchSize,
   Icon,
   Popover,
+  SizableText,
   Switch,
+  Toast,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsAbstractionModeAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsCustomSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
+import { useShowGuide } from '../hooks/useShowGuide';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
-import { showPerpFeeTierDialog } from './TradingPanel/components/PerpFeeTierPopover';
+const ABSTRACTION_MODE_OPTIONS = [
+  {
+    label: 'Unified Account',
+    value: 'u' as const,
+    mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+  },
+  {
+    label: 'Disabled',
+    value: 'i' as const,
+    mode: EHyperLiquidAbstractionMode.DISABLED,
+  },
+  {
+    label: 'Portfolio Margin',
+    value: 'p' as const,
+    mode: EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
+  },
+];
+
+function DevAbstractionModeSelector() {
+  const [modeData] = usePerpsAbstractionModeAtom();
+  const [activeAccount] = usePerpsActiveAccountAtom();
+
+  const modeMap = {
+    u: 'unifiedAccount',
+    i: 'disabled',
+    p: 'portfolioMargin',
+  } as const;
+
+  const handleSetMode = async (mode: 'i' | 'u' | 'p') => {
+    if (!activeAccount?.accountId || !activeAccount?.accountAddress) return;
+    try {
+      await backgroundApiProxy.serviceHyperliquidExchange.setAbstractionWithUserWallet(
+        {
+          userAccountId: activeAccount.accountId,
+          userAddress: activeAccount.accountAddress,
+          abstraction: modeMap[mode],
+        },
+      );
+      await backgroundApiProxy.serviceHyperliquid.fetchUserAbstraction(
+        activeAccount.accountAddress,
+      );
+    } catch (e) {
+      Toast.error({ title: (e as Error)?.message || 'Failed to set mode' });
+    }
+  };
+
+  if (!platformEnv.isDev) {
+    return null;
+  }
+
+  return (
+    <YStack
+      px="$2.5"
+      pt="$2"
+      gap="$2"
+      borderTopWidth={1}
+      borderColor="$borderSubdued"
+      mt="$2"
+    >
+      <SizableText size="$bodySmMedium" color="$textSubdued">
+        Account Mode
+      </SizableText>
+      <XStack gap="$2" flexWrap="wrap">
+        {ABSTRACTION_MODE_OPTIONS.map((opt) => {
+          const isActive = modeData?.mode === opt.mode;
+          return (
+            <SizableText
+              key={opt.value}
+              size="$bodySm"
+              px="$2"
+              py="$1"
+              borderRadius="$2"
+              borderWidth={1}
+              borderColor={isActive ? '$borderActive' : '$borderSubdued'}
+              backgroundColor={isActive ? '$bgActive' : '$bgSubdued'}
+              cursor="pointer"
+              onPress={() => handleSetMode(opt.value)}
+            >
+              {opt.label}
+            </SizableText>
+          );
+        })}
+      </XStack>
+    </YStack>
+  );
+}
 
 interface IPerpSettingsPopoverContentProps {
   closePopover: () => void;
-  showFeeTierEntry?: boolean;
+  showGuideEntry?: boolean;
 }
 
 function PerpSettingsPopoverContent({
   closePopover,
-  showFeeTierEntry = false,
+  showGuideEntry = false,
 }: IPerpSettingsPopoverContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const intl = useIntl();
+  const { showGuide } = useShowGuide();
 
   return (
     <YStack py="$3" px="$2">
@@ -104,35 +201,37 @@ function PerpSettingsPopoverContent({
         />
       </ListItem>
 
-      {showFeeTierEntry ? (
+      {showGuideEntry ? (
         <ListItem
           mx="$0"
           px="$2.5"
           titleProps={{ size: '$bodyMdMedium' }}
           title={intl.formatMessage({
-            id: ETranslations.perps_fee_tiers,
+            id: ETranslations.perp_guide_title,
           })}
           onPress={() => {
             closePopover();
-            showPerpFeeTierDialog();
+            showGuide();
           }}
           cursor="default"
         >
           <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
         </ListItem>
       ) : null}
+
+      <DevAbstractionModeSelector />
     </YStack>
   );
 }
 
 export interface IPerpSettingsPopoverProps {
   renderTrigger: ReactNode;
-  showFeeTierEntry?: boolean;
+  showGuideEntry?: boolean;
 }
 
 export function PerpSettingsPopover({
   renderTrigger,
-  showFeeTierEntry = false,
+  showGuideEntry = false,
 }: IPerpSettingsPopoverProps) {
   const intl = useIntl();
 
@@ -146,7 +245,7 @@ export function PerpSettingsPopover({
         renderContent={({ closePopover }) => (
           <PerpSettingsPopoverContent
             closePopover={closePopover}
-            showFeeTierEntry={showFeeTierEntry}
+            showGuideEntry={showGuideEntry}
           />
         )}
         floatingPanelProps={{

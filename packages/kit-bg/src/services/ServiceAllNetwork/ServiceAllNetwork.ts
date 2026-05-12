@@ -573,10 +573,28 @@ class ServiceAllNetwork extends ServiceBase {
   async updateAllNetworksState(params: {
     disabledNetworks?: Record<string, boolean>;
     enabledNetworks?: Record<string, boolean>;
+    // Optional context so bg can prime the UnifiedNetworkSelector's SWR
+    // cache (swrKeys.unifiedNetworkSelectorMeta) for this account — the
+    // next modal open then reflects the new enabled/disabled state from
+    // frame 0 instead of flashing the pre-update snapshot. The context
+    // is additive: callers that don't supply it retain the old behavior.
+    cacheContext?: {
+      walletId?: string;
+      accountId?: string;
+    };
   }) {
     await this.backgroundApi.simpleDb.allNetworks.updateAllNetworksState(
       params,
     );
+    const { cacheContext } = params;
+    if (cacheContext?.walletId) {
+      void this.backgroundApi.serviceNetwork.primeUnifiedNetworkSelectorMetaCache(
+        {
+          walletId: cacheContext.walletId,
+          accountId: cacheContext.accountId,
+        },
+      );
+    }
   }
 
   @backgroundMethod()

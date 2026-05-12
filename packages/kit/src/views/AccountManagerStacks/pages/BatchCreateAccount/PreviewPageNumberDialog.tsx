@@ -40,6 +40,7 @@ export function showBatchCreateAccountPreviewPageNumberDialog({
   onSubmit: (values: IFormValues | undefined) => Promise<void>;
 }) {
   Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.global_bulk_accounts_page_number,
     }),

@@ -7,7 +7,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   EIntervalMode,
@@ -16,11 +16,28 @@ import {
   type IIntervalSettings,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+
+import type { IntlShape } from 'react-intl';
 
 export const BULK_SEND_INTERVAL_MAX_SECONDS = 600;
 
+export const DEFAULT_INTERVAL_SETTINGS: IIntervalSettings = {
+  mode: EIntervalMode.Specified,
+  minSeconds: '5',
+  maxSeconds: '30',
+};
+
+export function filterIntegerInput(text: string): string {
+  return text.replace(/[^0-9]/g, '');
+}
+
 // Filter input to only allow numbers and decimal point
 export function filterNumericInput(text: string): string {
+  if (!text) {
+    return '';
+  }
+
   // Remove all characters except digits and decimal point
   let filtered = text.replace(/[^0-9.]/g, '');
   // Ensure only one decimal point
@@ -28,6 +45,12 @@ export function filterNumericInput(text: string): string {
   if (parts.length > 2) {
     filtered = `${parts[0]}.${parts.slice(1).join('')}`;
   }
+
+  // Normalize decimal inputs like ".5" to "0.5"
+  if (filtered.startsWith('.')) {
+    filtered = `0${filtered}`;
+  }
+
   return filtered;
 }
 
@@ -96,6 +119,78 @@ export function calculateTotalAmounts({
   };
 }
 
+export function isBulkSendTokenDetailsMatched(
+  {
+    networkId,
+    tokenInfo,
+  }: {
+    networkId?: string;
+    tokenInfo?: IToken;
+  },
+  tokenDetails?: { info: IToken } & Partial<ITokenFiat>,
+): tokenDetails is { info: IToken } & Partial<ITokenFiat> {
+  if (!tokenInfo || !tokenDetails?.info) {
+    return false;
+  }
+
+  const expectedNetworkId = tokenInfo.networkId ?? networkId;
+  const currentNetworkId = tokenDetails.info.networkId ?? networkId;
+
+  if (!expectedNetworkId || !currentNetworkId) {
+    return false;
+  }
+
+  if (expectedNetworkId !== currentNetworkId) {
+    return false;
+  }
+
+  if (tokenInfo.isNative && tokenDetails.info.isNative) {
+    return true;
+  }
+
+  return equalTokenNoCaseSensitive({
+    token1: {
+      networkId: expectedNetworkId,
+      contractAddress: tokenInfo.address,
+    },
+    token2: {
+      networkId: currentNetworkId,
+      contractAddress: tokenDetails.info.address,
+    },
+  });
+}
+
+// Check if any sender's aggregated transfer amount exceeds their balance.
+// For duplicate senders, sums all transfer amounts for the same address.
+export function checkSenderInsufficientBalance({
+  transfersInfo,
+  senderBalances,
+}: {
+  transfersInfo: ITransferInfo[];
+  senderBalances: Record<string, string>;
+}): boolean {
+  const aggregated = new Map<string, BigNumber>();
+  for (const transfer of transfersInfo) {
+    if (transfer.amount && transfer.amount !== '') {
+      const amount = new BigNumber(transfer.amount);
+      if (!amount.isNaN()) {
+        const existing = aggregated.get(transfer.from);
+        aggregated.set(
+          transfer.from,
+          existing ? existing.plus(amount) : amount,
+        );
+      }
+    }
+  }
+  for (const [address, totalAmount] of aggregated) {
+    const balance = senderBalances[address];
+    if (balance !== undefined && totalAmount.gt(balance)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function getBulkSendMinTransferAmount({
   vaultSettings,
   isNative,
@@ -141,14 +236,16 @@ export function getBulkSendMinTransferDisplayAmount({
 export function formatIntervalSecondsRange({
   minSeconds,
   maxSeconds,
+  intl,
 }: {
   minSeconds?: string;
   maxSeconds?: string;
+  intl: IntlShape;
 }) {
   const min = minSeconds || '0';
   const max = maxSeconds || '0';
 
-  return appLocale.intl.formatMessage(
+  return intl.formatMessage(
     {
       id: ETranslations.earn_number_seconds,
     },
@@ -158,11 +255,10 @@ export function formatIntervalSecondsRange({
   );
 }
 
-export function validateIntervalSettings({
-  mode,
-  minSeconds,
-  maxSeconds,
-}: IIntervalSettings): string | undefined {
+export function validateIntervalSettings(
+  { mode, minSeconds, maxSeconds }: IIntervalSettings,
+  intl: IntlShape,
+): string | undefined {
   if (mode !== EIntervalMode.Specified) {
     return undefined;
   }
@@ -176,31 +272,31 @@ export function validateIntervalSettings({
     (maxSeconds !== '' &&
       (maxBN.isNaN() || maxBN.isGreaterThan(BULK_SEND_INTERVAL_MAX_SECONDS)))
   ) {
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.wallet_bulk_send_error_proper_range,
     });
   }
 
   if (minSeconds === '') {
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.wallet_bulk_send_error_min_required,
     });
   }
 
   if (maxSeconds === '') {
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.wallet_bulk_send_error_max_required,
     });
   }
 
   if (maxBN.isLessThanOrEqualTo(0)) {
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.wallet_bulk_send_error_max_zero,
     });
   }
 
   if (minBN.isGreaterThanOrEqualTo(maxBN)) {
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.wallet_bulk_send_error_max_less_than_min,
     });
   }
@@ -466,6 +562,7 @@ export function validateRangeInput({
   minTransferAmount,
   tokenSymbol,
   tokenDecimals,
+  intl,
 }: {
   rangeMin: string;
   rangeMax: string;
@@ -473,6 +570,7 @@ export function validateRangeInput({
   minTransferAmount?: string;
   tokenSymbol?: string;
   tokenDecimals?: number;
+  intl: IntlShape;
 }): string | undefined {
   const minBN = new BigNumber(rangeMin || '0');
   const maxBN = new BigNumber(rangeMax || '0');
@@ -483,7 +581,7 @@ export function validateRangeInput({
 
     // When balance is zero, no valid non-zero range can be generated
     if (balanceBN.isZero()) {
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.swap_page_button_insufficient_balance,
       });
     }
@@ -491,7 +589,7 @@ export function validateRangeInput({
     // Only check if min exceeds balance (min must be achievable)
     // max > balance is allowed - generation logic will use balance/count as effective max
     if (minBN.isGreaterThan(balanceBN)) {
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.swap_page_button_insufficient_balance,
       });
     }
@@ -510,7 +608,7 @@ export function validateRangeInput({
         minTransferAmount,
         tokenDecimals,
       });
-      return appLocale.intl.formatMessage(
+      return intl.formatMessage(
         { id: ETranslations.send_error_minimum_amount },
         { amount: minTransferDisplayAmount, token: tokenSymbol ?? '' },
       );
@@ -523,7 +621,7 @@ export function validateRangeInput({
     rangeMax !== '' &&
     minBN.isGreaterThanOrEqualTo(maxBN)
   ) {
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.wallet_bulk_send_error_proper_range,
     });
   }

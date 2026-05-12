@@ -134,6 +134,7 @@ function CloseAllPositionsContent({
 
 export function showCloseAllPositionsDialog(filterByCoin?: string) {
   const dialogInstance = Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_position_close,
     }),

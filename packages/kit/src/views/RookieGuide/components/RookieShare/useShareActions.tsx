@@ -16,6 +16,8 @@ export type ISaveImageResult = {
   permissionPermanentlyDenied?: boolean;
 };
 
+const buildShareFileName = () => `onekey-share-${Date.now()}.png`;
+
 export function useShareActions(referralUrl?: string) {
   const { copyText } = useClipboard();
   const intl = useIntl();
@@ -61,7 +63,7 @@ export function useShareActions(referralUrl?: string) {
             return { success: false, permissionPermanentlyDenied: true };
           }
 
-          const filename = `onekey-rookie-${Date.now()}.png`;
+          const filename = buildShareFileName();
           const filepath = `${RNFS.CachesDirectoryPath}/${filename}`;
 
           await RNFS.writeFile(
@@ -103,20 +105,12 @@ export function useShareActions(referralUrl?: string) {
           return { success: true };
         }
 
-        // Web platform
-        const byteString = atob(base64Image.split(',')[1]);
-        const arrayBuffer = new ArrayBuffer(byteString.length);
-        const uint8Array = new Uint8Array(arrayBuffer);
-        for (let i = 0; i < byteString.length; i += 1) {
-          uint8Array[i] = byteString.charCodeAt(i);
-        }
-
-        const blob = new Blob([uint8Array], { type: 'image/png' });
+        const blob = await fetch(base64Image).then((r) => r.blob());
         const url = URL.createObjectURL(blob);
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = `onekey-rookie-${Date.now()}.png`;
+        link.download = buildShareFileName();
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -149,7 +143,7 @@ export function useShareActions(referralUrl?: string) {
           return;
         }
 
-        const filename = `onekey-rookie-${Date.now()}.png`;
+        const filename = buildShareFileName();
         const filepath = `${RNFS.CachesDirectoryPath}/${filename}`;
 
         await RNFS.writeFile(
@@ -167,16 +161,8 @@ export function useShareActions(referralUrl?: string) {
           await RNFS.unlink(filepath).catch(() => {});
         }
       } else {
-        // Web: Use Web Share API if available
-        const byteString = atob(base64Image.split(',')[1]);
-        const arrayBuffer = new ArrayBuffer(byteString.length);
-        const uint8Array = new Uint8Array(arrayBuffer);
-        for (let i = 0; i < byteString.length; i += 1) {
-          uint8Array[i] = byteString.charCodeAt(i);
-        }
-
-        const blob = new Blob([uint8Array], { type: 'image/png' });
-        const file = new File([blob], `onekey-rookie-${Date.now()}.png`, {
+        const blob = await fetch(base64Image).then((r) => r.blob());
+        const file = new File([blob], buildShareFileName(), {
           type: 'image/png',
         });
 
@@ -190,7 +176,7 @@ export function useShareActions(referralUrl?: string) {
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = `onekey-rookie-${Date.now()}.png`;
+          link.download = buildShareFileName();
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);

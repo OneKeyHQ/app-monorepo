@@ -1,0 +1,112 @@
+name: 04-bundle-architecture-check
+
+on:
+  schedule:
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  bundle-architecture:
+    name: Bundle Architecture Analysis
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          check-latest: true
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Build union graph and allocation reports
+        env:
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          UNION_BUILD: 'true'
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        working-directory: apps/mobile
+        run: |
+          node scripts/unionBuild.js \
+            --platform ios \
+            --common-bundle-output dist-ci/common.jsbundle \
+            --common-sourcemap-output dist-ci/common.jsbundle.map \
+            --main-bundle-output dist-ci/main.jsbundle \
+            --main-sourcemap-output dist-ci/main.jsbundle.map \
+            --background-bundle-output dist-ci/background.bundle.js \
+            --background-sourcemap-output dist-ci/background.bundle.map \
+            --assets-dest dist-ci/assets
+
+      - name: Run architecture check
+        working-directory: apps/mobile
+        run: node scripts/check-bundle-architecture.js
+
+      - name: Upload allocation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allocation-reports
+          path: |
+            apps/mobile/dist/allocation-report-*.json
+            apps/mobile/dist/segment-manifest*.json
+
+  notify-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-24.04
+    needs: bundle-architecture
+    if: failure() && github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Bundle architecture check failed on ${new Date().toISOString().split('T')[0]}`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'bundle-architecture',
+              state: 'open',
+            });
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `Still failing: [Run #${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: `The nightly bundle architecture check failed.\n\n[View workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                labels: ['bundle-architecture'],
+              });
+            }

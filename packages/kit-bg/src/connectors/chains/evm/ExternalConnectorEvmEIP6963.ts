@@ -21,7 +21,7 @@ export class ExternalConnectorEvmEIP6963 {
     manager: EvmConnectorManager;
     connectionInfo: IExternalConnectionInfo;
   }): Promise<IExternalConnectorEvm> {
-    const connectorFn = manager.providerDetailToConnector({
+    const connectorFn = await manager.providerDetailToConnector({
       info: checkIsDefined(connectionInfo.evmEIP6963?.info),
     });
     const connector = await manager.setup(connectorFn, connectionInfo);

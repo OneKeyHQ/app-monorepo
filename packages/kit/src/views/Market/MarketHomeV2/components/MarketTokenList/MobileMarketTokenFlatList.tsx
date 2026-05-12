@@ -19,12 +19,13 @@ import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 
 import type { IMarketToken } from './MarketTokenData';
+import type { IMarketTimeRangeValue } from '../../types';
 import type { FlatListProps } from 'react-native';
 
 interface IMobileMarketTokenFlatListProps {
   networkId: string;
   selectedCategory?: string;
-  timeRange?: string;
+  timeRange?: IMarketTimeRangeValue;
   listContainerProps: {
     paddingBottom: number;
   };

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { Button, Page, SizableText, YStack } from '@onekeyhq/components';
+import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -10,14 +11,19 @@ import type { IRookieShareData } from '@onekeyhq/shared/types/rookieGuide';
 
 const ROOKIE_GUIDE_URL = 'http://localhost:3002';
 
-// Mock share data for testing
 const MOCK_SHARE_DATA: IRookieShareData = {
-  imageUrl: 'https://uni.onekey-asset.com/static/logo/onekey-icon-256.png',
+  imageUrl: 'https://uni.onekey-asset.com/static/logo/onekey.png',
   title: 'How to deposit? Your first step on-chain',
   subtitle: 'Every step brings you closer to Web3',
-  footerText: 'Open source and easy to use from day one.',
   referralCode: 'ONEKEY123',
-  referralUrl: 'https://web.onekey.so/learning?ref=ONEKEY123',
+  referralUrl: 'https://onekey.so/r/ONEKEY123/app',
+};
+
+const MOCK_SHARE_DATA_NO_REFERRAL: IRookieShareData = {
+  imageUrl: 'https://uni.onekey-asset.com/static/logo/onekey.png',
+  title: 'How to deposit? Your first step on-chain',
+  subtitle: 'Every step brings you closer to Web3',
+  referralUrl: DOWNLOAD_URL,
 };
 
 export default function RookieGuideGallery() {
@@ -35,6 +41,12 @@ export default function RookieGuideGallery() {
   const openShareDialog = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.ShowRookieShare, {
       data: MOCK_SHARE_DATA,
+    });
+  }, []);
+
+  const openShareDialogNoReferral = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.ShowRookieShare, {
+      data: MOCK_SHARE_DATA_NO_REFERRAL,
     });
   }, []);
 
@@ -62,7 +74,10 @@ export default function RookieGuideGallery() {
             Test the share dialog with mock data
           </SizableText>
           <Button variant="primary" onPress={openShareDialog}>
-            Open Share Dialog
+            Open Share Dialog (with referral)
+          </Button>
+          <Button onPress={openShareDialogNoReferral}>
+            Open Share Dialog (no referral)
           </Button>
         </YStack>
       </Page.Body>

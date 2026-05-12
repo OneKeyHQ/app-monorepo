@@ -163,6 +163,7 @@ export interface IEarnAvailableAsset {
   minAprInfo?: IEarnAvailableAssetAprRangeInfo;
   maxAprInfo?: IEarnAvailableAssetAprRangeInfo;
   bgColor?: string;
+  liquidity?: string;
   icon?: {
     icon: IKeyOfIcons | string;
     color?: ColorTokens;

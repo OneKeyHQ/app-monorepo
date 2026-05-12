@@ -8,6 +8,7 @@ import {
   YStack,
   popModalPages,
   popToTabRootScreen,
+  rootNavigationRef,
   switchTab,
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -22,6 +23,8 @@ import {
   EModalBulkSendRoutes,
   EModalRoutes,
   EModalSignatureConfirmRoutes,
+  ERootRoutes,
+  ETabHomeRoutes,
   ETabRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
@@ -280,6 +283,7 @@ function BaseBulkSendReview({
                 unsignedTxs: [unsignedTx],
                 popStack: false,
                 useFeeInTx: true, // Use the fee info we set on unsignedTx
+                gasAccountScenario: 'send',
                 onSuccess: (data: ISendTxOnSuccessData[]) => {
                   resolve(data);
                 },
@@ -311,6 +315,7 @@ function BaseBulkSendReview({
   const navigateAfterSuccess = useCallback(async () => {
     if (accountUtils.isQrAccount({ accountId: accountId ?? '' })) {
       navigation.popStack();
+      return;
     }
 
     // ext popup/sidebar && native
@@ -480,9 +485,12 @@ function BaseBulkSendReview({
         navigation.push(EModalBulkSendRoutes.BulkSendProcess, processParams);
       } else {
         await popModalPages();
-        navigation.pushModal(EModalRoutes.BulkSendModal, {
-          screen: EModalBulkSendRoutes.BulkSendProcess,
-          params: processParams,
+        rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+          screen: ETabRoutes.Home,
+          params: {
+            screen: ETabHomeRoutes.TabHomeBulkSendProcess,
+            params: processParams,
+          },
         });
       }
       return;
@@ -687,15 +695,17 @@ function BaseBulkSendReview({
         </YStack>
       </Page.Body>
       <Page.Footer>
-        <Page.FooterActions
-          onConfirmText={confirmButtonText}
-          confirmButtonProps={{
-            testID: BulkSendTestIDs.reviewConfirmBtn,
-            onPress: handleConfirm,
-            disabled: isConfirmDisabled,
-            loading: isSubmitting || isRecheckingApproval,
-          }}
-        />
+        <YStack $md={{ pb: '$5' }}>
+          <Page.FooterActions
+            onConfirmText={confirmButtonText}
+            confirmButtonProps={{
+              testID: BulkSendTestIDs.reviewConfirmBtn,
+              onPress: handleConfirm,
+              disabled: isConfirmDisabled,
+              loading: isSubmitting || isRecheckingApproval,
+            }}
+          />
+        </YStack>
       </Page.Footer>
     </Page>
   );

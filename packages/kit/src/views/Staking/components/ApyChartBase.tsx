@@ -48,6 +48,7 @@ const ApyChartBaseComponent = ({
 }: IApyChartBaseProps) => {
   const intl = useIntl();
   const chartHeight = 200;
+  const POPUP_WIDTH = 160;
   const [hoverData, setHoverData] = useState<{
     time: number;
     apy: number;
@@ -86,19 +87,18 @@ const ApyChartBaseComponent = ({
   const popoverPosition = useMemo(() => {
     if (!hoverData || !containerWidth) return null;
 
-    const POPOVER_WIDTH = 144;
     const OFFSET = 10;
     const EDGE_PADDING = 16;
     const isLeftHalf = hoverData.x < containerWidth / 2;
 
-    const translateXValue = isLeftHalf ? 0 : -POPOVER_WIDTH;
+    const translateXValue = isLeftHalf ? 0 : -POPUP_WIDTH;
     const desiredLeft = isLeftHalf
       ? hoverData.x + OFFSET
       : hoverData.x - OFFSET;
     const minLeft = EDGE_PADDING;
     const maxLeft = Math.max(
       minLeft,
-      containerWidth - POPOVER_WIDTH - EDGE_PADDING,
+      containerWidth - POPUP_WIDTH - EDGE_PADDING,
     );
     const actualLeft = desiredLeft + translateXValue;
     const clampedActualLeft = Math.min(Math.max(actualLeft, minLeft), maxLeft);
@@ -108,7 +108,7 @@ const ApyChartBaseComponent = ({
       translateXValue,
       top: Math.max(10, hoverData.y - 70),
     };
-  }, [hoverData, containerWidth]);
+  }, [hoverData, containerWidth, POPUP_WIDTH]);
 
   const formatPopoverDate = useCallback(
     (timestamp: number) => {
@@ -202,20 +202,24 @@ const ApyChartBaseComponent = ({
               shadowRadius={8}
               zIndex={9999}
               pointerEvents="none"
-              minWidth={144}
+              width={POPUP_WIDTH}
+              overflow="hidden"
             >
               <YStack gap="$1.5" width="100%">
                 <SizableText
                   size="$bodySm"
                   color="$textSubdued"
+                  numberOfLines={1}
                   whiteSpace="nowrap"
                 >
                   {formatPopoverDate(hoverData.time)}
                 </SizableText>
-                <XStack jc="space-between" ai="center" width="100%">
+                <XStack jc="space-between" ai="center" width="100%" gap="$2">
                   <SizableText
                     size="$bodySm"
                     color="$textSubdued"
+                    numberOfLines={1}
+                    flexShrink={1}
                     whiteSpace="nowrap"
                   >
                     {tooltipLabel}

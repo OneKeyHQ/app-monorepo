@@ -1,21 +1,38 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
-import { Icon, SizableText, XStack, useMedia } from '@onekeyhq/components';
-import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
+import type { IIconProps, IXStackProps } from '@onekeyhq/components';
 import { useScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+
+const ICON_FALLBACK = <Stack w="$4.5" h="$4.5" />;
 
 export const CategoryFilterItem = memo(
   ({
     name,
     isSelected,
     icon,
+    iconName,
+    iconOnly,
     ...rest
   }: {
     name: string;
     isSelected: boolean;
-    icon?: IKeyOfIcons;
+    icon?: string;
+    iconName?: IIconProps['name'];
+    iconOnly?: boolean;
   } & IXStackProps) => {
     const { md } = useMedia();
+    const imageSource = useMemo(
+      () => (icon ? { uri: icon } : undefined),
+      [icon],
+    );
     return (
       <XStack
         alignItems="center"
@@ -42,20 +59,30 @@ export const CategoryFilterItem = memo(
         })}
         {...rest}
       >
-        {icon ? (
+        {iconName ? (
           <Icon
-            name={icon}
+            name={iconName}
             size="$4.5"
-            color={isSelected ? '$text' : '$textSubdued'}
+            color={isSelected ? '$icon' : '$iconSubdued'}
           />
         ) : null}
-        <SizableText
-          numberOfLines={1}
-          color={isSelected ? '$text' : '$textSubdued'}
-          size="$bodyMdMedium"
-        >
-          {name}
-        </SizableText>
+        {!iconName && imageSource ? (
+          <Image
+            source={imageSource}
+            w="$4.5"
+            h="$4.5"
+            fallback={ICON_FALLBACK}
+          />
+        ) : null}
+        {iconOnly ? null : (
+          <SizableText
+            numberOfLines={1}
+            color={isSelected ? '$text' : '$textSubdued'}
+            size="$bodyMdMedium"
+          >
+            {name}
+          </SizableText>
+        )}
       </XStack>
     );
   },
@@ -66,20 +93,32 @@ export function CategoryFilterItemWithLayout({
   id,
   name,
   isSelected,
-  onPress,
+  icon,
+  iconName,
+  iconOnly,
+  onLayout,
+  ...rest
 }: {
   id: string;
   name: string;
   isSelected: boolean;
-  onPress: () => void;
-}) {
+  icon?: string;
+  iconName?: IIconProps['name'];
+  iconOnly?: boolean;
+} & IXStackProps) {
   const { handleItemLayout } = useScrollableFilterBar();
   return (
     <CategoryFilterItem
       name={name}
       isSelected={isSelected}
-      onPress={onPress}
-      onLayout={(event) => handleItemLayout(id, event)}
+      icon={icon}
+      iconName={iconName}
+      iconOnly={iconOnly}
+      {...rest}
+      onLayout={(event) => {
+        handleItemLayout(id, event);
+        onLayout?.(event);
+      }}
     />
   );
 }

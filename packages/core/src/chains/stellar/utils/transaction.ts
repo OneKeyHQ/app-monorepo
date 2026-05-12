@@ -10,11 +10,22 @@ export function extractTransactionHash(
   encodedTx: string,
   networkPassphrase: string,
 ): Buffer {
+  let tx: InstanceType<typeof sdkStellar.StellarSdk.Transaction>;
   // Parse as Transaction to get hash
-  const tx = new sdkStellar.StellarSdk.Transaction(
-    encodedTx,
-    networkPassphrase,
-  );
+  try {
+    tx = new StellarSdk.Transaction(encodedTx, networkPassphrase);
+  } catch (_error) {
+    const envelope = sdkStellar.TransactionBuilder.fromXDR(
+      encodedTx,
+      networkPassphrase,
+    );
+
+    if (envelope instanceof sdkStellar.StellarSdk.FeeBumpTransaction) {
+      tx = envelope.innerTransaction;
+    } else {
+      tx = envelope;
+    }
+  }
   return tx.hash();
 }
 

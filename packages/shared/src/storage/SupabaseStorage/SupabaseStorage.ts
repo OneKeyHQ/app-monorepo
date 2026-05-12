@@ -1,3 +1,4 @@
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import platformEnv from '../../platformEnv';
 import cacheUtils from '../../utils/cacheUtils';
 import timerUtils from '../../utils/timerUtils';
@@ -33,22 +34,33 @@ const withPrefixedKey = (key: string) => {
   return newKey;
 };
 
+const buildCacheSourceId = () =>
+  `supabase-storage-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
 export class SupabaseStorage {
-  async getItem(key: string) {
-    return this.getItemWithCache(key);
+  constructor() {
+    appEventBus.on(
+      EAppEventBusNames.SupabaseStorageCacheCleared,
+      ({ sourceId }) => {
+        if (sourceId === this.cacheSourceId) {
+          return;
+        }
+        this.clearLocalCache();
+      },
+    );
   }
 
-  getItemWithCache = cacheUtils.memoizee(
+  private readonly cacheSourceId = buildCacheSourceId();
+
+  private readonly getItemWithCache = cacheUtils.memoizee(
     async (key: string) => {
       // eslint-disable-next-line no-param-reassign
       key = withPrefixedKey(key);
 
       if (await shouldUseSecureStorage()) {
-        const result = await secureStorageInstance.getSecureItem(key);
-        return result;
+        return (await secureStorageInstance.getSecureItem(key)) ?? null;
       }
-      const result = await appStorage.getItem(key);
-      return result;
+      return (await appStorage.getItem(key)) ?? null;
     },
     {
       promise: true,
@@ -57,26 +69,52 @@ export class SupabaseStorage {
     },
   );
 
+  private clearLocalCache() {
+    this.getItemWithCache.clear();
+  }
+
+  clearCache({ syncRemote = true }: { syncRemote?: boolean } = {}) {
+    this.clearLocalCache();
+    if (!syncRemote) {
+      return;
+    }
+    appEventBus.emit(EAppEventBusNames.SupabaseStorageCacheCleared, {
+      sourceId: this.cacheSourceId,
+    });
+  }
+
+  async getItem(key: string): Promise<string | null> {
+    return this.getItemWithCache(key);
+  }
+
   async setItem(key: string, value: string) {
     // eslint-disable-next-line no-param-reassign
     key = withPrefixedKey(key);
-    this.getItemWithCache.clear();
+    this.clearCache({ syncRemote: false });
 
     if (await shouldUseSecureStorage()) {
-      return secureStorageInstance.setSecureItem(key, value);
+      const result = await secureStorageInstance.setSecureItem(key, value);
+      this.clearCache();
+      return result;
     }
-    return appStorage.setItem(key, value);
+    const result = await appStorage.setItem(key, value);
+    this.clearCache();
+    return result;
   }
 
   async removeItem(key: string) {
     // eslint-disable-next-line no-param-reassign
     key = withPrefixedKey(key);
-    this.getItemWithCache.clear();
+    this.clearCache({ syncRemote: false });
 
     if (await shouldUseSecureStorage()) {
-      return secureStorageInstance.removeSecureItem(key);
+      const result = await secureStorageInstance.removeSecureItem(key);
+      this.clearCache();
+      return result;
     }
-    return appStorage.removeItem(key);
+    const result = await appStorage.removeItem(key);
+    this.clearCache();
+    return result;
   }
 
   async getAllKeys() {
@@ -85,9 +123,9 @@ export class SupabaseStorage {
 
   async clear() {
     const keysToRemove = await this.getAllKeys();
-    this.getItemWithCache.clear();
 
     if (!keysToRemove.length) {
+      this.clearCache();
       return;
     }
     const _shouldUseSecureStorage = await shouldUseSecureStorage();
@@ -102,5 +140,6 @@ export class SupabaseStorage {
     );
 
     prefixedKeys.clear();
+    this.clearCache();
   }
 }

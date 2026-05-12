@@ -46,11 +46,16 @@ export const OthersWalletAvatarImages = {
   othersWatching: require('../assets/wallet/avatar/others-watching.png'),
 };
 
+export const ThirdPartyWalletAvatarImages = {
+  ledger: require('../assets/wallet/avatar/Ledger.png'),
+};
+
 export const AllWalletAvatarImages = {
   cardDividers: require('../assets/wallet/avatar/CardDividers.png'),
   ...OthersWalletAvatarImages,
   ...HdWalletAvatarImages,
   ...HwWalletAvatarImages,
+  ...ThirdPartyWalletAvatarImages,
 };
 
 export type IAllWalletAvatarImageNames = keyof typeof AllWalletAvatarImages;

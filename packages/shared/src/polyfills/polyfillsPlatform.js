@@ -51,12 +51,31 @@ if (platformEnv.isNative) {
   const useJsBundle =
     require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').useJsBundle();
   if (useJsBundle) {
+    // OTA bundle: use the OTA bundle's local assets directory
     const getJsBundlePath =
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
     const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc')[0];
     const assetsPath = `file://${mainBundlePath}/assets/`;
 
     require('./assetResolutionPatch').patchNativeAssetResolution(assetsPath);
+  } else {
+    // Regular release build (including split-bundle): fix the ../→_ path
+    // mismatch between Metro's asset registration and the actual file layout.
+    // Derive assetsPath from SourceCode.scriptURL (e.g. file:///.../app/common.jsbundle → file:///.../app/assets/)
+    try {
+      const { NativeModules } = require('react-native');
+      const scriptURL =
+        NativeModules?.SourceCode?.getConstants?.()?.scriptURL || '';
+      if (scriptURL.startsWith('file://')) {
+        const bundleDir = scriptURL.replace(/\/[^/]+$/, '');
+        const assetsPath = `${bundleDir}/assets/`;
+        require('./assetResolutionPatch').patchNativeAssetResolution(
+          assetsPath,
+        );
+      }
+    } catch (_e) {
+      // noop — asset patch is best-effort
+    }
   }
 }
 
@@ -216,6 +235,37 @@ if (platformEnv.isNative) {
       event.detail = params.detail || null;
       return event;
     };
+  }
+
+  // CloseEvent polyfill — required by @nktkas/rews v2 (used by hyperliquid SDK) // cspell:ignore rews
+  // Hermes engine does not expose CloseEvent as a global constructor
+  if (typeof global.CloseEvent === 'undefined' && typeof Event === 'function') {
+    // eslint-disable-next-line no-inner-declarations
+    function CloseEvent(type, init = {}) {
+      const event = new Event(type, init);
+      event.code = init.code ?? 0;
+      event.reason = init.reason ?? '';
+      event.wasClean = init.wasClean ?? false;
+      return event;
+    }
+    global.CloseEvent = CloseEvent;
+  }
+
+  // MessageEvent polyfill — required by @nktkas/rews v2 (used by hyperliquid SDK)
+  // Hermes engine does not expose MessageEvent as a global constructor
+  if (
+    typeof global.MessageEvent === 'undefined' &&
+    typeof Event === 'function'
+  ) {
+    // eslint-disable-next-line no-inner-declarations
+    function MessageEvent(type, init = {}) {
+      const event = new Event(type, init);
+      event.data = init.data ?? null;
+      event.origin = init.origin ?? '';
+      event.lastEventId = init.lastEventId ?? '';
+      return event;
+    }
+    global.MessageEvent = MessageEvent;
   }
 
   if (

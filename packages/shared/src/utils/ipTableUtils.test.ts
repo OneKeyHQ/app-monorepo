@@ -8,7 +8,7 @@ import {
 import type { IIpTableRemoteConfig } from '../request/types/ipTable';
 
 describe('verifyIpTableConfigSignature', () => {
-  test('returns false when signature is missing', () => {
+  test('returns false when signature is missing', async () => {
     const configWithoutSignature = {
       version: 1,
       ttl_sec: 86_400,
@@ -22,10 +22,12 @@ describe('verifyIpTableConfigSignature', () => {
       },
     } as unknown as IIpTableRemoteConfig;
 
-    expect(verifyIpTableConfigSignature(configWithoutSignature)).toBe(false);
+    await expect(
+      verifyIpTableConfigSignature(configWithoutSignature),
+    ).resolves.toBe(false);
   });
 
-  test('returns false when signature is invalid', () => {
+  test('returns false when signature is invalid', async () => {
     const configWithInvalidSignature: IIpTableRemoteConfig = {
       version: 1,
       ttl_sec: 86_400,
@@ -40,12 +42,12 @@ describe('verifyIpTableConfigSignature', () => {
       },
     };
 
-    expect(verifyIpTableConfigSignature(configWithInvalidSignature)).toBe(
-      false,
-    );
+    await expect(
+      verifyIpTableConfigSignature(configWithInvalidSignature),
+    ).resolves.toBe(false);
   });
 
-  test('returns false when signer address does not match', () => {
+  test('returns false when signer address does not match', async () => {
     // This signature is from a different signer address
     // User will replace this with real signature that intentionally comes from wrong signer
     const configWithWrongSigner: IIpTableRemoteConfig = {
@@ -63,10 +65,12 @@ describe('verifyIpTableConfigSignature', () => {
       },
     };
 
-    expect(verifyIpTableConfigSignature(configWithWrongSigner)).toBe(false);
+    await expect(
+      verifyIpTableConfigSignature(configWithWrongSigner),
+    ).resolves.toBe(false);
   });
 
-  test('returns true for valid signature from correct signer', () => {
+  test('returns true for valid signature from correct signer', async () => {
     const validConfig: IIpTableRemoteConfig = {
       'domains': {
         'onekeycn.com': {
@@ -86,14 +90,16 @@ describe('verifyIpTableConfigSignature', () => {
       'ttl_sec': 86_400,
       'version': 1,
     };
-    expect(verifyIpTableConfigSignature(validConfig)).toBe(true);
+    await expect(verifyIpTableConfigSignature(validConfig)).resolves.toBe(true);
   });
 
-  test('returns true for build-in config', () => {
-    expect(verifyIpTableConfigSignature(DEFAULT_IP_TABLE_CONFIG)).toBe(true);
+  test('returns true for build-in config', async () => {
+    await expect(
+      verifyIpTableConfigSignature(DEFAULT_IP_TABLE_CONFIG),
+    ).resolves.toBe(true);
   });
 
-  test('handles malformed signature gracefully', () => {
+  test('handles malformed signature gracefully', async () => {
     const configWithMalformedSignature: IIpTableRemoteConfig = {
       version: 1,
       ttl_sec: 86_400,
@@ -108,12 +114,12 @@ describe('verifyIpTableConfigSignature', () => {
       },
     };
 
-    expect(verifyIpTableConfigSignature(configWithMalformedSignature)).toBe(
-      false,
-    );
+    await expect(
+      verifyIpTableConfigSignature(configWithMalformedSignature),
+    ).resolves.toBe(false);
   });
 
-  test('handles empty signature string', () => {
+  test('handles empty signature string', async () => {
     const configWithEmptySignature: IIpTableRemoteConfig = {
       version: 1,
       ttl_sec: 86_400,
@@ -128,7 +134,9 @@ describe('verifyIpTableConfigSignature', () => {
       },
     };
 
-    expect(verifyIpTableConfigSignature(configWithEmptySignature)).toBe(false);
+    await expect(
+      verifyIpTableConfigSignature(configWithEmptySignature),
+    ).resolves.toBe(false);
   });
 });
 

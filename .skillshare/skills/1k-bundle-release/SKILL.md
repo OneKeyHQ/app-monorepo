@@ -84,7 +84,7 @@ Parse the argument passed to this skill:
   ... QA verifies, merge ...
 /1k-bundle-release diff-check             ← Quick changeset review
 /1k-bundle-release audit                  ← Full security audit (optional, recommended)
-/1k-bundle-release publish                ← Record release in RELEASES.json
+/1k-bundle-release publish                ← Record release in RELEASES.json (via PR)
 /1k-bundle-release sync                   ← Rebase changes to x
 ```
 

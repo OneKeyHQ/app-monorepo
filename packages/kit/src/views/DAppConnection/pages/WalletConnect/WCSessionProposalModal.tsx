@@ -45,7 +45,10 @@ function SessionProposalModal() {
     setContinueOperate,
     riskLevel,
     urlSecurityInfo,
-  } = useRiskDetection({ origin: origin ?? '' });
+  } = useRiskDetection({
+    origin: origin ?? '',
+    walletConnectVerifyContext: proposal.verifyContext,
+  });
 
   const { result: sessionAccountsInfo } = usePromiseResult(
     async () => serviceWalletConnect.getSessionApprovalAccountInfo(proposal),
@@ -121,12 +124,8 @@ function SessionProposalModal() {
         },
         result: { accountsInfo, supportedNamespaces },
       });
-      Toast.success({
-        title: intl.formatMessage({ id: ETranslations.global_connected }),
-      });
     },
     [
-      intl,
       dappApprove,
       accountChangedParamsMap,
       sessionAccountsInfo,

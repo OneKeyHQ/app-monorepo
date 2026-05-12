@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { PageFaviconUpdatedEvent } from '@onekeyhq/kit/src/components/WebView/DesktopWebView';
+import {
+  notifyTabNavigation,
+  notifyTabNavigationEnd,
+} from '@onekeyhq/kit/src/components/WebView/translateBridge';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -12,32 +16,58 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
+import {
+  BITREFILL_BRIDGE_SCRIPT,
+  isBitrefillEmbedUrl,
+} from '../../utils/bitrefillUtils';
 import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
 
 import type { IWebTab } from '../../types';
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
 import type { WebViewProps } from 'react-native-webview';
 
-type IWebContentProps = IWebTab & WebViewProps;
+type IWebContentProps = IWebTab &
+  WebViewProps & {
+    isCurrent?: boolean;
+    customReceiveHandler?: IJsBridgeReceiveHandler;
+  };
 
-function WebContent({ id, url }: IWebContentProps) {
+function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
+  return (
+    Boolean(validateState) &&
+    validateState !== EValidateUrlEnum.Valid &&
+    validateState !== EValidateUrlEnum.ValidDeeplink
+  );
+}
+
+function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
   const phishingUrlRef = useRef<string>('');
-  const [showBlockAccessView, setShowBlockAccessView] = useState(false);
-  const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
+  const [navigationBlockAccessView, setNavigationBlockAccessView] =
+    useState(false);
+  const [navigationUrlValidateState, setNavigationUrlValidateState] =
+    useState<EValidateUrlEnum>();
   const { setWebTabData, closeWebTab, setCurrentWebTab, getWebTabById } =
     useBrowserTabActions().current;
   const { onNavigation, validateWebviewSrc } = useBrowserAction().current;
+  const currentUrlValidateState = useMemo(
+    () => validateWebviewSrc({ url, isTopFrame: true }),
+    [url, validateWebviewSrc],
+  );
+  const shouldBlockCurrentUrl = shouldBlockAccess(currentUrlValidateState);
+  const showBlockAccessView =
+    shouldBlockCurrentUrl || navigationBlockAccessView;
+  const urlValidateState = shouldBlockCurrentUrl
+    ? currentUrlValidateState
+    : navigationUrlValidateState;
+
   useEffect(() => {
-    const validateState = validateWebviewSrc({ url, isTopFrame: true });
-    setUrlValidateState(validateState);
-    setShowBlockAccessView(
-      validateState !== EValidateUrlEnum.Valid &&
-        validateState !== EValidateUrlEnum.ValidDeeplink,
-    );
-  }, [url, validateWebviewSrc]);
+    setNavigationBlockAccessView(false);
+    setNavigationUrlValidateState(undefined);
+  }, [url]);
 
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
@@ -62,6 +92,9 @@ function WebContent({ id, url }: IWebContentProps) {
   const onDidStartNavigation = useCallback(
     ({ url: willNavigationUrl, isMainFrame }: DidStartNavigationEvent) => {
       if (isMainFrame) {
+        setNavigationBlockAccessView(false);
+        setNavigationUrlValidateState(undefined);
+        notifyTabNavigation(id);
         onNavigation({
           id,
           url: willNavigationUrl,
@@ -70,7 +103,8 @@ function WebContent({ id, url }: IWebContentProps) {
           ...getNavStatusInfo(),
           handlePhishingUrl: (illegalUrl) => {
             console.log('=====>>>>: handlePhishingUrl', illegalUrl);
-            setShowBlockAccessView(true);
+            setNavigationBlockAccessView(true);
+            setNavigationUrlValidateState(EValidateUrlEnum.NotSupportProtocol);
             phishingUrlRef.current = illegalUrl;
           },
         });
@@ -80,6 +114,7 @@ function WebContent({ id, url }: IWebContentProps) {
     [getNavStatusInfo, id, onNavigation],
   );
   const onDidFinishLoad = useCallback(() => {
+    notifyTabNavigationEnd(id);
     onNavigation({
       id,
       loading: false,
@@ -110,23 +145,52 @@ function WebContent({ id, url }: IWebContentProps) {
     },
     [getWebTabById, id, setWebTabData],
   );
+  // Keep a ref to the latest url so onDomReady can read it without depending
+  // on `url`. Making `url` a dep of onDomReady invalidates the `webview`
+  // useMemo below, forces React to replace the <WebView> element, and lets
+  // Electron rebuild the webview instance — which wipes in-flight DApp
+  // state (e.g. the Bitrefill checkout page would redirect back to
+  // payment-method mid-flow).
+  const latestUrlRef = useRef(url);
+  useEffect(() => {
+    latestUrlRef.current = url;
+  }, [url]);
+
   const onDomReady = useCallback(() => {
     const ref = webviewRefs[id];
     if (ref) {
       // @ts-expect-error
       ref.__domReady = true;
     }
+    // Inject the Bitrefill bridge on every dom-ready so raw window.postMessage
+    // events from embed.bitrefill.com are re-emitted as $private JSBridge
+    // requests reaching useDiscoveryMessageHandler.
+    const currentUrl = latestUrlRef.current;
+    if (isBitrefillEmbedUrl(currentUrl)) {
+      const webviewEl = ref?.innerRef as IElectronWebView | undefined;
+      try {
+        const result = webviewEl?.executeJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
+        if (result && typeof (result as Promise<unknown>).then === 'function') {
+          (result as Promise<unknown>).catch(() => {
+            // best-effort injection
+          });
+        }
+      } catch {
+        // best-effort injection
+      }
+    }
   }, [id]);
+
   const webview = useMemo(
     () => {
-      const isValidate = validateWebviewSrc({ url, isTopFrame: true });
-      if (!isValidate) {
+      if (shouldBlockCurrentUrl) {
         return null;
       }
       return (
         <WebView
           id={id}
           src={url}
+          customReceiveHandler={customReceiveHandler}
           onWebViewRef={(ref) => {
             if (ref && ref.innerRef) {
               if (!webviewRefs[id]) {
@@ -157,6 +221,8 @@ function WebContent({ id, url }: IWebContentProps) {
       onDidStartLoading,
       onDidStartNavigation,
       onDomReady,
+      shouldBlockCurrentUrl,
+      customReceiveHandler,
       // onPageTitleUpdated,
       // onPageFaviconUpdated,
     ],

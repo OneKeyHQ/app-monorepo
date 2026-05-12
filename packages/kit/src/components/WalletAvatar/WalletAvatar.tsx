@@ -25,6 +25,7 @@ export type IWalletAvatarBaseProps = {
 export type IWalletAvatarProps = IWalletAvatarBaseProps & {
   status?: IWalletProps['status'];
   badge?: number | string;
+  bottomRightBadgeView?: React.ReactNode;
   firmwareTypeBadge?: EFirmwareType;
   firmwareTypeProps?: IStackProps & { badgeSize?: number };
 };
@@ -68,6 +69,7 @@ export function WalletAvatar({
   size = '$10',
   status,
   badge,
+  bottomRightBadgeView,
   firmwareTypeBadge,
   img,
   wallet,
@@ -75,6 +77,17 @@ export function WalletAvatar({
 }: IWalletAvatarProps) {
   const socialLoginProvider = getWalletAvatarProvider(wallet);
   const { badgeSize, ...restFirmwareTypeProps } = firmwareTypeProps ?? {};
+  let defaultBottomRightBadgeView: React.ReactNode = null;
+  if (status === 'keyless') {
+    defaultBottomRightBadgeView =
+      socialLoginProvider === EOAuthSocialLoginProvider.Google ? (
+        <Icon name="GoogleIllus" size="$3.5" />
+      ) : (
+        <Icon name="AppleBrand" size="$3.5" color="$iconActive" />
+      );
+  }
+  const resolvedBottomRightBadgeView =
+    bottomRightBadgeView ?? defaultBottomRightBadgeView;
 
   return (
     <Stack w={size} h={size} justifyContent="center" alignItems="center">
@@ -110,7 +123,7 @@ export function WalletAvatar({
           />
         </Stack>
       ) : null}
-      {!isNil(badge) ? (
+      {!isNil(badge) && !resolvedBottomRightBadgeView ? (
         <Stack
           position="absolute"
           h="$4"
@@ -127,8 +140,7 @@ export function WalletAvatar({
           </SizableText>
         </Stack>
       ) : null}
-      {/* Keyless wallet social login provider icon */}
-      {status === 'keyless' ? (
+      {resolvedBottomRightBadgeView ? (
         <Stack
           position="absolute"
           bottom={-2}
@@ -138,11 +150,7 @@ export function WalletAvatar({
           borderRadius="$full"
           zIndex="$1"
         >
-          {socialLoginProvider === EOAuthSocialLoginProvider.Google ? (
-            <Icon name="GoogleIllus" size="$3.5" />
-          ) : (
-            <Icon name="AppleBrand" size="$3.5" color="$iconActive" />
-          )}
+          {resolvedBottomRightBadgeView}
         </Stack>
       ) : null}
     </Stack>

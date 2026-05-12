@@ -86,6 +86,7 @@ export type IEncodedTxAda = {
   tx: IAdaTxInfo;
   changeAddress: IAdaChangeAddress;
   signOnly?: boolean;
+  partialSign?: boolean;
   staking?: IAdaStakingInfo;
 };
 

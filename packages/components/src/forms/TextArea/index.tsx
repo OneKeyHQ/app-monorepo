@@ -34,6 +34,7 @@ function BaseTextArea(
     onFocus,
     verticalAlign,
     testID,
+    children: _children,
     ...props
   }: ITextAreaProps,
   forwardedRef: Ref<TextInput>,

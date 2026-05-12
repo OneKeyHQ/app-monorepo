@@ -31,6 +31,8 @@ import type {
   IMarketTokenListItem,
   IMarketTokenListResponse,
   IMarketTokenSecurityBatchResponse,
+  IMarketTokenTopLiquidityItem,
+  IMarketTokenTopLiquidityResponse,
   IMarketTokenTransactionsResponse,
 } from '@onekeyhq/shared/types/marketV2';
 import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
@@ -44,6 +46,24 @@ import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
 import { MOCK_MARKET_BANNER_LIST } from './ServiceMarketV2.const';
+import { resolveMarketTokenDetailRequestTokenAddress } from './utils/marketTokenDetailUtils';
+
+type IMarketTokenListRequestParams = {
+  networkId: string;
+  sortBy?: string;
+  sortType?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+  minLiquidity?: number;
+  maxLiquidity?: number;
+  type?: string;
+  timeFrame?: string;
+};
+
+type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
+  page: number;
+  limit: number;
+};
 
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
@@ -62,6 +82,10 @@ class ServiceMarketV2 extends ServiceBase {
     seconds: 30,
   });
 
+  private _marketTokenListCacheTTL = timerUtils.getTimeDurationMs({
+    seconds: 20,
+  });
+
   private _cleanExpiredMarketTokenBatchCache() {
     const now = Date.now();
     for (const [key, value] of this._marketTokenBatchCache) {
@@ -71,6 +95,61 @@ class ServiceMarketV2 extends ServiceBase {
     }
   }
 
+  private _normalizeMarketTokenListParams({
+    page = 1,
+    limit = 20,
+    ...rest
+  }: IMarketTokenListRequestParams): INormalizedMarketTokenListRequestParams {
+    return {
+      ...rest,
+      page,
+      limit,
+    };
+  }
+
+  private async _fetchMarketTokenListFromApi({
+    networkId,
+    sortBy,
+    sortType,
+    page,
+    limit,
+    minLiquidity,
+    maxLiquidity,
+    type,
+    timeFrame,
+  }: INormalizedMarketTokenListRequestParams) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenListResponse;
+    }>('/utility/v2/market/token/list', {
+      params: {
+        networkId,
+        sortBy,
+        sortType,
+        page,
+        limit,
+        minLiquidity,
+        maxLiquidity,
+        type,
+        timeFrame,
+        currency: 'usd',
+      },
+    });
+    const { data } = response.data;
+    return data;
+  }
+
+  private memoizedFetchMarketTokenList = memoizee(
+    async (params: INormalizedMarketTokenListRequestParams) =>
+      this._fetchMarketTokenListFromApi(params),
+    {
+      maxAge: this._marketTokenListCacheTTL,
+      promise: true,
+    },
+  );
+
   @backgroundMethod()
   async fetchMarketTokenDetailByTokenAddress(
     tokenAddress: string,
@@ -79,8 +158,15 @@ class ServiceMarketV2 extends ServiceBase {
     const settings = await settingsPersistAtom.get();
     const selectedCurrencyId = settings.currencyInfo?.id ?? 'usd';
     const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestTokenAddress =
+      await resolveMarketTokenDetailRequestTokenAddress({
+        tokenAddress,
+        networkId,
+        getNativeTokenAddress: (params) =>
+          this.backgroundApi.serviceToken.getNativeTokenAddress(params),
+      });
     const params: Record<string, string> = {
-      tokenAddress,
+      tokenAddress: requestTokenAddress,
       networkId,
       currency: 'usd',
     };
@@ -150,24 +236,9 @@ class ServiceMarketV2 extends ServiceBase {
     maxLiquidity,
     type,
     timeFrame,
-  }: {
-    networkId: string;
-    sortBy?: string;
-    sortType?: 'asc' | 'desc';
-    page?: number;
-    limit?: number;
-    minLiquidity?: number;
-    maxLiquidity?: number;
-    type?: string;
-    timeFrame?: string;
-  }) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IMarketTokenListResponse;
-    }>('/utility/v2/market/token/list', {
-      params: {
+  }: IMarketTokenListRequestParams) {
+    return this.memoizedFetchMarketTokenList(
+      this._normalizeMarketTokenListParams({
         networkId,
         sortBy,
         sortType,
@@ -177,11 +248,8 @@ class ServiceMarketV2 extends ServiceBase {
         maxLiquidity,
         type,
         timeFrame,
-        currency: 'usd',
-      },
-    });
-    const { data } = response.data;
-    return data;
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -319,6 +387,32 @@ class ServiceMarketV2 extends ServiceBase {
     });
     const { data } = response.data;
     return data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenTopLiquidity({
+    tokenAddress,
+    networkId,
+  }: {
+    tokenAddress: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenTopLiquidityResponse | IMarketTokenTopLiquidityItem[];
+    }>('/utility/v1/market/token/top-liquidity', {
+      params: {
+        tokenAddress,
+        networkId,
+      },
+    });
+    const { data } = response.data;
+    if (Array.isArray(data)) {
+      return { list: data };
+    }
+    return data ?? { list: [] };
   }
 
   @backgroundMethod()

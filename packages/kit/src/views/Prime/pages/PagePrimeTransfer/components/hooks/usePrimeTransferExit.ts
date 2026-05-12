@@ -1,11 +1,9 @@
 import { useCallback } from 'react';
 
-import { resetAboveMainRoute } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { resetAboveMainRoute, resetPrimeModal } from '@onekeyhq/components';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 
 export function usePrimeTransferExit() {
-  const navigation = useAppNavigation();
   const [, setPrimeTransferAtom] = usePrimeTransferAtom();
 
   const exitTransferFlow = useCallback(
@@ -17,14 +15,21 @@ export function usePrimeTransferExit() {
         ...v,
         shouldPreventExit: false,
       }));
-      setTimeout(async () => {
-        navigation.popStack();
-        if (!skipCloseOnboardingPages) {
+      setTimeout(() => {
+        // Atomic resets skip the popStack() animated dismiss that triggers
+        // the iOS RNSScreenStack window=NIL retry storm.
+        if (skipCloseOnboardingPages) {
+          // Close only PrimeModal (transfer flow) — preserve any parent
+          // overlay (e.g. the onboarding modal the user came from).
+          resetPrimeModal();
+        } else {
+          // Full cleanup — drop every overlay above Main. Used when the
+          // transfer completes end-to-end and the user should land on home.
           resetAboveMainRoute();
         }
       }, delay);
     },
-    [navigation, setPrimeTransferAtom],
+    [setPrimeTransferAtom],
   );
 
   const disableExitPrevention = useCallback(() => {

@@ -13,14 +13,28 @@ export type IDependencies = {
 };
 
 let bridgeInstance: BridgeProcess;
+
+export const restartBridge = async () => {
+  if (!bridgeInstance?.isCurrentSystemSupported()) {
+    logger.info('bridge: Skip restart on unsupported system');
+    return;
+  }
+
+  logger.debug('bridge: ', 'Restarting');
+  await bridgeInstance?.restart();
+};
+
 export const launchBridge = async () => {
   const bridge = new BridgeProcess();
+  if (!bridge.isCurrentSystemSupported()) {
+    logger.info('bridge: Skip launch on unsupported system');
+    return;
+  }
 
   try {
     logger.info('bridge: Staring');
     await bridge.start();
     bridgeInstance = bridge;
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     BridgeHeart.start(() => restartBridge());
   } catch (err) {
     logger.error(`bridge: Start failed: ${(err as Error).message}`);
@@ -31,11 +45,6 @@ export const launchBridge = async () => {
     logger.info('bridge', 'Stopping when app quit');
     void bridge.stop();
   });
-};
-
-export const restartBridge = async () => {
-  logger.debug('bridge: ', 'Restarting');
-  await bridgeInstance?.restart();
 };
 
 const init = async () => {

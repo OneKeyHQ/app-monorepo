@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
+import { BOT_WALLET_STATUS_DEACTIVATED } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -41,6 +42,10 @@ import { AccountManagerTestIDs } from '../../../testIDs';
 
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
+import {
+  buildGroupedAccountSelectorWallets,
+  getWalletChildrenLength,
+} from './walletListUtils';
 
 import type { IAccountSelectorWalletInfo } from '../../../type';
 
@@ -142,18 +147,44 @@ export function AccountSelectorWalletListSideBar({
         ignoreNonBackedUpWallets: hideNonBackedUpWallet,
       });
 
-      const wallets = r.wallets.map((wallet) => {
-        const isQrWallet = accountUtils.isQrWallet({
-          walletId: wallet.id,
-        });
+      const botWalletEntries = await Promise.all(
+        r.wallets.map(async (wallet) => {
+          const isBotWallet = accountUtils.isBotWallet({ walletId: wallet.id });
+          if (!isBotWallet) {
+            return {
+              wallet,
+              isBotWallet,
+              isBotDeactivated: false,
+            };
+          }
 
-        const badge = isQrWallet ? 'QR' : undefined;
+          const meta =
+            await backgroundApiProxy.serviceAccount.getBotWalletMetadata(
+              wallet.id,
+            );
+          if (!meta?.visible) {
+            return null;
+          }
 
-        return {
-          ...wallet,
-          badge,
-        };
-      });
+          return {
+            wallet,
+            isBotWallet,
+            isBotDeactivated: meta.status === BOT_WALLET_STATUS_DEACTIVATED,
+          };
+        }),
+      );
+
+      const filteredWalletEntries = botWalletEntries.filter(
+        (
+          entry,
+        ): entry is {
+          wallet: IDBWallet;
+          isBotWallet: boolean;
+          isBotDeactivated: boolean;
+        } => Boolean(entry),
+      );
+
+      const wallets = buildGroupedAccountSelectorWallets(filteredWalletEntries);
 
       return {
         wallets,
@@ -173,7 +204,10 @@ export function AccountSelectorWalletListSideBar({
   });
 
   useEffect(() => {
-    const walletCount = wallets.length;
+    const walletCount = wallets.reduce(
+      (count, wallet) => count + 1 + (wallet.botWallets?.length ?? 0),
+      0,
+    );
     if (walletCount > 0) {
       const hwWalletCount = wallets.filter(
         (wallet) => wallet.type === 'hw',
@@ -202,6 +236,9 @@ export function AccountSelectorWalletListSideBar({
           acc[wallet.id] = wallet;
           wallet.hiddenWallets?.forEach((hiddenWallet) => {
             acc[hiddenWallet.id] = hiddenWallet;
+          });
+          wallet.botWallets?.forEach((botWallet) => {
+            acc[botWallet.id] = botWallet;
           });
           return acc;
         },
@@ -302,9 +339,9 @@ export function AccountSelectorWalletListSideBar({
   );
 
   const getHiddenWalletsLength = useCallback(
-    (wallet: IDBWallet) => {
+    (wallet: IAccountSelectorWalletInfo): number => {
       noop(reloadWalletsHook);
-      let _hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
+      let _hiddenWalletsLength = getWalletChildrenLength(wallet);
 
       if (shouldShowCreateHiddenWalletButtonFn({ wallet })) {
         _hiddenWalletsLength += 1; // show create hidden wallet button
@@ -360,6 +397,15 @@ export function AccountSelectorWalletListSideBar({
   }, [wallets, connectedDevices]);
 
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
+  const shouldHideWalletList =
+    walletsResult !== undefined &&
+    wallets.length === 0 &&
+    !isEditableRouteParams;
+
+  if (shouldHideWalletList) {
+    return null;
+  }
+
   return (
     <Stack
       testID={AccountManagerTestIDs.walletList}

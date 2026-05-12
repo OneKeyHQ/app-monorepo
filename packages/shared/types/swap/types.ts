@@ -112,12 +112,19 @@ export enum ETokenRiskLevel {
   SCAM = 1002,
 }
 
+export interface IMarketPresetTokenContext {
+  networkId: string;
+  contractAddress: string;
+  isNative?: boolean;
+}
+
 export interface ISwapInitParams {
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
+  marketPresetToken?: IMarketPresetTokenContext;
 }
 
 // token & network
@@ -234,6 +241,7 @@ export interface ISwapAutoSlippageSuggestedValue {
   value: number;
   from: string;
   to: string;
+  eventId: string;
 }
 
 // quote
@@ -301,6 +309,7 @@ export interface ISwapApproveTransaction {
 export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
+  incognito?: boolean;
   slippagePercentage: number;
   autoSlippage?: boolean;
   blockNumber?: number;
@@ -366,6 +375,14 @@ export interface IQuoteTip {
   link?: string;
   showCheckbox?: boolean;
   checkboxLabel?: string;
+  priceImpact?: number;
+  priceImpactLoss?: number;
+  type?: EQuoteShowTipType;
+}
+
+export enum EQuoteShowTipType {
+  PRICE_IMPACT = 'priceImpact',
+  TRADE_UNKNOWN = 'tradeUnknown',
 }
 
 export interface IFetchLimitMarketPrice {
@@ -490,9 +507,14 @@ export interface ISwapPreSwapData {
   swapBuildLoading?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
+  stepBeforeActionsError?: boolean;
   providerInfo?: IFetchQuoteInfo;
   isHWAndExBatchTransfer?: boolean;
   slippage?: number;
+  rateDifference?: {
+    value: string;
+    unit: ESwapRateDifferenceUnit;
+  };
   swapType?: ESwapTabSwitchType;
   unSupportSlippage?: boolean;
   swapBuildResultData?: {
@@ -517,6 +539,7 @@ export interface IFetchSwapQuoteParams {
   toToken: ISwapToken;
   fromTokenAmount?: string;
   receivingAddress?: string;
+  incognito?: boolean;
   userAddress?: string;
   slippagePercentage: number;
   autoSlippage?: boolean;
@@ -637,6 +660,7 @@ export interface IQuoteResultFeeOtherFeeInfo {
 }
 export interface IFetchQuoteFee {
   percentageFee: number; // oneKey fee percentage
+  percentOriginFee?: number;
   protocolFees?: number;
   estimatedFeeFiatValue?: number;
   otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
@@ -670,13 +694,15 @@ export interface ISwapState {
   noConnectWallet?: boolean;
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
+  isWaitingAutoSlippage?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
   isApproved: boolean;
   allowanceTarget: string;
   shouldApproveAmount: string;
-  approvedAmount: string;
+  // sic — backend spelling. Value is already decimal-parsed, not raw wei.
+  approveAmounted: string;
   shouldResetApprove?: boolean;
 }
 
@@ -921,6 +947,7 @@ export interface IFetchSwapTxHistoryStatusResponse {
   state: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
+  stateDetail?: string;
   crossChainReceiveTxHash?: string;
   gasFee?: string;
   gasFeeFiatValue?: string;
@@ -944,6 +971,7 @@ export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
+  stateDetail?: string;
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;

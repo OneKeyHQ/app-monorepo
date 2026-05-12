@@ -186,6 +186,7 @@ function SetAmountPerAddressDialogContent({
       senderBalancesFailed: new Set<string>(),
       setSenderBalancesFailed: () => {},
       senderAccountIdMap: new Map(),
+      hasDuplicateSenders: false,
     }),
     [
       accountId,
@@ -234,6 +235,7 @@ export function showSetAmountPerAddressDialog(
   props: ISetAmountPerAddressDialogProps,
 ) {
   Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.wallet_bulk_send_set_amount_title,
     }),

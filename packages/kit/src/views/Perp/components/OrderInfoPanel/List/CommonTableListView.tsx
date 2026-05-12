@@ -169,6 +169,7 @@ const PaginationFooter = ({
   onPageChange,
   headerBgColor,
   headerTextColor,
+  borderColor,
   onViewAll,
 }: {
   currentPage: number;
@@ -178,6 +179,7 @@ const PaginationFooter = ({
   onPageChange: (page: number) => void;
   headerBgColor: string;
   headerTextColor: string;
+  borderColor: string;
   isMobile?: boolean;
   onViewAll?: () => void;
 }) => {
@@ -217,6 +219,8 @@ const PaginationFooter = ({
       justifyContent={isMobile ? 'center' : 'flex-start'}
       alignItems="center"
       bg={headerBgColor}
+      borderTopWidth="$px"
+      borderTopColor={borderColor}
     >
       {totalPages > 1 ? (
         <>
@@ -314,6 +318,7 @@ export interface ICommonTableListViewProps<T = unknown> {
   ) => ReactElement;
   emptyMessage?: string;
   emptySubMessage?: string;
+  ListEmptyComponent?: ReactElement | null;
   minTableWidth?: number;
   headerBgColor?: string;
   headerTextColor?: string;
@@ -348,6 +353,7 @@ export function CommonTableListView<T>({
   isMobile,
   emptyMessage = 'No data',
   emptySubMessage = 'Data will appear here',
+  ListEmptyComponent,
   minTableWidth: _minTableWidth,
   headerBgColor = '$bgSubtle',
   headerTextColor = '$textSubdued',
@@ -434,6 +440,40 @@ export function CommonTableListView<T>({
     }
   };
   const ListComponent = shouldUseTabsList ? Tabs.FlatList : ListView;
+  const defaultEmptyComponent = (
+    <YStack flex={1} alignItems="center" p="$6">
+      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+        {emptyMessage}
+      </SizableText>
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        textAlign="center"
+        mt="$2"
+      >
+        {emptySubMessage}
+      </SizableText>
+    </YStack>
+  );
+  const emptyComponent = ListEmptyComponent ?? defaultEmptyComponent;
+  const desktopEmptyComponent = ListEmptyComponent ? (
+    emptyComponent
+  ) : (
+    <YStack flex={1} justifyContent="flex-start" alignItems="flex-start" p="$5">
+      <SizableText size="$bodyMd" color="$text" textAlign="center">
+        {emptyMessage}
+      </SizableText>
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        textAlign="center"
+        mt="$2"
+      >
+        {emptySubMessage}
+      </SizableText>
+    </YStack>
+  );
+  const showDesktopEmptyState = !listLoading && paginatedData.length === 0;
 
   if (isMobile) {
     const ListContent = (
@@ -465,6 +505,7 @@ export function CommonTableListView<T>({
                 onPageChange={handlePageChange}
                 headerBgColor={headerBgColor}
                 headerTextColor={headerTextColor}
+                borderColor={borderColor}
               />
             ) : null
           }
@@ -472,29 +513,10 @@ export function CommonTableListView<T>({
             return renderRow(item, index, 'full');
           }}
           ListEmptyComponent={
-            listLoading ? (
-              <TradesHistoryLoadingView />
-            ) : (
-              <YStack flex={1} alignItems="center" p="$6">
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  textAlign="center"
-                >
-                  {emptyMessage}
-                </SizableText>
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  textAlign="center"
-                  mt="$2"
-                >
-                  {emptySubMessage}
-                </SizableText>
-              </YStack>
-            )
+            listLoading ? <TradesHistoryLoadingView /> : emptyComponent
           }
           contentContainerStyle={{
+            flexGrow: paginatedData.length === 0 ? 1 : undefined,
             paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
           }}
         />
@@ -526,6 +548,7 @@ export function CommonTableListView<T>({
             onPageChange={handlePageChange}
             headerBgColor={headerBgColor}
             headerTextColor={headerTextColor}
+            borderColor={borderColor}
           />
         </YStack>
       );
@@ -575,7 +598,6 @@ export function CommonTableListView<T>({
       )}
     </XStack>
   );
-
   return (
     <YStack flex={1}>
       <YStack flex={1}>
@@ -625,30 +647,7 @@ export function CommonTableListView<T>({
                     <Spinner size="large" />
                   </YStack>
                 ) : null}
-                {!listLoading && paginatedData.length === 0 ? (
-                  <YStack
-                    flex={1}
-                    justifyContent="flex-start"
-                    alignItems="flex-start"
-                    p="$5"
-                  >
-                    <SizableText
-                      size="$bodyMd"
-                      color="$text"
-                      textAlign="center"
-                    >
-                      {emptyMessage}
-                    </SizableText>
-                    <SizableText
-                      size="$bodySm"
-                      color="$textSubdued"
-                      textAlign="center"
-                      mt="$2"
-                    >
-                      {emptySubMessage}
-                    </SizableText>
-                  </YStack>
-                ) : null}
+                {showDesktopEmptyState ? desktopEmptyComponent : null}
                 {!listLoading && paginatedData.length > 0
                   ? paginatedData.map((item, index) =>
                       renderRow(
@@ -727,6 +726,7 @@ export function CommonTableListView<T>({
             isMobile={isMobile}
             headerBgColor={headerBgColor}
             headerTextColor={headerTextColor}
+            borderColor={borderColor}
             onViewAll={onViewAll}
           />
         ) : null}

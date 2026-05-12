@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Dialog,
@@ -24,6 +26,7 @@ interface IEnableTradingContentProps {
 }
 
 function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [accountStatus] = usePerpsActiveAccountStatusAtom();
 
@@ -51,20 +54,20 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
 
   const buttonText = useMemo(() => {
     if (loading) {
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.transfer_transfer_server_status_connecting,
       });
     }
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.perp_trade_button_enable_trading,
     });
-  }, [loading]);
+  }, [loading, intl]);
 
   return (
     <YStack gap="$4" p="$1">
       <YStack gap="$3">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {appLocale.intl.formatMessage({
+          {intl.formatMessage({
             id: ETranslations.perp_enable_trading_desc,
           })}
         </SizableText>
@@ -72,9 +75,14 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
           gap="$1"
           alignItems="center"
           onPress={() => {
-            openGuideUrl(
-              buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`),
-            );
+            onClose?.();
+            setTimeout(() => {
+              openGuideUrl(
+                buildHelpUrl(
+                  `articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`,
+                ),
+              );
+            }, 150);
           }}
           cursor="default"
         >
@@ -84,7 +92,7 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
             color="$textSubdued"
             hoverStyle={{ color: '$text' }}
           >
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.perp_guide_article_introduction,
             })}
           </SizableText>
@@ -111,6 +119,8 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
 
 export function showEnableTradingDialog() {
   const dialogInstance = Dialog.show({
+    // Called from jotai action without React context; safe at invocation time
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_trade_button_enable_trading,
     }),

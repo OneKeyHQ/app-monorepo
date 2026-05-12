@@ -73,3 +73,8 @@ export const findLnurl = memoizee(
     maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
   },
 );
+
+export const isReusableLightningRecipient = (input?: string): boolean => {
+  if (!input) return false;
+  return isLightningAddress(input) || !!findLnurl(input);
+};

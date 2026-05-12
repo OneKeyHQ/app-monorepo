@@ -30,6 +30,8 @@ import type {
   IAccountToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
+  IFetchTokenDetailBatchParams,
+  IFetchTokenDetailBatchResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
   ISearchTokensParams,
@@ -512,6 +514,48 @@ class ServiceToken extends ServiceBase {
     return vault.fillTokensDetails({
       tokensDetails: resp.data.data,
     });
+  }
+
+  @backgroundMethod()
+  public async fetchTokensDetailsBatch(
+    params: IFetchTokenDetailBatchParams,
+  ): Promise<IFetchTokenDetailBatchResp> {
+    const { accountId, networkId, contractList, queries } = params;
+
+    if (!queries.length) {
+      return [];
+    }
+
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{
+      data: IFetchTokenDetailBatchResp;
+    }>(
+      '/wallet/v1/account/token/search-batch',
+      {
+        networkId,
+        contractList,
+        queries,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+
+    const result = resp.data.data ?? [];
+
+    return result.map((item) => ({
+      ...item,
+      tokens: item.tokens.map((token) => ({
+        ...token,
+        info: {
+          ...token.info,
+          networkId,
+        },
+      })),
+    }));
   }
 
   @backgroundMethod()

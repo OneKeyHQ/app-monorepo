@@ -1,9 +1,4 @@
-import type {
-  ComponentType,
-  CompositionEventHandler,
-  ForwardedRef,
-  RefObject,
-} from 'react';
+import type { CompositionEventHandler, ForwardedRef, RefObject } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -64,7 +59,7 @@ export type {
 } from '@onekeyfe/react-native-text-input';
 
 export type IInputProps = {
-  InputComponent?: ComponentType;
+  InputComponent?: typeof TMInput;
   InputComponentStyle?: IStackStyle;
   addOnsContainerProps?: IStackProps;
   addOnsItemProps?: IStackProps;
@@ -274,6 +269,7 @@ function BaseInput(
     autoScrollTopDelayMs,
     secureTextEntry,
     onSecureTextEntryChange,
+    children: _children,
     ...props
   } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -391,8 +387,6 @@ function BaseInput(
   useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
 
   useImperativeHandle(forwardedRef, () => ({
-    // oxlint-disable-next-line no-misused-spread
-    ...inputRef.current,
     focus: () => {
       inputRef.current?.focus();
     },
@@ -486,7 +480,6 @@ function BaseInput(
       <Group.Item>
         <InputComponent
           unstyled
-          // @ts-expect-error - ref type mismatch between platforms
           ref={inputRef}
           keyboardType={keyboardType}
           flex={1}

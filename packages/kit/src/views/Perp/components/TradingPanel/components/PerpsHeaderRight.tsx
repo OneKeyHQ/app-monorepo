@@ -28,6 +28,7 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsActiveOrderBookOptionsAtom,
+  usePerpsComputedAccountValueAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -35,7 +36,6 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
-import { useShowGuide } from '../../../hooks/useShowGuide';
 import { PerpTestIDs } from '../../../testIDs';
 import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
 import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
@@ -97,8 +97,8 @@ function DebugButton() {
 
 function DepositButton() {
   const { gtSm } = useMedia();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const accountValue = accountSummary?.accountValue;
+  const [computedValue] = usePerpsComputedAccountValueAtom();
+  const accountValue = computedValue?.accountValue;
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();
@@ -150,20 +150,6 @@ function DepositButton() {
   );
 }
 
-function MobileGuideButton() {
-  const { showGuide } = useShowGuide();
-  return (
-    <IconButton
-      testID="perp-mobile-guide-button-icon-btn"
-      icon="BookOpenOutline"
-      size="small"
-      variant="tertiary"
-      cursor="default"
-      onPress={showGuide}
-    />
-  );
-}
-
 export function PerpsHeaderRight() {
   const { gtMd } = useMedia();
   const content = (
@@ -182,7 +168,7 @@ export function PerpsHeaderRight() {
             </>
           );
         }
-        return <MobileGuideButton />;
+        return null;
       })()}
     </XStack>
   );

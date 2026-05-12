@@ -8,6 +8,8 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { useMatchesDevSearch } from './DevSettingsSearchContext';
+
 interface ISectionFieldItem extends PropsWithChildren {
   name?: IDevSettingsKeys;
   title: IListItemProps['title'];
@@ -16,6 +18,8 @@ interface ISectionFieldItem extends PropsWithChildren {
   onValueChange?: (v: any) => void;
   onBeforeValueChange?: () => Promise<void>;
   icon?: IListItemProps['icon'];
+  /** Extra keywords for search matching (not displayed) */
+  searchKeywords?: string;
 }
 
 export function SectionFieldItem({
@@ -28,8 +32,14 @@ export function SectionFieldItem({
   testID = '',
   onBeforeValueChange,
   icon,
+  searchKeywords,
 }: IPropsWithTestId<ISectionFieldItem>) {
   const [devSetting] = useDevSettingsPersistAtom();
+  const matches = useMatchesDevSearch(
+    typeof title === 'string' ? title : undefined,
+    typeof subtitle === 'string' ? subtitle : undefined,
+    searchKeywords,
+  );
   const child = Children.only(children) as ReactElement;
   const value = name ? devSetting?.settings?.[name] : '';
   const handleChange = useCallback(
@@ -51,6 +61,7 @@ export function SectionFieldItem({
         onChange: handleChange,
       })
     : null;
+  if (!matches) return null;
   return (
     <ListItem
       icon={icon}

@@ -16,7 +16,7 @@ const removePreloadElements = () => {
   img?.remove();
 };
 
-export function SplashView({ onExit, ready }: ISplashViewProps) {
+export function SplashView({ onExit, canDismissSplash }: ISplashViewProps) {
   const [showLoading, changeLoadingVisibility] = useState(true);
   const hideSplash = useCallback(() => {
     removePreloadElements();
@@ -24,10 +24,11 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
   }, []);
 
   useEffect(() => {
-    void ready.then(() => {
-      hideSplash();
-    });
-  }, [hideSplash, ready]);
+    if (!canDismissSplash) {
+      return;
+    }
+    hideSplash();
+  }, [canDismissSplash, hideSplash]);
 
   const splashSource = useMemo(
     () => ({

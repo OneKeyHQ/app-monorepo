@@ -95,6 +95,8 @@ export type IBulkSendAmountsInputContext = {
   setSenderBalancesFailed: (failed: Set<string>) => void;
   // Per-sender accountId map (address -> accountId)
   senderAccountIdMap: Map<string, string>;
+  // Whether senders have duplicate addresses (ManyToMany only)
+  hasDuplicateSenders: boolean;
 };
 
 const defaultModeData: IMobileModeData = {
@@ -174,6 +176,7 @@ export const BulkSendAmountsInputContext =
     senderBalancesFailed: new Set<string>(),
     setSenderBalancesFailed: () => {},
     senderAccountIdMap: new Map(),
+    hasDuplicateSenders: false,
   });
 
 export const useBulkSendAmountsInputContext = () =>

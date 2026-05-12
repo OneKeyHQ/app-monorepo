@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "chrome", "jest", "web", "w3c-web-usb", "w3c-web-hid"]
+  },
+  "include": [
+    "../../@types/**/*.d.ts",
+    "../../packages/components/tamagui.config.ts",
+    "src/**/*",
+    "tsup.config.ts"
+  ]
+}

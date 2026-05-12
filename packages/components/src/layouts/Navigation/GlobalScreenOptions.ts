@@ -108,6 +108,7 @@ export function makeModalStackNavigatorOptions({
       isOnboardingScreen:
         pageType === EPageType.onboarding ||
         pageType === EPageType.fullScreenPush,
+      isWebViewScreen: pageType === EPageType.webView,
     }),
   } as any;
 
@@ -148,6 +149,32 @@ export function makeOnboardingScreenOptions(info: {
     // Keep this field to preserve animation timing when removing pages in react-navigation v7
     // The stack navigator checks for the presence of the animation field to reserve time for page removal animations
     // https://github.com/react-navigation/react-navigation/blob/858a8746a5c007a623206c920f70d55935ed39b4/packages/stack/src/views/Stack/StackView.tsx#L145
+    // @ts-expect-error
+    animation: 'custom-animation-on-web',
+    ...makeModalOpenAnimationOptions(info),
+  };
+}
+
+// Independent factory so WebView's screen options can diverge from Onboarding's
+// without coupling the two. Today the shape mirrors makeOnboardingScreenOptions;
+// keep them separate so future tweaks (e.g. a different animation curve, or a
+// webView-specific gesture config) only affect this surface.
+export function makeWebviewScreenOptions(info: {
+  isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
+}): StackNavigationOptions {
+  return {
+    detachPreviousScreen: false,
+    headerShown: false,
+    presentation: 'transparentModal',
+    // `pointerEvents: 'box-none'` lets the screen card itself pass clicks
+    // through to the underlying Main route where the WebView page doesn't
+    // render any opaque content (e.g. the sidebar passthrough column).
+    // RN-Web translates this to a CSS rule on the card View.
+    cardStyle: {
+      backgroundColor: 'transparent',
+      pointerEvents: 'box-none',
+    },
     // @ts-expect-error
     animation: 'custom-animation-on-web',
     ...makeModalOpenAnimationOptions(info),

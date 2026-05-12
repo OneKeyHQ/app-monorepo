@@ -24,6 +24,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getSearchTypeTrackingName } from '@onekeyhq/shared/src/logger/scopes/universalSearch/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -59,7 +60,6 @@ import {
   UniversalSearchAccountAssetItem,
   UniversalSearchAddressItem,
   UniversalSearchDappItem,
-  UniversalSearchMarketTokenItem,
   UniversalSearchPerpItem,
   UniversalSearchSettingsItem,
   UniversalSearchV2MarketTokenItem,
@@ -73,6 +73,7 @@ import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 interface IUniversalSection {
   tabIndex: number;
   title: string;
+  type: EUniversalSearchType;
   data: IUniversalSearchResultItem[];
   sliceData?: IUniversalSearchResultItem[];
   showMore?: boolean;
@@ -83,7 +84,6 @@ const SEARCH_DEBOUNCE_MS = 300;
 const getSearchTypes = (): EUniversalSearchType[] => {
   return [
     !platformEnv.isWebDappMode && EUniversalSearchType.Address,
-    EUniversalSearchType.MarketToken,
     EUniversalSearchType.V2MarketToken,
     // Hide AccountAssets search in WebDapp mode
     !platformEnv.isWebDappMode && EUniversalSearchType.AccountAssets,
@@ -102,13 +102,13 @@ const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
     [EUniversalSearchType.Address]: 1, // Wallets tab
     [EUniversalSearchType.V2MarketToken]: 2, // Market tab
     [EUniversalSearchType.Perp]: 3, // Perp tab (after Market)
-    [EUniversalSearchType.MarketToken]: 4, // Tokens tab
+    [EUniversalSearchType.MarketToken]: 0, // Legacy Tokens tab is hidden
     // In WebDapp mode, My Assets tab is hidden
-    [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 5,
+    [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 4,
     // DApps tab index changes based on whether My Assets tab is shown
-    [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 5 : 6,
+    [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 4 : 5,
     // Settings tab is last
-    [EUniversalSearchType.Settings]: platformEnv.isWebDappMode ? 6 : 7,
+    [EUniversalSearchType.Settings]: platformEnv.isWebDappMode ? 5 : 6,
   };
 
   return tabMapping[searchType];
@@ -203,9 +203,6 @@ export function UniversalSearch({
       intl.formatMessage({
         id: ETranslations.global_perp,
       }),
-      intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_tokens,
-      }),
       // Include My Assets tab only when not in WebDapp mode
       !platformEnv.isWebDappMode &&
         intl.formatMessage({
@@ -280,47 +277,16 @@ export function UniversalSearch({
 
     const result =
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
-        searchTypes: [EUniversalSearchType.MarketToken],
+        searchTypes: [EUniversalSearchType.V2MarketToken],
       });
 
-    // Prefer V2MarketToken (has network badge from searchRecommendTokens)
     if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
       searchResultSections.push({
-        tabIndex: 2,
+        tabIndex: MARKET_TAB_INDEX,
+        type: EUniversalSearchType.V2MarketToken,
         title: intl.formatMessage({ id: ETranslations.market_trending }),
         data: result[EUniversalSearchType.V2MarketToken]
           .items as IUniversalSearchResultItem[],
-      });
-    } else if (result?.[EUniversalSearchType.MarketToken]?.items) {
-      // Fallback: convert MarketToken (coingecko-based, no network) to V2MarketToken
-      const v2Items = result[EUniversalSearchType.MarketToken].items.map(
-        (item) => {
-          const token = item.payload;
-          return {
-            type: EUniversalSearchType.V2MarketToken,
-            payload: {
-              name: token.name,
-              symbol: token.symbol,
-              price: String(token.price),
-              address: token.coingeckoId,
-              network: '',
-              logoUrl: token.image,
-              isNative: false,
-              decimals: 0,
-              liquidity: '0',
-              volume_24h: String(token.totalVolume || 0),
-              marketCap: String(token.marketCap || 0),
-              priceChange24hPercent: String(
-                token.priceChangePercentage24H || 0,
-              ),
-            },
-          };
-        },
-      );
-      searchResultSections.push({
-        tabIndex: 2,
-        title: intl.formatMessage({ id: ETranslations.market_trending }),
-        data: v2Items as IUniversalSearchResultItem[],
       });
     }
     setRecommendSections(searchResultSections);
@@ -331,6 +297,7 @@ export function UniversalSearch({
   }, [fetchRecommendList]);
 
   const searchInputRef = useRef<string>('');
+  const getSearchInput = useCallback(() => searchInputRef.current, []);
 
   const getDeferredSearchTypes = useCallback(
     () =>
@@ -390,6 +357,7 @@ export function UniversalSearch({
           .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Address),
+          type: EUniversalSearchType.Address,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_wallets,
           }),
@@ -404,6 +372,7 @@ export function UniversalSearch({
           tabIndex: getTabIndexForSearchType(
             EUniversalSearchType.V2MarketToken,
           ),
+          type: EUniversalSearchType.V2MarketToken,
           title: intl.formatMessage({
             id: ETranslations.global_market,
           }),
@@ -418,20 +387,9 @@ export function UniversalSearch({
           .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Perp),
+          type: EUniversalSearchType.Perp,
           title: intl.formatMessage({
             id: ETranslations.global_perp,
-          }),
-          ...buildSectionData(data),
-        });
-      }
-
-      if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
-        const data = result[EUniversalSearchType.MarketToken]
-          .items as IUniversalSearchResultItem[];
-        searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(EUniversalSearchType.MarketToken),
-          title: intl.formatMessage({
-            id: ETranslations.global_universal_search_tabs_tokens,
           }),
           ...buildSectionData(data),
         });
@@ -444,6 +402,7 @@ export function UniversalSearch({
           tabIndex: getTabIndexForSearchType(
             EUniversalSearchType.AccountAssets,
           ),
+          type: EUniversalSearchType.AccountAssets,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_my_assets,
           }),
@@ -456,6 +415,7 @@ export function UniversalSearch({
           .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Dapp),
+          type: EUniversalSearchType.Dapp,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_dapps,
           }),
@@ -469,6 +429,7 @@ export function UniversalSearch({
           const data = settingsResults as IUniversalSearchResultItem[];
           searchResultSections.push({
             tabIndex: getTabIndexForSearchType(EUniversalSearchType.Settings),
+            type: EUniversalSearchType.Settings,
             title: intl.formatMessage({
               id: ETranslations.global_settings,
             }),
@@ -503,19 +464,25 @@ export function UniversalSearch({
 
   const logSearchAnalytics = useCallback(
     (input: string, searchResultSections: IUniversalSection[]) => {
-      const resultCount = searchResultSections.reduce((sum, section) => {
-        const count = section.data.filter(
+      const filteredSections = searchResultSections.map((section) => ({
+        type: section.type,
+        count: section.data.filter(
           (item) =>
             !(
               item.type === EUniversalSearchType.Dapp &&
               isGoogleSearchItem(item.payload?.dappId)
             ),
-        ).length;
-        return sum + count;
-      }, 0);
+        ).length,
+      }));
+      const resultCount = filteredSections.reduce((sum, s) => sum + s.count, 0);
+      const exposedTypes = filteredSections
+        .filter((s) => s.count > 0)
+        .map((s) => `${getSearchTypeTrackingName(s.type)}:${s.count}`)
+        .join(',');
       defaultLogger.universalSearch.search.universalSearchQuery({
         searchText: input,
         resultCount,
+        exposedTypes,
       });
     },
     [],
@@ -603,6 +570,7 @@ export function UniversalSearch({
       }
     } else {
       setSections([]);
+      searchInputRef.current = '';
       setSearchStatus(ESearchStatus.init);
     }
   }, SEARCH_DEBOUNCE_MS);
@@ -711,13 +679,7 @@ export function UniversalSearch({
             <UniversalSearchAddressItem
               item={item}
               contextNetworkId={activeAccount?.network?.id}
-            />
-          );
-        case EUniversalSearchType.MarketToken:
-          return (
-            <UniversalSearchMarketTokenItem
-              item={item}
-              searchStatus={searchStatus}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.V2MarketToken:
@@ -731,6 +693,7 @@ export function UniversalSearch({
               <UniversalSearchV2MarketTokenItem
                 item={item}
                 isTrending={searchStatus === ESearchStatus.init}
+                getSearchInput={getSearchInput}
               />
             </>
           );
@@ -739,24 +702,40 @@ export function UniversalSearch({
             <UniversalSearchAccountAssetItem
               item={item}
               allAggregateTokenMap={allAggregateTokenMap}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.Dapp:
           return (
             <UniversalSearchDappItem
               item={item}
-              getSearchInput={() => searchInputRef.current}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.Perp:
-          return <UniversalSearchPerpItem item={item} />;
+          return (
+            <UniversalSearchPerpItem
+              item={item}
+              getSearchInput={getSearchInput}
+            />
+          );
         case EUniversalSearchType.Settings:
-          return <UniversalSearchSettingsItem item={item} />;
+          return (
+            <UniversalSearchSettingsItem
+              item={item}
+              getSearchInput={getSearchInput}
+            />
+          );
         default:
           return null;
       }
     },
-    [activeAccount?.network?.id, searchStatus, allAggregateTokenMap],
+    [
+      activeAccount?.network?.id,
+      searchStatus,
+      allAggregateTokenMap,
+      getSearchInput,
+    ],
   );
 
   const keyExtractor = useCallback(
@@ -770,8 +749,6 @@ export function UniversalSearch({
             payload.wallet?.id ??
             index
           }-${payload.network?.id ?? ''}`;
-        case EUniversalSearchType.MarketToken:
-          return `${type}-${payload.coingeckoId ?? index}`;
         case EUniversalSearchType.V2MarketToken:
           return `${type}-${payload.address ?? payload.symbol}-${index}`;
         case EUniversalSearchType.AccountAssets:

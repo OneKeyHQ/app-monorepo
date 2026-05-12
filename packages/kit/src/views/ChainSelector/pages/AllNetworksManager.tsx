@@ -238,6 +238,7 @@ function AllNetworksManager() {
       await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
         enabledNetworks: networksState.enabledNetworks,
         disabledNetworks: networksState.disabledNetworks,
+        cacheContext: { walletId, accountId },
       });
 
       appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);

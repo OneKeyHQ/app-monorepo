@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
 
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
   usePerpsTradesHistoryDataAtom,
@@ -16,12 +17,29 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 
 export function usePerpTradesHistory() {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
-  const [tradesData] = usePerpsTradesHistoryDataAtom();
+  const [perpsTradesData] = usePerpsTradesHistoryDataAtom();
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
 
   const [currentListPage, setCurrentListPage] = useState(1);
   const prevAccountRef = useRef<string | null | undefined>(undefined);
+
+  const refreshTradesHistory = useCallback(async () => {
+    const accountAddress = currentAccount?.accountAddress;
+    if (!accountAddress) {
+      await backgroundApiProxy.serviceHyperliquid.resetTradesHistory();
+      return;
+    }
+
+    await backgroundApiProxy.serviceHyperliquid.loadTradesHistory(
+      accountAddress,
+      { force: true },
+    );
+    await backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
+  }, [currentAccount?.accountAddress]);
+  const refreshTradesHistoryRef = useRef(refreshTradesHistory);
+  refreshTradesHistoryRef.current = refreshTradesHistory;
 
   useEffect(() => {
     const accountAddress = currentAccount?.accountAddress;
@@ -52,21 +70,33 @@ export function usePerpTradesHistory() {
 
   useEffect(() => {
     noop(refreshHook);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (isFocusedRef.current) {
-        void backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
+        void refreshTradesHistoryRef.current();
       }
     }, 300);
+    return () => clearTimeout(timer);
   }, [refreshHook]);
 
-  const fills: IFill[] = tradesData?.fills ?? [];
-  const isLoaded: boolean = tradesData?.isLoaded ?? false;
+  // Spot and perps fills both come from the same USER_FILLS WS subscription
+  const tradesData = perpsTradesData;
+  const isCurrentAccountHistory =
+    !!currentAccount?.accountAddress &&
+    tradesData?.accountAddress?.toLowerCase() ===
+      currentAccount.accountAddress.toLowerCase();
+  const fills: IFill[] = isCurrentAccountHistory
+    ? (tradesData?.fills ?? [])
+    : [];
+  const isLoaded: boolean =
+    (tradesData?.isLoaded ?? false) && isCurrentAccountHistory;
   const hasAccountAddress = Boolean(currentAccount?.accountAddress);
 
   return {
     trades: fills,
     currentListPage,
     setCurrentListPage,
+    mode: activeTradeInstrument.mode,
+    refreshTradesHistory,
     // If current account has no Perp address (unsupported or not created yet),
     // show empty state instead of skeleton loading.
     isLoading: hasAccountAddress ? !isLoaded : false,

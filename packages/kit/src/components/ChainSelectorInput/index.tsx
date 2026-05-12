@@ -73,8 +73,10 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
 
   const openChainSelector = useConfigurableChainSelector();
 
+  const isReadOnly = disabled || editable === false;
+
   const onPress = useCallback(() => {
-    if (disabled) {
+    if (isReadOnly) {
       return;
     }
     openChainSelector({
@@ -84,7 +86,7 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
       onSelect: (network) => onChange?.(network.id),
     });
   }, [
-    disabled,
+    isReadOnly,
     openChainSelector,
     title,
     selectorNetworks,
@@ -109,7 +111,12 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
       borderRadius="$3"
       borderWidth={1}
       borderCurve="continuous"
-      borderColor="$borderStrong"
+      borderColor={sharedStyles.borderColor}
+      backgroundColor={sharedStyles.backgroundColor}
+      // ChainSelectorInput is a button-like selector, not a text field, so
+      // override sharedStyles.cursor (which would default to 'text' for the
+      // Input use case) with selector semantics.
+      cursor={isReadOnly ? 'default' : 'pointer'}
       px="$3"
       py="$2.5"
       $gtMd={{
@@ -117,7 +124,7 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
         py: '$2',
       }}
       testID="network-selector-input"
-      {...(!disabled && {
+      {...(!isReadOnly && {
         hoverStyle: {
           bg: '$bgHover',
         },
@@ -133,10 +140,11 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
         px={sharedStyles.px}
         flex={1}
         size={size === 'small' ? '$bodyMd' : '$bodyLg'}
+        color={sharedStyles.color}
       >
         {current?.name ?? ''}
       </SizableText>
-      {!disabled ? (
+      {!isReadOnly ? (
         <Icon name="ChevronDownSmallOutline" mr="$-0.5" color="$iconSubdued" />
       ) : null}
     </Stack>

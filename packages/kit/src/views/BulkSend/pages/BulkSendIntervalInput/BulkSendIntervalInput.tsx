@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Page, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import {
@@ -13,12 +15,14 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 
 import {
-  INTERVAL_SETTINGS_REVIEW_TEXT,
-  INTERVAL_SETTINGS_TITLE,
   IntervalSettingsContent,
+  useIntervalLabels,
 } from '../../components/IntervalSettingsContent';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
-import { validateIntervalSettings } from '../../utils';
+import {
+  DEFAULT_INTERVAL_SETTINGS,
+  validateIntervalSettings,
+} from '../../utils';
 
 type IBulkSendIntervalInputRouteParams =
   IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendIntervalInput];
@@ -39,18 +43,24 @@ function BulkSendIntervalInputContent({
   intervalSettings: initialIntervalSettings,
   onConfirmIntervalSettings,
 }: IBulkSendIntervalInputRouteParams) {
+  const intl = useIntl();
+  const { title, reviewText } = useIntervalLabels();
   const navigation = useAppNavigation();
 
   const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>({
-    mode: initialIntervalSettings?.mode ?? EIntervalMode.None,
-    minSeconds: initialIntervalSettings?.minSeconds ?? '',
-    maxSeconds: initialIntervalSettings?.maxSeconds ?? '',
+    mode: initialIntervalSettings?.mode ?? DEFAULT_INTERVAL_SETTINGS.mode,
+    minSeconds:
+      initialIntervalSettings?.minSeconds ??
+      DEFAULT_INTERVAL_SETTINGS.minSeconds,
+    maxSeconds:
+      initialIntervalSettings?.maxSeconds ??
+      DEFAULT_INTERVAL_SETTINGS.maxSeconds,
   });
   const [showValidationError, setShowValidationError] = useState(false);
 
   const intervalError = useMemo(
-    () => validateIntervalSettings(intervalSettings),
-    [intervalSettings],
+    () => validateIntervalSettings(intervalSettings, intl),
+    [intervalSettings, intl],
   );
   const shouldShowIntervalError = useMemo(
     () =>
@@ -103,7 +113,7 @@ function BulkSendIntervalInputContent({
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={INTERVAL_SETTINGS_TITLE} />
+      <Page.Header headerTitle={title} />
       <Page.Body px="$5" pb="$5">
         <IntervalSettingsContent
           value={intervalSettings}
@@ -112,12 +122,14 @@ function BulkSendIntervalInputContent({
         />
       </Page.Body>
       <Page.Footer>
-        <Page.FooterActions
-          onConfirmText={INTERVAL_SETTINGS_REVIEW_TEXT}
-          confirmButtonProps={{
-            onPress: handleConfirm,
-          }}
-        />
+        <YStack $md={{ pb: '$5' }}>
+          <Page.FooterActions
+            onConfirmText={reviewText}
+            confirmButtonProps={{
+              onPress: handleConfirm,
+            }}
+          />
+        </YStack>
       </Page.Footer>
     </Page>
   );

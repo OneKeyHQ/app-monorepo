@@ -46,6 +46,8 @@ export interface IDevSettings {
   allowDeleteKeylessKey?: boolean;
   // show Keyless-related debug dialogs/logs in UI (dev only)
   enableKeylessDebugInfo?: boolean;
+  // enable BotWallet management entry for Keyless wallet
+  enableBotWalletFeature?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
@@ -80,6 +82,16 @@ export interface IDevSettings {
   testAccounts?: ITestAccount[];
   // Ignore server bundle update info (prevents rollback when dev-switching bundles)
   ignoreServerBundleUpdate?: boolean;
+  // Allow watching accounts to pass through bulk-send pre-flight validation.
+  // Submission remains blocked; this only lets QA walk through the UI flow
+  // (e.g. BTC 200+ split cases that need high balances) without a signer.
+  allowBulkSendWatchingAccount?: boolean;
+  // Disable custom User-Agent injection (debug only).
+  // When true, buildCustomUA() returns null, all call sites fall back to
+  // the runtime default UA.
+  disableCustomUA?: boolean;
+  // Allow Discovery browser to load local development URLs.
+  allowLocalhostUrlInDAppBrowser?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -106,6 +118,7 @@ export const {
       strictSignatureAlert: false,
       enableAnalyticsRequest: false,
       enableKeylessDebugInfo: false,
+      enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
       showPerformanceMonitor: true,
@@ -114,6 +127,7 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop use Bridge，avoiding WebUSB permission problem
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default

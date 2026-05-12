@@ -27,8 +27,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
+import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
 import { registerHandler } from './handler';
+import { parseWebViewDeepLink } from './parseWebViewDeepLink';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';
@@ -119,6 +121,10 @@ async function processDeepLinkUrlAccount(
           {
             const { code, page } =
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
+            const VALID_REFERRAL_CODE = /^[a-zA-Z0-9_-]{1,32}$/;
+            if (!code || !VALID_REFERRAL_CODE.test(code)) {
+              break;
+            }
             if (navigation) {
               // Navigate to ReferralLandingPage which handles the modal opening
               navigation.switchTab(ETabRoutes.Home);
@@ -134,6 +140,15 @@ async function processDeepLinkUrlAccount(
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');
           break;
+        case EOneKeyDeepLinkPath.webview: {
+          const query =
+            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.webview];
+          const webViewParams = parseWebViewDeepLink(query);
+          if (webViewParams) {
+            openWebView(webViewParams);
+          }
+          break;
+        }
         default:
           break;
       }

@@ -2,7 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Accordion, Button, YStack } from '@onekeyhq/components';
+import {
+  Accordion,
+  Button,
+  ScrollView,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -17,11 +23,17 @@ interface IProviderManageContainerProps {
   onSaved: () => void;
 }
 
+const PROVIDER_MANAGE_LIST_MAX_HEIGHT = {
+  desktop: 360,
+  mobile: '$80',
+} as const;
+
 const ProviderManageContainer = ({
   isBridge,
   onSaved,
 }: IProviderManageContainerProps) => {
   const intl = useIntl();
+  const media = useMedia();
   const [{ swapProviderManager, bridgeProviderManager }] =
     useInAppNotificationAtom();
   const [providerManageNewData, setProviderManageNewData] =
@@ -101,52 +113,70 @@ const ProviderManageContainer = ({
     setIsSaving(false);
     onSaved();
   }, [onSaved, providerManageNewData, isBridge]);
+
+  const providerManageListMaxHeight = media.gtMd
+    ? PROVIDER_MANAGE_LIST_MAX_HEIGHT.desktop
+    : PROVIDER_MANAGE_LIST_MAX_HEIGHT.mobile;
+
   return (
     <YStack>
-      <Accordion type="single" pb="$5" collapsible gap="$2">
-        {isBridge
-          ? providerManageNewData.map((item) => (
-              <ProviderSwitch
-                serviceDisable={item.serviceDisable}
-                isBridge={isBridge}
-                key={item.providerInfo.provider}
-                providerInfo={item.providerInfo}
-                providerEnable={item.enable}
-                onProviderSwitchEnable={(enable) => {
-                  onProviderSwitchEnable(item.providerInfo.provider, enable);
-                }}
-              />
-            ))
-          : providerManageNewData.map((item) => (
-              <ProviderManageComponent
-                key={item.providerInfo.provider}
-                providerInfo={item.providerInfo}
-                providerEnable={item.enable}
-                serviceDisable={!!item.serviceDisable}
-                serviceDisableNetworks={item.serviceDisableNetworks ?? []}
-                providerSupportNetworks={item.supportNetworks ?? []}
-                providerDisableNetworks={item.disableNetworks ?? []}
-                onProviderSwitchEnable={(enable) => {
-                  onProviderSwitchEnable(item.providerInfo.provider, enable);
-                }}
-                onProviderNetworkEnable={(networkId, enable) => {
-                  onProviderNetworkEnable(
-                    item.providerInfo.provider,
-                    networkId,
-                    enable,
-                  );
-                }}
-              />
-            ))}
-      </Accordion>
-      <Button
-        loading={isSaving}
-        variant="primary"
-        onPress={() => onSave()}
-        testID="swap-btn"
+      <ScrollView
+        maxHeight={providerManageListMaxHeight}
+        mx="$-5"
+        px="$5"
+        pb="$5"
+        nestedScrollEnabled
+        contentContainerStyle={{
+          pb: '$1',
+        }}
       >
-        {intl.formatMessage({ id: ETranslations.action_save })}
-      </Button>
+        <Accordion type="single" collapsible gap="$2">
+          {isBridge
+            ? providerManageNewData.map((item) => (
+                <ProviderSwitch
+                  serviceDisable={item.serviceDisable}
+                  isBridge={isBridge}
+                  key={item.providerInfo.provider}
+                  providerInfo={item.providerInfo}
+                  providerEnable={item.enable}
+                  onProviderSwitchEnable={(enable) => {
+                    onProviderSwitchEnable(item.providerInfo.provider, enable);
+                  }}
+                />
+              ))
+            : providerManageNewData.map((item) => (
+                <ProviderManageComponent
+                  key={item.providerInfo.provider}
+                  providerInfo={item.providerInfo}
+                  providerEnable={item.enable}
+                  serviceDisable={!!item.serviceDisable}
+                  serviceDisableNetworks={item.serviceDisableNetworks ?? []}
+                  providerSupportNetworks={item.supportNetworks ?? []}
+                  providerDisableNetworks={item.disableNetworks ?? []}
+                  onProviderSwitchEnable={(enable) => {
+                    onProviderSwitchEnable(item.providerInfo.provider, enable);
+                  }}
+                  onProviderNetworkEnable={(networkId, enable) => {
+                    onProviderNetworkEnable(
+                      item.providerInfo.provider,
+                      networkId,
+                      enable,
+                    );
+                  }}
+                />
+              ))}
+        </Accordion>
+      </ScrollView>
+      <YStack pt="$4">
+        <Button
+          loading={isSaving}
+          variant="primary"
+          onPress={() => onSave()}
+          testID="swap-btn"
+        >
+          {intl.formatMessage({ id: ETranslations.action_save })}
+        </Button>
+      </YStack>
     </YStack>
   );
 };

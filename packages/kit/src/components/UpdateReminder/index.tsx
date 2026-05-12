@@ -24,8 +24,9 @@ import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from '../AppUpdate';
+
 import { DownloadProgress } from './DownloadProgress';
-import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from './hooks';
 
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const intl = useIntl();

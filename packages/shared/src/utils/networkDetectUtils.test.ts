@@ -303,6 +303,20 @@ describe('Network Detection by Private Key', () => {
   });
 
   describe('64 hex without 0x prefix - Multi-chain Detection', () => {
+    test('detects EVM and puts EVM first (64 hex no prefix)', async () => {
+      const privateKey =
+        'e37632253d40d954f56ebf0593c56c6cf52ecd46dbcc40b055334cba18d8bc5e';
+      const result = await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.eth),
+      );
+      expect(result.networks[0]).toEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.eth),
+      );
+    });
+
     test('detects TON (64 hex no prefix)', async () => {
       const privateKey =
         'e37632253d40d954f56ebf0593c56c6cf52ecd46dbcc40b055334cba18d8bc5e';

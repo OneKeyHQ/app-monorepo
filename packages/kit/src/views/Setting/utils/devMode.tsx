@@ -9,6 +9,12 @@ import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { showDevOnlyPasswordDialog } from '../pages/Tab/DevSettingsSection';
 import { SettingTestIDs } from '../testIDs';
 
+import {
+  cacheDevOnlyPassword,
+  clearCachedDevOnlyPassword,
+  getCachedDevOnlyPassword,
+} from './devOnlyPassword';
+
 // for open dev mode
 let clickCount = 0;
 let startTime: Date | undefined;
@@ -53,10 +59,13 @@ export const showDevModePasswordDialog = async () => {
         testID: SettingTestIDs.confirmButton,
       },
       renderContent: (
-        <Dialog.Form formProps={{ values: { password: '' } }}>
+        <Dialog.Form
+          formProps={{ values: { password: getCachedDevOnlyPassword() } }}
+        >
           <MultipleClickStack
             showDevBgColor
             h="$5"
+            w="$10"
             onPress={async () => {
               if (platformEnv.isWeb) {
                 switchWebDappMode();
@@ -82,8 +91,10 @@ export const showDevModePasswordDialog = async () => {
         if (form) {
           const password = form.getValues('password');
           if (isCorrectDevOnlyPassword(password)) {
+            cacheDevOnlyPassword(password);
             resolve(true);
           } else {
+            clearCachedDevOnlyPassword(password);
             reject(new OneKeyLocalError('Invalid dev password'));
           }
         }

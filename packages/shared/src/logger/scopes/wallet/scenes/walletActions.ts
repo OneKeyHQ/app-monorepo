@@ -146,6 +146,23 @@ export class WalletActionsScene extends BaseScene {
   }
 
   @LogToServer()
+  public zeroNativeBalanceDialog({
+    action,
+    networkId,
+    tokenSymbol,
+    walletType,
+    sendFlowId,
+  }: {
+    action: 'shown' | 'receive' | 'buy' | 'continue';
+    networkId: string;
+    tokenSymbol: string;
+    walletType: string;
+    sendFlowId?: string;
+  }) {
+    return { action, networkId, tokenSymbol, walletType, sendFlowId };
+  }
+
+  @LogToServer()
   public buyOnLowBalance({
     source,
     networkId,

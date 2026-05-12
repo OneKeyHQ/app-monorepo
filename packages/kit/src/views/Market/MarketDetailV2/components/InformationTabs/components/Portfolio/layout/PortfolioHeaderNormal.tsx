@@ -2,7 +2,7 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, useMedia } from '@onekeyhq/components';
+import { DashText, SizableText, XStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const commonTextProps = {
@@ -24,17 +24,45 @@ function PortfolioHeaderNormalBase() {
       gap="$6"
     >
       <SizableText {...commonTextProps} w={100}>
-        Token
+        {intl.formatMessage({ id: ETranslations.perp_relay_token__title })}
       </SizableText>
       <SizableText {...commonTextProps} w={columnWidth} textAlign="right">
         {intl.formatMessage({ id: ETranslations.global_balance })}
       </SizableText>
-      <SizableText {...commonTextProps} w={columnWidth} textAlign="right">
-        {intl.formatMessage({ id: ETranslations.marketdex_unrealized_pnl })}
-      </SizableText>
-      <SizableText {...commonTextProps} w={columnWidth} textAlign="right">
-        {intl.formatMessage({ id: ETranslations.marketdex_total_pnl })}
-      </SizableText>
+      <XStack w={columnWidth} justifyContent="flex-end">
+        <DashText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          dashColor="$textDisabled"
+          dashThickness={0.5}
+          tooltip={intl.formatMessage({ id: ETranslations.marketdex_un_pnl })}
+          tooltipTitle={intl.formatMessage({
+            id: ETranslations.marketdex_pnl_cal,
+          })}
+        >
+          {intl.formatMessage({
+            id: ETranslations.marketdex_unrealized_pnl,
+          })}
+        </DashText>
+      </XStack>
+      <XStack w={columnWidth} justifyContent="flex-end">
+        <DashText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          dashColor="$textDisabled"
+          dashThickness={0.5}
+          tooltip={intl.formatMessage({
+            id: ETranslations.marketdex_total_pnl_desc,
+          })}
+          tooltipTitle={intl.formatMessage({
+            id: ETranslations.marketdex_pnl_cal,
+          })}
+        >
+          {intl.formatMessage({
+            id: ETranslations.marketdex_total_pnl,
+          })}
+        </DashText>
+      </XStack>
     </XStack>
   );
 }

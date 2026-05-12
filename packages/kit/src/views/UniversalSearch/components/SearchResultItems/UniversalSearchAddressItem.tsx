@@ -11,6 +11,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -23,11 +24,13 @@ import { urlAccountNavigation } from '../../../Home/pages/urlAccount/urlAccountU
 interface IUniversalSearchAddressItemProps {
   item: IUniversalSearchAddress;
   contextNetworkId?: string;
+  getSearchInput: () => string;
 }
 
 export function UniversalSearchAddressItem({
   item,
   contextNetworkId,
+  getSearchInput,
 }: IUniversalSearchAddressItemProps) {
   const navigation = useAppNavigation();
   const accountSelectorActions = useAccountSelectorActions();
@@ -63,6 +66,20 @@ export function UniversalSearchAddressItem({
   );
 
   const handleAccountPress = useCallback(async () => {
+    defaultLogger.universalSearch.search.universalSearchClick({
+      searchText: getSearchInput(),
+      type: item.type,
+      itemId:
+        item.payload.account?.id ??
+        item.payload.indexedAccount?.id ??
+        item.payload.addressInfo?.displayAddress ??
+        '',
+      itemTitle:
+        item.payload.accountInfo?.formattedName ??
+        item.payload.addressInfo?.displayAddress ??
+        '',
+    });
+
     navigation.pop();
     if (
       accountUtils.isOthersAccount({
@@ -124,6 +141,7 @@ export function UniversalSearchAddressItem({
     }, 10);
   }, [
     accountSelectorActions,
+    getSearchInput,
     item.payload,
     item.type,
     navigation,
@@ -131,6 +149,16 @@ export function UniversalSearchAddressItem({
   ]);
 
   const handleAddressPress = useCallback(() => {
+    defaultLogger.universalSearch.search.universalSearchClick({
+      searchText: getSearchInput(),
+      type: item.type,
+      itemId: item.payload.addressInfo?.displayAddress ?? '',
+      itemTitle:
+        item.payload.network?.shortname ??
+        item.payload.addressInfo?.displayAddress ??
+        '',
+    });
+
     navigation.pop();
     setTimeout(async () => {
       const { network, addressInfo } = item.payload;
@@ -160,6 +188,7 @@ export function UniversalSearchAddressItem({
     }, 80);
   }, [
     contextNetworkId,
+    getSearchInput,
     item.payload,
     item.type,
     navigation,

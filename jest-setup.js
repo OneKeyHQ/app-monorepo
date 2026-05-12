@@ -1,10 +1,17 @@
 /* eslint-disable no-undef */
 // require('react-native-reanimated').setUpTests();
 
+// Reset process.exitCode between tests. The monorepo-wide unittest runs CLI
+// command tests (apps/cli/src/__tests__/*.test.ts) that set process.exitCode
+// while asserting non-zero exit codes; without this hook the last such value
+// leaks into Node's final exit code and breaks the CI unittest job even when
+// every test passes.
+afterEach(() => {
+  process.exitCode = 0;
+});
+
 // FIX:     ReferenceError: self is not defined
 globalThis.self = globalThis.self || globalThis;
-
-const MockMMKV = require('./apps/desktop/app/libs/react-native-mmkv-mock');
 
 class LocalStorageMock {
   constructor() {
@@ -33,6 +40,8 @@ globalThis.$$onekeyAppStorage = new LocalStorageMock();
 globalThis.addEventListener = jest.fn;
 globalThis.fetch = require('node-fetch');
 globalThis.WebSocket = require('isomorphic-ws');
+
+const MockMMKV = require('./apps/desktop/app/libs/react-native-mmkv-mock');
 
 if (typeof structuredClone === 'undefined') {
   globalThis.structuredClone = require('@ungap/structured-clone').default;

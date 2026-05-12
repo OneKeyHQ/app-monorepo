@@ -21,6 +21,7 @@ import {
 import type { ITabContainerRef } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -188,7 +189,7 @@ function MobileBrowser() {
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
   const isLandscape = useIsSplitView();
-  const { earnTab } = route?.params || {};
+  const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
   const selectedHeaderTab =
     settings.selectedBrowserTab || ETranslations.global_browser;
@@ -244,6 +245,18 @@ function MobileBrowser() {
       showTabBar();
     }
   }, [tabs?.length]);
+
+  const previousDefaultTab = useRef<ETranslations | undefined>(undefined);
+  useEffect(() => {
+    if (previousDefaultTab.current !== defaultTab) {
+      previousDefaultTab.current = defaultTab;
+      if (defaultTab) {
+        void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
+          defaultTab,
+        );
+      }
+    }
+  }, [defaultTab]);
 
   useEffect(() => {
     if (!showDiscoveryPage) {
@@ -647,9 +660,17 @@ function MobileBrowser() {
 
 function BaseMobileBrowser() {
   return (
-    <LazyPageContainer>
-      <MobileBrowser />
-    </LazyPageContainer>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <LazyPageContainer>
+        <MobileBrowser />
+      </LazyPageContainer>
+    </AccountSelectorProviderMirror>
   );
 }
 

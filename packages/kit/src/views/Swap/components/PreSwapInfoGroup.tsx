@@ -5,7 +5,6 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Icon,
   Image,
   NumberSizeableText,
@@ -26,29 +25,40 @@ import {
 import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap';
 
 import PreSwapInfoItem from './PreSwapInfoItem';
-import { ProtocolFeeComparisonList } from './ProtocolFeeComparisonList';
+
+export const SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE = 'CUSTOM' as const;
+
+export type ISwapReviewNetworkFeeSelectValue =
+  | ESwapNetworkFeeLevel
+  | typeof SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE;
 
 interface IPreSwapInfoGroupProps {
   preSwapData: ISwapPreSwapData;
-  onSelectNetworkFeeLevel: (value: ESwapNetworkFeeLevel) => void;
+  onSelectNetworkFeeLevel: (value: ISwapReviewNetworkFeeSelectValue) => void;
+  customNetworkFeeOptionLabel?: string;
+  networkFeeSelectValue?: ISwapReviewNetworkFeeSelectValue;
 }
 
 const PreSwapInfoGroup = ({
   preSwapData,
   onSelectNetworkFeeLevel,
+  customNetworkFeeOptionLabel,
+  networkFeeSelectValue,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const [swapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
 
-  const serviceFee = Number(preSwapData?.fee?.percentageFee ?? 0.3);
   const networkFeeLevelArray = useMemo(() => {
     const feeArray = [
       ESwapNetworkFeeLevel.LOW,
       ESwapNetworkFeeLevel.MEDIUM,
       ESwapNetworkFeeLevel.HIGH,
     ];
-    const selectItems = feeArray.map((item) => {
+    const selectItems: {
+      label: string;
+      value: ISwapReviewNetworkFeeSelectValue;
+    }[] = feeArray.map((item) => {
       let label = '';
       if (item === ESwapNetworkFeeLevel.LOW) {
         label = intl.formatMessage({
@@ -70,8 +80,14 @@ const PreSwapInfoGroup = ({
         value: item,
       };
     });
+    if (customNetworkFeeOptionLabel) {
+      selectItems.push({
+        label: customNetworkFeeOptionLabel,
+        value: SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE,
+      });
+    }
     return selectItems;
-  }, [intl]);
+  }, [customNetworkFeeOptionLabel, intl]);
   const slippage = useMemo(() => {
     if (
       !preSwapData?.unSupportSlippage &&
@@ -83,50 +99,48 @@ const PreSwapInfoGroup = ({
     }
     return undefined;
   }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
-  const fee = useMemo(() => {
-    if (
-      new BigNumber(preSwapData?.fee?.percentageFee ?? '0').isZero() ||
-      new BigNumber(preSwapData?.fee?.percentageFee ?? '0').isNaN()
-    ) {
-      return (
-        <Badge badgeSize="sm" badgeType="success" gap="$1.5">
-          <Icon name="PartyCelebrateSolid" size="$3" color="$iconSuccess" />
-          <SizableText size="$bodySmMedium" color="$textSuccess">
-            {intl.formatMessage({
-              id: ETranslations.swap_stablecoin_0_fee,
-            })}
-          </SizableText>
-        </Badge>
-      );
-    }
-    return `${preSwapData?.fee?.percentageFee ?? '-'}%`;
-  }, [intl, preSwapData?.fee?.percentageFee]);
+
+  const activeNetworkFeeSelectValue =
+    networkFeeSelectValue ??
+    (swapStepNetFeeLevel.customPriorityFee
+      ? SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE
+      : swapStepNetFeeLevel.networkFeeLevel);
 
   const networkFeeLevelLabel = useMemo(() => {
-    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW) {
+    if (activeNetworkFeeSelectValue === SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE) {
+      return (
+        customNetworkFeeOptionLabel ??
+        intl.formatMessage({
+          id: ETranslations.transaction_custom,
+        })
+      );
+    }
+    if (activeNetworkFeeSelectValue === ESwapNetworkFeeLevel.LOW) {
       return intl.formatMessage({
         id: ETranslations.transaction_slow,
       });
     }
-    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.MEDIUM) {
+    if (activeNetworkFeeSelectValue === ESwapNetworkFeeLevel.MEDIUM) {
       return intl.formatMessage({
         id: ETranslations.transaction_normal,
       });
     }
-    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.HIGH) {
+    if (activeNetworkFeeSelectValue === ESwapNetworkFeeLevel.HIGH) {
       return intl.formatMessage({
         id: ETranslations.transaction_fast,
       });
     }
     return '-';
-  }, [intl, swapStepNetFeeLevel.networkFeeLevel]);
+  }, [activeNetworkFeeSelectValue, customNetworkFeeOptionLabel, intl]);
 
   const networkFeeSelect = useMemo(() => {
     return (
       <XStack alignItems="center" gap="$2">
         <Select
           testID="swap-network-fee-select-select"
-          onChange={onSelectNetworkFeeLevel}
+          onChange={(value) =>
+            onSelectNetworkFeeLevel(value as ISwapReviewNetworkFeeSelectValue)
+          }
           renderTrigger={() => (
             <XStack cursor="pointer" gap="$1" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -135,10 +149,10 @@ const PreSwapInfoGroup = ({
               <Icon name="ChevronGrabberVerOutline" size="$4" />
             </XStack>
           )}
-          value={swapStepNetFeeLevel.networkFeeLevel}
           title={intl.formatMessage({
             id: ETranslations.swap_review_transaction_speed,
           })}
+          value={activeNetworkFeeSelectValue}
           items={networkFeeLevelArray}
         />
         {preSwapData.stepBeforeActionsLoading ? (
@@ -157,12 +171,12 @@ const PreSwapInfoGroup = ({
     );
   }, [
     intl,
+    activeNetworkFeeSelectValue,
     networkFeeLevelArray,
     networkFeeLevelLabel,
     onSelectNetworkFeeLevel,
     preSwapData.netWorkFee?.gasFeeFiatValue,
     settings.currencyInfo.symbol,
-    swapStepNetFeeLevel.networkFeeLevel,
     preSwapData.stepBeforeActionsLoading,
   ]);
 
@@ -234,35 +248,7 @@ const PreSwapInfoGroup = ({
           }
         />
       ) : null}
-      <PreSwapInfoItem
-        title={intl.formatMessage({
-          id: ETranslations.provider_ios_popover_wallet_fee,
-        })}
-        value={fee}
-        popoverContent={
-          <Stack gap="$4">
-            <Stack gap="$1">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.provider_ios_popover_onekey_fee_content,
-                  },
-                  { num: `${serviceFee}%` },
-                )}
-              </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.provider_ios_popover_onekey_fee_content_2,
-                  },
-                  { num: `${serviceFee}%` },
-                )}
-              </SizableText>
-            </Stack>
-            <ProtocolFeeComparisonList serviceFee={serviceFee} />
-          </Stack>
-        }
-      />
+
       {preSwapData.supportNetworkFeeLevel ? (
         <PreSwapInfoItem
           title={intl.formatMessage({

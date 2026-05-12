@@ -197,10 +197,20 @@ export function useImportAddressForm({
       return false;
     }
     if (method === EImportMethod.Address) {
-      return !addressValue.pending && form.formState.isValid;
+      return (
+        !addressValue.pending &&
+        !!addressValue.resolved &&
+        form.formState.isValid
+      );
     }
     return validateResult?.isValid ?? false;
-  }, [method, addressValue.pending, validateResult, form.formState]);
+  }, [
+    method,
+    addressValue.pending,
+    addressValue.resolved,
+    validateResult,
+    form.formState,
+  ]);
 
   const isKeyExportEnabled = useMemo(
     () =>

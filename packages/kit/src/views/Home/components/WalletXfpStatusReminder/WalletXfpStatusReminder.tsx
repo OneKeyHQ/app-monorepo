@@ -23,8 +23,9 @@ import {
   useHardwareWalletXfpStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import type { IntlShape } from 'react-intl';
 
 export function WalletXfpReminderAlert({
   message,
@@ -70,18 +71,20 @@ export function WalletXfpReminderAlert({
 export async function showUpdateHardwareWalletLegacyXfpDialog({
   walletId,
   onConfirm,
+  intl,
 }: {
   walletId: string;
   onConfirm?: () => void;
+  intl: IntlShape;
 }) {
   const status = await hardwareWalletXfpStatusAtom.get();
   if (status?.[walletId]?.xfpMissing) {
     Dialog.show({
       icon: 'CubeOutline',
-      title: appLocale.intl.formatMessage({
+      title: intl.formatMessage({
         id: ETranslations.global_hardware_legacy_data_update_dialog_title,
       }),
-      description: appLocale.intl.formatMessage(
+      description: intl.formatMessage(
         {
           id: ETranslations.global_hardware_legacy_data_update_dialog_description,
         },
@@ -99,7 +102,7 @@ export async function showUpdateHardwareWalletLegacyXfpDialog({
         );
         onConfirm?.();
       },
-      onConfirmText: appLocale.intl.formatMessage({
+      onConfirmText: intl.formatMessage({
         id: ETranslations.global_hardware_legacy_data_update_dialog_button,
       }),
     });
@@ -149,7 +152,7 @@ function WalletXfpStatusReminderCmp() {
           onPress={async () => {
             await closePopover?.();
             await closeTooltip?.();
-            await showUpdateHardwareWalletLegacyXfpDialog({ walletId });
+            await showUpdateHardwareWalletLegacyXfpDialog({ walletId, intl });
           }}
         />
       );

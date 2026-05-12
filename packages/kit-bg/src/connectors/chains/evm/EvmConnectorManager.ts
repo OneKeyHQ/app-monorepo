@@ -1,13 +1,16 @@
 import { injected } from '@wagmi/core';
 import { isNil, isNumber } from 'lodash';
-import { createStore as createMipd } from 'mipd';
 
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { EventData } from '@onekeyhq/shared/src/eventBus/WagmiEventEmitter';
 import { createEmitter } from '@onekeyhq/shared/src/eventBus/WagmiEventEmitter';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import {
+  getEIP6963Providers,
+  requestEIP6963Providers,
+} from '@onekeyhq/shared/src/utils/eip6963ProviderUtils';
 import { uidForWagmi } from '@onekeyhq/shared/src/utils/miscUtils';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type {
   IExternalConnectionInfo,
   IExternalConnectionInfoEvmEIP6963,
@@ -17,7 +20,6 @@ import type {
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { ConnectorEventMap, CreateConnectorFn } from '@wagmi/core';
-import type { Store } from 'mipd';
 import type { Chain } from 'viem';
 
 export class EvmConnectorManager {
@@ -27,36 +29,17 @@ export class EvmConnectorManager {
     this.backgroundApi = backgroundApi;
   }
 
-  _mipd: Store | undefined;
-
-  private get mipdStore() {
-    const multiInjectedProviderDiscovery = true;
-    if (!this._mipd) {
-      this._mipd =
-        // eslint-disable-next-line unicorn/prefer-global-this
-        typeof window !== 'undefined' && multiInjectedProviderDiscovery
-          ? createMipd()
-          : undefined;
-    }
-    checkIsDefined(this._mipd);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return this._mipd!;
-  }
-
-  providerDetailToConnector(
+  private findProviderDetail(
     providerDetail: IExternalConnectionInfoEvmEIP6963,
-  ): CreateConnectorFn<any> {
-    // save info to dbAccount
+  ) {
     const { info } = providerDetail;
 
-    // find provider by info.rdns which is saved in dbAccount
-    // TODO mipd auto discovery by subscribe
-    let providerDetailFound = this.mipdStore?.findProvider({
-      rdns: info.rdns,
-    });
-    // uuid not matched, should find provider by uuid & rdns
+    const allProvidersDetail = getEIP6963Providers();
+    let providerDetailFound = allProvidersDetail.find(
+      (item) => item.info.rdns === info.rdns,
+    );
+
     if (providerDetailFound?.info.uuid !== info.uuid) {
-      const allProvidersDetail = this.mipdStore.getProviders();
       let detail = allProvidersDetail.find(
         (item) => item.info.uuid === info.uuid && item.info.rdns === info.rdns,
       );
@@ -71,8 +54,30 @@ export class EvmConnectorManager {
       providerDetailFound = detail || providerDetailFound;
     }
 
+    return providerDetailFound;
+  }
+
+  async providerDetailToConnector(
+    providerDetail: IExternalConnectionInfoEvmEIP6963,
+  ): Promise<CreateConnectorFn<any>> {
+    requestEIP6963Providers();
+
+    let providerDetailFound = this.findProviderDetail(providerDetail);
+    if (!providerDetailFound) {
+      await waitForDataLoaded({
+        data: () => {
+          requestEIP6963Providers();
+          return this.findProviderDetail(providerDetail);
+        },
+        logName: 'evm_eip6963_provider_detail',
+        wait: 120,
+        timeout: 1200,
+      }).catch(() => undefined);
+      providerDetailFound = this.findProviderDetail(providerDetail);
+    }
+
+    const { info } = providerDetail;
     const provider = providerDetailFound?.provider;
-    // const provider2 = providerDetail.provider as any;
 
     if (!provider) {
       throw new OneKeyLocalError(
@@ -174,7 +179,8 @@ export class EvmConnectorManager {
   }
 
   getProviders() {
-    return this.mipdStore.getProviders();
+    requestEIP6963Providers();
+    return getEIP6963Providers();
   }
 
   private connect = (data: EventData<ConnectorEventMap, 'connect'>) => {

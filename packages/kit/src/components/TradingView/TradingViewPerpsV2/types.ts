@@ -125,3 +125,32 @@ export interface ITVOrderCancelPayload {
   symbol: string;
   orderId?: string;
 }
+
+export interface ITVOrderDraftCreatePayload {
+  clientDraftId: string;
+  symbol: string;
+  price: string;
+  quantity: string;
+  side: 'buy' | 'sell';
+  orderType: 'limit';
+  source: 'tv_plus_menu';
+  timestamp: number;
+}
+
+export interface ITVOrderPriceUpdatePayload {
+  requestId: string;
+  lineId: string;
+  orderId?: string;
+  symbol: string;
+  price: string;
+  stage: 'move' | 'modify';
+  source: 'tv_drag';
+  timestamp: number;
+}
+
+export interface ITVOrderPriceUpdateRejectedPayload {
+  requestId: string;
+  lineId: string;
+  symbol: string;
+  orderId?: string;
+}

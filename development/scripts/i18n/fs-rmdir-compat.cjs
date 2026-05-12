@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
+
 const fs = require('node:fs');
 const fsPromises = require('node:fs/promises');
 

@@ -67,6 +67,7 @@ import type {
   IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 import {
+  EApproveType,
   EDecodedTxActionType,
   EDecodedTxStatus,
   EReplaceTxType,
@@ -93,6 +94,7 @@ import {
 } from './decoder/utils';
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
@@ -100,8 +102,7 @@ import { KeyringWatching } from './KeyringWatching';
 import { ClientEvm } from './sdkEvm/ClientEvm';
 import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 
-import type { IDBWalletType } from '../../../dbs/local/types';
-import type { KeyringBase } from '../../base/KeyringBase';
+import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IApproveInfo,
   IBroadcastTransactionByCustomRpcParams,
@@ -124,6 +125,20 @@ import type { FailedAttemptError } from 'p-retry';
 
 const enabledNFTNetworkIds = networkUtils.getEnabledNFTNetworkIds();
 
+const APPROVE_TYPE_BY_DESC_NAME: Partial<
+  Record<EErc20TxDescriptionName, EApproveType>
+> = {
+  [EErc20TxDescriptionName.Approve]: EApproveType.Approve,
+  [EErc20TxDescriptionName.IncreaseAllowance]: EApproveType.IncreaseAllowance,
+  [EErc20TxDescriptionName.IncreaseApproval]: EApproveType.IncreaseApproval,
+};
+
+const SELECTOR_BY_APPROVE_TYPE: Record<EApproveType, EErc20MethodSelectors> = {
+  [EApproveType.Approve]: EErc20MethodSelectors.tokenApprove,
+  [EApproveType.IncreaseAllowance]: EErc20MethodSelectors.increaseAllowance,
+  [EApproveType.IncreaseApproval]: EErc20MethodSelectors.increaseApproval,
+};
+
 // evm vault
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.evm.hd;
@@ -134,10 +149,11 @@ export default class Vault extends VaultBase {
     return this.baseValidatePrivateKey(privateKey);
   }
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
+  override keyringMap: IKeyringMap = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,
+    hwLedger: KeyringHardwareLedger,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringExternal,
@@ -982,14 +998,28 @@ export default class Vault extends VaultBase {
     ) {
       const { allowance, isUnlimited } = tokenApproveInfo;
       const { spender, decimals } = action.tokenApprove;
+      const approveType =
+        tokenApproveInfo.approveType ??
+        action.tokenApprove.approveType ??
+        EApproveType.Approve;
 
+      const selector = SELECTOR_BY_APPROVE_TYPE[approveType];
+      // The decoder surfaces unlimited allowance as InfiniteAmountText, and the
+      // editor/reset path can feed it back here verbatim. Treat any non-finite
+      // allowance — and the absolute-approve unlimited flag — as MaxUint256 so
+      // increase variants don't shift `Infinite` and produce 0xNaN.
+      const allowanceBn = new BigNumber(allowance);
+      const isMaxUint256 =
+        allowance === InfiniteAmountText ||
+        !allowanceBn.isFinite() ||
+        (approveType === EApproveType.Approve && isUnlimited);
       const amountHex = toBigIntHex(
-        isUnlimited
+        isMaxUint256
           ? new BigNumber(2).pow(256).minus(1)
-          : new BigNumber(allowance).shiftedBy(decimals),
+          : allowanceBn.shiftedBy(decimals),
       );
 
-      const data = `${EErc20MethodSelectors.tokenApprove}${defaultAbiCoder
+      const data = `${selector}${defaultAbiCoder
         .encode(['address', 'uint256'], [spender, amountHex])
         .slice(2)}`;
 
@@ -1070,7 +1100,11 @@ export default class Vault extends VaultBase {
       });
     }
 
-    if (txDesc.name === EErc20TxDescriptionName.Approve) {
+    if (
+      txDesc.name === EErc20TxDescriptionName.Approve ||
+      txDesc.name === EErc20TxDescriptionName.IncreaseAllowance ||
+      txDesc.name === EErc20TxDescriptionName.IncreaseApproval
+    ) {
       return this._buildTxApproveTokenAction({
         encodedTx,
         txDesc,
@@ -1149,6 +1183,10 @@ export default class Vault extends VaultBase {
     const amount = formatValue(value, token.decimals);
     const accountAddress = await this.getAccountAddress();
 
+    const approveType =
+      APPROVE_TYPE_BY_DESC_NAME[txDesc.name as EErc20TxDescriptionName] ??
+      EApproveType.Approve;
+
     const action: IDecodedTxAction = {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
@@ -1161,7 +1199,9 @@ export default class Vault extends VaultBase {
         symbol: token.symbol,
         decimals: token.decimals,
         tokenIdOnNetwork: token.address,
-        isInfiniteAmount: amount === InfiniteAmountText,
+        isInfiniteAmount:
+          approveType === EApproveType.Approve && amount === InfiniteAmountText,
+        approveType,
       },
     };
 

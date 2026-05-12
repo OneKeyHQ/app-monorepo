@@ -54,6 +54,10 @@ export enum EKeylessWebPrivateRpcMethod {
   DisconnectSite = 'wallet_keylessDisconnectSite',
 }
 
+// Extensions at or below this version lack the required keyless-web RPCs;
+// the web entry points must hide keyless social-login buttons for them.
+export const KEYLESS_WEB_LEGACY_EXTENSION_VERSION_MAX = '6.1.0';
+
 export enum EKeylessWebBridgeEvent {
   BridgeReady = 'ONEKEY_KEYLESS_BRIDGE_READY',
   LoginDone = 'ONEKEY_KEYLESS_LOGIN_DONE',

@@ -7,6 +7,11 @@ export const WALLET_TYPE_IMPORTED = 'imported'; // as walletId
 export const WALLET_TYPE_WATCHING = 'watching'; // as walletId
 export const WALLET_TYPE_EXTERNAL = 'external'; // as walletId
 
+// Bot wallet constants
+export const BOT_WALLET_ID_PREFIX = 'hd-bot--';
+export const BOT_WALLET_STATUS_ACTIVE = 'active' as const;
+export const BOT_WALLET_STATUS_DEACTIVATED = 'deactivated' as const;
+
 // Wallet number constants for singleton wallets and keyless wallet
 // These wallets use fixed walletNo values and don't participate in nextWalletNo increment
 export const WALLET_NO_IMPORTED = 1_000_001;

@@ -1,5 +1,128 @@
+diff --git a/node_modules/@react-native-harness/jest/dist/index.js b/node_modules/@react-native-harness/jest/dist/index.js
+--- a/node_modules/@react-native-harness/jest/dist/index.js
++++ b/node_modules/@react-native-harness/jest/dist/index.js
+@@ -6,12 +6,55 @@
+ import { getErrorMessage } from './logs.js';
+ import { DeviceNotRespondingError } from '@react-native-harness/bridge/server';
+ import { NativeCrashError } from './errors.js';
++const DEFAULT_TEST_FILE_TIMEOUT_MS = 180000;
+ class CancelRun extends Error {
+     constructor(message) {
+         super(message);
+         this.name = 'CancelRun';
+     }
+ }
++class TestFileTimeoutError extends Error {
++    testPath;
++    timeoutMs;
++    constructor(testPath, timeoutMs) {
++        super(`Harness test file timed out after ${timeoutMs}ms: ${testPath}`);
++        this.testPath = testPath;
++        this.timeoutMs = timeoutMs;
++        this.name = 'TestFileTimeoutError';
++    }
++}
++class RestartTimeoutError extends Error {
++    testPath;
++    timeoutMs;
++    constructor(testPath, timeoutMs) {
++        super(`Harness app restart timed out after ${timeoutMs}ms before test file: ${testPath}`);
++        this.testPath = testPath;
++        this.timeoutMs = timeoutMs;
++        this.name = 'RestartTimeoutError';
++    }
++}
++const getTestFileTimeoutMs = () => {
++    const value = Number(process.env.HARNESS_TEST_FILE_TIMEOUT_MS);
++    return Number.isFinite(value) && value > 0
++        ? value
++        : DEFAULT_TEST_FILE_TIMEOUT_MS;
++};
++const withTimeout = (promise, createError) => {
++    const timeoutMs = getTestFileTimeoutMs();
++    let timeoutId;
++    const timeoutPromise = new Promise((_, reject) => {
++        timeoutId = setTimeout(() => {
++            reject(createError(timeoutMs));
++        }, timeoutMs);
++    });
++    return Promise.race([promise, timeoutPromise]).finally(() => {
++        if (timeoutId) {
++            clearTimeout(timeoutId);
++        }
++    });
++};
++const withTestFileTimeout = (promise, testPath) => withTimeout(promise, (timeoutMs) => new TestFileTimeoutError(testPath, timeoutMs));
++const withRestartTimeout = (promise, testPath) => withTimeout(promise, (timeoutMs) => new RestartTimeoutError(testPath, timeoutMs));
+ export default class JestHarness {
+     isSerial = true;
+     #globalConfig;
+@@ -51,22 +94,24 @@
+             }
+             if (harnessConfig.resetEnvironmentBetweenTestFiles &&
+                 !isFirstTest) {
+-                await harness.restart();
++                console.log(`[harness-jest] Restarting app before ${test.path}`);
++                await withRestartTimeout(harness.restart(), test.path);
+             }
+             isFirstTest = false;
+             return onStart(test).then(async () => {
++                console.log(`[harness-jest] Running ${test.path}`);
+                 if (!harnessConfig.detectNativeCrashes) {
+-                    return runHarnessTestFile({
++                    return withTestFileTimeout(runHarnessTestFile({
+                         testPath: test.path,
+                         harness,
+                         globalConfig: this.#globalConfig,
+                         projectConfig: test.context.config,
+-                    });
++                    }), test.path);
+                 }
+                 // Start crash monitoring
+                 const crashPromise = harness.crashMonitor.startMonitoring(test.path);
+                 try {
+-                    const result = await Promise.race([
++                    const result = await withTestFileTimeout(Promise.race([
+                         runHarnessTestFile({
+                             testPath: test.path,
+                             harness,
+@@ -74,7 +119,7 @@
+                             projectConfig: test.context.config,
+                         }),
+                         crashPromise,
+-                    ]);
++                    ]), test.path);
+                     return result;
+                 }
+                 finally {
+@@ -94,6 +139,26 @@
+                 return;
+             }
+             if (err instanceof DeviceNotRespondingError) {
++                onFailure(test, {
++                    message: err.message,
++                    stack: '',
++                });
++                return;
++            }
++            if (err instanceof TestFileTimeoutError) {
++                onFailure(test, {
++                    message: err.message,
++                    stack: '',
++                });
++                try {
++                    await withRestartTimeout(harness.restart(), test.path);
++                }
++                catch (restartError) {
++                    console.warn('[harness-jest] App restart after test timeout failed:', restartError);
++                }
++                return;
++            }
++            if (err instanceof RestartTimeoutError) {
+                 onFailure(test, {
+                     message: err.message,
+                     stack: '',
 diff --git a/node_modules/@react-native-harness/jest/dist/run.js b/node_modules/@react-native-harness/jest/dist/run.js
-index e667f19..fed1775 100644
 --- a/node_modules/@react-native-harness/jest/dist/run.js
 +++ b/node_modules/@react-native-harness/jest/dist/run.js
 @@ -1,4 +1,5 @@
@@ -8,7 +131,7 @@ index e667f19..fed1775 100644
  import { formatResultsErrors } from 'jest-message-util';
  import { toTestResult } from './toTestResult.js';
  // Helper function to flatten nested test suites into a flat array of tests with hierarchy
-@@ -42,6 +43,111 @@ const calculateStats = (tests) => {
+@@ -42,6 +43,111 @@
      }
      return { passes, failures, pending, todo };
  };
@@ -120,7 +243,7 @@ index e667f19..fed1775 100644
  export const runHarnessTestFile = async ({ testPath, globalConfig, projectConfig, harness, }) => {
      const start = Date.now();
      const relativeTestPath = path.relative(globalConfig.rootDir, testPath);
-@@ -57,6 +163,39 @@ export const runHarnessTestFile = async ({ testPath, globalConfig, projectConfig
+@@ -57,6 +163,39 @@
      const end = Date.now();
      const allTests = flattenTests(results);
      const stats = calculateStats(allTests);
@@ -160,7 +283,7 @@ index e667f19..fed1775 100644
      // Convert TestResult[] to the format expected by toTestResult
      const tests = allTests.map((test) => {
          const errorMessage = test.error?.message;
-@@ -92,6 +231,7 @@ export const runHarnessTestFile = async ({ testPath, globalConfig, projectConfig
+@@ -92,6 +231,7 @@
          tests,
          jestTestPath: testPath,
          coverage: results.coverage,
@@ -169,10 +292,9 @@ index e667f19..fed1775 100644
      totalResults.failureMessage = formatResultsErrors(totalResults.testResults, projectConfig, globalConfig, testPath);
      return totalResults;
 diff --git a/node_modules/@react-native-harness/jest/dist/toTestResult.js b/node_modules/@react-native-harness/jest/dist/toTestResult.js
-index c42fe12..b83b90f 100644
 --- a/node_modules/@react-native-harness/jest/dist/toTestResult.js
 +++ b/node_modules/@react-native-harness/jest/dist/toTestResult.js
-@@ -17,14 +17,14 @@ const getPerfStats = ({ stats }) => {
+@@ -17,14 +17,14 @@
          setupFilesEnd: 0,
      };
  };
@@ -191,7 +313,7 @@ index c42fe12..b83b90f 100644
          updated: 0,
      };
  };
-@@ -45,7 +45,7 @@ const getTestResults = ({ errorMessage, tests, jestTestPath, }) => {
+@@ -45,7 +45,7 @@
      });
  };
  export const toTestResult = (options) => {
@@ -200,7 +322,7 @@ index c42fe12..b83b90f 100644
      return {
          failureMessage: errorMessage,
          leaks: false,
-@@ -56,7 +56,7 @@ export const toTestResult = (options) => {
+@@ -56,7 +56,7 @@
          openHandles: [],
          perfStats: getPerfStats(options),
          skipped,

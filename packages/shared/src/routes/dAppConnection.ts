@@ -29,6 +29,8 @@ export enum EDAppConnectionModal {
   CosmosEnigmaUnlockModal = 'CosmosEnigmaUnlockModal',
   // Risk WhiteList
   RiskWhiteListModal = 'RiskWhiteListModal',
+  // Clipboard Permission
+  ClipboardPermissionModal = 'ClipboardPermissionModal',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -75,5 +77,10 @@ export type IDAppConnectionModalParamList = {
   // Risk WhiteList
   [EDAppConnectionModal.RiskWhiteListModal]: {
     url: string;
+  };
+  // Clipboard Permission
+  [EDAppConnectionModal.ClipboardPermissionModal]: {
+    clipboardType: 'read' | 'write';
+    textNonce?: string;
   };
 };

@@ -1,5 +1,7 @@
 import {
+  COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   parseValueToNumber,
+  shouldHideSpotExtendedStats,
   validateLiquidityInput,
   validateMaximumMinLiquidity,
 } from './utils';
@@ -321,5 +323,38 @@ describe('Maximum Minimum Liquidity Validation Tests', () => {
       const result = validateMaximumMinLiquidity(input);
       expect(result).toBe(should);
     });
+  });
+});
+
+describe('Spot Category Extended Stats Visibility Tests', () => {
+  test('keep extended stats for trending', () => {
+    expect(shouldHideSpotExtendedStats('trending')).toBe(false);
+  });
+
+  test('keep extended stats for x mentioned', () => {
+    expect(shouldHideSpotExtendedStats('x_mentioned')).toBe(false);
+  });
+
+  test('hide extended stats for AI and other thematic categories', () => {
+    expect(shouldHideSpotExtendedStats('ai')).toBe(true);
+    expect(shouldHideSpotExtendedStats('stock')).toBe(true);
+    expect(shouldHideSpotExtendedStats('metal')).toBe(true);
+  });
+
+  test('default category keeps extended stats visible', () => {
+    expect(shouldHideSpotExtendedStats()).toBe(false);
+  });
+
+  test('empty string category keeps extended stats visible', () => {
+    expect(shouldHideSpotExtendedStats('')).toBe(false);
+  });
+
+  test('compact spot columns match watchlist-oriented desktop fields', () => {
+    expect(COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS).toEqual([
+      'transactions',
+      'uniqueTraders',
+      'holders',
+      'tokenAge',
+    ]);
   });
 });

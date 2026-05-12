@@ -1,16 +1,11 @@
 /* eslint-disable no-restricted-syntax */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { unwrapElectronIpcError } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
 import platformEnvLite from '@onekeyhq/shared/src/platformEnvLite';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
-import { DESKTOP_API_MESSAGE_TYPE } from '../base/consts';
-import { JsBridgeDesktopApiOfRender } from '../base/JsBridgeDesktopApiOfRender';
 
-import type {
-  IDesktopApi,
-  IDesktopApiKeys,
-  IDesktopApiMessagePayload,
-} from '../base/types';
+import type { IDesktopApi, IDesktopApiKeys } from '../base/types';
 import type DesktopApiAppleAuth from '../DesktopApiAppleAuth';
 import type DesktopApiAppUpdate from '../DesktopApiAppUpdate';
 import type DesktopApiBluetooth from '../DesktopApiBluetooth';
@@ -28,8 +23,6 @@ import type DesktopApiSystem from '../DesktopApiSystem';
 import type DesktopApiWebview from '../DesktopApiWebview';
 
 export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
-  bridge = new JsBridgeDesktopApiOfRender();
-
   override checkEnvAvailable(): void {
     if (!platformEnvLite.isDesktop) {
       throw new OneKeyLocalError(
@@ -48,18 +41,20 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
     params: any[];
   }): Promise<any> {
     const { module, method, params } = options;
-    const message: IDesktopApiMessagePayload = {
-      type: DESKTOP_API_MESSAGE_TYPE,
-      module: module as any,
-      method,
-      params,
-    };
-
-    return this.bridge.request({
-      data: message,
-      // scope,
-      // remoteId,
-    });
+    // Use contextBridge-exposed desktopApiBridge (invoke-based, no JsBridge needed)
+    try {
+      const result: unknown = await globalThis.desktopApiBridge.call(
+        module as string,
+        method,
+        ...params,
+      );
+      return result;
+    } catch (e) {
+      // Strip Electron's `"Error invoking remote method '...': <payload>"`
+      // envelope so callers see the main-process error message verbatim
+      // (including i18n keys that downstream code formats via intl).
+      throw unwrapElectronIpcError(e);
+    }
   }
 
   system: DesktopApiSystem = this._createProxyModule<IDesktopApiKeys>('system');
@@ -107,5 +102,11 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
 }
 
 const desktopApiProxy = new DesktopApiProxy();
+
+// With contextIsolation enabled, preload can no longer assign to renderer's globalThis.
+// Assign here so that ~29 consumer files accessing globalThis.desktopApiProxy still work.
+if (typeof globalThis !== 'undefined' && platformEnvLite.isDesktop) {
+  globalThis.desktopApiProxy = desktopApiProxy;
+}
+
 export default desktopApiProxy;
-// appGlobals.$desktopApiProxy = desktopApiProxy;

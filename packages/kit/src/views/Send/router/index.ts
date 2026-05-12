@@ -1,13 +1,23 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import { SendConfirmWithProvider } from '@onekeyhq/kit/src/views/Send';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
+const SendConfirmWithProvider = LazyLoadPage(() =>
+  import('@onekeyhq/kit/src/views/Send').then((m) => ({
+    default: m.SendConfirmWithProvider,
+  })),
+);
+
 const SendDataInput = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Send/pages/SendDataInput/SendDataInputContainer'),
+);
+
+const SendAmountInput = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Send/pages/SendAmountInput/SendAmountInputContainer'),
 );
 
 const SendReplaceTx = LazyLoadPage(
@@ -45,6 +55,10 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.SendDataInput,
     component: SendDataInput,
+  },
+  {
+    name: EModalSendRoutes.SendAmountInput,
+    component: SendAmountInput,
   },
   {
     name: EModalSendRoutes.SendConfirm,

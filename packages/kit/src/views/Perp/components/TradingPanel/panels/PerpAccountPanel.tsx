@@ -20,6 +20,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountMmrAtom,
   usePerpsActiveAccountSummaryAtom,
+  usePerpsComputedAccountValueAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -71,7 +72,7 @@ function PerpAccountMMRView() {
               color="$textSubdued"
               cursor="help"
               dashColor="$textDisabled"
-              dashThickness={0.5}
+              dashThickness={1}
             >
               {intl.formatMessage({
                 id: ETranslations.perp_account_cross_margin_ration,
@@ -90,6 +91,7 @@ function PerpAccountMMRView() {
 
 function PerpAccountPanel() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [computedValue] = usePerpsComputedAccountValueAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
   const dialogInTab = useInTabDialog();
@@ -125,7 +127,7 @@ function PerpAccountPanel() {
           <Tooltip
             placement="top"
             renderContent={intl.formatMessage({
-              id: ETranslations.perp_account_panel_account_value_tooltip,
+              id: ETranslations.perp_portfolio_value_tooltip,
             })}
             renderTrigger={
               <DashText
@@ -133,16 +135,16 @@ function PerpAccountPanel() {
                 color="$textSubdued"
                 cursor="help"
                 dashColor="$textDisabled"
-                dashThickness={0.5}
+                dashThickness={1}
               >
                 {intl.formatMessage({
-                  id: ETranslations.perp_account_panel_account_value,
+                  id: ETranslations.perp_portfolio_value,
                 })}
               </DashText>
             }
           />
           <PerpsAccountNumberValue
-            value={accountSummary?.accountValue ?? ''}
+            value={computedValue?.accountValue ?? ''}
             skeletonWidth={70}
           />
         </XStack>
@@ -163,7 +165,7 @@ function PerpAccountPanel() {
             })}
           </SizableText>
           <PerpsAccountNumberValue
-            value={accountSummary?.withdrawable ?? ''}
+            value={computedValue?.withdrawable ?? ''}
             skeletonWidth={60}
           />
         </XStack>
@@ -179,7 +181,7 @@ function PerpAccountPanel() {
                 color="$textSubdued"
                 cursor="help"
                 dashColor="$textDisabled"
-                dashThickness={0.5}
+                dashThickness={1}
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_account_panel_account_maintenance_margin,
@@ -290,7 +292,7 @@ function PerpAccountPanel() {
             variant="secondary"
             icon="ChartLine2Outline"
             iconSize="$4.5"
-            title={getPortfolioTitle()}
+            title={getPortfolioTitle(intl)}
             onPress={showPortfolio}
           />
         </XStack>

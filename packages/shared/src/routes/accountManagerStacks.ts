@@ -15,6 +15,7 @@ export enum EAccountManagerStacksRoutes {
   BatchCreateAccountPreview = 'BatchCreateAccountPreview',
   HardwareHomeScreenModal = 'HardwareHomeScreenModal',
   PageResolveSameWallets = 'PageResolveSameWallets',
+  BotWalletManager = 'BotWalletManager',
 }
 
 export type IAccountSelectorRouteParamsExtraConfig = {
@@ -57,5 +58,8 @@ export type IAccountManagerStacksParamList = {
       walletHash: string;
       wallets: IDBWallet[];
     }[];
+  };
+  [EAccountManagerStacksRoutes.BotWalletManager]: {
+    parentKeylessWalletId: string;
   };
 };

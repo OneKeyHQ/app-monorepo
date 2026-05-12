@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Buffer } from 'buffer';
+import crypto from 'crypto';
 
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -47,25 +48,27 @@ import type { IBip39RevealableSeed } from '../bip39';
 yarn test packages/core/src/secret/__tests__/secret.test.ts
 */
 
+function getDeterministicRandomBytes(size: number) {
+  // Return specific bytes for deterministic encryption outputs
+  if (size === 32) {
+    return Buffer.from(
+      '94b51c8f77aa44bdf1a6071872cd89aae44fba848cf8a50c28280a9b79a56b24',
+      'hex',
+    );
+  }
+  if (size === 16) {
+    return Buffer.from('d3ebac3b568ef4e5369441a40eee4a24', 'hex');
+  }
+  if (size === 4) {
+    return Buffer.from('0efcb8ef', 'hex');
+  }
+  return Buffer.alloc(size, 0xde);
+}
+
 // Mock crypto for deterministic encryption outputs
 jest.mock('crypto', () => ({
   ...jest.requireActual('crypto'),
-  randomBytes: jest.fn().mockImplementation((size: number) => {
-    // Return specific bytes for deterministic encryption outputs
-    if (size === 32) {
-      return Buffer.from(
-        '94b51c8f77aa44bdf1a6071872cd89aae44fba848cf8a50c28280a9b79a56b24',
-        'hex',
-      );
-    }
-    if (size === 16) {
-      return Buffer.from('d3ebac3b568ef4e5369441a40eee4a24', 'hex');
-    }
-    if (size === 4) {
-      return Buffer.from('0efcb8ef', 'hex');
-    }
-    return Buffer.alloc(size, 0xde);
-  }),
+  randomBytes: jest.fn().mockImplementation(getDeterministicRandomBytes),
 }));
 
 const GET_PUB_TIMEOUT = 5118;
@@ -79,6 +82,57 @@ describe('Secret Module Tests', () => {
     'outside autumn laundry state body little sauce urge pelican hospital divide tired liberty fresh atom kidney flower travel second share arrive chicken member rice';
   const TEST_TON_MNEMONIC2 =
     'mushroom run point midnight gallery access soldier captain spring ship ready awesome exhaust resource boy blur promote immune text bean seek solar route volume';
+
+  // Hold the originals so we can restore in afterAll. Without this restore,
+  // the deterministic getRandomValues / randomBytes leak into the next test
+  // file in the same Jest worker (Jest does not isolate globalThis between
+  // files), making any downstream test that asserts independent entropy —
+  // e.g. keylessWalletUtils.test "should work with multiple independent
+  // mnemonic generations" — fail because both generateKeylessMnemonic()
+  // calls return the same fixed mnemonic.
+  let originalCryptoRandomBytes: typeof crypto.randomBytes | undefined;
+  let originalGlobalRandomBytes: unknown;
+  let originalGlobalGetRandomValues:
+    | typeof globalThis.crypto.getRandomValues
+    | undefined;
+
+  beforeAll(() => {
+    originalCryptoRandomBytes = (crypto as any).randomBytes;
+    (crypto as any).randomBytes = jest
+      .fn()
+      .mockImplementation(getDeterministicRandomBytes);
+    if (globalThis.crypto) {
+      originalGlobalRandomBytes = (globalThis.crypto as any).randomBytes;
+      // .bind() so the captured reference keeps the original `this` (the
+      // crypto object) when we reassign it back in afterAll. Bare reference
+      // capture trips typescript-eslint(unbound-method).
+      originalGlobalGetRandomValues = globalThis.crypto.getRandomValues.bind(
+        globalThis.crypto,
+      );
+      (globalThis.crypto as any).randomBytes = (crypto as any).randomBytes;
+      (globalThis.crypto as any).getRandomValues = (array: Uint8Array) => {
+        const bytes = getDeterministicRandomBytes(array.length);
+        array.set(bytes.subarray(0, array.length));
+        return array;
+      };
+    }
+  });
+
+  afterAll(() => {
+    if (originalCryptoRandomBytes !== undefined) {
+      (crypto as any).randomBytes = originalCryptoRandomBytes;
+    }
+    if (globalThis.crypto) {
+      if (originalGlobalRandomBytes === undefined) {
+        delete (globalThis.crypto as any).randomBytes;
+      } else {
+        (globalThis.crypto as any).randomBytes = originalGlobalRandomBytes;
+      }
+      if (originalGlobalGetRandomValues) {
+        globalThis.crypto.getRandomValues = originalGlobalGetRandomValues;
+      }
+    }
+  });
 
   describe('CKDPriv', () => {
     const testPassword = 'password123';

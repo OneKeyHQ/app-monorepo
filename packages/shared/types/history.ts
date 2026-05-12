@@ -1,8 +1,8 @@
 import type { ISizableTextProps } from '@onekeyhq/components';
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IAddressBadge, IAddressInfo } from './address';
+import type { ICurrencyItem } from './currency';
 import type { IAccountNFT } from './nft';
 import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
@@ -53,6 +53,7 @@ export type IOnChainHistoryTxTransfer = {
   label: string;
   isNative?: boolean;
   isOwn?: boolean; // for UTXO
+  comment?: string; // TON
 };
 
 export type IOnChainHistoryTxUTXOInput = {
@@ -125,6 +126,9 @@ export type IOnChainHistoryTx = {
   destinationTag?: number;
   ledgerIndex?: number;
   lastLedgerSequence?: number;
+
+  // Cosmos / Stellar
+  memo?: string;
 
   // Dynex
   paymentId?: string;
@@ -264,4 +268,37 @@ export interface IServerFetchAccountHistoryDetailResp {
   data: {
     data: IFetchHistoryTxDetailsResp;
   };
+}
+
+// Transfer Recipient API Types
+export interface ITransferRecipientBadge {
+  type: string;
+  title: string;
+  tip?: string;
+  icon?: string;
+}
+
+export interface ITransferRecipient {
+  address: string;
+  networkId?: string;
+  time: number;
+  label?: string;
+  amount?: string;
+  symbol?: string;
+  memo?: string;
+  isContract?: boolean;
+  isCex?: boolean;
+  isScam?: boolean;
+  badges?: ITransferRecipientBadge[];
+}
+
+export interface IFetchTransferRecipientsParams {
+  networkId: string;
+  accountAddress: string;
+  limit?: number;
+}
+
+export interface IFetchTransferRecipientsResp {
+  supported: boolean;
+  data: ITransferRecipient[];
 }

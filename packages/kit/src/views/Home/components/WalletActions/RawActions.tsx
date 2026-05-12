@@ -23,32 +23,42 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type IActionItemsProps = {
-  icon?: IKeyOfIcons;
+  icon?: IKeyOfIcons | null;
   label?: string | ReactNode;
   showButtonStyle?: boolean;
   hiddenIfDisabled?: boolean;
+  allowPressWhenDisabled?: boolean;
   verticalContainerProps?: IStackProps;
-} & Partial<Omit<IButtonProps, 'type'> & Omit<IIconButtonProps, 'type'>>;
+} & Partial<
+  Omit<IButtonProps, 'type' | 'icon'> & Omit<IIconButtonProps, 'type' | 'icon'>
+>;
 
 function ActionItem({
   icon = 'PlaceholderOutline',
   label,
   verticalContainerProps,
   showButtonStyle = false,
+  allowPressWhenDisabled = false,
   onPress,
+  disabled,
   ...rest
 }: IActionItemsProps) {
+  const visualDisabled = !!disabled;
+  const effectiveDisabled = visualDisabled && !allowPressWhenDisabled;
+
   if (showButtonStyle) {
     return (
       <Button
         testID="home-action-item-btn"
-        icon={icon}
+        icon={icon || undefined}
         {...(!label && {
           py: '$2',
           pl: '$2.5',
           pr: '$0.5',
         })}
         onPress={onPress}
+        disabled={effectiveDisabled}
+        opacity={allowPressWhenDisabled && visualDisabled ? 0.4 : undefined}
         {...rest}
       >
         {label}
@@ -79,23 +89,25 @@ function ActionItem({
           outlineWidth: 2,
         }}
         $gtSm={{ display: 'none' }}
-        {...(rest.disabled && { opacity: 0.4 })}
+        {...(visualDisabled && { opacity: 0.4 })}
         {...verticalContainerProps}
         onPress={onPress}
         {...rest}
       >
-        <Stack>
-          <Icon
-            name={icon}
-            size="$6"
-            color={rest.disabled ? '$iconDisabled' : '$icon'}
-          />
-        </Stack>
+        {icon ? (
+          <Stack>
+            <Icon
+              name={icon}
+              size="$6"
+              color={visualDisabled ? '$iconDisabled' : '$icon'}
+            />
+          </Stack>
+        ) : null}
         <SizableText
           my="$1"
           textAlign="center"
           size="$bodySm"
-          color={rest.disabled ? '$textDisabled' : '$text'}
+          color={visualDisabled ? '$textDisabled' : '$text'}
         >
           {label}
         </SizableText>
@@ -106,10 +118,12 @@ function ActionItem({
         testID="home-btn"
         variant="secondary"
         size="large"
-        icon={icon}
+        icon={icon || undefined}
         display="none"
         $gtSm={{ display: 'flex' }}
         onPress={onPress}
+        disabled={effectiveDisabled}
+        opacity={allowPressWhenDisabled && visualDisabled ? 0.4 : undefined}
         {...rest}
       >
         {label}

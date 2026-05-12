@@ -5,6 +5,7 @@ import { AppUpdateScene } from './scenes/appUpdate';
 import { BackgroundScene } from './scenes/background';
 import { BootstrapScene } from './scenes/bootstrap';
 import { ComponentScene } from './scenes/component';
+import { CustomUAScene } from './scenes/customUA';
 import { ErrorScene } from './scenes/error';
 import { EventBusScene } from './scenes/eventBus';
 import { InstallScene } from './scenes/install';
@@ -43,4 +44,6 @@ export class AppScope extends BaseScope {
   appUpdate = this.createScene('appUpdate', AppUpdateScene);
 
   jsBundleDev = this.createScene('jsBundleDev', JsBundleDevScene);
+
+  customUA = this.createScene('customUA', CustomUAScene);
 }

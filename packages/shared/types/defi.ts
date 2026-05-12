@@ -1,4 +1,4 @@
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
+import type { ICurrencyItem } from './currency';
 
 export type IFetchAccountDeFiPositionsParams = {
   accountId: string;
@@ -14,6 +14,10 @@ export type IFetchAccountDeFiPositionsParams = {
   sourceCurrencyInfo?: ICurrencyItem;
   targetCurrencyInfo?: ICurrencyItem;
   isForceRefresh?: boolean;
+  // When false, the request is NOT registered with the shared abort pool and
+  // will not be cancelled by abortFetchAccountDeFiPositions(). Use for
+  // background schedulers whose fetches should survive UI-initiated aborts.
+  abortable?: boolean;
 };
 
 export enum EDeFiAssetType {

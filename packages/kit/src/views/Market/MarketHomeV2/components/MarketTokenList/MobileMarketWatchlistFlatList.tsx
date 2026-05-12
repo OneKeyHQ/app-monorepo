@@ -370,9 +370,6 @@ function MobileMarketWatchlistFlatListImpl({
     if (showSkeleton) {
       return <TokenListSkeleton count={10} />;
     }
-    if (watchlist.length === 0) {
-      return <MarketRecommendList recommendedTokens={recommendedTokens} />;
-    }
     return (
       <Stack alignItems="center" justifyContent="center" p="$8" mt="$10">
         <SizableText size="$bodyLg" color="$textSubdued">
@@ -380,7 +377,7 @@ function MobileMarketWatchlistFlatListImpl({
         </SizableText>
       </Stack>
     );
-  }, [showSkeleton, intl, watchlist.length, recommendedTokens]);
+  }, [showSkeleton, intl]);
 
   const tabBarHeight = useScrollContentTabBarOffset();
   const contentContainerStyle = useMemo(
@@ -396,6 +393,23 @@ function MobileMarketWatchlistFlatListImpl({
   // Wait for data to be loaded
   if (!watchlistState.isMounted) {
     return <Tabs.ScrollView />;
+  }
+
+  if (watchlist.length === 0 && !showSkeleton) {
+    return (
+      <Tabs.ScrollView>
+        <Stack
+          {...(platformEnv.isNative ? null : { justifyContent: 'center' })}
+          alignItems="center"
+          paddingTop="$8"
+        >
+          <MarketRecommendList
+            maxSize={8}
+            recommendedTokens={recommendedTokens}
+          />
+        </Stack>
+      </Tabs.ScrollView>
+    );
   }
 
   return (

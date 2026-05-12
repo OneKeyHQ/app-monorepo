@@ -13,6 +13,9 @@ import {
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
 
+// @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
+import injectedDesktopCode from './injectedDesktopCode.text-js';
+
 import type { IDesktopApi } from './instance/IDesktopApi';
 
 let templatePhishingUrls: string[] = [];
@@ -139,6 +142,10 @@ class DesktopApiNetwork {
     return isDev
       ? `file://${preloadJsPath}?t=${Date.now()}`
       : `file://${preloadJsPath}`;
+  }
+
+  async getInjectedJsContent(): Promise<string> {
+    return injectedDesktopCode as string;
   }
 }
 

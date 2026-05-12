@@ -72,7 +72,6 @@ import {
   isBgApiSerializableCheckingDisabled,
   toggleBgApiSerializableChecking,
 } from '@onekeyhq/shared/src/utils/assertUtils';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   isWebInDappMode,
   switchWebDappMode,
@@ -83,30 +82,35 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
 import { SettingTestIDs } from '../../../testIDs';
+import {
+  cacheDevOnlyPassword,
+  clearCachedDevOnlyPassword,
+  getCachedDevOnlyPassword,
+} from '../../../utils/devOnlyPassword';
 
-import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
+import { BundleCommitSearch } from './BundleCommitSearch';
 import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
+import {
+  DevSettingsSearchProvider,
+  SearchFilterItem,
+} from './DevSettingsSearchContext';
+import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
+import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
-
-let correctDevOnlyPwd = '';
-
-if (process.env.NODE_ENV !== 'production') {
-  correctDevOnlyPwd = `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`;
-}
 
 export function showDevOnlyPasswordDialog({
   title,
@@ -127,7 +131,9 @@ export function showDevOnlyPasswordDialog({
       ...confirmButtonProps,
     },
     renderContent: (
-      <Dialog.Form formProps={{ values: { password: correctDevOnlyPwd } }}>
+      <Dialog.Form
+        formProps={{ values: { password: getCachedDevOnlyPassword() } }}
+      >
         <Dialog.FormField
           name="password"
           rules={{
@@ -149,8 +155,10 @@ export function showDevOnlyPasswordDialog({
           password: string;
         };
         if (!isCorrectDevOnlyPassword(password)) {
+          clearCachedDevOnlyPassword(password);
           return;
         }
+        cacheDevOnlyPassword(password);
         const params: IBackgroundMethodWithDevOnlyPassword = {
           $$devOnlyPassword: password,
         };
@@ -358,64 +366,74 @@ const BaseDevSettingsSection = () => {
         key: 'basic',
         title: 'Basic Info',
         description: '基本信息',
+        keywords:
+          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path',
       },
       {
         key: 'devtools',
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
+        keywords:
+          '开发者悬浮窗 RTL 禁止桌面快捷键 禁用IP直连 强制使用IP请求 Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
         title: 'App & Firmware Updates',
         description: 'App update JS bundle firmware update',
+        keywords:
+          'App Update Test Simulate update failures JS Bundle Manager Manage and switch JS bundles Force Check Updates Firmware Update Dev Settings App/Bundle Update Status download progress strategy pending task bundle commit version branch hash 热更新 更新状态',
       },
       {
         key: 'performance',
         title: 'Performance & Crash & Error & Unit Tests',
         description: '性能 崩溃 错误 单元测试',
+        keywords:
+          'Performance Monitor UI FPS JS FPS 性能监控 DebugRenderTracker 组件渲染高亮 Perps渲染统计 Bg Api 可序列化检测 Analytics Dev Unit Tests Show Recovery Page crash counter',
       },
       {
         key: 'data',
         title: 'Data Management',
         description: '数据重置 清理 导出',
+        keywords:
+          '清空Market收藏数据 WatchList Mock Market Banner Data Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析 Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
       },
       {
         key: 'webview',
         title: 'Webview & WebEmbed & TrandingView',
         description: 'Webview WebEmbed TrandingView',
+        keywords:
+          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL',
       },
       {
         key: 'galleries',
         title: 'UI Galleries',
         description: 'UI Galleries',
+        keywords:
+          'DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
       },
       {
         key: 'account',
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
+        keywords:
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Add ServerNetwork Test Data 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
         title: 'Transaction & Signature',
         description: '交易 签名',
+        keywords:
+          'Sign Message 禁用Solana交易优先费 模拟交易费过高 始终只签名不广播 严格的签名Alert展示 signTypedData',
       },
     ],
     [],
   );
 
   const visibleSectionKeys = useMemo(() => {
-    const query = searchText.toLowerCase().trim();
-    let keys = sectionMeta.map((s) => s.key);
-    if (query) {
-      keys = sectionMeta
-        .filter(
-          (s) =>
-            s.title.toLowerCase().includes(query) ||
-            s.description.toLowerCase().includes(query) ||
-            (s.keywords && s.keywords.toLowerCase().includes(query)),
-        )
-        .map((s) => s.key);
-    }
+    // Show all sections — individual items are filtered by SearchFilterItem.
+    // This avoids the problem where item keywords missing from section-level
+    // keywords would make those items unreachable via search.
+    const keys = sectionMeta.map((s) => s.key);
     // Sort: pinned first
     const pinSet = new Set(pinnedSections);
     keys.sort((a, b) => {
@@ -424,7 +442,7 @@ const BaseDevSettingsSection = () => {
       return ap - bp;
     });
     return keys;
-  }, [searchText, sectionMeta, pinnedSections]);
+  }, [sectionMeta, pinnedSections]);
 
   if (!devSettings.enabled) {
     return null;
@@ -438,19 +456,22 @@ const BaseDevSettingsSection = () => {
       {/* Search bar */}
       <Stack px="$3" pb="$2">
         <Input
-          placeholder="Search sections..."
+          placeholder="Search sections and items..."
           value={searchText}
           onChangeText={setSearchText}
           leftIconName="SearchOutline"
         />
       </Stack>
+      {searchText.trim() ? (
+        <BundleCommitSearch searchText={searchText} />
+      ) : null}
       <Accordion
         width="100%"
         type="multiple"
         defaultValue={
           searchText ? visibleSectionKeys : visibleSectionKeys.slice(0, 1)
         }
-        key={visibleSectionKeys.join(',')}
+        key={`${searchText.trim() ? 'searching' : 'idle'}-${visibleSectionKeys.join(',')}`}
       >
         {visibleSectionKeys.map((sectionKey) => {
           const isPinned = pinnedSections.includes(sectionKey);
@@ -458,9 +479,17 @@ const BaseDevSettingsSection = () => {
             pinned: isPinned,
             onTogglePin: () => togglePin(sectionKey),
           };
+          const wrapWithSearch = (node: React.ReactNode) => (
+            <DevSettingsSearchProvider
+              key={sectionKey}
+              value={searchText.toLowerCase().trim()}
+            >
+              {node}
+            </DevSettingsSearchProvider>
+          );
           switch (sectionKey) {
             case 'basic':
-              return (
+              return wrapWithSearch(
                 <Accordion.Item value="basic" key="basic">
                   <DevSettingsAccordionTrigger
                     title="Basic Info"
@@ -517,21 +546,25 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
                       {platformEnv.isWeb ? (
-                        <ListItem
-                          icon="SwitchHorOutline"
-                          drillIn
-                          onPress={() => {
-                            switchWebDappMode();
-                            globalThis.location.reload();
-                          }}
-                          title="Switch web mode"
-                          subtitle={`Current: ${
-                            isWebInDappMode() ? 'dapp' : 'wallet'
-                          } mode`}
-                          titleProps={{ color: '$textCritical' }}
-                        />
+                        <SearchFilterItem keywords="Switch web mode dapp wallet">
+                          <ListItem
+                            icon="SwitchHorOutline"
+                            drillIn
+                            onPress={() => {
+                              switchWebDappMode();
+                              globalThis.location.reload();
+                            }}
+                            title="Switch web mode"
+                            subtitle={`Current: ${
+                              isWebInDappMode() ? 'dapp' : 'wallet'
+                            } mode`}
+                            titleProps={{ color: '$textCritical' }}
+                          />
+                        </SearchFilterItem>
                       ) : null}
-                      <AutoJumpSetting />
+                      <SearchFilterItem keywords="AutoJump 自动跳转">
+                        <AutoJumpSetting />
+                      </SearchFilterItem>
                       <SectionPressItem
                         icon="InfoCircleOutline"
                         copyable
@@ -592,8 +625,12 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
-                      <RegistrationID />
-                      <DeviceToken />
+                      <SearchFilterItem keywords="RegistrationID 推送注册">
+                        <RegistrationID />
+                      </SearchFilterItem>
+                      <SearchFilterItem keywords="DeviceToken 设备令牌">
+                        <DeviceToken />
+                      </SearchFilterItem>
                       {platformEnv.isDesktop ? (
                         <>
                           <SectionPressItem
@@ -693,10 +730,10 @@ const BaseDevSettingsSection = () => {
                       ) : null}
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
-                </Accordion.Item>
+                </Accordion.Item>,
               );
             case 'devtools':
-              return (
+              return wrapWithSearch(
                 <Accordion.Item value="devtools" key="devtools">
                   <DevSettingsAccordionTrigger
                     title="Dev Tools & Dev Settings"
@@ -785,7 +822,9 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
-                      <IpTableSelector />
+                      <SearchFilterItem keywords="IpTableSelector IP直连选择">
+                        <IpTableSelector />
+                      </SearchFilterItem>
                       <SectionPressItem
                         icon="ForkOutline"
                         title="Check Network info"
@@ -887,10 +926,10 @@ const BaseDevSettingsSection = () => {
                       />
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
-                </Accordion.Item>
+                </Accordion.Item>,
               );
             case 'appUpdate':
-              return (
+              return wrapWithSearch(
                 <Accordion.Item value="appUpdate" key="appUpdate">
                   <DevSettingsAccordionTrigger
                     title="App & Firmware Updates"
@@ -918,6 +957,7 @@ const BaseDevSettingsSection = () => {
                         icon="CodeOutline"
                         title="JS Bundle Manager"
                         subtitle="Manage and switch JS bundles"
+                        searchKeywords="bundle commit version branch hash"
                         onPress={() => {
                           navigation.push(
                             EModalSettingRoutes.SettingDevBundleManagerModal,
@@ -958,6 +998,7 @@ const BaseDevSettingsSection = () => {
                         icon="ActivityOutline"
                         title="App/Bundle Update Status"
                         subtitle="Update state, strategy, download progress, pending task"
+                        searchKeywords="bundle commit 更新状态"
                         onPress={() => {
                           navigation.push(
                             EModalSettingRoutes.SettingDevBundleUpdateStatusModal,
@@ -966,10 +1007,10 @@ const BaseDevSettingsSection = () => {
                       />
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
-                </Accordion.Item>
+                </Accordion.Item>,
               );
             case 'performance':
-              return (
+              return wrapWithSearch(
                 <Accordion.Item value="performance" key="performance">
                   <DevSettingsAccordionTrigger
                     title="Performance & Crash & Error & Unit Tests"
@@ -983,50 +1024,54 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
-                      <ListItem
-                        icon="PerformanceOutline"
-                        title="Performance Monitor(UI FPS/JS FPS)"
-                        subtitle="性能监控"
-                      >
-                        <Switch
-                          isUncontrolled
-                          size={ESwitchSize.small}
-                          defaultChecked={
-                            !!devSettings.settings?.showPerformanceMonitor
-                          }
-                          onChange={(v) => {
-                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                              'showPerformanceMonitor',
-                              v,
-                            );
-                            setTimeout(() => {
-                              void backgroundApiProxy.serviceApp.restartApp();
-                            }, 10);
-                          }}
-                        />
-                      </ListItem>
+                      <SearchFilterItem keywords="Performance Monitor UI FPS JS FPS 性能监控">
+                        <ListItem
+                          icon="PerformanceOutline"
+                          title="Performance Monitor(UI FPS/JS FPS)"
+                          subtitle="性能监控"
+                        >
+                          <Switch
+                            isUncontrolled
+                            size={ESwitchSize.small}
+                            defaultChecked={
+                              !!devSettings.settings?.showPerformanceMonitor
+                            }
+                            onChange={(v) => {
+                              void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                                'showPerformanceMonitor',
+                                v,
+                              );
+                              setTimeout(() => {
+                                void backgroundApiProxy.serviceApp.restartApp();
+                              }, 10);
+                            }}
+                          />
+                        </ListItem>
+                      </SearchFilterItem>
 
-                      <ListItem
-                        icon="LightBulbOutline"
-                        title="DebugRenderTracker 组件渲染高亮"
-                        subtitle="启用后会导致 FlatList 无法滚动，仅供测试"
-                      >
-                        <Switch
-                          isUncontrolled
-                          size={ESwitchSize.small}
-                          defaultChecked={
-                            appStorage.syncStorage.getBoolean(
-                              EAppSyncStorageKeys.onekey_debug_render_tracker,
-                            ) ?? false
-                          }
-                          onChange={(v) => {
-                            appStorage.syncStorage.set(
-                              EAppSyncStorageKeys.onekey_debug_render_tracker,
-                              v,
-                            );
-                          }}
-                        />
-                      </ListItem>
+                      <SearchFilterItem keywords="DebugRenderTracker 组件渲染高亮 FlatList">
+                        <ListItem
+                          icon="LightBulbOutline"
+                          title="DebugRenderTracker 组件渲染高亮"
+                          subtitle="启用后会导致 FlatList 无法滚动，仅供测试"
+                        >
+                          <Switch
+                            isUncontrolled
+                            size={ESwitchSize.small}
+                            defaultChecked={
+                              appStorage.syncStorage.getBoolean(
+                                EAppSyncStorageKeys.onekey_debug_render_tracker,
+                              ) ?? false
+                            }
+                            onChange={(v) => {
+                              appStorage.syncStorage.set(
+                                EAppSyncStorageKeys.onekey_debug_render_tracker,
+                                v,
+                              );
+                            }}
+                          />
+                        </ListItem>
+                      </SearchFilterItem>
 
                       <SectionFieldItem
                         icon="CreditCardOutline"
@@ -1037,22 +1082,24 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
-                      <ListItem
-                        icon="LabOutline"
-                        title="Bg Api 可序列化检测"
-                        subtitle="启用后会影响性能, 仅在开发环境生效, 关闭 1 天后重新开启"
-                      >
-                        <Switch
-                          isUncontrolled
-                          size={ESwitchSize.small}
-                          defaultChecked={
-                            !isBgApiSerializableCheckingDisabled()
-                          }
-                          onChange={(v) => {
-                            toggleBgApiSerializableChecking(v);
-                          }}
-                        />
-                      </ListItem>
+                      <SearchFilterItem keywords="Bg Api 可序列化检测 serializable">
+                        <ListItem
+                          icon="LabOutline"
+                          title="Bg Api 可序列化检测"
+                          subtitle="启用后会影响性能, 仅在开发环境生效, 关闭 1 天后重新开启"
+                        >
+                          <Switch
+                            isUncontrolled
+                            size={ESwitchSize.small}
+                            defaultChecked={
+                              !isBgApiSerializableCheckingDisabled()
+                            }
+                            onChange={(v) => {
+                              toggleBgApiSerializableChecking(v);
+                            }}
+                          />
+                        </ListItem>
+                      </SearchFilterItem>
 
                       <SectionFieldItem
                         icon="ChartTrendingOutline"
@@ -1068,6 +1115,17 @@ const BaseDevSettingsSection = () => {
                       </SectionFieldItem>
 
                       <SectionPressItem
+                        icon="RepeatOutline"
+                        title="Split Bundle & Background Thread"
+                        subtitle="Check dual-thread mode & test service RPC"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSplitBundleTestModal,
+                          );
+                        }}
+                      />
+
+                      <SectionPressItem
                         icon="Lab2Outline"
                         title="Dev Unit Tests"
                         testID="dev-unit-tests-menu"
@@ -1078,7 +1136,9 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
 
-                      <SentryCrashSettings />
+                      <SearchFilterItem keywords="SentryCrashSettings Sentry Crash 崩溃">
+                        <SentryCrashSettings />
+                      </SearchFilterItem>
                       <SectionPressItem
                         icon="ShieldCheckDoneOutline"
                         title="Show Recovery Page on Next Launch"
@@ -1093,13 +1153,15 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
-                      <CrashDevSettings />
+                      <SearchFilterItem keywords="CrashDevSettings Crash Test 崩溃测试">
+                        <CrashDevSettings />
+                      </SearchFilterItem>
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
-                </Accordion.Item>
+                </Accordion.Item>,
               );
             case 'data':
-              return (
+              return wrapWithSearch(
                 <Accordion.Item value="data" key="data">
                   <DevSettingsAccordionTrigger
                     title="Data Management"
@@ -1154,6 +1216,10 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      <SearchFilterItem keywords="Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析">
+                        <DiscoverySearchDebugTool />
+                      </SearchFilterItem>
 
                       <SectionPressItem
                         icon="DeleteOutline"
@@ -1323,13 +1389,15 @@ const BaseDevSettingsSection = () => {
                           void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
                         }}
                       />
-                      <ResetInstanceId />
+                      <SearchFilterItem keywords="ResetInstanceId Reset Instance Id 重置实例ID">
+                        <ResetInstanceId />
+                      </SearchFilterItem>
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
-                </Accordion.Item>
+                </Accordion.Item>,
               );
             case 'webview':
-              return (
+              return wrapWithSearch(
                 <Accordion.Item value="webview" key="webview">
                   <DevSettingsAccordionTrigger
                     title="Webview & WebEmbed & TrandingView"
@@ -1420,12 +1488,20 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="BrowserOutline"
+                        name="allowLocalhostUrlInDAppBrowser"
+                        title="Allow local URLs in DApp Browser"
+                        subtitle="Allow http://localhost and http://127.0.0.1"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
-                </Accordion.Item>
+                </Accordion.Item>,
               );
             case 'galleries':
-              return (
+              return wrapWithSearch(
                 <Accordion.Item value="galleries" key="galleries">
                   <DevSettingsAccordionTrigger
                     title="UI Galleries"
@@ -1507,10 +1583,10 @@ const BaseDevSettingsSection = () => {
                       />
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
-                </Accordion.Item>
+                </Accordion.Item>,
               );
             case 'account':
-              return (
+              return wrapWithSearch(
                 <Accordion.Item value="account" key="account">
                   <DevSettingsAccordionTrigger
                     title="Account & Wallet & Prime & Network"
@@ -1524,8 +1600,6 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
-                      <AddressBookDevSetting />
-
                       <SectionFieldItem
                         icon="WalletOutline"
                         name="allowAddSameHDWallet"
@@ -1552,6 +1626,33 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      <SectionFieldItem
+                        icon="WalletOutline"
+                        name="enableBotWalletFeature"
+                        title="启用 BotWallet 功能"
+                        subtitle="开启后，Keyless 钱包更多菜单显示 BotWallets 管理入口"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+
+                      <SectionPressItem
+                        icon="GiftOutline"
+                        title="Referral Bind Debug"
+                        subtitle="Reset the selected wallet referral bind status"
+                        searchKeywords="referral rebate bind wallet dev unbind creation record"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'Referral Bind Debug',
+                            renderContent: (
+                              <ReferralCodeDebugPanel
+                                activeWalletId={activeAccount.wallet?.id}
+                                activeWalletName={activeAccount.wallet?.name}
+                              />
+                            ),
+                          });
+                        }}
+                      />
 
                       <SectionPressItem
                         icon="ServerOutline"
@@ -1594,7 +1695,9 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
-                      <TestAccountsDevSetting />
+                      <SearchFilterItem keywords="TestAccounts 测试账户">
+                        <TestAccountsDevSetting />
+                      </SearchFilterItem>
 
                       <SectionPressItem
                         icon="AppleBrand"
@@ -1654,10 +1757,10 @@ const BaseDevSettingsSection = () => {
                       />
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
-                </Accordion.Item>
+                </Accordion.Item>,
               );
             case 'transaction':
-              return (
+              return wrapWithSearch(
                 <Accordion.Item value="transaction" key="transaction">
                   <DevSettingsAccordionTrigger
                     title="Transaction & Signature"
@@ -1715,12 +1818,37 @@ const BaseDevSettingsSection = () => {
                           value={devSettings.settings?.enableMockHighTxFee}
                         />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="GlobusOutline"
+                        name="disableCustomUA"
+                        title="禁用自定义 User-Agent"
+                        subtitle="dev 调试用：开启后回退到 runtime 默认 UA"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'disableCustomUA',
+                              !devSettings.settings?.disableCustomUA,
+                            );
+                          }}
+                          value={devSettings.settings?.disableCustomUA}
+                        />
+                      </SectionFieldItem>
 
                       <SectionFieldItem
                         icon="SignatureOutline"
                         name="alwaysSignOnlySendTx"
                         title="始终只签名不广播"
                         testID="always-sign-only-send-tx"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="EyeOutline"
+                        name="allowBulkSendWatchingAccount"
+                        title="批量转账允许观察账户进入前置流程"
+                        subtitle="仅放行前置校验，实际发送仍会在提交时拦截"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
@@ -1734,7 +1862,7 @@ const BaseDevSettingsSection = () => {
                       </SectionFieldItem>
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
-                </Accordion.Item>
+                </Accordion.Item>,
               );
             default:
               return null;

@@ -1,17 +1,14 @@
 import { useEffect, useMemo } from 'react';
 
 import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
-import type {
-  IPerpsAssetCtx,
-  IPerpsFormattedAssetCtx,
-} from '@onekeyhq/shared/types/hyperliquid';
+import type { IPerpsFormattedAssetCtx } from '@onekeyhq/shared/types/hyperliquid';
 import {
   XYZ_ASSET_ID_LENGTH,
   XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
-import { usePerpsAllAssetCtxsAtom } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsCtxByCoin } from '../../../states/jotai/contexts/hyperliquid/atoms';
 
 function detectDexByAssetId(assetId: number) {
   const str = `${assetId}`;
@@ -50,26 +47,20 @@ export function usePerpsAssetCtx({
   assetCtx: IPerpsFormattedAssetCtx;
   isLoading: boolean;
 } {
-  const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
-  const { dexIndex: resolvedDexIndex, ctxIndex } = useMemo(
+  const { dexIndex: resolvedDexIndex } = useMemo(
     () => normalizeCtxIndex(assetId, dexIndex),
     [assetId, dexIndex],
   );
-  const allAssetCtxs = useMemo(
-    () => assetCtxsByDex[resolvedDexIndex] || [],
-    [assetCtxsByDex, resolvedDexIndex],
-  );
-  const ctxAtIndex: IPerpsAssetCtx | null =
-    ctxIndex >= 0 && ctxIndex < allAssetCtxs.length
-      ? allAssetCtxs[ctxIndex]
-      : null;
-  const ctxSafe = ctxAtIndex ?? null;
+  // Per-asset subscription: only re-renders when this asset's fields actually change.
+  // selectAtom in getOrCreateCtxByCoinAtom returns the previous reference when
+  // field values are equal, so Jotai skips notification and this hook is not called.
+  const ctxSafe = usePerpsCtxByCoin(resolvedDexIndex, assetId);
   const actions = useHyperliquidActions();
   const assetCtx: IPerpsFormattedAssetCtx = useMemo<IPerpsFormattedAssetCtx>(
     () => perpsUtils.formatAssetCtx(ctxSafe) || undefined,
     [ctxSafe],
   );
-  const isLoading = useMemo(() => allAssetCtxs.length <= 0, [allAssetCtxs]);
+  const isLoading = useMemo(() => ctxSafe === null, [ctxSafe]);
   useEffect(() => {
     if (skipMarkRequired) return;
     actions.current.markAllAssetCtxsRequired();

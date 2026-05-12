@@ -494,15 +494,30 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
+      // Resolve current sortIndex from atom state to avoid stale values
+      // from callers (e.g. edit dialog local state).
+      const resolveFromAtom = (
+        item: IMarketWatchListItemV2 | undefined,
+      ): IMarketWatchListItemV2 | undefined => {
+        if (!item) return undefined;
+        const key = uniqByFn(item);
+        const found = oldItemsResult.data.find((i) => uniqByFn(i) === key);
+        return found ?? item;
+      };
+
+      const resolvedTarget = resolveFromAtom(target)!;
+      const resolvedPrev = resolveFromAtom(prev);
+      const resolvedNext = resolveFromAtom(next);
+
       const newSortIndex = sortUtils.buildNewSortIndex({
-        target,
-        prev,
-        next,
+        target: resolvedTarget,
+        prev: resolvedPrev,
+        next: resolvedNext,
       });
 
       const watchList = [
         cloneDeep({
-          ...target,
+          ...resolvedTarget,
           sortIndex: newSortIndex,
         }),
       ];

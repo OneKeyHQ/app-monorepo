@@ -18,6 +18,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
+import { isAccountIdDeactivatedBotWallet } from '../../../utils/botWalletAccountUtils';
+import { shouldWarnBotWalletInteract } from '../../../utils/botWalletStatusUtils';
+import { showBotWalletDeactivatedWarningDialog } from '../../../utils/botWalletWarningDialog';
 import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../components/DAppRequestContent';
 import { DAppRequestedDappList } from '../components/DAppRequestContent/DAppRequestedDappList';
@@ -127,6 +130,20 @@ function ConnectionModal() {
         });
         return;
       }
+      const isDeactivatedBotWallet = await isAccountIdDeactivatedBotWallet({
+        accountId: selectedAccount.account.id,
+      });
+      if (
+        shouldWarnBotWalletInteract({
+          isBotWallet: isDeactivatedBotWallet,
+          isBotWalletDeactivated: isDeactivatedBotWallet,
+        })
+      ) {
+        const confirmed = await showBotWalletDeactivatedWarningDialog();
+        if (!confirmed) {
+          return;
+        }
+      }
       const {
         wallet,
         account,
@@ -182,10 +199,6 @@ function ConnectionModal() {
         },
         result: accountInfo,
       });
-      Toast.success({
-        title: intl.formatMessage({ id: ETranslations.global_connected }),
-      });
-
       setTimeout(() => {
         void notifyKeylessWebConnectSuccess({
           nonce: keylessAutoConnectNonce,
@@ -203,7 +216,6 @@ function ConnectionModal() {
       );
     },
     [
-      intl,
       dappApprove,
       $sourceInfo,
       serviceDApp,

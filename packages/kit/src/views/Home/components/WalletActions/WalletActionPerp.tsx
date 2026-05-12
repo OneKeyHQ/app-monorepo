@@ -39,10 +39,9 @@ function WalletActionPerp({
       <ActionList.Item
         trackID="wallet-perp"
         icon={customization?.icon ?? 'TradeOutline'}
-        label={
-          customization?.label ??
-          intl.formatMessage({ id: ETranslations.global_perp })
-        }
+        label={intl.formatMessage({
+          id: customization?.labelId ?? ETranslations.global_perp,
+        })}
         onClose={() => {}}
         onPress={handlePress}
       />
@@ -52,7 +51,11 @@ function WalletActionPerp({
   return (
     <RawActions.Perp
       onPress={handlePress}
-      label={customization?.label}
+      label={
+        customization?.labelId
+          ? intl.formatMessage({ id: customization.labelId })
+          : undefined
+      }
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}
       disabled={customization?.disabled}

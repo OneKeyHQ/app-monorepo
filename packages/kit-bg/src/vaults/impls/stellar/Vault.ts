@@ -4,6 +4,7 @@ import { isEmpty, isNaN, orderBy } from 'lodash';
 
 import type { StellarSdk } from '@onekeyhq/core/src/chains/stellar/sdkStellar';
 import type {
+  IDecodedTxExtraStellar,
   IEncodedTxStellar,
   IStellarAsset,
 } from '@onekeyhq/core/src/chains/stellar/types';
@@ -46,6 +47,7 @@ import type {
   IFeeInfoUnit,
   IServerEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import type {
   IFetchServerTokenDetailParams,
   IFetchServerTokenDetailResponse,
@@ -464,7 +466,12 @@ export default class Vault extends VaultBase {
       // Parse token address to determine if it's classic or contract
       const tokenAddressParsed = parseTokenAddress(tokenInfo.address);
 
-      if (tokenAddressParsed.type === 'contract') {
+      if (tokenAddressParsed.type === EStellarAssetType.ContractToken) {
+        if (memoField) {
+          throw new OneKeyInternalError({
+            key: ETranslations.send_stellar_contract_token_no_memo_hint,
+          });
+        }
         // Contract Token (Soroban Token) transfer
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const contractId = tokenAddressParsed.contractId!;
@@ -836,12 +843,25 @@ export default class Vault extends VaultBase {
           gasLimit: operationCount.toString(),
         },
       },
-      extraInfo: null,
+      extraInfo: params.transferPayload?.memo
+        ? { memo: params.transferPayload.memo }
+        : null,
       encodedTx,
       totalFeeInNative: totalFeeNative,
     };
 
     return decodedTx;
+  }
+
+  override buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraStellar | null> {
+    if (!onChainHistoryTx.memo) return Promise.resolve(null);
+    return Promise.resolve({
+      memo: onChainHistoryTx.memo,
+    });
   }
 
   override async attachFeeInfoToDAppEncodedTx(_params: {
@@ -1105,12 +1125,27 @@ export default class Vault extends VaultBase {
     return result;
   }
 
-  override async validateMemo(memo: string): Promise<{
+  override async validateMemo(
+    memo: string,
+    tokenAddress?: string,
+  ): Promise<{
     isValid: boolean;
     errorMessage?: string;
   }> {
     if (!memo || !memo.trim()) {
       return { isValid: true }; // Empty memo is valid
+    }
+
+    if (tokenAddress) {
+      const parsed = parseTokenAddress(tokenAddress);
+      if (parsed.type === EStellarAssetType.ContractToken) {
+        return {
+          isValid: false,
+          errorMessage: appLocale.intl.formatMessage({
+            id: ETranslations.send_stellar_contract_token_no_memo_hint,
+          }),
+        };
+      }
     }
 
     const trimmed = memo.trim();

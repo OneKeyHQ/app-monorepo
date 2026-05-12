@@ -420,6 +420,7 @@ export interface IInviteCodeItem {
   code: string;
   note: string;
   isPrimary: boolean;
+  isCustomCode: boolean;
   _id: string;
   createdAt: string;
   updatedAt: string;
@@ -431,6 +432,8 @@ export interface IInviteCodeListItem {
   code: string;
   note: string;
   isPrimary: boolean;
+  isCustomCode: boolean;
+  status?: string;
   createdAt: string;
   createdDate: string;
   salesOrders: number;
@@ -449,6 +452,23 @@ export interface IInviteCodeListResponse {
 
 export interface IUpdateInviteCodeNoteResponse {
   success: boolean;
+}
+
+export interface IEditInviteCodeParams {
+  originalCode: string;
+  code?: string;
+  note?: string;
+}
+
+export interface IEditInviteCodeResponse {
+  userId: string;
+  code: string;
+  note: string;
+  isPrimary: boolean;
+  isCustomCode: boolean;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Export functionality types
@@ -532,6 +552,43 @@ export interface IBatchCheckWalletParams {
 
 // Response is a map where key is "networkId:address" and value is boolean
 export type IBatchCheckWalletResponse = Record<string, boolean>;
+
+// V2 batch check - includes bind window status
+export interface IBatchCheckWalletV2Item {
+  bound: boolean;
+  bindable: boolean;
+  reason?: string; // 'already_bound' | 'exceeded_bind_window'
+}
+export type IBatchCheckWalletV2Response = Record<
+  string,
+  IBatchCheckWalletV2Item
+>;
+
+// Check single wallet - extended response
+export interface ICheckWalletBindStatusResponse {
+  data: boolean;
+  bindable: boolean;
+  reason?: string;
+}
+
+// Creation records
+export interface IWalletCreationRecordItem {
+  address: string;
+  networkId: string;
+  walletCreatedAt?: string;
+}
+
+export interface IWalletDevUnbindParams {
+  address: string;
+  walletCreatedAt?: string;
+}
+
+export interface IWalletDevUnbindResponse {
+  deletedBundles: number;
+  creationRecord?: {
+    updated: boolean;
+  };
+}
 
 // Hardware records types
 export interface IHardwareRecordHistoryItem {
@@ -638,4 +695,99 @@ export interface IRedemptionRecordItem {
 export interface IRedemptionRecordsResponse {
   total: number;
   items: IRedemptionRecordItem[];
+}
+
+// BTC reward (cbBTC redemption) types
+export enum EBtcRewardStatus {
+  Wait = 'wait',
+  PendingPayout = 'pendingPayout',
+  PayoutInProgress = 'payoutInProgress',
+  Paid = 'paid',
+  Rejected = 'rejected',
+}
+
+export enum EBtcRewardErrorCode {
+  Unknown = -1,
+  InvalidCode = 100_300,
+  InvalidOrder = 100_301,
+  InvalidAddress = 100_302,
+  CommitFailed = 100_303,
+  CodeNotFound = 100_304,
+}
+
+export interface IBtcRewardError {
+  code: EBtcRewardErrorCode;
+  message: string;
+}
+
+export type IBtcRewardResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: IBtcRewardError };
+
+export interface IBtcRewardVerifyCodeParams {
+  code: string;
+}
+
+export interface IBtcRewardVerifyCodeData {
+  codeId: string;
+  batchName: string;
+  rewardUsd: number;
+}
+
+export interface IBtcRewardVerifyVoucherParams {
+  codeId: string;
+  // Shopify order number (# prefix) or offline / dealer voucher code.
+  // Server dispatches by prefix.
+  voucherCode: string;
+}
+
+export interface IBtcRewardVerifyVoucherData {
+  voucherSource: string;
+  displayTitle: string;
+  quotaRemaining: number;
+}
+
+export interface IBtcRewardCommitParams {
+  codeId: string;
+  voucherCode: string;
+  walletAddress: string;
+}
+
+export interface IBtcRewardCommitData {
+  codeId: string;
+  payoutEligibleAt: string;
+  expectedPayoutAt: string;
+}
+
+export interface IBtcRewardHistoryParams {
+  walletAddress: string;
+  current?: number;
+  pageSize?: number;
+  status?: EBtcRewardStatus;
+}
+
+export interface IBtcRewardHistoryItem {
+  code: string;
+  batchName: string;
+  rewardUsd: number;
+  voucherCode: string;
+  voucherSource: string;
+  walletAddress: string;
+  btcAmount?: string;
+  btcPriceUsd?: string;
+  status: EBtcRewardStatus;
+  submittedAt: string;
+  payoutEligibleAt?: string;
+  expectedPayoutAt?: string;
+  // Status-conditional fields. OAS marks them required but the value is an
+  // empty string when not applicable (paidAt/txHash empty unless paid;
+  // rejectReason empty unless rejected).
+  paidAt: string;
+  txHash: string;
+  rejectReason: string;
+}
+
+export interface IBtcRewardHistoryResponse {
+  total: number;
+  data: IBtcRewardHistoryItem[];
 }

@@ -323,6 +323,14 @@ const TabDeveloper = () => {
 
               <Button
                 onPress={async () => {
+                  await backgroundApiProxy.simpleDb.recentRecipients.clearRecentRecipients();
+                }}
+              >
+                Clear Recent Recipients
+              </Button>
+
+              <Button
+                onPress={async () => {
                   void backgroundApiProxy.serviceIpTable.init();
                 }}
               >

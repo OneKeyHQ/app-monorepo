@@ -1,6 +1,6 @@
 import type { IPerpServerBannerConfig } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 
-import type { IHex, IWithdraw3Request } from './sdk';
+import type { IFill, IHex, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum EPerpsSubscriptionCategory {
@@ -23,6 +23,9 @@ export enum ESubscriptionType {
   ALL_DEXS_ASSET_CTXS = 'allDexsAssetCtxs',
   TWAP_STATES = 'twapStates',
   BBO = 'bbo',
+  SPOT_STATE = 'spotState',
+  SPOT_ASSET_CTXS = 'spotAssetCtxs',
+  ACTIVE_SPOT_ASSET_CTX = 'activeSpotAssetCtx',
   // TRADES = 'trades',
   // USER_EVENTS = 'userEvents',
   // USER_NOTIFICATIONS = 'userNotifications',
@@ -114,6 +117,17 @@ export interface ICancelOrderParams {
   oid: number;
 }
 
+export interface IModifyOrderParams {
+  oid: number;
+  assetId: number;
+  isBuy: boolean;
+  // HL modify is not a patch: callers must pass full current values even when only amending price.
+  sz: string;
+  price: string;
+  reduceOnly?: boolean;
+  orderType?: { limit: { tif: 'Gtc' | 'Ioc' | 'Alo' } };
+}
+
 export interface IWithdrawParams extends IWithdraw3Request {
   userAccountId: string;
 }
@@ -173,6 +187,18 @@ export interface ITriggerOrderParams {
   slippage?: number;
 }
 
+export interface ISpotOrderParams {
+  // Spot assetId = SPOT_ASSET_ID_OFFSET + spotUniverse.index
+  assetId: number;
+  isBuy: boolean;
+  sz: string;
+  limitPx: string;
+  orderType: 'limit' | 'market';
+  tif?: 'Gtc' | 'Ioc';
+  slippage?: number;
+  szDecimals?: number;
+}
+
 export interface IL2BookOptions {
   nSigFigs?: 2 | 3 | 4 | 5 | null;
   mantissa?: 2 | 5 | null;
@@ -211,6 +237,13 @@ export interface IPerpActivityCard {
   url: string;
 }
 
+export interface IPerpAssetMeta {
+  assetId: string;
+  assetType?: string;
+}
+
+export type IPerpsAssetMetaMap = Record<string, IPerpAssetMeta>;
+
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
@@ -248,7 +281,12 @@ export enum EPerpsSizeInputMode {
 }
 
 // Token Selector Types
-export type IPerpTokenSelectorTab = 'all' | 'hip3' | 'favorites';
+export type IPerpTokenSelectorTab =
+  | 'all'
+  | 'perps'
+  | 'spot'
+  | 'hip3'
+  | 'favorites';
 
 export type IPerpTokenSortField =
   | 'name'
@@ -256,7 +294,8 @@ export type IPerpTokenSortField =
   | 'change24hPercent'
   | 'fundingRate'
   | 'volume24h'
-  | 'openInterest';
+  | 'openInterest'
+  | 'marketCap';
 
 export type IPerpTokenSortDirection = 'asc' | 'desc';
 
@@ -268,3 +307,46 @@ export interface IPerpTokenSelectorConfig {
 
 // Deprecated: Use IPerpTokenSelectorConfig instead
 export type IPerpTokenSortConfig = IPerpTokenSelectorConfig;
+
+export enum EHyperLiquidAbstractionMode {
+  DISABLED = 'disabled',
+  UNIFIED_ACCOUNT = 'unifiedAccount',
+  PORTFOLIO_MARGIN = 'portfolioMargin',
+  DEX_ABSTRACTION = 'dexAbstraction',
+  DEFAULT = 'default',
+}
+
+// ── Shared Types ──
+
+export interface ITradesHistoryData {
+  fills: IFill[];
+  isLoaded: boolean;
+  latestTime: number;
+  accountAddress: string | undefined;
+}
+
+// ── Spot Types ──
+
+export type ISpotFormattedAssetCtx = {
+  midPrice: string;
+  markPrice: string;
+  prevDayPrice: string;
+  volume24h: string;
+  change24h: string;
+  change24hPercent: number;
+  circulatingSupply: string;
+  totalSupply: string;
+  dayBaseVlm: string;
+};
+
+export type ISpotTokenSortField =
+  | 'name'
+  | 'markPrice'
+  | 'change24hPercent'
+  | 'volume24h';
+
+export interface ISpotTokenSelectorConfig {
+  field: ISpotTokenSortField;
+  direction: IPerpTokenSortDirection;
+  activeTab: 'all' | 'favorites' | string;
+}

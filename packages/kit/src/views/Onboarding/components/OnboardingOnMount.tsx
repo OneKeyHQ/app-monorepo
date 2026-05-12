@@ -148,9 +148,7 @@ function OnboardingOnMountCmp() {
         !platformEnv.isWebDappMode &&
         !platformEnv.isExtensionUiSidePanel
       ) {
-        void toOnBoardingPage({
-          isFullModal: true,
-        });
+        void toOnBoardingPage();
       }
     },
     [

@@ -11,6 +11,7 @@ import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import type {
   WebViewErrorEvent,
+  WebViewHttpErrorEvent,
   WebViewNavigationEvent,
   WebViewSharedProps,
   WebViewSource,
@@ -44,6 +45,8 @@ export interface IInpageProviderWebViewProps
   onLoadStart?: (event: WebViewNavigationEvent) => void;
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
+  onError?: (event: WebViewErrorEvent) => void;
+  onHttpError?: (event: WebViewHttpErrorEvent) => void;
   onScroll?: IWebViewOnScroll;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
@@ -84,10 +87,30 @@ export interface IInpageProviderWebViewProps
    * @default false
    */
   allowFileAccess?: boolean;
+  /** @platform ios
+   * @description URL string that specifies the directory WKWebView can read from when loading local file URLs.
+   */
+  allowingReadAccessToURL?: string;
   /** @platform native
    * @description Whitelisted origins that may request camera or microphone access.
    */
   mediaPermissionWhitelist?: string[];
+  /** Disable OneKey inpage provider injection and bridge connection.
+   * Use for content-only WebViews (e.g. WebView overlay from deeplink/notification)
+   * that must not be treated as DApp pages.
+   * - Native: skips injectedNativeCode (overrides useInjectedNativeCode to false)
+   * - Desktop: skips preload script and backgroundApiProxy.connectBridge()
+   */
+  disableBridge?: boolean;
+  /** @platform desktop
+   * @description Electron <webview> partition string. Defaults to the shared
+   * Discovery / wallet partition. Overlay pages opened from deeplink /
+   * notification use a dedicated partition so the desktop main process can
+   * tag the contents id at `web-contents-created` time — before any
+   * navigation event can fire — and apply the strict overlay URL policy in
+   * `will-redirect` / `will-navigate` without renderer registration races.
+   */
+  partition?: string;
 }
 
 export type IWebViewRef = {
@@ -101,6 +124,7 @@ export type IElectronWebView = {
   openDevTools: () => void;
   getURL: () => string;
   getTitle: () => string;
+  getWebContentsId: () => number;
   src: string;
   addEventListener: (name: string, callback: unknown) => void;
   removeEventListener: (name: string, callback: unknown) => void;

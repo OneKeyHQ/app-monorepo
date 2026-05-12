@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { isNil, isNumber } from 'lodash';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -35,7 +35,6 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IExplorersInfo } from '@onekeyhq/shared/types/swap/types';
@@ -414,102 +413,68 @@ const SwapHistoryDetailModal = () => {
     ],
   );
 
-  // Default fee percentage for savings calculation (0.3%)
-  const DEFAULT_FEE_PERCENTAGE = 0.3;
+  const renderProtocolFee = useCallback(() => {
+    const protocolFee = txHistory?.swapInfo.protocolFee;
+    const protocolFeeBN = new BigNumber(protocolFee ?? 0);
+    const positiveOtherFeeInfos = txHistory?.swapInfo.otherFeeInfos?.filter(
+      (item) => {
+        const amountBN = new BigNumber(item.amount ?? 0);
+        return !amountBN.isNaN() && amountBN.gt(0);
+      },
+    );
 
-  // Calculate the fee value from fromToken amount and price
-  const calculateFeeFromPercentage = useCallback(
-    (percentage: number) => {
-      const fromAmount = txHistory?.baseInfo.fromAmount ?? '0';
-      const fromPrice = txHistory?.baseInfo.fromToken?.price ?? '0';
-      const fromValueUsd = new BigNumber(fromAmount).times(fromPrice);
-      const rawValue = fromValueUsd.times(percentage).div(100).toFixed();
-      return numberFormat(rawValue, {
-        formatter: 'value',
-        formatterOptions: { currency: '$' },
-      });
-    },
-    [txHistory?.baseInfo.fromAmount, txHistory?.baseInfo.fromToken?.price],
-  );
-
-  // Determine OneKey fee display type and value
-  const oneKeyFeeInfo = useMemo(() => {
-    const oneKeyFeeUsd = txHistory?.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd;
-    const oneKeyFee = txHistory?.swapInfo?.oneKeyFee;
-
-    // Case 1: Has oneKeyFeeUsd with actual value (not 0)
-    if (oneKeyFeeUsd && new BigNumber(oneKeyFeeUsd).gt(0)) {
-      return {
-        type: 'fee' as const,
-        value: numberFormat(oneKeyFeeUsd, {
-          formatter: 'value',
-          formatterOptions: { currency: '$' },
-        }),
-      };
+    if (positiveOtherFeeInfos?.length && protocolFeeBN.isZero()) {
+      return (
+        <Stack alignItems="flex-end" gap="$1">
+          {positiveOtherFeeInfos.map((item, index) => (
+            <SizableText
+              key={`${item.token.networkId}-${item.token.contractAddress}-${index}`}
+              size="$bodyMd"
+              color="$textSubdued"
+            >
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="balance"
+              >
+                {item.amount}
+              </NumberSizeableText>
+              {` ${item.token.symbol}`}
+            </SizableText>
+          ))}
+        </Stack>
+      );
     }
 
-    // Case 3: oneKeyFee is 0 or oneKeyFeeUsd is 0 - show savings
-    if (
-      (isNumber(oneKeyFee) && oneKeyFee === 0) ||
-      (oneKeyFeeUsd && new BigNumber(oneKeyFeeUsd).eq(0))
-    ) {
-      return {
-        type: 'saved' as const,
-        value: calculateFeeFromPercentage(DEFAULT_FEE_PERCENTAGE),
-      };
+    if (isNil(protocolFee)) {
+      return null;
     }
-
-    // Case 2: Has oneKeyFee percentage but no oneKeyFeeUsd - calculate from percentage
-    if (isNumber(oneKeyFee) && oneKeyFee > 0) {
-      return {
-        type: 'fee' as const,
-        value: calculateFeeFromPercentage(oneKeyFee),
-      };
-    }
-
-    // Case 4: Neither value exists - don't show
-    return null;
-  }, [
-    txHistory?.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd,
-    txHistory?.swapInfo?.oneKeyFee,
-    calculateFeeFromPercentage,
-  ]);
-
-  // Calculate cumulative savings from all completed successful orders
-  const renderOneKeyFee = useCallback(() => {
-    if (!oneKeyFeeInfo) return null;
-
-    const isSaved = oneKeyFeeInfo.type === 'saved';
 
     return (
-      <InfoItem
-        disabledCopy
-        label={intl.formatMessage({
-          id: ETranslations.provider_ios_popover_onekey_fee,
-        })}
-        renderContent={
-          <Stack>
-            {isSaved ? (
-              <SizableText size="$bodyMd" color="$textSuccess">
-                {intl.formatMessage(
-                  { id: ETranslations.swap_fee_save },
-                  { fee: oneKeyFeeInfo.value },
-                )}
-              </SizableText>
-            ) : (
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {oneKeyFeeInfo.value}
-              </SizableText>
-            )}
-          </Stack>
-        }
-      />
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$textSubdued"
+        formatter="value"
+        formatterOptions={{
+          currency:
+            txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol,
+        }}
+      >
+        {protocolFee.toString()}
+      </NumberSizeableText>
     );
-  }, [oneKeyFeeInfo, intl]);
+  }, [
+    settingsPersistAtom.currencyInfo.symbol,
+    txHistory?.currency,
+    txHistory?.swapInfo.otherFeeInfos,
+    txHistory?.swapInfo.protocolFee,
+  ]);
+
   const renderSwapHistoryDetails = useCallback(() => {
     if (!txHistory) {
       return null;
     }
+    const protocolFeeContent = renderProtocolFee();
 
     return (
       <>
@@ -619,29 +584,16 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={renderRate()}
             />
-            {!isNil(txHistory.swapInfo.protocolFee) ? (
+            {protocolFeeContent ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({
                   id: ETranslations.swap_history_detail_protocol_fee,
                 })}
-                renderContent={
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    formatter="value"
-                    formatterOptions={{
-                      currency:
-                        txHistory.currency ??
-                        settingsPersistAtom.currencyInfo.symbol,
-                    }}
-                  >
-                    {txHistory.swapInfo.protocolFee.toString()}
-                  </NumberSizeableText>
-                }
+                renderContent={protocolFeeContent}
               />
             ) : null}
-            {renderOneKeyFee()}
+
             {txHistory?.swapInfo?.surplus ? (
               <InfoItem
                 disabledCopy
@@ -659,14 +611,13 @@ const SwapHistoryDetailModal = () => {
     intl,
     onViewInBrowser,
     renderNetworkFee,
-    renderOneKeyFee,
+    renderProtocolFee,
     renderRate,
     renderSwapAssetsChange,
     renderSwapCrossChainStatus,
     renderSwapDate,
     renderSwapOrderStatus,
     renderSwapProvider,
-    settingsPersistAtom.currencyInfo.symbol,
     txHistory,
   ]);
 

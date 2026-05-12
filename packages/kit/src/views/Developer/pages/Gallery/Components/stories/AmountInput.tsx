@@ -7,6 +7,7 @@ import {
   Form,
   Image,
   ListView,
+  SegmentControl,
   SizableText,
   Stack,
   XStack,
@@ -16,8 +17,133 @@ import {
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { NetworksFilterItem } from '@onekeyhq/kit/src/components/NetworksFilterItem';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
+import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 
 import { Layout } from './utils/Layout';
+
+const AUTO_SIZE_SHORT_VALUE = '0.1234';
+const AUTO_SIZE_LONG_VALUE = '12345678901234567890.12345678';
+const AUTO_SIZE_SHORT_SYMBOL = 'BTC';
+const AUTO_SIZE_LONG_SYMBOL = 'SUPER-LONG-TOKEN-SYMBOL';
+const AUTO_SIZE_SHORT_PREFIX = '$';
+const AUTO_SIZE_LONG_PREFIX = '~US$';
+const BTC_CHAIN_IMAGE_URI = 'https://uni.onekey-asset.com/static/chain/btc.png';
+const ETH_CHAIN_IMAGE_URI = 'https://uni.onekey-asset.com/static/chain/eth.png';
+const POLYGON_CHAIN_IMAGE_URI =
+  'https://uni.onekey-asset.com/static/chain/polygon.png';
+const POLYGON_TOKEN_IMAGE_URI =
+  'https://common.onekey-asset.com/token/evm-1/0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0.jpg';
+
+function AutoSizeAmountInputGalleryExample() {
+  const [affixMode, setAffixMode] = useState<'prefix' | 'suffix'>('suffix');
+  const [amountMode, setAmountMode] = useState<'short' | 'long'>('short');
+  const [affixLengthMode, setAffixLengthMode] = useState<'short' | 'long'>(
+    'short',
+  );
+  const [value, setValue] = useState(AUTO_SIZE_SHORT_VALUE);
+  let tokenSymbol = '';
+  if (affixMode === 'suffix') {
+    tokenSymbol =
+      affixLengthMode === 'short'
+        ? AUTO_SIZE_SHORT_SYMBOL
+        : AUTO_SIZE_LONG_SYMBOL;
+  }
+
+  let currencyLabel = '';
+  if (affixMode === 'prefix') {
+    currencyLabel =
+      affixLengthMode === 'short'
+        ? AUTO_SIZE_SHORT_PREFIX
+        : AUTO_SIZE_LONG_PREFIX;
+  }
+
+  return (
+    <YStack gap="$4">
+      <Stack
+        px="$4"
+        py="$5"
+        height={280}
+        justifyContent="center"
+        borderWidth={1}
+        borderColor="$borderSubdued"
+      >
+        <SendAutoSizeAmountInput
+          value={value}
+          onChange={setValue}
+          tokenSymbol={tokenSymbol}
+          inputProps={{
+            placeholder: '0',
+            leftAddOnProps: currencyLabel
+              ? {
+                  label: currencyLabel,
+                }
+              : undefined,
+          }}
+          valueProps={{
+            value: '123,456.78',
+            currency: '$',
+          }}
+        />
+      </Stack>
+      <XStack gap="$4" alignItems="flex-start">
+        <YStack flex={1} minWidth={0} gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            Affix
+          </SizableText>
+          <SegmentControl
+            fullWidth
+            value={affixMode}
+            onChange={(nextValue) => {
+              setAffixMode(nextValue as 'prefix' | 'suffix');
+            }}
+            options={[
+              { label: 'Prefix', value: 'prefix' },
+              { label: 'Suffix', value: 'suffix' },
+            ]}
+          />
+        </YStack>
+        <YStack flex={1} minWidth={0} gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            Amount
+          </SizableText>
+          <SegmentControl
+            fullWidth
+            value={amountMode}
+            onChange={(nextValue) => {
+              const nextAmountMode = nextValue as 'short' | 'long';
+              setAmountMode(nextAmountMode);
+              setValue(
+                nextAmountMode === 'short'
+                  ? AUTO_SIZE_SHORT_VALUE
+                  : AUTO_SIZE_LONG_VALUE,
+              );
+            }}
+            options={[
+              { label: 'Short', value: 'short' },
+              { label: 'Long', value: 'long' },
+            ]}
+          />
+        </YStack>
+        <YStack flex={1} minWidth={0} gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            Affix Length
+          </SizableText>
+          <SegmentControl
+            fullWidth
+            value={affixLengthMode}
+            onChange={(nextValue) => {
+              setAffixLengthMode(nextValue as 'short' | 'long');
+            }}
+            options={[
+              { label: 'Short', value: 'short' },
+              { label: 'Long', value: 'long' },
+            ]}
+          />
+        </YStack>
+      </XStack>
+    </YStack>
+  );
+}
 
 const AmountInputGallery = () => (
   <Layout
@@ -49,8 +175,7 @@ const AmountInputGallery = () => (
                 placeholder: '0',
               }}
               tokenSelectorTriggerProps={{
-                selectedTokenImageUri:
-                  'https://uni.onekey-asset.com/static/chain/btc.png',
+                selectedTokenImageUri: BTC_CHAIN_IMAGE_URI,
                 selectedTokenSymbol: 'BTC',
               }}
               enableMaxAmount
@@ -65,8 +190,7 @@ const AmountInputGallery = () => (
           const [value, setValue] = useState('');
           const [tokenSelectorTriggerProps, setTokenSelectorTriggerProps] =
             useState({
-              selectedTokenImageUri:
-                'https://uni.onekey-asset.com/static/chain/btc.png',
+              selectedTokenImageUri: BTC_CHAIN_IMAGE_URI,
               selectedTokenSymbol: 'BTC',
             });
           const [balanceProps, setBalanceProps] = useState({
@@ -177,11 +301,9 @@ const AmountInputGallery = () => (
             }}
             valueProps={{}}
             tokenSelectorTriggerProps={{
-              selectedTokenImageUri:
-                'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
-              selectedNetworkImageUri:
-                'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/matic.png',
-              selectedTokenSymbol: 'BTC',
+              selectedTokenImageUri: POLYGON_TOKEN_IMAGE_URI,
+              selectedNetworkImageUri: POLYGON_CHAIN_IMAGE_URI,
+              selectedTokenSymbol: 'POL',
               onPress: () => alert('TokenSelectorModal'),
             }}
             balanceProps={{
@@ -202,11 +324,9 @@ const AmountInputGallery = () => (
               readonly: true,
             }}
             tokenSelectorTriggerProps={{
-              selectedTokenImageUri:
-                'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
-              selectedNetworkImageUri:
-                'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/matic.png',
-              selectedTokenSymbol: 'BTC',
+              selectedTokenImageUri: POLYGON_TOKEN_IMAGE_URI,
+              selectedNetworkImageUri: POLYGON_CHAIN_IMAGE_URI,
+              selectedTokenSymbol: 'POL',
               onPress: () => alert('TokenSelectorModal'),
             }}
             balanceProps={{
@@ -266,6 +386,10 @@ const AmountInputGallery = () => (
         },
       },
       {
+        title: 'Example 8 (Send autosize)',
+        element: <AutoSizeAmountInputGalleryExample />,
+      },
+      {
         title: 'TokenListItem in TokenSearchModal',
         element: (
           <Stack>
@@ -277,20 +401,20 @@ const AmountInputGallery = () => (
                   tooltipContent="All Networks"
                 />
                 <NetworksFilterItem
-                  networkImageUri="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png"
+                  networkImageUri={ETH_CHAIN_IMAGE_URI}
                   isSelected
                   tooltipContent="Ethereum"
                 />
                 <NetworksFilterItem
-                  networkImageUri="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png"
+                  networkImageUri={BTC_CHAIN_IMAGE_URI}
                   tooltipContent="Bitcoin"
                 />
                 <NetworksFilterItem
-                  networkImageUri="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png"
+                  networkImageUri={ETH_CHAIN_IMAGE_URI}
                   tooltipContent="Ethereum"
                 />
                 <NetworksFilterItem
-                  networkImageUri="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png"
+                  networkImageUri={BTC_CHAIN_IMAGE_URI}
                   tooltipContent="Bitcoin"
                   disabled
                 />
@@ -305,7 +429,7 @@ const AmountInputGallery = () => (
                     size="$5"
                     borderRadius="$full"
                     source={{
-                      uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
+                      uri: ETH_CHAIN_IMAGE_URI,
                     }}
                   />
                   <SizableText size="$bodyMd" pl="$2">
@@ -318,12 +442,10 @@ const AmountInputGallery = () => (
             <ListView
               estimatedItemSize={60}
               data={new Array(10).fill({
-                tokenImageSrc:
-                  'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
-                networkImageSrc:
-                  'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/matic.png',
-                tokenName: 'USD Coin',
-                tokenSymbol: 'USDC',
+                tokenImageSrc: POLYGON_TOKEN_IMAGE_URI,
+                networkImageSrc: POLYGON_CHAIN_IMAGE_URI,
+                tokenName: 'Polygon Ecosystem Token',
+                tokenSymbol: 'POL',
                 tokenContrastAddress: '0x1234...5678',
                 balance: '89.9',
                 value: '$89.75',

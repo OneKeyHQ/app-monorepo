@@ -2,10 +2,11 @@ import type { ReactNode } from 'react';
 import { useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type ScrollView as ScrollViewNative } from 'react-native';
 
 import {
   EPageType,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   ScrollView,
   SizableText,
   XStack,
@@ -35,6 +36,8 @@ import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 import SwapTipsContainer from './SwapTipsContainer';
+
+import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapOldSwapBridgeLimitContainerProps {
   pageType?: EPageType;
@@ -90,7 +93,8 @@ const SwapOldSwapBridgeLimitContainer = ({
   swapRecentTokenPairs,
   headerContent,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
-  const scrollViewRef = useRef<ScrollViewNative>(null);
+  const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
+  const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const { gtLg } = useMedia();
   const intl = useIntl();
 
@@ -154,7 +158,6 @@ const SwapOldSwapBridgeLimitContainer = ({
           showDesktopProviderPanel ? undefined : onOpenProviderList
         }
         quoteResult={quoteResult}
-        onOpenRecipient={onToAnotherAddressModal}
       />
       {alerts.states.length > 0 &&
       !quoteLoading &&
@@ -215,7 +218,6 @@ const SwapOldSwapBridgeLimitContainer = ({
           refreshAction={refreshAction}
           onOpenProviderList={undefined}
           quoteResult={quoteResult}
-          onOpenRecipient={onToAnotherAddressModal}
         />
         {alerts.states.length > 0 &&
         !quoteLoading &&
@@ -320,7 +322,6 @@ const SwapOldSwapBridgeLimitContainer = ({
               refreshAction={refreshAction}
               onOpenProviderList={undefined}
               quoteResult={quoteResult}
-              onOpenRecipient={onToAnotherAddressModal}
             />
             {alerts.states.length > 0 &&
             !quoteLoading &&
@@ -341,10 +342,11 @@ const SwapOldSwapBridgeLimitContainer = ({
   }
 
   return (
-    <ScrollView
+    <Keyboard.AwareScrollView
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
+      bottomOffset={bottomOffset}
     >
       <SwapTipsContainer pageType={pageType} />
       {headerContent ? (
@@ -353,7 +355,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         </YStack>
       ) : null}
       {mainContent}
-    </ScrollView>
+    </Keyboard.AwareScrollView>
   );
 };
 

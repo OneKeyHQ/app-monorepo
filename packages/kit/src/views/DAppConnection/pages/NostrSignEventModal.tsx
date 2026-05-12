@@ -10,13 +10,13 @@ import {
   TextArea,
   YStack,
 } from '@onekeyhq/components';
+import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EEventKind,
   ENostrSignType,
   i18nSupportEventKinds,
-} from '@onekeyhq/core/src/chains/nostr/types';
-import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+} from '@onekeyhq/shared/src/types/nostr';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -270,9 +270,8 @@ function NostrSignEventModal() {
             editable={false}
             numberOfLines={11}
             testID="d-app-connection-render-event-details-textarea"
-          >
-            {JSON.stringify(event, null, 2)}
-          </TextArea>
+            value={JSON.stringify(event, null, 2)}
+          />
         ) : null}
       </YStack>
     );
@@ -313,9 +312,8 @@ function NostrSignEventModal() {
             editable={false}
             numberOfLines={5}
             testID="d-app-connection-render-encrypt-sign-event-plaintext-textarea"
-          >
-            {savedPlaintext}
-          </TextArea>
+            value={savedPlaintext ?? ''}
+          />
         </YStack>
       );
     }
@@ -341,9 +339,8 @@ function NostrSignEventModal() {
                 editable={false}
                 numberOfLines={5}
                 testID="d-app-connection-textarea"
-              >
-                {content}
-              </TextArea>
+                value={content}
+              />
               {renderEncryptSignEventPlaintext()}
               {renderEventDetails()}
             </YStack>

@@ -22,18 +22,36 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSortAtom,
+  useSwapQuoteCurrentEventProviderKeysAtom,
+  useSwapQuoteCurrentEventReceivedCountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventCompletedAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSortedQuoteListAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
+  buildSwapManualProviderSelectionIntent,
+  buildSwapQuoteProviderKey,
+  getSwapQuoteEventProgressTotalCount,
+  hasSwapQuoteEventTotalCount,
+  hasSwapZeroProviderQuoteEvent,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import {
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapTabSwitchType,
+  type IFetchQuoteResult,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   useSwapQuoteEventFetching,
@@ -128,31 +146,60 @@ const SwapProviderListPanel = ({
   const intl = useIntl();
   const [swapSortedList] = useSwapSortedQuoteListAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [, setSwapManualSelect] = useSwapManualSelectQuoteProvidersAtom();
+  const [manualSelectQuoteProvider, setSwapManualSelect] =
+    useSwapManualSelectQuoteProvidersAtom();
   const [providerSort, setProviderSort] = useSwapProviderSortAtom();
   const [settingsPersist] = useSettingsPersistAtom();
+  const [{ swapIncognitoMode }] = useSettingsAtom();
   const [currentSelectQuote] = useSwapQuoteCurrentSelectAtom();
+  const selectedProviderInfo =
+    currentSelectQuote?.info ?? manualSelectQuoteProvider?.info;
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
+  const [currentEventReceivedCount] =
+    useSwapQuoteCurrentEventReceivedCountAtom();
+  const [currentEventProviderKeys] = useSwapQuoteCurrentEventProviderKeysAtom();
+  const currentEventProviderKeySet = useMemo(
+    () => new Set(currentEventProviderKeys),
+    [currentEventProviderKeys],
+  );
+  const quoteListForDisplay = useMemo(
+    () =>
+      quoteEventTotalCount.count > 0
+        ? swapSortedList.filter((item) =>
+            currentEventProviderKeySet.has(buildSwapQuoteProviderKey(item)),
+          )
+        : swapSortedList,
+    [currentEventProviderKeySet, quoteEventTotalCount.count, swapSortedList],
+  );
+  const hasZeroProviderEvent = hasSwapZeroProviderQuoteEvent({
+    quoteEventTotalCount,
+  });
 
   // Cache the previous list to show during refresh (prevents flash to empty)
   const cachedListRef = useRef<IFetchQuoteResult[]>([]);
   // Track if this is first load vs refresh
   const hadPreviousQuotesRef = useRef(false);
-  // Track token changes to reset cache
-  const prevTokenKeyRef = useRef('');
-  const currentTokenKey = `${fromToken?.contractAddress ?? ''}-${
+  // Track quote context changes to reset cache
+  const quoteInputAmount =
+    fromTokenAmount.isInput || !toTokenAmount.isInput
+      ? fromTokenAmount.value
+      : toTokenAmount.value;
+  const prevQuoteContextKeyRef = useRef('');
+  const currentQuoteContextKey = `${swapTypeSwitch}-${
+    fromToken?.networkId ?? ''
+  }-${fromToken?.contractAddress ?? ''}-${toToken?.networkId ?? ''}-${
     toToken?.contractAddress ?? ''
-  }`;
+  }-${quoteInputAmount}`;
   // Track if we're in a refresh cycle (list was cleared but we had data)
   const isRefreshingRef = useRef(false);
-  // Track swap type switch changes to reset cache (OK-49718)
-  const prevSwapTypeSwitchRef = useRef(swapTypeSwitch);
-  // Track quote event id changes to reset cache when new quote starts (OK-49718)
+  // Track quote event id changes to detect new quote cycles (OK-49718)
   const prevQuoteEventIdRef = useRef(quoteEventTotalCount.eventId);
   // Track if waiting for new quote to prevent flash to empty state (OK-49718)
   const isWaitingForNewQuoteRef = useRef(false);
@@ -164,42 +211,34 @@ const SwapProviderListPanel = ({
   // Track previous loading state for detecting when loading completes
   const prevIsLoadingRef = useRef(false);
 
-  // Reset cache when tokens change
-  if (prevTokenKeyRef.current !== currentTokenKey) {
-    prevTokenKeyRef.current = currentTokenKey;
+  // Reset cache when tokens, swap type, or the user-entered amount changes.
+  if (prevQuoteContextKeyRef.current !== currentQuoteContextKey) {
+    prevQuoteContextKeyRef.current = currentQuoteContextKey;
     cachedListRef.current = [];
     hadPreviousQuotesRef.current = false;
     isRefreshingRef.current = false;
     isWaitingForNewQuoteRef.current = true;
   }
 
-  // Reset cache when swap type switch changes (Swap/Limit/Bridge) (OK-49718)
-  if (prevSwapTypeSwitchRef.current !== swapTypeSwitch) {
-    prevSwapTypeSwitchRef.current = swapTypeSwitch;
-    cachedListRef.current = [];
-    hadPreviousQuotesRef.current = false;
-    isRefreshingRef.current = false;
-    isWaitingForNewQuoteRef.current = true;
-  }
-
-  // Reset cache when a new quote event starts (different eventId means new quote request) (OK-49718)
-  // Also reset when quote is cleared (eventId becomes undefined or count becomes 0)
-  if (
-    prevQuoteEventIdRef.current !== quoteEventTotalCount.eventId ||
-    (quoteEventTotalCount.count === 0 && prevQuoteEventIdRef.current)
-  ) {
+  // A new event for the same quote context is usually an auto-refresh; keep the
+  // previous list until the new event returns its first provider.
+  if (prevQuoteEventIdRef.current !== quoteEventTotalCount.eventId) {
     prevQuoteEventIdRef.current = quoteEventTotalCount.eventId;
-    cachedListRef.current = [];
-    hadPreviousQuotesRef.current = false;
-    isRefreshingRef.current = false;
     isWaitingForNewQuoteRef.current = true;
   }
 
   const isLoading = quoteLoading || quoteEventFetching;
 
+  if (!isLoading && quoteEventTotalCount.count === 0) {
+    cachedListRef.current = [];
+    hadPreviousQuotesRef.current = false;
+    isRefreshingRef.current = false;
+    isWaitingForNewQuoteRef.current = false;
+  }
+
   // Detect refresh: list becomes empty while we had previous data
   if (
-    swapSortedList.length === 0 &&
+    quoteListForDisplay.length === 0 &&
     hadPreviousQuotesRef.current &&
     cachedListRef.current.length > 0
   ) {
@@ -210,8 +249,8 @@ const SwapProviderListPanel = ({
   const wasWaitingForNewQuote = isWaitingForNewQuoteRef.current;
 
   // Update cache when we have new data
-  if (swapSortedList.length > 0) {
-    cachedListRef.current = swapSortedList;
+  if (quoteListForDisplay.length > 0) {
+    cachedListRef.current = quoteListForDisplay;
     hadPreviousQuotesRef.current = true;
     isRefreshingRef.current = false;
     isWaitingForNewQuoteRef.current = false;
@@ -220,11 +259,12 @@ const SwapProviderListPanel = ({
   // Use cached list during refresh to prevent flash
   // Show cached data when: loading with empty list but had previous data, OR during refresh
   const displayList =
+    !hasZeroProviderEvent &&
     (isLoading || isRefreshingRef.current) &&
-    swapSortedList.length === 0 &&
+    quoteListForDisplay.length === 0 &&
     cachedListRef.current.length > 0
       ? cachedListRef.current
-      : swapSortedList;
+      : quoteListForDisplay;
 
   // Track previous provider keys to determine which items are new
   const prevProviderKeysRef = useRef<Set<string>>(new Set());
@@ -315,13 +355,13 @@ const SwapProviderListPanel = ({
     if (
       wasLoading &&
       !isLoading &&
-      currentSelectQuote &&
+      selectedProviderInfo &&
       availableList.length > 0
     ) {
       const selectedIndex = availableList.findIndex(
         (item) =>
-          item.info.provider === currentSelectQuote.info.provider &&
-          item.info.providerName === currentSelectQuote.info.providerName,
+          item.info.provider === selectedProviderInfo.provider &&
+          item.info.providerName === selectedProviderInfo.providerName,
       );
 
       if (selectedIndex > 0 && scrollViewRef.current) {
@@ -334,17 +374,17 @@ const SwapProviderListPanel = ({
         }, 100);
       }
     }
-  }, [isLoading, currentSelectQuote, availableList]);
+  }, [isLoading, selectedProviderInfo, availableList]);
 
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
-      setSwapManualSelect(item);
+      setSwapManualSelect(buildSwapManualProviderSelectionIntent(item));
       defaultLogger.swap.providerChange.providerChange({
-        changeFrom: currentSelectQuote?.info.provider ?? '-',
+        changeFrom: selectedProviderInfo?.provider ?? '-',
         changeTo: item.info.provider,
       });
     },
-    [setSwapManualSelect, currentSelectQuote?.info.provider],
+    [setSwapManualSelect, selectedProviderInfo?.provider],
   );
 
   const renderItem = useCallback(
@@ -382,8 +422,8 @@ const SwapProviderListPanel = ({
                 : undefined
             }
             selected={Boolean(
-              item.info.provider === currentSelectQuote?.info.provider &&
-              item.info.providerName === currentSelectQuote?.info.providerName,
+              item.info.provider === selectedProviderInfo?.provider &&
+              item.info.providerName === selectedProviderInfo?.providerName,
             )}
             fromTokenAmount={fromTokenAmount.value}
             fromToken={fromToken}
@@ -396,11 +436,11 @@ const SwapProviderListPanel = ({
       );
     },
     [
-      currentSelectQuote?.info.provider,
-      currentSelectQuote?.info.providerName,
       fromToken,
       fromTokenAmount,
       onSelectQuote,
+      selectedProviderInfo?.provider,
+      selectedProviderInfo?.providerName,
       settingsPersist.currencyInfo.symbol,
       toToken,
     ],
@@ -569,29 +609,6 @@ const SwapProviderListPanel = ({
 
         {/* Right Column - Feature List */}
         <YStack width="50%" justifyContent="center" gap="$6">
-          <XStack alignItems="flex-start" gap="$3">
-            <Icon
-              name="DollarSolid"
-              size="$7"
-              color="$iconSuccess"
-              flexShrink={0}
-            />
-            <YStack flex={1} gap="$1">
-              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_feature_zero_fee,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_feature_zero_fee_desc,
-                })}
-              </SizableText>
-            </YStack>
-          </XStack>
-
-          <Stack ml="$10" height={0.5} bg="$borderSubdued" opacity={0.5} />
-
           {/* MEV Shield */}
           <XStack alignItems="flex-start" gap="$3">
             <Icon
@@ -683,19 +700,39 @@ const SwapProviderListPanel = ({
   }
 
   const hasQuotes = displayList.length > 0;
+  const quoteEventProgressTotalCount = useMemo(
+    () =>
+      getSwapQuoteEventProgressTotalCount({
+        quoteEventTotalCount,
+        maxQuoteCount:
+          swapIncognitoMode && swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+            ? SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP
+            : undefined,
+      }),
+    [quoteEventTotalCount, swapIncognitoMode, swapTypeSwitch],
+  );
 
   // Whether the SSE total event has been received
-  const hasReceivedTotal = quoteEventTotalCount.count > 0;
+  const hasReceivedTotal = hasSwapQuoteEventTotalCount({
+    quoteEventTotalCount: quoteEventProgressTotalCount,
+    quoteEventCompleted,
+  });
+  const isZeroProviderFetching = hasZeroProviderEvent && quoteEventFetching;
   // Number of skeleton placeholders for providers not yet received
   const remainingSkeletonCount =
     hasReceivedTotal && quoteEventFetching
-      ? Math.max(0, quoteEventTotalCount.count - displayList.length)
+      ? Math.max(
+          0,
+          quoteEventProgressTotalCount.count - currentEventReceivedCount,
+        )
       : 0;
 
   const contentArea = (
     <AnimatePresence>
       {/* Phase 1: Spinner - no total event received yet (covers gap before loading starts) */}
-      {shouldShowContent && !hasQuotes && !hasReceivedTotal ? (
+      {shouldShowContent &&
+      !hasQuotes &&
+      (!hasReceivedTotal || isZeroProviderFetching) ? (
         <MotiView
           key="spinner"
           from={{ opacity: 0 }}
@@ -725,7 +762,8 @@ const SwapProviderListPanel = ({
 
       {/* Phase 2+3: Data cards + skeleton placeholders for remaining */}
       {shouldShowContent &&
-      (hasQuotes || (hasReceivedTotal && quoteEventFetching)) ? (
+      (hasQuotes ||
+        (hasReceivedTotal && quoteEventFetching && !isZeroProviderFetching)) ? (
         <MotiView
           key="content"
           from={{ opacity: 0 }}

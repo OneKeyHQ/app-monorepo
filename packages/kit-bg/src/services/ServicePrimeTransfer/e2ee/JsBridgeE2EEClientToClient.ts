@@ -97,7 +97,6 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
       });
       this.socket.on(eventName, async (payload) => {
         const p = payload as IJsBridgeMessagePayload;
-        console.log(eventName, p);
         this.receive(p, {
           origin: 'e2ee-c2c-1',
           internal: true,
@@ -110,7 +109,6 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
       });
       this.socket.on(eventName, async (payload) => {
         const p = payload as IJsBridgeMessagePayload;
-        console.log('e2ee-c2c-request', p);
         const isRateLimited = this.checkIsRateLimited({
           payload: p,
           eventName: 'e2ee-c2c-request',

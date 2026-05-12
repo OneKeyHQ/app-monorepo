@@ -27,7 +27,6 @@ const serviceFiles = glob
 console.log('process.env.NODE_ENV', process.env.NODE_ENV);
 console.log('process.env.DESK_CHANNEL', process.env.DESK_CHANNEL);
 console.log('process.env.COMMITHASH', process.env.COMMITHASH);
-console.log('process.env.APPIMAGE', process.env.APPIMAGE);
 console.log('process.env.SNAP', process.env.SNAP);
 console.log('process.env.FLATPAK', process.env.FLATPAK);
 console.log('process.env.BUILD_NUMBER', process.env.BUILD_NUMBER);
@@ -42,6 +41,7 @@ build({
   platform: 'node',
   bundle: true,
   target: 'node16',
+  loader: { '.text-js': 'text' },
   drop: isProduction ? ['console', 'debugger'] : [],
   // Help esbuild locate missing dependencies.
   alias: {
@@ -85,7 +85,12 @@ build({
     'process.env.VERSION': JSON.stringify(process.env.VERSION || '1.0.0'),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER || '1'),
     'process.env.BUNDLE_VERSION': JSON.stringify(
-      process.env.BUNDLE_VERSION || '1',
+      // Sentinel '0' marks "CI did not inject BUNDLE_VERSION here";
+      // matches the iOS Info.plist sentinel and the Android Gradle
+      // defEnvStr fallback so leaks land in a single recognizable
+      // mixpanel bucket instead of the legacy '1' that collides with
+      // the JS-side `?? '1'` fallback.
+      process.env.BUNDLE_VERSION || '0',
     ),
     'process.env.NODE_ENV': JSON.stringify(
       process.env.NODE_ENV || 'development',
@@ -99,7 +104,10 @@ build({
     'process.env.SENTRY_DSN_DESKTOP': JSON.stringify(
       process.env.SENTRY_DSN_DESKTOP || '',
     ),
-    'process.env.APPIMAGE': JSON.stringify(process.env.APPIMAGE || ''),
+    // APPIMAGE is intentionally NOT defined here. It is a runtime env set by
+    // the AppImage launcher and read (via bracket notation) by electron-updater
+    // and our canAutoInstallAppImage guard. AppImage BUILD detection is done
+    // via DESK_CHANNEL=appImage instead (see release-desktop-all.yml).
     'process.env.SNAP': JSON.stringify(process.env.SNAP || ''),
     'process.env.FLATPAK': JSON.stringify(process.env.FLATPAK || ''),
     'process.env.SENTRY_DSN_MAS': JSON.stringify(

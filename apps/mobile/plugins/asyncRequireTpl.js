@@ -1,5 +1,6 @@
 // oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this */
+const { createWrappedAsyncRequire } = require('__ASYNC_REQUIRE_CORE__');
 const chunkModuleIdToHashMap = require('__CHUNK_MODULE_ID_TO_HASH_MAP__');
 const asyncRequire = require('metro-runtime/src/modules/asyncRequire');
 const { NativeModules } = require('react-native');
@@ -39,17 +40,10 @@ const requireEnsure = async (chunkId) => {
   }
 };
 
-const wrapAsyncRequire = async (moduleId) => {
-  const hashMap = chunkModuleIdToHashMap[moduleId];
-  if (!hashMap) {
-    await Promise.resolve();
-  } else if (Array.isArray(hashMap)) {
-    // TODO the reserved
-    await Promise.all(hashMap.map((v) => requireEnsure(v)));
-  } else {
-    await requireEnsure(moduleId);
-  }
-  return asyncRequire(moduleId);
-};
+const wrapAsyncRequire = createWrappedAsyncRequire({
+  chunkModuleIdToHashMap,
+  requireEnsure,
+  asyncRequire,
+});
 
 module.exports = wrapAsyncRequire;

@@ -24,6 +24,8 @@ import {
   AmountField,
   AssetField,
   AssetWithAmountField,
+  BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
   BorrowAPYField,
   BorrowTableList,
 } from './BorrowTableList';
@@ -284,6 +286,7 @@ export const SupplyCard = () => {
         key: 'supplyApy',
         render: BorrowAPYField,
         flex: 1,
+        minWidth: BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
       },
       {
         label: '',
@@ -302,6 +305,7 @@ export const SupplyCard = () => {
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
       },
     ],
     [

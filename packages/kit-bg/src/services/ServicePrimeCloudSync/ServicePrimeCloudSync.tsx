@@ -43,10 +43,12 @@ import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keyless
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
+  ICloudSyncBotWalletRecord,
   ICloudSyncCheckServerStatusPostData,
   ICloudSyncCheckServerStatusResult,
   ICloudSyncCredential,
   ICloudSyncCredentialForLock,
+  ICloudSyncDBRecord,
   ICloudSyncDownloadPostData,
   ICloudSyncDownloadResult,
   ICloudSyncRawDataJson,
@@ -69,11 +71,10 @@ import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import {
   EIndexedDBBucketNames,
-  type IDBAccount,
   type IDBCloudSyncItem,
-  type IDBIndexedAccount,
   type IDBWallet,
 } from '../../dbs/local/types';
+import simpleDb from '../../dbs/simple/simpleDb';
 import {
   addressBookPersistAtom,
   devSettingsPersistAtom,
@@ -83,8 +84,10 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
 import { CloudSyncFlowManagerAccount } from './CloudSyncFlowManager/CloudSyncFlowManagerAccount';
 import { CloudSyncFlowManagerAddressBook } from './CloudSyncFlowManager/CloudSyncFlowManagerAddressBook';
+import { CloudSyncFlowManagerBotWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerBotWallet';
 import { CloudSyncFlowManagerBrowserBookmark } from './CloudSyncFlowManager/CloudSyncFlowManagerBrowserBookmark';
 import { CloudSyncFlowManagerCustomNetwork } from './CloudSyncFlowManager/CloudSyncFlowManagerCustomNetwork';
 import { CloudSyncFlowManagerCustomRpc } from './CloudSyncFlowManager/CloudSyncFlowManagerCustomRpc';
@@ -139,6 +142,9 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   syncManagers = {
     wallet: new CloudSyncFlowManagerWallet({
+      backgroundApi: this.backgroundApi,
+    }),
+    botWallet: new CloudSyncFlowManagerBotWallet({
       backgroundApi: this.backgroundApi,
     }),
     account: new CloudSyncFlowManagerAccount({
@@ -284,6 +290,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     switch (dataType) {
       case EPrimeCloudSyncDataType.Wallet:
         return this.syncManagers.wallet;
+      case EPrimeCloudSyncDataType.BotWallet:
+        return this.syncManagers.botWallet;
       case EPrimeCloudSyncDataType.Account:
         return this.syncManagers.account;
       case EPrimeCloudSyncDataType.IndexedAccount:
@@ -408,6 +416,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       ? [
           EPrimeCloudSyncDataType.Lock,
           EPrimeCloudSyncDataType.Wallet,
+          EPrimeCloudSyncDataType.BotWallet,
           EPrimeCloudSyncDataType.Account,
           EPrimeCloudSyncDataType.IndexedAccount,
         ]
@@ -893,6 +902,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     forceSync?: boolean;
   }) {
     const walletItems: IDBCloudSyncItem[] = [];
+    const botWalletItems: IDBCloudSyncItem[] = [];
     const accountItems: IDBCloudSyncItem[] = [];
     const indexedAccountItems: IDBCloudSyncItem[] = [];
     const browserBookmarkItems: IDBCloudSyncItem[] = [];
@@ -906,6 +916,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       switch (item.dataType) {
         case EPrimeCloudSyncDataType.Wallet:
           walletItems.push(item);
+          break;
+        case EPrimeCloudSyncDataType.BotWallet:
+          botWalletItems.push(item);
           break;
         case EPrimeCloudSyncDataType.Account:
           accountItems.push(item);
@@ -952,7 +965,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       items: walletItems,
       forceSync,
     });
-    if (walletItems?.length) {
+    await this.syncManagers.botWallet.syncToScene({
+      syncCredential,
+      items: botWalletItems,
+      forceSync,
+    });
+    if (walletItems?.length || botWalletItems?.length) {
       emitEventsStack.push(() => {
         appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
       });
@@ -1388,13 +1406,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     } finally {
       const endTime = Date.now();
       const duration = endTime - now;
-      if (process.env.NODE_ENV !== 'production') {
-        if (duration > 600) {
-          void this.backgroundApi.serviceApp.showToast({
-            method: 'error',
-            title: `isCloudSyncIsAvailable took too long: ${duration}ms`,
-          });
-        }
+      if (duration > 600) {
+        void this.backgroundApi.serviceApp.showToastIfDevMode({
+          method: 'error',
+          title: `isCloudSyncIsAvailable took too long: ${duration}ms`,
+        });
       }
       console.log(
         `CloudSyncTookTime:: ServicePrimeCloudSync.isCloudSyncIsAvailable() ${duration}ms`,
@@ -1471,14 +1487,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     } finally {
       const endTime = Date.now();
       const duration = endTime - now;
-      if (process.env.NODE_ENV !== 'production') {
-        if (duration > 600) {
-          void this.backgroundApi.serviceApp.showToast({
-            method: 'error',
-            title: `getSyncCredentialSafe took too long: ${duration}ms`,
-            message: `ServicePrimeCloudSync.getSyncCredentialSafe() took ${duration}ms`,
-          });
-        }
+      if (duration > 600) {
+        void this.backgroundApi.serviceApp.showToastIfDevMode({
+          method: 'error',
+          title: `getSyncCredentialSafe took too long: ${duration}ms`,
+          message: `ServicePrimeCloudSync.getSyncCredentialSafe() took ${duration}ms`,
+        });
       }
       console.log(
         `CloudSyncTookTime:: ServicePrimeCloudSync.getSyncCredentialSafe() ${duration}ms`,
@@ -1610,9 +1624,45 @@ class ServicePrimeCloudSync extends ServiceBase {
     await primeCloudSyncPersistAtom.set((v) => ({
       ...v,
       isCloudSyncEnabled: enabled,
+      hasEverEnabledOneKeyIdSync:
+        enabled || v.hasEverEnabledOneKeyIdSync || v.isCloudSyncEnabled,
       isCloudSyncEnabledKeyless: enabled ? false : v.isCloudSyncEnabledKeyless,
     }));
     await this.clearCachedSyncCredential();
+  }
+
+  @backgroundMethod()
+  async backfillOneKeyIdSyncHistoryIfNeeded() {
+    await primeCloudSyncPersistAtom.set((v) => {
+      if (!v.isCloudSyncEnabled || v.hasEverEnabledOneKeyIdSync) {
+        return v;
+      }
+      return {
+        ...v,
+        hasEverEnabledOneKeyIdSync: true,
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async normalizeCloudSyncStateForPageEnter() {
+    const currentConfig = await primeCloudSyncPersistAtom.get();
+    if (
+      !currentConfig.isCloudSyncEnabled ||
+      !currentConfig.isCloudSyncEnabledKeyless
+    ) {
+      return false;
+    }
+
+    await primeCloudSyncPersistAtom.set((v) => ({
+      ...v,
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+      hasEverEnabledOneKeyIdSync: true,
+      hasEverEnabledKeylessSync: true,
+    }));
+    await this.clearCachedSyncCredential();
+    return true;
   }
 
   @backgroundMethod()
@@ -1920,6 +1970,28 @@ class ServicePrimeCloudSync extends ServiceBase {
         // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
         initDataTime: undefined,
       });
+    const botWalletMetadataMap = await simpleDb.botWallet.getMetadataMap();
+    let botWalletRecords: ICloudSyncBotWalletRecord[] = Object.entries(
+      botWalletMetadataMap,
+    ).map(([walletId, metadata]) => ({
+      walletId,
+      metadata,
+    }));
+    if ((await this.getActiveSyncMode()) === ECloudSyncMode.Keyless) {
+      const currentKeylessWalletId =
+        await this.getCurrentCloudSyncKeylessWalletId();
+      botWalletRecords = filterBotWalletRecordsByCurrentKeylessSyncScope({
+        records: botWalletRecords,
+        currentKeylessWalletId,
+      });
+    }
+    const syncItemsForBotWallets: IDBCloudSyncItem[] =
+      await this.syncManagers.botWallet.buildInitSyncDBItems({
+        dbRecords: botWalletRecords,
+        allDevices,
+        syncCredential,
+        initDataTime: undefined,
+      });
     const syncItemsForAccounts: IDBCloudSyncItem[] =
       await this.syncManagers.account.buildInitSyncDBItems({
         dbRecords: allAccounts,
@@ -1985,12 +2057,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
 
     let syncItemsForAddressBook: IDBCloudSyncItem[] = [];
-    const { isSafe, items: safeAddressBookItems } =
-      await this.backgroundApi.serviceAddressBook.getSafeRawItems({ password });
-    if (isSafe && safeAddressBookItems?.length) {
+    const addressBookItems =
+      await this.backgroundApi.serviceAddressBook.getItemsByNetwork({});
+    if (addressBookItems?.length) {
       syncItemsForAddressBook =
         await this.syncManagers.addressBook.buildInitSyncDBItems({
-          dbRecords: safeAddressBookItems,
+          dbRecords: addressBookItems,
           allDevices,
           syncCredential,
           // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
@@ -2022,6 +2094,7 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     const totalItems = [
       ...syncItemsForWallets,
+      ...syncItemsForBotWallets,
       ...syncItemsForAccounts,
       ...syncItemsForIndexedAccounts,
       ...syncItemsForBookmarks,
@@ -2126,12 +2199,14 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async prepareCloudSync(): Promise<{
-    success: boolean;
-    isServerMasterPasswordSet?: boolean;
-    encryptedSecurityPasswordR1ForServer?: string;
-    serverDiffItems?: ICloudSyncServerDiffItem[];
-  }> {
+  async ensureOneKeyIdCloudSyncAvailableForManualSync() {
+    await this.ensureOneKeyIdCloudSyncPreparePrerequisites();
+    await this.ensureCloudSyncIsAvailable({
+      callerName: 'Manual Cloud Sync OneKey ID',
+    });
+  }
+
+  async ensureOneKeyIdCloudSyncPreparePrerequisites() {
     if (systemTimeUtils.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
       throw new OneKeyError(
         appLocale.intl.formatMessage({
@@ -2144,11 +2219,24 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!isPrimeLoggedIn) {
       throw new OneKeyError('Prime is not logged in');
     }
+
     const isPrimeSubscriptionActive =
       await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
     if (!isPrimeSubscriptionActive) {
       throw new OneKeyErrorPrimePaidMembershipRequired();
     }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async prepareCloudSync(): Promise<{
+    success: boolean;
+    isServerMasterPasswordSet?: boolean;
+    encryptedSecurityPasswordR1ForServer?: string;
+    serverDiffItems?: ICloudSyncServerDiffItem[];
+  }> {
+    await this.ensureOneKeyIdCloudSyncPreparePrerequisites();
+
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify({
         reason: ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD
@@ -2222,7 +2310,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           id: serverItem.key,
         });
         const serverPayload = serverToLocalItem?.rawDataJson?.payload;
-        let record: IDBWallet | IDBAccount | IDBIndexedAccount | undefined;
+        let record: ICloudSyncDBRecord | undefined;
         if (serverPayload) {
           record = await syncManager.getDBRecordBySyncPayload({
             payload: serverPayload as any,

@@ -422,6 +422,93 @@ index 377f41e..2bab943 100644
  #pragma mark - Layout
  
  - (CGSize)contentSize
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
+index bec2ac5..4cab4b5 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
+@@ -103,46 +103,51 @@ - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+ 
+ + (BOOL)isSupported:(NSString *)componentName
+ {
+-  // Step 1: check if ViewManager with specified name is supported.
+-  BOOL isComponentNameSupported =
+-      [[RCTLegacyViewManagerInteropComponentView supportedViewManagers] containsObject:componentName];
+-  if (isComponentNameSupported) {
+-    return YES;
+-  }
++  // This method accesses a shared static NSMutableDictionary and may be called
++  // concurrently from multiple JS runtimes (e.g. main + background thread).
++  // @synchronized ensures thread-safe access to the mutable shared state.
++  @synchronized([RCTLegacyViewManagerInteropComponentView class]) {
++    // Step 1: check if ViewManager with specified name is supported.
++    BOOL isComponentNameSupported =
++        [[RCTLegacyViewManagerInteropComponentView supportedViewManagers] containsObject:componentName];
++    if (isComponentNameSupported) {
++      return YES;
++    }
+ 
+-  // Step 2: check if component has supported prefix.
+-  for (NSString *item in [RCTLegacyViewManagerInteropComponentView supportedViewManagersPrefixes]) {
+-    if ([componentName hasPrefix:item]) {
++    // Step 2: check if component has supported prefix.
++    for (NSString *item in [RCTLegacyViewManagerInteropComponentView supportedViewManagersPrefixes]) {
++      if ([componentName hasPrefix:item]) {
++        return YES;
++      }
++    }
++
++    // Step 3: check if the module has been registered
++    // TODO(T174674274): Implement lazy loading of legacy view managers in the new architecture.
++    NSArray<Class> *registeredModules = RCTGetModuleClasses();
++    NSMutableDictionary<NSString *, Class> *supportedLegacyViewComponents =
++        [RCTLegacyViewManagerInteropComponentView _supportedLegacyViewComponents];
++    if (supportedLegacyViewComponents[componentName] != NULL) {
+       return YES;
+     }
+-  }
+ 
+-  // Step 3: check if the module has been registered
+-  // TODO(T174674274): Implement lazy loading of legacy view managers in the new architecture.
+-  NSArray<Class> *registeredModules = RCTGetModuleClasses();
+-  NSMutableDictionary<NSString *, Class> *supportedLegacyViewComponents =
+-      [RCTLegacyViewManagerInteropComponentView _supportedLegacyViewComponents];
+-  if (supportedLegacyViewComponents[componentName] != NULL) {
+-    return YES;
+-  }
++    for (Class moduleClass in registeredModules) {
++      id<RCTBridgeModule> bridgeModule = (id<RCTBridgeModule>)moduleClass;
++      NSString *moduleName = [[bridgeModule moduleName] isEqualToString:@""]
++          ? [NSStringFromClass(moduleClass) stringByReplacingOccurrencesOfString:@"Manager" withString:@""]
++          : [bridgeModule moduleName];
+ 
+-  for (Class moduleClass in registeredModules) {
+-    id<RCTBridgeModule> bridgeModule = (id<RCTBridgeModule>)moduleClass;
+-    NSString *moduleName = [[bridgeModule moduleName] isEqualToString:@""]
+-        ? [NSStringFromClass(moduleClass) stringByReplacingOccurrencesOfString:@"Manager" withString:@""]
+-        : [bridgeModule moduleName];
++      if (supportedLegacyViewComponents[moduleName] == NULL) {
++        supportedLegacyViewComponents[moduleName] = moduleClass;
++      }
+ 
+-    if (supportedLegacyViewComponents[moduleName] == NULL) {
+-      supportedLegacyViewComponents[moduleName] = moduleClass;
++      if ([moduleName isEqualToString:componentName] ||
++          [moduleName isEqualToString:[@"RCT" stringByAppendingString:componentName]]) {
++        return YES;
++      }
+     }
+ 
+-    if ([moduleName isEqualToString:componentName] ||
+-        [moduleName isEqualToString:[@"RCT" stringByAppendingString:componentName]]) {
+-      return YES;
+-    }
++    return NO;
+   }
+-
+-  return NO;
+ }
+ 
+ + (void)supportLegacyViewManagersWithPrefix:(NSString *)prefix
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
 index 577bebe..ad0f253 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm

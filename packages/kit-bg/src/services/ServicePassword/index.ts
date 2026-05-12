@@ -73,6 +73,14 @@ import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthUtils } from './biologyAuthUtils';
 
+function unrefTimeout(
+  timeout: ReturnType<typeof setTimeout> | null | undefined,
+) {
+  (
+    timeout as ReturnType<typeof setTimeout> & { unref?: () => void }
+  )?.unref?.();
+}
+
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
   private cachedPassword?: string;
@@ -213,7 +221,6 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async clearCachedPassword() {
     this.cachedPassword = undefined;
-    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
     // Clear sync credential caches on lock screen (security invariant).
     // For keyless mode, credentials can be re-read from storage without password.
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
@@ -239,6 +246,7 @@ export default class ServicePassword extends ServiceBase {
     this.cachedPrfMasterKeyTimeOutObject = setTimeout(() => {
       void this.clearCachedPrfMasterKey();
     }, this.PRF_MASTER_KEY_CACHE_DURATION_MS);
+    unrefTimeout(this.cachedPrfMasterKeyTimeOutObject);
   }
 
   @backgroundMethod()
@@ -265,6 +273,7 @@ export default class ServicePassword extends ServiceBase {
     this.cachedPasswordTimeOutObject = setTimeout(() => {
       void this.clearCachedPassword();
     }, this.cachedPasswordTTL);
+    unrefTimeout(this.cachedPasswordTimeOutObject);
 
     void (async () => {
       const prevPasswordRaw = prevPassword
@@ -279,9 +288,13 @@ export default class ServicePassword extends ServiceBase {
         : '';
       if (password && prevPasswordRaw !== newPasswordRaw) {
         await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+        // forceSync re-applies items already marked localSceneUpdated, so bot
+        // wallet sync items that were skipped earlier (parent KW or password
+        // not yet ready) get reprocessed once the password is cached.
         await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
           {
             callerName: 'setCachedPassword',
+            forceSync: true,
           },
         );
       }
@@ -297,6 +310,7 @@ export default class ServicePassword extends ServiceBase {
     this.cachedPasswordTimeOutObject = setTimeout(() => {
       void this.clearCachedPassword();
     }, this.cachedPasswordTTL);
+    unrefTimeout(this.cachedPasswordTimeOutObject);
     return this.cachedPassword;
   }
 
@@ -376,6 +390,12 @@ export default class ServicePassword extends ServiceBase {
     enable: boolean,
     skipAuth?: boolean,
   ): Promise<void> {
+    // TODO(biologyAuth-debug): temporary log to diagnose biometric disappearing
+    defaultLogger.setting.page.biologyAuthDebug('setBiologyAuthEnable', {
+      enable,
+      skipAuth: !!skipAuth,
+      stack: new Error('trace').stack?.split('\n').slice(1, 6).join(' | '),
+    });
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
@@ -605,7 +625,6 @@ export default class ServicePassword extends ServiceBase {
     let masterPasswordUpdateRollback: (() => Promise<void>) | undefined;
     let keylessDataUpdateRollback: (() => Promise<void>) | undefined;
     try {
-      await this.backgroundApi.serviceAddressBook.updateHash(newPassword);
       await this.saveBiologyAuthPassword(newPassword);
       await this.setCachedPassword({ password: newPassword });
       await this.setPasswordSetStatus(true, passwordMode);
@@ -628,16 +647,9 @@ export default class ServicePassword extends ServiceBase {
         oldPassword,
         newPassword,
       });
-      await this.backgroundApi.serviceAddressBook.finishUpdateHash();
       await timerUtils.wait(2000);
       return newPassword;
     } catch (e) {
-      try {
-        await this.backgroundApi.serviceAddressBook.rollback(oldPassword);
-      } catch (rollbackError) {
-        console.error(rollbackError);
-      }
-
       try {
         await this.rollbackPassword(oldPassword);
       } catch (rollbackError) {
@@ -723,12 +735,25 @@ export default class ServicePassword extends ServiceBase {
         } catch (e) {
           console.error(e);
         }
+        if (!this._migrateRemoveHashExecuted) {
+          try {
+            await this.backgroundApi.serviceAddressBook.migrateRemoveHash({
+              password: verifyingPassword,
+            });
+          } catch (e) {
+            console.error('Address book migration error', e);
+          } finally {
+            this._migrateRemoveHashExecuted = true;
+          }
+        }
       })();
     }
     return verifyingPassword;
   }
 
   _mergeDuplicateHDWalletsExecuted = false;
+
+  _migrateRemoveHashExecuted = false;
 
   // ui ------------------------------
   promptPasswordVerifyMutex = new Semaphore(1);
@@ -889,6 +914,7 @@ export default class ServicePassword extends ServiceBase {
     this.passwordPromptTimeout = setTimeout(() => {
       void this.cancelPasswordPromptDialog(params.idNumber);
     }, this.passwordPromptTTL);
+    unrefTimeout(this.passwordPromptTimeout);
   }
 
   @backgroundMethod()
@@ -967,7 +993,6 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async lockApp(options?: { manual: boolean }) {
     const { manual = false } = options || {};
-    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
     const isFirmwareUpdateRunning =
       await firmwareUpdateWorkflowRunningAtom.get();
     if (isFirmwareUpdateRunning) {

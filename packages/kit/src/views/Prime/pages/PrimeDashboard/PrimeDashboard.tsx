@@ -18,7 +18,6 @@ import {
   XStack,
   YStack,
   useSafeAreaInsets,
-  useScrollView,
   useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -51,7 +50,7 @@ import { PrimeUserInfo } from './PrimeUserInfo';
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 import type { RouteProp } from '@react-navigation/core';
 
-const FooterGradient = memo(function FooterGradient() {
+const FooterGradient = memo(() => {
   const theme = useTheme();
   return (
     <LinearGradient
@@ -68,62 +67,7 @@ const FooterGradient = memo(function FooterGradient() {
   );
 });
 
-function PrimeBenefitsScrollContainer({
-  fromFeature,
-  selectedSubscriptionPeriod,
-  networkId,
-  serverUserInfo,
-}: {
-  fromFeature: EPrimeFeatures | undefined;
-  selectedSubscriptionPeriod: ISubscriptionPeriod;
-  networkId: string | undefined;
-  serverUserInfo: IPrimeServerUserInfo | undefined;
-}) {
-  const { scrollViewRef } = useScrollView();
-  const hasScrolledRef = useRef(false);
-  const scrollTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  useEffect(
-    () => () => {
-      if (scrollTimerRef.current) {
-        clearTimeout(scrollTimerRef.current);
-      }
-    },
-    [],
-  );
-
-  return (
-    <Stack
-      onLayout={
-        fromFeature
-          ? (e) => {
-              if (!hasScrolledRef.current) {
-                const layout = e?.nativeEvent?.layout;
-                if (!layout) return;
-                hasScrolledRef.current = true;
-                const layoutY = layout.y ?? 0;
-                scrollTimerRef.current = setTimeout(() => {
-                  if (typeof scrollViewRef?.current?.scrollTo === 'function') {
-                    scrollViewRef.current.scrollTo({
-                      y: Math.max(0, layoutY - 120),
-                      animated: true,
-                    });
-                  }
-                }, 300);
-              }
-            }
-          : undefined
-      }
-    >
-      <PrimeBenefitsList
-        selectedSubscriptionPeriod={selectedSubscriptionPeriod}
-        networkId={networkId}
-        serverUserInfo={serverUserInfo}
-        fromFeature={fromFeature}
-      />
-    </Stack>
-  );
-}
+FooterGradient.displayName = 'FooterGradient';
 
 function PrimeBanner({ isPrimeActive = false }: { isPrimeActive?: boolean }) {
   const intl = useIntl();
@@ -182,6 +126,10 @@ export default function PrimeDashboard({
     IPrimeServerUserInfo | undefined
   >(undefined);
 
+  const handleLogoutSuccess = useCallback(async () => {
+    setServerUserInfo(undefined);
+  }, []);
+
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
@@ -201,6 +149,16 @@ export default function PrimeDashboard({
   } | null>(null);
 
   const prevIsLoggedInRef = useRef(isLoggedIn);
+
+  const dashboardShownRef = useRef(false);
+  useEffect(() => {
+    if (dashboardShownRef.current) return;
+    dashboardShownRef.current = true;
+    defaultLogger.prime.subscription.primeDashboardShow({
+      featureName: fromFeature,
+      isPrimeActive: !!isPrimeSubscriptionActive,
+    });
+  }, [fromFeature, isPrimeSubscriptionActive]);
 
   useEffect(() => {
     const fn = async () => {
@@ -393,6 +351,17 @@ export default function PrimeDashboard({
     if (!selectedPackage) {
       return intl.formatMessage({ id: ETranslations.prime_subscribe });
     }
+    if (selectedPackage.freeTrial?.periodUnit === 'day') {
+      return intl.formatMessage(
+        { id: ETranslations.prime_start_free_trial_days },
+        { count: selectedPackage.freeTrial.periodNumber },
+      );
+    }
+    if (selectedPackage.freeTrial) {
+      return intl.formatMessage({
+        id: ETranslations.prime_start_free_trial,
+      });
+    }
     const isYearly = selectedPackage.subscriptionPeriod === 'P1Y';
     return intl.formatMessage(
       {
@@ -415,6 +384,12 @@ export default function PrimeDashboard({
     if (isSubscribeLazyLoadingRef.current) {
       return;
     }
+
+    defaultLogger.prime.subscription.primeSubscribeButtonClick({
+      subscriptionPeriod: selectedSubscriptionPeriod,
+      featureName: fromFeature,
+      isLoggedIn,
+    });
 
     // If not logged in, store intent so we can resume after login
     if (!isLoggedIn) {
@@ -571,7 +546,9 @@ export default function PrimeDashboard({
             >
               <PrimeLottieAnimation />
               <PrimeBanner isPrimeActive={isPrimeSubscriptionActive} />
-              {isLoggedInMaybe ? <PrimeUserInfo /> : null}
+              {isLoggedInMaybe ? (
+                <PrimeUserInfo onLogoutSuccess={handleLogoutSuccess} />
+              ) : null}
             </Stack>
 
             {shouldShowSubscriptionPlans ? (
@@ -585,8 +562,7 @@ export default function PrimeDashboard({
             ) : null}
 
             {isPurchaseReady ? (
-              <PrimeBenefitsScrollContainer
-                fromFeature={fromFeature}
+              <PrimeBenefitsList
                 selectedSubscriptionPeriod={selectedSubscriptionPeriod}
                 networkId={route.params?.networkId}
                 serverUserInfo={serverUserInfo}

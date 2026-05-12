@@ -170,7 +170,9 @@ const useParseQRCode = () => {
             // RNSScreenStack retries exhaust on stacks inside detached tab
             // views (OK-50182).
             resetAboveMainRoute();
-            await timerUtils.wait(100);
+            // Wait for modal dismiss to complete before opening new modal.
+            // Web needs more time for CSS transition to finish (backdrop issue OK-52532).
+            await timerUtils.wait(platformEnv.isNative ? 100 : 300);
           } else {
             // Atomically remove ScanQrCodeModal and ActionCenter routes,
             // preserving caller routes (e.g. onboarding). This avoids

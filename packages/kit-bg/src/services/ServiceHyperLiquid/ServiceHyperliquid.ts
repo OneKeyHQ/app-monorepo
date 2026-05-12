@@ -1,3 +1,5 @@
+/* cspell:ignore Fundings */
+
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
 import { isEqual, isNil, omit } from 'lodash';
@@ -17,6 +19,7 @@ import {
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
   HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
+  PERPS_FILTERED_LEDGER_TYPES,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -26,11 +29,16 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
-import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
+import perpsUtils, {
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import {
+  CACHE_TIME_QUANTIZE_MS,
+  SPOT_ASSET_ID_OFFSET,
   XYZ_ASSET_ID_OFFSET,
   XYZ_DEX_PREFIX,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -38,17 +46,27 @@ import type {
   IApiRequestError,
   IApiRequestResult,
   IFill,
+  IFundingHistoryRecord,
   IHex,
   IMarginTable,
   IMarginTableMap,
+  IPerpAnnotation,
+  IPerpContractInfo,
+  IPerpMarketOverview,
+  IPerpPredictedFundingVenue,
   IPerpsActiveAssetData,
   IPerpsActiveAssetDataRaw,
-  IPerpsAssetPosition,
   IPerpsUniverse,
+  IRecentTrade,
+  ISpotUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
+  IUserNonFundingLedgerUpdate,
   IWsActiveAssetCtx,
+  IWsActiveSpotAssetCtx,
   IWsAllDexsClearinghouseState,
+  IWsSpotAssetCtxs,
+  IWsSpotState,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
@@ -56,6 +74,7 @@ import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliqui
 import localDb from '../../dbs/local/localDb';
 import {
   perpTokenSelectorTabsAtom,
+  perpsAbstractionModeAtom,
   perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
@@ -69,7 +88,14 @@ import {
   perpsDepositNetworksAtom,
   perpsDepositTokensAtom,
   perpsLastUsedLeverageAtom,
+  perpsSpotBalancesAtom,
   perpsTradesHistoryDataAtom,
+  spotActiveAssetAtom,
+  spotActiveAssetCtxAtom,
+  spotAssetCtxsMapAtom,
+  spotBalancesAtom,
+  spotExternalMarketCapsAtom,
+  spotPairDisplayMapAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -91,6 +117,10 @@ import type {
   IPerpsDepositToken,
   IPerpsDepositTokensAtom,
 } from '../../states/jotai/atoms';
+import type {
+  ISpotActiveAssetCtxAtom,
+  ISpotAssetCtxEntry,
+} from '../../states/jotai/atoms/spot';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 import type { IHyperliquidMaxBuilderFee } from '../ServiceWebviewPerp';
 import type {
@@ -98,15 +128,116 @@ import type {
   IPerpServerDepositConfig,
 } from '../ServiceWebviewPerp/ServiceWebviewPerp';
 
+type ILoadTradesHistoryOptions = {
+  force?: boolean;
+};
+
+function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
+  return fills.filter(
+    (fill) => !perpsUtils.isPredictionMarketInstrument(fill.coin),
+  );
+}
+
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
 
+  private activeAssetChangeRequestId = 0;
+
+  @backgroundMethod()
+  async cancelPendingActiveAssetChange(): Promise<void> {
+    this.activeAssetChangeRequestId += 1;
+  }
+
+  // Avoids async atom reads in the hot path — written to atom on a throttled schedule
+  private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
+
+  private _spotPriceDirty = false;
+
+  private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private _fetchSpotExternalMarketCaps = cacheUtils.memoizee(
+    async (): Promise<Record<string, string>> => {
+      const idToSymbol =
+        perpsUtils.SPOT_EXTERNAL_MARKET_CAP_COINGECKO_ID_SYMBOL_MAP;
+      const tokens = await this.backgroundApi.serviceMarket.fetchCategory(
+        'all',
+        Object.keys(idToSymbol),
+        false,
+      );
+      const marketCaps: Record<string, string> = {};
+      for (const token of tokens) {
+        const symbol = idToSymbol[token.coingeckoId];
+        const marketCap = new BigNumber(token.marketCap ?? 0);
+        if (symbol && marketCap.isFinite() && marketCap.gt(0)) {
+          marketCaps[symbol] = marketCap.toFixed();
+        }
+      }
+      return marketCaps;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+    },
+  );
+
+  private _flushSpotPrices(map: Record<string, ISpotAssetCtxEntry>) {
+    // allMids only sets markPx, spotAssetCtxs sets full entry — merge so neither overwrites the other
+    for (const [key, entry] of Object.entries(map)) {
+      const existing = this._spotPriceCache[key];
+      if (existing) {
+        this._spotPriceCache[key] = { ...existing, ...entry };
+      } else {
+        this._spotPriceCache[key] = entry;
+      }
+    }
+    this._spotPriceDirty = true;
+
+    if (!this._spotPriceFlushTimer) {
+      void spotAssetCtxsMapAtom.set({ ...this._spotPriceCache });
+      this._spotPriceDirty = false;
+      this._spotPriceFlushTimer = setTimeout(() => {
+        this._spotPriceFlushTimer = null;
+        if (this._spotPriceDirty) {
+          void spotAssetCtxsMapAtom.set({ ...this._spotPriceCache });
+          this._spotPriceDirty = false;
+        }
+      }, 1000);
+    }
+  }
+
+  // Cached in-memory so WS handlers don't need async SimpleDb reads on the hot path
+  private _spotMappings: {
+    pairToBaseName: Record<string, string>;
+    baseNameToAssetId: Record<string, number>;
+    baseNameToSzDecimals: Record<string, number>;
+    baseNameToPairName: Record<string, string>;
+  } = {
+    pairToBaseName: {},
+    baseNameToAssetId: {},
+    baseNameToSzDecimals: {},
+    baseNameToPairName: {},
+  };
+
+  // OK-53208: survives Perp tab detach/remount; component refs reset on
+  // unmount and would otherwise repeat refreshTradingMeta + changeActiveAsset
+  // on every modal push.
+  private _initialSymbolSelectClaimed = false;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     void this.init();
+  }
+
+  @backgroundMethod()
+  async tryClaimInitialSymbolSelect(): Promise<boolean> {
+    if (this._initialSymbolSelectClaimed) {
+      return false;
+    }
+    this._initialSymbolSelectClaimed = true;
+    return true;
   }
 
   private get exchangeService(): ServiceHyperliquidExchange {
@@ -119,6 +250,27 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private detectDexIndexByCoin(coin: string): number {
     return coin.startsWith(XYZ_DEX_PREFIX) ? 1 : 0;
+  }
+
+  private resolveInfoRequestCoin(coin: string) {
+    const { dexLabel } = parseDexCoin(coin);
+    return {
+      apiCoin: coin,
+      dex: dexLabel,
+    };
+  }
+
+  private async getAssetCtxByCoin(coin: string) {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin, dex } = this.resolveInfoRequestCoin(coin);
+    const [meta, assetCtxs] = dex
+      ? await infoClient.metaAndAssetCtxs({ dex })
+      : await infoClient.metaAndAssetCtxs();
+    const ctxIndex = meta.universe.findIndex((item) => item.name === apiCoin);
+    if (ctxIndex < 0) {
+      return undefined;
+    }
+    return assetCtxs[ctxIndex];
   }
 
   private getAssetIdWithDexPrefix({
@@ -197,6 +349,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       hyperLiquidErrorLocales,
       tokenSearchAliases,
       tokenSelectorTabs,
+      perpsAssetMetaMap,
       activityCards,
     }: IPerpServerConfigResponse,
     options?: { fromServerConfig?: boolean },
@@ -212,13 +365,6 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     // If configVersion changed, remove all agent credentials
     if (isConfigVersionChanged) {
-      console.log(
-        '[ServiceHyperliquid] configVersion changed:',
-        prevConfigVersion,
-        '->',
-        newConfigVersion,
-        ', removing all agent credentials',
-      );
       defaultLogger.perp.agentLifeCycle.trackReason({
         reason: 'config_version_changed_reset',
         statusDetails: {
@@ -287,6 +433,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             hyperLiquidErrorLocales || prev?.hyperliquidErrorLocales,
           tokenSearchAliases: tokenSearchAliases || prev?.tokenSearchAliases,
           tokenSelectorTabs: tokenSelectorTabs ?? prev?.tokenSelectorTabs,
+          perpsAssetMetaMap: perpsAssetMetaMap || prev?.perpsAssetMetaMap,
         };
         if (isEqual(newConfig, prev)) {
           return (
@@ -317,12 +464,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   async removeAllAgentCredentialsAndResetStatus() {
     // Remove all agent credentials from local db
-    const removedCount = await localDb.removeAllHyperLiquidAgentCredentials();
-    console.log(
-      '[ServiceHyperliquid] Removed',
-      removedCount,
-      'agent credentials',
-    );
+    await localDb.removeAllHyperLiquidAgentCredentials();
 
     // Clear related caches
     this.fetchExtraAgentsWithCache.clear();
@@ -362,6 +504,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
         tokenSearchAliases: resData?.data?.tokenSearchAliases,
         tokenSelectorTabs: resData?.data?.tokenSelectorTabs,
+        perpsAssetMetaMap: resData?.data?.perpsAssetMetaMap,
         activityCards: resData?.data?.activityCards,
       },
       { fromServerConfig: true },
@@ -374,14 +517,15 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this._updatePerpsConfigByServerWithCache();
   }
 
-  // TODO: Change maxAge back to { hour: 1 } before production release
   _updatePerpsConfigByServerWithCache = cacheUtils.memoizee(
     async () => {
       return this.updatePerpsConfigByServer();
     },
     {
       max: 20,
-      maxAge: 0,
+      // 10 min: fast enough to propagate server-side perp disable / builder
+      // config changes, while still deduping redundant focus-driven fetches.
+      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
       promise: true,
     },
   );
@@ -394,10 +538,35 @@ export default class ServiceHyperliquid extends ServiceBase {
     return config.tokenSearchAliases;
   }
 
-  private _filterFills(fills: IFill[]) {
-    return fills.filter(
-      (fill) =>
-        !fill.coin.startsWith('@') && fill.dir !== 'Sell' && fill.dir !== 'Buy',
+  @backgroundMethod()
+  async getPerpsAssetMetaMap() {
+    try {
+      await this.updatePerpsConfigByServerWithCache();
+    } catch {
+      // Use the persisted config if the refresh fails.
+    }
+    const config = await this.backgroundApi.simpleDb.perp.getPerpData();
+    return config.perpsAssetMetaMap;
+  }
+
+  private _getFillKey(fill: IFill): string {
+    if (typeof fill.tid === 'number') {
+      return `tid:${fill.tid}`;
+    }
+    return `${fill.hash}-${fill.oid}-${fill.time}-${fill.coin}-${fill.side}-${fill.px}-${fill.sz}`;
+  }
+
+  private _sortAndDedupeFills(fills: IFill[]): IFill[] {
+    const fillMap = new Map<string, IFill>();
+    for (const fill of fills) {
+      const key = this._getFillKey(fill);
+      const existing = fillMap.get(key);
+      if (!existing || fill.time >= existing.time) {
+        fillMap.set(key, fill);
+      }
+    }
+    return Array.from(fillMap.values()).toSorted(
+      (a, b) => b.time - a.time || (b.tid ?? 0) - (a.tid ?? 0),
     );
   }
 
@@ -408,7 +577,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         ...params,
         aggregateByTime: true,
       });
-      return this._filterFills(fills);
+      return fills;
     },
     {
       max: 1,
@@ -426,7 +595,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       ...params,
       aggregateByTime: true,
     });
-    return this._filterFills(fills);
+    return fills;
   }
 
   @backgroundMethod()
@@ -437,34 +606,73 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async loadTradesHistory(accountAddress: IHex): Promise<IFill[]> {
+  async loadTradesHistory(
+    accountAddress: IHex,
+    options: ILoadTradesHistoryOptions = {},
+  ): Promise<IFill[]> {
+    const normalizedAccountAddress = accountAddress.toLowerCase();
     const current = await perpsTradesHistoryDataAtom.get();
+    const isSameAccount =
+      current.accountAddress?.toLowerCase() === normalizedAccountAddress;
 
-    if (
-      current.isLoaded &&
-      current.accountAddress?.toLowerCase() === accountAddress.toLowerCase()
-    ) {
+    if (!options.force && current.isLoaded && isSameAccount) {
       return current.fills;
     }
 
-    const now = Date.now();
+    if (options.force) {
+      this._getUserFillsByTimeMemo.clear();
+    }
+
+    // Quantize to 10-second boundary so near-simultaneous callers
+    // produce identical memoizee keys and share a single request.
+    const now =
+      Math.floor(Date.now() / CACHE_TIME_QUANTIZE_MS) * CACHE_TIME_QUANTIZE_MS;
     const historyDuration = timerUtils.getTimeDurationMs({ year: 2 });
     const twoYearsAgo = now - historyDuration;
 
-    const fills = await this._getUserFillsByTimeMemo({
+    const params = {
       user: accountAddress,
       startTime: twoYearsAgo,
       endTime: now,
       aggregateByTime: true,
-    });
+      // HL caps userFillsByTime at 2000 rows; reverse to keep the latest fills.
+      reversed: true,
+    };
 
-    const sorted = [...fills].toSorted((a, b) => b.time - a.time);
+    const fillsRaw = options.force
+      ? await this.getUserFillsByTime(params)
+      : await this._getUserFillsByTimeMemo(params);
+    const fills = filterSupportedTradeHistoryFills(fillsRaw);
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (
+      activeAccount?.accountAddress?.toLowerCase() !== normalizedAccountAddress
+    ) {
+      return this._sortAndDedupeFills(fills);
+    }
+
+    // Merge with the latest atom after the request returns so WS appends or
+    // concurrent refreshes that landed during the REST call are preserved.
+    const latestCurrent = await perpsTradesHistoryDataAtom.get();
+    const shouldMergeLatest =
+      latestCurrent.accountAddress?.toLowerCase() === normalizedAccountAddress;
+    const sorted = this._sortAndDedupeFills(
+      shouldMergeLatest ? [...latestCurrent.fills, ...fills] : fills,
+    );
+
+    const latestActiveAccount = await perpsActiveAccountAtom.get();
+    if (
+      latestActiveAccount?.accountAddress?.toLowerCase() !==
+      normalizedAccountAddress
+    ) {
+      return sorted;
+    }
 
     await perpsTradesHistoryDataAtom.set({
       fills: sorted,
       isLoaded: true,
       latestTime: sorted[0]?.time ?? 0,
-      accountAddress: accountAddress.toLowerCase(),
+      accountAddress: normalizedAccountAddress,
     });
 
     return sorted;
@@ -488,18 +696,25 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
-    const filtered = this._filterFills(newFills)
-      .filter((f) => f.time > current.latestTime)
-      .toSorted((a, b) => b.time - a.time);
-
-    if (filtered.length === 0) {
+    const currentFillKeys = new Set(
+      current.fills.map((fill) => this._getFillKey(fill)),
+    );
+    const hasNewFill = newFills.some(
+      (fill) => !currentFillKeys.has(this._getFillKey(fill)),
+    );
+    if (!hasNewFill) {
       return;
     }
 
+    const fills = this._sortAndDedupeFills([
+      ...filterSupportedTradeHistoryFills(newFills),
+      ...current.fills,
+    ]);
+
     await perpsTradesHistoryDataAtom.set({
       ...current,
-      fills: [...filtered, ...current.fills],
-      latestTime: Math.max(current.latestTime, filtered[0].time),
+      fills,
+      latestTime: fills[0]?.time ?? current.latestTime,
     });
   }
 
@@ -518,6 +733,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     const { infoClient } = hyperLiquidApiClients;
 
     return infoClient.userFills(params);
+  }
+
+  @backgroundMethod()
+  async getUserNonFundingLedgerUpdates(
+    accountAddress: IHex,
+  ): Promise<IUserNonFundingLedgerUpdate[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const now =
+      Math.floor(Date.now() / CACHE_TIME_QUANTIZE_MS) * CACHE_TIME_QUANTIZE_MS;
+    const twoYearsAgo = now - timerUtils.getTimeDurationMs({ year: 2 });
+    const updates = await infoClient.userNonFundingLedgerUpdates({
+      user: accountAddress,
+      startTime: twoYearsAgo,
+      endTime: now,
+    });
+    return updates
+      .filter((update) => !PERPS_FILTERED_LEDGER_TYPES.has(update.delta.type))
+      .toSorted((a, b) => b.time - a.time)
+      .slice(0, 200);
   }
 
   @backgroundMethod()
@@ -558,15 +792,36 @@ export default class ServiceHyperliquid extends ServiceBase {
   async getSymbolsMetaMap({ coins }: { coins: string[] }) {
     const { universesByDex, marginTablesMapByDex } =
       await this.getTradingUniverse();
+    const { universes: spotUniverses } =
+      await this.backgroundApi.simpleDb.perp.getSpotMeta();
     const map: Partial<{
       [coin: string]: {
         coin: string;
         assetId: number;
         universe: IPerpsUniverse | undefined;
         marginTable: IMarginTable | undefined;
+        isSpot?: boolean;
+        spotUniverse?: ISpotUniverse;
       };
     }> = {};
     coins.forEach((coin) => {
+      if (perpsUtils.isSpotInstrument(coin)) {
+        const spotUni = spotUniverses.find(
+          (item: ISpotUniverse) => item.name === coin,
+        );
+        if (isNil(spotUni?.assetId)) {
+          throw new OneKeyLocalError(`Asset id not found for coin: ${coin}`);
+        }
+        map[coin] = {
+          assetId: spotUni.assetId,
+          coin,
+          universe: undefined,
+          marginTable: undefined,
+          isSpot: true,
+          spotUniverse: spotUni,
+        };
+        return;
+      }
       const dexIndex = this.detectDexIndexByCoin(coin);
       const universes = universesByDex?.[dexIndex];
       const marginTables = marginTablesMapByDex?.[dexIndex];
@@ -593,6 +848,137 @@ export default class ServiceHyperliquid extends ServiceBase {
     return meta;
   }
 
+  @backgroundMethod()
+  async getPerpMarketOverview({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IPerpMarketOverview | undefined> {
+    const [symbolMeta, assetCtx] = await Promise.all([
+      this.getSymbolMeta({ coin }),
+      this.getAssetCtxByCoin(coin),
+    ]);
+
+    if (!assetCtx) {
+      return undefined;
+    }
+
+    const ctx = perpsUtils.formatAssetCtx(assetCtx);
+    const openInterestNotionalBN = new BigNumber(
+      assetCtx.openInterest || 0,
+    ).multipliedBy(assetCtx.markPx || 0);
+
+    return {
+      coin,
+      assetId: symbolMeta?.assetId,
+      ctx,
+      premium: assetCtx.premium ?? null,
+      dayBaseVolume: assetCtx.dayBaseVlm || '0',
+      openInterestNotional: openInterestNotionalBN.isFinite()
+        ? openInterestNotionalBN.toFixed()
+        : null,
+    };
+  }
+
+  @backgroundMethod()
+  async getPerpContractInfo({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IPerpContractInfo | undefined> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin, dex } = this.resolveInfoRequestCoin(coin);
+    const [symbolMeta, perpsAtCap] = await Promise.all([
+      this.getSymbolMeta({ coin }),
+      (dex
+        ? infoClient.perpsAtOpenInterestCap({ dex })
+        : infoClient.perpsAtOpenInterestCap()
+      ).catch((): string[] => []),
+    ]);
+
+    if (!symbolMeta) {
+      return undefined;
+    }
+
+    return {
+      coin,
+      assetId: symbolMeta.assetId,
+      szDecimals: symbolMeta.universe?.szDecimals,
+      maxLeverage: symbolMeta.universe?.maxLeverage,
+      marginMode: symbolMeta.universe?.marginMode,
+      onlyIsolated: symbolMeta.universe?.onlyIsolated === true,
+      marginTable: symbolMeta.marginTable,
+      isAtOpenInterestCap:
+        perpsAtCap.includes(apiCoin) || perpsAtCap.includes(coin),
+    };
+  }
+
+  @backgroundMethod()
+  async getPerpFundingHistory({
+    coin,
+    startTime,
+    endTime,
+  }: {
+    coin: string;
+    startTime: number;
+    endTime?: number;
+  }): Promise<IFundingHistoryRecord[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    return infoClient.fundingHistory({
+      coin: apiCoin,
+      startTime,
+      endTime,
+    });
+  }
+
+  @backgroundMethod()
+  async getPerpRecentTrades({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IRecentTrade[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    return infoClient.recentTrades({
+      coin: apiCoin,
+    });
+  }
+
+  @backgroundMethod()
+  async getPerpPredictedFundings({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IPerpPredictedFundingVenue[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    const items = await infoClient.predictedFundings();
+    const matched = items.find(([asset]) => asset === apiCoin);
+    if (!matched) {
+      return [];
+    }
+    return matched[1].map(([exchange, data]) => ({
+      exchange,
+      fundingRate: data?.fundingRate ?? null,
+      nextFundingTime: data?.nextFundingTime ?? null,
+      fundingIntervalHours: data?.fundingIntervalHours,
+    }));
+  }
+
+  @backgroundMethod()
+  async getPerpAnnotation({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IPerpAnnotation> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    return infoClient.perpAnnotation({
+      coin: apiCoin,
+    });
+  }
+
   async updateActiveAssetCtx(data: IWsActiveAssetCtx | undefined) {
     const activeAsset = await perpsActiveAssetAtom.get();
     if (activeAsset?.coin === data?.coin && data?.coin) {
@@ -608,6 +994,55 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (activeAssetCtx?.coin !== activeAsset?.coin) {
         await perpsActiveAssetCtxAtom.set(undefined);
       }
+    }
+  }
+
+  async updateActiveSpotAssetCtx(data: IWsActiveSpotAssetCtx | undefined) {
+    const activeSpotAsset = await spotActiveAssetAtom.get();
+    if (activeSpotAsset?.coin === data?.coin && data?.coin && data?.ctx) {
+      await spotActiveAssetCtxAtom.set(
+        (_prev): ISpotActiveAssetCtxAtom => ({
+          coin: data.coin,
+          assetId: activeSpotAsset?.assetId,
+          baseName: activeSpotAsset?.universe?.baseName,
+          ctx: perpsUtils.formatSpotAssetCtx(data.ctx),
+        }),
+      );
+    } else {
+      const activeSpotAssetCtx = await spotActiveAssetCtxAtom.get();
+      if (activeSpotAssetCtx?.coin !== activeSpotAsset?.coin) {
+        await spotActiveAssetCtxAtom.set(undefined);
+      }
+    }
+  }
+
+  async updateSpotAssetCtxsMap(data: IWsSpotAssetCtxs) {
+    if (!Array.isArray(data) || data.length === 0) return;
+
+    const map: Record<string, ISpotAssetCtxEntry> = {};
+    data.forEach((ctx) => {
+      if (ctx?.coin && ctx?.markPx) {
+        map[ctx.coin] = {
+          markPx: ctx.markPx,
+          prevDayPx: ctx.prevDayPx,
+          dayNtlVlm: ctx.dayNtlVlm,
+          circulatingSupply: ctx.circulatingSupply,
+          totalSupply: ctx.totalSupply,
+        };
+      }
+    });
+    this._flushSpotPrices(map);
+  }
+
+  async extractSpotPricesFromAllMids(mids: Record<string, string>) {
+    const map: Record<string, ISpotAssetCtxEntry> = {};
+    for (const [coin, price] of Object.entries(mids)) {
+      if (perpsUtils.isSpotInstrument(coin) && price) {
+        map[coin] = { markPx: price };
+      }
+    }
+    if (Object.keys(map).length > 0) {
+      this._flushSpotPrices(map);
     }
   }
 
@@ -744,7 +1179,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         acc.withdrawable = acc.withdrawable.plus(state.withdrawable || '0');
 
         // Aggregate unrealized PnL from all positions
-        const positions = (assetPositions || []) as IPerpsAssetPosition[];
+        const positions = assetPositions || [];
         positions.forEach((position) => {
           const pnl = position.position?.unrealizedPnl;
           if (pnl) {
@@ -778,6 +1213,227 @@ export default class ServiceHyperliquid extends ServiceBase {
       withdrawable: aggregated.withdrawable.toFixed(),
       totalUnrealizedPnl: aggregated.totalUnrealizedPnl.toFixed(),
     });
+  }
+
+  async updateSpotBalances(spotStateData: IWsSpotState) {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+    const dataUser = spotStateData?.user?.toLowerCase();
+
+    // Active-account alignment: only process data for current account
+    if (!activeAddress || activeAddress !== dataUser) return;
+
+    const balances = spotStateData?.spotState?.balances || [];
+
+    await spotBalancesAtom.set({ balances, isLoaded: true });
+
+    // Calculate total USD value from spot balances
+    // Price lookup: USDC (token=0) → 1:1, others → allMids.mids[coin] (perp mid price by token name)
+    // Note: allMids["HYPE"]=36.20 is the correct USD price
+    //       allMids["@N"] is a spot universe pair index, NOT token index — do NOT use
+    const mids = hyperLiquidCache.allMids?.mids;
+    const hasNonUsdcTokens = balances.some(
+      (b) => b.token !== 0 && parseFloat(b.total) > 0,
+    );
+    const midsReady = mids && Object.keys(mids).length > 0;
+
+    // Don't write spotTotalUsd if allMids hasn't loaded yet and we have non-USDC tokens
+    // This prevents briefly showing an artificially low value
+    if (hasNonUsdcTokens && !midsReady) {
+      await perpsSpotBalancesAtom.set({
+        accountAddress: activeAddress as IHex,
+        balances: balances.map((b) => ({
+          coin: b.coin,
+          token: b.token,
+          total: b.total,
+          hold: b.hold,
+          entryNtl: b.entryNtl,
+        })),
+        spotTotalUsd: undefined, // triggers isLoading in computed atom
+      });
+      return;
+    }
+
+    let totalUsd = new BigNumber(0);
+    for (const balance of balances) {
+      const amount = new BigNumber(balance.total);
+      if (amount.isZero()) {
+        // skip zero balances
+      } else if (balance.token === 0) {
+        // USDC — quote currency, 1:1 USD
+        totalUsd = totalUsd.plus(amount);
+      } else {
+        // Use token name to look up perp mid price (e.g., "HYPE" → 36.20)
+        const midPrice = mids?.[balance.coin];
+        if (midPrice) {
+          totalUsd = totalUsd.plus(amount.multipliedBy(midPrice));
+        }
+      }
+    }
+
+    await perpsSpotBalancesAtom.set({
+      accountAddress: activeAddress as IHex,
+      balances: balances.map((b) => ({
+        coin: b.coin,
+        token: b.token,
+        total: b.total,
+        hold: b.hold,
+        entryNtl: b.entryNtl,
+      })),
+      spotTotalUsd: totalUsd.toFixed(),
+    });
+  }
+
+  // Re-calculate spotTotalUsd from cached balances when allMids becomes available
+  async recalculateSpotTotalUsd() {
+    const spotData = await perpsSpotBalancesAtom.get();
+    if (!spotData?.balances?.length || spotData.spotTotalUsd !== undefined)
+      return;
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+    if (!activeAddress || activeAddress !== spotData.accountAddress) return;
+
+    const mids = hyperLiquidCache.allMids?.mids;
+    if (!mids || Object.keys(mids).length === 0) return;
+
+    const { balances } = spotData;
+    let totalUsd = new BigNumber(0);
+    for (const balance of balances) {
+      const amount = new BigNumber(balance.total);
+      if (amount.isZero()) {
+        // skip zero balances
+      } else if (balance.token === 0) {
+        totalUsd = totalUsd.plus(amount);
+      } else {
+        const midPrice = mids[balance.coin];
+        if (midPrice) {
+          totalUsd = totalUsd.plus(amount.multipliedBy(midPrice));
+        }
+      }
+    }
+
+    const computed = totalUsd.toFixed();
+    // Functional updater: only write if spotTotalUsd is still undefined
+    // (avoids overwriting fresher data from a concurrent SPOT_STATE event)
+    await perpsSpotBalancesAtom.set((prev) => {
+      if (!prev || prev.spotTotalUsd !== undefined) return prev;
+      return { ...prev, spotTotalUsd: computed };
+    });
+  }
+
+  private _rebuildSpotMappings(universes: ISpotUniverse[]) {
+    const pairToBaseName: Record<string, string> = {};
+    const baseNameToAssetId: Record<string, number> = {};
+    const baseNameToSzDecimals: Record<string, number> = {};
+    const baseNameToPairName: Record<string, string> = {};
+
+    for (const u of universes) {
+      pairToBaseName[u.name] = u.baseName;
+      baseNameToAssetId[u.baseName] = u.assetId;
+      baseNameToSzDecimals[u.baseName] = u.baseSzDecimals;
+      baseNameToPairName[u.baseName] = u.name;
+    }
+
+    this._spotMappings = {
+      pairToBaseName,
+      baseNameToAssetId,
+      baseNameToSzDecimals,
+      baseNameToPairName,
+    };
+
+    // UI needs synchronous @N → display name resolution (no async SimpleDb lookup)
+    const displayMap: Record<string, string> = {};
+    for (const u of universes) {
+      displayMap[u.name] = perpsUtils.getSpotTokenDisplayName(u.baseName);
+    }
+    void spotPairDisplayMapAtom.set(displayMap);
+  }
+
+  // Service may restart without refreshSpotMeta — rebuild from SimpleDb on first access
+  private async _ensureSpotMappings() {
+    if (Object.keys(this._spotMappings.pairToBaseName).length > 0) return;
+    const { universes } = await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    if (universes.length > 0) {
+      this._rebuildSpotMappings(universes);
+    }
+  }
+
+  @backgroundMethod()
+  async getSpotAssetId(tokenName: string): Promise<number | undefined> {
+    await this._ensureSpotMappings();
+    return this._spotMappings.baseNameToAssetId[tokenName];
+  }
+
+  @backgroundMethod()
+  async getSpotSzDecimals(tokenName: string): Promise<number | undefined> {
+    await this._ensureSpotMappings();
+    return this._spotMappings.baseNameToSzDecimals[tokenName];
+  }
+
+  @backgroundMethod()
+  async getSpotPairName(tokenName: string): Promise<string | undefined> {
+    await this._ensureSpotMappings();
+    return this._spotMappings.baseNameToPairName[tokenName];
+  }
+
+  @backgroundMethod()
+  async getSpotMeta() {
+    return this.backgroundApi.simpleDb.perp.getSpotMeta();
+  }
+
+  @backgroundMethod()
+  async refreshSpotExternalMarketCaps() {
+    try {
+      const marketCaps = await this._fetchSpotExternalMarketCaps();
+      await spotExternalMarketCapsAtom.set(marketCaps);
+      return marketCaps;
+    } catch (error) {
+      defaultLogger.app.error.log(
+        `Failed to refresh spot external market caps: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return spotExternalMarketCapsAtom.get();
+    }
+  }
+
+  @backgroundMethod()
+  async refreshSpotMeta() {
+    const { infoClient } = hyperLiquidApiClients;
+    const result = await infoClient.spotMetaAndAssetCtxs();
+    const meta = result[0];
+    if (meta?.tokens && meta?.universe) {
+      const tokens = meta.tokens;
+      const universes: ISpotUniverse[] = meta.universe.map((item) => {
+        const baseTokenIdx = item.tokens[0];
+        const quoteTokenIdx = item.tokens[1];
+        const baseToken = tokens[baseTokenIdx];
+        const quoteToken = tokens[quoteTokenIdx];
+        const baseName = baseToken?.name ?? '';
+        const quoteName = quoteToken?.name ?? 'USDC';
+        return {
+          ...item,
+          assetId: SPOT_ASSET_ID_OFFSET + item.index,
+          baseName,
+          quoteName,
+          displayName: perpsUtils.getSpotTokenDisplayName(baseName),
+          baseSzDecimals: baseToken?.szDecimals ?? 0,
+        };
+      });
+      await this.backgroundApi.simpleDb.perp.setSpotMeta({
+        tokens,
+        universes,
+      });
+      this._rebuildSpotMappings(universes);
+    }
+    // Reuse the assetCtxs from this REST call so the first spot view doesn't
+    // wait 2-3s for the WS SPOT_ASSET_CTXS message and flash a skeleton.
+    const assetCtxs = result[1];
+    if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
+      void this.updateSpotAssetCtxsMap(assetCtxs);
+    }
+    void this.refreshSpotExternalMarketCaps();
   }
 
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -857,6 +1513,11 @@ export default class ServiceHyperliquid extends ServiceBase {
       }, 300);
     }
 
+    await perpsAbstractionModeAtom.set(undefined);
+    await perpsSpotBalancesAtom.set(undefined);
+    // Also reset the UI-facing spot balances atom so stale balances from
+    // the previous account don't flash before the new SPOT_STATE arrives.
+    await spotBalancesAtom.set({ balances: [], isLoaded: false });
     await perpsActiveAccountAtom.set(perpsAccount);
     return perpsAccount;
   }
@@ -866,6 +1527,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     universeItems: IPerpsUniverse[];
     selectedUniverse: IPerpsUniverse | undefined;
   }> {
+    const requestId = (this.activeAssetChangeRequestId += 1);
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
@@ -887,6 +1549,13 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     const selectedUniverse: IPerpsUniverse | undefined =
       dexUniverses?.find((item) => item.name === newCoin) || dexUniverses?.[0];
+    if (requestId !== this.activeAssetChangeRequestId) {
+      return {
+        universeItems: dexUniverses || [],
+        selectedUniverse: oldActiveAsset?.universe,
+      };
+    }
+
     const assetId =
       selectedUniverse?.assetId ??
       dexUniverses?.findIndex(
@@ -894,6 +1563,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       ) ??
       -1;
     const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
+    if (requestId !== this.activeAssetChangeRequestId) {
+      return {
+        universeItems: dexUniverses || [],
+        selectedUniverse: oldActiveAsset?.universe,
+      };
+    }
+
     await perpsActiveAssetAtom.set({
       coin: selectedUniverse?.name || newCoin || '',
       assetId,
@@ -927,6 +1603,70 @@ export default class ServiceHyperliquid extends ServiceBase {
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   @backgroundMethod()
+  async fetchUserAbstraction(userAddress: IHex): Promise<string | undefined> {
+    // Active-account alignment check
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (
+      activeAccount?.accountAddress?.toLowerCase() !== userAddress.toLowerCase()
+    ) {
+      return undefined;
+    }
+
+    const { infoClient } = hyperLiquidApiClients;
+    try {
+      const mode = await infoClient.userAbstraction({ user: userAddress });
+
+      // Re-check alignment after async call
+      const currentAccount = await perpsActiveAccountAtom.get();
+      if (
+        currentAccount?.accountAddress?.toLowerCase() !==
+        userAddress.toLowerCase()
+      ) {
+        return undefined;
+      }
+
+      await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
+        userAddress,
+        mode,
+      );
+      await perpsAbstractionModeAtom.set({
+        accountAddress: userAddress.toLowerCase() as IHex,
+        mode: mode as EHyperLiquidAbstractionMode,
+      });
+      return mode;
+    } catch {
+      // Fallback to SimpleDb cached value — need alignment checks around every await
+      const preDbAccount = await perpsActiveAccountAtom.get();
+      if (
+        preDbAccount?.accountAddress?.toLowerCase() !==
+        userAddress.toLowerCase()
+      ) {
+        return undefined;
+      }
+      const cached =
+        await this.backgroundApi.simpleDb.perp.getUserAbstractionMode(
+          userAddress,
+        );
+      // Post-async alignment: user could have switched during SimpleDb read
+      const postDbAccount = await perpsActiveAccountAtom.get();
+      if (
+        postDbAccount?.accountAddress?.toLowerCase() !==
+        userAddress.toLowerCase()
+      ) {
+        return undefined;
+      }
+      if (cached) {
+        await perpsAbstractionModeAtom.set({
+          accountAddress: userAddress.toLowerCase() as IHex,
+          mode: cached as EHyperLiquidAbstractionMode,
+        });
+        return cached;
+      }
+      return undefined; // NOT "default" — unknown is unknown
+    }
+  }
+
+  @backgroundMethod()
   async checkPerpsAccountStatus({
     isEnableTradingTrigger = false,
   }: {
@@ -939,6 +1679,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       referralCodeOk: false,
       builderFeeOk: false,
       internalRebateBoundOk: false,
+      abstractionOk: false,
     };
     let status: IPerpsActiveAccountStatusInfoAtom | undefined;
 
@@ -957,27 +1698,29 @@ export default class ServiceHyperliquid extends ServiceBase {
         }),
       );
 
-      // TODO reset exchange client if account not exists, or address not exists
-      await this.exchangeService.setup({
-        userAddress: accountAddress,
-        userAccountId: selectedAccount.accountId ?? undefined,
-      });
-
       if (!accountAddress) {
         throw new OneKeyLocalError(
           'Check perps account status ERROR: Account address is required',
         );
       }
 
+      // Run exchange client setup and activation check in parallel —
+      // setup is local-only, userRole uses the info client (independent).
       let isActivated = false;
       if (hyperLiquidCache?.activatedUser?.[accountAddress] === true) {
         isActivated = true;
       }
-      if (!isActivated) {
-        const userRole = await infoClient.userRole({
-          user: accountAddress,
-        });
-        isActivated = userRole.role !== 'missing';
+      const [, userRoleResult] = await Promise.all([
+        this.exchangeService.setup({
+          userAddress: accountAddress,
+          userAccountId: selectedAccount.accountId ?? undefined,
+        }),
+        !isActivated
+          ? infoClient.userRole({ user: accountAddress })
+          : Promise.resolve(null),
+      ]);
+      if (!isActivated && userRoleResult) {
+        isActivated = userRoleResult.role !== 'missing';
       }
       if (!isActivated) {
         statusDetails.activatedOk = false;
@@ -997,19 +1740,25 @@ export default class ServiceHyperliquid extends ServiceBase {
         hyperLiquidCache.activatedUser[accountAddress] = true;
         statusDetails.activatedOk = true;
 
-        // Builder fee must be approved before agent setup
-        await this.checkBuilderFeeStatus({
-          accountAddress,
-          accountId: selectedAccount.accountId,
-          isEnableTradingTrigger,
-          statusDetails,
-        });
+        // Read abstraction mode early (no signing needed)
+        // So account value displays correctly before enable trading
+        void this.fetchUserAbstraction(accountAddress);
 
-        const isRebateBound =
-          await this.checkInternalRebateBindingStatusWithCache({
+        // Builder fee check and rebate binding check are independent — run in parallel.
+        // Both must complete before checkAgentStatus (builder fee must be approved,
+        // and credentials may be cleared based on rebate result).
+        const [, isRebateBound] = await Promise.all([
+          this.checkBuilderFeeStatus({
+            accountAddress,
+            accountId: selectedAccount.accountId,
+            isEnableTradingTrigger,
+            statusDetails,
+          }),
+          this.checkInternalRebateBindingStatusWithCache({
             accountId: selectedAccount.accountId,
             accountAddress,
-          });
+          }),
+        ]);
 
         // Clear local credentials to force new agent creation for rebate binding
         if (!isRebateBound) {
@@ -1043,27 +1792,31 @@ export default class ServiceHyperliquid extends ServiceBase {
             agentCredential,
           });
 
-          void (async () => {
-            const cacheKey = [
-              agentCredential.userAddress.toLowerCase(),
-              agentCredential.agentAddress.toLowerCase(),
-              agentCredential.agentName,
-            ].join('-');
-            if (!hyperLiquidCache?.referrerCodeSetDone?.[cacheKey]) {
-              const { referralCode } =
-                await this.backgroundApi.simpleDb.perp.getPerpData();
-              try {
-                // referrer code can be approved by agent
-                await this.exchangeService.setReferrerCode({
-                  code: referralCode || HYPERLIQUID_REFERRAL_CODE,
-                });
-              } finally {
-                hyperLiquidCache.referrerCodeSetDone[cacheKey] = true;
-              }
-            }
-          })();
           statusDetails.internalRebateBoundOk = true;
           statusDetails.referralCodeOk = true;
+
+          // Check abstraction mode — requires user wallet signature
+          // Placed after referralCodeOk so a signature rejection doesn't block other status
+          const currentMode = await this.fetchUserAbstraction(accountAddress);
+          const isAbstractionCorrect =
+            currentMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+            currentMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+          if (isAbstractionCorrect) {
+            statusDetails.abstractionOk = true;
+          } else if (isEnableTradingTrigger && selectedAccount.accountId) {
+            // Only set abstraction when user explicitly clicks Enable Trading
+            // User wallet signature required — will prompt user
+            await this.exchangeService.setAbstractionWithUserWallet({
+              userAccountId: selectedAccount.accountId,
+              userAddress: accountAddress,
+              abstraction: 'unifiedAccount',
+            });
+            const verifiedMode =
+              await this.fetchUserAbstraction(accountAddress);
+            statusDetails.abstractionOk =
+              verifiedMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+              verifiedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+          }
         }
       }
     } finally {
@@ -1082,6 +1835,30 @@ export default class ServiceHyperliquid extends ServiceBase {
           }),
         );
       }, 0);
+    }
+
+    // Deferred: bind referral code after loading resolves.
+    // Non-blocking, non-critical — avoids bandwidth contention during critical path.
+    if (agentCredential) {
+      void (async () => {
+        const cacheKey = [
+          agentCredential.userAddress.toLowerCase(),
+          agentCredential.agentAddress.toLowerCase(),
+          agentCredential.agentName,
+        ].join('-');
+        if (!hyperLiquidCache?.referrerCodeSetDone?.[cacheKey]) {
+          const { referralCode } =
+            await this.backgroundApi.simpleDb.perp.getPerpData();
+          try {
+            // referrer code can be approved by agent
+            await this.exchangeService.setReferrerCode({
+              code: referralCode || HYPERLIQUID_REFERRAL_CODE,
+            });
+          } finally {
+            hyperLiquidCache.referrerCodeSetDone[cacheKey] = true;
+          }
+        }
+      })();
     }
   }
 
@@ -1282,7 +2059,6 @@ export default class ServiceHyperliquid extends ServiceBase {
                   agentName: agentNameToRemove,
                 },
               );
-              console.log('approveAgentResult::', approveAgentResult);
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_removed_for_slot_recovery',
                 accountAddress,
@@ -1319,11 +2095,10 @@ export default class ServiceHyperliquid extends ServiceBase {
                       (agent) => agent.name === agentNameToRemove,
                     )
                   ) {
-                    console.log('Agent removal confirmed:', agentNameToRemove);
                     break;
                   }
                 } catch (error) {
-                  console.log('Polling request failed:', error);
+                  console.error('Polling request failed:', error);
                 }
 
                 // Wait 500ms before next poll attempt
@@ -1380,7 +2155,6 @@ export default class ServiceHyperliquid extends ServiceBase {
             }
           } catch (error) {
             const requestError = error as IApiRequestError | undefined;
-            console.log('approveAgentError::', requestError);
             const errorResponse = (
               requestError as {
                 response?: { status?: string; response?: string };
@@ -1400,7 +2174,6 @@ export default class ServiceHyperliquid extends ServiceBase {
           await timerUtils.wait(500);
         }
 
-        console.log('approveAgentResult::', approveAgentResult);
         if (
           approveAgentResult &&
           approveAgentResult.status === 'ok' &&
@@ -1665,7 +2438,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         ) {
           statusDetails.builderFeeOk = true;
         }
-        console.log('approveBuilderFeeResult::', approveBuilderFeeResult);
       }
     }
   }
@@ -1841,6 +2613,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           builderFeeOk: false,
           referralCodeOk: false,
           internalRebateBoundOk: false,
+          abstractionOk: false,
         },
       }),
     );
@@ -1853,6 +2626,41 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this.backgroundApi.simpleDb.perp.getTradingviewDisplayPriceScale(
       symbol,
     );
+  }
+
+  @backgroundMethod()
+  async getTradingviewMidPrice(symbol: string): Promise<string | undefined> {
+    if (!symbol) {
+      return undefined;
+    }
+
+    const cachedMid = hyperLiquidCache.allMids?.mids?.[symbol];
+    if (cachedMid) {
+      return cachedMid;
+    }
+    if (
+      hyperLiquidCache.allMids &&
+      Date.now() - hyperLiquidCache.allMidsUpdatedAt <
+        timerUtils.getTimeDurationMs({ seconds: 1 })
+    ) {
+      return undefined;
+    }
+
+    try {
+      const { infoClient } = hyperLiquidApiClients;
+      const allMids = await infoClient.allMids();
+      hyperLiquidCache.allMids = {
+        mids: allMids,
+      };
+      const mid = allMids[symbol];
+      return typeof mid === 'string' ? mid : undefined;
+    } catch (error) {
+      console.error(
+        '[ServiceHyperliquid] Failed to load tradingview mid price:',
+        error,
+      );
+      return undefined;
+    }
   }
 
   @backgroundMethod()

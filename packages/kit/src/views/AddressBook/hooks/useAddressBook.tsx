@@ -18,7 +18,7 @@ export const useAddressBookItems = (networkId?: string, exact?: boolean) => {
     async () => {
       noopObject(updateTimestamp);
       noopObject(networkId);
-      return backgroundApiProxy.serviceAddressBook.getSafeItems({
+      return backgroundApiProxy.serviceAddressBook.getNetworkItems({
         networkId,
         exact,
       });

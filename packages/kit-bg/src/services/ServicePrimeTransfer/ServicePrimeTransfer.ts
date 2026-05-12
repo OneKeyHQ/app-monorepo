@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
+  BOT_WALLET_STATUS_DEACTIVATED,
   WALLET_TYPE_HD,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
@@ -45,10 +46,14 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { headerPlatform } from '@onekeyhq/shared/src/request/InterceptorConsts';
+import type { ICliBotWalletRevealableSeed } from '@onekeyhq/shared/src/types/cliBotWallet';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { exportBotWalletToCli } from '@onekeyhq/shared/src/utils/cliBotWalletExport/exportToCli';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -77,6 +82,7 @@ import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTran
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
+import { checkIsOneKeyDomain } from '../../endpoints';
 import {
   devSettingsPersistAtom,
   perpsActiveAccountRefreshHookAtom,
@@ -94,6 +100,11 @@ import e2eeClientToClientApi, {
 } from './e2ee/e2eeClientToClientApi';
 import { createE2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiProxy';
 import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
+import {
+  filterTransferWallets,
+  getCliBotWalletTransferWalletId,
+  shouldUseCliBotWalletEncryptedCredential,
+} from './servicePrimeTransferUtils';
 
 import type {
   IECDHEKeyExchangeRequest,
@@ -154,8 +165,21 @@ class ServicePrimeTransfer extends ServiceBase {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10_000); // 5 second timeout
 
-          const response = await fetch(`${url}/health`, {
+          const healthUrl = `${url}/health`;
+          // User-supplied custom Prime Transfer servers must not receive
+          // X-Onekey-* fingerprint headers (instanceId, device, locale,
+          // version, etc.) — and the no-protocol path probes http:// in
+          // parallel, so any leak would also go in plaintext. Only attach
+          // app headers + UA when the target is on the OneKey official
+          // whitelist.
+          const isOneKeyEndpoint = await checkIsOneKeyDomain(healthUrl);
+          const headers: Record<string, string> = isOneKeyEndpoint
+            ? await withCustomUAHeaders(healthUrl, await getRequestHeaders())
+            : {};
+
+          const response = await fetch(healthUrl, {
             method: 'GET',
+            headers,
             signal: controller.signal,
           });
 
@@ -213,18 +237,22 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getWebSocketEndpoint() {
+  async getWebSocketEndpoint({
+    forceOfficialServer,
+  }: { forceOfficialServer?: boolean } = {}) {
     // return 'http://localhost:3868';
     // return 'https://app-monorepo.onrender.com';
     // return 'https://transfer.onekey-test.com';
 
-    const customEndpointInfo =
-      await this.backgroundApi.simpleDb.primeTransfer.getServerConfig();
-    if (
-      customEndpointInfo.customServerUrl &&
-      customEndpointInfo.serverType === EPrimeTransferServerType.CUSTOM
-    ) {
-      return customEndpointInfo.customServerUrl;
+    if (!forceOfficialServer) {
+      const customEndpointInfo =
+        await this.backgroundApi.simpleDb.primeTransfer.getServerConfig();
+      if (
+        customEndpointInfo.customServerUrl &&
+        customEndpointInfo.serverType === EPrimeTransferServerType.CUSTOM
+      ) {
+        return customEndpointInfo.customServerUrl;
+      }
     }
 
     const officialEndpointInfo =
@@ -854,13 +882,13 @@ class ServicePrimeTransfer extends ServiceBase {
   @backgroundMethod()
   async buildTransferData({
     isForCloudBackup,
+    walletIds,
   }: {
     isForCloudBackup?: boolean;
+    walletIds?: string[];
   } = {}): Promise<IPrimeTransferData> {
     const { serviceAccount, serviceNetwork: _serviceNetwork } =
       this.backgroundApi;
-
-    const credentials = await serviceAccount.dumpCredentials();
 
     const publicData: IPrimeTransferPublicData = {
       dataTime: Date.now(),
@@ -868,6 +896,58 @@ class ServicePrimeTransfer extends ServiceBase {
       totalAccountsCount: 0,
       walletDetails: [],
     };
+    const { version } = platformEnv;
+
+    const { wallets } = await serviceAccount.getWallets();
+    const filteredWallets = filterTransferWallets({
+      wallets,
+      walletIds,
+    });
+    const requestedWalletIds = walletIds?.length ? [...new Set(walletIds)] : [];
+    if (
+      requestedWalletIds.length &&
+      filteredWallets.length !== requestedWalletIds.length
+    ) {
+      throw new OneKeyLocalError('Some wallets cannot be transferred');
+    }
+    for (const wallet of filteredWallets) {
+      if (accountUtils.isBotWallet({ walletId: wallet.id })) {
+        const botWalletMeta =
+          await this.backgroundApi.simpleDb.botWallet.getMetadata(wallet.id);
+        if (botWalletMeta?.status === BOT_WALLET_STATUS_DEACTIVATED) {
+          throw new OneKeyLocalError(
+            'Cannot transfer mnemonic: Bot wallet is deactivated',
+          );
+        }
+      }
+    }
+
+    const normalizeTransferCredential = (
+      credential: { credential?: string } | string | null | undefined,
+    ) => {
+      if (typeof credential === 'string') {
+        return credential;
+      }
+      if (typeof credential?.credential === 'string') {
+        return credential.credential;
+      }
+      return undefined;
+    };
+
+    const credentials = walletIds?.length
+      ? Object.fromEntries(
+          (
+            await Promise.all(
+              filteredWallets.map(async (wallet) => [
+                wallet.id,
+                normalizeTransferCredential(
+                  await localDb.getCredential(wallet.id),
+                ),
+              ]),
+            )
+          ).filter((entry): entry is [string, string] => Boolean(entry[1])),
+        )
+      : await serviceAccount.dumpCredentials();
 
     const privateBackupData: IPrimeTransferPrivateData = {
       credentials,
@@ -875,13 +955,34 @@ class ServicePrimeTransfer extends ServiceBase {
       watchingAccounts: {},
       wallets: {},
     };
-    const { version } = platformEnv;
-
-    const { wallets } = await serviceAccount.getWallets();
-
-    // Filter out keyless wallets
-    const filteredWallets = wallets.filter((wallet) => !wallet.isKeyless);
-
+    const buildTransferHdWallet = ({
+      wallet,
+    }: {
+      wallet: IDBWallet;
+    }): IPrimeTransferHDWallet => ({
+      id: wallet.id,
+      name: wallet.name,
+      type: wallet.type,
+      backuped: isForCloudBackup ? true : wallet.backuped,
+      accounts: [],
+      accountIds: [],
+      accountIdsLength: 0,
+      indexedAccountUUIDs: [],
+      indexedAccountUUIDsLength: 0,
+      nextIds: wallet.nextIds,
+      walletOrder: wallet.walletOrder,
+      avatarInfo: wallet.avatarInfo,
+      version: HDWALLET_BACKUP_VERSION,
+      xfp: wallet.xfp || undefined,
+    });
+    // Keep empty HD wallets transferable when they already have credentials.
+    filteredWallets.forEach((wallet) => {
+      if (wallet.type === WALLET_TYPE_HD) {
+        privateBackupData.wallets[wallet.id] = buildTransferHdWallet({
+          wallet,
+        });
+      }
+    });
     const walletAccountMap = filteredWallets.reduce(
       (summary, current) => {
         summary[current.id] = current;
@@ -1002,11 +1103,6 @@ class ServicePrimeTransfer extends ServiceBase {
 
       const wallet = walletAccountMap[walletId];
       if (wallet) {
-        // Skip accounts belonging to keyless wallets
-        if (wallet?.isKeyless) {
-          // eslint-disable-next-line no-continue
-          continue;
-        }
         const getNetworkAccountInfo = async () => {
           let networkAccount: INetworkAccount | undefined;
           const networkId = await serviceAccount.getAccountCreatedNetworkId({
@@ -1058,22 +1154,7 @@ class ServicePrimeTransfer extends ServiceBase {
           let walletToBackup: IPrimeTransferHDWallet =
             privateBackupData.wallets[wallet.id];
           if (!walletToBackup) {
-            walletToBackup = {
-              id: walletId,
-              name: wallet.name,
-              type: wallet.type,
-              backuped: isForCloudBackup ? true : wallet.backuped,
-              accounts: [],
-              accountIds: [],
-              accountIdsLength: 0,
-              indexedAccountUUIDs: [],
-              indexedAccountUUIDsLength: 0,
-              nextIds: wallet.nextIds,
-              walletOrder: wallet.walletOrder,
-              avatarInfo: wallet.avatarInfo,
-              version: HDWALLET_BACKUP_VERSION,
-              xfp: wallet.xfp || undefined,
-            };
+            walletToBackup = buildTransferHdWallet({ wallet });
           }
           const HDAccountUUID = account.id;
           if (account.indexedAccountId) {
@@ -1221,10 +1302,10 @@ class ServicePrimeTransfer extends ServiceBase {
 
   async decryptTransferDataCredentials({
     data,
-    clearOriginalCredentials = true,
+    clearWrappedCredentialsAfterDecrypt = true,
   }: {
     data: IPrimeTransferData;
-    clearOriginalCredentials?: boolean;
+    clearWrappedCredentialsAfterDecrypt?: boolean;
   }) {
     if (!data?.privateData?.decryptedCredentials) {
       const { password: localPassword } =
@@ -1234,19 +1315,29 @@ class ServicePrimeTransfer extends ServiceBase {
       console.log('serviceCloudBackupV2__decryptCredentials');
       for (const [key, value] of entries) {
         try {
+          const credentialRecord = value as { credential?: string } | string;
+          const credentialValue =
+            typeof credentialRecord === 'string'
+              ? credentialRecord
+              : credentialRecord?.credential;
+          if (typeof credentialValue !== 'string') {
+            throw new OneKeyLocalError(
+              `Invalid credential format for transfer: ${key}`,
+            );
+          }
           if (
             accountUtils.isHdWallet({ walletId: key }) ||
             accountUtils.isTonMnemonicCredentialId(key)
           ) {
             data.privateData.decryptedCredentials[key] =
               await decryptRevealableSeed({
-                rs: value,
+                rs: credentialValue,
                 password: localPassword,
               });
           } else if (accountUtils.isImportedAccount({ accountId: key })) {
             data.privateData.decryptedCredentials[key] =
               await decryptImportedCredential({
-                credential: value,
+                credential: credentialValue,
                 password: localPassword,
               });
           }
@@ -1259,7 +1350,10 @@ class ServicePrimeTransfer extends ServiceBase {
           console.error('serviceCloudBackupV2__decryptCredentials__error', {
             error,
             key,
-            value: `${value?.slice(0, 10)}...${value?.slice(-6)}`,
+            value:
+              typeof value === 'string'
+                ? `${value.slice(0, 10)}...${value.slice(-6)}`
+                : (JSON.stringify(value)?.slice(0, 120) ?? String(value)),
           });
           throw new OneKeyLocalError(
             `Failed to decrypt current credentials: ${key}`,
@@ -1269,7 +1363,7 @@ class ServicePrimeTransfer extends ServiceBase {
       console.log('serviceCloudBackupV2__decryptCredentials__done');
     }
     if (
-      clearOriginalCredentials &&
+      clearWrappedCredentialsAfterDecrypt &&
       data?.privateData &&
       data?.privateData?.credentials
     ) {
@@ -1277,43 +1371,45 @@ class ServicePrimeTransfer extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async sendTransferData({
+  private normalizeTransferCredential(
+    credential: { credential?: string } | string | null | undefined,
+  ) {
+    if (typeof credential === 'string') {
+      return credential;
+    }
+    if (typeof credential?.credential === 'string') {
+      return credential.credential;
+    }
+    return undefined;
+  }
+
+  private async buildCliBotWalletExportInput({
+    transferData,
+    walletId,
+  }: {
+    transferData: IPrimeTransferData;
+    walletId: string;
+  }) {
+    const transferWallet = transferData.privateData.wallets[walletId];
+    const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+      walletId,
+    });
+    const walletName = wallet?.name || transferWallet?.name || walletId;
+
+    // displayAddress is intentionally NOT included in the export input.
+    // The CLI receiver derives the first EVM address itself from the
+    // decrypted seed; trust nothing the sender claims about chain identity.
+    return {
+      walletId,
+      sourceLabel: `bot-wallet:${walletName}`.slice(0, 128),
+    };
+  }
+
+  private async sendPreparedTransferData({
     transferData,
   }: {
     transferData: IPrimeTransferData;
   }) {
-    // eslint-disable-next-line no-param-reassign
-    transferData = cloneDeep(transferData);
-    this.checkWebSocketConnected();
-
-    if (!transferData.isWatchingOnly) {
-      const { password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify({
-          reason: EReasonForNeedPassword.Security,
-        });
-
-      if (!password) {
-        throw new OneKeyLocalError('Password is required');
-      }
-
-      await this.decryptTransferDataCredentials({
-        data: transferData,
-        clearOriginalCredentials: false,
-      });
-      transferData.privateData.decryptedCredentialsHex =
-        await encryptStringAsync({
-          dataEncoding: 'utf8',
-          data: stringUtils.stableStringify(
-            transferData.privateData.decryptedCredentials,
-          ),
-          password,
-          allowRawPassword: true,
-        });
-      transferData.privateData.decryptedCredentials = undefined;
-    }
-
     const currentState = await primeTransferAtom.get();
     const pairedRoomId = currentState.pairedRoomId;
     if (!pairedRoomId) {
@@ -1342,10 +1438,139 @@ class ServicePrimeTransfer extends ServiceBase {
       password: encryptionKey,
       allowRawPassword: true,
     });
-    const result = await this.e2eeClientToClientApiProxy?.api.sendTransferData({
+    if (!this.e2eeClientToClientApiProxy) {
+      throw new OneKeyLocalError('Client to Client API not initialized');
+    }
+    return this.e2eeClientToClientApiProxy.api.sendTransferData({
       rawData: encryptedData.toString('base64'),
     });
-    return result;
+  }
+
+  private async sendCliBotWalletEncryptedCredentialTransferData({
+    transferData,
+    walletId,
+    password,
+  }: {
+    transferData: IPrimeTransferData;
+    walletId: string;
+    password: string;
+  }) {
+    const credential = this.normalizeTransferCredential(
+      transferData.privateData.credentials?.[walletId],
+    );
+    if (!credential) {
+      throw new OneKeyLocalError('Bot wallet credential is required');
+    }
+
+    const revealableSeed = (await decryptRevealableSeed({
+      rs: credential,
+      password,
+    })) as ICliBotWalletRevealableSeed;
+
+    const input = await this.buildCliBotWalletExportInput({
+      transferData,
+      walletId,
+    });
+
+    let sendResult: unknown;
+    try {
+      // BotWallet -> CLI export is intentionally Transfer-only. The encrypted
+      // credential payload must be embedded in Prime Transfer data and sent
+      // through the paired E2EE channel, not shown as Base64/QR/manual input.
+      await exportBotWalletToCli(input, {
+        getRevealableSeed: async () => revealableSeed,
+        onPayloadReady: async (payload) => {
+          transferData.privateData.cliBotWalletEncryptedCredential = payload;
+          transferData.privateData.credentials = {};
+          transferData.privateData.decryptedCredentials = undefined;
+          transferData.privateData.decryptedCredentialsHex = undefined;
+          try {
+            sendResult = await this.sendPreparedTransferData({ transferData });
+          } finally {
+            transferData.privateData.cliBotWalletEncryptedCredential =
+              undefined;
+          }
+        },
+      });
+    } finally {
+      revealableSeed.entropyWithLangPrefixed = '';
+      revealableSeed.seed = '';
+    }
+
+    return sendResult;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async sendTransferData({
+    transferData,
+    allowCliImportableCredentials,
+  }: {
+    transferData: IPrimeTransferData;
+    allowCliImportableCredentials?: boolean;
+  }) {
+    // eslint-disable-next-line no-param-reassign
+    transferData = cloneDeep(transferData);
+    this.checkWebSocketConnected();
+
+    // OK-53601: Bot Wallets are export-only to OneKey CLI via the dedicated
+    // single-wallet path below. Reject any other delivery whose payload
+    // includes a Bot Wallet — even if a caller bypassed the UI guard.
+    // Pairs with filterTransferWallets, which keeps Bot Wallets out of the
+    // default "transfer all" payload.
+    const shouldSendCliBotWalletEncryptedCredential =
+      shouldUseCliBotWalletEncryptedCredential({
+        transferData,
+        allowCliImportableCredentials,
+      });
+    const includesBotWallet = Object.keys(
+      transferData.privateData?.wallets ?? {},
+    ).some((id) => accountUtils.isBotWallet({ walletId: id }));
+    if (includesBotWallet && !shouldSendCliBotWalletEncryptedCredential) {
+      throw new OneKeyLocalError(
+        'Bot Wallet can only be transferred to OneKey CLI',
+      );
+    }
+
+    if (!transferData.isWatchingOnly) {
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify({
+          reason: EReasonForNeedPassword.Security,
+        });
+
+      if (!password) {
+        throw new OneKeyLocalError('Password is required');
+      }
+
+      if (shouldSendCliBotWalletEncryptedCredential) {
+        const walletId = getCliBotWalletTransferWalletId({ transferData });
+        if (!walletId) {
+          throw new OneKeyLocalError('Bot wallet transfer data is invalid');
+        }
+        return this.sendCliBotWalletEncryptedCredentialTransferData({
+          transferData,
+          walletId,
+          password,
+        });
+      }
+
+      await this.decryptTransferDataCredentials({
+        data: transferData,
+        clearWrappedCredentialsAfterDecrypt: false,
+      });
+      transferData.privateData.decryptedCredentialsHex =
+        await encryptStringAsync({
+          dataEncoding: 'utf8',
+          data: stringUtils.stableStringify(
+            transferData.privateData.decryptedCredentials,
+          ),
+          password,
+          allowRawPassword: true,
+        });
+      transferData.privateData.decryptedCredentials = undefined;
+    }
+
+    return this.sendPreparedTransferData({ transferData });
   }
 
   @backgroundMethod()
@@ -2158,15 +2383,26 @@ class ServicePrimeTransfer extends ServiceBase {
           throw new OneKeyLocalError('Mnemonic is required');
         }
         // serviceAccount.createAddressIfNotExists
-        const { wallet: newWalletData } = await serviceAccount.createHDWallet({
-          mnemonic: await servicePassword.encodeSensitiveText({
-            text: mnemonicFromRs,
-          }),
-          name: wallet.name,
-          avatarInfo: wallet.avatarInfo,
-          isWalletBackedUp: wallet.backuped,
-        });
+        const { wallet: newWalletData, isOverrideWallet } =
+          await serviceAccount.createHDWallet({
+            mnemonic: await servicePassword.encodeSensitiveText({
+              text: mnemonicFromRs,
+            }),
+            name: wallet.name,
+            avatarInfo: wallet.avatarInfo,
+            isWalletBackedUp: wallet.backuped,
+            skipAddHDNextIndexedAccount: true,
+            applyRestoreSyncPolicy: true,
+          });
         newWallet = newWalletData;
+        if (isOverrideWallet && newWallet?.id) {
+          await serviceAccount.setWalletNameAndAvatar({
+            walletId: newWallet.id,
+            name: wallet.name,
+            avatar: wallet.avatarInfo,
+            applyRestoreSyncPolicy: true,
+          });
+        }
       } catch (e) {
         console.error('startImport error', e);
         errorsInfo.push({
@@ -2239,6 +2475,7 @@ class ServicePrimeTransfer extends ServiceBase {
               saveToDb: true,
               showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
               autoHandleExitError: false,
+              applyRestoreSyncPolicy: true,
             };
             // params.customNetworks = [];
             // params.includingDefaultNetworks = true;
@@ -2273,6 +2510,7 @@ class ServicePrimeTransfer extends ServiceBase {
               indexedAccountId,
               name: indexedAccountNames[index],
               skipEventEmit: true,
+              applyRestoreSyncPolicy: true,
             });
           }
         } catch (e) {
@@ -2334,6 +2572,7 @@ class ServicePrimeTransfer extends ServiceBase {
           privateKey,
           networkId,
           skipEventEmit: true,
+          applyRestoreSyncPolicy: true,
         });
       if (addedAccounts?.length && addedAccounts?.[0]?.id) {
         try {
@@ -2376,11 +2615,6 @@ class ServicePrimeTransfer extends ServiceBase {
               accountId: addedAccounts?.[0]?.id,
               rs: tonRsEncrypted,
             });
-            // const tonMnemonic2 = await tonMnemonicFromEntropy(
-            //   tonMnemonicCredential,
-            //   password,
-            // );
-            // console.log('tonMnemonic2', tonMnemonic2);
           }
         } catch (e) {
           console.error('tonMnemonicCredential error', e);
@@ -2430,6 +2664,7 @@ class ServicePrimeTransfer extends ServiceBase {
           input: watchingAccount.pub,
           networkId,
           skipEventEmit: true,
+          applyRestoreSyncPolicy: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -2444,6 +2679,7 @@ class ServicePrimeTransfer extends ServiceBase {
           input: watchingAccountUtxo.xpub,
           networkId,
           skipEventEmit: true,
+          applyRestoreSyncPolicy: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -2458,6 +2694,7 @@ class ServicePrimeTransfer extends ServiceBase {
           input: watchingAccountUtxo.xpubSegwit,
           networkId,
           skipEventEmit: true,
+          applyRestoreSyncPolicy: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -2472,6 +2709,7 @@ class ServicePrimeTransfer extends ServiceBase {
           input: watchingAccount.address,
           networkId,
           skipEventEmit: true,
+          applyRestoreSyncPolicy: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }

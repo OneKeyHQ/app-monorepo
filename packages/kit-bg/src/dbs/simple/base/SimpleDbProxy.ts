@@ -12,6 +12,7 @@ import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanu
 import type { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
 import type { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
+import type { SimpleDbEntityBotWallet } from '../entity/SimpleDbEntityBotWallet';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
@@ -39,6 +40,7 @@ import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning'
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import type { SimpleDbEntityMarketPresetSettings } from '../entity/SimpleDbEntityMarketPresetSettings';
 import type { SimpleDbEntityMarketTokenPreference } from '../entity/SimpleDbEntityMarketTokenPreference';
 import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import type { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMarketWatchListV2';
@@ -167,6 +169,10 @@ export class SimpleDbProxy
     'marketTokenPreference',
   ) as SimpleDbEntityMarketTokenPreference;
 
+  marketPresetSettings = this._createProxyService(
+    'marketPresetSettings',
+  ) as SimpleDbEntityMarketPresetSettings;
+
   marketWatchList = this._createProxyService(
     'marketWatchList',
   ) as SimpleDbEntityMarketWatchList;
@@ -222,6 +228,8 @@ export class SimpleDbProxy
   ) as SimpleDbEntityEarnOrders;
 
   localNFTs = this._createProxyService('localNFTs') as SimpleDbEntityLocalNFTs;
+
+  botWallet = this._createProxyService('botWallet') as SimpleDbEntityBotWallet;
 
   babylonSync = this._createProxyService(
     'babylonSync',

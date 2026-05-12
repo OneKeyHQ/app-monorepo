@@ -4,13 +4,6 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, noop } from 'lodash';
 import TronWeb from 'tronweb';
 
-import {
-  TRON_SOURCE_FLAG_MAINNET,
-  TRON_SOURCE_FLAG_TESTNET,
-  TRON_TX_EXPIRATION_TIME,
-  tronTokenAddressMainnet,
-  tronTokenAddressTestnet,
-} from '@onekeyhq/core/src/chains/tron/constants';
 import type {
   IDecodedTxExtraTron,
   IEncodedTxTron,
@@ -18,6 +11,13 @@ import type {
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
+import {
+  TRON_SOURCE_FLAG_MAINNET,
+  TRON_SOURCE_FLAG_TESTNET,
+  TRON_TX_EXPIRATION_TIME,
+  tronTokenAddressMainnet,
+  tronTokenAddressTestnet,
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   InsufficientBalance,
   OneKeyInternalError,
@@ -66,13 +66,13 @@ import { EErc20MethodSelectors } from '../evm/decoder/abi';
 
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { KeyringQr } from './KeytringQr';
 
-import type { IDBWalletType } from '../../../dbs/local/types';
-import type { KeyringBase } from '../../base/KeyringBase';
+import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IApproveInfo,
   IBroadcastTransactionByCustomRpcParams,
@@ -98,10 +98,11 @@ const INFINITE_AMOUNT_HEX =
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.tron.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
+  override keyringMap: IKeyringMap = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,
+    hwLedger: KeyringHardwareLedger,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringExternal,

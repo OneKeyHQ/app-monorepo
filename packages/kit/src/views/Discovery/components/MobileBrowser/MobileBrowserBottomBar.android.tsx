@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -68,6 +68,8 @@ function MobileBrowserBottomBar({
     disabledGoForward,
     isTranslated,
     handleTranslate,
+    handleRetranslate,
+    handleTranslateTestAIError,
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
 
   // Replicate TabCountButton's press logic for RNGH
@@ -236,6 +238,12 @@ function MobileBrowserBottomBar({
     onGoBackHomePage,
   ]);
 
+  const [translatePopoverOpen, setTranslatePopoverOpen] = useState(false);
+
+  const handleShowTranslate = useCallback(() => {
+    setTranslatePopoverOpen(true);
+  }, []);
+
   // RNGH Gesture.Tap() for each button
   const goBackGesture = useMemo(
     () =>
@@ -293,7 +301,15 @@ function MobileBrowserBottomBar({
     [displayHomePage, handleShowOptions],
   );
 
-  const translateGesture = useMemo(() => Gesture.Tap(), []);
+  const translateGesture = useMemo(
+    () =>
+      Gesture.Tap().onEnd(() => {
+        'worklet';
+
+        runOnJS(handleShowTranslate)();
+      }),
+    [handleShowTranslate],
+  );
 
   return (
     <Stack
@@ -348,6 +364,10 @@ function MobileBrowserBottomBar({
           <TranslatePopoverTrigger
             isTranslated={isTranslated}
             onTranslate={handleTranslate}
+            onRetranslate={handleRetranslate}
+            onTestAITranslateError={handleTranslateTestAIError}
+            open={translatePopoverOpen}
+            onOpenChange={setTranslatePopoverOpen}
           />
         </View>
       </GestureDetector>

@@ -74,6 +74,7 @@ export type ITokenSelectorParamList = {
   enableNetworkAfterSelect?: boolean;
   exchangeFilter?: IExchangeFilter;
   hideBalanceAndValue?: boolean;
+  onSwitchNetwork?: () => void | Promise<void>;
 };
 
 export type IAggregateTokenSelectorParams = {

@@ -16,6 +16,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   AppUpdate,
@@ -102,6 +106,39 @@ class ServicePendingInstallTask {
   private pendingTaskLockAcquiredAt = 0;
 
   private fallbackRequestSeqCounter = 0;
+
+  private safeStringifyForLog(value: unknown) {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '"[unserializable]"';
+    }
+  }
+
+  private logPendingTaskTrace({
+    traceId,
+    requestSeq,
+    processStartedAt,
+    step,
+    extra,
+  }: {
+    traceId: string;
+    requestSeq: number | null;
+    processStartedAt: number;
+    step: string;
+    extra?: Record<string, unknown>;
+  }) {
+    const processElapsedMs = Date.now() - processStartedAt;
+    const extraText =
+      extra && Object.keys(extra).length > 0
+        ? ` extra=${this.safeStringifyForLog(extra)}`
+        : '';
+    defaultLogger.app.appUpdate.log(
+      `[PendingTaskTrace] traceId=${traceId}, requestSeq=${String(
+        requestSeq,
+      )}, step=${step}, processElapsedMs=${processElapsedMs}${extraText}`,
+    );
+  }
 
   public setRefreshUpdateStatus(refreshUpdateStatus: () => Promise<void>) {
     this.refreshUpdateStatus = refreshUpdateStatus;
@@ -244,16 +281,47 @@ class ServicePendingInstallTask {
   }
 
   @backgroundMethod()
-  public async cleanupUpdateControlState() {
+  public async cleanupUpdateControlState({
+    traceId,
+    requestSeq,
+    processStartedAt,
+  }: {
+    traceId?: string;
+    requestSeq?: number | null;
+    processStartedAt?: number;
+  } = {}) {
     const now = Date.now();
-    await appUpdatePersistAtom.set((prev) => ({
-      ...prev,
-      ignoredTargets: this.pruneIgnoredTargets(prev.ignoredTargets || {}, now),
-      fullFlowRetryByTarget: this.pruneFullFlowRetryByTarget(
-        prev.fullFlowRetryByTarget || {},
-        now,
-      ),
-    }));
+    const activeTraceId = traceId || 'n/a';
+    const activeRequestSeq = requestSeq ?? null;
+    const activeProcessStartedAt = processStartedAt ?? now;
+    let updaterInvoked = false;
+    this.logPendingTaskTrace({
+      traceId: activeTraceId,
+      requestSeq: activeRequestSeq,
+      processStartedAt: activeProcessStartedAt,
+      step: 'cleanupUpdateControlState:start',
+    });
+    await appUpdatePersistAtom.set((prev) => {
+      updaterInvoked = true;
+      return {
+        ...prev,
+        ignoredTargets: this.pruneIgnoredTargets(
+          prev.ignoredTargets || {},
+          now,
+        ),
+        fullFlowRetryByTarget: this.pruneFullFlowRetryByTarget(
+          prev.fullFlowRetryByTarget || {},
+          now,
+        ),
+      };
+    });
+    this.logPendingTaskTrace({
+      traceId: activeTraceId,
+      requestSeq: activeRequestSeq,
+      processStartedAt: activeProcessStartedAt,
+      step: 'cleanupUpdateControlState:done',
+      extra: { updaterInvoked },
+    });
   }
 
   private async resetTargetControlState(targetKey: string) {
@@ -1100,7 +1168,32 @@ class ServicePendingInstallTask {
   public async processPendingInstallTask() {
     const traceId = generateUUID();
     const requestSeq = null;
+    const processStartedAt = Date.now();
+    let currentStep = 'init';
+    const processHeartbeat = setInterval(() => {
+      this.logPendingTaskTrace({
+        traceId,
+        requestSeq,
+        processStartedAt,
+        step: 'heartbeat',
+        extra: { currentStep },
+      });
+    }, 5000);
+
+    const markStep = (step: string, extra?: Record<string, unknown>) => {
+      currentStep = step;
+      this.logPendingTaskTrace({
+        traceId,
+        requestSeq,
+        processStartedAt,
+        step,
+        extra,
+      });
+    };
+
+    markStep('process:start');
     let shouldRunPostRefresh = false;
+    let shouldEmitProcessFinishedEvent = true;
     let processedTaskSnapshot: Partial<IPendingInstallTask> | null = null;
     const lockNow = Date.now();
     if (this.isProcessingPendingTask) {
@@ -1138,11 +1231,26 @@ class ServicePendingInstallTask {
       lockState: 'acquired',
       lockTimeoutMs: PROCESS_LOCK_TIMEOUT_MS,
     });
+    markStep('lock:acquired');
 
     try {
-      await this.cleanupUpdateControlState();
+      markStep('cleanupUpdateControlState:await:start');
+      await this.cleanupUpdateControlState({
+        traceId,
+        requestSeq,
+        processStartedAt,
+      });
+      markStep('cleanupUpdateControlState:await:done');
 
+      markStep('getPendingInstallTask:await:start');
       const rawTask = await getPendingInstallTask();
+      markStep('getPendingInstallTask:await:done', {
+        hasTask: !!rawTask,
+        taskStatus:
+          rawTask && typeof rawTask === 'object' && 'status' in rawTask
+            ? ((rawTask as { status?: unknown }).status ?? null)
+            : null,
+      });
       if (!rawTask) {
         defaultLogger.app.appUpdate.pendingTaskValidation({
           traceId,
@@ -1392,6 +1500,7 @@ class ServicePendingInstallTask {
 
       try {
         await this.executePendingInstallTask(runningTask);
+        shouldEmitProcessFinishedEvent = false;
         const durationMs = Date.now() - startedAt;
         await setPendingInstallTask({
           ...runningTask,
@@ -1415,6 +1524,8 @@ class ServicePendingInstallTask {
           message === 'BUILTIN_FALLBACK_RELAUNCH' ||
           message === 'BUILTIN_ALREADY_ACTIVE'
         ) {
+          shouldEmitProcessFinishedEvent =
+            message !== 'BUILTIN_FALLBACK_RELAUNCH';
           defaultLogger.app.appUpdate.pendingSwitchResult({
             traceId,
             requestSeq,
@@ -1443,20 +1554,32 @@ class ServicePendingInstallTask {
       }
     } finally {
       if (shouldRunPostRefresh) {
+        markStep('runPostPendingRefresh:await:start');
         await this.runPostPendingRefresh({
           traceId,
           requestSeq,
           task: processedTaskSnapshot,
         });
+        markStep('runPostPendingRefresh:await:done');
       }
       this.isProcessingPendingTask = false;
       this.pendingTaskLockAcquiredAt = 0;
+      markStep('lock:released:beforeEmit');
       defaultLogger.app.appUpdate.pendingTaskLockState({
         traceId,
         requestSeq,
         lockState: 'released',
         lockTimeoutMs: PROCESS_LOCK_TIMEOUT_MS,
       });
+      if (shouldEmitProcessFinishedEvent) {
+        appEventBus.emit(
+          EAppEventBusNames.PendingInstallTaskProcessFinished,
+          undefined,
+        );
+        markStep('processFinishedEvent:emitted');
+      }
+      clearInterval(processHeartbeat);
+      markStep('process:done');
     }
   }
 }

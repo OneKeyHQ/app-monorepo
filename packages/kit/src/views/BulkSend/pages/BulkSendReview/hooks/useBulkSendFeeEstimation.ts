@@ -208,6 +208,7 @@ export function useBulkSendFeeEstimation({
             encodedTx,
             accountAddress,
             transfersInfo: unsignedTxs[0].transfersInfo,
+            scenario: 'send',
           });
 
           // Handle 5-level EIP1559 fees
@@ -271,6 +272,27 @@ export function useBulkSendFeeEstimation({
             }),
             value: i,
             feeInfo,
+            type: EFeeType.Standard,
+          });
+        }
+
+        // Keep base-fee-only responses usable, same as SignatureConfirm TxFeeInfo.
+        if (feeSelectorItems.length === 0) {
+          feeSelectorItems.push({
+            label: intl.formatMessage({
+              id: getFeeLabel({
+                feeType: EFeeType.Standard,
+                presetIndex: 0,
+              }),
+            }),
+            icon: getFeeIcon({
+              feeType: EFeeType.Standard,
+              presetIndex: 0,
+            }),
+            value: 0,
+            feeInfo: {
+              common: txFee.common,
+            },
             type: EFeeType.Standard,
           });
         }

@@ -1,100 +1,203 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  GOOGLE_LOGO_URL,
-  SEARCH_ITEM_ID,
-} from '@onekeyhq/shared/src/consts/discovery';
+import { SEARCH_ITEM_ID } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { useReviewControl } from '../../../components/ReviewControl';
+import {
+  buildDiscoverySearchDebugSnapshot,
+  buildDiscoverySearchListFromFactors,
+  setLatestDiscoverySearchDebugSnapshot,
+} from '../utils/searchDebugSnapshot';
+import {
+  DISCOVERY_LOCAL_SEARCH_CANDIDATE_LIMIT,
+  DISCOVERY_RANKING_HISTORY_LIMIT,
+  shouldSkipRemoteSearchByKeyword,
+} from '../utils/searchResultRanking';
+
+import type { IBrowserBookmark, IBrowserHistory } from '../types';
 
 export interface ILocalDataType {
-  bookmarkData: Array<{
-    url: string;
-    title: string;
-    logo?: string;
-  }>;
-  historyData: Array<{
-    url: string;
-    title: string;
-    logo?: string;
-    titleMatch?: IFuseResultMatch;
-    urlMatch?: IFuseResultMatch;
-  }>;
+  bookmarkData: IBrowserBookmark[];
+  historyData: IBrowserHistory[];
 }
 
 export function useSearchModalData(searchValue: string) {
   const intl = useIntl();
   const { serviceDiscovery } = backgroundApiProxy;
-  const [searchList, setSearchList] = useState<IDApp[]>([]);
+  const showSearchResult = useReviewControl();
 
-  // Get bookmark and history data
-  const { result: localData, run: refreshLocalData } =
+  const { result: localData, run: refreshDisplayLocalData } =
     usePromiseResult<ILocalDataType | null>(async () => {
-      const bookmarkData = await serviceDiscovery.getBookmarkData({
-        generateIcon: true,
-        sliceCount: 6,
-      });
-      const historyData = await serviceDiscovery.getHistoryData({
-        generateIcon: true,
-        sliceCount: 6,
-        keyword: searchValue ?? undefined,
-      });
+      const [bookmarkData, historyData] = await Promise.all([
+        serviceDiscovery.getBookmarkData({
+          generateIcon: true,
+          sliceCount: 6,
+        }),
+        serviceDiscovery.getHistoryData({
+          generateIcon: true,
+          sliceCount: 6,
+        }),
+      ]);
       return {
         bookmarkData,
         historyData,
       };
-    }, [serviceDiscovery, searchValue]);
+    }, [serviceDiscovery]);
 
-  const showSearchResult = useReviewControl();
+  const { result: localSearchData, run: refreshLocalSearchData } =
+    usePromiseResult<ILocalDataType>(
+      async () => {
+        if (!searchValue) {
+          return {
+            bookmarkData: [],
+            historyData: [],
+          };
+        }
+        const [bookmarkData, historyData] = await Promise.all([
+          serviceDiscovery.getBookmarkData({
+            generateIcon: true,
+            keyword: searchValue,
+            sliceCount: DISCOVERY_LOCAL_SEARCH_CANDIDATE_LIMIT,
+          }),
+          serviceDiscovery.getHistoryData({
+            generateIcon: true,
+            keyword: searchValue,
+            sliceCount: DISCOVERY_LOCAL_SEARCH_CANDIDATE_LIMIT,
+          }),
+        ]);
+        return {
+          bookmarkData,
+          historyData,
+        };
+      },
+      [serviceDiscovery, searchValue],
+      {
+        initResult: {
+          bookmarkData: [],
+          historyData: [],
+        },
+      },
+    );
+
+  const { result: rankingHistoryData, run: refreshRankingHistoryData } =
+    usePromiseResult(async () => {
+      return serviceDiscovery.getHistoryData({
+        generateIcon: false,
+        sliceCount: DISCOVERY_RANKING_HISTORY_LIMIT,
+      });
+    }, [serviceDiscovery]);
+
+  const { result: trendingData, run: refreshTrendingData } = usePromiseResult(
+    async (): Promise<IDApp[]> => {
+      if (!showSearchResult) {
+        return [];
+      }
+      return (
+        (await serviceDiscovery.fetchDiscoveryHomePageData())?.trending ?? []
+      );
+    },
+    [serviceDiscovery, showSearchResult],
+    {
+      initResult: [],
+    },
+  );
+
+  const refreshLocalData = useCallback(async () => {
+    await Promise.all([
+      refreshDisplayLocalData(),
+      refreshLocalSearchData(),
+      refreshRankingHistoryData(),
+      refreshTrendingData(),
+    ]);
+  }, [
+    refreshDisplayLocalData,
+    refreshLocalSearchData,
+    refreshRankingHistoryData,
+    refreshTrendingData,
+  ]);
+
+  const shouldSkipRemoteSearch = useMemo(
+    () => shouldSkipRemoteSearchByKeyword(searchValue),
+    [searchValue],
+  );
 
   // Search for DApps
   const { result: searchResult } = usePromiseResult(async () => {
-    if (!showSearchResult) {
-      return [] as IDApp[];
+    if (!showSearchResult || shouldSkipRemoteSearch) {
+      return [];
     }
     const res = await serviceDiscovery.searchDApp(searchValue);
     return res;
-  }, [searchValue, serviceDiscovery, showSearchResult]);
+  }, [searchValue, serviceDiscovery, showSearchResult, shouldSkipRemoteSearch]);
 
-  // Process search results
+  const searchActionTitle = useMemo(
+    () =>
+      `${intl.formatMessage({
+        id: ETranslations.explore_search_placeholder,
+      })} "${searchValue}"`,
+    [intl, searchValue],
+  );
+
+  const searchList = useMemo(() => {
+    return buildDiscoverySearchListFromFactors({
+      searchValue,
+      searchActionTitle,
+      showSearchResult,
+      searchResult,
+      rankingHistoryData,
+      localSearchData,
+      trendingData,
+    }).searchList;
+  }, [
+    localSearchData,
+    rankingHistoryData,
+    searchActionTitle,
+    searchResult,
+    searchValue,
+    showSearchResult,
+    trendingData,
+  ]);
+
   useEffect(() => {
-    void (async () => {
-      if (!searchValue) {
-        setSearchList([]);
-        return;
-      }
-
-      const exactUrlResults =
-        searchResult?.filter((item) => item.isExactUrl) || [];
-      const otherResults =
-        searchResult?.filter((item) => !item.isExactUrl) || [];
-      setSearchList([
-        ...exactUrlResults,
-        ...otherResults,
-        {
-          dappId: SEARCH_ITEM_ID,
-          name: `${intl.formatMessage({
-            id: ETranslations.explore_search_placeholder,
-          })} "${searchValue}"`,
-          url: '',
-          logo: GOOGLE_LOGO_URL,
-        } as IDApp,
-      ]);
-    })();
-  }, [searchValue, searchResult, intl]);
+    setLatestDiscoverySearchDebugSnapshot(
+      buildDiscoverySearchDebugSnapshot({
+        source: 'latest-hook',
+        searchValue,
+        searchActionTitle,
+        showSearchResult,
+        shouldSkipRemoteSearch,
+        localData: localData ?? null,
+        localSearchData,
+        rankingHistoryData: rankingHistoryData ?? [],
+        trendingData,
+        searchResult,
+      }),
+    );
+  }, [
+    localData,
+    localSearchData,
+    rankingHistoryData,
+    searchActionTitle,
+    searchResult,
+    searchValue,
+    shouldSkipRemoteSearch,
+    showSearchResult,
+    trendingData,
+  ]);
 
   // Determine what to display
-  const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
+  const displaySearchList =
+    Boolean(searchValue) && Array.isArray(searchList) && searchList.length > 0;
   const displayBookmarkList =
-    (localData?.bookmarkData ?? []).length > 0 && !displaySearchList;
-  const displayHistoryList = (localData?.historyData ?? []).length > 0;
+    !searchValue && (localData?.bookmarkData ?? []).length > 0;
+  const displayHistoryList =
+    !searchValue && (localData?.historyData ?? []).length > 0;
 
   // Calculate total items
   const totalItems = useMemo(() => {

@@ -306,6 +306,10 @@ function decodeJWT(token: string): Record<string, unknown> | null {
   }
 }
 
+function stripLineBreaks(value: string) {
+  return value.replace(/[\r\n]+/g, '');
+}
+
 export default {
   STRINGIFY_REPLACER,
   generateUUID,
@@ -320,4 +324,5 @@ export default {
   isPrintableASCII,
   isUTF8,
   decodeJWT,
+  stripLineBreaks,
 };

@@ -39,6 +39,7 @@ export type IModalBulkSendParamList = {
     tokenDetails: { info: IToken } & ITokenFiat;
     bulkSendMode: EBulkSendMode;
     isInModal?: boolean;
+    hasDuplicateSenders?: boolean;
   };
   [EModalBulkSendRoutes.BulkSendIntervalInput]: {
     networkId: string;

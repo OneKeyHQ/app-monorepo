@@ -9,6 +9,7 @@ export enum EActionType {
   UPDATE_ISOLATED_MARGIN = 'updateIsolatedMargin',
   SET_POSITION_TPSL = 'setPositionTpsl',
   CANCEL_ORDER = 'cancelOrder',
+  MODIFY_ORDER = 'modifyOrder',
   WITHDRAW = 'withdraw',
 }
 

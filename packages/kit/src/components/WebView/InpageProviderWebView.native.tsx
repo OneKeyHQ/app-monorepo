@@ -74,6 +74,10 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       allowsBackForwardNavigationGestures,
       allowFileAccessFromFileURLs,
       allowFileAccess,
+      allowingReadAccessToURL,
+      onError,
+      onHttpError,
+      disableBridge,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -114,7 +118,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     );
 
     const nativeInjectedJsCode = useMemo(() => {
-      let code: string = useInjectedNativeCode ? injectedNativeCode : '';
+      let code: string =
+        useInjectedNativeCode && !disableBridge ? injectedNativeCode : '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
         code += `
         ;(function() {
@@ -133,6 +138,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       }
       return code;
     }, [
+      disableBridge,
       isDesktopMode,
       nativeInjectedJavaScriptBeforeContentLoaded,
       useInjectedNativeCode,
@@ -199,7 +205,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           ref={setWebViewRef}
           src={src}
           onSrcChange={onSrcChange}
-          receiveHandler={receiveHandler}
+          receiveHandler={disableBridge ? undefined : receiveHandler}
+          disableBridge={disableBridge}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
           onLoadProgress={({ nativeEvent }) => {
             const p = Math.ceil(nativeEvent.progress * 100);
@@ -231,6 +238,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
             allowsBackForwardNavigationGestures
           }
           {...nativeWebviewProps}
+          allowingReadAccessToURL={allowingReadAccessToURL}
+          onError={onError}
+          onHttpError={onHttpError}
         />
       </Stack>
     );

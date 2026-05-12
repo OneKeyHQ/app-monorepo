@@ -26,6 +26,15 @@ exports.createResolveExtensions = function ({ platform, configName }) {
       : []),
     // .ext.ts, .web.ts, .desktop.ts, .android.ts, .ios.ts, .native.ts
     ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
+    ...(platform === 'web' || platform === 'webEmbed'
+      ? [
+          '.web-only.ts',
+          '.web-only.tsx',
+          '.web-only.mjs',
+          '.web-only.js',
+          '.web-only.jsx',
+        ]
+      : []),
     '.web.ts',
     '.web.tsx',
     '.web.mjs',

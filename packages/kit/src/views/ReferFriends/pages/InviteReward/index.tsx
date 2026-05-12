@@ -99,7 +99,10 @@ function InviteRewardContent({
         />
       </YStack>
 
-      <InvitationDetailsSection summaryInfo={summaryInfo} />
+      <InvitationDetailsSection
+        summaryInfo={summaryInfo}
+        fetchSummaryInfo={fetchSummaryInfo}
+      />
     </>
   );
 }

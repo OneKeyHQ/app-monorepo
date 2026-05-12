@@ -14,7 +14,7 @@ import {
   SizableText,
   Stack,
   Switch,
-  popModalPages,
+  resetToRoute,
   startViewTransition,
   useMedia,
 } from '@onekeyhq/components';
@@ -22,13 +22,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
-import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -38,7 +39,7 @@ import {
   EOnboardingV2OneKeyIDLoginMode,
   EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -218,6 +219,7 @@ function AppDataSection() {
   const navigation = useAppNavigation();
   const media = useMedia();
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const { loginOneKeyId } = useOneKeyAuth();
 
   // Fetch keyless wallet existence + info in one call to avoid loading flash
   const { result: keylessWalletResult, isLoading: kwLoading } =
@@ -238,17 +240,52 @@ function AppDataSection() {
   const kwExists = keylessWalletResult?.exists ?? false;
   const keylessWallet = keylessWalletResult?.wallet;
 
-  // Scenario derivation (5 states, priority: 4 > 5 > 3 > 2 > 1)
-  // Scenarios 1/2/5 depend on kwExists, so skip them while loading to avoid flash
-  const isActiveIdUser = !!config.isCloudSyncEnabled; // Scenario 4
-  const isKwSyncEnabled = !!config.isCloudSyncEnabledKeyless && !isActiveIdUser;
+  // Scenario derivation (7 states, priority: 4 > 5 > 3 > 7 > 2 > 6 > 1)
+  // Scenarios 1/2/5/6 depend on kwExists, so skip them while loading to avoid flash
+  const hasConflictingCloudSyncModes =
+    !!config.isCloudSyncEnabled && !!config.isCloudSyncEnabledKeyless;
+  const isActiveIdUser =
+    !!config.isCloudSyncEnabled && !hasConflictingCloudSyncModes; // Scenario 4
+  const isKwSyncEnabled = !!config.isCloudSyncEnabledKeyless;
   const isKwRemovedWhileSyncOn = !kwLoading && isKwSyncEnabled && !kwExists; // Scenario 5
   const isActiveKwUser =
     !kwLoading && isKwSyncEnabled && !isKwRemovedWhileSyncOn; // Scenario 3
+  const hasUsedKeylessSyncBefore =
+    !!config.hasEverEnabledKeylessSync ||
+    !!config.lastSyncTimeKeyless ||
+    !!config.isCloudSyncEnabledKeyless;
+  const hasUsedOneKeyIdSyncBefore =
+    !!config.hasEverEnabledOneKeyIdSync ||
+    !!config.lastSyncTimeOneKeyId ||
+    (!!config.lastSyncTime && !config.lastSyncTimeKeyless);
+  // Scenario 7: Former ID-only user (sync off). Applies regardless of KW
+  // existence — if the last sync mode was OneKey ID, keep showing the ID
+  // switch until the user explicitly migrates to Keyless.
+  const isFormerIdUser =
+    !kwLoading &&
+    !isActiveIdUser &&
+    !isKwSyncEnabled &&
+    !hasUsedKeylessSyncBefore &&
+    hasUsedOneKeyIdSyncBefore;
   const isSyncOffWithKw =
-    !kwLoading && !isActiveIdUser && !isKwSyncEnabled && kwExists; // Scenario 2
+    !kwLoading &&
+    !isActiveIdUser &&
+    !isKwSyncEnabled &&
+    kwExists &&
+    !isFormerIdUser; // Scenario 2
+  const isFormerKwUserNoKw =
+    !kwLoading &&
+    !isActiveIdUser &&
+    !isKwSyncEnabled &&
+    !kwExists &&
+    hasUsedKeylessSyncBefore; // Scenario 6
   const isSyncOffNoKw =
-    !kwLoading && !isActiveIdUser && !isKwSyncEnabled && !kwExists; // Scenario 1
+    !kwLoading &&
+    !isActiveIdUser &&
+    !isKwSyncEnabled &&
+    !kwExists &&
+    !hasUsedKeylessSyncBefore &&
+    !hasUsedOneKeyIdSyncBefore; // Scenario 1
 
   // Last update times
   const shouldUseLegacyLastSyncTime =
@@ -288,16 +325,53 @@ function AppDataSection() {
     await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
   }, []);
 
+  const ensureOneKeyIdSyncActionAllowed = useCallback(async () => {
+    const isPrimeLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+    if (!isPrimeLoggedIn) {
+      try {
+        await loginOneKeyId();
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
+      return false;
+    }
+
+    const isPrimeSubscriptionActive =
+      await backgroundApiProxy.servicePrime.isPrimeSubscriptionActive();
+    if (!isPrimeSubscriptionActive) {
+      navigation.push(EPrimePages.PrimeDashboard, {
+        fromFeature: EPrimeFeatures.OneKeyCloud,
+      });
+      return false;
+    }
+
+    return true;
+  }, [loginOneKeyId, navigation]);
+
+  useEffect(() => {
+    if (!hasConflictingCloudSyncModes) {
+      return;
+    }
+    void backgroundApiProxy.servicePrimeCloudSync.normalizeCloudSyncStateForPageEnter();
+  }, [hasConflictingCloudSyncModes]);
+
   useEffect(() => {
     if (isActiveIdUser) {
       void reloadServerUserInfo();
     }
   }, [isActiveIdUser, reloadServerUserInfo]);
 
+  useEffect(() => {
+    if (!config.isCloudSyncEnabled || config.hasEverEnabledOneKeyIdSync) {
+      return;
+    }
+    void backgroundApiProxy.servicePrimeCloudSync.backfillOneKeyIdSyncHistoryIfNeeded();
+  }, [config.hasEverEnabledOneKeyIdSync, config.isCloudSyncEnabled]);
+
   // --- Handlers ---
 
   // Navigate to KW creation flow (Scenario 1)
-  const handleCreateKeylessWallet = useCallback(async () => {
+  const handleCreateKeylessWallet = useCallback(() => {
     const onboardingParams = {
       screen: EOnboardingV2Routes.OnboardingV2,
       params: {
@@ -309,11 +383,14 @@ function AppDataSection() {
     } as const;
 
     if (platformEnv.isNative) {
-      await popModalPages();
-      appGlobals.$rootAppNavigation?.push(
-        ERootRoutes.Onboarding,
-        onboardingParams,
-      );
+      // Previous logic:
+      // await popModalPages();
+      // appGlobals.$rootAppNavigation?.push(
+      //   ERootRoutes.Onboarding,
+      //   onboardingParams,
+      // );
+      //
+      resetToRoute(ERootRoutes.Onboarding, onboardingParams);
       return;
     }
 
@@ -341,7 +418,7 @@ function AppDataSection() {
           await backgroundApiProxy.serviceKeylessCloudSync.setPendingAutoEnableCloudSyncKeyless(
             true,
           );
-          await handleCreateKeylessWallet();
+          handleCreateKeylessWallet();
         },
       });
       return;
@@ -353,35 +430,11 @@ function AppDataSection() {
         false,
       );
       await backgroundApiProxy.servicePassword.promptPasswordVerify();
-      await backgroundApiProxy.serviceApp.showDialogLoading({
-        title: intl.formatMessage({
-          id: ETranslations.global_syncing,
-        }),
-      });
-      try {
-        // Sync ID data first to ensure latest data is downloaded
-        await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
-          callerName: 'Migration: ID sync before switch',
-          noDebounceUpload: true,
-        });
-        // Enable KW first, then disable ID — safer order to avoid stuck middle state
-        await backgroundApiProxy.serviceKeylessCloudSync.toggleCloudSyncKeyless(
-          {
-            enabled: true,
-            forceEnable: true,
-            silentEnable: false,
-          },
-        );
-        await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
-          enabled: false,
-        });
-        await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
-          syncMode: ECloudSyncMode.Keyless,
-        });
-      } finally {
-        await timerUtils.wait(1000);
-        await backgroundApiProxy.serviceApp.hideDialogLoading();
-      }
+      await backgroundApiProxy.serviceKeylessCloudSync.enableKeylessCloudSyncWithMigrationIfNeeded(
+        {
+          showLoading: true,
+        },
+      );
     } finally {
       isSubmittingRef.current = false;
     }
@@ -393,6 +446,12 @@ function AppDataSection() {
       if (isSubmittingRef.current) return;
       try {
         isSubmittingRef.current = true;
+        if (value) {
+          const isAllowed = await ensureOneKeyIdSyncActionAllowed();
+          if (!isAllowed) {
+            return;
+          }
+        }
         if (value && shouldChangePasswordAutoLock) {
           await new Promise<void>((resolve, reject) => {
             Dialog.show({
@@ -424,7 +483,7 @@ function AppDataSection() {
         isSubmittingRef.current = false;
       }
     },
-    [intl, shouldChangePasswordAutoLock],
+    [ensureOneKeyIdSyncActionAllowed, intl, shouldChangePasswordAutoLock],
   );
 
   // Toggle Keyless sync (Scenario 2 → 3 or 3 → 2)
@@ -444,34 +503,42 @@ function AppDataSection() {
   const handleManualSyncOneKeyId = useCallback(async () => {
     if (!config.isCloudSyncEnabled) return;
     if (manualSyncingRef.current) return;
+    const isAllowed = await ensureOneKeyIdSyncActionAllowed();
+    if (!isAllowed) {
+      return;
+    }
     manualSyncingRef.current = true;
     try {
+      await backgroundApiProxy.servicePrimeCloudSync.ensureOneKeyIdCloudSyncAvailableForManualSync();
       await backgroundApiProxy.servicePassword.promptPasswordVerify();
       await backgroundApiProxy.serviceApp.showDialogLoading({
         title: intl.formatMessage({
           id: ETranslations.global_syncing,
         }),
       });
-      await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
-        callerName: 'Manual Cloud Sync OneKey ID',
-        noDebounceUpload: true,
-        forceSync: true,
-      });
-      await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
-        syncMode: ECloudSyncMode.OnekeyId,
+      try {
+        await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
+          callerName: 'Manual Cloud Sync OneKey ID',
+          noDebounceUpload: true,
+          forceSync: true,
+        });
+        await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
+          syncMode: ECloudSyncMode.OnekeyId,
+        });
+      } finally {
+        await timerUtils.wait(1000);
+        await backgroundApiProxy.serviceApp.hideDialogLoading();
+      }
+      void backgroundApiProxy.serviceApp.showToast({
+        method: 'success',
+        title: intl.formatMessage({
+          id: ETranslations.global_sync_successfully,
+        }),
       });
     } finally {
       manualSyncingRef.current = false;
-      await timerUtils.wait(1000);
-      await backgroundApiProxy.serviceApp.hideDialogLoading();
     }
-    void backgroundApiProxy.serviceApp.showToast({
-      method: 'success',
-      title: intl.formatMessage({
-        id: ETranslations.global_sync_successfully,
-      }),
-    });
-  }, [config.isCloudSyncEnabled, intl]);
+  }, [config.isCloudSyncEnabled, ensureOneKeyIdSyncActionAllowed, intl]);
 
   // "Sync now" when KW removed (Scenario 5) — show toast instead of syncing
   const handleSyncNowKwRemoved = useCallback(() => {
@@ -513,6 +580,10 @@ function AppDataSection() {
     });
   }, [config.isCloudSyncEnabledKeyless, intl]);
 
+  const handleOpenCloudSyncDebugPage = useCallback(() => {
+    navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
+  }, [navigation]);
+
   return (
     <>
       {/* Persistent header — always shown */}
@@ -520,39 +591,119 @@ function AppDataSection() {
         onLearnMore={() => navigation.navigate(EPrimePages.PrimeCloudSyncInfo)}
       />
 
-      {/* Scenario 1: No KW, sync off */}
-      {isSyncOffNoKw ? (
-        <Stack
-          px="$5"
-          pb="$16"
-          gap="$4"
-          flex={1}
-          alignItems="center"
-          justifyContent="center"
-        >
-          <CloudSyncIllustration />
-          <Stack gap="$2">
-            <SizableText size="$headingLg">
-              {intl.formatMessage({
-                id: ETranslations.create_keyless_wallet_first__title,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.create_keyless_wallet_first__desc,
-              })}
-            </SizableText>
-          </Stack>
-          <Button
-            testID="prime-btn"
-            size="large"
-            variant="primary"
-            onPress={handleCreateKeylessWallet}
-          >
-            {intl.formatMessage({
-              id: ETranslations.create_and_enable_syncing,
+      {/* Scenario 6: Former Keyless sync user, no KW, sync off */}
+      {isFormerKwUserNoKw ? (
+        <>
+          <Alert
+            type="warning"
+            title={intl.formatMessage({
+              id: ETranslations.syncing_paused__title,
             })}
-          </Button>
+            description={intl.formatMessage({
+              id: ETranslations.keyless_wallet_removed__desc,
+            })}
+            actionLayout={media.sm ? 'vertical' : undefined}
+            action={{
+              primary: intl.formatMessage({
+                id: ETranslations.restore_keyless_wallet__action,
+              }),
+              onPrimaryPress: handleCreateKeylessWallet,
+            }}
+            mx="$5"
+            mt="$2"
+            mb="$3"
+          />
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.global_onekey_cloud,
+            })}
+            icon="CloudOutline"
+            subtitle={`${intl.formatMessage({
+              id: ETranslations.prime_last_update,
+            })} : ${keylessLastUpdateTime}`}
+          >
+            <Switch
+              size={ESwitchSize.small}
+              onChange={handleToggleKeylessSync}
+              value={false}
+            />
+          </ListItem>
+        </>
+      ) : null}
+
+      {/* Scenario 7: Former ID-only sync user, sync off (KW may or may not exist) */}
+      {isFormerIdUser ? (
+        <>
+          <Alert
+            type="warning"
+            title={intl.formatMessage({
+              id: ETranslations.switch_to_keyless_wallet_sync__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.switch_to_keyless_wallet_sync__desc,
+            })}
+            actionLayout={media.sm ? 'vertical' : undefined}
+            action={{
+              primary: intl.formatMessage({
+                id: ETranslations.switch_now__action,
+              }),
+              onPrimaryPress: handleMigrateToKeyless,
+            }}
+            mx="$5"
+            mt="$2"
+            mb="$3"
+          />
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.global_onekey_cloud,
+            })}
+            icon="CloudOutline"
+            subtitle={`${intl.formatMessage({
+              id: ETranslations.prime_last_update,
+            })} : ${oneKeyIdLastUpdateTime}`}
+          >
+            <Switch
+              size={ESwitchSize.small}
+              onChange={handleToggleIdSync}
+              value={config.isCloudSyncEnabled}
+            />
+          </ListItem>
+        </>
+      ) : null}
+
+      {/* Scenario 1: No KW, sync off, no ID sync history */}
+      {isSyncOffNoKw ? (
+        <Stack px="$5" pb="$16" flex={1} alignItems="center">
+          <Stack gap="$4" flex={1} alignItems="center" justifyContent="center">
+            <CloudSyncIllustration />
+            <Stack gap="$2">
+              <SizableText size="$headingLg">
+                {intl.formatMessage({
+                  id: ETranslations.create_keyless_wallet_first__title,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.create_keyless_wallet_first__desc,
+                })}
+              </SizableText>
+            </Stack>
+            <Button
+              testID="prime-btn"
+              size="large"
+              variant="primary"
+              onPress={handleCreateKeylessWallet}
+            >
+              {intl.formatMessage({
+                id: ETranslations.create_and_enable_syncing,
+              })}
+            </Button>
+          </Stack>
+          <MultipleClickStack
+            w="100%"
+            h="$10"
+            onPress={handleOpenCloudSyncDebugPage}
+          />
         </Stack>
       ) : null}
 

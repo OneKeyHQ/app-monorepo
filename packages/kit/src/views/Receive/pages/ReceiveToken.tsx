@@ -24,8 +24,10 @@ import {
 } from '@onekeyhq/components';
 import {
   EHardwareUiStateAction,
+  EThirdPartyHardwareUiAction,
   useHardwareUiStateAtom,
   useSettingsPersistAtom,
+  useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
@@ -142,6 +144,7 @@ function ReceiveToken() {
   const [networkLogoColor, setNetworkLogoColor] = useState<string | null>(null);
 
   const [hardwareUiState] = useHardwareUiStateAtom();
+  const [thirdPartyHardwareUiState] = useThirdPartyHardwareUiStateAtom();
 
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
 
@@ -178,13 +181,20 @@ function ReceiveToken() {
 
     if (
       addressState === EAddressState.Verifying &&
-      hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON
+      (hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON ||
+        thirdPartyHardwareUiState?.action ===
+          EThirdPartyHardwareUiAction.confirmOnDevice)
     ) {
       return true;
     }
 
     return false;
-  }, [addressState, hardwareUiState?.action, isHardwareWallet]);
+  }, [
+    addressState,
+    hardwareUiState?.action,
+    thirdPartyHardwareUiState,
+    isHardwareWallet,
+  ]);
 
   const shouldShowQRCode = useMemo(() => {
     if (!isHardwareWallet) {
@@ -927,7 +937,11 @@ function ReceiveToken() {
                 source={{ uri: banner.src }}
                 fallback={<NetworkAvatar size="$5" networkId={networkId} />}
               />
-              <FormatHyperlinkText size="$bodyMd" flex={1}>
+              <FormatHyperlinkText
+                size="$bodyMd"
+                flex={1}
+                autoExecuteParsedAction={false}
+              >
                 {banner.title}
               </FormatHyperlinkText>
             </XStack>

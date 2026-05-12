@@ -9,35 +9,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 
-import { TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS } from './constants';
-
-function convertSearchTokenToMarketToken(
-  item: IMarketSearchV2Token & { networkLogoURI: string },
-): IMarketToken {
-  return {
-    id: `${item.network}_${item.address}`,
-    name: item.name,
-    symbol: item.symbol,
-    address: item.address,
-    decimals: item.decimals,
-    price: Number(item.price) || 0,
-    change24h: Number(item.priceChange24hPercent) || 0,
-    marketCap: Number(item.marketCap) || 0,
-    liquidity: Number(item.liquidity) || 0,
-    transactions: 0,
-    uniqueTraders: 0,
-    holders: 0,
-    turnover: Number(item.volume_24h || item.volume24h) || 0,
-    tokenImageUri: item.logoUrl,
-    tokenImageUris: item.logoUrls,
-    networkLogoUri: item.networkLogoURI,
-    networkId: item.network,
-    chainId: item.network,
-    isNative: item.isNative,
-    communityRecognized: item.communityRecognized,
-    stock: item.stock,
-  };
-}
+import {
+  TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS,
+  convertSearchTokenToMarketToken,
+} from './constants';
 
 function MarketSearchTokenTable({
   items,

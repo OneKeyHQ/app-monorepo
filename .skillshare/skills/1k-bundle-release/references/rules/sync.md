@@ -52,11 +52,27 @@ Get the list of release-only commits (not yet on x) using patch-id comparison:
 git cherry origin/x "origin/$RELEASE_BRANCH"
 ```
 
-Lines starting with `+` are new commits. For each `+` commit, cherry-pick onto the sync branch:
+Lines starting with `+` are new commits.
+
+### Filter out release-tracking commits
+
+Before cherry-picking or rebasing, **exclude commits that only modify release-tracking files**. These are release-branch-specific and must NOT be synced to `x`:
+
+- Commits matching `chore: release #*` (the publish tracking commits)
+- Commits that only touch `RELEASES.json`
+- Commits that only modify `.env.version` (BUILD_NUMBER changes)
+
+When using cherry-pick, skip these commits. When using rebase, drop them interactively or revert them after the rebase.
+
+### Cherry-pick approach
+
+For each `+` commit (excluding filtered ones above), cherry-pick onto the sync branch:
 
 ```bash
 git cherry-pick <commit-sha>
 ```
+
+### Rebase approach
 
 Alternatively, use rebase to replay all release-only commits at once:
 

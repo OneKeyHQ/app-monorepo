@@ -88,6 +88,7 @@ function BasicMarketStarV2({
   from,
   tokenSymbol,
   isNative = false,
+  customIconSize,
   ...props
 }: {
   size?: IIconButtonProps['size'];
@@ -96,6 +97,7 @@ function BasicMarketStarV2({
   from: EWatchlistFrom;
   tokenSymbol?: string;
   isNative?: boolean;
+  customIconSize?: string;
 } & IStackProps) {
   const intl = useIntl();
   const { onPress, checked } = useStarV2Checked({
@@ -122,6 +124,7 @@ function BasicMarketStarV2({
       iconSize={size ? undefined : '$5'}
       iconProps={{
         color: checked ? '$iconActive' : '$iconSubdued',
+        ...(customIconSize ? { size: customIconSize } : {}),
       }}
       onPress={onPress}
       {...(props as IXStackProps)}

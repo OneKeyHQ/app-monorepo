@@ -62,8 +62,14 @@ export function usePendingDiscoveryUrl() {
     // the pending URL. Without this, RNSScreenStack may lose its window
     // reference during the transition, causing the browser overlay to not
     // render until the user touches the screen (iOS window-nil freeze).
-    const handler = ({ openUrl }: { openUrl?: boolean }) => {
-      if (openUrl) {
+    const handler = ({
+      openUrl,
+      shouldConsumePendingUrl = true,
+    }: {
+      openUrl?: boolean;
+      shouldConsumePendingUrl?: boolean;
+    }) => {
+      if (openUrl && shouldConsumePendingUrl) {
         requestIdleCallback(() => {
           consumePendingUrl();
         });

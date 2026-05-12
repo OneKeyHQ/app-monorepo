@@ -22,9 +22,12 @@ export function SubmenuColumn({
   webPageTabBar,
   isExpanded = false,
 }: ISubmenuColumnProps) {
-  const boxShadowStyle = useMemo(
+  const expandedStyle = useMemo(
     () => ({
       boxShadow: isExpanded ? '10px 0 30px -10px rgba(0, 0, 0, 0.10)' : 'none',
+      willChange: isExpanded ? ('width' as const) : ('auto' as const),
+      transition:
+        'background-color 150ms ease, border-color 150ms ease, border-radius 150ms ease, box-shadow 150ms ease',
     }),
     [isExpanded],
   );
@@ -62,7 +65,8 @@ export function SubmenuColumn({
         borderBottomWidth={1}
         borderRightWidth={1}
         borderColor={isExpanded ? '$neutral3' : 'transparent'}
-        style={boxShadowStyle}
+        overflow="hidden"
+        style={expandedStyle}
       >
         {webPageTabBar}
       </YStack>

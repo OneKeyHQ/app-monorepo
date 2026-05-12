@@ -35,14 +35,14 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  useAppUpdateInfo,
+} from '@onekeyhq/kit/src/components/AppUpdate';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
-import {
-  isShowAppUpdateUIWhenUpdating,
-  useAppUpdateInfo,
-} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import {
@@ -226,10 +226,31 @@ export function ThemeListItem(props: ICustomElementProps) {
 
 function SuspenseBiologyAuthListItem(props: ICustomElementProps) {
   const [{ isPasswordSet }] = usePasswordPersistAtom();
-  const [{ isSupport: biologyAuthIsSupport }] =
+  const [{ isSupport: biologyAuthIsSupport, authType, isEnable }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
+  const shouldRender =
+    isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport);
+  // TODO(biologyAuth-debug): temporary log to diagnose biology auth visibility in Settings
+  useEffect(() => {
+    defaultLogger.setting.page.biologyAuthDebug('SuspenseBiologyAuthListItem', {
+      platform: platformEnv.symbol,
+      isPasswordSet,
+      biologyAuthIsSupport,
+      biologyAuthIsEnable: isEnable,
+      authType,
+      webAuthIsSupport,
+      shouldRender,
+    });
+  }, [
+    isPasswordSet,
+    biologyAuthIsSupport,
+    isEnable,
+    authType,
+    webAuthIsSupport,
+    shouldRender,
+  ]);
+  return shouldRender ? (
     <TabSettingsListItem {...props}>
       <UniversalContainerWithSuspense />
     </TabSettingsListItem>
@@ -750,6 +771,30 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
   );
 }
 
+export function MenuBarTrayListItem(props: ICustomElementProps) {
+  const [{ enableMenuBarTray }] = useSettingsPersistAtom();
+  // Fall back to true so migrated users (persisted atom lacks this field)
+  // match the main-process default of tray-enabled.
+  const isEnabled = enableMenuBarTray ?? true;
+  const toggleMenuBarTray = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
+      if (platformEnv.isDesktopMac) {
+        globalThis.desktopApi?.toggleTray(value);
+      }
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        size={ESwitchSize.small}
+        value={isEnabled}
+        onChange={toggleMenuBarTray}
+      />
+    </TabSettingsListItem>
+  );
+}
+
 export function BTCFreshAddressListItem(props: ICustomElementProps) {
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const toggleBTCFreshAddress = useCallback(async (value: boolean) => {
@@ -768,6 +813,52 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
         size={ESwitchSize.small}
         value={enableBTCFreshAddress}
         onChange={toggleBTCFreshAddress}
+      />
+    </TabSettingsListItem>
+  );
+}
+
+export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
+  const [{ useGasAccountByDefault }] = useSettingsPersistAtom();
+  const toggleUseGasAccountByDefault = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setUseGasAccountByDefault(value);
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        alignSelf="flex-start"
+        size={ESwitchSize.small}
+        value={useGasAccountByDefault ?? true}
+        onChange={toggleUseGasAccountByDefault}
+      />
+    </TabSettingsListItem>
+  );
+}
+
+export function SplitViewListItem(props: ICustomElementProps) {
+  const [{ enableSplitView }] = useSettingsPersistAtom();
+  const checked = enableSplitView !== false;
+  const toggleSplitView = useCallback(
+    async (value: boolean) => {
+      if (value === checked) return;
+      await backgroundApiProxy.serviceSetting.setEnableSplitView(value);
+      // Layout swap requires a fresh app boot; small delay lets the Switch
+      // animate before the native restart kicks in.
+      setTimeout(() => {
+        void backgroundApiProxy.serviceApp.restartApp();
+      }, 200);
+    },
+    [checked],
+  );
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        alignSelf="flex-start"
+        size={ESwitchSize.small}
+        value={checked}
+        onChange={toggleSplitView}
       />
     </TabSettingsListItem>
   );

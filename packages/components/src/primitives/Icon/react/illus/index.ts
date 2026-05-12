@@ -27,6 +27,7 @@ export { default as BnbSmartChain } from './BnbSmartChain';
 export { default as BobaNetwork } from './BobaNetwork';
 export { default as BookPencilDark } from './BookPencilDark';
 export { default as BookPencil } from './BookPencil';
+export { default as Bot } from './Bot';
 export { default as BrandLogo } from './BrandLogo';
 export { default as BtcCircle } from './BtcCircle';
 export { default as Cardano } from './Cardano';

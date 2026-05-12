@@ -93,6 +93,11 @@ function LnurlPayRequestModal() {
       comment: '',
     },
   });
+  const amountValue = useFormReturn.watch('amount');
+  const isAmountEmpty = useMemo(
+    () => !String(amountValue ?? '').trim(),
+    [amountValue],
+  );
 
   const commentAllowedLength = useMemo(() => {
     if (
@@ -281,7 +286,7 @@ function LnurlPayRequestModal() {
             }}
             confirmButtonProps={{
               loading: isLoading,
-              disabled: !continueOperate,
+              disabled: !continueOperate || isAmountEmpty,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

@@ -113,10 +113,8 @@ class ServiceCloudBackup extends ServiceBase {
       wallets: {},
     };
     const { version } = platformEnv;
-    if (password) {
-      const { items: contacts } = await serviceAddressBook.getSafeRawItems({
-        password,
-      });
+    {
+      const contacts = await serviceAddressBook.getItemsByNetwork({});
       defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
         contacts.length,
       );
@@ -675,19 +673,25 @@ class ServiceCloudBackup extends ServiceBase {
           await serviceAccount.createHDWalletWithRs({
             rs: rsEncoded,
             password: localPassword,
+            name,
             avatarInfo: avatar,
             walletHash: walletHashAndXfp.hash,
             walletXfp: walletHashAndXfp.xfp,
             isWalletBackedUp: true,
+            skipAddHDNextIndexedAccount: true,
+            applyRestoreSyncPolicy: true,
           });
         await serviceAccount.restoreAccountsToWallet({
           walletId: wallet.id,
           accounts,
+          applyRestoreSyncPolicy: true,
         });
-        if (!isOverrideWallet) {
+        if (isOverrideWallet) {
           await serviceAccount.setWalletNameAndAvatar({
             walletId: wallet?.id,
             name,
+            avatar,
+            applyRestoreSyncPolicy: true,
           });
         }
       }
@@ -700,6 +704,7 @@ class ServiceCloudBackup extends ServiceBase {
         await serviceAccount.restoreAccountsToWallet({
           walletId: WALLET_TYPE_WATCHING,
           accounts: [account],
+          applyRestoreSyncPolicy: true,
         });
       }
 
@@ -721,12 +726,12 @@ class ServiceCloudBackup extends ServiceBase {
           walletId: WALLET_TYPE_IMPORTED,
           accounts: [account],
           importedCredential,
+          applyRestoreSyncPolicy: true,
         });
       }
 
       await serviceAddressBook.bulkSetItemsWithUniq(
         Object.values(privateData.contacts),
-        localPassword,
       );
 
       if (notOnDevice.discoverBookmarks) {

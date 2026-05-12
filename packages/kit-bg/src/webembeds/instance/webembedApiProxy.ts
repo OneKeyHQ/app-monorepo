@@ -7,6 +7,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 
@@ -32,6 +33,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
   override async waitRemoteApiReady(): Promise<void> {
     const ready = await this.isSDKReady();
+    defaultLogger.app.webembed.webEmbedWaitRemoteApiReady({ isReady: !!ready });
     if (!ready) {
       return new Promise((resolve, reject) => {
         const timerId = setTimeout(() => {
@@ -65,11 +67,21 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       params,
     };
 
-    // await timerUtils.wait(5*1000);
-
-    const result = await checkIsDefined(
-      appGlobals?.$backgroundApiProxy,
-    ).serviceDApp.callWebEmbedApiProxy(message);
+    let result: any;
+    // In dual-thread mode, the background thread doesn't have the JsBridge
+    // object. Route the call to the main thread via reverse RPC.
+    const callViaMainThread = (globalThis as any)
+      .__onekeyCallWebEmbedBridgeViaMainThread as
+      | ((data: unknown) => Promise<unknown>)
+      | undefined;
+    if (callViaMainThread) {
+      result = await callViaMainThread(message);
+    } else {
+      // Single-thread: existing flow through background serviceDApp
+      result = await checkIsDefined(
+        appGlobals?.$backgroundApiProxy,
+      ).serviceDApp.callWebEmbedApiProxy(message);
+    }
 
     if (
       module === 'secret' &&
@@ -117,3 +129,18 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 const webembedApiProxy = new WebembedApiProxy();
 export default webembedApiProxy;
 appGlobals.$webembedApiProxy = webembedApiProxy;
+
+// Typed slot for shared/imageUtils. Routes via the same callRemoteApi path,
+// so single-thread (web/desktop/ext) and BG-thread (dual-thread native) both
+// pick up this registration. Main thread native registers a direct adapter
+// in setupMainThreadBackgroundRunner.
+registerImageEmbedBridge({
+  convertToBlackAndWhiteImageBase64: (img, mime) =>
+    webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(img, mime),
+  applyRoundedCorners: (params) =>
+    webembedApiProxy.imageUtils.applyRoundedCorners(params),
+  base64ImageToBitmap: (params) =>
+    webembedApiProxy.imageUtils.base64ImageToBitmap(params),
+  processImageBlur: (params) =>
+    webembedApiProxy.imageUtils.processImageBlur(params),
+});

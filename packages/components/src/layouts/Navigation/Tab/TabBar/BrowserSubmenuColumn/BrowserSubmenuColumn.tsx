@@ -114,26 +114,62 @@ export function BrowserSubmenuColumn({
     if (!isHovered) return;
     if (typeof document === 'undefined') return;
 
+    // Cache the bounding rect so pointermove avoids forcing layout.
+    // Refresh on scroll/resize since those can shift the sidebar.
+    let cachedRect: DOMRect | null = null;
+    let rectRafId: number | null = null;
+    const updateCachedRect = () => {
+      if (rectRafId !== null) return;
+      rectRafId = requestAnimationFrame(() => {
+        rectRafId = null;
+        const container = containerRef.current;
+        if (container) {
+          cachedRect = container.getBoundingClientRect();
+        }
+      });
+    };
+    // Synchronous initial read — effect runs between frames, no layout thrash.
+    const container = containerRef.current;
+    if (container) {
+      cachedRect = container.getBoundingClientRect();
+    }
+    window.addEventListener('resize', updateCachedRect);
+    window.addEventListener('scroll', updateCachedRect, true);
+
+    let rafId: number | null = null;
+
     const handlePointerMove = (e: PointerEvent) => {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
-      // Don't collapse while a child popover (e.g. context menu) is open
       if (popoverCountRef.current > 0) return;
-      const container = containerRef.current;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const isInside =
-        e.clientX >= rect.left &&
-        e.clientX <= rect.left + EXPANDED_SUBMENU_WIDTH &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom;
-      if (!isInside) {
-        clearHoverTimer();
-        setIsHovered(false);
-      }
+
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        // Re-check: popover may have opened between scheduling and execution
+        if (popoverCountRef.current > 0) return;
+        if (!cachedRect) return;
+        const pointer = lastPointerRef.current;
+        if (!pointer) return;
+        const isInside =
+          pointer.x >= cachedRect.left &&
+          pointer.x <= cachedRect.left + EXPANDED_SUBMENU_WIDTH &&
+          pointer.y >= cachedRect.top &&
+          pointer.y <= cachedRect.bottom;
+        if (!isInside) {
+          clearHoverTimer();
+          setIsHovered(false);
+        }
+      });
     };
 
     document.addEventListener('pointermove', handlePointerMove);
-    return () => document.removeEventListener('pointermove', handlePointerMove);
+    return () => {
+      document.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('resize', updateCachedRect);
+      window.removeEventListener('scroll', updateCachedRect, true);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (rectRafId !== null) cancelAnimationFrame(rectRafId);
+    };
   }, [isHovered, clearHoverTimer]);
 
   type ITabBarProps = { inSubmenu?: boolean; isExpanded?: boolean };

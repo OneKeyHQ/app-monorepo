@@ -6,6 +6,7 @@ import { Icon, Image } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import type { IUniversalSearchDapp } from '@onekeyhq/shared/types/search';
 
@@ -79,6 +80,13 @@ export function UniversalSearchDappItem({
   );
 
   const handlePress = useCallback(() => {
+    defaultLogger.universalSearch.search.universalSearchClick({
+      searchText: getSearchInput(),
+      type: item.type,
+      itemId: dappId ?? '',
+      itemTitle: name,
+    });
+
     setTimeout(() => {
       handleWebSite({
         dApp: isGoogle ? undefined : item.payload,

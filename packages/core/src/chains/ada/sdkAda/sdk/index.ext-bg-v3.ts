@@ -34,6 +34,15 @@ const dAppConvertCborTxToEncodeTx = async (...args: any[]) =>
 const dAppSignData = async (...args: any[]) =>
   appGlobals.$offscreenApiProxy.adaSdk.dAppSignData(...args);
 
+const parseRawTxInputs = async (rawTxHex: string) =>
+  appGlobals.$offscreenApiProxy.adaSdk.parseRawTxInputs(rawTxHex);
+
+const parseRawTxBodyStakeInfo = async (rawTxHex: string) =>
+  appGlobals.$offscreenApiProxy.adaSdk.parseRawTxBodyStakeInfo(rawTxHex);
+
+const extractStakeKeyHashFromBaseAddress = async (addr: string) =>
+  appGlobals.$offscreenApiProxy.adaSdk.extractStakeKeyHashFromBaseAddress(addr);
+
 const getCardanoApi: IGetCardanoApi = async () =>
   Promise.resolve({
     composeTxPlan,
@@ -46,6 +55,9 @@ const getCardanoApi: IGetCardanoApi = async () =>
     dAppGetUtxos,
     dAppConvertCborTxToEncodeTx,
     dAppSignData,
+    parseRawTxInputs,
+    parseRawTxBodyStakeInfo,
+    extractStakeKeyHashFromBaseAddress,
   });
 
 const sdk: IAdaSdk = { getCardanoApi, ensureSDKReady };

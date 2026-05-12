@@ -4,12 +4,20 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import type { ILineError } from './AddressesInput/LineNumberedTextArea';
+
 export type ITokenDetailsState = {
   initialized: boolean;
   isRefreshing: boolean;
 };
 
+export type IResolvedSenderAccount = {
+  accountId: string;
+  indexedAccountId?: string;
+};
+
 export type IBulkSendAddressesInputContext = {
+  currentWalletId: string | undefined;
   selectedAccountId: string | undefined;
   setSelectedAccountId: (accountId: string | undefined) => void;
   selectedNetworkId: string | undefined;
@@ -34,12 +42,22 @@ export type IBulkSendAddressesInputContext = {
   setDuplicateAddressCount: (count: number) => void;
   selectedDeriveType: IAccountDeriveTypes | undefined;
   setSelectedDeriveType: (deriveType: IAccountDeriveTypes | undefined) => void;
-  // Per-sender resolved accountIds (ManyToOne/ManyToMany)
-  resolvedSenderAccountIds: Record<number, string>;
-  setResolvedSenderAccountIds: (ids: Record<number, string>) => void;
+  // Per-sender resolved accounts (ManyToOne/ManyToMany)
+  resolvedSenderAccountIds: Record<number, IResolvedSenderAccount>;
+  setResolvedSenderAccountIds: (
+    ids: Record<number, IResolvedSenderAccount>,
+  ) => void;
+  // Track duplicate sender addresses (ManyToMany only)
+  duplicateSenderAddressCount: number;
+  setDuplicateSenderAddressCount: (count: number) => void;
+  hasUserSelectedAsset: boolean;
+  setHasUserSelectedAsset: (value: boolean) => void;
+  receiverValidationErrors: ILineError[];
+  setReceiverValidationErrors: (errors: ILineError[]) => void;
 };
 export const BulkSendAddressesInputContext =
   createContext<IBulkSendAddressesInputContext>({
+    currentWalletId: undefined,
     selectedAccountId: undefined,
     setSelectedAccountId: () => {},
     selectedNetworkId: undefined,
@@ -63,6 +81,12 @@ export const BulkSendAddressesInputContext =
     setSelectedDeriveType: () => {},
     resolvedSenderAccountIds: {},
     setResolvedSenderAccountIds: () => {},
+    duplicateSenderAddressCount: 0,
+    setDuplicateSenderAddressCount: () => {},
+    hasUserSelectedAsset: false,
+    setHasUserSelectedAsset: () => {},
+    receiverValidationErrors: [],
+    setReceiverValidationErrors: () => {},
   });
 
 export const useBulkSendAddressesInputContext = () =>

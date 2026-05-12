@@ -131,12 +131,11 @@ function WalletActionExchange(props?: {
   const handleExchangePress = useCallback(
     async (config: IExchangeConfig) => {
       const isInstalled = isExchangeInstalled(config.id);
+      const shouldUseBinancePreOrder =
+        !platformEnv.isWebDappMode && (!platformEnv.isNative || isInstalled);
 
       // Binance Connect: available on all platforms, or native when app is installed
-      if (
-        config.id === EExchangeId.Binance &&
-        (!platformEnv.isNative || isInstalled)
-      ) {
+      if (config.id === EExchangeId.Binance && shouldUseBinancePreOrder) {
         await handleBinancePress();
         return;
       }

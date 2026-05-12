@@ -1,4 +1,8 @@
 import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+import type {
+  ETranslateDisplayMode,
+  ETranslateEngine,
+} from '@onekeyhq/shared/types/discovery';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
@@ -56,6 +60,26 @@ export class PrimeUsageScene extends BaseScene {
   public bulkRevokeSuccess({ revokeCount }: { revokeCount: number }) {
     return {
       revokeCount,
+    };
+  }
+
+  @LogToServer()
+  public dappTranslateSuccess({
+    engine,
+    targetLang,
+    displayMode,
+    dappDomain,
+  }: {
+    engine: ETranslateEngine;
+    targetLang: string;
+    displayMode: ETranslateDisplayMode;
+    dappDomain: string;
+  }) {
+    return {
+      engine,
+      targetLang,
+      displayMode,
+      dappDomain,
     };
   }
 }

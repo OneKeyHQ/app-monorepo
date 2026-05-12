@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EChangeHistoryContentType,
@@ -38,6 +39,18 @@ export function WalletRenameButton({
     return !!editable;
   }, [editable, wallet?.id]);
 
+  // Third-party HW wallets (e.g. Ledger) rename is DB-only — do not go
+  // through the OneKey SDK device label flow, since the device does not
+  // speak OneKey protocol and applySettings would fail.
+  const isThirdPartyHwWallet = useMemo(
+    () =>
+      Boolean(
+        wallet?.associatedDeviceInfo?.vendor &&
+        getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
+      ),
+    [wallet?.associatedDeviceInfo?.vendor],
+  );
+
   return (
     <>
       <XStack
@@ -55,11 +68,13 @@ export function WalletRenameButton({
               accountUtils.isHwWallet({ walletId: wallet?.id }) &&
               !accountUtils.isHwHiddenWallet({
                 wallet,
-              })
+              }) &&
+              !isThirdPartyHwWallet
             ) {
               void showHardwareLabelSetDialog(
                 {
                   wallet,
+                  intl,
                 },
                 {
                   onSubmit: async (name) => {
@@ -72,6 +87,7 @@ export function WalletRenameButton({
               );
             } else {
               showRenameDialog(wallet.name, {
+                intl,
                 nameHistoryInfo: {
                   entityId: wallet.id,
                   entityType: EChangeHistoryEntityType.Wallet,
@@ -82,11 +98,18 @@ export function WalletRenameButton({
                 confirmTestID: AccountManagerTestIDs.walletRenameConfirm,
                 onSubmit: async (name) => {
                   if (wallet?.id && name) {
-                    await serviceAccount.setWalletNameAndAvatar({
-                      walletId: wallet?.id,
-                      name,
-                      shouldCheckDuplicate: true,
-                    });
+                    if (accountUtils.isBotWallet({ walletId: wallet.id })) {
+                      await serviceAccount.renameBotWallet({
+                        walletId: wallet.id,
+                        name,
+                      });
+                    } else {
+                      await serviceAccount.setWalletNameAndAvatar({
+                        walletId: wallet?.id,
+                        name,
+                        shouldCheckDuplicate: true,
+                      });
+                    }
                   }
                 },
               });

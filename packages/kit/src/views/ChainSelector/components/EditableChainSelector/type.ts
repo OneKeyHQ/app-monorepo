@@ -7,7 +7,6 @@ export type IEditableChainSelectorContext = {
   frequentlyUsedItems: IServerNetwork[];
   setFrequentlyUsedItems?: (networks: IServerNetwork[]) => void;
 
-  isEditMode?: boolean;
   walletId: string;
   indexedAccountId?: string;
   networkId?: string;
@@ -32,9 +31,6 @@ export type IEditableChainSelectorSection = {
   title?: string;
   data: IServerNetworkMatch[];
   unavailable?: boolean;
-  draggable?: boolean;
-  editable?: boolean;
-  isCustomNetworkEditable?: boolean;
 };
 
 export const CELL_HEIGHT = 48;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -17,13 +18,19 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
-import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnManagePageActionData,
+  IEarnManagePageResponse,
+  IStakeProtocolListItem,
+} from '@onekeyhq/shared/types/staking';
 
 import {
   ProtocolImage,
@@ -32,6 +39,9 @@ import {
 import { capitalizeString } from '../../Staking/utils/utils';
 
 import { AprText } from './AprText';
+import { shouldShowProtocolListBalances } from './showProtocolListDialog.utils';
+
+import type { IntlShape } from 'react-intl';
 
 type ISelectedProtocol = {
   networkId: string;
@@ -39,20 +49,40 @@ type ISelectedProtocol = {
   vault?: string;
 };
 
+type IProtocolBalanceInfo = {
+  balanceParsed: string;
+};
+
+type IProtocolBalanceMap = Record<string, IProtocolBalanceInfo>;
+
 function getProtocolKey({ networkId, provider, vault }: ISelectedProtocol) {
   return `${provider.toLowerCase()}-${networkId}-${vault ?? ''}`;
+}
+
+function getProtocolVault(item: IStakeProtocolListItem) {
+  return earnUtils.isVaultBasedProvider({
+    providerName: item.provider.name,
+  })
+    ? item.provider.vault
+    : undefined;
 }
 
 function getProtocolItemKey(item: IStakeProtocolListItem) {
   return getProtocolKey({
     networkId: item.network.networkId,
     provider: item.provider.name,
-    vault: earnUtils.isVaultBasedProvider({
-      providerName: item.provider.name,
-    })
-      ? item.provider.vault
-      : undefined,
+    vault: getProtocolVault(item),
   });
+}
+
+function getManagePageDepositAction(
+  managePageData: IEarnManagePageResponse,
+): IEarnManagePageActionData | undefined {
+  const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
+  if (isSwapManagePage) {
+    return managePageData.buy?.payButton ?? managePageData.deposit;
+  }
+  return managePageData.deposit ?? managePageData.buy?.payButton;
 }
 
 // Adapter function to convert IStakeProtocolListItem to IEarnAvailableAsset format
@@ -80,20 +110,20 @@ interface IProtocolSection {
 type IProtocolListVariant = 'dialog' | 'switcher';
 
 // Get section title based on group
-const getSectionTitle = (group: string): string => {
+const getSectionTitle = (group: string, intl: IntlShape): string => {
   switch (group) {
     case EStakeProtocolGroupEnum.Available:
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.earn_available_to_deposit,
       });
     case EStakeProtocolGroupEnum.WithdrawOnly:
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.earn_withdrawal_only,
       });
     case EStakeProtocolGroupEnum.Deposited:
-      return appLocale.intl.formatMessage({ id: ETranslations.earn_deposited });
+      return intl.formatMessage({ id: ETranslations.earn_deposited });
     case EStakeProtocolGroupEnum.Unavailable:
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.provider_unavailable,
       });
     default:
@@ -104,6 +134,7 @@ const getSectionTitle = (group: string): string => {
 // Group protocols by their group field
 const groupProtocolsByGroup = (
   protocols: IStakeProtocolListItem[],
+  intl: IntlShape,
 ): IProtocolSection[] => {
   const grouped = protocols.reduce(
     (acc, protocol) => {
@@ -130,7 +161,7 @@ const groupProtocolsByGroup = (
   groupOrder.forEach((group) => {
     if (grouped[group] && grouped[group].length > 0) {
       sections.push({
-        title: getSectionTitle(group),
+        title: getSectionTitle(group, intl),
         data: grouped[group],
         group,
       });
@@ -144,7 +175,7 @@ const groupProtocolsByGroup = (
       grouped[group].length > 0
     ) {
       sections.push({
-        title: getSectionTitle(group),
+        title: getSectionTitle(group, intl),
         data: grouped[group],
         group: group as EStakeProtocolGroupEnum,
       });
@@ -173,6 +204,7 @@ export function ProtocolListContent({
   onProtocolSelect,
   protocols,
   isLoading: isLoadingProp,
+  isOpen = true,
   variant = 'dialog',
 }: {
   symbol: string;
@@ -183,8 +215,10 @@ export function ProtocolListContent({
   onProtocolSelect: (protocol: IStakeProtocolListItem) => Promise<void>;
   protocols?: IStakeProtocolListItem[];
   isLoading?: boolean;
+  isOpen?: boolean;
   variant?: IProtocolListVariant;
 }) {
+  const intl = useIntl();
   const [fetchedProtocols, setFetchedProtocols] = useState<
     IStakeProtocolListItem[]
   >([]);
@@ -244,12 +278,95 @@ export function ProtocolListContent({
   );
   const isLoading = shouldFetchProtocols ? isFetching : !!isLoadingProp;
   const protocolData = useMemo(
-    () => groupProtocolsByGroup(resolvedProtocols),
-    [resolvedProtocols],
+    () => groupProtocolsByGroup(resolvedProtocols, intl),
+    [resolvedProtocols, intl],
   );
   const flatProtocolData = useMemo(
     () => protocolData.flatMap((section) => section.data),
     [protocolData],
+  );
+  const shouldShowProtocolBalances = useMemo(
+    () => shouldShowProtocolListBalances(flatProtocolData),
+    [flatProtocolData],
+  );
+  const {
+    result: protocolBalanceMap = {},
+    isLoading: isProtocolBalanceLoading,
+  } = usePromiseResult(
+    async () => {
+      if (
+        variant !== 'switcher' ||
+        !isOpen ||
+        !shouldShowProtocolBalances ||
+        flatProtocolData.length === 0 ||
+        (!accountId && !indexedAccountId)
+      ) {
+        return {};
+      }
+
+      const results = await Promise.allSettled(
+        flatProtocolData.map(async (protocol) => {
+          const networkId = protocol.network.networkId;
+          const earnAccount =
+            await backgroundApiProxy.serviceStaking.getEarnAccount({
+              accountId,
+              indexedAccountId,
+              networkId,
+              btcOnlyTaproot: true,
+            });
+
+          if (!earnAccount?.accountAddress) {
+            return undefined;
+          }
+
+          const managePageData =
+            await backgroundApiProxy.serviceStaking.getManagePage({
+              accountId: earnAccount.accountId,
+              networkId,
+              symbol,
+              provider: protocol.provider.name,
+              vault: getProtocolVault(protocol),
+              accountAddress: earnAccount.accountAddress,
+              publicKey: networkUtils.isBTCNetwork(networkId)
+                ? earnAccount.account.pub
+                : undefined,
+            });
+          const actionData = getManagePageDepositAction(managePageData);
+          const balance = actionData?.data?.balance;
+          if (balance === undefined || balance === null || balance === '') {
+            return undefined;
+          }
+
+          const balanceBN = BigNumber(balance);
+          return {
+            key: getProtocolItemKey(protocol),
+            balanceParsed: balanceBN.isNaN() ? '0' : balanceBN.toFixed(),
+          };
+        }),
+      );
+
+      return results.reduce<IProtocolBalanceMap>((acc, result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          acc[result.value.key] = {
+            balanceParsed: result.value.balanceParsed,
+          };
+        }
+        return acc;
+      }, {});
+    },
+    [
+      accountId,
+      flatProtocolData,
+      indexedAccountId,
+      isOpen,
+      shouldShowProtocolBalances,
+      symbol,
+      variant,
+    ],
+    {
+      initResult: {},
+      watchLoading: true,
+    },
   );
 
   const handleProtocolPress = useCallback(
@@ -349,19 +466,25 @@ export function ProtocolListContent({
 
   const renderSwitcherItem = useCallback(
     ({ item }: { item: IStakeProtocolListItem }) => {
+      const protocolKey = getProtocolItemKey(item);
       const isSelected =
         selectedProtocolKey !== undefined &&
-        getProtocolItemKey(item) === selectedProtocolKey;
+        protocolKey === selectedProtocolKey;
+      const tvlText = formatTvl(item.provider.tvl);
       const secondaryText = [
-        formatTvl(item.provider.tvl),
         item.provider.vaultName,
+        tvlText ? `TVL ${tvlText}` : undefined,
       ]
         .filter(Boolean)
         .join(' · ');
+      const balanceInfo = protocolBalanceMap[protocolKey];
+      const balanceText = balanceInfo
+        ? numberFormat(balanceInfo.balanceParsed, { formatter: 'balance' })
+        : undefined;
 
       return (
         <XStack
-          key={getProtocolItemKey(item)}
+          key={protocolKey}
           role="button"
           userSelect="none"
           alignItems="center"
@@ -397,13 +520,38 @@ export function ProtocolListContent({
               </SizableText>
             ) : null}
           </YStack>
-          <SizableText size="$bodyLgMedium">
-            {getProtocolAprValue(item)}
-          </SizableText>
+          <YStack alignItems="flex-end" gap="$0.5" flexShrink={0}>
+            <SizableText size="$bodyLgMedium">
+              {getProtocolAprValue(item)}
+            </SizableText>
+            {shouldShowProtocolBalances &&
+            (balanceText || isProtocolBalanceLoading) ? (
+              <XStack ai="center" gap="$1">
+                <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
+                {balanceText ? (
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                  >
+                    {balanceText}
+                  </SizableText>
+                ) : (
+                  <Skeleton h="$3" w={40} borderRadius="$2" />
+                )}
+              </XStack>
+            ) : null}
+          </YStack>
         </XStack>
       );
     },
-    [handleProtocolPress, selectedProtocolKey],
+    [
+      handleProtocolPress,
+      isProtocolBalanceLoading,
+      protocolBalanceMap,
+      selectedProtocolKey,
+      shouldShowProtocolBalances,
+    ],
   );
 
   if (isLoading) {
@@ -461,13 +609,13 @@ export function ProtocolListContent({
           py="$0"
           width="100%"
           icon="ErrorOutline"
-          title={appLocale.intl.formatMessage({
+          title={intl.formatMessage({
             id: ETranslations.earn_no_protocols_available,
           })}
           buttonProps={{
             flex: 1,
             width: '100%',
-            children: appLocale.intl.formatMessage({
+            children: intl.formatMessage({
               id: ETranslations.global_refresh,
             }),
             onPress: () => {
@@ -484,12 +632,12 @@ export function ProtocolListContent({
       <YStack gap="$1" minHeight={90} {...switcherContentContainerProps}>
         <XStack px="$2" py="$1.5" alignItems="center">
           <SizableText size="$bodySmMedium" color="$textSubdued" flex={1}>
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.global_protocol,
             })}
           </SizableText>
           <SizableText size="$bodySmMedium" color="$textSubdued">
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.defi_apr_apy,
             })}
           </SizableText>
@@ -520,6 +668,7 @@ export function showProtocolListDialog({
   filterNetworkId,
   selectedProtocol,
   onProtocolSelect,
+  intl,
 }: {
   symbol: string;
   accountId: string;
@@ -534,9 +683,10 @@ export function showProtocolListDialog({
     provider: string;
     vault?: string;
   }) => Promise<void>;
+  intl: IntlShape;
 }) {
   const dialog = Dialog.show({
-    title: appLocale.intl.formatMessage(
+    title: intl.formatMessage(
       {
         id: ETranslations.earn_symbol_staking_provider,
       },
