@@ -171,6 +171,7 @@ function DialogFrame({
   sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
+  disableSystemClose = false,
   showHeader = true,
   trapFocus,
   showConfirmButton = true,
@@ -213,13 +214,20 @@ function DialogFrame({
     if (!open) {
       return false;
     }
+    if (disableSystemClose) {
+      // Consume the event without dismissing — keep the dialog mounted as a
+      // blocker (e.g. pending force-update).
+      return true;
+    }
     handleOpenChange(false);
     return true;
-  }, [handleOpenChange, open]);
+  }, [disableSystemClose, handleOpenChange, open]);
 
   useBackHandler(handleBackPress);
 
   const handleEscapeKeyDown = useCallback((event: GestureResponderEvent) => {
+    // preventDefault stops Tamagui's built-in Escape-to-close. Always called
+    // here so unblocking is opt-in only via the close button / overlay.
     event.preventDefault();
   }, []);
 

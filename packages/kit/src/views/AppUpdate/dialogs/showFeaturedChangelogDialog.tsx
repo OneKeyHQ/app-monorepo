@@ -269,6 +269,7 @@ export function showFeaturedChangelogDialog(
     showHeader: false,
     dismissOnOverlayPress: !isLocked,
     disableDrag: isLocked,
+    disableSystemClose: isLocked,
     floatingPanelProps: { width: 480, overflow: 'hidden' },
     renderContent: (
       <FeaturedChangelogContent
