@@ -255,7 +255,6 @@ function DeriveContextHashModal() {
                 >
                   <SizableText
                     color="$text"
-                    fontFamily="$monoRegular"
                     style={{ wordBreak: 'break-all' }}
                   >
                     {payload?.appName ?? ''}
