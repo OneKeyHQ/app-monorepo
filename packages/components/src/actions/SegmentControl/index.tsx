@@ -18,6 +18,7 @@ const focusVisibleStyleConst = {
 } as const;
 
 export interface ISegmentControlProps extends IXStackProps {
+  disabled?: boolean;
   fullWidth?: boolean;
   value: string | number;
   options: {
@@ -55,8 +56,23 @@ function SegmentControlItem({
   inactiveTextColor?: string;
 } & GetProps<typeof YStack>) {
   const handleChange = useCallback(() => {
+    if (disabled) {
+      return;
+    }
     onChange(value);
-  }, [onChange, value]);
+  }, [disabled, onChange, value]);
+  let stateStyle: GetProps<typeof YStack> = {};
+  if (active) {
+    stateStyle = {
+      bg: activeBackgroundColor ?? '$bgPrimary',
+    };
+  } else if (!disabled) {
+    stateStyle = {
+      hoverStyle: hoverStyleConst,
+      pressStyle: pressStyleConst,
+    };
+  }
+
   return (
     <YStack
       py="$1.5"
@@ -69,14 +85,7 @@ function SegmentControlItem({
       focusable={!disabled}
       focusVisibleStyle={focusVisibleStyleConst}
       testID={testID}
-      {...(active
-        ? {
-            bg: activeBackgroundColor ?? '$bgPrimary',
-          }
-        : {
-            hoverStyle: hoverStyleConst,
-            pressStyle: pressStyleConst,
-          })}
+      {...stateStyle}
       {...(disabled && {
         opacity: 0.5,
       })}
@@ -111,6 +120,7 @@ function SegmentControlFrame({
   slotBackgroundColor,
   activeBackgroundColor,
   activeTextColor,
+  disabled,
   inactiveTextColor,
   ...rest
 }: ISegmentControlProps) {
@@ -138,6 +148,7 @@ function SegmentControlFrame({
           label={label}
           value={v}
           active={value === v}
+          disabled={disabled}
           onChange={handleChange}
           activeBackgroundColor={activeBackgroundColor}
           activeTextColor={activeTextColor}

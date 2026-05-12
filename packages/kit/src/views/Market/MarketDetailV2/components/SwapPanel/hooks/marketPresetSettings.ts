@@ -875,6 +875,16 @@ function isSwapSlippageSegmentKey(
   );
 }
 
+function getMarketPresetFallbackPriorityFeeType(config?: IMarketPresetConfig) {
+  if (!config?.priorityFee.editable) {
+    return EMarketPresetPriorityFeeType.AUTO;
+  }
+
+  return (
+    config.priorityFee.supportedTypes[0] ?? EMarketPresetPriorityFeeType.MARKET
+  );
+}
+
 export function normalizeMarketPresetSavedSettings({
   config,
   savedSettings,
@@ -927,7 +937,7 @@ export function normalizeMarketPresetSavedSettings({
               directionSettings?.priorityFee?.type,
             ) && priorityFeeTypes.has(directionSettings.priorityFee.type)
               ? directionSettings.priorityFee.type
-              : EMarketPresetPriorityFeeType.MARKET;
+              : getMarketPresetFallbackPriorityFeeType(config);
 
           nextSettings.presets = {
             ...nextSettings.presets,

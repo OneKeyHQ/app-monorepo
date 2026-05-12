@@ -60,7 +60,8 @@ import {
 import type { IMarketPresetSettingsState } from '../../hooks/useMarketPresetSettings';
 
 type IMarketPresetSelectorProps = {
-  antiMEV: boolean;
+  // Only `true` is surfaced because anti-MEV is read-only when supported.
+  antiMEV?: boolean;
   presetSettings: IMarketPresetSettingsState;
   slippageIconName?: IIconProps['name'];
   showAutoSlippageLabel?: boolean;
@@ -456,7 +457,7 @@ function MarketPresetSettingsDialog({
   close,
   presetSettings,
 }: {
-  antiMEV: boolean;
+  antiMEV?: boolean;
   close: () => void;
   presetSettings: IMarketPresetSettingsState;
 }) {
@@ -517,6 +518,7 @@ function MarketPresetSettingsDialog({
     !presetSettings.config?.slippage.editable &&
     !presetSettings.config?.priorityFee.editable;
   const isPriorityFeeEditable = !!presetSettings.config?.priorityFee.editable;
+  const shouldShowAntiMEV = antiMEV === true;
 
   const currentSettings = useMemo(() => {
     if (activePresetKey === EMarketPresetKey.AUTO) {
@@ -849,21 +851,27 @@ function MarketPresetSettingsDialog({
               </SizableText>
             </YStack>
           </XStack>
-          <XStack gap="$3" py="$2">
-            <Icon name="ShieldCheckDoneSolid" size="$6" color="$iconSubdued" />
-            <YStack flex={1} minWidth={0}>
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.marketdex_anti_mev_title,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.marketdex_anti_mev_description,
-                })}
-              </SizableText>
-            </YStack>
-          </XStack>
+          {shouldShowAntiMEV ? (
+            <XStack gap="$3" py="$2">
+              <Icon
+                name="ShieldCheckDoneSolid"
+                size="$6"
+                color="$iconSubdued"
+              />
+              <YStack flex={1} minWidth={0}>
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.marketdex_anti_mev_title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.marketdex_anti_mev_description,
+                  })}
+                </SizableText>
+              </YStack>
+            </XStack>
+          ) : null}
         </YStack>
       ) : (
         <YStack gap="$3">
@@ -1021,7 +1029,7 @@ function MarketPresetSettingsDialog({
             )}
           </YStack>
 
-          {isPriorityFeeEditable ? (
+          {presetSettings.config?.priorityFee ? (
             <>
               <Divider />
 
@@ -1047,7 +1055,11 @@ function MarketPresetSettingsDialog({
                     px: '$2',
                     py: '$1',
                   }}
+                  disabled={!isPriorityFeeEditable}
                   onChange={(value) => {
+                    if (!isPriorityFeeEditable) {
+                      return;
+                    }
                     const type = value as EMarketPresetPriorityFeeType;
                     updateCurrentSettings((settings) => ({
                       ...settings,
@@ -1061,8 +1073,9 @@ function MarketPresetSettingsDialog({
                     }));
                   }}
                 />
-                {currentSettings.priorityFee.type ===
-                EMarketPresetPriorityFeeType.CUSTOM ? (
+                {isPriorityFeeEditable &&
+                currentSettings.priorityFee.type ===
+                  EMarketPresetPriorityFeeType.CUSTOM ? (
                   <>
                     <Input
                       size="medium"
@@ -1106,14 +1119,18 @@ function MarketPresetSettingsDialog({
             </>
           ) : null}
 
-          <Divider />
+          {shouldShowAntiMEV ? (
+            <>
+              <Divider />
 
-          <MarketPresetAntiMEVReadonlyRow
-            label={intl.formatMessage({
-              id: ETranslations.marketdex_anti_mev_title,
-            })}
-            value={antiMEV}
-          />
+              <MarketPresetAntiMEVReadonlyRow
+                label={intl.formatMessage({
+                  id: ETranslations.marketdex_anti_mev_title,
+                })}
+                value
+              />
+            </>
+          ) : null}
         </YStack>
       )}
     </MarketPresetDialogContentFrame>
