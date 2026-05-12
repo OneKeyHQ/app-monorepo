@@ -12,11 +12,11 @@ import {
   resolveChain,
 } from '../core/chain-resolver';
 import { buildSolTransferTx } from '../core/sol/tx-builder';
-import { resolveSolPath } from '../signer/impls/sol/sol-path';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { transferOptionsSchema } from '../schemas';
 import { getSignerByImpl } from '../signer';
+import { resolveSolPath } from '../signer/impls/sol/sol-path';
 import { parseBtcFeeTier, resolveBtcFeeRate } from '../utils/btc-fee-rate';
 import { confirmTransaction } from '../utils/confirm-transaction';
 import {

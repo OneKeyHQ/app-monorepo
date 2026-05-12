@@ -161,8 +161,8 @@ async function searchAndResolve(
   const onChain = results.filter((t) => t.network === networkId);
 
   if (isContractAddress) {
-    const addressMatches = onChain.filter(
-      (t) => contractAddressMatches(t.address, input, networkId),
+    const addressMatches = onChain.filter((t) =>
+      contractAddressMatches(t.address, input, networkId),
     );
     if (addressMatches.length === 0) {
       return buildDegradedResult(input, networkId);

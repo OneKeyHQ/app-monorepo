@@ -9,13 +9,11 @@ import {
 import { formatPsbtHex } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
-import type {
-  IEncodedTxSol,
-  INativeTxSol,
-} from '@onekeyhq/core/src/chains/sol/types';
+import type { INativeTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import type { ICoreApiSignBtcExtraInfo } from '@onekeyhq/core/src/types';
 
 import { loadPending, secureCache, updatePendingStatus } from '../../core';
+import { SOL_TXID_PATTERN } from '../../core/address-utils';
 import {
   BTC_ADDRESS_TYPES,
   btcAddressEncodingsInclude,
@@ -33,7 +31,6 @@ import {
   isSolChain,
   resolveChain,
 } from '../../core/chain-resolver';
-import { SOL_TXID_PATTERN } from '../../core/address-utils';
 import { getSolLatestBlockhash } from '../../core/sol/rpc-client';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
@@ -923,7 +920,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
             ).solSwapTx;
             const solEncodedTx =
               typeof solSwapTxRaw?.encodedTx === 'string'
-                ? (solSwapTxRaw.encodedTx)
+                ? solSwapTxRaw.encodedTx
                 : undefined;
             if (!solEncodedTx) {
               throw new AppError(
