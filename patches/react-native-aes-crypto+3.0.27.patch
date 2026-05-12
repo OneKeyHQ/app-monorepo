@@ -92,10 +92,15 @@ index f92fa6b..7cad493 100644
 +    }
  }
 diff --git a/node_modules/react-native-aes-crypto/ios/AesCrypto.h b/node_modules/react-native-aes-crypto/ios/AesCrypto.h
-index 138f378..326aeae 100644
+index 138f378..4b6639a 100644
 --- a/node_modules/react-native-aes-crypto/ios/AesCrypto.h
 +++ b/node_modules/react-native-aes-crypto/ios/AesCrypto.h
-@@ -16,6 +16,20 @@
+@@ -1,3 +1,4 @@
++#ifdef __cplusplus
+ #import <AesCryptoSpec/AesCryptoSpec.h>
+ 
+ @interface AesCrypto : NativeAesCryptoSpecBase <NativeAesCryptoSpec>
+@@ -16,6 +17,20 @@
          resolve:(RCTPromiseResolveBlock)resolve
           reject:(RCTPromiseRejectBlock)reject;
  
@@ -116,6 +121,11 @@ index 138f378..326aeae 100644
  - (void)pbkdf2:(NSString *)password
             salt:(NSString *)salt
             cost:(double)cost
+@@ -54,3 +69,4 @@
+            reject:(RCTPromiseRejectBlock)reject;
+ 
+ @end
++#endif
 diff --git a/node_modules/react-native-aes-crypto/ios/AesCrypto.mm b/node_modules/react-native-aes-crypto/ios/AesCrypto.mm
 index db41527..1d6d22e 100644
 --- a/node_modules/react-native-aes-crypto/ios/AesCrypto.mm
