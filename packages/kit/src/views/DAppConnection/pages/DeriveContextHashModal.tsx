@@ -1,22 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
+  Divider,
   Page,
   SizableText,
   Stack,
   TextArea,
+  YGroup,
   YStack,
 } from '@onekeyhq/components';
+import { NetworkSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
+import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   DAppRequestFooter,
   DAppRequestLayout,
@@ -28,29 +38,74 @@ import DappOpenModalPage from './DappOpenModalPage';
 const EXPIRED_ERROR_MESSAGE =
   'deriveContextHash request expired, please retry from the site';
 
+// TODO(i18n): these labels and the warning should be migrated to ETranslations
+// once translation entries are added by the i18n pipeline.
 const COPY = {
-  title: 'Authorize key derivation',
-  subtitle:
-    'A site is requesting a deterministic value derived from your wallet key.',
-  accountLabel: 'Bound to account',
-  networkLabel: 'Network',
   appNameLabel: 'Application name',
   contextLabel: 'Context (hex)',
   warning:
     'This is not a signature. A deterministic value will be derived from this BTC account using the application name and context. Anyone with the same key material, application name, and context, on the same network, can produce the same value.',
 };
 
-function networkLabelFromId(networkId: string): string {
-  switch (networkId) {
-    case 'btc--0':
-      return 'Bitcoin Mainnet';
-    case 'tbtc--0':
-      return 'Bitcoin Testnet';
-    case 'tbtc--1':
-      return 'Bitcoin Signet';
-    default:
-      return networkId;
-  }
+function DeriveContextHashAccountItem({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  const intl = useIntl();
+  const { result, isLoading } = usePromiseResult(async () => {
+    const [network, account, wallet] = await Promise.all([
+      backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId }),
+      backgroundApiProxy.serviceAccount.getAccount({ accountId, networkId }),
+      backgroundApiProxy.serviceAccount.getWallet({
+        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+      }),
+    ]);
+    let indexedAccount: IDBIndexedAccount | undefined;
+    if (account.indexedAccountId) {
+      indexedAccount =
+        await backgroundApiProxy.serviceAccount.getIndexedAccount({
+          id: account.indexedAccountId,
+        });
+    }
+    return { network, account, wallet, indexedAccount };
+  }, [networkId, accountId]);
+
+  return (
+    <YStack gap="$2">
+      <SizableText size="$headingMd" color="$text">
+        {intl.formatMessage({ id: ETranslations.global_accounts })}
+      </SizableText>
+      <YGroup
+        bg="$bg"
+        borderRadius="$3"
+        borderColor="$borderSubdued"
+        borderWidth={StyleSheet.hairlineWidth}
+        separator={<Divider />}
+        disabled
+        overflow="hidden"
+      >
+        <YGroup.Item>
+          <NetworkSelectorTriggerDappConnectionCmp
+            isLoading={isLoading}
+            network={result?.network}
+            triggerDisabled
+          />
+        </YGroup.Item>
+        <YGroup.Item>
+          <AccountSelectorTriggerDappConnectionCmp
+            isLoading={isLoading}
+            account={result?.account}
+            wallet={result?.wallet}
+            indexedAccount={result?.indexedAccount}
+            triggerDisabled
+          />
+        </YGroup.Item>
+      </YGroup>
+    </YStack>
+  );
 }
 
 function DeriveContextHashModal() {
@@ -67,6 +122,7 @@ function DeriveContextHashModal() {
         context: string;
         address: string;
         networkId: string;
+        accountId: string;
       }
     | undefined
   >();
@@ -74,7 +130,12 @@ function DeriveContextHashModal() {
   const [isLoading, setIsLoading] = useState(false);
   const completedRef = useRef(false);
 
-  const rejectExpiredAndClose = useCallback(() => {
+  // `useDappApproveAction` returns a fresh `{ reject, resolve }` object on every
+  // render, so anything depending on `dappApprove` reference loops with setState.
+  // Keep the latest reject-and-close behind a ref so the peek effect can run
+  // exactly once per nonce.
+  const rejectExpiredAndCloseRef = useRef<() => void>(() => undefined);
+  rejectExpiredAndCloseRef.current = () => {
     // Staged entry gone (TTL evicted or bg restarted) — close the modal even if reject is a no-op.
     dappApprove.reject({
       error: web3Errors.provider.custom({
@@ -83,7 +144,7 @@ function DeriveContextHashModal() {
       }),
       close: () => navigation.pop(),
     });
-  }, [dappApprove, navigation]);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +153,7 @@ function DeriveContextHashModal() {
       .then((p) => {
         if (cancelled) return;
         if (!p) {
-          rejectExpiredAndClose();
+          rejectExpiredAndCloseRef.current();
           return;
         }
         setPayload(p);
@@ -100,12 +161,12 @@ function DeriveContextHashModal() {
       })
       .catch(() => {
         if (cancelled) return;
-        rejectExpiredAndClose();
+        rejectExpiredAndCloseRef.current();
       });
     return () => {
       cancelled = true;
     };
-  }, [nonce, rejectExpiredAndClose]);
+  }, [nonce]);
 
   // Belt-and-suspenders cleanup; the TTL sweep also bounds retention.
   useEffect(() => {
@@ -154,7 +215,7 @@ function DeriveContextHashModal() {
           typeof (e as { message?: unknown })?.message === 'string' &&
           (e as { message: string }).message.includes(EXPIRED_ERROR_MESSAGE)
         ) {
-          rejectExpiredAndClose();
+          rejectExpiredAndCloseRef.current();
           return;
         }
         const error = e instanceof Error ? e : new Error(String(e));
@@ -166,7 +227,7 @@ function DeriveContextHashModal() {
         setIsLoading(false);
       }
     },
-    [nonce, dappApprove, rejectExpiredAndClose],
+    [nonce, dappApprove],
   );
 
   return (
@@ -176,47 +237,17 @@ function DeriveContextHashModal() {
         <Page.Body>
           <DAppRequestLayout
             title={title}
-            subtitle={COPY.subtitle}
+            subtitleShown={false}
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
           >
-            <YStack gap="$3" px="$5">
-              <Stack gap="$1">
-                <SizableText size="$bodyMdMedium" color="$textSubdued">
-                  {COPY.accountLabel}
-                </SizableText>
-                <Stack
-                  px="$3"
-                  py="$2"
-                  borderRadius="$2"
-                  backgroundColor="$bgSubdued"
-                >
-                  <SizableText
-                    color="$text"
-                    fontFamily="$monoRegular"
-                    style={{ wordBreak: 'break-all' }}
-                  >
-                    {payload?.address ?? ''}
-                  </SizableText>
-                </Stack>
-              </Stack>
-
-              <Stack gap="$1">
-                <SizableText size="$bodyMdMedium" color="$textSubdued">
-                  {COPY.networkLabel}
-                </SizableText>
-                <Stack
-                  px="$3"
-                  py="$2"
-                  borderRadius="$2"
-                  backgroundColor="$bgSubdued"
-                >
-                  <SizableText color="$text">
-                    {payload ? networkLabelFromId(payload.networkId) : ''}
-                  </SizableText>
-                </Stack>
-              </Stack>
-
+            {payload ? (
+              <DeriveContextHashAccountItem
+                accountId={payload.accountId}
+                networkId={payload.networkId}
+              />
+            ) : null}
+            <YStack gap="$3">
               <Stack gap="$1">
                 <SizableText size="$bodyMdMedium" color="$textSubdued">
                   {COPY.appNameLabel}

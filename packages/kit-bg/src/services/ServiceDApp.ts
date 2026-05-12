@@ -406,7 +406,10 @@ class ServiceDApp extends ServiceBase {
     return entry;
   }
 
-  // Display-only: withholds the pinned (accountId, networkId, walletId).
+  // Display-only: the renderer cannot influence which (accountId, networkId)
+  // executeDeriveContextHash signs against — those stay pinned in the staged
+  // entry. Exposing accountId here just lets the modal render the standard
+  // network/account selector components instead of a raw address string.
   @backgroundMethod()
   async peekDeriveContextHashRequest(nonce: string) {
     const entry = this.peekDeriveContextHashInternal(nonce);
@@ -416,6 +419,7 @@ class ServiceDApp extends ServiceBase {
       context: entry.context,
       address: entry.address,
       networkId: entry.networkId,
+      accountId: entry.accountId,
     };
   }
 
