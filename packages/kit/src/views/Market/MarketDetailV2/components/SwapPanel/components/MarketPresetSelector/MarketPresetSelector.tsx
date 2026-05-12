@@ -25,7 +25,6 @@ import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialo
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import {
   swapSlippageCustomDefaultList,
   swapSlippageWillAheadMinValue,
@@ -596,7 +595,10 @@ function MarketPresetSettingsDialog({
     currentSlippageCustomStatus.status === ESwapSlippageCustomStatus.ERROR;
   const currentPriorityFeeInvalid =
     !!presetSettings.config?.priorityFee.editable &&
-    isInvalidMarketPresetPriorityFeeSettings(currentSettings);
+    isInvalidMarketPresetPriorityFeeSettings(
+      currentSettings,
+      presetSettings.config,
+    );
   const currentPriorityFeeCustomValue =
     currentSettings.priorityFee.customValue ?? '';
   const currentSettingsInvalid =
@@ -616,9 +618,12 @@ function MarketPresetSettingsDialog({
       if (!presetSettings.config?.priorityFee.editable) {
         return isInvalidMarketPresetSlippageSettings(directionSettings);
       }
-      return isInvalidMarketPresetDirectionSettings(directionSettings);
+      return isInvalidMarketPresetDirectionSettings(
+        directionSettings,
+        presetSettings.config,
+      );
     },
-    [presetSettings.config?.priorityFee.editable],
+    [presetSettings.config],
   );
   const hasInvalidDirtySettings = Array.from(dirtyDirectionSetRef.current).some(
     (directionKey) => {
@@ -1066,7 +1071,7 @@ function MarketPresetSettingsDialog({
                           label: presetSettings.priorityFeeUnit,
                         },
                       ]}
-                      placeholder=""
+                      placeholder={presetSettings.priorityFeeCustomPlaceholder}
                       onChangeText={(text) => {
                         if (!validateAmountInput(text, 9)) {
                           return;
@@ -1087,8 +1092,8 @@ function MarketPresetSettingsDialog({
                             id: ETranslations.form_fee_rate_error_out_of_range,
                           },
                           {
-                            min: 0,
-                            max: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+                            min: presetSettings.priorityFeeCustomRange.min,
+                            max: presetSettings.priorityFeeCustomRange.max,
                           },
                         )}
                       </SizableText>

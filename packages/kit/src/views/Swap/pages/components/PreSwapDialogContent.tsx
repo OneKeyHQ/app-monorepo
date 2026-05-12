@@ -126,10 +126,13 @@ const PreSwapDialogContent = ({
       return undefined;
     }
 
+    const customPriorityFee = customNetworkFeeOption.customPriorityFee;
     return [
       customNetworkFeeOption.label,
       customNetworkFeeOption.networkFeeLevel,
-      customNetworkFeeOption.customPriorityFee?.customValue ?? '',
+      customPriorityFee?.customValue ?? '',
+      customPriorityFee?.customRange?.min ?? '',
+      customPriorityFee?.customRange?.max ?? '',
     ].join('|');
   }, [customNetworkFeeOption]);
   const initializedCustomNetworkFeeOptionKeyRef = useRef(
