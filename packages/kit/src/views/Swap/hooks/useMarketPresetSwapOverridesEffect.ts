@@ -17,6 +17,7 @@ import {
   ESwapProTradeType,
   ESwapTabSwitchType,
   type IMarketPresetTokenContext,
+  type ISwapProSpeedConfig,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { EMarketPresetTradeSide } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
@@ -25,8 +26,12 @@ import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel
 
 export function useMarketPresetSwapOverridesEffect({
   marketPresetToken,
+  speedConfig,
+  speedConfigReady,
 }: {
   marketPresetToken?: IMarketPresetTokenContext;
+  speedConfig?: ISwapProSpeedConfig;
+  speedConfigReady?: boolean;
 }) {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -44,9 +49,25 @@ export function useMarketPresetSwapOverridesEffect({
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
 
+    const resetToDefaults = () => {
+      setSwapStepNetFeeLevel((prev) =>
+        prev.networkFeeLevel === ESwapNetworkFeeLevel.MEDIUM &&
+        prev.customPriorityFee === undefined
+          ? prev
+          : { networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM },
+      );
+      setSwapSlippageOverride((prev) =>
+        prev === undefined ? prev : undefined,
+      );
+    };
+
     if (!marketPresetToken?.networkId) {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+      resetToDefaults();
+      return;
+    }
+
+    if (speedConfigReady === false) {
+      resetToDefaults();
       return;
     }
 
@@ -65,8 +86,7 @@ export function useMarketPresetSwapOverridesEffect({
     const focusSwapProMarket =
       focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET;
     if (focusSwapPro && !focusSwapProMarket) {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+      resetToDefaults();
       return;
     }
 
@@ -82,25 +102,36 @@ export function useMarketPresetSwapOverridesEffect({
     }
 
     if (!tradeSide) {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+      resetToDefaults();
       return;
     }
 
+    resetToDefaults();
     void (async () => {
       const overrides = await loadMarketPresetSwapOverrides({
         networkId: marketPresetToken.networkId,
         tradeSide,
+        speedConfig,
+        speedConfigReady,
       });
       if (requestIdRef.current !== requestId) {
         return;
       }
-      setSwapStepNetFeeLevel({
-        networkFeeLevel:
-          overrides?.networkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM,
-        customPriorityFee: overrides?.customPriorityFee,
-      });
-      setSwapSlippageOverride(overrides?.slippage);
+      const resolvedNetworkFeeLevel =
+        overrides?.networkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM;
+      const resolvedCustomPriorityFee = overrides?.customPriorityFee;
+      setSwapStepNetFeeLevel((prev) =>
+        prev.networkFeeLevel === resolvedNetworkFeeLevel &&
+        prev.customPriorityFee === resolvedCustomPriorityFee
+          ? prev
+          : {
+              networkFeeLevel: resolvedNetworkFeeLevel,
+              customPriorityFee: resolvedCustomPriorityFee,
+            },
+      );
+      setSwapSlippageOverride((prev) =>
+        prev === overrides?.slippage ? prev : overrides?.slippage,
+      );
     })();
   }, [
     marketPresetToken,
@@ -110,6 +141,8 @@ export function useMarketPresetSwapOverridesEffect({
     swapProSelectToken,
     swapProDirection,
     swapProTradeType,
+    speedConfig,
+    speedConfigReady,
     setSwapStepNetFeeLevel,
     setSwapSlippageOverride,
   ]);

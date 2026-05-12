@@ -40,11 +40,7 @@ function RecentHistoryTitle() {
   );
 }
 
-type IRecentHistoryProps = {
-  hideTitle?: boolean;
-};
-
-const RecentHistory = memo(({ hideTitle }: IRecentHistoryProps) => {
+const RecentHistory = memo(() => {
   const intl = useIntl();
 
   const renderContent = useCallback(() => {
@@ -64,7 +60,7 @@ const RecentHistory = memo(({ hideTitle }: IRecentHistoryProps) => {
   }, [intl]);
   return (
     <RichBlock
-      title={hideTitle ? undefined : <RecentHistoryTitle />}
+      title={<RecentHistoryTitle />}
       headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       plainContentContainer
@@ -73,4 +69,4 @@ const RecentHistory = memo(({ hideTitle }: IRecentHistoryProps) => {
 });
 RecentHistory.displayName = 'RecentHistory';
 
-export { RecentHistory, RecentHistoryTitle };
+export { RecentHistory };
