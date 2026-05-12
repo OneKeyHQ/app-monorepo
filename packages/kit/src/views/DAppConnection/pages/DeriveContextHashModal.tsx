@@ -101,6 +101,7 @@ function DeriveContextHashAccountItem({
 
 function DeriveContextHashModal() {
   const { $sourceInfo, nonce } = useDappQuery<{ nonce: string }>();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
