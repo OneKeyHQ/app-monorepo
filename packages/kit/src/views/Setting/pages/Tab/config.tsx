@@ -9,12 +9,13 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { isNativeTablet } from '@onekeyhq/components';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
-} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+} from '@onekeyhq/kit/src/components/AppUpdate';
+import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -69,6 +70,7 @@ import {
   MenuBarTrayListItem,
   ResetAppListItem,
   ResetPinListItem,
+  SplitViewListItem,
   ThemeListItem,
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
@@ -358,6 +360,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.settings_menu_bar_tray_desc,
                   }),
                   renderElement: <MenuBarTrayListItem />,
+                }
+              : undefined,
+          ],
+          [
+            isNativeTablet()
+              ? {
+                  icon: 'LayoutColumnOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_split_view,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_split_view_desc,
+                  }),
+                  renderElement: <SplitViewListItem />,
                 }
               : undefined,
           ],

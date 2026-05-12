@@ -36,6 +36,7 @@ import type { IMarketPresetSettingsState } from './hooks/useMarketPresetSettings
 export type ISwapPanelContentProps = {
   swapPanel: ReturnType<typeof useSwapPanel>;
   isLoading: boolean;
+  isActionDisabled?: boolean;
   balanceLoading: boolean;
   slippageAutoValue?: number;
   supportSpeedSwap: {
@@ -76,6 +77,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     enableAddressTypeSelector,
     swapPanel,
     isLoading,
+    isActionDisabled,
     balanceLoading,
     slippageAutoValue,
     supportSpeedSwap,
@@ -109,6 +111,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     setSlippage,
     networkId,
   } = swapPanel;
+  const isMEV = useMemo(
+    () => swapMevNetConfig?.includes(swapPanel.networkId ?? '') ?? false,
+    [swapMevNetConfig, swapPanel.networkId],
+  );
   const tokenBuyInputRef = useRef<ITokenInputSectionRef>(null);
   const tokenSellInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
@@ -316,6 +322,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
       {showMarketPresetSelector && marketPresetSettings ? (
         <MarketPresetSelector
+          antiMEV={isMEV}
           presetSettings={marketPresetSettings}
           variant={onCloseDialog ? 'compact' : 'full'}
         />
@@ -335,7 +342,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         balance={balance}
         isWrapped={isWrapped}
         networkId={networkId}
-        disabled={!!speedCheckError || isLoading}
+        disabled={!!speedCheckError || isLoading || !!isActionDisabled}
         onSwapAction={() =>
           logSwapAction({
             tradeType,
@@ -350,7 +357,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {suppressStandaloneSlippage ? null : (
         <SlippageSetting
           autoDefaultValue={slippageAutoValue}
-          isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
+          isMEV={isMEV}
           onSlippageChange={(item) => {
             setSlippage(item.value);
             setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);

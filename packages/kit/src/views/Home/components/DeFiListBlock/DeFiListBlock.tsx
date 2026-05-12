@@ -16,7 +16,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
-import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { runAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
@@ -60,6 +59,7 @@ import type {
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import { deFiListLoadingReducer } from './deFiListLoadingReducer';
+import { DeFiListSkeleton } from './DeFiListSkeleton';
 import { getOverviewCollapsedProtocolLimit } from './DeFiOverviewPlanner';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
 import { buildDeFiOverviewCells } from './hooks/useDeFiOverviewTopN';
@@ -72,10 +72,22 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
 
+function buildSingleNetworkDeFiCacheKey({
+  accountId,
+  networkId,
+  accountAddress,
+}: {
+  accountId: string;
+  networkId: string;
+  accountAddress?: string;
+}) {
+  return `${accountId}:${networkId}:${accountAddress ?? ''}`;
+}
+
 function MobileProtocolDivider() {
   return (
-    <YStack px="$5" pt="$1" pb="$2">
-      <Divider borderColor="$borderDisabled" />
+    <YStack px="$5" py="$1.5">
+      <Divider borderColor="$borderSubdued" />
     </YStack>
   );
 }
@@ -91,6 +103,7 @@ export type IDeFiListBlockProps = {
   hideInternalTitle?: boolean;
   isDeFiEnabled?: boolean;
   registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
+  onCollapseToProtocol?: (protocol: IDeFiProtocol) => void;
 };
 
 const ProtocolListItem = memo(
@@ -137,6 +150,7 @@ function DeFiListBlock({
   hideInternalTitle = false,
   isDeFiEnabled: isDeFiEnabledProp,
   registerProtocol,
+  onCollapseToProtocol,
 }: IDeFiListBlockProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -176,6 +190,10 @@ function DeFiListBlock({
   protocolsRef.current = protocols;
   protocolMapRef.current = protocolMap;
   const pendingRefreshRef = useRef(false);
+  const singleNetworkLocalCacheRef = useRef<{
+    cacheKey?: string;
+    hasCache: boolean;
+  }>({ hasCache: false });
 
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
   const overviewCols = useMemo(
@@ -299,6 +317,14 @@ function DeFiListBlock({
       });
 
       try {
+        const cacheKey = buildSingleNetworkDeFiCacheKey({
+          accountId: account.id,
+          networkId: network.id,
+          accountAddress: account.address,
+        });
+        const shouldForceInitialRefresh =
+          singleNetworkLocalCacheRef.current.cacheKey !== cacheKey ||
+          !singleNetworkLocalCacheRef.current.hasCache;
         const resp =
           await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
             accountId: account.id,
@@ -308,8 +334,12 @@ function DeFiListBlock({
             sourceCurrencyInfo,
             targetCurrencyInfo,
             saveToLocal: true,
-            isForceRefresh: isForceRefreshRef.current,
+            isForceRefresh:
+              isForceRefreshRef.current || shouldForceInitialRefresh,
           });
+        if (singleNetworkLocalCacheRef.current.cacheKey === cacheKey) {
+          singleNetworkLocalCacheRef.current.hasCache = true;
+        }
         updateAccountDeFiOverview({
           currency: settings.currencyInfo.id,
           accountId: account.id,
@@ -404,6 +434,7 @@ function DeFiListBlock({
         return;
       }
 
+      const shouldForceInitialRefresh = !allNetworkDataInit;
       const r = await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
         accountId,
         networkId,
@@ -414,7 +445,7 @@ function DeFiListBlock({
         excludeLowValueProtocols: true,
         sourceCurrencyInfo,
         targetCurrencyInfo,
-        isForceRefresh: isForceRefreshRef.current,
+        isForceRefresh: isForceRefreshRef.current || shouldForceInitialRefresh,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -505,6 +536,13 @@ function DeFiListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
+      if (!refreshCacheOnly && accountId && networkId) {
+        await backgroundApiProxy.serviceDeFi.updateCurrentAccount({
+          accountId,
+          networkId,
+        });
+      }
+
       deFiRawDataRef.current =
         (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
 
@@ -770,6 +808,15 @@ function DeFiListBlock({
       accountId: string;
       networkId: string;
     }) => {
+      const cacheKey = buildSingleNetworkDeFiCacheKey({
+        accountId,
+        networkId,
+        accountAddress: account?.address,
+      });
+      singleNetworkLocalCacheRef.current = {
+        cacheKey,
+        hasCache: false,
+      };
       updateOverviewDeFiDataState({
         accountId,
         networkId,
@@ -798,6 +845,9 @@ function DeFiListBlock({
 
       if (localDeFiOverview) {
         const rawOverview = localDeFiOverview.overview[networkId];
+        if (singleNetworkLocalCacheRef.current.cacheKey === cacheKey) {
+          singleNetworkLocalCacheRef.current.hasCache = Boolean(rawOverview);
+        }
         if (rawOverview) {
           let convertedOverview = rawOverview;
           if (rawOverview.currency !== settings.currencyInfo.id) {
@@ -883,9 +933,9 @@ function DeFiListBlock({
     };
 
     const onRefresh = () => {
+      isForceRefreshRef.current = true;
       if (isFocused) {
         pendingRefreshRef.current = false;
-        isForceRefreshRef.current = true;
         refresh();
       } else {
         pendingRefreshRef.current = true;
@@ -1167,20 +1217,34 @@ function DeFiListBlock({
     };
   }, []);
 
+  const getCollapsedBottomProtocol = useCallback(() => {
+    const limit = Math.min(overflowThreshold, filteredProtocols.length);
+    return filteredProtocols[limit - 1];
+  }, [filteredProtocols, overflowThreshold]);
+
   const handleToggleSliced = useCallback(() => {
     if (isProtocolListLocked()) return;
+    const targetProtocol = isSliced ? undefined : getCollapsedBottomProtocol();
     lockProtocolListInteractions();
     setIsSliced(!isSliced);
+    if (targetProtocol) {
+      onCollapseToProtocol?.(targetProtocol);
+    }
   }, [
     isSliced,
+    getCollapsedBottomProtocol,
     isProtocolListLocked,
     lockProtocolListInteractions,
+    onCollapseToProtocol,
     setIsSliced,
   ]);
 
   const renderSubTitle = useCallback(() => {
     if (!initialized && isRefreshing) {
-      return <Skeleton.HeadingXl />;
+      // w=120 widens the preset's default 103 px to better approximate
+      // a typical "$XX,XXX.XX" measurement; same width as DeFiContainer
+      // for one canonical loading shape across both surfaces.
+      return <Skeleton.HeadingXl w={120} />;
     }
 
     return (
@@ -1292,10 +1356,13 @@ function DeFiListBlock({
         subTitle={hideInternalTitle ? undefined : renderSubTitle()}
         subTitleProps={tableLayout ? undefined : { color: '$text' }}
         headerContainerProps={{ px: '$pagePadding' }}
+        // Match the loaded branch's content inset so the loading-state
+        // skeleton sits in the same column as the eventual cards.
+        contentContainerProps={tableLayout ? { px: '$pagePadding' } : undefined}
         plainContentContainer
         content={
           !initialized || isRefreshing ? (
-            <ListLoading isTokenSelectorView={false} />
+            <DeFiListSkeleton tableLayout={tableLayout} />
           ) : (
             <EmptyDeFi tableLayout={tableLayout} />
           )

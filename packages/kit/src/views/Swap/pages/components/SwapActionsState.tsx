@@ -138,12 +138,12 @@ const SwapActionsState = ({
     path: 'articles/14430164',
   });
   const incognitoTitle = intl.formatMessage({
-    id: ETranslations.trade_incognito_incognito_mode,
+    id: ETranslations.trade_privacy_mode,
   });
   const incognitoTooltipDescription = useMemo(
     () =>
       `${intl.formatMessage({
-        id: ETranslations.trade_incognito_tooltips_new,
+        id: ETranslations.trade_privacy_mode_tooltips,
       })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
         id: ETranslations.trade_incognito_read_more,
       })}</underline></url>`,

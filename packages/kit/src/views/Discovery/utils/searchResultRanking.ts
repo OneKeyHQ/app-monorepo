@@ -16,6 +16,7 @@ const DAPP_PROMOTION_PREFIX_COVERAGE_DIRECT = 0.8;
 const DAPP_PROMOTION_LIGHT_SUPPORT_MIN_QUERY_LENGTH = 5;
 const DAPP_PROMOTION_PREFIX_COVERAGE_WITH_LIGHT_SUPPORT = 0.5;
 const DAPP_PROMOTION_PREFIX_COVERAGE_WITH_SUPPORT = 0.6;
+const WEB_URL_WITH_PROTOCOL_REGEXP = /^https?:\/\/[^\s/?#]+(?:[/?#]|$)/iu;
 
 export const DISCOVERY_RANKING_HISTORY_LIMIT = 200;
 export const DISCOVERY_LOCAL_SEARCH_CANDIDATE_LIMIT = 200;
@@ -1109,14 +1110,17 @@ export function shouldSkipRemoteSearchByKeyword(keyword: string) {
 
 export function isWebUrlLikeSearchKeyword(keyword: string) {
   const normalizedKeyword = keyword.trim();
-  const normalizedUrl = uriUtils.safeParseURL(
-    uriUtils.ensureHttpsPrefix(normalizedKeyword),
-  );
+  if (!normalizedKeyword) {
+    return false;
+  }
 
-  return Boolean(
-    normalizedUrl &&
-    normalizedUrl.hostname &&
-    ['http:', 'https:'].includes(normalizedUrl.protocol),
+  if (/^https?:\/\//iu.test(normalizedKeyword)) {
+    return WEB_URL_WITH_PROTOCOL_REGEXP.test(normalizedKeyword);
+  }
+
+  return (
+    uriUtils.isUrlWithoutProtocol(normalizedKeyword) ||
+    uriUtils.isLocalhostUrl(normalizedKeyword)
   );
 }
 

@@ -72,8 +72,10 @@ export function getTrayWatchlistNativeInfo({
   isNative?: boolean;
   contractAddress?: string;
 }) {
+  const hasContractAddress = !!contractAddress;
   const resolvedIsNative =
-    isNative !== undefined ? isNative : (contractAddress?.length ?? 0) < 30;
+    !hasContractAddress ||
+    (isNative !== undefined ? isNative : (contractAddress?.length ?? 0) < 30);
   return {
     isNative: resolvedIsNative,
     tokenAddress: resolvedIsNative ? '' : contractAddress || '',
@@ -145,7 +147,9 @@ export function getTrayMarketNavigationTarget({
       };
     }
   | undefined {
-  if (isNative) {
+  const resolvedIsNative = isNative || !tokenAddress;
+
+  if (resolvedIsNative) {
     return {
       screen: ETabMarketRoutes.MarketNativeDetail,
       params: {

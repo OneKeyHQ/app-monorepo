@@ -1,11 +1,22 @@
 import BigNumber from 'bignumber.js';
 
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
-import { isValidMarketPresetCustomPriorityFeeValue } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
-import { swapSlippageMaxValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  type IMarketPresetCustomPriorityFeeRange,
+  MARKET_PRESET_CUSTOM_PRIORITY_FEE_MIN_VALUE,
+  isValidMarketPresetCustomPriorityFeeValue,
+  normalizeMarketPresetCustomPriorityFeeRange,
+} from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import {
+  swapSlippageMaxValue,
+  swapSlippageWillAheadMinValue,
+  swapSlippageWillFailMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapNetworkFeeLevel,
+  ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
+  type ISwapProSpeedConfig,
 } from '@onekeyhq/shared/types/swap/types';
 
 export enum EMarketPresetKey {
@@ -51,6 +62,7 @@ export type IMarketPresetPriorityFeeSettings = {
 
 export type IMarketPresetPriorityFeeOverride = {
   customValue: string;
+  customRange?: IMarketPresetCustomPriorityFeeRange;
 };
 
 export type IMarketPresetDirectionSettings = {
@@ -68,6 +80,11 @@ export type IMarketPresetSavedSettings = {
   >;
 };
 
+export enum EMarketPresetSlippageWarningType {
+  WILL_FAIL = 'willFail',
+  WILL_AHEAD = 'willAhead',
+}
+
 export type IMarketPresetConfig = {
   enabled: boolean;
   networkId: string;
@@ -80,6 +97,19 @@ export type IMarketPresetConfig = {
     editable: boolean;
     supportedTypes: EMarketPresetPriorityFeeType[];
     customUnit?: string;
+    customRange: IMarketPresetCustomPriorityFeeRange;
+  };
+};
+
+type IMarketPresetRemoteConfig = {
+  enabled?: boolean;
+  customPriorityFeeRange?: IMarketPresetCustomPriorityFeeRange;
+};
+
+type IMarketPresetSpeedConfig = ISwapProSpeedConfig & {
+  marketPresetConfig?: IMarketPresetRemoteConfig & {
+    customPriorityFeeMin?: IMarketPresetCustomPriorityFeeRange['min'];
+    customPriorityFeeMax?: IMarketPresetCustomPriorityFeeRange['max'];
   };
 };
 
@@ -110,7 +140,7 @@ const DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS: IMarketPresetDirectionS
     },
     priorityFee: {
       type: EMarketPresetPriorityFeeType.CUSTOM,
-      customValue: '0',
+      customValue: '',
     },
   };
 
@@ -122,6 +152,7 @@ const MARKET_PRESET_EVM_NETWORK_IDS = new Set([
   presetNetworksMap.optimism.id,
   presetNetworksMap.base.id,
   presetNetworksMap.avalanche.id,
+  presetNetworksMap.okb.id,
 ]);
 
 const MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS = new Set([
@@ -132,19 +163,82 @@ const MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS = new Set([
 
 const MARKET_PRESET_SOL_NETWORK_IDS = new Set([presetNetworksMap.sol.id]);
 
-function buildPresetConfig({
+const MARKET_PRESET_FALLBACK_DISABLED_NETWORK_IDS = new Set([
+  presetNetworksMap.sui.id,
+]);
+
+const MARKET_PRESET_CUSTOM_PRIORITY_FEE_RANGE_BY_NETWORK_ID: Partial<
+  Record<string, IMarketPresetCustomPriorityFeeRange>
+> = {
+  [presetNetworksMap.sol.id]: {
+    min: '0',
+    max: '2',
+  },
+  [presetNetworksMap.eth.id]: {
+    min: '0',
+    max: '4000',
+  },
+  [presetNetworksMap.bsc.id]: {
+    min: '0',
+    max: '4000',
+  },
+  [presetNetworksMap.base.id]: {
+    min: '0',
+    max: '250',
+  },
+  [presetNetworksMap.okb.id]: {
+    min: '0',
+    max: '100',
+  },
+};
+
+function getMarketPresetCustomPriorityFeeRange({
   networkId,
-  slippageEditable = true,
-  priorityFeeEditable,
-  customUnit,
+  customRange,
 }: {
   networkId: string;
+  customRange?: IMarketPresetCustomPriorityFeeRange;
+}) {
+  const fallbackRange =
+    MARKET_PRESET_CUSTOM_PRIORITY_FEE_RANGE_BY_NETWORK_ID[networkId];
+  const minCandidate = customRange?.min ?? fallbackRange?.min;
+  const minBN = new BigNumber(minCandidate ?? Number.NaN);
+  const min = minBN.isFinite() ? minCandidate : fallbackRange?.min;
+  const maxCandidate = customRange?.max ?? fallbackRange?.max;
+  const maxBN = new BigNumber(maxCandidate ?? Number.NaN);
+  const minCompareBN = new BigNumber(
+    min ?? MARKET_PRESET_CUSTOM_PRIORITY_FEE_MIN_VALUE,
+  );
+  const max =
+    maxBN.isFinite() && maxBN.gt(minCompareBN)
+      ? maxCandidate
+      : fallbackRange?.max;
+
+  return {
+    min,
+    max,
+  };
+}
+
+function buildPresetConfig({
+  networkId,
+  enabled = true,
+  slippageEditable = true,
+  priorityFeeEditable,
+  priorityFeeSupportedTypes,
+  customUnit,
+  customRange,
+}: {
+  networkId: string;
+  enabled?: boolean;
   slippageEditable?: boolean;
   priorityFeeEditable: boolean;
+  priorityFeeSupportedTypes?: EMarketPresetPriorityFeeType[];
   customUnit?: string;
+  customRange?: IMarketPresetCustomPriorityFeeRange;
 }): IMarketPresetConfig {
   return {
-    enabled: true,
+    enabled,
     networkId,
     defaultPresetKey: EMarketPresetKey.AUTO,
     presets: MARKET_PRESET_ITEMS,
@@ -153,16 +247,132 @@ function buildPresetConfig({
     },
     priorityFee: {
       editable: priorityFeeEditable,
-      supportedTypes: priorityFeeEditable
-        ? [
-            EMarketPresetPriorityFeeType.MARKET,
-            EMarketPresetPriorityFeeType.FAST,
-            EMarketPresetPriorityFeeType.CUSTOM,
-          ]
-        : [EMarketPresetPriorityFeeType.AUTO],
+      supportedTypes:
+        priorityFeeSupportedTypes ??
+        (priorityFeeEditable
+          ? [
+              EMarketPresetPriorityFeeType.MARKET,
+              EMarketPresetPriorityFeeType.FAST,
+              EMarketPresetPriorityFeeType.CUSTOM,
+            ]
+          : [EMarketPresetPriorityFeeType.AUTO]),
       customUnit,
+      customRange: normalizeMarketPresetCustomPriorityFeeRange(
+        getMarketPresetCustomPriorityFeeRange({
+          networkId,
+          customRange,
+        }),
+      ),
     },
   };
+}
+
+function getMarketPresetRemoteConfig(
+  speedConfig?: ISwapProSpeedConfig,
+): IMarketPresetRemoteConfig | undefined {
+  const nestedConfig = (speedConfig as IMarketPresetSpeedConfig | undefined)
+    ?.marketPresetConfig;
+  const enabled = nestedConfig?.enabled;
+  const customPriorityFeeMin =
+    nestedConfig?.customPriorityFeeRange?.min ??
+    nestedConfig?.customPriorityFeeMin;
+  const customPriorityFeeMax =
+    nestedConfig?.customPriorityFeeRange?.max ??
+    nestedConfig?.customPriorityFeeMax;
+
+  if (
+    enabled === undefined &&
+    customPriorityFeeMin === undefined &&
+    customPriorityFeeMax === undefined
+  ) {
+    return undefined;
+  }
+
+  return {
+    enabled,
+    customPriorityFeeRange: {
+      min: customPriorityFeeMin,
+      max: customPriorityFeeMax,
+    },
+  };
+}
+
+function buildPresetConfigFromRemote({
+  networkId,
+  remoteConfig,
+}: {
+  networkId: string;
+  remoteConfig: IMarketPresetRemoteConfig;
+}): IMarketPresetConfig | undefined {
+  const customRange = remoteConfig.customPriorityFeeRange;
+
+  if (
+    remoteConfig.enabled === false ||
+    (MARKET_PRESET_FALLBACK_DISABLED_NETWORK_IDS.has(networkId) &&
+      remoteConfig.enabled !== true)
+  ) {
+    return buildPresetConfig({
+      networkId,
+      enabled: false,
+      slippageEditable: false,
+      priorityFeeEditable: false,
+      customRange,
+    });
+  }
+
+  if (
+    networkId.startsWith('evm--') &&
+    (remoteConfig.enabled === true ||
+      MARKET_PRESET_EVM_NETWORK_IDS.has(networkId))
+  ) {
+    return buildPresetConfig({
+      networkId,
+      priorityFeeEditable: true,
+      customUnit: 'Gwei',
+      customRange,
+    });
+  }
+
+  if (MARKET_PRESET_SOL_NETWORK_IDS.has(networkId)) {
+    return buildPresetConfig({
+      networkId,
+      priorityFeeEditable: true,
+      priorityFeeSupportedTypes: [
+        EMarketPresetPriorityFeeType.MARKET,
+        EMarketPresetPriorityFeeType.CUSTOM,
+      ],
+      customUnit: 'SOL',
+      customRange,
+    });
+  }
+
+  if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
+    return buildPresetConfig({
+      networkId,
+      priorityFeeEditable: false,
+      customRange,
+    });
+  }
+
+  return undefined;
+}
+
+function getMarketPresetConfigFromSpeedConfig({
+  networkId,
+  speedConfig,
+}: {
+  networkId: string;
+  speedConfig?: ISwapProSpeedConfig;
+}) {
+  const remoteConfig = getMarketPresetRemoteConfig(speedConfig);
+  if (!remoteConfig) {
+    return undefined;
+  }
+
+  return buildPresetConfigFromRemote({
+    networkId,
+    remoteConfig,
+  });
 }
 
 async function fetchMarketPresetDashboardConfig({
@@ -170,6 +380,15 @@ async function fetchMarketPresetDashboardConfig({
 }: {
   networkId: string;
 }): Promise<IMarketPresetConfig | undefined> {
+  if (MARKET_PRESET_FALLBACK_DISABLED_NETWORK_IDS.has(networkId)) {
+    return buildPresetConfig({
+      networkId,
+      enabled: false,
+      slippageEditable: false,
+      priorityFeeEditable: false,
+    });
+  }
+
   if (MARKET_PRESET_EVM_NETWORK_IDS.has(networkId)) {
     return buildPresetConfig({
       networkId,
@@ -182,6 +401,10 @@ async function fetchMarketPresetDashboardConfig({
     return buildPresetConfig({
       networkId,
       priorityFeeEditable: true,
+      priorityFeeSupportedTypes: [
+        EMarketPresetPriorityFeeType.MARKET,
+        EMarketPresetPriorityFeeType.CUSTOM,
+      ],
       customUnit: 'SOL',
     });
   }
@@ -198,7 +421,13 @@ async function fetchMarketPresetDashboardConfig({
 
 export async function fetchMarketPresetConfig(params: {
   networkId: string;
+  speedConfig?: ISwapProSpeedConfig;
 }): Promise<IMarketPresetConfig | undefined> {
+  const speedConfigPreset = getMarketPresetConfigFromSpeedConfig(params);
+  if (speedConfigPreset) {
+    return speedConfigPreset;
+  }
+
   return fetchMarketPresetDashboardConfig(params).catch(() => undefined);
 }
 
@@ -310,6 +539,26 @@ export function normalizeMarketPresetDirectionSettings(
   };
 }
 
+function getMarketPresetResolvedPriorityFeeSettings({
+  config,
+  settings,
+}: {
+  config?: IMarketPresetConfig;
+  settings: IMarketPresetDirectionSettings;
+}): IMarketPresetPriorityFeeSettings {
+  if (!config?.priorityFee.editable) {
+    return {
+      type: EMarketPresetPriorityFeeType.AUTO,
+    };
+  }
+
+  if (config.priorityFee.supportedTypes.includes(settings.priorityFee.type)) {
+    return settings.priorityFee;
+  }
+
+  return getMarketPresetDefaultDirectionSettings().priorityFee;
+}
+
 export function getMarketPresetSavedDirectionSettings({
   savedSettings,
   presetKey,
@@ -358,11 +607,10 @@ export function resolveMarketPresetDirectionSettings({
     slippage: config?.slippage.editable
       ? normalized.slippage
       : getMarketPresetDefaultDirectionSettings().slippage,
-    priorityFee: config?.priorityFee.editable
-      ? normalized.priorityFee
-      : {
-          type: EMarketPresetPriorityFeeType.AUTO,
-        },
+    priorityFee: getMarketPresetResolvedPriorityFeeSettings({
+      config,
+      settings: normalized,
+    }),
   };
 }
 
@@ -404,6 +652,16 @@ export function getMarketPresetCustomizedMap(
   );
 }
 
+export function shouldShowMarketPresetReviewCustomNetworkFeeOption({
+  enabled,
+  selectedPriorityFeeOverride,
+}: {
+  enabled: boolean;
+  selectedPriorityFeeOverride?: IMarketPresetPriorityFeeOverride;
+}) {
+  return enabled && !!selectedPriorityFeeOverride;
+}
+
 export function getMarketPresetSlippageValue({
   settings,
   defaultSlippage,
@@ -423,10 +681,11 @@ export function getMarketPresetSlippageValue({
 
 export function getMarketPresetNetworkFeeLevel(
   settings?: IMarketPresetDirectionSettings,
+  config?: IMarketPresetConfig,
 ) {
   if (
     settings?.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
-    !isValidMarketPresetCustomValue(settings.priorityFee.customValue)
+    !isValidMarketPresetCustomValue(settings.priorityFee.customValue, config)
   ) {
     return ESwapNetworkFeeLevel.MEDIUM;
   }
@@ -441,29 +700,84 @@ export function getMarketPresetNetworkFeeLevel(
   return ESwapNetworkFeeLevel.MEDIUM;
 }
 
-export function isValidMarketPresetCustomValue(value?: string) {
-  return isValidMarketPresetCustomPriorityFeeValue(value);
+export function getMarketPresetPriorityFeeCustomRange(
+  config?: IMarketPresetConfig,
+) {
+  return normalizeMarketPresetCustomPriorityFeeRange(
+    config?.priorityFee.customRange,
+  );
+}
+
+export function getMarketPresetPriorityFeeCustomPlaceholder(
+  config?: IMarketPresetConfig,
+) {
+  const { min, max } = getMarketPresetPriorityFeeCustomRange(config);
+  return `${min} ~ ${max}`;
+}
+
+export function isValidMarketPresetCustomValue(
+  value?: string,
+  config?: IMarketPresetConfig,
+) {
+  return isValidMarketPresetCustomPriorityFeeValue({
+    value,
+    range: getMarketPresetPriorityFeeCustomRange(config),
+  });
 }
 
 export function isInvalidMarketPresetSlippageSettings(
   settings?: IMarketPresetDirectionSettings,
 ) {
+  return (
+    getMarketPresetSlippageCustomStatus(settings).status ===
+    ESwapSlippageCustomStatus.ERROR
+  );
+}
+
+export function getMarketPresetSlippageCustomStatus(
+  settings?: IMarketPresetDirectionSettings,
+): {
+  status: ESwapSlippageCustomStatus;
+  warningType?: EMarketPresetSlippageWarningType;
+} {
   if (!settings) {
-    return false;
+    return { status: ESwapSlippageCustomStatus.NORMAL };
+  }
+
+  if (settings.slippage.key !== ESwapSlippageSegmentKey.CUSTOM) {
+    return { status: ESwapSlippageCustomStatus.NORMAL };
   }
 
   const slippageValueBN = new BigNumber(settings.slippage.value ?? Number.NaN);
-  return (
-    settings.slippage.key === ESwapSlippageSegmentKey.CUSTOM &&
-    (settings.slippage.value === undefined ||
-      slippageValueBN.isNaN() ||
-      slippageValueBN.isNegative() ||
-      slippageValueBN.gt(swapSlippageMaxValue))
-  );
+  if (
+    settings.slippage.value === undefined ||
+    slippageValueBN.isNaN() ||
+    slippageValueBN.isNegative() ||
+    slippageValueBN.gt(swapSlippageMaxValue)
+  ) {
+    return { status: ESwapSlippageCustomStatus.ERROR };
+  }
+
+  if (slippageValueBN.lte(swapSlippageWillFailMinValue)) {
+    return {
+      status: ESwapSlippageCustomStatus.WRONG,
+      warningType: EMarketPresetSlippageWarningType.WILL_FAIL,
+    };
+  }
+
+  if (slippageValueBN.gt(swapSlippageWillAheadMinValue)) {
+    return {
+      status: ESwapSlippageCustomStatus.WRONG,
+      warningType: EMarketPresetSlippageWarningType.WILL_AHEAD,
+    };
+  }
+
+  return { status: ESwapSlippageCustomStatus.NORMAL };
 }
 
 export function isInvalidMarketPresetPriorityFeeSettings(
   settings?: IMarketPresetDirectionSettings,
+  config?: IMarketPresetConfig,
 ) {
   if (!settings) {
     return false;
@@ -471,33 +785,52 @@ export function isInvalidMarketPresetPriorityFeeSettings(
 
   return (
     settings.priorityFee.type === EMarketPresetPriorityFeeType.CUSTOM &&
-    !isValidMarketPresetCustomValue(settings.priorityFee.customValue)
+    !isValidMarketPresetCustomValue(settings.priorityFee.customValue, config)
   );
 }
 
 export function isInvalidMarketPresetDirectionSettings(
   settings?: IMarketPresetDirectionSettings,
+  config?: IMarketPresetConfig,
 ) {
   return (
     isInvalidMarketPresetSlippageSettings(settings) ||
-    isInvalidMarketPresetPriorityFeeSettings(settings)
+    isInvalidMarketPresetPriorityFeeSettings(settings, config)
   );
+}
+
+export function isMarketPresetConfirmDisabled({
+  activePresetKey,
+  currentSettingsInvalid,
+  hasInvalidDirtySettings,
+}: {
+  activePresetKey: EMarketPresetKey;
+  currentSettingsInvalid: boolean;
+  hasInvalidDirtySettings: boolean;
+}) {
+  if (activePresetKey === EMarketPresetKey.AUTO) {
+    return false;
+  }
+
+  return currentSettingsInvalid || hasInvalidDirtySettings;
 }
 
 export function getMarketPresetPriorityFeeOverride(
   settings?: IMarketPresetDirectionSettings,
+  config?: IMarketPresetConfig,
 ): IMarketPresetPriorityFeeOverride | undefined {
   const customValue = settings?.priorityFee.customValue;
   if (
     settings?.priorityFee.type !== EMarketPresetPriorityFeeType.CUSTOM ||
     !customValue ||
-    !isValidMarketPresetCustomValue(customValue)
+    !isValidMarketPresetCustomValue(customValue, config)
   ) {
     return undefined;
   }
 
   return {
     customValue,
+    customRange: getMarketPresetPriorityFeeCustomRange(config),
   };
 }
 
@@ -607,6 +940,7 @@ export function normalizeMarketPresetSavedSettings({
                       'string' &&
                     isValidMarketPresetCustomValue(
                       directionSettings.priorityFee.customValue,
+                      config,
                     )
                       ? directionSettings.priorityFee.customValue
                       : undefined,

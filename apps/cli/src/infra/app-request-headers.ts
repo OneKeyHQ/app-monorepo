@@ -4,7 +4,12 @@ import path from 'node:path';
 
 const DEFAULT_APP_VERSION = '6.3.0';
 const DEFAULT_BUILD_NUMBER = '1';
-const DEFAULT_BUNDLE_VERSION = '1';
+// '0' matches the "BUNDLE_VERSION not injected" sentinel used by the
+// iOS Info.plist, Android Gradle defEnvStr, Desktop esbuild define, and
+// the JS-side platformEnv fallback. The previous '1' collided with the
+// historical iOS Info.plist value and the legacy `?? '1'` fallback,
+// polluting whichever Mixpanel bucket '1' ultimately maps to.
+const DEFAULT_BUNDLE_VERSION = '0';
 const DEFAULT_PLATFORM = 'desktop-macosStore';
 const DEFAULT_DEVICE_NAME = 'OneKey Desktop';
 const DEFAULT_LOCALE = 'zh-cn';

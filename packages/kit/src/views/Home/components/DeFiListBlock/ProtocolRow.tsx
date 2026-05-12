@@ -1,11 +1,14 @@
 import { memo, useMemo } from 'react';
 
-import { SizableText } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { SizableText, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDeFiProtocol,
   IProtocolSummary,
@@ -20,6 +23,7 @@ export type IProtocolRowProps = {
 
 const ProtocolRow = memo(
   ({ protocol, protocolInfo, onPress, isAllNetworks }: IProtocolRowProps) => {
+    const intl = useIntl();
     const [settings] = useSettingsPersistAtom();
     const currencySymbol = settings.currencyInfo.symbol;
 
@@ -31,6 +35,11 @@ const ProtocolRow = memo(
         }),
       [protocol, protocolInfo],
     );
+    // Match the desktop accordion header's "{n} 持仓" sub-label so the
+    // condensed mobile row carries the same density signal.
+    const positionCountText = `${protocol.positions.length} ${intl.formatMessage(
+      { id: ETranslations.earn_positions },
+    )}`;
 
     return (
       <ListItem
@@ -52,9 +61,14 @@ const ProtocolRow = memo(
           showNetworkIcon={isAllNetworks}
           networkId={protocol.networkId}
         />
-        <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
-          {protocolDisplayInfo.protocolName}
-        </SizableText>
+        <YStack flex={1} minWidth={0} gap="$0.5">
+          <SizableText size="$bodyLgMedium" numberOfLines={1}>
+            {protocolDisplayInfo.protocolName}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {positionCountText}
+          </SizableText>
+        </YStack>
         <NumberSizeableTextWrapper
           hideValue
           size="$bodyLgMedium"

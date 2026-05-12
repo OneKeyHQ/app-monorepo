@@ -975,11 +975,19 @@ function BasePerpTokenSelectorContent({
     [getRowDesktopLayout, handleSelectToken],
   );
 
+  const hasPerpTokenDataLoaded = useMemo(
+    () => Boolean(assetsByDex?.some((assets) => assets?.length > 0)),
+    [assetsByDex],
+  );
+  const isFavoritesTab = isPerpTokenSelectorFavoritesTab(displayPrimaryTab);
   const showFavoritesEmpty =
-    isPerpTokenSelectorFavoritesTab(displayPrimaryTab) &&
-    activeTabData.length === 0 &&
+    isFavoritesTab &&
     !searchQuery &&
-    isFavoritesReady;
+    isFavoritesReady &&
+    hasPerpTokenDataLoaded &&
+    favoriteItems.length === 0;
+  const isFavoritesLoading =
+    isFavoritesTab && !searchQuery && !isFavoritesReady;
 
   const listEmptyComponent = useMemo(() => {
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab) && spotLoading) {
@@ -992,20 +1000,30 @@ function BasePerpTokenSelectorContent({
     if (showFavoritesEmpty) {
       return <FavoritesEmptyState />;
     }
+    let emptyMessageId: ETranslations = ETranslations.dexmarket_details_nodata;
+    if (searchQuery) {
+      emptyMessageId = ETranslations.perp_token_selector_empty;
+    } else if (!hasPerpTokenDataLoaded || isFavoritesLoading) {
+      emptyMessageId = ETranslations.perp_token_selector_loading;
+    }
     return (
       <XStack p="$4" justifyContent="center">
         <SizableText size="$bodySm" color="$textSubdued">
-          {searchQuery
-            ? intl.formatMessage({
-                id: ETranslations.perp_token_selector_empty,
-              })
-            : intl.formatMessage({
-                id: ETranslations.perp_token_selector_loading,
-              })}
+          {intl.formatMessage({
+            id: emptyMessageId,
+          })}
         </SizableText>
       </XStack>
     );
-  }, [displayPrimaryTab, spotLoading, showFavoritesEmpty, searchQuery, intl]);
+  }, [
+    displayPrimaryTab,
+    spotLoading,
+    showFavoritesEmpty,
+    searchQuery,
+    hasPerpTokenDataLoaded,
+    isFavoritesLoading,
+    intl,
+  ]);
 
   const content = (
     <YStack>

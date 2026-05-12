@@ -16,8 +16,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { FavoritesBar } from '../components/FavoritesBar/FavoritesBar.web';
+import { PerpMarketWorkspacePanel } from '../components/MarketDetail/PerpMarketWorkspacePanel';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
-import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
@@ -132,7 +132,7 @@ function PerpDesktopLayout() {
             <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
               <XStack flex={1} overflow="hidden">
                 <YStack flex={1} position="relative">
-                  <PerpCandles />
+                  <PerpMarketWorkspacePanel />
 
                   <Stack
                     display={gtXl && !chartExpanded ? 'flex' : 'none'}

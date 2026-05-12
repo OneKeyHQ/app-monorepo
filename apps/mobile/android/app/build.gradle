@@ -105,7 +105,7 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
 // def jscFlavor = 'org.webkit:android-jsc:+'
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-static def defEnvStr(config, key, defValue = "1") {
+static def defEnvStr(config, key, defValue = "0") {
     def value = config.getProperty(key)
     if (value == null || value.isEmpty()) {
         def envParam = System.getenv();

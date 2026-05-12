@@ -725,7 +725,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const pageTitle = useMemo(
     () => (
       <XStack gap="$3" ai="center">
-        <Token size="md" source={tokenInfo?.token?.logoURI} />
+        <Token size="md" tokenImageUri={tokenInfo?.token?.logoURI} />
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {symbol}
         </SizableText>

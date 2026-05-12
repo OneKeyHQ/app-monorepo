@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import {
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
@@ -565,6 +566,37 @@ function useMultiLineAddressValidation(
                   nonEmptyIndex += 1;
                 }
               }
+            }
+          }
+        }
+
+        // Reject any address that resolves to a deactivated Bot Wallet
+        // account. The helper resolves owners through the regular address
+        // index and falls back to fresh-address resolution for BTC, matching
+        // the allowlist resolver below.
+        if (validAddresses.length > 0 && selectedNetworkId) {
+          const botWalletResults = await Promise.all(
+            validAddresses.map(({ index, address }) =>
+              limit(async () => {
+                const trimmedAddress = address.trim();
+                const isDeactivated =
+                  await isAddressOwnedByDeactivatedBotWallet({
+                    networkId: selectedNetworkId,
+                    address: trimmedAddress,
+                  });
+                return { index, isDeactivated };
+              }),
+            ),
+          );
+          if (isValidationStale()) {
+            return true;
+          }
+          for (const { index, isDeactivated } of botWalletResults) {
+            if (isDeactivated) {
+              lineErrors.push({
+                lineNumber: index + 1,
+                message: '该 Bot 钱包已停用，无法作为接收地址',
+              });
             }
           }
         }

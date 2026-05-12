@@ -71,6 +71,8 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
 
+import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
+
 const SwapSettingsCommonItem = ({
   value,
   onChange,
@@ -261,7 +263,11 @@ const SwapSlippageCustomContent = ({
   );
 };
 
-const SwapSettingsDialogContent = () => {
+const SwapSettingsDialogContent = ({
+  marketPresetSettings,
+}: {
+  marketPresetSettings?: IMarketPresetSettingsState;
+}) => {
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [{ swapEnableRecipientAddress }, setNoPersistSettings] =
@@ -275,6 +281,14 @@ const SwapSettingsDialogContent = () => {
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
+  const showSwapProSlippageSetting =
+    focusSwapPro &&
+    (!marketPresetSettings ||
+      (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
+  const showSwapSettingsSlippage =
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting;
+  const showSmartModeSetting =
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro;
   const dialogContentMaxHeight = useMemo(() => {
     if (!platformEnv.isNative || keyboardHeight <= 0) {
       return undefined;
@@ -344,7 +358,7 @@ const SwapSettingsDialogContent = () => {
       showsVerticalScrollIndicator={false}
     >
       <YStack gap="$5">
-        {swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro ? (
+        {showSwapSettingsSlippage ? (
           <>
             <HeightTransition>
               <YStack gap="$5">
@@ -360,23 +374,25 @@ const SwapSettingsDialogContent = () => {
               </YStack>
             </HeightTransition>
             <Divider />
-            <SwapSettingsCommonItem
-              title={intl.formatMessage({
-                id: ETranslations.swap_page_settings_simple_mode,
-              })}
-              content={intl.formatMessage({
-                id: ETranslations.swap_page_settings_simple_mode_content,
-              })}
-              badgeContent="Beta"
-              value={swapBatchApproveAndSwap}
-              onChange={(v) => {
-                setPersistSettings((s) => ({
-                  ...s,
-                  swapBatchApproveAndSwap: v,
-                }));
-              }}
-            />
           </>
+        ) : null}
+        {showSmartModeSetting ? (
+          <SwapSettingsCommonItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_page_settings_simple_mode,
+            })}
+            content={intl.formatMessage({
+              id: ETranslations.swap_page_settings_simple_mode_content,
+            })}
+            badgeContent="Beta"
+            value={swapBatchApproveAndSwap}
+            onChange={(v) => {
+              setPersistSettings((s) => ({
+                ...s,
+                swapBatchApproveAndSwap: v,
+              }));
+            }}
+          />
         ) : null}
         {focusSwapPro ? null : (
           <SwapSettingsCommonItem
@@ -453,10 +469,12 @@ const SwapHeaderRightActionContainer = ({
   pageType,
   iconSize,
   iconColor,
+  marketPresetSettings,
 }: {
   pageType?: EPageType;
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
+  marketPresetSettings?: IMarketPresetSettingsState;
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -486,7 +504,18 @@ const SwapHeaderRightActionContainer = ({
   );
   const historyBadgeCount =
     swapPendingStatusList.length + limitOpenStatusList.length;
+  const focusSwapPro =
+    platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  const showSwapProSlippageSetting =
+    focusSwapPro &&
+    (!marketPresetSettings ||
+      (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
+  const showHeaderSlippageValue =
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting;
   const slippageTitle = useMemo(() => {
+    if (!showHeaderSlippageValue) {
+      return null;
+    }
     if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
       return (
         <SizableText
@@ -500,7 +529,7 @@ const SwapHeaderRightActionContainer = ({
       );
     }
     return null;
-  }, [slippageItem.key, slippageItem.value]);
+  }, [showHeaderSlippageValue, slippageItem.key, slippageItem.value]);
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -533,7 +562,9 @@ const SwapHeaderRightActionContainer = ({
               : EJotaiContextStoreNames.swap
           }
         >
-          <SwapSettingsDialogContent />
+          <SwapSettingsDialogContent
+            marketPresetSettings={marketPresetSettings}
+          />
         </SwapProviderMirror>
       ),
       showConfirmButton: false,
@@ -543,7 +574,7 @@ const SwapHeaderRightActionContainer = ({
       }),
       showFooter: true,
     });
-  }, [intl, pageType]);
+  }, [intl, marketPresetSettings, pageType]);
   return (
     <HeaderButtonGroup>
       {slippageTitle ? (
