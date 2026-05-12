@@ -3,13 +3,46 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import {
+  ProtocolValueCell,
+  isProtocolValueUnavailable,
+} from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
+import { ProtocolAssetBalanceText } from './ProtocolAssetBalanceText';
 import { ProtocolPositionCell } from './ProtocolPositionCell';
 import { ProtocolRewardsCell } from './ProtocolRewardsCell';
+
+// Position-level USD total = supplied assets + reward assets. The Rewards
+// column already itemizes the reward USD separately; the Value column on
+// the right is a "what's this position worth as a whole" single number,
+// which is why rewards still add into it.
+function sumPositionUsd(
+  primaryAssets: IDeFiAsset[],
+  rewardsExtraAssets: IDeFiAsset[],
+): number {
+  let total = 0;
+  for (const asset of primaryAssets) {
+    total += asset.value;
+  }
+  for (const asset of rewardsExtraAssets) {
+    total += asset.value;
+  }
+  return total;
+}
+
+function hasUnavailableAssetValue(...assetGroups: IDeFiAsset[][]): boolean {
+  for (const assets of assetGroups) {
+    for (const asset of assets) {
+      if (isProtocolValueUnavailable(asset.value)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 // Returns the most valuable up to `max` assets in USD-descending order.
 // Used for the Balance column when a position has more rows than we want
@@ -24,25 +57,29 @@ function topAssetsByValue(assets: IDeFiAsset[], max: number): IDeFiAsset[] {
 // Layout: one logical row per position regardless of asset count. Multi-
 // asset positions stack their content inside each cell — Position cell
 // stacks avatars (overlapped, +N overflow), Balance cell stacks amounts
-// (top-N by USD, +N more overflow). Pre-change, multi-asset positions
-// rendered as N separate XStack rows with Position/Rewards/Value attached
-// to the first row only, which made it look like N independent positions
-// instead of one.
+// and per-asset USD values (top-N by USD, +N more overflow). Pre-change,
+// multi-asset positions rendered as N
+// separate XStack rows with Position/Rewards/Value attached to the first row
+// only, which made it look like N independent positions instead of one.
 //
 // Position column is a *fixed* width (not %) so every category table in
 // a protocol card — Lending, LP, stake, yield — starts its data columns
 // at the same x-coordinate. Without the fix, each table picked its own
 // percent split and the columns visibly jagged across categories.
-const POSITION_COLUMN_WIDTH = 240;
+// Exported so the sectioned table can align its first column too.
+export const POSITION_COLUMN_WIDTH = 240;
 
 // Flex weights for the trailing columns. Balance leads (amounts can be
 // long, especially when stacked); Value gets less because it's a single
-// right-aligned number; section columns sit between when present.
+// right-aligned number; Rewards sits between when present.
+// `*_WITHOUT_REWARDS` are exported because the sectioned table never has
+// a rewards column and lands on the same proportions as the unified
+// no-rewards layout.
 const BALANCE_FLEX_WITH_REWARDS = 1.2;
-const SECTION_FLEX = 1;
+const REWARDS_FLEX = 1;
 const USD_FLEX_WITH_REWARDS = 0.8;
-const BALANCE_FLEX_WITHOUT_REWARDS = 1.5;
-const USD_FLEX_WITHOUT_REWARDS = 1;
+export const BALANCE_FLEX_WITHOUT_REWARDS = 1.5;
+export const USD_FLEX_WITHOUT_REWARDS = 1;
 
 // Cap the visible amount lines in the Balance column. Above this we show
 // the top-by-USD rows + a "+N more" chip, so an 8-token yield position
@@ -69,18 +106,11 @@ const ProtocolUnifiedTable = memo(
       () => rows.some((row) => row.rewardsExtraAssets.length > 0),
       [rows],
     );
-    const showBorrowedColumn = useMemo(
-      () => rows.some((row) => row.borrowedAssets.length > 0),
-      [rows],
-    );
 
     const labels = useMemo(
       () => ({
         position: intl.formatMessage({ id: ETranslations.earn_positions }),
         balance: intl.formatMessage({ id: ETranslations.global_balance }),
-        borrowed: intl.formatMessage({
-          id: ETranslations.wallet_defi_asset_type_borrowed,
-        }),
         rewards: intl.formatMessage({
           id: ETranslations.wallet_defi_position_module_rewards,
         }),
@@ -108,11 +138,10 @@ const ProtocolUnifiedTable = memo(
       });
     }, []);
 
-    const showSectionColumn = showBorrowedColumn || showRewardsColumn;
-    const balanceFlex = showSectionColumn
+    const balanceFlex = showRewardsColumn
       ? BALANCE_FLEX_WITH_REWARDS
       : BALANCE_FLEX_WITHOUT_REWARDS;
-    const usdFlex = showSectionColumn
+    const usdFlex = showRewardsColumn
       ? USD_FLEX_WITH_REWARDS
       : USD_FLEX_WITHOUT_REWARDS;
 
@@ -129,15 +158,8 @@ const ProtocolUnifiedTable = memo(
               {labels.balance}
             </SizableText>
           </Stack>
-          {showBorrowedColumn ? (
-            <Stack flex={SECTION_FLEX} flexBasis={0} minWidth={0}>
-              <SizableText size="$headingXs" color="$textSubdued">
-                {labels.borrowed}
-              </SizableText>
-            </Stack>
-          ) : null}
           {showRewardsColumn ? (
-            <Stack flex={SECTION_FLEX} flexBasis={0} minWidth={0}>
+            <Stack flex={REWARDS_FLEX} flexBasis={0} minWidth={0}>
               <SizableText size="$headingXs" color="$textSubdued">
                 {labels.rewards}
               </SizableText>
@@ -156,6 +178,14 @@ const ProtocolUnifiedTable = memo(
         </XStack>
 
         {rows.map((row, rowIndex) => {
+          const positionUsd = sumPositionUsd(
+            row.primaryAssets,
+            row.rewardsExtraAssets,
+          );
+          const isPositionUsdUnavailable = hasUnavailableAssetValue(
+            row.primaryAssets,
+            row.rewardsExtraAssets,
+          );
           const isExpanded = expandedRows.has(row.rowKey);
           const visibleBalanceAssets = isExpanded
             ? row.primaryAssets
@@ -164,11 +194,7 @@ const ProtocolUnifiedTable = memo(
             0,
             row.primaryAssets.length - MAX_BALANCE_LINES,
           );
-          const positionAvatarAssets =
-            row.primaryAssets.length > 0
-              ? row.primaryAssets
-              : row.borrowedAssets;
-          const positionAvatars = positionAvatarAssets.map((asset) => ({
+          const positionAvatars = row.primaryAssets.map((asset) => ({
             logoUrl: asset.meta?.logoUrl,
           }));
 
@@ -201,17 +227,12 @@ const ProtocolUnifiedTable = memo(
                 pt="$1"
               >
                 {visibleBalanceAssets.map((asset, assetIndex) => (
-                  <NumberSizeableTextWrapper
+                  <ProtocolAssetBalanceText
                     key={`${row.rowKey}-balance-${asset.address}-${assetIndex}`}
-                    hideValue
-                    size="$bodyMd"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: asset.symbol }}
-                    numberOfLines={1}
-                    fontVariant={TABULAR_NUMS}
-                  >
-                    {asset.amount}
-                  </NumberSizeableTextWrapper>
+                    asset={asset}
+                    currencySymbol={currencySymbol}
+                    priceUnavailableLabel={priceUnavailableLabel}
+                  />
                 ))}
                 {balanceOverflow > 0 ? (
                   // Compact ghost button. Sits flush-left in the Balance
@@ -265,22 +286,11 @@ const ProtocolUnifiedTable = memo(
                   </XStack>
                 ) : null}
               </YStack>
-              {showBorrowedColumn ? (
-                <Stack flex={SECTION_FLEX} flexBasis={0} minWidth={0} pt="$1">
-                  {row.borrowedAssets.length > 0 ? (
-                    <ProtocolRewardsCell
-                      assets={row.borrowedAssets}
-                      currencySymbol={currencySymbol}
-                      priceUnavailableLabel={priceUnavailableLabel}
-                    />
-                  ) : null}
-                </Stack>
-              ) : null}
               {showRewardsColumn ? (
-                <Stack flex={SECTION_FLEX} flexBasis={0} minWidth={0} pt="$1">
+                <Stack flex={REWARDS_FLEX} flexBasis={0} minWidth={0} pt="$1">
                   {row.rewardsExtraAssets.length > 0 ? (
                     <ProtocolRewardsCell
-                      assets={row.rewardsExtraAssets}
+                      rewards={row.rewardsExtraAssets}
                       currencySymbol={currencySymbol}
                       priceUnavailableLabel={priceUnavailableLabel}
                     />
@@ -294,17 +304,16 @@ const ProtocolUnifiedTable = memo(
                 alignItems="flex-end"
                 pt="$1"
               >
-                <NumberSizeableTextWrapper
-                  hideValue
+                <ProtocolValueCell
+                  value={positionUsd}
+                  currencySymbol={currencySymbol}
+                  priceUnavailableLabel={priceUnavailableLabel}
+                  isUnavailable={isPositionUsdUnavailable}
                   size="$bodyMdMedium"
-                  formatter="value"
-                  formatterOptions={{ currency: currencySymbol }}
                   textAlign="right"
                   numberOfLines={1}
                   fontVariant={TABULAR_NUMS}
-                >
-                  {row.netValue}
-                </NumberSizeableTextWrapper>
+                />
               </Stack>
             </XStack>
           );

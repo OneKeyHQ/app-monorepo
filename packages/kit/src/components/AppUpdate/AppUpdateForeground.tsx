@@ -26,6 +26,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { runAfterTokensDone } from '../../hooks/useRunAfterTokensDone';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
+import { tryShowFeaturedDialog } from '../../views/AppUpdate/dialogs/tryShowFeaturedDialog';
 
 import { buildSoftwareUpdateParams } from './updateAnalytics';
 import { showSilentUpdateDialogUI, showUpdateDialogUI } from './updateDialogs';
@@ -97,7 +98,8 @@ export function useAppUpdateForegroundEffects(enabled = true) {
 
   const onViewReleaseInfo = useCallback(() => {
     if (platformEnv.isE2E) return;
-    setTimeout(() => {
+    setTimeout(async () => {
+      if (await tryShowFeaturedDialog(false)) return;
       navigation.pushModal(EModalRoutes.AppUpdateModal, {
         screen: EAppUpdateRoutes.WhatsNew,
       });
@@ -110,6 +112,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       params?: { latestVersion?: string; isForceUpdate?: boolean },
     ) => {
       setTimeout(async () => {
+        if (await tryShowFeaturedDialog(true)) return;
         const currentAppUpdateInfo =
           await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
         const pushModal = isFull

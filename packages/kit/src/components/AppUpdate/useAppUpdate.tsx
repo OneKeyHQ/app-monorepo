@@ -13,6 +13,7 @@ import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { tryShowFeaturedDialog } from '../../views/AppUpdate/dialogs/tryShowFeaturedDialog';
 
 import { useAppUpdateForegroundEffects } from './AppUpdateForeground';
 import { isForceUpdateStrategy } from './updateStrategy';
@@ -51,7 +52,8 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     if (platformEnv.isE2E) {
       return;
     }
-    setTimeout(() => {
+    setTimeout(async () => {
+      if (await tryShowFeaturedDialog(false)) return;
       const pushModal = isFullModal
         ? navigation.pushFullModal
         : navigation.pushModal;
@@ -70,6 +72,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
       },
     ) => {
       setTimeout(async () => {
+        if (await tryShowFeaturedDialog(true)) return;
         const currentAppUpdateInfo =
           await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
         const pushModal = isFull
