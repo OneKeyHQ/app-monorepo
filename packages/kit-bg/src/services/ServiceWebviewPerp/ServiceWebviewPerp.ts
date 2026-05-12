@@ -19,6 +19,7 @@ import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLoc
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import { extractHyperLiquidErrorMessage } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import type {
   ITokenSearchAliasItem,
   ITokenSearchAliases,
@@ -30,7 +31,10 @@ import type {
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
-import type { IHyperLiquidErrorLocaleItem } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  IHyperLiquidErrorLocaleItem,
+  IPerpsAssetMetaMap,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -264,6 +268,7 @@ export interface IPerpServerConfigResponse {
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   tokenSearchAliases?: ITokenSearchAliases;
   tokenSelectorTabs?: IPerpDynamicTab[];
+  perpsAssetMetaMap?: IPerpsAssetMetaMap;
   activityCards?: IPerpServerActivityCard[];
 }
 @backgroundClass()
@@ -307,6 +312,11 @@ class ServiceWebviewPerp extends ServiceBase {
       return response.data;
     } catch (error) {
       if (error && axios.isAxiosError(error)) {
+        const extractedMessage = extractHyperLiquidErrorMessage(error);
+        if (extractedMessage && extractedMessage !== error.message) {
+          throw new OneKeyError(extractedMessage);
+        }
+
         const errorMessage = `Hyperliquid API error 8712: ${[
           error?.name,
           error?.code,

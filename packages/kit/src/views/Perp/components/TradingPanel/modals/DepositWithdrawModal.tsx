@@ -36,6 +36,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
@@ -417,12 +419,30 @@ function DepositWithdrawContent({
 
   const accountResult = usePerpsAccountResult(selectedAccount);
 
+  const checkDepositWalletNotBackedUp = useCallback(async () => {
+    const walletId =
+      accountResult?.wallet?.id ??
+      (selectedAccount.accountId
+        ? accountUtils.getWalletIdFromAccountId({
+            accountId: selectedAccount.accountId,
+          })
+        : undefined);
+    if (!walletId) return false;
+
+    return backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+      walletId,
+    });
+  }, [accountResult?.wallet?.id, selectedAccount.accountId]);
+
   const handleBuyPress = useCallback(async () => {
     if (!currentPerpsDepositSelectedToken || !accountResult) {
       return;
     }
 
     await dismissKeyboardWithDelay();
+    if (await checkDepositWalletNotBackedUp()) {
+      return;
+    }
 
     defaultLogger.wallet.walletActions.buyOnLowBalance({
       source: 'perp',
@@ -457,6 +477,7 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken,
     selectedAccount,
     accountResult,
+    checkDepositWalletNotBackedUp,
   ]);
 
   const checkAccountSupport = useMemo(() => {
@@ -1097,9 +1118,28 @@ function DepositWithdrawContent({
     const canSubmit = validateAmountBeforeSubmit();
     if (!canSubmit) return;
 
+    // Bot Wallet deactivated warning
+    if (selectedAccount.accountId) {
+      const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
+        accountId: selectedAccount.accountId,
+      });
+      if (isDeactivatedBot) {
+        const confirmed = await showBotWalletDeactivatedWarningDialog();
+        if (!confirmed) {
+          return;
+        }
+      }
+    }
+
     try {
       if (checkRefreshQuote) {
         void perpDepositQuoteAction();
+        return;
+      }
+      if (
+        selectedAction === 'deposit' &&
+        (await checkDepositWalletNotBackedUp())
+      ) {
         return;
       }
       setIsSubmitting(true);
@@ -1171,6 +1211,7 @@ function DepositWithdrawContent({
     validateAmountBeforeSubmit,
     checkRefreshQuote,
     selectedAction,
+    checkDepositWalletNotBackedUp,
     perpDepositQuoteAction,
     isArbitrumUsdcToken,
     normalizeTxConfirm,

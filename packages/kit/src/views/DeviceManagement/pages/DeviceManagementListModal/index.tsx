@@ -42,6 +42,7 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
+import { canOpenDeviceManagementDetails } from '../DeviceDetailsModal/utils';
 import { DeviceGuideView } from '../DeviceGuideModal/DeviceGuideView';
 
 import SectionHeader from './SectionHeader';
@@ -67,13 +68,14 @@ function DeviceListItem({
   isConnected,
 }: {
   item: IDeviceManagementListItem;
-  onPress: (wallet: IHwQrWalletWithDevice['wallet']) => void;
+  onPress: (item: IDeviceManagementListItem) => void;
   isConnected: boolean;
 }) {
   const { gtMd } = useMedia();
   const isThirdParty = getVendorProfile(
     item.device?.vendor ?? EHardwareVendor.onekey,
   ).isThirdParty;
+  const canOpenDetails = canOpenDeviceManagementDetails(item.device?.vendor);
   const walletAvatarProps: IWalletAvatarProps = {
     img: item.wallet.avatarInfo?.img,
     wallet: item.wallet,
@@ -188,7 +190,7 @@ function DeviceListItem({
       );
     }
 
-    if (gtMd) {
+    if (gtMd && item.firmwareVersionDisplay) {
       return (
         <SizableText size="$bodyMd" color="$textDisabled">
           {item.firmwareVersionDisplay}
@@ -257,8 +259,8 @@ function DeviceListItem({
           ) : null}
         </YStack>
       )}
-      onPress={isThirdParty ? undefined : () => onPress(item.wallet)}
-      drillIn={!isThirdParty}
+      onPress={canOpenDetails ? () => onPress(item) : undefined}
+      drillIn={canOpenDetails}
     >
       {isThirdParty ? null : renderItemText}
     </ListItem>
@@ -330,9 +332,11 @@ function DeviceManagementV2ListWeb() {
         const shouldUpdate = deviceDetectStatus?.hasUpgrade;
         const updateVersionDisplay = deviceDetectStatus?.toVersion;
         item.firmwareTypeBadge = firmwareTypeBadge;
-        item.firmwareVersionDisplay = `v${
-          deviceVersion.firmwareVersion ?? '-'
-        }`;
+        item.firmwareVersionDisplay = deviceUtils.isValidDeviceVersion(
+          deviceVersion.firmwareVersion,
+        )
+          ? `v${deviceVersion.firmwareVersion}`
+          : undefined;
         item.shouldUpdate = shouldUpdate;
         item.updateVersionDisplay =
           updateVersionDisplay && !isEmpty(updateVersionDisplay)
@@ -379,10 +383,11 @@ function DeviceManagementV2ListWeb() {
   }, [refreshHwQrWalletList]);
 
   const onWalletPressed = useCallback(
-    (wallet: IHwQrWalletWithDevice['wallet']) => {
-      if (wallet.id) {
+    (item: IDeviceManagementListItem) => {
+      if (item.wallet.id) {
         pushToDeviceDetail({
-          walletId: wallet.id,
+          walletId: item.wallet.id,
+          initialDeviceVendor: item.device?.vendor,
         });
       }
     },

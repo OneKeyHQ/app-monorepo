@@ -9,6 +9,7 @@ import {
   analyzeOrderBookPrecision,
   calculateLiquidationPrice,
   calculatePriceScale,
+  compareSpotMarketCapValues,
   countDecimalPlaces,
   formatHlPrice,
   formatHlSize,
@@ -18,8 +19,11 @@ import {
   getDisplayPriceScaleDecimals,
   getHyperliquidTokenImageUrl,
   getMostFrequentDecimalPlaces,
+  getOrderBookSizeDisplaySymbol,
+  getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
+  isPredictionMarketInstrument,
 } from './perpsUtils';
 
 describe('getValidPriceDecimals - HyperLiquid Perp Rules', () => {
@@ -104,6 +108,125 @@ describe('spot token display helpers', () => {
     expect(getHyperliquidTokenImageUrl('USDC')).toBe(
       'https://uni.onekey-asset.com/static/hyperliquid/USDC.png',
     );
+  });
+
+  test('formats order book size symbol from spot universe base name', () => {
+    expect(
+      getOrderBookSizeDisplaySymbol({
+        coin: '@107',
+        isSpot: true,
+        spotUniverse: { baseName: 'UETH' },
+      }),
+    ).toBe('ETH');
+    expect(
+      getOrderBookSizeDisplaySymbol({
+        coin: 'HPENGU/USDC',
+        isSpot: true,
+      }),
+    ).toBe('PENGU');
+    expect(
+      getOrderBookSizeDisplaySymbol({
+        coin: 'xyz:NVDA',
+        isSpot: false,
+      }),
+    ).toBe('NVDA');
+  });
+});
+
+describe('isPredictionMarketInstrument', () => {
+  test('recognizes Hyperliquid HIP-4 prediction market aliases', () => {
+    expect(isPredictionMarketInstrument('#12')).toBe(true);
+    expect(isPredictionMarketInstrument('BTC')).toBe(false);
+    expect(isPredictionMarketInstrument('@107')).toBe(false);
+    expect(isPredictionMarketInstrument(undefined)).toBe(false);
+  });
+});
+
+describe('getSpotMarketCapValue', () => {
+  test('uses circulatingSupply for regular spot market cap', () => {
+    expect(
+      getSpotMarketCapValue({
+        markPx: '1.02',
+        circulatingSupply: '100',
+        totalSupply: '1000',
+      }),
+    ).toBe('102');
+  });
+
+  test('supports formatted active spot ctx with markPrice', () => {
+    expect(
+      getSpotMarketCapValue({
+        markPrice: '0.99',
+        circulatingSupply: '100',
+      }),
+    ).toBe('99');
+  });
+
+  test('uses external market cap override for mapped display symbols', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '80000',
+          circulatingSupply: '21000000',
+        },
+        'UBTC',
+        { btc: '1690000000000' },
+      ),
+    ).toBe('1690000000000');
+
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '25',
+          circulatingSupply: '100000000000',
+        },
+        'AVAX0',
+        { avax: '15000000000' },
+      ),
+    ).toBe('15000000000');
+  });
+
+  test('falls back to circulatingSupply when override is invalid', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '2',
+          circulatingSupply: '3',
+        },
+        'UETH',
+        { eth: '0' },
+      ),
+    ).toBe('6');
+  });
+
+  test('suppresses known stablecoin placeholder supplies', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '1',
+          circulatingSupply: '100000000000',
+        },
+        'USDH',
+      ),
+    ).toBeUndefined();
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '1',
+          circulatingSupply: '184467440737.0587768555',
+        },
+        'USDT0',
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe('compareSpotMarketCapValues', () => {
+  test('keeps unknown market caps last in both sort directions', () => {
+    expect(compareSpotMarketCapValues(undefined, 100, 'asc')).toBe(1);
+    expect(compareSpotMarketCapValues(100, undefined, 'asc')).toBe(-1);
+    expect(compareSpotMarketCapValues(undefined, 100, 'desc')).toBe(1);
+    expect(compareSpotMarketCapValues(100, undefined, 'desc')).toBe(-1);
   });
 });
 

@@ -1,3 +1,3 @@
-import PerformanceStats from 'react-native-performance-stats';
+import { ReactNativePerfStats } from '@onekeyfe/react-native-perf-stats';
 
-export default PerformanceStats;
+export default ReactNativePerfStats;

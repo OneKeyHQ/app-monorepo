@@ -61,7 +61,7 @@ function ForceOpenHomeDeviceUpdateFirmwareModal() {
   return (
     <Button
       onPress={async () => {
-        actions.openChangeLogModal({ connectId });
+        await actions.openChangeLogModal({ connectId });
       }}
     >
       NormalModeUpdate

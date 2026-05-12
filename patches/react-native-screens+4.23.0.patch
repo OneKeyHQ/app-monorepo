@@ -40,49 +40,56 @@ diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/r
 index 1c44762..582527c 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
-@@ -49,6 +49,12 @@
+@@ -49,6 +49,20 @@
  constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
  constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
-+// Global flag set during modal presentation transitions. Consumed by
-+// UIView+ComponentViewProtocol (React Native Fabric) to wrap frame
-+// changes in performWithoutAnimation, preventing UIKit from capturing
-+// recycled-view frame corrections as implicit animations.
++// Global flag indicating an animated UIKit screen transition is in progress
++// (modal present/dismiss, push/pop, or interactive swipe-back). Consumed by
++// UIView+ComponentViewProtocol (React Native Fabric) to wrap frame and
++// backgroundColor changes in performWithoutAnimation, preventing UIKit from
++// capturing recycled-view corrections as implicit animations during the
++// transition's animation block. Symbol name is preserved for ABI compat with
++// the RN core patch that consumes it via `extern BOOL`.
 +BOOL RNSModalTransitionInProgress = NO;
++// Reference counter that protects the flag from premature clearing when
++// transitions overlap (e.g. push during modal dismiss). Each viewWillAppear
++// that begins a transition increments; the matching transitionCoordinator
++// completion decrements. Flag is cleared only on the last decrement.
++static NSInteger RNSScreenTransitionDepth = 0;
 +
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -1643,6 +1649,17 @@ - (instancetype)initWithView:(UIView *)view
+@@ -1643,6 +1657,28 @@ - (instancetype)initWithView:(UIView *)view
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
 +
-+  if (self.screenView.isPresentedAsNativeModal && animated) {
++  // Activate the freeze-implicit-animation flag during ANY animated UIKit
++  // transition: modal present/dismiss, push/pop on a navigation stack
++  // (e.g. the onboarding `card` route), and interactive swipe-back. The
++  // transitionCoordinator is non-nil exactly while UIKit is animating a
++  // transition, and `animateAlongsideTransition:completion:` reliably fires
++  // its completion even when the transition is cancelled
++  // (context.isCancelled == YES). The depth counter prevents an
++  // earlier-finishing transition from race-clearing the flag while another
++  // overlapping transition is still in flight.
++  if (animated && self.transitionCoordinator != nil) {
++    RNSScreenTransitionDepth += 1;
 +    RNSModalTransitionInProgress = YES;
-+    // Clear the flag when the transition finishes — whether it completed
-+    // normally or was cancelled/interrupted. This avoids the stacking issue
-+    // where another modal's viewWillDisappear could prematurely clear it.
 +    [self.transitionCoordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> _Nonnull context) {
-+      RNSModalTransitionInProgress = NO;
++      RNSScreenTransitionDepth -= 1;
++      if (RNSScreenTransitionDepth <= 0) {
++        RNSScreenTransitionDepth = 0;
++        RNSModalTransitionInProgress = NO;
++      }
 +    }];
 +  }
 +
    if (!_isSwiping) {
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
-@@ -1711,6 +1728,11 @@ - (void)viewDidAppear:(BOOL)animated
-     [RNSScreenView.viewInteractionManagerInstance enableInteractionsForLastSubtree];
-   }
-   [super viewDidAppear:animated];
-+
-+  if (self.screenView.isPresentedAsNativeModal) {
-+    RNSModalTransitionInProgress = NO;
-+  }
-+
-   if (!_isSwiping || _shouldNotify) {
-     // we are going forward or dismissing without swipe
-     // or successfully swiped back
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 index e37e40a..1e95f36 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm

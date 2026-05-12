@@ -93,6 +93,7 @@ function MarketDetailV2(
   const { navigation } = props;
   const isLandscape = useIsSplitView();
   const isTablet = isNativeTablet();
+  const media = useMedia();
 
   useLayoutEffect(() => {
     if (!platformEnv.isNativeIOS) {
@@ -109,7 +110,10 @@ function MarketDetailV2(
 
   useFocusEffect(
     useCallback(() => {
-      if (platformEnv.isExtension || (isTablet && isLandscape)) {
+      const shouldHideTabBar =
+        platformEnv.isNative || (!platformEnv.isExtension && media.md);
+
+      if (!shouldHideTabBar || (isTablet && isLandscape)) {
         return;
       }
 
@@ -118,7 +122,7 @@ function MarketDetailV2(
       return () => {
         appEventBus.emit(EAppEventBusNames.HideTabBar, false);
       };
-    }, [isLandscape, isTablet]),
+    }, [isLandscape, isTablet, media.md]),
   );
 
   return (

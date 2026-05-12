@@ -76,11 +76,12 @@ import {
   getTrayMarketNavigationTarget,
   getTrayTokenValueInTargetCurrency,
   getTrayWatchlistNativeInfo,
-  recoverFailedTrackedTxs,
 } from './trayDataProviderUtils';
 
 const TRAY_ROUTE_HOME = '/main/tab-home';
 const TRAY_ROUTE_MARKET = '/main/tab-market';
+// Fires while pending txs exist even when panel is closed and home is unfocused.
+const TRAY_PENDING_TX_RECHECK_INTERVAL_MS = 12_000;
 
 async function refreshTrayPendingTxStatuses(
   txs: IAccountHistoryTx[],
@@ -465,10 +466,17 @@ export function useTrayDataProvider() {
     activeAccountValue?.accountId,
   );
   const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
-  const pendingTxsClearedRef = useRef(false);
   // Renderer-side inflight guard for non-poll paths (account change, refresh).
   const inFlightRef = useRef(false);
   const trailingRefreshRef = useRef(false);
+  const hasPendingTxRef = useRef(false);
+  // Cached resolved watchlist for the account-switch optimistic placeholder (OK-54088).
+  const lastWatchlistRef = useRef<ITrayWatchlistItem[]>([]);
+  const pendingRecheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const isTrayActiveRef = useRef(isTrayActive);
+  isTrayActiveRef.current = isTrayActive;
 
   const handleTrayDataRequestInner = useCallback(async () => {
     // Tray window can't reach backgroundApiProxy (DESKTOP_API_CALL is gated
@@ -510,7 +518,6 @@ export function useTrayDataProvider() {
       isLocked: true,
       locale,
       accountId: activeAccountId,
-      pendingTxsCleared: pendingTxsClearedRef.current,
       wallet: buildTrayWalletInfo(undefined),
       account: buildTrayAccountInfo({
         accountName: accountNameRef.current,
@@ -536,7 +543,6 @@ export function useTrayDataProvider() {
       const trayData: ITrayData = {
         locale,
         accountId: activeAccountId,
-        pendingTxsCleared: pendingTxsClearedRef.current,
         wallet: buildTrayWalletInfo(undefined),
         account: buildTrayAccountInfo({
           accountName: accountNameRef.current,
@@ -778,6 +784,8 @@ export function useTrayDataProvider() {
             resolvedItems: watchlistResults,
           });
         }
+        // Only update on a non-throwing fetch — keep prior value on transient errors.
+        lastWatchlistRef.current = trayData.watchlist;
       } catch (e) {
         defaultLogger.app.error.log(
           `[TrayDataProvider] watchlist error: ${
@@ -786,9 +794,6 @@ export function useTrayDataProvider() {
         );
       }
 
-      // Track BOTH Pending and Failed so main-process diffAndNotify can tell
-      // confirmed (Pending → gone) from failed (Pending → Failed → gone);
-      // tracking only Pending would mis-fire "Confirmed" on failed txs.
       let pendingTxReadFailed = false;
       try {
         const activeAccountScope = await getTrayActiveAccountScope({
@@ -801,30 +806,10 @@ export function useTrayDataProvider() {
         let rawData =
           await backgroundApiProxy.simpleDb.localHistory.getRawData();
         let allTrackedTxs = collectTrayTrackedTxs(rawData, activeAccountScope);
-        const trackedPendingIds = new Set(
-          allTrackedTxs
-            .filter((tx) => tx.decodedTx?.status === EDecodedTxStatus.Pending)
-            .map((tx) => tx.id),
-        );
-        if (trackedPendingIds.size > 0) {
+        if (allTrackedTxs.length > 0) {
           await refreshTrayPendingTxStatuses(allTrackedTxs);
           rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
           allTrackedTxs = collectTrayTrackedTxs(rawData, activeAccountScope);
-          // Refresh moves failed txs out of the pendingTxs bucket
-          // (SimpleDbEntityLocalHistory's save filters that bucket to
-          // Pending-only), so re-attach them from confirmedTxs by id /
-          // originalId — otherwise diffAndNotify mis-fires "Confirmed".
-          const recovered = recoverFailedTrackedTxs(
-            rawData,
-            trackedPendingIds,
-            activeAccountScope,
-          );
-          if (recovered.length > 0) {
-            const stillTrackedIds = new Set(allTrackedTxs.map((tx) => tx.id));
-            for (const tx of recovered) {
-              if (!stillTrackedIds.has(tx.id)) allTrackedTxs.push(tx);
-            }
-          }
         }
 
         allTrackedTxs.sort(
@@ -855,11 +840,6 @@ export function useTrayDataProvider() {
               decodedTx?.to ||
               '';
 
-            const status: 'pending' | 'failed' =
-              decodedTx?.status === EDecodedTxStatus.Failed
-                ? 'failed'
-                : 'pending';
-
             return {
               id: decodedTx?.txid || tx.id || '',
               historyId: tx.id,
@@ -871,7 +851,6 @@ export function useTrayDataProvider() {
               amount,
               createdAt: decodedTx?.createdAt,
               updatedAt: decodedTx?.updatedAt,
-              status,
             };
           });
         }
@@ -896,12 +875,11 @@ export function useTrayDataProvider() {
           ...trayData,
           isError: true,
         });
-        pendingTxsClearedRef.current = false;
         return;
       }
 
+      hasPendingTxRef.current = (trayData.pendingTxs?.length ?? 0) > 0;
       globalThis.desktopApi?.sendTrayData(trayData);
-      pendingTxsClearedRef.current = false;
     } catch {
       // Prefer locked placeholder over error if user locked during the
       // failing request, so the panel doesn't flash last-known balances.
@@ -909,13 +887,12 @@ export function useTrayDataProvider() {
         globalThis.desktopApi?.sendTrayData(buildLockedPayload());
         return;
       }
-      // `isError` tells trayIpc to skip the pending-tx diff so a transient
-      // gather failure doesn't fire false "Confirmed" notifications.
+      // `isError` tells trayIpc to keep the previous good cache instead of
+      // forwarding a placeholder to the tray window.
       globalThis.desktopApi?.sendTrayData({
         isError: true,
         locale,
         accountId: activeAccountId,
-        pendingTxsCleared: pendingTxsClearedRef.current,
         wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
         account: buildTrayAccountInfo({
           accountName: accountNameRef.current,
@@ -931,8 +908,26 @@ export function useTrayDataProvider() {
         watchlist: [],
         pendingTxs: [],
       });
-      pendingTxsClearedRef.current = false;
     }
+  }, []);
+
+  const clearPendingRecheck = useCallback(() => {
+    if (pendingRecheckTimerRef.current) {
+      clearTimeout(pendingRecheckTimerRef.current);
+      pendingRecheckTimerRef.current = null;
+    }
+  }, []);
+
+  // Resets on every refresh so external events near a tick don't cause back-to-back gathers.
+  const schedulePendingRecheck = useCallback(() => {
+    if (!isTrayActiveRef.current) return;
+    if (pendingRecheckTimerRef.current) {
+      clearTimeout(pendingRecheckTimerRef.current);
+    }
+    pendingRecheckTimerRef.current = setTimeout(() => {
+      pendingRecheckTimerRef.current = null;
+      void handleTrayDataRequestRef.current?.();
+    }, TRAY_PENDING_TX_RECHECK_INTERVAL_MS);
   }, []);
 
   const handleTrayDataRequest = useCallback(async () => {
@@ -945,16 +940,21 @@ export function useTrayDataProvider() {
       await handleTrayDataRequestInner();
     } finally {
       inFlightRef.current = false;
-      if (trailingRefreshRef.current) {
+      const willTrailingRefresh = trailingRefreshRef.current;
+      if (willTrailingRefresh) {
         trailingRefreshRef.current = false;
         // Microtask so the call stack unwinds and main-process
         // `guardedRequest` can release on TRAY_DATA_RESPONSE first.
         queueMicrotask(() => {
           void handleTrayDataRequestRef.current?.();
         });
+      } else if (hasPendingTxRef.current) {
+        schedulePendingRecheck();
+      } else {
+        clearPendingRecheck();
       }
     }
-  }, [handleTrayDataRequestInner]);
+  }, [handleTrayDataRequestInner, schedulePendingRecheck, clearPendingRecheck]);
 
   const handleOpenTransactionDetail = useCallback(
     async (action: ITrayAction) => {
@@ -995,6 +995,10 @@ export function useTrayDataProvider() {
     (action: ITrayAction) => {
       const nav = rootNavigationRef.current;
       if (!nav) return;
+
+      // Tamagui Popover/Sheet portal to body at high zIndex and would
+      // obscure any tray-triggered RN modal. Ask open overlays to dismiss.
+      appEventBus.emit(EAppEventBusNames.TrayActionWillNavigate, undefined);
 
       if (action?.type === 'open-page') {
         if (action.route === TRAY_ROUTE_HOME) {
@@ -1046,10 +1050,7 @@ export function useTrayDataProvider() {
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
           const coin = action.perpsCoin;
-          setTimeout(async () => {
-            nav.navigate(ERootRoutes.Main, {
-              screen: ETabRoutes.Perp,
-            });
+          void switchTabAsync(ETabRoutes.Perp).then(async () => {
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
                 coin,
@@ -1065,12 +1066,12 @@ export function useTrayDataProvider() {
               mode: 'perp',
               coin,
             });
-          }, 80);
+          });
           return;
         }
 
         const isNative = action.isNative || false;
-        if (action.networkId && (isNative || action.tokenAddress)) {
+        if (action.networkId) {
           const networkId = action.networkId;
           const shortCode = networkUtils.getNetworkShortCode({ networkId });
           const target = getTrayMarketNavigationTarget({
@@ -1154,7 +1155,6 @@ export function useTrayDataProvider() {
       });
       globalThis.desktopApi?.sendTrayData({
         accountId: currentAccountId,
-        pendingTxsCleared: false,
         // Empty name triggers TrayPanel's `noWallet` branch, hiding the optimistic zeros.
         wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
         account: buildTrayAccountInfo({
@@ -1168,7 +1168,7 @@ export function useTrayDataProvider() {
           currency: displayCurrency,
           symbol: displaySymbol,
         },
-        watchlist: [],
+        watchlist: lastWatchlistRef.current,
         pendingTxs: [],
       });
       handleTrayDataRequestRef.current?.();
@@ -1213,17 +1213,13 @@ export function useTrayDataProvider() {
         handleTrayDataRequestRef.current?.();
       }, 1500);
     };
-    const handlePendingTxsCleared = () => {
-      pendingTxsClearedRef.current = true;
-      debouncedRefresh();
-    };
 
     TRAY_DATA_REFRESH_EVENT_NAMES.forEach((eventName) => {
       appEventBus.on(eventName, debouncedRefresh);
     });
     appEventBus.on(
       EAppEventBusNames.ClearLocalHistoryPendingTxs,
-      handlePendingTxsCleared,
+      debouncedRefresh,
     );
 
     return () => {
@@ -1233,8 +1229,18 @@ export function useTrayDataProvider() {
       });
       appEventBus.off(
         EAppEventBusNames.ClearLocalHistoryPendingTxs,
-        handlePendingTxsCleared,
+        debouncedRefresh,
       );
     };
   }, [isTrayActive]);
+
+  useEffect(() => {
+    if (!isTrayActive) {
+      clearPendingRecheck();
+      hasPendingTxRef.current = false;
+    }
+    return () => {
+      clearPendingRecheck();
+    };
+  }, [isTrayActive, clearPendingRecheck]);
 }

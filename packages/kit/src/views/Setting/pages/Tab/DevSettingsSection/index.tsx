@@ -96,6 +96,7 @@ import {
   DevSettingsSearchProvider,
   SearchFilterItem,
 } from './DevSettingsSearchContext';
+import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
@@ -390,7 +391,7 @@ const BaseDevSettingsSection = () => {
         title: 'Data Management',
         description: '数据重置 清理 导出',
         keywords:
-          '清空Market收藏数据 WatchList Mock Market Banner Data Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
+          '清空Market收藏数据 WatchList Mock Market Banner Data Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析 Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
       },
       {
         key: 'webview',
@@ -1212,6 +1213,10 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      <SearchFilterItem keywords="Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析">
+                        <DiscoverySearchDebugTool />
+                      </SearchFilterItem>
+
                       <SectionPressItem
                         icon="DeleteOutline"
                         title="Clear App Data (E2E release only)"
@@ -1476,6 +1481,14 @@ const BaseDevSettingsSection = () => {
                             ? localTradingViewUrlSubtitle
                             : 'https://tradingview.onekeytest.com/'
                         }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="BrowserOutline"
+                        name="allowLocalhostUrlInDAppBrowser"
+                        title="Allow local URLs in DApp Browser"
+                        subtitle="Allow http://localhost and http://127.0.0.1"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>

@@ -95,6 +95,7 @@ function HeaderView({
   isModelScreen = false,
   isRootScreen = false,
   isOnboardingScreen = false,
+  isWebViewScreen = false,
 }: IStackHeaderProps & IOnekeyStackHeaderProps) {
   const {
     headerLeft,
@@ -137,6 +138,7 @@ function HeaderView({
           isRootScreen={isRootScreen}
           isModelScreen={isModelScreen}
           isOnboardingScreen={isOnboardingScreen}
+          isWebViewScreen={isWebViewScreen}
           renderLeft={headerLeft}
           {...props}
         />
@@ -152,6 +154,7 @@ function HeaderView({
       isRootScreen,
       isModelScreen,
       isOnboardingScreen,
+      isWebViewScreen,
       headerLeft,
     ],
   );
@@ -176,11 +179,17 @@ function HeaderView({
     if (headerTransparent) {
       return 'transparent';
     }
+    // The WebView overlay's header sits flush against the sidebar at the top
+    // of the window — share `$bgSidebar` so the band reads as a single
+    // continuous color across sidebar + header.
+    if (isWebViewScreen) {
+      return '$bgSidebar';
+    }
     if (platformEnv.isWebDappMode) {
       return '$bgApp';
     }
     return isDesktopModeUI ? '$bgSubdued' : '$bgApp';
-  }, [headerTransparent, isDesktopModeUI]);
+  }, [headerTransparent, isDesktopModeUI, isWebViewScreen]);
 
   const routeName = route.name;
   const title = useMemo(
@@ -205,8 +214,11 @@ function HeaderView({
   );
 
   const headerRightContainerStyleMemo = useMemo(
-    () => (isOnboardingScreen ? FLEX_GROW_0_STYLE : headerRightContainerStyle),
-    [isOnboardingScreen, headerRightContainerStyle],
+    () =>
+      isOnboardingScreen || isWebViewScreen
+        ? FLEX_GROW_0_STYLE
+        : headerRightContainerStyle,
+    [isOnboardingScreen, isWebViewScreen, headerRightContainerStyle],
   );
 
   const headerRightView = useCallback(
@@ -244,11 +256,11 @@ function HeaderView({
     () => ({
       marginHorizontal: 0,
       ...(headerTitleContainerStyle as Record<string, unknown>),
-      ...(isOnboardingScreen
+      ...(isOnboardingScreen || isWebViewScreen
         ? { flex: 1, alignItems: 'center' as const }
         : undefined),
     }),
-    [headerTitleContainerStyle, isOnboardingScreen],
+    [headerTitleContainerStyle, isOnboardingScreen, isWebViewScreen],
   );
 
   const headerStyleMemo = useMemo(

@@ -1,6 +1,7 @@
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import {
+  isWebUrlLikeSearchKeyword,
   mergeSearchResultsWithLocalData,
   rankSearchResultsChromeLike,
   searchTrendingDappsByKeyword,
@@ -604,6 +605,81 @@ describe('searchResultRanking', () => {
       {
         type: 'dapp',
         title: 'Aster',
+      },
+    ]);
+  });
+
+  it('keeps visited remote dapps ahead of local history when a trending dapp is first', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'hyper',
+      searchResult: [
+        createDApp({
+          dappId: 'hyperlane',
+          name: 'Hyperlane',
+          url: 'https://hyperlane.xyz',
+        }),
+        createDApp({
+          dappId: 'hyperbeat',
+          name: 'Hyperbeat',
+          url: 'https://hyperbeat.org',
+        }),
+      ],
+      trendingSearchData: [
+        createDApp({
+          dappId: 'hyperliquid',
+          name: 'Hyperliquid',
+          url: 'https://app.hyperliquid.xyz/join/1KGO',
+        }),
+      ],
+      rankingHistoryData: [
+        createHistory({
+          id: 'history-hyperlane-ranking',
+          title: 'Hyperlane',
+          url: 'https://hyperlane.xyz',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+        createHistory({
+          id: 'history-hyperliquid-ranking',
+          title: 'Hyperliquid',
+          url: 'https://app.hyperliquid.xyz/join/1KGO',
+          createdAt: Date.now() - 2 * 60 * 60 * 1000,
+        }),
+      ],
+      historySearchData: [
+        createHistory({
+          id: 'history-hyperliquid',
+          title: 'Hyperliquid',
+          url: 'https://app.hyperliquid.xyz/join/1KGO',
+          createdAt: Date.now() - 2 * 60 * 60 * 1000,
+        }),
+        createHistory({
+          id: 'history-hyperliquid-trade',
+          title: 'Hyperliquid Trade',
+          url: 'https://app.hyperliquid.xyz/trade/BTC',
+          createdAt: Date.now() - 3 * 60 * 60 * 1000,
+        }),
+        createHistory({
+          id: 'history-hyperlane',
+          title: 'Hyperlane',
+          url: 'https://hyperlane.xyz',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.slice(0, 2).map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'dapp',
+        title: 'Hyperliquid',
+      },
+      {
+        type: 'dapp',
+        title: 'Hyperlane',
       },
     ]);
   });
@@ -1478,5 +1554,17 @@ describe('searchResultRanking', () => {
         'app.uniswap.org/swap?inputCurrency=ETH&outputCurrency=USDC&chain=ethereum',
       ),
     ).toBe(false);
+  });
+
+  it('detects URL-like search keywords without parsing invalid input', () => {
+    expect(isWebUrlLikeSearchKeyword('https://app.uniswap.org/swap')).toBe(
+      true,
+    );
+    expect(isWebUrlLikeSearchKeyword('app.uniswap.org/swap')).toBe(true);
+    expect(isWebUrlLikeSearchKeyword('http://localhost:3000')).toBe(true);
+    expect(isWebUrlLikeSearchKeyword('localhost:3000')).toBe(true);
+    expect(isWebUrlLikeSearchKeyword('http://')).toBe(false);
+    expect(isWebUrlLikeSearchKeyword('https:// app.uniswap.org')).toBe(false);
+    expect(isWebUrlLikeSearchKeyword('search query')).toBe(false);
   });
 });

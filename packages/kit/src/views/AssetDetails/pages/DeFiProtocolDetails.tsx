@@ -8,7 +8,6 @@ import {
   Divider,
   IconButton,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
@@ -20,6 +19,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   buildLocalizedProtocolPositionItems,
   buildProtocolDisplayInfo,
+  getProtocolPositionDisplayName,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -45,9 +45,6 @@ function DeFiProtocolDetails() {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
 
-  const positionNamePopoverTitle = intl.formatMessage({
-    id: ETranslations.wallet_defi_position_name_popover_title,
-  });
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
@@ -128,42 +125,35 @@ function DeFiProtocolDetails() {
           ) : null}
         </XStack>
         <Divider />
-        <YStack py="$3">
-          {positions.map((position, index) => (
-            <Stack key={position.positionKey} px="$5">
-              <XStack alignItems="center" py="$3" gap="$2">
-                <Badge bg={position.categoryConfig.bg} badgeSize="sm">
-                  <Badge.Text color={position.categoryConfig.text}>
-                    {position.categoryLabel}
-                  </Badge.Text>
-                </Badge>
-                {position.poolName ? (
-                  <Stack flex={1} minWidth={0}>
-                    <Popover
-                      placement="top"
-                      title={positionNamePopoverTitle}
-                      renderTrigger={
-                        <SizableText
-                          size="$headingSm"
-                          color="$textSubdued"
-                          numberOfLines={1}
-                        >
-                          {position.poolName}
-                        </SizableText>
-                      }
-                      renderContent={
-                        <Stack px="$4" py="$2">
-                          <SizableText size="$bodyLgMedium">
-                            {position.poolFullName || position.poolName}
-                          </SizableText>
-                        </Stack>
-                      }
-                    />
-                  </Stack>
-                ) : (
-                  <Stack flex={1} />
-                )}
-                <Stack maxWidth="70%" flexShrink={0} ml="auto">
+        <YStack py="$3" gap="$5">
+          {positions.map((position) => {
+            const positionDisplayName =
+              getProtocolPositionDisplayName(position);
+
+            return (
+              <Stack key={position.positionKey} px="$5">
+                <XStack
+                  alignItems="center"
+                  justifyContent="space-between"
+                  minHeight={40}
+                  gap="$2"
+                >
+                  <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
+                    <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
+                      {position.categoryLabel}
+                    </Badge>
+                    {positionDisplayName ? (
+                      <SizableText
+                        size="$bodyMdMedium"
+                        color="$text"
+                        numberOfLines={1}
+                        flex={1}
+                        minWidth={0}
+                      >
+                        {positionDisplayName}
+                      </SizableText>
+                    ) : null}
+                  </XStack>
                   <NumberSizeableTextWrapper
                     hideValue
                     size="$headingMd"
@@ -173,27 +163,25 @@ function DeFiProtocolDetails() {
                     }}
                     numberOfLines={1}
                     textAlign="right"
+                    maxWidth="45%"
                   >
                     {position.value}
                   </NumberSizeableTextWrapper>
-                </Stack>
-              </XStack>
-              <YStack gap="$2">
-                {position.sections.map((section) => (
-                  <ProtocolPositionSection
-                    key={section.key}
-                    itemKeyPrefix={position.positionKey}
-                    section={section}
-                    currencySymbol={settings.currencyInfo.symbol}
-                    priceUnavailableLabel={priceUnavailableLabel}
-                  />
-                ))}
-              </YStack>
-              {index !== positions.length - 1 ? (
-                <Divider mt="$2" mb="$3" />
-              ) : null}
-            </Stack>
-          ))}
+                </XStack>
+                <YStack gap="$2">
+                  {position.sections.map((section) => (
+                    <ProtocolPositionSection
+                      key={section.key}
+                      itemKeyPrefix={position.positionKey}
+                      section={section}
+                      currencySymbol={settings.currencyInfo.symbol}
+                      priceUnavailableLabel={priceUnavailableLabel}
+                    />
+                  ))}
+                </YStack>
+              </Stack>
+            );
+          })}
         </YStack>
       </Page.Body>
     </Page>

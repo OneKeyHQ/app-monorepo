@@ -1,3 +1,5 @@
+import { HardwareErrorCode, failure } from '@onekeyfe/hwk-adapter-core';
+
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -173,26 +175,29 @@ export async function callLedgerWithFingerprint<T>(
   );
   const result = await fn(deviceId);
 
-  // Success without fingerprint → the correct App is now open,
-  // generate fingerprint before returning. On success the cache is
-  // populated; on failure the next call will retry — regeneration is
-  // idempotent against a stable device.
+  // Bootstrap path: main call ran without a stored FP. The post-success FP
+  // generation MUST succeed and persist before the result is allowed to flow
+  // back to the caller. Otherwise the caller persists an address with no
+  // trust anchor: any later op on a different physical seed silently
+  // overwrites the wallet record, and verify-address can leak to the
+  // destructive "address mismatch" dialog.
   if (result.success && !deviceId) {
+    let fp = '';
     try {
-      const fp = await generateAndStoreFingerprint(
-        backgroundApi,
-        dbDevice,
-        chain,
-      );
-      if (fp) {
-        setCache(dbDevice.id, chain, fp);
-      }
+      fp = await generateAndStoreFingerprint(backgroundApi, dbDevice, chain);
     } catch (e) {
       defaultLogger.hardware.sdkLog.log(
         'ledgerFingerprint.postOpGenerationFailed',
         (e as Error)?.message ?? '',
       );
     }
+    if (!fp) {
+      return failure(
+        HardwareErrorCode.DeviceMismatch,
+        `Could not establish chain fingerprint for ${chain} after device call; refusing to persist unverifiable result. Please retry.`,
+      );
+    }
+    setCache(dbDevice.id, chain, fp);
   }
 
   return result;

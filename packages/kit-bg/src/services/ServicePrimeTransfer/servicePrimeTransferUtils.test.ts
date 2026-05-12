@@ -2,7 +2,8 @@ import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTrans
 
 import {
   filterTransferWallets,
-  shouldUseCliTransportDecryptedCredentials,
+  getCliBotWalletTransferWalletId,
+  shouldUseCliBotWalletEncryptedCredential,
 } from './servicePrimeTransferUtils';
 
 import type { IDBWallet } from '../../dbs/local/types';
@@ -21,7 +22,7 @@ function createWallet({
 }
 
 describe('filterTransferWallets', () => {
-  it('filters out keyless wallets from default transfer payloads', () => {
+  it('filters out keyless and bot wallets from default transfer payloads', () => {
     const wallets = filterTransferWallets({
       wallets: [
         createWallet({ id: 'hd-1' }),
@@ -30,13 +31,10 @@ describe('filterTransferWallets', () => {
       ],
     });
 
-    expect(wallets.map((wallet) => wallet.id)).toEqual([
-      'hd-1',
-      'hd-bot--parent-1--0',
-    ]);
+    expect(wallets.map((wallet) => wallet.id)).toEqual(['hd-1']);
   });
 
-  it('keeps only the requested wallet ids for scoped transfers', () => {
+  it('keeps requested bot wallet ids for scoped transfers (e.g. CLI export)', () => {
     const wallets = filterTransferWallets({
       wallets: [
         createWallet({ id: 'hd-1' }),
@@ -72,10 +70,10 @@ function makeTransferData(
   };
 }
 
-describe('shouldUseCliTransportDecryptedCredentials', () => {
-  it('keeps decrypted credentials only for single bot-wallet transfers targeting CLI', () => {
+describe('shouldUseCliBotWalletEncryptedCredential', () => {
+  it('uses the encrypted CLI credential payload only for single bot-wallet transfers targeting CLI', () => {
     expect(
-      shouldUseCliTransportDecryptedCredentials({
+      shouldUseCliBotWalletEncryptedCredential({
         transferData: makeTransferData(),
         allowCliImportableCredentials: true,
       }),
@@ -84,14 +82,14 @@ describe('shouldUseCliTransportDecryptedCredentials', () => {
 
   it('keeps existing wrapped-credential contract for non-CLI or non-bot-wallet paths', () => {
     expect(
-      shouldUseCliTransportDecryptedCredentials({
+      shouldUseCliBotWalletEncryptedCredential({
         transferData: makeTransferData(),
         allowCliImportableCredentials: false,
       }),
     ).toBe(false);
 
     expect(
-      shouldUseCliTransportDecryptedCredentials({
+      shouldUseCliBotWalletEncryptedCredential({
         transferData: makeTransferData({
           privateData: {
             credentials: {},
@@ -109,5 +107,54 @@ describe('shouldUseCliTransportDecryptedCredentials', () => {
         allowCliImportableCredentials: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe('getCliBotWalletTransferWalletId', () => {
+  it('returns the single bot-wallet id from a scoped transfer payload', () => {
+    expect(
+      getCliBotWalletTransferWalletId({
+        transferData: makeTransferData(),
+      }),
+    ).toBe('hd-bot--parent-1--0');
+  });
+
+  it('rejects non-bot or multi-wallet payloads', () => {
+    expect(
+      getCliBotWalletTransferWalletId({
+        transferData: makeTransferData({
+          privateData: {
+            credentials: {},
+            importedAccounts: {},
+            watchingAccounts: {},
+            wallets: {
+              'hd-1': {
+                id: 'hd-1',
+              } as never,
+            },
+          },
+        }),
+      }),
+    ).toBeUndefined();
+
+    expect(
+      getCliBotWalletTransferWalletId({
+        transferData: makeTransferData({
+          privateData: {
+            credentials: {},
+            importedAccounts: {},
+            watchingAccounts: {},
+            wallets: {
+              'hd-bot--parent-1--0': {
+                id: 'hd-bot--parent-1--0',
+              } as never,
+              'hd-bot--parent-1--1': {
+                id: 'hd-bot--parent-1--1',
+              } as never,
+            },
+          },
+        }),
+      }),
+    ).toBeUndefined();
   });
 });

@@ -20,6 +20,7 @@ export function PerpCandles({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
+  const enablePerpsTradingUi = false;
 
   const { displayPair, displayCoin } = useMemo(() => {
     if (
@@ -41,6 +42,7 @@ export function PerpCandles({
         <TradingViewPerpsV2
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
+          enablePerpsTradingUi={enablePerpsTradingUi}
           symbol={activeTradeInstrument.coin}
           displayPair={displayPair}
           displayCoin={displayCoin}

@@ -237,6 +237,13 @@ export interface IPerpActivityCard {
   url: string;
 }
 
+export interface IPerpAssetMeta {
+  assetId: string;
+  assetType?: string;
+}
+
+export type IPerpsAssetMetaMap = Record<string, IPerpAssetMeta>;
+
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
@@ -274,7 +281,12 @@ export enum EPerpsSizeInputMode {
 }
 
 // Token Selector Types
-export type IPerpTokenSelectorTab = 'all' | 'hip3' | 'favorites';
+export type IPerpTokenSelectorTab =
+  | 'all'
+  | 'perps'
+  | 'spot'
+  | 'hip3'
+  | 'favorites';
 
 export type IPerpTokenSortField =
   | 'name'
@@ -282,7 +294,8 @@ export type IPerpTokenSortField =
   | 'change24hPercent'
   | 'fundingRate'
   | 'volume24h'
-  | 'openInterest';
+  | 'openInterest'
+  | 'marketCap';
 
 export type IPerpTokenSortDirection = 'asc' | 'desc';
 

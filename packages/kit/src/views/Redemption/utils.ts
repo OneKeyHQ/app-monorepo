@@ -1,6 +1,7 @@
 import type { IBadgeType } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EBtcRewardStatus } from '@onekeyhq/shared/src/referralCode/type';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import type { useIntl } from 'react-intl';
@@ -66,18 +67,32 @@ export function formatUsd(value: number | string): string {
   });
 }
 
-// Payouts run on the 10th UTC; consumers render with formatDate (local
-// timezone). Pick the target month in UTC, but return a local-midnight Date
-// for that 10th so the displayed day stays "10th" in every timezone — UTC
-// midnight would render as the 9th in the Americas and as the 11th east of
-// UTC+12.
-export function getBtcRewardPayoutDate(eligibleAtIso: string): Date {
-  const eligibleAt = new Date(eligibleAtIso);
-  const year = eligibleAt.getUTCFullYear();
-  const month = eligibleAt.getUTCMonth();
-  const sameMonth10thUtc = Date.UTC(year, month, 10);
-  if (sameMonth10thUtc >= eligibleAt.getTime()) {
-    return new Date(year, month, 10);
+export function isBtcRewardSnapshotStatus(status: EBtcRewardStatus): boolean {
+  return (
+    status === EBtcRewardStatus.PayoutInProgress ||
+    status === EBtcRewardStatus.Paid
+  );
+}
+
+const SHANGHAI_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+const padDatePart = (value: number) => String(value).padStart(2, '0');
+
+function getShanghaiDatePrefix(value: string): string | undefined {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
   }
-  return new Date(year, month + 1, 10);
+
+  const shanghaiDate = new Date(date.getTime() + SHANGHAI_UTC_OFFSET_MS);
+  return `${shanghaiDate.getUTCFullYear()}-${padDatePart(
+    shanghaiDate.getUTCMonth() + 1,
+  )}-${padDatePart(shanghaiDate.getUTCDate())}`;
+}
+
+export function formatBtcRewardServerDate(value: string): string {
+  const datePrefix = getShanghaiDatePrefix(value);
+  return formatDate(datePrefix ? `${datePrefix}T12:00:00` : value, {
+    hideTimeForever: true,
+  });
 }

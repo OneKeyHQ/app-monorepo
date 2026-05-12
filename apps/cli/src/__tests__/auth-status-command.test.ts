@@ -44,7 +44,7 @@ describe('executeAuthStatusCommand', () => {
       loginMethod: 'app_transfer',
       walletKind: 'hd',
       sourceLabel: 'Bot Wallet (abcd1234)',
-      displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
+      displayAddress: '0x123456...345678',
       importedAt: '2026-04-06T06:10:00.000Z',
       device: null,
       passphraseMode: null,

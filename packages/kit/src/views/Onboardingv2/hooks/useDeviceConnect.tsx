@@ -63,6 +63,13 @@ import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 // useDeviceConnect hook stays focused on the OneKey path.
 // ---------------------------------------------------------------------------
 
+const LEDGER_BLE_CONNECT_ID_RE = /^[0-9A-Fa-f]{4}$/;
+
+function getLedgerBleName(device: SearchDevice): string | undefined {
+  const connectId = device.connectId ?? '';
+  return LEDGER_BLE_CONNECT_ID_RE.test(connectId) ? connectId : undefined;
+}
+
 async function verifyLedgerDevice(
   device: SearchDevice,
 ): Promise<IFirmwareVerifyResult> {
@@ -98,6 +105,7 @@ async function createLedgerHwWallet({
   hardwareTransportType: EHardwareTransportType | undefined;
   isSoftwareWalletOnlyUser: boolean;
 }): Promise<void> {
+  const ledgerBleName = getLedgerBleName(device);
   try {
     navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
@@ -108,6 +116,7 @@ async function createLedgerHwWallet({
       hideCheckingDeviceLoading: true,
       features: {
         device_id: device.deviceId || '',
+        ...(ledgerBleName ? { ble_name: ledgerBleName } : {}),
         vendor,
       } as IOneKeyDeviceFeatures,
       isFirmwareVerified: true,
@@ -453,6 +462,8 @@ export function useDeviceConnect({
         );
       }
 
+      let connectionFailureTracked = false;
+      let forceTransportType: EHardwareTransportType | undefined;
       try {
         void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
           connectId: device.connectId ?? '',
@@ -497,6 +508,9 @@ export function useDeviceConnect({
             onBeforeUpdate: prepareUSBForUpdate,
           });
           console.log('Device is in bootloader mode', device);
+          // Bootloader mode hands off to the firmware-update flow, so the throw
+          // below is not a connection failure — suppress the catch-block tracking.
+          connectionFailureTracked = true;
           throw new OneKeyLocalError('Device is in bootloader mode');
         };
 
@@ -518,7 +532,6 @@ export function useDeviceConnect({
         }
 
         // Set global transport type based on selected channel before connecting
-        let forceTransportType: EHardwareTransportType | undefined;
         if (tabValue === EConnectDeviceChannel.bluetooth) {
           forceTransportType = EHardwareTransportType.DesktopWebBle;
         } else {
@@ -542,6 +555,7 @@ export function useDeviceConnect({
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
+          connectionFailureTracked = true;
           throw new OneKeyHardwareError(
             'connect device failed, no features returned',
           );
@@ -574,6 +588,7 @@ export function useDeviceConnect({
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
+          connectionFailureTracked = true;
           Toast.error({
             title: 'Device is in backup mode',
           });
@@ -684,6 +699,18 @@ export function useDeviceConnect({
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         console.error('handleDeviceConnect error:', error);
+        if (!connectionFailureTracked) {
+          // Fire-and-forget; an analytics rejection must not mask the original error
+          // in the catch, so we cannot await here.
+          trackHardwareWalletConnection({
+            status: 'failure',
+            isSoftwareWalletOnlyUser,
+            deviceType: device.deviceType,
+            hardwareTransportType: forceTransportType || hardwareTransportType,
+          }).catch((e) =>
+            console.error('trackHardwareWalletConnection failed:', e),
+          );
+        }
         throw error;
       }
     },

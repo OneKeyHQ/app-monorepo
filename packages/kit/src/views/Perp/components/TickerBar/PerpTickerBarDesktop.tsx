@@ -27,6 +27,7 @@ import {
 import {
   useSpotActiveAssetAtom,
   useSpotActiveAssetCtxAtom,
+  useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -34,12 +35,20 @@ import {
   formatDisplayNumber,
   formatLocalizedNumberString,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getSpotMarketCapValue } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
 import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
+
+const TICKER_BAR_STAT_VALUE_TEXT_PROPS = {
+  size: '$headingXs',
+  fontFamily: '$monoRegular',
+  textTransform: 'none',
+  letterSpacing: 0,
+} as const;
 
 function useTickerBarIsLoading() {
   const { isReady, hasError } = usePerpSession();
@@ -212,7 +221,12 @@ const TickerBarOraclePriceView = memo(
             placement="top"
           />
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText size="$headingXs">{formattedOraclePrice}</SizableText>
+            <SizableText
+              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
+              fontVariant={['tabular-nums']}
+            >
+              {formattedOraclePrice}
+            </SizableText>
           </SkeletonContainer>
         </YStack>
       </DebugRenderTracker>
@@ -252,7 +266,12 @@ const TickerBar24hVolumeView = memo(
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText size="$headingXs">${formattedVolume24h}</SizableText>
+            <SizableText
+              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
+              fontVariant={['tabular-nums']}
+            >
+              ${formattedVolume24h}
+            </SizableText>
           </SkeletonContainer>
         </YStack>
       </DebugRenderTracker>
@@ -320,7 +339,10 @@ const TickerBarOpenInterestView = memo(
             placement="top"
           />
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText size="$headingXs">
+            <SizableText
+              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
+              fontVariant={['tabular-nums']}
+            >
               ${formattedOpenInterest}
             </SizableText>
           </SkeletonContainer>
@@ -369,7 +391,14 @@ const TickerBarMarketCapView = memo(
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText size="$headingXs">${formattedMarketCap}</SizableText>
+            <SizableText
+              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
+              fontVariant={['tabular-nums']}
+            >
+              {formattedMarketCap === '--'
+                ? formattedMarketCap
+                : `$${formattedMarketCap}`}
+            </SizableText>
           </SkeletonContainer>
         </YStack>
       </DebugRenderTracker>
@@ -380,12 +409,15 @@ TickerBarMarketCapView.displayName = 'TickerBarMarketCapView';
 
 function TickerBarMarketCap() {
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const { circulatingSupply = '0', markPrice = '0' } = spotAssetCtx?.ctx || {};
-  const formattedMarketCap = formatDisplayNumber(
-    NUMBER_FORMATTER.marketCap(
-      (Number(circulatingSupply) * Number(markPrice)).toString(),
-    ),
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
+  const marketCap = getSpotMarketCapValue(
+    spotAssetCtx?.ctx,
+    spotAssetCtx?.baseName ?? spotAssetCtx?.coin,
+    spotMarketCaps,
   );
+  const formattedMarketCap = marketCap
+    ? formatDisplayNumber(NUMBER_FORMATTER.marketCap(marketCap))
+    : undefined;
   const isLoading = useTickerBarIsLoading();
 
   return (
@@ -417,11 +449,9 @@ const TickerBarSpotContractView = memo(
           <SkeletonContainer isLoading={isLoading} width={120} height={16}>
             <XStack gap="$1" alignItems="center">
               <SizableText
-                size="$headingXs"
-                fontFamily="$monoRegular"
+                {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
                 color="$text"
                 numberOfLines={1}
-                textTransform="none"
               >
                 {shortenedContract}
               </SizableText>
@@ -480,9 +510,8 @@ function TickerBarFundingRateCountdown() {
       offsetX={10}
     >
       <SizableText
-        size="$headingXs"
+        {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
         color="$text"
-        fontFamily="$monoRegular"
         fontVariant={['tabular-nums']}
       >
         {countdown}
@@ -528,7 +557,8 @@ const TickerBarFundingRateView = memo(
                 renderTrigger={
                   <XStack alignItems="center" gap="$2">
                     <DashText
-                      size="$headingXs"
+                      {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
+                      fontVariant={['tabular-nums']}
                       color={fundingRate >= 0 ? '$green11' : '$red11'}
                       dashColor="$textDisabled"
                       dashThickness={0.5}

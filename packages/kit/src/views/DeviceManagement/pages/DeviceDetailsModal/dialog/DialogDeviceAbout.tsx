@@ -97,7 +97,7 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
       bleName: VERSION_PLACEHOLDER,
       bleVersion: VERSION_PLACEHOLDER,
       bootloaderVersion: VERSION_PLACEHOLDER,
-      firmwareVersion: VERSION_PLACEHOLDER,
+      firmwareVersion: undefined,
       serialNumber: VERSION_PLACEHOLDER,
       certifications: null,
     }),
@@ -123,9 +123,13 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
         features: device?.featuresInfo,
         displayFormat: 'withSpace',
       });
-      const firmwareVersion = `${firmwareTypeLabel}${getDisplayVersion(
+      const displayFirmwareVersion = getDisplayVersion(
         versions?.firmwareVersion,
-      )}`;
+      );
+      const firmwareVersion =
+        displayFirmwareVersion === VERSION_PLACEHOLDER
+          ? undefined
+          : `${firmwareTypeLabel}${displayFirmwareVersion}`;
 
       return {
         model: model ?? VERSION_PLACEHOLDER,
@@ -166,12 +170,14 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
         value={deviceInfo.serialNumber}
         hasCopy
       />
-      <SpecItem
-        title={intl.formatMessage({
-          id: ETranslations.global_firmware,
-        })}
-        value={deviceInfo.firmwareVersion}
-      />
+      {deviceInfo.firmwareVersion ? (
+        <SpecItem
+          title={intl.formatMessage({
+            id: ETranslations.global_firmware,
+          })}
+          value={deviceInfo.firmwareVersion}
+        />
+      ) : null}
       <SpecItem
         title={intl.formatMessage({
           id: ETranslations.global_bluetooth,

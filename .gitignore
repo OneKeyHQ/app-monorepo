@@ -125,6 +125,9 @@ debug.log
 # Local perf-ci secrets/config (do not commit)
 /development/perf-ci/config.local.json
 
+# Local bot wallet key service workspace
+/development/bot-wallet-key-service/
+
 # Personal process assets (local only, not committed)
 /local/
 *.local.md
@@ -143,6 +146,7 @@ debug.log
 /apps/mobile/ios-bundle
 
 docs/superpowers/**/*
+docs/plans/
 apps/mobile/android/app/src/main/assets/modules.json
 # bmad
 /_bmad/

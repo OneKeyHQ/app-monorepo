@@ -1075,6 +1075,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             categories={homeCategories}
             selectedCategoryId={selectedCategoryId}
             onSelectCategory={setSelectedCategoryId}
+            showBorder={false}
+            showHorizontalPadding={false}
           />
         </YStack>
         {listContent}

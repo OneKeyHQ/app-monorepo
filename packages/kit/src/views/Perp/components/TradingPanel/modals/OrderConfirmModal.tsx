@@ -21,6 +21,8 @@ import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/at
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
   getSpotTokenDisplayName,
   inferTpsl,
   parseDexCoin,
@@ -40,6 +42,21 @@ import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import type { IntlShape } from 'react-intl';
 
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
+
+function formatOrderPriceDisplay({
+  price,
+  isSpot,
+  szDecimals,
+}: {
+  price: string;
+  isSpot: boolean;
+  szDecimals: number;
+}) {
+  const formattedPrice = isSpot
+    ? formatSpotPriceToValid(price, szDecimals)
+    : formatPriceToSignificantDigits(price, szDecimals);
+  return `$${formattedPrice}`;
+}
 
 interface IOrderConfirmContentProps {
   onClose?: () => void;
@@ -200,8 +217,23 @@ function OrderConfirmContent({
       );
     }
 
-    return <SizableText size="$bodyMdMedium">$ {formData.price}</SizableText>;
-  }, [formData.type, formData.price, formData.bboPriceMode, intl]);
+    return (
+      <SizableText size="$bodyMdMedium">
+        {formatOrderPriceDisplay({
+          price: formData.price,
+          isSpot,
+          szDecimals,
+        })}
+      </SizableText>
+    );
+  }, [
+    formData.type,
+    formData.price,
+    formData.bboPriceMode,
+    intl,
+    isSpot,
+    szDecimals,
+  ]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -285,7 +317,11 @@ function OrderConfirmContent({
               })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
-              $ {formData.triggerPrice}
+              {formatOrderPriceDisplay({
+                price: formData.triggerPrice,
+                isSpot,
+                szDecimals,
+              })}
             </SizableText>
           </XStack>
         ) : null}
@@ -299,7 +335,11 @@ function OrderConfirmContent({
               })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
-              $ {formData.executionPrice}
+              {formatOrderPriceDisplay({
+                price: formData.executionPrice,
+                isSpot,
+                szDecimals,
+              })}
             </SizableText>
           </XStack>
         ) : null}

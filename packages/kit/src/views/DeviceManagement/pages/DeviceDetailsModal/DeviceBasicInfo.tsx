@@ -57,7 +57,11 @@ function DeviceWalletRenameButton({
   return <WalletRenameButton wallet={wallet} editable textSize={textSize} />;
 }
 
-function DeviceBasicInfo() {
+function DeviceBasicInfo({
+  showDeviceStatus = true,
+}: {
+  showDeviceStatus?: boolean;
+}) {
   const intl = useIntl();
   const { gtMd } = useMedia();
 
@@ -123,11 +127,13 @@ function DeviceBasicInfo() {
               {deviceMetaStatic.deviceName}
             </SizableText>
           ) : null}
-          {isQrWallet ? null : (
+          {isQrWallet || !showDeviceStatus ? null : (
             <XStack mt="$4" gap="$2">
-              <Badge badgeSize="sm" badgeType="default">
-                {deviceMetaStatic.firmwareVersionDisplay}
-              </Badge>
+              {deviceMetaStatic.firmwareVersionDisplay ? (
+                <Badge badgeSize="sm" badgeType="default">
+                  {deviceMetaStatic.firmwareVersionDisplay}
+                </Badge>
+              ) : null}
               <Badge
                 badgeSize="sm"
                 badgeType={deviceVerifiedBadge.verifiedBadgeType}

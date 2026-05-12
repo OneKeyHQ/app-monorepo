@@ -5,15 +5,33 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import { ConfigManager } from '../../config';
 import { auditToken, resolveToken, savePending } from '../../core';
-import { resolveChain } from '../../core/chain-resolver';
+import { getBtcAddressTypeInfo } from '../../core/btc/address-types';
+import {
+  assertBtcSpendIsSafe,
+  describeEncodedTxSpend,
+} from '../../core/btc/spend-validation';
+import { buildBtcTransferTx } from '../../core/btc/tx-builder';
+import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
+import { parseBtcFeeTier, resolveBtcFeeRate } from '../../utils/btc-fee-rate';
 import {
   amountToSmallestUnit,
   validateAmountDecimals,
 } from '../../utils/tx-utils';
+import {
+  requireAuthenticatedCommand,
+  requireStringOption,
+} from '../command-guards';
 
+import {
+  emptyBtcSwapAddressing,
+  getBtcSwapAddressMetadata,
+  hasBtcSwapAddressing,
+  isBtcSwapChain,
+  requireBtcSwapAddressType,
+} from './swap-btc-address';
 import {
   formatRouteHeader,
   parseSortMode,
@@ -24,6 +42,7 @@ import { getProtocolConfig } from './swap-protocol-config';
 import { fetchQuotesViaSSE } from './swap-quote';
 
 import type { IEndpointEnv } from '../../config';
+import type { BtcAddressType } from '../../core/btc/address-types';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
@@ -48,8 +67,126 @@ interface IBuildTxResult {
 interface IBuildTxResponse {
   result: IBuildTxResult;
   tx?: Record<string, unknown> | string;
+  btcData?: {
+    hexStr?: string;
+    addressType?: unknown;
+    [key: string]: unknown;
+  };
+  btcLocalTx?: Record<string, unknown>;
   orderId?: string;
   [key: string]: unknown;
+}
+
+function hasValidEvmTx(response: IBuildTxResponse): boolean {
+  return Boolean(response.tx && typeof response.tx === 'object');
+}
+
+function hasValidBtcData(response: IBuildTxResponse): boolean {
+  const btcData = response.btcData;
+  return Boolean(
+    btcData &&
+    typeof btcData === 'object' &&
+    typeof btcData.hexStr === 'string' &&
+    btcData.hexStr.length > 0 &&
+    Array.isArray(btcData.addressType),
+  );
+}
+
+function amountFromSmallestUnit(value: string, decimals: number): string {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    throw new AppError(
+      ERROR_CODES.BIZ_SWAP_FAILED.code,
+      `Invalid BTC provider amount: "${value}"`,
+      'Try a different provider or amount',
+    );
+  }
+  if (decimals === 0) return trimmed;
+  const padded = trimmed.padStart(decimals + 1, '0');
+  const integer = padded.slice(0, -decimals);
+  const fraction = padded.slice(-decimals).replace(/0+$/, '');
+  return fraction ? `${integer}.${fraction}` : integer;
+}
+
+function getObjectValue(
+  value: unknown,
+  key: string,
+): Record<string, unknown> | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const nested = (value as Record<string, unknown>)[key];
+  if (typeof nested !== 'object' || nested === null) return undefined;
+  return nested as Record<string, unknown>;
+}
+
+function getStringValue(
+  value: Record<string, unknown> | undefined,
+  key: string,
+): string | undefined {
+  const raw = value?.[key];
+  return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
+}
+
+function extractBtcProviderTransfer(
+  response: IBuildTxResponse,
+  nativeDecimals: number,
+):
+  | {
+      toAddress: string;
+      amount: string;
+      opReturn?: string;
+      source: 'thorSwapCallData' | 'changellyOrder' | 'swftOrder';
+    }
+  | undefined {
+  const thorSwapCallData = getObjectValue(response, 'thorSwapCallData');
+  const thorVault = getStringValue(thorSwapCallData, 'vault');
+  const thorAmount = getStringValue(thorSwapCallData, 'amount');
+  if (thorVault && thorAmount) {
+    return {
+      toAddress: thorVault,
+      amount: amountFromSmallestUnit(thorAmount, nativeDecimals),
+      opReturn:
+        getStringValue(thorSwapCallData, 'memoStreamingSwap') ??
+        getStringValue(thorSwapCallData, 'memo'),
+      source: 'thorSwapCallData',
+    };
+  }
+
+  const changellyOrder = getObjectValue(response, 'changellyOrder');
+  const changellyPayinAddress = getStringValue(changellyOrder, 'payinAddress');
+  const changellyAmount = getStringValue(changellyOrder, 'amountExpectedFrom');
+  if (changellyPayinAddress && changellyAmount) {
+    return {
+      toAddress: changellyPayinAddress,
+      amount: changellyAmount,
+      opReturn: getStringValue(changellyOrder, 'payinExtraId'),
+      source: 'changellyOrder',
+    };
+  }
+
+  const swftOrder = getObjectValue(response, 'swftOrder');
+  const swftPayinAddress = getStringValue(swftOrder, 'platformAddr');
+  const swftAmount = getStringValue(swftOrder, 'depositCoinAmt');
+  if (swftPayinAddress && swftAmount) {
+    return {
+      toAddress: swftPayinAddress,
+      amount: swftAmount,
+      opReturn: getStringValue(swftOrder, 'memo'),
+      source: 'swftOrder',
+    };
+  }
+}
+
+function hasValidBtcLocalTx(response: IBuildTxResponse): boolean {
+  const localTx = response.btcLocalTx;
+  return Boolean(
+    localTx &&
+    typeof localTx === 'object' &&
+    typeof localTx.encodedTx === 'object' &&
+    localTx.encodedTx !== null &&
+    typeof localTx.btcExtraInfo === 'object' &&
+    localTx.btcExtraInfo !== null &&
+    Array.isArray(localTx.relPaths),
+  );
 }
 
 async function getWalletAddress(
@@ -65,20 +202,28 @@ export function registerSwapBuildCommand(parent: Command): void {
   parent
     .command('build')
     .description('Build an unsigned swap transaction')
-    .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
+    .option('--chain <chain>', 'Target blockchain (e.g., eth, base, required)')
     .option(
       '--to-chain <chain>',
       'Destination chain for cross-chain bridge (default: same as --chain)',
     )
-    .requiredOption(
+    .option(
       '--from <token>',
-      'Source token (contract address or symbol)',
+      'Source token (contract address or symbol, required)',
     )
-    .requiredOption(
+    .option(
       '--to <token>',
-      'Destination token (contract address or symbol)',
+      'Destination token (contract address or symbol, required)',
     )
-    .requiredOption('--amount <amount>', 'Amount of source token to swap')
+    .option('--amount <amount>', 'Amount of source token to swap (required)')
+    .option(
+      '--from-address-type <type>',
+      'BTC source address type (taproot|native-segwit|nested-segwit|legacy)',
+    )
+    .option(
+      '--to-address-type <type>',
+      'BTC destination address type (taproot|native-segwit|nested-segwit|legacy)',
+    )
     .option(
       '--provider <provider>',
       'Swap provider ID (auto-selected if omitted)',
@@ -89,18 +234,30 @@ export function registerSwapBuildCommand(parent: Command): void {
       'recommended',
     )
     .option('--slippage <percent>', 'Slippage tolerance percentage')
+    .option(
+      '--fee-rate <satsPerVByte>',
+      'BTC fee rate in sats/vByte (BTC source only); overrides --fee-tier',
+    )
+    .option(
+      '--fee-tier <tier>',
+      'BTC fee tier: slow | standard (default) | fast (BTC source only)',
+    )
     .option('--force', 'Override high-risk token security check')
     .action(
       async (
         options: {
-          chain: string;
+          chain?: string;
           toChain?: string;
-          from: string;
-          to: string;
-          amount: string;
+          from?: string;
+          to?: string;
+          amount?: string;
+          fromAddressType?: BtcAddressType;
+          toAddressType?: BtcAddressType;
           provider?: string;
           sort?: string;
           slippage?: string;
+          feeRate?: string;
+          feeTier?: string;
           force?: boolean;
         },
         command,
@@ -110,14 +267,39 @@ export function registerSwapBuildCommand(parent: Command): void {
         const output = globalOpts._outputFormatter as OutputFormatter;
 
         try {
-          const chainConfig = resolveChain(options.chain);
+          await requireAuthenticatedCommand();
+
+          const chain = requireStringOption(options.chain, '--chain <chain>');
+          const from = requireStringOption(options.from, '--from <token>');
+          const to = requireStringOption(options.to, '--to <token>');
+          const amount = requireStringOption(
+            options.amount,
+            '--amount <amount>',
+          );
+
+          const chainConfig = resolveChain(chain);
           const toChainInput = options.toChain;
           const toChainConfig = toChainInput
             ? resolveChain(toChainInput)
             : chainConfig;
+          assertChainCapability(chainConfig, 'swap', 'swap-build');
+          assertChainCapability(toChainConfig, 'swap', 'swap-build');
           const fromNetworkId = chainConfig.networkId;
           const toNetworkId = toChainConfig.networkId;
           const protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
+          const btcAddressing = emptyBtcSwapAddressing();
+          const fromBtcAddressType = isBtcSwapChain(chainConfig)
+            ? requireBtcSwapAddressType(
+                '--from-address-type',
+                options.fromAddressType,
+              )
+            : undefined;
+          const toBtcAddressType = isBtcSwapChain(toChainConfig)
+            ? requireBtcSwapAddressType(
+                '--to-address-type',
+                options.toAddressType,
+              )
+            : undefined;
 
           // Validate chain supports swap
           const swapNetworks = await fetchSwapNetworks();
@@ -128,7 +310,7 @@ export function registerSwapBuildCommand(parent: Command): void {
             if (!isSwapSupported) {
               throw new AppError(
                 ERROR_CODES.PARAM_INVALID_CHAIN.code,
-                `Chain "${options.chain}" does not support swap`,
+                `Chain "${chain}" does not support swap`,
                 `Run 'onekey swap networks' to see supported chains.`,
               );
             }
@@ -154,10 +336,24 @@ export function registerSwapBuildCommand(parent: Command): void {
             }
           }
 
+          if (fromBtcAddressType) {
+            btcAddressing.from = await getBtcSwapAddressMetadata(
+              chainConfig,
+              fromBtcAddressType,
+            );
+          }
+
+          if (toBtcAddressType) {
+            btcAddressing.to = await getBtcSwapAddressMetadata(
+              toChainConfig,
+              toBtcAddressType,
+            );
+          }
+
           // Resolve both tokens
           const [fromResolved, toResolved] = await Promise.all([
-            resolveToken(options.from, options.chain),
-            resolveToken(options.to, toChainInput ?? options.chain),
+            resolveToken(from, chain),
+            resolveToken(to, toChainInput ?? chain),
           ]);
 
           // fromToken decimals must be known and valid — no default allowed
@@ -169,7 +365,7 @@ export function registerSwapBuildCommand(parent: Command): void {
           ) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_TOKEN.code,
-              `Cannot determine valid decimals for ${options.from} (got: ${fromResolved.decimals})`,
+              `Cannot determine valid decimals for ${from} (got: ${fromResolved.decimals})`,
               'Use contract address instead of symbol, or verify the token exists',
             );
           }
@@ -183,7 +379,7 @@ export function registerSwapBuildCommand(parent: Command): void {
           ) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_TOKEN.code,
-              `Cannot determine valid decimals for ${options.to} (got: ${toResolved.decimals})`,
+              `Cannot determine valid decimals for ${to} (got: ${toResolved.decimals})`,
               'Use contract address instead of symbol, or verify the token exists',
             );
           }
@@ -204,24 +400,24 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
 
           // Validate amount is a valid positive decimal number
-          if (!/^\d+(\.\d+)?$/.test(options.amount)) {
+          if (!/^\d+(\.\d+)?$/.test(amount)) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_AMOUNT.code,
-              `Invalid amount: "${options.amount}"`,
+              `Invalid amount: "${amount}"`,
               'Amount must be a positive decimal number (e.g., "100", "0.5")',
             );
           }
 
           // Validate amount decimal places against token decimals
-          validateAmountDecimals(options.amount, fromResolved.decimals);
+          validateAmountDecimals(amount, fromResolved.decimals);
 
           const fromTokenAmountSmallest = amountToSmallestUnit(
-            options.amount,
+            amount,
             fromResolved.decimals,
           );
           // The swap API expects human-readable amounts (e.g. "0.2"),
           // NOT smallest unit (e.g. "200000"). Use the raw user input.
-          const fromTokenAmount = options.amount;
+          const fromTokenAmount = amount;
 
           // Reject zero-value amounts
           if (fromTokenAmountSmallest === '0') {
@@ -248,11 +444,18 @@ export function registerSwapBuildCommand(parent: Command): void {
             slippage = config.default_slippage;
           }
 
-          // Wallet address is required for build-tx
-          const walletAddress = await getWalletAddress(
-            chainConfig.impl,
-            chainConfig.networkId,
-          );
+          // Source wallet address is required for build-tx.
+          const walletAddress = btcAddressing.from
+            ? btcAddressing.from.address
+            : await getWalletAddress(chainConfig.impl, chainConfig.networkId);
+          const receivingAddress =
+            btcAddressing.to?.address ??
+            (btcAddressing.from
+              ? await getWalletAddress(
+                  toChainConfig.impl,
+                  toChainConfig.networkId,
+                )
+              : walletAddress);
 
           // Resolve env
           const env = (
@@ -271,8 +474,10 @@ export function registerSwapBuildCommand(parent: Command): void {
             protocol: 'Swap', // API uses 'Swap' for both swap and bridge
             kind: 'sell',
             userAddress: walletAddress,
-            receivingAddress: walletAddress,
           };
+          if (receivingAddress) {
+            quoteParams.receivingAddress = receivingAddress;
+          }
 
           const quotes = await fetchQuotesViaSSE(env, quoteParams);
           const sortMode = parseSortMode(options.sort);
@@ -327,28 +532,32 @@ export function registerSwapBuildCommand(parent: Command): void {
             matchedQuote.info.provider,
           );
           if (output.getMode() === 'human') {
-            process.stderr.write(`\n${routeHeader}\n${table}\n\n`);
+            output.raw(`\n${routeHeader}\n${table}\n\n`, 'stderr');
           }
 
           // Step 2: POST /swap/v1/build-tx with toTokenAmount from quote
+          const buildTxParams: Record<string, unknown> = {
+            fromTokenAddress: fromResolved.contractAddress,
+            toTokenAddress: toResolved.contractAddress,
+            fromTokenAmount,
+            toTokenAmount: matchedQuote.toAmount,
+            fromNetworkId,
+            toNetworkId,
+            provider: matchedQuote.info.provider,
+            userAddress: walletAddress,
+            slippagePercentage: slippage,
+            protocol: 'Swap', // API uses 'Swap' for both swap and bridge
+            kind: 'sell',
+            quoteResultCtx: matchedQuote.quoteResultCtx,
+          };
+          if (receivingAddress) {
+            buildTxParams.receivingAddress = receivingAddress;
+          }
+
           const buildTxResponse = await apiClient.post<IBuildTxResponse>(
             'swap',
             '/swap/v1/build-tx',
-            {
-              fromTokenAddress: fromResolved.contractAddress,
-              toTokenAddress: toResolved.contractAddress,
-              fromTokenAmount,
-              toTokenAmount: matchedQuote.toAmount,
-              fromNetworkId,
-              toNetworkId,
-              provider: matchedQuote.info.provider,
-              userAddress: walletAddress,
-              receivingAddress: walletAddress,
-              slippagePercentage: slippage,
-              protocol: 'Swap', // API uses 'Swap' for both swap and bridge
-              kind: 'sell',
-              quoteResultCtx: matchedQuote.quoteResultCtx,
-            },
+            buildTxParams,
           );
 
           // Validate build-tx response contains usable result
@@ -421,11 +630,106 @@ export function registerSwapBuildCommand(parent: Command): void {
             );
           }
 
-          // Validate tx data exists and is executable
-          if (!buildTxResponse.tx || typeof buildTxResponse.tx !== 'object') {
+          // Validate executable data exists. EVM source routes require tx;
+          // BTC source routes may return PSBT data under btcData, or App-style
+          // provider deposit data that must be converted into a local BTC tx.
+          // A bare `tx` payload is NOT executable on the BTC execute branch,
+          // so we ignore it here and rely on the final hasTxData gate to fail
+          // closed if neither btcData nor a provider transfer is available.
+          const isBtcSource = Boolean(btcAddressing.from);
+          if (
+            isBtcSource &&
+            !hasValidBtcData(buildTxResponse) &&
+            btcAddressing.from
+          ) {
+            const transfer = extractBtcProviderTransfer(
+              buildTxResponse,
+              fromResolved.decimals,
+            );
+            if (transfer) {
+              // Provider deposit amount MUST match the user-input swap amount.
+              // Without this guard, a malicious or buggy build-tx response can
+              // silently inflate the BTC sent on chain.
+              const providerAmountSmallest = amountToSmallestUnit(
+                transfer.amount,
+                fromResolved.decimals,
+              );
+              if (providerAmountSmallest !== fromTokenAmountSmallest) {
+                throw new AppError(
+                  ERROR_CODES.BIZ_SWAP_FAILED.code,
+                  `Provider deposit amount mismatch (${transfer.source}): expected ${amount}, provider asked for ${transfer.amount}`,
+                  'Refresh the quote or report a provider/API issue — refusing to build the BTC tx',
+                );
+              }
+
+              const addressTypeInfo = getBtcAddressTypeInfo(
+                chainConfig.impl,
+                btcAddressing.from.addressType,
+              );
+              const btcFeeRate = await resolveBtcFeeRate({
+                impl: chainConfig.impl,
+                networkId: chainConfig.networkId,
+                accountAddress: btcAddressing.from.address,
+                explicitFeeRate: options.feeRate,
+                tier: parseBtcFeeTier(options.feeTier),
+              });
+              const builtLocalTx = await buildBtcTransferTx({
+                impl: chainConfig.impl,
+                networkId: chainConfig.networkId,
+                fromAddress: btcAddressing.from.address,
+                fromPath: btcAddressing.from.path,
+                toAddress: transfer.toAddress,
+                amount: transfer.amount,
+                nativeDecimals: fromResolved.decimals,
+                feeRate: btcFeeRate,
+                addressTypeInfo,
+                opReturn: transfer.opReturn,
+              });
+
+              // Independent spend validation — even though we just built this
+              // tx locally, run the same guardrail used at execute-time so
+              // both paths fail closed against the same invariants.
+              assertBtcSpendIsSafe(
+                describeEncodedTxSpend(
+                  builtLocalTx.encodedTx,
+                  btcAddressing.from.address,
+                ),
+                { expectedSpendSats: BigInt(fromTokenAmountSmallest) },
+              );
+
+              buildTxResponse.btcLocalTx = {
+                encodedTx: builtLocalTx.encodedTx,
+                btcExtraInfo: builtLocalTx.btcExtraInfo,
+                relPaths: builtLocalTx.relPaths,
+                summary: builtLocalTx.summary,
+                transfer,
+                feeRate: btcFeeRate,
+              };
+            }
+          }
+
+          // BTC source routes MUST sign a BTC PSBT — an EVM-style `tx` payload
+          // cannot be signed on this code path, so we reject it at build time
+          // instead of saving a pending order that execute will fail to sign.
+          const hasTxData = isBtcSource
+            ? hasValidBtcData(buildTxResponse) ||
+              hasValidBtcLocalTx(buildTxResponse)
+            : hasValidEvmTx(buildTxResponse);
+
+          if (!hasTxData) {
+            let message: string;
+            if (!isBtcSource) {
+              message = 'Build-tx API returned success but tx data is missing';
+            } else if (hasValidEvmTx(buildTxResponse)) {
+              message =
+                'Build-tx API returned an EVM-style tx for a BTC source route; this provider/route is not supported';
+            } else {
+              message =
+                'Build-tx API returned success but no BTC PSBT or provider deposit data is available';
+            }
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
-              'Build-tx API returned success but tx data is missing',
+              message,
               'Try a different provider or amount',
             );
           }
@@ -433,11 +737,14 @@ export function registerSwapBuildCommand(parent: Command): void {
           // Generate orderId and save pending order
           const orderId = randomUUID();
           const now = Date.now();
+          const pendingBtcAddressing = hasBtcSwapAddressing(btcAddressing)
+            ? btcAddressing
+            : undefined;
 
           savePending(orderId, {
             orderId,
             status: 'pending',
-            chain: options.chain,
+            chain,
             networkId: chainConfig.networkId,
             toNetworkId,
             protocolType: protocolConfig.protocol,
@@ -453,13 +760,16 @@ export function registerSwapBuildCommand(parent: Command): void {
               symbol: toResolved.symbol,
               decimals: toResolved.decimals,
             },
-            amount: options.amount,
+            amount,
             txData: buildTxResponse as Record<string, unknown>,
             provider: matchedQuote.info.provider,
             allowanceResult:
               matchedQuote.allowanceResult ??
               buildTxResponse.result?.allowanceResult ??
               null,
+            ...(pendingBtcAddressing
+              ? { btcAddressing: pendingBtcAddressing }
+              : {}),
           });
 
           output.success(
@@ -467,7 +777,7 @@ export function registerSwapBuildCommand(parent: Command): void {
               orderId,
               provider: matchedQuote.info.provider,
               providerName: matchedQuote.info.providerName,
-              chain: options.chain,
+              chain,
               from: {
                 symbol: fromResolved.symbol,
                 contractAddress: fromResolved.contractAddress,
@@ -478,17 +788,18 @@ export function registerSwapBuildCommand(parent: Command): void {
                 contractAddress: toResolved.contractAddress,
                 decimals: toResolved.decimals,
               },
-              amount: options.amount,
+              amount,
               amountSmallestUnit: fromTokenAmountSmallest,
               slippage,
               walletAddress,
-              hasTxData: buildTxResponse.tx !== undefined,
+              hasTxData,
               allowanceResult:
                 matchedQuote.allowanceResult ??
                 buildTxResponse.result?.allowanceResult ??
                 null,
+              btcAddressing,
             },
-            { chain: options.chain },
+            { chain },
           );
         } catch (error) {
           const appError = AppError.from(error);

@@ -34,6 +34,8 @@ export const TRAY_DATA_REFRESH_EVENT_NAMES = [
   EAppEventBusNames.AccountDataUpdate,
   EAppEventBusNames.MarketWatchListV2Changed,
   EAppEventBusNames.EnabledNetworksChanged,
+  // Without this, tray stays stale when home polling (not tray) confirms a pending tx.
+  EAppEventBusNames.LocalPendingTxConfirmed,
 ] as const;
 
 export function getTrayCurrencyDisplayInfo({
@@ -70,8 +72,10 @@ export function getTrayWatchlistNativeInfo({
   isNative?: boolean;
   contractAddress?: string;
 }) {
+  const hasContractAddress = !!contractAddress;
   const resolvedIsNative =
-    isNative !== undefined ? isNative : (contractAddress?.length ?? 0) < 30;
+    !hasContractAddress ||
+    (isNative !== undefined ? isNative : (contractAddress?.length ?? 0) < 30);
   return {
     isNative: resolvedIsNative,
     tokenAddress: resolvedIsNative ? '' : contractAddress || '',
@@ -143,7 +147,9 @@ export function getTrayMarketNavigationTarget({
       };
     }
   | undefined {
-  if (isNative) {
+  const resolvedIsNative = isNative || !tokenAddress;
+
+  if (resolvedIsNative) {
     return {
       screen: ETabMarketRoutes.MarketNativeDetail,
       params: {
@@ -234,13 +240,10 @@ export function collectTrayTrackedTxs(
     if (Array.isArray(value)) {
       for (const tx of value) {
         const historyTx = tx as IAccountHistoryTx | undefined;
-        const decodedTx = historyTx?.decodedTx;
-        const status = decodedTx?.status;
         if (
           historyTx &&
           isTxInActiveAccountScope(historyTx, activeAccountIds) &&
-          (status === EDecodedTxStatus.Pending ||
-            status === EDecodedTxStatus.Failed)
+          historyTx.decodedTx?.status === EDecodedTxStatus.Pending
         ) {
           txs.push(historyTx);
         }
@@ -249,41 +252,4 @@ export function collectTrayTrackedTxs(
   }
 
   return txs;
-}
-
-export function recoverFailedTrackedTxs(
-  rawData: { confirmedTxs?: Record<string, unknown> } | undefined | null,
-  trackedPendingIds: Set<string>,
-  activeAccountScope: ITrayActiveAccountScope,
-): IAccountHistoryTx[] {
-  const recovered: IAccountHistoryTx[] = [];
-  const activeAccountIds = buildActiveAccountIdSet(activeAccountScope);
-  if (
-    activeAccountIds.size === 0 ||
-    !rawData?.confirmedTxs ||
-    trackedPendingIds.size === 0
-  )
-    return recovered;
-
-  for (const value of Object.values(rawData.confirmedTxs)) {
-    if (Array.isArray(value)) {
-      for (const tx of value) {
-        const historyTx = tx as IAccountHistoryTx | undefined;
-        if (
-          historyTx &&
-          isTxInActiveAccountScope(historyTx, activeAccountIds) &&
-          historyTx.decodedTx?.status === EDecodedTxStatus.Failed
-        ) {
-          const originalId = historyTx.originalId;
-          const matched =
-            trackedPendingIds.has(historyTx.id) ||
-            (typeof originalId === 'string' &&
-              trackedPendingIds.has(originalId));
-          if (matched) recovered.push(historyTx);
-        }
-      }
-    }
-  }
-
-  return recovered;
 }

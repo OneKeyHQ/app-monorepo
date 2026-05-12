@@ -1,11 +1,14 @@
 import { memo, useMemo } from 'react';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { SizableText, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDeFiProtocol,
   IProtocolSummary,
@@ -14,32 +17,13 @@ import type {
 export type IProtocolRowProps = {
   protocol: IDeFiProtocol;
   protocolInfo?: IProtocolSummary;
-  /**
-   * compact renders the grid-cell variant used by DeFiOverviewCard
-   * (24pt logo, $bodyMd name, $bodyMdMedium value).
-   * Default is the list-row variant used by ProtocolListLayout.
-   */
-  compact?: boolean;
-  /** Rendered right-aligned alongside the value. Used by Overview cell for "% of portfolio". */
-  trailing?: React.ReactNode;
   onPress?: () => void;
-  /**
-   * Only consumed by the list variant (!compact) so the Token badge
-   * reflects the all-networks view. The compact variant always omits
-   * the network badge to stay within the 24pt cell footprint.
-   */
   isAllNetworks?: boolean;
 };
 
 const ProtocolRow = memo(
-  ({
-    protocol,
-    protocolInfo,
-    compact,
-    trailing,
-    onPress,
-    isAllNetworks,
-  }: IProtocolRowProps) => {
+  ({ protocol, protocolInfo, onPress, isAllNetworks }: IProtocolRowProps) => {
+    const intl = useIntl();
     const [settings] = useSettingsPersistAtom();
     const currencySymbol = settings.currencyInfo.symbol;
 
@@ -51,43 +35,11 @@ const ProtocolRow = memo(
         }),
       [protocol, protocolInfo],
     );
-
-    if (compact) {
-      return (
-        <XStack
-          alignItems="center"
-          gap="$2"
-          bg="$bgSubdued"
-          borderRadius="$3"
-          px="$3"
-          py="$2.5"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          onPress={onPress}
-          cursor={onPress ? 'pointer' : undefined}
-        >
-          <Token
-            size="sm"
-            tokenImageUri={protocolDisplayInfo.protocolLogo}
-            networkId={protocol.networkId}
-          />
-          <SizableText size="$bodyMd" numberOfLines={1} flex={1}>
-            {protocolDisplayInfo.protocolName}
-          </SizableText>
-          <NumberSizeableTextWrapper
-            hideValue
-            size="$bodyMdMedium"
-            formatter="value"
-            formatterOptions={{ currency: currencySymbol }}
-            textAlign="right"
-            flexShrink={0}
-          >
-            {protocolDisplayInfo.netWorth}
-          </NumberSizeableTextWrapper>
-          {trailing}
-        </XStack>
-      );
-    }
+    // Match the desktop accordion header's "{n} 持仓" sub-label so the
+    // condensed mobile row carries the same density signal.
+    const positionCountText = `${protocol.positions.length} ${intl.formatMessage(
+      { id: ETranslations.earn_positions },
+    )}`;
 
     return (
       <ListItem
@@ -95,18 +47,28 @@ const ProtocolRow = memo(
         gap="$3"
         alignItems="center"
         justifyContent="space-between"
+        minHeight={60}
+        mx="$0"
+        px="$5"
+        py="$2"
+        borderRadius="$0"
         onPress={onPress}
         drillIn
       >
         <Token
-          size="md"
+          size="lg"
           tokenImageUri={protocolDisplayInfo.protocolLogo}
           showNetworkIcon={isAllNetworks}
           networkId={protocol.networkId}
         />
-        <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
-          {protocolDisplayInfo.protocolName}
-        </SizableText>
+        <YStack flex={1} minWidth={0} gap="$0.5">
+          <SizableText size="$bodyLgMedium" numberOfLines={1}>
+            {protocolDisplayInfo.protocolName}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {positionCountText}
+          </SizableText>
+        </YStack>
         <NumberSizeableTextWrapper
           hideValue
           size="$bodyLgMedium"

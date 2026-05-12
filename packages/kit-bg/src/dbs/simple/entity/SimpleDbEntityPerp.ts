@@ -13,6 +13,7 @@ import type {
 import type {
   IHyperLiquidErrorLocaleItem,
   IPerpOrderBookTickOptionPersist,
+  IPerpsAssetMetaMap,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -67,6 +68,7 @@ export interface ISimpleDbPerpData {
   perpsSharePromptShown?: boolean; // whether the once-per-app Perps share prompt has been shown
   tokenSearchAliases?: ITokenSearchAliases; // token search aliases from server
   tokenSelectorTabs?: IPerpDynamicTab[]; // dynamic token selector tabs from server
+  perpsAssetMetaMap?: IPerpsAssetMetaMap; // perps asset metadata map from server
   spotTokens?: ISpotToken[]; // all spot tokens metadata
   spotUniverses?: ISpotUniverse[]; // spot trading pairs with resolved names
 }
@@ -148,9 +150,32 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     marginTablesMapByDex: Array<IMarginTablesMap | undefined>;
   }> {
     const config = await this.getPerpData();
+    const tradingUniverses = config.tradingUniverses;
+    let universesByDex: IPerpsUniverse[][] = [];
+    if (Array.isArray(tradingUniverses) && tradingUniverses.length > 0) {
+      universesByDex = !Array.isArray(tradingUniverses[0] as unknown)
+        ? [tradingUniverses as unknown as IPerpsUniverse[]]
+        : tradingUniverses;
+    } else if (
+      Array.isArray(config.tradingUniverse) &&
+      config.tradingUniverse.length > 0
+    ) {
+      universesByDex = [config.tradingUniverse];
+    }
+
+    let marginTablesMapByDex: Array<IMarginTablesMap | undefined> = [];
+    if (
+      Array.isArray(config.marginTablesMapList) &&
+      config.marginTablesMapList.length > 0
+    ) {
+      marginTablesMapByDex = config.marginTablesMapList;
+    } else if (config.marginTablesMap) {
+      marginTablesMapByDex = [config.marginTablesMap];
+    }
+
     return {
-      universesByDex: config.tradingUniverses || [],
-      marginTablesMapByDex: config.marginTablesMapList || [],
+      universesByDex,
+      marginTablesMapByDex,
     };
   }
 

@@ -1,5 +1,4 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
-import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -43,6 +42,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
   IDeviceHomeScreen,
+  IDeviceResponseResult,
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
@@ -74,9 +74,13 @@ import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
+import { mapThirdPartyDeviceToSearchDevice } from './thirdPartyDeviceMapping';
 
 import type { IThirdPartyVendor } from './adapters/thirdPartyHardwareAdapterRegistry';
-import type { DeviceInfo, IThirdPartyHardwareAdapter } from './adapters/types';
+import type {
+  IAdapterUiResponse,
+  IThirdPartyHardwareAdapter,
+} from './adapters/types';
 import type {
   IBaseDeviceProcessingParams,
   IChangePinParams,
@@ -150,6 +154,56 @@ const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
 ]);
+
+const PRO2_DEBUG_SDK_METHODS = [
+  'getProtoVersion',
+  'ping',
+  'devGetDeviceInfo',
+  'devGetOnboardingStatus',
+  'devGetFirmwareUpdateStatus',
+  'factoryGetDeviceInfo',
+  'factoryDeviceInfoSettings',
+  'filesystemPathInfoQuery',
+  'filesystemDirList',
+  'filesystemDirMake',
+  'filesystemDirRemove',
+  'filesystemFileWrite',
+  'filesystemFileRead',
+  'filesystemFileDelete',
+  'filesystemFixPermission',
+  'devFirmwareUpdate',
+  'devReboot',
+  'filesystemFormat',
+] as const;
+
+type IPro2DebugSdkMethod = (typeof PRO2_DEBUG_SDK_METHODS)[number];
+
+type IPro2DebugCallParams = {
+  connectId: string;
+  method: string;
+  payload?: Record<string, unknown>;
+};
+
+type IPro2DebugFirmwareUpdateParams = {
+  connectId: string;
+  bleFirmwareBase64: string;
+  chunkSize?: number;
+};
+
+const PRO2_DEBUG_NO_PARAM_METHODS = new Set<IPro2DebugSdkMethod>([
+  'factoryGetDeviceInfo',
+  'filesystemFixPermission',
+  'filesystemFormat',
+]);
+
+const PRO2_DEBUG_BLE_TUNING_PROFILE = {
+  key: 'default-1800',
+  tuning: {},
+};
+
+function isPro2DebugSdkMethod(method: string): method is IPro2DebugSdkMethod {
+  return PRO2_DEBUG_SDK_METHODS.some((item) => item === method);
+}
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -519,9 +573,26 @@ class ServiceHardware extends ServiceBase {
       newPayload.firmwareTipData = originEvent.payload.data;
     }
 
-    if (originEvent.type === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
-      newPayload.firmwareProgress = originEvent.payload.progress;
-      newPayload.firmwareProgressType = originEvent.payload.progressType;
+    if (
+      originEvent.type === EHardwareUiStateAction.FIRMWARE_PROGRESS ||
+      originEvent.type === EHardwareUiStateAction.DEVICE_PROGRESS
+    ) {
+      const progressPayload = originEvent.payload as {
+        progress?: number;
+        progressType?: string;
+        transferredBytes?: number;
+        totalBytes?: number;
+        rateBytesPerSecond?: number;
+        elapsedMs?: number;
+      };
+      newPayload.firmwareProgress = progressPayload.progress;
+      newPayload.firmwareProgressType = progressPayload.progressType;
+      newPayload.firmwareProgressTransferredBytes =
+        progressPayload.transferredBytes;
+      newPayload.firmwareProgressTotalBytes = progressPayload.totalBytes;
+      newPayload.firmwareProgressRateBytesPerSecond =
+        progressPayload.rateBytesPerSecond;
+      newPayload.firmwareProgressElapsedMs = progressPayload.elapsedMs;
     }
 
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
@@ -804,43 +875,18 @@ class ServiceHardware extends ServiceBase {
           success: true,
           count: devices.length,
         });
-
-        const isUuidLike = (s?: string) =>
-          s ? /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(s) : false;
+        const payload = devices.map((d) =>
+          mapThirdPartyDeviceToSearchDevice({
+            device: d,
+            defaultDeviceName: vendorProfile.defaultDeviceName,
+            canMatchDeviceByConnectId: (connectId) =>
+              vendorProfile.canMatchDeviceByConnectId(connectId),
+          }),
+        );
 
         return {
           success: true as const,
-          payload: devices.map((d) => {
-            const isBle = d.connectionType === 'ble';
-
-            // BLE: connectId is the stable 4-digit HEX (e.g. "A58F"), name is "Ledger"
-            // USB: connectId is null (ephemeral), name from label or default
-            let name: string;
-            let connectId: string | null = null;
-
-            if (isBle) {
-              connectId = d.connectId || null;
-              name = vendorProfile.defaultDeviceName || 'Ledger';
-            } else {
-              const rawName =
-                d.label || (d as DeviceInfo & { name?: string }).name || '';
-              name = isUuidLike(rawName)
-                ? vendorProfile.defaultDeviceName
-                : rawName || vendorProfile.defaultDeviceName;
-            }
-
-            return {
-              connectId,
-              deviceId: null,
-              name,
-              // Third-party vendors (Ledger) don't map to OneKey IDeviceType;
-              // use 'unknown' and carry vendor identity separately via
-              // IConnectYourDeviceItem.vendor at the UI layer.
-              deviceType: 'unknown',
-              uuid: '',
-              commType: 'bridge',
-            } as SearchDevice;
-          }),
+          payload,
         };
       } catch (error) {
         // Preserve HWK's structured error (code + message) so downstream
@@ -848,11 +894,17 @@ class ServiceHardware extends ServiceBase {
         const err = error as { code?: number | string; message?: string };
         const rawCode =
           typeof err?.code === 'number' ? err.code : Number(err?.code);
+        const permissionDeniedReason = (err as { reason?: string }).reason;
         return {
           success: false as const,
           payload: {
             code: Number.isFinite(rawCode) ? rawCode : -1,
             error: err?.message ?? String(error),
+            params: permissionDeniedReason
+              ? {
+                  permissionDeniedReason,
+                }
+              : undefined,
           },
         };
       }
@@ -865,6 +917,75 @@ class ServiceHardware extends ServiceBase {
     const response = await hardwareSDK?.searchDevices();
     console.log('searchDevices response: ', response);
     return response;
+  }
+
+  @backgroundMethod()
+  async pro2DebugCallSdkMethod(params: IPro2DebugCallParams) {
+    const { connectId, method, payload } = params;
+    if (!connectId) {
+      throw new OneKeyLocalError('Pro2 debug connectId is required');
+    }
+    if (!isPro2DebugSdkMethod(method)) {
+      throw new OneKeyLocalError(
+        `Unsupported Pro2 debug method: ${String(method)}`,
+      );
+    }
+
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
+    const sdkMethod = hardwareSDK[method] as unknown as (
+      sdkConnectId: string,
+      sdkPayload?: Record<string, unknown>,
+    ) => Promise<IDeviceResponseResult<unknown>>;
+    const sdkPayload = PRO2_DEBUG_NO_PARAM_METHODS.has(method)
+      ? undefined
+      : {
+          connectProtocol: 'V2',
+          ...payload,
+        };
+
+    return convertDeviceResponse(async () => sdkMethod(connectId, sdkPayload));
+  }
+
+  @backgroundMethod()
+  async pro2DebugFirmwareUpdateV4(params: IPro2DebugFirmwareUpdateParams) {
+    const { connectId, bleFirmwareBase64, chunkSize } = params;
+    if (!connectId) {
+      throw new OneKeyLocalError('Pro2 debug connectId is required');
+    }
+    if (!bleFirmwareBase64) {
+      throw new OneKeyLocalError('Pro2 debug BLE firmware binary is required');
+    }
+
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+    });
+    const bleBinary = Uint8Array.from(
+      Buffer.from(bleFirmwareBase64, 'base64'),
+    ).buffer;
+    if (platformEnv.isNative) {
+      const { configureProtocolV2BleTuning, resetProtocolV2BleTuning } =
+        require('@onekeyfe/hd-transport-react-native') as {
+          configureProtocolV2BleTuning?: (
+            tuning?: Record<string, unknown>,
+          ) => void;
+          resetProtocolV2BleTuning?: () => void;
+        };
+      resetProtocolV2BleTuning?.();
+      configureProtocolV2BleTuning?.(PRO2_DEBUG_BLE_TUNING_PROFILE.tuning);
+    }
+    const updateParams: Parameters<CoreApi['firmwareUpdateV4']>[1] = {
+      platform: 'native',
+      forcedUpdateRes: true,
+      bleBinary,
+      chunkSize,
+      connectProtocol: 'V2',
+    };
+
+    return convertDeviceResponse(async () =>
+      hardwareSDK.firmwareUpdateV4(connectId, updateParams),
+    );
   }
 
   @backgroundMethod()
@@ -1216,6 +1337,36 @@ class ServiceHardware extends ServiceBase {
           dbDevice,
         },
         hideCheckingDeviceLoading: true,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async checkDeviceReachableForFirmwareUpdate(params: { connectId: string }) {
+    const dbDevice = await localDb.getDeviceByQuery({
+      connectId: params.connectId,
+    });
+    if (!dbDevice) {
+      // Onboarding / bootloader-mode flows hit this with a freshly-discovered
+      // device that has no local DB record yet — skip pre-flight and let the
+      // update modal proceed.
+      return;
+    }
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId: params.connectId,
+      featuresDeviceId: dbDevice.deviceId,
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+    });
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      () =>
+        this.getFeaturesWithoutCache({
+          connectId: compatibleConnectId,
+          params: { retryCount: 1 },
+        }),
+      {
+        deviceParams: {
+          dbDevice,
+        },
       },
     );
   }
@@ -1706,18 +1857,12 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async thirdPartyHardwareUiResponse(params: {
     vendor: EHardwareVendor;
-    type: 'confirm' | 'cancel';
+    response: IAdapterUiResponse;
   }) {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) return;
-
-    // Only REQUEST_DEVICE_CONNECT flows through this path today. Extend the
-    // mapping when PIN / passphrase / select-device dialogs are wired up.
-    adapter.uiResponse({
-      type: UI_RESPONSE.RECEIVE_DEVICE_CONNECT,
-      payload: { confirmed: params.type === 'confirm' },
-    });
+    adapter.uiResponse(params.response);
   }
 
   @backgroundMethod()
@@ -2159,10 +2304,7 @@ class ServiceHardware extends ServiceBase {
       features,
     });
 
-    // Third-party devices (Ledger) manage their own transport.
-    // Their connectId is already the correct identifier for the current
-    // connection type (e.g. BLE 4-digit HEX), so skip the OneKey
-    // USB↔BLE compatibility layer entirely.
+    // Third-party connectId already matches its active transport.
     if (device?.vendor) {
       const vp = getVendorProfile(device.vendor);
       if (vp.isThirdParty) {
@@ -2185,12 +2327,10 @@ class ServiceHardware extends ServiceBase {
       return device?.connectId || connectId;
     }
 
-    // Determine the transport type to use
     const result = await this.connectionManager.shouldSwitchTransportType({
       connectId: device?.connectId || connectId,
       hardwareCallContext,
     });
-    console.log('🔍 shouldSwitchTransportType result:', result);
     const targetTransportType = result.targetType;
     const forceTransportType = (await hardwareForceTransportAtom.get())
       .forceTransportType;

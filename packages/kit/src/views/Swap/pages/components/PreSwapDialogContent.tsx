@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -25,7 +32,9 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type {
+  ESwapNetworkFeeLevel,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IQuoteTip,
@@ -43,7 +52,10 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
-import PreSwapInfoGroup from '../../components/PreSwapInfoGroup';
+import PreSwapInfoGroup, {
+  type ISwapReviewNetworkFeeSelectValue,
+  SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE,
+} from '../../components/PreSwapInfoGroup';
 import PreSwapStep from '../../components/PreSwapStep';
 import { PreSwapTipInfo } from '../../components/PreSwapTipInfo';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
@@ -57,12 +69,15 @@ interface IPreSwapDialogContentProps {
     data?: IFetchQuoteResult,
     currentFromToken?: ISwapToken,
     currentToToken?: ISwapToken,
-  ) => void;
+  ) => void | Promise<void>;
   preSwapStepsStart: (swapStepsValues?: {
     steps: ISwapStep[];
     preSwapData: ISwapPreSwapData;
     quoteResult?: IFetchQuoteResult;
-  }) => void;
+  }) => void | Promise<void>;
+  defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
+  defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
+  showCustomNetworkFeeOption?: boolean;
 }
 
 const PreSwapDialogContent = ({
@@ -71,11 +86,82 @@ const PreSwapDialogContent = ({
   disableGlobalApproveSync = false,
   preSwapBeforeStepActions,
   preSwapStepsStart,
+  defaultNetworkFeeLevel,
+  defaultCustomPriorityFee,
+  showCustomNetworkFeeOption,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [swapStepNetFeeLevel, setSwapStepNetFeeLevel] =
     useSwapStepNetFeeLevelAtom();
+  const effectiveCustomPriorityFee =
+    defaultCustomPriorityFee ?? swapStepNetFeeLevel.customPriorityFee;
+  const effectiveNetworkFeeLevel =
+    defaultNetworkFeeLevel ?? swapStepNetFeeLevel.networkFeeLevel;
+  const customNetworkFeeOption = useMemo(() => {
+    if (!showCustomNetworkFeeOption && !effectiveCustomPriorityFee) {
+      return undefined;
+    }
+
+    return {
+      label: intl.formatMessage({ id: ETranslations.transaction_custom }),
+      networkFeeLevel: effectiveNetworkFeeLevel,
+      customPriorityFee: effectiveCustomPriorityFee,
+    };
+  }, [
+    effectiveCustomPriorityFee,
+    effectiveNetworkFeeLevel,
+    intl,
+    showCustomNetworkFeeOption,
+  ]);
+  const [networkFeeSelectValue, setNetworkFeeSelectValue] =
+    useState<ISwapReviewNetworkFeeSelectValue>(
+      customNetworkFeeOption
+        ? SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE
+        : effectiveNetworkFeeLevel,
+    );
+  const customNetworkFeeOptionRef = useRef(customNetworkFeeOption);
+  const customNetworkFeeOptionKey = useMemo(() => {
+    if (!customNetworkFeeOption) {
+      return undefined;
+    }
+
+    const customPriorityFee = customNetworkFeeOption.customPriorityFee;
+    return [
+      customNetworkFeeOption.label,
+      customNetworkFeeOption.networkFeeLevel,
+      customPriorityFee?.customValue ?? '',
+      customPriorityFee?.customRange?.min ?? '',
+      customPriorityFee?.customRange?.max ?? '',
+    ].join('|');
+  }, [customNetworkFeeOption]);
+  const initializedCustomNetworkFeeOptionKeyRef = useRef(
+    customNetworkFeeOptionKey,
+  );
+  useEffect(() => {
+    customNetworkFeeOptionRef.current = customNetworkFeeOption;
+
+    if (!customNetworkFeeOptionKey) {
+      if (networkFeeSelectValue === SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE) {
+        setNetworkFeeSelectValue(swapStepNetFeeLevel.networkFeeLevel);
+      }
+      return;
+    }
+
+    if (
+      initializedCustomNetworkFeeOptionKeyRef.current !==
+      customNetworkFeeOptionKey
+    ) {
+      initializedCustomNetworkFeeOptionKeyRef.current =
+        customNetworkFeeOptionKey;
+      setNetworkFeeSelectValue(SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE);
+    }
+  }, [
+    customNetworkFeeOption,
+    customNetworkFeeOptionKey,
+    networkFeeSelectValue,
+    swapStepNetFeeLevel.networkFeeLevel,
+  ]);
   const swapStepsRef = useRef(swapSteps);
   if (!isEqual(swapStepsRef.current, swapSteps)) {
     swapStepsRef.current = swapSteps;
@@ -132,19 +218,40 @@ const PreSwapDialogContent = ({
       toAmount,
     ],
   );
+  const isPrimaryButtonDisabled = useMemo(
+    () =>
+      Boolean(
+        preSwapData?.estimateNetworkFeeLoading ||
+        preSwapData?.swapBuildLoading ||
+        preSwapData?.stepBeforeActionsLoading ||
+        preSwapData?.stepBeforeActionsError,
+      ),
+    [
+      preSwapData?.estimateNetworkFeeLoading,
+      preSwapData?.stepBeforeActionsError,
+      preSwapData?.stepBeforeActionsLoading,
+      preSwapData?.swapBuildLoading,
+    ],
+  );
 
   const handleConfirmPress = useCallback(() => {
+    if (isPrimaryButtonDisabled) {
+      return;
+    }
     if (validatedQuoteShowTip) {
       setShowPreSwapTipInfo(validatedQuoteShowTip);
     } else {
       onConfirm();
     }
-  }, [onConfirm, validatedQuoteShowTip]);
+  }, [isPrimaryButtonDisabled, onConfirm, validatedQuoteShowTip]);
 
   const tipOnConfirm = useCallback(() => {
+    if (isPrimaryButtonDisabled) {
+      return;
+    }
     onConfirm();
     setShowPreSwapTipInfo(undefined);
-  }, [onConfirm]);
+  }, [isPrimaryButtonDisabled, onConfirm]);
   const tipOnCancel = useCallback(() => {
     setShowPreSwapTipInfo(undefined);
   }, []);
@@ -206,7 +313,7 @@ const PreSwapDialogContent = ({
     swapSteps,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (
       swapStepsRef.current.preSwapData.supportNetworkFeeLevel &&
       swapStepsRef.current.preSwapData.supportPreBuild
@@ -218,7 +325,33 @@ const PreSwapDialogContent = ({
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [swapStepNetFeeLevel.networkFeeLevel]);
+  }, [
+    swapStepNetFeeLevel.networkFeeLevel,
+    swapStepNetFeeLevel.customPriorityFee?.customValue,
+  ]);
+
+  const handleSelectNetworkFeeLevel = useCallback(
+    (value: ISwapReviewNetworkFeeSelectValue) => {
+      if (value === SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE) {
+        const customNetworkFeeOptionValue = customNetworkFeeOptionRef.current;
+        if (!customNetworkFeeOptionValue) {
+          return;
+        }
+        setNetworkFeeSelectValue(SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE);
+        setSwapStepNetFeeLevel({
+          networkFeeLevel: customNetworkFeeOptionValue.networkFeeLevel,
+          customPriorityFee: customNetworkFeeOptionValue.customPriorityFee,
+        });
+        return;
+      }
+
+      setNetworkFeeSelectValue(value);
+      setSwapStepNetFeeLevel({
+        networkFeeLevel: value,
+      });
+    },
+    [setSwapStepNetFeeLevel],
+  );
 
   const lastStep = useMemo(() => {
     return swapSteps.steps[swapSteps.steps.length - 1];
@@ -446,22 +579,18 @@ const PreSwapDialogContent = ({
                 <>
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
-                    onSelectNetworkFeeLevel={(value) => {
-                      setSwapStepNetFeeLevel({
-                        networkFeeLevel: value,
-                      });
-                    }}
+                    onSelectNetworkFeeLevel={handleSelectNetworkFeeLevel}
+                    customNetworkFeeOptionLabel={
+                      customNetworkFeeOptionRef.current?.label
+                    }
+                    networkFeeSelectValue={networkFeeSelectValue}
                   />
                   {/* Primary button */}
                   <Button
                     variant="primary"
                     onPress={handleConfirmPress}
                     size="medium"
-                    disabled={
-                      swapSteps.preSwapData.estimateNetworkFeeLoading ||
-                      swapSteps.preSwapData.swapBuildLoading ||
-                      swapSteps.preSwapData.stepBeforeActionsLoading
-                    }
+                    disabled={isPrimaryButtonDisabled}
                   >
                     {actionBtnTest}
                   </Button>
