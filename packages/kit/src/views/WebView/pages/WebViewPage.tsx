@@ -8,6 +8,7 @@ import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
+import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -96,12 +97,12 @@ function WebViewPageContent() {
     }
   }, [webviewRef]);
 
-  // Capture the Electron <webview>'s contents id once it's available. The
-  // captured id is then mirrored to (a) the renderer-side overlay registry
-  // so Discovery's popup listener skips overlay-sourced events, and (b) the
-  // main-process overlay registry via `useOverlayDesktopPopup` so
-  // `will-redirect` / `will-navigate` apply the strict overlay URL policy
-  // before any network request is sent.
+  // Capture the Electron <webview>'s contents id once it's available, and
+  // mirror it into the renderer-side overlay registry so Discovery's
+  // global popup listener skips overlay-sourced events. The main-process
+  // pre-navigation guard does NOT depend on this — it identifies overlay
+  // webviews by partition (`DESKTOP_WEBVIEW_OVERLAY_PARTITION`) at
+  // `web-contents-created` time, before any navigation can fire.
   const ensureDesktopContentsIdCaptured = useCallback(() => {
     if (!platformEnv.isDesktop) return;
     if (desktopContentsId !== null) return;
@@ -130,9 +131,9 @@ function WebViewPageContent() {
     [ensureDesktopContentsIdCaptured, refreshElectronCanGoBack],
   );
 
-  // Hook the contents id into both the renderer-side overlay registry
-  // (Discovery's popup listener filter) and the main-process registry
-  // (pre-navigation guard for SSRF-class redirects).
+  // Hook the contents id into the renderer-side overlay registry so
+  // Discovery's `WEBVIEW_NEW_WINDOW` listener skips overlay-sourced popups.
+  // (Main-process pre-nav protection is handled separately via partition.)
   useEffect(() => {
     if (desktopContentsId === null) return;
     const cleanup = registerOverlayWebContentsId(desktopContentsId);
@@ -381,6 +382,7 @@ function WebViewPageContent() {
           allowpopups
           disableBridge
           mediaPermissionWhitelist={OVERLAY_NO_MEDIA_WHITELIST}
+          partition={DESKTOP_WEBVIEW_OVERLAY_PARTITION}
           useInjectedNativeCode={false}
         />
       </Page.Body>

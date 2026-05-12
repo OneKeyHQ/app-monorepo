@@ -73,6 +73,7 @@ const DesktopWebView = forwardRef(
       receiveHandler,
       allowpopups,
       disableBridge,
+      partition: partitionProp,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -501,7 +502,7 @@ const DesktopWebView = forwardRef(
           ref={initWebviewByRef}
           {...(disableBridge ? {} : { preload: preloadJsUrl })}
           src={src}
-          partition="persist:onekey"
+          partition={partitionProp ?? 'persist:onekey'}
           style={{
             'width': '100%',
             'height': '100%',

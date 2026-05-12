@@ -102,6 +102,15 @@ export interface IInpageProviderWebViewProps
    * - Desktop: skips preload script and backgroundApiProxy.connectBridge()
    */
   disableBridge?: boolean;
+  /** @platform desktop
+   * @description Electron <webview> partition string. Defaults to the shared
+   * Discovery / wallet partition. Overlay pages opened from deeplink /
+   * notification use a dedicated partition so the desktop main process can
+   * tag the contents id at `web-contents-created` time — before any
+   * navigation event can fire — and apply the strict overlay URL policy in
+   * `will-redirect` / `will-navigate` without renderer registration races.
+   */
+  partition?: string;
 }
 
 export type IWebViewRef = {

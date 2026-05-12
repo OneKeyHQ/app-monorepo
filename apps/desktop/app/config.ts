@@ -85,11 +85,9 @@ export const ipcMessageKeys = {
 
   SET_ONEKEY_DESKTOP_GLOBALS: 'onekey/setDesktopGlobals',
 
-  // webview — channel names live in `shared/src/consts/desktopIpcChannels`
+  // webview — channel name lives in `shared/src/consts/desktopIpcChannels`
   // so non-app packages can subscribe without importing from `apps/desktop`.
   WEBVIEW_NEW_WINDOW: EDesktopIpcChannel.WEBVIEW_NEW_WINDOW,
-  WEBVIEW_OVERLAY_REGISTER: EDesktopIpcChannel.WEBVIEW_OVERLAY_REGISTER,
-  WEBVIEW_OVERLAY_UNREGISTER: EDesktopIpcChannel.WEBVIEW_OVERLAY_UNREGISTER,
 
   // notification
   NOTIFICATION_SET_BADGE_WINDOWS: 'notification/setBadge/windows',

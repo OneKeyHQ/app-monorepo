@@ -84,6 +84,11 @@ export interface IWebViewProps
    * @see IInpageProviderWebViewProps.disableBridge
    */
   disableBridge?: boolean;
+  /** @platform desktop
+   * @description Electron <webview> partition string.
+   * @see IInpageProviderWebViewProps.partition
+   */
+  partition?: string;
 }
 
 const WebView: FC<IWebViewProps> = ({

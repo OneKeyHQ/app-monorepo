@@ -86,14 +86,6 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
   stopServer: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
-  /**
-   * Tag a <webview> contents id as belonging to the overlay route. Main
-   * process applies the strict overlay URL policy (isAllowedWebViewUrl) to
-   * `will-redirect` / `will-navigate` for that webview, blocking SSRF-class
-   * targets before the network request is sent.
-   */
-  webviewOverlayRegister: (webContentsId: number) => void;
-  webviewOverlayUnregister: (webContentsId: number) => void;
   nobleBle: INobleBleApi;
   getCpuUsage: () => Promise<{ usage: number }>;
   getMemoryUsage: () => Promise<{

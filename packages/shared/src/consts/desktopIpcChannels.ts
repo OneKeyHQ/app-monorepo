@@ -13,8 +13,6 @@
 
 export const EDesktopIpcChannel = {
   WEBVIEW_NEW_WINDOW: 'webview/newWindow',
-  WEBVIEW_OVERLAY_REGISTER: 'webview/overlayRegister',
-  WEBVIEW_OVERLAY_UNREGISTER: 'webview/overlayUnregister',
 } as const;
 
 export type EDesktopIpcChannel =

@@ -153,17 +153,6 @@ const desktopApi = {
   },
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
-  // Renderer-to-main: tag / untag a <webview> contents id as the overlay
-  // route so main-process pre-navigation guards (`will-redirect`,
-  // `will-navigate`) apply the strict overlay URL policy.
-  webviewOverlayRegister: (webContentsId: number) =>
-    ipcRenderer.send(ipcMessageKeys.WEBVIEW_OVERLAY_REGISTER, {
-      webContentsId,
-    }),
-  webviewOverlayUnregister: (webContentsId: number) =>
-    ipcRenderer.send(ipcMessageKeys.WEBVIEW_OVERLAY_UNREGISTER, {
-      webContentsId,
-    }),
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;
