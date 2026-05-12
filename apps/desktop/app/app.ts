@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
 import {
@@ -973,10 +974,54 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
   });
 
+  // Renderer (overlay route) registers its <webview> contents id here so the
+  // main-process pre-navigation guard below can apply the strict overlay URL
+  // policy. The `will-redirect` / `will-navigate` events run BEFORE any
+  // network request is sent, which is the only stage where SSRF-class
+  // targets (loopback / private / metadata IPs) can actually be blocked —
+  // the renderer's `did-redirect-navigation` fires too late (after the
+  // redirect response has already been processed).
+  const overlayWebContentsIds = new Set<number>();
+  ipcMain.removeAllListeners(ipcMessageKeys.WEBVIEW_OVERLAY_REGISTER);
+  ipcMain.on(
+    ipcMessageKeys.WEBVIEW_OVERLAY_REGISTER,
+    (_event, payload: { webContentsId?: number }) => {
+      if (typeof payload?.webContentsId === 'number') {
+        overlayWebContentsIds.add(payload.webContentsId);
+      }
+    },
+  );
+  ipcMain.removeAllListeners(ipcMessageKeys.WEBVIEW_OVERLAY_UNREGISTER);
+  ipcMain.on(
+    ipcMessageKeys.WEBVIEW_OVERLAY_UNREGISTER,
+    (_event, payload: { webContentsId?: number }) => {
+      if (typeof payload?.webContentsId === 'number') {
+        overlayWebContentsIds.delete(payload.webContentsId);
+      }
+    },
+  );
+
   // Prevents clicking on links to open new Windows
   app.removeAllListeners('web-contents-created');
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
+      const guardOverlayPreNavigation = (
+        navigationEvent: Electron.Event,
+        url: string,
+      ) => {
+        if (!overlayWebContentsIds.has(contents.id)) return;
+        if (isAllowedWebViewUrl(url)) return;
+        navigationEvent.preventDefault();
+        logger.info(
+          'overlay pre-navigation block (main process):',
+          url,
+        );
+      };
+      contents.on('will-redirect', guardOverlayPreNavigation);
+      contents.on('will-navigate', guardOverlayPreNavigation);
+      contents.on('destroyed', () => {
+        overlayWebContentsIds.delete(contents.id);
+      });
       contents.setWindowOpenHandler((handleDetails) => {
         const safelyMainWindow = getSafelyMainWindow();
         // Forward the source webContents id so renderer listeners can

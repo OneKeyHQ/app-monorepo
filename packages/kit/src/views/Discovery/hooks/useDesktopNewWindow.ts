@@ -1,8 +1,8 @@
 import { useCallback, useEffect } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -53,7 +53,7 @@ export function useDesktopNewWindow() {
   );
   useEffect(() => {
     const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
-      ipcMessageKeys.WEBVIEW_NEW_WINDOW,
+      EDesktopIpcChannel.WEBVIEW_NEW_WINDOW,
       onNewWindow,
     );
     return () => {

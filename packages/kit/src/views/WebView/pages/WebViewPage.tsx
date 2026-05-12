@@ -4,7 +4,6 @@ import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { useNavigation, useRoute } from '@react-navigation/core';
 
 import { Page, useBackHandler, useOnRouterChange } from '@onekeyhq/components';
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -20,6 +19,7 @@ import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety
 import AddressBar from '../components/AddressBar';
 import WebViewHeader from '../components/Header';
 import ProgressBar from '../components/ProgressBar';
+import { useOverlayDesktopPopup } from '../hooks/useOverlayDesktopPopup';
 import { resolveOverlayDisplay } from '../utils/displayPolicy';
 import { registerOverlayWebContentsId } from '../utils/overlayContentsRegistry';
 
@@ -49,12 +49,13 @@ function WebViewPageContent() {
   const [currentTitle, setCurrentTitle] = useState<string>('');
   const [progress, setProgress] = useState(initialUrl ? 5 : 100);
   const [canGoBack, setCanGoBack] = useState(false);
+  const [desktopContentsId, setDesktopContentsId] = useState<number | null>(
+    null,
+  );
 
   const lastHistoryUrlRef = useRef<string>('');
   const currentTitleRef = useRef<string>('');
   const isClosingRef = useRef<boolean>(false);
-  const desktopContentsIdRef = useRef<number | null>(null);
-  const desktopRegistryCleanupRef = useRef<(() => void) | null>(null);
   const { addBrowserHistory } = useBrowserHistoryAction().current;
 
   // Keep title state and ref in sync. The ref lets the history-write effect
@@ -95,13 +96,15 @@ function WebViewPageContent() {
     }
   }, [webviewRef]);
 
-  // Capture and register the Electron <webview>'s contents id once it's
-  // available. Desktop popup IPC (`WEBVIEW_NEW_WINDOW`) is global; the
-  // registry lets Discovery's listener skip overlay-sourced events so they
-  // are not routed through Discovery's looser `validateWebviewSrc` policy.
-  const ensureDesktopContentsIdRegistered = useCallback(() => {
+  // Capture the Electron <webview>'s contents id once it's available. The
+  // captured id is then mirrored to (a) the renderer-side overlay registry
+  // so Discovery's popup listener skips overlay-sourced events, and (b) the
+  // main-process overlay registry via `useOverlayDesktopPopup` so
+  // `will-redirect` / `will-navigate` apply the strict overlay URL policy
+  // before any network request is sent.
+  const ensureDesktopContentsIdCaptured = useCallback(() => {
     if (!platformEnv.isDesktop) return;
-    if (desktopContentsIdRef.current !== null) return;
+    if (desktopContentsId !== null) return;
     const innerRef = webviewRef.current?.innerRef as
       | IElectronWebView
       | undefined;
@@ -109,12 +112,11 @@ function WebViewPageContent() {
     try {
       const id = innerRef.getWebContentsId();
       if (typeof id !== 'number') return;
-      desktopContentsIdRef.current = id;
-      desktopRegistryCleanupRef.current = registerOverlayWebContentsId(id);
+      setDesktopContentsId(id);
     } catch {
       // contents not yet attached — retry on next navigation event
     }
-  }, [webviewRef]);
+  }, [desktopContentsId, webviewRef]);
 
   const onDidStartNavigation = useCallback(
     (event: { url: string; isMainFrame: boolean }) => {
@@ -123,10 +125,21 @@ function WebViewPageContent() {
         setCurrentUrl(event.url);
       }
       refreshElectronCanGoBack();
-      ensureDesktopContentsIdRegistered();
+      ensureDesktopContentsIdCaptured();
     },
-    [ensureDesktopContentsIdRegistered, refreshElectronCanGoBack],
+    [ensureDesktopContentsIdCaptured, refreshElectronCanGoBack],
   );
+
+  // Hook the contents id into both the renderer-side overlay registry
+  // (Discovery's popup listener filter) and the main-process registry
+  // (pre-navigation guard for SSRF-class redirects).
+  useEffect(() => {
+    if (desktopContentsId === null) return;
+    const cleanup = registerOverlayWebContentsId(desktopContentsId);
+    return () => {
+      cleanup();
+    };
+  }, [desktopContentsId]);
 
   const onPageTitleUpdated = useCallback(
     (event: { title: string }) => {
@@ -254,36 +267,14 @@ function WebViewPageContent() {
       } catch {
         // ignore — native resources may already be freed
       }
-      desktopRegistryCleanupRef.current?.();
-      desktopRegistryCleanupRef.current = null;
-      desktopContentsIdRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Desktop popup handler. Electron's main process sends WEBVIEW_NEW_WINDOW
-  // tagged with the source webContents id; we only handle events from our
-  // own webview and apply the strict overlay policy (https-only, no local
-  // addresses, no deeplinks). Discovery's global listener skips events
-  // matching our id via the overlay-contents registry.
-  useEffect(() => {
-    if (!platformEnv.isDesktop) return;
-    const handler = (data: { url?: string; sourceWebContentsId?: number }) => {
-      const targetUrl = data?.url;
-      if (!targetUrl) return;
-      if (desktopContentsIdRef.current === null) return;
-      if (data.sourceWebContentsId !== desktopContentsIdRef.current) return;
-      if (!isAllowedWebViewUrl(targetUrl)) return;
-      openUrlExternal(targetUrl);
-    };
-    const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
-      ipcMessageKeys.WEBVIEW_NEW_WINDOW,
-      handler,
-    );
-    return () => {
-      unsubscribe?.();
-    };
-  }, []);
+  // Desktop popup + main-process pre-nav-guard registration — implemented
+  // in `useOverlayDesktopPopup.desktop.ts`; a no-op on native/web. Keeps
+  // this page free of `apps/desktop` imports.
+  useOverlayDesktopPopup({ webContentsId: desktopContentsId });
 
   const onWebViewRef = useCallback(
     (ref: Parameters<typeof setWebViewRef>[0] | null) => {
