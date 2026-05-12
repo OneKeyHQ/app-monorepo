@@ -270,19 +270,15 @@ diff --git a/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts b/node_
 index 2746587..63998e1 100644
 --- a/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts
 +++ b/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts
-@@ -16,0 +17,12 @@ export interface Spec extends TurboModule {
-+  aesGcmEncrypt(
-+    data: string,
-+    key: string,
-+    nonce: string,
-+    aad: string,
-+  ): Promise<string>;
-+  aesGcmDecrypt(
-+    ciphertextWithTag: string,
-+    key: string,
-+    nonce: string,
-+    aad: string,
-+  ): Promise<string>;
+@@ -14,6 +14,8 @@ export interface Spec extends TurboModule {
+     iv: string,
+     algorithm: string,
+   ): Promise<string>;
++  aesGcmEncrypt(data: string, key: string, nonce: string, aad: string): Promise<string>;
++  aesGcmDecrypt(ciphertextWithTag: string, key: string, nonce: string, aad: string): Promise<string>;
+   pbkdf2(
+     password: string,
+     salt: string,
 diff --git a/node_modules/react-native-aes-crypto/src/index.tsx b/node_modules/react-native-aes-crypto/src/index.tsx
 index 9c27e53..a3136f0 100644
 --- a/node_modules/react-native-aes-crypto/src/index.tsx
