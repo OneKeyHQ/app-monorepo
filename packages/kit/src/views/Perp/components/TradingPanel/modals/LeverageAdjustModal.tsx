@@ -35,6 +35,7 @@ import {
   buildHelpUrl,
   openGuideUrl,
 } from '../../Guide/perpGuideData';
+import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
@@ -292,6 +293,7 @@ export const LeverageAdjustModal = memo(
             />
           </PerpsProviderMirror>
         ),
+        contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
         showFooter: false,
       });
     }, [userAddress, currentToken, activeAssetData, dialog, intl]);

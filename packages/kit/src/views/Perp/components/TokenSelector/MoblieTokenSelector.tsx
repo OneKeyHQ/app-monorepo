@@ -931,7 +931,7 @@ function MobileTokenSelectorModal({
           </Stack>
         ) : null}
       </Stack>
-      <XStack px="$4" py="$2" justifyContent="space-between">
+      <XStack px="$4" pt="$3" pb="$0.5" justifyContent="space-between">
         <XStack
           gap="$1"
           alignItems="center"
@@ -992,7 +992,7 @@ function MobileTokenSelectorModal({
         </XStack>
       </XStack>
       <Page.Body>
-        <YStack flex={1} mt="$2">
+        <YStack flex={1}>
           {isListReady ? (
             <ListView
               useFlashList
