@@ -224,6 +224,142 @@ function AESCbcTest() {
   );
 }
 
+function AESGcmV2Test() {
+  const [result, setResult] = useState('');
+
+  const testAESGcmV2 = async () => {
+    try {
+      const { decryptAsync, encryptAsync } = await loadCoreSecret();
+      const tasks: IRunAppCryptoTestTaskResult[] = [];
+      const data = Buffer.from('onekey-aes-gcm-v2-gallery-test', 'utf8');
+      const key = Buffer.from(
+        '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f',
+        'hex',
+      );
+      const nonce = Buffer.from('202122232425262728292a2b', 'hex');
+      const aad = Buffer.from('onekey-gallery-aad-v1', 'utf8');
+      const password = 'onekey-gallery-password';
+      const v2MagicHex = Buffer.from('1K_ENC_V2', 'utf8').toString('hex');
+
+      const nobleEncrypted = appCrypto.aesGcm.aesGcmEncryptByNoble({
+        nonce,
+        key,
+        data,
+        aad,
+      });
+
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: bufferUtils.bytesToHex(nobleEncrypted),
+          name: 'AES-GCM default wrapper matches noble',
+          fn: () =>
+            appCrypto.aesGcm.aesGcmEncrypt({
+              nonce,
+              key,
+              data,
+              aad,
+            }),
+        }),
+      );
+
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: bufferUtils.bytesToHex(nobleEncrypted),
+          name: 'AES-GCM native wrapper matches noble',
+          fn: () =>
+            appCrypto.aesGcm.aesGcmEncryptByRNAes({
+              nonce,
+              key,
+              data,
+              aad,
+            }),
+        }),
+      );
+
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: bufferUtils.bytesToHex(data),
+          name: 'AES-GCM native decrypt',
+          fn: () =>
+            appCrypto.aesGcm.aesGcmDecryptByRNAes({
+              nonce,
+              key,
+              data: nobleEncrypted,
+              aad,
+            }),
+        }),
+      );
+
+      const encryptedV2 = await encryptAsync({
+        password,
+        data,
+        allowRawPassword: true,
+      });
+      const encryptedV2Hex = bufferUtils.bytesToHex(encryptedV2);
+
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: 'true',
+          name: 'encryptAsync default writes 1K_ENC_V2',
+          fn: () => String(encryptedV2Hex.startsWith(v2MagicHex)),
+        }),
+      );
+
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: bufferUtils.bytesToHex(data),
+          name: 'decryptAsync reads v2 payload',
+          fn: () =>
+            decryptAsync({
+              password,
+              data: encryptedV2,
+              allowRawPassword: true,
+            }),
+        }),
+      );
+
+      setResult(
+        stringUtils.stableStringify(
+          {
+            v2MagicHex,
+            encryptedV2PrefixHex: encryptedV2Hex.slice(0, v2MagicHex.length),
+            tasks,
+          },
+          stringUtils.STRINGIFY_REPLACER.bufferToHex,
+          2,
+        ),
+      );
+
+      const allPassed = tasks.every(
+        (t) => t.isCorrect === AppCryptoTestEmoji.isCorrect,
+      );
+      if (allPassed) {
+        Toast.success({
+          title: 'AES-GCM v2 test passed',
+        });
+      } else {
+        Toast.error({
+          title: 'AES-GCM v2 test failed',
+        });
+      }
+    } catch (error) {
+      setResult(`Error: ${(error as Error).message}`);
+      Toast.error({
+        title: `AES-GCM v2 failed: ${(error as Error).message}`,
+      });
+    }
+  };
+
+  return (
+    <PartContainer title="AES-GCM v2 Test">
+      <Button variant="primary" onPress={testAESGcmV2}>
+        Test AES-GCM v2 Native
+      </Button>
+      {result ? <SizableText size="$bodyMd">{result}</SizableText> : null}
+    </PartContainer>
+  );
+}
+
 /**
  * Test crypto.subtle polyfill
  * This polyfill is required for Supabase Auth PKCE flow on React Native
@@ -890,6 +1026,9 @@ const CryptoGallery = () => (
               </CustomAccordionItem>
               <CustomAccordionItem title="AES-CBC Test">
                 <AESCbcTest />
+              </CustomAccordionItem>
+              <CustomAccordionItem title="AES-GCM v2 Test">
+                <AESGcmV2Test />
               </CustomAccordionItem>
               <CustomAccordionItem title="crypto.subtle Polyfill Test">
                 <CryptoSubtlePolyfillTest />
