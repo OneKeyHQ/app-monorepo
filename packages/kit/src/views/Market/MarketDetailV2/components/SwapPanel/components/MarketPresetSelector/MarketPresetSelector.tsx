@@ -8,6 +8,7 @@ import {
   Button,
   Dialog,
   Divider,
+  Heading,
   Icon,
   Input,
   ScrollView,
@@ -76,8 +77,9 @@ type IDraftPresetSettings = Partial<
 >;
 
 const MARKET_PRESET_DIALOG_TOP_SAFE_GAP = 16;
-const MARKET_PRESET_DIALOG_CHROME_HEIGHT = 220;
+const MARKET_PRESET_DIALOG_CHROME_HEIGHT = 176;
 const MARKET_PRESET_DIALOG_MIN_CONTENT_HEIGHT = 120;
+const MARKET_PRESET_SLIPPAGE_INPUT_PROPS = { autoFocus: false } as const;
 const READONLY_PRIORITY_FEE_DISPLAY_TYPES = [
   EMarketPresetPriorityFeeType.AUTO,
   EMarketPresetPriorityFeeType.CUSTOM,
@@ -240,11 +242,11 @@ function MarketPresetDialogHeader({ networkId }: { networkId?: string }) {
     <Dialog.Header>
       <XStack alignItems="center" gap="$2" py="$px">
         <NetworkAvatar networkId={networkId} size="$6" />
-        <SizableText size="$headingSm">
+        <Heading size="$headingXl" py="$px">
           {intl.formatMessage({
             id: ETranslations.marketdex_edit_presets_title,
           })}
-        </SizableText>
+        </Heading>
       </XStack>
     </Dialog.Header>
   );
@@ -972,6 +974,7 @@ function MarketPresetSettingsDialog({
                             },
                           }));
                         }}
+                        props={MARKET_PRESET_SLIPPAGE_INPUT_PROPS}
                       />
                       <XStack>
                         {swapSlippageCustomDefaultList.map((item, index) => (

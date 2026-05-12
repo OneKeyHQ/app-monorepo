@@ -776,7 +776,7 @@ describe('searchResultRanking', () => {
     ]);
   });
 
-  it('keeps a same-url dapp behind local history when it is not promoted', () => {
+  it('hides same-url history when the dapp is not promoted', () => {
     const result = mergeSearchResultsWithLocalData({
       keyword: 'aav',
       searchResult: [
@@ -810,10 +810,6 @@ describe('searchResultRanking', () => {
         title: item.title,
       })),
     ).toEqual([
-      {
-        type: 'history',
-        title: 'Aave - Open Source Liquidity Protocol',
-      },
       {
         type: 'dapp',
         title: 'AAVE',
@@ -1211,6 +1207,57 @@ describe('searchResultRanking', () => {
       {
         type: 'bookmark',
         url: 'https://app.uniswap.org/swap',
+      },
+    ]);
+  });
+
+  it('hides exact history duplicates while keeping history weight on dapps', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'swap',
+      searchResult: [
+        createDApp({
+          dappId: 'alpha',
+          name: 'Swap Alpha',
+          url: 'https://alpha.example',
+        }),
+        createDApp({
+          dappId: 'bravo',
+          name: 'Swap Bravo',
+          url: 'https://bravo.example',
+        }),
+      ],
+      rankingHistoryData: [
+        createHistory({
+          id: 'history-bravo',
+          title: 'Swap Bravo',
+          url: 'https://bravo.example',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+      bookmarkSearchData: [],
+      historySearchData: [
+        createHistory({
+          id: 'history-bravo',
+          title: 'Swap Bravo',
+          url: 'https://bravo.example',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        url: item.url,
+      })),
+    ).toEqual([
+      {
+        type: 'dapp',
+        url: 'https://bravo.example',
+      },
+      {
+        type: 'dapp',
+        url: 'https://alpha.example',
       },
     ]);
   });
