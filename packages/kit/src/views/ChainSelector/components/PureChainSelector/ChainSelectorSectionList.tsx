@@ -31,6 +31,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
+import { useAndroidFlashListInitialScrollFix } from '../../hooks/useAndroidFlashListInitialScrollFix';
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
 import { ChainSelectorTestIDs } from '../../testIDs';
 import { CELL_HEIGHT } from '../../types';
@@ -60,6 +61,8 @@ type IChainSelectorSectionListContentProps = {
   recentNetworksEnabled?: boolean;
   networks: IServerNetworkMatch[];
   listRef: React.RefObject<ISortableSectionListRef<any>>;
+  onScrollBeginDrag?: () => void;
+  androidScrollProps?: Record<string, unknown>;
   accountNetworkValues?: Record<string, string>;
   accountNetworkValueCurrency?: string;
   hideLowValueNetworkValue?: boolean;
@@ -71,6 +74,8 @@ const ChainSelectorSectionListContent = ({
   networkId,
   initialScrollIndex,
   listRef,
+  onScrollBeginDrag,
+  androidScrollProps,
   accountNetworkValues,
   accountNetworkValueCurrency,
   hideLowValueNetworkValue,
@@ -107,6 +112,8 @@ const ChainSelectorSectionListContent = ({
       keyExtractor={(item) => (item as IServerNetworkMatch).id}
       renderSectionHeader={renderSectionHeader}
       initialScrollIndex={initialScrollIndex}
+      {...androidScrollProps}
+      onScrollBeginDrag={onScrollBeginDrag}
       renderItem={({
         item,
         section,
@@ -417,6 +424,18 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     }
   }, [initialScrollIndex, layoutList]);
 
+  const loading = useMemo(() => {
+    return platformEnv.isNative ? isPending || isTyping : isPending;
+  }, [isPending, isTyping]);
+
+  const { scrollProps: androidScrollProps, onScrollBeginDrag } =
+    useAndroidFlashListInitialScrollFix({
+      listRef,
+      initialIndex: initialScrollIndex?.initialScrollIndexNumber,
+      enabled: !loading && !text.trim() && sections.length > 0,
+      contentKey: sections,
+    });
+
   const renderSections = useCallback(
     () =>
       sections.length ? (
@@ -428,6 +447,8 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           initialScrollIndex={initialScrollIndex?.initialScrollIndexNumber ?? 0}
           recentNetworksEnabled={recentNetworksEnabled}
           listRef={listRef as any}
+          onScrollBeginDrag={onScrollBeginDrag}
+          androidScrollProps={androidScrollProps}
           accountNetworkValues={accountNetworkValues}
           accountNetworkValueCurrency={accountNetworkValueCurrency}
           hideLowValueNetworkValue={hideLowValueNetworkValue}
@@ -445,12 +466,10 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
       accountNetworkValues,
       accountNetworkValueCurrency,
       hideLowValueNetworkValue,
+      onScrollBeginDrag,
+      androidScrollProps,
     ],
   );
-
-  const loading = useMemo(() => {
-    return platformEnv.isNative ? isPending || isTyping : isPending;
-  }, [isPending, isTyping]);
 
   const loadingElement = useMemo(
     () =>

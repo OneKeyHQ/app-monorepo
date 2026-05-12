@@ -7,12 +7,10 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 type IWalletInfoGetter = () => Promise<unknown>;
 
-type IGlobalNetInfo = {
-  listeners: unknown[];
-  state: {
-    isInternetReachable: boolean | null;
-  };
-  prevIsInternetReachable: boolean;
+type IDeferredPromise = {
+  promise: Promise<null>;
+  resolve: jest.Mock;
+  reset: jest.Mock;
 };
 
 const globalMockBag = globalThis as typeof globalThis & {
@@ -22,7 +20,6 @@ const globalMockBag = globalThis as typeof globalThis & {
     };
     serviceReferralCode: {
       batchCheckWalletsBoundReferralCodeV2: jest.Mock;
-      batchCheckWalletsBoundReferralCode: jest.Mock;
       getWalletReferralCode: jest.Mock;
       setWalletReferralCode: jest.Mock;
     };
@@ -35,21 +32,6 @@ function getFetchWalletInfoMock(): IWalletInfoGetter {
     __referralFetchWalletInfoMock?: IWalletInfoGetter;
   };
   return mockBag.__referralFetchWalletInfoMock ?? (async () => null);
-}
-
-function getReferralGlobalNetInfo(): IGlobalNetInfo {
-  const mockBag = globalThis as typeof globalThis & {
-    __referralGlobalNetInfo?: IGlobalNetInfo;
-  };
-  return (
-    mockBag.__referralGlobalNetInfo ?? {
-      listeners: [],
-      state: {
-        isInternetReachable: null,
-      },
-      prevIsInternetReachable: false,
-    }
-  );
 }
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -67,23 +49,19 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
 }));
 
-jest.mock('@onekeyhq/components', () => {
-  const deferredPromiseModule = require('../../../../../../components/src/hooks/useDeferredPromise');
-  const netInfoModule = require('../../../../../../components/src/hooks/useNetInfo');
-  (
-    globalThis as typeof globalThis & {
-      __referralGlobalNetInfo?: IGlobalNetInfo;
-    }
-  ).__referralGlobalNetInfo = netInfoModule.globalNetInfo as IGlobalNetInfo;
-
-  return {
-    __esModule: true,
-    getCurrentVisibilityState: () => true,
-    onVisibilityStateChange: () => () => {},
-    useDeferredPromise: deferredPromiseModule.useDeferredPromise,
-    useNetInfo: netInfoModule.useNetInfo,
-  };
-});
+jest.mock('@onekeyhq/components', () => ({
+  __esModule: true,
+  getCurrentVisibilityState: () => true,
+  onVisibilityStateChange: () => () => {},
+  useDeferredPromise: (): IDeferredPromise => ({
+    promise: Promise.resolve(null),
+    resolve: jest.fn(),
+    reset: jest.fn(),
+  }),
+  useNetInfo: () => ({
+    isRawInternetReachable: true,
+  }),
+}));
 
 jest.mock('./useGetReferralCodeWalletInfo', () => ({
   useGetReferralCodeWalletInfo: () => getFetchWalletInfoMock(),
@@ -96,7 +74,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     },
     serviceReferralCode: {
       batchCheckWalletsBoundReferralCodeV2: jest.fn(),
-      batchCheckWalletsBoundReferralCode: jest.fn(),
       getWalletReferralCode: jest.fn(),
       setWalletReferralCode: jest.fn(),
     },
@@ -133,10 +110,6 @@ function createWalletInfo() {
 describe('useFetchWalletsWithBoundStatus', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    const globalNetInfo = getReferralGlobalNetInfo();
-    globalNetInfo.listeners = [];
-    globalNetInfo.state = { isInternetReachable: null };
-    globalNetInfo.prevIsInternetReachable = false;
 
     globalMockBag.__referralFetchWalletInfoMock = jest
       .fn()
@@ -147,106 +120,22 @@ describe('useFetchWalletsWithBoundStatus', () => {
         wallets: [createWallet()],
       },
     );
-    globalMockBag.__referralFetchBg?.serviceReferralCode.setWalletReferralCode.mockResolvedValue(
-      undefined,
-    );
     globalMockBag.__referralFetchBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
       null,
     );
+    globalMockBag.__referralFetchBg?.serviceReferralCode.setWalletReferralCode.mockResolvedValue(
+      undefined,
+    );
   });
 
-  it('preserves cached bindable during V1 fallback when V2 is unavailable', async () => {
-    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockRejectedValue(
-      new Error('not found'),
-    );
-    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCode.mockResolvedValue(
-      {
-        'evm--1:0xabc': false,
-      },
-    );
+  it('uses V2 for UI status even when local data says bound', async () => {
     globalMockBag.__referralFetchBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
       {
         walletId: 'hd-1',
-        isBound: false,
+        isBound: true,
         bindable: false,
       },
     );
-
-    const { result } = renderHook(() => useFetchWalletsWithBoundStatus());
-
-    await waitFor(() => {
-      expect(result.current.walletsWithStatus).toEqual([
-        expect.objectContaining({
-          wallet: expect.objectContaining({ id: 'hd-1' }),
-          isBound: false,
-          bindable: false,
-          reason: undefined,
-        }),
-      ]);
-    });
-
-    expect(
-      globalMockBag.__referralFetchBg?.serviceReferralCode
-        .batchCheckWalletsBoundReferralCode,
-    ).toHaveBeenCalledWith([
-      {
-        address: '0xabc',
-        networkId: 'evm--1',
-      },
-    ]);
-    expect(
-      globalMockBag.__referralFetchBg?.serviceReferralCode
-        .setWalletReferralCode,
-    ).toHaveBeenCalledWith({
-      walletId: 'hd-1',
-      referralCodeInfo: {
-        walletId: 'hd-1',
-        address: '0xabc',
-        networkId: 'evm--1',
-        pubkey: 'pubkey-1',
-        isBound: false,
-        bindable: false,
-        bindWindowReason: undefined,
-      },
-    });
-  });
-
-  it('keeps cached status and skips persistence when both batch APIs fail', async () => {
-    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockRejectedValue(
-      new Error('server failed'),
-    );
-    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCode.mockRejectedValue(
-      new Error('server failed'),
-    );
-    globalMockBag.__referralFetchBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
-      {
-        walletId: 'hd-1',
-        isBound: false,
-        bindable: false,
-        bindWindowReason: 'exceeded_bind_window',
-      },
-    );
-
-    const { result } = renderHook(() => useFetchWalletsWithBoundStatus());
-
-    await waitFor(() => {
-      expect(result.current.walletsWithStatus).toEqual([
-        expect.objectContaining({
-          wallet: expect.objectContaining({ id: 'hd-1' }),
-          isBound: false,
-          bindable: false,
-          reason: 'exceeded_bind_window',
-        }),
-      ]);
-    });
-
-    expect(
-      globalMockBag.__referralFetchBg?.serviceReferralCode
-        .setWalletReferralCode,
-    ).not.toHaveBeenCalled();
-  });
-
-  it('uses V2 bindability and reason when the server supports the new API', async () => {
     globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockResolvedValue(
       {
         'evm--1:0xabc': {
@@ -266,32 +155,148 @@ describe('useFetchWalletsWithBoundStatus', () => {
           isBound: false,
           bindable: false,
           reason: 'exceeded_bind_window',
+          status: 'expired',
         }),
       ]);
     });
 
     expect(
       globalMockBag.__referralFetchBg?.serviceReferralCode
-        .batchCheckWalletsBoundReferralCode,
-    ).not.toHaveBeenCalled();
-    expect(
-      globalMockBag.__referralFetchBg?.serviceReferralCode
-        .getWalletReferralCode,
-    ).not.toHaveBeenCalled();
+        .batchCheckWalletsBoundReferralCodeV2,
+    ).toHaveBeenCalled();
     expect(
       globalMockBag.__referralFetchBg?.serviceReferralCode
         .setWalletReferralCode,
-    ).toHaveBeenCalledWith({
-      walletId: 'hd-1',
-      referralCodeInfo: {
-        walletId: 'hd-1',
-        address: '0xabc',
-        networkId: 'evm--1',
-        pubkey: 'pubkey-1',
-        isBound: false,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('returns unknown and skips persistence when V2 fails', async () => {
+    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockRejectedValue(
+      new Error('server failed'),
+    );
+
+    const { result } = renderHook(() => useFetchWalletsWithBoundStatus());
+
+    await waitFor(() => {
+      expect(result.current.walletsWithStatus).toEqual([
+        expect.objectContaining({
+          wallet: expect.objectContaining({ id: 'hd-1' }),
+          isBound: false,
+          status: 'unknown',
+        }),
+      ]);
+    });
+    expect(result.current.walletsWithStatus?.[0]).not.toEqual(
+      expect.objectContaining({
         bindable: false,
-        bindWindowReason: 'exceeded_bind_window',
+      }),
+    );
+    expect(
+      globalMockBag.__referralFetchBg?.serviceReferralCode
+        .setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('returns unknown and skips persistence when V2 omits the wallet', async () => {
+    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockResolvedValue(
+      {},
+    );
+
+    const { result } = renderHook(() => useFetchWalletsWithBoundStatus());
+
+    await waitFor(() => {
+      expect(result.current.walletsWithStatus).toEqual([
+        expect.objectContaining({
+          wallet: expect.objectContaining({ id: 'hd-1' }),
+          isBound: false,
+          status: 'unknown',
+        }),
+      ]);
+    });
+    expect(
+      globalMockBag.__referralFetchBg?.serviceReferralCode
+        .setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('shows expired only when V2 reports unbound expired', async () => {
+    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockResolvedValue(
+      {
+        'evm--1:0xabc': {
+          bound: false,
+          bindable: false,
+          reason: 'exceeded_bind_window',
+        },
       },
+    );
+
+    const { result } = renderHook(() => useFetchWalletsWithBoundStatus());
+
+    await waitFor(() => {
+      expect(result.current.walletsWithStatus).toEqual([
+        expect.objectContaining({
+          wallet: expect.objectContaining({ id: 'hd-1' }),
+          isBound: false,
+          bindable: false,
+          reason: 'exceeded_bind_window',
+          status: 'expired',
+        }),
+      ]);
+    });
+    expect(
+      globalMockBag.__referralFetchBg?.serviceReferralCode
+        .setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('keeps bound higher priority than expiration from V2', async () => {
+    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockResolvedValue(
+      {
+        'evm--1:0xabc': {
+          bound: true,
+          bindable: false,
+          reason: 'exceeded_bind_window',
+        },
+      },
+    );
+
+    const { result } = renderHook(() => useFetchWalletsWithBoundStatus());
+
+    await waitFor(() => {
+      expect(result.current.walletsWithStatus).toEqual([
+        expect.objectContaining({
+          wallet: expect.objectContaining({ id: 'hd-1' }),
+          isBound: true,
+          bindable: false,
+          reason: undefined,
+          status: 'bound',
+        }),
+      ]);
+    });
+  });
+
+  it('treats unbound non-expired V2 status as bindable', async () => {
+    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockResolvedValue(
+      {
+        'evm--1:0xabc': {
+          bound: false,
+          bindable: false,
+        },
+      },
+    );
+
+    const { result } = renderHook(() => useFetchWalletsWithBoundStatus());
+
+    await waitFor(() => {
+      expect(result.current.walletsWithStatus).toEqual([
+        expect.objectContaining({
+          wallet: expect.objectContaining({ id: 'hd-1' }),
+          isBound: false,
+          bindable: true,
+          reason: undefined,
+          status: 'bindable',
+        }),
+      ]);
     });
   });
 });

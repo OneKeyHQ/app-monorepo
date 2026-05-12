@@ -26,6 +26,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { useAndroidFlashListInitialScrollFix } from '../../hooks/useAndroidFlashListInitialScrollFix';
 import { useFuseSearch } from '../../hooks/useFuseSearch';
 import { ChainSelectorTestIDs } from '../../testIDs';
 import ChainSelectorTooltip from '../ChainSelectorTooltip';
@@ -344,6 +345,14 @@ export const EditableChainSelectorContent = ({
     return idx + (initialScrollIndex.itemIndex ?? 0);
   }, [sections, initialScrollIndex]);
 
+  const { scrollProps: androidScrollProps, onScrollBeginDrag } =
+    useAndroidFlashListInitialScrollFix({
+      listRef,
+      initialIndex: initialScrollFlatIndex,
+      enabled: shouldRenderList && !searchText.trim(),
+      contentKey: sections,
+    });
+
   const context = useMemo<IEditableChainSelectorContext>(
     () => ({
       walletId: walletId ?? '',
@@ -472,8 +481,10 @@ export const EditableChainSelectorContent = ({
               // ISectionListProps (the web variant maps to FlatList),
               // so we funnel it through as any.
               {...(flashListOverrideProps as Record<string, unknown>)}
+              {...androidScrollProps}
               ListHeaderComponent={<ListHeaderComponent />}
               renderSectionHeader={renderSectionHeader}
+              onScrollBeginDrag={onScrollBeginDrag}
               contentContainerStyle={{ paddingBottom: bottom || 8 }}
             />
           ) : null}
