@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
-import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -9,6 +8,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 
 import platformEnv from '../../platformEnv';
+import { appRestart } from '../appRestart';
+import { EAppRestartMode } from '../appRestart/types';
 
 import type {
   IAppUpdate,
@@ -281,8 +282,15 @@ export const BundleUpdate: IBundleUpdate = {
       /* Silently fail — recovery must not block restart */
     }
     defaultLogger.app.appUpdate.restartRNApp();
+    // mode=All — OTA install rewrote bundle on disk; both main and bg
+    // runtimes need to come up against the new bundle so moduleId tables
+    // stay consistent. The setTimeout keeps the existing 2.5s grace
+    // window (MMKV / DB fsync, UI affordance) before reload triggers.
     setTimeout(() => {
-      RNRestart.restart();
+      void appRestart({
+        mode: EAppRestartMode.All,
+        reason: 'ota.installBundle',
+      });
     }, 2500);
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
@@ -296,8 +304,11 @@ export const BundleUpdate: IBundleUpdate = {
     } catch {
       /* Silently fail — recovery must not block restart */
     }
+    // Generic OTA-driven restart (retry path, dialog-confirmed restart).
+    // Treated as all-mode because callers expect the same semantics as a
+    // freshly-installed bundle.
     setTimeout(() => {
-      RNRestart.restart();
+      void appRestart({ mode: EAppRestartMode.All, reason: 'ota.restart' });
     }, 2500);
   },
   isSkipGpgVerificationAllowed: () =>
@@ -333,8 +344,13 @@ export const BundleUpdate: IBundleUpdate = {
       } catch {
         /* Silently fail — recovery must not block restart */
       }
+      // Switching bundles changes what's on disk for both main and bg;
+      // mode=All to avoid moduleId drift after the swap.
       setTimeout(() => {
-        RNRestart.restart();
+        void appRestart({
+          mode: EAppRestartMode.All,
+          reason: 'ota.switchBundle',
+        });
       }, 2500);
     }
   },

@@ -118,8 +118,11 @@ export class PageScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'info' })
-  public restartApp() {
-    return {};
+  public restartApp(args?: { mode?: string; reason?: string }) {
+    return {
+      mode: args?.mode ?? 'unknown',
+      reason: args?.reason ?? 'unknown',
+    };
   }
 
   @LogToServer()
