@@ -939,9 +939,9 @@ export function HomePageView({
   return useMemo(() => {
     return (
       <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
-        <Stack testID={HomeTestIDs.page} flex={1}>
-          <Page fullPage>{homePage}</Page>
-        </Stack>
+        <Page fullPage testID={HomeTestIDs.page}>
+          {homePage}
+        </Page>
       </HomeStickyHeaderContext.Provider>
     );
   }, [homePage, stickyHeaderCtx]);

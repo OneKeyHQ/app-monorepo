@@ -16,8 +16,11 @@ interface IProps {
 function MessageConfirmDetails(props: IProps) {
   const { accountId, networkId, displayComponents } = props;
 
+  // gap="$5" mirrors the parent YStack's spacing so the detail rows keep the
+  // same vertical rhythm they had before, when they flowed as direct children
+  // of the parent — the wrapper here is only for testID.
   return (
-    <YStack testID={SignatureConfirmTestIDs.MessageConfirmDetails}>
+    <YStack gap="$5" testID={SignatureConfirmTestIDs.MessageConfirmDetails}>
       <SignatureConfirmDetails
         accountId={accountId}
         networkId={networkId}

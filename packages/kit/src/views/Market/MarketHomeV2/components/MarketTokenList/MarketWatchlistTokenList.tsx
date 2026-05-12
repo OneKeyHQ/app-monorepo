@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Stack, Tabs, Toast } from '@onekeyhq/components';
+import { ActionList, Tabs, Toast } from '@onekeyhq/components';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
@@ -343,26 +343,25 @@ function MarketWatchlistTokenList({
   }
 
   return (
-    <Stack testID={MarketTestIDs.watchList} flex={1}>
-      <MarketTokenListBase
-        onItemPress={onItemPress}
-        toolbar={toolbar || (hidePerps ? undefined : categorySelector)}
-        result={filteredResult}
-        isWatchlistMode
-        showEndReachedIndicator
-        draggable={isDraggable}
-        tabIntegrated={tabIntegrated}
-        tabName={tabName}
-        listContainerProps={listContainerProps}
-        hiddenDesktopColumns={hiddenDesktopColumns}
-        onDragEnd={handleDragEnd}
-        onItemLongPress={handleShowContextMenu}
-        onItemContextMenu={handleShowContextMenu}
-        onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
-        liveTokenOverride={liveTokenOverride}
-        rowBg={rowBg}
-      />
-    </Stack>
+    <MarketTokenListBase
+      testID={MarketTestIDs.watchList}
+      onItemPress={onItemPress}
+      toolbar={toolbar || (hidePerps ? undefined : categorySelector)}
+      result={filteredResult}
+      isWatchlistMode
+      showEndReachedIndicator
+      draggable={isDraggable}
+      tabIntegrated={tabIntegrated}
+      tabName={tabName}
+      listContainerProps={listContainerProps}
+      hiddenDesktopColumns={hiddenDesktopColumns}
+      onDragEnd={handleDragEnd}
+      onItemLongPress={handleShowContextMenu}
+      onItemContextMenu={handleShowContextMenu}
+      onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
+      liveTokenOverride={liveTokenOverride}
+      rowBg={rowBg}
+    />
   );
 }
 
