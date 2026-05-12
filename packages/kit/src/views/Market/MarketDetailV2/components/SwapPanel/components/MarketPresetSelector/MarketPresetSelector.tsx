@@ -113,16 +113,6 @@ function getMarketPresetLabel({
   return label ?? presetKey.toUpperCase();
 }
 
-function getMarketPresetCustomizedLabel({
-  customized,
-  label,
-}: {
-  customized?: boolean;
-  label: string;
-}) {
-  return customized ? `${label}*` : label;
-}
-
 function getPriorityFeeLabel({
   intl,
   settings,
@@ -484,18 +474,15 @@ function MarketPresetSettingsDialog({
   const presetOptions = useMemo(
     () =>
       presetSettings.presets.map((preset) => ({
-        label: getMarketPresetCustomizedLabel({
-          customized: presetSettings.presetCustomizedMap[preset.key],
-          label: getMarketPresetLabel({
-            intl,
-            label: preset.label,
-            presetKey: preset.key,
-          }),
+        label: getMarketPresetLabel({
+          intl,
+          label: preset.label,
+          presetKey: preset.key,
         }),
         testID: `market-preset-dialog-tab-${preset.key}`,
         value: preset.key,
       })),
-    [intl, presetSettings.presetCustomizedMap, presetSettings.presets],
+    [intl, presetSettings.presets],
   );
 
   const sideOptions = useMemo(
@@ -1150,7 +1137,6 @@ export function MarketPresetSelector({
   const {
     enabled,
     presets,
-    presetCustomizedMap,
     selectedPreset,
     selectedDirectionSettings,
     selectedPresetKey,
@@ -1162,18 +1148,15 @@ export function MarketPresetSelector({
   const presetOptions = useMemo(
     () =>
       presets.map((preset) => ({
-        label: getMarketPresetCustomizedLabel({
-          customized: presetCustomizedMap[preset.key],
-          label: getMarketPresetLabel({
-            intl,
-            label: preset.label,
-            presetKey: preset.key,
-          }),
+        label: getMarketPresetLabel({
+          intl,
+          label: preset.label,
+          presetKey: preset.key,
         }),
         value: preset.key,
         testID: `market-preset-${preset.key}`,
       })),
-    [intl, presetCustomizedMap, presets],
+    [intl, presets],
   );
 
   const openPresetDialog = useCallback(() => {
@@ -1231,13 +1214,10 @@ export function MarketPresetSelector({
     selectedPreset ??
     presets.find((preset) => preset.key === selectedPresetKey);
   const selectedPresetLabel = selectedPresetItem
-    ? getMarketPresetCustomizedLabel({
-        customized: presetCustomizedMap[selectedPresetItem.key],
-        label: getMarketPresetLabel({
-          intl,
-          label: selectedPresetItem.label,
-          presetKey: selectedPresetItem.key,
-        }),
+    ? getMarketPresetLabel({
+        intl,
+        label: selectedPresetItem.label,
+        presetKey: selectedPresetItem.key,
       })
     : intl.formatMessage({ id: ETranslations.global_auto });
 
