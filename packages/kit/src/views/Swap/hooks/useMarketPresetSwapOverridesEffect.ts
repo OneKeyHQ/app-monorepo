@@ -51,7 +51,9 @@ export function useMarketPresetSwapOverridesEffect({
           ? prev
           : { networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM },
       );
-      setSwapSlippageOverride((prev) => (prev === undefined ? prev : undefined));
+      setSwapSlippageOverride((prev) =>
+        prev === undefined ? prev : undefined,
+      );
     };
 
     if (!marketPresetToken?.networkId) {
