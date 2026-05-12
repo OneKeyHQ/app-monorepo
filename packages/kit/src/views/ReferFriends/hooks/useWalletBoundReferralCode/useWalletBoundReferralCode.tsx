@@ -18,6 +18,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { ICheckWalletBindStatusResponse } from '@onekeyhq/shared/src/referralCode/type';
 import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
@@ -27,7 +28,10 @@ import {
 } from '@onekeyhq/shared/types/message';
 
 import { InviteCodeDialog } from './InviteCodeDialog';
-import { resolveWalletBindStatusAfterCheck } from './referralBindStatusUtils';
+import {
+  type IReferralBindDisplayStatus,
+  getReferralBindDisplayStatus,
+} from './referralBindStatusUtils';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
 import type { IReferralCodeWalletInfo } from './types';
@@ -45,29 +49,25 @@ export function useWalletBoundReferralCode({
   >(undefined);
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
 
-  const getReferralCodeBondStatus = useCallback(
+  const getReferralCodeBindDisplayStatus = useCallback(
     async ({
       walletId,
       skipIfTimeout = false,
     }: {
       walletId: string | undefined;
       skipIfTimeout?: boolean;
-    }) => {
+    }): Promise<IReferralBindDisplayStatus> => {
       if (mnemonicType === EMnemonicType.TON) {
-        return false;
+        return 'unknown';
       }
 
       const walletInfo = await getReferralCodeWalletInfo(walletId);
       if (!walletInfo) {
-        return false;
+        return 'unknown';
       }
       const { address, networkId } = walletInfo;
-      const cachedReferralCodeInfo =
-        await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
-          walletId: walletInfo.walletId,
-        });
 
-      let serverStatus;
+      let serverStatus: ICheckWalletBindStatusResponse | undefined;
       let isTimeout = false;
 
       try {
@@ -102,46 +102,40 @@ export function useWalletBoundReferralCode({
             });
         }
       } catch {
-        // Fall back to local status when the server check is unavailable.
+        // Keep the UI status unknown when the server check is unavailable.
       }
 
-      const resolvedBindStatus = resolveWalletBindStatusAfterCheck({
-        serverStatus,
-        cachedReferralCodeInfo,
-        isTimeout,
-        skipIfTimeout,
-      });
-
-      if (resolvedBindStatus.shouldSkip) {
-        return false;
+      if ((isTimeout && skipIfTimeout) || !serverStatus) {
+        return 'unknown';
       }
 
-      if (resolvedBindStatus.shouldPersist) {
-        try {
-          await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
-            walletId: walletInfo.walletId,
-            referralCodeInfo: {
-              walletId: walletInfo.walletId,
-              address: walletInfo.address,
-              networkId: walletInfo.networkId,
-              pubkey: walletInfo.pubkey ?? '',
-              isBound: resolvedBindStatus.status.isBound,
-              bindable: resolvedBindStatus.status.bindable,
-              bindWindowReason: resolvedBindStatus.status.bindWindowReason,
-            },
-          });
-        } catch {
-          // Ignore local cache write failures; the server status remains authoritative.
-        }
-      }
+      const isBound =
+        serverStatus.data || serverStatus.reason === 'already_bound';
+      const isExpired = serverStatus.reason === 'exceeded_bind_window';
+      const bindStatus = {
+        isBound,
+        bindable: !isBound && !isExpired,
+        bindWindowReason: isBound ? undefined : serverStatus.reason,
+      };
 
-      if (!resolvedBindStatus.shouldShowBindDialog) {
+      return getReferralBindDisplayStatus(bindStatus);
+    },
+    [mnemonicType, getReferralCodeWalletInfo],
+  );
+
+  const getReferralCodeBondStatus = useCallback(
+    async (params: {
+      walletId: string | undefined;
+      skipIfTimeout?: boolean;
+    }) => {
+      const displayStatus = await getReferralCodeBindDisplayStatus(params);
+      if (displayStatus !== 'bind') {
         return false;
       }
       setShouldBondReferralCode(true);
       return true;
     },
-    [mnemonicType, getReferralCodeWalletInfo],
+    [getReferralCodeBindDisplayStatus],
   );
 
   const confirmBindReferralCode = useCallback(
@@ -165,7 +159,6 @@ export function useWalletBoundReferralCode({
           throw new OneKeyLocalError('Invalid Wallet');
         }
         let unsignedMessage: string | undefined;
-
         unsignedMessage =
           await backgroundApiProxy.serviceReferralCode.getBoundReferralCodeUnsignedMessage(
             {
@@ -203,7 +196,6 @@ export function useWalletBoundReferralCode({
             };
 
         let signedMessage: string | null;
-
         signedMessage =
           await backgroundApiProxy.serviceReferralCode.autoSignBoundReferralCodeMessageByHDWallet(
             {
@@ -227,7 +219,6 @@ export function useWalletBoundReferralCode({
         if (!signedMessage) {
           throw new OneKeyLocalError('Failed to sign message');
         }
-
         const bindResult =
           await backgroundApiProxy.serviceReferralCode.boundReferralCodeWithSignedMessage(
             {
@@ -249,9 +240,10 @@ export function useWalletBoundReferralCode({
               networkId: walletInfo.networkId,
               pubkey: walletInfo.pubkey ?? '',
               isBound: true,
+              bindable: false,
+              bindWindowReason: undefined,
             },
           });
-          // Clear cached invite code after successful binding
           await backgroundApiProxy.serviceReferralCode.setCachedInviteCode('');
           defaultLogger.referral.page.referralBindingCompleted({
             referralCode,
@@ -341,6 +333,7 @@ export function useWalletBoundReferralCode({
 
   return {
     getReferralCodeBondStatus,
+    getReferralCodeBindDisplayStatus,
     shouldBondReferralCode,
     bindWalletInviteCode,
     confirmBindReferralCode,

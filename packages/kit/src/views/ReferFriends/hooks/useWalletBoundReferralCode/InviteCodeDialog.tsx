@@ -62,10 +62,11 @@ export function InviteCodeDialog({
   });
 
   // Fetch cached invite code on mount
-  const { result: cachedCode } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getCachedInviteCode(),
-    [],
-  );
+  const { result: cachedCode } = usePromiseResult(async () => {
+    const code =
+      await backgroundApiProxy.serviceReferralCode.getCachedInviteCode();
+    return code;
+  }, []);
 
   // Update form default value when cachedCode loads
   useEffect(() => {
@@ -113,13 +114,21 @@ export function InviteCodeDialog({
 
     return walletsWithStatus.map((item) => {
       let description: string | undefined;
-      if (item.isBound) {
+      const isDisabled =
+        item.status === 'bound' ||
+        item.status === 'expired' ||
+        item.status === 'unknown';
+      if (item.status === 'bound') {
         description = intl.formatMessage({
           id: ETranslations.referral_wallet_bind_code_finish,
         });
-      } else if (!item.bindable) {
+      } else if (item.status === 'expired') {
         description = intl.formatMessage({
           id: ETranslations.referral_not_applicable,
+        });
+      } else if (item.status === 'unknown') {
+        description = intl.formatMessage({
+          id: ETranslations.global_unknown,
         });
       }
       return {
@@ -127,7 +136,7 @@ export function InviteCodeDialog({
         value: item.wallet.id,
         leading: <WalletAvatar wallet={item.wallet} size="$6" />,
         description,
-        disabled: item.isBound || !item.bindable,
+        disabled: isDisabled,
       };
     });
   }, [walletsWithStatus, intl]);
@@ -144,10 +153,15 @@ export function InviteCodeDialog({
     return walletsWithStatus.every((w) => w.isBound);
   }, [walletsWithStatus]);
 
-  // Check if all wallets are unavailable (bound or window expired)
+  // Check if all wallets are unavailable (bound, window expired, or unknown)
   const allWalletsUnavailable = useMemo(() => {
     if (!walletsWithStatus || walletsWithStatus.length === 0) return false;
-    return walletsWithStatus.every((w) => w.isBound || !w.bindable);
+    return walletsWithStatus.every(
+      (w) =>
+        w.status === 'bound' ||
+        w.status === 'expired' ||
+        w.status === 'unknown',
+    );
   }, [walletsWithStatus]);
 
   // Check if the selected wallet is already bound
@@ -165,7 +179,15 @@ export function InviteCodeDialog({
     const found = walletsWithStatus.find(
       (w) => w.wallet.id === selectedWalletId,
     );
-    return found ? !found.bindable : false;
+    return found?.status === 'expired';
+  }, [walletsWithStatus, selectedWalletId]);
+
+  const isSelectedWalletStatusUnknown = useMemo(() => {
+    if (!walletsWithStatus || !selectedWalletId) return false;
+    const found = walletsWithStatus.find(
+      (w) => w.wallet.id === selectedWalletId,
+    );
+    return found?.status === 'unknown';
   }, [walletsWithStatus, selectedWalletId]);
 
   const { result: walletInfo } = usePromiseResult(async () => {
@@ -316,6 +338,15 @@ export function InviteCodeDialog({
               </SizableText>
             );
           }
+          if (isSelectedWalletStatusUnknown) {
+            return (
+              <SizableText size="$bodySm" color="$textSubdued" mt="$1">
+                {intl.formatMessage({
+                  id: ETranslations.global_unknown,
+                })}
+              </SizableText>
+            );
+          }
           return null;
         })()}
       </YStack>
@@ -362,6 +393,7 @@ export function InviteCodeDialog({
           disabled:
             isSelectedWalletBound ||
             isSelectedWalletNotBindable ||
+            isSelectedWalletStatusUnknown ||
             !selectedWallet,
         }}
       />
