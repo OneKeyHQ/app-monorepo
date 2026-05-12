@@ -28,10 +28,12 @@ async function keyFromPasswordAndSaltAsync({
   password,
   salt,
   iterations,
+  debugCryptoProbeId,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
+  debugCryptoProbeId?: string;
 }): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -43,6 +45,7 @@ async function keyFromPasswordAndSaltAsync({
     password: hashedPassword,
     salt: saltBuffer,
     iterations,
+    debugCryptoProbeId,
   });
   return r;
 }
@@ -51,10 +54,12 @@ function keyFromPasswordAndSaltSync({
   password,
   salt,
   iterations,
+  debugCryptoProbeId,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
+  debugCryptoProbeId?: string;
 }): Buffer {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -66,6 +71,7 @@ function keyFromPasswordAndSaltSync({
     password: hashedPassword,
     salt: saltBuffer,
     iterations,
+    debugCryptoProbeId,
   });
   return r;
 }
@@ -74,10 +80,12 @@ async function keyFromPasswordAndSalt({
   password,
   salt,
   iterations,
+  debugCryptoProbeId,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
+  debugCryptoProbeId?: string;
 }): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -88,6 +96,7 @@ async function keyFromPasswordAndSalt({
       password,
       salt: saltBuffer,
       iterations,
+      debugCryptoProbeId,
     });
     return r;
   }
@@ -95,6 +104,7 @@ async function keyFromPasswordAndSalt({
     password,
     salt: saltBuffer,
     iterations,
+    debugCryptoProbeId,
   });
   return r;
 }

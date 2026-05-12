@@ -26,6 +26,7 @@ type IPbkdf2Params = {
   salt: Buffer;
   iterations?: number;
   keyLength?: number;
+  debugCryptoProbeId?: string;
 };
 
 type IPbkdf2Backend =
@@ -38,14 +39,19 @@ type IPbkdf2Backend =
 
 type IPbkdf2Invocation = {
   backend: IPbkdf2Backend;
+  debugCryptoProbeId?: string;
   iterations: number;
   keyLength: number;
 };
 
 let lastPbkdf2Invocation: IPbkdf2Invocation | undefined;
+const pbkdf2InvocationsByProbeId = new Map<string, IPbkdf2Invocation>();
 
 function recordPbkdf2Invocation(invocation: IPbkdf2Invocation) {
   lastPbkdf2Invocation = invocation;
+  if (invocation.debugCryptoProbeId) {
+    pbkdf2InvocationsByProbeId.set(invocation.debugCryptoProbeId, invocation);
+  }
 }
 
 function clearLastPbkdf2Invocation() {
@@ -56,11 +62,20 @@ function getLastPbkdf2Invocation() {
   return lastPbkdf2Invocation;
 }
 
+function clearPbkdf2InvocationByProbeId(debugCryptoProbeId: string) {
+  pbkdf2InvocationsByProbeId.delete(debugCryptoProbeId);
+}
+
+function getPbkdf2InvocationByProbeId(debugCryptoProbeId: string) {
+  return pbkdf2InvocationsByProbeId.get(debugCryptoProbeId);
+}
+
 async function pbkdf2ByRNAes({
   password,
   salt,
   iterations = PBKDF2_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
   const hexPassword = bufferUtils.bytesToHex(password);
   const hexSalt = bufferUtils.bytesToHex(salt);
@@ -75,6 +90,7 @@ async function pbkdf2ByRNAes({
   //   return bufferUtils.bytesToHex(key);
   recordPbkdf2Invocation({
     backend: 'react-native-aes-crypto',
+    debugCryptoProbeId,
     iterations,
     keyLength,
   });
@@ -86,6 +102,7 @@ async function pbkdf2ByNoble({
   salt,
   iterations = PBKDF2_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
   const key = await pbkdf2ByNobleFnAsync(sha256ByNoble, password, salt, {
     c: iterations,
@@ -94,6 +111,7 @@ async function pbkdf2ByNoble({
 
   recordPbkdf2Invocation({
     backend: 'noble',
+    debugCryptoProbeId,
     iterations,
     keyLength,
   });
@@ -105,6 +123,7 @@ function pbkdf2ByNobleSync({
   salt,
   iterations = PBKDF2_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Buffer {
   const key = pbkdf2ByNobleFn(sha256ByNoble, password, salt, {
     c: iterations,
@@ -112,6 +131,7 @@ function pbkdf2ByNobleSync({
   });
   recordPbkdf2Invocation({
     backend: 'noble',
+    debugCryptoProbeId,
     iterations,
     keyLength,
   });
@@ -123,6 +143,7 @@ async function pbkdf2ByNodeCrypto({
   salt,
   iterations = PBKDF2_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     pbkdf2ByNode(
@@ -137,6 +158,7 @@ async function pbkdf2ByNodeCrypto({
         } else {
           recordPbkdf2Invocation({
             backend: 'node-crypto',
+            debugCryptoProbeId,
             iterations,
             keyLength,
           });
@@ -152,10 +174,12 @@ function pbkdf2ByNodeCryptoSync({
   salt,
   iterations = PBKDF2_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Buffer {
   const key = pbkdf2ByNodeSync(password, salt, iterations, keyLength, 'sha256');
   recordPbkdf2Invocation({
     backend: 'node-crypto',
+    debugCryptoProbeId,
     iterations,
     keyLength,
   });
@@ -167,6 +191,7 @@ async function pbkdf2ByWebCrypto({
   salt,
   iterations = PBKDF2_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
   const key = await globalThis.crypto.subtle.importKey(
     'raw',
@@ -187,6 +212,7 @@ async function pbkdf2ByWebCrypto({
   );
   recordPbkdf2Invocation({
     backend: 'webcrypto',
+    debugCryptoProbeId,
     iterations,
     keyLength,
   });
@@ -198,6 +224,7 @@ function pbkdf2ByAsmcryptoSync({
   salt,
   iterations = PBKDF2_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Buffer {
   const key: Uint8Array = AsmcryptoPbkdf2HmacSha256(
     password,
@@ -207,6 +234,7 @@ function pbkdf2ByAsmcryptoSync({
   );
   recordPbkdf2Invocation({
     backend: 'asmcrypto',
+    debugCryptoProbeId,
     iterations,
     keyLength,
   });
@@ -218,6 +246,7 @@ async function pbkdf2ByRNCrypto({
   salt,
   iterations = PBKDF2_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
   // polyfilled by react-native-crypto
   const fn = (
@@ -241,6 +270,7 @@ async function pbkdf2ByRNCrypto({
         } else {
           recordPbkdf2Invocation({
             backend: 'react-native-crypto',
+            debugCryptoProbeId,
             iterations,
             keyLength,
           });
@@ -256,6 +286,7 @@ function pbkdf2ByRNCryptoSync({
   salt,
   iterations = PBKDF2_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Buffer {
   // polyfilled by react-native-crypto
   const fn = (
@@ -275,6 +306,7 @@ function pbkdf2ByRNCryptoSync({
   );
   recordPbkdf2Invocation({
     backend: 'react-native-crypto',
+    debugCryptoProbeId,
     iterations,
     keyLength,
   });
@@ -481,7 +513,9 @@ async function $testSampleForPbkdf2() {
 export {
   $testSampleForPbkdf2,
   clearLastPbkdf2Invocation,
+  clearPbkdf2InvocationByProbeId,
   getLastPbkdf2Invocation,
+  getPbkdf2InvocationByProbeId,
   getPbkdf2BackendForCurrentPlatform,
   pbkdf2ByNoble,
   pbkdf2ByRNAes,

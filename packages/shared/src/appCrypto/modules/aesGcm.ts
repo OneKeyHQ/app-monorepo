@@ -11,6 +11,7 @@ type IAesGcmInvokeParams = {
   key: Buffer;
   data: Buffer;
   aad?: Buffer;
+  debugCryptoProbeId?: string;
 };
 
 type IAesGcmBackend = 'noble' | 'react-native-aes-crypto';
@@ -18,6 +19,7 @@ type IAesGcmOperation = 'decrypt' | 'encrypt';
 
 type IAesGcmInvocation = {
   backend: IAesGcmBackend;
+  debugCryptoProbeId?: string;
   operation: IAesGcmOperation;
 };
 
@@ -43,9 +45,13 @@ const rnAesWithOptionalGcm = RN_AES as Omit<
   IReactNativeAesGcmMethods;
 
 let lastAesGcmInvocation: IAesGcmInvocation | undefined;
+const aesGcmInvocationsByProbeId = new Map<string, IAesGcmInvocation>();
 
 function recordAesGcmInvocation(invocation: IAesGcmInvocation) {
   lastAesGcmInvocation = invocation;
+  if (invocation.debugCryptoProbeId) {
+    aesGcmInvocationsByProbeId.set(invocation.debugCryptoProbeId, invocation);
+  }
 }
 
 function clearLastAesGcmInvocation() {
@@ -54,6 +60,14 @@ function clearLastAesGcmInvocation() {
 
 function getLastAesGcmInvocation() {
   return lastAesGcmInvocation;
+}
+
+function clearAesGcmInvocationByProbeId(debugCryptoProbeId: string) {
+  aesGcmInvocationsByProbeId.delete(debugCryptoProbeId);
+}
+
+function getAesGcmInvocationByProbeId(debugCryptoProbeId: string) {
+  return aesGcmInvocationsByProbeId.get(debugCryptoProbeId);
 }
 
 function _aesGcmInvokeCheck({ nonce, key, data }: IAesGcmInvokeParams) {
@@ -73,6 +87,7 @@ function aesGcmEncryptByNoble({
   key,
   data,
   aad,
+  debugCryptoProbeId,
 }: IAesGcmInvokeParams): Buffer {
   _aesGcmInvokeCheck({ nonce, key, data });
 
@@ -80,6 +95,7 @@ function aesGcmEncryptByNoble({
   const out = cipher.encrypt(data); // ciphertext || tag(128-bit)
   recordAesGcmInvocation({
     backend: 'noble',
+    debugCryptoProbeId,
     operation: 'encrypt',
   });
   return Buffer.from(out);
@@ -90,6 +106,7 @@ function aesGcmDecryptByNoble({
   key,
   data,
   aad,
+  debugCryptoProbeId,
 }: IAesGcmInvokeParams): Buffer {
   _aesGcmInvokeCheck({ nonce, key, data });
 
@@ -97,6 +114,7 @@ function aesGcmDecryptByNoble({
   const out = cipher.decrypt(data); // expects ciphertext || tag(128-bit)
   recordAesGcmInvocation({
     backend: 'noble',
+    debugCryptoProbeId,
     operation: 'decrypt',
   });
   return Buffer.from(out);
@@ -107,6 +125,7 @@ async function aesGcmEncryptByRNAes({
   key,
   data,
   aad,
+  debugCryptoProbeId,
 }: IAesGcmInvokeParams): Promise<Buffer> {
   _aesGcmInvokeCheck({ nonce, key, data });
 
@@ -121,6 +140,7 @@ async function aesGcmEncryptByRNAes({
   }
   recordAesGcmInvocation({
     backend: 'react-native-aes-crypto',
+    debugCryptoProbeId,
     operation: 'encrypt',
   });
   return Buffer.from(encrypted, 'hex');
@@ -131,6 +151,7 @@ async function aesGcmDecryptByRNAes({
   key,
   data,
   aad,
+  debugCryptoProbeId,
 }: IAesGcmInvokeParams): Promise<Buffer> {
   _aesGcmInvokeCheck({ nonce, key, data });
 
@@ -145,6 +166,7 @@ async function aesGcmDecryptByRNAes({
   }
   recordAesGcmInvocation({
     backend: 'react-native-aes-crypto',
+    debugCryptoProbeId,
     operation: 'decrypt',
   });
   return Buffer.from(decrypted, 'hex');
@@ -155,11 +177,12 @@ async function aesGcmEncrypt({
   key,
   data,
   aad,
+  debugCryptoProbeId,
 }: IAesGcmInvokeParams): Promise<Buffer> {
   if (platformEnv.isNative && rnAesWithOptionalGcm.aesGcmEncrypt) {
-    return aesGcmEncryptByRNAes({ nonce, key, data, aad });
+    return aesGcmEncryptByRNAes({ nonce, key, data, aad, debugCryptoProbeId });
   }
-  return aesGcmEncryptByNoble({ nonce, key, data, aad });
+  return aesGcmEncryptByNoble({ nonce, key, data, aad, debugCryptoProbeId });
 }
 
 async function aesGcmDecrypt({
@@ -167,11 +190,12 @@ async function aesGcmDecrypt({
   key,
   data,
   aad,
+  debugCryptoProbeId,
 }: IAesGcmInvokeParams): Promise<Buffer> {
   if (platformEnv.isNative && rnAesWithOptionalGcm.aesGcmDecrypt) {
-    return aesGcmDecryptByRNAes({ nonce, key, data, aad });
+    return aesGcmDecryptByRNAes({ nonce, key, data, aad, debugCryptoProbeId });
   }
-  return aesGcmDecryptByNoble({ nonce, key, data, aad });
+  return aesGcmDecryptByNoble({ nonce, key, data, aad, debugCryptoProbeId });
 }
 
 function getAesGcmBackendForCurrentPlatform(): string {
@@ -186,7 +210,9 @@ export {
   aesGcmDecryptByRNAes,
   aesGcmEncrypt,
   aesGcmEncryptByRNAes,
+  clearAesGcmInvocationByProbeId,
   clearLastAesGcmInvocation,
+  getAesGcmInvocationByProbeId,
   getLastAesGcmInvocation,
   getAesGcmBackendForCurrentPlatform,
   //

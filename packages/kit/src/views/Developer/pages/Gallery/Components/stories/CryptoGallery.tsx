@@ -262,18 +262,26 @@ function AESGcmV2Test() {
       }> = [];
 
       const encryptWithActualProbe = async (iterations?: number) => {
+        const debugCryptoProbeId = `crypto-gallery-${Date.now()}-${
+          actualEncryptRuns.length
+        }`;
         appCrypto.pbkdf2.clearLastPbkdf2Invocation();
         appCrypto.aesGcm.clearLastAesGcmInvocation();
+        appCrypto.pbkdf2.clearPbkdf2InvocationByProbeId(debugCryptoProbeId);
+        appCrypto.aesGcm.clearAesGcmInvocationByProbeId(debugCryptoProbeId);
         const start = Date.now();
         const encrypted = await encryptAsync({
           password,
           data,
           allowRawPassword: true,
           ...(iterations ? { iterations } : undefined),
+          debugCryptoProbeId,
         });
         const time = Date.now() - start;
-        const pbkdf2Invocation = appCrypto.pbkdf2.getLastPbkdf2Invocation();
-        const aesGcmInvocation = appCrypto.aesGcm.getLastAesGcmInvocation();
+        const pbkdf2Invocation =
+          appCrypto.pbkdf2.getPbkdf2InvocationByProbeId(debugCryptoProbeId);
+        const aesGcmInvocation =
+          appCrypto.aesGcm.getAesGcmInvocationByProbeId(debugCryptoProbeId);
         const encryptedHex = bufferUtils.bytesToHex(encrypted);
         const metadata = await decryptAsyncWithMetadata({
           password,
@@ -289,6 +297,8 @@ function AESGcmV2Test() {
           time,
         };
         actualEncryptRuns.push(actualRun);
+        appCrypto.pbkdf2.clearPbkdf2InvocationByProbeId(debugCryptoProbeId);
+        appCrypto.aesGcm.clearAesGcmInvocationByProbeId(debugCryptoProbeId);
         return {
           ...actualRun,
           encrypted,

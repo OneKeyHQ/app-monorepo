@@ -282,6 +282,7 @@ export type IEncryptAsyncParams = {
   aad?: Buffer | string;
   format?: ESecretEncryptPayloadFormat;
   dataType?: string;
+  debugCryptoProbeId?: string;
 };
 async function encryptAsync({
   password,
@@ -296,6 +297,7 @@ async function encryptAsync({
   aad,
   format = ESecretEncryptPayloadFormat.v2,
   dataType,
+  debugCryptoProbeId,
 }: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
@@ -355,6 +357,7 @@ async function encryptAsync({
     password: passwordDecoded,
     salt,
     iterations: resolvedIterations,
+    debugCryptoProbeId,
   });
 
   // const dataEncrypted = platformEnv.isNative
@@ -416,6 +419,7 @@ async function encryptAsync({
       key,
       nonce,
       aad: aadBuffer,
+      debugCryptoProbeId,
     });
     return Buffer.concat([headerAadBuffer, dataEncrypted]);
   }
@@ -430,6 +434,7 @@ async function encryptAsync({
       key,
       nonce,
       aad: aadBuffer,
+      debugCryptoProbeId,
     });
     return Buffer.concat([
       AES_GCM_ENCRYPTION_MAGIC,
