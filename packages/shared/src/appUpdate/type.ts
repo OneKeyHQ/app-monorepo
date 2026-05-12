@@ -1,3 +1,4 @@
+import type { IFeaturedChangelog } from './featuredChangelog';
 import type { ETranslations } from '../locale';
 import type { IUpdateDownloadedEvent } from '../modules3rdParty/auto-update';
 
@@ -147,6 +148,7 @@ export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
   // builtin if it has an active custom bundle.
   // When > 0 and jsBundleVersion is absent, the client is already up to date.
   jsBundleCount?: number;
+  featuredChangelog?: IFeaturedChangelog;
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
@@ -173,6 +175,7 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   ignoredTargets?: Record<string, IIgnoredUpdateTargetInfo>;
   fullFlowRetryByTarget?: Record<string, IFullFlowRetryInfo>;
   lastRequestSeq?: number;
+  featuredChangelog?: IFeaturedChangelog;
   // In-flight attemptId for the current update cycle. Persisted (rather than
   // module-memory only) so the post-install / post-relaunch
   // `firstLaunchAfterUpdated` success event can re-emit the same id as the

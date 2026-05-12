@@ -12,6 +12,7 @@ import {
   EPendingInstallTaskType,
   EUpdateStrategy,
   isFirstLaunchAfterUpdated,
+  normalizeFeaturedChangelog,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -366,11 +367,12 @@ class ServiceAppUpdate extends ServiceBase {
         (data.updateStrategy as unknown) === ''
           ? undefined
           : Number(data.updateStrategy);
+      const responseVersion = normalizeOptionalString(data.version);
       const normalizedData: IResponseAppUpdateInfo = {
         ...data,
         updateStrategy: (normalizedUpdateStrategy ??
           data.updateStrategy) as EUpdateStrategy,
-        version: normalizeOptionalString(data.version),
+        version: responseVersion,
         storeUrl: normalizeOptionalString(data.storeUrl),
         downloadUrl: normalizeOptionalString(data.downloadUrl),
         changeLog: normalizeOptionalString(data.changeLog),
@@ -386,7 +388,20 @@ class ServiceAppUpdate extends ServiceBase {
               signature: normalizeOptionalString(data.jsBundle.signature),
             }
           : undefined,
+        featuredChangelog: normalizeFeaturedChangelog(
+          data.featuredChangelog,
+          responseVersion,
+        ),
       };
+      if (
+        data.featuredChangelog &&
+        !normalizedData.featuredChangelog &&
+        responseVersion
+      ) {
+        defaultLogger.app.appUpdate.log(
+          `featuredChangelog dropped: payload did not normalize to response version ${responseVersion}`,
+        );
+      }
       // Security: Validate updateStrategy is a known enum value
       if (
         normalizedUpdateStrategy !== undefined &&
