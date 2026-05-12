@@ -868,14 +868,7 @@ export function HomePageView({
     return (
       <>
         <Page.Body>
-          {/*
-            layout="full" makes Page.Container span the full viewport width so
-            the vertical scroll container inside (Tabs.Container) fills the
-            viewport too — wheel events on the previously-empty side gutters
-            now reach the scroll handler. Visual width is preserved by wrapping
-            individual content blocks below in `homePageContentMaxWidthSx`.
-          */}
-          <Page.Container flex={1} padded={false} layout="full">
+          <Page.Container flex={1} padded={false}>
             {platformEnv.isNative ? (
               <Stack h={tabPageHeight} />
             ) : (
