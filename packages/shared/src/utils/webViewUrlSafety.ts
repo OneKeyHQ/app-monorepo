@@ -120,13 +120,20 @@ function isLocalAddress(host: string): boolean {
   }
   if (v6) {
     if (v6 === '::1' || v6 === '::') return true;
-    // fe80::/10 link-local (RFC 4291 §2.4): first 16-bit group & 0xffc0 === 0xfe80.
-    // A prefix check on "fe80:" alone misses the upper half of the /10 range.
+    // IPv4-mapped IPv6 (`::ffff:a.b.c.d`) is handled via substring match because
+    // the IPv4 portion lives in the trailing 16-bit groups, not the first group.
+    if (v6.startsWith('::ffff:')) return true;
+    // Reserved-range checks use a single bitmask against the first 16-bit
+    // group so an under-padded form (e.g. `fc::1` is `00fc::`, NOT in fc/7)
+    // is not over-rejected the way a `startsWith('fc')` string check would.
+    // - fe80::/10 link-local (RFC 4291 §2.4): first 10 bits 1111111010 → mask 0xffc0, value 0xfe80
+    // - fc00::/7  unique-local (RFC 4193):    first 7 bits  1111110    → mask 0xfe00, value 0xfc00
+    // - ff00::/8  multicast (RFC 4291 §2.7):  first 8 bits  11111111   → mask 0xff00, value 0xff00
     const firstGroup = parseInt(v6.split(':')[0] ?? '0', 16);
+    if (Number.isNaN(firstGroup)) return false;
     if ((firstGroup & 0xff_c0) === 0xfe_80) return true; // link-local
-    if (v6.startsWith('fc') || v6.startsWith('fd')) return true; // fc00::/7 unique-local
-    if (v6.startsWith('::ffff:')) return true; // IPv4-mapped — re-check via mapped address
-    if (v6.startsWith('ff')) return true; // multicast ff00::/8
+    if ((firstGroup & 0xfe_00) === 0xfc_00) return true; // unique-local
+    if ((firstGroup & 0xff_00) === 0xff_00) return true; // multicast
   }
 
   return false;

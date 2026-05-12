@@ -120,12 +120,37 @@ describe('isAllowedWebViewUrl', () => {
       ['https://[fea0::1]/'],
       ['https://[feb0::1]/'],
       ['https://[febf::1]/'],
-      ['https://[fc00::1]/'], // unique-local
-      ['https://[fd00::1]/'], // unique-local
-      ['https://[ff02::1]/'], // multicast
+      ['https://[fc00::1]/'], // unique-local low boundary
+      ['https://[fd00::1]/'], // unique-local mid
+      ['https://[fdff::1]/'], // unique-local upper boundary
+      ['https://[ff00::1]/'], // multicast lower boundary
+      ['https://[ff02::1]/'], // link-local all-nodes multicast
+      ['https://[ffff::1]/'], // multicast upper boundary
       ['https://[::ffff:127.0.0.1]/'], // IPv4-mapped loopback
     ])('%s', (url) => {
       expect(isAllowedWebViewUrl(url)).toBe(false);
+    });
+  });
+
+  describe('IPv6 boundary precision (bitmask, not string prefix)', () => {
+    // 16-bit groups that LOOK similar to reserved ranges but are actually
+    // global unicast — string-prefix checks (`startsWith('fc')` /
+    // `startsWith('ff')`) would over-reject these. The bitmask implementation
+    // correctly accepts them because the address bits don't fall into the
+    // reserved range.
+    //   `[fc::1]` parses to `00fc::1` (NOT in fc00::/7)
+    //   `[ff::1]` parses to `00ff::1` (NOT in ff00::/8)
+    //   `[fe::1]` parses to `00fe::1` (NOT in fe80::/10)
+    // We don't actively want users hitting these obscure addresses, but
+    // accepting them keeps the local-address rejection aligned with RFC
+    // 4193/4291 rather than acting on a typo-tolerant string match.
+    it.each([
+      ['https://[fc::1]/'], // 00fc::, global unicast
+      ['https://[fd::1]/'], // 00fd::, global unicast
+      ['https://[fe::1]/'], // 00fe::, global unicast
+      ['https://[ff::1]/'], // 00ff::, global unicast
+    ])('accepts %s (not in reserved range)', (url) => {
+      expect(isAllowedWebViewUrl(url)).toBe(true);
     });
   });
 

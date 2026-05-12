@@ -42,7 +42,14 @@ function WebViewPageContent() {
   const route = useRoute();
   const navigation = useNavigation();
   const params = (route.params ?? {}) as IWebViewPageParams;
-  const initialUrl = params.url ?? '';
+  // All known entry points (openWebView, parseWebViewDeepLink, notification
+  // handlers) gate `url` through isAllowedWebViewUrl before navigating here,
+  // so this is normally a no-op. The defensive re-check covers the case where
+  // future code (or a regression) calls `navigation.navigate(ERootRoutes.WebView, …)`
+  // directly without going through `openWebView()` — without it, the address
+  // bar would briefly display the unsafe URL before onShouldStartLoadWithRequest
+  // blocks the actual load.
+  const initialUrl = isAllowedWebViewUrl(params.url) ? params.url : '';
 
   const { webviewRef, setWebViewRef } = useWebViewBridge();
 
@@ -288,8 +295,19 @@ function WebViewPageContent() {
   // each main-frame load (clicks, redirects, JS pushState, etc.). Blocks any
   // navigation whose target violates the WebView URL policy (non-https, local
   // address, userinfo embed, javascript: bookmarklets injected via redirects).
-  // Iframe loads (`event.isTopFrame === false`) are passed through — those
-  // are the page's own composition, not user-visible navigation.
+  //
+  // Iframe loads (`event.isTopFrame === false`) are intentionally passed
+  // through. Known trade-off: a malicious top-frame could embed iframes
+  // pointing at internal addresses for liveness probing. Mitigations already
+  // in place:
+  //   - Overlay runs with `disableBridge` + `useInjectedNativeCode={false}`,
+  //     so no OneKey provider / wallet bridge is reachable from iframes.
+  //   - Desktop uses a dedicated `partition` whose session denies all
+  //     permission requests, so iframes cannot use camera/mic/geo/notifications.
+  //   - Cross-origin XHR/fetch from iframes is subject to standard CORS,
+  //     so internal services without permissive CORS headers are not readable.
+  // Blocking iframes here would break legitimate embeds (OAuth, analytics,
+  // ads, video) without closing the residual timing-probe vector.
   const onShouldStartLoadWithRequest = useCallback(
     (event: ShouldStartLoadRequest): boolean => {
       if (event?.isTopFrame === false) return true;
