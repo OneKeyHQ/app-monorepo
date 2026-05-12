@@ -148,6 +148,15 @@ async function getDeviceVersionStr(params: IGetDeviceVersionParams) {
   return `${bootloaderVersion}--${bleVersion}--${firmwareVersion}`;
 }
 
+function isValidDeviceVersion(version?: string) {
+  if (!version || version === '0.0.0') {
+    return false;
+  }
+
+  const cleanVersion = semver.clean(version);
+  return Boolean(cleanVersion && semver.valid(cleanVersion));
+}
+
 function isTouchDevice(deviceType: IDeviceType) {
   return [EDeviceType.Touch, EDeviceType.Pro].includes(deviceType);
 }
@@ -341,6 +350,7 @@ async function buildDeviceLabel({
     [EDeviceType.Mini]: 'OneKey Mini',
     [EDeviceType.Touch]: 'OneKey Touch',
     [EDeviceType.Pro]: 'OneKey Pro',
+    [EDeviceType.Pro2]: 'OneKey Pro2',
     [EDeviceType.Unknown]: '',
   };
   const deviceType = await getDeviceTypeFromFeatures({
@@ -782,6 +792,7 @@ function supportSettings({
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
+  isValidDeviceVersion,
   getDeviceSerialNoFromFeatures,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,

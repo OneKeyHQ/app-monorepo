@@ -46,9 +46,10 @@ export function InvitationDetailsSection({
   const handleCodeUpdated = useCallback(
     async (shouldRefreshSummary?: boolean) => {
       if (shouldRefreshSummary) {
-        fetchSummaryInfo();
+        await Promise.all([refetch(), fetchSummaryInfo()]);
+      } else {
+        await refetch();
       }
-      await refetch();
     },
     [fetchSummaryInfo, refetch],
   );

@@ -91,9 +91,9 @@ config.resolver.sourceExts = [
 ];
 
 // Configure SVG transformer for .svgx files (used by react-native-bottom-tabs)
-config.resolver.assetExts = (config.resolver.assetExts || []).filter(
-  (ext) => ext !== 'svgx',
-);
+config.resolver.assetExts = Array.from(
+  new Set([...(config.resolver.assetExts || []), 'bin']),
+).filter((ext) => ext !== 'svgx');
 config.transformer = config.transformer || {};
 config.transformer.babelTransformerPath =
   require.resolve('./svgx-transformer.js');

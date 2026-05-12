@@ -456,10 +456,10 @@ function HardwareUiStateContainerCmpControlled() {
 
   const AUTO_CLOSED_FLAG = 'autoClosed';
 
-  const log = (...args: any[]) => {
+  const log = useCallback((...args: any[]) => {
     const ts = Date.now();
     console.log(`${ts}## HardwareUiStateContainerUiLog`, ...args);
-  };
+  }, []);
 
   log('state', action, state);
 
@@ -670,6 +670,8 @@ function HardwareUiStateContainerCmpControlled() {
     hasToastCloseAction,
     state,
   ]);
+  const actionStatusRef = useRef(actionStatus);
+  actionStatusRef.current = actionStatus;
 
   // Block Android back button when hardware toast is showing
   const handleBackPress = useCallback(() => true, []);
@@ -688,36 +690,50 @@ function HardwareUiStateContainerCmpControlled() {
       hardwareErrorDialogInstanceRef;
   }
 
-  const toastElement = (
-    <ShowCustom
-      ref={toastInstanceRef}
-      name={SHOW_HARDWARE_TOAST_VIEWPORT_NAME}
-      open={actionStatus.isToastAction}
-      dismissOnOverlayPress={false}
-      disableSwipeGesture
-      onClose={async (params) => {
-        log('close toast:', params, state, {
-          currentShouldDeviceResetToHome:
-            actionStatus.currentShouldDeviceResetToHome,
-          shouldSkipCancel: shouldSkipCancelRef.current,
+  const handleToastClose = useCallback(
+    async (params?: { flag?: string }) => {
+      const currentState = stateRef.current;
+      const currentActionStatus = actionStatusRef.current;
+      log('close toast:', params, currentState, {
+        currentShouldDeviceResetToHome:
+          currentActionStatus.currentShouldDeviceResetToHome,
+        shouldSkipCancel: shouldSkipCancelRef.current,
+      });
+      if (params?.flag !== AUTO_CLOSED_FLAG) {
+        appEventBus.emit(
+          EAppEventBusNames.CloseHardwareUiStateDialogManually,
+          undefined,
+        );
+        await serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId: currentState?.connectId,
+          skipDeviceCancel: shouldSkipCancelRef.current,
+          deviceResetToHome: currentActionStatus.currentShouldDeviceResetToHome,
         });
-        if (params?.flag !== AUTO_CLOSED_FLAG) {
-          appEventBus.emit(
-            EAppEventBusNames.CloseHardwareUiStateDialogManually,
-            undefined,
-          );
-          await serviceHardwareUI.closeHardwareUiStateDialog({
-            connectId: state?.connectId,
-            skipDeviceCancel: shouldSkipCancelRef.current,
-            deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
-          });
-        }
-      }}
-    >
-      <ConfirmOnDeviceToastContent
-        deviceType={actionStatus.currentDeviceType}
-      />
-    </ShowCustom>
+      }
+    },
+    [log, serviceHardwareUI],
+  );
+
+  const toastElement = useMemo(
+    () => (
+      <ShowCustom
+        ref={toastInstanceRef}
+        name={SHOW_HARDWARE_TOAST_VIEWPORT_NAME}
+        open={actionStatus.isToastAction}
+        dismissOnOverlayPress={false}
+        disableSwipeGesture
+        onClose={handleToastClose}
+      >
+        <ConfirmOnDeviceToastContent
+          deviceType={actionStatus.currentDeviceType}
+        />
+      </ShowCustom>
+    ),
+    [
+      actionStatus.currentDeviceType,
+      actionStatus.isToastAction,
+      handleToastClose,
+    ],
   );
 
   const dialogElement = (
