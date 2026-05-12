@@ -108,17 +108,16 @@ import { RichBlock } from '../RichBlock/RichBlock';
 
 const networkIdsMap = getNetworkIdsMap();
 
-type ITokenSelectorFilterKey = 'wallet-token' | 'lp-dapp-token';
+type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
 
 type IAllNetworkTokenListResp = IFetchAccountTokensResp & {
-  tokenSelectorFilterKey: ITokenSelectorFilterKey;
-  tokenSelectorFilterRequestId: number;
+  tokenSelectorFilterMode: ITokenSelectorFilterMode;
   syncTokenFilterToOverview: boolean;
 };
 
-function buildTokenSelectorFilterKey(
+function buildTokenSelectorFilterMode(
   lpToken: boolean,
-): ITokenSelectorFilterKey {
+): ITokenSelectorFilterMode {
   return lpToken ? 'lp-dapp-token' : 'wallet-token';
 }
 
@@ -176,29 +175,16 @@ function TokenListBlock({
       }),
     [showLpTokensOnly],
   );
-  const tokenSelectorFilterKey = buildTokenSelectorFilterKey(showLpTokensOnly);
-  const tokenSelectorFilterRequestIdRef = useRef(0);
-  const tokenSelectorFilterRequestId = tokenSelectorFilterRequestIdRef.current;
-  const tokenSelectorFilterStateRef = useRef({
-    key: tokenSelectorFilterKey,
-    requestId: tokenSelectorFilterRequestId,
-  });
-  tokenSelectorFilterStateRef.current = {
-    key: tokenSelectorFilterKey,
-    requestId: tokenSelectorFilterRequestId,
-  };
+  const tokenSelectorFilterMode =
+    buildTokenSelectorFilterMode(showLpTokensOnly);
+  const latestTokenSelectorFilterModeRef = useRef(tokenSelectorFilterMode);
+  latestTokenSelectorFilterModeRef.current = tokenSelectorFilterMode;
   const syncTokenFilterToOverview = !showLpTokensOnly;
   const handleLpTokenFilterChange = useCallback(
     (value: boolean) => {
       if (value === showLpTokensOnly) {
         return;
       }
-      const nextRequestId = tokenSelectorFilterRequestIdRef.current + 1;
-      tokenSelectorFilterRequestIdRef.current = nextRequestId;
-      tokenSelectorFilterStateRef.current = {
-        key: buildTokenSelectorFilterKey(value),
-        requestId: nextRequestId,
-      };
       setShowLpTokensOnly(value);
     },
     [showLpTokensOnly],
@@ -658,15 +644,12 @@ function TokenListBlock({
       );
       const r: IAllNetworkTokenListResp = {
         ...response,
-        tokenSelectorFilterKey,
-        tokenSelectorFilterRequestId,
+        tokenSelectorFilterMode,
         syncTokenFilterToOverview,
       };
 
       if (
-        tokenSelectorFilterStateRef.current.key !== tokenSelectorFilterKey ||
-        tokenSelectorFilterStateRef.current.requestId !==
-          tokenSelectorFilterRequestId
+        latestTokenSelectorFilterModeRef.current !== tokenSelectorFilterMode
       ) {
         isAllNetworkManualRefresh.current = false;
         return r;
@@ -923,8 +906,7 @@ function TokenListBlock({
       updateAllNetworkData,
       updateTokenListState,
       tokenSelectorFilterParams,
-      tokenSelectorFilterKey,
-      tokenSelectorFilterRequestId,
+      tokenSelectorFilterMode,
       showLpTokensOnly,
       syncTokenFilterToOverview,
     ],
@@ -1460,19 +1442,14 @@ function TokenListBlock({
     let aggregateTokenMap: Record<string, Record<string, ITokenFiat>> = {};
 
     if (allNetworksResult?.length) {
-      const resultTokenSelectorFilterKey =
-        allNetworksResult[0].tokenSelectorFilterKey;
-      const resultTokenSelectorFilterRequestId =
-        allNetworksResult[0].tokenSelectorFilterRequestId;
+      const resultTokenSelectorFilterMode =
+        allNetworksResult[0].tokenSelectorFilterMode;
       const hasMixedTokenSelectorFilterResult = allNetworksResult.some(
         (result) =>
-          result.tokenSelectorFilterKey !== resultTokenSelectorFilterKey ||
-          result.tokenSelectorFilterRequestId !==
-            resultTokenSelectorFilterRequestId,
+          result.tokenSelectorFilterMode !== resultTokenSelectorFilterMode,
       );
       if (
-        resultTokenSelectorFilterKey !== tokenSelectorFilterKey ||
-        resultTokenSelectorFilterRequestId !== tokenSelectorFilterRequestId ||
+        resultTokenSelectorFilterMode !== tokenSelectorFilterMode ||
         hasMixedTokenSelectorFilterResult
       ) {
         return;
@@ -1721,8 +1698,7 @@ function TokenListBlock({
     mergeDeriveAddressData,
     allNetworksResult,
     network?.id,
-    tokenSelectorFilterKey,
-    tokenSelectorFilterRequestId,
+    tokenSelectorFilterMode,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshAggregateTokensListMap,
