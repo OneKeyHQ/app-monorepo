@@ -136,7 +136,6 @@ const DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS: IMarketPresetDirectionS
   {
     slippage: {
       key: ESwapSlippageSegmentKey.CUSTOM,
-      value: 1,
     },
     priorityFee: {
       type: EMarketPresetPriorityFeeType.CUSTOM,
@@ -156,6 +155,7 @@ const MARKET_PRESET_EVM_NETWORK_IDS = new Set([
 ]);
 
 const MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS = new Set([
+  presetNetworksMap.arbitrum.id,
   presetNetworksMap.sui.id,
   presetNetworksMap.tron.id,
   presetNetworksMap.aptos.id,
@@ -320,6 +320,14 @@ function buildPresetConfigFromRemote({
     });
   }
 
+  if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
+    return buildPresetConfig({
+      networkId,
+      priorityFeeEditable: false,
+      customRange,
+    });
+  }
+
   if (
     networkId.startsWith('evm--') &&
     (remoteConfig.enabled === true ||
@@ -342,14 +350,6 @@ function buildPresetConfigFromRemote({
         EMarketPresetPriorityFeeType.CUSTOM,
       ],
       customUnit: 'SOL',
-      customRange,
-    });
-  }
-
-  if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
-    return buildPresetConfig({
-      networkId,
-      priorityFeeEditable: false,
       customRange,
     });
   }
@@ -389,6 +389,13 @@ async function fetchMarketPresetDashboardConfig({
     });
   }
 
+  if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
+    return buildPresetConfig({
+      networkId,
+      priorityFeeEditable: false,
+    });
+  }
+
   if (MARKET_PRESET_EVM_NETWORK_IDS.has(networkId)) {
     return buildPresetConfig({
       networkId,
@@ -406,13 +413,6 @@ async function fetchMarketPresetDashboardConfig({
         EMarketPresetPriorityFeeType.CUSTOM,
       ],
       customUnit: 'SOL',
-    });
-  }
-
-  if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
-    return buildPresetConfig({
-      networkId,
-      priorityFeeEditable: false,
     });
   }
 
@@ -460,10 +460,15 @@ export function getMarketPresetDefaultDirectionSettings(): IMarketPresetDirectio
   };
 }
 
-export function getMarketPresetDefaultEditableDirectionSettings(): IMarketPresetDirectionSettings {
+export function getMarketPresetDefaultEditableDirectionSettings({
+  defaultSlippage = 0.5,
+}: {
+  defaultSlippage?: number;
+} = {}): IMarketPresetDirectionSettings {
   return {
     slippage: {
       ...DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS.slippage,
+      value: defaultSlippage,
     },
     priorityFee: {
       ...DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS.priorityFee,
@@ -496,9 +501,11 @@ export function getMarketPresetDefaultDirectionSettingsForPreset({
 
 export function getMarketPresetDefaultEditableDirectionSettingsForPreset({
   config,
+  defaultSlippage,
   presetKey,
 }: {
   config?: IMarketPresetConfig;
+  defaultSlippage?: number;
   presetKey?: EMarketPresetKey;
 }): IMarketPresetDirectionSettings {
   if (!config?.enabled || presetKey === EMarketPresetKey.AUTO) {
@@ -506,7 +513,9 @@ export function getMarketPresetDefaultEditableDirectionSettingsForPreset({
   }
 
   const defaultSettings = getMarketPresetDefaultDirectionSettings();
-  const editableSettings = getMarketPresetDefaultEditableDirectionSettings();
+  const editableSettings = getMarketPresetDefaultEditableDirectionSettings({
+    defaultSlippage,
+  });
 
   return {
     slippage: config.slippage.editable

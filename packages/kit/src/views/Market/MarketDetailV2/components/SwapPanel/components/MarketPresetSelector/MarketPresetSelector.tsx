@@ -149,6 +149,7 @@ function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
         }) ??
         getMarketPresetDefaultEditableDirectionSettingsForPreset({
           config: presetSettings.config,
+          defaultSlippage: presetSettings.defaultSlippageValue,
           presetKey: preset.key,
         }),
       [EMarketPresetTradeSide.SELL]:
@@ -158,6 +159,7 @@ function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
         }) ??
         getMarketPresetDefaultEditableDirectionSettingsForPreset({
           config: presetSettings.config,
+          defaultSlippage: presetSettings.defaultSlippageValue,
           presetKey: preset.key,
         }),
     };
@@ -514,6 +516,7 @@ function MarketPresetSettingsDialog({
   const isReadonlyPreset =
     !presetSettings.config?.slippage.editable &&
     !presetSettings.config?.priorityFee.editable;
+  const isPriorityFeeEditable = !!presetSettings.config?.priorityFee.editable;
 
   const currentSettings = useMemo(() => {
     if (activePresetKey === EMarketPresetKey.AUTO) {
@@ -547,6 +550,7 @@ function MarketPresetSettingsDialog({
       const defaultSettings =
         getMarketPresetDefaultEditableDirectionSettingsForPreset({
           config: presetSettings.config,
+          defaultSlippage: presetSettings.defaultSlippageValue,
           presetKey: activePresetKey,
         });
       const matchesDefault = areMarketPresetDirectionSettingsEqual(
@@ -1017,18 +1021,16 @@ function MarketPresetSettingsDialog({
             )}
           </YStack>
 
-          <Divider />
+          {isPriorityFeeEditable ? (
+            <>
+              <Divider />
 
-          <YStack gap="$2">
-            {presetSettings.config?.priorityFee.editable ? (
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.marketdex_priority_fee,
-                })}
-              </SizableText>
-            ) : null}
-            {presetSettings.config?.priorityFee.editable ? (
-              <>
+              <YStack gap="$2">
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.marketdex_priority_fee,
+                  })}
+                </SizableText>
                 <SegmentControl
                   fullWidth
                   value={currentSettings.priorityFee.type}
@@ -1100,16 +1102,9 @@ function MarketPresetSettingsDialog({
                     ) : null}
                   </>
                 ) : null}
-              </>
-            ) : (
-              <MarketPresetReadonlyRow
-                label={intl.formatMessage({
-                  id: ETranslations.marketdex_priority_fee,
-                })}
-                value={intl.formatMessage({ id: ETranslations.global_auto })}
-              />
-            )}
-          </YStack>
+              </YStack>
+            </>
+          ) : null}
 
           <Divider />
 
