@@ -178,6 +178,7 @@ function ClearPendingTransactionsButton() {
 
   return (
     <Button
+      testID="error-toast-clear-pending-tx-btn"
       variant="primary"
       size="small"
       onPress={() => {

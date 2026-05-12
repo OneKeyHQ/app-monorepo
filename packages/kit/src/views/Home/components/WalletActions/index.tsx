@@ -215,6 +215,7 @@ function WalletActionSend({
                   />
                 ) : null}
                 <Button
+                  testID={HomeTestIDs.walletActionsZeroGasContinueBtn}
                   variant="tertiary"
                   size="large"
                   mx="$0"

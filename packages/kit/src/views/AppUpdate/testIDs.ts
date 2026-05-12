@@ -13,4 +13,10 @@ export const AppUpdateTestIDs = {
 
   // --- Whats New ---
   whatsNewDoneBtn: 'app-update-whats-new-done-btn',
+
+  // --- Featured carousel ---
+  featuredCarouselCloseBtn: 'app-update-featured-carousel-close-btn',
+  featuredFooterCtaBtn: 'app-update-featured-footer-cta-btn',
+  featuredFooterViewChangelogBtn:
+    'app-update-featured-footer-view-changelog-btn',
 } as const;

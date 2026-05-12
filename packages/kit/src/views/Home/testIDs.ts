@@ -33,4 +33,23 @@ export const HomeTestIDs = {
   // Risk approval
   riskApprovalAlert: 'home-risk-approval-alert',
   approvalListEmpty: 'Wallet-Approval-Unsupported-Empty', // preserve existing
+
+  // Referral web landing steps
+  referralLandingDownloadBtn: 'home-referral-landing-download-btn',
+  referralLandingBindBtn: 'home-referral-landing-bind-btn',
+  referralLandingTradeBtn: 'home-referral-landing-trade-btn',
+
+  // Zero-gas continue confirmation
+  walletActionsZeroGasContinueBtn: 'home-wallet-actions-zero-gas-continue-btn',
+
+  // Popular trading token list
+  popularTokenStarBtnMobile: (symbol: string) =>
+    `home-popular-token-star-mobile-${symbol}`,
+  popularTokenStarBtnDesktop: (symbol: string) =>
+    `home-popular-token-star-desktop-${symbol}`,
+  popularViewMoreBtn: 'home-popular-view-more-btn',
+
+  // DeFi protocol chip strip
+  defiProtocolChipScrollBtn: (direction: 'left' | 'right') =>
+    `home-defi-protocol-chip-scroll-${direction}-btn`,
 } as const;

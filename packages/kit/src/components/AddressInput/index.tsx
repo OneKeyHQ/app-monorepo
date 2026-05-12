@@ -379,6 +379,7 @@ function AddressInputWarnings({
           ))}
           {showAddToAddressBook ? (
             <Button
+              testID="address-input-add-to-address-book-btn"
               variant="tertiary"
               size="small"
               onPress={onAddToAddressBook}

@@ -15,6 +15,7 @@ import {
 import type { ITableProps } from '@onekeyhq/components';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -61,6 +62,7 @@ function MarketCategoryTokenList({
             return (
               <XStack alignItems="center" gap="$2">
                 <IconButton
+                  testID={HomeTestIDs.popularTokenStarBtnMobile(record.symbol)}
                   title={intl.formatMessage({
                     id: checked
                       ? ETranslations.market_remove_from_favorites
@@ -161,6 +163,7 @@ function MarketCategoryTokenList({
           return (
             <XStack alignItems="center" gap="$2" justifyContent="flex-end">
               <IconButton
+                testID={HomeTestIDs.popularTokenStarBtnDesktop(record.symbol)}
                 title={intl.formatMessage({
                   id: checked
                     ? ETranslations.market_remove_from_favorites
@@ -279,6 +282,7 @@ function MarketCategoryTokenList({
       />
       <XStack pt="$3" px="$pagePadding" jc="center" ai="center">
         <Button
+          testID={HomeTestIDs.popularViewMoreBtn}
           variant="secondary"
           iconAfter="ChevronRightSmallOutline"
           onPress={onViewMore}
