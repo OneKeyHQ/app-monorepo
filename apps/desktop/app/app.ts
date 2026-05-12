@@ -979,10 +979,14 @@ async function createMainWindow() {
     if (contents.getType() === 'webview') {
       contents.setWindowOpenHandler((handleDetails) => {
         const safelyMainWindow = getSafelyMainWindow();
-        safelyMainWindow?.webContents.send(
-          ipcMessageKeys.WEBVIEW_NEW_WINDOW,
-          handleDetails,
-        );
+        // Forward the source webContents id so renderer listeners can
+        // distinguish overlay-route webviews (strict policy: https-only,
+        // no local addresses, no deeplinks) from Discovery tabs (which
+        // intentionally allow http and onekey-wallet:// deeplinks).
+        safelyMainWindow?.webContents.send(ipcMessageKeys.WEBVIEW_NEW_WINDOW, {
+          ...handleDetails,
+          sourceWebContentsId: contents.id,
+        });
         return { action: 'deny' };
       });
       contents.on('will-frame-navigate', (e) => {

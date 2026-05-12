@@ -115,6 +115,7 @@ export type IElectronWebView = {
   openDevTools: () => void;
   getURL: () => string;
   getTitle: () => string;
+  getWebContentsId: () => number;
   src: string;
   addEventListener: (name: string, callback: unknown) => void;
   removeEventListener: (name: string, callback: unknown) => void;

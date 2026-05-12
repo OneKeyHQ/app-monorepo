@@ -4,6 +4,7 @@ import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { useNavigation, useRoute } from '@react-navigation/core';
 
 import { Page, useBackHandler, useOnRouterChange } from '@onekeyhq/components';
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -20,6 +21,7 @@ import AddressBar from '../components/AddressBar';
 import WebViewHeader from '../components/Header';
 import ProgressBar from '../components/ProgressBar';
 import { resolveOverlayDisplay } from '../utils/displayPolicy';
+import { registerOverlayWebContentsId } from '../utils/overlayContentsRegistry';
 
 import type { WebView as ReactNativeWebView } from 'react-native-webview';
 import type {
@@ -27,6 +29,13 @@ import type {
   WebViewNavigation,
   WebViewOpenWindowEvent,
 } from 'react-native-webview/lib/WebViewTypes';
+
+// Empty whitelist denies getUserMedia (camera/mic) on iOS and Android, even
+// when the app already holds OS-level CAMERA / RECORD_AUDIO grants — without
+// this, RN WebView falls through to the default permission grant path which
+// on Android silently grants any origin once OS permission is held.
+// Module-scope constant so the array reference stays stable across renders.
+const OVERLAY_NO_MEDIA_WHITELIST: string[] = [];
 
 function WebViewPageContent() {
   const route = useRoute();
@@ -44,6 +53,8 @@ function WebViewPageContent() {
   const lastHistoryUrlRef = useRef<string>('');
   const currentTitleRef = useRef<string>('');
   const isClosingRef = useRef<boolean>(false);
+  const desktopContentsIdRef = useRef<number | null>(null);
+  const desktopRegistryCleanupRef = useRef<(() => void) | null>(null);
   const { addBrowserHistory } = useBrowserHistoryAction().current;
 
   // Keep title state and ref in sync. The ref lets the history-write effect
@@ -84,6 +95,27 @@ function WebViewPageContent() {
     }
   }, [webviewRef]);
 
+  // Capture and register the Electron <webview>'s contents id once it's
+  // available. Desktop popup IPC (`WEBVIEW_NEW_WINDOW`) is global; the
+  // registry lets Discovery's listener skip overlay-sourced events so they
+  // are not routed through Discovery's looser `validateWebviewSrc` policy.
+  const ensureDesktopContentsIdRegistered = useCallback(() => {
+    if (!platformEnv.isDesktop) return;
+    if (desktopContentsIdRef.current !== null) return;
+    const innerRef = webviewRef.current?.innerRef as
+      | IElectronWebView
+      | undefined;
+    if (!innerRef?.getWebContentsId) return;
+    try {
+      const id = innerRef.getWebContentsId();
+      if (typeof id !== 'number') return;
+      desktopContentsIdRef.current = id;
+      desktopRegistryCleanupRef.current = registerOverlayWebContentsId(id);
+    } catch {
+      // contents not yet attached — retry on next navigation event
+    }
+  }, [webviewRef]);
+
   const onDidStartNavigation = useCallback(
     (event: { url: string; isMainFrame: boolean }) => {
       if (!event?.isMainFrame) return;
@@ -91,8 +123,9 @@ function WebViewPageContent() {
         setCurrentUrl(event.url);
       }
       refreshElectronCanGoBack();
+      ensureDesktopContentsIdRegistered();
     },
-    [refreshElectronCanGoBack],
+    [ensureDesktopContentsIdRegistered, refreshElectronCanGoBack],
   );
 
   const onPageTitleUpdated = useCallback(
@@ -221,8 +254,35 @@ function WebViewPageContent() {
       } catch {
         // ignore — native resources may already be freed
       }
+      desktopRegistryCleanupRef.current?.();
+      desktopRegistryCleanupRef.current = null;
+      desktopContentsIdRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Desktop popup handler. Electron's main process sends WEBVIEW_NEW_WINDOW
+  // tagged with the source webContents id; we only handle events from our
+  // own webview and apply the strict overlay policy (https-only, no local
+  // addresses, no deeplinks). Discovery's global listener skips events
+  // matching our id via the overlay-contents registry.
+  useEffect(() => {
+    if (!platformEnv.isDesktop) return;
+    const handler = (data: { url?: string; sourceWebContentsId?: number }) => {
+      const targetUrl = data?.url;
+      if (!targetUrl) return;
+      if (desktopContentsIdRef.current === null) return;
+      if (data.sourceWebContentsId !== desktopContentsIdRef.current) return;
+      if (!isAllowedWebViewUrl(targetUrl)) return;
+      openUrlExternal(targetUrl);
+    };
+    const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
+      ipcMessageKeys.WEBVIEW_NEW_WINDOW,
+      handler,
+    );
+    return () => {
+      unsubscribe?.();
+    };
   }, []);
 
   const onWebViewRef = useCallback(
@@ -329,6 +389,7 @@ function WebViewPageContent() {
           onOpenWindow={onOpenWindow}
           allowpopups
           disableBridge
+          mediaPermissionWhitelist={OVERLAY_NO_MEDIA_WHITELIST}
           useInjectedNativeCode={false}
         />
       </Page.Body>

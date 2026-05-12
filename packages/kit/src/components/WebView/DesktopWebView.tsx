@@ -227,10 +227,33 @@ const DesktopWebView = forwardRef(
           onDidStopLoading?.();
         };
 
+        // Server-side HTTP redirects (302 / 301) reach the new URL through
+        // `did-redirect-navigation`. Without an explicit listener the safety
+        // check in `did-start-navigation` may fire too late to abort the
+        // redirected request, so re-run the URL guard and stop the load if
+        // the target is not allowed.
+        const innerHandleDidRedirectNavigation = (
+          event: DidStartNavigationEvent,
+        ) => {
+          const { isMainFrame, url } = event ?? {};
+          if (
+            isMainFrame &&
+            onShouldStartLoadWithRequest &&
+            url &&
+            !onShouldStartLoadWithRequest({ url, isTopFrame: true })
+          ) {
+            webviewRef.current?.stop();
+          }
+        };
+
         webview.addEventListener('did-start-loading', onDidStartLoading);
         webview.addEventListener(
           'did-start-navigation',
           innerHandleDidStartNavigationNavigation,
+        );
+        webview.addEventListener(
+          'did-redirect-navigation',
+          innerHandleDidRedirectNavigation,
         );
         webview.addEventListener('did-finish-load', didFinishLoad);
         webview.addEventListener('did-stop-loading', innerHandleDidStopLoading);
@@ -251,6 +274,10 @@ const DesktopWebView = forwardRef(
           webview.removeEventListener(
             'did-start-navigation',
             innerHandleDidStartNavigationNavigation,
+          );
+          webview.removeEventListener(
+            'did-redirect-navigation',
+            innerHandleDidRedirectNavigation,
           );
           webview.removeEventListener('did-finish-load', didFinishLoad);
           webview.removeEventListener(
