@@ -14,7 +14,11 @@ index f92fa6b..7cad493 100644
 @@ -33,0 +35,2 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
 +        private const val CIPHER_GCM_ALGORITHM = "AES/GCM/NoPadding"
 +        private const val GCM_AUTH_TAG_LENGTH_BITS = 128
-@@ -74,0 +78,18 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
+@@ -68,5 +71,23 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
+             promise.reject("-1", e.message)
+         }
+     }
++
 +    override fun aesGcmEncrypt(data: String, key: String, nonce: String, aad: String, promise: Promise) {
 +        try {
 +            val result = aesGcmEncryptImpl(data, key, nonce, aad)
@@ -32,8 +36,12 @@ index f92fa6b..7cad493 100644
 +            promise.reject("-1", e.message)
 +        }
 +    }
-+
-@@ -199,0 +221,26 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
+     override fun pbkdf2(password: String, salt: String, cost: Double, length: Double, algorithm: String, promise: Promise) {
+         try {
+@@ -196,4 +217,30 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
+         val decrypted = cipher.doFinal(Hex.decode(ciphertext))
+         return bytesToHex(decrypted)
+     }
 +
 +    private fun aesGcmEncryptImpl(text: String, hexKey: String, hexNonce: String, aad: String?): String {
 +        if (text.isEmpty()) return ""
@@ -60,6 +68,7 @@ index f92fa6b..7cad493 100644
 +        }
 +        return bytesToHex(cipher.doFinal(Hex.decode(ciphertextWithTag)))
 +    }
+ }
 diff --git a/node_modules/react-native-aes-crypto/ios/AesCrypto.h b/node_modules/react-native-aes-crypto/ios/AesCrypto.h
 index 138f378..326aeae 100644
 --- a/node_modules/react-native-aes-crypto/ios/AesCrypto.h
