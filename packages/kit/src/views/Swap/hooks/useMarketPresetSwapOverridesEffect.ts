@@ -48,18 +48,26 @@ export function useMarketPresetSwapOverridesEffect({
     // run is invalidated regardless of which branch we take below.
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-    const resetOverrides = () => {
-      setSwapStepNetFeeLevel({ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM });
-      setSwapSlippageOverride(undefined);
+
+    const resetToDefaults = () => {
+      setSwapStepNetFeeLevel((prev) =>
+        prev.networkFeeLevel === ESwapNetworkFeeLevel.MEDIUM &&
+        prev.customPriorityFee === undefined
+          ? prev
+          : { networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM },
+      );
+      setSwapSlippageOverride((prev) =>
+        prev === undefined ? prev : undefined,
+      );
     };
 
     if (!marketPresetToken?.networkId) {
-      resetOverrides();
+      resetToDefaults();
       return;
     }
 
     if (speedConfigReady === false) {
-      resetOverrides();
+      resetToDefaults();
       return;
     }
 
@@ -78,7 +86,7 @@ export function useMarketPresetSwapOverridesEffect({
     const focusSwapProMarket =
       focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET;
     if (focusSwapPro && !focusSwapProMarket) {
-      resetOverrides();
+      resetToDefaults();
       return;
     }
 
@@ -94,11 +102,11 @@ export function useMarketPresetSwapOverridesEffect({
     }
 
     if (!tradeSide) {
-      resetOverrides();
+      resetToDefaults();
       return;
     }
 
-    resetOverrides();
+    resetToDefaults();
     void (async () => {
       const overrides = await loadMarketPresetSwapOverrides({
         networkId: marketPresetToken.networkId,
@@ -109,12 +117,21 @@ export function useMarketPresetSwapOverridesEffect({
       if (requestIdRef.current !== requestId) {
         return;
       }
-      setSwapStepNetFeeLevel({
-        networkFeeLevel:
-          overrides?.networkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM,
-        customPriorityFee: overrides?.customPriorityFee,
-      });
-      setSwapSlippageOverride(overrides?.slippage);
+      const resolvedNetworkFeeLevel =
+        overrides?.networkFeeLevel ?? ESwapNetworkFeeLevel.MEDIUM;
+      const resolvedCustomPriorityFee = overrides?.customPriorityFee;
+      setSwapStepNetFeeLevel((prev) =>
+        prev.networkFeeLevel === resolvedNetworkFeeLevel &&
+        prev.customPriorityFee === resolvedCustomPriorityFee
+          ? prev
+          : {
+              networkFeeLevel: resolvedNetworkFeeLevel,
+              customPriorityFee: resolvedCustomPriorityFee,
+            },
+      );
+      setSwapSlippageOverride((prev) =>
+        prev === overrides?.slippage ? prev : overrides?.slippage,
+      );
     })();
   }, [
     marketPresetToken,
