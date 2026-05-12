@@ -163,6 +163,8 @@ function TokenListBlock({
     [showLpTokensOnly],
   );
   const syncTokenFilterToOverview = !showLpTokensOnly;
+  const syncTokenFilterToOverviewRef = useRef(syncTokenFilterToOverview);
+  syncTokenFilterToOverviewRef.current = syncTokenFilterToOverview;
 
   const accountTokensValue = useMemo(() => {
     return calculateAccountTokensValue({
@@ -1352,6 +1354,8 @@ function TokenListBlock({
   });
 
   const updateAllNetworksTokenList = useCallback(async () => {
+    const shouldSyncTokenFilterToOverview =
+      syncTokenFilterToOverviewRef.current;
     const tokenList: {
       tokens: IAccountToken[];
       keys: string;
@@ -1501,7 +1505,7 @@ function TokenListBlock({
         }
       }
 
-      if (syncTokenFilterToOverview) {
+      if (shouldSyncTokenFilterToOverview) {
         void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
           networkId: network?.id ?? '',
           accountId: account?.id ?? '',
@@ -1577,7 +1581,7 @@ function TokenListBlock({
         map: riskyTokenListMap,
       });
 
-      if (syncTokenFilterToOverview) {
+      if (shouldSyncTokenFilterToOverview) {
         updateAccountWorth({
           accountId: mergeDeriveAddressData
             ? (indexedAccount?.id ?? '')
@@ -1628,6 +1632,11 @@ function TokenListBlock({
           ...flattenAggregateTokenMap,
         },
       });
+
+      updateTokenListState({
+        initialized: true,
+        isRefreshing: false,
+      });
     }
   }, [
     account?.createAtNetwork,
@@ -1647,8 +1656,8 @@ function TokenListBlock({
     refreshSmallBalanceTokensFiatValue,
     refreshTokenList,
     refreshTokenListMap,
-    syncTokenFilterToOverview,
     updateAccountWorth,
+    updateTokenListState,
   ]);
 
   // Eagerly restore the singleton token-list atoms from the per-owner cache
