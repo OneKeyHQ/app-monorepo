@@ -1237,6 +1237,7 @@ export function MarketPresetSelector({
     settings: selectedDirectionSettings,
     unit: presetSettings.priorityFeeUnit,
   });
+  const showAntiMEV = antiMEV === true;
   const selectedPresetItem =
     selectedPreset ??
     presets.find((preset) => preset.key === selectedPresetKey);
@@ -1257,6 +1258,7 @@ export function MarketPresetSelector({
       slippageIconName={slippageIconName}
       slippageLabel={slippageLabel}
       priorityFeeLabel={priorityFeeLabel}
+      showAntiMEV={showAntiMEV}
       onPresetChange={onPresetChange}
       onOpenSettings={openPresetDialog}
       onQuickPresetPress={handleQuickPresetSwitch}

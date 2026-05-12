@@ -28,6 +28,7 @@ type ITradingWidgetMainButtonProps<T extends string> = {
   slippageIconName?: IIconProps['name'];
   slippageLabel: string;
   priorityFeeLabel: string;
+  showAntiMEV?: boolean;
   onPresetChange: (value: T) => void;
   onOpenSettings: () => void;
   onQuickPresetPress?: (event?: ITradingWidgetMainButtonPressEvent) => void;
@@ -82,6 +83,7 @@ function TradingWidgetMainButtonInfoRow<T extends string>({
   slippageIconName = 'SliderVerOutline',
   slippageLabel,
   priorityFeeLabel,
+  showAntiMEV,
   onOpenSettings,
   onQuickPresetPress,
 }: Pick<
@@ -91,6 +93,7 @@ function TradingWidgetMainButtonInfoRow<T extends string>({
   | 'slippageIconName'
   | 'slippageLabel'
   | 'priorityFeeLabel'
+  | 'showAntiMEV'
   | 'onOpenSettings'
   | 'onQuickPresetPress'
 >) {
@@ -165,7 +168,7 @@ function TradingWidgetMainButtonInfoRow<T extends string>({
           </SizableText>
         </XStack>
 
-        <Divider vertical h={12} mx="$2" />
+        {showAntiMEV ? <Divider vertical h={12} mx="$2" /> : null}
 
         <XStack
           alignItems="center"
@@ -173,7 +176,13 @@ function TradingWidgetMainButtonInfoRow<T extends string>({
           gap={compact ? '$1' : '$3'}
           flex={compact ? undefined : 1}
         >
-          <Icon name="ShieldCheckDoneSolid" size="$4.5" color="$iconSuccess" />
+          {showAntiMEV ? (
+            <Icon
+              name="ShieldCheckDoneSolid"
+              size="$4.5"
+              color="$iconSuccess"
+            />
+          ) : null}
           <Icon
             name="ChevronRightSmallOutline"
             size="$5"
@@ -193,6 +202,7 @@ export function TradingWidgetMainButton<T extends string>({
   slippageIconName,
   slippageLabel,
   priorityFeeLabel,
+  showAntiMEV,
   onPresetChange,
   onOpenSettings,
   onQuickPresetPress,
@@ -207,6 +217,7 @@ export function TradingWidgetMainButton<T extends string>({
           slippageIconName={slippageIconName}
           slippageLabel={slippageLabel}
           priorityFeeLabel={priorityFeeLabel}
+          showAntiMEV={showAntiMEV}
           onOpenSettings={onOpenSettings}
           onQuickPresetPress={onQuickPresetPress}
         />
@@ -233,6 +244,7 @@ export function TradingWidgetMainButton<T extends string>({
         slippageIconName={slippageIconName}
         slippageLabel={slippageLabel}
         priorityFeeLabel={priorityFeeLabel}
+        showAntiMEV={showAntiMEV}
         onOpenSettings={onOpenSettings}
         onQuickPresetPress={onQuickPresetPress}
       />

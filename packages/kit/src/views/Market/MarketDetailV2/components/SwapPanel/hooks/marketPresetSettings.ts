@@ -136,6 +136,7 @@ const DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS: IMarketPresetDirectionS
   {
     slippage: {
       key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 1,
     },
     priorityFee: {
       type: EMarketPresetPriorityFeeType.CUSTOM,
@@ -461,7 +462,7 @@ export function getMarketPresetDefaultDirectionSettings(): IMarketPresetDirectio
 }
 
 export function getMarketPresetDefaultEditableDirectionSettings({
-  defaultSlippage = 0.5,
+  defaultSlippage = 1,
 }: {
   defaultSlippage?: number;
 } = {}): IMarketPresetDirectionSettings {
