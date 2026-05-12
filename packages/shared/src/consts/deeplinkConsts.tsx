@@ -11,6 +11,7 @@ export enum EOneKeyDeepLinkPath {
   invite_share = 'invite_share',
   invited_by_friend = 'invited_by_friend',
   cross_device_transfer = 'cross_device_transfer',
+  webview = 'webview',
 }
 export type IEOneKeyDeepLinkParams = {
   [EOneKeyDeepLinkPath.url_account]: {
@@ -34,6 +35,13 @@ export type IEOneKeyDeepLinkParams = {
     transferType?: EPrimeTransferDataType;
     botWalletId?: string;
     defaultTab?: 'qr-code' | 'enter-link';
+  };
+  [EOneKeyDeepLinkPath.webview]: {
+    url: string;
+    title?: string;
+    hideHeader?: '0' | '1';
+    /** Address bar is hidden by default; pass '1' to show it. */
+    showAddressBar?: '0' | '1';
   };
 };
 

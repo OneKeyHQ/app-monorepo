@@ -98,7 +98,11 @@ function MessageConfirm() {
     setContinueOperate,
     urlSecurityInfo,
     isRiskSignMethod,
-  } = useRiskDetection({ origin: sourceInfo?.origin ?? '', unsignedMessage });
+  } = useRiskDetection({
+    origin: sourceInfo?.origin ?? '',
+    unsignedMessage,
+    walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
+  });
 
   const { result, isLoading } = usePromiseResult(
     async () => {
