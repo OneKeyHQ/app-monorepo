@@ -2,13 +2,6 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  errorCodes,
-  isErrorWithCode,
-  keepLocalCopy,
-  pick,
-  types,
-} from '@react-native-documents/picker';
 import { Image as RNImage } from 'react-native';
 
 import {
@@ -32,6 +25,11 @@ import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
+import {
+  type IBleFirmwareFile,
+  pickBleFirmwareFileFromDevice,
+} from './bleFirmwarePicker';
 
 const PRO2_BLE_FIRMWARE_ASSET = require('./assets/ble-firmware.bin');
 const PRO2_BLE_FIRMWARE_FILE_NAME = 'ble-firmware.bin';
@@ -125,12 +123,6 @@ type IFirmwareTiming = {
 type IFirmwareTimingSummary = {
   status: 'success' | 'failed';
   totalDurationMs?: number;
-};
-
-type IBleFirmwareFile = {
-  name: string;
-  size?: number;
-  localPath: string;
 };
 
 const FIRMWARE_TIP_STATUS: Record<string, string> = {
@@ -688,42 +680,20 @@ export default function TabPro2Debug() {
     }
     setBusyKey('pickBleFirmware');
     try {
-      const [result] = await pick({
-        type: [types.allFiles],
+      const firmwareFile = await pickBleFirmwareFileFromDevice({
+        defaultFileName: PRO2_BLE_FIRMWARE_FILE_NAME,
       });
-
-      if (!result?.uri) {
-        appendLog('pick BLE firmware: no file selected');
+      if (!firmwareFile) {
+        appendLog('pick BLE firmware: canceled');
         return;
       }
-
-      const fileName = result.name ?? PRO2_BLE_FIRMWARE_FILE_NAME;
-      const [localCopyResult] = await keepLocalCopy({
-        files: [{ uri: result.uri, fileName }],
-        destination: 'cachesDirectory',
-      });
-
-      if (localCopyResult.status !== 'success') {
-        throw new OneKeyLocalError(
-          `Copy BLE firmware failed: ${localCopyResult.copyError}`,
-        );
-      }
-
-      if (!RNFS) {
-        throw new OneKeyLocalError('RNFS is not available');
-      }
-
-      const localPath = decodeURIComponent(
-        localCopyResult.localUri.replace(/^file:\/\//, ''),
-      );
-      const stat = await RNFS.stat(localPath).catch(() => undefined);
-      const fileSize = getFiniteNumber(result.size ?? stat?.size);
+      const fileSize = getFiniteNumber(firmwareFile.size);
       setSelectedBleFirmwareFile({
-        name: fileName,
+        name: firmwareFile.name,
         size: fileSize ?? undefined,
-        localPath,
+        localPath: firmwareFile.localPath,
       });
-      setFirmwareStatus(`Selected ${fileName}`);
+      setFirmwareStatus(`Selected ${firmwareFile.name}`);
       setFirmwareProgress((prev) =>
         prev
           ? {
@@ -733,16 +703,11 @@ export default function TabPro2Debug() {
           : undefined,
       );
       appendLog(
-        `pick BLE firmware: ${fileName} · ${formatBytes(fileSize ?? undefined)}`,
+        `pick BLE firmware: ${firmwareFile.name} · ${formatBytes(
+          fileSize ?? undefined,
+        )}`,
       );
     } catch (error) {
-      if (
-        isErrorWithCode(error) &&
-        error.code === errorCodes.OPERATION_CANCELED
-      ) {
-        appendLog('pick BLE firmware: canceled');
-        return;
-      }
       appendLog(`pick BLE firmware failed: ${String(error)}`);
       setFirmwareStatus('Pick BLE firmware failed');
     } finally {
