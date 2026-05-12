@@ -329,24 +329,37 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
-    // If not in URL account page, switch to Home tab and push
+    const alreadyOnUrlAccountPage = isCurrentlyInUrlAccountPage();
+
     defaultLogger.app.router.switchTab(ETabRoutes.Home);
-    navigation.switchTab(ETabRoutes.Home);
+
+    if (alreadyOnUrlAccountPage) {
+      resetAboveMainRoute();
+      await timerUtils.wait(100);
+    } else {
+      await navigateFromOverlayToTab({
+        targetTab: ETabRoutes.Home,
+        switchTab: (tab) => navigation.switchTab(tab),
+      });
+      rootNavigationRef.current?.dispatch(
+        StackActions.popTo(ETabHomeRoutes.TabHome),
+      );
+      await timerUtils.wait(0);
+    }
+
     defaultLogger.app.router.switchTabDone(ETabRoutes.Home);
-    rootNavigationRef.current?.navigate(ETabRoutes.Home, {
-      screen: ETabHomeRoutes.TabHome,
-    });
-    await timerUtils.wait(100);
     defaultLogger.app.router.pushRoute({
       action: 'replaceUrlAccountPage',
       address: params.address,
       routeName: ETabHomeRoutes.TabHomeUrlAccountPage,
     });
+
+    const routeParams = {
+      address: params.address,
+      networkId: networkSegment,
+    };
     rootNavigationRef.current?.dispatch(
-      StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, {
-        address: params.address,
-        networkId: networkSegment,
-      }),
+      StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, routeParams),
     );
   },
   pushUrlAccountPageLanding(

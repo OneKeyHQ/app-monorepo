@@ -795,7 +795,7 @@ export const useInPageDialog = (dialogType?: EInPageDialogType) => {
     if (dialogType) {
       return dialogType;
     }
-    if (pageType === EPageType.modal) {
+    if (pageType === EPageType.modal || pageType === EPageType.webView) {
       return EInPageDialogType.inModalPage;
     }
     if (pageType === EPageType.fullScreenPush) {

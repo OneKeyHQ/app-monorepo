@@ -1,3 +1,5 @@
+import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
+
 import type { Contexts } from '@sentry/core';
 import type { Systeminformation } from 'systeminformation';
 
@@ -83,8 +85,9 @@ export const ipcMessageKeys = {
 
   SET_ONEKEY_DESKTOP_GLOBALS: 'onekey/setDesktopGlobals',
 
-  // webview
-  WEBVIEW_NEW_WINDOW: 'webview/newWindow',
+  // webview — channel name lives in `shared/src/consts/desktopIpcChannels`
+  // so non-app packages can subscribe without importing from `apps/desktop`.
+  WEBVIEW_NEW_WINDOW: EDesktopIpcChannel.WEBVIEW_NEW_WINDOW,
 
   // notification
   NOTIFICATION_SET_BADGE_WINDOWS: 'notification/setBadge/windows',
