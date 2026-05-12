@@ -140,12 +140,20 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
 
 export function normalizeFeaturedChangelog(
   raw: unknown,
+  // The parent response's app version. When provided, the payload's own
+  // `version` field must match exactly — featured content authored for a
+  // different release would mislead users on the current update path and
+  // could occupy a force-update blocker with the wrong copy.
+  expectedVersion?: string,
 ): IFeaturedChangelog | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const src = raw as Record<string, unknown>;
 
   const version = optionalTrimmedString(src.version);
   if (!version || !Array.isArray(src.features)) return undefined;
+  if (expectedVersion !== undefined && version !== expectedVersion) {
+    return undefined;
+  }
 
   const features = src.features
     .map((f) => normalizeFeaturedItem(f))
