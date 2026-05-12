@@ -652,29 +652,14 @@ export function getMarketPresetCustomizedMap(
   );
 }
 
-export function getMarketPresetReviewNetworkFeeOptionLabel({
+export function shouldShowMarketPresetReviewCustomNetworkFeeOption({
   enabled,
-  presetCustomizedMap,
-  presets,
-  selectedPreset,
-  selectedPresetKey,
+  selectedPriorityFeeOverride,
 }: {
   enabled: boolean;
-  presetCustomizedMap: Partial<Record<EMarketPresetKey, boolean>>;
-  presets: IMarketPresetItem[];
-  selectedPreset?: IMarketPresetItem;
-  selectedPresetKey: EMarketPresetKey;
+  selectedPriorityFeeOverride?: IMarketPresetPriorityFeeOverride;
 }) {
-  if (!enabled || selectedPresetKey === EMarketPresetKey.AUTO) {
-    return undefined;
-  }
-
-  const selectedPresetItem =
-    selectedPreset ??
-    presets.find((preset) => preset.key === selectedPresetKey);
-  const label = selectedPresetItem?.label ?? selectedPresetKey.toUpperCase();
-
-  return `${label}${presetCustomizedMap[selectedPresetKey] ? '*' : ''}`;
+  return enabled && !!selectedPriorityFeeOverride;
 }
 
 export function getMarketPresetSlippageValue({

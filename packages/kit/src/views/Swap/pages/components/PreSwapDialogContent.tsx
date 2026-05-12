@@ -77,7 +77,7 @@ interface IPreSwapDialogContentProps {
   }) => void | Promise<void>;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
-  customNetworkFeeOptionLabel?: string;
+  showCustomNetworkFeeOption?: boolean;
 }
 
 const PreSwapDialogContent = ({
@@ -88,7 +88,7 @@ const PreSwapDialogContent = ({
   preSwapStepsStart,
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
-  customNetworkFeeOptionLabel,
+  showCustomNetworkFeeOption,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
@@ -99,26 +99,20 @@ const PreSwapDialogContent = ({
   const effectiveNetworkFeeLevel =
     defaultNetworkFeeLevel ?? swapStepNetFeeLevel.networkFeeLevel;
   const customNetworkFeeOption = useMemo(() => {
-    const label =
-      customNetworkFeeOptionLabel ??
-      (effectiveCustomPriorityFee
-        ? intl.formatMessage({ id: ETranslations.transaction_custom })
-        : undefined);
-
-    if (!label) {
+    if (!showCustomNetworkFeeOption && !effectiveCustomPriorityFee) {
       return undefined;
     }
 
     return {
-      label,
+      label: intl.formatMessage({ id: ETranslations.transaction_custom }),
       networkFeeLevel: effectiveNetworkFeeLevel,
       customPriorityFee: effectiveCustomPriorityFee,
     };
   }, [
-    customNetworkFeeOptionLabel,
     effectiveCustomPriorityFee,
     effectiveNetworkFeeLevel,
     intl,
+    showCustomNetworkFeeOption,
   ]);
   const [networkFeeSelectValue, setNetworkFeeSelectValue] =
     useState<ISwapReviewNetworkFeeSelectValue>(
