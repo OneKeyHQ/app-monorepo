@@ -47,6 +47,33 @@ interface ISolSignTransactionExtraInfo {
   }>;
 }
 
+// Ed25519 signatures are always 64 bytes. A malformed hex string from the
+// firmware would otherwise be silently truncated by Buffer.from(_, 'hex')
+// and surface later as a cryptic web3.js error.
+const SOL_SIGNATURE_BYTES = 64;
+
+export function decodeEd25519Signature(
+  signatureHex: string | undefined,
+  context: 'signTransaction' | 'signMessage',
+): Buffer {
+  if (!signatureHex) {
+    throw new AppError(
+      ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+      `Hardware returned empty signature for SOL ${context}.`,
+      'Retry the operation; if the failure persists, check device firmware.',
+    );
+  }
+  const bytes = Buffer.from(signatureHex, 'hex');
+  if (bytes.length !== SOL_SIGNATURE_BYTES) {
+    throw new AppError(
+      ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+      `Hardware returned SOL ${context} signature with unexpected length: ${bytes.length} bytes (expected ${SOL_SIGNATURE_BYTES}).`,
+      'Retry the operation; if the failure persists, check device firmware.',
+    );
+  }
+  return bytes;
+}
+
 export class SignerHardware extends SignerHardwareBase {
   async getAddress(
     networkId: string,
@@ -151,15 +178,10 @@ export class SignerHardware extends SignerHardwareBase {
     );
 
     const sig = unwrapSDKResult<ISolSignTxPayload>(result, 'signTransaction');
-    if (!sig.signature) {
-      throw new AppError(
-        ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
-        'Hardware returned empty signature for SOL transaction.',
-        'Retry the operation; if the failure persists, check device firmware.',
-      );
-    }
-
-    const signatureBytes = Buffer.from(sig.signature, 'hex');
+    const signatureBytes = decodeEd25519Signature(
+      sig.signature,
+      'signTransaction',
+    );
     const feePayer = new PublicKey(payload.account.address);
     transaction.addSignature(feePayer, signatureBytes);
 
@@ -216,7 +238,7 @@ export class SignerHardware extends SignerHardwareBase {
         result,
         'signMessage',
       );
-      return bs58.encode(Buffer.from(sig.signature ?? '', 'hex'));
+      return bs58.encode(decodeEd25519Signature(sig.signature, 'signMessage'));
     }
 
     if (unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
@@ -244,7 +266,7 @@ export class SignerHardware extends SignerHardwareBase {
         result,
         'signMessage',
       );
-      return bs58.encode(Buffer.from(sig.signature ?? '', 'hex'));
+      return bs58.encode(decodeEd25519Signature(sig.signature, 'signMessage'));
     }
 
     throw new AppError(
