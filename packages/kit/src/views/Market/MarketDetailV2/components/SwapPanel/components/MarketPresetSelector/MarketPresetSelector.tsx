@@ -78,6 +78,10 @@ type IDraftPresetSettings = Partial<
 const MARKET_PRESET_DIALOG_TOP_SAFE_GAP = 16;
 const MARKET_PRESET_DIALOG_CHROME_HEIGHT = 220;
 const MARKET_PRESET_DIALOG_MIN_CONTENT_HEIGHT = 120;
+const READONLY_PRIORITY_FEE_DISPLAY_TYPES = [
+  EMarketPresetPriorityFeeType.AUTO,
+  EMarketPresetPriorityFeeType.CUSTOM,
+];
 
 function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   if (type === EMarketPresetPriorityFeeType.AUTO) {
@@ -502,18 +506,25 @@ function MarketPresetSettingsDialog({
     [intl],
   );
 
-  const priorityFeeOptions = useMemo(
-    () =>
-      (
-        presetSettings.config?.priorityFee.supportedTypes ?? [
-          EMarketPresetPriorityFeeType.MARKET,
-        ]
-      ).map((type) => ({
-        label: intl.formatMessage({ id: getPriorityFeeTranslationId(type) }),
-        value: type,
-      })),
-    [intl, presetSettings.config?.priorityFee.supportedTypes],
-  );
+  const priorityFeeOptions = useMemo(() => {
+    const supportedTypes = presetSettings.config?.priorityFee
+      .supportedTypes ?? [EMarketPresetPriorityFeeType.MARKET];
+    const displayTypes =
+      presetSettings.config?.priorityFee.editable === false &&
+      supportedTypes.length === 1 &&
+      supportedTypes[0] === EMarketPresetPriorityFeeType.AUTO
+        ? READONLY_PRIORITY_FEE_DISPLAY_TYPES
+        : supportedTypes;
+
+    return displayTypes.map((type) => ({
+      label: intl.formatMessage({ id: getPriorityFeeTranslationId(type) }),
+      value: type,
+    }));
+  }, [
+    intl,
+    presetSettings.config?.priorityFee.editable,
+    presetSettings.config?.priorityFee.supportedTypes,
+  ]);
   const isReadonlyPreset =
     !presetSettings.config?.slippage.editable &&
     !presetSettings.config?.priorityFee.editable;
