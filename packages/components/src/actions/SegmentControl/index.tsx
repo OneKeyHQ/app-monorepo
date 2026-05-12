@@ -78,10 +78,13 @@ function SegmentControlItem({
       py="$1.5"
       px="$3.5"
       $gtMd={gtMdStyle}
-      onPress={handleChange}
+      onPress={disabled ? undefined : handleChange}
       borderRadius="$full"
       borderCurve="continuous"
       userSelect="none"
+      cursor={disabled ? 'not-allowed' : undefined}
+      disabled={disabled}
+      aria-disabled={disabled}
       focusable={!disabled}
       focusVisibleStyle={focusVisibleStyleConst}
       testID={testID}
