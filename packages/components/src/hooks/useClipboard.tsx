@@ -6,9 +6,11 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ensureHttpsPrefix } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { Toast } from '../actions/Toast';
+import { Button } from '../primitives/Button';
 
 import type { IPasteEventParams } from '../forms';
 
@@ -19,6 +21,8 @@ const getClipboard = async () => {
 
 const ANDROID_COPY_TAP_THRESHOLD = 3;
 const ANDROID_COPY_TAP_WINDOW_MS = 15_000;
+
+const handleOpenClipboardSettings = () => openSettings('default');
 
 export function useClipboard() {
   const intl = useIntl();
@@ -56,9 +60,23 @@ export function useClipboard() {
         const shouldWarn = checkAndroidRepeatedCopy();
         if (shouldWarn) {
           Toast.warning({
-            title: 'Copy may not be working',
-            message:
-              'Your device may restrict clipboard access. Please check clipboard permissions in your device settings.',
+            title: intl.formatMessage({
+              id: ETranslations.clipboard_copy_may_fail__title,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.clipboard_copy_may_fail__msg,
+            }),
+            actions: (
+              <Button
+                size="small"
+                variant="primary"
+                onPress={handleOpenClipboardSettings}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_go_to_settings,
+                })}
+              </Button>
+            ),
           });
         } else {
           Toast.success({

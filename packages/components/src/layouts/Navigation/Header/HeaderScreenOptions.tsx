@@ -20,6 +20,7 @@ export type IOnekeyStackHeaderProps = {
   isRootScreen?: boolean;
   isFlowModelScreen?: boolean;
   isOnboardingScreen?: boolean;
+  isWebViewScreen?: boolean;
 };
 
 export function makeHeaderScreenOptions({
@@ -27,6 +28,7 @@ export function makeHeaderScreenOptions({
   isModelScreen = false,
   isRootScreen = false,
   isOnboardingScreen = false,
+  isWebViewScreen = false,
   bgColor,
   titleColor,
 }: IOnekeyStackHeaderProps & {
@@ -60,6 +62,7 @@ export function makeHeaderScreenOptions({
           isModelScreen={isModelScreen}
           isRootScreen={isRootScreen}
           isOnboardingScreen={isOnboardingScreen}
+          isWebViewScreen={isWebViewScreen}
           {...props}
           canGoBack={isCanGoBack}
         />
@@ -78,6 +81,7 @@ export function makeHeaderScreenOptions({
         isModelScreen={isModelScreen}
         isRootScreen={isRootScreen}
         isOnboardingScreen={isOnboardingScreen}
+        isWebViewScreen={isWebViewScreen}
       />
     ),
   };
