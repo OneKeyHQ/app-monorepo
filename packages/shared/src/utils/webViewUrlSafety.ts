@@ -54,7 +54,18 @@ const DOWNLOAD_EXTENSIONS = [
 ];
 
 function isLikelyDownloadPath(pathname: string): boolean {
-  const lower = pathname.toLowerCase();
+  // URL.pathname keeps percent-encoded sequences verbatim, so a raw suffix
+  // match misses paths that percent-encode the dot or the extension. Decode
+  // once before matching, and fail closed if the path contains a malformed
+  // escape (decodeURIComponent throws on lone `%` or `%X` with a non-hex
+  // follower): treat such a pathname as suspicious rather than allow it.
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return true;
+  }
+  const lower = decoded.toLowerCase();
   return DOWNLOAD_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 

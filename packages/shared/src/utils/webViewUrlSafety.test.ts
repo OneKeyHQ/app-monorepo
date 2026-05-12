@@ -181,6 +181,17 @@ describe('isAllowedWebViewUrl', () => {
       ['https://example.com/archive.tgz'],
       ['https://example.com/archive.gz'],
       ['https://example.com/archive.bz2'],
+      // Percent-encoded variants must not bypass the suffix match — URL.pathname
+      // keeps `%2E` etc. verbatim, so isLikelyDownloadPath has to decode first.
+      ['https://example.com/installer%2Eexe'],
+      ['https://example.com/payload%2Ezip'],
+      ['https://example.com/release%2Eapk?token=abc'],
+      ['https://example.com/Setup%2EEXE'],
+      ['https://example.com/path/to/file%2Eapk'],
+      // Fail closed when the pathname has a malformed percent-escape
+      // (decodeURIComponent throws): treat as suspicious instead of allowing.
+      ['https://example.com/file%E0%A4.exe'],
+      ['https://example.com/lone%'],
     ])('%s', (url) => {
       expect(isAllowedWebViewUrl(url)).toBe(false);
     });
