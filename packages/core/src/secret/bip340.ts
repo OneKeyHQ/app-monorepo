@@ -45,7 +45,7 @@ export function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
 
 export function tweakPublicKey(
   pubKey: Buffer,
-  h?: Buffer,
+  h: Buffer | undefined = undefined,
 ): { parity: number; x: Uint8Array } | null {
   if (!Buffer.isBuffer(pubKey)) return null;
   if (pubKey.length !== 32) return null;
