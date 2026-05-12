@@ -134,7 +134,7 @@ describe('useWalletBoundReferralCode', () => {
     );
   });
 
-  it('persists fresh bind status and opens the bind path for bindable wallets', async () => {
+  it('opens the bind path for bindable wallets without writing local bind data', async () => {
     const { result } = renderHook(() => useWalletBoundReferralCode());
 
     let shouldBind = false;
@@ -152,21 +152,10 @@ describe('useWalletBoundReferralCode', () => {
 
     expect(
       globalMockBag.__referralBg?.serviceReferralCode.setWalletReferralCode,
-    ).toHaveBeenCalledWith({
-      walletId: 'hd-1',
-      referralCodeInfo: {
-        walletId: 'hd-1',
-        address: '0xabc',
-        networkId: 'evm--1',
-        pubkey: 'pubkey-1',
-        isBound: false,
-        bindable: true,
-        bindWindowReason: undefined,
-      },
-    });
+    ).not.toHaveBeenCalled();
   });
 
-  it('falls back to cached expired status when the server check fails', async () => {
+  it('keeps local bind data untouched when the server check fails', async () => {
     globalMockBag.__referralBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
       {
         walletId: 'hd-1',
@@ -191,11 +180,143 @@ describe('useWalletBoundReferralCode', () => {
     expect(shouldBind).toBe(false);
     expect(result.current.shouldBondReferralCode).toBeUndefined();
     expect(
+      globalMockBag.__referralBg?.serviceReferralCode.getWalletReferralCode,
+    ).not.toHaveBeenCalled();
+    expect(
       globalMockBag.__referralBg?.serviceReferralCode.setWalletReferralCode,
     ).not.toHaveBeenCalled();
   });
 
-  it('does not show bind path from cached positive status when the server check fails', async () => {
+  it('does not write local bind data when the server reports already bound', async () => {
+    globalMockBag.__referralBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
+      {
+        walletId: 'hd-1',
+        isBound: false,
+        bindable: false,
+        bindWindowReason: 'exceeded_bind_window',
+      },
+    );
+    globalMockBag.__referralBg?.serviceReferralCode.checkWalletBindStatus.mockResolvedValue(
+      {
+        data: false,
+        bindable: false,
+        reason: 'already_bound',
+      },
+    );
+
+    const { result } = renderHook(() => useWalletBoundReferralCode());
+
+    let shouldBind = true;
+    await act(async () => {
+      shouldBind = await result.current.getReferralCodeBondStatus({
+        walletId: 'hd-1',
+      });
+    });
+
+    expect(shouldBind).toBe(false);
+    expect(result.current.shouldBondReferralCode).toBeUndefined();
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not trust stale local bound status during status checks', async () => {
+    globalMockBag.__referralBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
+      {
+        walletId: 'hd-1',
+        isBound: true,
+        bindable: false,
+      },
+    );
+    globalMockBag.__referralBg?.serviceReferralCode.checkWalletBindStatus.mockResolvedValue(
+      {
+        data: false,
+        bindable: false,
+        reason: 'exceeded_bind_window',
+      },
+    );
+
+    const { result } = renderHook(() => useWalletBoundReferralCode());
+
+    let shouldBind = true;
+    await act(async () => {
+      shouldBind = await result.current.getReferralCodeBondStatus({
+        walletId: 'hd-1',
+      });
+    });
+
+    expect(shouldBind).toBe(false);
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.checkWalletBindStatus,
+    ).toHaveBeenCalledWith({
+      address: '0xabc',
+      networkId: 'evm--1',
+    });
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('returns expired display status from the server without trusting stale local bound status', async () => {
+    globalMockBag.__referralBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
+      {
+        walletId: 'hd-1',
+        isBound: true,
+        bindable: false,
+      },
+    );
+    globalMockBag.__referralBg?.serviceReferralCode.checkWalletBindStatus.mockResolvedValue(
+      {
+        data: false,
+        bindable: false,
+        reason: 'exceeded_bind_window',
+      },
+    );
+
+    const { result } = renderHook(() => useWalletBoundReferralCode());
+
+    let displayStatus = 'unknown';
+    await act(async () => {
+      displayStatus = await result.current.getReferralCodeBindDisplayStatus({
+        walletId: 'hd-1',
+      });
+    });
+
+    expect(displayStatus).toBe('notApplicable');
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.getWalletReferralCode,
+    ).not.toHaveBeenCalled();
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not write local bind data during bound status checks', async () => {
+    globalMockBag.__referralBg?.serviceReferralCode.checkWalletBindStatus.mockResolvedValue(
+      {
+        data: true,
+        bindable: false,
+        reason: 'exceeded_bind_window',
+      },
+    );
+
+    const { result } = renderHook(() => useWalletBoundReferralCode());
+
+    let shouldBind = true;
+    await act(async () => {
+      shouldBind = await result.current.getReferralCodeBondStatus({
+        walletId: 'hd-1',
+      });
+    });
+
+    expect(shouldBind).toBe(false);
+    expect(result.current.shouldBondReferralCode).toBeUndefined();
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not show bind path or write local bind data when the server check fails', async () => {
     globalMockBag.__referralBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
       {
         walletId: 'hd-1',
@@ -218,6 +339,9 @@ describe('useWalletBoundReferralCode', () => {
 
     expect(shouldBind).toBe(false);
     expect(result.current.shouldBondReferralCode).toBeUndefined();
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.getWalletReferralCode,
+    ).not.toHaveBeenCalled();
     expect(
       globalMockBag.__referralBg?.serviceReferralCode.setWalletReferralCode,
     ).not.toHaveBeenCalled();
