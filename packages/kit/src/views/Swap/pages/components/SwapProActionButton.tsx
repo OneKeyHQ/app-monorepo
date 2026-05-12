@@ -144,6 +144,7 @@ interface ISwapProActionButtonProps {
   balanceLoading: boolean;
   supportSpeedSwap: boolean;
   onlySupportCrossChain: boolean;
+  isActionDisabled?: boolean;
 }
 
 const SwapProActionButton = ({
@@ -152,6 +153,7 @@ const SwapProActionButton = ({
   balanceLoading,
   supportSpeedSwap,
   onlySupportCrossChain,
+  isActionDisabled,
 }: ISwapProActionButtonProps) => {
   const intl = useIntl();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
@@ -368,16 +370,18 @@ const SwapProActionButton = ({
   );
   const actionButtonDisabled = useMemo(() => {
     let originalDisabled =
+      !!isActionDisabled ||
       !hasEnoughBalance ||
       shouldShowNoProviderSupport ||
       !currentQuoteRes?.toAmount ||
       balanceLoading ||
       currentQuoteLoading;
     if (!supportSpeedSwap) {
-      originalDisabled = !hasEnoughBalance;
+      originalDisabled = !!isActionDisabled || !hasEnoughBalance;
     }
     return originalDisabled;
   }, [
+    isActionDisabled,
     hasEnoughBalance,
     currentQuoteRes?.toAmount,
     shouldShowNoProviderSupport,

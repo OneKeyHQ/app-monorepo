@@ -23,13 +23,13 @@ import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deF
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
 import { EarnProviderMirror } from '../../Earn/EarnProviderMirror';
-import { DeFiListBlock, DeFiStickyPortal } from '../components/DeFiListBlock';
+import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PopularTrading } from '../components/PopularTrading';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
-import { RecentHistory, RecentHistoryTitle } from '../components/RecentHistory';
+import { RecentHistory } from '../components/RecentHistory';
 import { SupportHub } from '../components/SupportHub';
 import { TokenListBlock } from '../components/TokenListBlock';
 import { Upgrade } from '../components/Upgrade';
@@ -52,8 +52,6 @@ function PortfolioContainer() {
   const tableLayout = media.gtMd;
   const showRecentHistory = media.gtXl;
   const stickyHeaderCtx = useContext(HomeStickyHeaderContext);
-  const tabBarRightPortalTarget =
-    stickyHeaderCtx?.tabBarRightPortalTarget ?? null;
   const isTabFocused =
     stickyHeaderCtx?.activeTabId === EHomeWalletTab.Portfolio;
 
@@ -245,20 +243,12 @@ function PortfolioContainer() {
                   }
                 : null)}
             >
-              <RecentHistory hideTitle={isSidebarPinned} />
+              <RecentHistory />
             </YStack>
           </YStack>
         ) : null}
         {addPaddingOnListFooter ? <Stack h="$16" /> : null}
       </Stack>
-      {tabBarRightPortalTarget &&
-      showRecentHistory &&
-      isTabFocused &&
-      isSidebarPinned ? (
-        <DeFiStickyPortal target={tabBarRightPortalTarget}>
-          <RecentHistoryTitle />
-        </DeFiStickyPortal>
-      ) : null}
     </>
   );
 }

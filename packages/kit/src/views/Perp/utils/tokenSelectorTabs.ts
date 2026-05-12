@@ -4,6 +4,10 @@ import type { IPerpTokenSortDirection } from '@onekeyhq/shared/types/hyperliquid
 type IFixedTabNames = Record<'favorites' | 'all' | 'perps' | 'spot', string>;
 type ITokenSelectorSortValue = string | number | null | undefined;
 type IPerpTokenSelectorPrimaryTabId = 'favorites' | 'perps' | 'spot';
+type IPerpTokenSelectorSortSnapshotKey = {
+  field?: string;
+  direction?: string;
+};
 
 const PRIMARY_TAB_IDS = ['favorites', 'perps', 'spot'] as const;
 const FIXED_TAB_IDS = ['favorites', 'all', 'perps', 'spot'] as const;
@@ -196,6 +200,24 @@ function sortPerpTokenSelectorItemsBySortValue<T>({
     .map(({ item }) => item);
 }
 
+function shouldRefreshPerpTokenSelectorSortSnapshot({
+  lastSort,
+  field,
+  direction,
+  snapshotEmpty,
+}: {
+  lastSort: IPerpTokenSelectorSortSnapshotKey | null;
+  field?: string;
+  direction?: string;
+  snapshotEmpty: boolean;
+}) {
+  return (
+    lastSort?.field !== field ||
+    lastSort?.direction !== direction ||
+    snapshotEmpty
+  );
+}
+
 export {
   buildPrimaryTabs,
   buildPerpTokenSelectorCategoryTabs,
@@ -208,6 +230,7 @@ export {
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSpotTab,
+  shouldRefreshPerpTokenSelectorSortSnapshot,
   sortPerpTokenSelectorItemsBySortValue,
 };
 
