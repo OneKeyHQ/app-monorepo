@@ -297,6 +297,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       : EMarketPresetTradeSide.BUY;
   const swapProMarketPresetSettings = useMarketPresetSettings({
     networkId: swapProMarketPresetTokenContext?.networkId,
+    defaultSlippage: speedConfig?.slippage,
     tradeSide: swapProMarketPresetTradeSide,
     speedConfig,
     speedConfigReady,

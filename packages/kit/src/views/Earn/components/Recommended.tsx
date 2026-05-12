@@ -146,21 +146,24 @@ function useRecommendedTokens({
       },
       revalidateOnFocus: true,
       watchLoading: true,
-      undefinedResultIfReRun: true,
       overrideIsFocused: (isFocused) =>
         isFocused && shouldFetchAccountRecommendedTokens,
     },
   );
 
-  const hasSettledAccountRecommendedTokens =
-    shouldFetchAccountRecommendedTokens &&
+  const accountRecommendedResultMatchesCurrentScope =
     accountRecommendedResult.refreshVersion === refreshVersion &&
     accountRecommendedResult.scopeNetworkKey === recommendedNetworkScopeKey &&
-    accountRecommendedResult.accountKey === accountKey &&
+    accountRecommendedResult.accountKey === accountKey;
+  const hasSettledAccountRecommendedTokens =
+    shouldFetchAccountRecommendedTokens &&
+    accountRecommendedResultMatchesCurrentScope &&
     isAccountLoading === false;
   const accountRecommendedTokens = accountRecommendedResult.tokens;
   const canUseAccountRecommendedTokens =
-    hasSettledAccountRecommendedTokens && accountRecommendedTokens.length > 0;
+    Boolean(accountId) &&
+    accountRecommendedResultMatchesCurrentScope &&
+    accountRecommendedTokens.length > 0;
   const recommendedTokens = canUseAccountRecommendedTokens
     ? accountRecommendedTokens
     : baseRecommendedTokens;
@@ -170,9 +173,8 @@ function useRecommendedTokens({
     isBalanceLoading:
       Boolean(accountId) &&
       baseRecommendedTokens.length > 0 &&
-      (!hasSettledBaseRecommendedTokens ||
-        (shouldFetchAccountRecommendedTokens &&
-          !hasSettledAccountRecommendedTokens)),
+      !canUseAccountRecommendedTokens &&
+      (!hasSettledBaseRecommendedTokens || !hasSettledAccountRecommendedTokens),
     recommendedTokens,
   };
 }

@@ -72,6 +72,8 @@ const DesktopWebView = forwardRef(
       style,
       receiveHandler,
       allowpopups,
+      disableBridge,
+      partition: partitionProp,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -226,10 +228,33 @@ const DesktopWebView = forwardRef(
           onDidStopLoading?.();
         };
 
+        // Server-side HTTP redirects (302 / 301) reach the new URL through
+        // `did-redirect-navigation`. Without an explicit listener the safety
+        // check in `did-start-navigation` may fire too late to abort the
+        // redirected request, so re-run the URL guard and stop the load if
+        // the target is not allowed.
+        const innerHandleDidRedirectNavigation = (
+          event: DidStartNavigationEvent,
+        ) => {
+          const { isMainFrame, url } = event ?? {};
+          if (
+            isMainFrame &&
+            onShouldStartLoadWithRequest &&
+            url &&
+            !onShouldStartLoadWithRequest({ url, isTopFrame: true })
+          ) {
+            webviewRef.current?.stop();
+          }
+        };
+
         webview.addEventListener('did-start-loading', onDidStartLoading);
         webview.addEventListener(
           'did-start-navigation',
           innerHandleDidStartNavigationNavigation,
+        );
+        webview.addEventListener(
+          'did-redirect-navigation',
+          innerHandleDidRedirectNavigation,
         );
         webview.addEventListener('did-finish-load', didFinishLoad);
         webview.addEventListener('did-stop-loading', innerHandleDidStopLoading);
@@ -250,6 +275,10 @@ const DesktopWebView = forwardRef(
           webview.removeEventListener(
             'did-start-navigation',
             innerHandleDidStartNavigationNavigation,
+          );
+          webview.removeEventListener(
+            'did-redirect-navigation',
+            innerHandleDidRedirectNavigation,
           );
           webview.removeEventListener('did-finish-load', didFinishLoad);
           webview.removeEventListener(
@@ -364,7 +393,7 @@ const DesktopWebView = forwardRef(
 
     useEffect(() => {
       const webview = webviewRef.current;
-      if (!webview || !isWebviewReady) {
+      if (!webview || !isWebviewReady || disableBridge) {
         return;
       }
 
@@ -435,13 +464,13 @@ const DesktopWebView = forwardRef(
       return () => {
         webview.removeEventListener('ipc-message', handleMessage);
       };
-    }, [jsBridgeHost, isWebviewReady, src]);
+    }, [jsBridgeHost, isWebviewReady, src, disableBridge]);
 
     useEffect(() => {
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
 
-    if (!preloadJsUrl) {
+    if (!preloadJsUrl && !disableBridge) {
       return null;
     }
 
@@ -471,9 +500,9 @@ const DesktopWebView = forwardRef(
         ) : null}
         <webview
           ref={initWebviewByRef}
-          preload={preloadJsUrl}
+          {...(disableBridge ? {} : { preload: preloadJsUrl })}
           src={src}
-          partition="persist:onekey"
+          partition={partitionProp ?? 'persist:onekey'}
           style={{
             'width': '100%',
             'height': '100%',

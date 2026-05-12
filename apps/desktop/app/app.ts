@@ -37,8 +37,10 @@ import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
 import {
@@ -973,16 +975,57 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
   });
 
+  // The overlay route uses a dedicated <webview> partition; matching the
+  // session reference here lets the main process recognize overlay
+  // webviews at creation time — BEFORE any navigation event can fire —
+  // and apply the strict overlay URL policy in `will-redirect` /
+  // `will-navigate`. These events are the only stage where SSRF-class
+  // targets (loopback / private / metadata IPs) can actually be blocked;
+  // the renderer's `did-redirect-navigation` fires too late.
+  const overlaySession = session.fromPartition(
+    DESKTOP_WEBVIEW_OVERLAY_PARTITION,
+  );
+  // Overlay loads arbitrary external https pages from deeplinks /
+  // notifications; the renderer's media-permission whitelist already
+  // denies getUserMedia at the react-native-webview layer, but the
+  // desktop session needs its own deny handlers because Electron
+  // defaults to granting permission requests when none are set
+  // (https://www.electronjs.org/docs/latest/tutorial/security#5-handle-session-permission-requests-from-remote-content).
+  overlaySession.setPermissionCheckHandler(() => false);
+  overlaySession.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => {
+      callback(false);
+    },
+  );
+  overlaySession.setDevicePermissionHandler(() => false);
+
   // Prevents clicking on links to open new Windows
   app.removeAllListeners('web-contents-created');
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
+      const isOverlayWebview = contents.session === overlaySession;
+      if (isOverlayWebview) {
+        const guardOverlayPreNavigation = (
+          navigationEvent: Electron.Event,
+          url: string,
+        ) => {
+          if (isAllowedWebViewUrl(url)) return;
+          navigationEvent.preventDefault();
+          logger.info('overlay pre-navigation block (main process):', url);
+        };
+        contents.on('will-redirect', guardOverlayPreNavigation);
+        contents.on('will-navigate', guardOverlayPreNavigation);
+      }
       contents.setWindowOpenHandler((handleDetails) => {
         const safelyMainWindow = getSafelyMainWindow();
-        safelyMainWindow?.webContents.send(
-          ipcMessageKeys.WEBVIEW_NEW_WINDOW,
-          handleDetails,
-        );
+        // Forward the source webContents id so renderer listeners can
+        // distinguish overlay-route webviews (strict policy: https-only,
+        // no local addresses, no deeplinks) from Discovery tabs (which
+        // intentionally allow http and onekey-wallet:// deeplinks).
+        safelyMainWindow?.webContents.send(ipcMessageKeys.WEBVIEW_NEW_WINDOW, {
+          ...handleDetails,
+          sourceWebContentsId: contents.id,
+        });
         return { action: 'deny' };
       });
       contents.on('will-frame-navigate', (e) => {
@@ -1470,9 +1513,12 @@ app.on('child-process-gone', async (event, details) => {
 
     // Track GPU crash in Sentry for monitoring
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const { captureException } = require('@sentry/electron/main');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const { captureException } = require('@sentry/electron/main') as {
+        captureException: (
+          error: Error,
+          options: Record<string, unknown>,
+        ) => void;
+      };
       captureException(new Error('GPU Process Crashed'), {
         level: 'fatal',
         tags: {
@@ -1630,9 +1676,12 @@ function startMemoryMonitoring() {
 
         // Track critical memory events in Sentry
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          const { captureException } = require('@sentry/electron/main');
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          const { captureException } = require('@sentry/electron/main') as {
+            captureException: (
+              error: Error,
+              options: Record<string, unknown>,
+            ) => void;
+          };
           captureException(new Error('Critical Memory Usage Detected'), {
             level: 'warning',
             tags: {
