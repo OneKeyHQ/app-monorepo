@@ -72,4 +72,7 @@ export const SignatureConfirmTestIDs = {
   TaskQueuePrevButton: 'sig-confirm-task-queue-prev-btn',
   TaskQueueNextButton: 'sig-confirm-task-queue-next-btn',
   TaskQueueLabel: 'sig-confirm-task-queue-label',
+
+  // -- Sponsored fees dialog --
+  TxFeeSponsoredGotItButton: 'sig-confirm-fee-sponsored-got-it-btn',
 } as const;

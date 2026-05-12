@@ -487,6 +487,7 @@ const SwapActionsState = ({
           </XStack>
           <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
             <Switch
+              testID={SwapTestIDs.incognitoModeSwitch}
               size={ESwitchSize.extraSmall}
               value={swapIncognitoMode}
               onChange={onIncognitoModeChange}
@@ -972,6 +973,7 @@ const SwapActionsState = ({
               {...desktopActionWidthProps}
             >
               <Button
+                testID={SwapTestIDs.actionPrimaryButton}
                 onPress={onActionHandlerBefore}
                 size="medium"
                 variant="primary"

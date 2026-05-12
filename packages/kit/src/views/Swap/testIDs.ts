@@ -38,4 +38,11 @@ export const SwapTestIDs = {
 
   // History
   pendingHistoryList: 'swap-pending-history-list',
+
+  // Incognito / recipient
+  incognitoModeSwitch: 'swap-incognito-mode-switch',
+  incognitoRecipientPickerButton: 'swap-incognito-recipient-picker-button',
+
+  // Action footer
+  actionPrimaryButton: 'swap-action-primary-button',
 } as const;

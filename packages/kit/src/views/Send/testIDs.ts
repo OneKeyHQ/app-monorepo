@@ -31,4 +31,20 @@ export const SendTestIDs = {
 
   // Coin control
   coinControlPage: 'send-coin-control-page',
+
+  // Amount input extras
+  nftMaxButton: 'send-nft-max-button',
+  hexDataFaqButton: 'send-hex-data-faq-button',
+  hexDataInput: 'send-hex-data-input',
+  buyTokenButton: 'send-buy-token-button',
+  insufficientFundsButton: 'send-insufficient-funds-button',
+
+  // Data input (recipient/amount form)
+  memoTextarea: 'send-memo-textarea',
+  paymentIdTextarea: 'send-payment-id-textarea',
+  noteTextarea: 'send-note-textarea',
+
+  // Recipient quick select
+  recipientQuickSelectWalletToggle: 'send-recipient-quick-wallet-toggle',
+  recipientQuickSelectNetworkTrigger: 'send-recipient-quick-network-trigger',
 } as const;
