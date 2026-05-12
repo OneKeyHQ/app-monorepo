@@ -9,9 +9,9 @@ import {
 import { ProtocolSectionedPositionTable } from './ProtocolSectionedPositionTable';
 import { ProtocolUnifiedTable } from './ProtocolUnifiedTable';
 
-// Unified groups keep the position name in the first table column. Sectioned
-// groups replace that first column with Supplied/Borrowed/Rewards
-// sections, so each position gets its pool name beside the type badge instead.
+// Unified groups use the first column for the pool name. Sectioned groups
+// reserve that column for Supplied/Borrowed/Rewards, so the pool name lives
+// beside the type badge instead.
 
 type IProtocolCategoryGroupProps = {
   group: ILocalizedProtocolCategoryGroup;
