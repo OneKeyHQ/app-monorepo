@@ -38,15 +38,6 @@ import DappOpenModalPage from './DappOpenModalPage';
 const EXPIRED_ERROR_MESSAGE =
   'deriveContextHash request expired, please retry from the site';
 
-// TODO(i18n): these labels and the warning should be migrated to ETranslations
-// once translation entries are added by the i18n pipeline.
-const COPY = {
-  appNameLabel: 'Application name',
-  contextLabel: 'Context (hex)',
-  warning:
-    'This is not a signature. A deterministic value will be derived from this BTC account using the application name and context. Anyone with the same key material, application name, and context, on the same network, can produce the same value.',
-};
-
 function DeriveContextHashAccountItem({
   accountId,
   networkId,
@@ -187,7 +178,9 @@ function DeriveContextHashModal() {
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
-  const title = COPY.title;
+  const title = intl.formatMessage({
+    id: ETranslations.dapp_connect_derive_context_hash_request__title,
+  });
 
   const onConfirm = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
@@ -250,7 +243,9 @@ function DeriveContextHashModal() {
             <YStack gap="$3">
               <Stack gap="$1">
                 <SizableText size="$bodyMdMedium" color="$textSubdued">
-                  {COPY.appNameLabel}
+                  {intl.formatMessage({
+                    id: ETranslations.dapp_connect_derive_context_hash_app_name__title,
+                  })}
                 </SizableText>
                 <Stack
                   px="$3"
@@ -270,7 +265,9 @@ function DeriveContextHashModal() {
 
               <Stack gap="$1">
                 <SizableText size="$bodyMdMedium" color="$textSubdued">
-                  {COPY.contextLabel}
+                  {intl.formatMessage({
+                    id: ETranslations.dapp_connect_derive_context_hash_context__title,
+                  })}
                 </SizableText>
                 <TextArea
                   editable={false}
@@ -280,7 +277,9 @@ function DeriveContextHashModal() {
               </Stack>
 
               <SizableText size="$bodySm" color="$textCaution">
-                {COPY.warning}
+                {intl.formatMessage({
+                  id: ETranslations.dapp_connect_derive_context_hash_warning__desc,
+                })}
               </SizableText>
             </YStack>
           </DAppRequestLayout>
