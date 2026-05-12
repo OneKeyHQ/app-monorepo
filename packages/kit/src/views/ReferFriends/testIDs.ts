@@ -34,4 +34,17 @@ export const ReferFriendsTestIDs = {
   // --- Note Cell ---
   addNoteBtn: 'refer-friends-add-note-btn',
   editNoteBtn: 'refer-friends-edit-note-btn',
+
+  // --- Invite code list table ---
+  codeCellCopyBtn: 'refer-friends-code-cell-copy-btn',
+  codeCellEditBtn: 'refer-friends-code-cell-edit-btn',
+  debugCodeLengthSelector: 'refer-friends-debug-code-length-selector',
+  editCodeDialogCodeInput: 'refer-friends-edit-code-dialog-code-input',
+  editCodeDialogNoteInput: 'refer-friends-edit-code-dialog-note-input',
+  editCodeDialogCancelBtn: 'refer-friends-edit-code-dialog-cancel-btn',
+  editCodeDialogSaveBtn: 'refer-friends-edit-code-dialog-save-btn',
+
+  // --- Wallet bound empty states ---
+  allWalletsUnavailableCreateWalletBtn:
+    'refer-friends-all-wallets-unavailable-create-wallet-btn',
 } as const;

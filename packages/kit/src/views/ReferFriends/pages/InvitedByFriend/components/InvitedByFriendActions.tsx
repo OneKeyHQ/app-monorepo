@@ -24,18 +24,6 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
-type IEthereumProvider = {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-};
-
-function getOneKeyExtensionProvider(): IEthereumProvider | null {
-  // OneKey extension injects $onekey.ethereum as its dedicated provider
-  const provider = (globalThis as Record<string, unknown>).$onekey as
-    | { ethereum?: IEthereumProvider }
-    | undefined;
-  return provider?.ethereum ?? null;
-}
-
 interface IInvitedByFriendActionsProps {
   referralCode: string;
   page?: string;
