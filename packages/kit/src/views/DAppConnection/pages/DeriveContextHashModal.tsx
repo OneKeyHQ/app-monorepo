@@ -31,11 +31,26 @@ const EXPIRED_ERROR_MESSAGE =
   'deriveContextHash request expired, please retry from the site';
 
 const COPY = {
+  accountLabel: 'Bound to account',
+  networkLabel: 'Network',
   appNameLabel: 'Application name',
   contextLabel: 'Context (hex)',
   warning:
     'A deterministic value will be derived from this BTC account using the application name and context. Anyone with the same key material, application name, and context, on the same network, can produce the same value.',
 };
+
+function networkLabelFromId(networkId: string): string {
+  switch (networkId) {
+    case 'btc--0':
+      return 'Bitcoin Mainnet';
+    case 'tbtc--0':
+      return 'Bitcoin Testnet';
+    case 'tbtc--1':
+      return 'Bitcoin Signet';
+    default:
+      return networkId;
+  }
+}
 
 function DeriveContextHashModal() {
   const { $sourceInfo, nonce } = useDappQuery<{ nonce: string }>();
@@ -50,6 +65,8 @@ function DeriveContextHashModal() {
     | {
         appName: string;
         context: string;
+        address: string;
+        networkId: string;
       }
     | undefined
   >();
@@ -167,6 +184,42 @@ function DeriveContextHashModal() {
             <YStack gap="$3" px="$5">
               <Stack gap="$1">
                 <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  {COPY.accountLabel}
+                </SizableText>
+                <Stack
+                  px="$3"
+                  py="$2"
+                  borderRadius="$2"
+                  backgroundColor="$bgSubdued"
+                >
+                  <SizableText
+                    color="$text"
+                    fontFamily="$monoRegular"
+                    style={{ wordBreak: 'break-all' }}
+                  >
+                    {payload?.address ?? ''}
+                  </SizableText>
+                </Stack>
+              </Stack>
+
+              <Stack gap="$1">
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  {COPY.networkLabel}
+                </SizableText>
+                <Stack
+                  px="$3"
+                  py="$2"
+                  borderRadius="$2"
+                  backgroundColor="$bgSubdued"
+                >
+                  <SizableText color="$text">
+                    {payload ? networkLabelFromId(payload.networkId) : ''}
+                  </SizableText>
+                </Stack>
+              </Stack>
+
+              <Stack gap="$1">
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
                   {COPY.appNameLabel}
                 </SizableText>
                 <Stack
@@ -176,6 +229,7 @@ function DeriveContextHashModal() {
                   backgroundColor="$bgSubdued"
                 >
                   <SizableText
+                    color="$text"
                     fontFamily="$monoRegular"
                     style={{ wordBreak: 'break-all' }}
                   >

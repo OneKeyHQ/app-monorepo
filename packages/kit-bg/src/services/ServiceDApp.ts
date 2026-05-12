@@ -136,6 +136,7 @@ class ServiceDApp extends ServiceBase {
       accountId: string;
       networkId: string;
       walletId: string;
+      address: string;
       appName: string;
       context: string;
       createdAt: number;
@@ -384,6 +385,7 @@ class ServiceDApp extends ServiceBase {
     accountId: string;
     networkId: string;
     walletId: string;
+    address: string;
     appName: string;
     context: string;
   }): Promise<string> {
@@ -409,7 +411,12 @@ class ServiceDApp extends ServiceBase {
   async peekDeriveContextHashRequest(nonce: string) {
     const entry = this.peekDeriveContextHashInternal(nonce);
     if (!entry) return null;
-    return { appName: entry.appName, context: entry.context };
+    return {
+      appName: entry.appName,
+      context: entry.context,
+      address: entry.address,
+      networkId: entry.networkId,
+    };
   }
 
   @backgroundMethod()

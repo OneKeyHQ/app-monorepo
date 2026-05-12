@@ -551,7 +551,7 @@ class ProviderApiBtc extends ProviderApiBase {
     }
 
     const accountsInfo = await this.getAccountsInfo(request);
-    const { accountInfo: { accountId, networkId, walletId } = {} } =
+    const { accountInfo: { accountId, networkId, walletId, address } = {} } =
       accountsInfo[0] ?? {};
     if (!accountId || !networkId || !walletId) {
       throw web3Errors.provider.custom({
@@ -570,6 +570,7 @@ class ProviderApiBtc extends ProviderApiBase {
         accountId,
         networkId,
         walletId,
+        address: address ?? '',
         appName: params.appName,
         context: params.context,
       });
