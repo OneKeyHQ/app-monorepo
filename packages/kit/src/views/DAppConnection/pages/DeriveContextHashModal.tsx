@@ -254,10 +254,7 @@ function DeriveContextHashModal() {
                   borderRadius="$2"
                   backgroundColor="$bgSubdued"
                 >
-                  <SizableText
-                    color="$text"
-                    style={{ wordBreak: 'break-all' }}
-                  >
+                  <SizableText color="$text" style={{ wordBreak: 'break-all' }}>
                     {payload?.appName ?? ''}
                   </SizableText>
                 </Stack>
