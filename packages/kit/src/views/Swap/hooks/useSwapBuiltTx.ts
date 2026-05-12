@@ -544,20 +544,6 @@ export function useSwapBuildTx() {
         accountId: fromAccountId,
       });
       if (!checkResult.isSufficient) {
-        const reserveAmountMessage = nativeBalanceRequirement.includesFromAmount
-          ? undefined
-          : intl.formatMessage(
-              {
-                id: ETranslations.swap_page_toast_insufficient_balance_content,
-              },
-              {
-                token: checkResult.tokenSymbol,
-                number: numberFormat(
-                  nativeBalanceRequirement.reserveAmount,
-                  formatter,
-                ),
-              },
-            );
         Toast.error({
           title: intl.formatMessage(
             {
@@ -565,7 +551,15 @@ export function useSwapBuildTx() {
             },
             { token: checkResult.tokenSymbol },
           ),
-          message: reserveAmountMessage,
+          message: intl.formatMessage(
+            {
+              id: ETranslations.swap_page_toast_insufficient_balance_content,
+            },
+            {
+              token: checkResult.tokenSymbol,
+              number: numberFormat(checkResult.requiredAmount, formatter),
+            },
+          ),
         });
         return false;
       }

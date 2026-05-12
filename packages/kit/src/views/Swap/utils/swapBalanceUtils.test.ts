@@ -110,8 +110,6 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
         decimals: 18,
       },
       amount: '0.000021',
-      reserveAmount: '0.000021',
-      includesFromAmount: false,
     });
   });
 
@@ -126,8 +124,6 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
     ).toEqual({
       token: ethToken,
       amount: '0.100021',
-      reserveAmount: '0.000021',
-      includesFromAmount: true,
     });
   });
 
@@ -165,8 +161,6 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
     ).toEqual({
       token: ethToken,
       amount: '0.120021',
-      reserveAmount: '0.020021',
-      includesFromAmount: true,
     });
   });
 });
