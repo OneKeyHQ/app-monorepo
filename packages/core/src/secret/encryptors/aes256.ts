@@ -3,6 +3,8 @@ import crypto from 'crypto';
 
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
+import type { IAesGcmDispatchBackend } from '@onekeyhq/shared/src/appCrypto/modules/aesGcm';
+import type { IPbkdf2DispatchBackend } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   IncorrectPassword,
   OneKeyLocalError,
@@ -283,6 +285,11 @@ export type IEncryptAsyncParams = {
   format?: ESecretEncryptPayloadFormat;
   dataType?: string;
   debugCryptoProbeId?: string;
+  // Dev-only: force a specific PBKDF2 / AES-GCM backend. Production callers
+  // MUST leave these undefined — only the CryptoGallery benchmark sets them
+  // to compare noble vs native implementations on the same device.
+  kdfBackend?: IPbkdf2DispatchBackend;
+  gcmBackend?: IAesGcmDispatchBackend;
 };
 async function encryptAsync({
   password,
@@ -298,6 +305,8 @@ async function encryptAsync({
   format = ESecretEncryptPayloadFormat.v2,
   dataType,
   debugCryptoProbeId,
+  kdfBackend,
+  gcmBackend,
 }: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
@@ -358,6 +367,7 @@ async function encryptAsync({
     salt,
     iterations: resolvedIterations,
     debugCryptoProbeId,
+    kdfBackend,
   });
 
   // const dataEncrypted = platformEnv.isNative
@@ -420,6 +430,7 @@ async function encryptAsync({
       nonce,
       aad: aadBuffer,
       debugCryptoProbeId,
+      backend: gcmBackend,
     });
     return Buffer.concat([headerAadBuffer, dataEncrypted]);
   }
@@ -435,6 +446,7 @@ async function encryptAsync({
       nonce,
       aad: aadBuffer,
       debugCryptoProbeId,
+      backend: gcmBackend,
     });
     return Buffer.concat([
       AES_GCM_ENCRYPTION_MAGIC,
@@ -467,6 +479,12 @@ export type IDecryptAsyncParams = {
   mode?: EAppCryptoAesEncryptionMode;
   aad?: Buffer | string;
   dataType?: string;
+  debugCryptoProbeId?: string;
+  // Dev-only: force a specific PBKDF2 / AES-GCM backend. Production callers
+  // MUST leave these undefined — only the CryptoGallery benchmark sets them
+  // to compare noble vs native implementations on the same device.
+  kdfBackend?: IPbkdf2DispatchBackend;
+  gcmBackend?: IAesGcmDispatchBackend;
 };
 /**
  * The recommended asynchronous decryption method
@@ -485,6 +503,9 @@ async function decryptAsync({
   mode,
   aad,
   dataType,
+  debugCryptoProbeId,
+  kdfBackend,
+  gcmBackend,
 }: IDecryptAsyncParams): Promise<Buffer> {
   const result = await decryptAsyncWithMetadata({
     password,
@@ -496,6 +517,9 @@ async function decryptAsync({
     mode,
     aad,
     dataType,
+    debugCryptoProbeId,
+    kdfBackend,
+    gcmBackend,
   });
   return result.plaintext;
 }
@@ -510,6 +534,9 @@ async function decryptAsyncWithMetadata({
   mode,
   aad,
   dataType,
+  debugCryptoProbeId,
+  kdfBackend,
+  gcmBackend,
 }: IDecryptAsyncParams): Promise<IDecryptAsyncResultWithMetadata> {
   if (!password) {
     throw new IncorrectPassword();
@@ -614,6 +641,8 @@ async function decryptAsyncWithMetadata({
     password: passwordDecoded,
     salt,
     iterations: parsedV2Payload?.iterations ?? iterations,
+    debugCryptoProbeId,
+    kdfBackend,
   });
 
   if (!ignoreLogger) {
@@ -649,6 +678,8 @@ async function decryptAsyncWithMetadata({
           key,
           nonce: parsedV2Payload.nonce,
           aad: aadBuffer,
+          debugCryptoProbeId,
+          backend: gcmBackend,
         });
       } catch (error) {
         const errorMessage =
@@ -688,6 +719,8 @@ async function decryptAsyncWithMetadata({
           key,
           nonce,
           aad: aadBuffer,
+          debugCryptoProbeId,
+          backend: gcmBackend,
         });
       } catch (error) {
         // Noble/GCM throws error on authentication failure (wrong AAD or tampered data)

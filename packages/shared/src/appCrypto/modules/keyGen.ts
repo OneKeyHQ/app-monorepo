@@ -7,6 +7,7 @@ import { runAppCryptoTestTask } from '../utils';
 import { sha256, sha256Sync } from './hash';
 import { pbkdf2, pbkdf2Sync } from './pbkdf2';
 
+import type { IPbkdf2DispatchBackend } from './pbkdf2';
 import type { IRunAppCryptoTestTaskResult } from '../utils';
 
 function _keyFromPasswordAndSaltCheck({
@@ -29,11 +30,15 @@ async function keyFromPasswordAndSaltAsync({
   salt,
   iterations,
   debugCryptoProbeId,
+  kdfBackend,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
   debugCryptoProbeId?: string;
+  // Dev-only: forwarded to the pbkdf2 dispatcher. Leave undefined in
+  // production callers — only the CryptoGallery benchmark sets this.
+  kdfBackend?: IPbkdf2DispatchBackend;
 }): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -46,6 +51,7 @@ async function keyFromPasswordAndSaltAsync({
     salt: saltBuffer,
     iterations,
     debugCryptoProbeId,
+    backend: kdfBackend,
   });
   return r;
 }
@@ -81,22 +87,27 @@ async function keyFromPasswordAndSalt({
   salt,
   iterations,
   debugCryptoProbeId,
+  kdfBackend,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
   debugCryptoProbeId?: string;
+  // Dev-only: forwarded to the pbkdf2 dispatcher. Leave undefined in
+  // production callers — only the CryptoGallery benchmark sets this.
+  kdfBackend?: IPbkdf2DispatchBackend;
 }): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
   const saltBuffer = bufferUtils.toBuffer(salt);
 
-  if (platformEnv.isNative || ALLOW_USE_WEB_CRYPTO_SUBTLE) {
+  if (platformEnv.isNative || ALLOW_USE_WEB_CRYPTO_SUBTLE || kdfBackend) {
     const r: Buffer = await keyFromPasswordAndSaltAsync({
       password,
       salt: saltBuffer,
       iterations,
       debugCryptoProbeId,
+      kdfBackend,
     });
     return r;
   }

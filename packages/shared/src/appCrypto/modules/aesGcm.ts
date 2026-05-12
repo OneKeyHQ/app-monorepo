@@ -173,13 +173,29 @@ async function aesGcmDecryptByRNAes({
   return Buffer.from(decrypted, 'hex');
 }
 
+// Dev-only override: callers (e.g. CryptoGallery) can force a specific
+// AES-GCM backend for benchmarking / correctness comparison. Production
+// callers should NEVER set this — leave undefined to use the platform
+// default chosen by the dispatcher below.
+type IAesGcmDispatchBackend = 'noble' | 'native';
+type IAesGcmDispatchParams = IAesGcmInvokeParams & {
+  backend?: IAesGcmDispatchBackend;
+};
+
 async function aesGcmEncrypt({
   nonce,
   key,
   data,
   aad,
   debugCryptoProbeId,
-}: IAesGcmInvokeParams): Promise<Buffer> {
+  backend,
+}: IAesGcmDispatchParams): Promise<Buffer> {
+  if (backend === 'noble') {
+    return aesGcmEncryptByNoble({ nonce, key, data, aad, debugCryptoProbeId });
+  }
+  if (backend === 'native') {
+    return aesGcmEncryptByRNAes({ nonce, key, data, aad, debugCryptoProbeId });
+  }
   if (platformEnv.isNative && rnAesWithOptionalGcm.aesGcmEncrypt) {
     return aesGcmEncryptByRNAes({ nonce, key, data, aad, debugCryptoProbeId });
   }
@@ -192,7 +208,14 @@ async function aesGcmDecrypt({
   data,
   aad,
   debugCryptoProbeId,
-}: IAesGcmInvokeParams): Promise<Buffer> {
+  backend,
+}: IAesGcmDispatchParams): Promise<Buffer> {
+  if (backend === 'noble') {
+    return aesGcmDecryptByNoble({ nonce, key, data, aad, debugCryptoProbeId });
+  }
+  if (backend === 'native') {
+    return aesGcmDecryptByRNAes({ nonce, key, data, aad, debugCryptoProbeId });
+  }
   if (platformEnv.isNative && rnAesWithOptionalGcm.aesGcmDecrypt) {
     return aesGcmDecryptByRNAes({ nonce, key, data, aad, debugCryptoProbeId });
   }
@@ -205,6 +228,8 @@ function getAesGcmBackendForCurrentPlatform(): string {
   }
   return 'noble';
 }
+
+export type { IAesGcmDispatchBackend, IAesGcmDispatchParams };
 
 export {
   aesGcmDecrypt,

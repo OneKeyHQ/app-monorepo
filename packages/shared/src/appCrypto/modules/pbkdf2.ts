@@ -330,8 +330,29 @@ function pbkdf2Sync(params: IPbkdf2Params): Buffer {
   return r;
 }
 
-async function pbkdf2(params: IPbkdf2Params): Promise<Buffer> {
+// Dev-only override: callers (e.g. CryptoGallery) can force a specific
+// PBKDF2 backend for benchmarking / correctness comparison. Production
+// callers should NEVER set this — leave undefined to use the platform
+// default chosen by the dispatcher below.
+type IPbkdf2DispatchBackend = 'noble' | 'native';
+type IPbkdf2DispatchParams = IPbkdf2Params & {
+  backend?: IPbkdf2DispatchBackend;
+};
+
+async function pbkdf2(params: IPbkdf2DispatchParams): Promise<Buffer> {
   _pbkdf2AsyncCheck(params);
+  if (params.backend === 'noble') {
+    return pbkdf2ByNoble(params);
+  }
+  if (params.backend === 'native') {
+    if (platformEnv.isNative) {
+      return pbkdf2ByRNAes(params);
+    }
+    if (ALLOW_USE_WEB_CRYPTO_SUBTLE) {
+      return pbkdf2ByWebCrypto(params);
+    }
+    return pbkdf2ByAsmcryptoSync(params);
+  }
   if (platformEnv.isNative) {
     const r: Buffer = await pbkdf2ByRNAes(params);
     return r;
@@ -510,6 +531,8 @@ async function $testSampleForPbkdf2() {
 // expo-crypto version ----------------------------------------------
 // import * as ExpoCrypto from 'expo-crypto';
 // expo-crypto does not support pbkdf2 algorithm, only supports hash digest algorithms
+
+export type { IPbkdf2DispatchBackend, IPbkdf2DispatchParams };
 
 export {
   $testSampleForPbkdf2,

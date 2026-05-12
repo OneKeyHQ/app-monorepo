@@ -1,18 +1,23 @@
 /* eslint-disable prefer-const */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import crypto from 'crypto';
+
+import { NativeModules } from 'react-native';
 
 import {
   Button,
   DebugRenderTracker,
   Icon,
+  Select,
   SizableText,
   Stack,
   Toast,
   View,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
@@ -36,6 +41,71 @@ import { Layout } from './utils/Layout';
 // Core secret functions are loaded dynamically to avoid kit->core value import
 async function loadCoreSecret() {
   return import('@onekeyhq/core/src/secret');
+}
+
+// Forward dev logs from the device/simulator back to the Metro terminal.
+// RN 0.74+ no longer pipes JS console.log to Metro stdout, so we POST the
+// payload to a Metro middleware that prints it and also appends to
+// /tmp/onekey-rn.log (see apps/mobile/metro.config.js applyOnekeyLogMiddleware).
+function getMetroScriptURL(): string | undefined {
+  return (NativeModules as { SourceCode?: { scriptURL?: string } })?.SourceCode
+    ?.scriptURL;
+}
+
+// On a real device, localhost / 127.0.0.1 resolves to the phone itself, not
+// the Mac running Metro. So we need to fetch the Mac's LAN IP directly.
+// Update this when switching Wi-Fi or after a DHCP lease change. The current
+// Mac IP is also printed by apps/mobile/metro.config.js on startup.
+const DEV_METRO_LAN_HOSTS = ['http://192.168.31.246:8081'];
+
+function getMetroHostCandidates(): string[] {
+  const scriptURL = getMetroScriptURL();
+  const fromScriptUrl = scriptURL?.match(/https?:\/\/[^/]+/)?.[0];
+  const candidates = new Set<string>();
+  // Only trust scriptURL's host if it isn't a loopback address — those would
+  // resolve to the device itself, never the Mac.
+  if (
+    fromScriptUrl &&
+    !/\/\/(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(fromScriptUrl)
+  ) {
+    candidates.add(fromScriptUrl);
+  }
+  for (const host of DEV_METRO_LAN_HOSTS) candidates.add(host);
+  return Array.from(candidates);
+}
+
+async function logToMetro(
+  label: string,
+  payload: unknown,
+  options?: { showToastOnFail?: boolean },
+) {
+  if (!platformEnv.isNative) return;
+  const hosts = getMetroHostCandidates();
+  const body = `${label}\n${
+    typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)
+  }`;
+  const errors: string[] = [];
+  for (const host of hosts) {
+    try {
+      const res = await fetch(`${host}/onekey-log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body,
+      });
+      if (res.ok) return;
+      errors.push(`${host} -> HTTP ${res.status}`);
+    } catch (e) {
+      errors.push(`${host} -> ${(e as Error).message}`);
+    }
+  }
+  if (options?.showToastOnFail) {
+    Toast.error({
+      title: 'logToMetro failed',
+      message: `scriptURL=${getMetroScriptURL() ?? '<none>'} | ${errors.join(
+        ' ; ',
+      )}`,
+    });
+  }
 }
 
 function PartContainer({
@@ -225,11 +295,209 @@ function AESCbcTest() {
   );
 }
 
-function AESGcmV2Test() {
-  const [result, setResult] = useState('');
-  const iterationOptions = [5000, 600_000, 1_000_000, 3_000_000];
+// Production default (600_000) is always measured automatically, so it is
+// intentionally excluded from the selector.
+const AES_GCM_V2_ITER_OPTIONS: number[] = [
+  5000, 6000, 7000, 8000, 9000, 10_000, 20_000, 50_000, 100_000, 400_000,
+  800_000, 1_000_000, 1_500_000, 2_000_000, 3_000_000, 5_000_000,
+];
+const AES_GCM_V2_DEFAULT_ITER = 600_000;
 
-  const testAESGcmV2 = async (iterationsToRun = iterationOptions) => {
+type IAesGcmV2TableRow = {
+  opName: string;
+  iter: number | null;
+  noble: number | undefined;
+  native: number | undefined;
+  // 'primitive' : AES-GCM raw consistency test, no iter.
+  // 'selected'  : the iter the user picked in the Select.
+  // 'default'   : production default iter (600,000) — always measured.
+  // 'both'      : selected === default (single row, treated as selected).
+  category: 'primitive' | 'selected' | 'default' | 'both';
+};
+
+// Mirrors the classifier in development/render-crypto-test-report.mjs so
+// the in-app table and the offline HTML report agree on how to pivot tasks.
+function classifyAesGcmV2TaskName(
+  name: string,
+  defaultIter: number,
+): {
+  op:
+    | 'AES-GCM'
+    | 'PBKDF2'
+    | 'encryptAsync'
+    | 'decryptAsync'
+    | 'probe'
+    | 'other';
+  iter: number | undefined;
+  backend: 'noble' | 'native' | '—';
+  isProbe: boolean;
+} {
+  let op:
+    | 'AES-GCM'
+    | 'PBKDF2'
+    | 'encryptAsync'
+    | 'decryptAsync'
+    | 'probe'
+    | 'other' = 'other';
+  if (/^encryptAsync\b/.test(name)) op = 'encryptAsync';
+  else if (/^decryptAsync\b/.test(name)) op = 'decryptAsync';
+  else if (/^PBKDF2\b/.test(name)) op = 'PBKDF2';
+  else if (/^AES-GCM\b/.test(name)) op = 'AES-GCM';
+  else if (/^actual\b/.test(name)) op = 'probe';
+
+  const isProbe =
+    op === 'probe' ||
+    /^encryptAsync\s+\S+\s+actual/.test(name) ||
+    /^decryptAsync\s+\S+\s+actual/.test(name) ||
+    /^encryptAsync\s+(default writes|default iterations|v2 prefix)/.test(
+      name,
+    ) ||
+    /^actual\s+payload|^actual\s+PBKDF2|^actual\s+AES-GCM/.test(name);
+
+  let iter: number | undefined;
+  let backend: 'noble' | 'native' | '—' = '—';
+  if (op === 'AES-GCM') {
+    iter = undefined;
+    backend = /^AES-GCM\s+noble\b/.test(name) ? 'noble' : 'native';
+  } else if (op === 'PBKDF2') {
+    const m = name.match(/\b(\d{4,})\b/);
+    if (m) iter = Number(m[1]);
+    if (/\bnoble\b/.test(name)) backend = 'noble';
+    else if (/\bnative\b/.test(name) || /\bdefault\b/.test(name))
+      backend = 'native';
+  } else if (op === 'encryptAsync' || op === 'decryptAsync') {
+    const m = name.match(/\b(\d{4,})\b/);
+    if (m) iter = Number(m[1]);
+    if (/\bnoble\b/.test(name)) backend = 'noble';
+    else if (/\bnative\b/.test(name)) backend = 'native';
+    else if (
+      /default writes|default iterations|reads v2 payload/.test(name) ||
+      /^encryptAsync\s+default\b/.test(name)
+    ) {
+      backend = 'native';
+      if (!iter) iter = defaultIter;
+    }
+  }
+  return { op, iter, backend, isProbe };
+}
+
+function buildAesGcmV2TableRows(payload: {
+  tasks: { name: string; time: number }[];
+  actualEncryptRuns: {
+    requestedIterations: number | 'default';
+    payloadIterations: number;
+    time: number;
+    pbkdf2Invocation?: { backend?: string };
+  }[];
+  selectedIter: number;
+  defaultIter: number;
+}): IAesGcmV2TableRow[] {
+  const pivot: Record<string, Record<string, Record<string, number>>> = {};
+  const fill = (
+    op: string,
+    iter: number | undefined,
+    backend: string,
+    time: number,
+  ) => {
+    const iterKey = iter === undefined ? '__no_iter' : String(iter);
+    pivot[iterKey] = pivot[iterKey] || {};
+    pivot[iterKey][op] = pivot[iterKey][op] || {};
+    if (pivot[iterKey][op][backend] === undefined) {
+      pivot[iterKey][op][backend] = time;
+    }
+  };
+  for (const t of payload.tasks) {
+    const c = classifyAesGcmV2TaskName(t.name, payload.defaultIter);
+    if (
+      !c.isProbe &&
+      ['AES-GCM', 'PBKDF2', 'encryptAsync', 'decryptAsync'].includes(c.op) &&
+      (c.backend === 'noble' || c.backend === 'native')
+    ) {
+      fill(c.op, c.iter, c.backend, t.time);
+    }
+  }
+  for (const run of payload.actualEncryptRuns) {
+    const iter =
+      run.requestedIterations === 'default'
+        ? payload.defaultIter
+        : Number(run.requestedIterations);
+    const backend =
+      run.pbkdf2Invocation?.backend === 'noble' ? 'noble' : 'native';
+    fill('encryptAsync', iter, backend, run.time);
+  }
+  const lookup = (
+    op: string,
+    iter: number | null,
+    backend: 'noble' | 'native',
+  ) => pivot[iter === null ? '__no_iter' : String(iter)]?.[op]?.[backend];
+
+  const selectedIsDefault = payload.selectedIter === payload.defaultIter;
+  const categorize = (
+    iter: number | null,
+  ): 'primitive' | 'selected' | 'default' | 'both' => {
+    if (iter === null) return 'primitive';
+    if (selectedIsDefault && iter === payload.defaultIter) return 'both';
+    if (iter === payload.selectedIter) return 'selected';
+    return 'default';
+  };
+  const rowDefs: { opName: string; op: string; iter: number | null }[] = [
+    { opName: 'AES-GCM', op: 'AES-GCM', iter: null },
+    { opName: 'pbkdf2', op: 'PBKDF2', iter: payload.selectedIter },
+    { opName: 'pbkdf2', op: 'PBKDF2', iter: payload.defaultIter },
+    { opName: 'encryptAsync', op: 'encryptAsync', iter: payload.selectedIter },
+    { opName: 'encryptAsync', op: 'encryptAsync', iter: payload.defaultIter },
+    { opName: 'decryptAsync', op: 'decryptAsync', iter: payload.selectedIter },
+    { opName: 'decryptAsync', op: 'decryptAsync', iter: payload.defaultIter },
+  ];
+  const seen = new Set<string>();
+  const rows: IAesGcmV2TableRow[] = [];
+  for (const r of rowDefs) {
+    const k = `${r.op}::${r.iter ?? 'null'}`;
+    if (!seen.has(k)) {
+      seen.add(k);
+      rows.push({
+        opName: r.opName,
+        iter: r.iter,
+        noble: lookup(r.op, r.iter, 'noble'),
+        native: lookup(r.op, r.iter, 'native'),
+        category: categorize(r.iter),
+      });
+    }
+  }
+  return rows;
+}
+
+function AESGcmV2Test() {
+  const [resultJson, setResultJson] = useState('');
+  const [tableRows, setTableRows] = useState<IAesGcmV2TableRow[]>([]);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [lastRunSelectedIter, setLastRunSelectedIter] = useState<number | null>(
+    null,
+  );
+  const [selectedIter, setSelectedIter] = useState<string>(
+    String(AES_GCM_V2_ITER_OPTIONS[0]),
+  );
+  const [running, setRunning] = useState(false);
+  const { copyText } = useClipboard();
+
+  // Dev-only probe: ping Metro middleware on mount so we know whether the
+  // logToMetro pipeline is reachable from this device before running tests.
+  useEffect(() => {
+    void logToMetro(
+      'AESGcmV2Test mounted',
+      { scriptURL: getMetroScriptURL() ?? '<none>' },
+      { showToastOnFail: true },
+    );
+  }, []);
+
+  const testAESGcmV2 = async (
+    iterationsToRun: number[] = [AES_GCM_V2_DEFAULT_ITER],
+  ) => {
+    await logToMetro(
+      `testAESGcmV2 start (iterations=${iterationsToRun.join(',')})`,
+      { scriptURL: getMetroScriptURL() ?? '<none>' },
+      { showToastOnFail: true },
+    );
     try {
       const { decryptAsync, decryptAsyncWithMetadata, encryptAsync } =
         await loadCoreSecret();
@@ -393,6 +661,20 @@ function AESGcmV2Test() {
         }),
       );
 
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: bufferUtils.bytesToHex(nobleEncrypted),
+          name: 'AES-GCM noble encrypt',
+          fn: () =>
+            appCrypto.aesGcm.aesGcmEncryptByNoble({
+              nonce,
+              key,
+              data,
+              aad,
+            }),
+        }),
+      );
+
       const hashedPassword = await appCrypto.hash.sha256(
         Buffer.from(password, 'utf8'),
       );
@@ -401,7 +683,17 @@ function AESGcmV2Test() {
         'hex',
       );
 
-      for (const iterations of iterationsToRun) {
+      // Always include the production default iteration count so the report
+      // shows a real number for `pbkdf2 600,000 native` / `encryptAsync
+      // 600,000 native` / etc. (the test function always probes the default
+      // path at the end anyway). Noble at 600k+ is gated below.
+      const NOBLE_KDF_MAX_ITER = 10_000;
+      const userSelectedIter = iterationsToRun[0] ?? expectedDefaultIterations;
+      const effectiveIterations = Array.from(
+        new Set([...iterationsToRun, expectedDefaultIterations]),
+      ).toSorted((a, b) => a - b);
+
+      for (const iterations of effectiveIterations) {
         const defaultKey = await appCrypto.pbkdf2.pbkdf2({
           password: hashedPassword,
           salt,
@@ -434,18 +726,20 @@ function AESGcmV2Test() {
           }),
         );
 
-        tasks.push(
-          await runAppCryptoTestTask({
-            expect: bufferUtils.bytesToHex(defaultKey),
-            name: `PBKDF2 noble ${iterations}`,
-            fn: () =>
-              appCrypto.pbkdf2.pbkdf2ByNoble({
-                password: hashedPassword,
-                salt,
-                iterations,
-              }),
-          }),
-        );
+        if (iterations <= NOBLE_KDF_MAX_ITER) {
+          tasks.push(
+            await runAppCryptoTestTask({
+              expect: bufferUtils.bytesToHex(defaultKey),
+              name: `PBKDF2 noble ${iterations}`,
+              fn: () =>
+                appCrypto.pbkdf2.pbkdf2ByNoble({
+                  password: hashedPassword,
+                  salt,
+                  iterations,
+                }),
+            }),
+          );
+        }
 
         const encryptedByIterations = await encryptWithActualProbe(iterations);
 
@@ -503,6 +797,119 @@ function AESGcmV2Test() {
               encryptedByIterations.aesGcmInvocation?.operation ?? 'missing',
           }),
         );
+
+        // Backend matrix: cover encryptAsync + decryptAsync × {native, noble}
+        // at this iteration count. We ONLY run this matrix for the
+        // user-selected iter — never for the production default iter — so
+        // that the 600,000 row in the report reflects the true "no-arg
+        // production call" timings (captured separately via
+        // encryptWithActualProbe() and decryptAsync({...}) at the end of
+        // this function), not an explicit kdfBackend/gcmBackend override.
+        // The native path runs at any iter; the noble path is gated by
+        // NOBLE_KDF_MAX_ITER because noble PBKDF2 above ~10k iterations
+        // freezes the device for tens of seconds.
+        if (iterations === userSelectedIter) {
+          const expectedBackendName: Record<'native' | 'noble', string> = {
+            native: defaultPbkdf2Backend,
+            noble: 'noble',
+          };
+          const expectedGcmBackendName: Record<'native' | 'noble', string> = {
+            native: defaultAesGcmBackend,
+            noble: 'noble',
+          };
+          const backendsToTest = (['native', 'noble'] as const).filter(
+            (b) => !(b === 'noble' && iterations > NOBLE_KDF_MAX_ITER),
+          );
+          for (const backend of backendsToTest) {
+            const encProbeId = `crypto-gallery-mx-${backend}-enc-${iterations}-${Date.now()}-${tasks.length}`;
+            appCrypto.pbkdf2.clearPbkdf2InvocationByProbeId(encProbeId);
+            appCrypto.aesGcm.clearAesGcmInvocationByProbeId(encProbeId);
+            let encryptedByBackend: Buffer | undefined;
+            tasks.push(
+              await runAppCryptoTestTask({
+                expect: 'true',
+                name: `encryptAsync ${backend} ${iterations}`,
+                fn: async () => {
+                  encryptedByBackend = await encryptAsync({
+                    password,
+                    data,
+                    allowRawPassword: true,
+                    iterations,
+                    debugCryptoProbeId: encProbeId,
+                    kdfBackend: backend,
+                    gcmBackend: backend,
+                  });
+                  return String(
+                    bufferUtils
+                      .bytesToHex(encryptedByBackend)
+                      .startsWith(v2MagicHex),
+                  );
+                },
+              }),
+            );
+            const encPbkdf2 =
+              appCrypto.pbkdf2.getPbkdf2InvocationByProbeId(encProbeId);
+            const encAesGcm =
+              appCrypto.aesGcm.getAesGcmInvocationByProbeId(encProbeId);
+            tasks.push(
+              await runAppCryptoTestTask({
+                expect: expectedBackendName[backend],
+                name: `encryptAsync ${backend} actual pbkdf2 backend ${iterations}`,
+                fn: () => encPbkdf2?.backend ?? 'missing',
+              }),
+            );
+            tasks.push(
+              await runAppCryptoTestTask({
+                expect: expectedGcmBackendName[backend],
+                name: `encryptAsync ${backend} actual aesGcm backend ${iterations}`,
+                fn: () => encAesGcm?.backend ?? 'missing',
+              }),
+            );
+            appCrypto.pbkdf2.clearPbkdf2InvocationByProbeId(encProbeId);
+            appCrypto.aesGcm.clearAesGcmInvocationByProbeId(encProbeId);
+
+            if (encryptedByBackend) {
+              const decProbeId = `crypto-gallery-mx-${backend}-dec-${iterations}-${Date.now()}-${tasks.length}`;
+              appCrypto.pbkdf2.clearPbkdf2InvocationByProbeId(decProbeId);
+              appCrypto.aesGcm.clearAesGcmInvocationByProbeId(decProbeId);
+              tasks.push(
+                await runAppCryptoTestTask({
+                  expect: bufferUtils.bytesToHex(data),
+                  name: `decryptAsync ${backend} ${iterations}`,
+                  fn: () =>
+                    decryptAsync({
+                      password,
+                      data: encryptedByBackend!,
+                      allowRawPassword: true,
+                      debugCryptoProbeId: decProbeId,
+                      kdfBackend: backend,
+                      gcmBackend: backend,
+                    }),
+                }),
+              );
+              const decPbkdf2 =
+                appCrypto.pbkdf2.getPbkdf2InvocationByProbeId(decProbeId);
+              const decAesGcm =
+                appCrypto.aesGcm.getAesGcmInvocationByProbeId(decProbeId);
+              tasks.push(
+                await runAppCryptoTestTask({
+                  expect: expectedBackendName[backend],
+                  name: `decryptAsync ${backend} actual pbkdf2 backend ${iterations}`,
+                  fn: () => decPbkdf2?.backend ?? 'missing',
+                }),
+              );
+              tasks.push(
+                await runAppCryptoTestTask({
+                  expect: expectedGcmBackendName[backend],
+                  name: `decryptAsync ${backend} actual aesGcm backend ${iterations}`,
+                  fn: () => decAesGcm?.backend ?? 'missing',
+                }),
+              );
+              appCrypto.pbkdf2.clearPbkdf2InvocationByProbeId(decProbeId);
+              appCrypto.aesGcm.clearAesGcmInvocationByProbeId(decProbeId);
+            }
+          }
+        }
       }
 
       const encryptedV2 = await encryptWithActualProbe();
@@ -569,34 +976,47 @@ function AESGcmV2Test() {
         }),
       );
 
-      setResult(
-        stringUtils.stableStringify(
-          {
-            platform: {
-              isNative: platformEnv.isNative,
-              isNativeIOS: platformEnv.isNativeIOS,
-              isNativeAndroid: platformEnv.isNativeAndroid,
-            },
-            actualEncryptRuns,
-            defaultPath: {
-              pbkdf2: defaultPbkdf2Backend,
-              aesGcm: defaultAesGcmBackend,
-              iterations: expectedDefaultIterations,
-            },
-            v2MagicHex,
-            v2MagicText,
-            legacyGcmMagicHex,
-            legacyGcmMagicText,
-            encryptedV2Header: getKnownPayloadHeader(encryptedV2.encryptedHex),
-            tasks,
+      const resultPayload = stringUtils.stableStringify(
+        {
+          platform: {
+            isNative: platformEnv.isNative,
+            isNativeIOS: platformEnv.isNativeIOS,
+            isNativeAndroid: platformEnv.isNativeAndroid,
           },
-          stringUtils.STRINGIFY_REPLACER.bufferToHex,
-          2,
-        ),
+          actualEncryptRuns,
+          defaultPath: {
+            pbkdf2: defaultPbkdf2Backend,
+            aesGcm: defaultAesGcmBackend,
+            iterations: expectedDefaultIterations,
+          },
+          v2MagicHex,
+          v2MagicText,
+          legacyGcmMagicHex,
+          legacyGcmMagicText,
+          encryptedV2Header: getKnownPayloadHeader(encryptedV2.encryptedHex),
+          tasks,
+        },
+        stringUtils.STRINGIFY_REPLACER.bufferToHex,
+        2,
       );
+      setResultJson(resultPayload);
+      setLastRunSelectedIter(userSelectedIter);
+      setTableRows(
+        buildAesGcmV2TableRows({
+          tasks: tasks.map((t) => ({ name: t.name, time: t.time })),
+          actualEncryptRuns,
+          selectedIter: userSelectedIter,
+          defaultIter: expectedDefaultIterations,
+        }),
+      );
+      setErrorMessage('');
 
       const allPassed = tasks.every(
         (t) => t.isCorrect === AppCryptoTestEmoji.isCorrect,
+      );
+      await logToMetro(
+        `testAESGcmV2 done (allPassed=${allPassed}, taskCount=${tasks.length})`,
+        resultPayload,
       );
       if (allPassed) {
         Toast.success({
@@ -608,30 +1028,171 @@ function AESGcmV2Test() {
         });
       }
     } catch (error) {
-      setResult(`Error: ${(error as Error).message}`);
+      setErrorMessage((error as Error).message);
+      setResultJson('');
+      setTableRows([]);
+      await logToMetro('testAESGcmV2 error', {
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      });
       Toast.error({
         title: `AES-GCM v2 failed: ${(error as Error).message}`,
       });
     }
   };
 
+  const selectedIterNumber = Number(selectedIter);
+  const fmtCell = (v: number | undefined) =>
+    v === undefined ? '—' : `${v} ms`;
+  // Tiered color for ms values:
+  //   undefined         → muted '—'
+  //   ≤ 10 ms           → success (green)
+  //   < 100 ms          → default text
+  //   100 .. < 500 ms   → caution (yellow/orange)
+  //   ≥ 500 ms          → critical (red)
+  const msColor = (v: number | undefined): string => {
+    if (v === undefined) return '$textDisabled';
+    if (v <= 10) return '$textSuccess';
+    if (v < 100) return '$text';
+    if (v < 500) return '$textCaution';
+    return '$textCritical';
+  };
   return (
     <PartContainer title="AES-GCM v2 Test">
-      <Button variant="primary" onPress={() => testAESGcmV2()}>
-        Test AES-GCM v2 Native All
-      </Button>
-      <Stack flexDirection="row" flexWrap="wrap" gap="$2">
-        {iterationOptions.map((iterations) => (
-          <Button
-            key={iterations}
-            size="small"
-            onPress={() => testAESGcmV2([iterations])}
+      <XStack gap="$3" alignItems="center" flexWrap="wrap">
+        <Select
+          items={AES_GCM_V2_ITER_OPTIONS.map((iter) => ({
+            value: String(iter),
+            label: `${iter.toLocaleString()} iterations`,
+          }))}
+          value={selectedIter}
+          onChange={setSelectedIter}
+          title="PBKDF2 iterations"
+          renderTrigger={({ label, onPress, disabled }) => (
+            <Button onPress={onPress} disabled={disabled}>
+              {label || `${selectedIterNumber.toLocaleString()} iterations`}
+            </Button>
+          )}
+        />
+        <Button
+          variant="primary"
+          loading={running}
+          disabled={running}
+          onPress={async () => {
+            setRunning(true);
+            try {
+              await testAESGcmV2([selectedIterNumber]);
+            } finally {
+              setRunning(false);
+            }
+          }}
+        >
+          Run Test
+        </Button>
+      </XStack>
+      <SizableText size="$bodySm" color="$textSubdued">
+        Will run iter={selectedIterNumber.toLocaleString()} AND iter=
+        {AES_GCM_V2_DEFAULT_ITER.toLocaleString()} (production default is always
+        measured). Noble is skipped for iter &gt; 10,000.
+      </SizableText>
+
+      {tableRows.length > 0 ? (
+        <YStack
+          borderWidth={1}
+          borderColor="$border"
+          borderRadius="$2"
+          overflow="hidden"
+        >
+          <XStack
+            backgroundColor="$bgSubdued"
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderBottomWidth={1}
+            borderBottomColor="$border"
           >
-            {String(iterations)} iterations
-          </Button>
-        ))}
-      </Stack>
-      {result ? <SizableText size="$bodyMd">{result}</SizableText> : null}
+            <Stack flexBasis="46%">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                operation
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="27%" alignItems="flex-end">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                noble
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="27%" alignItems="flex-end">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                native
+              </SizableText>
+            </Stack>
+          </XStack>
+          {tableRows.map((row, idx) => {
+            // Only the iter number for the production default row (600,000)
+            // gets primary color — the op name and ms values render exactly
+            // like every other row.
+            const isDefaultIterRow = row.category === 'default';
+            return (
+              <XStack
+                // eslint-disable-next-line react/no-array-index-key
+                key={idx}
+                paddingVertical="$2.5"
+                paddingHorizontal="$3"
+                borderBottomWidth={idx === tableRows.length - 1 ? 0 : 1}
+                borderBottomColor="$borderSubdued"
+                alignItems="center"
+              >
+                <Stack flexBasis="46%">
+                  <SizableText size="$bodyMd">{row.opName}</SizableText>
+                  {row.iter !== null ? (
+                    <SizableText
+                      size="$bodySmMedium"
+                      color={
+                        isDefaultIterRow ? '$textInteractive' : '$textSubdued'
+                      }
+                    >
+                      {row.iter.toLocaleString()}
+                    </SizableText>
+                  ) : null}
+                </Stack>
+                <Stack flexBasis="27%" alignItems="flex-end">
+                  <SizableText size="$bodyMd" color={msColor(row.noble)}>
+                    {fmtCell(row.noble)}
+                  </SizableText>
+                </Stack>
+                <Stack flexBasis="27%" alignItems="flex-end">
+                  <SizableText size="$bodyMd" color={msColor(row.native)}>
+                    {fmtCell(row.native)}
+                  </SizableText>
+                </Stack>
+              </XStack>
+            );
+          })}
+        </YStack>
+      ) : null}
+
+      {resultJson ? (
+        <Button
+          size="small"
+          onPress={() => {
+            copyText(resultJson);
+          }}
+        >
+          Copy JSON result
+        </Button>
+      ) : null}
+
+      {lastRunSelectedIter !== null && tableRows.length > 0 ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          Last run: iter={lastRunSelectedIter.toLocaleString()} (production
+          default {AES_GCM_V2_DEFAULT_ITER.toLocaleString()} always included).
+        </SizableText>
+      ) : null}
+
+      {errorMessage ? (
+        <SizableText size="$bodyMd" color="$textCritical">
+          Error: {errorMessage}
+        </SizableText>
+      ) : null}
     </PartContainer>
   );
 }
