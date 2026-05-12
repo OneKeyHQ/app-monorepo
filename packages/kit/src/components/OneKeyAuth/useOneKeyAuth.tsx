@@ -19,6 +19,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { logoutPurchasesSdk } from '../../views/Prime/hooks/purchasesSdkLogout';
 // import PrimeLoginEmailDialogV2 from '../../views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2';
 
 const EmailOTPDialog = LazyLoadPage(
@@ -76,12 +77,22 @@ export function useOneKeyAuthMethods() {
     }
   }, [apiLogout, supabaseSignOut]);
 
+  const logoutWithPurchasesSdk: () => Promise<void> = useCallback(async () => {
+    await logout();
+    try {
+      await logoutPurchasesSdk();
+    } catch {
+      // do nothing
+    }
+  }, [logout]);
+
   return useMemo(() => {
     return {
       isLoggedIn: user?.isLoggedIn && user?.isLoggedInOnServer,
       isPrimeSubscriptionActive: user?.primeSubscription?.isActive,
       user,
       logout,
+      logoutWithPurchasesSdk,
       // apiLogout,
       // sdkLogout,
       getAccessToken,
@@ -99,6 +110,7 @@ export function useOneKeyAuthMethods() {
     isReady,
     isSupabaseLoggedIn,
     logout,
+    logoutWithPurchasesSdk,
     user,
     supabaseUser,
     supabaseSignInWithOtp,

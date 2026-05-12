@@ -7,7 +7,7 @@ import { Page, YStack } from '@onekeyhq/components';
 import {
   useAppUpdateInfo,
   useDownloadPackage,
-} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+} from '@onekeyhq/kit/src/components/AppUpdate';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EAppUpdateStatus,

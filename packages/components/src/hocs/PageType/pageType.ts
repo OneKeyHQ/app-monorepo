@@ -4,4 +4,5 @@ export enum EPageType {
   fullScreenPush = 'fullScreenPush',
   stack = 'stack',
   onboarding = 'onboarding',
+  webView = 'webView',
 }

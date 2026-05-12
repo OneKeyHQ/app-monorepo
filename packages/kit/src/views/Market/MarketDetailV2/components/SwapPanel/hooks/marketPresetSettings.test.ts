@@ -3,6 +3,7 @@ import {
   ESwapNetworkFeeLevel,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
+  type ISwapProSpeedConfig,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -15,11 +16,28 @@ import {
   getMarketPresetDefaultEditableDirectionSettingsForPreset,
   getMarketPresetItem,
   getMarketPresetNetworkFeeLevel,
+  getMarketPresetPriorityFeeCustomPlaceholder,
+  getMarketPresetPriorityFeeOverride,
   getMarketPresetSlippageCustomStatus,
   getMarketPresetSlippageValue,
   isMarketPresetConfirmDisabled,
   resolveMarketPresetDirectionSettings,
+  shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './marketPresetSettings';
+
+function buildSpeedConfigWithMarketPresetConfig(
+  marketPresetConfig: unknown,
+): ISwapProSpeedConfig {
+  const speedConfig: ISwapProSpeedConfig & { marketPresetConfig: unknown } = {
+    slippage: 0.5,
+    spenderAddress: '',
+    defaultTokens: [],
+    defaultLimitTokens: [],
+    swapMevNetConfig: [],
+    marketPresetConfig,
+  };
+  return speedConfig;
+}
 
 describe('marketPresetSettings', () => {
   it('returns hardcoded dashboard presets from the Promise adapter', async () => {
@@ -82,14 +100,159 @@ describe('marketPresetSettings', () => {
     expect(settings.priorityFee.type).toBe(EMarketPresetPriorityFeeType.AUTO);
   });
 
-  it('supports readonly priority fee networks from hardcoded dashboard config', async () => {
+  it('removes the Fast priority fee option from Solana presets', async () => {
     const config = await fetchMarketPresetConfig({
-      networkId: presetNetworksMap.sui.id,
+      networkId: presetNetworksMap.sol.id,
     });
 
-    expect(config?.enabled).toBe(true);
-    expect(config?.slippage.editable).toBe(true);
-    expect(config?.priorityFee.editable).toBe(false);
+    expect(config?.priorityFee.editable).toBe(true);
+    expect(config?.priorityFee.customUnit).toBe('SOL');
+    expect(config?.priorityFee.supportedTypes).toEqual([
+      EMarketPresetPriorityFeeType.MARKET,
+      EMarketPresetPriorityFeeType.CUSTOM,
+    ]);
+
+    const settings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P1,
+      tradeSide: EMarketPresetTradeSide.BUY,
+      savedSettings: {
+        presets: {
+          [EMarketPresetKey.P1]: {
+            [EMarketPresetTradeSide.BUY]: {
+              slippage: {
+                key: ESwapSlippageSegmentKey.AUTO,
+              },
+              priorityFee: {
+                type: EMarketPresetPriorityFeeType.FAST,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(settings.priorityFee.type).toBe(EMarketPresetPriorityFeeType.MARKET);
+  });
+
+  it('lets speed-config disable Market presets before local fallback', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.eth.id,
+      speedConfig: buildSpeedConfigWithMarketPresetConfig({
+        enabled: false,
+        customPriorityFeeRange: {
+          min: '0',
+          max: '4000',
+        },
+      }),
+    });
+
+    expect(config?.enabled).toBe(false);
+    expect(
+      getMarketPresetItem({
+        config,
+        presetKey: EMarketPresetKey.P1,
+      }),
+    ).toBeUndefined();
+
+    const settings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P1,
+      tradeSide: EMarketPresetTradeSide.BUY,
+      savedSettings: {
+        selectedPresetKey: EMarketPresetKey.P1,
+        presets: {
+          [EMarketPresetKey.P1]: {
+            [EMarketPresetTradeSide.BUY]: {
+              slippage: {
+                key: ESwapSlippageSegmentKey.CUSTOM,
+                value: 1,
+              },
+              priorityFee: {
+                type: EMarketPresetPriorityFeeType.CUSTOM,
+                customValue: '1',
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(settings.slippage.key).toBe(ESwapSlippageSegmentKey.AUTO);
+    expect(settings.priorityFee.type).toBe(EMarketPresetPriorityFeeType.AUTO);
+    expect(
+      getMarketPresetPriorityFeeOverride(settings, config),
+    ).toBeUndefined();
+  });
+
+  it('uses configured priority fee range for placeholder, validation, and override', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.base.id,
+      speedConfig: buildSpeedConfigWithMarketPresetConfig({
+        enabled: true,
+        customPriorityFeeRange: {
+          min: '0',
+          max: '250',
+        },
+      }),
+    });
+
+    expect(getMarketPresetPriorityFeeCustomPlaceholder(config)).toBe('0 ~ 250');
+
+    const validSettings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P2,
+      tradeSide: EMarketPresetTradeSide.SELL,
+      savedSettings: {
+        presets: {
+          [EMarketPresetKey.P2]: {
+            [EMarketPresetTradeSide.SELL]: {
+              slippage: {
+                key: ESwapSlippageSegmentKey.AUTO,
+              },
+              priorityFee: {
+                type: EMarketPresetPriorityFeeType.CUSTOM,
+                customValue: '250',
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(getMarketPresetPriorityFeeOverride(validSettings, config)).toEqual({
+      customValue: '250',
+      customRange: {
+        min: '0',
+        max: '250',
+      },
+    });
+
+    const invalidSettings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P2,
+      tradeSide: EMarketPresetTradeSide.SELL,
+      savedSettings: {
+        presets: {
+          [EMarketPresetKey.P2]: {
+            [EMarketPresetTradeSide.SELL]: {
+              slippage: {
+                key: ESwapSlippageSegmentKey.AUTO,
+              },
+              priorityFee: {
+                type: EMarketPresetPriorityFeeType.CUSTOM,
+                customValue: '250.01',
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(getMarketPresetNetworkFeeLevel(invalidSettings, config)).toBe(
+      ESwapNetworkFeeLevel.MEDIUM,
+    );
+    expect(
+      getMarketPresetPriorityFeeOverride(invalidSettings, config),
+    ).toBeUndefined();
   });
 
   it('falls back to Auto when the selected preset is unavailable', async () => {
@@ -187,6 +350,104 @@ describe('marketPresetSettings', () => {
         },
       })[EMarketPresetKey.P2],
     ).toBe(true);
+  });
+
+  it('shows the review Custom fee option only for valid custom priority fee overrides', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.base.id,
+    });
+    const defaultPresetSettings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P1,
+      tradeSide: EMarketPresetTradeSide.BUY,
+    });
+    const fastPresetSettings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P1,
+      tradeSide: EMarketPresetTradeSide.BUY,
+      savedSettings: {
+        presets: {
+          [EMarketPresetKey.P1]: {
+            [EMarketPresetTradeSide.BUY]: {
+              slippage: {
+                key: ESwapSlippageSegmentKey.AUTO,
+              },
+              priorityFee: {
+                type: EMarketPresetPriorityFeeType.FAST,
+              },
+            },
+          },
+        },
+      },
+    });
+    const customPresetSettings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P1,
+      tradeSide: EMarketPresetTradeSide.BUY,
+      savedSettings: {
+        presets: {
+          [EMarketPresetKey.P1]: {
+            [EMarketPresetTradeSide.BUY]: {
+              slippage: {
+                key: ESwapSlippageSegmentKey.AUTO,
+              },
+              priorityFee: {
+                type: EMarketPresetPriorityFeeType.CUSTOM,
+                customValue: '1',
+              },
+            },
+          },
+        },
+      },
+    });
+    const customPriorityFeeOverride = getMarketPresetPriorityFeeOverride(
+      customPresetSettings,
+      config,
+    );
+
+    expect(getMarketPresetNetworkFeeLevel(defaultPresetSettings)).toBe(
+      ESwapNetworkFeeLevel.MEDIUM,
+    );
+    expect(getMarketPresetNetworkFeeLevel(fastPresetSettings)).toBe(
+      ESwapNetworkFeeLevel.HIGH,
+    );
+    expect(customPriorityFeeOverride).toEqual({
+      customValue: '1',
+      customRange: {
+        min: '0',
+        max: '250',
+      },
+    });
+    expect(
+      shouldShowMarketPresetReviewCustomNetworkFeeOption({
+        enabled: true,
+        selectedPriorityFeeOverride: getMarketPresetPriorityFeeOverride(
+          defaultPresetSettings,
+          config,
+        ),
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowMarketPresetReviewCustomNetworkFeeOption({
+        enabled: true,
+        selectedPriorityFeeOverride: getMarketPresetPriorityFeeOverride(
+          fastPresetSettings,
+          config,
+        ),
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowMarketPresetReviewCustomNetworkFeeOption({
+        enabled: true,
+        selectedPriorityFeeOverride: customPriorityFeeOverride,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowMarketPresetReviewCustomNetworkFeeOption({
+        enabled: false,
+        selectedPriorityFeeOverride: customPriorityFeeOverride,
+      }),
+    ).toBe(false);
   });
 
   it.each([

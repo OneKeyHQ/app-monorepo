@@ -44,7 +44,8 @@ export default {
     // semantics. The React Native harness runs on-device Hermes, so keep them
     // on the normal Jest path instead of hanging the native runner.
     'packages/components/src/hooks/useNetInfo\\.test\\.tsx',
-    'packages/kit/src/components/UpdateReminder/hooks\\.test\\.ts',
+    'packages/kit/src/components/AppUpdate/useAppUpdate\\.test\\.ts',
+    'packages/kit/src/components/AppUpdate/AppUpdateForeground\\.test\\.tsx',
     'packages/kit/src/hooks/usePromiseResult\\.test\\.tsx',
     'packages/kit/src/provider/SplashProvider\\.test\\.ts',
     'packages/kit/src/states/jotai/contexts/earn/actions\\.test\\.tsx',

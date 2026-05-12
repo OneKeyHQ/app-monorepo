@@ -127,6 +127,7 @@ export enum EAppEventBusNames {
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
   ShowNotificationPageNavigation = 'ShowNotificationPageNavigation',
   ShowNotificationInDappPage = 'ShowNotificationInDappPage',
+  ShowNotificationInWebViewOverlay = 'ShowNotificationInWebViewOverlay',
   UpdateNotificationBadge = 'UpdateNotificationBadge',
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',

@@ -237,6 +237,13 @@ export interface IPerpActivityCard {
   url: string;
 }
 
+export interface IPerpAssetMeta {
+  assetId: string;
+  assetType?: string;
+}
+
+export type IPerpsAssetMetaMap = Record<string, IPerpAssetMeta>;
+
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;

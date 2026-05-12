@@ -266,11 +266,13 @@ function BaseSectionList<T>(
     [tokenSizeNumberList],
   );
   const layoutList = useMemo(() => {
+    // `offset` is the START of the row (per RN getItemLayout contract).
     let offset = 0;
     return reloadSections.map((item, index) => {
       const size = tokenSizeNumberList[item.type] ?? 0;
+      const layout = { offset, length: size, index };
       offset += size;
-      return { offset, length: size, index };
+      return layout;
     });
   }, [reloadSections, tokenSizeNumberList]);
   const getItemLayout = useCallback(

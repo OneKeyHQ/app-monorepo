@@ -23,13 +23,13 @@ import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deF
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
 import { EarnProviderMirror } from '../../Earn/EarnProviderMirror';
-import { DeFiListBlock, DeFiStickyPortal } from '../components/DeFiListBlock';
+import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PopularTrading } from '../components/PopularTrading';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
-import { RecentHistory, RecentHistoryTitle } from '../components/RecentHistory';
+import { RecentHistory } from '../components/RecentHistory';
 import { SupportHub } from '../components/SupportHub';
 import { TokenListBlock } from '../components/TokenListBlock';
 import { Upgrade } from '../components/Upgrade';
@@ -45,14 +45,18 @@ import {
 
 const SIDEBAR_STICKY_UNPIN_GAP = 8;
 
+// Visual max-width for the wallet page main content. Has to match the
+// `regular` layout previously applied at the Page.Container level so the page
+// doesn't suddenly widen when the page-level constraint was removed (see
+// HomePageView's `homePageContentMaxWidthSx` and the comment there).
+const PORTFOLIO_CONTENT_MAX_WIDTH = 1140;
+
 function PortfolioContainer() {
   const media = useMedia();
 
   const tableLayout = media.gtMd;
   const showRecentHistory = media.gtXl;
   const stickyHeaderCtx = useContext(HomeStickyHeaderContext);
-  const tabBarRightPortalTarget =
-    stickyHeaderCtx?.tabBarRightPortalTarget ?? null;
   const isTabFocused =
     stickyHeaderCtx?.activeTabId === EHomeWalletTab.Portfolio;
 
@@ -201,7 +205,13 @@ function PortfolioContainer() {
   // which causes the token list to be stuck in a loading state.
   return (
     <>
-      <Stack flexDirection={tableLayout ? 'row' : 'column'} pt="$3" gap="$6">
+      <Stack
+        flexDirection={tableLayout ? 'row' : 'column'}
+        pt="$3"
+        gap="$6"
+        width="100%"
+        $gtMd={{ maxWidth: PORTFOLIO_CONTENT_MAX_WIDTH, mx: 'auto' }}
+      >
         <YStack
           flex={1}
           gap={tableLayout ? '$10' : '$6'}
@@ -238,20 +248,12 @@ function PortfolioContainer() {
                   }
                 : null)}
             >
-              <RecentHistory hideTitle={isSidebarPinned} />
+              <RecentHistory />
             </YStack>
           </YStack>
         ) : null}
         {addPaddingOnListFooter ? <Stack h="$16" /> : null}
       </Stack>
-      {tabBarRightPortalTarget &&
-      showRecentHistory &&
-      isTabFocused &&
-      isSidebarPinned ? (
-        <DeFiStickyPortal target={tabBarRightPortalTarget}>
-          <RecentHistoryTitle />
-        </DeFiStickyPortal>
-      ) : null}
     </>
   );
 }

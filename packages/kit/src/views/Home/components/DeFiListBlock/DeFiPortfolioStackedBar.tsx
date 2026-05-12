@@ -242,7 +242,7 @@ function DeFiPortfolioStackedBar({
                   }}
                 />
                 <SizableText
-                  size="$bodySm"
+                  size="$bodyMd"
                   color="$textSubdued"
                   numberOfLines={1}
                   ellipsizeMode="tail"
@@ -251,7 +251,7 @@ function DeFiPortfolioStackedBar({
                   {seg.sliceLabel}
                 </SizableText>
                 <SizableText
-                  size="$bodySmMedium"
+                  size="$bodyMdMedium"
                   color="$text"
                   selectable={false}
                   numberOfLines={1}

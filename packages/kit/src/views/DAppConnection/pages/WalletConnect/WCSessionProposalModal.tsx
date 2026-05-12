@@ -44,7 +44,10 @@ function SessionProposalModal() {
     setContinueOperate,
     riskLevel,
     urlSecurityInfo,
-  } = useRiskDetection({ origin: origin ?? '' });
+  } = useRiskDetection({
+    origin: origin ?? '',
+    walletConnectVerifyContext: proposal.verifyContext,
+  });
 
   const { result: sessionAccountsInfo } = usePromiseResult(
     async () => serviceWalletConnect.getSessionApprovalAccountInfo(proposal),
