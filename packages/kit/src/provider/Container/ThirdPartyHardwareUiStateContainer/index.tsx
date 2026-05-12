@@ -382,23 +382,36 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     }
   }, []);
 
+  const toastElement = useMemo(
+    () => (
+      <ShowCustom
+        ref={toastInstanceRef}
+        name={TOAST_VIEWPORT_NAME}
+        open={isToastAction}
+        dismissOnOverlayPress={false}
+        disableSwipeGesture
+        onClose={handleToastClose}
+      >
+        <DeviceActionToast
+          action={uiState?.action}
+          vendor={uiState?.vendor ?? ''}
+          onCloseByUser={handleToastUserClose}
+        />
+      </ShowCustom>
+    ),
+    [
+      handleToastClose,
+      handleToastUserClose,
+      isToastAction,
+      uiState?.action,
+      uiState?.vendor,
+    ],
+  );
+
   return (
     <>
       <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
-        <ShowCustom
-          ref={toastInstanceRef}
-          name={TOAST_VIEWPORT_NAME}
-          open={isToastAction}
-          dismissOnOverlayPress={false}
-          disableSwipeGesture
-          onClose={handleToastClose}
-        >
-          <DeviceActionToast
-            action={uiState?.action}
-            vendor={uiState?.vendor ?? ''}
-            onCloseByUser={handleToastUserClose}
-          />
-        </ShowCustom>
+        {toastElement}
       </Portal.Body>
 
       <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>

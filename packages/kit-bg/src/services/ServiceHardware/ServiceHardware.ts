@@ -161,6 +161,8 @@ const PRO2_DEBUG_SDK_METHODS = [
   'devGetDeviceInfo',
   'devGetOnboardingStatus',
   'devGetFirmwareUpdateStatus',
+  'factoryGetDeviceInfo',
+  'factoryDeviceInfoSettings',
   'filesystemPathInfoQuery',
   'filesystemDirList',
   'filesystemDirMake',
@@ -189,6 +191,7 @@ type IPro2DebugFirmwareUpdateParams = {
 };
 
 const PRO2_DEBUG_NO_PARAM_METHODS = new Set<IPro2DebugSdkMethod>([
+  'factoryGetDeviceInfo',
   'filesystemFixPermission',
   'filesystemFormat',
 ]);
@@ -570,9 +573,26 @@ class ServiceHardware extends ServiceBase {
       newPayload.firmwareTipData = originEvent.payload.data;
     }
 
-    if (originEvent.type === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
-      newPayload.firmwareProgress = originEvent.payload.progress;
-      newPayload.firmwareProgressType = originEvent.payload.progressType;
+    if (
+      originEvent.type === EHardwareUiStateAction.FIRMWARE_PROGRESS ||
+      originEvent.type === EHardwareUiStateAction.DEVICE_PROGRESS
+    ) {
+      const progressPayload = originEvent.payload as {
+        progress?: number;
+        progressType?: string;
+        transferredBytes?: number;
+        totalBytes?: number;
+        rateBytesPerSecond?: number;
+        elapsedMs?: number;
+      };
+      newPayload.firmwareProgress = progressPayload.progress;
+      newPayload.firmwareProgressType = progressPayload.progressType;
+      newPayload.firmwareProgressTransferredBytes =
+        progressPayload.transferredBytes;
+      newPayload.firmwareProgressTotalBytes = progressPayload.totalBytes;
+      newPayload.firmwareProgressRateBytesPerSecond =
+        progressPayload.rateBytesPerSecond;
+      newPayload.firmwareProgressElapsedMs = progressPayload.elapsedMs;
     }
 
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
