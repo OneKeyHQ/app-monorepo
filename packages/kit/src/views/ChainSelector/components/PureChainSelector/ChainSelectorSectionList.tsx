@@ -40,6 +40,12 @@ import type {
   IServerNetworkMatch,
 } from '../../types';
 
+const androidFlashListScrollProps = {
+  maintainVisibleContentPosition: {
+    disabled: true,
+  },
+};
+
 const ListEmptyComponent = () => {
   const intl = useIntl();
   return (
@@ -59,6 +65,7 @@ type IChainSelectorSectionListContentProps = {
   recentNetworksEnabled?: boolean;
   networks: IServerNetworkMatch[];
   listRef: React.RefObject<ISortableSectionListRef<any>>;
+  onScrollBeginDrag?: () => void;
   accountNetworkValues?: Record<string, string>;
   accountNetworkValueCurrency?: string;
   hideLowValueNetworkValue?: boolean;
@@ -70,6 +77,7 @@ const ChainSelectorSectionListContent = ({
   networkId,
   initialScrollIndex,
   listRef,
+  onScrollBeginDrag,
   accountNetworkValues,
   accountNetworkValueCurrency,
   hideLowValueNetworkValue,
@@ -106,6 +114,10 @@ const ChainSelectorSectionListContent = ({
       keyExtractor={(item) => (item as IServerNetworkMatch).id}
       renderSectionHeader={renderSectionHeader}
       initialScrollIndex={initialScrollIndex}
+      {...(platformEnv.isNativeAndroid
+        ? (androidFlashListScrollProps as Record<string, unknown>)
+        : {})}
+      onScrollBeginDrag={onScrollBeginDrag}
       renderItem={({
         item,
         section,
@@ -233,6 +245,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const hasUserScrolledRef = useRef(false);
 
   const onChangeText = useCallback((value: string) => {
     clearTimeout(typingTimerRef.current);
@@ -416,6 +429,10 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     }
   }, [initialScrollIndex, layoutList]);
 
+  const handleScrollBeginDrag = useCallback(() => {
+    hasUserScrolledRef.current = true;
+  }, []);
+
   const renderSections = useCallback(
     () =>
       sections.length ? (
@@ -427,6 +444,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           initialScrollIndex={initialScrollIndex?.initialScrollIndexNumber ?? 0}
           recentNetworksEnabled={recentNetworksEnabled}
           listRef={listRef as any}
+          onScrollBeginDrag={handleScrollBeginDrag}
           accountNetworkValues={accountNetworkValues}
           accountNetworkValueCurrency={accountNetworkValueCurrency}
           hideLowValueNetworkValue={hideLowValueNetworkValue}
@@ -444,6 +462,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
       accountNetworkValues,
       accountNetworkValueCurrency,
       hideLowValueNetworkValue,
+      handleScrollBeginDrag,
     ],
   );
 
@@ -460,6 +479,45 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
       ) : null,
     [],
   );
+
+  useEffect(() => {
+    if (!platformEnv.isNativeAndroid) {
+      return undefined;
+    }
+    if (
+      loading ||
+      text.trim() ||
+      sections.length === 0 ||
+      initialScrollIndex?.initialScrollIndexNumber === undefined ||
+      hasUserScrolledRef.current
+    ) {
+      return undefined;
+    }
+
+    const scrollToSelectedNetwork = () => {
+      if (hasUserScrolledRef.current) {
+        return;
+      }
+      listRef.current?.scrollToIndex?.({
+        index: initialScrollIndex.initialScrollIndexNumber,
+        animated: false,
+      });
+    };
+    const timerIds = [
+      setTimeout(scrollToSelectedNetwork, 0),
+      setTimeout(scrollToSelectedNetwork, 120),
+    ];
+
+    return () => {
+      timerIds.forEach(clearTimeout);
+    };
+  }, [
+    initialScrollIndex?.initialScrollIndexNumber,
+    loading,
+    networkId,
+    sections,
+    text,
+  ]);
 
   return (
     <Stack flex={1}>

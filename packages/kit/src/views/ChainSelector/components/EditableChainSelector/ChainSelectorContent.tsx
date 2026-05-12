@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import {
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -44,6 +45,12 @@ import type {
 // below for why we use spread-cast instead of naming the prop directly.
 const flashListOverrideProps = {
   overrideProps: { initialDrawBatchSize: 30 },
+};
+
+const androidFlashListScrollProps = {
+  maintainVisibleContentPosition: {
+    disabled: true,
+  },
 };
 
 const ListEmptyComponent = () => {
@@ -157,6 +164,7 @@ export const EditableChainSelectorContent = ({
   );
   const listRef = useRef<ISectionListRef<any> | null>(null);
   const hasRenderedSectionListRef = useRef(false);
+  const hasUserScrolledRef = useRef(false);
 
   useLayoutEffect(() => {
     setTempFrequentlyUsedItems(frequentlyUsedItems);
@@ -343,6 +351,52 @@ export const EditableChainSelectorContent = ({
     return idx + (initialScrollIndex.itemIndex ?? 0);
   }, [sections, initialScrollIndex]);
 
+  useEffect(() => {
+    if (!platformEnv.isNativeAndroid) {
+      return undefined;
+    }
+    if (
+      !shouldRenderList ||
+      searchText.trim() ||
+      initialScrollFlatIndex === undefined ||
+      hasUserScrolledRef.current
+    ) {
+      return undefined;
+    }
+
+    // FlashList v2 may re-anchor Android scroll position after async data
+    // replaces the initial list. Re-apply the selected-network position once
+    // the committed section data has settled, unless the user already scrolled.
+    const scrollToSelectedNetwork = () => {
+      if (hasUserScrolledRef.current) {
+        return;
+      }
+      listRef.current?.scrollToIndex?.({
+        index: initialScrollFlatIndex,
+        animated: false,
+      });
+    };
+    const timerIds = [
+      setTimeout(scrollToSelectedNetwork, 0),
+      setTimeout(scrollToSelectedNetwork, 120),
+    ];
+
+    return () => {
+      timerIds.forEach(clearTimeout);
+    };
+  }, [
+    initialScrollFlatIndex,
+    networkId,
+    searchText,
+    sections,
+    shouldRenderList,
+    zeroValue,
+  ]);
+
+  const handleScrollBeginDrag = useCallback(() => {
+    hasUserScrolledRef.current = true;
+  }, []);
+
   const context = useMemo<IEditableChainSelectorContext>(
     () => ({
       walletId: walletId ?? '',
@@ -471,8 +525,12 @@ export const EditableChainSelectorContent = ({
               // ISectionListProps (the web variant maps to FlatList),
               // so we funnel it through as any.
               {...(flashListOverrideProps as Record<string, unknown>)}
+              {...(platformEnv.isNativeAndroid
+                ? (androidFlashListScrollProps as Record<string, unknown>)
+                : {})}
               ListHeaderComponent={<ListHeaderComponent />}
               renderSectionHeader={renderSectionHeader}
+              onScrollBeginDrag={handleScrollBeginDrag}
               contentContainerStyle={{ paddingBottom: bottom || 8 }}
             />
           ) : null}
