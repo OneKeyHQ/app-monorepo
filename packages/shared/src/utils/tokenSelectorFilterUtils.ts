@@ -21,3 +21,9 @@ export function buildSwapAllNetworkTokenListCacheKey({
 }) {
   return lpToken ? `${accountId}__lpToken` : accountId;
 }
+
+export const SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED = false;
+
+export function shouldSendSwapLpTokenParam(lpToken?: boolean) {
+  return SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED && !!lpToken;
+}

@@ -48,6 +48,7 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -610,6 +611,7 @@ const SwapTokenSelectPage = ({
           <TokenSelectorLpTokenSwitch
             value={showLpTokensOnly}
             onChange={handleLpTokenFilterChange}
+            disabled={!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED}
           />
         </XStack>
         <NetworkToggleGroup

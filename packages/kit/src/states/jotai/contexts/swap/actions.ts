@@ -2008,9 +2008,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       lpToken?: boolean,
     ) => {
       const swapAllNetworkActionLock = get(swapAllNetworkActionLockAtom());
-      if (swapAllNetworkActionLock) {
-        return;
-      }
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       const swapSupportNetworks = get(swapNetworks());
       const currentTypeSupportNetworks =
@@ -2028,8 +2025,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         accountId: accountIdKey,
         lpToken,
       });
+      if (swapAllNetworkActionLock[tokenListCacheKey]) {
+        return;
+      }
       if (swapSupportAccounts.length > 0) {
-        set(swapAllNetworkActionLockAtom(), true);
+        set(swapAllNetworkActionLockAtom(), (v) => ({
+          ...v,
+          [tokenListCacheKey]: true,
+        }));
         const currentSwapAllNetworkTokenList = get(
           swapAllNetworkTokenListMapAtom(),
         )[tokenListCacheKey];
@@ -2058,25 +2061,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             );
         });
 
-        // Execute requests in batches of 3 to prevent UI thread blocking
-        const results = await this.executeBatched(tasks, 3);
+        try {
+          // Execute requests in batches of 3 to prevent UI thread blocking
+          const results = await this.executeBatched(tasks, 3);
 
-        if (!currentSwapAllNetworkTokenList) {
-          // First fetch: just wait for completion, updates happen in updateAllNetworkTokenList
-        } else {
-          // Subsequent fetches: collect results and update atom
-          const allTokensResult = results
-            .filter((r) => r.status === 'fulfilled' && r.value)
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            .map((r) => (r as PromiseFulfilledResult<any>).value)
-            .filter(Boolean)
-            .flat();
-          set(swapAllNetworkTokenListMapAtom(), (v) => ({
+          if (!currentSwapAllNetworkTokenList) {
+            // First fetch: just wait for completion, updates happen in updateAllNetworkTokenList
+          } else {
+            // Subsequent fetches: collect results and update atom
+            const allTokensResult = results
+              .filter((r) => r.status === 'fulfilled' && r.value)
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+              .map((r) => (r as PromiseFulfilledResult<any>).value)
+              .filter(Boolean)
+              .flat();
+            set(swapAllNetworkTokenListMapAtom(), (v) => ({
+              ...v,
+              [tokenListCacheKey]: allTokensResult,
+            }));
+          }
+        } finally {
+          set(swapAllNetworkActionLockAtom(), (v) => ({
             ...v,
-            [tokenListCacheKey]: allTokensResult,
+            [tokenListCacheKey]: false,
           }));
         }
-        set(swapAllNetworkActionLockAtom(), false);
       } else {
         set(swapAllNetworkTokenListMapAtom(), (v) => ({
           ...v,

@@ -162,6 +162,7 @@ function TokenListBlock({
       }),
     [showLpTokensOnly],
   );
+  const syncTokenFilterToOverview = !showLpTokensOnly;
 
   const accountTokensValue = useMemo(() => {
     return calculateAccountTokensValue({
@@ -387,18 +388,20 @@ function TokenListBlock({
             }
           });
 
-          updateAccountOverviewState({
-            isRefreshing: false,
-            initialized: true,
-          });
+          if (syncTokenFilterToOverview) {
+            updateAccountOverviewState({
+              isRefreshing: false,
+              initialized: true,
+            });
 
-          updateAccountWorth({
-            accountId,
-            initialized: true,
-            worth: accountWorth,
-            createAtNetworkWorth: '0',
-            merge: false,
-          });
+            updateAccountWorth({
+              accountId,
+              initialized: true,
+              worth: accountWorth,
+              createAtNetworkWorth: '0',
+              merge: false,
+            });
+          }
         } else {
           r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
             accountId,
@@ -415,23 +418,25 @@ function TokenListBlock({
             .plus(r.tokens.fiatValue ?? '0')
             .plus(r.smallBalanceTokens.fiatValue ?? '0');
 
-          updateAccountOverviewState({
-            isRefreshing: false,
-            initialized: true,
-          });
+          if (syncTokenFilterToOverview) {
+            updateAccountOverviewState({
+              isRefreshing: false,
+              initialized: true,
+            });
 
-          updateAccountWorth({
-            accountId,
-            initialized: true,
-            worth: {
-              [accountUtils.buildAccountValueKey({
-                accountId,
-                networkId: network.id,
-              })]: accountWorth.toFixed(),
-            },
-            createAtNetworkWorth: accountWorth.toFixed(),
-            merge: false,
-          });
+            updateAccountWorth({
+              accountId,
+              initialized: true,
+              worth: {
+                [accountUtils.buildAccountValueKey({
+                  accountId,
+                  networkId: network.id,
+                })]: accountWorth.toFixed(),
+              },
+              createAtNetworkWorth: accountWorth.toFixed(),
+              merge: false,
+            });
+          }
         }
 
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
@@ -530,6 +535,7 @@ function TokenListBlock({
       setIsHeaderRefreshing,
       tokenSelectorFilterParams,
       showLpTokensOnly,
+      syncTokenFilterToOverview,
     ],
     {
       overrideIsFocused: (isPageFocused) =>
@@ -718,35 +724,37 @@ function TokenListBlock({
           isRefreshing: false,
         });
 
-        updateAccountOverviewState({
-          isRefreshing: false,
-          initialized: true,
-        });
+        if (syncTokenFilterToOverview) {
+          updateAccountOverviewState({
+            isRefreshing: false,
+            initialized: true,
+          });
 
-        if (
-          account?.id &&
-          (!accountUtils.isOthersAccount({ accountId: account.id }) ||
-            (accountUtils.isOthersAccount({ accountId: account.id }) &&
-              account?.createAtNetwork &&
-              account.createAtNetwork === networkId))
-        ) {
-          createAtNetworkWorth = accountWorth;
+          if (
+            account?.id &&
+            (!accountUtils.isOthersAccount({ accountId: account.id }) ||
+              (accountUtils.isOthersAccount({ accountId: account.id }) &&
+                account?.createAtNetwork &&
+                account.createAtNetwork === networkId))
+          ) {
+            createAtNetworkWorth = accountWorth;
+          }
+
+          updateAccountWorth({
+            accountId: mergeDeriveAddressData
+              ? (indexedAccount?.id ?? '')
+              : (account?.id ?? ''),
+            initialized: true,
+            worth: {
+              [accountUtils.buildAccountValueKey({
+                accountId,
+                networkId,
+              })]: accountWorth.toFixed(),
+            },
+            createAtNetworkWorth: createAtNetworkWorth.toFixed(),
+            merge: true,
+          });
         }
-
-        updateAccountWorth({
-          accountId: mergeDeriveAddressData
-            ? (indexedAccount?.id ?? '')
-            : (account?.id ?? ''),
-          initialized: true,
-          worth: {
-            [accountUtils.buildAccountValueKey({
-              accountId,
-              networkId,
-            })]: accountWorth.toFixed(),
-          },
-          createAtNetworkWorth: createAtNetworkWorth.toFixed(),
-          merge: true,
-        });
 
         const mergeDeriveAssetsEnabled = !!(
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -858,6 +866,7 @@ function TokenListBlock({
       updateTokenListState,
       tokenSelectorFilterParams,
       showLpTokensOnly,
+      syncTokenFilterToOverview,
     ],
   );
 
@@ -944,12 +953,15 @@ function TokenListBlock({
       networkId?: string;
       hasCache: boolean;
     }) => {
+      if (!syncTokenFilterToOverview) {
+        return;
+      }
       setOverviewTokenCacheState({
         ownerKey: buildOverviewOwnerKey(accountId, networkId),
         hasCache,
       });
     },
-    [setOverviewTokenCacheState],
+    [setOverviewTokenCacheState, syncTokenFilterToOverview],
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
@@ -992,12 +1004,19 @@ function TokenListBlock({
         networkId: networkId ?? '',
       });
 
-      setOverviewTokenCacheState({
-        ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
-        hasCache: undefined,
-      });
+      if (syncTokenFilterToOverview) {
+        setOverviewTokenCacheState({
+          ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
+          hasCache: undefined,
+        });
+      }
     },
-    [account?.id, network?.id, setOverviewTokenCacheState],
+    [
+      account?.id,
+      network?.id,
+      setOverviewTokenCacheState,
+      syncTokenFilterToOverview,
+    ],
   );
 
   const handleAllNetworkCacheRequests = useCallback(
@@ -1234,31 +1253,35 @@ function TokenListBlock({
         networkId: network?.id,
       });
 
-      setOverviewTokenCacheState({
-        ownerKey: buildOverviewOwnerKey(accountId, networkId),
-        hasCache: hasAnyCache,
-      });
+      if (syncTokenFilterToOverview) {
+        setOverviewTokenCacheState({
+          ownerKey: buildOverviewOwnerKey(accountId, networkId),
+          hasCache: hasAnyCache,
+        });
+      }
 
       if (hasAnyCache) {
-        updateAccountWorth({
-          accountId: mergeDeriveAddressData
-            ? (indexedAccount?.id ?? '')
-            : (account?.id ?? ''),
-          initialized: true,
-          worth: tokenListValue,
-          createAtNetworkWorth:
-            tokenListValue[
-              accountUtils.buildAccountValueKey({
-                accountId: account?.id ?? '',
-                networkId: account?.createAtNetwork ?? '',
-              })
-            ],
-          updateAll: true,
-        });
-        updateAccountOverviewState({
-          isRefreshing: false,
-          initialized: true,
-        });
+        if (syncTokenFilterToOverview) {
+          updateAccountWorth({
+            accountId: mergeDeriveAddressData
+              ? (indexedAccount?.id ?? '')
+              : (account?.id ?? ''),
+            initialized: true,
+            worth: tokenListValue,
+            createAtNetworkWorth:
+              tokenListValue[
+                accountUtils.buildAccountValueKey({
+                  accountId: account?.id ?? '',
+                  networkId: account?.createAtNetwork ?? '',
+                })
+              ],
+            updateAll: true,
+          });
+          updateAccountOverviewState({
+            isRefreshing: false,
+            initialized: true,
+          });
+        }
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkCacheData');
         updateTokenListState({
           initialized: true,
@@ -1284,6 +1307,7 @@ function TokenListBlock({
       refreshTokenList,
       refreshTokenListMap,
       setOverviewTokenCacheState,
+      syncTokenFilterToOverview,
       updateAccountOverviewState,
       updateAccountWorth,
       updateTokenListState,
@@ -1477,17 +1501,19 @@ function TokenListBlock({
         }
       }
 
-      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
-        networkId: network?.id ?? '',
-        accountId: account?.id ?? '',
-        aggregateTokenMap,
-      });
+      if (syncTokenFilterToOverview) {
+        void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
+          networkId: network?.id ?? '',
+          accountId: account?.id ?? '',
+          aggregateTokenMap,
+        });
 
-      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
-        networkId: network?.id ?? '',
-        accountId: account?.id ?? '',
-        aggregateTokenListMap,
-      });
+        void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
+          networkId: network?.id ?? '',
+          accountId: account?.id ?? '',
+          aggregateTokenListMap,
+        });
+      }
 
       tokenList.tokens = uniqBy(tokenList.tokens, (item) => item.$key);
       smallBalanceTokenList.smallBalanceTokens = uniqBy(
@@ -1551,15 +1577,17 @@ function TokenListBlock({
         map: riskyTokenListMap,
       });
 
-      updateAccountWorth({
-        accountId: mergeDeriveAddressData
-          ? (indexedAccount?.id ?? '')
-          : (account?.id ?? ''),
-        initialized: true,
-        updateAll: true,
-        worth: accountsWorth,
-        createAtNetworkWorth: createAtNetworkWorth.toFixed(),
-      });
+      if (syncTokenFilterToOverview) {
+        updateAccountWorth({
+          accountId: mergeDeriveAddressData
+            ? (indexedAccount?.id ?? '')
+            : (account?.id ?? ''),
+          initialized: true,
+          updateAll: true,
+          worth: accountsWorth,
+          createAtNetworkWorth: createAtNetworkWorth.toFixed(),
+        });
+      }
 
       refreshAggregateTokensListMap({
         tokens: aggregateTokenListMap,
@@ -1619,6 +1647,7 @@ function TokenListBlock({
     refreshSmallBalanceTokensFiatValue,
     refreshTokenList,
     refreshTokenListMap,
+    syncTokenFilterToOverview,
     updateAccountWorth,
   ]);
 
@@ -1751,10 +1780,12 @@ function TokenListBlock({
         networkId,
         accountId,
       });
-      setOverviewTokenCacheState({
-        ownerKey: buildOverviewOwnerKey(account?.id, networkId),
-        hasCache: undefined,
-      });
+      if (syncTokenFilterToOverview) {
+        setOverviewTokenCacheState({
+          ownerKey: buildOverviewOwnerKey(account?.id, networkId),
+          hasCache: undefined,
+        });
+      }
 
       if (networkId === networkIdsMap.onekeyall) {
         perfTokenListView.markStart('tokenListRefreshing_1');
@@ -1762,25 +1793,19 @@ function TokenListBlock({
           initialized: false,
           isRefreshing: true,
         });
-        updateAccountOverviewState({
-          initialized: false,
-          isRefreshing: true,
-        });
+        if (syncTokenFilterToOverview) {
+          updateAccountOverviewState({
+            initialized: false,
+            isRefreshing: true,
+          });
+        }
         handleClearAllNetworkData();
         return;
       }
 
       if (showLpTokensOnly) {
-        setOverviewTokenCacheState({
-          ownerKey: buildOverviewOwnerKey(account?.id, networkId),
-          hasCache: false,
-        });
         perfTokenListView.markStart('tokenListRefreshing_2');
         updateTokenListState({
-          initialized: false,
-          isRefreshing: true,
-        });
-        updateAccountOverviewState({
           initialized: false,
           isRefreshing: true,
         });
@@ -2070,6 +2095,7 @@ function TokenListBlock({
     refreshTokenList,
     refreshTokenListMap,
     setOverviewTokenCacheState,
+    syncTokenFilterToOverview,
     updateAccountOverviewState,
     updateAccountWorth,
     updateSearchKey,
