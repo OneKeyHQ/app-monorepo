@@ -89,7 +89,7 @@ export type IMarketPresetSettingsState = {
 
 export function useMarketPresetSettings({
   networkId,
-  defaultSlippage = 0.5,
+  defaultSlippage,
   tradeSide = EMarketPresetTradeSide.BUY,
   speedConfig,
   speedConfigReady,
@@ -101,6 +101,8 @@ export function useMarketPresetSettings({
   speedConfigReady?: boolean;
 }): IMarketPresetSettingsState {
   const selectedPresetRequestIdRef = useRef(0);
+  const resolvedDefaultSlippage =
+    defaultSlippage ?? speedConfig?.slippage ?? 0.5;
   const { result: configResult, isLoading: configLoading } =
     usePromiseResult<IMarketPresetConfigResult>(
       async () => {
@@ -384,9 +386,9 @@ export function useMarketPresetSettings({
     ),
     selectedSlippageValue: getMarketPresetSlippageValue({
       settings: selectedDirectionSettings,
-      defaultSlippage,
+      defaultSlippage: resolvedDefaultSlippage,
     }),
-    defaultSlippageValue: defaultSlippage,
+    defaultSlippageValue: resolvedDefaultSlippage,
     tradeSide,
     onPresetChange,
     onSavePresetDirectionSettings,

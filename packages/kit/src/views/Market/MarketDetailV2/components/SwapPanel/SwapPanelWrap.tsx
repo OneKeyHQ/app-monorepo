@@ -234,7 +234,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       tradeType === ESwapDirection.BUY
         ? paymentAmount.toFixed()
         : sellAmount.toFixed(),
-    antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
+    antiMEV: Array.isArray(swapMevNetConfig)
+      ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
+      : false,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
     onCloseDialog,

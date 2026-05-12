@@ -8512,9 +8512,9 @@ __metadata:
   resolution: "@onekeyfe/cli@workspace:apps/cli"
   dependencies:
     "@napi-rs/keyring": "npm:^1.3.0"
-    "@onekeyfe/hd-common-connect-sdk": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-core": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport-usb": "npm:1.1.26-alpha.11"
+    "@onekeyfe/hd-common-connect-sdk": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-core": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport-usb": "npm:1.1.26-alpha.13"
     "@onekeyhq/core": "workspace:*"
     "@onekeyhq/shared": "workspace:*"
     "@types/proper-lockfile": "npm:^4"
@@ -8707,38 +8707,38 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-ble-sdk@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-ble-sdk@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-ble-sdk@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-ble-sdk@npm:1.1.26-alpha.13"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport-react-native": "npm:1.1.26-alpha.11"
-  checksum: 10/02da9d80d9fe7960ceb364ff0662af295b59b2a15b57be089f71a843116adbcb247e2d9926a6dc568aed006b7ad39633577e480fc1cc4871dceeed111008ca2a
+    "@onekeyfe/hd-core": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport-react-native": "npm:1.1.26-alpha.13"
+  checksum: 10/b7fd50c242edf91d1c3436ba479843e1454d784da8d6ceb95ca12cad443fb41e36598b377171e155716ddfee8d1d313631ecfd5087a4b0148f2adfaea46e96c3
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-common-connect-sdk@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-common-connect-sdk@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-common-connect-sdk@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-common-connect-sdk@npm:1.1.26-alpha.13"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport-emulator": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport-http": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport-lowlevel": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport-usb": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport-web-device": "npm:1.1.26-alpha.11"
-  checksum: 10/f6e408b74c3912c632566965783f7f7c8b6d4a6e9fad28a4d2d9582ecfba98ff950632cc8387347e65f05afb982959682c7d6f8668e7504a79be559f136f1519
+    "@onekeyfe/hd-core": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport-emulator": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport-http": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport-lowlevel": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport-usb": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport-web-device": "npm:1.1.26-alpha.13"
+  checksum: 10/c6f98fefd4f0658ad9c366116f170f66c97205d3499823139a04ec7a41c62fe6888661b18cea5505c85fd8423b0194d5799987b366bdd81655598309500ace71
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-core@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-core@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-core@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-core@npm:1.1.26-alpha.13"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.11"
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.13"
     axios: "npm:1.15.2"
     bignumber.js: "npm:^9.0.2"
     bytebuffer: "npm:^5.0.1"
@@ -8747,138 +8747,138 @@ __metadata:
     semver: "npm:^7.3.7"
   peerDependencies:
     "@noble/hashes": ^1.1.3
-  checksum: 10/aa1b8ca4e15d9c688fbb9a0bb2e2a2890c1e9cc98a337082c687be62df5c95bf1d27a792b88df5cd4b8ef88489b89aed2d59dbd3e230ef57d09123908f51fd0a
+  checksum: 10/8f696b611b37927f3d7b664fda9afadf507e70a09350423702edafa68d22a48e903c6cf797b578557911400cb682a2ee54ce027ccf607a50c1093193b1c35518
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-shared@npm:1.1.26-alpha.11"
-  checksum: 10/ce197f96f27bb76dbf21af04c15b11f1bc120bb8011ea819863310c9d6bd7a4bec913a9f5ca374db55424f4b5f52bfd5451186501ef194956057e568fb746090
+"@onekeyfe/hd-shared@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-shared@npm:1.1.26-alpha.13"
+  checksum: 10/5f53ef03a99b398b1f9c41328be99e06a85dcec22068e1b9843480c96d09ab780eb367174efd513d4f0809dc774f6e41222c35cae11e3b2925732fe8ad3e0e56
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-electron@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-transport-electron@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-transport-electron@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-transport-electron@npm:1.1.26-alpha.13"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.11"
+    "@onekeyfe/hd-core": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.13"
     "@stoprocent/noble": "npm:2.3.16"
     p-retry: "npm:^4.6.2"
   peerDependencies:
     electron: ">=25.0.0"
     electron-log: ">=4.0.0"
-  checksum: 10/092c216f658b8f26163a71b4fa6281ca56b22694e0ab58e10cd86b3356d9bf832aeb6800aeed1f60305f8ba11875fdd1ece2894cc9e63a4bc48fc7973f05b9de
+  checksum: 10/e562685094957f68d653d915f67ce2a607a6a772af3c7091453eaaadb727b52f18d0d21d0d86507ab35eee6b58abe055d0c660747bffaceeaaa5217c84ead354
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-emulator@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-transport-emulator@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-transport-emulator@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-transport-emulator@npm:1.1.26-alpha.13"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.11"
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.13"
     axios: "npm:1.15.2"
     secure-json-parse: "npm:^4.0.0"
-  checksum: 10/2fe139c4eea7ae9913292c597ed11c07250e063bf3f2cfff2944ee9e52f01744d5d58ee5e3376235e5413534cb4b1cf7d44b2a89ef368f122c99435e3c21aa78
+  checksum: 10/bcff55b4c0c97411c257434a59a0446e5a79e2b8a1f91fbd90e8f5af01e2f55ad6567d6bccc0f8530eda077abb0db48abe17021d0fda9d564d73479e4ee250e8
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-http@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-transport-http@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-transport-http@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-transport-http@npm:1.1.26-alpha.13"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.11"
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.13"
     axios: "npm:1.15.2"
     secure-json-parse: "npm:^4.0.0"
-  checksum: 10/e8424da75a35221b8627bc4214f30c3c6ce2000e0e5633fd25cfcc5ae1be31e86a9b150ef84dacff3f88d8257a2f00cf08741319a8e1923fe29ee2f1ea26cf7b
+  checksum: 10/6f14934b8015b38b0e74eb31dd8fae194a887f0dc5e4c3bd097d117cfd85a7f4fbc51219e7708f5ca601b31e0b03840f1dff01a6f0c802f6c3e0ecb54b07f8ae
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-lowlevel@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-transport-lowlevel@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-transport-lowlevel@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-transport-lowlevel@npm:1.1.26-alpha.13"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.11"
-  checksum: 10/268ce308f57007d264d3455b018dc0d867557add01cdf72a96c84e2c0f8a2227764fcb5438e49f464b9a417b3e377a68c1cdf065139a83d0c3fcc746d023d1bd
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.13"
+  checksum: 10/55d734912e11bd21bde179de4a6ffedee65e4352477ddb7a8acb8d3afd9ee861493d3c4319fc42899ec465867ac27ddbb46696f669ec9d604636a00f5d9508df
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-react-native@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-transport-react-native@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-transport-react-native@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-transport-react-native@npm:1.1.26-alpha.13"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.11"
+    "@onekeyfe/hd-core": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.13"
     "@onekeyfe/react-native-ble-utils": "npm:^0.1.4"
     react-native-ble-plx: "npm:3.5.1"
-  checksum: 10/13d87f534ba153701ad522a8b6c3e8612edb645255e7b9fdd66d1045d76bed798a9f86b339535916d2d4f74246bd45830223eac85570a23559a2a9dcd366f3ba
+  checksum: 10/f135c9340781f424b61036e41c58c6f3a8d2ee1f8595e374137f809c86c46643a6c1c45b5ab295bc888a547bdad7e4b66027a78c35c63535eea7f3a2e40a7fd0
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-usb@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-transport-usb@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-transport-usb@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-transport-usb@npm:1.1.26-alpha.13"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.11"
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.13"
     bytebuffer: "npm:^5.0.1"
     usb: "npm:^2.14.0"
-  checksum: 10/e6ad1aef4eb22edffd3e2831aff0b21559217e29dd5101670691ef2f2a40cd6073615a868173041bca3492c389a6cc5a01dbc979d331b359666337434caa9dd4
+  checksum: 10/b72c7c9c13e569f7c4ddacc69b1f773392c5910bef9e75a6c73722b1a113b5d759ed2a94fe7ecaa8c2ba5b54f76f52966995b9982c92977c16a119d9b2f41163
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-web-device@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-transport-web-device@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-transport-web-device@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-transport-web-device@npm:1.1.26-alpha.13"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.11"
-  checksum: 10/c4365f0cf5a40be6060539753e50e0f1f95cc3eaab806bd8e1fcb5ed1740108defe8e702d6cbfa268b4c5bd12ce4661bc359bb161a313e73274509bc1176fb66
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.13"
+  checksum: 10/e3b089c2fbe2627b5f6568e5c7f28bf349946c0e8779d5e46daabe60fdf49f6b3b1d75013237fe2f380be2cd968122050f600f1109dacf7023b458a91934b681
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-transport@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-transport@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-transport@npm:1.1.26-alpha.13"
   dependencies:
     bytebuffer: "npm:^5.0.1"
     long: "npm:^4.0.0"
     protobufjs: "npm:^6.11.2"
-  checksum: 10/9e383940497afc74d7e756e61375a80c215c61b852018e1b77986ea2ead21f9305d9fb51840c5aac0f1dcfd24c624aa1469e354841667e6fbb30859c33f674f2
+  checksum: 10/18f4e098b67caa2b892207451aae817922a1b0fcad130fe59439fe15e36aa45fe848acb80637db153d7b542b202b37cc3352abb3b0e05d4f2f7e8eb618282a54
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-web-sdk@npm:1.1.26-alpha.11":
-  version: 1.1.26-alpha.11
-  resolution: "@onekeyfe/hd-web-sdk@npm:1.1.26-alpha.11"
+"@onekeyfe/hd-web-sdk@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hd-web-sdk@npm:1.1.26-alpha.13"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": "npm:2.2.67"
-    "@onekeyfe/hd-core": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport-http": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport-web-device": "npm:1.1.26-alpha.11"
-  checksum: 10/df0bbff097dd2001fbd3d0b3e866aa502786c9c6654ea1e4ac28ef16291d2cc78e5610a979fd7523b562c035c75c3d347c301a12bc6c2d4d24e66f2f4a6d1710
+    "@onekeyfe/hd-core": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport-http": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport-web-device": "npm:1.1.26-alpha.13"
+  checksum: 10/9fcaf5d8809b208ae4eb782ff2b0fe599e100560e10c1f002f1544ac0853b81ab6200885392c7187d2ab955b1acb0290111089cdac9df30c6482fd3ec0f19599
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.12":
-  version: 1.1.26-alpha.12
-  resolution: "@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.12"
+"@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.13"
   dependencies:
     "@noble/hashes": "npm:^1.7.1"
-  checksum: 10/42ac8f63aa750bba9b1d6fb93300836e6600988cd3eb8d71c14c77daab2b34d5b9b532f0e02ab0eecdbb39e46b9f87e02dcaa995c085824331f618cbff7266f0
+  checksum: 10/e423a2e0c40b42797deba13bc12453d5ee007baa4c586c607a43710dc6a36c2edfd54a72dc4f4088b3e71b8e2e84703ec7ffa1d5309b6143c781f925a973d78e
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.12":
-  version: 1.1.26-alpha.12
-  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.12"
+"@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.13"
   dependencies:
     "@ledgerhq/context-module": "npm:^1.0.0"
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
@@ -8887,39 +8887,39 @@ __metadata:
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/hw-app-trx": "npm:^6.34.1"
     "@ledgerhq/hw-transport": "npm:^6.34.1"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.12"
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.13"
     bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
-  checksum: 10/072f30c7dcdfbd90057bdbb216fd880c417b76a52402b29ea230fc2b5772c8b01a5aee9d7562db1db85463dc94adc75eff6f037cca104035b737df9f067c48ec
+  checksum: 10/1f9ba0eed22a01b00c47c2d2c4f80f9074c2b5cbbb46cc65e7a10576f99df604a1c3609eaf98fbceb3124145afdcba06f7a00f572d38ff65315ffd947039895d
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.12":
-  version: 1.1.26-alpha.12
-  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.12"
+"@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.13"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/device-transport-kit-react-native-ble": "npm:^1.0.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.12"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.12"
-  checksum: 10/26e8981569bad306cf5b72f88938529e74e24e2f3f580e0618369ec1ec2e6056e57d5a9d0eea18251273b0ae11c03d1ebdaaf38b9459fcef243364b414368d7e
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.13"
+  checksum: 10/da1857270b46833944621425dea928810cb627be4d9e3111f6b9c12a9c3d38f8ce35a788e3b9feac8441f5b8ed4311d1da74ff4f0844a938cdef79faefbde728
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.12":
-  version: 1.1.26-alpha.12
-  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.12"
+"@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.13":
+  version: 1.1.26-alpha.13
+  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.13"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/device-transport-kit-web-hid": "npm:^1.0.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.12"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.12"
-  checksum: 10/7d7d83fb885e4c0dce50d84809318e3d0464511eb58df402ad8d48c7826a44747836eaafe0b010693ad263aab86ef21632b1cda42b4a03b988614860c1ada787
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.13"
+  checksum: 10/0b207aa8f1ebd0928dea74865b1f0898d68181b37f03324651e43a2771256d185dfb49594f920881d78601408580a803a91fe30afe92f37c3fbcf09c95906b6c
   languageName: node
   linkType: hard
 
@@ -9554,17 +9554,17 @@ __metadata:
     "@onekeyfe/cross-inpage-provider-injected": "npm:2.2.68"
     "@onekeyfe/cross-inpage-provider-types": "npm:2.2.68"
     "@onekeyfe/extension-bridge-hosted": "npm:2.2.68"
-    "@onekeyfe/hd-ble-sdk": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-common-connect-sdk": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-core": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-transport-electron": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hd-web-sdk": "npm:1.1.26-alpha.11"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.12"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.12"
-    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.1.26-alpha.12"
-    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.1.26-alpha.12"
+    "@onekeyfe/hd-ble-sdk": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-common-connect-sdk": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-core": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-shared": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-transport-electron": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hd-web-sdk": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.1.26-alpha.13"
+    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.1.26-alpha.13"
     "@onekeyfe/onekey-cross-webview": "npm:2.2.68"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"

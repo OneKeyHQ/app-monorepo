@@ -835,7 +835,9 @@ export function useSwapProTokenInit() {
   }, [swapProSelectToken, syncSelectTokenNative]);
 
   const isMEV = useMemo(() => {
-    return swapMevNetConfig?.includes(swapProSelectToken?.networkId ?? '');
+    return Array.isArray(swapMevNetConfig)
+      ? swapMevNetConfig.includes(swapProSelectToken?.networkId ?? '')
+      : undefined;
   }, [swapMevNetConfig, swapProSelectToken?.networkId]);
 
   const hasEnoughBalance = useMemo(() => {
