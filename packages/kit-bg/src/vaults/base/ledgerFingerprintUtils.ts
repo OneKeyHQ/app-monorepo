@@ -184,11 +184,7 @@ export async function callLedgerWithFingerprint<T>(
   if (result.success && !deviceId) {
     let fp = '';
     try {
-      fp = await generateAndStoreFingerprint(
-        backgroundApi,
-        dbDevice,
-        chain,
-      );
+      fp = await generateAndStoreFingerprint(backgroundApi, dbDevice, chain);
     } catch (e) {
       defaultLogger.hardware.sdkLog.log(
         'ledgerFingerprint.postOpGenerationFailed',
