@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import type { RefObject } from 'react';
 
 // FlashList v2 may re-anchor Android scroll position after async data
 // replaces the initial list. Re-apply the selected position once the
 // committed data has settled: the setTimeout(0) catches the post-commit
-// frame and the delayed timer covers FlashList's later internal reanchor.
+// frame and the delayed timer covers FlashList's later internal re-anchor.
 const ANDROID_RESTORE_DELAY_MS = 120;
 
 const androidScrollProps = {
