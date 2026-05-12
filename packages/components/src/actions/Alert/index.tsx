@@ -50,6 +50,8 @@ type IAlertActionProps = {
   isSecondaryDisabled?: boolean;
   primaryVariant?: IButtonProps['variant'];
   secondaryVariant?: IButtonProps['variant'];
+  primaryTestID?: string;
+  secondaryTestID?: string;
 };
 
 interface IAlertContext {
@@ -244,7 +246,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
       {action ? (
         <XStack gap="$4" alignItems="center">
           <Button
-            testID="src-btn"
+            testID={action.primaryTestID ?? 'alert-primary-btn'}
             size="small"
             variant={action.primaryVariant}
             onPress={action.onPrimaryPress}
@@ -255,7 +257,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
           </Button>
           {action.secondary ? (
             <Button
-              testID="src-btn"
+              testID={action.secondaryTestID ?? 'alert-secondary-btn'}
               size="small"
               variant={action.secondaryVariant ?? 'tertiary'}
               onPress={action.onSecondaryPress}

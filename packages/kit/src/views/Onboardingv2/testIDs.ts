@@ -55,4 +55,10 @@ export const OnboardingTestIDs = {
 
   // Check and update
   checkAndUpdatePage: 'onboarding-check-and-update-page',
+  checkAndUpdateVerifyBtn: 'onboarding-check-and-update-verify-btn',
+  checkAndUpdateDoneBtn: 'onboarding-check-and-update-done-btn',
+  checkAndUpdateUpdateBtn: 'onboarding-check-and-update-update-btn',
+  checkAndUpdateSkipUpdateBtn: 'onboarding-check-and-update-skip-update-btn',
+  checkAndUpdateRetryBtn: 'onboarding-check-and-update-retry-btn',
+  checkAndUpdateSkipStepBtn: 'onboarding-check-and-update-skip-step-btn',
 } as const;
