@@ -64,13 +64,19 @@ function SegmentControlItem({
   let stateStyle: GetProps<typeof YStack> = {};
   if (active) {
     stateStyle = {
-      bg: activeBackgroundColor ?? '$bgPrimary',
+      bg: disabled ? '$bgDisabled' : (activeBackgroundColor ?? '$bgPrimary'),
     };
   } else if (!disabled) {
     stateStyle = {
       hoverStyle: hoverStyleConst,
       pressStyle: pressStyleConst,
     };
+  }
+  let textColor = inactiveTextColor ?? '$text';
+  if (disabled) {
+    textColor = '$textDisabled';
+  } else if (active) {
+    textColor = activeTextColor ?? '$textInverse';
   }
 
   return (
@@ -99,11 +105,7 @@ function SegmentControlItem({
           size="$bodyMdMedium"
           textAlign="center"
           numberOfLines={1}
-          color={
-            active
-              ? (activeTextColor ?? '$textInverse')
-              : (inactiveTextColor ?? '$text')
-          }
+          color={textColor}
         >
           {label}
         </SizableText>
@@ -137,11 +139,16 @@ function SegmentControlFrame({
     <XStack
       width={fullWidth ? '100%' : 'auto'}
       alignSelf={fullWidth ? undefined : 'flex-start'}
-      backgroundColor={slotBackgroundColor ?? '$bgStrong'}
+      backgroundColor={
+        disabled ? '$bgDisabled' : (slotBackgroundColor ?? '$bgStrong')
+      }
       borderRadius="$full"
       borderCurve="continuous"
       overflow="hidden"
       h={32}
+      pointerEvents={disabled ? 'none' : undefined}
+      cursor={disabled ? 'not-allowed' : undefined}
+      opacity={disabled ? 0.7 : undefined}
       {...rest}
     >
       {options.map(({ label, value: v, testID }, index) => (
