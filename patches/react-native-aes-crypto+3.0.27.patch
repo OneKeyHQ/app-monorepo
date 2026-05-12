@@ -2,23 +2,40 @@ diff --git a/node_modules/react-native-aes-crypto/AesCrypto.podspec b/node_modul
 index 907b4ee..0e79778 100644
 --- a/node_modules/react-native-aes-crypto/AesCrypto.podspec
 +++ b/node_modules/react-native-aes-crypto/AesCrypto.podspec
-@@ -18 +18 @@ Pod::Spec.new do |s|
+@@ -15,7 +15,7 @@ Pod::Spec.new do |s|
+ 
+   s.source_files = "ios/**/*.{h,m,mm,swift}"
+ 
 -  s.frameworks = 'Security'
 +  s.frameworks = ['Security', 'CryptoKit']
+ 
+   install_modules_dependencies(s)
+ end
 diff --git a/node_modules/react-native-aes-crypto/android/src/main/java/com/aescrypto/AesCryptoModule.kt b/node_modules/react-native-aes-crypto/android/src/main/java/com/aescrypto/AesCryptoModule.kt
 index f92fa6b..7cad493 100644
 --- a/node_modules/react-native-aes-crypto/android/src/main/java/com/aescrypto/AesCryptoModule.kt
 +++ b/node_modules/react-native-aes-crypto/android/src/main/java/com/aescrypto/AesCryptoModule.kt
-@@ -11,0 +12 @@ import javax.crypto.Mac
+@@ -9,6 +9,7 @@ import java.security.SecureRandom
+ import java.util.UUID
+ import javax.crypto.Cipher
+ import javax.crypto.Mac
 +import javax.crypto.spec.GCMParameterSpec
-@@ -33,0 +35,2 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
+ import javax.crypto.spec.IvParameterSpec
+ import javax.crypto.spec.SecretKeySpec
+ import org.spongycastle.crypto.Digest
+@@ -31,6 +32,8 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
+         const val NAME = "AesCrypto"
+         private const val CIPHER_CBC_ALGORITHM = "AES/CBC/PKCS7Padding"
+         private const val CIPHER_CTR_ALGORITHM = "AES/CTR/PKCS5Padding"
 +        private const val CIPHER_GCM_ALGORITHM = "AES/GCM/NoPadding"
 +        private const val GCM_AUTH_TAG_LENGTH_BITS = 128
-@@ -68,5 +71,23 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
-             promise.reject("-1", e.message)
+         private const val HMAC_SHA_256 = "HmacSHA256"
+         private const val HMAC_SHA_512 = "HmacSHA512"
+         private const val KEY_ALGORITHM = "AES"
+@@ -72,6 +75,24 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
          }
      }
-+
+ 
 +    override fun aesGcmEncrypt(data: String, key: String, nonce: String, aad: String, promise: Promise) {
 +        try {
 +            val result = aesGcmEncryptImpl(data, key, nonce, aad)
@@ -36,9 +53,11 @@ index f92fa6b..7cad493 100644
 +            promise.reject("-1", e.message)
 +        }
 +    }
++
      override fun pbkdf2(password: String, salt: String, cost: Double, length: Double, algorithm: String, promise: Promise) {
          try {
-@@ -196,4 +217,30 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
+             val result = pbkdf2Impl(password, salt, cost.toInt(), length.toInt(), algorithm)
+@@ -197,4 +218,30 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
          val decrypted = cipher.doFinal(Hex.decode(ciphertext))
          return bytesToHex(decrypted)
      }
@@ -73,7 +92,10 @@ diff --git a/node_modules/react-native-aes-crypto/ios/AesCrypto.h b/node_modules
 index 138f378..326aeae 100644
 --- a/node_modules/react-native-aes-crypto/ios/AesCrypto.h
 +++ b/node_modules/react-native-aes-crypto/ios/AesCrypto.h
-@@ -18,0 +19,14 @@
+@@ -16,6 +16,20 @@
+         resolve:(RCTPromiseResolveBlock)resolve
+          reject:(RCTPromiseRejectBlock)reject;
+ 
 +- (void)aesGcmEncrypt:(NSString *)data
 +                  key:(NSString *)key
 +                nonce:(NSString *)nonce
@@ -88,13 +110,23 @@ index 138f378..326aeae 100644
 +              resolve:(RCTPromiseResolveBlock)resolve
 +               reject:(RCTPromiseRejectBlock)reject;
 +
+ - (void)pbkdf2:(NSString *)password
+            salt:(NSString *)salt
+            cost:(double)cost
 diff --git a/node_modules/react-native-aes-crypto/ios/AesCrypto.mm b/node_modules/react-native-aes-crypto/ios/AesCrypto.mm
 index db41527..1d6d22e 100644
 --- a/node_modules/react-native-aes-crypto/ios/AesCrypto.mm
 +++ b/node_modules/react-native-aes-crypto/ios/AesCrypto.mm
-@@ -1,0 +2 @@
+@@ -1,4 +1,5 @@
+ #import "AesCrypto.h"
 +#import "AesCrypto-Swift.h"
-@@ -206,0 +208,48 @@ - (void)decrypt:(NSString *)base64
+ #import <CommonCrypto/CommonCryptor.h>
+ #import <CommonCrypto/CommonDigest.h>
+ #import <CommonCrypto/CommonHMAC.h>
+@@ -204,6 +205,54 @@ - (void)decrypt:(NSString *)base64
+     });
+ }
+ 
 +// MARK: - aesGcmEncrypt
 +
 +- (void)aesGcmEncrypt:(NSString *)data
@@ -143,6 +175,9 @@ index db41527..1d6d22e 100644
 +    });
 +}
 +
+ // MARK: - pbkdf2
+ 
+ - (void)pbkdf2:(NSString *)password
 diff --git a/node_modules/react-native-aes-crypto/ios/AesCryptoGcm.swift b/node_modules/react-native-aes-crypto/ios/AesCryptoGcm.swift
 new file mode 100644
 index 0000000..814fb19
@@ -238,7 +273,10 @@ diff --git a/node_modules/react-native-aes-crypto/lib/module/NativeAesCrypto.js 
 index e15db6e..cd5b4e5 100644
 --- a/node_modules/react-native-aes-crypto/lib/module/NativeAesCrypto.js
 +++ b/node_modules/react-native-aes-crypto/lib/module/NativeAesCrypto.js
-@@ -5 +5 @@ export default TurboModuleRegistry.getEnforcing('AesCrypto');
+@@ -2,4 +2,4 @@
+ 
+ import { TurboModuleRegistry } from 'react-native';
+ export default TurboModuleRegistry.getEnforcing('AesCrypto');
 -//# sourceMappingURL=NativeAesCrypto.js.map
 \ No newline at end of file
 +//# sourceMappingURL=NativeAesCrypto.js.map
@@ -246,10 +284,19 @@ diff --git a/node_modules/react-native-aes-crypto/lib/module/index.js b/node_mod
 index 925cbc4..2d2cb76 100644
 --- a/node_modules/react-native-aes-crypto/lib/module/index.js
 +++ b/node_modules/react-native-aes-crypto/lib/module/index.js
-@@ -5,0 +6,2 @@ export const decrypt = NativeAesCrypto.decrypt.bind(NativeAesCrypto);
+@@ -3,6 +3,8 @@
+ import NativeAesCrypto from "./NativeAesCrypto.js";
+ export const encrypt = NativeAesCrypto.encrypt.bind(NativeAesCrypto);
+ export const decrypt = NativeAesCrypto.decrypt.bind(NativeAesCrypto);
 +export const aesGcmEncrypt = NativeAesCrypto.aesGcmEncrypt.bind(NativeAesCrypto);
 +export const aesGcmDecrypt = NativeAesCrypto.aesGcmDecrypt.bind(NativeAesCrypto);
-@@ -15 +17 @@ export default NativeAesCrypto;
+ export const pbkdf2 = NativeAesCrypto.pbkdf2.bind(NativeAesCrypto);
+ export const hmac256 = NativeAesCrypto.hmac256.bind(NativeAesCrypto);
+ export const hmac512 = NativeAesCrypto.hmac512.bind(NativeAesCrypto);
+@@ -12,4 +14,4 @@ export const sha512 = NativeAesCrypto.sha512.bind(NativeAesCrypto);
+ export const randomUuid = NativeAesCrypto.randomUuid.bind(NativeAesCrypto);
+ export const randomKey = NativeAesCrypto.randomKey.bind(NativeAesCrypto);
+ export default NativeAesCrypto;
 -//# sourceMappingURL=index.js.map
 \ No newline at end of file
 +//# sourceMappingURL=index.js.map
@@ -257,10 +304,19 @@ diff --git a/node_modules/react-native-aes-crypto/lib/typescript/src/NativeAesCr
 index 9092067..c91a65b 100644
 --- a/node_modules/react-native-aes-crypto/lib/typescript/src/NativeAesCrypto.d.ts
 +++ b/node_modules/react-native-aes-crypto/lib/typescript/src/NativeAesCrypto.d.ts
-@@ -4,0 +5,2 @@ export interface Spec extends TurboModule {
+@@ -2,6 +2,8 @@ import type { TurboModule } from 'react-native';
+ export interface Spec extends TurboModule {
+     encrypt(data: string, key: string, iv: string, algorithm: string): Promise<string>;
+     decrypt(base64: string, key: string, iv: string, algorithm: string): Promise<string>;
 +    aesGcmEncrypt(data: string, key: string, nonce: string, aad: string): Promise<string>;
 +    aesGcmDecrypt(ciphertextWithTag: string, key: string, nonce: string, aad: string): Promise<string>;
-@@ -16 +18 @@ export default _default;
+     pbkdf2(password: string, salt: string, cost: number, length: number, algorithm: string): Promise<string>;
+     hmac256(base64: string, key: string): Promise<string>;
+     hmac512(base64: string, key: string): Promise<string>;
+@@ -13,4 +15,4 @@ export interface Spec extends TurboModule {
+ }
+ declare const _default: Spec;
+ export default _default;
 -//# sourceMappingURL=NativeAesCrypto.d.ts.map
 \ No newline at end of file
 +//# sourceMappingURL=NativeAesCrypto.d.ts.map
@@ -268,15 +324,24 @@ diff --git a/node_modules/react-native-aes-crypto/lib/typescript/src/index.d.ts 
 index 0cfec6a..37ebe96 100644
 --- a/node_modules/react-native-aes-crypto/lib/typescript/src/index.d.ts
 +++ b/node_modules/react-native-aes-crypto/lib/typescript/src/index.d.ts
-@@ -3,0 +4,2 @@ export declare const decrypt: (base64: string, key: string, iv: string, algorith
+@@ -1,6 +1,8 @@
+ import NativeAesCrypto from './NativeAesCrypto';
+ export declare const encrypt: (data: string, key: string, iv: string, algorithm: string) => Promise<string>;
+ export declare const decrypt: (base64: string, key: string, iv: string, algorithm: string) => Promise<string>;
 +export declare const aesGcmEncrypt: (data: string, key: string, nonce: string, aad: string) => Promise<string>;
 +export declare const aesGcmDecrypt: (ciphertextWithTag: string, key: string, nonce: string, aad: string) => Promise<string>;
-@@ -14 +16 @@ export type { Spec as AesCryptoSpec } from './NativeAesCrypto';
+ export declare const pbkdf2: (password: string, salt: string, cost: number, length: number, algorithm: string) => Promise<string>;
+ export declare const hmac256: (base64: string, key: string) => Promise<string>;
+ export declare const hmac512: (base64: string, key: string) => Promise<string>;
+@@ -11,4 +13,4 @@ export declare const randomUuid: () => Promise<string>;
+ export declare const randomKey: (length: number) => Promise<string>;
+ export default NativeAesCrypto;
+ export type { Spec as AesCryptoSpec } from './NativeAesCrypto';
 -//# sourceMappingURL=index.d.ts.map
 \ No newline at end of file
 +//# sourceMappingURL=index.d.ts.map
 diff --git a/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts b/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts
-index 2746587..63998e1 100644
+index 2746587..9b6ff90 100644
 --- a/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts
 +++ b/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts
 @@ -14,6 +14,8 @@ export interface Spec extends TurboModule {
@@ -292,8 +357,14 @@ diff --git a/node_modules/react-native-aes-crypto/src/index.tsx b/node_modules/r
 index 9c27e53..a3136f0 100644
 --- a/node_modules/react-native-aes-crypto/src/index.tsx
 +++ b/node_modules/react-native-aes-crypto/src/index.tsx
-@@ -4,0 +5,4 @@ export const decrypt = NativeAesCrypto.decrypt.bind(NativeAesCrypto);
+@@ -2,6 +2,10 @@ import NativeAesCrypto from './NativeAesCrypto';
+ 
+ export const encrypt = NativeAesCrypto.encrypt.bind(NativeAesCrypto);
+ export const decrypt = NativeAesCrypto.decrypt.bind(NativeAesCrypto);
 +export const aesGcmEncrypt =
 +  NativeAesCrypto.aesGcmEncrypt.bind(NativeAesCrypto);
 +export const aesGcmDecrypt =
 +  NativeAesCrypto.aesGcmDecrypt.bind(NativeAesCrypto);
+ export const pbkdf2 = NativeAesCrypto.pbkdf2.bind(NativeAesCrypto);
+ export const hmac256 = NativeAesCrypto.hmac256.bind(NativeAesCrypto);
+ export const hmac512 = NativeAesCrypto.hmac512.bind(NativeAesCrypto);
