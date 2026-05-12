@@ -1050,40 +1050,44 @@ function MarketPresetSettingsDialog({
                     id: ETranslations.marketdex_priority_fee,
                   })}
                 </SizableText>
-                <SegmentControl
-                  fullWidth
-                  value={currentSettings.priorityFee.type}
-                  options={priorityFeeOptions}
-                  borderRadius="$2.5"
-                  gap="$0.5"
-                  p="$0.5"
-                  slotBackgroundColor="$neutral5"
-                  activeBackgroundColor="$bg"
-                  activeTextColor="$text"
-                  inactiveTextColor="$textSubdued"
-                  segmentControlItemStyleProps={{
-                    borderRadius: '$2',
-                    px: '$2',
-                    py: '$1',
-                  }}
-                  disabled={!isPriorityFeeEditable}
-                  onChange={(value) => {
-                    if (!isPriorityFeeEditable) {
-                      return;
-                    }
-                    const type = value as EMarketPresetPriorityFeeType;
-                    updateCurrentSettings((settings) => ({
-                      ...settings,
-                      priorityFee: {
-                        type,
-                        customValue:
-                          type === EMarketPresetPriorityFeeType.CUSTOM
-                            ? (settings.priorityFee.customValue ?? '')
-                            : undefined,
-                      },
-                    }));
-                  }}
-                />
+                <XStack
+                  pointerEvents={isPriorityFeeEditable ? undefined : 'none'}
+                  opacity={isPriorityFeeEditable ? undefined : 0.5}
+                >
+                  <SegmentControl
+                    fullWidth
+                    value={currentSettings.priorityFee.type}
+                    options={priorityFeeOptions}
+                    borderRadius="$2.5"
+                    gap="$0.5"
+                    p="$0.5"
+                    slotBackgroundColor="$neutral5"
+                    activeBackgroundColor="$bg"
+                    activeTextColor="$text"
+                    inactiveTextColor="$textSubdued"
+                    segmentControlItemStyleProps={{
+                      borderRadius: '$2',
+                      px: '$2',
+                      py: '$1',
+                    }}
+                    onChange={(value) => {
+                      if (!isPriorityFeeEditable) {
+                        return;
+                      }
+                      const type = value as EMarketPresetPriorityFeeType;
+                      updateCurrentSettings((settings) => ({
+                        ...settings,
+                        priorityFee: {
+                          type,
+                          customValue:
+                            type === EMarketPresetPriorityFeeType.CUSTOM
+                              ? (settings.priorityFee.customValue ?? '')
+                              : undefined,
+                        },
+                      }));
+                    }}
+                  />
+                </XStack>
                 {isPriorityFeeEditable &&
                 currentSettings.priorityFee.type ===
                   EMarketPresetPriorityFeeType.CUSTOM ? (
