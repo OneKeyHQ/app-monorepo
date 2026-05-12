@@ -240,6 +240,16 @@ async function pbkdf2(params: IPbkdf2Params): Promise<Buffer> {
   return r;
 }
 
+function getPbkdf2BackendForCurrentPlatform(): string {
+  if (platformEnv.isNative) {
+    return 'react-native-aes-crypto';
+  }
+  if (ALLOW_USE_WEB_CRYPTO_SUBTLE) {
+    return 'webcrypto';
+  }
+  return 'asmcrypto';
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function pbkdf2SyncV2(params: IPbkdf2Params): Buffer {
   _pbkdf2AsyncCheck(params);
@@ -397,4 +407,11 @@ async function $testSampleForPbkdf2() {
 // import * as ExpoCrypto from 'expo-crypto';
 // expo-crypto does not support pbkdf2 algorithm, only supports hash digest algorithms
 
-export { $testSampleForPbkdf2, pbkdf2Sync, pbkdf2 };
+export {
+  $testSampleForPbkdf2,
+  getPbkdf2BackendForCurrentPlatform,
+  pbkdf2ByNoble,
+  pbkdf2ByRNAes,
+  pbkdf2Sync,
+  pbkdf2,
+};

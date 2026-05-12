@@ -136,11 +136,19 @@ async function aesGcmDecrypt({
   return aesGcmDecryptByNoble({ nonce, key, data, aad });
 }
 
+function getAesGcmBackendForCurrentPlatform(): string {
+  if (platformEnv.isNative && rnAesWithOptionalGcm.aesGcmEncrypt) {
+    return 'react-native-aes-crypto';
+  }
+  return 'noble';
+}
+
 export {
   aesGcmDecrypt,
   aesGcmDecryptByRNAes,
   aesGcmEncrypt,
   aesGcmEncryptByRNAes,
+  getAesGcmBackendForCurrentPlatform,
   //
   aesGcmDecryptByNoble,
   aesGcmEncryptByNoble,

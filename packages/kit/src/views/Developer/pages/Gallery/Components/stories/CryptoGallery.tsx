@@ -27,6 +27,7 @@ import {
   AppCryptoTestEmoji,
   runAppCryptoTestTask,
 } from '@onekeyhq/shared/src/appCrypto/utils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
@@ -226,10 +227,12 @@ function AESCbcTest() {
 
 function AESGcmV2Test() {
   const [result, setResult] = useState('');
+  const iterationOptions = [5000, 600_000, 1_000_000, 3_000_000];
 
-  const testAESGcmV2 = async () => {
+  const testAESGcmV2 = async (iterationsToRun = iterationOptions) => {
     try {
-      const { decryptAsync, encryptAsync } = await loadCoreSecret();
+      const { decryptAsync, decryptAsyncWithMetadata, encryptAsync } =
+        await loadCoreSecret();
       const tasks: IRunAppCryptoTestTaskResult[] = [];
       const data = Buffer.from('onekey-aes-gcm-v2-gallery-test', 'utf8');
       const key = Buffer.from(
@@ -240,6 +243,12 @@ function AESGcmV2Test() {
       const aad = Buffer.from('onekey-gallery-aad-v1', 'utf8');
       const password = 'onekey-gallery-password';
       const v2MagicHex = Buffer.from('1K_ENC_V2', 'utf8').toString('hex');
+      const defaultPbkdf2Backend =
+        appCrypto.pbkdf2.getPbkdf2BackendForCurrentPlatform();
+      const defaultAesGcmBackend =
+        appCrypto.aesGcm.getAesGcmBackendForCurrentPlatform();
+      const expectedDefaultIterations =
+        appCrypto.consts.PBKDF2_CURRENT_NUM_OF_ITERATIONS;
 
       const nobleEncrypted = appCrypto.aesGcm.aesGcmEncryptByNoble({
         nonce,
@@ -290,6 +299,92 @@ function AESGcmV2Test() {
         }),
       );
 
+      const hashedPassword = await appCrypto.hash.sha256(
+        Buffer.from(password, 'utf8'),
+      );
+      const salt = Buffer.from(
+        '303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f',
+        'hex',
+      );
+
+      for (const iterations of iterationsToRun) {
+        const defaultKey = await appCrypto.pbkdf2.pbkdf2({
+          password: hashedPassword,
+          salt,
+          iterations,
+        });
+
+        tasks.push(
+          await runAppCryptoTestTask({
+            expect: bufferUtils.bytesToHex(defaultKey),
+            name: `PBKDF2 default(${defaultPbkdf2Backend}) ${iterations}`,
+            fn: () =>
+              appCrypto.pbkdf2.pbkdf2({
+                password: hashedPassword,
+                salt,
+                iterations,
+              }),
+          }),
+        );
+
+        tasks.push(
+          await runAppCryptoTestTask({
+            expect: bufferUtils.bytesToHex(defaultKey),
+            name: `PBKDF2 native ${iterations}`,
+            fn: () =>
+              appCrypto.pbkdf2.pbkdf2ByRNAes({
+                password: hashedPassword,
+                salt,
+                iterations,
+              }),
+          }),
+        );
+
+        tasks.push(
+          await runAppCryptoTestTask({
+            expect: bufferUtils.bytesToHex(defaultKey),
+            name: `PBKDF2 noble ${iterations}`,
+            fn: () =>
+              appCrypto.pbkdf2.pbkdf2ByNoble({
+                password: hashedPassword,
+                salt,
+                iterations,
+              }),
+          }),
+        );
+
+        const encryptedByIterations = await encryptAsync({
+          password,
+          data,
+          allowRawPassword: true,
+          iterations,
+        });
+        const encryptedByIterationsHex = bufferUtils.bytesToHex(
+          encryptedByIterations,
+        );
+        const metadata = await decryptAsyncWithMetadata({
+          password,
+          data: encryptedByIterations,
+          allowRawPassword: true,
+        });
+
+        tasks.push(
+          await runAppCryptoTestTask({
+            expect: 'true',
+            name: `encryptAsync v2 prefix ${iterations}`,
+            fn: () => String(encryptedByIterationsHex.startsWith(v2MagicHex)),
+          }),
+        );
+
+        tasks.push(
+          await runAppCryptoTestTask({
+            expect: String(iterations),
+            name: `decryptAsyncWithMetadata iterations ${iterations}`,
+            fn: () => String(metadata.iterations),
+          }),
+        );
+      }
+
       const encryptedV2 = await encryptAsync({
         password,
         data,
@@ -302,6 +397,21 @@ function AESGcmV2Test() {
           expect: 'true',
           name: 'encryptAsync default writes 1K_ENC_V2',
           fn: () => String(encryptedV2Hex.startsWith(v2MagicHex)),
+        }),
+      );
+
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: String(expectedDefaultIterations),
+          name: 'encryptAsync default iterations',
+          fn: async () => {
+            const metadata = await decryptAsyncWithMetadata({
+              password,
+              data: encryptedV2,
+              allowRawPassword: true,
+            });
+            return String(metadata.iterations);
+          },
         }),
       );
 
@@ -321,6 +431,16 @@ function AESGcmV2Test() {
       setResult(
         stringUtils.stableStringify(
           {
+            platform: {
+              isNative: platformEnv.isNative,
+              isNativeIOS: platformEnv.isNativeIOS,
+              isNativeAndroid: platformEnv.isNativeAndroid,
+            },
+            defaultPath: {
+              pbkdf2: defaultPbkdf2Backend,
+              aesGcm: defaultAesGcmBackend,
+              iterations: expectedDefaultIterations,
+            },
             v2MagicHex,
             encryptedV2PrefixHex: encryptedV2Hex.slice(0, v2MagicHex.length),
             tasks,
@@ -352,9 +472,20 @@ function AESGcmV2Test() {
 
   return (
     <PartContainer title="AES-GCM v2 Test">
-      <Button variant="primary" onPress={testAESGcmV2}>
-        Test AES-GCM v2 Native
+      <Button variant="primary" onPress={() => testAESGcmV2()}>
+        Test AES-GCM v2 Native All
       </Button>
+      <Stack flexDirection="row" flexWrap="wrap" gap="$2">
+        {iterationOptions.map((iterations) => (
+          <Button
+            key={iterations}
+            size="small"
+            onPress={() => testAESGcmV2([iterations])}
+          >
+            {String(iterations)} iterations
+          </Button>
+        ))}
+      </Stack>
       {result ? <SizableText size="$bodyMd">{result}</SizableText> : null}
     </PartContainer>
   );
