@@ -43,6 +43,8 @@ type ISwapNativeBalanceRequirementParams = {
 export type ISwapNativeBalanceRequirement = {
   token: ISwapToken;
   amount: string;
+  reserveAmount: string;
+  includesFromAmount: boolean;
 };
 
 function buildNativeTokenFromGasInfo({
@@ -116,12 +118,13 @@ export function getSwapRequiredNativeBalanceAmount({
   }
 
   const fromAmountBN = new BigNumber(fromAmount ?? 0);
-  const shouldAddFromAmount =
+  const shouldAddFromAmount = Boolean(
     fromToken?.isNative &&
     fromToken.networkId === nativeToken.networkId &&
     !fromAmountBN.isNaN() &&
     fromAmountBN.isFinite() &&
-    fromAmountBN.gt(0);
+    fromAmountBN.gt(0),
+  );
   const otherNativeFeeAmount = (otherFeeInfos ?? []).reduce((acc, item) => {
     if (
       !item.token?.isNative ||
@@ -138,9 +141,10 @@ export function getSwapRequiredNativeBalanceAmount({
     return acc.plus(amountBN);
   }, new BigNumber(0));
 
+  const reserveAmount = networkFeeAmount.plus(otherNativeFeeAmount);
   const requiredAmount = shouldAddFromAmount
-    ? networkFeeAmount.plus(fromAmountBN).plus(otherNativeFeeAmount)
-    : networkFeeAmount.plus(otherNativeFeeAmount);
+    ? reserveAmount.plus(fromAmountBN)
+    : reserveAmount;
 
   if (requiredAmount.lte(0)) {
     return undefined;
@@ -149,6 +153,8 @@ export function getSwapRequiredNativeBalanceAmount({
   return {
     token: nativeToken,
     amount: requiredAmount.toFixed(),
+    reserveAmount: reserveAmount.toFixed(),
+    includesFromAmount: shouldAddFromAmount,
   };
 }
 
