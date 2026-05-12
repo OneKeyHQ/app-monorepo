@@ -422,11 +422,13 @@ Biology auth secure storage：
 - 已通过 JS 层 AES-GCM/v2 envelope Jest 测试，确认 noble fallback 行为未回归。
 - 已通过 `yarn tsc:staged` 和 `yarn lint:staged`。
 - `npx patch-package react-native-aes-crypto` 因 Yarn alias + Yarn 4 `--ignore-scripts` 兼容问题无法直接生成 patch；本次从 `.yarn/cache/@onekeyfe-react-native-aes-crypto-npm-3.0.27-*.zip` 原始包和已修改 `node_modules/react-native-aes-crypto` 生成等价 patch。
-- 本机 `swiftc -typecheck` 被 CommandLineTools/SDK 版本不匹配阻塞，尚未完成 iOS native compile verification。
+- Xcode 已切换到 `/Applications/Xcode.app/Contents/Developer`，Xcode 版本为 `26.5 (17F42)`，`swiftc` 为 Apple Swift `6.3.2`。
+- 已通过 `xcrun --sdk iphonesimulator swiftc -typecheck -target arm64-apple-ios15.5-simulator -module-cache-path /private/tmp/onekey-swift-module-cache node_modules/react-native-aes-crypto/ios/AesCryptoGcm.swift`。
+- 已通过 `xcrun --sdk iphoneos swiftc -typecheck -target arm64-apple-ios15.5 -module-cache-path /private/tmp/onekey-swift-module-cache node_modules/react-native-aes-crypto/ios/AesCryptoGcm.swift`。
 
 待补验证：
 
-- iOS app native build，确认 `AesCrypto-Swift.h` bridge、CryptoKit framework linking 和 codegen spec 均正常。
+- iOS app native build，确认 `AesCrypto-Swift.h` bridge、CryptoKit framework linking、pod integration 和 codegen spec 均正常。
 - Android app native build，确认 generated `NativeAesCryptoSpec` 包含新增方法。
 - iOS/Android 真机 vectors，对比 native、noble fallback 和 v2 envelope roundtrip。
 - 低端 Android 与旧 iPhone 上 PBKDF2 + AES-GCM unlock path benchmark。
