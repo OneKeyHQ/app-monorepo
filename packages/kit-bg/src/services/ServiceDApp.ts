@@ -76,6 +76,7 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import type { Verify } from '@walletconnect/types';
 
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const { scope, isWalletConnectRequest, options = {} } = params;
@@ -153,6 +154,15 @@ class ServiceDApp extends ServiceBase {
             fullScreen ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
             ...modalScreens,
           ];
+          // WalletConnectRequestProxy stuffs the SDK's verifyContext into
+          // request.data so that no extra plumbing through each chain
+          // provider is needed; hoist it back out so the modal sees it as a
+          // first-class field instead of digging through the RPC data.
+          const walletConnectVerifyContext = (
+            request.data as
+              | { walletConnectVerifyContext?: Verify.Context }
+              | undefined
+          )?.walletConnectVerifyContext;
           const $sourceInfo: IDappSourceInfo = {
             id,
             origin: request.origin,
@@ -160,6 +170,7 @@ class ServiceDApp extends ServiceBase {
             scope: request.scope,
             data: request.data as any,
             isWalletConnectRequest: !!request.isWalletConnectRequest,
+            walletConnectVerifyContext,
           };
 
           const routeParams = {
