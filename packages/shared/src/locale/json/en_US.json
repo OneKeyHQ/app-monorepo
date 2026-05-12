@@ -3839,6 +3839,7 @@
   "referral.wallet_code_title": "Do you have a referral code?",
   "referral.wallet_code_wallet": "Bind to",
   "referral.wallet_edit_code": "Referral code",
+  "referral.web_landing_app_open_hint": "App didn’t open?",
   "referral.web_landing_subtitle_defi": "Get <accent>{discount}</accent>+ more from DeFi rewards. Complete these steps to claim.",
   "referral.web_landing_subtitle_perps": "Get <accent>{discount}</accent>+ back on Perps fees. Complete these steps to claim.",
   "referral.your_code": "Referral code",
