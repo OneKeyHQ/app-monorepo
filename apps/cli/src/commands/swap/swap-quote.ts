@@ -502,9 +502,15 @@ export function registerSwapQuoteCommand(parent: Command): void {
           const sourceWalletAddress = btcAddressing.from
             ? btcAddressing.from.address
             : await getWalletAddress(chainConfig.impl, chainConfig.networkId);
+          // Receiving address must belong to the destination chain's address
+          // system. Reusing the source walletAddress is only safe when source
+          // and destination share the same impl (e.g. both EVM). Cross-impl
+          // routes (BTC<->X, EVM<->SOL) must derive a destination-chain wallet
+          // address; mirrors swap-build.
+          const isCrossImplRoute = chainConfig.impl !== toChainConfig.impl;
           const receivingAddress =
             btcAddressing.to?.address ??
-            (btcAddressing.from
+            (isCrossImplRoute
               ? await getWalletAddress(
                   toChainConfig.impl,
                   toChainConfig.networkId,

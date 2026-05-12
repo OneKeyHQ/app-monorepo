@@ -471,9 +471,17 @@ export function registerSwapBuildCommand(parent: Command): void {
           const walletAddress = btcAddressing.from
             ? btcAddressing.from.address
             : await getWalletAddress(chainConfig.impl, chainConfig.networkId);
+          // Receiving address must belong to the destination chain's address
+          // system. Reusing the source walletAddress is only safe when source
+          // and destination share the same impl (e.g. both EVM). For any
+          // cross-impl route (BTC<->X, EVM<->SOL, etc.) derive from
+          // toChainConfig so we never hand the aggregator an EVM address for
+          // SOL (or vice versa) and end up with funds routed to a
+          // never-controlled key.
+          const isCrossImplRoute = chainConfig.impl !== toChainConfig.impl;
           const receivingAddress =
             btcAddressing.to?.address ??
-            (btcAddressing.from
+            (isCrossImplRoute
               ? await getWalletAddress(
                   toChainConfig.impl,
                   toChainConfig.networkId,
