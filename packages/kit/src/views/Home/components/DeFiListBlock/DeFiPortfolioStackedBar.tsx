@@ -68,7 +68,6 @@ const STACKED_BAR_CHROME = {
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 const SEGMENT_OPACITY = 0.86;
-const LEGEND_DOT_SIZE = 6;
 
 function buildA11yLabel(
   segments: ReturnType<typeof buildStackedBarSegments>,
@@ -226,8 +225,8 @@ function DeFiPortfolioStackedBar({
                 hoverStyle={{ opacity: 0.78 }}
               >
                 <Stack
-                  width={LEGEND_DOT_SIZE}
-                  height={LEGEND_DOT_SIZE}
+                  width="$2"
+                  height="$2"
                   borderRadius="$full"
                   bg={seg.colorToken}
                   opacity={SEGMENT_OPACITY}
