@@ -10,6 +10,13 @@ import type { IAppUpdateInfo, IResolvedUpdateDecision } from './type';
 
 export * from './utils';
 export * from './type';
+export {
+  type IFeaturedItem,
+  type IFeaturedChangelog,
+  hasFeaturedChangelog,
+  isAllowedFeaturedHref,
+  normalizeFeaturedChangelog,
+} from './featuredChangelog';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';
 // '0' sentinel mirrors the iOS Info.plist / Android Gradle / Desktop
