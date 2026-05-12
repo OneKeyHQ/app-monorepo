@@ -249,6 +249,53 @@ function AESGcmV2Test() {
         appCrypto.aesGcm.getAesGcmBackendForCurrentPlatform();
       const expectedDefaultIterations =
         appCrypto.consts.PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+      const actualEncryptRuns: Array<{
+        aesGcmInvocation: ReturnType<
+          typeof appCrypto.aesGcm.getLastAesGcmInvocation
+        >;
+        pbkdf2Invocation: ReturnType<
+          typeof appCrypto.pbkdf2.getLastPbkdf2Invocation
+        >;
+        payloadIterations: number;
+        requestedIterations: number | 'default';
+        time: number;
+      }> = [];
+
+      const encryptWithActualProbe = async (iterations?: number) => {
+        appCrypto.pbkdf2.clearLastPbkdf2Invocation();
+        appCrypto.aesGcm.clearLastAesGcmInvocation();
+        const start = Date.now();
+        const encrypted = await encryptAsync({
+          password,
+          data,
+          allowRawPassword: true,
+          ...(iterations ? { iterations } : undefined),
+        });
+        const time = Date.now() - start;
+        const pbkdf2Invocation = appCrypto.pbkdf2.getLastPbkdf2Invocation();
+        const aesGcmInvocation = appCrypto.aesGcm.getLastAesGcmInvocation();
+        const encryptedHex = bufferUtils.bytesToHex(encrypted);
+        const metadata = await decryptAsyncWithMetadata({
+          password,
+          data: encrypted,
+          allowRawPassword: true,
+        });
+        const requestedIterations: number | 'default' = iterations ?? 'default';
+        const actualRun = {
+          aesGcmInvocation,
+          pbkdf2Invocation,
+          payloadIterations: metadata.iterations,
+          requestedIterations,
+          time,
+        };
+        actualEncryptRuns.push(actualRun);
+        return {
+          ...actualRun,
+          encrypted,
+          encryptedHex,
+          metadata,
+        };
+      };
 
       const nobleEncrypted = appCrypto.aesGcm.aesGcmEncryptByNoble({
         nonce,
@@ -353,50 +400,71 @@ function AESGcmV2Test() {
           }),
         );
 
-        const encryptedByIterations = await encryptAsync({
-          password,
-          data,
-          allowRawPassword: true,
-          iterations,
-        });
-        const encryptedByIterationsHex = bufferUtils.bytesToHex(
-          encryptedByIterations,
-        );
-        const metadata = await decryptAsyncWithMetadata({
-          password,
-          data: encryptedByIterations,
-          allowRawPassword: true,
-        });
+        const encryptedByIterations = await encryptWithActualProbe(iterations);
 
         tasks.push(
           await runAppCryptoTestTask({
             expect: 'true',
             name: `encryptAsync v2 prefix ${iterations}`,
-            fn: () => String(encryptedByIterationsHex.startsWith(v2MagicHex)),
+            fn: () =>
+              String(encryptedByIterations.encryptedHex.startsWith(v2MagicHex)),
           }),
         );
 
         tasks.push(
           await runAppCryptoTestTask({
             expect: String(iterations),
-            name: `decryptAsyncWithMetadata iterations ${iterations}`,
-            fn: () => String(metadata.iterations),
+            name: `actual payload iterations ${iterations}`,
+            fn: () => String(encryptedByIterations.metadata.iterations),
+          }),
+        );
+
+        tasks.push(
+          await runAppCryptoTestTask({
+            expect: String(iterations),
+            name: `actual PBKDF2 probe iterations ${iterations}`,
+            fn: () =>
+              String(
+                encryptedByIterations.pbkdf2Invocation?.iterations ?? 'missing',
+              ),
+          }),
+        );
+
+        tasks.push(
+          await runAppCryptoTestTask({
+            expect: defaultPbkdf2Backend,
+            name: `actual PBKDF2 probe backend ${iterations}`,
+            fn: () =>
+              encryptedByIterations.pbkdf2Invocation?.backend ?? 'missing',
+          }),
+        );
+
+        tasks.push(
+          await runAppCryptoTestTask({
+            expect: defaultAesGcmBackend,
+            name: `actual AES-GCM probe backend ${iterations}`,
+            fn: () =>
+              encryptedByIterations.aesGcmInvocation?.backend ?? 'missing',
+          }),
+        );
+
+        tasks.push(
+          await runAppCryptoTestTask({
+            expect: 'encrypt',
+            name: `actual AES-GCM probe operation ${iterations}`,
+            fn: () =>
+              encryptedByIterations.aesGcmInvocation?.operation ?? 'missing',
           }),
         );
       }
 
-      const encryptedV2 = await encryptAsync({
-        password,
-        data,
-        allowRawPassword: true,
-      });
-      const encryptedV2Hex = bufferUtils.bytesToHex(encryptedV2);
+      const encryptedV2 = await encryptWithActualProbe();
 
       tasks.push(
         await runAppCryptoTestTask({
           expect: 'true',
           name: 'encryptAsync default writes 1K_ENC_V2',
-          fn: () => String(encryptedV2Hex.startsWith(v2MagicHex)),
+          fn: () => String(encryptedV2.encryptedHex.startsWith(v2MagicHex)),
         }),
       );
 
@@ -404,14 +472,40 @@ function AESGcmV2Test() {
         await runAppCryptoTestTask({
           expect: String(expectedDefaultIterations),
           name: 'encryptAsync default iterations',
-          fn: async () => {
-            const metadata = await decryptAsyncWithMetadata({
-              password,
-              data: encryptedV2,
-              allowRawPassword: true,
-            });
-            return String(metadata.iterations);
-          },
+          fn: () => String(encryptedV2.metadata.iterations),
+        }),
+      );
+
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: String(expectedDefaultIterations),
+          name: 'actual default PBKDF2 probe iterations',
+          fn: () =>
+            String(encryptedV2.pbkdf2Invocation?.iterations ?? 'missing'),
+        }),
+      );
+
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: defaultPbkdf2Backend,
+          name: 'actual default PBKDF2 probe backend',
+          fn: () => encryptedV2.pbkdf2Invocation?.backend ?? 'missing',
+        }),
+      );
+
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: defaultAesGcmBackend,
+          name: 'actual default AES-GCM probe backend',
+          fn: () => encryptedV2.aesGcmInvocation?.backend ?? 'missing',
+        }),
+      );
+
+      tasks.push(
+        await runAppCryptoTestTask({
+          expect: 'encrypt',
+          name: 'actual default AES-GCM probe operation',
+          fn: () => encryptedV2.aesGcmInvocation?.operation ?? 'missing',
         }),
       );
 
@@ -422,7 +516,7 @@ function AESGcmV2Test() {
           fn: () =>
             decryptAsync({
               password,
-              data: encryptedV2,
+              data: encryptedV2.encrypted,
               allowRawPassword: true,
             }),
         }),
@@ -436,13 +530,17 @@ function AESGcmV2Test() {
               isNativeIOS: platformEnv.isNativeIOS,
               isNativeAndroid: platformEnv.isNativeAndroid,
             },
+            actualEncryptRuns,
             defaultPath: {
               pbkdf2: defaultPbkdf2Backend,
               aesGcm: defaultAesGcmBackend,
               iterations: expectedDefaultIterations,
             },
             v2MagicHex,
-            encryptedV2PrefixHex: encryptedV2Hex.slice(0, v2MagicHex.length),
+            encryptedV2PrefixHex: encryptedV2.encryptedHex.slice(
+              0,
+              v2MagicHex.length,
+            ),
             tasks,
           },
           stringUtils.STRINGIFY_REPLACER.bufferToHex,

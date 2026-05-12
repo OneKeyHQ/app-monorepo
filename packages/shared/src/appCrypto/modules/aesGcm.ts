@@ -13,6 +13,14 @@ type IAesGcmInvokeParams = {
   aad?: Buffer;
 };
 
+type IAesGcmBackend = 'noble' | 'react-native-aes-crypto';
+type IAesGcmOperation = 'decrypt' | 'encrypt';
+
+type IAesGcmInvocation = {
+  backend: IAesGcmBackend;
+  operation: IAesGcmOperation;
+};
+
 type IReactNativeAesGcmMethods = {
   aesGcmEncrypt?: (
     data: string,
@@ -33,6 +41,20 @@ const rnAesWithOptionalGcm = RN_AES as Omit<
   'aesGcmEncrypt' | 'aesGcmDecrypt'
 > &
   IReactNativeAesGcmMethods;
+
+let lastAesGcmInvocation: IAesGcmInvocation | undefined;
+
+function recordAesGcmInvocation(invocation: IAesGcmInvocation) {
+  lastAesGcmInvocation = invocation;
+}
+
+function clearLastAesGcmInvocation() {
+  lastAesGcmInvocation = undefined;
+}
+
+function getLastAesGcmInvocation() {
+  return lastAesGcmInvocation;
+}
 
 function _aesGcmInvokeCheck({ nonce, key, data }: IAesGcmInvokeParams) {
   if (!nonce || nonce.length <= 0) {
@@ -56,6 +78,10 @@ function aesGcmEncryptByNoble({
 
   const cipher = aesGcmByNobleFn(key, nonce, aad);
   const out = cipher.encrypt(data); // ciphertext || tag(128-bit)
+  recordAesGcmInvocation({
+    backend: 'noble',
+    operation: 'encrypt',
+  });
   return Buffer.from(out);
 }
 
@@ -69,6 +95,10 @@ function aesGcmDecryptByNoble({
 
   const cipher = aesGcmByNobleFn(key, nonce, aad);
   const out = cipher.decrypt(data); // expects ciphertext || tag(128-bit)
+  recordAesGcmInvocation({
+    backend: 'noble',
+    operation: 'decrypt',
+  });
   return Buffer.from(out);
 }
 
@@ -89,6 +119,10 @@ async function aesGcmEncryptByRNAes({
   if (!encrypted) {
     throw new OneKeyLocalError('Native AES-GCM encrypt is not available');
   }
+  recordAesGcmInvocation({
+    backend: 'react-native-aes-crypto',
+    operation: 'encrypt',
+  });
   return Buffer.from(encrypted, 'hex');
 }
 
@@ -109,6 +143,10 @@ async function aesGcmDecryptByRNAes({
   if (!decrypted) {
     throw new OneKeyLocalError('Native AES-GCM decrypt is not available');
   }
+  recordAesGcmInvocation({
+    backend: 'react-native-aes-crypto',
+    operation: 'decrypt',
+  });
   return Buffer.from(decrypted, 'hex');
 }
 
@@ -148,6 +186,8 @@ export {
   aesGcmDecryptByRNAes,
   aesGcmEncrypt,
   aesGcmEncryptByRNAes,
+  clearLastAesGcmInvocation,
+  getLastAesGcmInvocation,
   getAesGcmBackendForCurrentPlatform,
   //
   aesGcmDecryptByNoble,
