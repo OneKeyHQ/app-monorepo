@@ -2,6 +2,13 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  errorCodes,
+  isErrorWithCode,
+  keepLocalCopy,
+  pick,
+  types,
+} from '@react-native-documents/picker';
 import { Image as RNImage } from 'react-native';
 
 import {
@@ -120,6 +127,12 @@ type IFirmwareTimingSummary = {
   totalDurationMs?: number;
 };
 
+type IBleFirmwareFile = {
+  name: string;
+  size?: number;
+  localPath: string;
+};
+
 const FIRMWARE_TIP_STATUS: Record<string, string> = {
   StartDownloadFirmware: 'Preparing firmware package',
   FinishDownloadFirmware: 'Firmware package ready',
@@ -193,6 +206,20 @@ function formatClock(timestamp?: number) {
   return new Date(timestamp).toLocaleTimeString();
 }
 
+function getBase64ByteLength(base64: string) {
+  const normalized = base64.replace(/\s/g, '');
+  if (!normalized) {
+    return 0;
+  }
+  let padding = 0;
+  if (normalized.endsWith('==')) {
+    padding = 2;
+  } else if (normalized.endsWith('=')) {
+    padding = 1;
+  }
+  return Math.floor((normalized.length * 3) / 4) - padding;
+}
+
 function normalizeError(error: unknown) {
   if (error instanceof Error) {
     return {
@@ -224,7 +251,14 @@ function getFirmwareStatusFromProgressType(progressType?: string) {
   return FIRMWARE_PROGRESS_STATUS[progressType] || progressType;
 }
 
-async function loadBleFirmwareBase64() {
+async function loadBleFirmwareBase64(firmwareFile?: IBleFirmwareFile) {
+  if (firmwareFile) {
+    if (!RNFS) {
+      throw new OneKeyLocalError('RNFS is not available');
+    }
+    return RNFS.readFile(firmwareFile.localPath, 'base64');
+  }
+
   const assetSource = RNImage.resolveAssetSource(PRO2_BLE_FIRMWARE_ASSET);
   const uri = assetSource?.uri;
   if (!uri) {
@@ -289,6 +323,8 @@ export default function TabPro2Debug() {
   const [firmwareTimingSummary, setFirmwareTimingSummary] =
     useState<IFirmwareTimingSummary>();
   const [firmwareTick, setFirmwareTick] = useState(0);
+  const [selectedBleFirmwareFile, setSelectedBleFirmwareFile] =
+    useState<IBleFirmwareFile>();
   const [logs, setLogs] = useState<ILogLine[]>([]);
   const firmwareStartedAtRef = useRef<number | undefined>(undefined);
   const firmwareStageRef = useRef<{
@@ -303,6 +339,14 @@ export default function TabPro2Debug() {
       ),
     [devices, selectedConnectId],
   );
+
+  const activeBleFirmwareName =
+    selectedBleFirmwareFile?.name ?? PRO2_BLE_FIRMWARE_FILE_NAME;
+  const activeBleFirmwareSize =
+    selectedBleFirmwareFile?.size ?? PRO2_BLE_FIRMWARE_FILE_SIZE;
+  const activeBleFirmwareSource = selectedBleFirmwareFile
+    ? 'Custom file'
+    : 'Bundled default';
 
   const actionGroups = useMemo<IPro2DebugActionGroup[]>(
     () => [
@@ -638,11 +682,95 @@ export default function TabPro2Debug() {
     [appendLog, selectedConnectId],
   );
 
+  const pickBleFirmwareFile = useCallback(async () => {
+    if (busyKey) {
+      return;
+    }
+    setBusyKey('pickBleFirmware');
+    try {
+      const [result] = await pick({
+        type: [types.allFiles],
+      });
+
+      if (!result?.uri) {
+        appendLog('pick BLE firmware: no file selected');
+        return;
+      }
+
+      const fileName = result.name ?? PRO2_BLE_FIRMWARE_FILE_NAME;
+      const [localCopyResult] = await keepLocalCopy({
+        files: [{ uri: result.uri, fileName }],
+        destination: 'cachesDirectory',
+      });
+
+      if (localCopyResult.status !== 'success') {
+        throw new OneKeyLocalError(
+          `Copy BLE firmware failed: ${localCopyResult.copyError}`,
+        );
+      }
+
+      if (!RNFS) {
+        throw new OneKeyLocalError('RNFS is not available');
+      }
+
+      const localPath = decodeURIComponent(
+        localCopyResult.localUri.replace(/^file:\/\//, ''),
+      );
+      const stat = await RNFS.stat(localPath).catch(() => undefined);
+      const fileSize = getFiniteNumber(result.size ?? stat?.size);
+      setSelectedBleFirmwareFile({
+        name: fileName,
+        size: fileSize ?? undefined,
+        localPath,
+      });
+      setFirmwareStatus(`Selected ${fileName}`);
+      setFirmwareProgress((prev) =>
+        prev
+          ? {
+              ...prev,
+              totalBytes: fileSize ?? prev.totalBytes,
+            }
+          : undefined,
+      );
+      appendLog(
+        `pick BLE firmware: ${fileName} · ${formatBytes(fileSize ?? undefined)}`,
+      );
+    } catch (error) {
+      if (
+        isErrorWithCode(error) &&
+        error.code === errorCodes.OPERATION_CANCELED
+      ) {
+        appendLog('pick BLE firmware: canceled');
+        return;
+      }
+      appendLog(`pick BLE firmware failed: ${String(error)}`);
+      setFirmwareStatus('Pick BLE firmware failed');
+    } finally {
+      setBusyKey(undefined);
+    }
+  }, [appendLog, busyKey]);
+
+  const useDefaultBleFirmwareFile = useCallback(() => {
+    setSelectedBleFirmwareFile(undefined);
+    setFirmwareStatus(`Using ${PRO2_BLE_FIRMWARE_FILE_NAME}`);
+    setFirmwareProgress((prev) =>
+      prev
+        ? {
+            ...prev,
+            totalBytes: PRO2_BLE_FIRMWARE_FILE_SIZE,
+          }
+        : undefined,
+    );
+    appendLog(`use default BLE firmware: ${PRO2_BLE_FIRMWARE_FILE_NAME}`);
+  }, [appendLog]);
+
   const runFirmwareUpdateV4 = useCallback(async () => {
     if (!selectedConnectId) {
       appendLog('firmwareUpdateV4: no selected Pro2 device');
       return;
     }
+    const firmwareFileName = activeBleFirmwareName;
+    const firmwareFileSizeHint = activeBleFirmwareSize;
     const startedAt = Date.now();
     firmwareStartedAtRef.current = startedAt;
     setFirmwareTick(startedAt);
@@ -653,16 +781,29 @@ export default function TabPro2Debug() {
     setFirmwareProgress({
       progress: 0,
       progressType: 'prepare',
-      totalBytes: PRO2_BLE_FIRMWARE_FILE_SIZE,
+      totalBytes: firmwareFileSizeHint,
       elapsedMs: 0,
     });
-    setFirmwareStatus(`Loading ${PRO2_BLE_FIRMWARE_FILE_NAME}`);
+    setFirmwareStatus(`Loading ${firmwareFileName}`);
     setBusyKey('firmwareUpdateV4');
     try {
-      appendLog(`firmwareUpdateV4: loading ${PRO2_BLE_FIRMWARE_FILE_NAME}`);
-      startFirmwareStage('loadAsset', 'Load bundled asset');
-      const bleFirmwareBase64 = await loadBleFirmwareBase64();
+      appendLog(
+        `firmwareUpdateV4: loading ${firmwareFileName} (${activeBleFirmwareSource})`,
+      );
+      startFirmwareStage(
+        'loadAsset',
+        selectedBleFirmwareFile
+          ? 'Load selected BLE firmware'
+          : 'Load bundled BLE firmware',
+      );
+      const bleFirmwareBase64 = await loadBleFirmwareBase64(
+        selectedBleFirmwareFile,
+      );
       finishFirmwareStage('loadAsset');
+      const firmwareFileSize =
+        selectedBleFirmwareFile?.size ??
+        getBase64ByteLength(bleFirmwareBase64) ??
+        firmwareFileSizeHint;
       setFirmwareStatus('Running firmwareUpdateV4');
       const response =
         await backgroundApiProxy.serviceHardware.pro2DebugFirmwareUpdateV4({
@@ -676,12 +817,12 @@ export default function TabPro2Debug() {
       setFirmwareProgress((prev) => ({
         progress: 100,
         progressType: 'completed',
-        totalBytes: PRO2_BLE_FIRMWARE_FILE_SIZE,
-        transferredBytes: PRO2_BLE_FIRMWARE_FILE_SIZE,
+        totalBytes: firmwareFileSize,
+        transferredBytes: firmwareFileSize,
         elapsedMs: durationMs,
         rateBytesPerSecond:
           durationMs > 0
-            ? (PRO2_BLE_FIRMWARE_FILE_SIZE / durationMs) * 1000
+            ? (firmwareFileSize / durationMs) * 1000
             : prev?.rateBytesPerSecond,
       }));
       setFirmwareStatus(
@@ -700,7 +841,7 @@ export default function TabPro2Debug() {
         progress: prev?.progress ?? 0,
         progressType: prev?.progressType ?? 'failed',
         transferredBytes: prev?.transferredBytes,
-        totalBytes: prev?.totalBytes ?? PRO2_BLE_FIRMWARE_FILE_SIZE,
+        totalBytes: prev?.totalBytes ?? firmwareFileSizeHint,
         rateBytesPerSecond: prev?.rateBytesPerSecond,
         elapsedMs: durationMs,
       }));
@@ -713,9 +854,13 @@ export default function TabPro2Debug() {
     }
   }, [
     appendLog,
+    activeBleFirmwareName,
+    activeBleFirmwareSize,
+    activeBleFirmwareSource,
     finishFirmwareStage,
     finishFirmwareTimingSummary,
     selectedConnectId,
+    selectedBleFirmwareFile,
     startFirmwareStage,
   ]);
 
@@ -816,7 +961,7 @@ export default function TabPro2Debug() {
     const totalBytes =
       getFiniteNumber(payload?.firmwareProgressTotalBytes) ??
       getFiniteNumber(rawPayload?.totalBytes) ??
-      PRO2_BLE_FIRMWARE_FILE_SIZE;
+      activeBleFirmwareSize;
     const transferredBytes =
       getFiniteNumber(payload?.firmwareProgressTransferredBytes) ??
       getFiniteNumber(rawPayload?.transferredBytes) ??
@@ -838,6 +983,7 @@ export default function TabPro2Debug() {
     });
     setFirmwareStatus(getFirmwareStatusFromProgressType(progressType));
   }, [
+    activeBleFirmwareSize,
     appendLog,
     busyKey,
     finishFirmwareStage,
@@ -855,8 +1001,7 @@ export default function TabPro2Debug() {
     const elapsedMs =
       firmwareProgress?.elapsedMs ??
       (startedAt ? (firmwareTick || Date.now()) - startedAt : undefined);
-    const totalBytes =
-      firmwareProgress?.totalBytes ?? PRO2_BLE_FIRMWARE_FILE_SIZE;
+    const totalBytes = firmwareProgress?.totalBytes ?? activeBleFirmwareSize;
     const progressValue = clampProgress(progress ?? 0);
     const transferredBytes =
       firmwareProgress?.transferredBytes ?? (totalBytes * progressValue) / 100;
@@ -874,7 +1019,7 @@ export default function TabPro2Debug() {
       rateBytesPerSecond,
       elapsedMs,
     };
-  }, [busyKey, firmwareProgress, firmwareTick]);
+  }, [activeBleFirmwareSize, busyKey, firmwareProgress, firmwareTick]);
 
   return (
     <Page>
@@ -974,13 +1119,38 @@ export default function TabPro2Debug() {
 
             <Section title="FirmwareUpdateV4">
               <SizableText size="$bodySm" color="$textSubdued">
-                Protocol: V2 preset · BLE: {PRO2_BLE_FIRMWARE_FILE_NAME} ·{' '}
-                {formatBytes(PRO2_BLE_FIRMWARE_FILE_SIZE)}
+                Protocol: V2 preset · BLE: {activeBleFirmwareName} ·{' '}
+                {formatBytes(activeBleFirmwareSize)}
               </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
                 Target: TARGET_BT(2) · {PRO2_FIRMWARE_STAGING_PATH} · chunk{' '}
                 {PRO2_BLE_CHUNK_SIZE} B
               </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                Source: {activeBleFirmwareSource}
+              </SizableText>
+              <XStack gap="$2" flexWrap="wrap">
+                <Button
+                  size="small"
+                  variant="secondary"
+                  onPress={() => void pickBleFirmwareFile()}
+                  disabled={Boolean(busyKey)}
+                >
+                  {busyKey === 'pickBleFirmware' ? (
+                    <Spinner size="small" />
+                  ) : (
+                    'Choose BLE firmware'
+                  )}
+                </Button>
+                <Button
+                  size="small"
+                  variant="secondary"
+                  onPress={useDefaultBleFirmwareFile}
+                  disabled={Boolean(busyKey) || !selectedBleFirmwareFile}
+                >
+                  Use bundled default
+                </Button>
+              </XStack>
               <YStack gap="$2">
                 <XStack gap="$2" alignItems="center">
                   {busyKey === 'firmwareUpdateV4' ? (
