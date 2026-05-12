@@ -26,7 +26,6 @@ export const SignatureConfirmTestIDs = {
 
   // -- Transaction details --
   TxConfirmDetails: 'sig-confirm-tx-details',
-  MessageConfirmDetails: 'sig-confirm-msg-details',
 
   // -- Fee info --
   TxFeeInfo: 'sig-confirm-fee-info',
