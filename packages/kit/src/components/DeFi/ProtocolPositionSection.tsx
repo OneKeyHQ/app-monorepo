@@ -1,78 +1,15 @@
 import { memo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  type INumberSizeableTextProps,
-  Icon,
-  SizableText,
-  Stack,
-  Tooltip,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import type { ILocalizedProtocolPositionSection } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
-type IProtocolAssetValueProps = {
-  value: IDeFiAsset['value'];
-  currencySymbol: string;
-  priceUnavailableLabel: string;
-  size?: INumberSizeableTextProps['size'];
-  color?: INumberSizeableTextProps['color'];
-  textAlign?: INumberSizeableTextProps['textAlign'];
-  numberOfLines?: INumberSizeableTextProps['numberOfLines'];
-  fontVariant?: INumberSizeableTextProps['fontVariant'];
-};
-
-const ProtocolAssetValue = memo(
-  ({
-    value,
-    currencySymbol,
-    priceUnavailableLabel,
-    size = '$bodyMdMedium',
-    color,
-    textAlign,
-    numberOfLines,
-    fontVariant,
-  }: IProtocolAssetValueProps) => {
-    const valueBN = new BigNumber(value);
-    const isValueUnavailable = valueBN.isNaN() || valueBN.isZero();
-
-    return (
-      <XStack alignItems="center" justifyContent="flex-end" gap="$1">
-        {isValueUnavailable ? (
-          <Stack width="$4" height="$4">
-            <Tooltip
-              renderContent={priceUnavailableLabel}
-              renderTrigger={
-                <Icon name="ErrorOutline" size="$4" color="$iconCritical" />
-              }
-            />
-          </Stack>
-        ) : null}
-        <NumberSizeableTextWrapper
-          hideValue
-          size={size}
-          formatter="value"
-          formatterOptions={{ currency: currencySymbol }}
-          color={isValueUnavailable ? '$text' : color}
-          textAlign={textAlign}
-          numberOfLines={numberOfLines}
-          fontVariant={fontVariant}
-        >
-          {isValueUnavailable ? '--' : valueBN.toFixed()}
-        </NumberSizeableTextWrapper>
-      </XStack>
-    );
-  },
-);
-ProtocolAssetValue.displayName = 'ProtocolAssetValue';
+import { ProtocolValueCell } from './ProtocolValueCell';
 
 const ProtocolPositionSection = memo(
   ({
@@ -130,7 +67,7 @@ const ProtocolPositionSection = memo(
               </SizableText>
             </XStack>
             <YStack alignItems="flex-end" maxWidth="55%">
-              <ProtocolAssetValue
+              <ProtocolValueCell
                 value={asset.value}
                 currencySymbol={currencySymbol}
                 priceUnavailableLabel={priceUnavailableLabel}
@@ -153,5 +90,4 @@ const ProtocolPositionSection = memo(
 );
 ProtocolPositionSection.displayName = 'ProtocolPositionSection';
 
-export { ProtocolAssetValue, ProtocolPositionSection };
-export type { IProtocolAssetValueProps };
+export { ProtocolPositionSection };
