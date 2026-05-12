@@ -30,6 +30,40 @@ intl.formatMessage({ id: ETranslations.global__confirm })
 - Build failures in i18n pipeline
 - Breaking localization for international users
 
+## Existing Keys First
+
+When updating an existing translation:
+
+- Do not edit generated locale files directly.
+- Update the source translation in Lokalise:
+  - Use the `lokalise` MCP if it is available in the current environment.
+  - Otherwise use Lokalise Web.
+- After the source change, sync locally with `yarn i18n:pull` or `yarn i18n:pull:keychain`.
+
+## Key Shape Mapping
+
+The same translation may appear in 3 different shapes depending on where you look:
+
+```text
+Lokalise / MCP source key:     global::contact_us
+Pulled local JSON key:         global.contact_us
+Generated enum member:         ETranslations.global_contact_us
+```
+
+For newer suffix-style keys, Lokalise and local JSON usually match:
+
+```text
+Lokalise / MCP source key:     address_book__action
+Pulled local JSON key:         address_book__action
+Generated enum member:         ETranslations.address_book__action
+```
+
+Query guidance:
+
+- Lokalise / MCP: prefer the exact source key. Legacy namespaced keys often use `::`.
+- Local `yarn i18n:search`: searches pulled `en_US.json`, so legacy keys should be queried with `.`, while newer suffix-style keys should be queried with `__`.
+- Code usage: refer to the generated `ETranslations` member with `_`.
+
 ## Quick Reference
 
 ### Using Translations in Components
@@ -60,25 +94,26 @@ const message = appLocale.intl.formatMessage({
 
 ## Translation Workflow
 
-1. **Design provides translation key** like `prime::restore_purchases`
-2. **Run sync command**: `yarn i18n:pull`
-3. **Convert key format**: `prime::restore_purchases` → `ETranslations.prime_restore_purchases`
+1. **Search first**
+   - Local search: `yarn i18n:search "global.contact_us"` or `yarn i18n:search "address_book__action"`
+   - Lokalise / MCP: try the exact source key, such as `global::contact_us`
+2. **If the key already exists, update it in Lokalise** and then run `yarn i18n:pull`
+3. **If it is a new key, add it via `yarn i18n:add`** using the suffix-style underscore format
 4. **Use in code**:
    ```tsx
-   {intl.formatMessage({ id: ETranslations.prime_restore_purchases })}
+   {intl.formatMessage({ id: ETranslations.global_contact_us })}
    ```
 
-## Translation Key Naming Pattern
+## New Key Naming Pattern
 
 ```
-namespace__action_description
+semantic_key__type
 
 Examples:
-- global__confirm
-- global__cancel
-- swap__select_token
-- wallet__create_wallet
-- settings__dark_mode
+- send__title
+- confirm_send__action
+- enter_send_amount__desc
+- transaction_failed__msg
 ```
 
 ## Detailed Guide
