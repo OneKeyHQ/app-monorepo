@@ -244,6 +244,11 @@ function AESGcmV2Test() {
       const password = 'onekey-gallery-password';
       const v2MagicText = '1K_ENC_V2';
       const v2MagicHex = Buffer.from(v2MagicText, 'utf8').toString('hex');
+      const legacyGcmMagicText = appCrypto.consts.AES_GCM_ENCRYPTION_MAGIC;
+      const legacyGcmMagicHex = Buffer.from(
+        legacyGcmMagicText,
+        'utf8',
+      ).toString('hex');
       const defaultPbkdf2Backend =
         appCrypto.pbkdf2.getPbkdf2BackendForCurrentPlatform();
       const defaultAesGcmBackend =
@@ -257,10 +262,38 @@ function AESGcmV2Test() {
         pbkdf2Invocation: ReturnType<
           typeof appCrypto.pbkdf2.getLastPbkdf2Invocation
         >;
+        payloadHeaderHex?: string;
+        payloadHeaderKind:
+          | 'legacy-cbc-no-magic-header'
+          | 'legacy-gcm'
+          | 'unknown'
+          | 'v2';
+        payloadHeaderText?: string;
         payloadIterations: number;
+        payloadVersion: string;
         requestedIterations: number | 'default';
         time: number;
       }> = [];
+
+      const getKnownPayloadHeader = (encryptedHex: string) => {
+        if (encryptedHex.startsWith(v2MagicHex)) {
+          return {
+            payloadHeaderHex: v2MagicHex,
+            payloadHeaderKind: 'v2' as const,
+            payloadHeaderText: v2MagicText,
+          };
+        }
+        if (encryptedHex.startsWith(legacyGcmMagicHex)) {
+          return {
+            payloadHeaderHex: legacyGcmMagicHex,
+            payloadHeaderKind: 'legacy-gcm' as const,
+            payloadHeaderText: legacyGcmMagicText,
+          };
+        }
+        return {
+          payloadHeaderKind: 'legacy-cbc-no-magic-header' as const,
+        };
+      };
 
       const encryptWithActualProbe = async (iterations?: number) => {
         const debugCryptoProbeId = `crypto-gallery-${Date.now()}-${
@@ -284,10 +317,7 @@ function AESGcmV2Test() {
         const aesGcmInvocation =
           appCrypto.aesGcm.getAesGcmInvocationByProbeId(debugCryptoProbeId);
         const encryptedHex = bufferUtils.bytesToHex(encrypted);
-        const payloadPrefixHex = encryptedHex.slice(0, v2MagicHex.length);
-        const payloadPrefixText = Buffer.from(payloadPrefixHex, 'hex').toString(
-          'utf8',
-        );
+        const payloadHeader = getKnownPayloadHeader(encryptedHex);
         const metadata = await decryptAsyncWithMetadata({
           password,
           data: encrypted,
@@ -297,9 +327,9 @@ function AESGcmV2Test() {
         const actualRun = {
           aesGcmInvocation,
           pbkdf2Invocation,
+          ...payloadHeader,
           payloadIterations: metadata.iterations,
-          payloadPrefixHex,
-          payloadPrefixText,
+          payloadVersion: metadata.version,
           requestedIterations,
           time,
         };
@@ -555,14 +585,9 @@ function AESGcmV2Test() {
             },
             v2MagicHex,
             v2MagicText,
-            encryptedV2PrefixHex: encryptedV2.encryptedHex.slice(
-              0,
-              v2MagicHex.length,
-            ),
-            encryptedV2PrefixText: Buffer.from(
-              encryptedV2.encryptedHex.slice(0, v2MagicHex.length),
-              'hex',
-            ).toString('utf8'),
+            legacyGcmMagicHex,
+            legacyGcmMagicText,
+            encryptedV2Header: getKnownPayloadHeader(encryptedV2.encryptedHex),
             tasks,
           },
           stringUtils.STRINGIFY_REPLACER.bufferToHex,
