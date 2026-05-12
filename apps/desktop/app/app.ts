@@ -1012,10 +1012,7 @@ async function createMainWindow() {
         if (!overlayWebContentsIds.has(contents.id)) return;
         if (isAllowedWebViewUrl(url)) return;
         navigationEvent.preventDefault();
-        logger.info(
-          'overlay pre-navigation block (main process):',
-          url,
-        );
+        logger.info('overlay pre-navigation block (main process):', url);
       };
       contents.on('will-redirect', guardOverlayPreNavigation);
       contents.on('will-navigate', guardOverlayPreNavigation);
@@ -1519,9 +1516,12 @@ app.on('child-process-gone', async (event, details) => {
 
     // Track GPU crash in Sentry for monitoring
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const { captureException } = require('@sentry/electron/main');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const { captureException } = require('@sentry/electron/main') as {
+        captureException: (
+          error: Error,
+          options: Record<string, unknown>,
+        ) => void;
+      };
       captureException(new Error('GPU Process Crashed'), {
         level: 'fatal',
         tags: {
@@ -1679,9 +1679,12 @@ function startMemoryMonitoring() {
 
         // Track critical memory events in Sentry
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          const { captureException } = require('@sentry/electron/main');
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          const { captureException } = require('@sentry/electron/main') as {
+            captureException: (
+              error: Error,
+              options: Record<string, unknown>,
+            ) => void;
+          };
           captureException(new Error('Critical Memory Usage Detected'), {
             level: 'warning',
             tags: {
