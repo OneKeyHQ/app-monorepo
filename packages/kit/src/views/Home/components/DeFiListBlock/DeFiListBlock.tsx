@@ -103,6 +103,7 @@ export type IDeFiListBlockProps = {
   hideInternalTitle?: boolean;
   isDeFiEnabled?: boolean;
   registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
+  onCollapseToProtocol?: (protocol: IDeFiProtocol) => void;
 };
 
 const ProtocolListItem = memo(
@@ -149,6 +150,7 @@ function DeFiListBlock({
   hideInternalTitle = false,
   isDeFiEnabled: isDeFiEnabledProp,
   registerProtocol,
+  onCollapseToProtocol,
 }: IDeFiListBlockProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -1215,14 +1217,25 @@ function DeFiListBlock({
     };
   }, []);
 
+  const getCollapsedBottomProtocol = useCallback(() => {
+    const limit = Math.min(overflowThreshold, filteredProtocols.length);
+    return filteredProtocols[limit - 1];
+  }, [filteredProtocols, overflowThreshold]);
+
   const handleToggleSliced = useCallback(() => {
     if (isProtocolListLocked()) return;
+    const targetProtocol = isSliced ? undefined : getCollapsedBottomProtocol();
     lockProtocolListInteractions();
     setIsSliced(!isSliced);
+    if (targetProtocol) {
+      onCollapseToProtocol?.(targetProtocol);
+    }
   }, [
     isSliced,
+    getCollapsedBottomProtocol,
     isProtocolListLocked,
     lockProtocolListInteractions,
+    onCollapseToProtocol,
     setIsSliced,
   ]);
 

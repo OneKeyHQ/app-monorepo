@@ -42,9 +42,14 @@ import {
   findScrollableAncestorFromLocalNode,
   getStickySidebarMaxHeight,
 } from './defiDesktopStickyDom';
-import { HOME_PAGE_CONTENT_MAX_WIDTH } from './homePageContentMaxWidth';
 
 const SIDEBAR_STICKY_UNPIN_GAP = 8;
+
+// Visual max-width for the wallet page main content. Has to match the
+// `regular` layout previously applied at the Page.Container level so the page
+// doesn't suddenly widen when the page-level constraint was removed (see
+// HomePageView's `homePageContentMaxWidthSx` and the comment there).
+const PORTFOLIO_CONTENT_MAX_WIDTH = 1140;
 
 function PortfolioContainer() {
   const media = useMedia();
@@ -205,7 +210,7 @@ function PortfolioContainer() {
         pt="$3"
         gap="$6"
         width="100%"
-        $gtMd={{ maxWidth: HOME_PAGE_CONTENT_MAX_WIDTH, mx: 'auto' }}
+        $gtMd={{ maxWidth: PORTFOLIO_CONTENT_MAX_WIDTH, mx: 'auto' }}
       >
         <YStack
           flex={1}

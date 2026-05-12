@@ -1,15 +1,17 @@
 import { memo } from 'react';
 
-import { Badge, YStack } from '@onekeyhq/components';
-import type { ILocalizedProtocolCategoryGroup } from '@onekeyhq/kit/src/utils/defiPositionUtils';
+import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  type ILocalizedProtocolCategoryGroup,
+  getProtocolPositionDisplayName,
+} from '@onekeyhq/kit/src/utils/defiPositionUtils';
 
-import { ProtocolLendingPositionTable } from './ProtocolLendingPositionTable';
+import { ProtocolSectionedPositionTable } from './ProtocolSectionedPositionTable';
 import { ProtocolUnifiedTable } from './ProtocolUnifiedTable';
 
-// One-stop renderer for a category subgroup inside a protocol card. Lending
-// expands into N tables (one per position) so each can carry its own pool /
-// market label; every other category collapses into a single unified table
-// built upstream by the category grouping helper.
+// Unified groups keep the position name in the first table column. Sectioned
+// groups replace that first column with Supplied/Borrowed/Rewards
+// sections, so each position gets its pool name beside the type badge instead.
 
 type IProtocolCategoryGroupProps = {
   group: ILocalizedProtocolCategoryGroup;
@@ -23,6 +25,54 @@ const ProtocolCategoryGroup = memo(
     currencySymbol,
     priceUnavailableLabel,
   }: IProtocolCategoryGroupProps) => {
+    if (group.kind === 'sectioned') {
+      return (
+        <YStack gap="$4">
+          {group.positions.map((position) => {
+            const positionDisplayName =
+              getProtocolPositionDisplayName(position);
+
+            return (
+              <YStack key={position.positionKey} gap="$2">
+                <XStack
+                  px="$5"
+                  pt="$3"
+                  alignItems="center"
+                  gap="$2"
+                  minWidth={0}
+                >
+                  <Badge
+                    badgeType="success"
+                    badgeSize="lg"
+                    alignSelf="flex-start"
+                    flexShrink={0}
+                  >
+                    {group.categoryLabel}
+                  </Badge>
+                  {positionDisplayName ? (
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color="$text"
+                      numberOfLines={1}
+                      flex={1}
+                      minWidth={0}
+                    >
+                      {positionDisplayName}
+                    </SizableText>
+                  ) : null}
+                </XStack>
+                <ProtocolSectionedPositionTable
+                  position={position}
+                  currencySymbol={currencySymbol}
+                  priceUnavailableLabel={priceUnavailableLabel}
+                />
+              </YStack>
+            );
+          })}
+        </YStack>
+      );
+    }
+
     return (
       <YStack gap="$2">
         <YStack px="$5" pt="$3">
@@ -30,24 +80,11 @@ const ProtocolCategoryGroup = memo(
             {group.categoryLabel}
           </Badge>
         </YStack>
-        {group.kind === 'lending' ? (
-          <YStack gap="$4">
-            {group.positions.map((position) => (
-              <ProtocolLendingPositionTable
-                key={position.positionKey}
-                position={position}
-                currencySymbol={currencySymbol}
-                priceUnavailableLabel={priceUnavailableLabel}
-              />
-            ))}
-          </YStack>
-        ) : (
-          <ProtocolUnifiedTable
-            rows={group.rows}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-          />
-        )}
+        <ProtocolUnifiedTable
+          rows={group.rows}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+        />
       </YStack>
     );
   },
