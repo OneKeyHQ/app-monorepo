@@ -13,8 +13,11 @@ import type {
 import { CANVAS_CONFIG } from './constants';
 import { ShareContentRenderer } from './ShareContentRenderer';
 
+import type { IRookieShareLocaleText } from './constants';
+
 interface IShareImageGeneratorProps {
   data: IRookieShareData;
+  localeText: IRookieShareLocaleText;
 }
 
 const IMAGES_READY_TIMEOUT_MS = 5000;
@@ -35,7 +38,7 @@ function createImagesReadyDeferred(): IImagesReadyDeferred {
 export const ShareImageGenerator = forwardRef<
   IRookieShareImageGeneratorRef,
   IShareImageGeneratorProps
->(({ data }, ref) => {
+>(({ data, localeText }, ref) => {
   const viewShotRef = useRef<ViewShot>(null);
   const imagesReadyDeferredRef = useRef<IImagesReadyDeferred | null>(null);
   const prevImageUrlRef = useRef<string | null>(null);
@@ -49,6 +52,11 @@ export const ShareImageGenerator = forwardRef<
     data.footerText,
     data.referralCode,
     data.referralUrl,
+    localeText.footerText,
+    localeText.referralLabel,
+    localeText.downloadTitle,
+    localeText.downloadSubtitle,
+    localeText.qrCaption,
   ].join('\u0000');
 
   if (
@@ -105,7 +113,11 @@ export const ShareImageGenerator = forwardRef<
           height: CANVAS_CONFIG.size,
         }}
       >
-        <ShareContentRenderer data={data} onImagesReady={handleImagesReady} />
+        <ShareContentRenderer
+          data={data}
+          localeText={localeText}
+          onImagesReady={handleImagesReady}
+        />
       </ViewShot>
     </Stack>
   );

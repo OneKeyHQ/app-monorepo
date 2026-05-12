@@ -84,9 +84,7 @@ function ConfirmRedeemPage() {
               params: {
                 rewardUsd,
                 walletAddress,
-                btcAmount: result.data.btcAmount,
-                btcPriceUsd: result.data.btcPriceUsd,
-                payoutEligibleAt: result.data.payoutEligibleAt,
+                expectedPayoutAt: result.data.expectedPayoutAt,
               },
             },
           ],
