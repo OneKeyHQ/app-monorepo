@@ -103,6 +103,7 @@ export type IMarketPresetConfig = {
 
 type IMarketPresetRemoteConfig = {
   enabled?: boolean;
+  priorityFeeEditable?: boolean;
   customPriorityFeeRange?: IMarketPresetCustomPriorityFeeRange;
 };
 
@@ -271,18 +272,24 @@ function buildPresetConfig({
 function getMarketPresetRemoteConfig(
   speedConfig?: ISwapProSpeedConfig,
 ): IMarketPresetRemoteConfig | undefined {
-  const nestedConfig = (speedConfig as IMarketPresetSpeedConfig | undefined)
+  const legacyConfig = (speedConfig as IMarketPresetSpeedConfig | undefined)
     ?.marketPresetConfig;
-  const enabled = nestedConfig?.enabled;
+  const presetConfig = speedConfig?.preset;
+  const enabled = presetConfig?.isEnabled ?? legacyConfig?.enabled;
+  const priorityFeeEditable =
+    presetConfig?.priorityFee ?? legacyConfig?.priorityFeeEditable;
   const customPriorityFeeMin =
-    nestedConfig?.customPriorityFeeRange?.min ??
-    nestedConfig?.customPriorityFeeMin;
+    presetConfig?.min ??
+    legacyConfig?.customPriorityFeeRange?.min ??
+    legacyConfig?.customPriorityFeeMin;
   const customPriorityFeeMax =
-    nestedConfig?.customPriorityFeeRange?.max ??
-    nestedConfig?.customPriorityFeeMax;
+    presetConfig?.max ??
+    legacyConfig?.customPriorityFeeRange?.max ??
+    legacyConfig?.customPriorityFeeMax;
 
   if (
     enabled === undefined &&
+    priorityFeeEditable === undefined &&
     customPriorityFeeMin === undefined &&
     customPriorityFeeMax === undefined
   ) {
@@ -291,6 +298,7 @@ function getMarketPresetRemoteConfig(
 
   return {
     enabled,
+    priorityFeeEditable,
     customPriorityFeeRange: {
       min: customPriorityFeeMin,
       max: customPriorityFeeMax,
@@ -306,6 +314,8 @@ function buildPresetConfigFromRemote({
   remoteConfig: IMarketPresetRemoteConfig;
 }): IMarketPresetConfig | undefined {
   const customRange = remoteConfig.customPriorityFeeRange;
+  const resolvePriorityFeeEditable = (editable: boolean) =>
+    remoteConfig.priorityFeeEditable ?? editable;
 
   if (
     remoteConfig.enabled === false ||
@@ -324,7 +334,8 @@ function buildPresetConfigFromRemote({
   if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
     return buildPresetConfig({
       networkId,
-      priorityFeeEditable: false,
+      priorityFeeEditable: resolvePriorityFeeEditable(false),
+      customUnit: networkId.startsWith('evm--') ? 'Gwei' : undefined,
       customRange,
     });
   }
@@ -336,7 +347,7 @@ function buildPresetConfigFromRemote({
   ) {
     return buildPresetConfig({
       networkId,
-      priorityFeeEditable: true,
+      priorityFeeEditable: resolvePriorityFeeEditable(true),
       customUnit: 'Gwei',
       customRange,
     });
@@ -345,7 +356,7 @@ function buildPresetConfigFromRemote({
   if (MARKET_PRESET_SOL_NETWORK_IDS.has(networkId)) {
     return buildPresetConfig({
       networkId,
-      priorityFeeEditable: true,
+      priorityFeeEditable: resolvePriorityFeeEditable(true),
       priorityFeeSupportedTypes: [
         EMarketPresetPriorityFeeType.MARKET,
         EMarketPresetPriorityFeeType.CUSTOM,
