@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/unbound-method */
 
+import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { buildLegacyWalletCreatedAtFallback } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 
 import ServiceReferralCode from './ServiceReferralCode';
@@ -68,6 +69,8 @@ function createService() {
         setCreationRecordsMigrationDone: jest.fn(),
         getWalletCreationRecordTimestamp: jest.fn(),
         setWalletCreationRecordTimestamp: jest.fn(),
+        getWalletReferralCode: jest.fn(),
+        setWalletReferralCode: jest.fn(),
       },
     },
     serviceAccount: {
@@ -181,5 +184,257 @@ describe('ServiceReferralCode migration', () => {
     ]);
 
     nowSpy.mockRestore();
+  });
+});
+
+describe('ServiceReferralCode.checkWalletBindStatus', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('uses V2 bound false with expired reason as unbound expired', async () => {
+    const { service } = createService();
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {
+          'evm--1:0xabc': {
+            bound: false,
+            bindable: false,
+            reason: 'exceeded_bind_window',
+          },
+        },
+      },
+    });
+    (appApiClient.getClient as unknown as jest.Mock).mockResolvedValue({
+      post,
+    });
+
+    await expect(
+      service.checkWalletBindStatus({
+        address: '0xabc',
+        networkId: 'evm--1',
+      }),
+    ).resolves.toEqual({
+      data: false,
+      bindable: false,
+      reason: 'exceeded_bind_window',
+    });
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  test('uses V2 bound true as bound even with expired reason', async () => {
+    const { service } = createService();
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {
+          'evm--1:0xabc': {
+            bound: true,
+            bindable: false,
+            reason: 'exceeded_bind_window',
+          },
+        },
+      },
+    });
+    (appApiClient.getClient as unknown as jest.Mock).mockResolvedValue({
+      post,
+    });
+
+    await expect(
+      service.checkWalletBindStatus({
+        address: '0xabc',
+        networkId: 'evm--1',
+      }),
+    ).resolves.toEqual({
+      data: true,
+      bindable: false,
+      reason: undefined,
+    });
+  });
+
+  test('treats V2 already_bound reason as bound', async () => {
+    const { service } = createService();
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {
+          'evm--1:0xabc': {
+            bound: false,
+            bindable: false,
+            reason: 'already_bound',
+          },
+        },
+      },
+    });
+    (appApiClient.getClient as unknown as jest.Mock).mockResolvedValue({
+      post,
+    });
+
+    await expect(
+      service.checkWalletBindStatus({
+        address: '0xabc',
+        networkId: 'evm--1',
+      }),
+    ).resolves.toEqual({
+      data: true,
+      bindable: false,
+      reason: undefined,
+    });
+  });
+
+  test('treats V2 unbound non-expired status as bindable', async () => {
+    const { service } = createService();
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {
+          'evm--1:0xabc': {
+            bound: false,
+            bindable: false,
+          },
+        },
+      },
+    });
+    (appApiClient.getClient as unknown as jest.Mock).mockResolvedValue({
+      post,
+    });
+
+    await expect(
+      service.checkWalletBindStatus({
+        address: '0xabc',
+        networkId: 'evm--1',
+      }),
+    ).resolves.toEqual({
+      data: false,
+      bindable: true,
+      reason: undefined,
+    });
+  });
+
+  test('throws unknown when V2 omits the wallet item', async () => {
+    const { service } = createService();
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {},
+      },
+    });
+    (appApiClient.getClient as unknown as jest.Mock).mockResolvedValue({
+      post,
+    });
+
+    await expect(
+      service.checkWalletBindStatus({
+        address: '0xabc',
+        networkId: 'evm--1',
+      }),
+    ).rejects.toThrow('Missing wallet referral bind status');
+  });
+});
+
+describe('ServiceReferralCode.checkAndUpdateReferralCode', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('revalidates locally bound wallets before returning them', async () => {
+    const { service, backgroundApi } = createService();
+    const boundStatus = {
+      walletId: 'hd-1',
+      address: '0xabc',
+      networkId: 'evm--1',
+      pubkey: '',
+      isBound: true,
+      bindable: false,
+    };
+
+    backgroundApi.simpleDb.referralCode.getWalletReferralCode.mockResolvedValue(
+      boundStatus,
+    );
+    const checkWalletBindStatusSpy = jest
+      .spyOn(service, 'checkWalletBindStatus')
+      .mockResolvedValue({
+        data: true,
+        bindable: false,
+        reason: undefined,
+      });
+
+    await expect(
+      service.checkAndUpdateReferralCode({
+        accountId: "hd-1--m/44'/60'/0'/0/0",
+      }),
+    ).resolves.toBe(boundStatus);
+
+    expect(checkWalletBindStatusSpy).toHaveBeenCalledWith({
+      address: '0xabc',
+      networkId: 'evm--1',
+    });
+    expect(
+      backgroundApi.simpleDb.referralCode.setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('drops stale locally bound wallets when the server no longer confirms binding', async () => {
+    const { service, backgroundApi } = createService();
+    const boundStatus = {
+      walletId: 'hd-1',
+      address: '0xabc',
+      networkId: 'evm--1',
+      pubkey: '',
+      isBound: true,
+      bindable: false,
+    };
+
+    backgroundApi.simpleDb.referralCode.getWalletReferralCode.mockResolvedValue(
+      boundStatus,
+    );
+    const checkWalletBindStatusSpy = jest
+      .spyOn(service, 'checkWalletBindStatus')
+      .mockResolvedValue({
+        data: false,
+        bindable: false,
+        reason: 'exceeded_bind_window',
+      });
+
+    await expect(
+      service.checkAndUpdateReferralCode({
+        accountId: "hd-1--m/44'/60'/0'/0/0",
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(checkWalletBindStatusSpy).toHaveBeenCalledWith({
+      address: '0xabc',
+      networkId: 'evm--1',
+    });
+    expect(
+      backgroundApi.simpleDb.referralCode.setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('does not write local bind data when refresh sees a bound wallet', async () => {
+    const { service, backgroundApi } = createService();
+    const unboundStatus = {
+      walletId: 'hd-1',
+      address: '0xabc',
+      networkId: 'evm--1',
+      pubkey: '',
+      isBound: false,
+      bindable: true,
+    };
+
+    backgroundApi.simpleDb.referralCode.getWalletReferralCode.mockResolvedValue(
+      unboundStatus,
+    );
+    jest.spyOn(service, 'checkWalletBindStatus').mockResolvedValue({
+      data: true,
+      bindable: false,
+      reason: undefined,
+    });
+
+    await expect(
+      service.checkAndUpdateReferralCode({
+        accountId: "hd-1--m/44'/60'/0'/0/0",
+      }),
+    ).resolves.toBe(unboundStatus);
+
+    expect(
+      backgroundApi.simpleDb.referralCode.setWalletReferralCode,
+    ).not.toHaveBeenCalled();
   });
 });
