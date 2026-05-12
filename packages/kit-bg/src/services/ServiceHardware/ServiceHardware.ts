@@ -193,6 +193,11 @@ const PRO2_DEBUG_NO_PARAM_METHODS = new Set<IPro2DebugSdkMethod>([
   'filesystemFormat',
 ]);
 
+const PRO2_DEBUG_BLE_TUNING_PROFILE = {
+  key: 'default-1800',
+  tuning: {},
+};
+
 function isPro2DebugSdkMethod(method: string): method is IPro2DebugSdkMethod {
   return PRO2_DEBUG_SDK_METHODS.some((item) => item === method);
 }
@@ -939,6 +944,17 @@ class ServiceHardware extends ServiceBase {
     const bleBinary = Uint8Array.from(
       Buffer.from(bleFirmwareBase64, 'base64'),
     ).buffer;
+    if (platformEnv.isNative) {
+      const { configureProtocolV2BleTuning, resetProtocolV2BleTuning } =
+        require('@onekeyfe/hd-transport-react-native') as {
+          configureProtocolV2BleTuning?: (
+            tuning?: Record<string, unknown>,
+          ) => void;
+          resetProtocolV2BleTuning?: () => void;
+        };
+      resetProtocolV2BleTuning?.();
+      configureProtocolV2BleTuning?.(PRO2_DEBUG_BLE_TUNING_PROFILE.tuning);
+    }
     const updateParams: Parameters<CoreApi['firmwareUpdateV4']>[1] = {
       platform: 'native',
       forcedUpdateRes: true,

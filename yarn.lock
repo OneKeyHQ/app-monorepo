@@ -9560,6 +9560,7 @@ __metadata:
     "@onekeyfe/hd-shared": "npm:1.1.26-alpha.30"
     "@onekeyfe/hd-transport": "npm:1.1.26-alpha.30"
     "@onekeyfe/hd-transport-electron": "npm:1.1.26-alpha.30"
+    "@onekeyfe/hd-transport-react-native": "npm:1.1.26-alpha.30"
     "@onekeyfe/hd-web-sdk": "npm:1.1.26-alpha.30"
     "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.12"
     "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.12"

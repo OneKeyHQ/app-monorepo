@@ -146,6 +146,7 @@
     "@onekeyfe/hd-shared": "1.1.26-alpha.30",
     "@onekeyfe/hd-transport": "1.1.26-alpha.30",
     "@onekeyfe/hd-transport-electron": "1.1.26-alpha.30",
+    "@onekeyfe/hd-transport-react-native": "1.1.26-alpha.30",
     "@onekeyfe/hd-web-sdk": "1.1.26-alpha.30",
     "@onekeyfe/hwk-adapter-core": "1.1.26-alpha.12",
     "@onekeyfe/hwk-ledger-adapter": "1.1.26-alpha.12",
