@@ -27,7 +27,7 @@ export type IDeFiPortfolioStackedBarProps = {
   isLoading?: boolean;
 };
 
-const DEFAULT_HEIGHT = 18;
+const DEFAULT_HEIGHT = 16;
 /**
  * A one-pixel track seam keeps adjacent colors readable without turning
  * each segment into its own pill.
@@ -68,8 +68,6 @@ const STACKED_BAR_CHROME = {
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 const SEGMENT_OPACITY = 0.86;
-const SEGMENT_HOVER_OPACITY = 1;
-const LEGEND_DOT_SIZE = 6;
 
 function buildA11yLabel(
   segments: ReturnType<typeof buildStackedBarSegments>,
@@ -191,10 +189,6 @@ function DeFiPortfolioStackedBar({
               opacity={SEGMENT_OPACITY}
               overflow="hidden"
               position="relative"
-              hoverStyle={{ opacity: SEGMENT_HOVER_OPACITY }}
-              $platform-web={{
-                transition: 'opacity 180ms cubic-bezier(0.22, 1, 0.36, 1)',
-              }}
             >
               <Tooltip
                 renderContent={renderTooltipContent(seg)}
@@ -231,8 +225,8 @@ function DeFiPortfolioStackedBar({
                 hoverStyle={{ opacity: 0.78 }}
               >
                 <Stack
-                  width={LEGEND_DOT_SIZE}
-                  height={LEGEND_DOT_SIZE}
+                  width="$2"
+                  height="$2"
                   borderRadius="$full"
                   bg={seg.colorToken}
                   opacity={SEGMENT_OPACITY}

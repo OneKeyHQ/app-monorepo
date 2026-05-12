@@ -26,7 +26,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IScrollViewRef } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
+import {
+  ANIMATE_ONLY_BACKGROUND_COLOR,
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -49,6 +52,10 @@ const FADE_RIGHT =
   'linear-gradient(270deg, var(--bgApp) 40%, transparent 100%)';
 
 const LOGO_HALO_PAD = '$0.5' as const;
+const CHIP_ACTIVE_HOVER_STYLE = { bg: '$bgPrimaryHover' } as const;
+const CHIP_INACTIVE_HOVER_STYLE = { bg: '$bgHover' } as const;
+const CHIP_ACTIVE_PRESS_STYLE = { bg: '$bgPrimaryActive' } as const;
+const CHIP_INACTIVE_PRESS_STYLE = { bg: '$bgActive' } as const;
 const REVEAL_TRANSLATE_PX = 6;
 const VISIBILITY_TOLERANCE_PX = 1;
 // 70% of viewport so the rightmost chip from the previous "page" stays
@@ -131,19 +138,20 @@ function ProtocolChipBase({
       borderRadius="$full"
       borderCurve="continuous"
       bg={isActive ? '$bgPrimary' : '$bgSubdued'}
-      // Scale carries the hover for both states (1.03 — tight enough to
-      // read as a lift without flinching). The active chip can't shift
-      // bg, since that would fight its $bgPrimary identity; the inactive
-      // chip layers a $bgHover shift on top of the same scale so it gets
-      // a second, quieter feedback channel. Press settles to 0.96 across
-      // the strip — same tactile value as the chevron below — so the
-      // click-feel reads as one gesture wherever it lands.
-      hoverStyle={isActive ? { scale: 1.03 } : { bg: '$bgHover', scale: 1.03 }}
-      pressStyle={{ scale: 0.96 }}
-      // Reduced-motion users get instant state changes (bg, scale, focus
+      // Keep hover as a color-only state. Scaling chips inside a horizontal
+      // sticky strip can momentarily move the hit target under the pointer,
+      // which reads as a hover flash while scrolling or switching activeKey.
+      hoverStyle={
+        isActive ? CHIP_ACTIVE_HOVER_STYLE : CHIP_INACTIVE_HOVER_STYLE
+      }
+      pressStyle={
+        isActive ? CHIP_ACTIVE_PRESS_STYLE : CHIP_INACTIVE_PRESS_STYLE
+      }
+      // Reduced-motion users get instant state changes (bg, focus
       // ring) instead of the quick fade — matches the same opt-out the
       // page scroller uses in DeFiContainer for `scrollTo`.
       animation={reducedMotion ? undefined : 'quick'}
+      animateOnly={ANIMATE_ONLY_BACKGROUND_COLOR}
     >
       <Stack
         borderRadius="$full"
@@ -202,9 +210,10 @@ function ArrowAffordance({ side, visible, onPress }: IArrowAffordanceProps) {
         bg="$gray3"
         // Bg-shift alone carries the hover. The chevron is a 24px target
         // so layering scale on top of the bg change read as twitchy
-        // here — the bg arc is enough signal. Press still depresses to
-        // 0.96, the same value the chips use, so the click-feel is
-        // identical no matter which surface in the strip the user hits.
+        // here — the bg arc is enough signal. Press still adds a 0.96
+        // scale here (the chevron's hit target is stable, unlike the
+        // chips in the sticky scroll strip), keeping the chevron click
+        // tactile even when the bg-shift alone is subtle.
         hoverStyle={{ bg: '$gray4' }}
         pressStyle={{ bg: '$gray5', scale: 0.96 }}
         animation="quick"
