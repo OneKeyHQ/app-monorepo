@@ -1927,7 +1927,6 @@ export enum ETranslations {
   global_private_key_copy_check = 'global.private_key_copy_check',
   global_private_key_copy_information = 'global.private_key_copy_information',
   global_private_key_error = 'global.private_key_error',
-  global_pro2_debug = 'global.pro2_debug',
   global_process = 'global.process',
   global_processing = 'global.processing',
   global_profit = 'global.profit',

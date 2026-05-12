@@ -143,7 +143,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             name: ETabRoutes.Pro2Debug,
             tabBarIcon: (focused?: boolean) =>
               focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
-            translationId: ETranslations.global_pro2_debug,
+            translationId: ETranslations.global_dev_mode,
             nativeTabBarIcon: nativeTabIcons.pro2Debug,
             freezeOnBlur: Boolean(params?.freezeOnBlur),
             rewrite: '/pro2-debug',
