@@ -189,7 +189,6 @@ export function PerpTickerBarMobile() {
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID={PerpTestIDs.MobileSettingsButton}
-          showFeeTierEntry={!perpsAccountStatus.accountNotSupport}
           showGuideEntry
         />
       </XStack>

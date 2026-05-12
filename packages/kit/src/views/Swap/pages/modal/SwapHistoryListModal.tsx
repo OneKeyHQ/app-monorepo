@@ -252,7 +252,12 @@ const SwapHistoryListModal = ({
 
   const historyTypeTrigger = useMemo(
     () => (
-      <XStack alignItems="center" gap="$1" cursor="pointer">
+      <XStack
+        testID="swap-render-header-title-select"
+        alignItems="center"
+        gap="$1"
+        cursor="pointer"
+      >
         <SizableText size="$headingLg">{historyTypeTitle}</SizableText>
         {showHistoryInfoDot ? (
           <Stack
@@ -498,7 +503,6 @@ const SwapHistoryListModal = ({
     () => (
       <LazyHeaderTitle>
         <ActionList
-          testID="swap-render-header-title-select"
           title={historyTypeTitle}
           items={historyTypeItems}
           renderTrigger={historyTypeTrigger}
