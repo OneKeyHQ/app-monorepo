@@ -5,22 +5,76 @@ import type { ISwapGasInfo } from '../../types/swap/types';
 
 const EVM_GWEI_DECIMALS = 9;
 
-export const MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE = '999999999';
+export const MARKET_PRESET_CUSTOM_PRIORITY_FEE_MIN_VALUE = '0';
+export const MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE = '1000';
+
+export type IMarketPresetCustomPriorityFeeRangeValue = string | number;
+
+export type IMarketPresetCustomPriorityFeeRange = {
+  min?: IMarketPresetCustomPriorityFeeRangeValue;
+  max?: IMarketPresetCustomPriorityFeeRangeValue;
+};
 
 export type ICustomPriorityFeeOverride = {
   customValue: string;
+  customRange?: IMarketPresetCustomPriorityFeeRange;
 };
 
-export function isValidMarketPresetCustomPriorityFeeValue(value?: string) {
+export function normalizeMarketPresetCustomPriorityFeeRange(
+  range?: IMarketPresetCustomPriorityFeeRange,
+) {
+  const defaultMinBN = new BigNumber(
+    MARKET_PRESET_CUSTOM_PRIORITY_FEE_MIN_VALUE,
+  );
+  const defaultMaxBN = new BigNumber(
+    MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+  );
+  const rawMinBN = new BigNumber(
+    range?.min ?? MARKET_PRESET_CUSTOM_PRIORITY_FEE_MIN_VALUE,
+  );
+  const rawMaxBN = new BigNumber(
+    range?.max ?? MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+  );
+  const minBN =
+    rawMinBN.isFinite() && rawMinBN.gte(defaultMinBN) ? rawMinBN : defaultMinBN;
+
+  if (rawMaxBN.isFinite() && rawMaxBN.gt(minBN)) {
+    return {
+      min: minBN.toFixed(),
+      max: rawMaxBN.toFixed(),
+    };
+  }
+
+  if (range?.max === undefined && defaultMaxBN.gt(minBN)) {
+    return {
+      min: minBN.toFixed(),
+      max: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+    };
+  }
+
+  return {
+    min: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MIN_VALUE,
+    max: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+  };
+}
+
+export function isValidMarketPresetCustomPriorityFeeValue({
+  value,
+  range,
+}: {
+  value?: string;
+  range?: IMarketPresetCustomPriorityFeeRange;
+}) {
   if (!value) {
     return false;
   }
 
   const valueBN = new BigNumber(value);
+  const normalizedRange = normalizeMarketPresetCustomPriorityFeeRange(range);
   return (
     valueBN.isFinite() &&
-    valueBN.gt(0) &&
-    valueBN.lte(MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE)
+    valueBN.gt(normalizedRange.min) &&
+    valueBN.lte(normalizedRange.max)
   );
 }
 
@@ -52,7 +106,10 @@ export function applyCustomPriorityFeeToGasInfo({
   // range, but reject invalid persisted values before touching gas params.
   if (
     !customPriorityFee ||
-    !isValidMarketPresetCustomPriorityFeeValue(customPriorityFee.customValue)
+    !isValidMarketPresetCustomPriorityFeeValue({
+      value: customPriorityFee.customValue,
+      range: customPriorityFee.customRange,
+    })
   ) {
     return gasInfo;
   }
