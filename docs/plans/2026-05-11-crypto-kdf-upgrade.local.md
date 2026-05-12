@@ -321,7 +321,7 @@ Native support 很重要，因为更高的 PBKDF2 count 加 GCM 不应压垮低�
 - [x] Phase 1.5 non-native v2 write policy。底层默认写 v2 + current iterations；已知 shared/server-visible 入口已统一到 shared encrypt policy，默认 legacy，后续 gate 开启后再按 `sharedScene` 精确切 v2。Cloud Backup V1 导出会将本地 credentials 降级为 legacy，避免备份恢复旧客户端无法识别。
 - [x] Phase 2 local lazy upgrade。从 `Context.verifyString` 和 `Credential` 开始实现无阻塞、幂等、transaction-safe 的本地升级；解锁成功后异步触发，使用 metadata helper 判断 legacy payload，并在重写时比较原 ciphertext，避免覆盖并发变更。每次只处理一个小批次 credential，剩余项目后续解锁继续，避免大量钱包时连续 PBKDF2/AES-GCM 压住 JS thread。分批期间用 `Context.localPasswordKdfUpgradeLastScannedCredentialId` 记录逻辑进度；它不是 IndexedDB cursor，而是基于稳定 `credential.id` 排序的跨 IndexedDB/Realm checkpoint。每条 credential 是否已升级仍由 v2 magic 精确判断。全部完成后写入 `Context.localPasswordKdfUpgraded` 持久化标记，后续解锁直接跳过空检。失败只记录聚合错误，不阻断正常解锁。
 - [x] Phase 3 local-only follow-up。Biology auth secure storage 已在成功读取后 lazy rewrite legacy sensitive-text 到当前 v2；Prime master password 本地缓存明确保持 legacy，不做 v2 升级；instance-id local strings 明确保持 legacy，因为 instance id 是高熵 UUID 而不是 human password；V4->V5 migration-only wrapping 不再投入升级，因为当前 app line 已是 V6。保持 shared/server-visible writes 走 legacy policy。
-- [ ] Phase 4 native AES-GCM。为移动端添加 native AES-GCM support，并保留 noble fallback；移动端全量默认 v2 需等待 native implementation 和真机验证。
+- [ ] Phase 4 native AES-GCM。已添加 Android/iOS native AES-GCM implementation，并保留 noble fallback；移动端全量默认 v2 仍需等待真机 benchmark、iOS/Android native build 验证和低端设备 UX 验证。
 - [ ] Backlog shared-data gates。Cloud Backup、Prime Transfer、Prime Cloud Sync 和 master-password server payloads 暂不主动改造，继续保持 legacy 加密方式；后续只有遇到具体业务需求或单独安排时，才针对该 shared scene 增加 gate 并启用 v2。
 
 ### Phase 2 Implementation Notes
@@ -402,6 +402,34 @@ Biology auth secure storage：
 - Instance-id local strings 保持 legacy。Instance id 是本地高熵 UUID，不是用户可猜测密码；PBKDF2 iteration/v2 rollout 不是有效安全收益。`servicePassword.encryptByInstanceId` 写入时显式传 `format: 'legacy'`。
 - `decodedTx.encodedTxEncrypted` 是 instance-id local string 的一个使用方，仅用于 replace-tx/speed-up/cancel 交易时恢复原始 `encodedTx` 做二次构建，不作为 password-hardening path 迁移。
 - V4->V5 migration-only wrapping 不再投入升级。它是从 V4 app 数据库迁移到 V5 app 数据库的历史逻辑；当前 app line 已是 V6，不再把这部分作为 KDF upgrade scope。
+
+### Phase 4 Implementation Notes
+
+已实现范围：
+
+- `packages/shared/src/appCrypto/modules/aesGcm.ts`
+  - Native 平台优先调用 `react-native-aes-crypto` 的 `aesGcmEncrypt` / `aesGcmDecrypt`。
+  - Native 方法不存在时保留 noble fallback，避免旧 native bundle 或非 native 环境不可用。
+  - Native API 输入输出保持 platform-neutral：`key`、`nonce`、`data`、`aad` 均由 TS 层转为 hex；encrypt 返回 `ciphertext || tag`，decrypt 接收 `ciphertext || tag`。
+- `patches/react-native-aes-crypto+3.0.27.patch`
+  - 扩展 TurboModule spec，新增 `aesGcmEncrypt` / `aesGcmDecrypt`。
+  - Android 使用 `Cipher.getInstance("AES/GCM/NoPadding")` 和 `GCMParameterSpec(128, nonce)`。
+  - iOS 使用 CryptoKit `AES.GCM`，新增 Swift helper，并通过 ObjC++ bridge 调用。
+  - iOS/Android 均绑定 AAD，认证失败会 reject promise。
+
+验证状态：
+
+- 已通过 JS 层 AES-GCM/v2 envelope Jest 测试，确认 noble fallback 行为未回归。
+- 已通过 `yarn tsc:staged` 和 `yarn lint:staged`。
+- `npx patch-package react-native-aes-crypto` 因 Yarn alias + Yarn 4 `--ignore-scripts` 兼容问题无法直接生成 patch；本次从 `.yarn/cache/@onekeyfe-react-native-aes-crypto-npm-3.0.27-*.zip` 原始包和已修改 `node_modules/react-native-aes-crypto` 生成等价 patch。
+- 本机 `swiftc -typecheck` 被 CommandLineTools/SDK 版本不匹配阻塞，尚未完成 iOS native compile verification。
+
+待补验证：
+
+- iOS app native build，确认 `AesCrypto-Swift.h` bridge、CryptoKit framework linking 和 codegen spec 均正常。
+- Android app native build，确认 generated `NativeAesCryptoSpec` 包含新增方法。
+- iOS/Android 真机 vectors，对比 native、noble fallback 和 v2 envelope roundtrip。
+- 低端 Android 与旧 iPhone 上 PBKDF2 + AES-GCM unlock path benchmark。
 
 ### Golden vectors 测试基线意图
 

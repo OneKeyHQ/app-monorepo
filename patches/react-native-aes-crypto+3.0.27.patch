@@ -1,0 +1,294 @@
+diff --git a/node_modules/react-native-aes-crypto/AesCrypto.podspec b/node_modules/react-native-aes-crypto/AesCrypto.podspec
+index 907b4ee..0e79778 100644
+--- a/node_modules/react-native-aes-crypto/AesCrypto.podspec
++++ b/node_modules/react-native-aes-crypto/AesCrypto.podspec
+@@ -18 +18 @@ Pod::Spec.new do |s|
+-  s.frameworks = 'Security'
++  s.frameworks = ['Security', 'CryptoKit']
+diff --git a/node_modules/react-native-aes-crypto/android/src/main/java/com/aescrypto/AesCryptoModule.kt b/node_modules/react-native-aes-crypto/android/src/main/java/com/aescrypto/AesCryptoModule.kt
+index f92fa6b..7cad493 100644
+--- a/node_modules/react-native-aes-crypto/android/src/main/java/com/aescrypto/AesCryptoModule.kt
++++ b/node_modules/react-native-aes-crypto/android/src/main/java/com/aescrypto/AesCryptoModule.kt
+@@ -11,0 +12 @@ import javax.crypto.Mac
++import javax.crypto.spec.GCMParameterSpec
+@@ -33,0 +35,2 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
++        private const val CIPHER_GCM_ALGORITHM = "AES/GCM/NoPadding"
++        private const val GCM_AUTH_TAG_LENGTH_BITS = 128
+@@ -74,0 +78,18 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
++    override fun aesGcmEncrypt(data: String, key: String, nonce: String, aad: String, promise: Promise) {
++        try {
++            val result = aesGcmEncryptImpl(data, key, nonce, aad)
++            promise.resolve(result)
++        } catch (e: Exception) {
++            promise.reject("-1", e.message)
++        }
++    }
++
++    override fun aesGcmDecrypt(ciphertextWithTag: String, key: String, nonce: String, aad: String, promise: Promise) {
++        try {
++            val result = aesGcmDecryptImpl(ciphertextWithTag, key, nonce, aad)
++            promise.resolve(result)
++        } catch (e: Exception) {
++            promise.reject("-1", e.message)
++        }
++    }
++
+@@ -199,0 +221,26 @@ class AesCryptoModule(reactContext: ReactApplicationContext) :
++
++    private fun aesGcmEncryptImpl(text: String, hexKey: String, hexNonce: String, aad: String?): String {
++        if (text.isEmpty()) return ""
++
++        val secretKey = SecretKeySpec(Hex.decode(hexKey), KEY_ALGORITHM)
++        val cipher = Cipher.getInstance(CIPHER_GCM_ALGORITHM)
++        val gcmSpec = GCMParameterSpec(GCM_AUTH_TAG_LENGTH_BITS, Hex.decode(hexNonce))
++        cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec)
++        if (!aad.isNullOrEmpty()) {
++            cipher.updateAAD(Hex.decode(aad))
++        }
++        return bytesToHex(cipher.doFinal(Hex.decode(text)))
++    }
++
++    private fun aesGcmDecryptImpl(ciphertextWithTag: String, hexKey: String, hexNonce: String, aad: String?): String {
++        if (ciphertextWithTag.isEmpty()) return ""
++
++        val secretKey = SecretKeySpec(Hex.decode(hexKey), KEY_ALGORITHM)
++        val cipher = Cipher.getInstance(CIPHER_GCM_ALGORITHM)
++        val gcmSpec = GCMParameterSpec(GCM_AUTH_TAG_LENGTH_BITS, Hex.decode(hexNonce))
++        cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
++        if (!aad.isNullOrEmpty()) {
++            cipher.updateAAD(Hex.decode(aad))
++        }
++        return bytesToHex(cipher.doFinal(Hex.decode(ciphertextWithTag)))
++    }
+diff --git a/node_modules/react-native-aes-crypto/ios/AesCrypto.h b/node_modules/react-native-aes-crypto/ios/AesCrypto.h
+index 138f378..326aeae 100644
+--- a/node_modules/react-native-aes-crypto/ios/AesCrypto.h
++++ b/node_modules/react-native-aes-crypto/ios/AesCrypto.h
+@@ -18,0 +19,14 @@
++- (void)aesGcmEncrypt:(NSString *)data
++                  key:(NSString *)key
++                nonce:(NSString *)nonce
++                  aad:(NSString *)aad
++              resolve:(RCTPromiseResolveBlock)resolve
++               reject:(RCTPromiseRejectBlock)reject;
++
++- (void)aesGcmDecrypt:(NSString *)ciphertextWithTag
++                  key:(NSString *)key
++                nonce:(NSString *)nonce
++                  aad:(NSString *)aad
++              resolve:(RCTPromiseResolveBlock)resolve
++               reject:(RCTPromiseRejectBlock)reject;
++
+diff --git a/node_modules/react-native-aes-crypto/ios/AesCrypto.mm b/node_modules/react-native-aes-crypto/ios/AesCrypto.mm
+index db41527..1d6d22e 100644
+--- a/node_modules/react-native-aes-crypto/ios/AesCrypto.mm
++++ b/node_modules/react-native-aes-crypto/ios/AesCrypto.mm
+@@ -1,0 +2 @@
++#import "AesCrypto-Swift.h"
+@@ -206,0 +208,48 @@ - (void)decrypt:(NSString *)base64
++// MARK: - aesGcmEncrypt
++
++- (void)aesGcmEncrypt:(NSString *)data
++                  key:(NSString *)key
++                nonce:(NSString *)nonce
++                  aad:(NSString *)aad
++              resolve:(RCTPromiseResolveBlock)resolve
++               reject:(RCTPromiseRejectBlock)reject
++{
++    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
++        @try {
++            NSError *error = nil;
++            NSString *result = [AesCryptoGcm encryptWithDataHex:data keyHex:key nonceHex:nonce aadHex:aad error:&error];
++            if (result == nil) {
++                reject(@"aes_gcm_encrypt_fail", error.localizedDescription ?: @"AES-GCM encrypt error", error);
++            } else {
++                resolve(result);
++            }
++        } @catch (NSException *exception) {
++            reject(@"aes_gcm_encrypt_fail", exception.reason, nil);
++        }
++    });
++}
++
++// MARK: - aesGcmDecrypt
++
++- (void)aesGcmDecrypt:(NSString *)ciphertextWithTag
++                  key:(NSString *)key
++                nonce:(NSString *)nonce
++                  aad:(NSString *)aad
++              resolve:(RCTPromiseResolveBlock)resolve
++               reject:(RCTPromiseRejectBlock)reject
++{
++    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
++        @try {
++            NSError *error = nil;
++            NSString *result = [AesCryptoGcm decryptWithCiphertextWithTagHex:ciphertextWithTag keyHex:key nonceHex:nonce aadHex:aad error:&error];
++            if (result == nil) {
++                reject(@"aes_gcm_decrypt_fail", error.localizedDescription ?: @"AES-GCM decrypt failed", error);
++            } else {
++                resolve(result);
++            }
++        } @catch (NSException *exception) {
++            reject(@"aes_gcm_decrypt_fail", exception.reason, nil);
++        }
++    });
++}
++
+diff --git a/node_modules/react-native-aes-crypto/ios/AesCryptoGcm.swift b/node_modules/react-native-aes-crypto/ios/AesCryptoGcm.swift
+new file mode 100644
+index 0000000..814fb19
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/ios/AesCryptoGcm.swift
+@@ -0,0 +1,85 @@
++import CryptoKit
++import Foundation
++
++@objc(AesCryptoGcm)
++public final class AesCryptoGcm: NSObject {
++  @objc(encryptWithDataHex:keyHex:nonceHex:aadHex:error:)
++  public static func encrypt(
++    dataHex: String,
++    keyHex: String,
++    nonceHex: String,
++    aadHex: String,
++    error: NSErrorPointer
++  ) -> String? {
++    do {
++      let plaintext = try dataFromHex(dataHex)
++      let key = SymmetricKey(data: try dataFromHex(keyHex))
++      let nonce = try AES.GCM.Nonce(data: dataFromHex(nonceHex))
++      let aad = try dataFromHex(aadHex)
++      let sealedBox = try AES.GCM.seal(plaintext, using: key, nonce: nonce, authenticating: aad)
++      var ciphertextWithTag = Data(sealedBox.ciphertext)
++      ciphertextWithTag.append(sealedBox.tag)
++      return hexFromData(ciphertextWithTag)
++    } catch let caughtError as NSError {
++      error?.pointee = caughtError
++      return nil
++    }
++  }
++
++  @objc(decryptWithCiphertextWithTagHex:keyHex:nonceHex:aadHex:error:)
++  public static func decrypt(
++    ciphertextWithTagHex: String,
++    keyHex: String,
++    nonceHex: String,
++    aadHex: String,
++    error: NSErrorPointer
++  ) -> String? {
++    do {
++      let encrypted = try dataFromHex(ciphertextWithTagHex)
++      if encrypted.count < 16 {
++        throw AesCryptoGcmError.invalidCiphertext
++      }
++      let ciphertext = encrypted.prefix(encrypted.count - 16)
++      let tag = encrypted.suffix(16)
++      let key = SymmetricKey(data: try dataFromHex(keyHex))
++      let nonce = try AES.GCM.Nonce(data: dataFromHex(nonceHex))
++      let aad = try dataFromHex(aadHex)
++      let sealedBox = try AES.GCM.SealedBox(nonce: nonce, ciphertext: ciphertext, tag: tag)
++      let plaintext = try AES.GCM.open(sealedBox, using: key, authenticating: aad)
++      return hexFromData(plaintext)
++    } catch let caughtError as NSError {
++      error?.pointee = caughtError
++      return nil
++    }
++  }
++
++  private static func dataFromHex(_ hex: String) throws -> Data {
++    if hex.isEmpty {
++      return Data()
++    }
++    if hex.count % 2 != 0 {
++      throw AesCryptoGcmError.invalidHex
++    }
++
++    var data = Data(capacity: hex.count / 2)
++    var index = hex.startIndex
++    while index < hex.endIndex {
++      let nextIndex = hex.index(index, offsetBy: 2)
++      guard let byte = UInt8(hex[index..<nextIndex], radix: 16) else {
++        throw AesCryptoGcmError.invalidHex
++      }
++      data.append(byte)
++      index = nextIndex
++    }
++    return data
++  }
++
++  private static func hexFromData(_ data: Data) -> String {
++    data.map { String(format: "%02x", $0) }.joined()
++  }
++}
++
++private enum AesCryptoGcmError: Error {
++  case invalidHex
++  case invalidCiphertext
++}
+diff --git a/node_modules/react-native-aes-crypto/lib/module/NativeAesCrypto.js b/node_modules/react-native-aes-crypto/lib/module/NativeAesCrypto.js
+index e15db6e..cd5b4e5 100644
+--- a/node_modules/react-native-aes-crypto/lib/module/NativeAesCrypto.js
++++ b/node_modules/react-native-aes-crypto/lib/module/NativeAesCrypto.js
+@@ -5 +5 @@ export default TurboModuleRegistry.getEnforcing('AesCrypto');
+-//# sourceMappingURL=NativeAesCrypto.js.map
+\ No newline at end of file
++//# sourceMappingURL=NativeAesCrypto.js.map
+diff --git a/node_modules/react-native-aes-crypto/lib/module/index.js b/node_modules/react-native-aes-crypto/lib/module/index.js
+index 925cbc4..2d2cb76 100644
+--- a/node_modules/react-native-aes-crypto/lib/module/index.js
++++ b/node_modules/react-native-aes-crypto/lib/module/index.js
+@@ -5,0 +6,2 @@ export const decrypt = NativeAesCrypto.decrypt.bind(NativeAesCrypto);
++export const aesGcmEncrypt = NativeAesCrypto.aesGcmEncrypt.bind(NativeAesCrypto);
++export const aesGcmDecrypt = NativeAesCrypto.aesGcmDecrypt.bind(NativeAesCrypto);
+@@ -15 +17 @@ export default NativeAesCrypto;
+-//# sourceMappingURL=index.js.map
+\ No newline at end of file
++//# sourceMappingURL=index.js.map
+diff --git a/node_modules/react-native-aes-crypto/lib/typescript/src/NativeAesCrypto.d.ts b/node_modules/react-native-aes-crypto/lib/typescript/src/NativeAesCrypto.d.ts
+index 9092067..c91a65b 100644
+--- a/node_modules/react-native-aes-crypto/lib/typescript/src/NativeAesCrypto.d.ts
++++ b/node_modules/react-native-aes-crypto/lib/typescript/src/NativeAesCrypto.d.ts
+@@ -4,0 +5,2 @@ export interface Spec extends TurboModule {
++    aesGcmEncrypt(data: string, key: string, nonce: string, aad: string): Promise<string>;
++    aesGcmDecrypt(ciphertextWithTag: string, key: string, nonce: string, aad: string): Promise<string>;
+@@ -16 +18 @@ export default _default;
+-//# sourceMappingURL=NativeAesCrypto.d.ts.map
+\ No newline at end of file
++//# sourceMappingURL=NativeAesCrypto.d.ts.map
+diff --git a/node_modules/react-native-aes-crypto/lib/typescript/src/index.d.ts b/node_modules/react-native-aes-crypto/lib/typescript/src/index.d.ts
+index 0cfec6a..37ebe96 100644
+--- a/node_modules/react-native-aes-crypto/lib/typescript/src/index.d.ts
++++ b/node_modules/react-native-aes-crypto/lib/typescript/src/index.d.ts
+@@ -3,0 +4,2 @@ export declare const decrypt: (base64: string, key: string, iv: string, algorith
++export declare const aesGcmEncrypt: (data: string, key: string, nonce: string, aad: string) => Promise<string>;
++export declare const aesGcmDecrypt: (ciphertextWithTag: string, key: string, nonce: string, aad: string) => Promise<string>;
+@@ -14 +16 @@ export type { Spec as AesCryptoSpec } from './NativeAesCrypto';
+-//# sourceMappingURL=index.d.ts.map
+\ No newline at end of file
++//# sourceMappingURL=index.d.ts.map
+diff --git a/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts b/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts
+index 2746587..63998e1 100644
+--- a/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts
++++ b/node_modules/react-native-aes-crypto/src/NativeAesCrypto.ts
+@@ -16,0 +17,12 @@ export interface Spec extends TurboModule {
++  aesGcmEncrypt(
++    data: string,
++    key: string,
++    nonce: string,
++    aad: string,
++  ): Promise<string>;
++  aesGcmDecrypt(
++    ciphertextWithTag: string,
++    key: string,
++    nonce: string,
++    aad: string,
++  ): Promise<string>;
+diff --git a/node_modules/react-native-aes-crypto/src/index.tsx b/node_modules/react-native-aes-crypto/src/index.tsx
+index 9c27e53..a3136f0 100644
+--- a/node_modules/react-native-aes-crypto/src/index.tsx
++++ b/node_modules/react-native-aes-crypto/src/index.tsx
+@@ -4,0 +5,4 @@ export const decrypt = NativeAesCrypto.decrypt.bind(NativeAesCrypto);
++export const aesGcmEncrypt =
++  NativeAesCrypto.aesGcmEncrypt.bind(NativeAesCrypto);
++export const aesGcmDecrypt =
++  NativeAesCrypto.aesGcmDecrypt.bind(NativeAesCrypto);

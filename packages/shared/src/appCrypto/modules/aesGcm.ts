@@ -1,6 +1,10 @@
 import { gcm as aesGcmByNobleFn } from '@noble/ciphers/aes';
 
+import RN_AES from '@onekeyhq/shared/src/modules3rdParty/react-native-aes-crypto';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { OneKeyLocalError } from '../../errors';
+import bufferUtils from '../../utils/bufferUtils';
 
 type IAesGcmInvokeParams = {
   nonce: Buffer;
@@ -8,6 +12,27 @@ type IAesGcmInvokeParams = {
   data: Buffer;
   aad?: Buffer;
 };
+
+type IReactNativeAesGcmMethods = {
+  aesGcmEncrypt?: (
+    data: string,
+    key: string,
+    nonce: string,
+    aad: string,
+  ) => Promise<string>;
+  aesGcmDecrypt?: (
+    ciphertextWithTag: string,
+    key: string,
+    nonce: string,
+    aad: string,
+  ) => Promise<string>;
+};
+
+const rnAesWithOptionalGcm = RN_AES as Omit<
+  typeof RN_AES,
+  'aesGcmEncrypt' | 'aesGcmDecrypt'
+> &
+  IReactNativeAesGcmMethods;
 
 function _aesGcmInvokeCheck({ nonce, key, data }: IAesGcmInvokeParams) {
   if (!nonce || nonce.length <= 0) {
@@ -47,12 +72,55 @@ function aesGcmDecryptByNoble({
   return Buffer.from(out);
 }
 
+async function aesGcmEncryptByRNAes({
+  nonce,
+  key,
+  data,
+  aad,
+}: IAesGcmInvokeParams): Promise<Buffer> {
+  _aesGcmInvokeCheck({ nonce, key, data });
+
+  const encrypted = await rnAesWithOptionalGcm.aesGcmEncrypt?.(
+    bufferUtils.bytesToHex(data),
+    bufferUtils.bytesToHex(key),
+    bufferUtils.bytesToHex(nonce),
+    aad ? bufferUtils.bytesToHex(aad) : '',
+  );
+  if (!encrypted) {
+    throw new OneKeyLocalError('Native AES-GCM encrypt is not available');
+  }
+  return Buffer.from(encrypted, 'hex');
+}
+
+async function aesGcmDecryptByRNAes({
+  nonce,
+  key,
+  data,
+  aad,
+}: IAesGcmInvokeParams): Promise<Buffer> {
+  _aesGcmInvokeCheck({ nonce, key, data });
+
+  const decrypted = await rnAesWithOptionalGcm.aesGcmDecrypt?.(
+    bufferUtils.bytesToHex(data),
+    bufferUtils.bytesToHex(key),
+    bufferUtils.bytesToHex(nonce),
+    aad ? bufferUtils.bytesToHex(aad) : '',
+  );
+  if (!decrypted) {
+    throw new OneKeyLocalError('Native AES-GCM decrypt is not available');
+  }
+  return Buffer.from(decrypted, 'hex');
+}
+
 async function aesGcmEncrypt({
   nonce,
   key,
   data,
   aad,
 }: IAesGcmInvokeParams): Promise<Buffer> {
+  if (platformEnv.isNative && rnAesWithOptionalGcm.aesGcmEncrypt) {
+    return aesGcmEncryptByRNAes({ nonce, key, data, aad });
+  }
   return aesGcmEncryptByNoble({ nonce, key, data, aad });
 }
 
@@ -62,12 +130,17 @@ async function aesGcmDecrypt({
   data,
   aad,
 }: IAesGcmInvokeParams): Promise<Buffer> {
+  if (platformEnv.isNative && rnAesWithOptionalGcm.aesGcmDecrypt) {
+    return aesGcmDecryptByRNAes({ nonce, key, data, aad });
+  }
   return aesGcmDecryptByNoble({ nonce, key, data, aad });
 }
 
 export {
   aesGcmDecrypt,
+  aesGcmDecryptByRNAes,
   aesGcmEncrypt,
+  aesGcmEncryptByRNAes,
   //
   aesGcmDecryptByNoble,
   aesGcmEncryptByNoble,
