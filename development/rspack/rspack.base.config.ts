@@ -65,10 +65,6 @@ const baseResolve = ({
   symlinks: true,
   alias: {
     'react-native$': 'react-native-web',
-    'react-native-restart': path.join(
-      __dirname,
-      '../module-resolver/react-native-restart-mock',
-    ),
     'react-native-fast-image': path.join(
       __dirname,
       '../module-resolver/react-native-fast-image-mock',

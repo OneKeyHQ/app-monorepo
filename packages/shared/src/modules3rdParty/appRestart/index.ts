@@ -1,4 +1,5 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 
 import platformEnv from '../../platformEnv';
 
@@ -21,6 +22,16 @@ export const appRestart: IAppRestart = async (opts: IAppRestartOptions) => {
     mode: opts.mode,
     reason: opts.reason,
   });
+
+  // Reset the boot-fail counter ahead of the planned restart so the reload
+  // is not misinterpreted as a crash-loop by BootRecovery (desktop bridges
+  // through globalThis.desktopApi; web/ext are no-ops). Best effort —
+  // recovery must not block the restart.
+  try {
+    BootRecovery.markBootSuccess();
+  } catch {
+    /* ignore */
+  }
 
   if (platformEnv.isDesktop) {
     await globalThis.desktopApiProxy?.system?.reload?.();

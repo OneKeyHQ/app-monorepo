@@ -5,7 +5,6 @@ import { useThrottledCallback } from 'use-debounce';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 
 import platformEnv from '../../platformEnv';
 import { appRestart } from '../appRestart';
@@ -274,18 +273,12 @@ export const BundleUpdate: IBundleUpdate = {
       bundleVersion: toNativeString(params?.bundleVersion),
       signature: toNativeString(params?.signature),
     });
-    // Reset boot_fail_count before planned restart so that the OTA bundle
-    // switch is not misinterpreted as consecutive crash-loops by BootRecovery.
-    try {
-      BootRecovery.markBootSuccess();
-    } catch {
-      /* Silently fail — recovery must not block restart */
-    }
     defaultLogger.app.appUpdate.restartRNApp();
     // mode=All — OTA install rewrote bundle on disk; both main and bg
     // runtimes need to come up against the new bundle so moduleId tables
     // stay consistent. The setTimeout keeps the existing 2.5s grace
     // window (MMKV / DB fsync, UI affordance) before reload triggers.
+    // BootRecovery.markBootSuccess() is invoked inside appRestart.
     setTimeout(() => {
       void appRestart({
         mode: EAppRestartMode.All,
@@ -299,14 +292,10 @@ export const BundleUpdate: IBundleUpdate = {
     await ReactNativeBundleUpdate.resetToBuiltInBundle();
   },
   restart: () => {
-    try {
-      BootRecovery.markBootSuccess();
-    } catch {
-      /* Silently fail — recovery must not block restart */
-    }
     // Generic OTA-driven restart (retry path, dialog-confirmed restart).
     // Treated as all-mode because callers expect the same semantics as a
-    // freshly-installed bundle.
+    // freshly-installed bundle. BootRecovery.markBootSuccess() runs inside
+    // appRestart, so no explicit call is needed here.
     setTimeout(() => {
       void appRestart({ mode: EAppRestartMode.All, reason: 'ota.restart' });
     }, 2500);
@@ -339,13 +328,9 @@ export const BundleUpdate: IBundleUpdate = {
   switchBundle: async (params) => {
     await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
     if (params.appVersion && params.bundleVersion) {
-      try {
-        BootRecovery.markBootSuccess();
-      } catch {
-        /* Silently fail — recovery must not block restart */
-      }
       // Switching bundles changes what's on disk for both main and bg;
-      // mode=All to avoid moduleId drift after the swap.
+      // mode=All to avoid moduleId drift after the swap. BootRecovery is
+      // marked inside appRestart, so no explicit call is needed here.
       setTimeout(() => {
         void appRestart({
           mode: EAppRestartMode.All,
