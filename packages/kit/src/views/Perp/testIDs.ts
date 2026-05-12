@@ -107,4 +107,25 @@ export const PerpTestIDs = {
   // -- Android market footer (kept for backwards compat) --
   PageFooterCancel: 'page-footer-cancel',
   PageFooterConfirm: 'page-footer-confirm',
+
+  // -- Empty state CTAs (positions / holdings panels) --
+  PositionsEmptyDepositButton: 'perp-positions-empty-deposit-button',
+  PositionsEmptyGuideButton: 'perp-positions-empty-guide-button',
+  HoldingsEmptyDepositButton: 'perp-holdings-empty-deposit-button',
+  HoldingsEmptyGuideButton: 'perp-holdings-empty-guide-button',
+
+  // -- Balance row token contract actions --
+  BalanceRowCopyContractButton: 'perp-balance-row-copy-contract-button',
+  BalanceRowOpenContractButton: 'perp-balance-row-open-contract-button',
+
+  // -- Market detail header / dialog --
+  MarketDetailLinkButton: (label: string) =>
+    `perp-market-detail-link-${label}-button`,
+  MarketDetailInfoButton: 'perp-market-detail-info-button',
+  MarketIntroLinkButton: (label: string) =>
+    `perp-market-intro-link-${label}-button`,
+
+  // -- Desktop ticker bar contract actions --
+  TickerBarCopyContractButton: 'perp-ticker-bar-copy-contract-button',
+  TickerBarOpenContractButton: 'perp-ticker-bar-open-contract-button',
 } as const;

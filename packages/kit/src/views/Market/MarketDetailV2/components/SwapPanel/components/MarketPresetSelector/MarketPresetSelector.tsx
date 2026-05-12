@@ -23,6 +23,7 @@ import type { IIconProps } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -366,6 +367,7 @@ function MarketPresetDialogActions({
     return (
       <XStack p="$5" pt="$0">
         <Button
+          testID={MarketTestIDs.presetSelectorOkBtn}
           flex={1}
           variant="primary"
           size="medium"
@@ -384,10 +386,17 @@ function MarketPresetDialogActions({
 
   return (
     <XStack p="$5" pt="$0" gap="$3">
-      <Button flex={1} variant="secondary" size="medium" onPress={onReset}>
+      <Button
+        testID={MarketTestIDs.presetSelectorResetBtn}
+        flex={1}
+        variant="secondary"
+        size="medium"
+        onPress={onReset}
+      >
         {intl.formatMessage({ id: ETranslations.global_reset })}
       </Button>
       <Button
+        testID={MarketTestIDs.presetSelectorConfirmBtn}
         flex={1}
         variant="primary"
         size="medium"
@@ -977,6 +986,9 @@ function MarketPresetSettingsDialog({
                         {swapSlippageCustomDefaultList.map((item, index) => (
                           <Button
                             key={item}
+                            testID={MarketTestIDs.presetSelectorSlippagePresetBtn(
+                              item,
+                            )}
                             variant="secondary"
                             size="medium"
                             borderTopRightRadius={index !== 2 ? 0 : '$2'}
@@ -1093,6 +1105,9 @@ function MarketPresetSettingsDialog({
                   EMarketPresetPriorityFeeType.CUSTOM ? (
                   <>
                     <Input
+                      testID={
+                        MarketTestIDs.presetSelectorPriorityFeeCustomInput
+                      }
                       size="medium"
                       error={showCurrentPriorityFeeError}
                       value={currentSettings.priorityFee.customValue ?? ''}

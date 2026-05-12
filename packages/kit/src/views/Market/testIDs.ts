@@ -26,4 +26,20 @@ export const MarketTestIDs = {
 
   // Chart time range
   chartTimeRange: (range: string) => `market-chart-range-${range}`,
+
+  // Market preset selector (slippage/priority fee for swap)
+  presetSelectorOkBtn: 'market-preset-selector-ok-btn',
+  presetSelectorResetBtn: 'market-preset-selector-reset-btn',
+  presetSelectorConfirmBtn: 'market-preset-selector-confirm-btn',
+  presetSelectorSlippagePresetBtn: (value: string | number) =>
+    `market-preset-selector-slippage-preset-${value}-btn`,
+  presetSelectorPriorityFeeCustomInput:
+    'market-preset-selector-priority-fee-custom-input',
+
+  // Token liquidity pools row
+  liquidityPoolCopyAddressBtn: 'market-liquidity-pool-copy-address-btn',
+  liquidityPoolOpenAddressBtn: 'market-liquidity-pool-open-address-btn',
+
+  // Token selector row
+  tokenSelectorRowStarBtn: 'market-token-selector-row-star-btn',
 } as const;

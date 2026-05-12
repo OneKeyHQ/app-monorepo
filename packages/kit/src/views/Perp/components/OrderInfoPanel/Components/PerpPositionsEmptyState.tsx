@@ -14,6 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useShowGuide } from '../../../hooks/useShowGuide';
+import { PerpTestIDs } from '../../../testIDs';
 import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
 
 function ActionButton({
@@ -23,6 +24,7 @@ function ActionButton({
   height,
   onPress,
   disabled,
+  testID,
 }: {
   label: string;
   icon: 'DownloadOutline' | 'BookOpenOutline';
@@ -30,9 +32,11 @@ function ActionButton({
   height: number;
   onPress?: () => void;
   disabled?: boolean;
+  testID?: string;
 }) {
   return (
     <Button
+      testID={testID}
       width={width}
       borderRadius="$full"
       size="small"
@@ -67,6 +71,7 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
   });
   const guideButton = (
     <ActionButton
+      testID={PerpTestIDs.PositionsEmptyGuideButton}
       width={buttonWidth}
       height={buttonHeight}
       icon="BookOpenOutline"
@@ -109,6 +114,7 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
           justifyContent="center"
         >
           <ActionButton
+            testID={PerpTestIDs.PositionsEmptyDepositButton}
             width={buttonWidth}
             icon="DownloadOutline"
             height={buttonHeight}
