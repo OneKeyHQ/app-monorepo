@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { ISwapProSpeedConfig } from '@onekeyhq/shared/types/swap/types';
 
 import {
   EMarketPresetKey,
@@ -14,6 +15,8 @@ import {
   getMarketPresetCustomizedMap,
   getMarketPresetItem,
   getMarketPresetNetworkFeeLevel,
+  getMarketPresetPriorityFeeCustomPlaceholder,
+  getMarketPresetPriorityFeeCustomRange,
   getMarketPresetPriorityFeeOverride,
   getMarketPresetPriorityFeeUnit,
   getMarketPresetSavedDirectionSettings,
@@ -22,12 +25,23 @@ import {
   resolveMarketPresetDirectionSettings,
 } from './marketPresetSettings';
 
+type IMarketPresetConfigResult = {
+  config?: IMarketPresetConfig;
+  networkId?: string;
+  speedConfig?: ISwapProSpeedConfig;
+  speedConfigReady?: boolean;
+};
+
 export type IMarketPresetSettingsState = {
   config?: IMarketPresetConfig;
   enabled: boolean;
   isLoading: boolean;
   presets: IMarketPresetItem[];
   presetCustomizedMap: Partial<Record<EMarketPresetKey, boolean>>;
+  priorityFeeCustomPlaceholder: string;
+  priorityFeeCustomRange: ReturnType<
+    typeof getMarketPresetPriorityFeeCustomRange
+  >;
   priorityFeeUnit: string;
   savedSettings?: IMarketPresetSavedSettings;
   selectedPresetKey: EMarketPresetKey;
@@ -77,25 +91,74 @@ export function useMarketPresetSettings({
   networkId,
   defaultSlippage = 0.5,
   tradeSide = EMarketPresetTradeSide.BUY,
+  speedConfig,
+  speedConfigReady,
 }: {
   networkId?: string;
   defaultSlippage?: number;
   tradeSide?: EMarketPresetTradeSide;
+  speedConfig?: ISwapProSpeedConfig;
+  speedConfigReady?: boolean;
 }): IMarketPresetSettingsState {
   const selectedPresetRequestIdRef = useRef(0);
-  const { result: config, isLoading: configLoading } = usePromiseResult(
-    async () => {
-      if (!networkId) {
-        return undefined;
-      }
+  const { result: configResult, isLoading: configLoading } =
+    usePromiseResult<IMarketPresetConfigResult>(
+      async () => {
+        if (!networkId) {
+          return {
+            config: undefined,
+            networkId,
+            speedConfig,
+            speedConfigReady,
+          };
+        }
 
-      return fetchMarketPresetConfig({ networkId });
-    },
-    [networkId],
-    {
-      watchLoading: true,
-    },
-  );
+        if (speedConfigReady === false) {
+          return {
+            config: undefined,
+            networkId,
+            speedConfig,
+            speedConfigReady,
+          };
+        }
+
+        if (speedConfig) {
+          return {
+            config: await fetchMarketPresetConfig({ networkId, speedConfig }),
+            networkId,
+            speedConfig,
+            speedConfigReady,
+          };
+        }
+
+        const configRes = await backgroundApiProxy.serviceSwap
+          .fetchSpeedSwapConfig({
+            networkId,
+          })
+          .catch(() => undefined);
+        return {
+          config: await fetchMarketPresetConfig({
+            networkId,
+            speedConfig: configRes?.speedConfig,
+          }),
+          networkId,
+          speedConfig,
+          speedConfigReady,
+        };
+      },
+      [networkId, speedConfig, speedConfigReady],
+      {
+        watchLoading: true,
+      },
+    );
+  const configResultReady =
+    !!configResult &&
+    configResult.networkId === networkId &&
+    configResult.speedConfig === speedConfig &&
+    configResult.speedConfigReady === speedConfigReady;
+  const config = configResultReady ? configResult?.config : undefined;
+  const configScopeLoading =
+    !!networkId && speedConfigReady !== false && !configResultReady;
 
   const {
     result: rawSavedSettings,
@@ -296,9 +359,16 @@ export function useMarketPresetSettings({
   return {
     config,
     enabled: !!config?.enabled,
-    isLoading: !!configLoading || !!savedSettingsLoading,
+    isLoading:
+      speedConfigReady === false ||
+      configScopeLoading ||
+      !!configLoading ||
+      !!savedSettingsLoading,
     presets: config?.presets ?? [],
     presetCustomizedMap,
+    priorityFeeCustomPlaceholder:
+      getMarketPresetPriorityFeeCustomPlaceholder(config),
+    priorityFeeCustomRange: getMarketPresetPriorityFeeCustomRange(config),
     priorityFeeUnit: getMarketPresetPriorityFeeUnit(config),
     savedSettings,
     selectedPresetKey,
@@ -306,9 +376,11 @@ export function useMarketPresetSettings({
     selectedDirectionSettings,
     selectedNetworkFeeLevel: getMarketPresetNetworkFeeLevel(
       selectedDirectionSettings,
+      config,
     ),
     selectedPriorityFeeOverride: getMarketPresetPriorityFeeOverride(
       selectedDirectionSettings,
+      config,
     ),
     selectedSlippageValue: getMarketPresetSlippageValue({
       settings: selectedDirectionSettings,

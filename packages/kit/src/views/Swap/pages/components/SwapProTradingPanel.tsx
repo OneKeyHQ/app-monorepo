@@ -114,6 +114,9 @@ const SwapProTradingPanel = ({
     swapProTradeType === ESwapProTradeType.MARKET &&
     (!marketPresetSettings ||
       (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
+  const isMarketPresetActionDisabled =
+    swapProTradeType === ESwapProTradeType.MARKET &&
+    !!marketPresetSettings?.isLoading;
 
   useSwapProActionsQuote();
 
@@ -217,6 +220,7 @@ const SwapProTradingPanel = ({
         balanceLoading={balanceLoading}
         supportSpeedSwap={supportSpeedSwap}
         onlySupportCrossChain={onlySupportCrossChain}
+        isActionDisabled={isMarketPresetActionDisabled}
       />
     </YStack>
   );

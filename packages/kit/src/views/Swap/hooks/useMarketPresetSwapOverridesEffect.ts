@@ -17,6 +17,7 @@ import {
   ESwapProTradeType,
   ESwapTabSwitchType,
   type IMarketPresetTokenContext,
+  type ISwapProSpeedConfig,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { EMarketPresetTradeSide } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
@@ -25,8 +26,12 @@ import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel
 
 export function useMarketPresetSwapOverridesEffect({
   marketPresetToken,
+  speedConfig,
+  speedConfigReady,
 }: {
   marketPresetToken?: IMarketPresetTokenContext;
+  speedConfig?: ISwapProSpeedConfig;
+  speedConfigReady?: boolean;
 }) {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -57,6 +62,11 @@ export function useMarketPresetSwapOverridesEffect({
     };
 
     if (!marketPresetToken?.networkId) {
+      resetToDefaults();
+      return;
+    }
+
+    if (speedConfigReady === false) {
       resetToDefaults();
       return;
     }
@@ -96,10 +106,13 @@ export function useMarketPresetSwapOverridesEffect({
       return;
     }
 
+    resetToDefaults();
     void (async () => {
       const overrides = await loadMarketPresetSwapOverrides({
         networkId: marketPresetToken.networkId,
         tradeSide,
+        speedConfig,
+        speedConfigReady,
       });
       if (requestIdRef.current !== requestId) {
         return;
@@ -128,6 +141,8 @@ export function useMarketPresetSwapOverridesEffect({
     swapProSelectToken,
     swapProDirection,
     swapProTradeType,
+    speedConfig,
+    speedConfigReady,
     setSwapStepNetFeeLevel,
     setSwapSlippageOverride,
   ]);
