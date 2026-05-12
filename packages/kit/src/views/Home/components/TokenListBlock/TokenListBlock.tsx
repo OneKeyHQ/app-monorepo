@@ -185,6 +185,8 @@ function TokenListBlock({
       if (value === showLpTokensOnly) {
         return;
       }
+      latestTokenSelectorFilterModeRef.current =
+        buildTokenSelectorFilterMode(value);
       setShowLpTokensOnly(value);
     },
     [showLpTokensOnly],
@@ -414,6 +416,12 @@ function TokenListBlock({
             }
           });
 
+          if (
+            latestTokenSelectorFilterModeRef.current !== tokenSelectorFilterMode
+          ) {
+            return;
+          }
+
           if (syncTokenFilterToOverview) {
             updateAccountOverviewState({
               isRefreshing: false,
@@ -443,6 +451,12 @@ function TokenListBlock({
           accountWorth = accountWorth
             .plus(r.tokens.fiatValue ?? '0')
             .plus(r.smallBalanceTokens.fiatValue ?? '0');
+
+          if (
+            latestTokenSelectorFilterModeRef.current !== tokenSelectorFilterMode
+          ) {
+            return;
+          }
 
           if (syncTokenFilterToOverview) {
             updateAccountOverviewState({
@@ -560,6 +574,7 @@ function TokenListBlock({
       updateTokenListState,
       setIsHeaderRefreshing,
       tokenSelectorFilterParams,
+      tokenSelectorFilterMode,
       showLpTokensOnly,
       syncTokenFilterToOverview,
     ],
@@ -675,6 +690,13 @@ function TokenListBlock({
           networkId,
         }),
       ]);
+
+      if (
+        latestTokenSelectorFilterModeRef.current !== tokenSelectorFilterMode
+      ) {
+        isAllNetworkManualRefresh.current = false;
+        return r;
+      }
 
       if (aggregateTokenConfigMapRawData) {
         r.tokens.data = r.tokens.data
@@ -1141,6 +1163,12 @@ function TokenListBlock({
       accountId: string;
       networkId: string;
     }) => {
+      if (
+        latestTokenSelectorFilterModeRef.current !== tokenSelectorFilterMode
+      ) {
+        return;
+      }
+
       perfTokenListView.markStart('handleAllNetworkCacheData');
 
       aggregateTokenRawData.current =
@@ -1350,6 +1378,7 @@ function TokenListBlock({
       refreshTokenListMap,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
+      tokenSelectorFilterMode,
       updateAccountOverviewState,
       updateAccountWorth,
       updateTokenListState,
@@ -1556,6 +1585,13 @@ function TokenListBlock({
             .plus(r.tokens.fiatValue ?? '0')
             .plus(r.smallBalanceTokens.fiatValue ?? '0');
         }
+      }
+
+      if (
+        latestTokenSelectorFilterModeRef.current !==
+        resultTokenSelectorFilterMode
+      ) {
+        return;
       }
 
       if (shouldSyncTokenFilterToOverview) {
@@ -1979,6 +2015,11 @@ function TokenListBlock({
       // token cache — drop the result so we don't overwrite the new owner's
       // freshly hydrated atoms with this stale response.
       if (cancelled) return;
+      if (
+        latestTokenSelectorFilterModeRef.current !== tokenSelectorFilterMode
+      ) {
+        return;
+      }
 
       if (
         isEmpty(tokenList) &&
@@ -2159,6 +2200,7 @@ function TokenListBlock({
     refreshTokenListMap,
     setOverviewTokenCacheState,
     syncTokenFilterToOverview,
+    tokenSelectorFilterMode,
     updateAccountOverviewState,
     updateAccountWorth,
     updateSearchKey,
