@@ -39,6 +39,19 @@ function buildSpeedConfigWithMarketPresetConfig(
   return speedConfig;
 }
 
+function buildSpeedConfigWithPresetConfig(
+  preset: ISwapProSpeedConfig['preset'],
+): ISwapProSpeedConfig {
+  return {
+    slippage: 0.5,
+    spenderAddress: '',
+    defaultTokens: [],
+    defaultLimitTokens: [],
+    swapMevNetConfig: [],
+    preset,
+  };
+}
+
 describe('marketPresetSettings', () => {
   it('returns hardcoded dashboard presets from the Promise adapter', async () => {
     const config = await fetchMarketPresetConfig({
@@ -183,6 +196,109 @@ describe('marketPresetSettings', () => {
     expect(
       getMarketPresetPriorityFeeOverride(settings, config),
     ).toBeUndefined();
+  });
+
+  it('uses speed-config preset fields for enablement, priority fee, and range', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.base.id,
+      speedConfig: buildSpeedConfigWithPresetConfig({
+        isEnabled: true,
+        priorityFee: true,
+        min: 0,
+        max: 100,
+      }),
+    });
+
+    expect(config?.enabled).toBe(true);
+    expect(config?.priorityFee.editable).toBe(true);
+    expect(config?.priorityFee.customRange).toEqual({
+      min: '0',
+      max: '100',
+    });
+    expect(getMarketPresetPriorityFeeCustomPlaceholder(config)).toBe('0 ~ 100');
+  });
+
+  it('lets speed-config preset disable Market presets before local fallback', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.eth.id,
+      speedConfig: buildSpeedConfigWithPresetConfig({
+        isEnabled: false,
+        priorityFee: true,
+        min: 0,
+        max: 100,
+      }),
+    });
+
+    expect(config?.enabled).toBe(false);
+    expect(config?.priorityFee.editable).toBe(false);
+    expect(
+      getMarketPresetItem({
+        config,
+        presetKey: EMarketPresetKey.P1,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('uses speed-config preset priorityFee false as readonly priority fee', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.eth.id,
+      speedConfig: buildSpeedConfigWithPresetConfig({
+        isEnabled: true,
+        priorityFee: false,
+        min: 0,
+        max: 100,
+      }),
+    });
+
+    expect(config?.enabled).toBe(true);
+    expect(config?.priorityFee.editable).toBe(false);
+    expect(config?.priorityFee.supportedTypes).toEqual([
+      EMarketPresetPriorityFeeType.AUTO,
+    ]);
+
+    const settings = resolveMarketPresetDirectionSettings({
+      config,
+      presetKey: EMarketPresetKey.P1,
+      tradeSide: EMarketPresetTradeSide.BUY,
+      savedSettings: {
+        presets: {
+          [EMarketPresetKey.P1]: {
+            [EMarketPresetTradeSide.BUY]: {
+              slippage: {
+                key: ESwapSlippageSegmentKey.AUTO,
+              },
+              priorityFee: {
+                type: EMarketPresetPriorityFeeType.CUSTOM,
+                customValue: '1',
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(settings.priorityFee.type).toBe(EMarketPresetPriorityFeeType.AUTO);
+  });
+
+  it('allows speed-config preset to enable fallback-disabled networks explicitly', async () => {
+    const config = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.sui.id,
+      speedConfig: buildSpeedConfigWithPresetConfig({
+        isEnabled: true,
+        priorityFee: false,
+        min: 0,
+        max: 100,
+      }),
+    });
+
+    expect(config?.enabled).toBe(true);
+    expect(config?.priorityFee.editable).toBe(false);
+    expect(
+      getMarketPresetItem({
+        config,
+        presetKey: EMarketPresetKey.P1,
+      })?.key,
+    ).toBe(EMarketPresetKey.P1);
   });
 
   it('uses configured priority fee range for placeholder, validation, and override', async () => {
