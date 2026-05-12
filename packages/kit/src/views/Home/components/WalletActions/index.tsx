@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { Button, Dialog, YStack } from '@onekeyhq/components';
+import { Button, Dialog, Toast, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   OptionCard,
@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/kit/src/components/OptionCard';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -19,6 +20,7 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -80,6 +82,16 @@ function WalletActionSend({
     return settings;
   }, [network?.id]).result;
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isBotWalletReceiveBlocked = shouldBlockBotWalletReceive({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
 
   const handleOnSend = useCallback(async () => {
     if (!network) return;
@@ -146,7 +158,15 @@ function WalletActionSend({
                   subtitle={intl.formatMessage({
                     id: ETranslations.receive_from_another_wallet_desc,
                   })}
+                  disabled={isBotWalletReceiveBlocked}
+                  opacity={isBotWalletReceiveBlocked ? 0.5 : 1}
                   onPress={() => {
+                    if (isBotWalletReceiveBlocked) {
+                      Toast.error({
+                        title: '该钱包已停用，无法接收资产',
+                      });
+                      return;
+                    }
                     logZeroGas('receive');
                     safeResolve(false);
                     void dialogRef.close();
@@ -368,6 +388,7 @@ function WalletActionSend({
     indexedAccount?.id,
     isSoftwareWalletOnlyUser,
     isBuySupported,
+    isBotWalletReceiveBlocked,
   ]);
 
   return (

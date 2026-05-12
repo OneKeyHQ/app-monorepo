@@ -67,42 +67,61 @@ const useSymbolSync = ({
   displayCoin: string | undefined;
   isChartReady: boolean;
 }) => {
-  const prevSymbolRef = useRef<string>(symbol);
+  const prevParamsRef = useRef({
+    displayCoin,
+    displayPair,
+    symbol,
+  });
+  const hasSyncedReadyChartRef = useRef(false);
 
-  useEffect(() => {
-    const prevSymbol = prevSymbolRef.current;
-    const hasSymbolChanged = prevSymbol !== symbol;
-
-    if (hasSymbolChanged && webRef.current) {
-      // Sync symbol changes via message communication instead of WebView reload
-      webRef.current.sendMessageViaInjectedScript({
+  const sendSymbolChange = useCallback(
+    ({ force }: { force: boolean }) => {
+      webRef.current?.sendMessageViaInjectedScript({
         type: 'SYMBOL_CHANGE',
         payload: {
           symbol,
           displayPair,
           displayCoin,
-          force: true,
+          force,
         },
       });
+    },
+    [displayCoin, displayPair, symbol, webRef],
+  );
 
-      prevSymbolRef.current = symbol;
+  useEffect(() => {
+    const prevParams = prevParamsRef.current;
+    const hasSymbolChanged = prevParams.symbol !== symbol;
+    const hasDisplayParamsChanged =
+      prevParams.displayPair !== displayPair ||
+      prevParams.displayCoin !== displayCoin;
+
+    if ((hasSymbolChanged || hasDisplayParamsChanged) && webRef.current) {
+      // Sync symbol changes via message communication instead of WebView reload
+      sendSymbolChange({ force: hasSymbolChanged });
+
+      prevParamsRef.current = {
+        displayCoin,
+        displayPair,
+        symbol,
+      };
     }
-  }, [symbol, displayPair, displayCoin, webRef]);
+  }, [displayCoin, displayPair, sendSymbolChange, symbol, webRef]);
 
   // Re-sync symbol when chart becomes ready to catch messages lost during iframe load
   useEffect(() => {
-    if (isChartReady && webRef.current) {
-      webRef.current.sendMessageViaInjectedScript({
-        type: 'SYMBOL_CHANGE',
-        payload: {
-          symbol,
-          displayPair,
-          displayCoin,
-          force: false,
-        },
-      });
+    if (!isChartReady) {
+      hasSyncedReadyChartRef.current = false;
+      return;
     }
-  }, [isChartReady, symbol, displayPair, displayCoin, webRef]);
+
+    if (hasSyncedReadyChartRef.current || !webRef.current) {
+      return;
+    }
+
+    sendSymbolChange({ force: false });
+    hasSyncedReadyChartRef.current = true;
+  }, [isChartReady, sendSymbolChange, webRef]);
 };
 
 // WebView Memoized component to prevent unnecessary re-renders

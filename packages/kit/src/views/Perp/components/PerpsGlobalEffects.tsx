@@ -52,6 +52,7 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -69,6 +70,15 @@ import { planTradeSubscriptions } from '../utils/subscriptionPlanner';
 
 import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
+const shouldTreatPerpAsFocusedOnMount = !!(
+  platformEnv.isExtensionUiExpandTab ||
+  platformEnv.isExtensionUiStandaloneWindow
+);
+
+function resolvePerpRouteFocused(isFocus: boolean) {
+  return shouldTreatPerpAsFocusedOnMount || isFocus;
+}
+
 function useSyncContextOrderBookOptionsToGlobal() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
@@ -78,7 +88,7 @@ function useSyncContextOrderBookOptionsToGlobal() {
   const activeTradeInstrumentRef = useRef(activeTradeInstrument);
   activeTradeInstrumentRef.current = activeTradeInstrument;
 
-  const isFocusedRef = useRef(false);
+  const isFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
 
   const updateGlobalOrderBookOptions = useCallback(
     async (
@@ -131,9 +141,10 @@ function useSyncContextOrderBookOptionsToGlobal() {
   useListenTabFocusState(
     ETabRoutes.Perp,
     (isFocus: boolean, _isHiddenByModal: boolean) => {
+      const nextFocused = resolvePerpRouteFocused(isFocus);
       const isFocusedPrev = isFocusedRef.current;
-      isFocusedRef.current = isFocus;
-      if (isFocus !== isFocusedPrev) {
+      isFocusedRef.current = nextFocused;
+      if (nextFocused !== isFocusedPrev) {
         void updateGlobalOrderBookOptions(orderBookTickOptionsRef.current);
       }
     },
@@ -147,13 +158,18 @@ function useTradeRouteViewStateSync() {
     ETabRoutes.Perp,
     (isFocus: boolean, isHiddenByModal: boolean) => {
       actions.current.setTradeRouteViewState({
-        routeFocused: isFocus && !isHiddenByModal,
+        routeFocused: resolvePerpRouteFocused(isFocus) && !isHiddenByModal,
       });
     },
   );
 
   useEffect(() => {
     const actionsRef = actions.current;
+    if (shouldTreatPerpAsFocusedOnMount) {
+      actionsRef.setTradeRouteViewState({
+        routeFocused: true,
+      });
+    }
     return () => {
       actionsRef.setTradeRouteViewState({
         routeFocused: false,
@@ -322,7 +338,7 @@ function useHyperliquidSession() {
   useListenTabFocusState(
     ETabRoutes.Perp,
     (isFocus: boolean, isHiddenByModal: boolean) => {
-      if (isFocus && !isHiddenByModal) {
+      if (resolvePerpRouteFocused(isFocus) && !isHiddenByModal) {
         // Handle tab focus
       } else {
         // Handle tab unfocus
@@ -384,7 +400,7 @@ function useHyperliquidAccountSelect() {
 
   const [{ refreshHook: activeAccountRefreshHook }] =
     usePerpsActiveAccountRefreshHookAtom();
-  const hasBeenFocusedRef = useRef(false);
+  const hasBeenFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
   const pendingSelectRef = useRef(false);
 
   const selectPerpsAccount = useCallback(async () => {
@@ -415,7 +431,7 @@ function useHyperliquidAccountSelect() {
   selectPerpsAccountRef.current = selectPerpsAccount;
 
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
-    if (isFocus && !hasBeenFocusedRef.current) {
+    if (resolvePerpRouteFocused(isFocus) && !hasBeenFocusedRef.current) {
       hasBeenFocusedRef.current = true;
       if (pendingSelectRef.current) {
         pendingSelectRef.current = false;
@@ -586,7 +602,7 @@ function useHyperliquidSymbolSelect() {
   const actions = useHyperliquidActions();
 
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
-    if (!isFocus) return;
+    if (!resolvePerpRouteFocused(isFocus)) return;
     void (async () => {
       // OK-53208: latch lives in ServiceHyperliquid (singleton) so that
       // Perp tab detach/remount does not re-trigger this init.
@@ -653,6 +669,40 @@ function useHyperliquidScreenLockHandler() {
   }, [unLock, checkPerpsAccountStatus]);
 }
 
+function useHyperliquidLocaleChangeRecovery() {
+  const localeVariant = useLocaleVariant();
+  const actions = useHyperliquidActions();
+  const isFocusedRef = useRef(false);
+  const pendingRecoveryRef = useRef(false);
+
+  const recoverSubscriptions = useCallback(async () => {
+    await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
+    await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
+    await actions.current.updateSubscriptions();
+    await backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
+  }, [actions]);
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    (isFocus: boolean, isHiddenByModal: boolean) => {
+      isFocusedRef.current =
+        resolvePerpRouteFocused(isFocus) && !isHiddenByModal;
+      if (isFocusedRef.current && pendingRecoveryRef.current) {
+        pendingRecoveryRef.current = false;
+        void recoverSubscriptions();
+      }
+    },
+  );
+
+  useUpdateEffect(() => {
+    if (!isFocusedRef.current) {
+      pendingRecoveryRef.current = true;
+      return;
+    }
+    void recoverSubscriptions();
+  }, [localeVariant, recoverSubscriptions]);
+}
+
 function AutoPauseSubscriptions() {
   const pauseSubscriptionsTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
@@ -696,11 +746,12 @@ function AutoPauseSubscriptions() {
     [],
   );
 
-  const isFocusedRef = useRef(false);
+  const isFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
+    const nextFocused = resolvePerpRouteFocused(isFocus);
     const isFocusPrev = isFocusedRef.current;
-    isFocusedRef.current = isFocus;
-    if (isFocusPrev !== isFocus) {
+    isFocusedRef.current = nextFocused;
+    if (isFocusPrev !== nextFocused) {
       void onFocusHandler({ isFocus: isFocusedRef.current });
     }
   });
@@ -785,6 +836,7 @@ function PerpsGlobalEffectsView() {
   useHyperliquidSymbolSelect();
   useHyperliquidInstrumentSwitchRequest();
   useHyperliquidScreenLockHandler();
+  useHyperliquidLocaleChangeRecovery();
   useSyncContextOrderBookOptionsToGlobal();
   useTradeRouteViewStateSync();
   usePerpsSharePrompt();

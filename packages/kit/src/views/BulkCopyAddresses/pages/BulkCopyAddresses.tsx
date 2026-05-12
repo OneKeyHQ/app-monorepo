@@ -151,35 +151,71 @@ function BulkCopyAddresses({
       parentWalletName?: string;
     })[] = [];
 
-    wallets.forEach((wallet) => {
+    const isWalletDeactivatedBotWallet = async (id: string) => {
+      if (!accountUtils.isBotWallet({ walletId: id })) {
+        return false;
+      }
+      return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+        walletId: id,
+      });
+    };
+
+    // Reset the map alongside the list so a deactivated wallet that was
+    // previously selectable cannot stay reachable through walletsMap when its
+    // status flips.
+    walletsMap.current = {};
+
+    for (const wallet of wallets) {
       if (
         !accountUtils.isQrWallet({ walletId: wallet.id }) &&
         !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
         !wallet.deprecated
       ) {
-        if (!wallet.isMocked) {
+        // eslint-disable-next-line no-await-in-loop
+        const isWalletDeactivated = await isWalletDeactivatedBotWallet(
+          wallet.id,
+        );
+        if (!wallet.isMocked && !isWalletDeactivated) {
           availableWalletsTemp.push(wallet);
+          walletsMap.current[wallet.id] = wallet;
         }
-        walletsMap.current[wallet.id] = wallet;
         if (wallet.hiddenWallets?.length) {
-          wallet.hiddenWallets.forEach((hiddenWallet) => {
+          for (const hiddenWallet of wallet.hiddenWallets) {
             if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
-              availableWalletsTemp.push({
-                ...hiddenWallet,
-                parentWalletName: wallet.name,
-              });
-              walletsMap.current[hiddenWallet.id] = {
-                ...hiddenWallet,
-                parentWalletName: wallet.name,
-              };
+              // eslint-disable-next-line no-await-in-loop
+              const isHiddenWalletDeactivated =
+                await isWalletDeactivatedBotWallet(hiddenWallet.id);
+              if (!isHiddenWalletDeactivated) {
+                availableWalletsTemp.push({
+                  ...hiddenWallet,
+                  parentWalletName: wallet.name,
+                });
+                walletsMap.current[hiddenWallet.id] = {
+                  ...hiddenWallet,
+                  parentWalletName: wallet.name,
+                };
+              }
             }
-          });
+          }
         }
       }
-    });
+    }
 
     return availableWalletsTemp;
   }, []);
+
+  // If the wallet that was passed in via route params (or previously selected)
+  // is no longer available — e.g. it became a deactivated Bot Wallet and was
+  // filtered out — fall back to the first available wallet so the page does
+  // not silently keep operating on a hidden, blocked wallet.
+  useEffect(() => {
+    if (!availableWallets || availableWallets.length === 0) {
+      return;
+    }
+    if (!selectedWalletId || !walletsMap.current[selectedWalletId]) {
+      form.setValue('selectedWalletId', availableWallets[0].id);
+    }
+  }, [availableWallets, selectedWalletId, form]);
 
   const selectedWallet = walletsMap.current[selectedWalletId ?? ''];
 

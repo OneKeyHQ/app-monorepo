@@ -27,6 +27,8 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
+import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
+
 type ICustomTabItemProps = IStackProps & {
   isSelected?: boolean;
   onPress?: IStackProps['onPress'];
@@ -83,6 +85,7 @@ interface ISwapHeaderContainerProps {
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
+  marketPresetSettings?: IMarketPresetSettingsState;
 }
 
 const SwapHeaderContainer = ({
@@ -90,6 +93,7 @@ const SwapHeaderContainer = ({
   defaultSwapType,
   showSwapPro,
   hideRightActions,
+  marketPresetSettings,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
   const { gtLg } = useMedia();
@@ -262,7 +266,10 @@ const SwapHeaderContainer = ({
         </CustomTabItem>
       </XStack>
       {!hideRightActions ? (
-        <SwapHeaderRightActionContainer pageType={pageType} />
+        <SwapHeaderRightActionContainer
+          pageType={pageType}
+          marketPresetSettings={marketPresetSettings}
+        />
       ) : null}
     </XStack>
   );

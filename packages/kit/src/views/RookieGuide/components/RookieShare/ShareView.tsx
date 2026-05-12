@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Image, Spinner, Stack } from '@onekeyhq/components';
 import type {
   IRookieShareData,
   IRookieShareImageGeneratorRef,
 } from '@onekeyhq/shared/types/rookieGuide';
 
+import {
+  DEFAULT_ROOKIE_SHARE_LOCALE_TEXT,
+  resolveRookieShareLocaleText,
+} from './constants';
 import { ShareImageGenerator } from './ShareImageGenerator';
+
+import type { IRookieShareLocaleText } from './constants';
 
 interface IShareViewProps {
   data: IRookieShareData;
@@ -14,14 +22,30 @@ interface IShareViewProps {
 }
 
 export function ShareView({ data, generatorRef }: IShareViewProps) {
+  const intl = useIntl();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(true);
+  const [localeText, setLocaleText] = useState<IRookieShareLocaleText>(
+    DEFAULT_ROOKIE_SHARE_LOCALE_TEXT,
+  );
   const generationIdRef = useRef(0);
+
+  useEffect(() => {
+    let disposed = false;
+    setLocaleText(DEFAULT_ROOKIE_SHARE_LOCALE_TEXT);
+    void resolveRookieShareLocaleText(data.locale, intl.locale).then((text) => {
+      if (!disposed) setLocaleText(text);
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [data.locale, intl.locale]);
 
   useEffect(() => {
     generationIdRef.current += 1;
     const currentGenerationId = generationIdRef.current;
     setIsGenerating(true);
+    setPreviewImage(null);
 
     const timer = setTimeout(() => {
       void (async () => {
@@ -45,7 +69,7 @@ export function ShareView({ data, generatorRef }: IShareViewProps) {
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [data, generatorRef]);
+  }, [data, generatorRef, localeText]);
 
   return (
     <Stack
@@ -67,7 +91,11 @@ export function ShareView({ data, generatorRef }: IShareViewProps) {
           resizeMode="contain"
         />
       )}
-      <ShareImageGenerator ref={generatorRef} data={data} />
+      <ShareImageGenerator
+        ref={generatorRef}
+        data={data}
+        localeText={localeText}
+      />
     </Stack>
   );
 }

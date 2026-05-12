@@ -1,5 +1,10 @@
 import { Image } from 'react-native';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { getLocaleMessages } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import { LOCALES, enUS } from '@onekeyhq/shared/src/locale/localeJsonMap';
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale/type';
+
 // Canvas configuration for Rookie Share image generation
 // Based on Figma design: 640x640 square
 
@@ -95,6 +100,7 @@ export const getCanvasConfig = (currentSize: number = BASE_SIZE) => {
 
     logo: {
       size: scale(64),
+      footerOffsetY: scale(-4),
     },
 
     qrCode: {
@@ -120,18 +126,144 @@ export const getCanvasConfig = (currentSize: number = BASE_SIZE) => {
   };
 };
 
-export const DEFAULT_FOOTER_TEXT = 'Scan to start your Web3 journey';
-export const DEFAULT_REFERRAL_LABEL = 'Referral Code:';
-export const DEFAULT_DOWNLOAD_TITLE = 'Scan to try OneKey';
-export const DEFAULT_DOWNLOAD_SUBTITLE =
-  'Your most secure crypto wallet, everywhere.';
-export const DEFAULT_QR_CAPTION = 'SCAN TO JOIN';
+export type IRookieShareLocaleText = {
+  footerText: string;
+  referralLabel: string;
+  downloadTitle: string;
+  downloadSubtitle: string;
+  qrCaption: string;
+};
+
+const DEFAULT_ROOKIE_SHARE_LOCALE: ILocaleJSONSymbol = 'en-US';
+
+const LOCALE_KEY_BY_NORMALIZED = Object.keys(LOCALES).reduce<
+  Record<string, ILocaleJSONSymbol>
+>((result, locale) => {
+  result[locale.toLowerCase()] = locale as ILocaleJSONSymbol;
+  return result;
+}, {});
+
+const LOCALE_KEYS = Object.keys(LOCALES) as ILocaleJSONSymbol[];
+
+function normalizeLocaleInput(locale?: string): string | undefined {
+  const normalizedLocale = locale?.trim().replace(/_/g, '-').toLowerCase();
+  if (!normalizedLocale || normalizedLocale === 'system') return undefined;
+  return normalizedLocale;
+}
+
+function normalizeLocale(locale?: string): ILocaleJSONSymbol | undefined {
+  const normalizedLocale = normalizeLocaleInput(locale);
+  if (!normalizedLocale) return undefined;
+
+  const [language] = normalizedLocale.split('-');
+  if (language === 'en') return DEFAULT_ROOKIE_SHARE_LOCALE;
+
+  const localeKey = LOCALE_KEY_BY_NORMALIZED[normalizedLocale];
+  if (localeKey) return localeKey;
+
+  return (
+    LOCALE_KEY_BY_NORMALIZED[language] ||
+    LOCALE_KEYS.find((key) => key.toLowerCase().startsWith(`${language}-`))
+  );
+}
+
+function resolveLocale(
+  locale?: string,
+  fallbackLocale?: string,
+): ILocaleJSONSymbol {
+  const normalizedLocale = normalizeLocale(locale);
+  if (normalizedLocale) return normalizedLocale;
+  if (normalizeLocaleInput(locale)) return DEFAULT_ROOKIE_SHARE_LOCALE;
+  return normalizeLocale(fallbackLocale) || DEFAULT_ROOKIE_SHARE_LOCALE;
+}
+
+type ILocaleMessageMap = Record<string, string>;
+
+function unwrapLocaleMessages(messages: unknown): ILocaleMessageMap {
+  const moduleDefault = (messages as { default?: ILocaleMessageMap })?.default;
+  return moduleDefault || (messages as ILocaleMessageMap);
+}
+
+async function loadLocaleMessages(
+  locale: ILocaleJSONSymbol,
+): Promise<ILocaleMessageMap> {
+  try {
+    const messages = await getLocaleMessages(locale);
+    return unwrapLocaleMessages(messages);
+  } catch {
+    if (locale === DEFAULT_ROOKIE_SHARE_LOCALE) return {};
+    const messages = await getLocaleMessages(DEFAULT_ROOKIE_SHARE_LOCALE);
+    return unwrapLocaleMessages(messages);
+  }
+}
+
+function getMessage(
+  messages: ILocaleMessageMap,
+  fallbackMessages: ILocaleMessageMap,
+  id: ETranslations,
+): string {
+  return messages[id] || fallbackMessages[id] || id;
+}
+
+function buildRookieShareLocaleText(
+  messages: ILocaleMessageMap,
+  fallbackMessages: ILocaleMessageMap,
+): IRookieShareLocaleText {
+  return {
+    footerText: getMessage(
+      messages,
+      fallbackMessages,
+      ETranslations.rookie_share_footer_text,
+    ),
+    referralLabel: getMessage(
+      messages,
+      fallbackMessages,
+      ETranslations.rookie_share_referral_code_label,
+    ),
+    downloadTitle: getMessage(
+      messages,
+      fallbackMessages,
+      ETranslations.rookie_share_download_title,
+    ),
+    downloadSubtitle: getMessage(
+      messages,
+      fallbackMessages,
+      ETranslations.rookie_share_download_subtitle,
+    ),
+    qrCaption: getMessage(
+      messages,
+      fallbackMessages,
+      ETranslations.rookie_share_qr_caption,
+    ),
+  };
+}
+
+export const DEFAULT_ROOKIE_SHARE_LOCALE_TEXT = buildRookieShareLocaleText(
+  enUS as ILocaleMessageMap,
+  {},
+);
+
+export async function resolveRookieShareLocaleText(
+  locale?: string,
+  fallbackLocale?: string,
+): Promise<IRookieShareLocaleText> {
+  const resolvedLocale = resolveLocale(locale, fallbackLocale);
+  const [messages, fallbackMessages] = await Promise.all([
+    loadLocaleMessages(resolvedLocale),
+    resolvedLocale === DEFAULT_ROOKIE_SHARE_LOCALE
+      ? Promise.resolve({} as ILocaleMessageMap)
+      : loadLocaleMessages(DEFAULT_ROOKIE_SHARE_LOCALE),
+  ]);
+
+  return buildRookieShareLocaleText(messages, fallbackMessages);
+}
 
 export const resolveFooterCtaText = (
   referralCode: string | undefined,
-  footerText?: string,
+  footerText: string | undefined,
+  localeText: IRookieShareLocaleText,
 ): string =>
-  referralCode ? footerText || DEFAULT_FOOTER_TEXT : DEFAULT_DOWNLOAD_TITLE;
+  referralCode ? footerText || localeText.footerText : localeText.downloadTitle;
 
 // Webpack returns a URL string; Metro returns a numeric asset id requiring resolveAssetSource.
 const logoAsset = require('@onekeyhq/kit/assets/logo.png') as number | string;

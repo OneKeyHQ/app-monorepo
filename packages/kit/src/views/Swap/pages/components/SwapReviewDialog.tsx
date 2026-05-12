@@ -25,7 +25,7 @@ type ISwapReviewDialogProps = {
   storeName: EJotaiContextStoreNames;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
-  customNetworkFeeOptionLabel?: string;
+  showCustomNetworkFeeOption?: boolean;
   disableGlobalApproveSync?: boolean;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
   accountSelectorConfig?: {
@@ -43,7 +43,7 @@ function SwapReviewDialogContent({
   disableGlobalApproveSync,
   defaultCustomPriorityFee,
   defaultNetworkFeeLevel,
-  customNetworkFeeOptionLabel,
+  showCustomNetworkFeeOption,
   onDone,
 }: {
   adapter: ISwapReviewAdapter;
@@ -51,7 +51,7 @@ function SwapReviewDialogContent({
   disableGlobalApproveSync?: boolean;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
-  customNetworkFeeOptionLabel?: string;
+  showCustomNetworkFeeOption?: boolean;
   onDone: () => void;
 }) {
   const { onConfirm, preSwapBeforeStepActions, preSwapStepsStart } =
@@ -69,7 +69,7 @@ function SwapReviewDialogContent({
       preSwapStepsStart={preSwapStepsStart}
       defaultNetworkFeeLevel={defaultNetworkFeeLevel}
       defaultCustomPriorityFee={defaultCustomPriorityFee}
-      customNetworkFeeOptionLabel={customNetworkFeeOptionLabel}
+      showCustomNetworkFeeOption={showCustomNetworkFeeOption}
     />
   );
 }
@@ -81,7 +81,7 @@ export function SwapReviewDialog({
   storeName,
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
-  customNetworkFeeOptionLabel,
+  showCustomNetworkFeeOption,
   disableGlobalApproveSync,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
   accountSelectorConfig = {
@@ -117,7 +117,7 @@ export function SwapReviewDialog({
             disableGlobalApproveSync={disableGlobalApproveSync}
             defaultNetworkFeeLevel={defaultNetworkFeeLevel}
             defaultCustomPriorityFee={defaultCustomPriorityFee}
-            customNetworkFeeOptionLabel={customNetworkFeeOptionLabel}
+            showCustomNetworkFeeOption={showCustomNetworkFeeOption}
             onDone={onDone}
           />
         </SwapReviewInitializer>

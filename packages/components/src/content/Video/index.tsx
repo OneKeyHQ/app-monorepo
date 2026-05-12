@@ -6,7 +6,7 @@ import type { IVideoProps } from './type';
 
 export function Video(rawProps: IVideoProps) {
   const [
-    { source, repeat, resizeMode, rate, muted, onProgress, ...props },
+    { source, repeat, resizeMode, rate, muted, paused, onProgress, ...props },
     style,
   ] = usePropsAndStyle(rawProps);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -16,6 +16,18 @@ export function Video(rawProps: IVideoProps) {
       videoRef.current.playbackRate = rate;
     }
   }, [rate]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (paused && !video.paused) {
+      video.pause();
+    } else if (!paused && video.paused) {
+      void video.play().catch(() => {
+        // Autoplay may be blocked by the browser — silently ignore.
+      });
+    }
+  }, [paused]);
 
   useEffect(() => {
     const video = videoRef.current;

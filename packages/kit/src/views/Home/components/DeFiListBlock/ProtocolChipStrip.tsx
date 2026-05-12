@@ -131,8 +131,15 @@ function ProtocolChipBase({
       borderRadius="$full"
       borderCurve="continuous"
       bg={isActive ? '$bgPrimary' : '$bgSubdued'}
-      hoverStyle={isActive ? { bg: '$bgPrimary' } : { bg: '$bgHover' }}
-      pressStyle={{ scale: 0.97 }}
+      // Scale carries the hover for both states (1.03 — tight enough to
+      // read as a lift without flinching). The active chip can't shift
+      // bg, since that would fight its $bgPrimary identity; the inactive
+      // chip layers a $bgHover shift on top of the same scale so it gets
+      // a second, quieter feedback channel. Press settles to 0.96 across
+      // the strip — same tactile value as the chevron below — so the
+      // click-feel reads as one gesture wherever it lands.
+      hoverStyle={isActive ? { scale: 1.03 } : { bg: '$bgHover', scale: 1.03 }}
+      pressStyle={{ scale: 0.96 }}
       // Reduced-motion users get instant state changes (bg, scale, focus
       // ring) instead of the quick fade — matches the same opt-out the
       // page scroller uses in DeFiContainer for `scrollTo`.
@@ -193,8 +200,14 @@ function ArrowAffordance({ side, visible, onPress }: IArrowAffordanceProps) {
         size="small"
         icon={isLeft ? 'ChevronLeftOutline' : 'ChevronRightOutline'}
         bg="$gray3"
+        // Bg-shift alone carries the hover. The chevron is a 24px target
+        // so layering scale on top of the bg change read as twitchy
+        // here — the bg arc is enough signal. Press still depresses to
+        // 0.96, the same value the chips use, so the click-feel is
+        // identical no matter which surface in the strip the user hits.
         hoverStyle={{ bg: '$gray4' }}
-        pressStyle={{ bg: '$gray5' }}
+        pressStyle={{ bg: '$gray5', scale: 0.96 }}
+        animation="quick"
         onPress={onPress}
       />
     </Stack>
@@ -238,6 +251,7 @@ function ProtocolChipStripBase({
 
   const animatedWrapperStyle = useAnimatedStyle(() => {
     'worklet';
+
     return {
       opacity: revealProgress.value,
       // Skip the slight upward slide on reduced motion — the opacity
@@ -258,6 +272,7 @@ function ProtocolChipStripBase({
     () => revealProgress.value > 0.5,
     (next, prev) => {
       'worklet';
+
       if (next !== prev) runOnJS(setInteractive)(next);
     },
   );
@@ -380,18 +395,20 @@ function ProtocolChipStripBase({
 
     let stripScrollGraceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Closes the strip-scroll grace window and runs a catch-up recenter.
-    // Called from both the natural timer expiry and the early-exit paths
-    // (pointerleave). The catch-up is gated ('auto') so a still-set
-    // focus gate keeps suppressing; it bails cheaply via
-    // isChipFullyVisible if the active chip is already in view.
+    // Closes the strip-scroll grace window. State cleanup only — no
+    // catch-up recenter. Once the user has scrolled the strip themselves
+    // (drag, wheel, arrow button), that position is theirs until the
+    // next activeKey change. Snapping back on touch-end / mouse-release
+    // read as the strip fighting the user — they'd drag, lift, and
+    // watch it slide back to where it was. activeKey-triggered
+    // centering updates still fire through their own path because they bypass
+    // this gate; navigation between protocols still anchors correctly.
     const releaseScrollGate = () => {
       if (stripScrollGraceTimer) {
         clearTimeout(stripScrollGraceTimer);
         stripScrollGraceTimer = null;
       }
       recentStripScrollRef.current = false;
-      recenterIfNeededRef.current();
     };
 
     const onScroll = () => {
