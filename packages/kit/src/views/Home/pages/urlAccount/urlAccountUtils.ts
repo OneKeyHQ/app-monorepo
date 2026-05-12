@@ -324,7 +324,43 @@ export const urlAccountNavigation = {
       contextNetworkId?: string;
     },
   ) {
-    await urlAccountNavigation.pushUrlAccountPage(navigation, params);
+    const networkSegment = await buildUrlNetworkSegment({
+      realNetworkId: params.networkId || '',
+      realNetworkIdFallback: params.networkId || '',
+      contextNetworkId: params.contextNetworkId || '',
+    });
+    const alreadyOnUrlAccountPage = isCurrentlyInUrlAccountPage();
+
+    defaultLogger.app.router.switchTab(ETabRoutes.Home);
+
+    if (alreadyOnUrlAccountPage) {
+      resetAboveMainRoute();
+      await timerUtils.wait(100);
+    } else {
+      await navigateFromOverlayToTab({
+        targetTab: ETabRoutes.Home,
+        switchTab: (tab) => navigation.switchTab(tab),
+      });
+      rootNavigationRef.current?.dispatch(
+        StackActions.popTo(ETabHomeRoutes.TabHome),
+      );
+      await timerUtils.wait(0);
+    }
+
+    defaultLogger.app.router.switchTabDone(ETabRoutes.Home);
+    defaultLogger.app.router.pushRoute({
+      action: 'replaceUrlAccountPage',
+      address: params.address,
+      routeName: ETabHomeRoutes.TabHomeUrlAccountPage,
+    });
+
+    const routeParams = {
+      address: params.address,
+      networkId: networkSegment,
+    };
+    rootNavigationRef.current?.dispatch(
+      StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, routeParams),
+    );
   },
   pushUrlAccountPageLanding(
     navigation: IAppNavigation,
