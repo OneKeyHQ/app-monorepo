@@ -108,6 +108,20 @@ import { RichBlock } from '../RichBlock/RichBlock';
 
 const networkIdsMap = getNetworkIdsMap();
 
+type ITokenSelectorFilterKey = 'wallet-token' | 'lp-dapp-token';
+
+type IAllNetworkTokenListResp = IFetchAccountTokensResp & {
+  tokenSelectorFilterKey: ITokenSelectorFilterKey;
+  tokenSelectorFilterRequestId: number;
+  syncTokenFilterToOverview: boolean;
+};
+
+function buildTokenSelectorFilterKey(
+  lpToken: boolean,
+): ITokenSelectorFilterKey {
+  return lpToken ? 'lp-dapp-token' : 'wallet-token';
+}
+
 function TokenListBlock({
   tableLayout,
   showRecentHistory,
@@ -162,9 +176,33 @@ function TokenListBlock({
       }),
     [showLpTokensOnly],
   );
+  const tokenSelectorFilterKey = buildTokenSelectorFilterKey(showLpTokensOnly);
+  const tokenSelectorFilterRequestIdRef = useRef(0);
+  const tokenSelectorFilterRequestId = tokenSelectorFilterRequestIdRef.current;
+  const tokenSelectorFilterStateRef = useRef({
+    key: tokenSelectorFilterKey,
+    requestId: tokenSelectorFilterRequestId,
+  });
+  tokenSelectorFilterStateRef.current = {
+    key: tokenSelectorFilterKey,
+    requestId: tokenSelectorFilterRequestId,
+  };
   const syncTokenFilterToOverview = !showLpTokensOnly;
-  const syncTokenFilterToOverviewRef = useRef(syncTokenFilterToOverview);
-  syncTokenFilterToOverviewRef.current = syncTokenFilterToOverview;
+  const handleLpTokenFilterChange = useCallback(
+    (value: boolean) => {
+      if (value === showLpTokensOnly) {
+        return;
+      }
+      const nextRequestId = tokenSelectorFilterRequestIdRef.current + 1;
+      tokenSelectorFilterRequestIdRef.current = nextRequestId;
+      tokenSelectorFilterStateRef.current = {
+        key: buildTokenSelectorFilterKey(value),
+        requestId: nextRequestId,
+      };
+      setShowLpTokensOnly(value);
+    },
+    [showLpTokensOnly],
+  );
 
   const accountTokensValue = useMemo(() => {
     return calculateAccountTokensValue({
@@ -598,23 +636,41 @@ function TokenListBlock({
       allNetworkDataInit?: boolean;
       isSingleRequest?: boolean;
     }) => {
-      const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-        dbAccount,
-        networkId,
-        accountId,
-        indexedAccountId: indexedAccount?.id,
-        flag: 'home-token-list',
-        isAllNetworks: true,
-        isManualRefresh: isAllNetworkManualRefresh.current,
-        allNetworksAccountId: account?.id,
-        allNetworksNetworkId: network?.id,
-        saveToLocal: !showLpTokensOnly,
-        ...tokenSelectorFilterParams,
-        customTokensRawData: customTokensRawData.current,
-        blockedTokensRawData: riskTokenManagementRawData.current.blockedTokens,
-        unblockedTokensRawData:
-          riskTokenManagementRawData.current.unblockedTokens,
-      });
+      const response = await backgroundApiProxy.serviceToken.fetchAccountTokens(
+        {
+          dbAccount,
+          networkId,
+          accountId,
+          indexedAccountId: indexedAccount?.id,
+          flag: 'home-token-list',
+          isAllNetworks: true,
+          isManualRefresh: isAllNetworkManualRefresh.current,
+          allNetworksAccountId: account?.id,
+          allNetworksNetworkId: network?.id,
+          saveToLocal: !showLpTokensOnly,
+          ...tokenSelectorFilterParams,
+          customTokensRawData: customTokensRawData.current,
+          blockedTokensRawData:
+            riskTokenManagementRawData.current.blockedTokens,
+          unblockedTokensRawData:
+            riskTokenManagementRawData.current.unblockedTokens,
+        },
+      );
+      const r: IAllNetworkTokenListResp = {
+        ...response,
+        tokenSelectorFilterKey,
+        tokenSelectorFilterRequestId,
+        syncTokenFilterToOverview,
+      };
+
+      if (
+        tokenSelectorFilterStateRef.current.key !== tokenSelectorFilterKey ||
+        tokenSelectorFilterStateRef.current.requestId !==
+          tokenSelectorFilterRequestId
+      ) {
+        isAllNetworkManualRefresh.current = false;
+        return r;
+      }
 
       const aggregateTokenConfigMapRawData =
         aggregateTokenRawData.current?.aggregateTokenConfigMap;
@@ -867,6 +923,8 @@ function TokenListBlock({
       updateAllNetworkData,
       updateTokenListState,
       tokenSelectorFilterParams,
+      tokenSelectorFilterKey,
+      tokenSelectorFilterRequestId,
       showLpTokensOnly,
       syncTokenFilterToOverview,
     ],
@@ -1336,7 +1394,7 @@ function TokenListBlock({
     run: runAllNetworksRequests,
     result: allNetworksResult,
     isEmptyAccount,
-  } = useAllNetworkRequests<IFetchAccountTokensResp>({
+  } = useAllNetworkRequests<IAllNetworkTokenListResp>({
     accountId: account?.id,
     networkId: network?.id,
     walletId: wallet?.id,
@@ -1354,8 +1412,6 @@ function TokenListBlock({
   });
 
   const updateAllNetworksTokenList = useCallback(async () => {
-    const shouldSyncTokenFilterToOverview =
-      syncTokenFilterToOverviewRef.current;
     const tokenList: {
       tokens: IAccountToken[];
       keys: string;
@@ -1403,7 +1459,27 @@ function TokenListBlock({
 
     let aggregateTokenMap: Record<string, Record<string, ITokenFiat>> = {};
 
-    if (allNetworksResult) {
+    if (allNetworksResult?.length) {
+      const resultTokenSelectorFilterKey =
+        allNetworksResult[0].tokenSelectorFilterKey;
+      const resultTokenSelectorFilterRequestId =
+        allNetworksResult[0].tokenSelectorFilterRequestId;
+      const hasMixedTokenSelectorFilterResult = allNetworksResult.some(
+        (result) =>
+          result.tokenSelectorFilterKey !== resultTokenSelectorFilterKey ||
+          result.tokenSelectorFilterRequestId !==
+            resultTokenSelectorFilterRequestId,
+      );
+      if (
+        resultTokenSelectorFilterKey !== tokenSelectorFilterKey ||
+        resultTokenSelectorFilterRequestId !== tokenSelectorFilterRequestId ||
+        hasMixedTokenSelectorFilterResult
+      ) {
+        return;
+      }
+      const shouldSyncTokenFilterToOverview =
+        allNetworksResult[0].syncTokenFilterToOverview;
+
       for (const r of allNetworksResult) {
         let mergeDeriveAssetsEnabled;
 
@@ -1645,6 +1721,8 @@ function TokenListBlock({
     mergeDeriveAddressData,
     allNetworksResult,
     network?.id,
+    tokenSelectorFilterKey,
+    tokenSelectorFilterRequestId,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshAggregateTokensListMap,
@@ -2345,7 +2423,7 @@ function TokenListBlock({
     const filterSwitch = (
       <TokenSelectorLpTokenSwitch
         value={showLpTokensOnly}
-        onChange={setShowLpTokensOnly}
+        onChange={handleLpTokenFilterChange}
       />
     );
 
@@ -2373,6 +2451,7 @@ function TokenListBlock({
     manageTokenEnabled,
     handleOnManageToken,
     showLpTokensOnly,
+    handleLpTokenFilterChange,
   ]);
 
   const renderContent = useCallback(() => {
