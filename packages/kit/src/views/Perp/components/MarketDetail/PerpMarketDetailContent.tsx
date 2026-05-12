@@ -309,12 +309,22 @@ function DetailInfoTable({
               {item.label}
             </SizableText>
           )}
-          <YStack flex={1} alignItems="flex-end" minWidth={0}>
-            <SizableText size="$bodyMdMedium" textAlign="right">
+          <YStack flex={1} alignItems="flex-end" minWidth={0} gap="$0.5">
+            <SizableText
+              size="$bodyMdMedium"
+              textAlign="right"
+              numberOfLines={1}
+            >
               {item.value}
             </SizableText>
             {item.secondaryValue ? (
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                textAlign="right"
+              >
                 {item.secondaryValue}
               </SizableText>
             ) : null}
@@ -902,26 +912,6 @@ export function PerpMarketDetailContent({
           },
           {
             label: intl.formatMessage({
-              id: ETranslations.market_all_time_high,
-            }),
-            value: formatUsdPriceValue(marketDetail.stats.ath.value),
-            secondaryValue: formatMarketDate(marketDetail.stats.ath.time),
-            tooltip: intl.formatMessage({
-              id: ETranslations.perp_market_info_all_time_high_tooltip__desc,
-            }),
-          },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.market_all_time_low,
-            }),
-            value: formatUsdPriceValue(marketDetail.stats.atl.value),
-            secondaryValue: formatMarketDate(marketDetail.stats.atl.time),
-            tooltip: intl.formatMessage({
-              id: ETranslations.perp_market_info_all_time_low_tooltip__desc,
-            }),
-          },
-          {
-            label: intl.formatMessage({
               id: ETranslations.perp_market_info_24h_high__title,
             }),
             value: formatUsdPriceValue(marketDetail.stats.high24h),
@@ -940,11 +930,22 @@ export function PerpMarketDetailContent({
           },
           {
             label: intl.formatMessage({
-              id: ETranslations.market_last_updated,
+              id: ETranslations.market_all_time_high,
             }),
-            value: formatMarketDate(marketDetail.stats.lastUpdated),
+            value: formatUsdPriceValue(marketDetail.stats.ath.value),
+            secondaryValue: formatMarketDate(marketDetail.stats.ath.time),
             tooltip: intl.formatMessage({
-              id: ETranslations.perp_market_info_last_updated_tooltip__desc,
+              id: ETranslations.perp_market_info_all_time_high_tooltip__desc,
+            }),
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.market_all_time_low,
+            }),
+            value: formatUsdPriceValue(marketDetail.stats.atl.value),
+            secondaryValue: formatMarketDate(marketDetail.stats.atl.time),
+            tooltip: intl.formatMessage({
+              id: ETranslations.perp_market_info_all_time_low_tooltip__desc,
             }),
           },
         ]

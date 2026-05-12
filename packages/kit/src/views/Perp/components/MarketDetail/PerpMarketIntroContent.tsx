@@ -120,12 +120,19 @@ function IntroInfoItem({
 
   return (
     <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
         {label}
       </SizableText>
-      <SizableText size="$headingSm">{value}</SizableText>
+      <SizableText size="$headingSm" numberOfLines={1}>
+        {value}
+      </SizableText>
       {secondaryValue ? (
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {secondaryValue}
         </SizableText>
       ) : null}
@@ -390,8 +397,8 @@ export function PerpMarketIntroContent({
             [infoItems.marketCapRank, infoItems.marketCap],
             [infoItems.fdv, infoItems.volume24h],
             [infoItems.circulatingSupply, infoItems.totalSupply],
-            [infoItems.atl, infoItems.ath],
             [infoItems.maxSupply, undefined],
+            [infoItems.atl, infoItems.ath],
           ]
         : [],
     [infoItems],
