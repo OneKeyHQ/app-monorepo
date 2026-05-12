@@ -242,7 +242,8 @@ function AESGcmV2Test() {
       const nonce = Buffer.from('202122232425262728292a2b', 'hex');
       const aad = Buffer.from('onekey-gallery-aad-v1', 'utf8');
       const password = 'onekey-gallery-password';
-      const v2MagicHex = Buffer.from('1K_ENC_V2', 'utf8').toString('hex');
+      const v2MagicText = '1K_ENC_V2';
+      const v2MagicHex = Buffer.from(v2MagicText, 'utf8').toString('hex');
       const defaultPbkdf2Backend =
         appCrypto.pbkdf2.getPbkdf2BackendForCurrentPlatform();
       const defaultAesGcmBackend =
@@ -283,6 +284,10 @@ function AESGcmV2Test() {
         const aesGcmInvocation =
           appCrypto.aesGcm.getAesGcmInvocationByProbeId(debugCryptoProbeId);
         const encryptedHex = bufferUtils.bytesToHex(encrypted);
+        const payloadPrefixHex = encryptedHex.slice(0, v2MagicHex.length);
+        const payloadPrefixText = Buffer.from(payloadPrefixHex, 'hex').toString(
+          'utf8',
+        );
         const metadata = await decryptAsyncWithMetadata({
           password,
           data: encrypted,
@@ -293,6 +298,8 @@ function AESGcmV2Test() {
           aesGcmInvocation,
           pbkdf2Invocation,
           payloadIterations: metadata.iterations,
+          payloadPrefixHex,
+          payloadPrefixText,
           requestedIterations,
           time,
         };
@@ -547,10 +554,15 @@ function AESGcmV2Test() {
               iterations: expectedDefaultIterations,
             },
             v2MagicHex,
+            v2MagicText,
             encryptedV2PrefixHex: encryptedV2.encryptedHex.slice(
               0,
               v2MagicHex.length,
             ),
+            encryptedV2PrefixText: Buffer.from(
+              encryptedV2.encryptedHex.slice(0, v2MagicHex.length),
+              'hex',
+            ).toString('utf8'),
             tasks,
           },
           stringUtils.STRINGIFY_REPLACER.bufferToHex,
