@@ -5,8 +5,8 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
-import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 
 export function useDesktopNewWindow() {
   const navigation = useAppNavigation();
