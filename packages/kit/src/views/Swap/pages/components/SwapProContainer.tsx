@@ -58,7 +58,7 @@ interface ISwapProContainerProps {
     speedConfig: ISwapProSpeedConfig;
     balanceLoading: boolean;
     supportSpeedSwap?: boolean;
-    isMEV: boolean;
+    isMEV?: boolean;
     hasEnoughBalance: boolean;
     onlySupportCrossChain: boolean;
   };
@@ -248,7 +248,7 @@ const SwapProContainer = ({
               configLoading={isLoading}
               balanceLoading={balanceLoading}
               limitPriceUseMarketPrice={limitPriceUseMarketPrice}
-              isMev={isMEV}
+              isMev={!!isMEV}
               onBalanceMax={onBalanceMaxPress}
               onSelectPercentageStage={onSelectPercentageStage}
               onSwapProActionClick={onSwapProActionClick}

@@ -52,7 +52,7 @@ export type ISwapPanelContentProps = {
   balanceToken?: IToken;
   onSwap: () => void;
   onWrappedSwap: () => void;
-  swapMevNetConfig: string[];
+  swapMevNetConfig?: string[];
   swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
   isWrapped: boolean;
   onCloseDialog?: () => void;
@@ -112,7 +112,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     networkId,
   } = swapPanel;
   const isMEV = useMemo(
-    () => swapMevNetConfig?.includes(swapPanel.networkId ?? '') ?? false,
+    () =>
+      Array.isArray(swapMevNetConfig)
+        ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
+        : undefined,
     [swapMevNetConfig, swapPanel.networkId],
   );
   const tokenBuyInputRef = useRef<ITokenInputSectionRef>(null);
@@ -357,7 +360,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {suppressStandaloneSlippage ? null : (
         <SlippageSetting
           autoDefaultValue={slippageAutoValue}
-          isMEV={isMEV}
+          isMEV={!!isMEV}
           onSlippageChange={(item) => {
             setSlippage(item.value);
             setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);
