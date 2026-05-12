@@ -34,23 +34,40 @@ type IWebContentProps = IWebTab &
     customReceiveHandler?: IJsBridgeReceiveHandler;
   };
 
+function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
+  return (
+    Boolean(validateState) &&
+    validateState !== EValidateUrlEnum.Valid &&
+    validateState !== EValidateUrlEnum.ValidDeeplink
+  );
+}
+
 function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
   const phishingUrlRef = useRef<string>('');
-  const [showBlockAccessView, setShowBlockAccessView] = useState(false);
-  const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
+  const [navigationBlockAccessView, setNavigationBlockAccessView] =
+    useState(false);
+  const [navigationUrlValidateState, setNavigationUrlValidateState] =
+    useState<EValidateUrlEnum>();
   const { setWebTabData, closeWebTab, setCurrentWebTab, getWebTabById } =
     useBrowserTabActions().current;
   const { onNavigation, validateWebviewSrc } = useBrowserAction().current;
+  const currentUrlValidateState = useMemo(
+    () => validateWebviewSrc({ url, isTopFrame: true }),
+    [url, validateWebviewSrc],
+  );
+  const shouldBlockCurrentUrl = shouldBlockAccess(currentUrlValidateState);
+  const showBlockAccessView =
+    shouldBlockCurrentUrl || navigationBlockAccessView;
+  const urlValidateState = shouldBlockCurrentUrl
+    ? currentUrlValidateState
+    : navigationUrlValidateState;
+
   useEffect(() => {
-    const validateState = validateWebviewSrc({ url, isTopFrame: true });
-    setUrlValidateState(validateState);
-    setShowBlockAccessView(
-      validateState !== EValidateUrlEnum.Valid &&
-        validateState !== EValidateUrlEnum.ValidDeeplink,
-    );
-  }, [url, validateWebviewSrc]);
+    setNavigationBlockAccessView(false);
+    setNavigationUrlValidateState(undefined);
+  }, [url]);
 
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
@@ -75,6 +92,8 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   const onDidStartNavigation = useCallback(
     ({ url: willNavigationUrl, isMainFrame }: DidStartNavigationEvent) => {
       if (isMainFrame) {
+        setNavigationBlockAccessView(false);
+        setNavigationUrlValidateState(undefined);
         notifyTabNavigation(id);
         onNavigation({
           id,
@@ -84,7 +103,8 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
           ...getNavStatusInfo(),
           handlePhishingUrl: (illegalUrl) => {
             console.log('=====>>>>: handlePhishingUrl', illegalUrl);
-            setShowBlockAccessView(true);
+            setNavigationBlockAccessView(true);
+            setNavigationUrlValidateState(EValidateUrlEnum.NotSupportProtocol);
             phishingUrlRef.current = illegalUrl;
           },
         });
@@ -163,8 +183,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
 
   const webview = useMemo(
     () => {
-      const isValidate = validateWebviewSrc({ url, isTopFrame: true });
-      if (!isValidate) {
+      if (shouldBlockCurrentUrl) {
         return null;
       }
       return (
@@ -202,6 +221,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       onDidStartLoading,
       onDidStartNavigation,
       onDomReady,
+      shouldBlockCurrentUrl,
       customReceiveHandler,
       // onPageTitleUpdated,
       // onPageFaviconUpdated,

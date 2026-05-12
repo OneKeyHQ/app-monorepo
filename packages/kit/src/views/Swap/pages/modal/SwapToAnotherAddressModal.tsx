@@ -9,6 +9,7 @@ import {
   Icon,
   Page,
   SizableText,
+  Toast,
   XStack,
   useForm,
 } from '@onekeyhq/components';
@@ -23,6 +24,7 @@ import {
   useSwapToAnotherAccountAddressAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -116,9 +118,22 @@ const SwapToAnotherAddressPage = () => {
   );
 
   const handleOnConfirm: SubmitHandler<IFormType> = useCallback(
-    (data) => {
+    async (data) => {
       const finallyAddress = data.address.resolved;
-      if (!finallyAddress) return;
+      if (!finallyAddress || !networkId) return;
+      // Use the unified helper so BTC fresh addresses owned by a deactivated
+      // Bot Wallet are also rejected.
+      const isDeactivatedBotReceiver =
+        await isAddressOwnedByDeactivatedBotWallet({
+          networkId,
+          address: finallyAddress,
+        });
+      if (isDeactivatedBotReceiver) {
+        Toast.error({
+          title: '该 Bot 钱包已停用，无法作为接收地址',
+        });
+        return;
+      }
       setSettings((v) => ({
         ...v,
         swapToAnotherAccountSwitchOn: true,

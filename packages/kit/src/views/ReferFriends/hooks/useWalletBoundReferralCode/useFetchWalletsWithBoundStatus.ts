@@ -40,11 +40,27 @@ export function useFetchWalletsWithBoundStatus() {
     });
 
     // Filter valid wallets (HD and hardware wallets)
-    const validWallets = wallets.filter(
+    const baseValidWallets = wallets.filter(
       (w) =>
         (accountUtils.isHdWallet({ walletId: w.id }) ||
           accountUtils.isHwWallet({ walletId: w.id })) &&
         !accountUtils.isHwHiddenWallet({ wallet: w }),
+    );
+
+    // Exclude deactivated Bot Wallets — referral binding requires receiving
+    // signed messages and is not allowed on deactivated wallets.
+    const deactivationFlags = await Promise.all(
+      baseValidWallets.map(async (w) => {
+        if (!accountUtils.isBotWallet({ walletId: w.id })) {
+          return false;
+        }
+        return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+          walletId: w.id,
+        });
+      }),
+    );
+    const validWallets = baseValidWallets.filter(
+      (_, index) => !deactivationFlags[index],
     );
 
     // Early return if no valid wallets

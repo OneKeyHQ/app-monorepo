@@ -1947,6 +1947,11 @@ function isSpotInstrument(coin?: string | null): boolean {
   return coin.startsWith('@') || coin.includes('/');
 }
 
+function isPredictionMarketInstrument(coin?: string | null): boolean {
+  if (!coin) return false;
+  return coin.startsWith('#');
+}
+
 const SPOT_MIN_VOLUME_STRICT = 10;
 const SPOT_SELECTOR_MIN_VOLUME = 1000;
 
@@ -1996,6 +2001,7 @@ export {
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,
+  isPredictionMarketInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
   getOrderBookSizeDisplaySymbol,
@@ -2052,6 +2058,7 @@ export default {
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,
+  isPredictionMarketInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
   getOrderBookSizeDisplaySymbol,

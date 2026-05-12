@@ -1,7 +1,7 @@
 import { toASCII, toUnicode } from 'punycode/';
 import validator from 'validator';
 
-import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import type { IUrlValue } from '@onekeyhq/shared/types/uri';
 
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
 import {
@@ -23,6 +23,56 @@ const DOMAIN_REGEXP =
 const URL_WITHOUT_PROTOCOL_REGEXP =
   /^(?:www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z]{2,})+(?:\/[^\s]*)?$/;
 
+const LOCALHOST_URL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
+const URL_SCHEME_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:/u;
+const URL_PROTOCOL_PREFIX_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u;
+
+type ILocalhostUrlOptions = {
+  allowLocalhostUrl?: boolean;
+};
+
+function isLocalhostParsedUrl(parsedUrl: URL | null) {
+  const hostname = parsedUrl?.hostname.replace(/^\[|\]$/gu, '').toLowerCase();
+  return Boolean(hostname && LOCALHOST_URL_HOSTNAMES.has(hostname));
+}
+
+function getHostnameFromUrlLikeText(text: string): string {
+  const protocolMatch = text.match(URL_PROTOCOL_PREFIX_REGEXP);
+  const hostAndPath = protocolMatch
+    ? text.slice(protocolMatch[0].length)
+    : text;
+  const hostWithPortAndAuth = hostAndPath.split(/[/?#]/u)[0] ?? '';
+  const hostWithPort = hostWithPortAndAuth.split('@').pop() ?? '';
+
+  if (hostWithPort.startsWith('[')) {
+    const closingBracketIndex = hostWithPort.indexOf(']');
+    return closingBracketIndex > 0
+      ? hostWithPort.slice(1, closingBracketIndex).toLowerCase()
+      : '';
+  }
+
+  return hostWithPort.split(':')[0].toLowerCase();
+}
+
+export function isLocalhostUrl(url: string): boolean {
+  const text = url.trim();
+  if (!text) return false;
+
+  return LOCALHOST_URL_HOSTNAMES.has(getHostnameFromUrlLikeText(text));
+}
+
+function normalizeHttpLocalhostUrl(url: string): string | null {
+  const text = url.trim();
+  if (!isLocalhostUrl(text)) return null;
+
+  const normalizedUrl = ensureHttpPrefix(text);
+  const parsedUrl = safeParseURL(normalizedUrl);
+  if (parsedUrl?.protocol === 'http:' && isLocalhostParsedUrl(parsedUrl)) {
+    return normalizedUrl;
+  }
+  return null;
+}
+
 export function isUrlWithoutProtocol(text: string): boolean {
   return URL_WITHOUT_PROTOCOL_REGEXP.test(text);
 }
@@ -38,6 +88,21 @@ export function ensureHttpsPrefix(url: string): string {
     return `https://${url}`;
   }
   return url;
+}
+
+export function ensureHttpPrefix(url: string): string {
+  if (!url) return url;
+  if (isLocalhostUrl(url) && !URL_PROTOCOL_PREFIX_REGEXP.test(url)) {
+    return `http://${url}`;
+  }
+  if (URL_SCHEME_REGEXP.test(url)) {
+    return url;
+  }
+  return `http://${url}`;
+}
+
+export function buildGoogleSearchUrl(keyword: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(keyword)}`;
 }
 
 function getHostNameFromUrl({ url }: { url: string }): string {
@@ -102,7 +167,7 @@ enum EDAppOpenActionEnum {
 function parseDappRedirect(
   url: string,
   allowedUrls: string[],
-  options?: { isTopFrame?: boolean },
+  options?: ILocalhostUrlOptions & { isTopFrame?: boolean },
 ): { action: EDAppOpenActionEnum } {
   // allow iframe ad
   const isTopFrame = options?.isTopFrame ?? true;
@@ -119,13 +184,12 @@ function parseDappRedirect(
   }
 
   const parsedUrl = safeParseURL(url);
-  if (process.env.NODE_ENV !== 'production') {
-    if (
-      parsedUrl?.hostname &&
-      ['localhost', '127.0.0.1'].includes(parsedUrl?.hostname)
-    ) {
-      return { action: EDAppOpenActionEnum.ALLOW };
-    }
+  if (
+    options?.allowLocalhostUrl &&
+    parsedUrl?.protocol === 'http:' &&
+    isLocalhostParsedUrl(parsedUrl)
+  ) {
+    return { action: EDAppOpenActionEnum.ALLOW };
   }
   if (
     !parsedUrl ||
@@ -237,19 +301,14 @@ export function isValidDeepLink(url: string) {
   );
 }
 
-export const validateUrl = (url: string): string => {
-  // In development mode, allow HTTP localhost URLs
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      const parsedUrl = new URL(url);
-      if (
-        parsedUrl.protocol === 'http:' &&
-        ['localhost', '127.0.0.1'].includes(parsedUrl.hostname)
-      ) {
-        return url;
-      }
-    } catch {
-      // Continue with normal validation
+export const validateUrl = (
+  url: string,
+  options?: ILocalhostUrlOptions,
+): string => {
+  if (options?.allowLocalhostUrl) {
+    const localhostUrl = normalizeHttpLocalhostUrl(url);
+    if (localhostUrl) {
+      return localhostUrl;
     }
   }
 
@@ -285,7 +344,7 @@ export const validateUrl = (url: string): string => {
   }
 
   // If still not valid, return Google search URL
-  return `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+  return buildGoogleSearchUrl(url);
 };
 
 export const containsPunycode = (url: string) => {
@@ -399,8 +458,11 @@ export default {
   buildDeepLinkUrl,
   safeGetWalletConnectOrigin,
   parseUrl,
+  isLocalhostUrl,
   safeParseURL,
   appendUtmSourceToUrl,
   isUrlWithoutProtocol,
   ensureHttpsPrefix,
+  ensureHttpPrefix,
+  buildGoogleSearchUrl,
 };

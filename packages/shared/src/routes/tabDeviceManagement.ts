@@ -1,4 +1,5 @@
 import type { IHwQrWalletWithDevice } from '../../types/account';
+import type { EHardwareVendor } from '../../types/device';
 
 export enum ETabDeviceManagementRoutes {
   GuideModal = 'GuideModal',
@@ -13,6 +14,7 @@ export type ITabDeviceManagementParamList = {
   [ETabDeviceManagementRoutes.DeviceList]: undefined;
   [ETabDeviceManagementRoutes.DeviceDetail]: {
     walletId: string;
+    initialDeviceVendor?: EHardwareVendor;
   };
   [ETabDeviceManagementRoutes.BuyOneKeyHardwareWallet]: undefined;
   [ETabDeviceManagementRoutes.HardwareTroubleshooting]: {

@@ -2,7 +2,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, Stack, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelUpgradeCondition } from '@onekeyhq/shared/src/referralCode/type';
@@ -32,6 +32,10 @@ function clampPct(pct: number) {
   return Math.min(100, Math.max(0, pct));
 }
 
+const BAR_HEIGHT = 6;
+const MILESTONE_DOT_SIZE = 8;
+const CURRENT_DOT_SIZE = 12;
+
 function MilestoneLabel({
   pct,
   title,
@@ -52,12 +56,9 @@ function MilestoneLabel({
       gap="$0.5"
       ai={align}
     >
-      <XStack ai="center" gap="$1">
-        <Stack w={6} h={6} borderRadius="$full" bg="$borderStrong" />
-        <SizableText size="$bodySm" color="$textSubdued">
-          {title}
-        </SizableText>
-      </XStack>
+      <SizableText size="$bodySm" color="$textSubdued">
+        {title}
+      </SizableText>
       <SizableText size="$bodyMdMedium" color="$text">
         {value}
       </SizableText>
@@ -76,7 +77,12 @@ function ProgressBarWithMilestones({
 }) {
   const clampedCurrent = clampPct(currentPct);
   return (
-    <Stack h={6} bg="$neutral5" borderRadius="$full" position="relative">
+    <Stack
+      h={BAR_HEIGHT}
+      bg="$neutral5"
+      borderRadius="$full"
+      position="relative"
+    >
       <Stack
         position="absolute"
         left={0}
@@ -90,9 +96,10 @@ function ProgressBarWithMilestones({
         <Stack
           position="absolute"
           left={`${clampPct(maintainPct)}%`}
-          ml={-4}
-          w={8}
-          h={8}
+          ml={-MILESTONE_DOT_SIZE / 2}
+          top={-(MILESTONE_DOT_SIZE - BAR_HEIGHT) / 2}
+          w={MILESTONE_DOT_SIZE}
+          h={MILESTONE_DOT_SIZE}
           borderRadius="$full"
           bg="$bg"
           borderWidth={1}
@@ -103,9 +110,10 @@ function ProgressBarWithMilestones({
         <Stack
           position="absolute"
           left={`${clampPct(upgradePct)}%`}
-          ml={-4}
-          w={8}
-          h={8}
+          ml={-MILESTONE_DOT_SIZE / 2}
+          top={-(MILESTONE_DOT_SIZE - BAR_HEIGHT) / 2}
+          w={MILESTONE_DOT_SIZE}
+          h={MILESTONE_DOT_SIZE}
           borderRadius="$full"
           bg="$bg"
           borderWidth={1}
@@ -115,9 +123,10 @@ function ProgressBarWithMilestones({
       <Stack
         position="absolute"
         left={`${clampedCurrent}%`}
-        ml={-6}
-        w={12}
-        h={12}
+        ml={-CURRENT_DOT_SIZE / 2}
+        top={-(CURRENT_DOT_SIZE - BAR_HEIGHT) / 2}
+        w={CURRENT_DOT_SIZE}
+        h={CURRENT_DOT_SIZE}
         borderRadius="$full"
         bg="$iconSuccess"
         borderWidth={2}
@@ -149,9 +158,7 @@ export function SubjectMilestoneCard({
     : null;
 
   const upperBound = upgrade ?? maintain ?? current;
-  const safeUpper = upperBound.isZero()
-    ? new BigNumber(1)
-    : BigNumber.maximum(upperBound, current);
+  const safeUpper = upperBound.isZero() ? new BigNumber(1) : upperBound;
 
   const currentPct = current.dividedBy(safeUpper).multipliedBy(100).toNumber();
   const maintainPct = maintain

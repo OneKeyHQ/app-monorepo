@@ -3,7 +3,9 @@ import { ActionList } from '@onekeyhq/components';
 import type { IExportKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { navigateToBackupWalletReminderPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
+import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -37,6 +39,20 @@ export function AccountExportPrivateKeyButton({
   wallet?: IDBWallet;
 }) {
   const navigation = useAppNavigation();
+
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  if (
+    shouldHideBotWalletExport({
+      isBotWallet,
+      isBotWalletDeactivated,
+    })
+  ) {
+    return null;
+  }
 
   return (
     <ActionList.Item

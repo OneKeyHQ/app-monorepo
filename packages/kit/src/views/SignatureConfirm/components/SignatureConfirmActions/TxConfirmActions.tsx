@@ -101,6 +101,10 @@ type IProps = {
   isQueueMode?: boolean;
   unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   gasAccountScenario?: IGasAccountScenario;
+  // External risk signal (e.g. WalletConnect verify-api downgrade). Forces
+  // the take-risk checkbox on top of the decodedTx-level signal so a spoofed
+  // peer can't push through an `eth_sendTransaction` without acknowledgement.
+  forceTakeRiskAlert?: boolean;
 };
 
 function TxConfirmActions(props: IProps) {
@@ -119,6 +123,7 @@ function TxConfirmActions(props: IProps) {
     isQueueMode,
     unsignedTxQueue,
     gasAccountScenario,
+    forceTakeRiskAlert,
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
@@ -770,8 +775,9 @@ function TxConfirmActions(props: IProps) {
 
   const showTakeRiskAlert = useMemo(() => {
     if (decodedTxs?.some((tx) => tx.isConfirmationRequired)) return true;
+    if (forceTakeRiskAlert) return true;
     return false;
-  }, [decodedTxs]);
+  }, [decodedTxs, forceTakeRiskAlert]);
 
   const isGasAccountQuoteExpired = useMemo(() => {
     if (gasAccountUiState.selectedPayer !== 'gasAccount') {

@@ -1,4 +1,8 @@
-import { applyCustomPriorityFeeToGasInfo } from './marketPresetFeeUtils';
+import {
+  applyCustomPriorityFeeToGasInfo,
+  isValidMarketPresetCustomPriorityFeeValue,
+  normalizeMarketPresetCustomPriorityFeeRange,
+} from './marketPresetFeeUtils';
 
 import type { IEstimateFeeParams } from '../../types/fee';
 import type { ISwapGasInfo } from '../../types/swap/types';
@@ -16,6 +20,37 @@ const baseSolCommon: NonNullable<ISwapGasInfo['common']> = {
   nativeDecimals: 9,
   nativeSymbol: 'SOL',
 };
+
+describe('normalizeMarketPresetCustomPriorityFeeRange', () => {
+  test('clamps a negative custom min to the default open lower bound', () => {
+    expect(
+      normalizeMarketPresetCustomPriorityFeeRange({ min: '-1', max: '250' }),
+    ).toEqual({
+      min: '0',
+      max: '250',
+    });
+  });
+
+  test('falls back to the default range when explicit min and max are inverted', () => {
+    expect(
+      normalizeMarketPresetCustomPriorityFeeRange({ min: '500', max: '100' }),
+    ).toEqual({
+      min: '0',
+      max: '1000',
+    });
+  });
+
+  test('keeps the configured lower bound as an open interval', () => {
+    const range = { min: '1', max: '250' };
+
+    expect(
+      isValidMarketPresetCustomPriorityFeeValue({ value: '1', range }),
+    ).toBe(false);
+    expect(
+      isValidMarketPresetCustomPriorityFeeValue({ value: '1.1', range }),
+    ).toBe(true);
+  });
+});
 
 describe('applyCustomPriorityFeeToGasInfo', () => {
   test('returns gasInfo unchanged when customPriorityFee is undefined', () => {
@@ -55,6 +90,29 @@ describe('applyCustomPriorityFeeToGasInfo', () => {
     const result = applyCustomPriorityFeeToGasInfo({
       gasInfo,
       customPriorityFee: { customValue },
+    });
+
+    expect(result).toBe(gasInfo);
+  });
+
+  test('returns gasInfo unchanged when custom range has negative min and customValue is zero', () => {
+    const gasInfo: ISwapGasInfo = {
+      common: baseCommon,
+      gasEIP1559: {
+        baseFeePerGas: '5',
+        maxFeePerGas: '15',
+        maxPriorityFeePerGas: '2',
+        gasLimit: '21000',
+        gasLimitForDisplay: '21000',
+      },
+    };
+
+    const result = applyCustomPriorityFeeToGasInfo({
+      gasInfo,
+      customPriorityFee: {
+        customValue: '0',
+        customRange: { min: '-1', max: '250' },
+      },
     });
 
     expect(result).toBe(gasInfo);

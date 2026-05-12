@@ -435,6 +435,15 @@ describe('marketDirectSendTx', () => {
     });
 
     expect(result.gasInfos[0].gasInfo.feeSol?.computeUnitPrice).toBe('5000000');
+    expect(result.gasInfos[0].estimateFeeParams?.estimateFeeParamsSol).toEqual({
+      baseFee: '5000',
+      computeUnitLimit: '200000',
+      computeUnitPriceDecimals: 6,
+    });
+    // Regression guard: without estimateFeeParams plumbed through, the SOL
+    // branch returns only baseFee (~$0.0005) instead of ~$0.1005.
+    expect(result.gasFeeFiatValue).toBeDefined();
+    expect(Number(result.gasFeeFiatValue)).toBeCloseTo(0.1005, 4);
   });
 
   it('ignores gas infos without common data when aggregating fiat values', async () => {
