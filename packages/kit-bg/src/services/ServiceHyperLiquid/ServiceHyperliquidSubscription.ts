@@ -116,6 +116,14 @@ interface ISubscriptionUpdateParams {
 export default class ServiceHyperliquidSubscription extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     super({ backgroundApi });
+    // Tear down the Hyperliquid WS + all per-route subscriptions when
+    // the OS is about to start killing apps. Reconnect happens lazily
+    // the next time a perps route is mounted (setRouteSubscriptionState
+    // is the entry point).
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      void this.disconnect();
+    });
   }
 
   private _client: IHyperliquidWsClient | null = null;

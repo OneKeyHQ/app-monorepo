@@ -242,6 +242,16 @@ class ServiceAccount extends ServiceBase {
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
       void this.clearAccountCache();
     });
+    // Drop derived-address / xpub memoizee caches on critical memory
+    // pressure. These caches are the cheapest to rebuild (one BIP32
+    // derive per missed key) and the most prolific allocators in
+    // observed memory growth.
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      void this.clearAccountCache();
+      this.getAccountXpubOrAddressWithMemo.clear();
+      this.getAccountXpubsForAllDeriveTypesWithMemo.clear();
+    });
   }
 
   @backgroundMethod()

@@ -829,17 +829,45 @@ export function Bootstrap() {
   }, [navigation, autoNavigation?.enabled, autoNavigation?.selectedTab]);
 
   useEffect(() => {
-    if (devSettings.enabled) {
-      performance.start(1000);
-      if (devSettings.settings?.showPerformanceMonitor) {
-        performance.showOverlay();
-      }
+    // Sampler runs unconditionally in production: 1Hz mach syscall +
+    // rAF counter is negligible overhead, and the data feeds the
+    // memory-pressure observability path (anomaly logs, future
+    // telemetry) for all users. Overlay stays dev-only.
+    performance.start(1000);
+    if (devSettings.enabled && devSettings.settings?.showPerformanceMonitor) {
+      performance.showOverlay();
+    } else {
+      performance.hideOverlay();
     }
     return () => {
       performance.hideOverlay();
-      performance.stop();
     };
   }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+
+  // Bridge native memory-warning notifications to the cross-process
+  // appEventBus, so background services and JS-side caches can react.
+  // Registered once for the lifetime of the React tree; the native
+  // listener is a process-global observer (see MemoryWarningCenter on
+  // each platform), so we never want it tied to per-screen state.
+  useEffect(() => {
+    const id = performance.addMemoryWarningListener((event) => {
+      appEventBus.emit(EAppEventBusNames.MemoryPressureWarning, event);
+      // Run GC after subscribers have had a chance to drop references.
+      // setTimeout(0) yields to the current microtask queue so any
+      // synchronous `clear()` calls in subscriber handlers finish
+      // first; otherwise GC would walk live references and reclaim
+      // nothing. Critical-only: a `low` event isn't worth the
+      // stop-the-world cost.
+      if (event.level === 'critical') {
+        setTimeout(() => {
+          performance.forceGarbageCollection();
+        }, 0);
+      }
+    });
+    return () => {
+      performance.removeMemoryWarningListener(id);
+    };
+  }, []);
 
   // === Boot Recovery: mark boot success after 5s stability window ===
   useEffect(() => {
