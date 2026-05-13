@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -62,8 +62,19 @@ export function PerpMarketWorkspacePanel({
   const intl = useIntl();
   const [activeView, setActiveView] =
     useState<IPerpMarketWorkspaceView>('chart');
+  const [hasInfoViewMounted, setHasInfoViewMounted] = useState(false);
   const [, setLayoutState] = usePerpsLayoutStateAtom();
   const { baseName, coin, displayName } = useActiveTradeDisplay();
+
+  const handleChangeActiveView = useCallback(
+    (view: IPerpMarketWorkspaceView) => {
+      setActiveView(view);
+      if (view === 'info') {
+        setHasInfoViewMounted(true);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (activeView !== 'chart') {
@@ -88,18 +99,26 @@ export function PerpMarketWorkspacePanel({
             key={item.key}
             active={activeView === item.key}
             label={intl.formatMessage({ id: item.translationId })}
-            onPress={() => setActiveView(item.key)}
+            onPress={() => handleChangeActiveView(item.key)}
           />
         ))}
       </XStack>
 
       <YStack flex={1} minHeight={0}>
-        {activeView === 'chart' ? (
+        <YStack
+          flex={1}
+          minHeight={0}
+          display={activeView === 'chart' ? 'flex' : 'none'}
+        >
           <PerpCandles onTouchScroll={onTouchScroll} />
-        ) : null}
+        </YStack>
 
-        {activeView === 'info' ? (
-          <YStack flex={1} minHeight={0}>
+        {hasInfoViewMounted ? (
+          <YStack
+            flex={1}
+            minHeight={0}
+            display={activeView === 'info' ? 'flex' : 'none'}
+          >
             <PerpMarketDetailContent
               key={`info-${coin || displayName || baseName || 'unknown'}`}
               coin={coin}
