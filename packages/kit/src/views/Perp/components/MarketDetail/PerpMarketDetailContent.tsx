@@ -689,13 +689,16 @@ export function PerpMarketDetailContent({
     | undefined;
 
   const marketDetail = resolvedMarketDetail.result?.detail;
+  const localizedDescription = resolvedMarketDetail.result?.localizedMessage;
   const marketDetailReferenceNote = intl.formatMessage({
     id: ETranslations.perp_market_info_reference_note__desc,
   });
 
   const aboutText = useMemo(
-    () => sanitizeDescriptionText(marketDetail?.about) || '',
-    [marketDetail?.about],
+    () =>
+      sanitizeDescriptionText(localizedDescription || marketDetail?.about) ||
+      '',
+    [localizedDescription, marketDetail?.about],
   );
 
   const fundingHistoryItems = useMemo(
@@ -829,12 +832,16 @@ export function PerpMarketDetailContent({
 
   const renderInfoCombined = () => {
     const isInitialLoading = resolvedMarketDetail.isLoading;
+    const hasMarketInfoContent = Boolean(marketDetail || aboutText);
+    const showRawSourceNote = Boolean(
+      marketDetail?.about && !localizedDescription,
+    );
 
     if (isInitialLoading) {
       return <SectionLoading />;
     }
 
-    if (!marketDetail) {
+    if (!hasMarketInfoContent) {
       return <MarketInfoEmptyState />;
     }
 
@@ -997,6 +1004,17 @@ export function PerpMarketDetailContent({
       : [];
 
     const showDescriptionToggle = aboutText.length > 320;
+    const hasAnyLinks = linkRows.some((item) => item.items.length > 0);
+    const renderReferenceNote = () => (
+      <SizableText
+        size="$bodyXs"
+        color="$textDisabled"
+        lineHeight={16}
+        flexShrink={1}
+      >
+        {`* ${marketDetailReferenceNote}`}
+      </SizableText>
+    );
 
     return (
       <YStack pt="$4" gap="$6">
@@ -1021,55 +1039,49 @@ export function PerpMarketDetailContent({
           ) : null}
         </XStack>
 
-        <XStack
-          flexWrap="wrap"
-          gap="$6"
-          alignItems="flex-start"
-          $gtMd={{ flexWrap: 'nowrap', gap: '$16' } as any}
-        >
-          <YStack flex={1} flexBasis={0} minWidth={0} width="100%" gap="$2.5">
-            <SizableText size="$headingSm">
-              {intl.formatMessage({
-                id: ETranslations.perp_market_info_coin_info__title,
-              })}
-            </SizableText>
-            {marketReferenceRows.length ? (
-              <DetailInfoTable rows={marketReferenceRows} />
-            ) : (
-              <SizableText size="$bodySm" color="$textSubdued">
+        {marketDetail ? (
+          <XStack
+            flexWrap="wrap"
+            gap="$6"
+            alignItems="flex-start"
+            $gtMd={{ flexWrap: 'nowrap', gap: '$16' } as any}
+          >
+            <YStack flex={1} flexBasis={0} minWidth={0} width="100%" gap="$2.5">
+              <SizableText size="$headingSm">
                 {intl.formatMessage({
-                  id: ETranslations.perp_market_info_no_reference_data__desc,
+                  id: ETranslations.perp_market_info_coin_info__title,
                 })}
               </SizableText>
-            )}
-          </YStack>
-
-          <YStack flex={1} flexBasis={0} width="100%" minWidth={0} gap="$2.5">
-            <SizableText size="$headingSm">
-              {intl.formatMessage({ id: ETranslations.global_links })}
-            </SizableText>
-            {linkRows.some((item) => item.items.length > 0) ? (
-              <YStack gap="$3">
-                <DetailLinkTable rows={linkRows} />
-                <SizableText
-                  size="$bodyXs"
-                  color="$textDisabled"
-                  lineHeight={16}
-                  numberOfLines={1}
-                  whiteSpace="nowrap"
-                >
-                  {`* ${marketDetailReferenceNote}`}
+              {marketReferenceRows.length ? (
+                <DetailInfoTable rows={marketReferenceRows} />
+              ) : (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_market_info_no_reference_data__desc,
+                  })}
                 </SizableText>
-              </YStack>
-            ) : (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_market_info_no_external_links__desc,
-                })}
+              )}
+            </YStack>
+
+            <YStack flex={1} flexBasis={0} width="100%" minWidth={0} gap="$2.5">
+              <SizableText size="$headingSm">
+                {intl.formatMessage({ id: ETranslations.global_links })}
               </SizableText>
-            )}
-          </YStack>
-        </XStack>
+              {hasAnyLinks ? (
+                <YStack gap="$3">
+                  <DetailLinkTable rows={linkRows} />
+                  {renderReferenceNote()}
+                </YStack>
+              ) : (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_market_info_no_external_links__desc,
+                  })}
+                </SizableText>
+              )}
+            </YStack>
+          </XStack>
+        ) : null}
 
         {aboutText ? (
           <YStack gap="$3.5">
@@ -1079,30 +1091,32 @@ export function PerpMarketDetailContent({
                   id: ETranslations.perp_market_info_introduction__title,
                 })}
               </SizableText>
-              <Tooltip
-                placement="top"
-                renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    dashColor="$textDisabled"
-                    dashThickness={0.5}
-                    color="$textSubdued"
-                    cursor="help"
-                    alignSelf="flex-start"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_market_info_raw_source__title,
-                    })}
-                  </DashText>
-                }
-                renderContent={
-                  <SizableText size="$bodySm">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_market_info_raw_source_tooltip__desc,
-                    })}
-                  </SizableText>
-                }
-              />
+              {showRawSourceNote ? (
+                <Tooltip
+                  placement="top"
+                  renderTrigger={
+                    <DashText
+                      size="$bodySm"
+                      dashColor="$textDisabled"
+                      dashThickness={0.5}
+                      color="$textSubdued"
+                      cursor="help"
+                      alignSelf="flex-start"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.perp_market_info_raw_source__title,
+                      })}
+                    </DashText>
+                  }
+                  renderContent={
+                    <SizableText size="$bodySm">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_market_info_raw_source_tooltip__desc,
+                      })}
+                    </SizableText>
+                  }
+                />
+              ) : null}
             </XStack>
             <SizableText
               size="$bodyMd"
@@ -1138,6 +1152,7 @@ export function PerpMarketDetailContent({
                 />
               </XStack>
             ) : null}
+            {hasAnyLinks ? null : renderReferenceNote()}
           </YStack>
         ) : null}
       </YStack>

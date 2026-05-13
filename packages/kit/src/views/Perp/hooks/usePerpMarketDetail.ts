@@ -10,7 +10,10 @@ import type {
   IPerpPredictedFundingVenue,
   IRecentTrade,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type { IPerpsAssetMetaMap } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  IPerpAssetMetaAssetType,
+  IPerpsAssetMetaMap,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 export type IPerpFundingHistoryRange = '24h' | '7d' | '30d';
@@ -18,8 +21,9 @@ export type IPerpFundingHistoryRange = '24h' | '7d' | '30d';
 export type IPerpResolvedMarketDetail = {
   assetMetaKey: string;
   assetId: string;
-  assetType?: string;
-  detail: IMarketTokenDetail;
+  assetType?: IPerpAssetMetaAssetType;
+  localizedMessage?: string;
+  detail?: IMarketTokenDetail;
 };
 
 function addPerpAssetMetaLookupCandidate(
@@ -107,14 +111,29 @@ async function resolvePerpMarketDetail({
     return undefined;
   }
 
-  const detail = await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
-    resolvedAssetMeta.meta.assetId,
-  );
+  const localizedMessage =
+    resolvedAssetMeta.meta.localizedMessage || resolvedAssetMeta.meta.message;
+  const shouldFetchMarketDetail =
+    resolvedAssetMeta.meta.assetType === 'coingecko';
+  let detail: IMarketTokenDetail | undefined;
+
+  if (shouldFetchMarketDetail) {
+    try {
+      detail = await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
+        resolvedAssetMeta.meta.assetId,
+      );
+    } catch (error) {
+      if (!localizedMessage) {
+        throw error;
+      }
+    }
+  }
 
   return {
     assetMetaKey: resolvedAssetMeta.key,
     assetId: resolvedAssetMeta.meta.assetId,
     assetType: resolvedAssetMeta.meta.assetType,
+    localizedMessage,
     detail,
   };
 }

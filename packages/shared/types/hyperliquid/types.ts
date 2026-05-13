@@ -237,9 +237,14 @@ export interface IPerpActivityCard {
   url: string;
 }
 
+export type IPerpAssetMetaAssetType = 'coingecko' | 'non_coingecko';
+
 export interface IPerpAssetMeta {
   assetId: string;
-  assetType?: string;
+  assetType?: IPerpAssetMetaAssetType;
+  i18nKey?: string;
+  localizedMessage?: string;
+  message?: string;
 }
 
 export type IPerpsAssetMetaMap = Record<string, IPerpAssetMeta>;
