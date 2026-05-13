@@ -18,13 +18,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { calcCellAlign, getColumnStyle } from '../utils';
+import {
+  calcCellAlign,
+  formatSpotHoldingPnlText,
+  getColumnStyle,
+} from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
 import type { IBalanceDisplayItem } from '../List/SpotBalanceList';
 
-const balanceCurrencyFormatter: INumberFormatProps = {
-  formatter: 'balance',
+const valueCurrencyFormatter: INumberFormatProps = {
+  formatter: 'value',
   formatterOptions: {
     currency: '$',
   },
@@ -36,19 +40,6 @@ interface IBalanceRowProps {
   isMobile?: boolean;
   index: number;
   onChangeAsset?: () => void;
-}
-
-function formatPnlText(pnl?: string, pnlPercent?: number): string {
-  if (!pnl) return '--';
-
-  const numericPnl = parseFloat(pnl);
-  if (!Number.isFinite(numericPnl)) return '--';
-  if (numericPnl === 0) return '--';
-
-  const sign = numericPnl > 0 ? '+' : '';
-  const formatted = numberFormat(pnl, balanceCurrencyFormatter);
-  const pct = pnlPercent?.toFixed(1) ?? '0';
-  return `${sign}${formatted} (${sign}${pct}%)`;
 }
 
 function getPnlColor(pnl?: string): string | undefined {
@@ -124,7 +115,7 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
       id: ETranslations.perp_label_perp,
     }),
   );
-  const pnlText = formatPnlText(item.pnl, item.pnlPercent);
+  const pnlText = formatSpotHoldingPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
   const isAssetClickable = !!item.isAssetClickable;
   const balanceText = item.total;
@@ -212,7 +203,7 @@ function BalanceRowDesktop({
       id: ETranslations.perp_label_perp,
     }),
   );
-  const pnlText = formatPnlText(item.pnl, item.pnlPercent);
+  const pnlText = formatSpotHoldingPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
   const isAssetClickable = !!item.isAssetClickable;
 
@@ -221,7 +212,7 @@ function BalanceRowDesktop({
       coin: label,
       total: `${item.total} ${item.coin}`,
       available: `${item.available} ${item.coin}`,
-      usdcValue: numberFormat(item.usdcValue, balanceCurrencyFormatter),
+      usdcValue: numberFormat(item.usdcValue, valueCurrencyFormatter),
       pnl: pnlText,
       contract: '',
     };

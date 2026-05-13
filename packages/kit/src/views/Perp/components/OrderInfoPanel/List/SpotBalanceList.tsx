@@ -25,6 +25,7 @@ import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { isHyperLiquidUnifiedAccountMode } from '../../../utils';
 import { BalanceRow } from '../Components/BalanceRow';
 import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
+import { calculateSpotHoldingPnl, isSpotHoldingStableCoin } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -128,7 +129,7 @@ function SpotBalanceList({
       const availableBN = BigNumber.max(totalBN.minus(holdBN), 0);
       const entryNtlBN = new BigNumber(b.entryNtl || '0');
 
-      const isStable = b.coin === 'USDT' || b.coin === 'USDB';
+      const isStable = isSpotHoldingStableCoin(b.coin);
 
       const midPrice = tokenPriceLookup[b.coin];
       let usdcValueBN: BigNumber;
@@ -140,13 +141,12 @@ function SpotBalanceList({
         usdcValueBN = entryNtlBN;
       }
 
-      let pnl: string | undefined;
-      let pnlPercent: number | undefined;
-      if (!isStable && !entryNtlBN.isZero() && midPrice) {
-        const pnlBN = usdcValueBN.minus(entryNtlBN);
-        pnl = pnlBN.toFixed(2);
-        pnlPercent = pnlBN.dividedBy(entryNtlBN).multipliedBy(100).toNumber();
-      }
+      const { pnl, pnlPercent } = calculateSpotHoldingPnl({
+        total: b.total,
+        entryNtl: b.entryNtl,
+        midPrice,
+        isStable,
+      });
 
       const displayCoin = getSpotTokenDisplayName(b.coin);
       const spotUniverse = universeByBaseName[b.coin];
