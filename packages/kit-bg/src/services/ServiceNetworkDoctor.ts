@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IDiagnosticProgress } from '@onekeyhq/shared/src/modules/NetworkDoctor/types';
 import { isSupportIpTablePlatform } from '@onekeyhq/shared/src/utils/ipTableUtils';
 import {
@@ -79,6 +80,15 @@ class ServiceNetworkDoctor extends ServiceBase {
     ); // 50ms = 20fps, smooth enough for progress bar
 
     this.progressSmoother.safetyTimeoutId = setTimeout(() => {
+      defaultLogger.app.perf.defensiveTriggered({
+        source: 'networkDoctor:progressSmoother',
+        reason: 'safety-timeout-hit',
+        details: {
+          maxRuntimeMs: ServiceNetworkDoctor.SMOOTHER_MAX_RUNTIME_MS,
+          lastTargetProgress: this.progressSmoother.targetProgress,
+          lastCurrentProgress: this.progressSmoother.currentProgress,
+        },
+      });
       this.stopProgressSmoother();
     }, ServiceNetworkDoctor.SMOOTHER_MAX_RUNTIME_MS);
   }

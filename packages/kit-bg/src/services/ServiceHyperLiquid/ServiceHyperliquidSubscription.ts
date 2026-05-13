@@ -16,11 +16,11 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   clearTrackedInterval,
   trackedSetInterval,
 } from '@onekeyhq/shared/src/utils/timerRegistry';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
   HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS,

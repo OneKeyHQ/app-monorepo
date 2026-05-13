@@ -42,4 +42,13 @@ export class AppPerfScene extends BaseScene {
   }) {
     return [params];
   }
+
+  @LogToLocal()
+  public defensiveTriggered(params: {
+    source: string;
+    reason: string;
+    details?: Record<string, unknown>;
+  }) {
+    return [params];
+  }
 }

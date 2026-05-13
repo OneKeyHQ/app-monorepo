@@ -55,6 +55,7 @@ import type {
   ILnurlAuthParams,
 } from '@onekeyhq/shared/types/lightning';
 import { ELnPaymentStatusEnum } from '@onekeyhq/shared/types/lightning/payments';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -335,6 +336,15 @@ export default class Vault extends VaultBase {
           attempts += 1;
           if (attempts > MAX_POLL_ATTEMPTS) {
             clearInterval(intervalId);
+            defaultLogger.app.perf.defensiveTriggered({
+              source: 'lightning:pollBolt11Status',
+              reason: 'max-attempts-exceeded',
+              details: {
+                maxAttempts: MAX_POLL_ATTEMPTS,
+                intervalMs: 1500,
+                networkId: this.networkId,
+              },
+            });
             reject(new Error('Lightning payment status polling timed out'));
             return;
           }
