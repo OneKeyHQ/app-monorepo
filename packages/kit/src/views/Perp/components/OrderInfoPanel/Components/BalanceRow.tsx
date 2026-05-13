@@ -236,6 +236,7 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
               </SizableText>
               {canShare ? (
                 <IconButton
+                  testID={PerpTestIDs.BalanceRowShareButton}
                   variant="tertiary"
                   size="small"
                   icon="ShareOutline"
@@ -326,6 +327,7 @@ function BalanceRowDesktop({
           </SizableText>
           {canShare ? (
             <IconButton
+              testID={PerpTestIDs.BalanceRowShareButton}
               variant="tertiary"
               size="small"
               icon="ShareOutline"
