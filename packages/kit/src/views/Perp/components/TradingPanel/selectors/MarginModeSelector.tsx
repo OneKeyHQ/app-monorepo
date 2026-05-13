@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { PerpTestIDs } from '../../../testIDs';
 import { showMarginModeDialog } from '../modals/MarginModeModal';
 
 interface IMarginModeSelectorProps {
@@ -45,6 +46,7 @@ const MarginModeSelector = ({
 
   return (
     <XStack
+      testID={PerpTestIDs.MarginModeSelector}
       onPress={handlePress}
       disabled={disabled}
       height={isMobile ? 32 : 30}

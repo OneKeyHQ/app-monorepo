@@ -163,6 +163,7 @@ export function TokenDetailHeaderLeft({
                 </SizableText>
 
                 <InteractiveIcon
+                  testID="market-icon"
                   icon="Copy3Outline"
                   size="$4"
                   onPress={handleCopyAddress}
@@ -188,6 +189,7 @@ export function TokenDetailHeaderLeft({
                     <XStack gap="$2" ai="center">
                       {website ? (
                         <InteractiveIcon
+                          testID="market-icon"
                           icon="GlobusOutline"
                           onPress={handleOpenWebsite}
                           size="$4"
@@ -196,6 +198,7 @@ export function TokenDetailHeaderLeft({
 
                       {twitter ? (
                         <InteractiveIcon
+                          testID="market-icon"
                           icon="Xbrand"
                           onPress={handleOpenTwitter}
                           size="$4"
@@ -204,6 +207,7 @@ export function TokenDetailHeaderLeft({
 
                       {address ? (
                         <InteractiveIcon
+                          testID="market-icon"
                           icon="SearchOutline"
                           onPress={handleOpenXSearch}
                           size="$4"

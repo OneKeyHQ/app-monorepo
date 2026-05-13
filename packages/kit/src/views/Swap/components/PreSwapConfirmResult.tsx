@@ -150,6 +150,7 @@ const PreSwapConfirmResult = ({
       <XStack alignItems="center" justifyContent="center" gap="$2" w="100%">
         {supportUrl && lastStep.status === ESwapStepStatus.FAILED ? (
           <Button
+            testID="swap-btn"
             flexGrow={1}
             flexBasis={0}
             variant="secondary"
@@ -165,6 +166,7 @@ const PreSwapConfirmResult = ({
           </Button>
         ) : null}
         <Button
+          testID="swap-btn"
           flexGrow={1}
           flexBasis={0}
           variant="primary"

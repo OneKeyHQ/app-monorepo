@@ -159,6 +159,7 @@ export function PrimeTransferServerStatusBar() {
 
         {statusInfo?.isCustomServer ? (
           <IconButton
+            testID="prime-icon-btn"
             variant="tertiary"
             icon="Copy3Outline"
             size="small"
@@ -170,7 +171,12 @@ export function PrimeTransferServerStatusBar() {
       </XStack>
 
       <XStack gap="$4">
-        <Button size="small" variant="tertiary" onPress={handleManagePress}>
+        <Button
+          size="small"
+          variant="tertiary"
+          onPress={handleManagePress}
+          testID="prime-btn"
+        >
           {intl.formatMessage({
             id: ETranslations.global_manage,
           })}

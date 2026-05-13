@@ -19,6 +19,7 @@ import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV
 import { useMarketBasicConfig } from '../hooks';
 import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
+import { MarketTestIDs } from '../testIDs';
 
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
@@ -184,7 +185,7 @@ function BaseMarketHome() {
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
-      <Page.Body>
+      <Page.Body testID={MarketTestIDs.marketPage}>
         <BaseMarketHomeLayout />
       </Page.Body>
     </Page>

@@ -26,6 +26,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { PrimeTestIDs } from '@onekeyhq/kit/src/views/Prime/testIDs';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
@@ -623,6 +624,7 @@ function AppDataSection() {
             })} : ${keylessLastUpdateTime}`}
           >
             <Switch
+              testID={PrimeTestIDs.cloudSyncKeylessSwitch}
               size={ESwitchSize.small}
               onChange={handleToggleKeylessSync}
               value={false}
@@ -663,6 +665,7 @@ function AppDataSection() {
             })} : ${oneKeyIdLastUpdateTime}`}
           >
             <Switch
+              testID={PrimeTestIDs.cloudSyncIdSyncSwitch}
               size={ESwitchSize.small}
               onChange={handleToggleIdSync}
               value={config.isCloudSyncEnabled}
@@ -689,6 +692,7 @@ function AppDataSection() {
               </SizableText>
             </Stack>
             <Button
+              testID="prime-btn"
               size="large"
               variant="primary"
               onPress={handleCreateKeylessWallet}
@@ -718,6 +722,7 @@ function AppDataSection() {
           })} : ${keylessLastUpdateTime}`}
         >
           <Switch
+            testID="prime-switch"
             size={ESwitchSize.small}
             onChange={handleToggleKeylessSync}
             value={false}
@@ -738,6 +743,7 @@ function AppDataSection() {
             })} : ${keylessLastUpdateTime}`}
           >
             <Switch
+              testID="prime-switch"
               size={ESwitchSize.small}
               onChange={handleToggleKeylessSync}
               value={!!config.isCloudSyncEnabledKeyless}
@@ -804,6 +810,7 @@ function AppDataSection() {
             })} : ${keylessLastUpdateTime}`}
           >
             <Switch
+              testID="prime-switch"
               size={ESwitchSize.small}
               onChange={handleToggleKeylessSync}
               value={!!config.isCloudSyncEnabledKeyless}
@@ -852,6 +859,7 @@ function AppDataSection() {
             })} : ${oneKeyIdLastUpdateTime}`}
           >
             <Switch
+              testID="prime-switch"
               size={ESwitchSize.small}
               onChange={handleToggleIdSync}
               value={config.isCloudSyncEnabled}
@@ -896,6 +904,7 @@ export default function PagePrimeCloudSync() {
   const renderDebugHeaderRight = useCallback(
     () => (
       <Button
+        testID="prime-render-debug-header-right-btn"
         variant="tertiary"
         onPress={() => {
           navigation.navigate(EPrimePages.PrimeCloudSyncDebug);

@@ -220,6 +220,7 @@ function UpdateAction({ onUpdateAction }: { onUpdateAction: () => void }) {
   const intl = useIntl();
   return (
     <Button
+      testID="update-reminder-intl-btn"
       size="small"
       variant="secondary"
       onPress={onUpdateAction}

@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { PerpTestIDs } from '../../../testIDs';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
@@ -271,6 +272,7 @@ const OpenOrdersRow = memo(
               </XStack>
             </YStack>
             <Button
+              testID={PerpTestIDs.CancelOrderButton(order.oid)}
               size="small"
               variant="secondary"
               onPress={handleCancelOrder}

@@ -8,6 +8,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { DeveloperTestIDs } from '../testIDs';
 
 const SignMessageButton = () => {
   const ref = useRef<number>(0);
@@ -29,7 +30,11 @@ const SignMessageButton = () => {
       },
     });
   }, []);
-  return <Button onPress={onPress}>Sign Message</Button>;
+  return (
+    <Button testID={DeveloperTestIDs.signMessageBtn} onPress={onPress}>
+      Sign Message
+    </Button>
+  );
 };
 
 const SignTransactionButton = () => {
@@ -60,7 +65,11 @@ const SignTransactionButton = () => {
       },
     });
   }, []);
-  return <Button onPress={onPress}>Sign Transaction</Button>;
+  return (
+    <Button testID={DeveloperTestIDs.signTransactionBtn} onPress={onPress}>
+      Sign Transaction
+    </Button>
+  );
 };
 
 const ConnectSiteButton = () => {
@@ -87,7 +96,11 @@ const ConnectSiteButton = () => {
       },
     });
   }, []);
-  return <Button onPress={onPress}>Connected Site</Button>;
+  return (
+    <Button testID={DeveloperTestIDs.connectedSiteBtn} onPress={onPress}>
+      Connected Site
+    </Button>
+  );
 };
 
 const CustomSignMessage = ({ num }: { num: number }) => {
@@ -116,8 +129,18 @@ const CustomSignMessage = ({ num }: { num: number }) => {
   }, [message, account, network]);
   return (
     <YStack gap="$4">
-      <Input value={message} onChangeText={setMessage} placeholder="message" />
-      <Button onPress={onPress} loading={loading} disabled={!message.trim()}>
+      <Input
+        testID={DeveloperTestIDs.customSignMessageInput}
+        value={message}
+        onChangeText={setMessage}
+        placeholder="message"
+      />
+      <Button
+        testID={DeveloperTestIDs.customSignMessageBtn}
+        onPress={onPress}
+        loading={loading}
+        disabled={!message.trim()}
+      >
         Sign Message
       </Button>
     </YStack>

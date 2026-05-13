@@ -68,6 +68,7 @@ import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
+import { OnboardingTestIDs } from '../testIDs';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -597,6 +598,7 @@ function FinalizeWalletSetupPage({
 
   const enterWalletButton = (
     <Button
+      testID={OnboardingTestIDs.finalizeSetupEnterWalletBtn}
       variant="primary"
       size="large"
       onPress={handleLetsGo}
@@ -612,6 +614,7 @@ function FinalizeWalletSetupPage({
 
   return (
     <OnboardingPage
+      testID={OnboardingTestIDs.finalizeSetupPage}
       headerBack={false}
       showLanguageSelector={false}
       enterAnimation={false}
@@ -723,6 +726,7 @@ function FinalizeWalletSetupPage({
             </SizableText>
             <XStack gap="$2.5" mt="$4" maxWidth={420}>
               <Button
+                testID={OnboardingTestIDs.finalizeSetupRetryBtn}
                 flex={1}
                 variant="primary"
                 size="large"
@@ -730,7 +734,12 @@ function FinalizeWalletSetupPage({
               >
                 {intl.formatMessage({ id: ETranslations.global_retry })}
               </Button>
-              <Button flex={1} size="large" onPress={closePage}>
+              <Button
+                testID={OnboardingTestIDs.finalizeSetupExitBtn}
+                flex={1}
+                size="large"
+                onPress={closePage}
+              >
                 {intl.formatMessage({ id: ETranslations.global_exit })}
               </Button>
             </XStack>

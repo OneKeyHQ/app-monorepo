@@ -79,6 +79,7 @@ export function PrimeForgetMasterPasswordDialog({
       </Dialog.Description>
       <Stack pt="$2">
         <Checkbox
+          testID="prime-login-forget-password-checkbox"
           label={intl.formatMessage({
             id: ETranslations.prime_reset_backup_password_checkbox_label,
           })}
@@ -94,8 +95,12 @@ export function PrimeForgetMasterPasswordDialog({
           id: ETranslations.global_delete,
         })}
         confirmButtonProps={{
+          testID: 'prime-login-forget-password-confirm-btn',
           disabled: !isChecked,
           variant: 'destructive',
+        }}
+        cancelButtonProps={{
+          testID: 'prime-login-forget-password-cancel-btn',
         }}
         onConfirm={async ({ preventClose }) => {
           await submit({ preventClose });

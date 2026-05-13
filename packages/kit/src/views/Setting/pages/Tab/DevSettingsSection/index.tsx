@@ -88,6 +88,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
+import { SettingTestIDs } from '../../../testIDs';
 import {
   cacheDevOnlyPassword,
   clearCachedDevOnlyPassword,
@@ -147,7 +148,10 @@ export function showDevOnlyPasswordDialog({
             required: { value: true, message: 'password is required.' },
           }}
         >
-          <Input testID="dev-only-password" placeholder="devOnlyPassword" />
+          <Input
+            testID={SettingTestIDs.devOnlyPassword}
+            placeholder="devOnlyPassword"
+          />
         </Dialog.FormField>
       </Dialog.Form>
     ),

@@ -8,20 +8,28 @@ import {
 } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
+
 type IProps = {
   children: React.ReactNode;
+  testID?: string;
 };
 
 function AdvancedSettings(props: IProps) {
-  const { children } = props;
+  const { children, testID } = props;
   const intl = useIntl();
   return (
     <YStack
+      testID={testID}
       pt="$5"
       borderTopWidth={StyleSheet.hairlineWidth}
       borderTopColor="$borderSubdued"
     >
-      <Accordion type="multiple" collapsable>
+      <Accordion
+        type="multiple"
+        collapsable
+        testID={SignatureConfirmTestIDs.AdvancedSettingsAccordion}
+      >
         <Accordion.Item value="advance">
           <Accordion.Trigger
             unstyled

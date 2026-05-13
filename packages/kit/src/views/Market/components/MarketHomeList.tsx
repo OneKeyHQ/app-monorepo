@@ -1050,6 +1050,7 @@ function BasicMarketHomeList({
         >
           <XStack h="$11" ai="center" justifyContent="space-between">
             <Select
+              testID="market-select"
               items={selectOptions}
               title={intl.formatMessage({ id: ETranslations.market_sort_by })}
               value={mdSortByType}

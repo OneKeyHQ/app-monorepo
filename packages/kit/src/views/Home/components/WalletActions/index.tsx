@@ -36,6 +36,7 @@ import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useSupportNetworkId } from '../../../FiatCrypto/hooks';
+import { HomeTestIDs } from '../../testIDs';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
@@ -214,6 +215,7 @@ function WalletActionSend({
                   />
                 ) : null}
                 <Button
+                  testID={HomeTestIDs.walletActionsZeroGasContinueBtn}
                   variant="tertiary"
                   size="large"
                   mx="$0"
@@ -403,6 +405,7 @@ function WalletActionSend({
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}
       trackID="wallet-send"
+      testID={HomeTestIDs.sendButton}
     />
   );
 }

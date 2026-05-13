@@ -61,7 +61,12 @@ function PersonalInfoPageView() {
               },
             }}
           >
-            <Input autoFocus flex={1} placeholder="Enter your name" />
+            <Input
+              autoFocus
+              flex={1}
+              placeholder="Enter your name"
+              testID="setting-handle-edit-name-input"
+            />
           </Dialog.FormField>
         </Dialog.Form>
       ),

@@ -38,6 +38,7 @@ import {
 } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 import { useKeylessLocalExistenceLogin } from '../hooks/useKeylessLocalExistenceLogin';
+import { OnboardingTestIDs } from '../testIDs';
 
 type IImportOption = {
   key: string;
@@ -282,6 +283,7 @@ function CreateOrImportWallet() {
     return (
       <Button
         key={key}
+        testID={OnboardingTestIDs.createOrImportWalletOptionBtn(key)}
         variant={isPrimary ? 'primary' : 'secondary'}
         size="large"
         alignSelf="stretch"

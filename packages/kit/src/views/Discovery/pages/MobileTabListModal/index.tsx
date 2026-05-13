@@ -39,6 +39,7 @@ import {
   useDisabledAddedNewTab,
   useWebTabs,
 } from '../../hooks/useWebTabs';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IWebTab } from '../../types';
@@ -84,7 +85,7 @@ function TabToolBar({
           variant="secondary"
           size="medium"
           icon="PlusLargeOutline"
-          testID="browser-bar-add"
+          testID={DiscoveryTestIDs.newTabButton}
           onPress={onAddTab}
         />
       </Stack>
@@ -283,7 +284,7 @@ function MobileTabListModal() {
                 }),
                 icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                 onPress: () => handlePinnedPress(id, !tab.isPinned),
-                testID: `action-list-item-${!tab.isPinned ? 'pin' : 'un-pin'}`,
+                testID: DiscoveryTestIDs.tabActionPin(tab.isPinned ?? false),
               },
               {
                 label: intl.formatMessage({
@@ -336,7 +337,7 @@ function MobileTabListModal() {
                 }),
                 icon: 'CrossedLargeOutline',
                 onPress: () => handleCloseTab(id),
-                testID: `action-list-item-close-close-tab`,
+                testID: DiscoveryTestIDs.tabActionClose,
               },
             ].filter(Boolean) as IActionListItemProps[],
           },

@@ -620,6 +620,7 @@ export function PrimeTransferDirection({
       return (
         <>
           <Button
+            testID="prime-debug-buttons-btn"
             onPress={async () => {
               const result = await getRoomUsers();
               Dialog.debugMessage({
@@ -630,6 +631,7 @@ export function PrimeTransferDirection({
             Print Room Users
           </Button>
           <Button
+            testID="prime-result-btn"
             onPress={async () => {
               await backgroundApiProxy.servicePrimeTransfer.verifyPairingCodeDevTest();
             }}
@@ -637,6 +639,7 @@ export function PrimeTransferDirection({
             Verify Pairing Code
           </Button>
           <Button
+            testID="prime-result-btn"
             onPress={() => {
               void (async () => {
                 const result =
@@ -651,6 +654,7 @@ export function PrimeTransferDirection({
             Fix Direction (Keyless)
           </Button>
           <Button
+            testID="prime-result-btn"
             onPress={() => {
               void (async () => {
                 await changeDirection();
@@ -700,6 +704,7 @@ export function PrimeTransferDirection({
       /> */}
         <XStack>
           <IconButton
+            testID="prime-icon-btn"
             icon="SwitchVerOutline"
             size="large"
             px="$5"

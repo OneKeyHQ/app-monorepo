@@ -93,6 +93,7 @@ function Upgrade() {
           </YStack>
         </XStack>
         <Button
+          testID="home-btn"
           size="small"
           variant="primary"
           onPress={() => {

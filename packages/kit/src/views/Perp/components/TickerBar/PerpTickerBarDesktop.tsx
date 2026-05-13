@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import {
   usePerpsActiveAssetCtxAtom,
   useTradingModeAtom,
@@ -458,6 +459,7 @@ const TickerBarSpotContractView = memo(
               {contract ? (
                 <>
                   <IconButton
+                    testID={PerpTestIDs.TickerBarCopyContractButton}
                     size="small"
                     variant="tertiary"
                     icon="Copy3Outline"
@@ -467,6 +469,7 @@ const TickerBarSpotContractView = memo(
                     }}
                   />
                   <IconButton
+                    testID={PerpTestIDs.TickerBarOpenContractButton}
                     size="small"
                     variant="tertiary"
                     icon="OpenOutline"

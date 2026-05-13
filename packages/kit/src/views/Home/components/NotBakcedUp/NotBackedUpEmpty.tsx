@@ -95,7 +95,12 @@ function NotBackedUp() {
   const renderBackupWalletActions = useCallback(() => {
     return (
       <XStack alignItems="center" gap="$4">
-        <Button variant="primary" size="large" onPress={handleBackupWallet}>
+        <Button
+          variant="primary"
+          size="large"
+          onPress={handleBackupWallet}
+          testID="home-render-backup-wallet-actions-btn"
+        >
           {backupText}
         </Button>
         <WalletBackupActions
@@ -104,6 +109,7 @@ function NotBackedUp() {
           hideCloud={!!enableCloudBackup}
         >
           <IconButton
+            testID="home-render-backup-wallet-actions-icon-btn"
             icon="DotHorOutline"
             bg="$gray4"
             size="large"

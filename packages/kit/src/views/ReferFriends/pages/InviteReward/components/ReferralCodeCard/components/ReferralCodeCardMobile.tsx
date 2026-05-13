@@ -33,7 +33,12 @@ export function ReferralCodeCardMobile({
             {inviteCode}
           </SizableText>
         </YStack>
-        <Button variant="primary" size="medium" onPress={handleCopy}>
+        <Button
+          variant="primary"
+          size="medium"
+          onPress={handleCopy}
+          testID="refer-friends-referral-code-card-mobile-btn"
+        >
           {intl.copy}
         </Button>
       </XStack>

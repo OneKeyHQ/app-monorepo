@@ -76,6 +76,7 @@ const SwapProLimitPriceInput = ({
   return (
     <YStack borderRadius="$2" bg="$bgStrong" py="$2">
       <Input
+        testID="swap-currency-symbol-add-on-input"
         ref={inputRef}
         value={value}
         onChangeText={onChangeText}

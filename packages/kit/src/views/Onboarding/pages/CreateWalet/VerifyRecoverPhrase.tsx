@@ -35,6 +35,7 @@ function WordButton({
   }, [children, onPress]);
   return (
     <Button
+      testID="onboarding-handle-press-btn"
       borderWidth={2}
       focusVisibleStyle={{
         bg: '$bgActive',

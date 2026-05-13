@@ -23,6 +23,7 @@ function ExtremelyHighFeeDialogContent({
     <>
       <Stack>
         <Checkbox
+          testID="verify-tx-fee-checkbox"
           value={checkState}
           label={intl.formatMessage({
             id: ETranslations.fee_alert_dialog_checkbox_label,
@@ -33,7 +34,11 @@ function ExtremelyHighFeeDialogContent({
       <Dialog.Footer
         tone="destructive"
         confirmButtonProps={{
+          testID: 'verify-tx-fee-confirm-btn',
           disabled: !checkState,
+        }}
+        cancelButtonProps={{
+          testID: 'verify-tx-fee-cancel-btn',
         }}
         onCancel={onCancel}
         onConfirm={onConfirm}

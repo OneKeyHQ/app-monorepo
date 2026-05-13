@@ -20,6 +20,8 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { AssetDetailsTestIDs } from '../../testIDs';
+
 import { useTokenDetailsContext } from './TokenDetailsContext';
 
 function TokenDetailsFooter(props: { networkId: string }) {
@@ -55,6 +57,7 @@ function TokenDetailsFooter(props: { networkId: string }) {
   return (
     <Page.Footer>
       <XStack
+        testID={AssetDetailsTestIDs.marketFooter}
         alignItems="center"
         px="$5"
         pt="$3"

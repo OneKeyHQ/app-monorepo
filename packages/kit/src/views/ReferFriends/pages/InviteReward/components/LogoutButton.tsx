@@ -5,6 +5,8 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { ReferFriendsTestIDs } from '../../../testIDs';
+
 export function LogoutButton() {
   const intl = useIntl();
   const { logoutWithPurchasesSdk } = useOneKeyAuth();
@@ -32,6 +34,7 @@ export function LogoutButton() {
 
   return (
     <Button
+      testID={ReferFriendsTestIDs.logoutBtn}
       variant="tertiary"
       size="small"
       icon="LogoutOutline"

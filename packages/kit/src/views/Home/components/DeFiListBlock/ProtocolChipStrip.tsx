@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/components/src/utils/animationConstants';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
+import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
@@ -205,6 +206,7 @@ function ArrowAffordance({ side, visible, onPress }: IArrowAffordanceProps) {
       style={{ background: isLeft ? FADE_LEFT : FADE_RIGHT }}
     >
       <IconButton
+        testID={HomeTestIDs.defiProtocolChipScrollBtn(side)}
         size="small"
         icon={isLeft ? 'ChevronLeftOutline' : 'ChevronRightOutline'}
         bg="$gray3"

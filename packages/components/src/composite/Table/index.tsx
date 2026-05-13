@@ -539,6 +539,8 @@ function BasicTable<T>({
           bottom={gtMd ? '$8' : '$4'}
           right={gtMd ? '$8' : '$4'}
         >
+          {/* Internal table scroll-to-top control. */}
+          {/* oxlint-disable-next-line onekey/require-testid */}
           <IconButton
             title=""
             borderWidth={StyleSheet.hairlineWidth}

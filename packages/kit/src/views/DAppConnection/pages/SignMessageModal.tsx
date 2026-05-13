@@ -43,6 +43,7 @@ import {
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
+import { DAppConnectionTestIDs } from '../testIDs';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
@@ -260,7 +261,10 @@ function SignMessageModal() {
   };
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove}>
+    <DappOpenModalPage
+      dappApprove={dappApprove}
+      testID={DAppConnectionTestIDs.SignMessageModal}
+    >
       <>
         <Page.Header headerShown={false} />
         <Page.Body>
@@ -302,6 +306,10 @@ function SignMessageModal() {
             confirmButtonProps={{
               loading: isLoading,
               disabled: !continueOperate,
+              testID: DAppConnectionTestIDs.SignMessageConfirmButton,
+            }}
+            cancelButtonProps={{
+              testID: DAppConnectionTestIDs.SignMessageRejectButton,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={isRiskSignMethod ? EHostSecurityLevel.High : riskLevel}

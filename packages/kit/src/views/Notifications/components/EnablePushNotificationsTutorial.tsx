@@ -73,7 +73,12 @@ function PlatformNotification({
             OneKey
           </SizableText>
         </Stack>
-        <Switch value size="small" bg="$bgInfoStrong" />
+        <Switch
+          value
+          size="small"
+          bg="$bgInfoStrong"
+          testID="notifications-intl-switch"
+        />
       </XStack>
       <SizableText size="$bodySm" color="$textInfo" textAlign="center">
         {intl.formatMessage({

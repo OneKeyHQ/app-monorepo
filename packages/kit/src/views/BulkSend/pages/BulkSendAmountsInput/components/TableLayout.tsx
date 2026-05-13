@@ -20,6 +20,7 @@ import {
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { BulkSendTestIDs } from '@onekeyhq/kit/src/views/BulkSend/testIDs';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -109,6 +110,7 @@ function IntervalCard() {
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size="$bodyLgMedium">{title}</SizableText>
         <Select
+          testID={BulkSendTestIDs.amountIntervalModeSelect}
           title=""
           value={intervalSettings.mode}
           onChange={handleModeChange}
@@ -116,6 +118,7 @@ function IntervalCard() {
           placement="bottom-end"
           renderTrigger={({ label, onPress }) => (
             <Button
+              testID={BulkSendTestIDs.amountIntervalModeTriggerBtn}
               variant="tertiary"
               size="small"
               iconAfter="ChevronDownSmallOutline"
@@ -178,6 +181,7 @@ function IntervalCardOneToMany() {
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size="$bodyLgMedium">{title}</SizableText>
         <Button
+          testID="bulk-send-interval-summary-btn"
           variant="tertiary"
           size="small"
           iconAfter="ChevronDownSmallOutline"
@@ -634,6 +638,7 @@ function AmountCard() {
             >
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
                 <Input
+                  testID="bulk-send-input"
                   flex={1}
                   value={localRangeMin}
                   onChangeText={handleRangeMinChange}
@@ -692,6 +697,7 @@ function AmountCard() {
             >
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
                 <Input
+                  testID="bulk-send-input"
                   flex={1}
                   value={localRangeMax}
                   onChangeText={handleRangeMaxChange}
@@ -770,6 +776,7 @@ function AmountCard() {
           })}
         </SizableText>
         <Select
+          testID="bulk-send-select"
           title=""
           value={amountInputMode}
           onChange={handleModeChange}
@@ -777,6 +784,7 @@ function AmountCard() {
           placement="bottom-end"
           renderTrigger={({ label, onPress }) => (
             <Button
+              testID="bulk-send-btn"
               variant="tertiary"
               size="small"
               iconAfter="ChevronDownSmallOutline"
@@ -1104,6 +1112,7 @@ function TransferInfoListSection() {
                 if (isCustomMode) {
                   return (
                     <Input
+                      testID="bulk-send-input"
                       value={transfer.amount}
                       onChangeText={(value) => handleAmountChange(index, value)}
                       placeholder="0"
@@ -1149,6 +1158,7 @@ function TransferInfoListSection() {
             {/* ACTION */}
             <Stack width={64} alignItems="flex-end">
               <IconButton
+                testID="bulk-send-icon-btn"
                 icon="DeleteOutline"
                 variant="tertiary"
                 size="small"

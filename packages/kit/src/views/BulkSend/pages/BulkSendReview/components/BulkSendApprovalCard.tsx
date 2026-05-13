@@ -104,6 +104,7 @@ function ApprovalItem({
           </NumberSizeableText>
           {onEdit && !isResetApproval ? (
             <IconButton
+              testID="bulk-send-icon-btn"
               icon="PencilOutline"
               variant="tertiary"
               size="small"
@@ -139,6 +140,7 @@ function ApprovalItem({
             </SizableText>
           </YStack>
           <IconButton
+            testID="bulk-send-icon-btn"
             icon="OpenOutline"
             variant="tertiary"
             size="small"
@@ -151,6 +153,7 @@ function ApprovalItem({
             }}
           />
           <IconButton
+            testID="bulk-send-icon-btn"
             icon="Copy3Outline"
             variant="tertiary"
             size="small"

@@ -323,6 +323,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           ) => (
             <XStack alignItems="center" gap="$2">
               <IconButton
+                testID="home-columns-icon-btn"
                 icon="StarSolid"
                 size="small"
                 variant="tertiary"
@@ -421,6 +422,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         render: (_: unknown, record: IFavoriteTokenDisplay, _index: number) => (
           <XStack alignItems="center" gap="$2" justifyContent="flex-end">
             <IconButton
+              testID="home-icon-btn"
               icon="StarSolid"
               size="small"
               variant="tertiary"
@@ -958,6 +960,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         {showViewMoreButton ? (
           <XStack pt="$3" px="$pagePadding" jc="center" ai="center">
             <Button
+              testID="home-show-view-more-button-btn"
               variant="secondary"
               iconAfter="ChevronRightSmallOutline"
               onPress={handleViewMore}
@@ -1001,6 +1004,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     // Show "Add tokens" button in empty state
     return (
       <Button
+        testID="home-header-actions-btn"
         size="small"
         variant="tertiary"
         icon="PlusSmallOutline"

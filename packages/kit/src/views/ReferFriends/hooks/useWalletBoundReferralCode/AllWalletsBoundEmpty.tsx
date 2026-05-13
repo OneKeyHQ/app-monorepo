@@ -9,6 +9,8 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { ReferFriendsTestIDs } from '../../testIDs';
+
 export function AllWalletsBoundEmpty() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -26,6 +28,7 @@ export function AllWalletsBoundEmpty() {
           })}
         />
         <Button
+          testID="refer-friends-navigation-btn"
           mt="$5"
           onPress={() => {
             navigation.pushModal(EModalRoutes.AccountManagerStacks, {
@@ -64,6 +67,7 @@ export function AllWalletsUnavailableEmpty() {
           })}
         />
         <Button
+          testID={ReferFriendsTestIDs.allWalletsUnavailableCreateWalletBtn}
           mt="$5"
           onPress={() => {
             navigation.pushModal(EModalRoutes.AccountManagerStacks, {

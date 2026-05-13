@@ -13,6 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingHeading, OnboardingPage } from '../components/Layout';
+import { OnboardingTestIDs } from '../testIDs';
 
 function ResetPinGuidePage() {
   const intl = useIntl();
@@ -89,6 +90,7 @@ function ResetPinGuidePage() {
           ))}
           {gtMd ? (
             <Button
+              testID={OnboardingTestIDs.resetPinGuideDoneBtn}
               size="large"
               maxWidth={320}
               variant="primary"
@@ -102,6 +104,7 @@ function ResetPinGuidePage() {
         </YStack>
         {!gtMd ? (
           <Button
+            testID={OnboardingTestIDs.resetPinGuideDoneBtn}
             mb="$5"
             size="large"
             variant="primary"

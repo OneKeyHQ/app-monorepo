@@ -70,6 +70,7 @@ export function useFalconEventEndedDialog({
             >
               <Dialog.FormField name="showAgain">
                 <Checkbox
+                  testID="staking-checkbox"
                   label={intl.formatMessage({
                     id: ETranslations.earn_dont_show_again,
                   })}

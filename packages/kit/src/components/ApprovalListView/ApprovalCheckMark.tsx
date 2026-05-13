@@ -61,6 +61,7 @@ function ApprovalCheckMark(props: IProps) {
       }}
     >
       <Checkbox
+        testID="approval-list-view-selected-tokens-temp-checkbox"
         value={isSelectAllTokens}
         onChange={(checked) => {
           handleOnChange(checked);

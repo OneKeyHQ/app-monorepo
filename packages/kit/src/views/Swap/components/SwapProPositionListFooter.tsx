@@ -17,6 +17,7 @@ function SwapProPositionListFooter({
         {intl.formatMessage({ id: ETranslations.dexmarket_pro_token_find })}
       </SizableText>
       <Button
+        testID="swap-intl-btn"
         variant="tertiary"
         size="small"
         iconAfter="ArrowRightOutline"

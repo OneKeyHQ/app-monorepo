@@ -96,10 +96,20 @@ export function BorrowSwapOrBridge({
         )}
       </SizableText>
       <XStack gap="$2">
-        <Button size="small" onPress={handleSwapPress} disabled={!showSwap}>
+        <Button
+          size="small"
+          onPress={handleSwapPress}
+          disabled={!showSwap}
+          testID="borrow-handle-swap-press-btn"
+        >
           {intl.formatMessage({ id: ETranslations.global_swap })}
         </Button>
-        <Button size="small" onPress={handleBridgePress} disabled={!showBridge}>
+        <Button
+          size="small"
+          onPress={handleBridgePress}
+          disabled={!showBridge}
+          testID="borrow-handle-bridge-press-btn"
+        >
           {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
         </Button>
       </XStack>

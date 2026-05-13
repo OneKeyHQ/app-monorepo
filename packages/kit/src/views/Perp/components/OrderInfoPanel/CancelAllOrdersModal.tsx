@@ -97,6 +97,7 @@ function CancelAllOrdersContent({
 
       <TradingGuardWrapper>
         <Button
+          testID="perp-button-text-btn"
           variant="primary"
           size="medium"
           disabled={isSubmitting}

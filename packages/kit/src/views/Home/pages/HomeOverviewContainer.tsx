@@ -50,6 +50,7 @@ import {
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { HomeTestIDs } from '../testIDs';
 
 // Grace period (ms) after an account switch during which the previous
 // balance is shown as a placeholder to avoid a skeleton flash.
@@ -384,6 +385,7 @@ function HomeOverviewContainer() {
   const refreshButton = useMemo(() => {
     return platformEnv.isNative || isWalletNotBackedUp ? undefined : (
       <IconButton
+        testID="home-refresh-button-icon-btn"
         icon="RefreshCcwOutline"
         variant="tertiary"
         loading={isLoading}
@@ -758,7 +760,11 @@ function HomeOverviewContainer() {
   ]);
 
   return (
-    <YStack gap="$2.5" alignItems="flex-start">
+    <YStack
+      gap="$2.5"
+      alignItems="flex-start"
+      testID={HomeTestIDs.walletOverview}
+    >
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
           <Skeleton.Heading5Xl />
@@ -786,6 +792,7 @@ function HomeOverviewContainer() {
                 outlineStyle: 'solid',
               }}
               onPress={handleBalanceOnPress}
+              testID={HomeTestIDs.totalBalance}
             >
               <NumberSizeableTextWrapper
                 hideValue
@@ -806,6 +813,7 @@ function HomeOverviewContainer() {
       </YStack>
       {vaultSettings?.hasFrozenBalance ? (
         <Button
+          testID="home-btn"
           onPress={handleBalanceDetailsOnPress}
           variant="tertiary"
           size="small"
@@ -818,6 +826,7 @@ function HomeOverviewContainer() {
       ) : undefined}
       {isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
+          testID="home-btn"
           onPress={handleResourceDetailsOnPress}
           variant="tertiary"
           size="small"

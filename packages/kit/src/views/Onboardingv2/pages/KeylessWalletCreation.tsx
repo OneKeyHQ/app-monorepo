@@ -12,6 +12,7 @@ import { useKeylessWalletFeatureIsEnabled } from '../../../components/KeylessWal
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { KeylessShareCardsView } from '../components/KeylessShareCardsView';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 
 function KeylessWalletCreation() {
   const route = useAppRoute<
@@ -27,7 +28,7 @@ function KeylessWalletCreation() {
   }
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.keylessWalletCreationPage}>
       <OnboardingLayout>
         <OnboardingLayout.Header title="Secure your wallet" />
         <OnboardingLayout.Body constrained={false}>

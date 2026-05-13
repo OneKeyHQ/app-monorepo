@@ -14,6 +14,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -83,6 +84,7 @@ const MarketTokenSelectorRow = memo(
     const starElement = useMemo(
       () => (
         <IconButton
+          testID={MarketTestIDs.tokenSelectorRowStarBtn}
           icon={star.checked ? 'StarSolid' : 'StarOutline'}
           variant="tertiary"
           size="small"

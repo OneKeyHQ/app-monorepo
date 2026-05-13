@@ -14,6 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { AppUpdateTestIDs } from '../testIDs';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -55,11 +56,17 @@ function FeaturedFooter({
         paddingBottom={paddingBottom + 20}
         onLayout={onLayout}
       >
-        <Button size="large" variant="primary" onPress={onCtaPress}>
+        <Button
+          testID={AppUpdateTestIDs.featuredFooterCtaBtn}
+          size="large"
+          variant="primary"
+          onPress={onCtaPress}
+        >
           {ctaText}
         </Button>
         {showFullChangelog ? (
           <Button
+            testID={AppUpdateTestIDs.featuredFooterViewChangelogBtn}
             size="medium"
             variant="tertiary"
             onPress={handleViewChangelog}
@@ -80,13 +87,23 @@ function FeaturedFooter({
       onLayout={onLayout}
     >
       {showFullChangelog ? (
-        <Button size="small" variant="tertiary" onPress={handleViewChangelog}>
+        <Button
+          testID={AppUpdateTestIDs.featuredFooterViewChangelogBtn}
+          size="small"
+          variant="tertiary"
+          onPress={handleViewChangelog}
+        >
           {intl.formatMessage({ id: ETranslations.view_full_changelog })}
         </Button>
       ) : (
         <Stack />
       )}
-      <Button size="medium" variant="primary" onPress={onCtaPress}>
+      <Button
+        testID={AppUpdateTestIDs.featuredFooterCtaBtn}
+        size="medium"
+        variant="primary"
+        onPress={onCtaPress}
+      >
         {ctaText}
       </Button>
     </XStack>

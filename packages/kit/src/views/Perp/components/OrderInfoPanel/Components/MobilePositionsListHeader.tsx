@@ -45,6 +45,7 @@ export function MobilePositionsListHeader({
     >
       {/* Left: Filter checkbox - same style as TP/SL checkbox in trading form */}
       <Checkbox
+        testID="perp-handle-filter-change-checkbox"
         label={intl.formatMessage({
           id: ETranslations.perps_hide_other_pairs,
         })}
@@ -58,6 +59,7 @@ export function MobilePositionsListHeader({
 
       {/* Right: Close all button - disabled only when no positions to close */}
       <Button
+        testID="perp-btn"
         size="small"
         variant="secondary"
         disabled={totalPositionCount === 0}

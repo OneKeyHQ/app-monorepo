@@ -4,6 +4,8 @@ import { Animated } from 'react-native';
 
 import { IconButton } from '@onekeyhq/components';
 
+import { DiscoveryTestIDs } from '../../testIDs';
+
 interface IRefreshButtonProps {
   onRefresh: () => void;
 }
@@ -34,7 +36,7 @@ function RefreshButton({ onRefresh }: IRefreshButtonProps) {
         size="medium"
         icon="RefreshCwOutline"
         onPress={handleRefresh}
-        testID="browser-bar-refresh"
+        testID={DiscoveryTestIDs.browserRefreshButton}
       />
     </Animated.View>
   );

@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { DescriptionItem } from '@onekeyhq/kit/src/components/DescriptionItem';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { RedemptionTestIDs } from '@onekeyhq/kit/src/views/Redemption/testIDs';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBtcRewardHistoryItem } from '@onekeyhq/shared/src/referralCode/type';
@@ -65,6 +66,7 @@ function HashRow({
           {accountUtils.shortenAddress({ address: value })}
         </SizableText>
         <IconButton
+          testID={RedemptionTestIDs.btcRewardCopyBtn}
           variant="tertiary"
           size="small"
           icon="Copy3Outline"
@@ -73,6 +75,7 @@ function HashRow({
         />
         {onOpenExplorer ? (
           <IconButton
+            testID={RedemptionTestIDs.btcRewardOpenExplorerBtn}
             variant="tertiary"
             size="small"
             icon="OpenOutline"

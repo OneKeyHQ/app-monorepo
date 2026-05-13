@@ -1303,6 +1303,7 @@ function DeFiListBlock({
             px="$pagePadding"
           >
             <Button
+              testID="home-render-content-btn"
               size="small"
               variant="secondary"
               disabled={isProtocolListInteractionLocked}

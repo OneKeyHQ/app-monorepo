@@ -2262,6 +2262,7 @@ function TokenListBlock({
     if (manageTokenEnabled && tableLayout) {
       return (
         <IconButton
+          testID="home-render-header-actions-icon-btn"
           title={intl.formatMessage({
             id: ETranslations.manage_token_title,
           })}
