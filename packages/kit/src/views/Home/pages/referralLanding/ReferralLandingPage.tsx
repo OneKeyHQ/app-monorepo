@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
 import {
   Page,
   Spinner,
   Stack,
-  Toast,
   YStack,
   closeAllDialogInstances,
   rootNavigationRef,
@@ -31,12 +29,15 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import type {
+  IClickReferralLandingButtonParams,
+  IReferralLandingBindMethod,
+} from '@onekeyhq/shared/src/logger/scopes/referral/scenes/page';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
@@ -63,6 +64,8 @@ const IOS_STORE_WEB_FALLBACK_DELAY_MS = 300;
 // and skip the web fallback.
 const IOS_STORE_ELAPSED_THRESHOLD_MS = 1500;
 
+const DEEP_LINK_DOWNLOAD_HINT_DELAY_MS = 5000;
+
 // Delay before opening the InvitedByFriend modal after tab navigation.
 // Gives the target tab enough time to mount and render before the modal overlay.
 const MODAL_OPEN_DELAY_MS = 1500;
@@ -81,9 +84,9 @@ function buildAndroidIntentUrl(deepLinkUrl: string): string {
   const scheme = deepLinkUrl.slice(0, schemeEnd);
   const rest = deepLinkUrl.slice(schemeEnd + 3);
   // Intentionally omit S.browser_fallback_url. With a fallback URL, Chrome
-  // navigates to it on miss and reloads the page, killing our 1.5s "app not
-  // detected" toast timer. Without one, Chrome stays on the current page and
-  // the timer fires correctly. Step 1 still has the explicit download CTA.
+  // navigates to it on miss and reloads the page, killing the inline download
+  // hint timer. Without one, Chrome stays on the current page and the hint can
+  // appear under Step 2. Step 1 still has the explicit download CTA.
   return `intent://${rest}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};end`;
 }
 
@@ -187,7 +190,6 @@ function ReferralLandingPage() {
     ETabHomeRoutesType.TabHomeReferralLanding
   >();
   const navigation = useAppNavigation();
-  const intl = useIntl();
   const [appIsLocked] = useAppIsLockedAtom();
 
   const routeParams = route.params as
@@ -220,6 +222,7 @@ function ReferralLandingPage() {
   const [inviteeDiscount, setInviteeDiscount] = useState(
     DEFAULT_INVITEE_DISCOUNT,
   );
+  const landingPage = useMemo(() => (page ? `/app/${page}` : '/app'), [page]);
 
   useEffect(() => {
     if (!isWeb) return;
@@ -241,11 +244,36 @@ function ReferralLandingPage() {
       defaultLogger.referral.page.enterReferralGuide(code, utmSource);
       defaultLogger.referral.page.enterFromReferralLink({
         referralCode: code ?? '',
-        landingPage: page ? `/app/${page}` : '/app',
+        landingPage,
         utmSource,
       });
     },
-    [code, page],
+    [code, landingPage],
+  );
+
+  const logReferralLandingButton = useCallback(
+    ({
+      buttonName,
+      bindMethod,
+    }: Pick<
+      IClickReferralLandingButtonParams,
+      'buttonName' | 'bindMethod'
+    >) => {
+      const params = {
+        referralCode: code ?? '',
+        landingPage,
+        buttonName,
+      };
+      defaultLogger.referral.page.clickReferralLandingButton(
+        bindMethod
+          ? {
+              ...params,
+              bindMethod,
+            }
+          : params,
+      );
+    },
+    [code, landingPage],
   );
 
   const buildDeepLink = useCallback(
@@ -260,54 +288,110 @@ function ReferralLandingPage() {
   );
 
   const handleDownload = useCallback(() => {
+    logReferralLandingButton({ buttonName: 'download_app' });
     logEnter(REFERRAL_UTM_SOURCE.webAppStore);
     redirectToStore();
-  }, [logEnter]);
+  }, [logEnter, logReferralLandingButton]);
 
-  // 1.5s after firing a deep link, if the page never went to background
-  // (visibilityState !== 'hidden'), the OS didn't hand off to OneKey App —
-  // either it's not installed, the scheme was blocked (iOS 17+ Safari is
-  // strict), or the user dismissed the open-in-app prompt. Toast a hint
-  // pointing back to Step 1's explicit download.
-  const unhandledTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isDownloadHintVisible, setIsDownloadHintVisible] = useState(false);
+  const downloadHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const downloadHintVisibilityCleanupRef = useRef<(() => void) | null>(null);
+  const clearDownloadHintTimer = useCallback(() => {
+    clearTimeout(downloadHintTimerRef.current ?? undefined);
+    downloadHintTimerRef.current = null;
+    downloadHintVisibilityCleanupRef.current?.();
+    downloadHintVisibilityCleanupRef.current = null;
+  }, []);
+  const scheduleDownloadHint = useCallback(() => {
+    clearDownloadHintTimer();
+    setIsDownloadHintVisible(false);
+
+    if (typeof globalThis.document === 'undefined') return;
+
+    let didLeavePage = globalThis.document.visibilityState === 'hidden';
+    const handleVisibilityChange = () => {
+      if (globalThis.document.visibilityState === 'hidden') {
+        didLeavePage = true;
+        clearDownloadHintTimer();
+      }
+    };
+
+    globalThis.document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
+    );
+    downloadHintVisibilityCleanupRef.current = () => {
+      globalThis.document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
+      );
+    };
+
+    downloadHintTimerRef.current = setTimeout(() => {
+      clearDownloadHintTimer();
+      if (!didLeavePage && globalThis.document.visibilityState !== 'hidden') {
+        setIsDownloadHintVisible(true);
+      }
+    }, DEEP_LINK_DOWNLOAD_HINT_DELAY_MS);
+  }, [clearDownloadHintTimer]);
+
   const launchViaDeepLink = useCallback(
     (utmSource: IReferralUtmSource) => {
       logEnter(utmSource);
-      openAppViaDeepLink(buildDeepLink());
-      clearTimeout(unhandledTimerRef.current ?? undefined);
-      unhandledTimerRef.current = setTimeout(() => {
-        if (typeof globalThis.document === 'undefined') return;
-        if (globalThis.document.visibilityState === 'hidden') return;
-        Toast.message({
-          title: intl.formatMessage({
-            id: ETranslations.referral_web_landing_app_not_detected,
-          }),
-        });
-      }, 1500);
+      const deepLink = buildDeepLink();
+      if (!deepLink) return;
+      scheduleDownloadHint();
+      openAppViaDeepLink(deepLink);
     },
-    [logEnter, buildDeepLink, intl],
-  );
-
-  // Trade has no extension shortcut: opening the target tab requires the app,
-  // not just sign-and-bind.
-  const handleTrade = useCallback(
-    () => launchViaDeepLink(REFERRAL_UTM_SOURCE.webTradeDeepLink),
-    [launchViaDeepLink],
+    [buildDeepLink, logEnter, scheduleDownloadHint],
   );
 
   const { isOneKeyInstalled } = useOneKeyWalletDetection();
   const { bindViaExtension } = useBindReferralViaExtension({
     referralCode: code ?? '',
   });
+
+  const getBindMethod = useCallback(
+    (): IReferralLandingBindMethod =>
+      isOneKeyInstalled ? 'web_extension' : 'deep_link',
+    [isOneKeyInstalled],
+  );
+
+  const startBindFlow = useCallback(
+    (bindMethod: IReferralLandingBindMethod, utmSource: IReferralUtmSource) => {
+      if (bindMethod === 'web_extension') {
+        logEnter(utmSource);
+        void bindViaExtension();
+        return;
+      }
+      launchViaDeepLink(utmSource);
+    },
+    [bindViaExtension, logEnter, launchViaDeepLink],
+  );
+
   const handleBind = useCallback(() => {
     if (!code) return;
-    if (isOneKeyInstalled) {
-      logEnter(REFERRAL_UTM_SOURCE.webBindExtension);
-      void bindViaExtension();
-      return;
-    }
-    launchViaDeepLink(REFERRAL_UTM_SOURCE.webBindDeepLink);
-  }, [code, isOneKeyInstalled, bindViaExtension, logEnter, launchViaDeepLink]);
+    const bindMethod = getBindMethod();
+    logReferralLandingButton({
+      buttonName: 'bind_invite_code',
+      bindMethod,
+    });
+    startBindFlow(
+      bindMethod,
+      bindMethod === 'web_extension'
+        ? REFERRAL_UTM_SOURCE.webBindExtension
+        : REFERRAL_UTM_SOURCE.webBindDeepLink,
+    );
+  }, [code, getBindMethod, logReferralLandingButton, startBindFlow]);
+
+  const handleCopyCode = useCallback(() => {
+    defaultLogger.referral.page.copyReferralCode({
+      referralCode: code ?? '',
+      landingPage,
+    });
+  }, [code, landingPage]);
 
   // Briefly highlight Step 2 after scroll so the focus shift is visible.
   const [isStep2Highlighted, setIsStep2Highlighted] = useState(false);
@@ -315,12 +399,20 @@ function ReferralLandingPage() {
   useEffect(
     () => () => {
       clearTimeout(highlightTimerRef.current ?? undefined);
-      clearTimeout(unhandledTimerRef.current ?? undefined);
+      clearDownloadHintTimer();
     },
-    [],
+    [clearDownloadHintTimer],
   );
   const handleScrollToBind = useCallback(() => {
-    logEnter(REFERRAL_UTM_SOURCE.webAlreadyHaveSkip);
+    const bindMethod = code ? getBindMethod() : undefined;
+    logReferralLandingButton(
+      bindMethod
+        ? {
+            buttonName: 'already_have_wallet',
+            bindMethod,
+          }
+        : { buttonName: 'already_have_wallet' },
+    );
     if (typeof globalThis.document !== 'undefined') {
       globalThis.document
         .getElementById(REFERRAL_STEP2_ANCHOR_ID)
@@ -332,7 +424,19 @@ function ReferralLandingPage() {
       () => setIsStep2Highlighted(false),
       1500,
     );
-  }, [logEnter]);
+    if (bindMethod) {
+      startBindFlow(bindMethod, REFERRAL_UTM_SOURCE.webAlreadyHaveSkip);
+    } else {
+      logEnter(REFERRAL_UTM_SOURCE.webAlreadyHaveSkip);
+    }
+  }, [code, getBindMethod, logEnter, logReferralLandingButton, startBindFlow]);
+
+  // Trade has no extension shortcut: opening the target tab requires the app,
+  // not just sign-and-bind.
+  const handleTrade = useCallback(() => {
+    logReferralLandingButton({ buttonName: 'trade_now' });
+    launchViaDeepLink(REFERRAL_UTM_SOURCE.webTradeDeepLink);
+  }, [launchViaDeepLink, logReferralLandingButton]);
 
   useFocusEffect(
     useCallback(() => {
@@ -455,9 +559,11 @@ function ReferralLandingPage() {
             inviteeDiscount={inviteeDiscount}
             onDownload={handleDownload}
             onScrollToBind={handleScrollToBind}
+            onCopyCode={handleCopyCode}
             onBind={handleBind}
             onTrade={handleTrade}
             isStep2Highlighted={isStep2Highlighted}
+            isDownloadHintVisible={isDownloadHintVisible}
           />
         </Page.Body>
       </Page>
