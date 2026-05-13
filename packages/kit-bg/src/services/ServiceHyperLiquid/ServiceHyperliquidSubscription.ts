@@ -361,7 +361,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       Date.now() - this._lastMessageAt <
         HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS;
 
-    void this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServer();
+    void this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServerSilently(
+      {
+        ignoreCache: true,
+      },
+    );
     if (isSocketOpen && isDataFlowing) {
       // connection is healthy, no-op — just show pull-to-refresh animation
       await timerUtils.wait(3000);
