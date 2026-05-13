@@ -382,7 +382,7 @@ export type IDBDeviceSettings = {
   inputPinOnSoftwareSupport?: boolean;
   chainFingerprints?: Record<string, string>;
   vendor?: EHardwareVendor;
-  /** Third-party device model id from SDK (e.g. 'nanoX', 'stax'). Used for avatar mapping. */
+  /** Third-party device model id from SDK (e.g. 'nanoX'). Used for avatar mapping. */
   vendorModel?: string;
   /** Third-party device human-readable model name (e.g. 'Ledger Nano X'). */
   vendorModelName?: string;
