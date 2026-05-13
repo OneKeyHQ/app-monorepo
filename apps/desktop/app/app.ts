@@ -1913,15 +1913,33 @@ app.on('before-quit', () => {
 // input" symptom. Both converge here so the dialog and cooldown are
 // shared.
 
-const CPU_WATCHDOG_SAMPLE_INTERVAL_MS = 30_000;
-const CPU_WATCHDOG_THRESHOLD_PERCENT = 80;
-const CPU_WATCHDOG_SUSTAINED_SAMPLES = 10; // 10 × 30s ≈ 5 minutes
+// Sample at the faster cadence; both tiers read from the same history.
+const CPU_WATCHDOG_SAMPLE_INTERVAL_MS = 10_000;
+
+// Severe tier — catches extreme pegging fast.
+// 3 × 10 s = 30 s sustained above 95% → essentially fully pegged for half
+// a minute, well past any legitimate hot path (signing, V8 turbofan
+// re-optimization, bundle decode, mass import).
+const CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT = 95;
+const CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES = 3;
+
+// Mild tier — catches slower drift (the original 22h-uptime symptom).
+// 30 × 10 s = 5 minutes sustained above 80%.
+const CPU_WATCHDOG_MILD_THRESHOLD_PERCENT = 80;
+const CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES = 30;
+
+const CPU_WATCHDOG_HISTORY_SIZE = CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES;
 const CPU_WATCHDOG_COOLDOWN_MS = 30 * 60_000;
 
 const cpuHistoryByPid = new Map<number, number[]>();
 let lastWatchdogFiredAt = 0;
 let watchdogDialogOpen = false;
 let cpuWatchdogInterval: ReturnType<typeof setInterval> | null = null;
+
+type ICpuWatchdogReason =
+  | 'sustained-high-cpu-severe'
+  | 'sustained-high-cpu-mild'
+  | 'unresponsive';
 
 function startCpuWatchdog() {
   if (cpuWatchdogInterval) {
@@ -1936,19 +1954,36 @@ function startCpuWatchdog() {
           seenPids.add(m.pid);
           const history = cpuHistoryByPid.get(m.pid) ?? [];
           history.push(m.cpu.percentCPUUsage);
-          if (history.length > CPU_WATCHDOG_SUSTAINED_SAMPLES) history.shift();
+          if (history.length > CPU_WATCHDOG_HISTORY_SIZE) history.shift();
           cpuHistoryByPid.set(m.pid, history);
 
-          const sustained =
-            history.length === CPU_WATCHDOG_SUSTAINED_SAMPLES &&
-            history.every((v) => v > CPU_WATCHDOG_THRESHOLD_PERCENT);
-
-          if (sustained) {
+          // Severe first (precedence) — same cooldown gate, so a single
+          // tick at most fires one reason.
+          const severeWindow = history.slice(
+            -CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+          );
+          const severe =
+            severeWindow.length === CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES &&
+            severeWindow.every(
+              (v) => v > CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
+            );
+          if (severe) {
             triggerCpuWatchdog({
-              reason: 'sustained-high-cpu',
+              reason: 'sustained-high-cpu-severe',
               pid: m.pid,
-              cpuTrend: [...history],
+              cpuTrend: severeWindow,
             });
+          } else {
+            const mild =
+              history.length === CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES &&
+              history.every((v) => v > CPU_WATCHDOG_MILD_THRESHOLD_PERCENT);
+            if (mild) {
+              triggerCpuWatchdog({
+                reason: 'sustained-high-cpu-mild',
+                pid: m.pid,
+                cpuTrend: [...history],
+              });
+            }
           }
         }
       }
@@ -1961,9 +1996,16 @@ function startCpuWatchdog() {
     }
   }, CPU_WATCHDOG_SAMPLE_INTERVAL_MS);
   logger.info('[CPU Watchdog] started', {
-    thresholdPercent: CPU_WATCHDOG_THRESHOLD_PERCENT,
-    sustainedSamples: CPU_WATCHDOG_SUSTAINED_SAMPLES,
     sampleIntervalMs: CPU_WATCHDOG_SAMPLE_INTERVAL_MS,
+    severe: {
+      thresholdPercent: CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
+      sustainedSamples: CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+    },
+    mild: {
+      thresholdPercent: CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
+      sustainedSamples: CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES,
+    },
+    cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
   });
 }
 
@@ -1980,7 +2022,7 @@ function pickWatchdogDialogParent(): BrowserWindow | undefined {
 }
 
 function reportWatchdogToSentry(params: {
-  reason: 'sustained-high-cpu' | 'unresponsive';
+  reason: ICpuWatchdogReason;
   pid?: number;
   cpuTrend?: number[];
 }) {
@@ -2002,7 +2044,7 @@ function reportWatchdogToSentry(params: {
 }
 
 function triggerCpuWatchdog(params: {
-  reason: 'sustained-high-cpu' | 'unresponsive';
+  reason: ICpuWatchdogReason;
   pid?: number;
   cpuTrend?: number[];
 }) {
@@ -2023,13 +2065,23 @@ function triggerCpuWatchdog(params: {
   }
 
   const uptimeMinutes = Math.round(process.uptime() / 60);
-  const reasonText =
-    params.reason === 'unresponsive'
-      ? 'The OneKey window is not responding.'
-      : `CPU usage has stayed above ${CPU_WATCHDOG_THRESHOLD_PERCENT}% for the last ${Math.round(
-          (CPU_WATCHDOG_SUSTAINED_SAMPLES * CPU_WATCHDOG_SAMPLE_INTERVAL_MS) /
-            60_000,
-        )} minutes.`;
+  let reasonText: string;
+  if (params.reason === 'unresponsive') {
+    reasonText = 'The OneKey window is not responding.';
+  } else if (params.reason === 'sustained-high-cpu-severe') {
+    const seconds = Math.round(
+      (CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES *
+        CPU_WATCHDOG_SAMPLE_INTERVAL_MS) /
+        1000,
+    );
+    reasonText = `CPU usage has been above ${CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT}% for the last ${seconds} seconds.`;
+  } else {
+    const minutes = Math.round(
+      (CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES * CPU_WATCHDOG_SAMPLE_INTERVAL_MS) /
+        60_000,
+    );
+    reasonText = `CPU usage has stayed above ${CPU_WATCHDOG_MILD_THRESHOLD_PERCENT}% for the last ${minutes} minutes.`;
+  }
 
   watchdogDialogOpen = true;
   void dialog

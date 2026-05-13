@@ -35,7 +35,10 @@ export class AppPerfScene extends BaseScene {
 
   @LogToLocal()
   public cpuWatchdogFired(params: {
-    reason: 'sustained-high-cpu' | 'unresponsive';
+    reason:
+      | 'sustained-high-cpu-severe'
+      | 'sustained-high-cpu-mild'
+      | 'unresponsive';
     pid?: number;
     cpuTrend?: number[];
     uptimeMs?: number;
