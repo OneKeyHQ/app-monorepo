@@ -1,5 +1,6 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,6 +19,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import {
   calcCellAlign,
   formatSpotHoldingPnlText,
@@ -48,6 +50,50 @@ function getPnlColor(pnl?: string): string | undefined {
   if (val > 0) return '$green11';
   if (val < 0) return '$red11';
   return undefined;
+}
+
+function canShareSpotHolding(item: IBalanceDisplayItem): boolean {
+  const pnlBN = new BigNumber(item.pnl ?? '0');
+  return (
+    item.type === 'spot' &&
+    !!item.entryPrice &&
+    !!item.markPrice &&
+    pnlBN.isFinite() &&
+    !pnlBN.isZero()
+  );
+}
+
+function useSpotHoldingShare({
+  item,
+  label,
+}: {
+  item: IBalanceDisplayItem;
+  label: string;
+}) {
+  const { showPositionShare } = useShowPositionShare();
+  const canShare = canShareSpotHolding(item);
+
+  const handleShare = useCallback(() => {
+    if (!canShare || !item.entryPrice || !item.markPrice) {
+      return;
+    }
+
+    showPositionShare({
+      mode: 'spot',
+      side: 'long',
+      token: item.rawCoin,
+      tokenDisplayName: label,
+      tokenImageUrl: item.logoURI,
+      pnl: item.pnl ?? '0',
+      pnlPercent: String(item.pnlPercent ?? 0),
+      leverage: 1,
+      entryPrice: item.entryPrice,
+      markPrice: item.markPrice,
+      priceType: 'mark',
+    });
+  }, [canShare, item, label, showPositionShare]);
+
+  return { canShare, handleShare };
 }
 
 // Only add suffix to the perps side when the same coin appears in both spot and
@@ -119,6 +165,7 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
   const pnlColor = getPnlColor(item.pnl);
   const isAssetClickable = !!item.isAssetClickable;
   const balanceText = item.total;
+  const { canShare, handleShare } = useSpotHoldingShare({ item, label });
 
   return (
     <ListItem py="$2" px="$4" mx="$0">
@@ -175,14 +222,28 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
             {item.usdcValue}
           </NumberSizeableText>
           {pnlText ? (
-            <SizableText
-              size="$bodySm"
-              color={pnlColor}
-              numberOfLines={1}
-              textAlign="right"
-            >
-              {pnlText}
-            </SizableText>
+            <XStack gap="$1" alignItems="center" justifyContent="flex-end">
+              <SizableText
+                size="$bodySm"
+                color={pnlColor}
+                numberOfLines={1}
+                textAlign="right"
+              >
+                {pnlText}
+              </SizableText>
+              {canShare ? (
+                <IconButton
+                  variant="tertiary"
+                  size="small"
+                  icon="ShareOutline"
+                  iconSize="$3.5"
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    handleShare();
+                  }}
+                />
+              ) : null}
+            </XStack>
           ) : null}
         </YStack>
       </XStack>
@@ -206,6 +267,7 @@ function BalanceRowDesktop({
   const pnlText = formatSpotHoldingPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
   const isAssetClickable = !!item.isAssetClickable;
+  const { canShare, handleShare } = useSpotHoldingShare({ item, label });
 
   const cells = useMemo(() => {
     const cellValues: Record<string, string> = {
@@ -249,6 +311,30 @@ function BalanceRowDesktop({
           >
             {cell.cellValue}
           </SizableText>
+        </XStack>
+      );
+    }
+
+    if (cell.key === 'pnl') {
+      return (
+        <XStack minWidth={0} alignItems="center" gap="$1">
+          <SizableText size="$bodySmMedium" color={pnlColor} numberOfLines={1}>
+            {cell.cellValue}
+          </SizableText>
+          {canShare ? (
+            <IconButton
+              variant="tertiary"
+              size="small"
+              icon="ShareOutline"
+              iconSize="$3.5"
+              onPress={(e) => {
+                e?.stopPropagation?.();
+                handleShare();
+              }}
+              hoverStyle={null}
+              pressStyle={null}
+            />
+          ) : null}
         </XStack>
       );
     }

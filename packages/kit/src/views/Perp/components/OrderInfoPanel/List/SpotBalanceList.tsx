@@ -19,6 +19,7 @@ import {
   SPOT_SELECTOR_MIN_VOLUME,
   getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
+  getValidPriceDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -39,6 +40,8 @@ export interface IBalanceDisplayItem {
   usdcValue: string;
   pnl?: string;
   pnlPercent?: number;
+  entryPrice?: string;
+  markPrice?: string;
   contract?: string;
   logoURI?: string;
   usdcValueNum: number;
@@ -162,6 +165,20 @@ function SpotBalanceList({
         midPrice,
         isStable,
       });
+      const entryPriceBN =
+        !isStable && totalBN.isFinite() && totalBN.gt(0) && entryNtlBN.gt(0)
+          ? entryNtlBN.dividedBy(totalBN)
+          : undefined;
+      const markPriceBN =
+        !isStable && midPrice ? new BigNumber(midPrice) : undefined;
+      const entryPrice =
+        entryPriceBN?.isFinite() && entryPriceBN.gt(0)
+          ? entryPriceBN.toFixed(getValidPriceDecimals(entryPriceBN.toFixed()))
+          : undefined;
+      const markPrice =
+        markPriceBN?.isFinite() && markPriceBN.gt(0)
+          ? markPriceBN.toFixed(getValidPriceDecimals(markPriceBN.toFixed()))
+          : undefined;
 
       const displayCoin = getSpotTokenDisplayName(b.coin);
       const isAssetClickable = !!spotUniverse;
@@ -175,6 +192,8 @@ function SpotBalanceList({
         usdcValue: usdcValueBN.toFixed(2),
         pnl,
         pnlPercent,
+        entryPrice,
+        markPrice,
         contract: tokenContractMap[b.coin],
         logoURI: getHyperliquidTokenImageUrl(b.coin),
         spotUniverse,
