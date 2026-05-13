@@ -5,6 +5,7 @@ import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/Staki
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
 import { useAmountInput } from './hooks/useAmountInput';
+import { useBorrowApproval } from './hooks/useBorrowApproval';
 import { useManagePositionState } from './hooks/useManagePositionState';
 import { useTokenSelector } from './hooks/useTokenSelector';
 import { ManagePositionContext } from './ManagePositionContext';
@@ -37,6 +38,9 @@ export function ManagePosition(props: IManagePositionProps) {
     tokenImageUri,
     selectableAssets,
     selectableAssetsLoading,
+    approveType,
+    approveTarget,
+    currentAllowance,
   } = props;
 
   // State management
@@ -120,6 +124,15 @@ export function ManagePosition(props: IManagePositionProps) {
     setAmountValue,
   ]);
 
+  const approval = useBorrowApproval({
+    action,
+    amountValue,
+    approveType,
+    approveTarget,
+    currentAllowance,
+    onApprovedSubmit: onSubmit,
+  });
+
   // Build complete state
   const state: IManagePositionState = useMemo(
     () => ({
@@ -170,8 +183,9 @@ export function ManagePosition(props: IManagePositionProps) {
       state,
       actions,
       actionResult,
+      approval,
     }),
-    [state, actions, actionResult],
+    [state, actions, actionResult, approval],
   );
 
   return (

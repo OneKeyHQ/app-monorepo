@@ -494,8 +494,9 @@ export type IProtocolInfo = {
   symbol: string;
   vault: string;
   approve?: {
-    approveType: EApproveType;
-    approveTarget: string;
+    allowance?: string;
+    approveType?: EApproveType;
+    approveTarget?: string;
   };
   providerDetail: {
     name: string;
@@ -1306,6 +1307,7 @@ export interface IEarnManagePageResponse {
   riskNoticeDialog?: IEarnRiskNoticeDialog;
   ongoingValidator?: IEarnSelectField;
   tooltip?: IEarnTooltip;
+  approveTarget?: string;
   approve?: {
     allowance?: string;
     approveType?: string;

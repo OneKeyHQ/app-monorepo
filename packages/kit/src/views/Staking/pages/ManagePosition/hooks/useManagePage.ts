@@ -7,7 +7,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type {
-  EApproveType,
   IEarnTokenInfo,
   IEarnWithdrawActionIcon,
   IProtocolInfo,
@@ -15,6 +14,8 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { buildLocalTxStatusSyncId } from '../../../utils/utils';
+
+import { buildManagePageApproveInfo } from './useManagePage.utils';
 
 export enum EManagePositionType {
   Staking = 'staking',
@@ -238,15 +239,10 @@ export const useManagePage = ({
       // supply max balance for supply max button
       maxSupplyBalance: managePageData.supply?.data?.maxBalance,
       // approve
-      approve: managePageData.approve
-        ? {
-            allowance: managePageData.approve.allowance ?? '0',
-            approveType:
-              (managePageData.approve.approveType as unknown as EApproveType) ??
-              undefined,
-            approveTarget: managePageData.approve.approveTarget ?? undefined,
-          }
-        : undefined,
+      approve: buildManagePageApproveInfo({
+        approve: managePageData.approve,
+        approveTarget: managePageData.approveTarget,
+      }),
     } as IProtocolInfo;
   }, [
     managePageData,

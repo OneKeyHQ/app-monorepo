@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 
 import type {
+  EApproveType,
   IBorrowAsset,
   IBorrowTransactionConfirmation,
   ICheckAmountAlert,
@@ -27,6 +28,21 @@ export interface IManagePositionConfirmParams {
   repayAll?: boolean;
 }
 
+export interface IBorrowApproveTarget {
+  accountId: string;
+  networkId: string;
+  spenderAddress: string;
+  token?: IToken;
+}
+
+export interface IManagePositionApproval {
+  approveType?: EApproveType;
+  approving: boolean;
+  loadingAllowance: boolean;
+  shouldApprove: boolean;
+  onApprove: () => Promise<void>;
+}
+
 // ============================================================================
 // Main Component Props
 // ============================================================================
@@ -48,6 +64,9 @@ export interface IManagePositionProps {
   decimals?: number;
   price?: string;
   tokenInfo?: IEarnTokenInfo;
+  approveType?: EApproveType;
+  approveTarget?: IBorrowApproveTarget;
+  currentAllowance?: string;
 
   // UI configuration
   isDisabled?: boolean;
@@ -163,6 +182,7 @@ export interface IManagePositionContextValue {
   state: IManagePositionState;
   actions: IManagePositionActions;
   actionResult: IManagePositionActionResult;
+  approval: IManagePositionApproval;
 }
 
 // ============================================================================

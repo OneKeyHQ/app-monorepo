@@ -25,9 +25,8 @@ export function ActionFooter({
   isInModalContext: isInModalContextProp,
   beforeFooter,
 }: IActionFooterProps) {
-  const { state, actions, actionResult } = useManagePositionContext();
   const intl = useIntl();
-
+  const { state, actions, actionResult, approval } = useManagePositionContext();
   const {
     action,
     actionLabel: actionLabelProp,
@@ -47,6 +46,7 @@ export function ActionFooter({
   } = actionResult;
 
   const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
+  const { approving, loadingAllowance, shouldApprove, onApprove } = approval;
 
   const isInModalContext = isInModalContextProp ?? isInModalContextState;
 
@@ -105,13 +105,32 @@ export function ActionFooter({
     }
   }, [action, riskOfLiquidationAlert, intl, onSubmit, setSubmitting]);
 
+  const handleConfirm = useCallback(async () => {
+    if (shouldApprove) {
+      await onApprove();
+      return;
+    }
+    await handleSubmit();
+  }, [handleSubmit, onApprove, shouldApprove]);
+
+  const confirmText = useMemo(() => {
+    if (shouldApprove) {
+      return intl.formatMessage(
+        { id: ETranslations.global_approve },
+        { amount: amountValue, symbol: state.tokenSymbol ?? '' },
+      );
+    }
+    return actionLabel;
+  }, [actionLabel, amountValue, intl, shouldApprove, state.tokenSymbol]);
+
   const footerContent = (
     <Page.FooterActions
-      onConfirmText={actionLabel}
+      onConfirmText={confirmText}
       confirmButtonProps={{
         testID: BorrowTestIDs.actionConfirmBtn,
-        onPress: handleSubmit,
-        loading: submitting || checkAmountLoading,
+        onPress: handleConfirm,
+        loading:
+          submitting || checkAmountLoading || loadingAllowance || approving,
         disabled: isButtonDisabled,
       }}
     />

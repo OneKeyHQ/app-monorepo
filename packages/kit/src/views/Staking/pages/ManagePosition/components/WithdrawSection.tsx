@@ -21,7 +21,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
-  EApproveType,
   type EBorrowActionsEnum,
   EEarnLabels,
   type IBorrowAsset,
@@ -103,9 +102,28 @@ export const WithdrawSection = ({
   );
   const isPendleProvider = useIsPendleProvider(providerName);
 
+  const token = useMemo(
+    () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
+    [tokenInfo],
+  );
+  const [selectedAsset, setSelectedAsset] = useState<IBorrowAsset | null>(null);
+  const borrowRepayNeedsApprove = !!useBorrowApi && borrowAction === 'repay';
+  const effectiveToken = useMemo<IToken | undefined>(() => {
+    if (selectedAsset) {
+      return {
+        ...selectedAsset.token,
+        isNative: false,
+        networkId,
+      } as IToken;
+    }
+    return token;
+  }, [selectedAsset, token, networkId]);
+  const approvalToken = borrowRepayNeedsApprove ? effectiveToken : token;
+  const useApproveTarget = isPendleProvider || borrowRepayNeedsApprove;
+
   const approveSpenderAddress = useMemo(
     () =>
-      isPendleProvider
+      useApproveTarget
         ? earnUtils.resolveEarnApproveSpenderAddress({
             providerName,
             protocolVault: protocolInfo?.vault,
@@ -113,26 +131,38 @@ export const WithdrawSection = ({
           })
         : '',
     [
-      isPendleProvider,
+      useApproveTarget,
       providerName,
       protocolInfo?.vault,
       protocolInfo?.approve?.approveTarget,
     ],
   );
-
-  const token = useMemo(
-    () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
-    [tokenInfo],
+  const effectiveApproveType = useMemo(
+    () =>
+      earnUtils.resolveEarnApproveType({
+        providerName,
+        networkId,
+        tokenIsNative: approvalToken?.isNative,
+        approveSpenderAddress,
+        backendApproveType: protocolInfo?.approve?.approveType,
+      }),
+    [
+      approvalToken?.isNative,
+      approveSpenderAddress,
+      networkId,
+      providerName,
+      protocolInfo?.approve?.approveType,
+    ],
   );
 
   const { result: initialAllowanceResult } = usePromiseResult(
     async () => {
       if (
-        !isPendleProvider ||
+        !effectiveApproveType ||
         !approveSpenderAddress ||
         !accountId ||
         !networkId ||
-        token?.isNative
+        approvalToken?.isNative
       ) {
         return undefined;
       }
@@ -141,36 +171,41 @@ export const WithdrawSection = ({
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
-            approveType: EApproveType.Legacy,
+            approveType: effectiveApproveType,
             approveSpenderAddress,
           }),
-          tokenAddress: token?.address || '',
+          tokenAddress: approvalToken?.address || '',
         });
       return { allowanceParsed };
     },
     [
-      isPendleProvider,
+      effectiveApproveType,
       approveSpenderAddress,
       accountId,
       networkId,
-      token?.isNative,
-      token?.address,
+      approvalToken?.isNative,
+      approvalToken?.address,
     ],
     { watchLoading: true },
   );
 
   const approveTarget = useMemo(() => {
-    if (!isPendleProvider || !approveSpenderAddress || !token) {
+    if (!effectiveApproveType || !approveSpenderAddress || !approvalToken) {
       return undefined;
     }
     return {
       accountId,
       networkId,
       spenderAddress: approveSpenderAddress,
-      token,
+      token: approvalToken,
     };
-  }, [isPendleProvider, approveSpenderAddress, accountId, networkId, token]);
-  const [selectedAsset, setSelectedAsset] = useState<IBorrowAsset | null>(null);
+  }, [
+    accountId,
+    approvalToken,
+    approveSpenderAddress,
+    effectiveApproveType,
+    networkId,
+  ]);
   const [selectedReceiveAsset, setSelectedReceiveAsset] = useState<
     IEarnTokenItem | undefined
   >(undefined);
@@ -559,18 +594,6 @@ export const WithdrawSection = ({
     ],
   );
 
-  // Build token for staking info (use selected asset or default)
-  const effectiveToken = useMemo<IToken | undefined>(() => {
-    if (selectedAsset) {
-      return {
-        ...selectedAsset.token,
-        isNative: false,
-        networkId,
-      } as IToken;
-    }
-    return token;
-  }, [selectedAsset, token, networkId]);
-
   const onBorrowConfirm = useCallback(
     async ({
       amount,
@@ -839,6 +862,9 @@ export const WithdrawSection = ({
           onRepayWithCollateralConfirm={onBorrowRepayWithCollateralConfirm}
           tokenInfo={tokenInfo}
           isDisabled={isDisabled}
+          approveType={effectiveApproveType}
+          currentAllowance={initialAllowanceResult?.allowanceParsed}
+          approveTarget={approveTarget}
           borrowMarketAddress={
             borrowApiCtx.borrowApiParams?.marketAddress ?? ''
           }

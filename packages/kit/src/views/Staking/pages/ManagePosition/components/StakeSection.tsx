@@ -639,6 +639,14 @@ export const StakeSection = ({
           onConfirm={onBorrowConfirm}
           tokenInfo={tokenInfo}
           isDisabled={isDisabled}
+          approveType={effectiveApproveType}
+          currentAllowance={result?.allowanceParsed}
+          approveTarget={{
+            accountId,
+            networkId,
+            spenderAddress: approveSpenderAddress,
+            token: effectiveStakeTokenInfo?.token,
+          }}
           borrowMarketAddress={
             borrowApiCtx.borrowApiParams?.marketAddress ?? ''
           }
