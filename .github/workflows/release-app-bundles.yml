@@ -121,11 +121,22 @@ jobs:
             echo "Found BUILD_NUMBER in .env.version: $BUILD_NUMBER"
             BUILD_SOURCE="bundle-release"
           else
-            # Fallback: bundle-dev format 10YYMMDD{run_number % 100}
-            DATE=$(date -u "+%y%m%d")
+            # Fallback format: YYYYMMDD + (GITHUB_RUN_NUMBER % 100), 2-digit pad.
+            #
+            # Kept byte-identical to daily-build.yml's "Generate build number"
+            # step (and shared-env's workflow_run branch) so manual PR builds
+            # and daily-build builds collate the same way in QA CDN listings,
+            # Slack notifications, Sentry release names, and Android
+            # versionCode bumps. Diverging the format (the historical
+            # "10YYMMDDxx" mix-in) made same-day builds visually
+            # indistinguishable from each other.
+            #
+            # Stays inside Android versionCode's int32 cap (2147483647);
+            # YYYYMMDDHHMM would overflow.
+            DATE=$(date -u "+%Y%m%d")
             RUN_MOD=$(( $GITHUB_RUN_NUMBER % 100 ))
             RUN_MOD=$(printf "%02d" $RUN_MOD)
-            BUILD_NUMBER="10${DATE}${RUN_MOD}"
+            BUILD_NUMBER="${DATE}${RUN_MOD}"
             echo "Generated BUILD_NUMBER: $BUILD_NUMBER"
           fi
 
