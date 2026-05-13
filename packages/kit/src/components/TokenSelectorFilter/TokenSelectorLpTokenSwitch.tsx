@@ -42,7 +42,7 @@ function BasicTokenSelectorLpTokenSwitch({
         {displayLabel}
       </SizableText>
       <Switch
-        size={ESwitchSize.small}
+        size={ESwitchSize.extraSmall}
         value={value}
         onChange={onChange}
         disabled={disabled}
