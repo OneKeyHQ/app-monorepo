@@ -81,10 +81,6 @@ const MARKET_PRESET_DIALOG_TOP_SAFE_GAP = 16;
 const MARKET_PRESET_DIALOG_CHROME_HEIGHT = 176;
 const MARKET_PRESET_DIALOG_MIN_CONTENT_HEIGHT = 120;
 const MARKET_PRESET_SLIPPAGE_INPUT_PROPS = { autoFocus: false } as const;
-const READONLY_PRIORITY_FEE_DISPLAY_TYPES = [
-  EMarketPresetPriorityFeeType.AUTO,
-  EMarketPresetPriorityFeeType.CUSTOM,
-];
 
 function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   if (type === EMarketPresetPriorityFeeType.AUTO) {
@@ -520,25 +516,16 @@ function MarketPresetSettingsDialog({
   const priorityFeeOptions = useMemo(() => {
     const supportedTypes = presetSettings.config?.priorityFee
       .supportedTypes ?? [EMarketPresetPriorityFeeType.MARKET];
-    const displayTypes =
-      presetSettings.config?.priorityFee.editable === false &&
-      supportedTypes.length === 1 &&
-      supportedTypes[0] === EMarketPresetPriorityFeeType.AUTO
-        ? READONLY_PRIORITY_FEE_DISPLAY_TYPES
-        : supportedTypes;
 
-    return displayTypes.map((type) => ({
+    return supportedTypes.map((type) => ({
       label: intl.formatMessage({ id: getPriorityFeeTranslationId(type) }),
       value: type,
     }));
-  }, [
-    intl,
-    presetSettings.config?.priorityFee.editable,
-    presetSettings.config?.priorityFee.supportedTypes,
-  ]);
+  }, [intl, presetSettings.config?.priorityFee.supportedTypes]);
   const isReadonlyPreset =
     !presetSettings.config?.slippage.editable &&
     !presetSettings.config?.priorityFee.editable;
+  const showPriorityFeeSettings = !!presetSettings.config?.priorityFee;
   const isPriorityFeeEditable = !!presetSettings.config?.priorityFee.editable;
   const shouldShowAntiMEV = antiMEV === true;
 
@@ -1055,57 +1042,47 @@ function MarketPresetSettingsDialog({
             )}
           </YStack>
 
-          {presetSettings.config?.priorityFee ? (
+          {showPriorityFeeSettings && isPriorityFeeEditable ? (
             <>
               <Divider />
-
               <YStack gap="$2">
                 <SizableText size="$bodyMdMedium">
                   {intl.formatMessage({
                     id: ETranslations.marketdex_priority_fee,
                   })}
                 </SizableText>
-                <XStack
-                  pointerEvents={isPriorityFeeEditable ? undefined : 'none'}
-                  opacity={isPriorityFeeEditable ? undefined : 0.5}
-                >
-                  <SegmentControl
-                    fullWidth
-                    value={currentSettings.priorityFee.type}
-                    options={priorityFeeOptions}
-                    borderRadius="$2.5"
-                    gap="$0.5"
-                    p="$0.5"
-                    slotBackgroundColor="$neutral5"
-                    activeBackgroundColor="$bg"
-                    activeTextColor="$text"
-                    inactiveTextColor="$textSubdued"
-                    segmentControlItemStyleProps={{
-                      borderRadius: '$2',
-                      px: '$2',
-                      py: '$1',
-                    }}
-                    onChange={(value) => {
-                      if (!isPriorityFeeEditable) {
-                        return;
-                      }
-                      const type = value as EMarketPresetPriorityFeeType;
-                      updateCurrentSettings((settings) => ({
-                        ...settings,
-                        priorityFee: {
-                          type,
-                          customValue:
-                            type === EMarketPresetPriorityFeeType.CUSTOM
-                              ? (settings.priorityFee.customValue ?? '')
-                              : undefined,
-                        },
-                      }));
-                    }}
-                  />
-                </XStack>
-                {isPriorityFeeEditable &&
-                currentSettings.priorityFee.type ===
-                  EMarketPresetPriorityFeeType.CUSTOM ? (
+                <SegmentControl
+                  fullWidth
+                  value={currentSettings.priorityFee.type}
+                  options={priorityFeeOptions}
+                  borderRadius="$2.5"
+                  gap="$0.5"
+                  p="$0.5"
+                  slotBackgroundColor="$neutral5"
+                  activeBackgroundColor="$bg"
+                  activeTextColor="$text"
+                  inactiveTextColor="$textSubdued"
+                  segmentControlItemStyleProps={{
+                    borderRadius: '$2',
+                    px: '$2',
+                    py: '$1',
+                  }}
+                  onChange={(value) => {
+                    const type = value as EMarketPresetPriorityFeeType;
+                    updateCurrentSettings((settings) => ({
+                      ...settings,
+                      priorityFee: {
+                        type,
+                        customValue:
+                          type === EMarketPresetPriorityFeeType.CUSTOM
+                            ? (settings.priorityFee.customValue ?? '')
+                            : undefined,
+                      },
+                    }));
+                  }}
+                />
+                {currentSettings.priorityFee.type ===
+                EMarketPresetPriorityFeeType.CUSTOM ? (
                   <>
                     <Input
                       testID={
@@ -1150,6 +1127,15 @@ function MarketPresetSettingsDialog({
                 ) : null}
               </YStack>
             </>
+          ) : null}
+
+          {showPriorityFeeSettings && !isPriorityFeeEditable ? (
+            <MarketPresetReadonlyRow
+              label={intl.formatMessage({
+                id: ETranslations.marketdex_priority_fee,
+              })}
+              value={intl.formatMessage({ id: ETranslations.global_auto })}
+            />
           ) : null}
 
           {shouldShowAntiMEV ? (
