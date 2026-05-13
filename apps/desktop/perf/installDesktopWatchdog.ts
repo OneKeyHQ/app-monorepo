@@ -87,18 +87,21 @@ function installExportLogsListener() {
   const desktopApi = globalThis.desktopApi;
   if (!desktopApi || typeof desktopApi.on !== 'function') return;
   desktopApi.on(ipcMessageKeys.CPU_WATCHDOG_OPEN_EXPORT_LOGS, () => {
-    try {
-      showExportLogsDialog({
-        // The IPC handler only fires at runtime, by which point the locale
-        // bundle is loaded. Calling appLocale.intl.formatMessage here is
-        // intentional and safe.
-        // eslint-disable-next-line onekey/no-app-locale-main-thread
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.settings_upload_state_logs,
-        }),
-      });
-    } catch (error) {
-      defaultLogger.app.perf.longTaskInitFailed(error);
-    }
+    void (async () => {
+      try {
+        // Defensive: ensure the locale bundle has loaded before calling
+        // appLocale.intl.formatMessage; otherwise the title would degrade
+        // to the raw translation key.
+        await appLocale.isReady;
+        showExportLogsDialog({
+          // eslint-disable-next-line onekey/no-app-locale-main-thread
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.settings_upload_state_logs,
+          }),
+        });
+      } catch (error) {
+        defaultLogger.app.perf.longTaskInitFailed(error);
+      }
+    })();
   });
 }
