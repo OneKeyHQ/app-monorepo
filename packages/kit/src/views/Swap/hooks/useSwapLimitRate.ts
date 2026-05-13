@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getSwapLimitPriceRateDecimals } from '@onekeyhq/shared/src/utils/swapLimitPriceUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -152,8 +153,12 @@ export const useSwapLimitRate = () => {
       const isValidate = validateAmountInput(
         text,
         limitPriceSetReverse
-          ? limitPriceMarketPrice.fromToken?.decimals
-          : limitPriceMarketPrice.toToken?.decimals,
+          ? getSwapLimitPriceRateDecimals(
+              limitPriceMarketPrice.fromToken?.decimals,
+            )
+          : getSwapLimitPriceRateDecimals(
+              limitPriceMarketPrice.toToken?.decimals,
+            ),
       );
       if (isValidate) {
         const inputRate = new BigNumber(text);
@@ -174,13 +179,17 @@ export const useSwapLimitRate = () => {
             : new BigNumber(1).div(inputBN);
           const newReverseRateValue = newReverseRate
             .decimalPlaces(
-              Number(limitPriceMarketPrice.fromToken?.decimals ?? 0),
+              getSwapLimitPriceRateDecimals(
+                limitPriceMarketPrice.fromToken?.decimals,
+              ),
               BigNumber.ROUND_HALF_UP,
             )
             .toFixed();
           const newRateValue = newRate
             .decimalPlaces(
-              Number(limitPriceMarketPrice.toToken?.decimals ?? 0),
+              getSwapLimitPriceRateDecimals(
+                limitPriceMarketPrice.toToken?.decimals,
+              ),
               BigNumber.ROUND_HALF_UP,
             )
             .toFixed();
@@ -240,7 +249,7 @@ export const useSwapLimitRate = () => {
       const useRateBN = new BigNumber(limitPriceUseRate.rate ?? '0');
       const rateBN = priceMarketBN.multipliedBy(percentageBN);
       const formatRate = rateBN.decimalPlaces(
-        Number(limitPriceMarketPrice.toToken?.decimals ?? 0),
+        getSwapLimitPriceRateDecimals(limitPriceMarketPrice.toToken?.decimals),
         BigNumber.ROUND_HALF_UP,
       );
       const limitPriceEqualMarket = useRateBN.eq(formatRate);
@@ -272,11 +281,13 @@ export const useSwapLimitRate = () => {
         ? new BigNumber(0)
         : new BigNumber(1).div(rateBN);
       const formatRate = rateBN.decimalPlaces(
-        Number(limitPriceMarketPrice.toToken?.decimals ?? 0),
+        getSwapLimitPriceRateDecimals(limitPriceMarketPrice.toToken?.decimals),
         BigNumber.ROUND_HALF_UP,
       );
       const formatReverseRate = reverseRateBN.decimalPlaces(
-        Number(limitPriceMarketPrice.fromToken?.decimals ?? 0),
+        getSwapLimitPriceRateDecimals(
+          limitPriceMarketPrice.fromToken?.decimals,
+        ),
         BigNumber.ROUND_HALF_UP,
       );
       setLimitPriceUseRate((v) => ({

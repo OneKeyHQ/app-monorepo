@@ -1026,6 +1026,7 @@ export interface ISwapTxHistory {
 // limit order
 
 export const LIMIT_PRICE_DEFAULT_DECIMALS = 6;
+export const LIMIT_PRICE_RATE_DECIMALS = 18;
 
 export interface ISwapCowSwapOrderFee {
   fullFeeAmount?: string;

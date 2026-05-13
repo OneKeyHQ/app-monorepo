@@ -5,6 +5,7 @@ import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/compo
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import { getSwapLimitPriceRateDecimals } from '@onekeyhq/shared/src/utils/swapLimitPriceUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import {
   checkWrappedTokenPair,
@@ -683,18 +684,14 @@ export const {
     const rate = fromPriceBN
       .div(toPriceBN)
       .decimalPlaces(
-        Number(
-          toTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        ),
+        getSwapLimitPriceRateDecimals(toTokenPriceInfo.tokenInfo.decimals),
         BigNumber.ROUND_HALF_UP,
       )
       .toFixed();
     const reverseRate = toPriceBN
       .div(fromPriceBN)
       .decimalPlaces(
-        Number(
-          fromTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        ),
+        getSwapLimitPriceRateDecimals(fromTokenPriceInfo.tokenInfo.decimals),
         BigNumber.ROUND_HALF_UP,
       )
       .toFixed();
