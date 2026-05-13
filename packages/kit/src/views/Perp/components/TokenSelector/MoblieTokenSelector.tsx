@@ -40,6 +40,7 @@ import {
   type ISpotAssetCtxsMap,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
+  usePerpsFavoritesOrderPersistAtom,
   useSpotAssetCtxsMapAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -70,13 +71,13 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import {
-  type IFavoriteItem,
   usePerpActiveTabValidation,
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { getTokenSelectorFavoriteItems } from '../../utils/tokenSelectorFavorites';
 import {
   markTokenSelectorPerfMeasure,
   startTokenSelectorPerfMeasure,
@@ -266,7 +267,16 @@ function MobileTokenSelectorModal({
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
-  const { favoriteItems, isReady: isFavoritesReady } = usePerpsFavorites();
+  const { favoriteItems: perpFavoriteItems, isReady: isPerpFavoritesReady } =
+    usePerpsFavorites({ mode: 'perp' });
+  const { favoriteItems: spotFavoriteItems, isReady: isSpotFavoritesReady } =
+    usePerpsFavorites({ mode: 'spot' });
+  const favoriteItems = useMemo(
+    () => [...perpFavoriteItems, ...spotFavoriteItems],
+    [perpFavoriteItems, spotFavoriteItems],
+  );
+  const isFavoritesReady = isPerpFavoritesReady && isSpotFavoritesReady;
+  const [favoritesOrder] = usePerpsFavoritesOrderPersistAtom();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
@@ -587,7 +597,10 @@ function MobileTokenSelectorModal({
 
   // Layer 1b: spot sort — isolated from perp. Sorts against a frozen snapshot
   // so live WS updates refresh row values without reshuffling the list.
-  const spotSortedList = useMemo((): ITokenSelectorListItem[] => {
+  const { spotSortedList, spotFavoriteSortedList } = useMemo((): {
+    spotSortedList: ITokenSelectorListItem[];
+    spotFavoriteSortedList: ITokenSelectorListItem[];
+  } => {
     const perfStartTime = startTokenSelectorPerfMeasure();
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
@@ -625,13 +638,12 @@ function MobileTokenSelectorModal({
         marketCap,
       };
     });
-    const hasVolumeData = mappedEntries.some((e) => e.volume24h > 0);
-    const entries = mappedEntries.filter(
-      (e) => !hasVolumeData || e.volume24h >= SPOT_SELECTOR_MIN_VOLUME,
-    );
 
-    if (sortField) {
-      entries.sort((a, b) => {
+    const sortEntries = (items: typeof mappedEntries) => {
+      if (!sortField) {
+        return items;
+      }
+      return [...items].toSorted((a, b) => {
         let cmp = 0;
         switch (sortField) {
           case 'name':
@@ -660,9 +672,17 @@ function MobileTokenSelectorModal({
         }
         return sortDirection === 'asc' ? cmp : -cmp;
       });
-    }
+    };
 
-    const result = entries.map((e) => e.item);
+    const hasVolumeData = mappedEntries.some((e) => e.volume24h > 0);
+    const entries = mappedEntries.filter(
+      (e) => !hasVolumeData || e.volume24h >= SPOT_SELECTOR_MIN_VOLUME,
+    );
+    const sortedEntries = sortEntries(entries);
+    const sortedFavoriteEntries = sortEntries(mappedEntries);
+
+    const result = sortedEntries.map((e) => e.item);
+    const favoriteResult = sortedFavoriteEntries.map((e) => e.item);
     if (perfStartTime !== undefined) {
       markTokenSelectorPerfMeasure(perfStartTime, {
         layout: 'mobile',
@@ -675,7 +695,10 @@ function MobileTokenSelectorModal({
       });
     }
 
-    return result;
+    return {
+      spotSortedList: result,
+      spotFavoriteSortedList: favoriteResult,
+    };
   }, [
     spotUniverses,
     spotPriceSnapshot,
@@ -713,12 +736,12 @@ function MobileTokenSelectorModal({
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
       result = getSpotListBySearch();
     } else if (isPerpTokenSelectorFavoritesTab(displayPrimaryTab)) {
-      const favoriteAssetIds = new Set(
-        favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
-      );
-      result = perpSortedList.filter((item) =>
-        favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
-      );
+      result = getTokenSelectorFavoriteItems({
+        favoriteItems,
+        favoritesOrder: favoritesOrder.sequence,
+        perpItems: perpSortedList,
+        spotItems: spotFavoriteSortedList,
+      });
     } else if (isPerpTokenSelectorPerpsTab(displayActiveTab)) {
       result = perpSortedList;
     } else {
@@ -763,10 +786,12 @@ function MobileTokenSelectorModal({
     displayPrimaryTab,
     assetsByDex,
     categoryTabs,
+    favoritesOrder.sequence,
     favoriteItems,
     perpSortedList,
     selectorConfig?.direction,
     selectorConfig?.field,
+    spotFavoriteSortedList,
     spotSortedList,
     searchQuery,
   ]);
