@@ -63,11 +63,26 @@ import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 // useDeviceConnect hook stays focused on the OneKey path.
 // ---------------------------------------------------------------------------
 
-const LEDGER_BLE_CONNECT_ID_RE = /^[0-9A-Fa-f]{4}$/;
+const LEDGER_BLE_NAME_SUFFIX_RE = /\b([0-9A-Fa-f]{4})$/;
 
-function getLedgerBleName(device: SearchDevice): string | undefined {
-  const connectId = device.connectId ?? '';
-  return LEDGER_BLE_CONNECT_ID_RE.test(connectId) ? connectId : undefined;
+function isLedgerBleTransport(
+  transport: EHardwareTransportType | undefined,
+): boolean {
+  return (
+    transport === EHardwareTransportType.BLE ||
+    transport === EHardwareTransportType.DesktopWebBle
+  );
+}
+
+function getLedgerBleName(
+  device: SearchDevice,
+  transport: EHardwareTransportType | undefined,
+): string | undefined {
+  // Only BLE-advertised names carry the trailing 4-hex (e.g. "Nano X 1456" -> "1456").
+  if (!isLedgerBleTransport(transport)) return undefined;
+  const name = device.name ?? '';
+  const match = name.match(LEDGER_BLE_NAME_SUFFIX_RE);
+  return match ? match[1].toUpperCase() : undefined;
 }
 
 async function verifyLedgerDevice(
@@ -105,7 +120,7 @@ async function createLedgerHwWallet({
   hardwareTransportType: EHardwareTransportType | undefined;
   isSoftwareWalletOnlyUser: boolean;
 }): Promise<void> {
-  const ledgerBleName = getLedgerBleName(device);
+  const ledgerBleName = getLedgerBleName(device, hardwareTransportType);
   try {
     navigation.push(EOnboardingPages.FinalizeWalletSetup);
 

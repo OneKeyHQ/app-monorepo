@@ -6,7 +6,7 @@ import type { SearchDevice } from '@onekeyfe/hd-core';
 export function mapThirdPartyDeviceToSearchDevice({
   device,
   defaultDeviceName,
-  canMatchDeviceByConnectId = (connectId) => /^[0-9A-Fa-f]{4}$/.test(connectId),
+  canMatchDeviceByConnectId = (connectId) => Boolean(connectId),
 }: {
   device: DeviceInfo;
   defaultDeviceName?: string;
@@ -49,5 +49,8 @@ export function mapThirdPartyDeviceToSearchDevice({
     deviceType: 'unknown',
     uuid: '',
     commType: 'bridge',
+    // Pass-through: persisted into IDBDeviceSettings.vendorModel/vendorModelName.
+    vendorModel: device.model,
+    vendorModelName: device.modelName,
   } as SearchDevice;
 }
