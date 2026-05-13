@@ -1971,6 +1971,26 @@ function startCpuWatchdog() {
   cpuWatchdogInterval = setInterval(() => {
     try {
       const metrics = app.getAppMetrics();
+
+      // TEMP DIAGNOSTIC: dump every process's CPU snapshot every tick so
+      // we can calibrate the threshold semantics on this platform.
+      logger.info(
+        `[CPU Watchdog] DUMP cores=${os.cpus().length} processes=${JSON.stringify(
+          metrics.map((m) => ({
+            pid: m.pid,
+            type: m.type,
+            name: m.name,
+            pct: Number(m.cpu.percentCPUUsage.toFixed(2)),
+            cum: Number(
+              (
+                (m.cpu as { cumulativeCPUUsage?: number })
+                  .cumulativeCPUUsage ?? 0
+              ).toFixed(2),
+            ),
+          })),
+        )}`,
+      );
+
       const seenPids = new Set<number>();
       for (const m of metrics) {
         if (m.type === 'Tab') {
@@ -1981,17 +2001,22 @@ function startCpuWatchdog() {
           if (history.length > CPU_WATCHDOG_HISTORY_SIZE) history.shift();
           cpuHistoryByPid.set(m.pid, history);
 
-          // Only log when interesting — keep idle noise out of the log file.
-          if (cpuPercent > 50) {
-            logger.info(
-              `[CPU Watchdog] sample pid=${m.pid} cpu=${cpuPercent.toFixed(
-                1,
-              )}% last3=[${history
-                .slice(-3)
-                .map((v) => v.toFixed(0))
-                .join(',')}]`,
-            );
-          }
+          // TEMP DIAGNOSTIC: log every sample so we can see what
+          // app.getAppMetrics() actually reports during a burn on this
+          // platform. Will be tightened again once thresholds are
+          // calibrated.
+          const cumCpu = (m.cpu as { cumulativeCPUUsage?: number })
+            .cumulativeCPUUsage;
+          logger.info(
+            `[CPU Watchdog] sample pid=${m.pid} cpu=${cpuPercent.toFixed(
+              1,
+            )}% cumCpuSec=${
+              typeof cumCpu === 'number' ? cumCpu.toFixed(2) : 'n/a'
+            } cores=${os.cpus().length} last5=[${history
+              .slice(-5)
+              .map((v) => v.toFixed(1))
+              .join(',')}]`,
+          );
 
           // Severe first (precedence) — same cooldown gate, so a single
           // tick at most fires one reason.
