@@ -13,6 +13,7 @@ import { Dimensions, I18nManager } from 'react-native';
 
 import {
   Accordion,
+  Checkbox,
   Dialog,
   ESwitchSize,
   Icon,
@@ -30,6 +31,7 @@ import {
   useClipboard,
   useInPageDialog,
 } from '@onekeyhq/components';
+import type { ICheckedState } from '@onekeyhq/components';
 import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import {
   ANIMATE_ONLY_OPACITY,
@@ -46,6 +48,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -284,6 +287,149 @@ function hasMatchingDevSettingsSearchItem(node: ReactNode, query: string) {
   return hasMatch;
 }
 
+const TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS: {
+  label: string;
+  value: ITradingViewKLineMockEmptyInterval;
+}[] = [
+  { label: '1 minute', value: '1m' },
+  { label: '5 minutes', value: '5m' },
+  { label: '15 minutes', value: '15m' },
+  { label: '30 minutes', value: '30m' },
+  { label: '1 hour', value: '1H' },
+  { label: '4 hours', value: '4H' },
+  { label: '1 day', value: '1D' },
+  { label: '1 week', value: '1W' },
+];
+
+function getTradingViewKLineMockIntervalsText(
+  intervals: ITradingViewKLineMockEmptyInterval[],
+) {
+  if (!intervals.length) {
+    return '未选择周期';
+  }
+
+  const labelMap = new Map(
+    TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS.map((item) => [
+      item.value,
+      item.label,
+    ]),
+  );
+
+  return intervals
+    .map((interval) => labelMap.get(interval) ?? interval)
+    .join(', ');
+}
+
+function TradingViewKLineEmptyMockIntervalsDialogContent({
+  initialEnabled,
+  initialValue,
+  onConfirm,
+}: {
+  initialEnabled: boolean;
+  initialValue: ITradingViewKLineMockEmptyInterval[];
+  onConfirm: (params: {
+    enabled: boolean;
+    intervals: ITradingViewKLineMockEmptyInterval[];
+  }) => Promise<void>;
+}) {
+  const [enabled, setEnabled] = useState(initialEnabled);
+  const [selectedIntervals, setSelectedIntervals] =
+    useState<ITradingViewKLineMockEmptyInterval[]>(initialValue);
+  const allIntervals = useMemo(
+    () =>
+      TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS.map((item) => item.value),
+    [],
+  );
+  const allSelected = selectedIntervals.length === allIntervals.length;
+
+  const handleEnabledChange = useCallback(
+    (checked: boolean) => {
+      setEnabled(checked);
+
+      if (checked && !selectedIntervals.length) {
+        setSelectedIntervals(['1m']);
+      }
+    },
+    [selectedIntervals.length],
+  );
+
+  const handleSelectAllChange = useCallback(
+    (checked: ICheckedState) => {
+      setSelectedIntervals(checked === true ? allIntervals : []);
+    },
+    [allIntervals],
+  );
+
+  const handleIntervalChange = useCallback(
+    (interval: ITradingViewKLineMockEmptyInterval, checked: ICheckedState) => {
+      setSelectedIntervals((prev) => {
+        if (checked === true) {
+          return prev.includes(interval) ? prev : [...prev, interval];
+        }
+
+        return prev.filter((item) => item !== interval);
+      });
+    },
+    [],
+  );
+
+  const handleConfirm = useCallback(
+    () =>
+      onConfirm({
+        enabled,
+        intervals: selectedIntervals,
+      }),
+    [enabled, onConfirm, selectedIntervals],
+  );
+
+  return (
+    <YStack gap="$3">
+      <XStack alignItems="center" justifyContent="space-between" gap="$4">
+        <YStack flex={1}>
+          <SizableText size="$bodyMdMedium">启用 Mock</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            开启后，命中的 K 线 history 请求会返回空数据
+          </SizableText>
+        </YStack>
+        <Switch
+          size={ESwitchSize.small}
+          value={enabled}
+          onChange={handleEnabledChange}
+        />
+      </XStack>
+      {enabled ? (
+        <>
+          <Checkbox
+            label="All intervals"
+            value={allSelected}
+            onChange={handleSelectAllChange}
+          />
+          <YStack gap="$2">
+            {TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS.map((item) => (
+              <Checkbox
+                key={item.value}
+                label={item.label}
+                value={selectedIntervals.includes(item.value)}
+                onChange={(checked) => {
+                  handleIntervalChange(item.value, checked);
+                }}
+              />
+            ))}
+          </YStack>
+        </>
+      ) : null}
+      <Dialog.Footer
+        showConfirmButton
+        showCancelButton
+        onConfirm={handleConfirm}
+        confirmButtonProps={{
+          disabled: enabled && selectedIntervals.length === 0,
+        }}
+      />
+    </YStack>
+  );
+}
+
 const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -293,6 +439,22 @@ const BaseDevSettingsSection = () => {
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
+  const mockTradingViewKLineEmptyEnabled =
+    devSettings.settings?.mockTradingViewKLineEmptyEnabled ?? false;
+  const rawMockTradingViewKLineEmptyIntervals =
+    devSettings.settings?.mockTradingViewKLineEmptyIntervals;
+  const mockTradingViewKLineEmptyIntervals = useMemo(
+    () => rawMockTradingViewKLineEmptyIntervals ?? [],
+    [rawMockTradingViewKLineEmptyIntervals],
+  );
+  const mockTradingViewKLineEmptyIntervalsText = useMemo(
+    () =>
+      getTradingViewKLineMockIntervalsText(mockTradingViewKLineEmptyIntervals),
+    [mockTradingViewKLineEmptyIntervals],
+  );
+  const mockTradingViewKLineEmptySubtitle = mockTradingViewKLineEmptyEnabled
+    ? mockTradingViewKLineEmptyIntervalsText
+    : '已关闭';
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
@@ -314,6 +476,29 @@ const BaseDevSettingsSection = () => {
       },
     });
   }, []);
+
+  const handleOpenMockTradingViewKLineEmptyIntervalsDialog = useCallback(() => {
+    Dialog.show({
+      title: 'Mock 空 K 线周期',
+      description: '选择一个或多个周期，命中后 history 请求会返回空数据。',
+      renderContent: (
+        <TradingViewKLineEmptyMockIntervalsDialogContent
+          initialEnabled={mockTradingViewKLineEmptyEnabled}
+          initialValue={mockTradingViewKLineEmptyIntervals}
+          onConfirm={async ({ enabled, intervals }) => {
+            await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'mockTradingViewKLineEmptyEnabled',
+              enabled,
+            );
+            await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'mockTradingViewKLineEmptyIntervals',
+              intervals,
+            );
+          }}
+        />
+      ),
+    });
+  }, [mockTradingViewKLineEmptyEnabled, mockTradingViewKLineEmptyIntervals]);
 
   const forceIntoRTL = useCallback(() => {
     I18nManager.forceRTL(!I18nManager.isRTL);
@@ -1549,6 +1734,14 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionPressItem
+                        icon="TradeOutline"
+                        title="Mock TradingView 空 K 线"
+                        subtitle={mockTradingViewKLineEmptySubtitle}
+                        onPress={
+                          handleOpenMockTradingViewKLineEmptyIntervalsDialog
+                        }
+                      />
                       <SectionFieldItem
                         icon="BrowserOutline"
                         name="allowLocalhostUrlInDAppBrowser"
