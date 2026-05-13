@@ -4,6 +4,8 @@ import { EApproveType } from '@onekeyhq/shared/types/staking';
 
 import type { IBorrowActionType, IBorrowApproveTarget } from './types';
 
+const borrowMaxApprovalAllowanceThreshold = new BigNumber(2).pow(128);
+
 export function isBorrowTokenApprovalEnabled({
   action,
   approveType,
@@ -26,10 +28,12 @@ export function isBorrowTokenApprovalRequired({
   enabled,
   amount,
   allowance,
+  requiresMaxApproval,
 }: {
   enabled: boolean;
   amount: string;
   allowance: string;
+  requiresMaxApproval?: boolean;
 }) {
   if (!enabled) {
     return false;
@@ -40,6 +44,10 @@ export function isBorrowTokenApprovalRequired({
 
   if (amountBN.isNaN() || allowanceBN.isNaN() || amountBN.lte(0)) {
     return false;
+  }
+
+  if (requiresMaxApproval) {
+    return !isBorrowMaxApprovalAllowanceEnough({ allowance });
   }
 
   return allowanceBN.lt(amountBN);
@@ -54,9 +62,11 @@ export type IBorrowApprovalActionStep =
 export function isBorrowAllowanceEnough({
   amount,
   allowance,
+  requiresMaxApproval,
 }: {
   amount: string;
   allowance: string;
+  requiresMaxApproval?: boolean;
 }) {
   const amountBN = new BigNumber(amount || '0');
   const allowanceBN = new BigNumber(allowance || '0');
@@ -65,7 +75,25 @@ export function isBorrowAllowanceEnough({
     return false;
   }
 
+  if (requiresMaxApproval) {
+    return isBorrowMaxApprovalAllowanceEnough({ allowance });
+  }
+
   return allowanceBN.gte(amountBN);
+}
+
+export function isBorrowMaxApprovalAllowanceEnough({
+  allowance,
+}: {
+  allowance: string;
+}) {
+  const allowanceBN = new BigNumber(allowance || '0');
+
+  if (allowanceBN.isNaN() || allowanceBN.lte(0)) {
+    return false;
+  }
+
+  return allowanceBN.gte(borrowMaxApprovalAllowanceThreshold);
 }
 
 export function isBorrowAllowanceZero(allowance: string) {
@@ -78,11 +106,13 @@ export function resolveBorrowApprovalActionStep({
   amount,
   allowance,
   shouldResetUSDT,
+  requiresMaxApproval,
 }: {
   enabled: boolean;
   amount: string;
   allowance: string;
   shouldResetUSDT: boolean;
+  requiresMaxApproval?: boolean;
 }): IBorrowApprovalActionStep {
   if (!enabled) {
     return 'idle';
@@ -93,6 +123,18 @@ export function resolveBorrowApprovalActionStep({
 
   if (amountBN.isNaN() || allowanceBN.isNaN() || amountBN.lte(0)) {
     return 'idle';
+  }
+
+  if (requiresMaxApproval) {
+    if (isBorrowMaxApprovalAllowanceEnough({ allowance })) {
+      return 'submit';
+    }
+
+    if (shouldResetUSDT && allowanceBN.gt(0)) {
+      return 'resetUSDT';
+    }
+
+    return 'approve';
   }
 
   if (allowanceBN.gte(amountBN)) {

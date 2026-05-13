@@ -11,6 +11,7 @@ import {
   type IRepayWithCollateralConfirmParams,
 } from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
 import {
+  getBorrowAssetByReserveAddress,
   getBorrowRepayDebtBalance,
   getBorrowRepayMaxInputBalance,
   getBorrowRepayWalletBalance,
@@ -463,15 +464,31 @@ export const WithdrawSection = ({
     [selectedAsset, protocolInfo?.protocolInputDecimals, token?.decimals],
   );
 
+  const currentRepayAsset = useMemo(() => {
+    if (borrowAction !== 'repay' || selectedAsset) {
+      return undefined;
+    }
+
+    return getBorrowAssetByReserveAddress({
+      assets: assetsList.assets,
+      reserveAddress: borrowReserveAddress,
+    });
+  }, [assetsList.assets, borrowAction, borrowReserveAddress, selectedAsset]);
+
+  const effectiveRepayAsset = useMemo(
+    () => selectedAsset ?? currentRepayAsset,
+    [currentRepayAsset, selectedAsset],
+  );
+
   const effectiveDebtBalance = useMemo(() => {
     if (borrowAction !== 'repay') {
       return undefined;
     }
     return getBorrowRepayDebtBalance({
-      selectedAsset,
+      selectedAsset: effectiveRepayAsset,
       fallbackDebtBalance: protocolInfo?.debtBalance,
     });
-  }, [borrowAction, selectedAsset, protocolInfo?.debtBalance]);
+  }, [borrowAction, effectiveRepayAsset, protocolInfo?.debtBalance]);
 
   const selectedRepayWalletBalance = useMemo(() => {
     if (borrowAction !== 'repay') {
@@ -481,10 +498,10 @@ export const WithdrawSection = ({
       };
     }
     return getBorrowRepayWalletBalance({
-      selectedAsset,
+      selectedAsset: effectiveRepayAsset,
       fallbackWalletBalance: protocolInfo?.activeBalance,
     });
-  }, [borrowAction, selectedAsset, protocolInfo?.activeBalance]);
+  }, [borrowAction, effectiveRepayAsset, protocolInfo?.activeBalance]);
 
   const isMissingSelectedRepayWalletBalance = useMemo(
     () =>
@@ -500,10 +517,10 @@ export const WithdrawSection = ({
 
   // Determine the effective balance (from selected asset or default)
   const effectiveBalance = useMemo(() => {
+    if (borrowAction === 'repay' && effectiveRepayAsset) {
+      return selectedRepayWalletBalance.balance;
+    }
     if (selectedAsset) {
-      if (borrowAction === 'repay') {
-        return selectedRepayWalletBalance.balance;
-      }
       // For withdraw, use supplied balance
       return selectedAsset.supplied?.title?.text ?? '0';
     }
@@ -511,6 +528,7 @@ export const WithdrawSection = ({
   }, [
     selectedAsset,
     borrowAction,
+    effectiveRepayAsset,
     selectedRepayWalletBalance.balance,
     protocolInfo?.activeBalance,
   ]);
@@ -520,7 +538,7 @@ export const WithdrawSection = ({
     if (borrowAction !== 'repay') {
       return undefined;
     }
-    if (selectedAsset) {
+    if (effectiveRepayAsset) {
       return getBorrowRepayMaxInputBalance({
         walletBalance: selectedRepayWalletBalance.balance,
         debtBalance: effectiveDebtBalance,
@@ -529,7 +547,7 @@ export const WithdrawSection = ({
     return protocolInfo?.maxRepayBalance;
   }, [
     borrowAction,
-    selectedAsset,
+    effectiveRepayAsset,
     selectedRepayWalletBalance.balance,
     effectiveDebtBalance,
     protocolInfo?.maxRepayBalance,

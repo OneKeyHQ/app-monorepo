@@ -230,4 +230,80 @@ describe('useBorrowApproval', () => {
     expect(trackAllowance).toHaveBeenCalledWith('0xApprove');
     expect(result.current.approving).toBe(false);
   });
+
+  it('uses max approval for repayAll so Aave debt drift does not break auto submit', async () => {
+    const fetchAllowanceResponse = jest
+      .fn()
+      .mockResolvedValueOnce({ allowanceParsed: '1' })
+      .mockResolvedValueOnce({ allowanceParsed: '1e40' });
+    const trackAllowance = jest.fn();
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+
+    mockState.__borrowApprovalAllowanceHookMock.mockReturnValue({
+      allowance: '1',
+      loading: false,
+      trackAllowance,
+      fetchAllowanceResponse,
+    });
+    mockState.__borrowApprovalSignatureConfirmMock.navigationToTxConfirm.mockImplementation(
+      async ({
+        onSuccess,
+      }: {
+        onSuccess?: (
+          data: Array<{
+            decodedTx: { txid: string };
+            signedTx: { txid: string };
+          }>,
+        ) => void;
+      }) => {
+        onSuccess?.([
+          {
+            decodedTx: { txid: '0xApproveMax' },
+            signedTx: { txid: '0xApproveMax' },
+          },
+        ]);
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '1',
+        repayAll: true,
+        approveType: EApproveType.Legacy,
+        approveTarget: {
+          accountId: 'account-id',
+          networkId: 'evm--1',
+          spenderAddress: '0xSpender',
+          token,
+        },
+        currentAllowance: '1',
+        onApprovedSubmit,
+      }),
+    );
+
+    expect(result.current.shouldApprove).toBe(true);
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+
+    await waitFor(() => {
+      expect(onApprovedSubmit).toHaveBeenCalledTimes(1);
+    });
+
+    expect(
+      mockState.__borrowApprovalSignatureConfirmMock.navigationToTxConfirm,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvesInfo: [
+          expect.objectContaining({
+            amount: '1',
+            isMax: true,
+          }),
+        ],
+      }),
+    );
+    expect(trackAllowance).toHaveBeenCalledWith('0xApproveMax');
+  });
 });

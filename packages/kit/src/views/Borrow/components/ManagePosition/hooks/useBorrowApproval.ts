@@ -48,6 +48,7 @@ function getBorrowApprovalSubmitErrorMessage(error: unknown) {
 export function useBorrowApproval({
   action,
   amountValue,
+  repayAll,
   approveType,
   approveTarget,
   currentAllowance = '0',
@@ -55,6 +56,7 @@ export function useBorrowApproval({
 }: {
   action: IBorrowActionType;
   amountValue: string;
+  repayAll?: boolean;
   approveType?: EApproveType;
   approveTarget?: IBorrowApproveTarget;
   currentAllowance?: string;
@@ -97,8 +99,9 @@ export function useBorrowApproval({
         enabled: approvalEnabled,
         amount: amountValue,
         allowance,
+        requiresMaxApproval: action === 'repay' && repayAll,
       }),
-    [allowance, amountValue, approvalEnabled],
+    [action, allowance, amountValue, approvalEnabled, repayAll],
   );
 
   const waitForAllowance = useCallback(
@@ -254,6 +257,7 @@ export function useBorrowApproval({
         enabled: approvalEnabled,
         amount: amountValue,
         allowance: approveAllowance || '0',
+        requiresMaxApproval: action === 'repay' && repayAll,
         shouldResetUSDT: earnUtils.isUSDTonETHNetwork(approveTarget.token),
       });
 
@@ -287,6 +291,7 @@ export function useBorrowApproval({
             owner: account.address,
             spender: approveTarget.spenderAddress,
             amount: amountValue,
+            isMax: action === 'repay' && repayAll,
             tokenInfo: approveTarget.token,
           },
         ],
@@ -304,6 +309,7 @@ export function useBorrowApproval({
                   isBorrowAllowanceEnough({
                     amount: amountValue,
                     allowance: nextAllowance,
+                    requiresMaxApproval: action === 'repay' && repayAll,
                   }),
               });
               if (allowanceReady) {
@@ -326,11 +332,13 @@ export function useBorrowApproval({
     }
   }, [
     allowance,
+    action,
     amountValue,
     approvalEnabled,
     approveTarget,
     fetchAllowanceResponse,
     navigationToTxConfirm,
+    repayAll,
     showResetUSDTApproveValueDialog,
     submitApprovedAction,
     trackAllowance,

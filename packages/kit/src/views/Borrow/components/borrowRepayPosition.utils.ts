@@ -20,6 +20,46 @@ export function getBorrowBalanceAmount(balance?: Partial<IBorrowBalance>) {
   return balance?.amount ?? balance?.title?.text ?? '0';
 }
 
+function isSameBorrowReserveAddress({
+  reserveAddress,
+  targetReserveAddress,
+}: {
+  reserveAddress?: string;
+  targetReserveAddress?: string;
+}) {
+  if (!reserveAddress || !targetReserveAddress) {
+    return false;
+  }
+
+  if (reserveAddress === targetReserveAddress) {
+    return true;
+  }
+
+  if (
+    reserveAddress.startsWith('0x') &&
+    targetReserveAddress.startsWith('0x')
+  ) {
+    return reserveAddress.toLowerCase() === targetReserveAddress.toLowerCase();
+  }
+
+  return false;
+}
+
+export function getBorrowAssetByReserveAddress({
+  assets,
+  reserveAddress,
+}: {
+  assets?: IBorrowAsset[];
+  reserveAddress?: string;
+}) {
+  return assets?.find((asset) =>
+    isSameBorrowReserveAddress({
+      reserveAddress: asset.reserveAddress,
+      targetReserveAddress: reserveAddress,
+    }),
+  );
+}
+
 export function getBorrowRepayDebtBalance({
   selectedAsset,
   fallbackDebtBalance,

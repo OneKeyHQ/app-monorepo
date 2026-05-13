@@ -4,6 +4,7 @@ import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
+  getBorrowAssetByReserveAddress,
   getBorrowRepayMaxInputBalance,
   getBorrowRepayProgressStep,
   getBorrowRepayWalletBalance,
@@ -65,6 +66,60 @@ describe('borrowRepayPosition utils', () => {
     expect(isBorrowRepayAllAmount({ amount: '10', debtBalance: '10' })).toBe(
       true,
     );
+    expect(isBorrowRepayAllAmount({ amount: '5' })).toBe(false);
+  });
+
+  it('matches the current reserve asset before user selection', () => {
+    const assets = [
+      {
+        reserveAddress: '0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        token: {
+          address: '0xtoken',
+          name: 'Token',
+          symbol: 'TKN',
+          decimals: 6,
+          logoURI: '',
+        },
+        balance: {
+          title: { text: '10' },
+          description: { text: '$10' },
+        },
+        walletBalance: {
+          amount: '3',
+          fiatValue: '3',
+          title: { text: '3' },
+          description: { text: '$3' },
+        },
+        borrowed: {
+          amount: '10',
+          fiatValue: '10',
+          title: { text: '10' },
+          description: { text: '$10' },
+        },
+        supplied: {
+          title: { text: '0' },
+          description: { text: '$0' },
+        },
+        apyDetail: {
+          apy: '0',
+          normal: { text: '0' },
+        },
+      },
+    ];
+
+    expect(
+      getBorrowAssetByReserveAddress({
+        assets,
+        reserveAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      }),
+    ).toBe(assets[0]);
+
+    expect(
+      getBorrowAssetByReserveAddress({
+        assets,
+        reserveAddress: 'SoLaNaReserve',
+      }),
+    ).toBeUndefined();
   });
 
   it('uses selected repay asset wallet balance when present', () => {

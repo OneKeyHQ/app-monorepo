@@ -103,9 +103,9 @@ export function useManagePositionState(props: IManagePositionProps): {
     if (props.action !== 'repay') return false;
     return isBorrowRepayAllAmount({
       amount: amountValue,
-      debtBalance: props.debtBalance ?? maxAmountValue,
+      debtBalance: props.debtBalance,
     });
-  }, [props.action, amountValue, props.debtBalance, maxAmountValue]);
+  }, [props.action, amountValue, props.debtBalance]);
 
   const state: Omit<
     IManagePositionState,

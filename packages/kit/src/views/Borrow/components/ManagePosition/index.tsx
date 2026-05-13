@@ -127,6 +127,7 @@ export function ManagePosition(props: IManagePositionProps) {
   const approval = useBorrowApproval({
     action,
     amountValue,
+    repayAll: baseState.isRepayAll,
     approveType,
     approveTarget,
     currentAllowance,

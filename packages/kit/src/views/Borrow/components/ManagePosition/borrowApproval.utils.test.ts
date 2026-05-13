@@ -4,6 +4,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import {
   isBorrowAllowanceEnough,
   isBorrowAllowanceZero,
+  isBorrowMaxApprovalAllowanceEnough,
   isBorrowTokenApprovalEnabled,
   isBorrowTokenApprovalRequired,
   resolveBorrowApprovalActionStep,
@@ -106,6 +107,24 @@ describe('borrowApproval utils', () => {
         allowance: '0',
       }),
     ).toBe(false);
+
+    expect(
+      isBorrowTokenApprovalRequired({
+        enabled: true,
+        amount: '1',
+        allowance: '1',
+        requiresMaxApproval: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      isBorrowTokenApprovalRequired({
+        enabled: true,
+        amount: '1',
+        allowance: '1e40',
+        requiresMaxApproval: true,
+      }),
+    ).toBe(false);
   });
 
   it('resolves fresh allowance into an explicit approval action step', () => {
@@ -144,6 +163,36 @@ describe('borrowApproval utils', () => {
         shouldResetUSDT: false,
       }),
     ).toBe('idle');
+
+    expect(
+      resolveBorrowApprovalActionStep({
+        enabled: true,
+        amount: '1',
+        allowance: '1',
+        requiresMaxApproval: true,
+        shouldResetUSDT: false,
+      }),
+    ).toBe('approve');
+
+    expect(
+      resolveBorrowApprovalActionStep({
+        enabled: true,
+        amount: '1',
+        allowance: '1',
+        requiresMaxApproval: true,
+        shouldResetUSDT: true,
+      }),
+    ).toBe('resetUSDT');
+
+    expect(
+      resolveBorrowApprovalActionStep({
+        enabled: true,
+        amount: '1',
+        allowance: '1e40',
+        requiresMaxApproval: true,
+        shouldResetUSDT: false,
+      }),
+    ).toBe('submit');
   });
 
   it('checks fresh allowance readiness and USDT reset completion', () => {
@@ -151,6 +200,18 @@ describe('borrowApproval utils', () => {
     expect(isBorrowAllowanceEnough({ amount: '1', allowance: '0.5' })).toBe(
       false,
     );
+    expect(
+      isBorrowAllowanceEnough({
+        amount: '1',
+        allowance: '1',
+        requiresMaxApproval: true,
+      }),
+    ).toBe(false);
+    expect(
+      isBorrowMaxApprovalAllowanceEnough({
+        allowance: '1e40',
+      }),
+    ).toBe(true);
     expect(isBorrowAllowanceZero('0')).toBe(true);
     expect(isBorrowAllowanceZero('0.1')).toBe(false);
   });
