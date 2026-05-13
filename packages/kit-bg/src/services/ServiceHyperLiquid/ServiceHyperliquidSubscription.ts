@@ -16,6 +16,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isAppVisible } from '@onekeyhq/shared/src/utils/appVisibility';
 import {
   clearTrackedInterval,
   trackedSetInterval,
@@ -1454,11 +1455,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._pingIntervalTimer = trackedSetInterval(
       'hyperliquid:ping',
       () => {
-        // Defense: skip when the window is hidden — ping value drives a UI
-        // indicator the user can't see, and the WS layer maintains its own
-        // liveness signal. Avoids a 3 s allocation/atom-write loop running
-        // for hours of background uptime.
-        if (typeof document !== 'undefined' && document.hidden) return;
+        // Defense: skip when the app is not visible (desktop window
+        // unfocused, web tab hidden, or RN app backgrounded). The pingMs
+        // value drives a UI indicator the user can not see, and the WS
+        // layer maintains its own liveness signal. Avoids ~1,200
+        // allocation/atom-write cycles per hour of background uptime.
+        if (!isAppVisible()) return;
         void this._measurePing();
       },
       3000,
