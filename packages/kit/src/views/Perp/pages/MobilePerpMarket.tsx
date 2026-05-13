@@ -360,6 +360,7 @@ function MobilePerpMarket() {
   );
 
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);
+  const pageScrollEnabled = platformEnv.isNativeAndroid || activeTab === 'info';
 
   if (platformEnv.isNativeIOS) {
     return (
@@ -399,7 +400,7 @@ function MobilePerpMarket() {
   }
 
   return (
-    <Page scrollEnabled={activeTab === 'info'}>
+    <Page scrollEnabled={pageScrollEnabled}>
       {pageHeader}
       <Page.Body p="$0">
         <YStack flex={1} bg="$bgApp">
