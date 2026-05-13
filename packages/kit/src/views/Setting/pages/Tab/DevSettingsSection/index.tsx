@@ -1,5 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
-import type { ComponentProps } from 'react';
+import {
+  Children,
+  isValidElement,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { random } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -34,6 +40,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
@@ -95,6 +102,7 @@ import { DeviceToken } from './DeviceToken';
 import {
   DevSettingsSearchProvider,
   SearchFilterItem,
+  matchesDevSearchQuery,
 } from './DevSettingsSearchContext';
 import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
@@ -227,6 +235,51 @@ const DevSettingsAccordionTrigger = ({
   </Accordion.Trigger>
 );
 
+function getSearchableString(value: unknown) {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function hasMatchingDevSettingsSearchItem(node: ReactNode, query: string) {
+  if (!query) return true;
+
+  let hasMatch = false;
+
+  Children.forEach(node, (child) => {
+    if (hasMatch || !isValidElement(child)) {
+      return;
+    }
+
+    const props = child.props as {
+      children?: ReactNode;
+      keywords?: string;
+      searchKeywords?: string;
+      subtitle?: unknown;
+      title?: unknown;
+    };
+
+    if (child.type === SearchFilterItem) {
+      hasMatch = matchesDevSearchQuery(query, props.keywords);
+      return;
+    }
+
+    if (child.type === SectionPressItem || child.type === SectionFieldItem) {
+      hasMatch = matchesDevSearchQuery(
+        query,
+        getSearchableString(props.title),
+        getSearchableString(props.subtitle),
+        props.searchKeywords,
+      );
+      return;
+    }
+
+    if (props.children) {
+      hasMatch = hasMatchingDevSettingsSearchItem(props.children, query);
+    }
+  });
+
+  return hasMatch;
+}
+
 const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -329,6 +382,10 @@ const BaseDevSettingsSection = () => {
   const PINNED_STORAGE_KEY = 'onekey_dev_settings_pinned_sections';
 
   const [searchText, setSearchText] = useState('');
+  const debouncedSearchText = useDebounce(searchText, 300);
+  const normalizedSearchText = (searchText.trim() ? debouncedSearchText : '')
+    .toLowerCase()
+    .trim();
   const [pinnedSections, setPinnedSections] = useState<string[]>(() => {
     try {
       const raw = appStorage.syncStorage.getString(PINNED_STORAGE_KEY as any);
@@ -426,9 +483,6 @@ const BaseDevSettingsSection = () => {
   );
 
   const visibleSectionKeys = useMemo(() => {
-    // Show all sections — individual items are filtered by SearchFilterItem.
-    // This avoids the problem where item keywords missing from section-level
-    // keywords would make those items unreachable via search.
     const keys = sectionMeta.map((s) => s.key);
     // Sort: pinned first
     const pinSet = new Set(pinnedSections);
@@ -458,16 +512,18 @@ const BaseDevSettingsSection = () => {
           leftIconName="SearchOutline"
         />
       </Stack>
-      {searchText.trim() ? (
-        <BundleCommitSearch searchText={searchText} />
+      {normalizedSearchText ? (
+        <BundleCommitSearch searchText={debouncedSearchText} />
       ) : null}
       <Accordion
         width="100%"
         type="multiple"
         defaultValue={
-          searchText ? visibleSectionKeys : visibleSectionKeys.slice(0, 1)
+          normalizedSearchText
+            ? visibleSectionKeys
+            : visibleSectionKeys.slice(0, 1)
         }
-        key={`${searchText.trim() ? 'searching' : 'idle'}-${visibleSectionKeys.join(',')}`}
+        key={`${normalizedSearchText ? 'searching' : 'idle'}-${visibleSectionKeys.join(',')}`}
       >
         {visibleSectionKeys.map((sectionKey) => {
           const isPinned = pinnedSections.includes(sectionKey);
@@ -475,14 +531,19 @@ const BaseDevSettingsSection = () => {
             pinned: isPinned,
             onTogglePin: () => togglePin(sectionKey),
           };
-          const wrapWithSearch = (node: React.ReactNode) => (
-            <DevSettingsSearchProvider
-              key={sectionKey}
-              value={searchText.toLowerCase().trim()}
-            >
-              {node}
-            </DevSettingsSearchProvider>
-          );
+          const wrapWithSearch = (node: React.ReactNode) =>
+            normalizedSearchText &&
+            !hasMatchingDevSettingsSearchItem(
+              node,
+              normalizedSearchText,
+            ) ? null : (
+              <DevSettingsSearchProvider
+                key={sectionKey}
+                value={normalizedSearchText}
+              >
+                {node}
+              </DevSettingsSearchProvider>
+            );
           switch (sectionKey) {
             case 'basic':
               return wrapWithSearch(
