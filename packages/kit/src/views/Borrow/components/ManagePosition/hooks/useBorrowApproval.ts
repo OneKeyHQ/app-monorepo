@@ -119,6 +119,23 @@ export function useBorrowApproval({
     return abortController;
   }, [stopAllowancePolling]);
 
+  const showApprovalError = useCallback(
+    ({ error, scope }: { error: unknown; scope: string }) => {
+      const errorMessage = getBorrowApprovalSubmitErrorMessage(error);
+      defaultLogger.app.error.log(
+        `useBorrowApproval ${scope} failed: ${errorMessage ?? String(error)}`,
+      );
+      Toast.error({
+        title:
+          errorMessage ??
+          intl.formatMessage({
+            id: ETranslations.global_failed,
+          }),
+      });
+    },
+    [intl],
+  );
+
   const approvalEnabled = useMemo(
     () =>
       isBorrowTokenApprovalEnabled({
@@ -265,14 +282,17 @@ export function useBorrowApproval({
           setApprovingSafe(false);
         },
       });
-    } catch {
+    } catch (error) {
+      stopAllowancePolling();
       setApprovingSafe(false);
+      showApprovalError({ error, scope: 'resetApproveToZero' });
     }
   }, [
     approveTarget,
     navigationToTxConfirm,
     pollAllowanceThen,
     setApprovingSafe,
+    showApprovalError,
     stopAllowancePolling,
     trackAllowance,
   ]);
@@ -309,22 +329,10 @@ export function useBorrowApproval({
       try {
         await onApprovedSubmit();
       } catch (error) {
-        const errorMessage = getBorrowApprovalSubmitErrorMessage(error);
-        defaultLogger.app.error.log(
-          `useBorrowApproval onApprovedSubmit failed: ${
-            errorMessage ?? String(error)
-          }`,
-        );
-        Toast.error({
-          title:
-            errorMessage ??
-            intl.formatMessage({
-              id: ETranslations.global_failed,
-            }),
-        });
+        showApprovalError({ error, scope: 'onApprovedSubmit' });
       }
     },
-    [intl, onApprovedSubmit],
+    [onApprovedSubmit, showApprovalError],
   );
 
   const onApprove = useCallback(async () => {
@@ -413,8 +421,10 @@ export function useBorrowApproval({
           setApprovingSafe(false);
         },
       });
-    } catch {
+    } catch (error) {
+      stopAllowancePolling();
       setApprovingSafe(false);
+      showApprovalError({ error, scope: 'onApprove' });
     }
   }, [
     allowance,
@@ -427,6 +437,7 @@ export function useBorrowApproval({
     pollAllowanceThen,
     repayAll,
     setApprovingSafe,
+    showApprovalError,
     showResetUSDTApproveValueDialog,
     stopAllowancePolling,
     submitApprovedAction,

@@ -3,8 +3,10 @@ import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/S
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
+  getBorrowRepayMaxInputBalance,
   getBorrowRepayProgressStep,
   hasPositiveDebtBalance,
+  isBorrowRepayAllAmount,
   isCollateralRepayEnabled,
 } from './borrowRepayPosition.utils';
 
@@ -13,9 +15,71 @@ describe('borrowRepayPosition utils', () => {
     expect(hasPositiveDebtBalance('0')).toBe(false);
     expect(
       isCollateralRepayEnabled({
+        providerName: 'kamino',
         debtBalance: '0',
         collateralLoading: false,
         collateralAssetCount: 2,
+      }),
+    ).toBe(false);
+  });
+
+  it('limits repay max input to the smaller wallet or debt balance', () => {
+    expect(
+      getBorrowRepayMaxInputBalance({
+        walletBalance: '8',
+        debtBalance: '10',
+      }),
+    ).toBe('8');
+    expect(
+      getBorrowRepayMaxInputBalance({
+        walletBalance: '12',
+        debtBalance: '10',
+      }),
+    ).toBe('10');
+    expect(
+      getBorrowRepayMaxInputBalance({
+        walletBalance: 'bad-value',
+        debtBalance: '10',
+      }),
+    ).toBe('0');
+  });
+
+  it('detects repay all from debt balance instead of wallet max balance', () => {
+    expect(
+      isBorrowRepayAllAmount({
+        amount: '10',
+        debtBalance: '10',
+      }),
+    ).toBe(true);
+    expect(
+      isBorrowRepayAllAmount({
+        amount: '9.99',
+        debtBalance: '10',
+      }),
+    ).toBe(false);
+    expect(
+      isBorrowRepayAllAmount({
+        amount: '0',
+        debtBalance: '10',
+      }),
+    ).toBe(false);
+  });
+
+  it('gates collateral repay to Kamino borrow markets', () => {
+    expect(
+      isCollateralRepayEnabled({
+        providerName: 'kamino',
+        debtBalance: '1',
+        collateralLoading: false,
+        collateralAssetCount: 1,
+      }),
+    ).toBe(true);
+    expect(
+      isCollateralRepayEnabled({
+        providerName: 'aave',
+        debtBalance: '1',
+        collateralLoading: false,
+        collateralAssetCount: 1,
       }),
     ).toBe(false);
   });
