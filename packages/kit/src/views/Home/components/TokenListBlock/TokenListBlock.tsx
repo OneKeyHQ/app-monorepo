@@ -116,10 +116,31 @@ type IAllNetworkTokenListResp = IFetchAccountTokensResp & {
   syncTokenFilterToOverview: boolean;
 };
 
+type IActiveAccountTokenListRequestContext = {
+  accountId: string;
+  indexedAccountId: string;
+  networkId: string;
+  mergeDeriveAddressData: boolean;
+  tokenSelectorFilterMode: ITokenSelectorFilterMode;
+};
+
 function buildTokenSelectorFilterMode(
   lpToken: boolean,
 ): ITokenSelectorFilterMode {
   return lpToken ? 'lp-dapp-token' : 'wallet-token';
+}
+
+function isSameActiveAccountTokenListRequestContext(
+  a: IActiveAccountTokenListRequestContext,
+  b: IActiveAccountTokenListRequestContext,
+) {
+  return (
+    a.accountId === b.accountId &&
+    a.indexedAccountId === b.indexedAccountId &&
+    a.networkId === b.networkId &&
+    a.mergeDeriveAddressData === b.mergeDeriveAddressData &&
+    a.tokenSelectorFilterMode === b.tokenSelectorFilterMode
+  );
 }
 
 function TokenListBlock({
@@ -187,18 +208,23 @@ function TokenListBlock({
     buildTokenSelectorFilterMode(showLpTokensOnly);
   const latestTokenSelectorFilterModeRef = useRef(tokenSelectorFilterMode);
   latestTokenSelectorFilterModeRef.current = tokenSelectorFilterMode;
+  const latestActiveAccountTokenListRequestContextRef =
+    useRef<IActiveAccountTokenListRequestContext>({
+      accountId: account?.id ?? '',
+      indexedAccountId: indexedAccount?.id ?? '',
+      networkId: network?.id ?? '',
+      mergeDeriveAddressData: !!mergeDeriveAddressData,
+      tokenSelectorFilterMode,
+    });
+  latestActiveAccountTokenListRequestContextRef.current = {
+    accountId: account?.id ?? '',
+    indexedAccountId: indexedAccount?.id ?? '',
+    networkId: network?.id ?? '',
+    mergeDeriveAddressData: !!mergeDeriveAddressData,
+    tokenSelectorFilterMode,
+  };
+  const refreshWalletTokenListRef = useRef<(() => void) | undefined>(undefined);
   const syncTokenFilterToOverview = true;
-  const handleLpTokenFilterChange = useCallback(
-    (value: boolean) => {
-      if (value === showLpTokensOnly) {
-        return;
-      }
-      latestTokenSelectorFilterModeRef.current =
-        buildTokenSelectorFilterMode(value);
-      setShowLpTokensOnly(value);
-    },
-    [showLpTokensOnly],
-  );
 
   const accountTokensValue = useMemo(() => {
     return calculateAccountTokensValue({
@@ -314,6 +340,63 @@ function TokenListBlock({
     updateAccountOverviewState,
     updateAllNetworksState,
   } = useAccountOverviewActions().current;
+
+  const handleLpTokenFilterChange = useCallback(
+    (value: boolean) => {
+      if (value === showLpTokensOnly) {
+        return;
+      }
+      latestTokenSelectorFilterModeRef.current =
+        buildTokenSelectorFilterMode(value);
+      if (value && account?.id && network?.id) {
+        updateActiveAccountTokenListState({
+          initialized: false,
+          isRefreshing: true,
+        });
+        refreshActiveAccountTokenList({
+          tokens: [],
+          keys: '',
+        });
+      } else {
+        updateActiveAccountTokenListState({
+          initialized: true,
+          isRefreshing: false,
+        });
+        refreshWalletTokenListRef.current?.();
+      }
+      setShowLpTokensOnly(value);
+    },
+    [
+      account?.id,
+      network?.id,
+      refreshActiveAccountTokenList,
+      showLpTokensOnly,
+      updateActiveAccountTokenListState,
+    ],
+  );
+
+  useLayoutEffect(() => {
+    if (!showLpTokensOnly || !account?.id || !network?.id) {
+      return;
+    }
+
+    updateActiveAccountTokenListState({
+      initialized: false,
+      isRefreshing: true,
+    });
+    refreshActiveAccountTokenList({
+      tokens: [],
+      keys: '',
+    });
+  }, [
+    account?.id,
+    indexedAccount?.id,
+    mergeDeriveAddressData,
+    network?.id,
+    refreshActiveAccountTokenList,
+    showLpTokensOnly,
+    updateActiveAccountTokenListState,
+  ]);
 
   const { result: homeDefaultTokenMap } = usePromiseResult(async () => {
     const r = await backgroundApiProxy.serviceToken.getHomeDefaultTokenMap();
@@ -605,6 +688,27 @@ function TokenListBlock({
         return;
       }
 
+      const requestContext: IActiveAccountTokenListRequestContext = {
+        accountId: account.id,
+        indexedAccountId: indexedAccount?.id ?? '',
+        networkId: network.id,
+        mergeDeriveAddressData: !!mergeDeriveAddressData,
+        tokenSelectorFilterMode,
+      };
+
+      const isLatestRequest = () =>
+        isSameActiveAccountTokenListRequestContext(
+          latestActiveAccountTokenListRequestContextRef.current,
+          requestContext,
+        );
+
+      if (
+        requestContext.tokenSelectorFilterMode !== 'lp-dapp-token' ||
+        !isLatestRequest()
+      ) {
+        return;
+      }
+
       updateActiveAccountTokenListState({
         initialized: false,
         isRefreshing: true,
@@ -716,6 +820,10 @@ function TokenListBlock({
           };
         }
 
+        if (!isLatestRequest()) {
+          return;
+        }
+
         refreshActiveAccountTokenList({
           tokens: tokenList,
           keys: `${responses
@@ -732,10 +840,12 @@ function TokenListBlock({
       } catch (e) {
         console.error(e);
       } finally {
-        updateActiveAccountTokenListState({
-          initialized: true,
-          isRefreshing: false,
-        });
+        if (isLatestRequest()) {
+          updateActiveAccountTokenListState({
+            initialized: true,
+            isRefreshing: false,
+          });
+        }
       }
     },
     [
@@ -747,6 +857,7 @@ function TokenListBlock({
       refreshActiveAccountTokenList,
       refreshTokenListMap,
       showLpTokensOnly,
+      tokenSelectorFilterMode,
       tokenSelectorFilterParams,
       updateActiveAccountTokenListState,
     ],
@@ -2409,6 +2520,14 @@ function TokenListBlock({
       skipAccountsCache: true,
     });
   }, [runAllNetworksRequests]);
+
+  refreshWalletTokenListRef.current = () => {
+    if (network?.isAllNetworks) {
+      handleRefreshAllNetworkData();
+      return;
+    }
+    void run({ alwaysSetState: true });
+  };
 
   const lastVisibilityRefreshAtRef = useRef(0);
   const handleRefreshOnVisibilityActive = useCallback(() => {
