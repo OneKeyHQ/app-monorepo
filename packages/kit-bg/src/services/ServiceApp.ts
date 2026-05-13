@@ -64,7 +64,7 @@ class ServiceApp extends ServiceBase {
     // chrome.runtime.reload, location.reload, BackgroundThread.restart for
     // native) lives inside `appRestart` so this method stays uniform.
     await appRestart({
-      mode: opts.mode ?? EAppRestartMode.UI,
+      mode: opts.mode ?? EAppRestartMode.All,
       reason: opts.reason ?? 'serviceApp.restartApp',
     });
   }
