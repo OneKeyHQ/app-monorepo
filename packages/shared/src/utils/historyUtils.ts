@@ -202,6 +202,24 @@ export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
   );
 }
 
+// Pagination cursor advancement check shared by the load-more hook and the
+// merge-derive aggregator. Without this guard a misbehaving backend that
+// returns the same (or non-decreasing) cursor can wedge the client into an
+// infinite onEndReached → loadMore loop. For indexer chains where `next` is
+// a millisecond timestamp, "forward" means strictly decreasing.
+export function isHistoryCursorAdvanced(
+  previousCursor: string | undefined,
+  nextCursor: string | undefined,
+): boolean {
+  if (!nextCursor) return false;
+  if (!previousCursor) return true;
+  if (nextCursor === previousCursor) return false;
+  const a = Number(previousCursor);
+  const b = Number(nextCursor);
+  if (Number.isFinite(a) && Number.isFinite(b)) return b < a;
+  return true;
+}
+
 export function convertToSectionGroups(params: {
   formatDate: (date: number) => string;
   items: IAccountHistoryTx[];

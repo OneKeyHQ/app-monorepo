@@ -19,6 +19,8 @@ import {
   filterHistoryTxs,
   getOnChainHistoryTxStatus,
   isAccountCompatibleWithTx,
+  isHistoryCursorAdvanced,
+  sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -134,23 +136,6 @@ class ServiceHistory extends ServiceBase {
     }
     if (typeof params.page === 'number' && params.page > 1) return true;
     return false;
-  }
-
-  // Mirrors the cursor-advancement check inside useHistoryListLoadMore — if the
-  // server's `next` did not actually move forward, the page is considered
-  // exhausted, regardless of what `hasMore` claims. For indexer chains where
-  // `next` is a millisecond timestamp, "forward" means strictly decreasing.
-  private _advancedHistoryCursor(
-    previousCursor: string | undefined,
-    nextCursor: string | undefined,
-  ): boolean {
-    if (!nextCursor) return false;
-    if (!previousCursor) return true;
-    if (nextCursor === previousCursor) return false;
-    const a = Number(previousCursor);
-    const b = Number(nextCursor);
-    if (Number.isFinite(a) && Number.isFinite(b)) return b < a;
-    return true;
   }
 
   // Opaque cursor for merge-derive aggregation: a JSON-encoded map from
@@ -703,136 +688,126 @@ class ServiceHistory extends ServiceBase {
       );
 
     const cursorMap = this._decodeMergeDeriveCursor(cursor);
-    const isLoadMore =
-      (typeof page === 'number' && page > 1) ||
-      Object.keys(cursorMap).length > 0;
+    const isLoadMore = !!cursor;
 
+    type IFetchedOutcome = {
+      kind: 'fetched';
+      deriveType: IAccountDeriveTypes;
+      prevCursor: string | undefined;
+      response: Awaited<ReturnType<ServiceHistory['fetchAccountHistory']>>;
+    };
     type IPerTypeOutcome =
       | { kind: 'skipped'; deriveType: IAccountDeriveTypes }
-      | {
-          kind: 'fetched';
-          deriveType: IAccountDeriveTypes;
-          prevCursor: string | undefined;
-          response: Awaited<ReturnType<ServiceHistory['fetchAccountHistory']>>;
-        };
+      | IFetchedOutcome;
 
-    const perTypeOutcomes = await Promise.all(
-      networkAccounts.map(async (na): Promise<IPerTypeOutcome | null> => {
-        const accountId = na.account?.id;
-        const { deriveType } = na;
-        if (!accountId) return null;
+    const perTypeOutcomes = (
+      await Promise.all(
+        networkAccounts.map(async (na): Promise<IPerTypeOutcome | null> => {
+          const accountId = na.account?.id;
+          const { deriveType } = na;
+          if (!accountId) return null;
 
-        const stored = cursorMap[deriveType];
-        // Already finished paginating this deriveType in a prior page — skip
-        // outright so we neither issue a request nor count it toward `hasMore`.
-        if (stored === MERGE_DERIVE_EXHAUSTED) {
-          return { kind: 'skipped', deriveType };
-        }
+          const stored = cursorMap[deriveType];
+          // Already finished paginating this deriveType in a prior page — skip
+          // outright so we neither issue a request nor count it toward
+          // `hasMore`.
+          if (stored === MERGE_DERIVE_EXHAUSTED) {
+            return { kind: 'skipped', deriveType };
+          }
 
-        const perCursor =
-          typeof stored === 'string' && stored.length > 0 ? stored : undefined;
+          const perCursor =
+            typeof stored === 'string' && stored.length > 0
+              ? stored
+              : undefined;
 
-        const subParams: IFetchAccountHistoryParams = {
-          accountId,
-          networkId,
-          tokenIdOnNetwork,
-          isManualRefresh,
-          filterScam,
-          filterLowValue,
-          excludeTestNetwork,
-          sourceCurrency,
-          targetCurrency,
-          currencyMap,
-          limit,
-          page: isLoadMore ? (page ?? 2) : 1,
-          ...(perCursor ? { cursor: perCursor } : {}),
-        };
+          const subParams: IFetchAccountHistoryParams = {
+            accountId,
+            networkId,
+            tokenIdOnNetwork,
+            isManualRefresh,
+            filterScam,
+            filterLowValue,
+            excludeTestNetwork,
+            sourceCurrency,
+            targetCurrency,
+            currencyMap,
+            limit,
+            page: isLoadMore ? (page ?? 2) : 1,
+            ...(perCursor ? { cursor: perCursor } : {}),
+          };
 
-        const response = await this.fetchAccountHistory(subParams);
-        return {
-          kind: 'fetched',
-          deriveType,
-          prevCursor: perCursor,
-          response,
-        };
-      }),
-    );
+          const response = await this.fetchAccountHistory(subParams);
+          return {
+            kind: 'fetched',
+            deriveType,
+            prevCursor: perCursor,
+            response,
+          };
+        }),
+      )
+    ).filter((o): o is IPerTypeOutcome => o !== null);
 
     const nextCursorMap: Record<
       string,
       string | typeof MERGE_DERIVE_EXHAUSTED
     > = {};
-    let aggregatedTxs: IAccountHistoryTx[] = [];
-    let aggregatedAddressMap: Record<string, IAddressBadge> = {};
-    let aggregatedPending: { accountId: string; networkId: string }[] = [];
-    let aggregatedConfirmed: { accountId: string; networkId: string }[] = [];
-    let aggregatedAllAccounts: IAllNetworkAccountInfo[] = [];
+    const aggregatedTxs: IAccountHistoryTx[] = [];
+    const aggregatedAddressMap: Record<string, IAddressBadge> = {};
+    const pendingByKey = new Map<
+      string,
+      { accountId: string; networkId: string }
+    >();
+    const confirmedByKey = new Map<
+      string,
+      { accountId: string; networkId: string }
+    >();
+    const aggregatedAllAccounts: IAllNetworkAccountInfo[] = [];
+    const keyOf = (i: { accountId: string; networkId: string }) =>
+      `${i.accountId}_${i.networkId}`;
 
     for (const outcome of perTypeOutcomes) {
-      if (outcome && outcome.kind === 'skipped') {
+      if (outcome.kind === 'skipped') {
         nextCursorMap[outcome.deriveType] = MERGE_DERIVE_EXHAUSTED;
-      } else if (outcome && outcome.kind === 'fetched') {
+      } else {
         const { deriveType, prevCursor, response } = outcome;
-        aggregatedTxs = [...aggregatedTxs, ...response.txs];
-        aggregatedAddressMap = {
-          ...aggregatedAddressMap,
-          ...response.addressMap,
-        };
-        aggregatedPending = [
-          ...aggregatedPending,
-          ...response.accountsWithChangedPendingTxs,
-        ];
-        aggregatedConfirmed = [
-          ...aggregatedConfirmed,
-          ...response.accountsWithChangedConfirmedTxs,
-        ];
-        aggregatedAllAccounts = [
-          ...aggregatedAllAccounts,
-          ...response.allAccounts,
-        ];
+        aggregatedTxs.push(...response.txs);
+        Object.assign(aggregatedAddressMap, response.addressMap);
+        for (const item of response.accountsWithChangedPendingTxs) {
+          pendingByKey.set(keyOf(item), item);
+        }
+        for (const item of response.accountsWithChangedConfirmedTxs) {
+          confirmedByKey.set(keyOf(item), item);
+        }
+        aggregatedAllAccounts.push(...response.allAccounts);
 
         const nextCursor =
           typeof response.next === 'string' && response.next.length > 0
             ? response.next
             : undefined;
-        const advanced = this._advancedHistoryCursor(prevCursor, nextCursor);
-        if (
+        const advanced = isHistoryCursorAdvanced(prevCursor, nextCursor);
+        const keepCursor =
           response.hasMoreOnChainHistory &&
           response.txs.length > 0 &&
           nextCursor &&
-          advanced
-        ) {
-          nextCursorMap[deriveType] = nextCursor;
-        } else {
-          nextCursorMap[deriveType] = MERGE_DERIVE_EXHAUSTED;
-        }
+          advanced;
+        nextCursorMap[deriveType] = keepCursor
+          ? nextCursor
+          : MERGE_DERIVE_EXHAUSTED;
       }
     }
 
     // BTC/LTC deriveTypes own disjoint xpubs so tx ids do not overlap in
     // practice, but defensively dedupe by id before sorting so future chains
     // with overlapping derive paths don't surface duplicates here.
-    const mergedTxs = unionBy(
-      aggregatedTxs.toSorted(
-        (b, a) =>
-          (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-          (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-      ),
-      (tx) => tx.id,
-    );
+    const mergedTxs = sortHistoryTxsByTime({
+      txs: unionBy(aggregatedTxs, (tx) => tx.id),
+    });
 
-    const dedupeByAccountNetwork = (
-      arr: { accountId: string; networkId: string }[],
-    ) =>
-      Array.from(
-        new Map(arr.map((i) => [`${i.accountId}_${i.networkId}`, i])).values(),
-      );
-    const dedupedPending = dedupeByAccountNetwork(aggregatedPending);
-    const dedupedConfirmed = dedupeByAccountNetwork(aggregatedConfirmed);
-    const dedupedAll = dedupeByAccountNetwork([
-      ...aggregatedPending,
-      ...aggregatedConfirmed,
-    ]);
+    const dedupedPending = Array.from(pendingByKey.values());
+    const dedupedConfirmed = Array.from(confirmedByKey.values());
+    const dedupedAll = Array.from(
+      new Map([...pendingByKey, ...confirmedByKey]).values(),
+    );
 
     const hasMore = Object.values(nextCursorMap).some(
       (v) => v !== MERGE_DERIVE_EXHAUSTED,

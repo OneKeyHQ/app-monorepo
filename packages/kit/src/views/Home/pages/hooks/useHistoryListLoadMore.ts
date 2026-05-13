@@ -4,6 +4,7 @@ import { unionBy } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isHistoryCursorAdvanced } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
@@ -136,36 +137,26 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       // BTC/LTC merge-derive consolidates per-deriveType cursors into one
       // opaque token managed by ServiceHistory — call the aggregator instead
       // of the per-account endpoint when the consumer opted in.
+      const commonParams = {
+        networkId,
+        tokenIdOnNetwork,
+        filterScam,
+        filterLowValue,
+        excludeTestNetwork,
+        sourceCurrency,
+        targetCurrency,
+        currencyMap,
+        limit,
+        page: nextPage,
+        ...(cursor ? { cursor } : {}),
+      };
       const r = mergeDerive
         ? await backgroundApiProxy.serviceHistory.fetchAccountHistoryForMergeDerive(
-            {
-              indexedAccountId: indexedAccountId ?? '',
-              networkId,
-              tokenIdOnNetwork,
-              filterScam,
-              filterLowValue,
-              excludeTestNetwork,
-              sourceCurrency,
-              targetCurrency,
-              currencyMap,
-              limit,
-              page: nextPage,
-              ...(cursor ? { cursor } : {}),
-            },
+            { ...commonParams, indexedAccountId: indexedAccountId ?? '' },
           )
         : await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+            ...commonParams,
             accountId,
-            networkId,
-            tokenIdOnNetwork,
-            filterScam,
-            filterLowValue,
-            excludeTestNetwork,
-            sourceCurrency,
-            targetCurrency,
-            currencyMap,
-            limit,
-            page: nextPage,
-            ...(cursor ? { cursor } : {}),
           });
       // reset() ran while we were awaiting — discard this response, its data
       // belongs to a stale identity (account/network) and would clobber the
@@ -184,20 +175,12 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       //   - backend says no more
       //   - response was empty
       //   - no fresh ids merged in (duplicate-emit / reorg)
-      //   - cursor didn't advance: missing, equal, or — for indexer chains
-      //     where `next` is a millisecond timestamp — non-decreasing. Without
-      //     this guard a misbehaving backend can wedge the client into an
-      //     infinite onEndReached → loadMore loop on web/desktop (native is
-      //     bounded by NATIVE_LOAD_MORE_HARD_LIMIT but still wasteful).
-      const cursorAdvanced = (() => {
-        if (!nextCursor) return false;
-        if (!previousCursor) return true;
-        if (nextCursor === previousCursor) return false;
-        const a = Number(previousCursor);
-        const b = Number(nextCursor);
-        if (Number.isFinite(a) && Number.isFinite(b)) return b < a;
-        return true;
-      })();
+      //   - cursor didn't advance (would otherwise spin onEndReached → loadMore
+      //     forever on web/desktop; native has NATIVE_LOAD_MORE_HARD_LIMIT)
+      const cursorAdvanced = isHistoryCursorAdvanced(
+        previousCursor,
+        nextCursor,
+      );
       const gotItems = incomingTxs.length > 0;
       const addedNewRows = newRows.length > 0;
       setHasMore(
