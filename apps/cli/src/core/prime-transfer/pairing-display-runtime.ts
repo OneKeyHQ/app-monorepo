@@ -42,7 +42,7 @@ function buildPairingDisplayScreen(
     pairingSession.pairingPayload.websocketEndpoint,
   );
   return [
-    'Scan the QR code in OneKey App or enter the pairing code manually.',
+    'Open Bot Wallet export to CLI in OneKey App, then scan the QR code or enter the pairing code.',
     '',
     qrText,
     '',
@@ -50,7 +50,7 @@ function buildPairingDisplayScreen(
     'Pairing code:',
     pairingSession.pairingCode,
     '',
-    'In OneKey App, open Bot Wallet import and scan the QR code or enter the pairing code.',
+    'Do not rely on opening the pairing URI on desktop; the Bot Wallet export flow must send the payload.',
     '',
   ].join('\n');
 }

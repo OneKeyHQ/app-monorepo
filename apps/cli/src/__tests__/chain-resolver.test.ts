@@ -43,8 +43,8 @@ describe('chain-resolver', () => {
       expect(() => resolveChain('opti')).toThrow(/did you mean.*optimism/i);
     });
 
-    it('throws for unsupported non-EVM chain', () => {
-      expect(() => resolveChain('sol')).toThrow(/unsupported/i);
+    it('throws for an unsupported chain (e.g., near is not in CLI_SUPPORTED_IMPLS)', () => {
+      expect(() => resolveChain('near')).toThrow(/unsupported/i);
     });
 
     it('is case-insensitive', () => {
@@ -84,10 +84,6 @@ describe('chain-resolver', () => {
       expect(config.nativeSymbol).toBe('TBTC');
     });
 
-    it('does not resolve sol in the BTC-only first round', () => {
-      expect(() => resolveChain('sol')).toThrow(/unsupported/i);
-    });
-
     it('assigns btcTransfer capability to btc and tbtc only', () => {
       const btc = resolveChain('btc');
       const tbtc = resolveChain('tbtc');
@@ -124,6 +120,40 @@ describe('chain-resolver', () => {
         expect(chain.capabilities.has('evmTokenMarket')).toBe(false);
         expect(chain.capabilities.has('evmSecurity')).toBe(false);
       }
+    });
+  });
+
+  describe('SOL CLI support', () => {
+    it('resolves sol to Solana mainnet config', () => {
+      const config = resolveChain('sol');
+      expect(config.networkId).toBe('sol--101');
+      expect(config.impl).toBe('sol');
+      expect(config.chainId).toBe('101');
+      expect(config.nativeDecimals).toBe(9);
+      expect(config.nativeSymbol).toBe('SOL');
+      expect(config.feeSymbol).toBe('SOL');
+    });
+
+    it('exposes accountRead/historyRead/solTransfer/signMessage/swap capabilities', () => {
+      const sol = resolveChain('sol');
+      expect(sol.capabilities.has('accountRead')).toBe(true);
+      expect(sol.capabilities.has('historyRead')).toBe(true);
+      expect(sol.capabilities.has('solTransfer')).toBe(true);
+      expect(sol.capabilities.has('signMessage')).toBe(true);
+      expect(sol.capabilities.has('swap')).toBe(true);
+    });
+
+    it('does NOT expose EVM- or BTC-only capabilities', () => {
+      const sol = resolveChain('sol');
+      expect(sol.capabilities.has('evmTransfer')).toBe(false);
+      expect(sol.capabilities.has('evmTokenMarket')).toBe(false);
+      expect(sol.capabilities.has('evmSecurity')).toBe(false);
+      expect(sol.capabilities.has('btcTransfer')).toBe(false);
+    });
+
+    it('keeps sol out of listEvmChains()', () => {
+      const networkIds = listEvmChains().map((c) => c.networkId);
+      expect(networkIds).not.toContain('sol--101');
     });
   });
 });
