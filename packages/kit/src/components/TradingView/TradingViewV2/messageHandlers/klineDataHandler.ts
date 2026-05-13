@@ -17,8 +17,9 @@ import { fetchTradingViewV2DataWithSlicing } from '../hooks';
 import type { IMessageHandlerContext, IMessageHandlerParams } from './types';
 
 const MAX_MARKS_COUNT = 60;
+export const DEFAULT_TRADING_VIEW_KLINE_RESOLUTION = '1m';
 
-function normalizeTradingViewKLineInterval(
+export function normalizeTradingViewKLineInterval(
   interval: string,
 ): ITradingViewKLineMockEmptyInterval | string {
   switch (interval) {
@@ -53,7 +54,11 @@ function normalizeTradingViewKLineInterval(
   }
 }
 
-async function shouldMockEmptyKLineData(resolution: string) {
+export async function shouldMockEmptyKLineData(resolution?: string) {
+  if (!resolution) {
+    return false;
+  }
+
   const devSettings =
     await backgroundApiProxy.serviceDevSetting.getDevSetting();
 
@@ -165,6 +170,7 @@ export async function fetchAndSendAccountMarks({
   from,
   to,
   symbol,
+  resolution,
   webRef,
 }: {
   accountAddress?: string;
@@ -173,8 +179,18 @@ export async function fetchAndSendAccountMarks({
   from: number;
   to: number;
   symbol?: string;
+  resolution?: string;
   webRef: IMessageHandlerContext['webRef'];
 }) {
+  if (await shouldMockEmptyKLineData(resolution)) {
+    sendClearAccountMarks({
+      tokenAddress,
+      symbol,
+      webRef,
+    });
+    return;
+  }
+
   if (!accountAddress) {
     return;
   }
@@ -200,6 +216,31 @@ export async function fetchAndSendAccountMarks({
   } catch (error) {
     console.error('Failed to fetch account token transactions:', error);
   }
+}
+
+export function sendClearAccountMarks({
+  tokenAddress,
+  symbol,
+  webRef,
+}: {
+  tokenAddress: string;
+  symbol?: string;
+  webRef: IMessageHandlerContext['webRef'];
+}) {
+  const marksSymbol = symbol || tokenAddress;
+
+  if (!webRef.current || !marksSymbol) {
+    return;
+  }
+
+  webRef.current.sendMessageViaInjectedScript({
+    type: MESSAGE_TYPES.MARKS_UPDATE,
+    payload: {
+      marks: [],
+      symbol: marksSymbol,
+      operation: 'clear',
+    },
+  });
 }
 
 export async function handleKLineDataRequest({
@@ -230,6 +271,9 @@ export async function handleKLineDataRequest({
     const resolution = safeData.resolution as string;
     const from = safeData.from as number;
     const to = safeData.to as number;
+    if (context.currentKLineResolution) {
+      context.currentKLineResolution.current = resolution;
+    }
 
     // Track the time range that user has browsed
     if (marksTimeRange) {
@@ -266,6 +310,14 @@ export async function handleKLineDataRequest({
         });
       }
 
+      if (shouldMockEmpty) {
+        sendClearAccountMarks({
+          tokenAddress,
+          symbol: (safeData.symbol as string) || tokenAddress,
+          webRef,
+        });
+      }
+
       if (!shouldMockEmpty && accountAddress && tokenAddress && networkId) {
         void fetchAndSendAccountMarks({
           accountAddress,
@@ -274,6 +326,7 @@ export async function handleKLineDataRequest({
           from,
           to,
           symbol: (safeData.symbol as string) || tokenAddress,
+          resolution,
           webRef,
         });
       }

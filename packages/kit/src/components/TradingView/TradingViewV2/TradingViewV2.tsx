@@ -23,6 +23,7 @@ import {
   useTradingViewV2WebSocket,
 } from './hooks';
 import {
+  DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   fetchAndSendAccountMarks,
   useTradingViewMessageHandler,
 } from './messageHandlers';
@@ -65,6 +66,7 @@ export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
+  const currentKLineResolution = useRef(DEFAULT_TRADING_VIEW_KLINE_RESOLUTION);
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -94,6 +96,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     accountAddress,
     tokenSymbol: symbol,
     marksTimeRange,
+    currentKLineResolution,
     onTouchScroll,
   });
 
@@ -106,12 +109,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const mockEmptyKLineEnabled =
     devSettings.enabled &&
     devSettings.settings?.mockTradingViewKLineEmptyEnabled;
+  const mockEmptyKLineIntervals =
+    devSettings.settings?.mockTradingViewKLineEmptyIntervals;
   const mockEmptyKLineBadgeText = useMemo(
     () =>
-      `Mock 空K线 ${formatMockEmptyKLineIntervals(
-        devSettings.settings?.mockTradingViewKLineEmptyIntervals,
-      )}`,
-    [devSettings.settings?.mockTradingViewKLineEmptyIntervals],
+      `Mock 空K线 ${formatMockEmptyKLineIntervals(mockEmptyKLineIntervals)}`,
+    [mockEmptyKLineIntervals],
   );
 
   const additionalParams = useMemo(() => {
@@ -181,6 +184,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         from: timeRange.min,
         to: timeRange.max,
         symbol: chartSymbol,
+        resolution: currentKLineResolution.current,
         webRef,
       });
     };
@@ -234,7 +238,16 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         handleSwapSuccess,
       );
     };
-  }, [isVisible, accountAddress, tokenAddress, networkId, chartSymbol, webRef]);
+  }, [
+    isVisible,
+    accountAddress,
+    tokenAddress,
+    networkId,
+    chartSymbol,
+    mockEmptyKLineEnabled,
+    mockEmptyKLineIntervals,
+    webRef,
+  ]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
