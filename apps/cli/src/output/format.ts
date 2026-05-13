@@ -27,7 +27,6 @@ function isSecretField(normalizedKey: string): boolean {
     normalizedKey === 'seedphrase' ||
     normalizedKey === 'privatekey' ||
     normalizedKey === 'secret' ||
-    normalizedKey === 'token' ||
     normalizedKey === 'password'
   );
 }

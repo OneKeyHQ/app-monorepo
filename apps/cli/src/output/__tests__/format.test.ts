@@ -75,6 +75,26 @@ describe('output/format', () => {
     expect(output.split('\n').length).toBeGreaterThan(3);
   });
 
+  it('preserves public token fields while redacting access tokens', () => {
+    const secret = 'access-token-secret';
+    const output = formatOk(
+      {
+        token: 'SOL',
+        accessToken: secret,
+      },
+      'json',
+      { now: FIXED_NOW },
+    );
+
+    expect(JSON.parse(output)).toEqual({
+      ok: true,
+      data: {
+        token: 'SOL',
+        accessToken: redactSecret(secret),
+      },
+    });
+  });
+
   it('forces JSON when output is piped', () => {
     const output = formatOk({ displayAddress: '0x1234567890abcdef' }, 'text', {
       now: FIXED_NOW,
