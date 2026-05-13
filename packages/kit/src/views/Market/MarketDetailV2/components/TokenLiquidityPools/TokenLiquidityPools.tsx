@@ -65,6 +65,8 @@ type IDisplayPool = {
   networkId: string;
 };
 
+type IPoolIdentityTextSize = '$bodyLg' | '$bodyMd' | '$bodySm';
+
 type ITokenLiquidityPoolsProps = {
   px?: string;
   pl?: string;
@@ -96,6 +98,8 @@ const MIN_DISPLAY_PERCENTAGE_TEXT = '< 0.01%';
 const TOKEN_AMOUNT_COMPACT_THRESHOLD = 1000;
 const POOL_DETAIL_TOKEN_LIST_SCROLL_THRESHOLD = 6;
 const POOL_DETAIL_TOKEN_LIST_MAX_HEIGHT = '$64';
+const POOL_DETAIL_PAIR_NAME_COMPACT_THRESHOLD = 10;
+const POOL_DETAIL_PAIR_NAME_MINI_THRESHOLD = 100;
 const POOL_NAME_TOOLTIP_TEXT_STYLE = {
   wordBreak: 'break-all',
   whiteSpace: 'normal',
@@ -618,30 +622,77 @@ function PoolIdentity({
 }: {
   item: IDisplayPool;
   logoSize?: SizeTokens;
-  textSize?: '$bodyLg' | '$bodyMd';
+  textSize?: IPoolIdentityTextSize;
   nameNumberOfLines?: number;
   truncateName?: boolean;
 }) {
   const { gtMd } = useMedia();
+  let displayPairName = item.fullPairName;
+  if (truncateName || item.fullPairName === FALLBACK_VALUE) {
+    displayPairName = item.pairName;
+  }
+
+  let displayTextSize: IPoolIdentityTextSize = textSize;
+  if (
+    !truncateName &&
+    displayPairName.length > POOL_DETAIL_PAIR_NAME_MINI_THRESHOLD
+  ) {
+    displayTextSize = '$bodySm';
+  } else if (
+    !truncateName &&
+    displayPairName.length > POOL_DETAIL_PAIR_NAME_COMPACT_THRESHOLD
+  ) {
+    displayTextSize = '$bodyMd';
+  }
+
+  let identityOverflow: 'hidden' | 'visible' = 'visible';
+  let pairNameNumberOfLines: number | undefined;
+  let pairNameEllipsizeMode: 'tail' | undefined;
+  let pairNameOverflow: 'hidden' | undefined;
+  if (truncateName) {
+    identityOverflow = 'hidden';
+    pairNameNumberOfLines = nameNumberOfLines;
+    pairNameEllipsizeMode = 'tail';
+    pairNameOverflow = 'hidden';
+  }
+
+  const shouldShowPairNameTooltip =
+    gtMd && truncateName && item.fullPairName !== FALLBACK_VALUE;
   const pairNameText = (
     <SizableText
-      size={textSize}
+      size={displayTextSize}
       color="$text"
       display="block"
       width="100%"
       maxWidth="100%"
-      {...(truncateName
-        ? {
-            numberOfLines: nameNumberOfLines,
-            ellipsizeMode: 'tail' as const,
-            overflow: 'hidden' as const,
-          }
-        : undefined)}
+      numberOfLines={pairNameNumberOfLines}
+      ellipsizeMode={pairNameEllipsizeMode}
+      overflow={pairNameOverflow}
       flexShrink={1}
     >
-      {item.pairName}
+      {displayPairName}
     </SizableText>
   );
+  let pairNameNode = pairNameText;
+  if (shouldShowPairNameTooltip) {
+    pairNameNode = (
+      <Tooltip
+        placement="top"
+        renderContent={
+          <SizableText
+            size="$bodySm"
+            color="$text"
+            display="block"
+            maxWidth="$72"
+            style={POOL_NAME_TOOLTIP_TEXT_STYLE}
+          >
+            {item.fullPairName}
+          </SizableText>
+        }
+        renderTrigger={pairNameText}
+      />
+    );
+  }
 
   return (
     <XStack
@@ -649,34 +700,11 @@ function PoolIdentity({
       gap="$3"
       width="100%"
       minWidth={0}
-      overflow={truncateName ? 'hidden' : 'visible'}
+      overflow={identityOverflow}
     >
       <PoolLogo uri={item.dexLogoUrl} size={logoSize} />
-      <YStack
-        flex={1}
-        minWidth={0}
-        maxWidth="100%"
-        overflow={truncateName ? 'hidden' : 'visible'}
-      >
-        {gtMd && truncateName && item.fullPairName !== FALLBACK_VALUE ? (
-          <Tooltip
-            placement="top"
-            renderContent={
-              <SizableText
-                size="$bodySm"
-                color="$text"
-                display="block"
-                maxWidth="$72"
-                style={POOL_NAME_TOOLTIP_TEXT_STYLE}
-              >
-                {item.fullPairName}
-              </SizableText>
-            }
-            renderTrigger={pairNameText}
-          />
-        ) : (
-          pairNameText
-        )}
+      <YStack flex={1} minWidth={0} maxWidth="100%" overflow={identityOverflow}>
+        {pairNameNode}
         <SizableText
           size="$bodyMd"
           color="$textSubdued"
