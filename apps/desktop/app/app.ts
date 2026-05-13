@@ -53,7 +53,7 @@ import {
   getMetadata,
 } from './bundle';
 import { ipcMessageKeys } from './config';
-import { ElectronTranslations, i18nText, initLocale } from './i18n';
+import { ElectronTranslations, i18nFormat, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
@@ -2165,35 +2165,44 @@ function triggerCpuWatchdog(params: {
   const uptimeMinutes = Math.round(process.uptime() / 60);
   let reasonText: string;
   if (params.reason === 'unresponsive') {
-    reasonText = 'The OneKey window is not responding.';
+    reasonText = i18nText(ElectronTranslations.cpu_watchdog_unresponsive__desc);
   } else if (params.reason === 'sustained-high-cpu-severe') {
     const seconds = Math.round(
       (CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES *
         CPU_WATCHDOG_SAMPLE_INTERVAL_MS) /
         1000,
     );
-    reasonText = `CPU usage has been above ${CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT}% for the last ${seconds} seconds.`;
+    reasonText = i18nFormat(ElectronTranslations.cpu_watchdog_severe__desc, {
+      threshold: CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
+      seconds,
+    });
   } else {
     const minutes = Math.round(
       (CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES * CPU_WATCHDOG_SAMPLE_INTERVAL_MS) /
         60_000,
     );
-    reasonText = `CPU usage has stayed above ${CPU_WATCHDOG_MILD_THRESHOLD_PERCENT}% for the last ${minutes} minutes.`;
+    reasonText = i18nFormat(ElectronTranslations.cpu_watchdog_mild__desc, {
+      threshold: CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
+      minutes,
+    });
   }
+  const actionText = i18nFormat(
+    ElectronTranslations.cpu_watchdog_action__desc,
+    { minutes: uptimeMinutes },
+  );
+  const dialogTitle = i18nText(ElectronTranslations.cpu_watchdog__title);
 
   watchdogDialogOpen = true;
   void dialog
     .showMessageBox(parent, {
       type: 'warning',
-      title: 'OneKey performance issue',
-      message: 'OneKey performance issue detected',
-      detail: `${reasonText}\n\nUptime: ${uptimeMinutes} min.\n\nExport logs to share with support, or restart to recover.`,
+      title: dialogTitle,
+      message: dialogTitle,
+      detail: `${reasonText}\n\n${actionText}`,
       buttons: [
-        i18nText(ElectronTranslations.settings_upload_state_logs) ||
-          'Upload Logs',
-        i18nText(ElectronTranslations.troubleshooting_restart_app) ||
-          'Restart App',
-        i18nText(ElectronTranslations.global_later) || 'Later',
+        i18nText(ElectronTranslations.settings_upload_state_logs),
+        i18nText(ElectronTranslations.troubleshooting_restart_app),
+        i18nText(ElectronTranslations.global_later),
       ],
       defaultId: 0,
       cancelId: 2,
