@@ -8,11 +8,12 @@ import '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import { Suspense, lazy, useEffect, useState } from 'react';
 
 import { KitProvider } from '@onekeyhq/kit';
-import { installDesktopWatchdog } from '@onekeyhq/kit/src/components/DesktopWatchdog/installDesktopWatchdog';
 import {
   initSentry,
   withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+
+import { installDesktopWatchdog } from './perf/installDesktopWatchdog';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import { TrayPanel } from '@onekeyhq/kit/src/views/Tray/TrayPanel';

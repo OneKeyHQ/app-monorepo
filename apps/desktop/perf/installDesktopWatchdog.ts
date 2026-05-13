@@ -1,4 +1,4 @@
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import { showExportLogsDialog } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -6,7 +6,7 @@ import { addBreadcrumb } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getTimerCensus } from '@onekeyhq/shared/src/utils/timerRegistry';
 
-import { showExportLogsDialog } from '../../views/Setting/pages/Tab/exportLogs/showExportLogsDialog';
+import { ipcMessageKeys } from '../app/config';
 
 const LONG_TASK_MIN_MS = 200;
 const SENTRY_BREADCRUMB_RATE_LIMIT_PER_MIN = 10;
