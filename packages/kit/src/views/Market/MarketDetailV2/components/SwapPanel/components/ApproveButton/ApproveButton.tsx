@@ -14,6 +14,7 @@ export function ApproveButton({ onApprove, ...props }: IApproveButtonProps) {
 
   return (
     <Button
+      testID="market-intl-btn"
       variant="primary"
       size={gtMd ? 'medium' : 'large'}
       {...props}

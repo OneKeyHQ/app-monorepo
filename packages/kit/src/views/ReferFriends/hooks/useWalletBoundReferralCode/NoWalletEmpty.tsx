@@ -26,6 +26,7 @@ export function NoWalletEmpty() {
           })}
         />
         <Button
+          testID="refer-friends-navigation-btn"
           mt="$5"
           onPress={() => {
             navigation.pushModal(EModalRoutes.AccountManagerStacks, {

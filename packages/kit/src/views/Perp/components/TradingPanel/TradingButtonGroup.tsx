@@ -40,6 +40,7 @@ import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 import { useOrderConfirm } from '../../hooks';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
+import { PerpTestIDs } from '../../testIDs';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
@@ -635,6 +636,7 @@ function SideButtonInternal({
         )}
 
         <Button
+          testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
           size="medium"
           childrenAsText={false}
           borderRadius="$4"
@@ -681,6 +683,7 @@ function SideButtonInternal({
   return (
     <YStack gap="$2" flex={1}>
       <Button
+        testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
         size="medium"
         borderRadius="$4"
         bg={buttonStyles.bg}

@@ -123,6 +123,7 @@ import {
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 import { buildSwapReviewState } from '../../utils/buildSwapReviewState';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -1269,7 +1270,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     <>
       <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
-          testID="swap-content-container"
+          testID={SwapTestIDs.pageContainer}
           flex={1}
           width="100%"
           pt={pageType !== EPageType.modal ? '$5' : '$2.5'}

@@ -8,6 +8,7 @@ import { Page, YStack } from '@onekeyhq/components';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { BorrowTestIDs } from '../../../testIDs';
 import { showLiquidationRiskDialog } from '../../showLiquidationRiskDialog';
 import { useManagePositionContext } from '../ManagePositionContext';
 
@@ -108,6 +109,7 @@ export function ActionFooter({
     <Page.FooterActions
       onConfirmText={actionLabel}
       confirmButtonProps={{
+        testID: BorrowTestIDs.actionConfirmBtn,
         onPress: handleSubmit,
         loading: submitting || checkAmountLoading,
         disabled: isButtonDisabled,

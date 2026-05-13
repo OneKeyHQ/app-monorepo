@@ -26,6 +26,8 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { RedemptionTestIDs } from '../testIDs';
+
 import { showRedemptionSuccessDialog } from './RedemptionSuccessDialog';
 
 interface IRedemptionFormValues {
@@ -203,6 +205,7 @@ function RedemptionCenterDialogContent({
   return (
     <YStack mx="$-5">
       <Button
+        testID={RedemptionTestIDs.historyBtn}
         variant="tertiary"
         size="medium"
         onPress={handleHistoryPress}
@@ -241,6 +244,7 @@ function RedemptionCenterDialogContent({
           <Form form={form}>
             <Form.Field name="code">
               <Input
+                testID={RedemptionTestIDs.codeInput}
                 size="large"
                 placeholder={intl.formatMessage({
                   id: ETranslations.redemption_enter_code_placeholder,

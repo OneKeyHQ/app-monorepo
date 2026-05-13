@@ -40,6 +40,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
+import { AccountManagerTestIDs } from '../../testIDs';
 
 import { AddHiddenWalletButton } from './AddHiddenWalletButton';
 import { BulkCopyAddressesButton } from './BulkCopyAddressesButton';
@@ -382,7 +383,7 @@ function WalletEditButtonView({
       title={intl.formatMessage({ id: ETranslations.global_more })}
       renderTrigger={
         <ListItem.IconButton
-          testID={`wallet-item-edit-button-${wallet?.name || ''}`}
+          testID={AccountManagerTestIDs.walletEditButton(wallet?.name || '')}
           icon="DotHorOutline"
         />
       }

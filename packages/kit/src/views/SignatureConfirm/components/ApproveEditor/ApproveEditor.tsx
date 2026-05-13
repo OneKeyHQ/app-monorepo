@@ -30,6 +30,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EApproveType } from '@onekeyhq/shared/types/tx';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
 import { SignatureConfirmProviderMirror } from '../SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
 export type IProps = {
@@ -265,6 +266,7 @@ function ApproveEditor(props: IProps) {
               <Skeleton height={20} width={100} />
             ) : (
               <Button
+                testID={SignatureConfirmTestIDs.ApproveEditorBalanceButton}
                 size="small"
                 variant="tertiary"
                 icon="WalletOutline"
@@ -293,6 +295,7 @@ function ApproveEditor(props: IProps) {
           }
         >
           <Input
+            testID={SignatureConfirmTestIDs.ApproveEditorAllowanceInput}
             flex={1}
             editable={!watchAllFields.isUnlimited}
             addOns={[
@@ -328,7 +331,10 @@ function ApproveEditor(props: IProps) {
               },
             }}
           >
-            <Switch size="small" />
+            <Switch
+              testID={SignatureConfirmTestIDs.ApproveEditorUnlimitedSwitch}
+              size="small"
+            />
           </Form.Field>
         ) : null}
       </Form>

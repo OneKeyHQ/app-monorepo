@@ -77,6 +77,7 @@ const SecureQRToastBase = ({
             intl.formatMessage({ id: ETranslations.global_confirm_on_device })}
         </SizableText>
         <IconButton
+          testID="air-gap-toggle-qr-btn"
           title={
             show
               ? intl.formatMessage({ id: ETranslations.global_collapse })
@@ -193,11 +194,21 @@ const SecureQRToastBase = ({
         </XStack>
       </Stack>
       <XStack gap="$2.5">
-        <Button variant="secondary" onPressIn={handleCancel} flex={1}>
+        <Button
+          testID="air-gap-cancel-btn"
+          variant="secondary"
+          onPressIn={handleCancel}
+          flex={1}
+        >
           {intl.formatMessage({ id: ETranslations.global_cancel })}
         </Button>
         {showConfirmButton ? (
-          <Button variant="primary" onPressIn={handleConfirm} flex={1}>
+          <Button
+            testID="air-gap-confirm-btn"
+            variant="primary"
+            onPressIn={handleConfirm}
+            flex={1}
+          >
             {onConfirmText ||
               intl.formatMessage({
                 id: ETranslations.global_next,

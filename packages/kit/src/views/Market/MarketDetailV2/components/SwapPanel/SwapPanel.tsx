@@ -56,7 +56,12 @@ function LgTradeButton({
   if (platformEnv.isWeb && noAccount) {
     return (
       <View p="$3">
-        <Button size="large" variant="primary" onPress={showAccountSelector}>
+        <Button
+          size="large"
+          variant="primary"
+          onPress={showAccountSelector}
+          testID="market-no-account-btn"
+        >
           {intl.formatMessage({ id: ETranslations.global_connect })}
         </Button>
       </View>
@@ -66,6 +71,7 @@ function LgTradeButton({
   return (
     <View p="$3">
       <Button
+        testID="market-no-account-btn"
         size="large"
         variant="primary"
         onPress={() => onShowSwapDialog?.(swapToken)}

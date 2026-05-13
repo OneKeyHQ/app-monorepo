@@ -36,6 +36,7 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { EarnNavigation, parseFormattedLiquidityValue } from '../earnUtils';
+import { EarnTestIDs } from '../testIDs';
 
 import { AprText } from './AprText';
 import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
@@ -433,6 +434,7 @@ export function AvailableAssetsTabViewList() {
       const showLiquidity = isFixedRateTab && Boolean(asset.liquidity);
       return (
         <ListItem
+          testID={EarnTestIDs.assetItem(asset.symbol)}
           userSelect="none"
           onPress={() => handleRowPress(asset)}
           renderAvatar={
@@ -636,6 +638,7 @@ export function AvailableAssetsTabViewList() {
         </SizableText>
         {media.gtMd ? null : (
           <IconButton
+            testID="earn-icon-btn"
             variant="tertiary"
             icon="SearchOutline"
             iconSize="$5"
@@ -663,6 +666,7 @@ export function AvailableAssetsTabViewList() {
               onSelectionChange={handleNetworkFilterChange}
             />
             <SearchBar
+              testID={EarnTestIDs.assetSearchInput}
               size="small"
               placeholder={intl.formatMessage({
                 id: ETranslations.global_search_asset,

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Dimensions, type LayoutChangeEvent } from 'react-native';
 
+import type { IScrollViewRef } from '@onekeyhq/components';
 import {
   HeaderScrollGestureWrapper,
   Icon,
@@ -14,6 +16,7 @@ import {
   YStack,
   isNativeTablet,
   useIsSplitView,
+  usePageWidth,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -56,6 +59,11 @@ const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
   { key: 'orderbook', translationId: ETranslations.market_chart },
   { key: 'info', translationId: ETranslations.global_info },
 ];
+
+const MOBILE_PERP_MARKET_TAB_INDEX_MAP: Record<IMobilePerpMarketTab, number> = {
+  orderbook: 0,
+  info: 1,
+};
 
 function MobilePerpMarketTabBarItem({
   tab,
@@ -229,11 +237,23 @@ function MobilePerpMarket() {
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
   const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>('orderbook');
-  const shouldLoadMarketDetail = activeTab === 'info';
+  const [hasInfoTabMounted, setHasInfoTabMounted] = useState(false);
+  const pageWidth = usePageWidth();
+  const [containerWidth, setContainerWidth] = useState(0);
+  const scrollViewRef = useRef<IScrollViewRef>(null);
+  const effectivePageWidth = useMemo(() => {
+    if (containerWidth > 0) {
+      return containerWidth;
+    }
+    if (typeof pageWidth === 'number' && pageWidth > 0) {
+      return pageWidth;
+    }
+    return Dimensions.get('window').width;
+  }, [containerWidth, pageWidth]);
   const marketDetailDisplayName = mode === 'spot' ? baseName : displayName;
   const resolvedMarketDetail = usePerpResolvedMarketDetail({
-    coin: shouldLoadMarketDetail ? activeTradeInstrument.coin : undefined,
-    displayName: shouldLoadMarketDetail ? marketDetailDisplayName : undefined,
+    coin: activeTradeInstrument.coin,
+    displayName: marketDetailDisplayName,
   });
 
   const onPressTokenSelector = useCallback(() => {
@@ -307,9 +327,43 @@ function MobilePerpMarket() {
     };
   }, [isLandscape, isTablet]);
 
-  const handleChangeActiveTab = useCallback((tab: IMobilePerpMarketTab) => {
-    setActiveTab(tab);
+  const scrollToTab = useCallback(
+    (tab: IMobilePerpMarketTab, animated = true) => {
+      scrollViewRef.current?.scrollTo({
+        x: effectivePageWidth * MOBILE_PERP_MARKET_TAB_INDEX_MAP[tab],
+        animated,
+      });
+    },
+    [effectivePageWidth],
+  );
+
+  const handleChangeActiveTab = useCallback(
+    (tab: IMobilePerpMarketTab) => {
+      setActiveTab(tab);
+      if (tab === 'info') {
+        setHasInfoTabMounted(true);
+      }
+      scrollToTab(tab);
+    },
+    [scrollToTab],
+  );
+
+  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    if (nextWidth > 0) {
+      setContainerWidth((prevWidth) =>
+        prevWidth === nextWidth ? prevWidth : nextWidth,
+      );
+    }
   }, []);
+
+  useEffect(() => {
+    const alignTimer = setTimeout(() => {
+      scrollToTab(activeTab, false);
+    }, 0);
+
+    return () => clearTimeout(alignTimer);
+  }, [activeTab, scrollToTab]);
 
   const renderHeaderRight = useCallback(
     () => (
@@ -347,13 +401,13 @@ function MobilePerpMarket() {
       <PerpMarketIntroContent
         coin={activeTradeInstrument.coin}
         displayName={marketDetailDisplayName}
-        enabled={activeTab === 'info'}
+        enabled={hasInfoTabMounted}
         resolvedMarketDetail={resolvedMarketDetail}
       />
     ),
     [
-      activeTab,
       activeTradeInstrument.coin,
+      hasInfoTabMounted,
       marketDetailDisplayName,
       resolvedMarketDetail,
     ],
@@ -361,60 +415,56 @@ function MobilePerpMarket() {
 
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);
 
-  if (platformEnv.isNativeIOS) {
-    return (
-      <Page>
-        {pageHeader}
-        <Page.Body p="$0">
-          <YStack flex={1} bg="$bgApp">
-            <MobilePerpMarketTabBar
-              activeTab={activeTab}
-              onChange={handleChangeActiveTab}
-            />
-            {activeTab === 'orderbook' ? (
-              <Tabs.Container
-                initialTabName="orderbook"
-                renderHeader={() => <MobilePerpCandlesTouchBridge />}
-                renderTabBar={() => null}
-              >
-                <Tabs.Tab name="orderbook">
-                  <Tabs.ScrollView
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
-                  >
-                    <YStack>{orderBookContent}</YStack>
-                  </Tabs.ScrollView>
-                </Tabs.Tab>
-              </Tabs.Container>
-            ) : (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <YStack>{infoContent}</YStack>
-              </ScrollView>
-            )}
-          </YStack>
-        </Page.Body>
-        {pageFooter}
-      </Page>
-    );
-  }
-
   return (
-    <Page scrollEnabled={activeTab === 'info'}>
+    <Page>
       {pageHeader}
       <Page.Body p="$0">
-        <YStack flex={1} bg="$bgApp">
+        <YStack flex={1} bg="$bgApp" onLayout={handleContainerLayout}>
           <MobilePerpMarketTabBar
             activeTab={activeTab}
             onChange={handleChangeActiveTab}
           />
-          {activeTab === 'orderbook' ? (
-            <YStack flexShrink={0}>
-              {marketHeaderContent}
-              {orderBookContent}
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            flex={1}
+            minHeight={0}
+            scrollEnabled={false}
+            showsHorizontalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={{ minHeight: '100%' }}
+          >
+            <YStack w={effectivePageWidth} flex={1} minHeight={0}>
+              {platformEnv.isNativeIOS ? (
+                <Tabs.Container
+                  initialTabName="orderbook"
+                  renderHeader={() => <MobilePerpCandlesTouchBridge />}
+                  renderTabBar={() => null}
+                >
+                  <Tabs.Tab name="orderbook">
+                    <Tabs.ScrollView
+                      showsVerticalScrollIndicator={false}
+                      contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
+                    >
+                      <YStack>{orderBookContent}</YStack>
+                    </Tabs.ScrollView>
+                  </Tabs.Tab>
+                </Tabs.Container>
+              ) : (
+                <YStack flex={1} minHeight={0}>
+                  {marketHeaderContent}
+                  {orderBookContent}
+                </YStack>
+              )}
             </YStack>
-          ) : (
-            <YStack flexShrink={0}>{infoContent}</YStack>
-          )}
+            <YStack w={effectivePageWidth} flex={1} minHeight={0}>
+              {hasInfoTabMounted ? (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <YStack>{infoContent}</YStack>
+                </ScrollView>
+              ) : null}
+            </YStack>
+          </ScrollView>
         </YStack>
       </Page.Body>
       {pageFooter}

@@ -115,6 +115,7 @@ function BasicMarketStar({
 
   return (
     <IconButton
+      testID="market-intl-icon-btn"
       title={intl.formatMessage({
         id: checked
           ? ETranslations.market_remove_from_watchlist

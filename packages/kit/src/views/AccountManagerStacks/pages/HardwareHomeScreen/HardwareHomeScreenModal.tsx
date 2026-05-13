@@ -301,7 +301,11 @@ function UploadButton({
           borderColor="$borderSubdued"
           onPress={onUpload}
         >
-          <IconButton icon="PlusSmallOutline" onPress={onUpload} />
+          <IconButton
+            icon="PlusSmallOutline"
+            onPress={onUpload}
+            testID="account-manager-upload-button-icon-btn"
+          />
         </Stack>
       </Stack>
     );
@@ -352,6 +356,7 @@ function WallpaperCategorySection({
         </SizableText>
         {hasMore ? (
           <IconButton
+            testID="account-manager-on-toggle-expand-icon-btn"
             icon={
               isExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
             }

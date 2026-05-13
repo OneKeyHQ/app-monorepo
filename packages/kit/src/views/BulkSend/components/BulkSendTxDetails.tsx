@@ -180,6 +180,7 @@ function TransferListItemBase({
             />
           ) : null}
           <Input
+            testID="bulk-send-render-amount-input"
             width={INPUT_WIDTH}
             value={amount}
             onChangeText={handleAmountChange}
@@ -380,6 +381,7 @@ function TransferListItemBase({
 
       {showDeleteButton ? (
         <IconButton
+          testID="bulk-send-icon-btn"
           icon="DeleteOutline"
           variant="tertiary"
           size="small"

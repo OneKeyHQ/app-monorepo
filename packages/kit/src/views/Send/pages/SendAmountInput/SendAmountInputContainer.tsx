@@ -39,6 +39,7 @@ import {
   useSelectedUTXOsAtom,
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -1545,6 +1546,7 @@ function SendAmountInputContainer() {
 
         {nft?.collectionType === ENFTType.ERC1155 ? (
           <Button
+            testID={SendTestIDs.nftMaxButton}
             variant="secondary"
             size="small"
             ml="$2"
@@ -1673,6 +1675,7 @@ function SendAmountInputContainer() {
 
         {/* Max button */}
         <Button
+          testID={SendTestIDs.maxButton}
           variant="secondary"
           size="small"
           ml="$2"
@@ -1773,6 +1776,7 @@ function SendAmountInputContainer() {
                 }
                 labelAddon={
                   <Button
+                    testID={SendTestIDs.hexDataFaqButton}
                     size="small"
                     variant="tertiary"
                     onPress={showTxMessageFaq}
@@ -1785,7 +1789,7 @@ function SendAmountInputContainer() {
                   </Button>
                 }
               >
-                <TextArea>
+                <TextArea testID={SendTestIDs.hexDataInput}>
                   <TextAreaInput
                     placeholder={intl.formatMessage({
                       id: recipientIsContract
@@ -1806,6 +1810,7 @@ function SendAmountInputContainer() {
             confirmButton={
               <XStack gap="$2.5" flex={1}>
                 <Button
+                  testID={SendTestIDs.buyTokenButton}
                   variant="primary"
                   onPress={handleBuyToken}
                   loading={isBuyLoading}
@@ -1822,6 +1827,7 @@ function SendAmountInputContainer() {
                   })} ${tokenSymbol}`}
                 </Button>
                 <Button
+                  testID={SendTestIDs.insufficientFundsButton}
                   disabled
                   flexGrow={1}
                   flexShrink={1}

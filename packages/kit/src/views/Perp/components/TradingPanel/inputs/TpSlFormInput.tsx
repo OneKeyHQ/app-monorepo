@@ -108,6 +108,7 @@ export const TpSlFormInput = memo(
     const customSuffix = useMemo(
       () => (
         <Select
+          testID="perp-custom-suffix-select"
           items={selectItems}
           value={inputType}
           onChange={handleModeChange}

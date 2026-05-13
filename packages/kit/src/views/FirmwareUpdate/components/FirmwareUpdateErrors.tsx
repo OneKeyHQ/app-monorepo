@@ -33,6 +33,7 @@ import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ImgEnterBootGuideMini from '../assets/enter-boot-guide-mini.png';
+import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { FirmwareUpdateBaseMessageView } from './FirmwareUpdateBaseMessageView';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
@@ -93,7 +94,10 @@ function ShouldUpdateBridge({
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_view_tutorial,
         })}
-        confirmButtonProps={{ iconAfter: 'ArrowTopRightOutline' }}
+        confirmButtonProps={{
+          iconAfter: 'ArrowTopRightOutline',
+          testID: FirmwareUpdateTestIDs.viewTutorialBtn,
+        }}
       />
     </Stack>
   );
@@ -120,7 +124,10 @@ function ShouldUpdateByWeb() {
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_visit_website,
         })}
-        confirmButtonProps={{ iconAfter: 'ArrowTopRightOutline' }}
+        confirmButtonProps={{
+          iconAfter: 'ArrowTopRightOutline',
+          testID: FirmwareUpdateTestIDs.visitWebsiteBtn,
+        }}
       />
     </Stack>
   );
@@ -147,7 +154,10 @@ function HowToUpdateFullResource() {
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_view_tutorial,
         })}
-        confirmButtonProps={{ iconAfter: 'ArrowTopRightOutline' }}
+        confirmButtonProps={{
+          iconAfter: 'ArrowTopRightOutline',
+          testID: FirmwareUpdateTestIDs.viewTutorialBtn,
+        }}
       />
     </Stack>
   );
@@ -519,6 +529,9 @@ function WorkflowErrors({
         onConfirmText={
           retryText || intl.formatMessage({ id: ETranslations.global_retry })
         }
+        confirmButtonProps={{
+          testID: FirmwareUpdateTestIDs.retryBtn,
+        }}
       />
       {content}
     </>
@@ -571,6 +584,9 @@ function InstallingErrors({
         onConfirmText={
           retryText || intl.formatMessage({ id: ETranslations.global_retry })
         }
+        confirmButtonProps={{
+          testID: FirmwareUpdateTestIDs.retryBtn,
+        }}
       />
       {content}
       {detail}

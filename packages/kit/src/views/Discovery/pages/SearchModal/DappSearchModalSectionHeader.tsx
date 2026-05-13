@@ -14,7 +14,12 @@ export function DappSearchModalSectionHeader({
   return (
     <XStack px="$5" pb="$2" alignItems="center" justifyContent="space-between">
       <Heading size="$headingMd">{title}</Heading>
-      <Button variant="tertiary" size="medium" onPressIn={onMorePress}>
+      <Button
+        variant="tertiary"
+        size="medium"
+        onPressIn={onMorePress}
+        testID="discovery-intl-btn"
+      >
         {intl.formatMessage({ id: ETranslations.explore_see_all })}
       </Button>
     </XStack>

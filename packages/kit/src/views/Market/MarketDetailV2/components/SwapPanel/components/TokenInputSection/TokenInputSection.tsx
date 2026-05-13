@@ -186,6 +186,7 @@ function TokenInputSectionComponent(
     <YStack {...style}>
       <YStack borderRadius="$2" bg="$bgApp" gap="$px" overflow="hidden">
         <Input
+          testID="market-handle-dismiss-keyboard-input"
           ref={inputRef}
           size="small"
           containerProps={{

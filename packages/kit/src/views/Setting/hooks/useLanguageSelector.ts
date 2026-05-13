@@ -32,11 +32,10 @@ export function useLanguageSelector() {
 
   const onChange = useCallback(async (text: string) => {
     await changeLanguage(text);
-    // mode=UI restarts only the main JS runtime — bg stays hot, and the
-    // SharedRPC quiesce step in BackgroundThread.restart closes the iOS
-    // dangling-jsi::Function race that used to crash on this path.
+    // mode=All restarts main + bg in lockstep so no half-quiesced state
+    // can leak across the reload boundary.
     await backgroundApiProxy.serviceApp.restartApp({
-      mode: EAppRestartMode.UI,
+      mode: EAppRestartMode.All,
       reason: `setting.language.${text}`,
     });
   }, []);

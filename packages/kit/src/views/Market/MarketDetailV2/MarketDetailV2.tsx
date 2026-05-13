@@ -25,6 +25,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
+import { MarketTestIDs } from '../testIDs';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import { BtcMetadataProvider, useAutoRefreshTokenDetail } from './hooks';
@@ -72,7 +73,7 @@ function MarketDetail({
       <Page>
         <MarketDetailHeader />
 
-        <Page.Body>
+        <Page.Body testID={MarketTestIDs.detailPage}>
           {media.gtLg && !platformEnv.isNative ? (
             <DesktopLayout />
           ) : (

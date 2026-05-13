@@ -61,6 +61,8 @@ import type {
   IFetchTokenDetailItem,
 } from '@onekeyhq/shared/types/token';
 
+import { AssetDetailsTestIDs } from '../../testIDs';
+
 import ActionBuy from './ActionBuy';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -79,10 +81,17 @@ type ITokenDetailsAddressBlockProps = {
   label: string;
   address: string;
   onPress: () => void;
+  testID?: string;
 };
 
 const TokenDetailsAddressBlock = memo(
-  ({ shouldShow, label, address, onPress }: ITokenDetailsAddressBlockProps) => {
+  ({
+    shouldShow,
+    label,
+    address,
+    onPress,
+    testID,
+  }: ITokenDetailsAddressBlockProps) => {
     if (!shouldShow) {
       return null;
     }
@@ -91,6 +100,7 @@ const TokenDetailsAddressBlock = memo(
       <>
         <Divider />
         <YStack
+          testID={testID}
           userSelect="none"
           onPress={onPress}
           px="$5"
@@ -516,10 +526,12 @@ function TokenDetailsHeader(props: IProps) {
           {/* Actions */}
           <RawActions>
             <RawActions.Send
+              testID={AssetDetailsTestIDs.sendBtn}
               onPress={handleSendPress}
               trackID="wallet-token-details-send"
             />
             <RawActions.Receive
+              testID={AssetDetailsTestIDs.receiveBtn}
               disabled={isWatchOnly || isBotWalletReceiveBlocked}
               allowPressWhenDisabled={isBotWalletReceiveBlocked}
               onPress={async () => {
@@ -551,6 +563,7 @@ function TokenDetailsHeader(props: IProps) {
               trackID="wallet-token-details-receive"
             />
             <RawActions.Swap
+              testID={AssetDetailsTestIDs.swapBtn}
               onPress={handleOnSwap}
               disabled={disableSwapAction}
               trackID="wallet-token-details-swap"
@@ -584,6 +597,7 @@ function TokenDetailsHeader(props: IProps) {
           label={addressBlockLabel}
           address={addressBlockValue}
           onPress={handleCopyAddressPress}
+          testID={AssetDetailsTestIDs.copyAddressBtn}
         />
         {/* History */}
         <Divider mb="$3" />

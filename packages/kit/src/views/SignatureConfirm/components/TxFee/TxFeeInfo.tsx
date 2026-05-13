@@ -54,6 +54,7 @@ import {
   useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { SignatureConfirmTestIDs } from '@onekeyhq/kit/src/views/SignatureConfirm/testIDs';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -2084,6 +2085,7 @@ function TxFeeInfo(props: IProps) {
             </SizableText>
           </Stack>
           <Button
+            testID={SignatureConfirmTestIDs.TxFeeSponsoredGotItButton}
             size="medium"
             onPress={() => {
               void dialogInstance?.close?.();

@@ -131,6 +131,11 @@ type IProps = {
   limit?: number;
   deferTokenManagement?: boolean;
   exchangeFilter?: IExchangeFilter;
+  testID?: string;
+  // Scene prefix forwarded to each TokenListItem so callers (Home,
+  // AssetList, TokenSelector, …) produce unique testIDs instead of every
+  // scene reusing the shared component's default `home-token-item-*` prefix.
+  tokenItemTestIDPrefix?: string;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -175,6 +180,8 @@ function TokenListViewCmp(props: IProps) {
     limit,
     deferTokenManagement,
     exchangeFilter,
+    testID,
+    tokenItemTestIDPrefix,
   } = props;
 
   const intl = useIntl();
@@ -726,6 +733,7 @@ function TokenListViewCmp(props: IProps) {
       return (
         <XStack pt="$3" px="$5" jc="center" ai="center">
           <Button
+            testID="token-list-show-more-btn"
             size="medium"
             variant="secondary"
             onPress={() =>
@@ -760,6 +768,7 @@ function TokenListViewCmp(props: IProps) {
         {overFlowState.isOverflow && !overFlowState.isSliced ? (
           <XStack jc="center" ai="center" pt="$3" px="$5">
             <Button
+              testID="token-list-show-less-btn"
               size="medium"
               variant="secondary"
               onPress={() =>
@@ -806,7 +815,7 @@ function TokenListViewCmp(props: IProps) {
     }
 
     return (
-      <YStack>
+      <YStack testID={testID}>
         {withHeader ? (
           <TokenListHeader
             onManageToken={onManageToken}
@@ -832,6 +841,7 @@ function TokenListViewCmp(props: IProps) {
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
             showProcessingState={!!exchangeFilter}
+            testIDPrefix={tokenItemTestIDPrefix}
             {...(tableLayout
               ? undefined
               : {
@@ -847,6 +857,7 @@ function TokenListViewCmp(props: IProps) {
 
   return (
     <ListComponent
+      testID={testID}
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       showsVerticalScrollIndicator={false}
@@ -888,6 +899,7 @@ function TokenListViewCmp(props: IProps) {
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
             showProcessingState={!!exchangeFilter}
+            testIDPrefix={tokenItemTestIDPrefix}
           />
           {isTokenSelector &&
           tokenSelectorSearchTokenState.isSearching &&

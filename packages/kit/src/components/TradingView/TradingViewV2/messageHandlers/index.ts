@@ -6,6 +6,7 @@ export {
   handleAnalyticsStudyCreated,
 } from './analyticsHandler';
 export {
+  DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   fetchAndSendAccountMarks,
   handleKLineDataRequest,
 } from './klineDataHandler';

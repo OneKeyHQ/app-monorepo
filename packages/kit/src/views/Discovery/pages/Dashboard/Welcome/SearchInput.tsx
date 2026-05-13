@@ -32,6 +32,7 @@ import {
   useSearchPopoverShortcutsFeatureFlag,
   useSearchPopoverUIFeatureFlag,
 } from '../../../hooks/useSearchPopoverFeatureFlag';
+import { DiscoveryTestIDs } from '../../../testIDs';
 
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
@@ -129,7 +130,7 @@ export function SearchInput() {
     <>
       <View position="relative" width="100%">
         <XStack
-          testID="search-input"
+          testID={DiscoveryTestIDs.searchBar}
           gap="$2"
           position="relative"
           width="100%"

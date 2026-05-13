@@ -36,6 +36,7 @@ import {
   isLoadingState,
 } from '../../Staking/components/PageFrame';
 import { capitalizeString } from '../../Staking/utils/utils';
+import { BorrowTestIDs } from '../testIDs';
 
 import { buildBorrowHistoryListItemKey } from './borrowHistoryList.utils';
 
@@ -157,6 +158,7 @@ const HistoryItem = ({ item, provider }: IHistoryItemProps) => {
 
   return (
     <ListItem
+      testID={BorrowTestIDs.historyListItem}
       avatarProps={{
         src: item.token.info.logoURI,
         borderRadius: '$full',
@@ -275,6 +277,7 @@ const HistoryContent = ({
       {!hideFilter ? (
         <XStack px="$5">
           <Select
+            testID={BorrowTestIDs.historyFilterSelect}
             value={filterType}
             renderTrigger={({ label }) => (
               <XStack h="$12" ai="center" gap="$1">

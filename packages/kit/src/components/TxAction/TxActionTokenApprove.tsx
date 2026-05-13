@@ -387,6 +387,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
           {content}
         </SizableText>
         <Button
+          testID="tx-action-btn"
           size="small"
           variant="tertiary"
           onPress={() =>

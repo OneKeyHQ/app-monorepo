@@ -37,6 +37,7 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
@@ -600,6 +601,7 @@ const SetTpslForm = memo(
 
           <YStack alignItems="flex-start" gap="$2" width="100%">
             <Checkbox
+              testID="perp-checkbox"
               value={configureAmount}
               onChange={(checked) => setConfigureAmount(Boolean(checked))}
               label={intl.formatMessage({
@@ -650,6 +652,7 @@ const SetTpslForm = memo(
         </YStack>
         <TradingGuardWrapper>
           <Button
+            testID="perp-processed-value-btn"
             size={isMobile ? 'large' : 'medium'}
             variant="primary"
             onPress={handleSubmit}
@@ -728,6 +731,7 @@ export function showSetTpslDialog({
         />
       </PerpsProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

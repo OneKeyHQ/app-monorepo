@@ -238,6 +238,7 @@ function ActionBuyContent({
         sections={sections}
         renderTrigger={
           <Button
+            testID="asset-details-handle-mobile-press-btn"
             icon={iconName}
             loading={loading}
             disabled={effectiveDisabled}
@@ -301,6 +302,7 @@ function ActionBuyContent({
           sections={sections}
           renderTrigger={
             <Button
+              testID="asset-details-btn"
               variant="secondary"
               size="large"
               icon={iconName}

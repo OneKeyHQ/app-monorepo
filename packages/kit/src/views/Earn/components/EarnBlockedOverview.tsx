@@ -47,6 +47,7 @@ export function EarnBlockedOverview(props: {
           description={description}
           button={
             <Button
+              testID="earn-intl-btn"
               mt="$6"
               size="medium"
               variant="primary"

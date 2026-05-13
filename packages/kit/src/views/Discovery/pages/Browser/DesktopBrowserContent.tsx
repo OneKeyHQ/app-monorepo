@@ -175,6 +175,7 @@ function BasicFind({ id }: { id: string }) {
             gap="$4"
           >
             <Input
+              testID="discovery-input"
               autoFocus
               onChangeText={handleTextChange}
               containerProps={{

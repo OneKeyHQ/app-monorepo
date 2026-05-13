@@ -6,6 +6,8 @@ import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Page, Stack, useSafeAreaInsets } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ApprovalManagementTestIDs } from '../testIDs';
+
 type IProps = {
   isSelectMode?: boolean;
   isBulkRevokeMode?: boolean;
@@ -72,6 +74,7 @@ function ApprovalActions(props: IProps) {
           }}
         >
           <Checkbox
+            testID={ApprovalManagementTestIDs.selectAllCheckbox}
             label={intl.formatMessage({
               id: ETranslations.global_select_all,
             })}

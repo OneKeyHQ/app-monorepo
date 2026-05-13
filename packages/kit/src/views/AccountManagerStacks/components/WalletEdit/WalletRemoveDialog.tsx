@@ -14,6 +14,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { AccountManagerTestIDs } from '../../testIDs';
+
 import type { IntlShape } from 'react-intl';
 
 export function WalletRemoveDialog({
@@ -46,6 +48,7 @@ export function WalletRemoveDialog({
     <>
       {shouldShowCheckbox ? (
         <Checkbox
+          testID="account-manager-is-confirm-disabled-checkbox"
           value={value}
           onChange={handleChange}
           label={intl.formatMessage({
@@ -64,6 +67,7 @@ export function WalletRemoveDialog({
         confirmButtonProps={{
           disabled: isConfirmDisabled,
           variant: 'destructive',
+          testID: AccountManagerTestIDs.walletRemoveConfirm,
         }}
         onConfirm={async () => {
           if (isKeyless) {

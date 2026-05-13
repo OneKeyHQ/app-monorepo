@@ -1,6 +1,26 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+export type IReferralLandingBindMethod = 'web_extension' | 'deep_link';
+
+export type IReferralLandingButtonName =
+  | 'download_app'
+  | 'already_have_wallet'
+  | 'bind_invite_code'
+  | 'trade_now';
+
+export type IClickReferralLandingButtonParams = {
+  referralCode: string;
+  landingPage: string;
+  buttonName: IReferralLandingButtonName;
+  bindMethod?: IReferralLandingBindMethod;
+};
+
+export type ICopyReferralCodeParams = {
+  referralCode: string;
+  landingPage: string;
+};
+
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
@@ -52,8 +72,8 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public copyReferralCode() {
-    return {};
+  public copyReferralCode(params?: ICopyReferralCodeParams) {
+    return params ?? {};
   }
 
   @LogToServer()
@@ -103,6 +123,12 @@ export class PageScene extends BaseScene {
       | 'web_no_extension'
       | 'web_get_extension';
   }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public clickReferralLandingButton(params: IClickReferralLandingButtonParams) {
     return params;
   }
 

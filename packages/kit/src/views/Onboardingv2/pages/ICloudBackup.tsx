@@ -44,6 +44,7 @@ import { CloudBackupListEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingPage } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
+import { OnboardingTestIDs } from '../testIDs';
 
 export default function ICloudBackup() {
   const navigation = useAppNavigation();
@@ -183,6 +184,7 @@ export default function ICloudBackup() {
 
   return (
     <OnboardingPage
+      testID={OnboardingTestIDs.iCloudBackupPage}
       safeAreaEnabled={false}
       scrollable
       headerTitle={title}
@@ -191,7 +193,11 @@ export default function ICloudBackup() {
       <CloudAccountBar />
       {renderContent()}
       {showLegacyBackupsButton ? (
-        <Button size="large" onPress={handleOpenLegacyBackups}>
+        <Button
+          testID={OnboardingTestIDs.iCloudBackupViewOlderBackupsBtn}
+          size="large"
+          onPress={handleOpenLegacyBackups}
+        >
           {intl.formatMessage({ id: ETranslations.view_older_backups })}
         </Button>
       ) : null}
@@ -203,6 +209,7 @@ export default function ICloudBackup() {
           <YStack gap="$2">
             <SizableText>备份数：{allBackups?.items?.length}</SizableText>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevMockEmptyBtn}
               onPress={async () => {
                 setAllBackupsMocked({
                   items: [],
@@ -214,6 +221,7 @@ export default function ICloudBackup() {
               Mock Empty Backups
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevClearPasswordBtn}
               variant="destructive"
               onPress={async () => {
                 Dialog.show({
@@ -229,6 +237,7 @@ export default function ICloudBackup() {
               clearBackupPassword
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevIsPasswordSetBtn}
               onPress={async () =>
                 Dialog.debugMessage({
                   debugMessage:
@@ -239,6 +248,7 @@ export default function ICloudBackup() {
               isBackupPasswordSet
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevVerifyPasswordBtn}
               onPress={async () =>
                 showCloudBackupPasswordDialog({
                   intl,
@@ -259,6 +269,7 @@ export default function ICloudBackup() {
               verifyBackupPassword
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevSetPasswordBtn}
               onPress={async () => {
                 showCloudBackupPasswordDialog({
                   intl,
@@ -280,6 +291,7 @@ export default function ICloudBackup() {
             </Button>
 
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevGetAllBackupsBtn}
               onPress={async () =>
                 Dialog.debugMessage({
                   debugMessage:
@@ -290,6 +302,7 @@ export default function ICloudBackup() {
               getAllBackups
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevIOSQueryAllRecordsBtn}
               onPress={async () =>
                 Dialog.debugMessage({
                   debugMessage:
@@ -300,6 +313,7 @@ export default function ICloudBackup() {
               iOSQueryAllRecords
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevAndroidListAllFilesBtn}
               onPress={async () =>
                 Dialog.debugMessage({
                   debugMessage:
@@ -310,6 +324,7 @@ export default function ICloudBackup() {
               androidListAllFiles
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevAndroidGetManifestBtn}
               onPress={async () =>
                 Dialog.debugMessage({
                   debugMessage:
@@ -320,6 +335,9 @@ export default function ICloudBackup() {
               androidGetManifest
             </Button>
             <Button
+              testID={
+                OnboardingTestIDs.iCloudBackupDevAndroidGetLegacyMetaDataBtn
+              }
               onPress={async () =>
                 Dialog.debugMessage({
                   debugMessage:
@@ -330,6 +348,9 @@ export default function ICloudBackup() {
               androidGetLegacyMetaData
             </Button>
             <Button
+              testID={
+                OnboardingTestIDs.iCloudBackupDevAndroidGetManifestFileObjectBtn
+              }
               onPress={async () =>
                 Dialog.debugMessage({
                   debugMessage:
@@ -340,6 +361,9 @@ export default function ICloudBackup() {
               androidGetManifestFileObject
             </Button>
             <Button
+              testID={
+                OnboardingTestIDs.iCloudBackupDevAndroidRemoveManifestFileBtn
+              }
               variant="destructive"
               onPress={async () => {
                 Dialog.show({
@@ -358,6 +382,7 @@ export default function ICloudBackup() {
               androidRemoveManifestFile
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevBackupNowToDetailBtn}
               onPress={async () => {
                 await startBackup({
                   alwaysGoToBackupDetail: true,
@@ -367,6 +392,7 @@ export default function ICloudBackup() {
               BackupNow(ToDetailPage)
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevBackupNowBtn}
               onPress={async () => {
                 await startBackup();
               }}
@@ -374,6 +400,7 @@ export default function ICloudBackup() {
               BackupNow
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevGetCloudAccountInfoBtn}
               onPress={async () => {
                 const info =
                   await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
@@ -385,6 +412,7 @@ export default function ICloudBackup() {
               GetCloudAccountInfo
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDevRemoveAllBackupsBtn}
               variant="destructive"
               onPress={async () => {
                 const data =
@@ -437,7 +465,10 @@ export default function ICloudBackup() {
             >
               Remove All Backups
             </Button>
-            <Button onPress={handleOpenLegacyBackups}>
+            <Button
+              testID={OnboardingTestIDs.iCloudBackupDevOpenLegacyBackupsBtn}
+              onPress={handleOpenLegacyBackups}
+            >
               {intl.formatMessage({
                 id: ETranslations.view_older_backups,
               })}

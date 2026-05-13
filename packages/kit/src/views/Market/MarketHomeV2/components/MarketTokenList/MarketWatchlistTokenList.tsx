@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
+import { MarketTestIDs } from '../../../testIDs';
 import { MarketRecommendList } from '../MarketRecommendList';
 
 import { InlineActionBar } from './components/InlineActionBar';
@@ -343,6 +344,7 @@ function MarketWatchlistTokenList({
 
   return (
     <MarketTokenListBase
+      testID={MarketTestIDs.watchList}
       onItemPress={onItemPress}
       toolbar={toolbar || (hidePerps ? undefined : categorySelector)}
       result={filteredResult}

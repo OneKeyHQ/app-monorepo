@@ -40,6 +40,7 @@ import {
 
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
+import { PerpTestIDs } from '../../testIDs';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 import { showHyperliquidTermsDialog } from '../HyperliquidTerms';
 
@@ -204,7 +205,13 @@ export function PerpTradingButton({
   }, [isAccountLoading, isLong, themeVariant]);
 
   const createAddressButtonRender = useCallback((props: IButtonProps) => {
-    return <Button {...sharedButtonProps} {...props} />;
+    return (
+      <Button
+        testID="perp-create-address-btn"
+        {...sharedButtonProps}
+        {...props}
+      />
+    );
   }, []);
 
   const getTpslErrorMessage = useCallback(
@@ -278,7 +285,7 @@ export function PerpTradingButton({
 
   if (loading || perpsAccountLoading?.selectAccountLoading) {
     return (
-      <Button {...sharedButtonProps} disabled>
+      <Button {...sharedButtonProps} disabled testID="perp-order-confirm-btn">
         <Spinner />
       </Button>
     );
@@ -307,6 +314,7 @@ export function PerpTradingButton({
     return (
       <Button
         {...sharedButtonProps}
+        testID={PerpTestIDs.ConnectWalletButton}
         variant="primary"
         onPress={handleConnectWallet}
       >
@@ -341,6 +349,7 @@ export function PerpTradingButton({
         </XStack>
         <Button
           {...sharedButtonProps}
+          testID={PerpTestIDs.EnableTradingButton}
           variant="primary"
           loading={isAccountLoading}
           onPress={async () => {
@@ -361,6 +370,7 @@ export function PerpTradingButton({
   return (
     <Button
       {...sharedButtonProps}
+      testID={PerpTestIDs.PlaceOrderButton}
       bg={buttonStyles.bg}
       hoverStyle={
         !buttonDisabled && !isSubmitting

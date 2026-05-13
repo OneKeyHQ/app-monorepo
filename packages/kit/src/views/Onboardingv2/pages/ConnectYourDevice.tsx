@@ -86,6 +86,7 @@ import {
   EBluetoothStatus,
   useDesktopBluetoothStatusPolling,
 } from '../hooks/useDeviceConnect';
+import { OnboardingTestIDs } from '../testIDs';
 import {
   getDeviceLabel,
   getForceTransportType,
@@ -513,6 +514,7 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
           </SizableText>
           <YStack gap="$2">
             <Button
+              testID={OnboardingTestIDs.connectYourDeviceTroubleshootingBtn}
               icon="OpenOutline"
               onPress={() => {
                 void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
@@ -521,6 +523,7 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
               {intl.formatMessage({ id: ETranslations.self_troubleshooting })}
             </Button>
             <Button
+              testID={OnboardingTestIDs.connectYourDeviceContactUsBtn}
               icon="HelpSupportOutline"
               onPress={() => {
                 void showIntercom();
@@ -639,7 +642,12 @@ function BluetoothCard({
                 id: ETranslations.device_select_device_popup,
               })}
             </SizableText>
-            <Button variant="primary" mt="$2" onPress={onConnect}>
+            <Button
+              testID={OnboardingTestIDs.connectYourDeviceBluetoothConnectBtn}
+              variant="primary"
+              mt="$2"
+              onPress={onConnect}
+            >
               {intl.formatMessage({
                 id: ETranslations.global_start_connection,
               })}
@@ -916,6 +924,7 @@ function USBOrBLEConnectionIndicator({
                     })}
                   </SizableText>
                   <Button
+                    testID={OnboardingTestIDs.connectYourDeviceUSBConnectBtn}
                     variant="primary"
                     mt="$2"
                     onPress={onConnectWebDevice}
@@ -1183,7 +1192,12 @@ function QRWalletConnect({
       <SizableText color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.qr_connection_re_add })}
       </SizableText>
-      <Button mt="$3" size="large" onPress={handleCreateQRWallet}>
+      <Button
+        testID={OnboardingTestIDs.connectYourDeviceCreateQRWalletBtn}
+        mt="$3"
+        size="large"
+        onPress={handleCreateQRWallet}
+      >
         {intl.formatMessage({ id: ETranslations.qr_connection_cta })}
       </Button>
     </YStack>
@@ -1338,7 +1352,13 @@ function ConnectYourDevicePage({
                     id: ETranslations.global_advanced,
                   })}
                   renderTrigger={
-                    <IconButton variant="tertiary" icon="DotHorOutline" />
+                    <IconButton
+                      testID={
+                        OnboardingTestIDs.connectYourDeviceAdvancedMenuBtn
+                      }
+                      variant="tertiary"
+                      icon="DotHorOutline"
+                    />
                   }
                   renderContent={
                     <QRWalletConnect

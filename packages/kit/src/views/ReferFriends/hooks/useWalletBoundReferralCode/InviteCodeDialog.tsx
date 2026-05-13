@@ -25,6 +25,8 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ReferFriendsTestIDs } from '../../testIDs';
+
 import {
   AllWalletsBoundEmpty,
   AllWalletsUnavailableEmpty,
@@ -289,6 +291,7 @@ export function InviteCodeDialog({
           })}
         </SizableText>
         <Select
+          testID="refer-friends-select"
           title={intl.formatMessage({
             id: ETranslations.referral_select_wallet,
           })}
@@ -370,6 +373,7 @@ export function InviteCodeDialog({
             }}
           >
             <Input
+              testID={ReferFriendsTestIDs.referralCodeInput}
               placeholder={intl.formatMessage({
                 id: ETranslations.referral_wallet_code_placeholder,
               })}

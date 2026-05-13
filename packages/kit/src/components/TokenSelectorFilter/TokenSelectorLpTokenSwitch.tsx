@@ -42,6 +42,7 @@ function BasicTokenSelectorLpTokenSwitch({
         {displayLabel}
       </SizableText>
       <Switch
+        testID="token-selector-lp-token-switch"
         size={ESwitchSize.extraSmall}
         value={value}
         onChange={onChange}

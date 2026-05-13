@@ -22,6 +22,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
+import { ReferFriendsTestIDs } from '../../../testIDs';
+
 interface IInvitedByFriendActionsProps {
   referralCode: string;
   page?: string;
@@ -136,6 +138,7 @@ function WebWalletOptions({
 
       <XStack px="$4" py="$4">
         <Button
+          testID={ReferFriendsTestIDs.webOptionsCancelBtn}
           variant="secondary"
           w="100%"
           $md={{ size: 'large' }}
@@ -225,6 +228,7 @@ function InvitedByFriendActions({
       bg="$bgApp"
     >
       <Button
+        testID={ReferFriendsTestIDs.cancelBtn}
         variant="secondary"
         $md={{ flex: 1, flexBasis: 0, size: 'large' }}
         onPress={handleCancel}
@@ -233,6 +237,7 @@ function InvitedByFriendActions({
         {intl.formatMessage({ id: ETranslations.global_cancel })}
       </Button>
       <Button
+        testID={ReferFriendsTestIDs.acceptBtn}
         variant="primary"
         $md={{ flex: 1, flexBasis: 0, size: 'large' }}
         onPress={handleJoin}

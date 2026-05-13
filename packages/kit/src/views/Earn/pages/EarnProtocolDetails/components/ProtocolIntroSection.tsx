@@ -28,6 +28,7 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { EarnTestIDs } from '@onekeyhq/kit/src/views/Earn/testIDs';
 import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -579,6 +580,7 @@ function SocialLinkButton({ link }: { link: IEarnProtocolIntroSocialLink }) {
 
   return (
     <Button
+      testID={EarnTestIDs.protocolIntroLinkButton(title)}
       size="medium"
       variant="tertiary"
       borderRadius="$full"
@@ -1407,6 +1409,9 @@ function AuditAccordionItem({
               )}
               {url ? (
                 <Button
+                  testID={EarnTestIDs.protocolIntroAuditButton(
+                    getText(audit.button?.title) || '',
+                  )}
                   size="small"
                   variant="secondary"
                   borderRadius="$full"

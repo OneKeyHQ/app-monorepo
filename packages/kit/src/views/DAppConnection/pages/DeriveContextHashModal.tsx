@@ -32,6 +32,7 @@ import {
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
+import { DAppConnectionTestIDs } from '../testIDs';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
@@ -270,6 +271,9 @@ function DeriveContextHashModal() {
                   editable={false}
                   numberOfLines={8}
                   value={payload?.context ?? ''}
+                  testID={
+                    DAppConnectionTestIDs.DeriveContextHashContextTextArea
+                  }
                 />
               </Stack>
 

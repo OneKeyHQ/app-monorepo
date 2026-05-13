@@ -16,6 +16,7 @@ import { onHomePageRefresh } from '../components/PullToRefresh';
 import { ReceiveInfo } from '../components/ReceiveInfo';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
+import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
@@ -130,7 +131,7 @@ function BaseHomeHeaderContainer() {
         }}
       >
         <Stack
-          testID="Wallet-Tab-Header"
+          testID={HomeTestIDs.headerContainer}
           gap="$5"
           pt="$5"
           $gtMd={{

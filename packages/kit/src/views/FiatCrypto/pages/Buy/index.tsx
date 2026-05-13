@@ -27,6 +27,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { SellOrBuyContent } from '../../components/SellOrBuy';
 import { TokenDataContainer } from '../../components/TokenDataContainer';
+import { FiatCryptoTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 import type NativePagerView from 'react-native-pager-view';
@@ -113,6 +114,7 @@ const BuyPage = () => {
   const renderHeaderTitle = useCallback(
     () => (
       <SegmentControl
+        testID={FiatCryptoTestIDs.segmentControl}
         value={activeTab}
         onChange={handleTabChange}
         options={segmentOptions}

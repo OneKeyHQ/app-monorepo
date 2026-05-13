@@ -227,6 +227,8 @@ const ListItemText = (props: IListItemTextProps) => {
 
 /* IconButton */
 const ListItemIconButton = (props: IIconButtonProps) => (
+  // testID flows through {...props}.
+  // oxlint-disable-next-line onekey/require-testid
   <IconButton variant="tertiary" size="medium" {...props} />
 );
 

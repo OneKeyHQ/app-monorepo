@@ -283,6 +283,7 @@ export function DeviceNotFoundDialogContent() {
   return (
     <YStack gap="$2">
       <Button
+        testID="hardware-ui-troubleshooting-btn"
         onPress={() => {
           void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
         }}
@@ -292,6 +293,7 @@ export function DeviceNotFoundDialogContent() {
         {intl.formatMessage({ id: ETranslations.self_troubleshooting })}
       </Button>
       <Button
+        testID="hardware-ui-contact-us-btn"
         onPress={() => {
           void showIntercom();
         }}

@@ -27,6 +27,7 @@ import deviceUtils, {
 } from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
 const NEVER_LOCK_VALUE = 268_435_456;
@@ -65,6 +66,7 @@ export function LanguageListItem({
         id: ETranslations.global_language,
       })}
       disabled={stateful.loading}
+      testID={DeviceManagementTestIDs.languageSelect}
       renderTrigger={() => (
         <ListItem
           mx="$0"
@@ -138,6 +140,7 @@ export function AutoLockListItem({
         id: ETranslations.global_auto_lock,
       })}
       disabled={stateful.loading}
+      testID={DeviceManagementTestIDs.autoLockSelect}
       renderTrigger={() => (
         <ListItem
           mx="$0"
@@ -213,6 +216,7 @@ export function AutoShutDownListItem({
         id: ETranslations.global_auto_shutdown,
       })}
       disabled={stateful.loading}
+      testID={DeviceManagementTestIDs.autoShutDownSelect}
       renderTrigger={() => (
         <ListItem
           mx="$0"
@@ -272,6 +276,7 @@ export function HapticFeedbackListItem() {
           value={value}
           onChange={onChange}
           disabled={disabled}
+          testID={DeviceManagementTestIDs.hapticFeedbackSwitch}
         />
       )}
     </ListItem.StatefulItem>
@@ -471,6 +476,7 @@ function DeviceSectionGeneral() {
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressHomescreen}
+        testID={DeviceManagementTestIDs.wallpaperItem}
       />
       {showBrightness ? (
         <ListItem
@@ -481,6 +487,7 @@ function DeviceSectionGeneral() {
           titleProps={{ size: '$bodyMdMedium', color: '$text' }}
           drillIn
           onPress={onPressBrightness}
+          testID={DeviceManagementTestIDs.brightnessItem}
         />
       ) : null}
       {showAutoLock ? (

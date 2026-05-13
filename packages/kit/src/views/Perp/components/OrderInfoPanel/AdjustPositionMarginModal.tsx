@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
@@ -214,6 +215,7 @@ const AdjustPositionMarginForm = memo(
 
     const customSuffix = (
       <Select
+        testID="perp-custom-suffix-select"
         items={selectItems}
         value={action}
         onChange={handleActionChange}
@@ -332,6 +334,7 @@ const AdjustPositionMarginForm = memo(
 
         <TradingGuardWrapper>
           <Button
+            testID="perp-btn"
             size="medium"
             variant="primary"
             onPress={handleSubmit}
@@ -369,6 +372,7 @@ export function showAdjustPositionMarginDialog({
         />
       </PerpsProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

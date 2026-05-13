@@ -19,6 +19,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { showUpdateHardwareWalletLegacyXfpDialog } from '../../../Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
+import { AccountManagerTestIDs } from '../../testIDs';
 
 export function useAccountRenameMethod({
   name,
@@ -39,6 +40,8 @@ export function useAccountRenameMethod({
       intl,
       disabledMaxLengthLabel: true,
       indexedAccount,
+      inputTestID: AccountManagerTestIDs.accountRenameInput,
+      confirmTestID: AccountManagerTestIDs.accountRenameConfirm,
       nameHistoryInfo: {
         entityId: indexedAccount?.id || account?.id || '',
         entityType: indexedAccount?.id

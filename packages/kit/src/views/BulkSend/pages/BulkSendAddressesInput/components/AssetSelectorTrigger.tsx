@@ -532,7 +532,7 @@ function AssetSelectorTrigger({
         onPress={handleSelectAsset}
       >
         {media.gtMd ? (
-          <Button size="small" variant="secondary">
+          <Button size="small" variant="secondary" testID="bulk-send-btn">
             {intl.formatMessage({
               id: ETranslations.send_to_contacts_selector_account_title,
             })}
