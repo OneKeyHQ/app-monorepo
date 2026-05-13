@@ -42,4 +42,10 @@ export const MarketTestIDs = {
 
   // Token selector row
   tokenSelectorRowStarBtn: 'market-token-selector-row-star-btn',
+
+  // List row trade actions (MarketListTradeButton)
+  listConnectBtn: 'market-list-connect-btn',
+  listTradeBtn: 'market-list-trade-btn',
+  listBuyBtn: 'market-list-buy-btn',
+  listEarnBtn: 'market-list-earn-btn',
 } as const;

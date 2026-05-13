@@ -537,11 +537,13 @@ function SocialButton({
   url,
   text,
   openInApp = false,
+  testID,
 }: {
   icon: IKeyOfIcons;
   url: string;
   text: string;
   openInApp?: boolean;
+  testID?: string;
 }) {
   const isTabNavigator = useIsTabNavigator();
   const buttonSize = isTabNavigator ? undefined : '$14';
@@ -557,7 +559,7 @@ function SocialButton({
     <Tooltip
       renderTrigger={
         <IconButton
-          testID="setting-on-press-icon-btn"
+          testID={testID}
           w={buttonSize}
           h={buttonSize}
           bg="$bgSubdued"
@@ -587,7 +589,7 @@ function SupportButton({ text }: { text: string }) {
     <Tooltip
       renderTrigger={
         <IconButton
-          testID="setting-on-press-icon-btn"
+          testID={SettingTestIDs.socialSupportBtn}
           bg="$bgSubdued"
           w={buttonSize}
           h={buttonSize}
@@ -689,16 +691,19 @@ export function SocialButtonGroup() {
           text={intl.formatMessage({
             id: ETranslations.global_official_website,
           })}
+          testID={SettingTestIDs.socialOnekeyWebsiteBtn}
         />
         <SocialButton
           icon="Xbrand"
           url={twitterFollowUrl}
           text={intl.formatMessage({ id: ETranslations.global_x })}
+          testID={SettingTestIDs.socialXBtn}
         />
         <SocialButton
           icon="GithubBrand"
           url={GITHUB_URL}
           text={intl.formatMessage({ id: ETranslations.global_github })}
+          testID={SettingTestIDs.socialGithubBtn}
         />
         <SupportButton
           text={intl.formatMessage({

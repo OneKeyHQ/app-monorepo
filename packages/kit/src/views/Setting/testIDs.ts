@@ -55,4 +55,10 @@ export const SettingTestIDs = {
   apiEndpointEnabledSwitch: 'setting-api-endpoint-enabled-switch',
   apiEndpointCancelButton: 'setting-api-endpoint-cancel-btn',
   apiEndpointSaveButton: 'setting-api-endpoint-save-btn',
+
+  // Social button group (SocialButtonGroup)
+  socialOnekeyWebsiteBtn: 'setting-social-onekey-website-btn',
+  socialXBtn: 'setting-social-x-btn',
+  socialGithubBtn: 'setting-social-github-btn',
+  socialSupportBtn: 'setting-social-support-btn',
 } as const;

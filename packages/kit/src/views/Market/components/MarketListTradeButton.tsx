@@ -12,6 +12,7 @@ import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.const
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorTrigger } from '../../../components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { ReviewControl } from '../../../components/ReviewControl';
+import { MarketTestIDs } from '../testIDs';
 
 import { useLazyMarketTradeActions } from './tradeHook';
 
@@ -74,7 +75,7 @@ export function MarketListTradeButton({
           variant="primary"
           size="small"
           onPress={showAccountSelector}
-          testID="market-on-staking-btn"
+          testID={MarketTestIDs.listConnectBtn}
         >
           {intl.formatMessage({ id: ETranslations.global_connect })}
         </Button>
@@ -84,7 +85,7 @@ export function MarketListTradeButton({
             variant="secondary"
             size="small"
             onPress={onSwap}
-            testID="market-on-staking-btn"
+            testID={MarketTestIDs.listTradeBtn}
           >
             {intl.formatMessage({ id: ETranslations.global_trade })}
           </Button>
@@ -94,7 +95,7 @@ export function MarketListTradeButton({
                 variant="secondary"
                 size="small"
                 onPress={onBuy}
-                testID="market-on-staking-btn"
+                testID={MarketTestIDs.listBuyBtn}
               >
                 {intl.formatMessage({ id: ETranslations.global_buy })}
               </Button>
@@ -105,7 +106,7 @@ export function MarketListTradeButton({
               variant="secondary"
               size="small"
               onPress={onStaking}
-              testID="market-on-staking-btn"
+              testID={MarketTestIDs.listEarnBtn}
             >
               {intl.formatMessage({ id: ETranslations.global_earn })}
             </Button>
