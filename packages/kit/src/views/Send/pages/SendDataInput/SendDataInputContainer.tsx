@@ -1320,7 +1320,7 @@ function SendDataInputContainer() {
               // Only disable for data-step field errors or in-flight validation.
               // handleNavigateToAmountInput still calls form.trigger() as a final
               // guard before navigating.
-              disabled: isNextDisabled || isSubmitting,
+              disabled: isNextDisabled,
             }}
           />
         </Page.Footer>
