@@ -14,8 +14,9 @@ import {
   Divider,
   Icon,
   IconButton,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   Page,
-  ScrollView,
   Select,
   SizableText,
   XStack,
@@ -189,6 +190,11 @@ export interface IOnboardingPageProps extends IPageProps {
   alignTop?: boolean;
   narrow?: boolean;
   backgroundLayer?: React.ReactNode;
+  /**
+   * Extra offset above the keyboard. Increase when a Page.Footer is rendered
+   * so the focused input clears the footer area, not just the keyboard.
+   */
+  keyboardBottomOffset?: number;
   children: React.ReactNode;
 }
 
@@ -202,6 +208,7 @@ export function OnboardingPage({
   alignTop = false,
   narrow = false,
   backgroundLayer,
+  keyboardBottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   children,
   ...pageProps
 }: IOnboardingPageProps) {
@@ -265,9 +272,14 @@ export function OnboardingPage({
         {showLanguageSelector ? <LayoutHeaderLanguageSelector /> : null}
       </LayoutHeader>
       {scrollable ? (
-        <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        <Keyboard.AwareScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={keyboardBottomOffset}
+        >
           {contentArea}
-        </ScrollView>
+        </Keyboard.AwareScrollView>
       ) : (
         contentArea
       )}
