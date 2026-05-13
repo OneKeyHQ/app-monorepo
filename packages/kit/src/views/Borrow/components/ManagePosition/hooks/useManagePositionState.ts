@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { isBorrowRepayAllAmount } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -100,11 +101,11 @@ export function useManagePositionState(props: IManagePositionProps): {
 
   const isRepayAll = useMemo(() => {
     if (props.action !== 'repay') return false;
-    const amountBN = new BigNumber(amountValue);
-    const maxAmountBN = new BigNumber(maxAmountValue);
-    if (amountBN.isNaN() || maxAmountBN.isNaN()) return false;
-    return amountBN.gt(0) && amountBN.eq(maxAmountBN);
-  }, [props.action, amountValue, maxAmountValue]);
+    return isBorrowRepayAllAmount({
+      amount: amountValue,
+      debtBalance: props.debtBalance ?? maxAmountValue,
+    });
+  }, [props.action, amountValue, props.debtBalance, maxAmountValue]);
 
   const state: Omit<
     IManagePositionState,
@@ -132,6 +133,7 @@ export function useManagePositionState(props: IManagePositionProps): {
       price,
       balance: props.balance,
       maxBalance: props.maxBalance,
+      debtBalance: props.debtBalance,
       tokenInfo: props.tokenInfo,
       token,
 
@@ -176,6 +178,7 @@ export function useManagePositionState(props: IManagePositionProps): {
       props.decimals,
       props.balance,
       props.maxBalance,
+      props.debtBalance,
       props.tokenInfo,
       props.isDisabled,
       props.isInModalContext,

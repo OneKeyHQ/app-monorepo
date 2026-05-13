@@ -1,7 +1,11 @@
 import BigNumber from 'bignumber.js';
 
 import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
-import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
+import {
+  EBorrowProviderEnum,
+  type IBorrowAsset,
+  type IBorrowBalance,
+} from '@onekeyhq/shared/types/staking';
 
 const collateralRepayProviderAllowlist = new Set<string>([
   EBorrowProviderEnum.Kamino,
@@ -10,6 +14,83 @@ const collateralRepayProviderAllowlist = new Set<string>([
 export function hasPositiveDebtBalance(debtBalance?: string) {
   const debtBalanceBN = new BigNumber(debtBalance || '0');
   return !debtBalanceBN.isNaN() && debtBalanceBN.gt(0);
+}
+
+export function getBorrowBalanceAmount(balance?: Partial<IBorrowBalance>) {
+  return balance?.amount ?? balance?.title?.text ?? '0';
+}
+
+export function getBorrowRepayDebtBalance({
+  selectedAsset,
+  fallbackDebtBalance,
+}: {
+  selectedAsset?: IBorrowAsset | null;
+  fallbackDebtBalance?: string;
+}) {
+  if (selectedAsset) {
+    return getBorrowBalanceAmount(selectedAsset.borrowed);
+  }
+  return fallbackDebtBalance ?? '0';
+}
+
+export function getBorrowRepayWalletBalance({
+  selectedAsset,
+  fallbackWalletBalance,
+}: {
+  selectedAsset?: IBorrowAsset | null;
+  fallbackWalletBalance?: string;
+}) {
+  if (selectedAsset) {
+    if (!selectedAsset.walletBalance) {
+      return {
+        balance: '0',
+        missingWalletBalance: true,
+      };
+    }
+    return {
+      balance: getBorrowBalanceAmount(selectedAsset.walletBalance),
+      missingWalletBalance: false,
+    };
+  }
+
+  return {
+    balance: fallbackWalletBalance ?? '0',
+    missingWalletBalance: false,
+  };
+}
+
+export function getBorrowRepayMaxInputBalance({
+  walletBalance,
+  debtBalance,
+}: {
+  walletBalance?: string;
+  debtBalance?: string;
+}) {
+  const walletBalanceBN = new BigNumber(walletBalance || '0');
+  const debtBalanceBN = new BigNumber(debtBalance || '0');
+
+  if (walletBalanceBN.isNaN() || debtBalanceBN.isNaN()) {
+    return '0';
+  }
+
+  return BigNumber.min(walletBalanceBN, debtBalanceBN).toFixed();
+}
+
+export function isBorrowRepayAllAmount({
+  amount,
+  debtBalance,
+}: {
+  amount: string;
+  debtBalance?: string;
+}) {
+  const amountBN = new BigNumber(amount || '0');
+  const debtBalanceBN = new BigNumber(debtBalance || '0');
+
+  if (amountBN.isNaN() || debtBalanceBN.isNaN()) {
+    return false;
+  }
+
+  return amountBN.gt(0) && debtBalanceBN.gt(0) && amountBN.gte(debtBalanceBN);
 }
 
 export function buildBorrowRepayPositionKey({

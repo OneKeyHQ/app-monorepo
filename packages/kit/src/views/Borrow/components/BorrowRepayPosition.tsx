@@ -51,6 +51,7 @@ import {
   buildBorrowRepayPositionKey,
   getBorrowRepayProgressStep,
   hasPositiveDebtBalance,
+  isBorrowRepayAllAmount,
   isCollateralRepayEnabled,
 } from './borrowRepayPosition.utils';
 import { ManagePosition } from './ManagePosition';
@@ -373,9 +374,10 @@ function RepayWithCollateralForm({
   }, [amountValue, price]);
 
   const isRepayAll = useMemo(() => {
-    const amountBN = new BigNumber(normalizedAmount);
-    const balanceBN = new BigNumber(balance || '0');
-    return amountBN.gt(0) && !balanceBN.isNaN() && amountBN.eq(balanceBN);
+    return isBorrowRepayAllAmount({
+      amount: normalizedAmount,
+      debtBalance: balance,
+    });
   }, [balance, normalizedAmount]);
 
   const hasDebtPosition = useMemo(() => {
@@ -1304,7 +1306,12 @@ export function BorrowRepayPosition({
 
   if (!shouldEnableCollateralRepay) {
     return (
-      <ManagePosition {...props} action="repay" onConfirm={onWalletConfirm} />
+      <ManagePosition
+        {...props}
+        action="repay"
+        debtBalance={debtBalance}
+        onConfirm={onWalletConfirm}
+      />
     );
   }
 
@@ -1338,7 +1345,12 @@ export function BorrowRepayPosition({
       </XStack>
 
       {mode === 'wallet' ? (
-        <ManagePosition {...props} action="repay" onConfirm={onWalletConfirm} />
+        <ManagePosition
+          {...props}
+          action="repay"
+          debtBalance={debtBalance}
+          onConfirm={onWalletConfirm}
+        />
       ) : (
         <RepayWithCollateralForm
           {...props}

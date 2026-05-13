@@ -4,8 +4,11 @@ import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
+  getBorrowRepayMaxInputBalance,
   getBorrowRepayProgressStep,
+  getBorrowRepayWalletBalance,
   hasPositiveDebtBalance,
+  isBorrowRepayAllAmount,
   isCollateralRepayEnabled,
 } from './borrowRepayPosition.utils';
 
@@ -40,6 +43,112 @@ describe('borrowRepayPosition utils', () => {
         collateralAssetCount: 2,
       }),
     ).toBe(false);
+  });
+
+  it('keeps repay max input separate from repayAll debt semantics', () => {
+    expect(
+      getBorrowRepayMaxInputBalance({
+        walletBalance: '5',
+        debtBalance: '10',
+      }),
+    ).toBe('5');
+    expect(isBorrowRepayAllAmount({ amount: '5', debtBalance: '10' })).toBe(
+      false,
+    );
+
+    expect(
+      getBorrowRepayMaxInputBalance({
+        walletBalance: '12',
+        debtBalance: '10',
+      }),
+    ).toBe('10');
+    expect(isBorrowRepayAllAmount({ amount: '10', debtBalance: '10' })).toBe(
+      true,
+    );
+  });
+
+  it('uses selected repay asset wallet balance when present', () => {
+    expect(
+      getBorrowRepayWalletBalance({
+        selectedAsset: {
+          reserveAddress: 'reserve',
+          token: {
+            address: '0xtoken',
+            name: 'Token',
+            symbol: 'TKN',
+            decimals: 6,
+            logoURI: '',
+          },
+          balance: {
+            title: { text: '10' },
+            description: { text: '$10' },
+          },
+          walletBalance: {
+            amount: '3',
+            fiatValue: '3',
+            title: { text: '3' },
+            description: { text: '$3' },
+          },
+          borrowed: {
+            amount: '10',
+            fiatValue: '10',
+            title: { text: '10' },
+            description: { text: '$10' },
+          },
+          supplied: {
+            title: { text: '0' },
+            description: { text: '$0' },
+          },
+          apyDetail: {
+            apy: '0',
+            normal: { text: '0' },
+          },
+        },
+        fallbackWalletBalance: '100',
+      }),
+    ).toEqual({
+      balance: '3',
+      missingWalletBalance: false,
+    });
+  });
+
+  it('fails closed when selected repay asset has no wallet balance', () => {
+    expect(
+      getBorrowRepayWalletBalance({
+        selectedAsset: {
+          reserveAddress: 'reserve',
+          token: {
+            address: '0xtoken',
+            name: 'Token',
+            symbol: 'TKN',
+            decimals: 6,
+            logoURI: '',
+          },
+          balance: {
+            title: { text: '10' },
+            description: { text: '$10' },
+          },
+          borrowed: {
+            amount: '10',
+            fiatValue: '10',
+            title: { text: '10' },
+            description: { text: '$10' },
+          },
+          supplied: {
+            title: { text: '0' },
+            description: { text: '$0' },
+          },
+          apyDetail: {
+            apy: '0',
+            normal: { text: '0' },
+          },
+        },
+        fallbackWalletBalance: '100',
+      }),
+    ).toEqual({
+      balance: '0',
+      missingWalletBalance: true,
+    });
   });
 
   it('invalidates request keys when setup state changes', () => {

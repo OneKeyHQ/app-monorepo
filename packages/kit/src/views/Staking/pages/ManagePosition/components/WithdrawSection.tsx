@@ -10,6 +10,11 @@ import {
   BorrowRepayPosition,
   type IRepayWithCollateralConfirmParams,
 } from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
+import {
+  getBorrowRepayDebtBalance,
+  getBorrowRepayMaxInputBalance,
+  getBorrowRepayWalletBalance,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 import {
   useUniversalBorrowRepay,
@@ -458,30 +463,77 @@ export const WithdrawSection = ({
     [selectedAsset, protocolInfo?.protocolInputDecimals, token?.decimals],
   );
 
+  const effectiveDebtBalance = useMemo(() => {
+    if (borrowAction !== 'repay') {
+      return undefined;
+    }
+    return getBorrowRepayDebtBalance({
+      selectedAsset,
+      fallbackDebtBalance: protocolInfo?.debtBalance,
+    });
+  }, [borrowAction, selectedAsset, protocolInfo?.debtBalance]);
+
+  const selectedRepayWalletBalance = useMemo(() => {
+    if (borrowAction !== 'repay') {
+      return {
+        balance: '0',
+        missingWalletBalance: false,
+      };
+    }
+    return getBorrowRepayWalletBalance({
+      selectedAsset,
+      fallbackWalletBalance: protocolInfo?.activeBalance,
+    });
+  }, [borrowAction, selectedAsset, protocolInfo?.activeBalance]);
+
+  const isMissingSelectedRepayWalletBalance = useMemo(
+    () =>
+      borrowAction === 'repay' &&
+      !!selectedAsset &&
+      selectedRepayWalletBalance.missingWalletBalance,
+    [
+      borrowAction,
+      selectedAsset,
+      selectedRepayWalletBalance.missingWalletBalance,
+    ],
+  );
+
   // Determine the effective balance (from selected asset or default)
   const effectiveBalance = useMemo(() => {
     if (selectedAsset) {
       if (borrowAction === 'repay') {
-        // For repay, use borrowed balance
-        return selectedAsset.borrowed?.title?.text ?? '0';
+        return selectedRepayWalletBalance.balance;
       }
       // For withdraw, use supplied balance
       return selectedAsset.supplied?.title?.text ?? '0';
     }
     return protocolInfo?.activeBalance ?? '0';
-  }, [selectedAsset, borrowAction, protocolInfo?.activeBalance]);
+  }, [
+    selectedAsset,
+    borrowAction,
+    selectedRepayWalletBalance.balance,
+    protocolInfo?.activeBalance,
+  ]);
 
-  // Determine the effective max balance for repay (wallet balance for max button)
+  // Determine the effective max input balance for repay (min of wallet and debt)
   const effectiveMaxBalance = useMemo(() => {
     if (borrowAction !== 'repay') {
       return undefined;
     }
-    // For selected asset, maxBalance is not available, use undefined
     if (selectedAsset) {
-      return undefined;
+      return getBorrowRepayMaxInputBalance({
+        walletBalance: selectedRepayWalletBalance.balance,
+        debtBalance: effectiveDebtBalance,
+      });
     }
     return protocolInfo?.maxRepayBalance;
-  }, [borrowAction, selectedAsset, protocolInfo?.maxRepayBalance]);
+  }, [
+    borrowAction,
+    selectedAsset,
+    selectedRepayWalletBalance.balance,
+    effectiveDebtBalance,
+    protocolInfo?.maxRepayBalance,
+  ]);
 
   const withdrawRequestSymbol = useMemo(
     () => protocolInfo?.symbol || token?.symbol || '',
@@ -861,7 +913,7 @@ export const WithdrawSection = ({
           onWalletConfirm={onBorrowConfirm}
           onRepayWithCollateralConfirm={onBorrowRepayWithCollateralConfirm}
           tokenInfo={tokenInfo}
-          isDisabled={isDisabled}
+          isDisabled={isDisabled || isMissingSelectedRepayWalletBalance}
           approveType={effectiveApproveType}
           currentAllowance={initialAllowanceResult?.allowanceParsed}
           approveTarget={approveTarget}
@@ -880,12 +932,7 @@ export const WithdrawSection = ({
           collateralLoading={!!collateralLoading}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
           needsSetupLut={protocolInfo?.needsSetupLut}
-          debtBalance={
-            protocolInfo?.debtBalance !== undefined
-              ? (selectedAsset?.borrowed?.title?.text ??
-                protocolInfo.debtBalance)
-              : undefined
-          }
+          debtBalance={effectiveDebtBalance}
         />
       );
     } else {
@@ -903,7 +950,7 @@ export const WithdrawSection = ({
           tokenImageUri={effectiveTokenImageUri}
           onConfirm={onBorrowConfirm}
           tokenInfo={tokenInfo}
-          isDisabled={isDisabled}
+          isDisabled={isDisabled || isMissingSelectedRepayWalletBalance}
           borrowMarketAddress={
             borrowApiCtx.borrowApiParams?.marketAddress ?? ''
           }

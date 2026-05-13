@@ -2,8 +2,11 @@ import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
+  isBorrowAllowanceEnough,
+  isBorrowAllowanceZero,
   isBorrowTokenApprovalEnabled,
   isBorrowTokenApprovalRequired,
+  resolveBorrowApprovalActionStep,
 } from './borrowApproval.utils';
 
 import type { IBorrowApproveTarget } from './types';
@@ -103,5 +106,52 @@ describe('borrowApproval utils', () => {
         allowance: '0',
       }),
     ).toBe(false);
+  });
+
+  it('resolves fresh allowance into an explicit approval action step', () => {
+    expect(
+      resolveBorrowApprovalActionStep({
+        enabled: true,
+        amount: '1',
+        allowance: '2',
+        shouldResetUSDT: false,
+      }),
+    ).toBe('submit');
+
+    expect(
+      resolveBorrowApprovalActionStep({
+        enabled: true,
+        amount: '2',
+        allowance: '1',
+        shouldResetUSDT: true,
+      }),
+    ).toBe('resetUSDT');
+
+    expect(
+      resolveBorrowApprovalActionStep({
+        enabled: true,
+        amount: '2',
+        allowance: '0',
+        shouldResetUSDT: true,
+      }),
+    ).toBe('approve');
+
+    expect(
+      resolveBorrowApprovalActionStep({
+        enabled: false,
+        amount: '2',
+        allowance: '0',
+        shouldResetUSDT: false,
+      }),
+    ).toBe('idle');
+  });
+
+  it('checks fresh allowance readiness and USDT reset completion', () => {
+    expect(isBorrowAllowanceEnough({ amount: '1', allowance: '1' })).toBe(true);
+    expect(isBorrowAllowanceEnough({ amount: '1', allowance: '0.5' })).toBe(
+      false,
+    );
+    expect(isBorrowAllowanceZero('0')).toBe(true);
+    expect(isBorrowAllowanceZero('0.1')).toBe(false);
   });
 });

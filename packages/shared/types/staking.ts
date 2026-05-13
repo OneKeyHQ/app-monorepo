@@ -517,7 +517,7 @@ export type IProtocolInfo = {
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;
-  // Max repay balance (debt balance) for repay max button
+  // Max repay input balance. Repay-all debt semantics use debtBalance.
   maxRepayBalance?: string;
   // Debt balance for collateral repay (from debt field in manage page response)
   debtBalance?: string;

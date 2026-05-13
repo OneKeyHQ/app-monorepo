@@ -231,7 +231,7 @@ export const useManagePage = ({
       claimable: managePageData.nums?.claimable,
       // input decimals restriction
       protocolInputDecimals: managePageData.nums?.protocolInputDecimals,
-      // repay max balance (debt balance for max button)
+      // repay max input balance; repay-all debt semantics use debtBalance
       maxRepayBalance: managePageData.repay?.data?.maxBalance,
       // debt balance for collateral repay mode
       debtBalance: managePageData.debt?.data?.balance,

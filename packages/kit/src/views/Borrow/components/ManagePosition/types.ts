@@ -59,6 +59,7 @@ export interface IManagePositionProps {
   // Token info
   balance: string;
   maxBalance?: string;
+  debtBalance?: string;
   tokenSymbol?: string;
   tokenImageUri?: string;
   decimals?: number;
@@ -107,6 +108,7 @@ export interface IManagePositionState {
   price: string;
   balance: string;
   maxBalance?: string;
+  debtBalance?: string;
   tokenInfo?: IEarnTokenInfo;
   token?: IToken;
 
