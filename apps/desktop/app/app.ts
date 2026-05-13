@@ -1969,9 +1969,22 @@ function startCpuWatchdog() {
         if (m.type === 'Tab') {
           seenPids.add(m.pid);
           const history = cpuHistoryByPid.get(m.pid) ?? [];
-          history.push(m.cpu.percentCPUUsage);
+          const cpuPercent = m.cpu.percentCPUUsage;
+          history.push(cpuPercent);
           if (history.length > CPU_WATCHDOG_HISTORY_SIZE) history.shift();
           cpuHistoryByPid.set(m.pid, history);
+
+          // Only log when interesting — keep idle noise out of the log file.
+          if (cpuPercent > 50) {
+            logger.info(
+              `[CPU Watchdog] sample pid=${m.pid} cpu=${cpuPercent.toFixed(
+                1,
+              )}% last3=[${history
+                .slice(-3)
+                .map((v) => v.toFixed(0))
+                .join(',')}]`,
+            );
+          }
 
           // Severe first (precedence) — same cooldown gate, so a single
           // tick at most fires one reason.

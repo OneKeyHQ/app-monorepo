@@ -152,15 +152,15 @@ export function CpuWatchdogDevSettings() {
     />,
     <SectionPressItem
       icon="PerformanceOutline"
-      key="cpuWatchdog-burn-35s"
-      title="CPU Watchdog: Burn 35 s (severe tier, 95% × 30 s)"
-      subtitle="Window freezes ~35 s. Should trigger the severe-tier dialog around the 30 s mark."
+      key="cpuWatchdog-burn-45s"
+      title="CPU Watchdog: Burn 45 s (severe tier, 95% × 30 s)"
+      subtitle="Window freezes ~45 s. Guarantees 3 full 10 s samples > 95% even with worst-case sampler phase; should trigger the severe-tier dialog before the burn ends."
       onPress={() =>
         confirmAndBurn({
-          title: 'Burn renderer CPU for 35 s?',
+          title: 'Burn renderer CPU for 45 s?',
           description:
-            'The window will freeze for ~35 seconds and the severe-tier CPU watchdog dialog should appear. If you have used the dialog within the last 30 minutes, the cooldown will suppress it.',
-          durationMs: 35_000,
+            'The window will freeze for ~45 seconds. Duration is sized to guarantee the severe-tier watchdog fires (3 × 10 s samples > 95 %) regardless of where the burn starts in the sampler cycle. If you have already seen the dialog within the last 30 minutes, the cooldown will suppress it — use Force Severe Dialog instead.',
+          durationMs: 45_000,
         })
       }
     />,
