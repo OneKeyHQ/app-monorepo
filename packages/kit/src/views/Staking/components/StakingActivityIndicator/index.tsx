@@ -58,6 +58,7 @@ const StakingActivityIndicator = ({
           <PendingIndicator num={num} onPress={onPress} />
           {shareUrl && onShare ? (
             <IconButton
+              testID="staking-header-right-icon-btn"
               icon="ShareOutline"
               variant="tertiary"
               size="medium"
@@ -72,6 +73,7 @@ const StakingActivityIndicator = ({
         <XStack gap="$4" alignItems="center">
           {historyAction && onPress ? (
             <Button
+              testID="staking-header-right-btn"
               variant="tertiary"
               size="medium"
               disabled={historyAction.disabled}
@@ -82,6 +84,7 @@ const StakingActivityIndicator = ({
           ) : null}
           {shareUrl && onShare ? (
             <IconButton
+              testID="staking-icon-btn"
               icon="ShareOutline"
               variant="tertiary"
               size="medium"

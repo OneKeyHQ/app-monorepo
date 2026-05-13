@@ -70,6 +70,8 @@ import {
 } from '@onekeyhq/shared/types';
 import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 
+import { WalletAddressTestIDs } from '../../testIDs';
+
 import { WalletAddressContext } from './WalletAddressContext';
 
 import type { IWalletAddressContext } from './WalletAddressContext';
@@ -514,6 +516,7 @@ function WalletAddressContent({
     <Stack flex={1}>
       <Stack px="$5">
         <SearchBar
+          testID={WalletAddressTestIDs.searchBar}
           placeholder={intl.formatMessage({
             id: ETranslations.form_search_network_placeholder,
           })}

@@ -20,6 +20,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EChainSelectorPages, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
+import { WalletAddressTestIDs } from '../../testIDs';
+
 const Content = ({
   walletId,
   accountId,
@@ -50,6 +52,7 @@ const Content = ({
         <Switch
           size="small"
           value={showEnabledNetworksOnlyInCopyAddressPanel}
+          testID={WalletAddressTestIDs.showEnabledOnlySwitch}
           onChange={(value) => {
             setAllNetworksPersist((v) => ({
               ...v,
@@ -59,6 +62,7 @@ const Content = ({
         />
       </ListItem>
       <ListItem
+        testID={WalletAddressTestIDs.enableMoreBtn}
         title={intl.formatMessage({
           id: ETranslations.network_enable_more,
         })}
@@ -107,7 +111,11 @@ function WalletAddressHeaderRight({
       <Popover
         title={intl.formatMessage({ id: ETranslations.global_settings })}
         renderTrigger={
-          <IconButton variant="tertiary" icon="SliderHorOutline" />
+          <IconButton
+            variant="tertiary"
+            icon="SliderHorOutline"
+            testID={WalletAddressTestIDs.settingsPopoverBtn}
+          />
         }
         renderContent={
           <Content

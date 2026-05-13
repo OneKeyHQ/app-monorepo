@@ -13,6 +13,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
 import { useFirmwareChangeDialog } from './dialog/DialogFirmwareChange';
@@ -89,6 +90,7 @@ function DeviceSectionDangerZone({
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressFirmwareTypeChange}
+        testID={DeviceManagementTestIDs.switchFirmwareTypeItem}
       />
     );
   }, [
@@ -126,6 +128,7 @@ function DeviceSectionDangerZone({
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressWipeDevice}
+        testID={DeviceManagementTestIDs.wipeDeviceItem}
       />
     </ListItemGroup>
   );

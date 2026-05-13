@@ -37,7 +37,12 @@ function BasicRiskApprovalAlert() {
   }
 
   return (
-    <Stack pt="$2" px="$pagePadding" bg="$bgApp">
+    <Stack
+      testID="home-risk-approval-alert"
+      pt="$2"
+      px="$pagePadding"
+      bg="$bgApp"
+    >
       <Alert
         type="warning"
         icon="ShieldCheckDoneOutline"

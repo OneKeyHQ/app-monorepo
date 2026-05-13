@@ -252,7 +252,12 @@ const SwapHistoryListModal = ({
 
   const historyTypeTrigger = useMemo(
     () => (
-      <XStack alignItems="center" gap="$1" cursor="pointer">
+      <XStack
+        testID="swap-render-header-title-select"
+        alignItems="center"
+        gap="$1"
+        cursor="pointer"
+      >
         <SizableText size="$headingLg">{historyTypeTitle}</SizableText>
         {showHistoryInfoDot ? (
           <Stack
@@ -477,7 +482,7 @@ const SwapHistoryListModal = ({
             },
           ]}
           renderTrigger={
-            <Button variant="tertiary">
+            <Button variant="tertiary" testID="swap-btn">
               {intl.formatMessage({ id: ETranslations.global_clear })}
             </Button>
           }

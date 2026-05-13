@@ -35,6 +35,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAddressNetworkItem } from '@onekeyhq/kit/src/views/AddressBook/type';
+import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import type {
   IDBIndexedAccount,
   IDBUtxoAccount,
@@ -662,6 +663,7 @@ function AccountRecipients({
               gap="$2"
             >
               <Button
+                testID={SendTestIDs.recipientQuickSelectWalletToggle}
                 size="small"
                 variant="tertiary"
                 flexShrink={1}
@@ -718,6 +720,7 @@ function AccountRecipients({
                   }))}
                   renderTrigger={
                     <Button
+                      testID={SendTestIDs.recipientQuickSelectNetworkTrigger}
                       size="small"
                       variant="tertiary"
                       flexShrink={0}

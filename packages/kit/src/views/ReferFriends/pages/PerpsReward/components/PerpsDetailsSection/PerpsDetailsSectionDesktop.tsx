@@ -64,6 +64,7 @@ export function PerpsDetailsSectionDesktop({
                   })}
                 </SizableText>
                 <Switch
+                  testID="refer-friends-switch"
                   size="small"
                   value={hideZeroVolume}
                   onChange={onHideZeroVolumeChange}

@@ -9,6 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 
@@ -84,7 +85,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         color="$textSubdued"
         flex={1}
         numberOfLines={1}
-        testID="explore-index-search"
+        testID={DiscoveryTestIDs.searchBar}
       >
         {displayUrl
           ? hiddenHttpsUrl

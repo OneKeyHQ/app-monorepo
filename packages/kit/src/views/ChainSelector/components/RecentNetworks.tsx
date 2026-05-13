@@ -41,6 +41,7 @@ function RecentNetworkItem({
   }, [onPressItem, network]);
   return (
     <Button
+      testID="chain-selector-handle-press-btn"
       onPress={handlePress}
       size="small"
       variant="secondary"
@@ -184,6 +185,7 @@ function RecentNetworks({
       >
         <XStack justifyContent="flex-end" flex={1}>
           <IconButton
+            testID="chain-selector-fn-icon-btn"
             size="small"
             variant="tertiary"
             icon="DeleteOutline"

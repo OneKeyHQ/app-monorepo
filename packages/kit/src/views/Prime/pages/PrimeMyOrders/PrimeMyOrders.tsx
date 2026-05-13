@@ -134,6 +134,7 @@ export default function PrimeMyOrders() {
                   {item.orderNumber}
                 </SizableText>
                 <IconButton
+                  testID="prime-icon-btn"
                   icon="Copy3Outline"
                   size="small"
                   variant="tertiary"
@@ -172,6 +173,7 @@ export default function PrimeMyOrders() {
           {/* Action: Details button (desktop) or Chevron (mobile) */}
           {gtMd ? (
             <Button
+              testID="prime-btn"
               variant="primary"
               size="small"
               iconAfter="OpenOutline"
@@ -181,6 +183,7 @@ export default function PrimeMyOrders() {
             </Button>
           ) : (
             <IconButton
+              testID="prime-icon-btn"
               icon="OpenOutline"
               size="small"
               variant="tertiary"
@@ -256,6 +259,7 @@ export default function PrimeMyOrders() {
               {gtMd ? (
                 <XStack gap="$4">
                   <Button
+                    testID="prime-btn"
                     variant="primary"
                     borderRadius="$full"
                     onPress={handleFindMyOrder}
@@ -265,6 +269,7 @@ export default function PrimeMyOrders() {
                     })}
                   </Button>
                   <Button
+                    testID="prime-btn"
                     variant="secondary"
                     borderRadius="$full"
                     onPress={handleBuyOneKey}
@@ -278,6 +283,7 @@ export default function PrimeMyOrders() {
               ) : (
                 <>
                   <Button
+                    testID="prime-btn"
                     variant="primary"
                     borderRadius="$full"
                     onPress={handleFindMyOrder}

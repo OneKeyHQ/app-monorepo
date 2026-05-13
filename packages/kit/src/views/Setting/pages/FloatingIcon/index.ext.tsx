@@ -37,6 +37,7 @@ function FloatingIconModal() {
               })}
             </SizableText>
             <Switch
+              testID="setting-intl-switch"
               size={ESwitchSize.large}
               value={settings.isFloatingIconAlwaysDisplay}
               onChange={async (value) => {

@@ -38,6 +38,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
+import { AccountManagerTestIDs } from '../../../testIDs';
 
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
@@ -407,7 +408,7 @@ export function AccountSelectorWalletListSideBar({
 
   return (
     <Stack
-      testID="account-selector-wallet-list"
+      testID={AccountManagerTestIDs.walletList}
       w="$24"
       $gtMd={{
         w: '$32',

@@ -28,6 +28,7 @@ import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+import { SendTestIDs } from '../../testIDs';
 
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
@@ -146,7 +147,7 @@ function SendConfirmContainer() {
   const renderSendConfirmView = useCallback(
     () => (
       <>
-        <Page.Body testID="tx-confirmation-body">
+        <Page.Body testID={SendTestIDs.confirmPage}>
           <Stack>
             {sendFeeStatus.errMessage ? (
               <Alert

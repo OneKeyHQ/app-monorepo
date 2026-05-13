@@ -7,6 +7,7 @@ import { switchWebDappMode } from '@onekeyhq/shared/src/utils/devModeUtils';
 
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { showDevOnlyPasswordDialog } from '../pages/Tab/DevSettingsSection';
+import { SettingTestIDs } from '../testIDs';
 
 import {
   cacheDevOnlyPassword,
@@ -35,7 +36,7 @@ const showPromoteDialog = async () =>
         'Are you sure you want to enable developer-related features?',
       dismissOnOverlayPress: false,
       confirmButtonProps: {
-        testID: 'confirm-button',
+        testID: SettingTestIDs.confirmButton,
       },
       onConfirm: resolve,
       onCancel: (close) => {
@@ -55,7 +56,7 @@ export const showDevModePasswordDialog = async () => {
         'Developer mode is for development only and may cause data loss. Do NOT enable if unsure.',
       dismissOnOverlayPress: false,
       confirmButtonProps: {
-        testID: 'confirm-button',
+        testID: SettingTestIDs.confirmButton,
       },
       renderContent: (
         <Dialog.Form
@@ -78,7 +79,10 @@ export const showDevModePasswordDialog = async () => {
               required: { value: true, message: 'password is required.' },
             }}
           >
-            <Input placeholder="Please enter the dev mode password." />
+            <Input
+              placeholder="Please enter the dev mode password."
+              testID="setting-input"
+            />
           </Dialog.FormField>
         </Dialog.Form>
       ),
@@ -134,7 +138,7 @@ export const handleOpenDevMode = async (callback: () => void) => {
         await backgroundApiProxy.servicePassword.promptPasswordVerify({
           dialogProps: {
             confirmButtonProps: {
-              testID: 'confirm-button',
+              testID: SettingTestIDs.confirmButton,
             },
             description:
               'Danger Zone: Are you sure you want to enable developer-related features?',

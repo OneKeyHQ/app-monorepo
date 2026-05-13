@@ -30,6 +30,10 @@ export type ITokenListItemProps = {
   showNetworkIcon?: boolean;
   withAggregateBadge?: boolean;
   showProcessingState?: boolean;
+  // Caller-supplied scene prefix so this shared component produces unique
+  // selectors per scene (Home, AssetList, TokenSelector, ...) instead of
+  // always emitting `home-token-item-*` regardless of context.
+  testIDPrefix?: string;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
@@ -47,8 +51,17 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     showNetworkIcon,
     withAggregateBadge,
     showProcessingState,
+    testIDPrefix,
     ...rest
   } = props;
+
+  // Use networkId + symbol so multi-network duplicates (e.g. USDC on Ethereum
+  // vs Polygon) get distinct selectors. Fall back to `$key` when either
+  // component is missing — `$key` is the canonical unique token identifier.
+  const resolvedTestIDPrefix = testIDPrefix ?? 'home-token-item';
+  const networkIdPart = token.networkId ?? 'any';
+  const symbolPart = token.symbol ?? token.$key ?? 'unknown';
+  const resolvedTestID = `${resolvedTestIDPrefix}-${networkIdPart}-${symbolPart}`;
 
   const [processingTokenState] = useProcessingTokenStateAtom();
 
@@ -275,6 +288,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   return (
     <ListItem
       key={token.name}
+      testID={resolvedTestID}
       userSelect="none"
       onPress={() => {
         onPress?.(token);

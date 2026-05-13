@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -72,6 +72,13 @@ export function PerpMarketWorkspacePanel({
     string | undefined
   >();
 
+  const handleChangeActiveView = useCallback(
+    (view: IPerpMarketWorkspaceView) => {
+      setActiveView(view);
+    },
+    [],
+  );
+
   useEffect(() => {
     if (activeView !== 'chart') {
       setLayoutState((prev) =>
@@ -107,7 +114,7 @@ export function PerpMarketWorkspacePanel({
             key={item.key}
             active={activeView === item.key}
             label={intl.formatMessage({ id: item.translationId })}
-            onPress={() => setActiveView(item.key)}
+            onPress={() => handleChangeActiveView(item.key)}
           />
         ))}
       </XStack>

@@ -6,8 +6,8 @@ import {
   btcFeeTier,
   chainAddress,
   chainId,
-  ethAddress,
   humanAmount,
+  tokenId,
 } from './common';
 
 export const transferInputSchema = z.object({
@@ -15,9 +15,11 @@ export const transferInputSchema = z.object({
   amount: humanAmount.describe(
     'Human-readable amount to send. Internally converted to smallest unit for transaction encoding.',
   ),
-  token: ethAddress
+  token: tokenId
     .optional()
-    .describe('ERC-20 contract address. Omit for native token.'),
+    .describe(
+      'Token contract / mint address (chain-specific format validated after --chain is resolved). Omit for native token.',
+    ),
   chain: chainId.optional().describe('Target chain. Defaults to last used.'),
   addressType: btcAddressType
     .optional()

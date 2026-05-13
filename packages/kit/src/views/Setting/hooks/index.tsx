@@ -13,6 +13,7 @@ import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { SettingTestIDs } from '../testIDs';
 
 export { useLanguageSelector } from './useLanguageSelector';
 export { useLocaleOptions } from './useLocaleOptions';
@@ -98,7 +99,7 @@ export function useResetApp(
             <Input
               autoFocus
               flex={1}
-              testID="erase-data-input"
+              testID={SettingTestIDs.eraseDataInput}
               placeholder="RESET"
             />
           </Dialog.FormField>
@@ -113,7 +114,7 @@ export function useResetApp(
           }
           return true;
         },
-        testID: 'erase-data-confirm',
+        testID: SettingTestIDs.eraseDataConfirm,
       },
       onConfirm: async () => {
         defaultLogger.setting.page.resetApp({

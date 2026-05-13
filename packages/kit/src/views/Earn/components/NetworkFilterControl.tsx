@@ -15,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EarnTestIDs } from '@onekeyhq/kit/src/views/Earn/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface INetworkFilterControlProps {
@@ -118,7 +119,12 @@ function NetworkFilterControl({
               {intl.formatMessage({ id: ETranslations.global_networks })}
             </SizableText>
             {selectedNetworkIds.length > 0 ? (
-              <Button variant="tertiary" size="small" onPress={handleReset}>
+              <Button
+                testID={EarnTestIDs.networkFilterResetButton}
+                variant="tertiary"
+                size="small"
+                onPress={handleReset}
+              >
                 {intl.formatMessage({ id: ETranslations.global_reset })}
               </Button>
             ) : null}
@@ -137,6 +143,7 @@ function NetworkFilterControl({
                   cursor="pointer"
                 >
                   <Checkbox
+                    testID={EarnTestIDs.networkFilterCheckbox(network.id)}
                     value={isSelected}
                     onChange={() => toggleNetwork(network.id)}
                     containerProps={{ py: '$0', flexShrink: 0 }}

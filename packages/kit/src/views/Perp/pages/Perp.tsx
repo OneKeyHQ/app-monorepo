@@ -35,6 +35,7 @@ import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import { PerpTestIDs } from '../testIDs';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
 
@@ -112,7 +113,7 @@ function PerpContent() {
           <PerpsActivityCenterAction size="small" copyAsUrl />
           {gtMd ? <PerpGuidePopover /> : null}
           <PerpSettingsButton
-            testID="perp-header-settings-button"
+            testID={PerpTestIDs.HeaderSettingsButton}
             showGuideEntry={!gtMd}
           />
           <HeaderIconButton

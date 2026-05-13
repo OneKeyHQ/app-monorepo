@@ -55,6 +55,9 @@ export function PrimeDeviceLogoutAlertDialog() {
       <Dialog.Footer
         showCancelButton
         showConfirmButton={false}
+        cancelButtonProps={{
+          testID: 'prime-login-device-logout-dismiss-btn',
+        }}
         onCancelText={intl.formatMessage({
           id: ETranslations.global_got_it,
         })}

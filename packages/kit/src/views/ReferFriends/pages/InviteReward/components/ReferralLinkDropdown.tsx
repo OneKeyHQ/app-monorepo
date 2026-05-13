@@ -34,6 +34,7 @@ export function ReferralLinkDropdown({
   const renderTrigger = useMemo(
     () => (
       <IconButton
+        testID="refer-friends-render-trigger-icon-btn"
         icon="ChevronDownSmallOutline"
         variant="tertiary"
         size="small"

@@ -31,6 +31,7 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { useWebSiteHandler } from '../hooks/useWebSiteHandler';
 import { DappSearchModalSectionHeader } from '../pages/SearchModal/DappSearchModalSectionHeader';
+import { DiscoveryTestIDs } from '../testIDs';
 
 import { DiscoveryIcon } from './DiscoveryIcon';
 
@@ -505,7 +506,7 @@ export function SearchResultContent({
               })}
           bg={searchIndex(index) ? '$bgActive' : undefined}
           onPress={() => handleSearchItemClick(item)}
-          testID={`dapp-search${index}`}
+          testID={DiscoveryTestIDs.dappSearchItem(index)}
         />
       )),
     [handleSearchItemClick, searchIndex],
@@ -621,7 +622,7 @@ export function SearchResultContent({
               subtitleProps={{
                 numberOfLines: 1,
               }}
-              testID={`search-modal-${item.title.toLowerCase()}`}
+              testID={DiscoveryTestIDs.searchModalItem(item.title)}
               bg={historyIndex(index) ? '$bgActive' : undefined}
               onPress={() => handleHistoryItemClick(item)}
             />

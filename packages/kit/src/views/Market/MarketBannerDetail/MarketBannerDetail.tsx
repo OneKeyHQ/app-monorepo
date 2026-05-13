@@ -51,6 +51,7 @@ import {
   transformApiItemToToken,
 } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
+import { MarketTestIDs } from '../testIDs';
 
 import { PerpsTokenListSection } from './PerpsTokenListSection';
 
@@ -98,7 +99,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const renderNotificationButton = useCallback(
     () => (
       <HeaderButtonGroup>
-        <HeaderNotificationIconButton testID="market-banner-detail-notification" />
+        <HeaderNotificationIconButton
+          testID={MarketTestIDs.detailNotificationButton}
+        />
       </HeaderButtonGroup>
     ),
     [],

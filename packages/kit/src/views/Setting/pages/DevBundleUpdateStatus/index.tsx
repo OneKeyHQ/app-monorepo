@@ -436,6 +436,7 @@ function Pipeline({
         </SizableText>
         {onRefresh ? (
           <IconButton
+            testID="setting-pipeline-icon-btn"
             icon="RefreshCcwOutline"
             size="small"
             variant="tertiary"
@@ -489,6 +490,7 @@ function PendingTaskSection({
         </SizableText>
         {onRefresh ? (
           <IconButton
+            testID="setting-icon-btn"
             icon="RefreshCcwOutline"
             size="small"
             variant="tertiary"

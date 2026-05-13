@@ -29,7 +29,7 @@ import {
   renderQuoteTable,
 } from './swap-display-utils';
 import { fetchSwapNetworks } from './swap-networks';
-import { getProtocolConfig } from './swap-protocol-config';
+import { tokenAddressMatchesForNetwork } from './swap-token-address';
 
 import type { IEndpointEnv } from '../../config';
 import type { IAuditSummary } from '../../core';
@@ -502,17 +502,21 @@ export function registerSwapQuoteCommand(parent: Command): void {
           const sourceWalletAddress = btcAddressing.from
             ? btcAddressing.from.address
             : await getWalletAddress(chainConfig.impl, chainConfig.networkId);
+          // Receiving address must belong to the destination chain's address
+          // system. Reusing the source walletAddress is only safe when source
+          // and destination share the same impl (e.g. both EVM). Cross-impl
+          // routes (BTC<->X, EVM<->SOL) must derive a destination-chain wallet
+          // address; mirrors swap-build.
+          const isCrossImplRoute = chainConfig.impl !== toChainConfig.impl;
           const receivingAddress =
             btcAddressing.to?.address ??
-            (btcAddressing.from
+            (isCrossImplRoute
               ? await getWalletAddress(
                   toChainConfig.impl,
                   toChainConfig.networkId,
                 )
               : sourceWalletAddress);
 
-          // Build SSE quote params
-          const _protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
           const quoteParams: Record<string, string | number> = {
             fromTokenAddress: fromResolved.contractAddress,
             toTokenAddress: toResolved.contractAddress,
@@ -582,11 +586,13 @@ export function registerSwapQuoteCommand(parent: Command): void {
                 'API may have returned data for a different token pair',
               );
             }
-            // Also check contractAddress (case-insensitive, empty = native)
             if (
               q.fromTokenInfo?.contractAddress !== undefined &&
-              q.fromTokenInfo.contractAddress.toLowerCase() !==
-                fromResolved.contractAddress.toLowerCase()
+              !tokenAddressMatchesForNetwork(
+                fromResolved.networkId,
+                q.fromTokenInfo.contractAddress,
+                fromResolved.contractAddress,
+              )
             ) {
               throw new AppError(
                 ERROR_CODES.NET_HTTP_ERROR.code,
@@ -596,8 +602,11 @@ export function registerSwapQuoteCommand(parent: Command): void {
             }
             if (
               q.toTokenInfo?.contractAddress !== undefined &&
-              q.toTokenInfo.contractAddress.toLowerCase() !==
-                toResolved.contractAddress.toLowerCase()
+              !tokenAddressMatchesForNetwork(
+                toResolved.networkId,
+                q.toTokenInfo.contractAddress,
+                toResolved.contractAddress,
+              )
             ) {
               throw new AppError(
                 ERROR_CODES.NET_HTTP_ERROR.code,

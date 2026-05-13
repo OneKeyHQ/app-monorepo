@@ -650,7 +650,11 @@ const SwapHistoryDetailModal = () => {
 
   const headerRight = useCallback(
     () => (
-      <Button variant="tertiary" onPress={onDeleteOneHistory}>
+      <Button
+        variant="tertiary"
+        onPress={onDeleteOneHistory}
+        testID="swap-header-right-btn"
+      >
         {intl.formatMessage({ id: ETranslations.global_clear })}
       </Button>
     ),

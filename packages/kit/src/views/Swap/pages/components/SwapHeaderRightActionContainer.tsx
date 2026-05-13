@@ -66,6 +66,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -100,7 +101,11 @@ const SwapSettingsCommonItem = ({
         {content}
       </SizableText>
     </YStack>
-    <Switch value={value} onChange={onChange} />
+    <Switch
+      value={value}
+      onChange={onChange}
+      testID="swap-swap-settings-common-item-switch"
+    />
   </XStack>
 );
 
@@ -213,11 +218,13 @@ const SwapSlippageCustomContent = ({
         <SlippageInput
           swapSlippage={swapSlippage}
           onChangeText={handleSlippageChange}
+          testID={SwapTestIDs.slippageCustomInput}
         />
         <XStack>
           {swapSlippageCustomDefaultList.map((item, index) => (
             <>
               <Button
+                testID="swap-btn"
                 key={item}
                 variant="secondary"
                 size="medium"
@@ -579,6 +586,7 @@ const SwapHeaderRightActionContainer = ({
     <HeaderButtonGroup>
       {slippageTitle ? (
         <XStack
+          testID={SwapTestIDs.settingsButton}
           onPress={onOpenSwapSettings}
           borderRadius="$3"
           bg="$bgSubdued"
@@ -604,6 +612,7 @@ const SwapHeaderRightActionContainer = ({
         </XStack>
       ) : (
         <HeaderIconButton
+          testID={SwapTestIDs.settingsButton}
           icon="SliderHorOutline"
           onPress={onOpenSwapSettings}
           iconProps={{ size: iconSize ?? 20, color: iconColor }}

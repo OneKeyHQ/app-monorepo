@@ -190,6 +190,7 @@ export function HyperliquidTermsContent({
                 gap="$1"
               >
                 <Button
+                  testID="perp-btn"
                   variant="primary"
                   size="medium"
                   w="100%"

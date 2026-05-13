@@ -26,17 +26,20 @@ export function ApiEndpointListItem({
     >
       <Stack flexDirection="row" alignItems="center" gap="$3">
         <Switch
+          testID="setting-api-endpoint-list-item-switch"
           size="small"
           value={config.enabled}
           onChange={(enabled) => onToggleEnabled(config.id, enabled)}
         />
         <IconButton
+          testID="setting-api-endpoint-list-item-icon-btn"
           icon="PencilOutline"
           variant="tertiary"
           size="small"
           onPress={() => onEdit(config)}
         />
         <IconButton
+          testID="setting-api-endpoint-list-item-icon-btn"
           icon="DeleteOutline"
           variant="tertiary"
           size="small"

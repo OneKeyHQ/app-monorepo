@@ -26,6 +26,7 @@ import {
 
 import LimitRateInput from '../../components/LimitRateInput';
 import { useSwapLimitRate } from '../../hooks/useSwapLimitRate';
+import { SwapTestIDs } from '../../testIDs';
 
 const LimitInfoContainer = () => {
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -177,6 +178,7 @@ const LimitInfoContainer = () => {
         </XStack>
       </XStack>
       <LimitRateInput
+        testID={SwapTestIDs.limitPriceInput}
         inputRate={limitPriceUseRate.inputRate}
         onReverseChange={onChangeReverse}
         reverse={limitPriceSetReverse}

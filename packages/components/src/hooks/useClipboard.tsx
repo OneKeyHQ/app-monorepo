@@ -68,6 +68,7 @@ export function useClipboard() {
             }),
             actions: (
               <Button
+                testID="clipboard-go-to-settings-btn"
                 size="small"
                 variant="primary"
                 onPress={handleOpenClipboardSettings}

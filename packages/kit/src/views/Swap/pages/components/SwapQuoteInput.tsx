@@ -18,6 +18,7 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
 import { useSwapQuoteProgressState } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 
 import SwapInputContainer from './SwapInputContainer';
 
@@ -88,6 +89,7 @@ const SwapQuoteInput = ({
         }}
       >
         <IconButton
+          testID={SwapTestIDs.switchTokensButton}
           alignSelf="center"
           bg="$bgApp"
           variant="tertiary"

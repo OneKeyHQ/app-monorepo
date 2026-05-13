@@ -21,6 +21,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { FirmwareUpdateTestIDs } from '../testIDs';
 
 export function FirmwareUpdateCheckList({
   result,
@@ -99,6 +100,7 @@ export function FirmwareUpdateCheckList({
             <Checkbox
               key={item.id}
               value={checked}
+              testID={FirmwareUpdateTestIDs.checklistCheckbox}
               label={checked ? `${item.label} ${item.emoji}` : item.label}
               onChange={() => onCheckChanged(item.id)}
             />

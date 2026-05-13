@@ -34,6 +34,7 @@ import { useEarnAtom } from '../../../states/jotai/contexts/earn';
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { useEarnAccountKey } from '../hooks/useEarnAccountKey';
+import { EarnTestIDs } from '../testIDs';
 import { getNumberColor } from '../utils/getNumberColor';
 
 const Rebate = ({
@@ -293,6 +294,7 @@ const OverviewComponent = ({
 
   return (
     <YStack
+      testID={EarnTestIDs.portfolioOverview}
       gap={8}
       px="$0"
       flex={1}
@@ -327,6 +329,7 @@ const OverviewComponent = ({
             {totalFiatValue}
           </NumberSizeableText>
           <IconButton
+            testID="earn-icon-btn"
             icon="RefreshCcwOutline"
             variant="tertiary"
             loading={isLoading}
@@ -377,6 +380,7 @@ const OverviewComponent = ({
             placement="bottom-start"
             renderTrigger={
               <IconButton
+                testID="earn-icon-btn"
                 variant="tertiary"
                 size="small"
                 icon="InfoCircleOutline"

@@ -74,6 +74,7 @@ import {
   OnboardingPage,
   OnboardingSidebar,
 } from '../components/Layout';
+import { OnboardingTestIDs } from '../testIDs';
 
 type IFormValues = {
   // networkId?: string;
@@ -837,6 +838,7 @@ function SelectPrivateKeyNetworkView() {
             name="accountName"
           >
             <Input
+              testID={OnboardingTestIDs.selectPrivateKeyNetworkAccountNameInput}
               maxLength={MAX_LENGTH_ACCOUNT_NAME}
               placeholder={intl.formatMessage({
                 id: ETranslations.form_enter_account_name_placeholder,
@@ -860,6 +862,7 @@ function SelectPrivateKeyNetworkView() {
 
   const submitButton = (
     <Button
+      testID={OnboardingTestIDs.selectPrivateKeyNetworkSubmitBtn}
       w="100%"
       disabled={submitButtonDisabled}
       loading={submitButtonLoading}
@@ -872,7 +875,10 @@ function SelectPrivateKeyNetworkView() {
   );
 
   return (
-    <OnboardingPage scrollable>
+    <OnboardingPage
+      testID={OnboardingTestIDs.selectPrivateKeyNetworkPage}
+      scrollable
+    >
       <YStack $gtMd={{ flexDirection: 'row' }}>
         <YStack gap="$8" $gtMd={{ flex: 1, gap: '$12' }}>
           <OnboardingHeading>

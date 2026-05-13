@@ -23,6 +23,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -780,11 +781,13 @@ function AddressActions({
       </SizableText>
       <XStack gap={ADDRESS_ACTION_GAP} flexShrink={0}>
         <InteractiveIcon
+          testID={MarketTestIDs.liquidityPoolCopyAddressBtn}
           icon="Copy3Outline"
           onPress={handleCopy}
           size={ADDRESS_ACTION_ICON_SIZE}
         />
         <InteractiveIcon
+          testID={MarketTestIDs.liquidityPoolOpenAddressBtn}
           icon="OpenOutline"
           onPress={handleOpenAddress}
           size={ADDRESS_ACTION_ICON_SIZE}

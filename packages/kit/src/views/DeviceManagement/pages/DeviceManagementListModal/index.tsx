@@ -41,6 +41,7 @@ import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
 import { canOpenDeviceManagementDetails } from '../DeviceDetailsModal/utils';
 import { DeviceGuideView } from '../DeviceGuideModal/DeviceGuideView';
@@ -261,6 +262,7 @@ function DeviceListItem({
       )}
       onPress={canOpenDetails ? () => onPress(item) : undefined}
       drillIn={canOpenDetails}
+      testID={DeviceManagementTestIDs.deviceListItem}
     >
       {isThirdParty ? null : renderItemText}
     </ListItem>
@@ -507,6 +509,7 @@ function DeviceManagementV2ListWeb() {
             confirmButtonProps={{
               icon: 'PlusSmallOutline',
               variant: 'secondary',
+              testID: DeviceManagementTestIDs.addNewDeviceBtn,
             }}
           />
         </Page.Footer>

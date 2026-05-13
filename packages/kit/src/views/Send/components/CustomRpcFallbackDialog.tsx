@@ -38,6 +38,7 @@ function DialogContentWrapper({
         })}
       </SizableText>
       <Checkbox
+        testID="send-intl-checkbox"
         value={setAsDefault}
         label={intl.formatMessage({
           id: ETranslations.transfer_send_onekey_rpc_default,

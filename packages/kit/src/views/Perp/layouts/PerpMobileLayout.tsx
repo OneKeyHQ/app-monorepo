@@ -235,6 +235,7 @@ export function PerpMobileLayout() {
           />
         </XStack>
         <IconButton
+          testID="perp-icon-btn"
           variant="tertiary"
           size="small"
           borderRadius="$full"

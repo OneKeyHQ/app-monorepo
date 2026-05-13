@@ -27,6 +27,7 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
+import { SendTestIDs } from '../../testIDs';
 
 import type { IntlShape } from 'react-intl';
 
@@ -208,6 +209,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
             )}
             labelAddon={
               <Button
+                testID="send-formatted-value-btn"
                 size="small"
                 variant="tertiary"
                 onPress={() => showNonceFaq(intl)}
@@ -218,7 +220,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
               </Button>
             }
           >
-            <Input flex={1} placeholder={currentNonce} />
+            <Input flex={1} placeholder={currentNonce} testID="send-input" />
           </Form.Field>
         ) : null}
         <Form.Field
@@ -228,6 +230,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
           name="data"
           labelAddon={
             <Button
+              testID="send-btn"
               size="small"
               variant="tertiary"
               onPress={() => showHexDataFaq(intl)}
@@ -271,6 +274,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
         <InfoItem
           label={
             <Button
+              testID={SendTestIDs.advancedSettings}
               alignSelf="flex-start"
               variant="tertiary"
               size="small"

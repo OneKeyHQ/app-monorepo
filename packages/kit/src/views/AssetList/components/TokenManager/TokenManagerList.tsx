@@ -27,6 +27,8 @@ import type {
   ICustomTokenItem,
 } from '@onekeyhq/shared/types/token';
 
+import { AssetListTestIDs } from '../../testIDs';
+
 function ListHeaderComponent({
   onAddCustomToken,
 }: {
@@ -36,6 +38,7 @@ function ListHeaderComponent({
 
   return (
     <ListItem
+      testID={AssetListTestIDs.addCustomTokenNavBtn}
       title={intl.formatMessage({
         id: ETranslations.manage_token_custom_token_title,
       })}
@@ -68,6 +71,7 @@ function ListEmptyComponent({
       })}
       button={
         <Button
+          testID={AssetListTestIDs.addCustomTokenBtn}
           mt="$6"
           size="medium"
           variant="primary"
@@ -112,6 +116,7 @@ function ListFooterComponent({
             })}
           </SizableText>
           <Button
+            testID="asset-list-intl-btn"
             mt="$6"
             size="medium"
             variant="primary"
@@ -257,6 +262,7 @@ function TokenManagerList({
             </SizableText>
           </YStack>
           <ListItem.IconButton
+            testID={AssetListTestIDs.tokenManagerToggleBtn}
             disabled={
               !!(
                 checkTokenExistInTokenList(item) &&

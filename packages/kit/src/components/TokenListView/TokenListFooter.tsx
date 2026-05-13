@@ -368,6 +368,7 @@ function TokenListFooter(props: IProps) {
                 })}
                 renderTrigger={
                   <IconButton
+                    testID="token-list-footer-help-btn"
                     size="small"
                     variant="tertiary"
                     icon="QuestionmarkOutline"
@@ -451,6 +452,7 @@ function TokenListFooter(props: IProps) {
             {intl.formatMessage({ id: ETranslations.add_token_instruction })}
           </SizableText>
           <Button
+            testID="token-list-footer-add-token-btn"
             size="small"
             variant="tertiary"
             onPress={handleOnPressManageTokens}

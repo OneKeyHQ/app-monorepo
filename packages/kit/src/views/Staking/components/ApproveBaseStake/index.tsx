@@ -957,6 +957,7 @@ export function ApproveBaseStake({
                 })}
                 renderTrigger={
                   <IconButton
+                    testID="staking-icon-btn"
                     icon="CoinsAddOutline"
                     size="small"
                     variant="tertiary"

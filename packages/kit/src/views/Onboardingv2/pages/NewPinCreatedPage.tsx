@@ -7,6 +7,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingIconBadge, OnboardingPage } from '../components/Layout';
+import { OnboardingTestIDs } from '../testIDs';
 
 function NewPinCreatedPage() {
   const navigation = useAppNavigation();
@@ -45,7 +46,12 @@ function NewPinCreatedPage() {
           })}
         </SizableText>
       </YStack>
-      <Button size="large" onPress={handleClose} maxWidth={320}>
+      <Button
+        testID={OnboardingTestIDs.newPinCreatedCloseBtn}
+        size="large"
+        onPress={handleClose}
+        maxWidth={320}
+      >
         {intl.formatMessage({ id: ETranslations.global_close })}
       </Button>
     </OnboardingPage>

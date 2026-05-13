@@ -89,6 +89,7 @@ function WordItem({
   return (
     <Stack position="relative">
       <Button
+        testID="onboarding-handle-press-btn"
         size="small"
         ref={buttonRef}
         onPress={handlePress}
@@ -558,6 +559,7 @@ export function PhaseInputArea({
           <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
             {showPhraseLengthSelector ? (
               <Select
+                testID="onboarding-handle-change-phrase-length-select"
                 title={intl.formatMessage({
                   id: ETranslations.select_recovery_phrase_length,
                 })}

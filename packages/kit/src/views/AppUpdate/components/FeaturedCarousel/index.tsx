@@ -13,6 +13,7 @@ import Animated, {
 import { Badge, IconButton, LinearGradient, Stack } from '@onekeyhq/components';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChangelog';
 
+import { AppUpdateTestIDs } from '../../testIDs';
 import { FeaturedMedia } from '../FeaturedMedia';
 
 import {
@@ -395,6 +396,7 @@ export function FeaturedCarousel({
           </Badge>
           {showCloseButton ? (
             <IconButton
+              testID={AppUpdateTestIDs.featuredCarouselCloseBtn}
               position="absolute"
               top="$5"
               right="$5"

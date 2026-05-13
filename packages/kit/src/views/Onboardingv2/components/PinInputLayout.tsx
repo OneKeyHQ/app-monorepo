@@ -61,6 +61,8 @@ interface IPinInputLayoutProps {
   isVerifyPinPage?: boolean;
   onAutoInputPin?: () => void;
   showInputSkeleton?: boolean;
+  testID?: string;
+  inputTestID?: string;
 }
 
 export interface IPinInputLayoutRef {
@@ -91,6 +93,8 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       isVerifyPinPage,
       onAutoInputPin,
       showInputSkeleton = false,
+      testID,
+      inputTestID,
     },
     ref,
   ) => {
@@ -159,6 +163,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
 
     return (
       <OnboardingPage
+        testID={testID}
         onUnmounted={onUnmounted}
         onClose={() => {
           void onClose?.();
@@ -202,6 +207,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                     <Skeleton h={50} w="100%" radius={12} />
                   ) : (
                     <Input
+                      testID={inputTestID}
                       ref={inputRef}
                       size="large"
                       placeholder={placeholder}
@@ -243,6 +249,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
               >
                 {secondaryButtonText && onSecondaryButtonPress ? (
                   <Button
+                    testID="onboardingv2-btn"
                     size="large"
                     variant="secondary"
                     flexGrow={1}
@@ -253,6 +260,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                   </Button>
                 ) : null}
                 <Button
+                  testID="onboardingv2-btn"
                   size="large"
                   variant={isSubmitDisabled ? 'secondary' : 'primary'}
                   flexGrow={1}

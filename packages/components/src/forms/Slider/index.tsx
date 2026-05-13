@@ -50,6 +50,7 @@ export const Slider = ({
   min,
   onLayout,
   segments,
+  testID,
 
   ...props
 }: ISliderProps) => {
@@ -107,6 +108,7 @@ export const Slider = ({
         h="$1"
         cursor="pointer"
         {...(props as any)}
+        testID={testID}
         max={max}
         min={min}
         opacity={disabled ? 0.5 : 1}
@@ -150,6 +152,7 @@ export const Slider = ({
     props,
     segments,
     sliderValue,
+    testID,
   ]);
   const handleMinPress = useCallback(() => {
     handleValueChange([min]);

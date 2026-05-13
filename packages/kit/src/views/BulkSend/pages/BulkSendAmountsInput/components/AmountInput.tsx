@@ -26,6 +26,7 @@ import {
   type IAmountInputError,
 } from '@onekeyhq/shared/types/bulkSend';
 
+import { BulkSendTestIDs } from '../../../testIDs';
 import {
   filterNumericInput,
   generateRandomAmountsFromRange,
@@ -401,6 +402,7 @@ export function RangeAmountInput() {
         >
           <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
             <Input
+              testID={BulkSendTestIDs.rangeMinInput}
               flex={1}
               value={localMin}
               onChangeText={handleMinChange}
@@ -450,6 +452,7 @@ export function RangeAmountInput() {
         >
           <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
             <Input
+              testID={BulkSendTestIDs.rangeMaxInput}
               flex={1}
               value={localMax}
               onChangeText={handleMaxChange}
@@ -707,6 +710,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
   return (
     <YStack gap="$4" w="100%">
       <SegmentControl
+        testID={BulkSendTestIDs.amountModeSegment}
         fullWidth
         value={amountInputMode}
         options={segmentOptions}
