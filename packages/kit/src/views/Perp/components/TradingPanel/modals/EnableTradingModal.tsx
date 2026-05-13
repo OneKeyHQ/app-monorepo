@@ -20,6 +20,7 @@ import {
   buildHelpUrl,
   openGuideUrl,
 } from '../../Guide/perpGuideData';
+import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 
 interface IEnableTradingContentProps {
   onClose?: () => void;
@@ -131,6 +132,7 @@ export function showEnableTradingDialog() {
         }}
       />
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

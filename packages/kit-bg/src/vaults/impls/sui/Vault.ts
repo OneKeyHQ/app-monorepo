@@ -40,6 +40,7 @@ import {
   EDecodedTxStatus,
   type IDecodedTx,
   type IDecodedTxAction,
+  type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -74,6 +75,11 @@ import type {
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
 } from '@mysten/sui/client';
+
+function getTransferActionAddress(addresses: string[]) {
+  const uniqueAddresses = Array.from(new Set(addresses.filter(Boolean)));
+  return uniqueAddresses.length === 1 ? uniqueAddresses[0] : '';
+}
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sui.hd;
@@ -227,12 +233,10 @@ export default class Vault extends VaultBase {
         }
 
         if (transfers.length > 0) {
-          const action = await this.buildTxTransferAssetAction({
-            from: transfers[0].from,
-            to: transfers[0].to,
-            transfers: (
-              await Promise.all(
-                transfers.map(async (transfer) => {
+          const parsedTransfers = (
+            await Promise.all(
+              transfers.map(
+                async (transfer): Promise<IDecodedTxTransferInfo | null> => {
                   const token = await this.backgroundApi.serviceToken.getToken({
                     networkId: this.networkId,
                     accountId: this.accountId,
@@ -245,7 +249,7 @@ export default class Vault extends VaultBase {
                   ) {
                     return null;
                   }
-                  return {
+                  const parsedTransfer: IDecodedTxTransferInfo = {
                     from: transfer.from,
                     to: transfer.to,
                     amount: new BigNumber(transfer.amount)
@@ -255,13 +259,30 @@ export default class Vault extends VaultBase {
                     symbol: token?.symbol ?? '',
                     name: token?.name ?? '',
                     tokenIdOnNetwork: token?.address ?? '',
-                    isNative: token?.isNative,
                   };
-                }),
-              )
-            ).filter(Boolean),
-          });
-          actions.push(action);
+                  if (token.isNative !== undefined) {
+                    parsedTransfer.isNative = token.isNative;
+                  }
+                  return parsedTransfer;
+                },
+              ),
+            )
+          ).filter(
+            (transfer): transfer is IDecodedTxTransferInfo => transfer !== null,
+          );
+
+          if (parsedTransfers.length > 0) {
+            const action = await this.buildTxTransferAssetAction({
+              from: getTransferActionAddress(
+                parsedTransfers.map((transfer) => transfer.from),
+              ),
+              to: getTransferActionAddress(
+                parsedTransfers.map((transfer) => transfer.to),
+              ),
+              transfers: parsedTransfers,
+            });
+            actions.push(action);
+          }
         }
       }
     } else if (transactionType === ESuiTransactionType.ContractInteraction) {

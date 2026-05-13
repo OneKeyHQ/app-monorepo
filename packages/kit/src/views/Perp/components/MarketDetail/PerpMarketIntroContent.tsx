@@ -121,12 +121,19 @@ function IntroInfoItem({
 
   return (
     <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
         {label}
       </SizableText>
-      <SizableText size="$headingSm">{value}</SizableText>
+      <SizableText size="$headingSm" numberOfLines={1}>
+        {value}
+      </SizableText>
       {secondaryValue ? (
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {secondaryValue}
         </SizableText>
       ) : null}
@@ -236,12 +243,16 @@ export function PerpMarketIntroContent({
     resolvedMarketDetail ?? internalResolvedMarketDetail;
 
   const marketDetail = effectiveResolvedMarketDetail.result?.detail;
+  const localizedDescription =
+    effectiveResolvedMarketDetail.result?.localizedMessage;
   const marketDetailReferenceNote = intl.formatMessage({
     id: ETranslations.perp_market_info_reference_note__desc,
   });
   const aboutText = useMemo(
-    () => sanitizeDescriptionText(marketDetail?.about) || '',
-    [marketDetail?.about],
+    () =>
+      sanitizeDescriptionText(localizedDescription || marketDetail?.about) ||
+      '',
+    [localizedDescription, marketDetail?.about],
   );
 
   const infoItems = useMemo(
@@ -394,13 +405,14 @@ export function PerpMarketIntroContent({
             [infoItems.marketCapRank, infoItems.marketCap],
             [infoItems.fdv, infoItems.volume24h],
             [infoItems.circulatingSupply, infoItems.totalSupply],
-            [infoItems.atl, infoItems.ath],
             [infoItems.maxSupply, undefined],
+            [infoItems.atl, infoItems.ath],
           ]
         : [],
     [infoItems],
   );
   const showDescriptionToggle = aboutText.length > 320;
+  const showReferenceNote = Boolean(marketDetail || aboutText);
 
   if (!enabled) {
     return null;
@@ -427,7 +439,7 @@ export function PerpMarketIntroContent({
     );
   }
 
-  if (!marketDetail) {
+  if (!marketDetail && !aboutText) {
     return (
       <YStack
         px={paddingX}
@@ -455,26 +467,28 @@ export function PerpMarketIntroContent({
 
   return (
     <YStack px={paddingX} pt={paddingTop} pb={paddingBottom} gap="$6">
-      <SizableText size="$bodySm" color="$textSubdued" lineHeight={20}>
-        {`* ${marketDetailReferenceNote}`}
-      </SizableText>
+      {showReferenceNote ? (
+        <SizableText size="$bodySm" color="$textDisabled" lineHeight={20}>
+          {`* ${marketDetailReferenceNote}`}
+        </SizableText>
+      ) : null}
 
       <XStack alignItems="center" gap="$3">
         <Token
           size="sm"
           tokenImageUri={
-            displayName || marketDetail.symbol || coin
+            displayName || marketDetail?.symbol || coin
               ? getHyperliquidTokenImageUrl(
-                  displayName || marketDetail.symbol || coin || '',
+                  displayName || marketDetail?.symbol || coin || '',
                 )
-              : marketDetail.image
+              : marketDetail?.image
           }
         />
         <XStack flex={1} minWidth={0} alignItems="baseline" gap="$2.5">
           <SizableText size="$headingLg" numberOfLines={1}>
-            {displayName || marketDetail.symbol?.toUpperCase() || coin || '--'}
+            {displayName || marketDetail?.symbol?.toUpperCase() || coin || '--'}
           </SizableText>
-          {marketDetail.name ? (
+          {marketDetail?.name ? (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
               {marketDetail.name}
             </SizableText>
@@ -550,7 +564,7 @@ export function PerpMarketIntroContent({
           <SizableText
             size="$bodyMd"
             color="$textSubdued"
-            lineHeight={18}
+            lineHeight={24}
             numberOfLines={isDescriptionExpanded ? undefined : 6}
           >
             {aboutText}

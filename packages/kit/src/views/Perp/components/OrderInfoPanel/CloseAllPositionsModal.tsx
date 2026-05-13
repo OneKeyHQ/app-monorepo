@@ -15,6 +15,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
 type ICloseType = 'market' | 'limit';
@@ -148,6 +149,7 @@ export function showCloseAllPositionsDialog(filterByCoin?: string) {
         />
       </PerpsProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

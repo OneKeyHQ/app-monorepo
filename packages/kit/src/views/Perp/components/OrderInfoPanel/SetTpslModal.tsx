@@ -37,6 +37,7 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
@@ -730,6 +731,7 @@ export function showSetTpslDialog({
         />
       </PerpsProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();
