@@ -2066,7 +2066,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           const results = await this.executeBatched(tasks, 3);
 
           if (!currentSwapAllNetworkTokenList) {
-            // First fetch: just wait for completion, updates happen in updateAllNetworkTokenList
+            set(swapAllNetworkTokenListMapAtom(), (v) => {
+              if (v[tokenListCacheKey] !== undefined) {
+                return v;
+              }
+              return {
+                ...v,
+                [tokenListCacheKey]: [],
+              };
+            });
           } else {
             // Subsequent fetches: collect results and update atom
             const allTokensResult = results

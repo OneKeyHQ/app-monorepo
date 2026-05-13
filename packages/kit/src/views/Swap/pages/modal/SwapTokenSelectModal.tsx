@@ -558,6 +558,10 @@ const SwapTokenSelectPage = ({
     }
     return popularTokens;
   }, [currentSelectNetwork?.networkId, swapTypeSwitch]);
+  const shouldShowPopularTokens =
+    !showLpTokensOnly &&
+    currentNetworkPopularTokens.length > 0 &&
+    !requestedSearchKeyword;
   return (
     <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
@@ -642,9 +646,7 @@ const SwapTokenSelectPage = ({
           onSelectNetwork={onSelectCurrentNetwork}
           onDisableNetworksClick={disableNetworksOnClick}
         />
-        {currentNetworkPopularTokens.length > 0 && !requestedSearchKeyword ? (
-          <Divider mt="$2" />
-        ) : null}
+        {shouldShowPopularTokens ? <Divider mt="$2" /> : null}
         <YStack flex={1}>
           <ListView
             useFlashList
@@ -653,8 +655,7 @@ const SwapTokenSelectPage = ({
             renderItem={renderItem}
             estimatedItemSize={60}
             ListHeaderComponent={
-              currentNetworkPopularTokens.length > 0 &&
-              !requestedSearchKeyword ? (
+              shouldShowPopularTokens ? (
                 <YStack px="$5" pt="$3" gap="$2">
                   <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
                     {intl.formatMessage({
