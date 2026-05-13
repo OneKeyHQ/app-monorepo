@@ -153,9 +153,11 @@ export const BorrowDataGate = ({
   const fetchKey = useMemo(
     () =>
       !isEmpty(market)
-        ? `${marketProvider}-${marketAddress}-${accountId ?? 'public'}`
+        ? `${marketProvider}-${marketNetworkId}-${marketAddress}-${
+            accountId ?? 'public'
+          }`
         : null,
-    [market, marketProvider, marketAddress, accountId],
+    [market, marketProvider, marketNetworkId, marketAddress, accountId],
   );
 
   // Invalidate before usePromiseResult reruns for the new key; a later effect

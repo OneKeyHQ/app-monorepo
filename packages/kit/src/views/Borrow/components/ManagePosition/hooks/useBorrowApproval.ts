@@ -3,12 +3,13 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useTrackTokenAllowance } from '@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { EApproveType } from '@onekeyhq/shared/types/staking';
 
@@ -30,6 +31,18 @@ function waitForTimeout(intervalMs: number) {
   return new Promise<void>((resolve) => {
     setTimeout(resolve, intervalMs);
   });
+}
+
+function getBorrowApprovalSubmitErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === 'string' && error) {
+    return error;
+  }
+
+  return undefined;
 }
 
 export function useBorrowApproval({
@@ -200,6 +213,26 @@ export function useBorrowApproval({
     });
   }, [intl, resetApproveToZero]);
 
+  const submitApprovedAction = useCallback(async () => {
+    try {
+      await onApprovedSubmit();
+    } catch (error) {
+      const errorMessage = getBorrowApprovalSubmitErrorMessage(error);
+      defaultLogger.app.error.log(
+        `useBorrowApproval onApprovedSubmit failed: ${
+          errorMessage ?? String(error)
+        }`,
+      );
+      Toast.error({
+        title:
+          errorMessage ??
+          intl.formatMessage({
+            id: ETranslations.global_failed,
+          }),
+      });
+    }
+  }, [intl, onApprovedSubmit]);
+
   const onApprove = useCallback(async () => {
     if (!approvalEnabled || !approveTarget?.token) {
       return;
@@ -226,7 +259,7 @@ export function useBorrowApproval({
 
       if (approvalActionStep === 'submit') {
         try {
-          await onApprovedSubmit();
+          await submitApprovedAction();
         } finally {
           setApproving(false);
         }
@@ -274,7 +307,7 @@ export function useBorrowApproval({
                   }),
               });
               if (allowanceReady) {
-                await onApprovedSubmit();
+                await submitApprovedAction();
               }
             } finally {
               setApproving(false);
@@ -298,8 +331,8 @@ export function useBorrowApproval({
     approveTarget,
     fetchAllowanceResponse,
     navigationToTxConfirm,
-    onApprovedSubmit,
     showResetUSDTApproveValueDialog,
+    submitApprovedAction,
     trackAllowance,
     waitForAllowance,
   ]);
