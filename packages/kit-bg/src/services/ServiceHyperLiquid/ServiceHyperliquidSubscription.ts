@@ -18,6 +18,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  clearTrackedInterval,
+  trackedSetInterval,
+} from '@onekeyhq/shared/src/utils/timerRegistry';
+import {
   HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
   HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -1447,14 +1451,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._stopPingLoop();
     // Measure immediately on connect, then periodically
     void this._measurePing();
-    this._pingIntervalTimer = setInterval(() => {
-      void this._measurePing();
-    }, 3000);
+    this._pingIntervalTimer = trackedSetInterval(
+      'hyperliquid:ping',
+      () => {
+        // Defense: skip when the window is hidden — ping value drives a UI
+        // indicator the user can't see, and the WS layer maintains its own
+        // liveness signal. Avoids a 3 s allocation/atom-write loop running
+        // for hours of background uptime.
+        if (typeof document !== 'undefined' && document.hidden) return;
+        void this._measurePing();
+      },
+      3000,
+    );
   }
 
   private _stopPingLoop(): void {
     if (this._pingIntervalTimer) {
-      clearInterval(this._pingIntervalTimer);
+      clearTrackedInterval(this._pingIntervalTimer);
       this._pingIntervalTimer = null;
     }
   }
