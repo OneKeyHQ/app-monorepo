@@ -9,10 +9,6 @@ function fullPath(pathStr) {
 }
 
 const moduleResolverAliasForAllWebPlatform = {
-  // * cause firefox popup resize issue
-  'react-native-restart': fullPath(
-    './module-resolver/react-native-restart-mock',
-  ),
   'react-native-fast-image': fullPath(
     './module-resolver/react-native-fast-image-mock',
   ),

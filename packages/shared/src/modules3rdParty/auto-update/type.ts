@@ -121,7 +121,11 @@ export interface IBundleUpdate {
   clearBundle: IClearBundle;
   clearDownload: () => Promise<void>;
   resetToBuiltInBundle: () => Promise<void>;
-  /** Restart the app (RNRestart on native, app.relaunch on desktop). */
+  /**
+   * Restart the app. On native this routes through
+   * `BackgroundThread.restart(mode=all, reason='ota.restart')`; on desktop it
+   * calls `app.relaunch`.
+   */
   restart: () => void;
   isSkipGpgVerificationAllowed: () => Promise<boolean>;
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;

@@ -1,5 +1,3 @@
-import RNRestart from 'react-native-restart';
-
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
@@ -15,6 +13,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
+import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -58,22 +58,15 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async restartApp() {
-    defaultLogger.setting.page.restartApp();
-    if (platformEnv.isNative) {
-      RNRestart.restart();
-      return;
-    }
-    if (platformEnv.isDesktop) {
-      return globalThis.desktopApiProxy?.system?.reload?.();
-    }
-    // restartApp() MUST be called from background in Ext, UI reload will close whole Browser
-    if (platformEnv.isExtensionBackground) {
-      return chrome.runtime.reload();
-    }
-    if (platformEnv.isRuntimeBrowser) {
-      return globalThis?.location?.reload?.();
-    }
+  async restartApp(opts: { mode?: EAppRestartMode; reason?: string } = {}) {
+    // restartApp() MUST be called from background in Ext, UI reload will close
+    // whole Browser. The platform-specific routing (desktopApi reload,
+    // chrome.runtime.reload, location.reload, BackgroundThread.restart for
+    // native) lives inside `appRestart` so this method stays uniform.
+    await appRestart({
+      mode: opts.mode ?? EAppRestartMode.UI,
+      reason: opts.reason ?? 'serviceApp.restartApp',
+    });
   }
 
   private async resetData() {
@@ -327,7 +320,14 @@ class ServiceApp extends ServiceBase {
       await timerUtils.wait(600);
     }
 
-    await this.restartApp();
+    // resetData wipes localDb / appStorage / v4 db — the background runtime
+    // is now holding stale state and bundle moduleIds may have re-keyed via
+    // OTA. mode=All forces both runtimes cold so nothing reads from the
+    // dead state.
+    await this.restartApp({
+      mode: EAppRestartMode.All,
+      reason: 'auth.resetData',
+    });
   }
 
   @backgroundMethod()

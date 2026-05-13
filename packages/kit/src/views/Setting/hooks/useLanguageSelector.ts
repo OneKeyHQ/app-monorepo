@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSystemLocale } from '../../../hooks/useSystemLocale';
@@ -31,9 +32,13 @@ export function useLanguageSelector() {
 
   const onChange = useCallback(async (text: string) => {
     await changeLanguage(text);
-    setTimeout(() => {
-      void backgroundApiProxy.serviceApp.restartApp();
-    }, 0);
+    // mode=UI restarts only the main JS runtime — bg stays hot, and the
+    // SharedRPC quiesce step in BackgroundThread.restart closes the iOS
+    // dangling-jsi::Function race that used to crash on this path.
+    await backgroundApiProxy.serviceApp.restartApp({
+      mode: EAppRestartMode.UI,
+      reason: `setting.language.${text}`,
+    });
   }, []);
 
   return {
