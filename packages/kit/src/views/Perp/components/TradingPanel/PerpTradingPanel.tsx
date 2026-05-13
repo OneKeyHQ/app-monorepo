@@ -7,6 +7,7 @@ import { DebugRenderTracker, YStack } from '@onekeyhq/components';
 import {
   useTradingFormAtom,
   useTradingFormComputedAtom,
+  useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
@@ -25,7 +26,7 @@ import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
 import { TradingButtonGroup } from './TradingButtonGroup';
 
-function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
+function PerpTradingDisabledButton() {
   const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
@@ -33,7 +34,6 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
-  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const { midPriceBN } = useTradingPrice();
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
@@ -142,6 +142,26 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     intl,
   ]);
 
+  return (
+    <PerpTradingButton
+      loading={universalLoading}
+      handleShowConfirm={handleShowConfirm}
+      formData={formData}
+      computedSize={tradingComputed.computedSizeBN}
+      isMinimumOrderNotMet={isMinimumOrderNotMet}
+      isSubmitting={isSubmitting}
+      isNoEnoughMargin={isNoEnoughMargin}
+    />
+  );
+}
+
+const PerpTradingDisabledButtonMemo = memo(PerpTradingDisabledButton);
+
+function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [tradingMode] = useTradingModeAtom();
+  const [isSubmitting] = useTradingLoadingAtom();
+
   const content = (
     <YStack
       gap={isMobile && tradingMode === 'spot' ? '$0.5' : '$2'}
@@ -156,15 +176,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       {perpsAccountStatus.canTrade ? (
         <TradingButtonGroup isMobile={isMobile} />
       ) : (
-        <PerpTradingButton
-          loading={universalLoading}
-          handleShowConfirm={handleShowConfirm}
-          formData={formData}
-          computedSize={tradingComputed.computedSizeBN}
-          isMinimumOrderNotMet={isMinimumOrderNotMet}
-          isSubmitting={isSubmitting}
-          isNoEnoughMargin={isNoEnoughMargin}
-        />
+        <PerpTradingDisabledButtonMemo />
       )}
     </YStack>
   );

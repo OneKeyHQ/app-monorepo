@@ -31,6 +31,30 @@ export { contextAtomMethod, ProviderJotaiContextHyperliquid };
 export const { atom: perpsAllMidsAtom, use: usePerpsAllMidsAtom } =
   contextAtom<HL.IWsAllMids | null>(null);
 
+export const perpsMidByCoinAtomCache = new Map<
+  string,
+  ReturnType<typeof contextAtomComputed<string | undefined>>
+>();
+
+function getOrCreatePerpsMidByCoinAtom(coin: string) {
+  const key = coin || '';
+  let entry = perpsMidByCoinAtomCache.get(key);
+  if (!entry) {
+    const selectedAtom = selectAtom(perpsAllMidsAtom(), (allMids) =>
+      key ? allMids?.mids?.[key] : undefined,
+    );
+    entry = contextAtomComputed((get) => get(selectedAtom));
+    perpsMidByCoinAtomCache.set(key, entry);
+  }
+  return entry;
+}
+
+export function usePerpsMidByCoin(coin: string): string | undefined {
+  const { use } = getOrCreatePerpsMidByCoinAtom(coin);
+  const [mid] = use();
+  return mid;
+}
+
 export const {
   atom: perpsAllAssetsFilteredAtom,
   use: usePerpsAllAssetsFilteredAtom,

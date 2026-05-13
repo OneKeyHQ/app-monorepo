@@ -1,4 +1,18 @@
+import BigNumber from 'bignumber.js';
+
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+
 import type { IColumnConfig } from './List/CommonTableListView';
+
+const spotHoldingPnlCurrencyFormatter: INumberFormatProps = {
+  formatter: 'value',
+  formatterOptions: {
+    currency: '$',
+  },
+};
+
+const SPOT_HOLDING_STABLE_COINS = new Set(['USDC', 'USDT', 'USDB', 'USDH']);
 
 export type IPerpFillDirectionType =
   | 'openLong'
@@ -50,3 +64,60 @@ export const getPerpFillDirectionType = (
 
   return 'unknown';
 };
+
+export const isSpotHoldingStableCoin = (coin: string) =>
+  SPOT_HOLDING_STABLE_COINS.has(coin.toUpperCase());
+
+export const calculateSpotHoldingPnl = ({
+  total,
+  entryNtl,
+  midPrice,
+  isStable,
+}: {
+  total: string;
+  entryNtl?: string;
+  midPrice?: string;
+  isStable: boolean;
+}): {
+  pnl?: string;
+  pnlPercent?: number;
+} => {
+  const totalBN = new BigNumber(total);
+  const entryNtlBN = new BigNumber(entryNtl || '0');
+  const midPriceBN = new BigNumber(midPrice || '0');
+
+  if (
+    isStable ||
+    !midPrice ||
+    entryNtlBN.isZero() ||
+    !totalBN.isFinite() ||
+    !entryNtlBN.isFinite() ||
+    !midPriceBN.isFinite()
+  ) {
+    return {};
+  }
+
+  const pnlBN = totalBN.multipliedBy(midPriceBN).minus(entryNtlBN);
+  return {
+    pnl: pnlBN.toFixed(),
+    pnlPercent: pnlBN.dividedBy(entryNtlBN).multipliedBy(100).toNumber(),
+  };
+};
+
+export function formatSpotHoldingPnlText(
+  pnl?: string,
+  pnlPercent?: number,
+): string {
+  if (!pnl) return '--';
+
+  const pnlBN = new BigNumber(pnl);
+  if (!pnlBN.isFinite() || pnlBN.isZero()) return '--';
+
+  const sign = pnlBN.gt(0) ? '+' : '-';
+  const formattedPnl = numberFormat(pnlBN.abs().toFixed(2), {
+    ...spotHoldingPnlCurrencyFormatter,
+  });
+  const formattedPnlPercent = new BigNumber(pnlPercent ?? 0).abs().toFixed(1);
+
+  return `${sign}${formattedPnl} (${sign}${formattedPnlPercent}%)`;
+}

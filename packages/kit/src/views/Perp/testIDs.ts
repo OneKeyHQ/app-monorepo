@@ -116,6 +116,7 @@ export const PerpTestIDs = {
   HoldingsEmptyGuideButton: 'perp-holdings-empty-guide-button',
 
   // -- Balance row token contract actions --
+  BalanceRowShareButton: 'perp-balance-row-share-button',
   BalanceRowCopyContractButton: 'perp-balance-row-copy-contract-button',
   BalanceRowOpenContractButton: 'perp-balance-row-open-contract-button',
 

@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import BigNumber from 'bignumber.js';
 
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -213,72 +215,82 @@ export function useAggregatedBook(
   priceDecimals: number,
   sizeDecimals: number,
 ): IAggregatedBookResult {
-  // Convert HL.IBookLevel to IOBLevel format with dynamic decimal places
-  const { levels: convertedBids, prefixMaxSizes: bidsPrefixMaxSizes } =
-    convertHLBookLevelsToIOBLevels(bids, priceDecimals, sizeDecimals);
-  const { levels: convertedAsks, prefixMaxSizes: asksPrefixMaxSizes } =
-    convertHLBookLevelsToIOBLevels(asks, priceDecimals, sizeDecimals);
+  return useMemo(() => {
+    // Convert HL.IBookLevel to IOBLevel format with dynamic decimal places
+    const { levels: convertedBids, prefixMaxSizes: bidsPrefixMaxSizes } =
+      convertHLBookLevelsToIOBLevels(bids, priceDecimals, sizeDecimals);
+    const { levels: convertedAsks, prefixMaxSizes: asksPrefixMaxSizes } =
+      convertHLBookLevelsToIOBLevels(asks, priceDecimals, sizeDecimals);
 
-  if (!activeTickOption) {
+    if (!activeTickOption) {
+      return {
+        bids: withDisplayFields(convertedBids, variant),
+        asks: withDisplayFields(convertedAsks, variant),
+        maxBidSize: '0',
+        maxAskSize: '0',
+      };
+    }
+
+    // Check if aggregation is needed
+    const needsAggregation =
+      activeTickOption.exact === false ||
+      activeTickOption.targetTick !== activeTickOption.apiTick;
+
+    if (!needsAggregation) {
+      const {
+        bids: rawBids,
+        asks: rawAsks,
+        maxBidSize,
+        maxAskSize,
+      } = sumAndSlice(
+        convertedBids,
+        convertedAsks,
+        maxLevelsPerSide,
+        sizeDecimals,
+        bidsPrefixMaxSizes,
+        asksPrefixMaxSizes,
+      );
+      return {
+        bids: withDisplayFields(rawBids, variant),
+        asks: withDisplayFields(rawAsks, variant),
+        maxBidSize,
+        maxAskSize,
+      };
+    }
+
+    const { aggregatedLevels: aggregatedBids, maxSize: maxBidSize } =
+      aggregateLevels(
+        convertedBids,
+        maxLevelsPerSide,
+        activeTickOption.apiTick,
+        'floor',
+        sizeDecimals,
+        priceDecimals,
+      );
+
+    const { aggregatedLevels: aggregatedAsks, maxSize: maxAskSize } =
+      aggregateLevels(
+        convertedAsks,
+        maxLevelsPerSide,
+        activeTickOption.apiTick,
+        'ceil',
+        sizeDecimals,
+        priceDecimals,
+      );
+
     return {
-      bids: withDisplayFields(convertedBids, variant),
-      asks: withDisplayFields(convertedAsks, variant),
-      maxBidSize: '0',
-      maxAskSize: '0',
-    };
-  }
-
-  // Check if aggregation is needed
-  const needsAggregation =
-    activeTickOption.exact === false ||
-    activeTickOption.targetTick !== activeTickOption.apiTick;
-
-  if (!needsAggregation) {
-    const {
-      bids: rawBids,
-      asks: rawAsks,
+      bids: withDisplayFields(aggregatedBids, variant),
+      asks: withDisplayFields(aggregatedAsks, variant),
       maxBidSize,
       maxAskSize,
-    } = sumAndSlice(
-      convertedBids,
-      convertedAsks,
-      maxLevelsPerSide,
-      sizeDecimals,
-      bidsPrefixMaxSizes,
-      asksPrefixMaxSizes,
-    );
-    return {
-      bids: withDisplayFields(rawBids, variant),
-      asks: withDisplayFields(rawAsks, variant),
-      maxBidSize,
-      maxAskSize,
     };
-  }
-
-  const { aggregatedLevels: aggregatedBids, maxSize: maxBidSize } =
-    aggregateLevels(
-      convertedBids,
-      maxLevelsPerSide,
-      activeTickOption.apiTick,
-      'floor',
-      sizeDecimals,
-      priceDecimals,
-    );
-
-  const { aggregatedLevels: aggregatedAsks, maxSize: maxAskSize } =
-    aggregateLevels(
-      convertedAsks,
-      maxLevelsPerSide,
-      activeTickOption.apiTick,
-      'ceil',
-      sizeDecimals,
-      priceDecimals,
-    );
-
-  return {
-    bids: withDisplayFields(aggregatedBids, variant),
-    asks: withDisplayFields(aggregatedAsks, variant),
-    maxBidSize,
-    maxAskSize,
-  };
+  }, [
+    activeTickOption,
+    asks,
+    bids,
+    maxLevelsPerSide,
+    priceDecimals,
+    sizeDecimals,
+    variant,
+  ]);
 }
