@@ -147,14 +147,12 @@ const handleBorrowSuccess = async ({
   const latestTxId =
     Array.isArray(data) && data.length > 0 ? getLatestTxId(data) : undefined;
 
-  if (orderId && latestTxId) {
-    await backgroundApiProxy.serviceStaking.addEarnOrder({
-      orderId,
-      networkId,
-      txId: latestTxId,
-      status: data[data.length - 1]?.decodedTx.status,
-    });
-  }
+  await syncBorrowOrder({
+    orderId,
+    networkId,
+    txId: latestTxId,
+    status: data[data.length - 1]?.decodedTx.status ?? EDecodedTxStatus.Pending,
+  });
   onSuccess?.(data);
 };
 

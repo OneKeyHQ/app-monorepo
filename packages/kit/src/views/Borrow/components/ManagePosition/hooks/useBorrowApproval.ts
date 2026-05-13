@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
@@ -11,6 +11,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EApproveType } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -27,12 +28,6 @@ import type {
   IManagePositionApproval,
 } from '../types';
 
-function waitForTimeout(intervalMs: number) {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, intervalMs);
-  });
-}
-
 function getBorrowApprovalSubmitErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -43,6 +38,32 @@ function getBorrowApprovalSubmitErrorMessage(error: unknown) {
   }
 
   return undefined;
+}
+
+function buildBorrowApproveInfo({
+  owner,
+  spenderAddress,
+  token,
+  amount,
+  isMax,
+}: {
+  owner: string;
+  spenderAddress: string;
+  token: NonNullable<IBorrowApproveTarget['token']>;
+  amount: string;
+  isMax?: boolean;
+}): IApproveInfo {
+  return {
+    owner,
+    spender: spenderAddress,
+    amount,
+    isMax,
+    tokenInfo: {
+      ...token,
+      isNative: !!token.isNative,
+      name: token.name ?? token.symbol,
+    },
+  };
 }
 
 export function useBorrowApproval({
@@ -64,10 +85,39 @@ export function useBorrowApproval({
 }): IManagePositionApproval {
   const intl = useIntl();
   const [approving, setApproving] = useState(false);
+  const mountedRef = useRef(false);
+  const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget?.accountId ?? '',
     networkId: approveTarget?.networkId ?? '',
   });
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      allowanceAbortRef.current?.abort();
+      allowanceAbortRef.current = undefined;
+    };
+  }, []);
+
+  const setApprovingSafe = useCallback((value: boolean) => {
+    if (mountedRef.current) {
+      setApproving(value);
+    }
+  }, []);
+
+  const stopAllowancePolling = useCallback(() => {
+    allowanceAbortRef.current?.abort();
+    allowanceAbortRef.current = undefined;
+  }, []);
+
+  const startAllowancePolling = useCallback(() => {
+    stopAllowancePolling();
+    const abortController = new AbortController();
+    allowanceAbortRef.current = abortController;
+    return abortController;
+  }, [stopAllowancePolling]);
 
   const approvalEnabled = useMemo(
     () =>
@@ -109,18 +159,27 @@ export function useBorrowApproval({
       isReady,
       maxAttempts = 15,
       intervalMs = 2000,
+      signal,
     }: {
       isReady: (allowance: string) => boolean;
       maxAttempts?: number;
       intervalMs?: number;
+      signal?: AbortSignal;
     }) => {
       if (!approvalEnabled) {
         return true;
       }
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        if (signal?.aborted) {
+          return false;
+        }
+
         try {
           const allowanceInfo = await fetchAllowanceResponse();
+          if (signal?.aborted) {
+            return false;
+          }
           if (isReady(allowanceInfo.allowanceParsed || '0')) {
             return true;
           }
@@ -129,7 +188,7 @@ export function useBorrowApproval({
         }
 
         if (attempt < maxAttempts - 1) {
-          await waitForTimeout(intervalMs);
+          await timerUtils.wait(intervalMs);
         }
       }
 
@@ -138,9 +197,37 @@ export function useBorrowApproval({
     [approvalEnabled, fetchAllowanceResponse],
   );
 
+  const pollAllowanceThen = useCallback(
+    ({
+      isReady,
+      onReady,
+    }: {
+      isReady: (allowance: string) => boolean;
+      onReady?: (signal: AbortSignal) => Promise<void>;
+    }) => {
+      const abortController = startAllowancePolling();
+      void (async () => {
+        try {
+          const allowanceReady = await waitForAllowance({
+            isReady,
+            signal: abortController.signal,
+          });
+          if (allowanceReady && !abortController.signal.aborted) {
+            await onReady?.(abortController.signal);
+          }
+        } finally {
+          if (!abortController.signal.aborted) {
+            setApprovingSafe(false);
+          }
+        }
+      })();
+    },
+    [setApprovingSafe, startAllowancePolling, waitForAllowance],
+  );
+
   const resetApproveToZero = useCallback(async () => {
     if (!approveTarget?.token) {
-      setApproving(false);
+      setApprovingSafe(false);
       return;
     }
 
@@ -150,20 +237,16 @@ export function useBorrowApproval({
         networkId: approveTarget.networkId,
       });
 
-      const approveResetInfo: IApproveInfo = {
-        owner: account.address,
-        spender: approveTarget.spenderAddress,
-        amount: '0',
-        isMax: false,
-        tokenInfo: {
-          ...approveTarget.token,
-          isNative: !!approveTarget.token.isNative,
-          name: approveTarget.token.name ?? approveTarget.token.symbol,
-        },
-      };
-
       await navigationToTxConfirm({
-        approvesInfo: [approveResetInfo],
+        approvesInfo: [
+          buildBorrowApproveInfo({
+            owner: account.address,
+            spenderAddress: approveTarget.spenderAddress,
+            token: approveTarget.token,
+            amount: '0',
+            isMax: false,
+          }),
+        ],
         onSuccess(data) {
           const txid =
             data?.[0]?.decodedTx?.txid || data?.[0]?.signedTx?.txid || '';
@@ -171,27 +254,28 @@ export function useBorrowApproval({
             trackAllowance(txid);
           }
 
-          void (async () => {
-            try {
-              await waitForAllowance({
-                isReady: isBorrowAllowanceZero,
-              });
-            } finally {
-              setApproving(false);
-            }
-          })();
+          pollAllowanceThen({ isReady: isBorrowAllowanceZero });
         },
         onFail() {
-          setApproving(false);
+          stopAllowancePolling();
+          setApprovingSafe(false);
         },
         onCancel() {
-          setApproving(false);
+          stopAllowancePolling();
+          setApprovingSafe(false);
         },
       });
     } catch {
-      setApproving(false);
+      setApprovingSafe(false);
     }
-  }, [approveTarget, navigationToTxConfirm, trackAllowance, waitForAllowance]);
+  }, [
+    approveTarget,
+    navigationToTxConfirm,
+    pollAllowanceThen,
+    setApprovingSafe,
+    stopAllowancePolling,
+    trackAllowance,
+  ]);
 
   const showResetUSDTApproveValueDialog = useCallback(() => {
     Dialog.show({
@@ -201,7 +285,7 @@ export function useBorrowApproval({
       showExitButton: false,
       dismissOnOverlayPress: false,
       onCancel: () => {
-        setApproving(false);
+        setApprovingSafe(false);
       },
       onConfirm: () => {
         void resetApproveToZero();
@@ -214,27 +298,34 @@ export function useBorrowApproval({
       }),
       icon: 'ErrorOutline',
     });
-  }, [intl, resetApproveToZero]);
+  }, [intl, resetApproveToZero, setApprovingSafe]);
 
-  const submitApprovedAction = useCallback(async () => {
-    try {
-      await onApprovedSubmit();
-    } catch (error) {
-      const errorMessage = getBorrowApprovalSubmitErrorMessage(error);
-      defaultLogger.app.error.log(
-        `useBorrowApproval onApprovedSubmit failed: ${
-          errorMessage ?? String(error)
-        }`,
-      );
-      Toast.error({
-        title:
-          errorMessage ??
-          intl.formatMessage({
-            id: ETranslations.global_failed,
-          }),
-      });
-    }
-  }, [intl, onApprovedSubmit]);
+  const submitApprovedAction = useCallback(
+    async (signal?: AbortSignal) => {
+      if (signal?.aborted) {
+        return;
+      }
+
+      try {
+        await onApprovedSubmit();
+      } catch (error) {
+        const errorMessage = getBorrowApprovalSubmitErrorMessage(error);
+        defaultLogger.app.error.log(
+          `useBorrowApproval onApprovedSubmit failed: ${
+            errorMessage ?? String(error)
+          }`,
+        );
+        Toast.error({
+          title:
+            errorMessage ??
+            intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+        });
+      }
+    },
+    [intl, onApprovedSubmit],
+  );
 
   const onApprove = useCallback(async () => {
     if (!approvalEnabled || !approveTarget?.token) {
@@ -242,7 +333,8 @@ export function useBorrowApproval({
     }
 
     Keyboard.dismiss();
-    setApproving(true);
+    stopAllowancePolling();
+    setApprovingSafe(true);
 
     try {
       let approveAllowance = allowance;
@@ -265,7 +357,7 @@ export function useBorrowApproval({
         try {
           await submitApprovedAction();
         } finally {
-          setApproving(false);
+          setApprovingSafe(false);
         }
         return;
       }
@@ -276,7 +368,7 @@ export function useBorrowApproval({
       }
 
       if (approvalActionStep !== 'approve') {
-        setApproving(false);
+        setApprovingSafe(false);
         return;
       }
 
@@ -287,13 +379,13 @@ export function useBorrowApproval({
 
       await navigationToTxConfirm({
         approvesInfo: [
-          {
+          buildBorrowApproveInfo({
             owner: account.address,
-            spender: approveTarget.spenderAddress,
+            spenderAddress: approveTarget.spenderAddress,
+            token: approveTarget.token,
             amount: amountValue,
             isMax: action === 'repay' && repayAll,
-            tokenInfo: approveTarget.token,
-          },
+          }),
         ],
         onSuccess(data) {
           const txid =
@@ -302,33 +394,27 @@ export function useBorrowApproval({
             trackAllowance(txid);
           }
 
-          void (async () => {
-            try {
-              const allowanceReady = await waitForAllowance({
-                isReady: (nextAllowance) =>
-                  isBorrowAllowanceEnough({
-                    amount: amountValue,
-                    allowance: nextAllowance,
-                    requiresMaxApproval: action === 'repay' && repayAll,
-                  }),
-              });
-              if (allowanceReady) {
-                await submitApprovedAction();
-              }
-            } finally {
-              setApproving(false);
-            }
-          })();
+          pollAllowanceThen({
+            isReady: (nextAllowance) =>
+              isBorrowAllowanceEnough({
+                amount: amountValue,
+                allowance: nextAllowance,
+                requiresMaxApproval: action === 'repay' && repayAll,
+              }),
+            onReady: submitApprovedAction,
+          });
         },
         onFail() {
-          setApproving(false);
+          stopAllowancePolling();
+          setApprovingSafe(false);
         },
         onCancel() {
-          setApproving(false);
+          stopAllowancePolling();
+          setApprovingSafe(false);
         },
       });
     } catch {
-      setApproving(false);
+      setApprovingSafe(false);
     }
   }, [
     allowance,
@@ -338,11 +424,13 @@ export function useBorrowApproval({
     approveTarget,
     fetchAllowanceResponse,
     navigationToTxConfirm,
+    pollAllowanceThen,
     repayAll,
+    setApprovingSafe,
     showResetUSDTApproveValueDialog,
+    stopAllowancePolling,
     submitApprovedAction,
     trackAllowance,
-    waitForAllowance,
   ]);
 
   return {

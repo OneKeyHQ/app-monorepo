@@ -306,4 +306,77 @@ describe('useBorrowApproval', () => {
     );
     expect(trackAllowance).toHaveBeenCalledWith('0xApproveMax');
   });
+
+  it('aborts post-approve auto submit after unmount', async () => {
+    jest.useFakeTimers();
+
+    try {
+      const fetchAllowanceResponse = jest
+        .fn()
+        .mockResolvedValueOnce({ allowanceParsed: '0' })
+        .mockResolvedValueOnce({ allowanceParsed: '0' })
+        .mockResolvedValue({ allowanceParsed: '2' });
+      const trackAllowance = jest.fn();
+      const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+
+      mockState.__borrowApprovalAllowanceHookMock.mockReturnValue({
+        allowance: '0',
+        loading: false,
+        trackAllowance,
+        fetchAllowanceResponse,
+      });
+      mockState.__borrowApprovalSignatureConfirmMock.navigationToTxConfirm.mockImplementation(
+        async ({
+          onSuccess,
+        }: {
+          onSuccess?: (
+            data: Array<{
+              decodedTx: { txid: string };
+              signedTx: { txid: string };
+            }>,
+          ) => void;
+        }) => {
+          onSuccess?.([
+            {
+              decodedTx: { txid: '0xApprove' },
+              signedTx: { txid: '0xApprove' },
+            },
+          ]);
+        },
+      );
+
+      const { result, unmount } = renderHook(() =>
+        useBorrowApproval({
+          action: 'supply',
+          amountValue: '1',
+          approveType: EApproveType.Legacy,
+          approveTarget: {
+            accountId: 'account-id',
+            networkId: 'evm--1',
+            spenderAddress: '0xSpender',
+            token,
+          },
+          currentAllowance: '0',
+          onApprovedSubmit,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.onApprove();
+      });
+
+      unmount();
+
+      await act(async () => {
+        jest.advanceTimersByTime(30_000);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(trackAllowance).toHaveBeenCalledWith('0xApprove');
+      expect(onApprovedSubmit).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
