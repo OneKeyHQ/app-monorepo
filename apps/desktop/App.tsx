@@ -8,6 +8,7 @@ import '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import { Suspense, lazy, useEffect, useState } from 'react';
 
 import { KitProvider } from '@onekeyhq/kit';
+import { installDesktopWatchdog } from '@onekeyhq/kit/src/components/DesktopWatchdog/installDesktopWatchdog';
 import {
   initSentry,
   withSentryHOC,
@@ -28,6 +29,7 @@ import {
 } from 'react-native-reanimated';
 
 initSentry();
+installDesktopWatchdog();
 
 if (process.env.NODE_ENV !== 'production') {
   configureReanimatedLogger({

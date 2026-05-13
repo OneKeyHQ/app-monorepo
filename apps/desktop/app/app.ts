@@ -13,6 +13,7 @@ import {
   BrowserWindow,
   Menu,
   app,
+  dialog,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
   ipcMain,
@@ -717,6 +718,14 @@ async function createMainWindow() {
     const deeplinkingUrl = process.argv[1];
     handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
   }
+
+  browserWindow.webContents.on('unresponsive', () => {
+    logger.warn('[CPU Watchdog] renderer webContents unresponsive');
+    triggerCpuWatchdog({ reason: 'unresponsive' });
+  });
+  browserWindow.webContents.on('responsive', () => {
+    logger.info('[CPU Watchdog] renderer webContents responsive again');
+  });
 
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
@@ -1881,6 +1890,7 @@ app.on('ready', async () => {
   startProcessMetricsMonitoring();
   startV8HeapMonitoring();
   startWebviewMemoryMonitoring();
+  startCpuWatchdog();
   scheduleCrashDumpCleanup();
   await collectGPUInfo();
 });
@@ -1895,6 +1905,179 @@ app.on('before-quit', () => {
 });
 
 // ==================== End Memory Protection ====================
+
+// ==================== CPU Watchdog ====================
+// Detects sustained renderer CPU saturation (the symptom seen in
+// long-uptime users whose JS main thread hot-loops). Pairs with the
+// webContents 'unresponsive' event for the "stuck, not acknowledging
+// input" symptom. Both converge here so the dialog and cooldown are
+// shared.
+
+const CPU_WATCHDOG_SAMPLE_INTERVAL_MS = 30_000;
+const CPU_WATCHDOG_THRESHOLD_PERCENT = 80;
+const CPU_WATCHDOG_SUSTAINED_SAMPLES = 10; // 10 × 30s ≈ 5 minutes
+const CPU_WATCHDOG_COOLDOWN_MS = 30 * 60_000;
+
+const cpuHistoryByPid = new Map<number, number[]>();
+let lastWatchdogFiredAt = 0;
+let watchdogDialogOpen = false;
+let cpuWatchdogInterval: ReturnType<typeof setInterval> | null = null;
+
+function startCpuWatchdog() {
+  if (cpuWatchdogInterval) {
+    clearInterval(cpuWatchdogInterval);
+  }
+  cpuWatchdogInterval = setInterval(() => {
+    try {
+      const metrics = app.getAppMetrics();
+      const seenPids = new Set<number>();
+      for (const m of metrics) {
+        if (m.type === 'Tab') {
+          seenPids.add(m.pid);
+          const history = cpuHistoryByPid.get(m.pid) ?? [];
+          history.push(m.cpu.percentCPUUsage);
+          if (history.length > CPU_WATCHDOG_SUSTAINED_SAMPLES) history.shift();
+          cpuHistoryByPid.set(m.pid, history);
+
+          const sustained =
+            history.length === CPU_WATCHDOG_SUSTAINED_SAMPLES &&
+            history.every((v) => v > CPU_WATCHDOG_THRESHOLD_PERCENT);
+
+          if (sustained) {
+            triggerCpuWatchdog({
+              reason: 'sustained-high-cpu',
+              pid: m.pid,
+              cpuTrend: [...history],
+            });
+          }
+        }
+      }
+      // Forget pids that no longer exist (renderer restarted / process gone)
+      for (const pid of cpuHistoryByPid.keys()) {
+        if (!seenPids.has(pid)) cpuHistoryByPid.delete(pid);
+      }
+    } catch (error) {
+      logger.warn('[CPU Watchdog] sample failed', error);
+    }
+  }, CPU_WATCHDOG_SAMPLE_INTERVAL_MS);
+  logger.info('[CPU Watchdog] started', {
+    thresholdPercent: CPU_WATCHDOG_THRESHOLD_PERCENT,
+    sustainedSamples: CPU_WATCHDOG_SUSTAINED_SAMPLES,
+    sampleIntervalMs: CPU_WATCHDOG_SAMPLE_INTERVAL_MS,
+  });
+}
+
+function pickWatchdogDialogParent(): BrowserWindow | undefined {
+  const candidates = BrowserWindow.getAllWindows().filter(
+    (w) => !w.isDestroyed() && w.isVisible(),
+  );
+  if (candidates.length === 0) return undefined;
+  return (
+    candidates.find((w) => w.isFocused()) ??
+    getSafelyMainWindow() ??
+    candidates[0]
+  );
+}
+
+function reportWatchdogToSentry(params: {
+  reason: 'sustained-high-cpu' | 'unresponsive';
+  pid?: number;
+  cpuTrend?: number[];
+}) {
+  try {
+    const { captureMessage, setContext } = require('@sentry/electron/main') as {
+      captureMessage: (msg: string, level?: string) => void;
+      setContext: (name: string, data: Record<string, unknown> | null) => void;
+    };
+    setContext('cpuWatchdog', {
+      reason: params.reason,
+      pid: params.pid,
+      cpuTrend: params.cpuTrend,
+      uptimeMs: Math.round(process.uptime() * 1000),
+    });
+    captureMessage(`desktop:cpu-watchdog:${params.reason}`, 'warning');
+  } catch {
+    // Sentry not initialized — ignore.
+  }
+}
+
+function triggerCpuWatchdog(params: {
+  reason: 'sustained-high-cpu' | 'unresponsive';
+  pid?: number;
+  cpuTrend?: number[];
+}) {
+  const now = Date.now();
+  if (watchdogDialogOpen) return;
+  if (now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS) return;
+  lastWatchdogFiredAt = now;
+
+  logger.warn('[CPU Watchdog] fired', params);
+  reportWatchdogToSentry(params);
+
+  const parent = pickWatchdogDialogParent();
+  if (!parent) {
+    logger.warn(
+      '[CPU Watchdog] no visible window to attach dialog to; skipping UI',
+    );
+    return;
+  }
+
+  const uptimeMinutes = Math.round(process.uptime() / 60);
+  const reasonText =
+    params.reason === 'unresponsive'
+      ? 'The OneKey window is not responding.'
+      : `CPU usage has stayed above ${CPU_WATCHDOG_THRESHOLD_PERCENT}% for the last ${Math.round(
+          (CPU_WATCHDOG_SUSTAINED_SAMPLES * CPU_WATCHDOG_SAMPLE_INTERVAL_MS) /
+            60_000,
+        )} minutes.`;
+
+  watchdogDialogOpen = true;
+  void dialog
+    .showMessageBox(parent, {
+      type: 'warning',
+      title: 'OneKey performance issue',
+      message: 'OneKey performance issue detected',
+      detail: `${reasonText}\n\nUptime: ${uptimeMinutes} min.\n\nExport logs to share with support, or restart to recover.`,
+      buttons: [
+        i18nText(ElectronTranslations.settings_upload_state_logs) ||
+          'Upload Logs',
+        i18nText(ElectronTranslations.troubleshooting_restart_app) ||
+          'Restart App',
+        i18nText(ElectronTranslations.global_later) || 'Later',
+      ],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+    })
+    .then(({ response }) => {
+      if (response === 0) {
+        const win = getSafelyMainWindow();
+        win?.webContents.send(ipcMessageKeys.CPU_WATCHDOG_OPEN_EXPORT_LOGS);
+      } else if (response === 1) {
+        if (!process.mas) {
+          app.relaunch();
+        }
+        app.exit(0);
+      } else {
+        logger.info('[CPU Watchdog] user dismissed dialog');
+      }
+    })
+    .catch((err) => {
+      logger.warn('[CPU Watchdog] dialog failed', err);
+    })
+    .finally(() => {
+      watchdogDialogOpen = false;
+    });
+}
+
+app.on('before-quit', () => {
+  if (cpuWatchdogInterval) {
+    clearInterval(cpuWatchdogInterval);
+    cpuWatchdogInterval = null;
+  }
+});
+
+// ==================== End CPU Watchdog ====================
 
 // Dev-only switches — NEVER run in production builds
 if (isDevServer && !app.isPackaged) {

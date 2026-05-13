@@ -55,6 +55,7 @@ const validChannels = new Set([
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
+  ipcMessageKeys.CPU_WATCHDOG_OPEN_EXPORT_LOGS,
   'memory-pressure-warning',
   'memory-pressure-critical',
   'gpu-process-crashed',
