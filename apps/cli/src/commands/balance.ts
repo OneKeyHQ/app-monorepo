@@ -3,11 +3,8 @@ import {
   fetchBtcDerivedBalances,
   fetchBtcExternalAddressBalance,
 } from '../core/btc/account';
-import {
-  assertChainCapability,
-  isEvmChain,
-  resolveChain,
-} from '../core/chain-resolver';
+import { isBtcImpl } from '../core/btc/address-types';
+import { assertChainCapability, resolveChain } from '../core/chain-resolver';
 import { resolveToken } from '../core/token-resolver';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
@@ -203,7 +200,7 @@ export function registerBalanceCommand(program: Command): void {
           ) as IEndpointEnv;
           apiClient.setEnv(env);
 
-          if (!isEvmChain(chainConfig)) {
+          if (isBtcImpl(chainConfig.impl)) {
             if (options.address && options.addressType) {
               throw new AppError(
                 ERROR_CODES.PARAM_INVALID_ADDRESS.code,

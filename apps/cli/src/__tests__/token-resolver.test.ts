@@ -63,6 +63,16 @@ describe('token-resolver', () => {
     expect(mockGet).not.toHaveBeenCalled();
   });
 
+  it('resolves native SOL without API call', async () => {
+    const result = await resolveToken('SOL', 'sol');
+    expect(result.isNative).toBe(true);
+    expect(result.symbol).toBe('SOL');
+    expect(result.decimals).toBe(9);
+    expect(result.contractAddress).toBe('');
+    expect(result.networkId).toBe('sol--101');
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
   // --- Path 2: Contract address ---
 
   it('resolves contract address via V2 market search', async () => {
@@ -137,6 +147,60 @@ describe('token-resolver', () => {
     expect(result.contractAddress).toBe(
       '0xDEAD000000000000000000000000000000000000',
     );
+  });
+
+  it('resolves SOL SPL mint address via exact V2 market search match', async () => {
+    const solUsdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+    mockGet.mockResolvedValueOnce([
+      {
+        name: 'USD Coin',
+        price: '1.0',
+        symbol: 'USDC',
+        address: solUsdcMint,
+        network: 'sol--101',
+        logoUrl: 'https://logo.url/sol-usdc.png',
+        isNative: false,
+        decimals: 6,
+        liquidity: '1000000',
+        volume24h: '500000',
+        communityRecognized: true,
+      },
+    ]);
+
+    const result = await resolveToken(solUsdcMint, 'sol');
+    expect(result.isNative).toBe(false);
+    expect(result.symbol).toBe('USDC');
+    expect(result.decimals).toBe(6);
+    expect(result.contractAddress).toBe(solUsdcMint);
+    expect(result.networkId).toBe('sol--101');
+    expect(mockGet).toHaveBeenCalledWith(
+      'utility',
+      '/utility/v2/market/search',
+      { query: solUsdcMint },
+    );
+  });
+
+  it('uses degraded SOL mint metadata when exact market search misses', async () => {
+    const solMint = 'So11111111111111111111111111111111111111112';
+    mockGet.mockResolvedValueOnce([
+      {
+        name: 'Other Solana Token',
+        price: '1.0',
+        symbol: 'OTHER',
+        address: '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E',
+        network: 'sol--101',
+        logoUrl: '',
+        isNative: false,
+        decimals: 6,
+        liquidity: '100',
+        communityRecognized: false,
+      },
+    ]);
+
+    const result = await resolveToken(solMint, 'sol');
+    expect(result.contractAddress).toBe(solMint);
+    expect(result.decimals).toBeNull();
+    expect(result.networkId).toBe('sol--101');
   });
 
   // --- Path 3: Symbol search ---
