@@ -282,6 +282,7 @@ export const FavoriteButton = memo(
 
     return (
       <IconButton
+        testID="perp-already-favorite-icon-btn"
         icon={isFavorite ? 'StarSolid' : 'StarOutline'}
         variant="tertiary"
         size="small"

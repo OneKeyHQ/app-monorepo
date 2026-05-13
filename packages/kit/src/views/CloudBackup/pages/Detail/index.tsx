@@ -44,6 +44,7 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import BackupListLoading from '../../components/BackupListLoading';
 import { useDeleteBackupDialog } from '../../components/useDeleteBackupDialog';
 import { useRestorePasswordVerifyDialog } from '../../components/useResotrePasswordVerify';
+import { CloudBackupTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -220,7 +221,11 @@ export default function Detail() {
 
   const renderHeaderRight = useCallback(
     () => (
-      <HeaderIconButton icon="DotVerOutline" onPress={showDeleteActionList} />
+      <HeaderIconButton
+        icon="DotVerOutline"
+        onPress={showDeleteActionList}
+        testID={CloudBackupTestIDs.headerMenuBtn}
+      />
     ),
     [showDeleteActionList],
   );
@@ -338,6 +343,7 @@ export default function Detail() {
           <SegmentControl
             fullWidth
             value={segmentValue}
+            testID={CloudBackupTestIDs.segmentControl}
             onChange={(v) => {
               setSegmentValue(v as number);
             }}
@@ -458,6 +464,7 @@ export default function Detail() {
           loading={submitLoading}
           disabled={!diffData || diffData.notOnDeviceSectionList.length <= 0}
           onPress={handlerImport}
+          testID={CloudBackupTestIDs.importBtn}
         >
           {intl.formatMessage({ id: ETranslations.global_import })}
         </Button>

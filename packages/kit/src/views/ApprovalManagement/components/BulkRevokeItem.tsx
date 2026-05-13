@@ -39,6 +39,7 @@ import { Token } from '../../../components/Token';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import { openTransactionDetailsUrl } from '../../../utils/explorerUtils';
+import { ApprovalManagementTestIDs } from '../testIDs';
 
 import type { IntlShape } from 'react-intl';
 
@@ -213,6 +214,7 @@ function BulkRevokeItem(props: IProps) {
               })}
               renderTrigger={
                 <IconButton
+                  testID={ApprovalManagementTestIDs.bulkRevokeInfoBtn}
                   size="small"
                   color="$iconSubdued"
                   icon="InfoCircleOutline"
@@ -226,6 +228,7 @@ function BulkRevokeItem(props: IProps) {
                   </SizableText>
                   {status.isInsufficientFunds && nativeToken ? (
                     <Button
+                      testID={ApprovalManagementTestIDs.bulkRevokeFillUpBtn}
                       variant="tertiary"
                       size="large"
                       color="$textInfo"
@@ -351,6 +354,7 @@ function BulkRevokeItem(props: IProps) {
                   </SizableText>
                 </YStack>
                 <IconButton
+                  testID={ApprovalManagementTestIDs.bulkRevokeCopyContractBtn}
                   title={intl.formatMessage({
                     id: ETranslations.global_copy,
                   })}
@@ -378,6 +382,7 @@ function BulkRevokeItem(props: IProps) {
                     })}
                   </SizableText>
                   <IconButton
+                    testID={ApprovalManagementTestIDs.bulkRevokeViewTxBtn}
                     title={intl.formatMessage({
                       id: ETranslations.global_view_in_blockchain_explorer,
                     })}
@@ -394,6 +399,7 @@ function BulkRevokeItem(props: IProps) {
                     }
                   />
                   <IconButton
+                    testID={ApprovalManagementTestIDs.bulkRevokeCopyTxBtn}
                     title={intl.formatMessage({
                       id: ETranslations.global_copy,
                     })}

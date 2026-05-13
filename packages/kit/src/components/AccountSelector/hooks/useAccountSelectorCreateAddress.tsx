@@ -269,6 +269,7 @@ export function useAccountSelectorCreateAddress() {
                           children: (
                             <Stack>
                               <Button
+                                testID="account-selector-is-btc-only-wallet-btn"
                                 size="small"
                                 mt="$2"
                                 iconAfter="OpenOutline"
@@ -293,7 +294,11 @@ export function useAccountSelectorCreateAddress() {
                           id: ETranslations.contact_us_instruction,
                         })}
                       </SizableText>
-                      <Button variant="tertiary" onPress={() => showIntercom()}>
+                      <Button
+                        variant="tertiary"
+                        onPress={() => showIntercom()}
+                        testID="account-selector-btn"
+                      >
                         {intl.formatMessage({
                           id: ETranslations.global_contact_us,
                         })}

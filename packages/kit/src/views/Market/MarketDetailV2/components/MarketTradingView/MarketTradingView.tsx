@@ -2,6 +2,7 @@ import { memo } from 'react';
 
 import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 
+import { MarketTestIDs } from '../../../testIDs';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
 
 interface IMarketTradingViewProps {
@@ -30,6 +31,7 @@ export const MarketTradingView = memo(
 
     return (
       <TradingViewV2
+        testID={MarketTestIDs.detailChart}
         symbol={tokenSymbol}
         tokenAddress={tokenAddress}
         networkId={networkId}

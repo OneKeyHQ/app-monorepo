@@ -157,6 +157,7 @@ function CopyButton({
   const intl = useIntl();
   return visible ? (
     <IconButton
+      testID="account-selector-copy-address-btn"
       title={intl.formatMessage({
         id: ETranslations.global_copy_address,
       })}

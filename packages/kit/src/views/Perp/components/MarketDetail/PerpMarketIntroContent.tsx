@@ -12,6 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -179,6 +180,9 @@ function IntroLinkRow({
           return (
             <Button
               key={`${label}-${item.label}-${item.url}`}
+              testID={PerpTestIDs.MarketIntroLinkButton(
+                `${label}-${item.label}`,
+              )}
               size="small"
               variant="secondary"
               maxWidth={INTRO_LINK_CHIP_MAX_WIDTH}

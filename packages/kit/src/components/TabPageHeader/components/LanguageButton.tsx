@@ -21,6 +21,7 @@ export function LanguageButton({ size, iconSize }: ILanguageButtonProps) {
   }, [intl]);
   return (
     <Select
+      testID="tab-page-header-title-select"
       title={title}
       items={options}
       value={value}

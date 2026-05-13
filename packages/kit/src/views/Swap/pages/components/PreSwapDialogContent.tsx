@@ -587,6 +587,7 @@ const PreSwapDialogContent = ({
                   />
                   {/* Primary button */}
                   <Button
+                    testID="swap-btn"
                     variant="primary"
                     onPress={handleConfirmPress}
                     size="medium"

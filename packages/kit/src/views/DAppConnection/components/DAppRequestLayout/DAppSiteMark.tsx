@@ -9,6 +9,8 @@ import {
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
+import { DAppConnectionTestIDs } from '../../testIDs';
+
 function DAppSiteMarkInner({
   origin,
   urlSecurityInfo,
@@ -71,7 +73,12 @@ function DAppSiteMarkInner({
   }, [urlSecurityInfo?.level]);
 
   return (
-    <XStack alignItems="center" alignSelf="flex-start" gap="$1.5">
+    <XStack
+      testID={DAppConnectionTestIDs.SiteMark}
+      alignItems="center"
+      alignSelf="flex-start"
+      gap="$1.5"
+    >
       <Image
         size="$5"
         bg="$bgSubdued"

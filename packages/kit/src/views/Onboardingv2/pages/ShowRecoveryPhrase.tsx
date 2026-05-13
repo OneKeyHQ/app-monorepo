@@ -25,6 +25,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRecoveryPhraseProtected } from '../../../hooks/useRecoveryPhraseProtected/useRecoveryPhraseProtected';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -104,28 +105,33 @@ export default function ShowRecoveryPhrase() {
         copyText(mnemonic);
       },
       confirmButtonProps: {
-        testID: 'copy-recovery-phrase-confirm',
+        testID: OnboardingTestIDs.copyRecoveryPhraseConfirm,
         variant: 'secondary',
       },
       onCancelText: intl.formatMessage({
         id: ETranslations.global_cancel_copy,
       }),
       cancelButtonProps: {
-        testID: 'copy-recovery-phrase-cancel',
+        testID: OnboardingTestIDs.copyRecoveryPhraseCancel,
         variant: 'primary',
       },
     });
   }, [copyText, intl, mnemonic]);
   const copyButton = useMemo(() => {
     return (
-      <Button size="large" onPress={handleCopyMnemonic} childrenAsText={false}>
+      <Button
+        size="large"
+        onPress={handleCopyMnemonic}
+        childrenAsText={false}
+        testID="onboardingv2-copy-button-btn"
+      >
         <Icon name="Copy3Outline" />
       </Button>
     );
   }, [handleCopyMnemonic]);
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.showRecoveryPhrasePage}>
       <OnboardingLayout>
         <OnboardingLayout.Header title={displayName} />
         <OnboardingLayout.Body>
@@ -170,6 +176,7 @@ export default function ShowRecoveryPhrase() {
             {gtMd ? (
               <XStack gap="$2">
                 <Button
+                  testID="onboardingv2-btn"
                   flex={1}
                   size="large"
                   variant="primary"
@@ -188,6 +195,7 @@ export default function ShowRecoveryPhrase() {
           <OnboardingLayout.Footer>
             <XStack gap="$2">
               <Button
+                testID="onboardingv2-btn"
                 flex={1}
                 size="large"
                 variant="primary"

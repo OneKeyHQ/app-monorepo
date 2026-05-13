@@ -513,6 +513,7 @@ function KeylessProviderButtons({
           ({ provider, iconName, platformLabel }) => (
             <Button
               key={provider}
+              testID={`web-dapp-keyless-${provider}-btn`}
               flex={1}
               bg="$gray3"
               hoverStyle={{ bg: '$gray4' }}

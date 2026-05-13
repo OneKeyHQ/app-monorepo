@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -244,6 +245,7 @@ function LinkChip({
 
   return (
     <Button
+      testID={PerpTestIDs.MarketDetailLinkButton(label)}
       size="small"
       variant="secondary"
       maxWidth={DETAIL_LINK_CHIP_MAX_WIDTH}

@@ -23,6 +23,8 @@ import type { ISegmentControlProps } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { EarnTestIDs } from '../testIDs';
+
 import type { LayoutChangeEvent } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -129,6 +131,7 @@ const MarketSelectorDesktop = ({
   return (
     <Stack px="$pagePadding" pt="$5" pb="$1">
       <SegmentControl
+        testID={EarnTestIDs.marketSelector}
         value={mode}
         options={options}
         minWidth={264}

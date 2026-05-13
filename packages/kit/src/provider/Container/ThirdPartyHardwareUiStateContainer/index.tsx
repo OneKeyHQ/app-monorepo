@@ -171,6 +171,7 @@ function DeviceActionToast({
         <Stack minWidth="$8">
           {showCloseButton ? (
             <IconButton
+              testID="third-party-hw-ui-close-btn"
               size="small"
               icon="CrossedSmallOutline"
               onPress={onCloseByUser}

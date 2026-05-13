@@ -138,6 +138,7 @@ export function UniversalSearchInput({
   return (
     <Stack position="relative" width="100%">
       <Input
+        testID="search-input-render-search-results-input"
         placeholder={
           placeholder ||
           intl.formatMessage({

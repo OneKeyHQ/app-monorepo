@@ -212,6 +212,7 @@ const LimitOrderCard = ({
             {intl.formatMessage({ id: ETranslations.Limit_limit_price })}
           </SizableText>
           <IconButton
+            testID="swap-render-limit-order-price-icon-btn"
             icon="RepeatOutline"
             variant="tertiary"
             iconSize="$3.5"

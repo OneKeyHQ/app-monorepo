@@ -33,6 +33,7 @@ import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys
 
 import { useAndroidFlashListInitialScrollFix } from '../../hooks/useAndroidFlashListInitialScrollFix';
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
+import { ChainSelectorTestIDs } from '../../testIDs';
 import { CELL_HEIGHT } from '../../types';
 import RecentNetworks from '../RecentNetworks';
 
@@ -484,7 +485,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     <Stack flex={1}>
       <Stack px="$5" pb="$4">
         <SearchBar
-          testID="chain-selector"
+          testID={ChainSelectorTestIDs.sectionListSearchBar}
           placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={text}
           onChangeText={onChangeText}

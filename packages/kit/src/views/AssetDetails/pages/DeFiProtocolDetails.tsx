@@ -102,6 +102,7 @@ function DeFiProtocolDetails() {
           </XStack>
           {protocolDisplayInfo.protocolUrl ? (
             <IconButton
+              testID="asset-details-icon-btn"
               title={intl.formatMessage({
                 id: ETranslations.global_view_in_blockchain_explorer,
               })}

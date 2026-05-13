@@ -126,6 +126,7 @@ function MarketHomeTabBar({
           </XStack>
           {ctx.isTokenCacheReady ? (
             <IconButton
+              testID="market-render-watchlist-sub-header-content-icon-btn"
               icon="PencilOutline"
               size="small"
               variant="tertiary"

@@ -62,6 +62,7 @@ function ViewMoreText({ children, ...props }: ISizableTextProps) {
         </Stack>
         {isShowViewButton ? (
           <Button
+            testID="market-is-full-text-shown-btn"
             size="medium"
             variant="secondary"
             onPress={handleViewMore}

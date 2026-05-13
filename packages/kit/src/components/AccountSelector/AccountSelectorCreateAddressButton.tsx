@@ -138,7 +138,13 @@ export function AccountSelectorCreateAddressButton({
   buttonRender =
     buttonRender ||
     ((props) => (
-      <Button size="small" borderWidth={0} variant="tertiary" {...props} />
+      <Button
+        testID="account-selector-create-address-btn"
+        size="small"
+        borderWidth={0}
+        variant="tertiary"
+        {...props}
+      />
     ));
 
   const doCreate = useCallback(async () => {

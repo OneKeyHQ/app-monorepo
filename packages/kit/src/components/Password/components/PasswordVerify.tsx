@@ -391,6 +391,7 @@ function PasswordVerify({
             {isEnable ? (
               <YStack alignSelf="center" pt="$6" scale={1.5}>
                 <IconButton
+                  testID="password-icon-btn"
                   size="large"
                   variant="tertiary"
                   icon={biologyAuthIconName}

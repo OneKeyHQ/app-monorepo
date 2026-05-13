@@ -90,6 +90,7 @@ function MainInfoBlock(props: IProps) {
       ) : null}
       {closable ? (
         <IconButton
+          testID="home-icon-btn"
           variant="tertiary"
           position="absolute"
           top="$4"

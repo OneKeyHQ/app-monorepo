@@ -36,6 +36,7 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
     );
     return (
       <Select
+        testID="perp-order-type-options-select"
         items={orderTypeOptions}
         value={value}
         onChange={onChange}

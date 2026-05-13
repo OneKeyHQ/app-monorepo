@@ -165,6 +165,7 @@ function PrimeLoginEmailDialogV2(props: {
             }}
           >
             <Input
+              testID="prime-input"
               autoFocus
               autoCapitalize="none"
               size="large"

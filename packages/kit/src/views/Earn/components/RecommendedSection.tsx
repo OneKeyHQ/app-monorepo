@@ -472,6 +472,7 @@ function WebRecommendedScroller({
         }}
       >
         <IconButton
+          testID="earn-icon-btn"
           size="small"
           icon="ChevronLeftOutline"
           bg="$gray3"
@@ -499,6 +500,7 @@ function WebRecommendedScroller({
         }}
       >
         <IconButton
+          testID="earn-icon-btn"
           size="small"
           icon="ChevronRightOutline"
           onPress={handleScrollRight}
@@ -636,7 +638,12 @@ function RecommendedShowMoreButton({ onPress }: { onPress: () => void }) {
 
   return (
     <YStack pt="$4" px="$pagePadding" alignItems="flex-start">
-      <Button variant="secondary" size="medium" onPress={onPress}>
+      <Button
+        variant="secondary"
+        size="medium"
+        onPress={onPress}
+        testID="earn-intl-btn"
+      >
         {intl.formatMessage({
           id: ETranslations.global_show_more,
         })}

@@ -313,6 +313,7 @@ export const useReferFriends = () => {
                     {myReferralCode}
                   </SizableText>
                   <IconButton
+                    testID="app-get-render-content-icon-btn"
                     title={intl.formatMessage({
                       id: ETranslations.global_copy,
                     })}
@@ -352,6 +353,7 @@ export const useReferFriends = () => {
                       {copyContent}
                     </SizableText>
                     <IconButton
+                      testID="app-icon-btn"
                       title={intl.formatMessage({
                         id: ETranslations.global_copy,
                       })}

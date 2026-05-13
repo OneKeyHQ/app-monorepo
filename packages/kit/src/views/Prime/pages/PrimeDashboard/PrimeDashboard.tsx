@@ -515,6 +515,7 @@ export default function PrimeDashboard({
         </Stack>
         <Stack position="absolute" right="$5" top={top || '$5'} zIndex="$5">
           <IconButton
+            testID="prime-action-icon-btn"
             onPress={() => {
               // navigation.push(EModalRoutes.PrimeModal, {
               //   screen: EPrimePages.PrimeFeatures,

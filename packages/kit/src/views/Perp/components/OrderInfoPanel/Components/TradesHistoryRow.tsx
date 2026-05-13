@@ -282,6 +282,7 @@ const TradesHistoryRow = memo(
                   </SizableText>
                   {canShare ? (
                     <IconButton
+                      testID="perp-icon-btn"
                       variant="tertiary"
                       size="small"
                       icon="ShareOutline"
@@ -521,6 +522,7 @@ const TradesHistoryRow = memo(
             </SizableText>
             {canShare ? (
               <IconButton
+                testID="perp-icon-btn"
                 variant="tertiary"
                 size="small"
                 icon="ShareOutline"

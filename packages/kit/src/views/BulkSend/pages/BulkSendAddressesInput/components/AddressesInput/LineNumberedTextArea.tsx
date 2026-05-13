@@ -664,6 +664,7 @@ function LineNumberedTextArea({
               <XStack justifyContent="flex-end" gap="$6" ml="auto">
                 {showPaste ? (
                   <IconButton
+                    testID="bulk-send-icon-btn"
                     variant="tertiary"
                     icon="ClipboardOutline"
                     onPress={handlePaste}
@@ -675,6 +676,7 @@ function LineNumberedTextArea({
                 ) : null}
                 {showUpload ? (
                   <IconButton
+                    testID="bulk-send-icon-btn"
                     variant="tertiary"
                     icon="UploadOutline"
                     onPress={handleUpload}

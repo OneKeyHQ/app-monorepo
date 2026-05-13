@@ -49,6 +49,7 @@ import {
   useTokenListActions,
 } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
+import { AssetSelectorTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -210,6 +211,7 @@ function AggregateTokenListItem({
 
   return (
     <ListItem
+      testID={AssetSelectorTestIDs.aggregateTokenListItem}
       key={token.$key}
       title={token.networkName || network?.name}
       avatarProps={{

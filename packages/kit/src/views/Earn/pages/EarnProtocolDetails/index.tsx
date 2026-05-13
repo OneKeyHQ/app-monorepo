@@ -188,6 +188,7 @@ const ProtocolHeader = ({
         />
         {onShare ? (
           <IconButton
+            testID="earn-icon-btn"
             icon="ShareOutline"
             size="small"
             variant="tertiary"
@@ -781,6 +782,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     if (gtMd || !shareUrl) return null;
     return (
       <IconButton
+        testID="earn-header-right-icon-btn"
         icon="ShareOutline"
         variant="tertiary"
         onPress={handleShare}

@@ -131,6 +131,7 @@ function BannerItem({
 
       {item.closeable ? (
         <IconButton
+          testID="home-icon-btn"
           position="absolute"
           top="$2"
           right="$2"
@@ -406,6 +407,7 @@ function WebBannerScroller({
           }}
         >
           <IconButton
+            testID="home-icon-btn"
             size="small"
             icon="ChevronLeftOutline"
             bg="$gray3"
@@ -441,6 +443,7 @@ function WebBannerScroller({
           }}
         >
           <IconButton
+            testID="home-icon-btn"
             size="small"
             icon="ChevronRightOutline"
             onPress={handleScrollRight}
@@ -485,6 +488,7 @@ function PerpsReferralDialogContent({
       </SizableText>
 
       <Checkbox
+        testID="home-handle-snooze-change-checkbox"
         label={intl.formatMessage({
           id: ETranslations.perps__snooze_remind_later__action,
         })}

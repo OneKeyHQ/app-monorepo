@@ -273,6 +273,7 @@ const LimitOrderDetailModal = () => {
           </SizableText>
           {status === ESwapLimitOrderStatus.OPEN ? (
             <Button
+              testID="swap-btn"
               variant="primary"
               size="small"
               onPress={() => {

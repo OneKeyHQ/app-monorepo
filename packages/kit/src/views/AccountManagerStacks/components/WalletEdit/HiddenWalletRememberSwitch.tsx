@@ -37,6 +37,7 @@ export function HiddenWalletRememberSwitch({
           placement="bottom-start"
           renderTrigger={
             <IconButton
+              testID="account-manager-intl-icon-btn"
               variant="tertiary"
               icon="InfoCircleOutline"
               size="small"
@@ -64,6 +65,7 @@ export function HiddenWalletRememberSwitch({
         />
       </XStack>
       <Switch
+        testID="account-manager-switch"
         size={ESwitchSize.small}
         value={val}
         onChange={async () => {
