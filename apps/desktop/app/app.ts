@@ -809,6 +809,22 @@ async function createMainWindow() {
     throw new OneKeyLocalError('Test Electron Native crash 996');
   });
 
+  // Dev-only backdoor: force the CPU watchdog dialog to appear immediately,
+  // bypassing the sustained-CPU threshold and 30-minute cooldown. Used by
+  // the "Force trigger CPU Watchdog Dialog" entries under Dev Mode.
+  ipcMain.removeAllListeners(ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER);
+  ipcMain.on(
+    ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER,
+    (_event, reason: ICpuWatchdogReason) => {
+      logger.warn('[CPU Watchdog] force-trigger via IPC', { reason });
+      triggerCpuWatchdog({
+        reason,
+        cpuTrend: [99, 99, 99],
+        bypassCooldown: true,
+      });
+    },
+  );
+
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
@@ -2047,10 +2063,15 @@ function triggerCpuWatchdog(params: {
   reason: ICpuWatchdogReason;
   pid?: number;
   cpuTrend?: number[];
+  bypassCooldown?: boolean;
 }) {
   const now = Date.now();
   if (watchdogDialogOpen) return;
-  if (now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS) return;
+  if (
+    !params.bypassCooldown &&
+    now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS
+  )
+    return;
   lastWatchdogFiredAt = now;
 
   logger.warn('[CPU Watchdog] fired', params);

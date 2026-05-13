@@ -58,6 +58,7 @@ export const ipcMessageKeys = {
   // App
   SHOW_ABOUT_WINDOW: 'showAboutWindow',
   CPU_WATCHDOG_OPEN_EXPORT_LOGS: 'app/cpuWatchdog/openExportLogs',
+  CPU_WATCHDOG_FORCE_TRIGGER: 'app/cpuWatchdog/forceTrigger',
   APP_STATE: 'appState',
   APP_READY: 'app/ready',
   APP_SHORTCUT: 'app/shortcut',

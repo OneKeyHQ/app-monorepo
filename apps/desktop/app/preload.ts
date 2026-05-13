@@ -154,6 +154,12 @@ const desktopApi = {
   },
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
+  forceCpuWatchdog: (
+    reason:
+      | 'sustained-high-cpu-severe'
+      | 'sustained-high-cpu-mild'
+      | 'unresponsive',
+  ) => ipcRenderer.send(ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER, reason),
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;

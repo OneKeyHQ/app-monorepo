@@ -15,6 +15,31 @@ function burnCpuForMs(durationMs: number) {
   return spin;
 }
 
+function startLongTaskCapture():
+  | { stop: () => { count: number; maxMs: number; totalMs: number } }
+  | undefined {
+  if (typeof globalThis.PerformanceObserver === 'undefined') return undefined;
+  const captured: { duration: number }[] = [];
+  try {
+    const observer = new globalThis.PerformanceObserver((list) => {
+      for (const e of list.getEntries()) {
+        captured.push({ duration: e.duration });
+      }
+    });
+    observer.observe({ entryTypes: ['longtask'] });
+    return {
+      stop: () => {
+        observer.disconnect();
+        const totalMs = captured.reduce((s, e) => s + e.duration, 0);
+        const maxMs = captured.reduce((m, e) => Math.max(m, e.duration), 0);
+        return { count: captured.length, maxMs, totalMs };
+      },
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 function confirmAndBurn(params: {
   title: string;
   description: string;
@@ -35,10 +60,52 @@ function confirmAndBurn(params: {
           )} s`,
         });
         setTimeout(() => {
+          const capture = startLongTaskCapture();
           burnCpuForMs(params.durationMs);
+          // Defer one tick so the PerformanceObserver callback can flush
+          // the entries collected during the busy loop before we read them.
+          setTimeout(() => {
+            const stats = capture?.stop();
+            if (stats) {
+              Toast.success({
+                title: `Burn complete — ${stats.count} long-task(s)`,
+                message: `max=${Math.round(stats.maxMs)}ms  total=${Math.round(
+                  stats.totalMs,
+                )}ms. Logged via defaultLogger.app.perf.longTask.`,
+              });
+            } else {
+              Toast.success({
+                title: 'Burn complete',
+                message:
+                  'PerformanceObserver unavailable on this platform; only main-process watchdog can verify.',
+              });
+            }
+          }, 50);
         }, 100);
       }, 200);
     },
+  });
+}
+
+function forceTrigger(
+  reason:
+    | 'sustained-high-cpu-severe'
+    | 'sustained-high-cpu-mild'
+    | 'unresponsive',
+) {
+  const api = globalThis.desktopApi as
+    | { forceCpuWatchdog?: (r: string) => void }
+    | undefined;
+  if (!api?.forceCpuWatchdog) {
+    Toast.error({
+      title: 'forceCpuWatchdog unavailable',
+      message: 'preload may be out of date; rebuild the desktop bundle.',
+    });
+    return;
+  }
+  api.forceCpuWatchdog(reason);
+  Toast.message({
+    title: `Forced watchdog: ${reason}`,
   });
 }
 
@@ -50,14 +117,35 @@ export function CpuWatchdogDevSettings() {
   return [
     <SectionPressItem
       icon="PerformanceOutline"
+      key="cpuWatchdog-force-severe"
+      title="CPU Watchdog: Force Severe Dialog"
+      subtitle="Opens the watchdog dialog immediately (bypasses 30 s × 95% threshold and 30 min cooldown). Use to verify dialog UX + button paths without freezing the UI."
+      onPress={() => forceTrigger('sustained-high-cpu-severe')}
+    />,
+    <SectionPressItem
+      icon="PerformanceOutline"
+      key="cpuWatchdog-force-mild"
+      title="CPU Watchdog: Force Mild Dialog"
+      subtitle="Same as above but with reason=sustained-high-cpu-mild (text shows 80% × 5 min)."
+      onPress={() => forceTrigger('sustained-high-cpu-mild')}
+    />,
+    <SectionPressItem
+      icon="PerformanceOutline"
+      key="cpuWatchdog-force-unresponsive"
+      title="CPU Watchdog: Force Unresponsive Dialog"
+      subtitle="Same as above but with reason=unresponsive (text shows 'window is not responding')."
+      onPress={() => forceTrigger('unresponsive')}
+    />,
+    <SectionPressItem
+      icon="PerformanceOutline"
       key="cpuWatchdog-burn-5s"
       title="CPU Watchdog: Burn 5 s (long-task observer)"
-      subtitle="Fires a single 5 s long-task entry; no dialog expected."
+      subtitle="Fires a single ~5 s long-task entry; no watchdog dialog expected. A Toast reports the captured duration."
       onPress={() =>
         confirmAndBurn({
           title: 'Burn renderer CPU for 5 s?',
           description:
-            'The window will freeze for ~5 seconds. Used to verify the long-task observer + Sentry breadcrumb path. No watchdog dialog should appear.',
+            'The window will freeze for ~5 seconds. Used to verify the long-task observer + Sentry breadcrumb path. No watchdog dialog should appear — a Toast will confirm the captured long-task entry.',
           durationMs: 5000,
         })
       }
