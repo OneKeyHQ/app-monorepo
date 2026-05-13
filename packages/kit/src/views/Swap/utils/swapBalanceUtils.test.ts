@@ -13,13 +13,24 @@ type IFetchSwapTokenDetailsParams = {
   currency?: string;
 };
 
+type IGetNativeTokenAddressParams = {
+  networkId: string;
+};
+
 const mockFetchSwapTokenDetails: jest.MockedFunction<
   (params: IFetchSwapTokenDetailsParams) => Promise<{ balanceParsed: string }[]>
+> = jest.fn();
+const mockGetNativeTokenAddress: jest.MockedFunction<
+  (params: IGetNativeTokenAddressParams) => Promise<string>
 > = jest.fn();
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceToken: {
+      getNativeTokenAddress: (params: IGetNativeTokenAddressParams) =>
+        mockGetNativeTokenAddress(params),
+    },
     serviceSwap: {
       fetchSwapTokenDetails: (params: IFetchSwapTokenDetailsParams) =>
         mockFetchSwapTokenDetails(params),
@@ -55,9 +66,20 @@ const evmGasInfo = {
   },
 };
 
+const aptosNativeAddress = '0x1::aptos_coin::AptosCoin';
+
+const aptosToken = {
+  networkId: 'aptos--1',
+  contractAddress: '',
+  symbol: 'APT',
+  decimals: 8,
+  isNative: true,
+} as ISwapToken;
+
 describe('checkSwapLatestBalanceSufficient', () => {
   beforeEach(() => {
     mockFetchSwapTokenDetails.mockReset();
+    mockGetNativeTokenAddress.mockReset();
   });
 
   it('returns insufficient when the latest token balance is lower than amount', async () => {
@@ -89,6 +111,30 @@ describe('checkSwapLatestBalanceSufficient', () => {
         accountAddress: '0xabc',
       }),
     ).resolves.toEqual({ isSufficient: true });
+  });
+
+  it('uses canonical native token address when native token address is empty', async () => {
+    mockGetNativeTokenAddress.mockResolvedValue(aptosNativeAddress);
+    mockFetchSwapTokenDetails.mockResolvedValue([{ balanceParsed: '6.6044' }]);
+
+    await expect(
+      checkSwapLatestBalanceSufficient({
+        token: aptosToken,
+        amount: '0.0225',
+        accountId: 'account-id',
+        accountAddress: '0xabc',
+      }),
+    ).resolves.toEqual({ isSufficient: true });
+    expect(mockGetNativeTokenAddress).toHaveBeenCalledWith({
+      networkId: 'aptos--1',
+    });
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith({
+      networkId: 'aptos--1',
+      contractAddress: aptosNativeAddress,
+      accountAddress: '0xabc',
+      accountId: 'account-id',
+      currency: 'usd',
+    });
   });
 });
 
