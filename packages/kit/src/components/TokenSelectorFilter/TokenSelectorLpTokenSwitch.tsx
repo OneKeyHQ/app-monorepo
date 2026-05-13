@@ -1,6 +1,9 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { ESwitchSize, SizableText, Switch, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type ITokenSelectorLpTokenSwitchProps = {
   value: boolean;
@@ -13,8 +16,15 @@ function BasicTokenSelectorLpTokenSwitch({
   value,
   onChange,
   disabled,
-  label = 'LP/dApp',
+  label,
 }: ITokenSelectorLpTokenSwitchProps) {
+  const intl = useIntl();
+  const displayLabel =
+    label ??
+    intl.formatMessage({
+      id: ETranslations.wallet_defi_tokens__action,
+    });
+
   return (
     <XStack
       alignItems="center"
@@ -29,7 +39,7 @@ function BasicTokenSelectorLpTokenSwitch({
         color={disabled ? '$textDisabled' : '$textSubdued'}
         numberOfLines={1}
       >
-        {label}
+        {displayLabel}
       </SizableText>
       <Switch
         size={ESwitchSize.small}
