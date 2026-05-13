@@ -1063,10 +1063,11 @@ class ServicePendingInstallTask {
     // isNeedUpdate.shouldUpdate excludes jsBundleRollback.
 
     // Persist appliedWaitingVerify BEFORE switchBundle because switchBundle
-    // terminates the process (desktop: app.exit(0), native: RNRestart after
-    // 2.5s).  Code after switchBundle never executes, so the caller's
-    // post-execution status update is unreachable.  Without this, the task
-    // stays stuck in "running" and blocks subsequent tasks for up to 5 min.
+    // terminates the process (desktop: app.exit(0), native:
+    // appRestart({ mode: All }) after 2.5s).  Code after switchBundle never
+    // executes, so the caller's post-execution status update is unreachable.
+    // Without this, the task stays stuck in "running" and blocks subsequent
+    // tasks for up to 5 min.
     await setPendingInstallTask({
       ...task,
       status: EPendingInstallTaskStatus.appliedWaitingVerify,

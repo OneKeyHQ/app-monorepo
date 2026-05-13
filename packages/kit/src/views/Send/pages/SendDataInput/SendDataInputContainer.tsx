@@ -161,6 +161,10 @@ function SendDataInputContainer() {
     useState<IRecipientQuickSelectTab>('recent');
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
   const [scannedAmount, setScannedAmount] = useState('');
+  // Skip-amount paths (ERC-721, fixed Lightning invoice) build the unsigned
+  // tx inside this handler, which can take seconds on mobile — the Next
+  // button needs a visible loading state during that wait.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const pushAmountInput = useCallback(
     (params: ISendAmountInputParams) => {
@@ -374,6 +378,7 @@ function SendDataInputContainer() {
   const handleNavigateToAmountInput = useCallback(async () => {
     if (isNavigatingRef.current) return;
     isNavigatingRef.current = true;
+    setIsSubmitting(true);
     try {
       // Use already-watched toResolved instead of re-getting from form
       if (!toResolved) return;
@@ -573,6 +578,7 @@ function SendDataInputContainer() {
       console.error('Navigate to amount input failed:', e);
     } finally {
       isNavigatingRef.current = false;
+      setIsSubmitting(false);
     }
   }, [
     account,
@@ -1311,7 +1317,7 @@ function SendDataInputContainer() {
               id: ETranslations.global_next,
             })}
             confirmButtonProps={{
-              loading: false,
+              loading: isSubmitting,
               // Don't use form.formState.isValid here — the async address
               // validation (AddressInput queryAddress) can leave isValid stale.
               // toResolved && !toPending already gates address validity.

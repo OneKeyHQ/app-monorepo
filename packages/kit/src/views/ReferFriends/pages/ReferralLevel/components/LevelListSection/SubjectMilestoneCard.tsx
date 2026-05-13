@@ -35,31 +35,56 @@ function clampPct(pct: number) {
 const BAR_HEIGHT = 6;
 const MILESTONE_DOT_SIZE = 8;
 const CURRENT_DOT_SIZE = 12;
+const MILESTONE_LABEL_SIDE_SWITCH_PCT = 50;
 
 function MilestoneLabel({
   pct,
   title,
   value,
   align,
+  boundaryPct,
 }: {
   pct: number;
   title: string;
   value: string;
   align: 'flex-start' | 'flex-end';
+  boundaryPct?: number;
 }) {
   const isStart = align === 'flex-start';
   const clamped = clampPct(pct);
+  const clampedBoundary =
+    boundaryPct === undefined ? undefined : clampPct(boundaryPct);
+  let positionProps: { left?: string; right?: string };
+  if (clampedBoundary === undefined) {
+    if (isStart) {
+      positionProps = { left: `${clamped}%` };
+    } else {
+      positionProps = { right: `${100 - clamped}%` };
+    }
+  } else if (isStart) {
+    positionProps = { left: `${clamped}%`, right: `${100 - clampedBoundary}%` };
+  } else {
+    positionProps = { left: `${clampedBoundary}%`, right: `${100 - clamped}%` };
+  }
+  const constrainedTextProps =
+    clampedBoundary === undefined
+      ? {}
+      : ({
+          numberOfLines: 1,
+          textAlign: isStart ? 'left' : 'right',
+          w: '100%',
+        } as const);
+
   return (
-    <YStack
-      position="absolute"
-      {...(isStart ? { left: `${clamped}%` } : { right: `${100 - clamped}%` })}
-      gap="$0.5"
-      ai={align}
-    >
-      <SizableText size="$bodySm" color="$textSubdued">
+    <YStack position="absolute" {...positionProps} gap="$0.5" ai={align}>
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        {...constrainedTextProps}
+      >
         {title}
       </SizableText>
-      <SizableText size="$bodyMdMedium" color="$text">
+      <SizableText size="$bodyMdMedium" color="$text" {...constrainedTextProps}>
         {value}
       </SizableText>
     </YStack>
@@ -167,6 +192,22 @@ export function SubjectMilestoneCard({
   const upgradePct = upgrade
     ? upgrade.dividedBy(safeUpper).multipliedBy(100).toNumber()
     : null;
+  const clampedMaintainPct =
+    maintainPct === null ? null : clampPct(maintainPct);
+  const upgradeLabelBoundaryPct =
+    clampedMaintainPct !== null &&
+    upgradePct !== null &&
+    clampedMaintainPct >= MILESTONE_LABEL_SIDE_SWITCH_PCT
+      ? clampedMaintainPct
+      : undefined;
+  const maintainLabelAlign: 'flex-start' | 'flex-end' =
+    upgradePct !== null &&
+    clampedMaintainPct !== null &&
+    upgradeLabelBoundaryPct === undefined
+      ? 'flex-start'
+      : 'flex-end';
+  const maintainLabelBoundaryPct =
+    upgradeLabelBoundaryPct === undefined ? undefined : 0;
 
   const maintainTitle = intl.formatMessage({
     id: ETranslations.referral_level_milestone_retention,
@@ -220,7 +261,8 @@ export function SubjectMilestoneCard({
               pct={maintainPct}
               title={maintainTitle}
               value={formatFiatCompact(maintain)}
-              align={upgrade ? 'flex-start' : 'flex-end'}
+              align={maintainLabelAlign}
+              boundaryPct={maintainLabelBoundaryPct}
             />
           ) : null}
           {upgrade && upgradePct !== null ? (
@@ -229,6 +271,7 @@ export function SubjectMilestoneCard({
               title={upgradeTitle}
               value={formatFiatCompact(upgrade)}
               align="flex-end"
+              boundaryPct={upgradeLabelBoundaryPct}
             />
           ) : null}
         </Stack>
