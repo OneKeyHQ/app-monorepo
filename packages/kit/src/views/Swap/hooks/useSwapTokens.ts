@@ -101,7 +101,7 @@ export function useSwapTokenList(
         accountAddress: swapAddressInfo?.address,
         accountNetworkId: swapAddressInfo?.networkId,
         accountId: swapAddressInfo?.accountInfo?.account?.id,
-        ...(lpToken ? { lpToken } : {}),
+        lpToken,
       };
     }
     return {
@@ -110,7 +110,7 @@ export function useSwapTokenList(
       accountAddress: findNetInfo?.apiAddress,
       accountNetworkId: findNetInfo?.networkId,
       accountId: findNetInfo?.accountId,
-      ...(lpToken ? { lpToken } : {}),
+      lpToken,
     };
   }, [
     currentNetworkId,
@@ -298,7 +298,7 @@ export function useSwapTokenList(
           ? (swapAddressInfo?.accountInfo?.account?.id ??
               swapAddressInfo?.accountInfo?.dbAccount?.id)
           : undefined,
-        lpToken || undefined,
+        lpToken,
       );
     }
     void tokenListFetchAction(tokenFetchParams);
