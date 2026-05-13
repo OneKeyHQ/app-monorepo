@@ -121,6 +121,7 @@ function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
   );
   return (
     <IconButton
+      testID="more-action-button-handle-press-icon-btn"
       {...props}
       variant="tertiary"
       size="medium"

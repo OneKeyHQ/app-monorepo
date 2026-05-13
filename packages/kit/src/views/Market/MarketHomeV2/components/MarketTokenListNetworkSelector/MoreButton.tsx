@@ -71,6 +71,7 @@ const MoreButton: FC<IMoreButtonProps> = ({
 
     return (
       <Button
+        testID="market-render-trigger-btn"
         m="$0.5"
         size="small"
         variant="tertiary"

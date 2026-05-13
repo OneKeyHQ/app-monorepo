@@ -18,6 +18,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { HomeTestIDs } from '../../testIDs';
+
 import { RawActions } from './RawActions';
 
 import type { IActionCustomization } from './types';
@@ -112,6 +114,7 @@ function WalletActionSwap({
           accountUtils.isUrlAccountFn({ accountId: account?.id ?? '' }))
       }
       trackID="wallet-trade"
+      testID={HomeTestIDs.swapButton}
     />
   );
 }

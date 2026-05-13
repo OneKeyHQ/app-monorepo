@@ -24,6 +24,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 import { shuffleWordsIndices } from '../utils';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -147,7 +148,7 @@ export default function VerifyRecoveryPhrase() {
   );
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.verifyRecoveryPhrasePage}>
       <OnboardingLayout>
         <OnboardingLayout.Header
           title={intl.formatMessage({
@@ -170,6 +171,7 @@ export default function VerifyRecoveryPhrase() {
                 {question.words.map((word, wordIndex) => (
                   <XStack key={wordIndex} flexGrow={1} flexBasis={0}>
                     <Button
+                      testID="onboardingv2-btn"
                       key={wordIndex}
                       size="large"
                       flex={1}

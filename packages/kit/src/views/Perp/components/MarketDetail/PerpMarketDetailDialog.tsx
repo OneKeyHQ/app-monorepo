@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { Dialog, IconButton, YStack, useMedia } from '@onekeyhq/components';
+import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -68,6 +69,7 @@ export function PerpMarketDetailButton() {
 
   return (
     <IconButton
+      testID={PerpTestIDs.MarketDetailInfoButton}
       icon="InfoCircleOutline"
       size="small"
       iconProps={{ color: '$iconSubdued' }}

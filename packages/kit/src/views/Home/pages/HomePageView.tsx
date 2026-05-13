@@ -64,6 +64,7 @@ import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -451,6 +452,7 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.dexmarket_spot,
         }),
+        testID: HomeTestIDs.tabPortfolio,
         component: <PortfolioContainerWithProvider />,
       },
       isDeFiEnabled
@@ -459,6 +461,7 @@ export function HomePageView({
             name: intl.formatMessage({
               id: ETranslations.global_earn,
             }),
+            testID: HomeTestIDs.tabDefi,
             component: <DeFiContainerWithProvider />,
           }
         : undefined,
@@ -468,6 +471,7 @@ export function HomePageView({
             name: intl.formatMessage({
               id: ETranslations.global_nft,
             }),
+            testID: HomeTestIDs.tabNFT,
             component: (
               <HomeTabContentMaxWidth>
                 <NFTListContainerWithProvider />
@@ -480,6 +484,7 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.global_history,
         }),
+        testID: HomeTestIDs.tabHistory,
         component: (
           <HomeTabContentMaxWidth>
             <TxHistoryListContainerWithProvider />
@@ -489,9 +494,23 @@ export function HomePageView({
     ].filter(Boolean);
   }, [intl, isDeFiEnabled, isNFTEnabled]);
 
-  const handleRenderItem = useCallback((props: ITabBarItemProps) => {
-    return <TabBarItem {...props} />;
-  }, []);
+  const tabTestIDMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const tab of tabConfigs) {
+      if (tab.testID) {
+        map[tab.name] = tab.testID;
+      }
+    }
+    return map;
+  }, [tabConfigs]);
+
+  const handleRenderItem = useCallback(
+    (props: ITabBarItemProps) => {
+      const testID = tabTestIDMap[props.name];
+      return <TabBarItem {...props} testID={testID} />;
+    },
+    [tabTestIDMap],
+  );
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const portalRefCallback = useCallback((el: HTMLDivElement | null) => {
@@ -868,14 +887,7 @@ export function HomePageView({
     return (
       <>
         <Page.Body>
-          {/*
-            layout="full" makes Page.Container span the full viewport width so
-            the vertical scroll container inside (Tabs.Container) fills the
-            viewport too — wheel events on the previously-empty side gutters
-            now reach the scroll handler. Visual width is preserved by wrapping
-            individual content blocks below in `homePageContentMaxWidthSx`.
-          */}
-          <Page.Container flex={1} padded={false} layout="full">
+          <Page.Container flex={1} padded={false}>
             {platformEnv.isNative ? (
               <Stack h={tabPageHeight} />
             ) : (
@@ -920,7 +932,9 @@ export function HomePageView({
   return useMemo(() => {
     return (
       <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
-        <Page fullPage>{homePage}</Page>
+        <Page fullPage testID={HomeTestIDs.page}>
+          {homePage}
+        </Page>
       </HomeStickyHeaderContext.Provider>
     );
   }, [homePage, stickyHeaderCtx]);

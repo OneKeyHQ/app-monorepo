@@ -333,6 +333,7 @@ function ApprovalListPageContent() {
   const renderManageButton = useCallback(() => {
     return (
       <IconButton
+        testID="home-render-manage-button-icon-btn"
         title={intl.formatMessage({
           id: ETranslations.wallet_approval_manage_title,
         })}

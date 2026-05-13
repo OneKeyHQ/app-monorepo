@@ -20,6 +20,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 function DesktopCustomTabBarItem({
   id,
@@ -116,7 +117,7 @@ function DesktopCustomTabBarItem({
                   onPinnedPress(tab?.id, !tab?.isPinned);
                 }
               },
-              testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
+              testID: DiscoveryTestIDs.tabActionPin(!!tab?.isPinned),
             },
             {
               label: intl.formatMessage({

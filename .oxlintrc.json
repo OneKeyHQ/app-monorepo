@@ -465,6 +465,9 @@
     // ============================================
     // Enforce OneKeyLocalError/OneKeyError instead of raw Error
     "onekey/no-raw-error": "error",
+    // ============================================
+    // Require testID prop on interactive components for QA automation
+    "onekey/require-testid": "warn",
     // Block helpers without 'worklet'; from being called inside Reanimated
     // worklet hooks (regression: REACT-NATIVE-4FJ / 3RG)
     "onekey/no-non-worklet-call-in-worklet": "error",
@@ -624,7 +627,44 @@
         "apps/desktop/native-modules/**/*.js"
       ],
       "rules": {
-        "onekey/no-raw-error": "off"
+        "onekey/no-raw-error": "off",
+        "onekey/require-testid": "off"
+      }
+    },
+    {
+      // Developer Gallery/stories, DevSettings, debug panels — not user-facing UI
+      "files": [
+        "packages/kit/src/views/Developer/pages/Gallery/**/*.tsx",
+        "packages/kit/src/views/Developer/pages/Gallery/**/*.ts",
+        "packages/kit/src/views/Setting/pages/DevUnitTests/**/*.tsx",
+        "packages/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal/**/*.tsx",
+        "packages/kit/src/views/Setting/pages/ClearAppCache/**/*.tsx",
+        "packages/kit/src/views/Prime/pages/PrimeDashboard/PrimeDebugPanel.tsx",
+        "packages/kit/src/views/Prime/pages/PrimeCloudSync/PagePrimeCloudSyncDebug.tsx",
+        "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/**/*.tsx",
+        "packages/kit/src/views/Setting/pages/DevUnitTests/**/*.tsx",
+        "packages/kit/src/views/Setting/pages/DevBundleManagerModal/**/*.tsx",
+        "packages/kit/src/views/Onboardingv2/pages/KeylessOnboardingDebugPanel.tsx",
+        "packages/kit/src/views/Developer/pages/**/*.tsx",
+        "packages/kit/src/provider/Container/FullWindowOverlayContainer/DevOverlayWindow.tsx"
+      ],
+      "rules": {
+        "onekey/require-testid": "off"
+      }
+    },
+    {
+      // Non-UI packages — no interactive components, testID rule doesn't apply
+      "files": [
+        "packages/shared/src/**/*.ts",
+        "packages/shared/src/**/*.tsx",
+        "packages/core/src/**/*.ts",
+        "packages/core/src/**/*.tsx",
+        "packages/kit-bg/src/**/*.ts",
+        "packages/kit-bg/src/**/*.tsx",
+        "packages/qr-wallet-sdk/src/**/*.ts"
+      ],
+      "rules": {
+        "onekey/require-testid": "off"
       }
     },
     {

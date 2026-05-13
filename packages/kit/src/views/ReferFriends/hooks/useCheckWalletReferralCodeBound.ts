@@ -3,10 +3,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useWalletBoundReferralCode } from './useWalletBoundReferralCode';
-import {
-  shouldRevalidateReferralBindStatusCache,
-  shouldShowReferralBindEntry,
-} from './useWalletBoundReferralCode/referralBindStatusUtils';
 
 export function useCheckWalletReferralCodeBound({
   walletId,
@@ -41,8 +37,7 @@ export function useCheckWalletReferralCodeBound({
         wallet = await backgroundApiProxy.serviceAccount.getWallet({
           walletId,
         });
-      } catch (error) {
-        console.error('Failed to get wallet:', error);
+      } catch {
         return { shouldBound: false, isSupported: false };
       }
 
@@ -59,26 +54,7 @@ export function useCheckWalletReferralCodeBound({
       // Wallet is supported (HD or non-hidden, non-mocked hardware wallet)
       const isSupported = true;
 
-      // Check local database
-      const referralCodeInfo =
-        await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
-          walletId,
-        });
-
-      if (!referralCodeInfo) {
-        // No local record, check with server
-        // getReferralCodeBondStatus will save the result to local DB
-        const shouldBound = await getReferralCodeBondStatus({ walletId });
-        return { shouldBound, isSupported };
-      }
-
-      // Has local record, check if binding is needed
-      if (shouldRevalidateReferralBindStatusCache(referralCodeInfo)) {
-        const shouldBound = await getReferralCodeBondStatus({ walletId });
-        return { shouldBound, isSupported };
-      }
-
-      const shouldBound = shouldShowReferralBindEntry(referralCodeInfo);
+      const shouldBound = await getReferralCodeBondStatus({ walletId });
       return { shouldBound, isSupported };
     },
     [walletId, getReferralCodeBondStatus],

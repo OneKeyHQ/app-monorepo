@@ -50,6 +50,7 @@ import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
 import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 const TIMESTAMP_DIFF_MULTIPLIER = 2;
@@ -384,7 +385,7 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
           }
           icon="PlusSmallOutline"
           showTooltip={false}
-          testID="browser-bar-add"
+          testID={DiscoveryTestIDs.newTabButton}
           tabBarStyle={isCollapsed ? { justifyContent: 'center' } : undefined}
           onPress={(e) => {
             e.stopPropagation();

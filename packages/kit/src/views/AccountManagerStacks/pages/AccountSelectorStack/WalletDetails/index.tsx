@@ -49,6 +49,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { HiddenWalletRememberSwitch } from '../../../components/WalletEdit/HiddenWalletRememberSwitch';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
+import { AccountManagerTestIDs } from '../../../testIDs';
 
 import { AccountSelectorAccountListItem } from './AccountSelectorAccountListItem';
 import { AccountSelectorAddAccountButton } from './AccountSelectorAddAccountButton';
@@ -531,6 +532,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             </SizableText>
             {isEditableRouteParams ? (
               <Button
+                testID="account-manager-btn"
                 mt="$6"
                 icon="PlusLargeOutline"
                 onPress={async () => {
@@ -777,7 +779,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       flex={1}
       pt={platformEnv.isNativeAndroid ? top : undefined}
       pb={Math.max(bottom, 8)}
-      testID="account-selector-accountList"
+      testID={AccountManagerTestIDs.accountList}
     >
       <WalletDetailsHeader
         wallet={focusedWalletInfo?.wallet}

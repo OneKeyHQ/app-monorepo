@@ -9,6 +9,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { getFeeLabel } from '@onekeyhq/shared/src/utils/feeUtils';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
+
 type IProps = ComponentProps<typeof Button> & {
   disabled?: boolean;
   onPress?: () => void;
@@ -23,6 +25,7 @@ function TxFeeSelectorTrigger(props: IProps) {
 
   return (
     <Button
+      testID={SignatureConfirmTestIDs.TxFeeSelectorTrigger}
       onPress={onPress}
       disabled={disabled}
       size="small"

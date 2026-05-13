@@ -63,6 +63,7 @@ import { useOrderPrice } from '../../../hooks/useOrderPrice';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
+import { PerpTestIDs } from '../../../testIDs';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -133,7 +134,7 @@ function SpotAvailableActionIcon({
 function MobileDepositButton({ onPress }: { onPress: () => void }) {
   return (
     <IconButton
-      testID="perp-trading-form-mobile-deposit-button"
+      testID={PerpTestIDs.MobileDepositButton}
       size="small"
       variant="tertiary"
       iconSize="$3.5"
@@ -1028,7 +1029,7 @@ function PerpTradingForm({
           )}
           {formData.type === 'limit' ? (
             <Badge
-              testID="perp-bbo-toggle-button"
+              testID={PerpTestIDs.BBOToggleButton}
               borderRadius="$2"
               bg="$bgSubdued"
               borderWidth="$px"
@@ -1101,6 +1102,7 @@ function PerpTradingForm({
         <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
           <XStack alignItems="center" gap="$2">
             <Checkbox
+              testID={PerpTestIDs.TriggerReduceOnlyCheckbox}
               value={triggerReduceOnly}
               onChange={(checked) =>
                 updateForm({ triggerReduceOnly: !!checked })
@@ -1129,6 +1131,7 @@ function PerpTradingForm({
       <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
         <XStack alignItems="center" gap="$2">
           <Checkbox
+            testID={PerpTestIDs.TpslCheckbox}
             value={formData.hasTpsl}
             onChange={handleTpslCheckboxChange}
             disabled={isSubmitting}
@@ -1324,6 +1327,7 @@ function PerpTradingForm({
           <XStack alignItems="center" gap="$2.5">
             <YStack flex={1}>
               <Select
+                testID="perp-mobile-selected-order-type-select"
                 items={mobileOrderTypeOptions}
                 title={intl.formatMessage({
                   id: ETranslations.perp_trade_order_type,
@@ -1439,6 +1443,7 @@ function PerpTradingForm({
               })}
               {isSpot ? null : (
                 <Select
+                  testID="perp-select"
                   items={triggerTypeOptions}
                   title="Trigger"
                   value={triggerOrderType}

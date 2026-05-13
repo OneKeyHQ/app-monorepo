@@ -79,6 +79,16 @@ export interface IWebViewProps
    * @description Whitelisted origins that may request camera or microphone access.
    */
   mediaPermissionWhitelist?: string[];
+  /** Disable OneKey inpage provider injection and bridge connection.
+   * Use for content-only WebViews (e.g. WebView overlay from deeplink/notification).
+   * @see IInpageProviderWebViewProps.disableBridge
+   */
+  disableBridge?: boolean;
+  /** @platform desktop
+   * @description Electron <webview> partition string.
+   * @see IInpageProviderWebViewProps.partition
+   */
+  partition?: string;
 }
 
 const WebView: FC<IWebViewProps> = ({
@@ -119,7 +129,12 @@ const WebView: FC<IWebViewProps> = ({
   ) {
     return (
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <Button onPress={() => extUtils.openUrlInTab(src)}>Open</Button>
+        <Button
+          testID="web-view-open-btn"
+          onPress={() => extUtils.openUrlInTab(src)}
+        >
+          Open
+        </Button>
       </Stack>
     );
   }

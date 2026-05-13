@@ -108,6 +108,7 @@ export function V4MigrationGetStarted({
                 </SizableText>
                 <Stack mt="$4">
                   <Input
+                    testID="onboarding-input"
                     secureTextEntry
                     onChangeText={(v) => {
                       v4password = v;
@@ -177,6 +178,7 @@ export function V4MigrationGetStarted({
         {showCloseButton ? (
           <Page.Close>
             <IconButton
+              testID="onboarding-is-auto-start-in-first-time-icon-btn"
               icon="CrossedLargeOutline"
               position="absolute"
               variant="tertiary"
@@ -226,6 +228,7 @@ export function V4MigrationGetStarted({
             </Stack>
           </Stack>
           <Button
+            testID="onboarding-btn"
             mt="$8"
             size="large"
             $gtMd={

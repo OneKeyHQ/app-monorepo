@@ -191,7 +191,11 @@ function BackupDialogContent({
         ) : null}
 
         <Stack p="$2">
-          <Button onPress={() => copyText(secretText)} variant="tertiary">
+          <Button
+            onPress={() => copyText(secretText)}
+            variant="tertiary"
+            testID="onboarding-btn"
+          >
             {intl.formatMessage({ id: ETranslations.global_copy })}
           </Button>
         </Stack>

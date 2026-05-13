@@ -38,6 +38,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { AccountEditButton } from '../../../components/AccountEdit';
 import { useAccountSelectorAvatarNetwork } from '../../../hooks/useAccountSelectorAvatarNetwork';
+import { AccountManagerTestIDs } from '../../../testIDs';
 
 import { AccountAddress } from './AccountAddress';
 import { AccountValueWithSpotlight } from './AccountValue';
@@ -45,6 +46,7 @@ import { AccountValueWithSpotlight } from './AccountValue';
 function PlusButton({ onPress, loading }: IButtonProps) {
   return (
     <IconButton
+      testID="account-manager-plus-button-icon-btn"
       borderWidth={0}
       borderRadius="$2"
       variant="tertiary"
@@ -365,7 +367,7 @@ export function AccountSelectorAccountListItem({
   return (
     <Stack>
       <ListItem
-        testID={`account-item-index-${index}`}
+        testID={AccountManagerTestIDs.accountItem(index)}
         key={item.id}
         renderAvatar={
           <AccountAvatar

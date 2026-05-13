@@ -33,6 +33,7 @@ import { NetworkAvatarBase } from '../../../components/NetworkAvatar/NetworkAvat
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
+import { AssetSelectorTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
@@ -509,6 +510,10 @@ function TokenSelector() {
       />
       <Page.Body>
         <TokenListView
+          testID={AssetSelectorTestIDs.tokenSelectorList}
+          tokenItemTestIDPrefix={
+            AssetSelectorTestIDs.tokenSelectorItemTestIDPrefix
+          }
           accountId={accountId}
           networkId={networkId}
           indexedAccountId={indexedAccountId}

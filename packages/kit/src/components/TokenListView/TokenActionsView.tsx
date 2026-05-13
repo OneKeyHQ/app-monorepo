@@ -122,6 +122,7 @@ function TokenActionsView(props: IProps) {
   return (
     <XStack {...rest}>
       <Button
+        testID="token-actions-swap-btn"
         size="small"
         variant="secondary"
         cursor="pointer"

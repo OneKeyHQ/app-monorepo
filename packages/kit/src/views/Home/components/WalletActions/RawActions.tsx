@@ -49,6 +49,7 @@ function ActionItem({
   if (showButtonStyle) {
     return (
       <Button
+        testID="home-action-item-btn"
         icon={icon || undefined}
         {...(!label && {
           py: '$2',
@@ -114,6 +115,7 @@ function ActionItem({
 
       {/* Desktop: Pill button */}
       <Button
+        testID="home-btn"
         variant="secondary"
         size="large"
         icon={icon || undefined}
@@ -223,8 +225,10 @@ function ActionStaking(props: IActionItemsProps) {
 
 function ActionMore({
   renderItemsAsync,
+  testID,
 }: {
   renderItemsAsync: IActionListProps['renderItemsAsync'];
+  testID?: string;
 }) {
   const intl = useIntl();
   const label = intl.formatMessage({ id: ETranslations.global_more });
@@ -261,6 +265,7 @@ function ActionMore({
         }}
         $gtSm={{ display: 'none' }}
         onPress={handleMobilePress}
+        testID={testID}
       >
         <Stack>
           <Icon name="DotHorOutline" size="$6" color="$icon" />
@@ -276,7 +281,12 @@ function ActionMore({
           title={label}
           floatingPanelProps={{ w: '$60' }}
           renderTrigger={
-            <IconButton variant="secondary" size="large" icon="DotHorOutline" />
+            <IconButton
+              variant="secondary"
+              size="large"
+              icon="DotHorOutline"
+              testID={testID}
+            />
           }
           renderItemsAsync={renderItemsAsync}
         />

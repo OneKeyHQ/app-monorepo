@@ -17,6 +17,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
+import { EarnTestIDs } from '../testIDs';
+
 import { AprText } from './AprText';
 import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
 
@@ -74,7 +76,11 @@ function SearchResultItem({
   onPress: () => void;
 }) {
   return (
-    <ListItem userSelect="none" onPress={onPress}>
+    <ListItem
+      testID={EarnTestIDs.assetItem(asset.symbol)}
+      userSelect="none"
+      onPress={onPress}
+    >
       <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
       <ListItem.Text
         flex={1}
@@ -182,6 +188,7 @@ export function EarnAssetSearchContent({
     <YStack flex={1} gap="$2" py="$2">
       <YStack px="$2">
         <SearchBar
+          testID={EarnTestIDs.assetSearchInput}
           autoFocus
           placeholder={intl.formatMessage({
             id: ETranslations.global_search_asset,

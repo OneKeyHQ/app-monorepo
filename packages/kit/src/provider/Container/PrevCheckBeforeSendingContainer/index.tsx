@@ -45,6 +45,12 @@ function BasicPrevCheckBeforeSendingContainer() {
         onConfirmText,
         onConfirm,
         onCancel,
+        confirmButtonProps: {
+          testID: 'prev-check-send-confirm-btn',
+        },
+        cancelButtonProps: {
+          testID: 'prev-check-send-cancel-btn',
+        },
       };
       switch (type) {
         case 'scam':

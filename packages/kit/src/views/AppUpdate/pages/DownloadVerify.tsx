@@ -27,6 +27,7 @@ import {
   useDownloadPackage,
 } from '../../../components/AppUpdate';
 import { HyperlinkText } from '../../../components/HyperlinkText';
+import { AppUpdateTestIDs } from '../testIDs';
 
 const STEP_INDEX_MAP: Record<EAppUpdateStatus, number> = {
   [EAppUpdateStatus.failed]: -2,
@@ -57,7 +58,7 @@ function RetryButton({ onPress }: IButtonProps) {
   const intl = useIntl();
   return (
     <XStack>
-      <Button onPress={onPress}>
+      <Button testID={AppUpdateTestIDs.retryBtn} onPress={onPress}>
         {intl.formatMessage({ id: ETranslations.global_retry })}
       </Button>
     </XStack>
@@ -71,7 +72,7 @@ function ContactUsButton() {
   }, []);
   return (
     <XStack>
-      <Button onPress={onPress}>
+      <Button testID={AppUpdateTestIDs.contactUsBtn} onPress={onPress}>
         {intl.formatMessage({ id: ETranslations.global_contact_us })}
       </Button>
     </XStack>

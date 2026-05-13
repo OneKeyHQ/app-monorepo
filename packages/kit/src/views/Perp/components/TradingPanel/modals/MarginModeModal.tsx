@@ -84,7 +84,10 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         cursor="default"
       >
         <XStack alignItems="center" gap="$3">
-          <Checkbox value={selectedMode === 'cross'} />
+          <Checkbox
+            value={selectedMode === 'cross'}
+            testID="perp-button-text-checkbox"
+          />
           <SizableText size="$headingMd" fontWeight="600">
             {intl.formatMessage({ id: ETranslations.perp_trade_cross })}
           </SizableText>
@@ -105,7 +108,10 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         cursor="default"
       >
         <XStack alignItems="center" gap="$3">
-          <Checkbox value={selectedMode === 'isolated'} />
+          <Checkbox
+            value={selectedMode === 'isolated'}
+            testID="perp-checkbox"
+          />
           <SizableText size="$headingMd" fontWeight="600">
             {intl.formatMessage({ id: ETranslations.perp_trade_isolated })}
           </SizableText>
@@ -119,6 +125,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
 
       <TradingGuardWrapper>
         <Button
+          testID="perp-btn"
           variant="primary"
           size="medium"
           disabled={loading}

@@ -39,6 +39,7 @@ import type {
 } from '@onekeyhq/shared/types/device';
 
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
+import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
@@ -352,6 +353,9 @@ export function FirmwareChangeLogView({
           id: ETranslations.update_update_now,
         })}
         onConfirm={handleConfirmClick}
+        confirmButtonProps={{
+          testID: FirmwareUpdateTestIDs.updateNowBtn,
+        }}
       />
       {showUpdateIntroduction ? <FirmwareUpdateIntroduction /> : null}
       <FirmwareChangeFirmwareWarn result={result} />

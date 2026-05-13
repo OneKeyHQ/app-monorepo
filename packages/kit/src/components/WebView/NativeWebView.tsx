@@ -57,6 +57,7 @@ const NativeWebView = forwardRef(
       webviewDebuggingEnabled,
       useGeckoView,
       allowsBackForwardNavigationGestures = true,
+      disableBridge,
       ...props
     }: INativeWebViewProps,
     ref,
@@ -124,17 +125,22 @@ const NativeWebView = forwardRef(
         if (isUnmountingRef.current) return;
 
         const { data, url } = event.nativeEvent;
-        try {
-          const origin = uriUtils.getOriginFromUrl({ url: url || src });
-          if (origin) {
-            jsBridge.receive(data, { origin });
+        // Skip bridge receive when bridge is disabled (content-only overlay).
+        // The injected provider script is also absent in this mode, so this
+        // is a defense-in-depth guard against direct postMessage calls.
+        if (!disableBridge) {
+          try {
+            const origin = uriUtils.getOriginFromUrl({ url: url || src });
+            if (origin) {
+              jsBridge.receive(data, { origin });
+            }
+          } catch (_error) {
+            // noop
           }
-        } catch (_error) {
-          // noop
         }
         onMessage?.(event);
       },
-      [jsBridge, onMessage, src],
+      [disableBridge, jsBridge, onMessage, src],
     );
 
     useImperativeHandle(ref, (): IWebViewWrapperRef => {

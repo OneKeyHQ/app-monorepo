@@ -1618,6 +1618,7 @@ function DepositWithdrawContent({
             ) : null}
           </XStack>
           <Input
+            testID="perp-input"
             alignItems="center"
             flex={1}
             placeholder={intl.formatMessage({
@@ -1893,11 +1894,17 @@ function DepositWithdrawContent({
       </YStack>
 
       {shouldShowBuyButton ? (
-        <Button variant="primary" size="medium" onPress={handleBuyPress}>
+        <Button
+          testID="perp-btn"
+          variant="primary"
+          size="medium"
+          onPress={handleBuyPress}
+        >
           {intl.formatMessage({ id: ETranslations.global_top_up })}
         </Button>
       ) : (
         <Button
+          testID="perp-btn"
           variant="primary"
           size="medium"
           disabled={

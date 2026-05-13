@@ -22,6 +22,8 @@ import {
   type IIUniversalRecentSearchItem,
 } from '@onekeyhq/shared/types/search';
 
+import { UniversalSearchTestIDs } from '../../testIDs';
+
 function SearchTextItem({
   item,
   onPress,
@@ -67,6 +69,7 @@ function SearchTextItem({
       mr="$2"
       cursor="pointer"
       onPress={handlePress}
+      testID={`${UniversalSearchTestIDs.recentSearchItem}-${item.id}`}
     >
       {text}
     </Button>
@@ -115,6 +118,7 @@ export function RecentSearched({
           color="$textSubdued"
           iconSize="$5"
           onPress={handleDeleteAll}
+          testID={UniversalSearchTestIDs.clearRecentBtn}
         />
       </XStack>
       <Stack

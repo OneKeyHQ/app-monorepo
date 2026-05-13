@@ -46,6 +46,7 @@ import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge'
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
+import { SwapTestIDs } from '../../testIDs';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import SwapInputActions from './SwapInputActions';
@@ -95,6 +96,7 @@ export function PercentageStageOnKeyboard({
           />
         ))}
         <Button
+          testID="swap-stage-list-to-show-btn"
           icon="KeyboardDownOutline"
           flex={1}
           h="$10"
@@ -308,6 +310,10 @@ const SwapInputContainer = ({
             direction === ESwapDirectionType.FROM
               ? onBalanceMaxPress
               : undefined,
+          testID:
+            direction === ESwapDirectionType.FROM
+              ? SwapTestIDs.maxButton
+              : undefined,
         }}
         valueProps={{
           value: amountPrice,
@@ -336,8 +342,16 @@ const SwapInputContainer = ({
           autoComplete: 'off',
           onFocus: onFromInputFocus,
           onBlur: onFromInputBlur,
+          testID:
+            direction === ESwapDirectionType.FROM
+              ? SwapTestIDs.fromAmountInput
+              : SwapTestIDs.toAmountInput,
         }}
         tokenSelectorTriggerProps={{
+          testID:
+            direction === ESwapDirectionType.FROM
+              ? SwapTestIDs.fromTokenSelector
+              : SwapTestIDs.toTokenSelector,
           loading: selectTokenLoading,
           selectedTokenImageUri: token?.logoURI,
           selectedTokenSymbol: token?.symbol,

@@ -15,25 +15,12 @@ import {
   USD_FLEX_WITHOUT_REWARDS,
 } from './ProtocolUnifiedTable';
 
-// Sectioned positions keep Supplied / Borrowed / Rewards as labelled
-// segments so the user can tell what they own vs owe vs earned. Used
-// for lending and for non-lending positions whose payload carries debts
-// (leveraged farming etc.) — the unified table has no Borrowed column,
-// so debt-bearing positions are routed here by buildProtocolCategoryGroups.
+// Sectioned positions preserve Supplied/Borrowed/Rewards as explicit segments.
+// This is used for lending and debt-bearing non-lending positions because the
+// unified table has no Borrowed column.
 //
-// No per-position header: upstream poolName values are almost always
-// redundant with the protocol name (card header) or the category Badge
-// directly above this block, so a header line just stacks the same info
-// twice. Sibling positions in a sectioned group are separated by the
-// parent YStack's gap.
-//
-// The Supplied section's leftmost header is overridden to "Positions" so
-// it parallels ProtocolUnifiedTable's first column — "Supplied" reads as
-// jargon next to plain language like "Borrowed" / "Rewards", and the
-// asset rows below already convey the supplied semantic via the section
-// being grouped with Borrowed / Rewards in the same block. Borrowed and
-// Rewards section titles stay as-is because they are the terms users
-// actually scan for.
+// The Supplied segment uses "Positions" in the first header cell to align with
+// the unified table; Borrowed and Rewards keep their semantic labels.
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 

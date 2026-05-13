@@ -76,6 +76,7 @@ import {
   getGasAccountErrorEntry,
 } from '../../constants/gasAccountErrorCodes';
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
+import { SignatureConfirmTestIDs } from '../../testIDs';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
 
@@ -101,6 +102,10 @@ type IProps = {
   isQueueMode?: boolean;
   unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   gasAccountScenario?: IGasAccountScenario;
+  // External risk signal (e.g. WalletConnect verify-api downgrade). Forces
+  // the take-risk checkbox on top of the decodedTx-level signal so a spoofed
+  // peer can't push through an `eth_sendTransaction` without acknowledgement.
+  forceTakeRiskAlert?: boolean;
 };
 
 function TxConfirmActions(props: IProps) {
@@ -119,6 +124,7 @@ function TxConfirmActions(props: IProps) {
     isQueueMode,
     unsignedTxQueue,
     gasAccountScenario,
+    forceTakeRiskAlert,
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
@@ -770,8 +776,9 @@ function TxConfirmActions(props: IProps) {
 
   const showTakeRiskAlert = useMemo(() => {
     if (decodedTxs?.some((tx) => tx.isConfirmationRequired)) return true;
+    if (forceTakeRiskAlert) return true;
     return false;
-  }, [decodedTxs]);
+  }, [decodedTxs, forceTakeRiskAlert]);
 
   const isGasAccountQuoteExpired = useMemo(() => {
     if (gasAccountUiState.selectedPayer !== 'gasAccount') {
@@ -988,8 +995,12 @@ function TxConfirmActions(props: IProps) {
   ]);
 
   return (
-    <Page.Footer disableKeyboardAnimation>
+    <Page.Footer
+      disableKeyboardAnimation
+      testID={SignatureConfirmTestIDs.TxConfirmFooter}
+    >
       <Page.FooterActions
+        testID={SignatureConfirmTestIDs.TxConfirmActions}
         confirmButtonProps={{
           disabled: isSubmitDisabled,
           loading: sendTxStatus.isSubmitting || isConfirmInitializing,
@@ -1031,6 +1042,7 @@ function TxConfirmActions(props: IProps) {
           />
           {showTakeRiskAlert ? (
             <Checkbox
+              testID={SignatureConfirmTestIDs.TxConfirmRiskCheckbox}
               label={intl.formatMessage({
                 id: ETranslations.dapp_connect_proceed_at_my_own_risk,
               })}

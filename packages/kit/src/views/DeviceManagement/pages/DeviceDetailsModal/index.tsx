@@ -25,7 +25,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
 import { useDeviceManagerModalStyle } from '../../hooks/useDeviceManagerModalStyle';
@@ -45,11 +45,11 @@ import { DeviceUpdateAlert } from './DeviceUpdateAlert';
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
-function DeviceGetStartedLayout() {
+function DeviceGetStartedLayout({ visible }: { visible: boolean }) {
   const { gtXl } = useMedia();
   const { isModalStack } = useDeviceManagerModalStyle();
 
-  if (!gtXl || isModalStack) {
+  if (!visible || !gtXl || isModalStack) {
     return null;
   }
 
@@ -60,16 +60,27 @@ function DeviceGetStartedLayout() {
   );
 }
 
-function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
+function DeviceDetailsModalV2Cmp({
+  walletId,
+  initialDeviceVendor,
+}: {
+  walletId: string;
+  initialDeviceVendor?: EHardwareVendor;
+}) {
   const intl = useIntl();
   const { refresh } = useDeviceDetailsActions();
   const { handleBackPress } = useDeviceBackNavigation();
 
   const isQrWallet = accountUtils.isQrWallet({ walletId });
   const [device] = useDeviceAtom();
-  const isOnekeyDevice =
-    !isQrWallet &&
-    !getVendorProfile(device?.vendor ?? EHardwareVendor.onekey).isThirdParty;
+  const deviceVendor = device?.vendor ?? initialDeviceVendor;
+  const isThirdPartyDevice =
+    !isQrWallet && deviceVendor
+      ? getVendorProfile(deviceVendor).isThirdParty
+      : false;
+  const isOnekeyDevice = !isQrWallet && !isThirdPartyDevice;
+  const hasLoadedDevice = isQrWallet || Boolean(device);
+  const showOneKeyDeviceActions = isOnekeyDevice && hasLoadedDevice;
 
   useEffect(() => {
     if (!walletId) return;
@@ -114,7 +125,7 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
       <DeviceCommonHeader
         title={intl.formatMessage({ id: ETranslations.global_about_device })}
       />
-      <DeviceUpdateAlert type="top" />
+      {showOneKeyDeviceActions ? <DeviceUpdateAlert type="top" /> : null}
       <Page.Body
         alignItems="stretch"
         pt="$0"
@@ -125,9 +136,9 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
         <Page.Container>
           <XStack bg="$bgApp" gap="$8" alignItems="flex-start">
             <YStack gap="$8" flex={1}>
-              <DeviceBasicInfo />
+              <DeviceBasicInfo showDeviceStatus={showOneKeyDeviceActions} />
               {isQrWallet ? <DeviceSectionQrInfo /> : null}
-              {isOnekeyDevice ? (
+              {showOneKeyDeviceActions ? (
                 <>
                   <DeviceUpdateAlert type="bottom" />
                   <DeviceSectionSupport
@@ -142,8 +153,9 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
                   />
                 </>
               ) : null}
+              {isThirdPartyDevice ? <DeviceSectionDeviceConnect /> : null}
             </YStack>
-            <DeviceGetStartedLayout />
+            <DeviceGetStartedLayout visible={showOneKeyDeviceActions} />
           </XStack>
         </Page.Container>
       </Page.Body>
@@ -157,8 +169,12 @@ function DeviceDetailsModal() {
     | EModalDeviceManagementRoutes.DeviceDetailModal
     | ETabDeviceManagementRoutes.DeviceDetail
   >();
-  const { walletId } = (route.params as { walletId: string }) || {
+  const { walletId, initialDeviceVendor } = (route.params as {
+    walletId: string;
+    initialDeviceVendor?: EHardwareVendor;
+  }) || {
     walletId: '',
+    initialDeviceVendor: undefined,
   };
 
   return (
@@ -167,7 +183,10 @@ function DeviceDetailsModal() {
       enabledNum={[0]}
     >
       <ProviderJotaiContextDeviceDetails>
-        <DeviceDetailsModalV2Cmp walletId={walletId} />
+        <DeviceDetailsModalV2Cmp
+          walletId={walletId}
+          initialDeviceVendor={initialDeviceVendor}
+        />
       </ProviderJotaiContextDeviceDetails>
     </AccountSelectorProviderMirror>
   );

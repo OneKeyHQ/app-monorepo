@@ -80,6 +80,7 @@ function CloseAllPositionsContent({
         {/* Market Close */}
         <XStack>
           <Checkbox
+            testID="perp-button-text-checkbox"
             labelProps={{
               fontSize: '$bodyMd',
             }}
@@ -98,6 +99,7 @@ function CloseAllPositionsContent({
         {/* Limit Close at Mid Price */}
         <XStack>
           <Checkbox
+            testID="perp-checkbox"
             labelProps={{
               fontSize: '$bodyMd',
             }}
@@ -116,6 +118,7 @@ function CloseAllPositionsContent({
 
       <TradingGuardWrapper>
         <Button
+          testID="perp-btn"
           variant="primary"
           size="medium"
           disabled={isSubmitting}

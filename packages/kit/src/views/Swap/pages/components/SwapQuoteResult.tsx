@@ -51,6 +51,7 @@ import {
   useSwapQuoteLoading,
   useSwapQuoteProgressState,
 } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
@@ -187,6 +188,7 @@ const SwapQuoteResult = ({
   if (swapApprovingTransaction && swapApprovingLoading) {
     return (
       <SwapApprovingItem
+        testID={SwapTestIDs.approveButton}
         approvingTransaction={swapApprovingTransaction}
         onComplete={() => {
           setInAppNotificationAtom((pre) => ({
@@ -229,6 +231,7 @@ const SwapQuoteResult = ({
       return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
         <YStack gap="$3">
           <SwapProviderInfoItem
+            testID={SwapTestIDs.providerSelector}
             providerIcon={quoteResult?.info.providerLogo ?? ''}
             providerName={quoteResult?.info.providerName ?? ''}
             isBest={quoteResult?.isBest}

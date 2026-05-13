@@ -8,6 +8,7 @@ import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
+import { ReferFriendsTestIDs } from '../../../testIDs';
 import { EPhaseState } from '../types';
 
 export type IReferAFriendActionPlacement = 'inline' | 'footer';
@@ -55,7 +56,13 @@ export function ReferAFriendPhaseActions({
 
   if (phaseState === EPhaseState.next) {
     return (
-      <Button variant="primary" w="100%" size="large" onPress={handleNext}>
+      <Button
+        testID={ReferFriendsTestIDs.nextBtn}
+        variant="primary"
+        w="100%"
+        size="large"
+        onPress={handleNext}
+      >
         {intl.formatMessage({
           id: ETranslations.global_next,
         })}
@@ -67,6 +74,7 @@ export function ReferAFriendPhaseActions({
     return (
       <XStack gap="$4" w="100%" justifyContent="space-between">
         <Button
+          testID={ReferFriendsTestIDs.previousBtn}
           variant="secondary"
           flex={1}
           size="large"
@@ -76,7 +84,13 @@ export function ReferAFriendPhaseActions({
             id: ETranslations.perp_term_previous,
           })}
         </Button>
-        <Button variant="primary" flex={1} size="large" onPress={handleJoin}>
+        <Button
+          testID={ReferFriendsTestIDs.joinBtn}
+          variant="primary"
+          flex={1}
+          size="large"
+          onPress={handleJoin}
+        >
           {intl.formatMessage({
             id: ETranslations.global_join,
           })}

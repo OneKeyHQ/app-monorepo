@@ -136,6 +136,7 @@ type IMarketTokenListBaseProps = {
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
   rowBg?: string;
+  testID?: string;
 };
 
 function MarketTokenListBase({
@@ -162,6 +163,7 @@ function MarketTokenListBase({
   hiddenDesktopColumns,
   liveTokenOverride,
   rowBg,
+  testID,
 }: IMarketTokenListBaseProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -529,7 +531,7 @@ function MarketTokenListBase({
   ]);
 
   return (
-    <Stack flex={1} width="100%">
+    <Stack flex={1} width="100%" testID={testID}>
       {portalContent}
       {/* render custom toolbar if provided (only when not in desktop portal mode) */}
       {!useDesktopPortal ? toolbar : null}

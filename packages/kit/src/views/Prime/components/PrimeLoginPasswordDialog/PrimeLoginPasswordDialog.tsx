@@ -274,6 +274,7 @@ export function PrimeLoginPasswordDialog({
                 !isRegister ? (
                   <XStack>
                     <Button
+                      testID="prime-login-forget-password-btn"
                       size="small"
                       variant="tertiary"
                       onPress={async () => {
@@ -316,6 +317,7 @@ export function PrimeLoginPasswordDialog({
               }}
             >
               <Input
+                testID="prime-login-password-input"
                 autoFocus
                 allowSecureTextEye
                 placeholder={intl.formatMessage({
@@ -356,6 +358,7 @@ export function PrimeLoginPasswordDialog({
                 }}
               >
                 <Input
+                  testID="prime-login-confirm-password-input"
                   allowSecureTextEye
                   placeholder={intl.formatMessage({
                     id: ETranslations.auth_confirm_password_form_placeholder,
@@ -378,6 +381,7 @@ export function PrimeLoginPasswordDialog({
                   return (
                     <Stack>
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_strong_password_desc,
                         })}
@@ -386,6 +390,7 @@ export function PrimeLoginPasswordDialog({
                         value={passwordVerifyState.minLength}
                       />
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_password_number,
                         })}
@@ -394,6 +399,7 @@ export function PrimeLoginPasswordDialog({
                         value={passwordVerifyState.minNumberCharacter}
                       />
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_password_letter,
                         })}
@@ -402,6 +408,7 @@ export function PrimeLoginPasswordDialog({
                         value={passwordVerifyState.minLetterCharacter}
                       />
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_password_special_characters,
                         })}
@@ -423,6 +430,7 @@ export function PrimeLoginPasswordDialog({
           id: ETranslations.global_continue,
         })}
         confirmButtonProps={{
+          testID: 'prime-login-submit-btn',
           disabled: !form.formState.isValid,
         }}
         onConfirm={async ({ preventClose }) => {

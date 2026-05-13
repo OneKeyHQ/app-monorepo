@@ -49,6 +49,7 @@ import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
 import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
 import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
+import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -99,8 +100,9 @@ function TxConfirm() {
     closeWindowAfterResolved: true,
   });
 
-  const { urlSecurityInfo } = useRiskDetection({
+  const { urlSecurityInfo, showContinueOperate } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
+    walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
   });
 
   const { result: decodedTxs, isLoading: isBuildingDecodedTxs } =
@@ -437,9 +439,14 @@ function TxConfirm() {
   );
 
   return (
-    <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
+    <Page
+      scrollEnabled
+      onClose={handleOnClose}
+      safeAreaEnabled
+      testID={SignatureConfirmTestIDs.TxConfirmPage}
+    >
       <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
-      <Page.Body testID="tx-confirmation-body" px="$5">
+      <Page.Body testID={SignatureConfirmTestIDs.TxConfirmBody} px="$5">
         {renderTxQueueController()}
         {renderTxConfirmContent()}
       </Page.Body>
@@ -447,6 +454,7 @@ function TxConfirm() {
         {...route.params}
         accountId={accountId}
         networkId={networkId}
+        forceTakeRiskAlert={showContinueOperate}
       />
     </Page>
   );

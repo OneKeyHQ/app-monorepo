@@ -27,6 +27,7 @@ import { TokenManagerList } from '../components/TokenManager/TokenManagerList';
 import { useAccountInfoForManageToken } from '../hooks/useAddToken';
 import { useTokenManagement } from '../hooks/useTokenManagement';
 import { useTokenSearch } from '../hooks/useTokenSearch';
+import { AssetListTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -255,6 +256,7 @@ function TokenManagerModal() {
       <Page.Body>
         <Stack px="$5" pb="$4">
           <SearchBar
+            testID={AssetListTestIDs.tokenManagerSearchBar}
             placeholder={intl.formatMessage({
               id: ETranslations.token_selector_search_placeholder,
             })}

@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IEarnRiskNoticeDialog } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { EarnTestIDs } from '../testIDs';
 
 function RiskNoticeDialogContent({
   onConfirm,
@@ -56,7 +57,7 @@ function RiskNoticeDialogContent({
   const isConfirmDisabled = operationType !== 'withdraw' && !checkboxState;
 
   return (
-    <YStack gap="$4">
+    <YStack testID={EarnTestIDs.riskNoticeDialog} gap="$4">
       <EarnText
         size="$bodyMd"
         text={riskNoticeDialogContent.description}
@@ -66,6 +67,7 @@ function RiskNoticeDialogContent({
       {riskNoticeDialogContent.checkboxes.map((checkbox) => (
         <XStack key={checkbox.text} alignItems="flex-start" gap="$2">
           <Checkbox
+            testID="earn-is-confirm-disabled-checkbox"
             labelContainerProps={{
               flex: 1,
             }}
@@ -85,6 +87,7 @@ function RiskNoticeDialogContent({
         onConfirm={handleConfirm}
         confirmButtonProps={{
           disabled: isConfirmDisabled,
+          testID: EarnTestIDs.riskNoticeConfirmButton,
         }}
       />
     </YStack>

@@ -88,6 +88,7 @@ export function InfoItem({
             <XStack gap="$3" ml="$5">
               {openWithUrl ? (
                 <IconButton
+                  testID="asset-details-icon-btn"
                   title={intl.formatMessage({
                     id: ETranslations.global_view_in_blockchain_explorer,
                   })}
@@ -99,6 +100,7 @@ export function InfoItem({
               ) : null}
               {showCopy ? (
                 <IconButton
+                  testID="asset-details-icon-btn"
                   title={intl.formatMessage({ id: ETranslations.global_copy })}
                   variant="tertiary"
                   icon="Copy3Outline"

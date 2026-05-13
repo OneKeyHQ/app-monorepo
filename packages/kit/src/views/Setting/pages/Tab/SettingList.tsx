@@ -14,6 +14,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
+import { SettingTestIDs } from '../../testIDs';
+
 import { type ISettingsConfig, useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListItem } from './ListItem';
@@ -42,6 +44,7 @@ function SettingListItem({
 
   return (
     <TabSettingsListItem
+      testID={config.testID}
       {...config.tabBarItemStyle}
       drillIn
       showDot={config.showDot}
@@ -65,7 +68,7 @@ export function SettingList() {
   }, [settingsConfig]);
   const { onSearch, searchResult, isSearching } = useSearch();
   return (
-    <Page>
+    <Page testID={SettingTestIDs.settingsPage}>
       <Page.Header
         headerShown
         title={intl.formatMessage({ id: ETranslations.global_settings })}

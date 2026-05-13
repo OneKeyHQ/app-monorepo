@@ -29,6 +29,7 @@ import {
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
+import { DAppConnectionTestIDs } from '../testIDs';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
@@ -227,7 +228,10 @@ function ConnectionModal() {
   );
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove}>
+    <DappOpenModalPage
+      dappApprove={dappApprove}
+      testID={DAppConnectionTestIDs.ConnectionModal}
+    >
       <>
         <Page.Header headerShown={false} />
         <Page.Body>
@@ -255,6 +259,10 @@ function ConnectionModal() {
             onCancel={() => dappApprove.reject()}
             confirmButtonProps={{
               disabled: confirmDisabled,
+              testID: DAppConnectionTestIDs.ConnectionApproveButton,
+            }}
+            cancelButtonProps={{
+              testID: DAppConnectionTestIDs.ConnectionRejectButton,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

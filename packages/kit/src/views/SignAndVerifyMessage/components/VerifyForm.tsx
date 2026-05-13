@@ -23,6 +23,8 @@ import { isTaprootAddress } from '@onekeyhq/shared/src/utils/btcUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { SignAndVerifyMessageTestIDs } from '../testIDs';
+
 type IVerifyFormData = {
   message: string;
   address: string;
@@ -166,6 +168,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
               })}
               renderTrigger={
                 <Button
+                  testID="sign-and-verify-message-hex-format-btn"
                   size="small"
                   variant="tertiary"
                   iconAfter="QuestionmarkOutline"
@@ -226,16 +229,20 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
               )}
             />
             <Form.Field name="hexFormat">
-              <Switch size="small" />
+              <Switch
+                testID={SignAndVerifyMessageTestIDs.verifyHexFormatSwitch}
+                size="small"
+              />
             </Form.Field>
           </XStack>
         }
       >
         <TextAreaInput
-        // size="large"
-        // placeholder={intl.formatMessage({
-        //   id: ETranslations.message_signing_address_placeholder,
-        // })}
+          testID={SignAndVerifyMessageTestIDs.verifyMessageInput}
+          // size="large"
+          // placeholder={intl.formatMessage({
+          //   id: ETranslations.message_signing_address_placeholder,
+          // })}
         />
       </Form.Field>
 
@@ -276,7 +283,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           ),
         }}
       >
-        <Input />
+        <Input testID={SignAndVerifyMessageTestIDs.verifyAddressInput} />
       </Form.Field>
 
       {displayFormatForm ? (
@@ -291,6 +298,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
               })}
               renderTrigger={
                 <Button
+                  testID="sign-and-verify-message-btn"
                   iconAfter="QuestionmarkOutline"
                   size="small"
                   variant="tertiary"
@@ -347,6 +355,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           name="format"
         >
           <Radio
+            testID={SignAndVerifyMessageTestIDs.verifyFormatRadio}
             orientation="horizontal"
             gap="$5"
             options={formatRadioOptions}
@@ -365,7 +374,9 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           }),
         }}
       >
-        <TextAreaInput />
+        <TextAreaInput
+          testID={SignAndVerifyMessageTestIDs.verifySignatureInput}
+        />
       </Form.Field>
     </Form>
   );

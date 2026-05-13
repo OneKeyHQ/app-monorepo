@@ -61,7 +61,10 @@ function SameWalletItem({
           >
             <Stack w="$10" h="$10">
               {isChecked ? (
-                <Checkbox value={wallet.id === checkedWalletId} />
+                <Checkbox
+                  value={wallet.id === checkedWalletId}
+                  testID="account-manager-is-checked-checkbox"
+                />
               ) : null}
             </Stack>
             <WalletAvatar wallet={wallet} />

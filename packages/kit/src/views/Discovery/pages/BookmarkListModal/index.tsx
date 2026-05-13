@@ -191,6 +191,7 @@ function BookmarkListModal() {
   const headerRight = useCallback(
     () => (
       <Button
+        testID="discovery-header-right-btn"
         variant="tertiary"
         onPress={() => {
           setIsEditing((prev) => !prev);

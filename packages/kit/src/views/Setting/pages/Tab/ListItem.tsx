@@ -82,11 +82,13 @@ export function TabSettingsListGrid({
       icon: item.icon as IKeyOfIcons,
       onPress: item?.onPress,
       badgeProps: item?.badgeProps,
+      testID: item?.testID,
       titleProps,
       iconProps,
     })
   ) : (
     <TabSettingsListItem
+      testID={item?.testID}
       py="$3"
       px="$5"
       mx={0}

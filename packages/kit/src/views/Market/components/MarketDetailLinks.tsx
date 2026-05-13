@@ -29,6 +29,7 @@ export function MarketDetailLinks({
         <XStack gap="$3">
           {twitterUrl ? (
             <IconButton
+              testID="market-intl-icon-btn"
               title="X"
               icon="Xbrand"
               onPress={() => openUrlExternal(twitterUrl)}
@@ -36,6 +37,7 @@ export function MarketDetailLinks({
           ) : null}
           {telegramUrl ? (
             <IconButton
+              testID="market-intl-icon-btn"
               title="Telegram"
               icon="TelegramBrand"
               onPress={() => openUrlExternal(telegramUrl)}
@@ -43,6 +45,7 @@ export function MarketDetailLinks({
           ) : null}
           {discordUrl ? (
             <IconButton
+              testID="market-intl-icon-btn"
               title="Discord"
               icon="DiscordBrand"
               onPress={() => openUrlExternal(discordUrl)}
@@ -57,6 +60,7 @@ export function MarketDetailLinks({
         <XStack gap="$3">
           {homePageUrl ? (
             <Button
+              testID="market-btn"
               iconAfter="OpenOutline"
               onPress={() => openUrlExternal(homePageUrl)}
             >
@@ -65,6 +69,7 @@ export function MarketDetailLinks({
           ) : null}
           {whitepaper ? (
             <Button
+              testID="market-btn"
               icon="BookOpenOutline"
               iconAfter="OpenOutline"
               onPress={() => openUrlExternal(whitepaper)}
@@ -82,6 +87,7 @@ export function MarketDetailLinks({
           <XStack flexWrap="wrap">
             {explorers.map(({ url, name }) => (
               <Button
+                testID="market-btn"
                 mt="$2"
                 mr="$3"
                 key={url}

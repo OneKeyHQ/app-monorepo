@@ -84,6 +84,7 @@ function V4AccountNameSelector({
   return (
     <Stack pt="$2">
       <Select
+        testID="rename-dialog-item-select"
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
         floatingPanelProps={{
           maxHeight: 272,
@@ -91,6 +92,7 @@ function V4AccountNameSelector({
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         renderTrigger={({ value, label, placeholder }) => (
           <Button
+            testID="rename-dialog-item-btn"
             size="small"
             alignSelf="flex-start"
             variant="tertiary"
@@ -120,6 +122,7 @@ export function RenameInputWithNameSelector({
   indexedAccount,
   disabledMaxLengthLabel = false,
   nameHistoryInfo,
+  inputTestID,
 }: {
   maxLength?: number;
   value?: string;
@@ -132,6 +135,7 @@ export function RenameInputWithNameSelector({
     entityType: EChangeHistoryEntityType;
     contentType: EChangeHistoryContentType.Name;
   };
+  inputTestID?: string;
 }) {
   const intl = useIntl();
   const { result: shouldShowV4AccountNameSelector } =
@@ -150,6 +154,7 @@ export function RenameInputWithNameSelector({
     <>
       <Stack>
         <Input
+          testID={inputTestID}
           size="large"
           $gtMd={{ size: 'medium' }}
           maxLength={maxLength}
@@ -200,6 +205,8 @@ export const showRenameDialog = (
     indexedAccount,
     disabledMaxLengthLabel = false,
     nameHistoryInfo,
+    inputTestID,
+    confirmTestID,
     intl,
     ...dialogProps
   }: IDialogShowProps & {
@@ -212,6 +219,8 @@ export const showRenameDialog = (
       entityType: EChangeHistoryEntityType;
       contentType: EChangeHistoryContentType.Name;
     };
+    inputTestID?: string;
+    confirmTestID?: string;
     intl: IntlShape;
   },
 ) =>
@@ -243,6 +252,7 @@ export const showRenameDialog = (
             indexedAccount={indexedAccount}
             disabledMaxLengthLabel={disabledMaxLengthLabel}
             nameHistoryInfo={nameHistoryInfo}
+            inputTestID={inputTestID}
           />
         </Dialog.FormField>
       </Dialog.Form>
@@ -259,6 +269,14 @@ export const showRenameDialog = (
       });
     },
     ...dialogProps,
+    ...(confirmTestID
+      ? {
+          confirmButtonProps: {
+            ...dialogProps.confirmButtonProps,
+            testID: confirmTestID,
+          },
+        }
+      : {}),
   });
 
 interface IPrimeProfileFormValues {
@@ -381,6 +399,8 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
               },
             }}
           >
+            {/* Caller-driven dialog; testID can be threaded via outer props. */}
+            {/* oxlint-disable-next-line onekey/require-testid */}
             <Input
               size="large"
               $gtMd={{ size: 'medium' }}

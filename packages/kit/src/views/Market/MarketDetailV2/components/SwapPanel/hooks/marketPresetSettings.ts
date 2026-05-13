@@ -103,6 +103,7 @@ export type IMarketPresetConfig = {
 
 type IMarketPresetRemoteConfig = {
   enabled?: boolean;
+  priorityFeeEditable?: boolean;
   customPriorityFeeRange?: IMarketPresetCustomPriorityFeeRange;
 };
 
@@ -156,6 +157,7 @@ const MARKET_PRESET_EVM_NETWORK_IDS = new Set([
 ]);
 
 const MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS = new Set([
+  presetNetworksMap.arbitrum.id,
   presetNetworksMap.sui.id,
   presetNetworksMap.tron.id,
   presetNetworksMap.aptos.id,
@@ -270,18 +272,24 @@ function buildPresetConfig({
 function getMarketPresetRemoteConfig(
   speedConfig?: ISwapProSpeedConfig,
 ): IMarketPresetRemoteConfig | undefined {
-  const nestedConfig = (speedConfig as IMarketPresetSpeedConfig | undefined)
+  const legacyConfig = (speedConfig as IMarketPresetSpeedConfig | undefined)
     ?.marketPresetConfig;
-  const enabled = nestedConfig?.enabled;
+  const presetConfig = speedConfig?.preset;
+  const enabled = presetConfig?.isEnabled ?? legacyConfig?.enabled;
+  const priorityFeeEditable =
+    presetConfig?.priorityFee ?? legacyConfig?.priorityFeeEditable;
   const customPriorityFeeMin =
-    nestedConfig?.customPriorityFeeRange?.min ??
-    nestedConfig?.customPriorityFeeMin;
+    presetConfig?.min ??
+    legacyConfig?.customPriorityFeeRange?.min ??
+    legacyConfig?.customPriorityFeeMin;
   const customPriorityFeeMax =
-    nestedConfig?.customPriorityFeeRange?.max ??
-    nestedConfig?.customPriorityFeeMax;
+    presetConfig?.max ??
+    legacyConfig?.customPriorityFeeRange?.max ??
+    legacyConfig?.customPriorityFeeMax;
 
   if (
     enabled === undefined &&
+    priorityFeeEditable === undefined &&
     customPriorityFeeMin === undefined &&
     customPriorityFeeMax === undefined
   ) {
@@ -290,6 +298,7 @@ function getMarketPresetRemoteConfig(
 
   return {
     enabled,
+    priorityFeeEditable,
     customPriorityFeeRange: {
       min: customPriorityFeeMin,
       max: customPriorityFeeMax,
@@ -305,6 +314,8 @@ function buildPresetConfigFromRemote({
   remoteConfig: IMarketPresetRemoteConfig;
 }): IMarketPresetConfig | undefined {
   const customRange = remoteConfig.customPriorityFeeRange;
+  const resolvePriorityFeeEditable = (editable: boolean) =>
+    remoteConfig.priorityFeeEditable ?? editable;
 
   if (
     remoteConfig.enabled === false ||
@@ -320,6 +331,15 @@ function buildPresetConfigFromRemote({
     });
   }
 
+  if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
+    return buildPresetConfig({
+      networkId,
+      priorityFeeEditable: resolvePriorityFeeEditable(false),
+      customUnit: networkId.startsWith('evm--') ? 'Gwei' : undefined,
+      customRange,
+    });
+  }
+
   if (
     networkId.startsWith('evm--') &&
     (remoteConfig.enabled === true ||
@@ -327,7 +347,7 @@ function buildPresetConfigFromRemote({
   ) {
     return buildPresetConfig({
       networkId,
-      priorityFeeEditable: true,
+      priorityFeeEditable: resolvePriorityFeeEditable(true),
       customUnit: 'Gwei',
       customRange,
     });
@@ -336,20 +356,12 @@ function buildPresetConfigFromRemote({
   if (MARKET_PRESET_SOL_NETWORK_IDS.has(networkId)) {
     return buildPresetConfig({
       networkId,
-      priorityFeeEditable: true,
+      priorityFeeEditable: resolvePriorityFeeEditable(true),
       priorityFeeSupportedTypes: [
         EMarketPresetPriorityFeeType.MARKET,
         EMarketPresetPriorityFeeType.CUSTOM,
       ],
       customUnit: 'SOL',
-      customRange,
-    });
-  }
-
-  if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
-    return buildPresetConfig({
-      networkId,
-      priorityFeeEditable: false,
       customRange,
     });
   }
@@ -389,6 +401,13 @@ async function fetchMarketPresetDashboardConfig({
     });
   }
 
+  if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
+    return buildPresetConfig({
+      networkId,
+      priorityFeeEditable: false,
+    });
+  }
+
   if (MARKET_PRESET_EVM_NETWORK_IDS.has(networkId)) {
     return buildPresetConfig({
       networkId,
@@ -406,13 +425,6 @@ async function fetchMarketPresetDashboardConfig({
         EMarketPresetPriorityFeeType.CUSTOM,
       ],
       customUnit: 'SOL',
-    });
-  }
-
-  if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
-    return buildPresetConfig({
-      networkId,
-      priorityFeeEditable: false,
     });
   }
 
@@ -460,10 +472,15 @@ export function getMarketPresetDefaultDirectionSettings(): IMarketPresetDirectio
   };
 }
 
-export function getMarketPresetDefaultEditableDirectionSettings(): IMarketPresetDirectionSettings {
+export function getMarketPresetDefaultEditableDirectionSettings({
+  defaultSlippage = 1,
+}: {
+  defaultSlippage?: number;
+} = {}): IMarketPresetDirectionSettings {
   return {
     slippage: {
       ...DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS.slippage,
+      value: defaultSlippage,
     },
     priorityFee: {
       ...DEFAULT_MARKET_PRESET_EDITABLE_DIRECTION_SETTINGS.priorityFee,
@@ -496,9 +513,11 @@ export function getMarketPresetDefaultDirectionSettingsForPreset({
 
 export function getMarketPresetDefaultEditableDirectionSettingsForPreset({
   config,
+  defaultSlippage,
   presetKey,
 }: {
   config?: IMarketPresetConfig;
+  defaultSlippage?: number;
   presetKey?: EMarketPresetKey;
 }): IMarketPresetDirectionSettings {
   if (!config?.enabled || presetKey === EMarketPresetKey.AUTO) {
@@ -506,7 +525,9 @@ export function getMarketPresetDefaultEditableDirectionSettingsForPreset({
   }
 
   const defaultSettings = getMarketPresetDefaultDirectionSettings();
-  const editableSettings = getMarketPresetDefaultEditableDirectionSettings();
+  const editableSettings = getMarketPresetDefaultEditableDirectionSettings({
+    defaultSlippage,
+  });
 
   return {
     slippage: config.slippage.editable
@@ -866,6 +887,16 @@ function isSwapSlippageSegmentKey(
   );
 }
 
+function getMarketPresetFallbackPriorityFeeType(config?: IMarketPresetConfig) {
+  if (!config?.priorityFee.editable) {
+    return EMarketPresetPriorityFeeType.AUTO;
+  }
+
+  return (
+    config.priorityFee.supportedTypes[0] ?? EMarketPresetPriorityFeeType.MARKET
+  );
+}
+
 export function normalizeMarketPresetSavedSettings({
   config,
   savedSettings,
@@ -918,7 +949,7 @@ export function normalizeMarketPresetSavedSettings({
               directionSettings?.priorityFee?.type,
             ) && priorityFeeTypes.has(directionSettings.priorityFee.type)
               ? directionSettings.priorityFee.type
-              : EMarketPresetPriorityFeeType.MARKET;
+              : getMarketPresetFallbackPriorityFeeType(config);
 
           nextSettings.presets = {
             ...nextSettings.presets,

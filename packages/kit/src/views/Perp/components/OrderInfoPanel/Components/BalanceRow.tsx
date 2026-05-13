@@ -14,6 +14,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -93,6 +94,7 @@ function ContractAddressCell({
         {shortened}
       </SizableText>
       <IconButton
+        testID={PerpTestIDs.BalanceRowCopyContractButton}
         size="small"
         variant="tertiary"
         icon="Copy3Outline"
@@ -103,6 +105,7 @@ function ContractAddressCell({
         }}
       />
       <IconButton
+        testID={PerpTestIDs.BalanceRowOpenContractButton}
         size="small"
         variant="tertiary"
         icon="OpenOutline"

@@ -100,6 +100,7 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
       </YStack>
 
       <Button
+        testID="perp-btn"
         variant="primary"
         size="medium"
         disabled={loading || !isAgentNotReady}

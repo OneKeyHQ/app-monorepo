@@ -19,6 +19,7 @@ import { ENetworkConnectivityLevel } from '@onekeyhq/shared/src/modules/NetworkD
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { NetworkDoctorTestIDs } from '../testIDs';
 
 // Hook to map connectivity level to i18n translations
 const useConnectivityLevelMap = () => {
@@ -222,7 +223,11 @@ function NetworkDoctorResult() {
                 id: ETranslations.global_network_doctor_not_started,
               })}
             </SizableText>
-            <Button variant="secondary" onPress={handleClose}>
+            <Button
+              variant="secondary"
+              onPress={handleClose}
+              testID={NetworkDoctorTestIDs.closeBtn}
+            >
               {intl.formatMessage({
                 id: ETranslations.global_close,
               })}
@@ -239,6 +244,7 @@ function NetworkDoctorResult() {
             cancelButtonProps={{
               onPress: handleClose,
               variant: 'secondary',
+              testID: NetworkDoctorTestIDs.footerCloseBtn,
             }}
             onConfirmText={
               status === 'completed' &&
@@ -255,6 +261,7 @@ function NetworkDoctorResult() {
               !result.summary.allCriticalChecksPassed
                 ? {
                     onPress: handleContactSupport,
+                    testID: NetworkDoctorTestIDs.footerConfirmBtn,
                   }
                 : undefined
             }

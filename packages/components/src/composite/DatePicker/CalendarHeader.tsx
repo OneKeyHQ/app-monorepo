@@ -83,6 +83,8 @@ export const CalendarHeader = memo(
         <XStack justifyContent="space-between" alignItems="center">
           <XStack alignItems="center">
             {showPrevYearButton ? (
+              // Internal navigation control; QA targets the calendar root.
+              // oxlint-disable-next-line onekey/require-testid
               <IconButton
                 icon="ChevronDoubleLeftOutline"
                 variant="tertiary"
@@ -93,6 +95,8 @@ export const CalendarHeader = memo(
               <NavSpacer />
             )}
             {showPrevButton ? (
+              // Internal navigation control; QA targets the calendar root.
+              // oxlint-disable-next-line onekey/require-testid
               <IconButton
                 icon="ChevronLeftSmallOutline"
                 variant="tertiary"
@@ -105,6 +109,8 @@ export const CalendarHeader = memo(
           </XStack>
           <XStack alignItems="center">
             {showNextButton ? (
+              // Internal navigation control; QA targets the calendar root.
+              // oxlint-disable-next-line onekey/require-testid
               <IconButton
                 icon="ChevronRightSmallOutline"
                 variant="tertiary"
@@ -115,6 +121,8 @@ export const CalendarHeader = memo(
               <NavSpacer />
             )}
             {showNextYearButton ? (
+              // Internal navigation control; QA targets the calendar root.
+              // oxlint-disable-next-line onekey/require-testid
               <IconButton
                 icon="ChevronDoubleRightOutline"
                 variant="tertiary"
