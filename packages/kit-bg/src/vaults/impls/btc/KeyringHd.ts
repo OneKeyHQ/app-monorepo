@@ -3,6 +3,7 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { type ISignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
@@ -17,7 +18,6 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 export class KeyringHd extends KeyringHdBase {
   override coreApi = coreChainApi.btc.hd;

@@ -7,6 +7,7 @@ import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import { EVaultKeyringTypes } from '../types';
@@ -20,7 +21,6 @@ import type {
   IDBUtxoAccount,
   IDBVariantAccount,
 } from '../../dbs/local/types';
-import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
   IBuildPrepareAccountsPrefixedPathParams,
