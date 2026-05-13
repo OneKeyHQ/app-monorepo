@@ -1,4 +1,4 @@
-import { isNil, unionBy } from 'lodash';
+import { isNil, unionBy, uniqBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
@@ -26,7 +26,10 @@ import {
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IAddressInfo } from '@onekeyhq/shared/types/address';
+import type {
+  IAddressBadge,
+  IAddressInfo,
+} from '@onekeyhq/shared/types/address';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -36,6 +39,7 @@ import type {
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchHistoryTxDetailsParams,
+  IFetchMergeDeriveAccountHistoryParams,
   IFetchTransferRecipientsResp,
   IFetchTxDetailsParams,
   IOnChainHistoryTx,
@@ -69,6 +73,11 @@ import type { IAccountDeriveTypes } from '../vaults/types';
 const HISTORY_TIME_RANGE_MS = timerUtils.getTimeDurationMs({
   month: HISTORY_TIME_RANGE_MONTHS,
 });
+
+// Sentinel value stored inside a merge-derive opaque cursor map to mark a
+// deriveType that has finished paginating. Future pages skip it entirely
+// instead of issuing a request that would just return an empty page.
+const MERGE_DERIVE_EXHAUSTED = '__exhausted__' as const;
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
@@ -125,6 +134,50 @@ class ServiceHistory extends ServiceBase {
     }
     if (typeof params.page === 'number' && params.page > 1) return true;
     return false;
+  }
+
+  // Mirrors the cursor-advancement check inside useHistoryListLoadMore — if the
+  // server's `next` did not actually move forward, the page is considered
+  // exhausted, regardless of what `hasMore` claims. For indexer chains where
+  // `next` is a millisecond timestamp, "forward" means strictly decreasing.
+  private _advancedHistoryCursor(
+    previousCursor: string | undefined,
+    nextCursor: string | undefined,
+  ): boolean {
+    if (!nextCursor) return false;
+    if (!previousCursor) return true;
+    if (nextCursor === previousCursor) return false;
+    const a = Number(previousCursor);
+    const b = Number(nextCursor);
+    if (Number.isFinite(a) && Number.isFinite(b)) return b < a;
+    return true;
+  }
+
+  // Opaque cursor for merge-derive aggregation: a JSON-encoded map from
+  // deriveType to that deriveType's per-chain cursor (or '__exhausted__' once
+  // the deriveType has run out of pages). The hook treats the whole string as
+  // an opaque token; only this service encodes/decodes it.
+  private _decodeMergeDeriveCursor(
+    cursor: string | undefined,
+  ): Record<string, string | typeof MERGE_DERIVE_EXHAUSTED> {
+    if (!cursor) return {};
+    try {
+      const parsed = JSON.parse(cursor) as Record<string, string>;
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch {
+      // fall through — a malformed cursor is treated as a first-page request.
+    }
+    return {};
+  }
+
+  private _encodeMergeDeriveCursor(
+    cursorMap: Record<string, string | typeof MERGE_DERIVE_EXHAUSTED>,
+  ): string | undefined {
+    const entries = Object.entries(cursorMap);
+    if (entries.length === 0) return undefined;
+    const hasAny = entries.some(([, v]) => v !== MERGE_DERIVE_EXHAUSTED);
+    if (!hasAny) return undefined;
+    return JSON.stringify(cursorMap);
   }
 
   private async _fetchMoreAccountHistory(params: IFetchAccountHistoryParams) {
@@ -611,6 +664,193 @@ class ServiceHistory extends ServiceBase {
           networkId: n,
         };
       }),
+    };
+  }
+
+  // Aggregated history fetch for chains whose vault opts into
+  // `mergeDeriveAssetsEnabled` (currently BTC / LTC). One indexed account fans
+  // out into multiple deriveType-specific network accounts, each paginated
+  // independently. Callers see a single `txs` list and a single opaque cursor;
+  // this service handles the per-deriveType cursor bookkeeping internally so
+  // the UI hook (useHistoryListLoadMore) stays uniform across chain types.
+  @backgroundMethod()
+  public async fetchAccountHistoryForMergeDerive(
+    params: IFetchMergeDeriveAccountHistoryParams,
+  ) {
+    const {
+      indexedAccountId,
+      networkId,
+      tokenIdOnNetwork,
+      isManualRefresh,
+      filterScam,
+      filterLowValue,
+      excludeTestNetwork,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+      limit,
+      page,
+      cursor,
+    } = params;
+
+    const { networkAccounts } =
+      await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+        {
+          networkId,
+          indexedAccountId,
+          excludeEmptyAccount: true,
+        },
+      );
+
+    const cursorMap = this._decodeMergeDeriveCursor(cursor);
+    const isLoadMore =
+      (typeof page === 'number' && page > 1) ||
+      Object.keys(cursorMap).length > 0;
+
+    type IPerTypeOutcome =
+      | { kind: 'skipped'; deriveType: IAccountDeriveTypes }
+      | {
+          kind: 'fetched';
+          deriveType: IAccountDeriveTypes;
+          prevCursor: string | undefined;
+          response: Awaited<ReturnType<ServiceHistory['fetchAccountHistory']>>;
+        };
+
+    const perTypeOutcomes = await Promise.all(
+      networkAccounts.map(async (na): Promise<IPerTypeOutcome | null> => {
+        const accountId = na.account?.id;
+        const { deriveType } = na;
+        if (!accountId) return null;
+
+        const stored = cursorMap[deriveType];
+        // Already finished paginating this deriveType in a prior page — skip
+        // outright so we neither issue a request nor count it toward `hasMore`.
+        if (stored === MERGE_DERIVE_EXHAUSTED) {
+          return { kind: 'skipped', deriveType };
+        }
+
+        const perCursor =
+          typeof stored === 'string' && stored.length > 0 ? stored : undefined;
+
+        const subParams: IFetchAccountHistoryParams = {
+          accountId,
+          networkId,
+          tokenIdOnNetwork,
+          isManualRefresh,
+          filterScam,
+          filterLowValue,
+          excludeTestNetwork,
+          sourceCurrency,
+          targetCurrency,
+          currencyMap,
+          limit,
+          page: isLoadMore ? (page ?? 2) : 1,
+          ...(perCursor ? { cursor: perCursor } : {}),
+        };
+
+        const response = await this.fetchAccountHistory(subParams);
+        return {
+          kind: 'fetched',
+          deriveType,
+          prevCursor: perCursor,
+          response,
+        };
+      }),
+    );
+
+    const nextCursorMap: Record<
+      string,
+      string | typeof MERGE_DERIVE_EXHAUSTED
+    > = {};
+    let aggregatedTxs: IAccountHistoryTx[] = [];
+    let aggregatedAddressMap: Record<string, IAddressBadge> = {};
+    let aggregatedPending: { accountId: string; networkId: string }[] = [];
+    let aggregatedConfirmed: { accountId: string; networkId: string }[] = [];
+    let aggregatedAllAccounts: IAllNetworkAccountInfo[] = [];
+
+    for (const outcome of perTypeOutcomes) {
+      if (outcome && outcome.kind === 'skipped') {
+        nextCursorMap[outcome.deriveType] = MERGE_DERIVE_EXHAUSTED;
+      } else if (outcome && outcome.kind === 'fetched') {
+        const { deriveType, prevCursor, response } = outcome;
+        aggregatedTxs = [...aggregatedTxs, ...response.txs];
+        aggregatedAddressMap = {
+          ...aggregatedAddressMap,
+          ...response.addressMap,
+        };
+        aggregatedPending = [
+          ...aggregatedPending,
+          ...response.accountsWithChangedPendingTxs,
+        ];
+        aggregatedConfirmed = [
+          ...aggregatedConfirmed,
+          ...response.accountsWithChangedConfirmedTxs,
+        ];
+        aggregatedAllAccounts = [
+          ...aggregatedAllAccounts,
+          ...response.allAccounts,
+        ];
+
+        const nextCursor =
+          typeof response.next === 'string' && response.next.length > 0
+            ? response.next
+            : undefined;
+        const advanced = this._advancedHistoryCursor(prevCursor, nextCursor);
+        if (
+          response.hasMoreOnChainHistory &&
+          response.txs.length > 0 &&
+          nextCursor &&
+          advanced
+        ) {
+          nextCursorMap[deriveType] = nextCursor;
+        } else {
+          nextCursorMap[deriveType] = MERGE_DERIVE_EXHAUSTED;
+        }
+      }
+    }
+
+    // BTC/LTC deriveTypes own disjoint xpubs so tx ids do not overlap in
+    // practice, but defensively dedupe by id before sorting so future chains
+    // with overlapping derive paths don't surface duplicates here.
+    const mergedTxs = unionBy(
+      aggregatedTxs.toSorted(
+        (b, a) =>
+          (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+          (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+      ),
+      (tx) => tx.id,
+    );
+
+    const dedupeByAccountNetwork = (
+      arr: { accountId: string; networkId: string }[],
+    ) =>
+      Array.from(
+        new Map(arr.map((i) => [`${i.accountId}_${i.networkId}`, i])).values(),
+      );
+    const dedupedPending = dedupeByAccountNetwork(aggregatedPending);
+    const dedupedConfirmed = dedupeByAccountNetwork(aggregatedConfirmed);
+    const dedupedAll = dedupeByAccountNetwork([
+      ...aggregatedPending,
+      ...aggregatedConfirmed,
+    ]);
+
+    const hasMore = Object.values(nextCursorMap).some(
+      (v) => v !== MERGE_DERIVE_EXHAUSTED,
+    );
+    const nextOpaque = hasMore
+      ? this._encodeMergeDeriveCursor(nextCursorMap)
+      : undefined;
+
+    return {
+      hasMoreOnChainHistory: hasMore,
+      next: nextOpaque,
+      accounts: [] as IAllNetworkAccountInfo[],
+      allAccounts: uniqBy(aggregatedAllAccounts, 'networkId'),
+      txs: mergedTxs,
+      addressMap: aggregatedAddressMap,
+      accountsWithChangedPendingTxs: dedupedPending,
+      accountsWithChangedConfirmedTxs: dedupedConfirmed,
+      accountsWithChangedTxs: dedupedAll,
     };
   }
 

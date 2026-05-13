@@ -30,6 +30,10 @@ export type IUseHistoryListLoadMoreParams = {
   targetCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
   limit?: number;
+  // When true, load-more routes through the merge-derive aggregator
+  // (BTC/LTC etc.) and uses `indexedAccountId` instead of `accountId`.
+  mergeDerive?: boolean;
+  indexedAccountId?: string;
 };
 
 export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
@@ -45,6 +49,8 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     targetCurrency,
     currencyMap,
     limit,
+    mergeDerive,
+    indexedAccountId,
   } = params;
 
   const [appendedTxs, setAppendedTxs] = useState<IAccountHistoryTx[]>([]);
@@ -107,7 +113,8 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       return;
     }
     if (isLoadingMore) return;
-    if (!accountId || !networkId) return;
+    if (!networkId) return;
+    if (mergeDerive ? !indexedAccountId : !accountId) return;
     if (
       platformEnv.isNative &&
       loadCountRef.current >= NATIVE_LOAD_MORE_HARD_LIMIT
@@ -126,20 +133,40 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     const generation = generationRef.current;
     setIsLoadingMore(true);
     try {
-      const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-        accountId,
-        networkId,
-        tokenIdOnNetwork,
-        filterScam,
-        filterLowValue,
-        excludeTestNetwork,
-        sourceCurrency,
-        targetCurrency,
-        currencyMap,
-        limit,
-        page: nextPage,
-        ...(cursor ? { cursor } : {}),
-      });
+      // BTC/LTC merge-derive consolidates per-deriveType cursors into one
+      // opaque token managed by ServiceHistory — call the aggregator instead
+      // of the per-account endpoint when the consumer opted in.
+      const r = mergeDerive
+        ? await backgroundApiProxy.serviceHistory.fetchAccountHistoryForMergeDerive(
+            {
+              indexedAccountId: indexedAccountId ?? '',
+              networkId,
+              tokenIdOnNetwork,
+              filterScam,
+              filterLowValue,
+              excludeTestNetwork,
+              sourceCurrency,
+              targetCurrency,
+              currencyMap,
+              limit,
+              page: nextPage,
+              ...(cursor ? { cursor } : {}),
+            },
+          )
+        : await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+            accountId,
+            networkId,
+            tokenIdOnNetwork,
+            filterScam,
+            filterLowValue,
+            excludeTestNetwork,
+            sourceCurrency,
+            targetCurrency,
+            currencyMap,
+            limit,
+            page: nextPage,
+            ...(cursor ? { cursor } : {}),
+          });
       // reset() ran while we were awaiting — discard this response, its data
       // belongs to a stale identity (account/network) and would clobber the
       // newly-mounted state.
@@ -201,6 +228,8 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     targetCurrency,
     currencyMap,
     limit,
+    mergeDerive,
+    indexedAccountId,
   ]);
 
   // If onEndReached fired before we were ready (or while a request was in

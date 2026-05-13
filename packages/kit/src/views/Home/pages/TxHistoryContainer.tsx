@@ -138,12 +138,11 @@ function TxHistoryListContainer(
     vaultSettings?.mergeDeriveAssetsEnabled;
 
   const isAllNetworksList = !!network?.isAllNetworks;
-  // Disable load-more for All Networks (server doesn't paginate the aggregate),
-  // for the merge-derive-address path (multiple parallel calls would each need
-  // their own cursor), and for preview lists that already enforce a fixed
-  // limit (e.g. Home recent-history block).
-  const loadMoreEnabled =
-    !isAllNetworksList && !mergeDeriveAddressData && !limit && !plainMode;
+  // Disable load-more for All Networks (server doesn't paginate the aggregate)
+  // and for preview lists that already enforce a fixed limit (e.g. Home
+  // recent-history block). Merge-derive chains (BTC/LTC) now route through
+  // ServiceHistory.fetchAccountHistoryForMergeDerive so they participate too.
+  const loadMoreEnabled = !isAllNetworksList && !limit && !plainMode;
   const {
     appendedTxs,
     hasMore: loadMoreHasMore,
@@ -161,6 +160,8 @@ function TxHistoryListContainer(
     sourceCurrency: settings.currencyInfo.id,
     currencyMap,
     limit,
+    mergeDerive: mergeDeriveAddressData,
+    indexedAccountId: indexedAccount?.id ?? '',
   });
 
   const handleHistoryItemPress = useCallback(
@@ -249,59 +250,37 @@ function TxHistoryListContainer(
         emittedTrue = true;
 
         if (mergeDeriveAddressData) {
-          let hasMoreOnChainHistory = false;
-          const { networkAccounts } =
-            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          // ServiceHistory does the per-deriveType fan-out, dedupe, sort, and
+          // cursor bookkeeping; we receive a single aggregate response shaped
+          // identically to the single-deriveType branch, so the rest of the
+          // function can treat both paths the same.
+          r =
+            await backgroundApiProxy.serviceHistory.fetchAccountHistoryForMergeDerive(
               {
-                networkId: network.id,
                 indexedAccountId: indexedAccount?.id ?? '',
-                excludeEmptyAccount: true,
-              },
-            );
-          const resp = await Promise.all(
-            networkAccounts.map((networkAccount) =>
-              backgroundApiProxy.serviceHistory.fetchAccountHistory({
-                accountId: networkAccount.account?.id ?? '',
                 networkId: network.id,
                 isManualRefresh: isManualRefresh.current,
                 filterScam: settings.isFilterScamHistoryEnabled,
                 filterLowValue: settings.isFilterLowValueHistoryEnabled,
+                excludeTestNetwork: true,
                 sourceCurrency: settings.currencyInfo.id,
                 currencyMap,
                 limit,
-              }),
-            ),
-          );
-
-          resp.forEach((item) => {
-            r.txs = [...r.txs, ...item.txs];
-            r.allAccounts = [...r.allAccounts, ...item.allAccounts];
-            r.accountsWithChangedTxs = [
-              ...r.accountsWithChangedTxs,
-              ...item.accountsWithChangedTxs,
-            ];
-            r.addressMap = { ...r.addressMap, ...item.addressMap };
-            if (item.hasMoreOnChainHistory) {
-              hasMoreOnChainHistory = true;
-            }
-          });
-
+              },
+            );
           // Bail before any state writes if a newer fetch superseded this one;
           // otherwise the stale body would clobber the new account/network's
           // hasMore / addresses state and leave the UI inconsistent.
           if (!isCurrentDispatch()) {
             return;
           }
-          r.txs = r.txs
-            .toSorted(
-              (b, a) =>
-                (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-                (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-            )
-            .slice(0, HISTORY_PAGE_SIZE);
-          setHasMoreOnChainHistory(hasMoreOnChainHistory);
+          setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
           updateAddressesInfo({
             data: r.addressMap ?? {},
+          });
+          onFirstPageResponse({
+            next: r.next,
+            hasMore: r.hasMoreOnChainHistory,
           });
         } else {
           r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
