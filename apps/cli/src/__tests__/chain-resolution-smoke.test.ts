@@ -178,8 +178,11 @@ describe('chain resolution (smoke)', () => {
       expect(config.networkId).toBe('evm--43114');
     });
 
-    it('throws for non-BTC non-EVM chain "sol"', () => {
-      expect(() => resolveChain('sol')).toThrow(/unsupported/i);
+    it('resolves SOL now that CLI supports Solana account, transfer, and swap flows', () => {
+      const config = resolveChain('sol');
+      expect(config.networkId).toBe('sol--101');
+      expect(config.impl).toBe('sol');
+      expect(config.nativeSymbol).toBe('SOL');
     });
   });
 
@@ -286,7 +289,14 @@ describe('swap networks (smoke)', () => {
     expect(networkIds).toContain('evm--1');
     expect(networkIds).toContain('evm--137');
     expect(networkIds).toContain('btc--0');
-    expect(networks.find((n) => n.networkId === 'sol--101')).toBeUndefined();
+    expect(networks.find((n) => n.networkId === 'sol--101')).toMatchObject({
+      name: 'Solana',
+      chainId: '101',
+      nativeSymbol: 'SOL',
+      supportSingleSwap: true,
+      supportCrossChainSwap: false,
+      supportLimit: false,
+    });
     expect(networks.find((n) => n.networkId === 'btc--0')).toMatchObject({
       name: 'Bitcoin',
       chainId: '0',
@@ -346,7 +356,7 @@ describe('swap networks (smoke)', () => {
     ]);
 
     const first = await fetchSwapNetworks();
-    expect(first).toHaveLength(1);
+    expect(first.map((network) => network.networkId)).toEqual(['evm--1']);
 
     _resetSwapNetworksCache();
 
@@ -366,7 +376,10 @@ describe('swap networks (smoke)', () => {
     ]);
 
     const second = await fetchSwapNetworks();
-    expect(second).toHaveLength(2);
+    expect(second.map((network) => network.networkId)).toEqual([
+      'evm--1',
+      'evm--56',
+    ]);
     expect(mockGet).toHaveBeenCalledTimes(2);
   });
 
