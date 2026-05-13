@@ -561,10 +561,23 @@ export function List<Item>({
     );
   }, [HeaderElement, ListEmptyComponent, FooterElement]);
 
+  // Imperative `recomputeLayout` runs outside React's effect lifecycle, so the
+  // rAF + setTimeout chain it spawns can outlive the component. We hold the
+  // latest cleanup in a ref and clear it on unmount (and before scheduling a
+  // new one) to avoid `setContentHeight` firing on an unmounted instance.
+  const pendingScheduleCleanupRef = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    return () => {
+      pendingScheduleCleanupRef.current?.();
+      pendingScheduleCleanupRef.current = undefined;
+    };
+  }, []);
+
   useImperativeHandle(parentRef as any, () => ({
     recomputeLayout: () => {
       recompute({ numColumns, width });
-      scheduleListContainerHeightUpdate();
+      pendingScheduleCleanupRef.current?.();
+      pendingScheduleCleanupRef.current = scheduleListContainerHeightUpdate();
     },
   }));
 

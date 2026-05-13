@@ -380,6 +380,7 @@ function TxHistoryListContainer(
       accountId: string,
       networkId: string,
       indexedAccountId: string | undefined,
+      capturedIdentity: string,
     ) => {
       let accountHistoryTxs: IAccountHistoryTx[] = [];
 
@@ -426,6 +427,14 @@ function TxHistoryListContainer(
           });
       }
 
+      // The local-history reads above are async; a faster identity switch can
+      // arrive while we're awaiting and bump `lastInitIdentityRef`. If that
+      // happened, this stale result must not be written into the new identity's
+      // state (same rationale as the dispatch-key guard in `run()`).
+      if (lastInitIdentityRef.current !== capturedIdentity) {
+        return;
+      }
+
       if (!isEmpty(accountHistoryTxs)) {
         updateHistoryData(accountHistoryTxs);
         setHistoryState({
@@ -465,6 +474,7 @@ function TxHistoryListContainer(
         account?.id ?? '',
         network.id,
         indexedAccount?.id ?? '',
+        identity,
       );
     }
   }, [
@@ -490,8 +500,12 @@ function TxHistoryListContainer(
   }, [isHeaderRefreshing, run, resetLoadMore]);
 
   // Wipe paginated state whenever the source identity changes; first-page fetch
-  // will re-initialize it via onFirstPageResponse.
+  // will re-initialize it via onFirstPageResponse. Also invalidate the dispatch
+  // key so any in-flight `run()` from the previous identity fails its
+  // `isCurrentDispatch()` check on response, before the new `run()` even gets
+  // a chance to overwrite the key.
   useEffect(() => {
+    fetchDispatchKeyRef.current = '';
     resetLoadMore();
   }, [
     account?.id,

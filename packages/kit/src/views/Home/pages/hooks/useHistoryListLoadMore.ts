@@ -68,6 +68,11 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   // immediately). RN's SectionList won't refire onEndReached until content
   // grows, so we replay the request once we're armed.
   const pendingLoadMoreRef = useRef(false);
+  // Synchronous in-flight lock. `isLoadingMore` (React state) only updates
+  // on the next render, so two `loadMore()` calls scheduled in the same tick
+  // (e.g. onEndReached firing twice during a fast scroll on web) would both
+  // see `isLoadingMore === false` and issue duplicate fetches.
+  const inFlightRef = useRef(false);
   // Bumped on every reset so an in-flight response from a prior identity
   // can detect it has been superseded and skip its state writes.
   const generationRef = useRef(0);
@@ -81,6 +86,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     cursorRef.current = undefined;
     loadCountRef.current = 0;
     pendingLoadMoreRef.current = false;
+    inFlightRef.current = false;
     generationRef.current += 1;
     appendedIdsRef.current = new Set();
     setAppendedTxs([]);
@@ -113,7 +119,12 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       pendingLoadMoreRef.current = false;
       return;
     }
-    if (isLoadingMore) return;
+    if (inFlightRef.current) {
+      // A request is already in flight on this same tick — record the intent
+      // so the post-fetch effect can replay once we're idle again.
+      pendingLoadMoreRef.current = true;
+      return;
+    }
     if (!networkId) return;
     if (mergeDerive ? !indexedAccountId : !accountId) return;
     if (
@@ -132,6 +143,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     const cursor = cursorRef.current;
     const nextPage = pageRef.current + 1;
     const generation = generationRef.current;
+    inFlightRef.current = true;
     setIsLoadingMore(true);
     try {
       // BTC/LTC merge-derive consolidates per-deriveType cursors into one
@@ -194,12 +206,12 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       console.error('History loadMore failed:', error);
     } finally {
       if (generation === generationRef.current) {
+        inFlightRef.current = false;
         setIsLoadingMore(false);
       }
     }
   }, [
     enabled,
-    isLoadingMore,
     hasMore,
     accountId,
     networkId,

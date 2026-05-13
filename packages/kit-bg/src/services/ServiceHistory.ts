@@ -688,7 +688,11 @@ class ServiceHistory extends ServiceBase {
       );
 
     const cursorMap = this._decodeMergeDeriveCursor(cursor);
-    const isLoadMore = !!cursor;
+    // Derive load-more from the decoded map, not the raw `cursor` string —
+    // a malformed cursor decodes to {} and must restart from page 1,
+    // otherwise every deriveType would be requested with page=2 and no
+    // per-deriveType cursor, which is an unsupported wire combination.
+    const isLoadMore = Object.keys(cursorMap).length > 0;
 
     type IFetchedOutcome = {
       kind: 'fetched';
