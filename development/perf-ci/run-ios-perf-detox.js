@@ -17,7 +17,7 @@ const path = require('path');
 
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { deriveSession, defaultDerivedOutPath } = require('./lib/derive');
-const { execCmd } = require('./lib/exec');
+const { execCmd, formatExecResultError } = require('./lib/exec');
 const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
 const { notifyPerfFailure, notifyPerfResult } = require('./lib/notify');
@@ -126,7 +126,7 @@ async function ensureIosPodsSynced(repoRoot) {
     },
   );
   if (podRes.code !== 0) {
-    throw new Error(`pod install failed with exit code ${podRes.code}`);
+    throw new Error(formatExecResultError('pod install', podRes));
   }
 }
 
@@ -280,7 +280,7 @@ async function main() {
       },
     );
     if (buildRes.code !== 0) {
-      throw new Error(`Detox build failed with exit code ${buildRes.code}`);
+      throw new Error(formatExecResultError('Detox build', buildRes));
     }
 
     // Run Detox (the e2e test itself handles the 3-run loop).
@@ -295,6 +295,9 @@ async function main() {
       PERF_METRO_PLATFORM: 'ios',
       PERF_METRO_APP_ID: 'so.onekey.wallet',
       PERF_USE_METRO: useMetro,
+      PERF_PREWARM_LAUNCH: process.env.PERF_PREWARM_LAUNCH || '1',
+      PERF_INITIAL_LAUNCH_TIMEOUT_MS:
+        process.env.PERF_INITIAL_LAUNCH_TIMEOUT_MS || String(3 * 60 * 1000),
       METRO_URL: process.env.METRO_URL || 'http://localhost:8081',
       // Avoid jest default 5m timeout under heavy CI load.
       PERF_TEST_TIMEOUT_MS: String(
@@ -327,7 +330,7 @@ async function main() {
     });
 
     if (detoxRes.code !== 0) {
-      throw new Error(`Detox failed with exit code ${detoxRes.code}`);
+      throw new Error(formatExecResultError('Detox', detoxRes));
     }
 
     const runsPath = path.join(detoxOutDir, 'runs.json');
