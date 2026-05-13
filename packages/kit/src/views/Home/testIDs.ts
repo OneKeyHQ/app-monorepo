@@ -38,6 +38,7 @@ export const HomeTestIDs = {
 
   // Referral web landing steps
   referralLandingDownloadBtn: 'home-referral-landing-download-btn',
+  referralLandingDownloadHintBtn: 'home-referral-landing-download-hint-btn',
   referralLandingBindBtn: 'home-referral-landing-bind-btn',
   referralLandingTradeBtn: 'home-referral-landing-trade-btn',
 

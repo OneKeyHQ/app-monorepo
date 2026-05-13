@@ -76,4 +76,8 @@ export const DAppConnectionTestIDs = {
   AccountListItem: 'dapp-connection-account-list-item',
   NetworkSelector: 'dapp-connection-network-selector',
   AccountSelector: 'dapp-connection-account-selector-trigger',
+
+  // Derive context hash modal
+  DeriveContextHashContextTextArea:
+    'dapp-connection-derive-context-hash-context-textarea',
 } as const;

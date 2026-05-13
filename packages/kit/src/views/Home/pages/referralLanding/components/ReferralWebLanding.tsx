@@ -370,7 +370,12 @@ function Step2DownloadHint({ onDownload }: { onDownload: () => void }) {
           id: ETranslations.referral_web_landing_app_open_hint,
         })}
       </SizableText>
-      <Button size="small" variant="tertiary" onPress={onDownload}>
+      <Button
+        size="small"
+        variant="tertiary"
+        onPress={onDownload}
+        testID={HomeTestIDs.referralLandingDownloadHintBtn}
+      >
         {intl.formatMessage({
           id: ETranslations.referral_web_landing_step1_title,
         })}
