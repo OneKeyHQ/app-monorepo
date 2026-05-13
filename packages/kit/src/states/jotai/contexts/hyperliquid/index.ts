@@ -1,6 +1,7 @@
 export {
   ProviderJotaiContextHyperliquid,
   usePerpsAllMidsAtom,
+  usePerpsMidByCoin,
   useL2BookAtom,
   useBboAtom,
   useConnectionStateAtom,
