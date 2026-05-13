@@ -23,6 +23,7 @@ import {
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -517,6 +518,21 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this._updatePerpsConfigByServerWithCache();
   }
 
+  @backgroundMethod()
+  async updatePerpsConfigByServerSilently({
+    ignoreCache = false,
+  }: { ignoreCache?: boolean } = {}) {
+    try {
+      return ignoreCache
+        ? await this.updatePerpsConfigByServer()
+        : await this.updatePerpsConfigByServerWithCache();
+    } catch (error) {
+      errorToastUtils.toastIfErrorDisable(error);
+      console.warn('[ServiceHyperliquid] Failed to update perp config', error);
+      return undefined;
+    }
+  }
+
   _updatePerpsConfigByServerWithCache = cacheUtils.memoizee(
     async () => {
       return this.updatePerpsConfigByServer();
@@ -533,7 +549,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async getTokenSearchAliases() {
     // Ensure config is loaded (uses memoizee cache)
-    void this.updatePerpsConfigByServerWithCache();
+    void this.updatePerpsConfigByServerSilently();
     const config = await this.backgroundApi.simpleDb.perp.getPerpData();
     return config.tokenSearchAliases;
   }
@@ -2580,7 +2596,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   async getBuilderFeeConfig() {
-    void this.updatePerpsConfigByServerWithCache();
+    void this.updatePerpsConfigByServerSilently();
     let {
       hyperliquidBuilderAddress: expectBuilderAddress,
       hyperliquidMaxBuilderFee: expectMaxBuilderFee,

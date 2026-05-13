@@ -172,6 +172,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   // IPC race does not apply.
   private _subscriptionAtomsUnsubs: Array<() => void> = [];
 
+  private _subscriptionLifecycleVersion = 0;
+
   private _watchSubscriptionAtoms(): void {
     if (!platformEnv.isExtension) {
       return;
@@ -279,6 +281,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _hasInitialSubscription = false;
 
   private async _updateSubscriptionsCore() {
+    if (this.subscriptionsHandlerDisabled) {
+      return;
+    }
     const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
     if (!requiredSubInfo) {
       return;
@@ -326,6 +331,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async refreshSubscriptionForUserFills(): Promise<void> {
+    const lifecycleVersion = this._subscriptionLifecycleVersion;
     const now = Date.now();
     if (
       this.lastRefreshAllPerpsDataAt &&
@@ -337,15 +343,28 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (!requiredSubInfo) {
       return;
     }
-    Object.values(requiredSubInfo.requiredSubSpecsMap || {}).forEach((spec) => {
-      if (spec.type === ESubscriptionType.USER_FILLS) {
-        void (async () => {
-          await this._destroySubscription(spec);
-          await timerUtils.wait(50);
-          await this._createSubscription(spec);
-        })();
-      }
-    });
+    const tasks = Object.values(requiredSubInfo.requiredSubSpecsMap || [])
+      .filter((spec) => spec.type === ESubscriptionType.USER_FILLS)
+      .map(async (spec) => {
+        await this._destroySubscription(spec);
+        await timerUtils.wait(50);
+        if (
+          this.subscriptionsHandlerDisabled ||
+          lifecycleVersion !== this._subscriptionLifecycleVersion
+        ) {
+          return;
+        }
+        const latestRequiredSubInfo =
+          await this.buildRequiredSubscriptionsMap();
+        if (
+          lifecycleVersion !== this._subscriptionLifecycleVersion ||
+          !latestRequiredSubInfo?.requiredSubSpecsMap?.[spec.key]
+        ) {
+          return;
+        }
+        await this._createSubscription(spec);
+      });
+    await Promise.all(tasks);
   }
 
   lastRefreshAllPerpsDataAt: number | null = null;
@@ -361,7 +380,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       Date.now() - this._lastMessageAt <
         HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS;
 
-    void this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServer();
+    void this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServerSilently(
+      {
+        ignoreCache: true,
+      },
+    );
     if (isSocketOpen && isDataFlowing) {
       // connection is healthy, no-op — just show pull-to-refresh animation
       await timerUtils.wait(3000);
@@ -427,7 +450,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     console.log('updateSubscriptions__by__resumeSubscriptions');
 
     const client = await this.getWebSocketClient();
-    if (client?.transport?.socket?.readyState === WebSocket.CLOSED) {
+    if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
       console.log('resumeSubscriptions__force_reconnect_transport');
       await this._forceReconnectTransport();
     } else {
@@ -441,6 +464,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async pauseSubscriptions(): Promise<void> {
+    this._subscriptionLifecycleVersion += 1;
+    this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
     await this.disableSubscriptionsHandler();
     this._clearPostOpenDataCheck();
@@ -513,6 +538,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async disconnect(): Promise<void> {
+    this._subscriptionLifecycleVersion += 1;
+    this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
     await this._cleanupAllSubscriptions();
     this._clearNetworkTimeout();
@@ -535,6 +562,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async cleanup(): Promise<void> {
+    this._subscriptionLifecycleVersion += 1;
+    this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
     this._stopPingLoop();
     this._clearPostOpenDataCheck();
@@ -544,6 +573,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   // Skip per-subscription unsubscribe to avoid async race where stale
   // _destroySubscription completion deletes newly created tracking entries
   private async _forceReconnectTransport(): Promise<void> {
+    this._subscriptionLifecycleVersion += 1;
+    this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
     this._clearPostOpenDataCheck();
     this._clearNetworkTimeout();
@@ -696,8 +727,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       const prevNetworkStatus = await perpsNetworkStatusAtom.get();
       const wasConnected = prevNetworkStatus?.connected;
+      const openClient = this._client;
 
       await timerUtils.wait(600); // wait network status atom update
+      const currentClient = this._client;
+      if (
+        !currentClient ||
+        currentClient !== openClient ||
+        currentClient.transport?.socket?.readyState !== WebSocket.OPEN ||
+        this.subscriptionsHandlerDisabled
+      ) {
+        return;
+      }
 
       // OK-53014: Install atom watcher BEFORE initial updateSubscriptions so
       // that any atom change arriving in the gap between these two calls is
@@ -1052,7 +1093,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async _destroySubscription(
     spec: ISubscriptionSpec<ESubscriptionType>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       if (spec) {
         const removeSubCache = () => {
@@ -1062,11 +1103,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         try {
           const client = await this.getWebSocketClient();
           if (!client) {
-            return;
+            removeSubCache();
+            return true;
           }
           // await sdkSub.unsubscribe();
           await client.unsubscribe(spec.type, spec.params);
           removeSubCache();
+          return true;
         } catch (error) {
           const e = error as OneKeyError | undefined;
           console.error(
@@ -1075,7 +1118,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           );
           if (e?.message.includes('Already unsubscribed')) {
             removeSubCache();
+            return true;
           }
+          return false;
         }
       }
     } catch (error) {
@@ -1084,19 +1129,40 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         error,
       );
     }
+    return true;
   }
 
   private async _cleanupAllSubscriptions(): Promise<void> {
-    const allSpecs: ISubscriptionSpec<ESubscriptionType>[] = [
+    const allSpecsByKey = new Map<
+      string,
+      ISubscriptionSpec<ESubscriptionType>
+    >();
+    [
       ...Object.values(this.allSubSpecsMap),
       ...Object.values(this.pendingSubSpecsMap),
       ...Array.from(this._activeSubscriptions.values() || []).map(
         (subInfo) => subInfo.spec,
       ),
-    ];
+    ].forEach((spec) => {
+      allSpecsByKey.set(spec.key, spec);
+    });
+    const allSpecs: ISubscriptionSpec<ESubscriptionType>[] = Array.from(
+      allSpecsByKey.values(),
+    );
     // Await all unsubscribes before clearing the active set so that the
     // server has fully acknowledged the teardown before we forget about them.
-    await Promise.all(allSpecs.map((spec) => this._destroySubscription(spec)));
+    const results = await Promise.all(
+      allSpecs.map((spec) => this._destroySubscription(spec)),
+    );
+    const hasUnsubscribeFailure = results.some((success) => !success);
+    if (hasUnsubscribeFailure) {
+      console.warn(
+        '[ServiceHyperliquidSubscription.cleanupAllSubscriptions] Some unsubscribes failed, closing transport to reset server-side subscriptions.',
+      );
+      await this._closeClient();
+    }
+    this.allSubSpecsMap = {};
+    this.pendingSubSpecsMap = {};
     this._activeSubscriptions.clear();
     void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
       return {

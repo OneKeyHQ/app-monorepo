@@ -738,12 +738,50 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return a.mode === b.mode && a.coin === b.coin && a.assetId === b.assetId;
   }
 
+  private static _isL2BookEqual(a: HL.IBook | null, b: HL.IBook): boolean {
+    if (!a || a.coin !== b.coin) {
+      return false;
+    }
+    const prevSides = a.levels ?? [];
+    const nextSides = b.levels ?? [];
+    if (prevSides.length !== nextSides.length) {
+      return false;
+    }
+    for (let sideIndex = 0; sideIndex < nextSides.length; sideIndex += 1) {
+      const prevLevels = prevSides[sideIndex] ?? [];
+      const nextLevels = nextSides[sideIndex] ?? [];
+      if (prevLevels.length !== nextLevels.length) {
+        return false;
+      }
+      for (
+        let levelIndex = 0;
+        levelIndex < nextLevels.length;
+        levelIndex += 1
+      ) {
+        const prevLevel = prevLevels[levelIndex];
+        const nextLevel = nextLevels[levelIndex];
+        if (
+          prevLevel?.px !== nextLevel?.px ||
+          prevLevel?.sz !== nextLevel?.sz ||
+          prevLevel?.n !== nextLevel?.n
+        ) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
     const activeCoin = await this._getActiveCoin();
     if (!data) {
       return;
     }
     if (activeCoin === data.coin) {
+      const currentBook = get(l2BookAtom());
+      if (ContextJotaiActionsHyperliquid._isL2BookEqual(currentBook, data)) {
+        return;
+      }
       set(l2BookAtom(), data);
     } else {
       const currentBook = get(l2BookAtom());
@@ -1305,6 +1343,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateTradingForm = contextAtomMethod(
     (get, set, updates: Partial<ITradingFormData>) => {
       const current = get(tradingFormAtom());
+      const updateKeys = Object.keys(updates) as Array<keyof ITradingFormData>;
+      if (
+        updateKeys.length === 0 ||
+        updateKeys.every((key) => current[key] === updates[key])
+      ) {
+        return;
+      }
       set(tradingFormAtom(), { ...current, ...updates });
     },
   );

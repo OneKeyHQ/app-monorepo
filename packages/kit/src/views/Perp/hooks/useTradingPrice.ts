@@ -4,7 +4,7 @@ import { BigNumber } from 'bignumber.js';
 
 import {
   useActiveTradeInstrumentAtom,
-  usePerpsAllMidsAtom,
+  usePerpsMidByCoin,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
@@ -16,8 +16,8 @@ export interface IUseTradingPriceReturn {
 }
 
 export function useTradingPrice(): IUseTradingPriceReturn {
-  const [allMids] = usePerpsAllMidsAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const activeMidPrice = usePerpsMidByCoin(activeTradeInstrument?.coin ?? '');
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeSpotAssetCtx] = useSpotActiveAssetCtxAtom();
 
@@ -35,8 +35,8 @@ export function useTradingPrice(): IUseTradingPriceReturn {
       activeTradeInstrument.mode === 'spot'
         ? activeSpotAssetCtx?.ctx?.midPrice ||
           activeSpotAssetCtx?.ctx?.markPrice ||
-          allMids?.mids?.[coin]
-        : activeAssetCtx?.ctx?.midPrice || allMids?.mids?.[coin];
+          activeMidPrice
+        : activeAssetCtx?.ctx?.midPrice || activeMidPrice;
 
     if (!midPrice) {
       return {
@@ -58,7 +58,7 @@ export function useTradingPrice(): IUseTradingPriceReturn {
     activeAssetCtx?.ctx?.midPrice,
     activeSpotAssetCtx?.ctx?.markPrice,
     activeSpotAssetCtx?.ctx?.midPrice,
-    allMids?.mids,
+    activeMidPrice,
     activeTradeInstrument,
   ]);
 
