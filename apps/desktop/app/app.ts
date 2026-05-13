@@ -825,6 +825,13 @@ async function createMainWindow() {
     },
   );
 
+  // Dev-only: clear the cooldown and any stale dialog-open flag so a
+  // subsequent test trigger can fire immediately.
+  ipcMain.removeAllListeners(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN);
+  ipcMain.on(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN, () => {
+    resetCpuWatchdogStateForTesting();
+  });
+
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
@@ -2079,12 +2086,23 @@ function triggerCpuWatchdog(params: {
   bypassCooldown?: boolean;
 }) {
   const now = Date.now();
-  if (watchdogDialogOpen) return;
+  if (watchdogDialogOpen) {
+    logger.warn('[CPU Watchdog] trigger ignored — dialog already open', {
+      reason: params.reason,
+    });
+    return;
+  }
   if (
     !params.bypassCooldown &&
     now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS
-  )
+  ) {
+    logger.warn('[CPU Watchdog] trigger ignored — cooldown active', {
+      reason: params.reason,
+      msSinceLastFire: now - lastWatchdogFiredAt,
+      cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
+    });
     return;
+  }
   lastWatchdogFiredAt = now;
 
   logger.warn('[CPU Watchdog] fired', params);
@@ -2154,6 +2172,16 @@ function triggerCpuWatchdog(params: {
     .finally(() => {
       watchdogDialogOpen = false;
     });
+}
+
+function resetCpuWatchdogStateForTesting() {
+  logger.warn('[CPU Watchdog] cooldown reset via IPC', {
+    previousLastFiredAt: lastWatchdogFiredAt,
+    previousDialogOpen: watchdogDialogOpen,
+  });
+  lastWatchdogFiredAt = 0;
+  watchdogDialogOpen = false;
+  cpuHistoryByPid.clear();
 }
 
 app.on('before-quit', () => {

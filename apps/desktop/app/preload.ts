@@ -160,6 +160,8 @@ const desktopApi = {
       | 'sustained-high-cpu-mild'
       | 'unresponsive',
   ) => ipcRenderer.send(ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER, reason),
+  resetCpuWatchdogCooldown: () =>
+    ipcRenderer.send(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN),
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;

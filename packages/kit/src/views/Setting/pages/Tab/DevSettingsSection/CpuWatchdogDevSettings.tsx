@@ -50,6 +50,9 @@ function confirmAndBurn(params: {
     description: params.description,
     confirmButtonProps: { variant: 'destructive' },
     onConfirm: () => {
+      // Tests should never be blocked by an earlier test's cooldown / stale
+      // dialog state. Reset before each burn so the watchdog can fire fresh.
+      resetCooldown();
       // Let the dialog close, then start the burn one tick later so the
       // tester can actually see the UI freeze rather than the dialog
       // appearing frozen mid-dismiss.
@@ -87,15 +90,23 @@ function confirmAndBurn(params: {
   });
 }
 
+type IDesktopWatchdogApi = {
+  forceCpuWatchdog?: (r: string) => void;
+  resetCpuWatchdogCooldown?: () => void;
+};
+
+function resetCooldown(): void {
+  const api = globalThis.desktopApi as IDesktopWatchdogApi | undefined;
+  api?.resetCpuWatchdogCooldown?.();
+}
+
 function forceTrigger(
   reason:
     | 'sustained-high-cpu-severe'
     | 'sustained-high-cpu-mild'
     | 'unresponsive',
 ) {
-  const api = globalThis.desktopApi as
-    | { forceCpuWatchdog?: (r: string) => void }
-    | undefined;
+  const api = globalThis.desktopApi as IDesktopWatchdogApi | undefined;
   if (!api?.forceCpuWatchdog) {
     Toast.error({
       title: 'forceCpuWatchdog unavailable',
@@ -103,6 +114,8 @@ function forceTrigger(
     });
     return;
   }
+  // Tests should never be blocked by an earlier test's cooldown.
+  resetCooldown();
   api.forceCpuWatchdog(reason);
   Toast.message({
     title: `Forced watchdog: ${reason}`,
