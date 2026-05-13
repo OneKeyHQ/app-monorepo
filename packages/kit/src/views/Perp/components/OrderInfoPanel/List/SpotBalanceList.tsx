@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  SPOT_SELECTOR_MIN_VOLUME,
   getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -110,6 +111,11 @@ function SpotBalanceList({
     abstractionMode,
     currentUser?.accountAddress,
   );
+  const hasSpotVolumeData = useMemo(
+    () =>
+      spotUniverses.some((u) => Number(priceMap[u.name]?.dayNtlVlm || 0) > 0),
+    [priceMap, spotUniverses],
+  );
 
   const allBalances: IBalanceDisplayItem[] = useMemo(() => {
     const items: IBalanceDisplayItem[] = [];
@@ -121,6 +127,15 @@ function SpotBalanceList({
       // total-across-spot+perps row; defer collection until then.
       if (b.coin === 'USDC') {
         spotUsdcBalance = b;
+        return;
+      }
+
+      const spotUniverse = universeByBaseName[b.coin];
+      if (
+        hasSpotVolumeData &&
+        Number(priceMap[spotUniverse?.name ?? '']?.dayNtlVlm || 0) <
+          SPOT_SELECTOR_MIN_VOLUME
+      ) {
         return;
       }
 
@@ -149,7 +164,6 @@ function SpotBalanceList({
       });
 
       const displayCoin = getSpotTokenDisplayName(b.coin);
-      const spotUniverse = universeByBaseName[b.coin];
       const isAssetClickable = !!spotUniverse;
 
       items.push({
@@ -217,6 +231,8 @@ function SpotBalanceList({
   }, [
     balances,
     accountSummary,
+    hasSpotVolumeData,
+    priceMap,
     tokenPriceLookup,
     tokenContractMap,
     universeByBaseName,
