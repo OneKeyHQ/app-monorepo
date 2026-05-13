@@ -244,7 +244,7 @@ function TokenListViewCmp(props: IProps) {
       : '';
 
   const tokens = useMemo(() => {
-    if (ownerMismatch) {
+    if (ownerMismatch && !showActiveAccountTokenList) {
       const cached =
         ownerCacheKey &&
         renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
