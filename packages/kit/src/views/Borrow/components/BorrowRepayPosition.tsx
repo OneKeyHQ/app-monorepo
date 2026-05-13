@@ -1296,6 +1296,7 @@ export function BorrowRepayPosition({
   const shouldEnableCollateralRepay =
     ENABLE_COLLATERAL_REPAY_ENTRY &&
     isCollateralRepayEnabled({
+      providerName: props.providerName,
       debtBalance,
       collateralLoading,
       collateralAssetCount: collateralAssets.length,

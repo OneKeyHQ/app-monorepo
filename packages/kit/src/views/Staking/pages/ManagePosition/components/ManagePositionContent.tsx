@@ -182,16 +182,43 @@ export function ManagePositionContent({
     await refreshManageData();
   }, [onCreateAddress, refreshManageData]);
 
+  const networkSupportCheckTarget = useMemo(
+    () => ({
+      accountId: accountId || earnAccount?.accountId || '',
+      walletId: earnAccount?.walletId || '',
+      accountImpl: earnAccount?.account?.impl,
+    }),
+    [
+      accountId,
+      earnAccount?.account?.impl,
+      earnAccount?.accountId,
+      earnAccount?.walletId,
+    ],
+  );
+
   // Check if Bitcoin Only firmware is trying to access non-BTC network
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
+      if (
+        !networkSupportCheckTarget.accountId &&
+        !networkSupportCheckTarget.walletId
+      ) {
+        return undefined;
+      }
       return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
-        accountId: accountId?.length > 0 ? accountId : (indexedAccountId ?? ''),
+        accountId: networkSupportCheckTarget.accountId || undefined,
+        walletId: networkSupportCheckTarget.walletId || undefined,
+        accountImpl: networkSupportCheckTarget.accountImpl,
         activeNetworkId: networkId,
       });
     },
-    [accountId, networkId, indexedAccountId],
-    { initResult: undefined },
+    [
+      networkId,
+      networkSupportCheckTarget.accountId,
+      networkSupportCheckTarget.accountImpl,
+      networkSupportCheckTarget.walletId,
+    ],
+    { initResult: undefined, undefinedResultIfError: true },
   );
 
   const noAddressOrAccount = useMemo(

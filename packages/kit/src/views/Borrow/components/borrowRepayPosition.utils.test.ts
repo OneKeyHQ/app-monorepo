@@ -1,4 +1,5 @@
 import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
 
 import {
   appendBorrowRepaySetupState,
@@ -13,7 +14,28 @@ describe('borrowRepayPosition utils', () => {
     expect(hasPositiveDebtBalance('0')).toBe(false);
     expect(
       isCollateralRepayEnabled({
+        providerName: EBorrowProviderEnum.Kamino,
         debtBalance: '0',
+        collateralLoading: false,
+        collateralAssetCount: 2,
+      }),
+    ).toBe(false);
+  });
+
+  it('only enables collateral repay for providers that support the endpoint', () => {
+    expect(
+      isCollateralRepayEnabled({
+        providerName: EBorrowProviderEnum.Kamino,
+        debtBalance: '1',
+        collateralLoading: false,
+        collateralAssetCount: 2,
+      }),
+    ).toBe(true);
+
+    expect(
+      isCollateralRepayEnabled({
+        providerName: EBorrowProviderEnum.Aave,
+        debtBalance: '1',
         collateralLoading: false,
         collateralAssetCount: 2,
       }),

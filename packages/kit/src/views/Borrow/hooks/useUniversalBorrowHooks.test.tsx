@@ -48,6 +48,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => {
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     addEarnOrder: jest.fn(),
+    borrowBuildSupplyTransaction: jest.fn(),
     getBorrowRepayWithCollateralQuote: jest.fn(),
     borrowBuildRepayWithCollateralTransaction: jest.fn(),
     borrowBuildSetupLutTransaction: jest.fn(),
@@ -78,8 +79,12 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 import { act, renderHook } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import { useUniversalBorrowRepayWithCollateral } from './useUniversalBorrowHooks';
+import {
+  useUniversalBorrowRepayWithCollateral,
+  useUniversalBorrowSupply,
+} from './useUniversalBorrowHooks';
 
 // In the harness, Metro's export * creates non-configurable getters so
 // jest.mock('@onekeyhq/components') can't replace the Toast export.
@@ -94,6 +99,7 @@ const signatureConfirmMock = (globalThis as any)
 const backgroundMock = (globalThis as any).__borrowBackgroundMock as {
   serviceStaking: {
     addEarnOrder: jest.Mock;
+    borrowBuildSupplyTransaction: jest.Mock;
     getBorrowRepayWithCollateralQuote: jest.Mock;
     borrowBuildRepayWithCollateralTransaction: jest.Mock;
     borrowBuildSetupLutTransaction: jest.Mock;
@@ -103,10 +109,107 @@ const backgroundMock = (globalThis as any).__borrowBackgroundMock as {
   };
 };
 
+describe('useUniversalBorrowSupply', () => {
+  beforeEach(() => {
+    signatureConfirmMock.navigationToTxConfirm.mockReset();
+    backgroundMock.serviceStaking.addEarnOrder.mockReset();
+    backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockReset();
+  });
+
+  it('parses JSON encoded tx for Aave supply and keeps order tracking', async () => {
+    const encodedTx = {
+      from: '0x1111111111111111111111111111111111111111',
+      to: '0x2222222222222222222222222222222222222222',
+      data: '0x1234',
+      value: '0x0',
+    };
+
+    backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockResolvedValue(
+      {
+        tx: JSON.stringify(encodedTx),
+        orderId: 'supply-order-id',
+      },
+    );
+    signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+      async ({
+        onSuccess,
+      }: {
+        onSuccess?: (
+          data: Array<{
+            decodedTx: { status: string; txid?: string };
+            signedTx: { txid: string };
+          }>,
+        ) => void;
+      }) => {
+        onSuccess?.([
+          {
+            decodedTx: {
+              status: 'confirmed',
+              txid: '0xsupply-tx-id',
+            },
+            signedTx: {
+              txid: '0xsupply-tx-id',
+            },
+          },
+        ]);
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useUniversalBorrowSupply({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+
+    await act(async () => {
+      await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        reserveAddress: '0xreserve',
+        stakingInfo: {
+          label: EEarnLabels.Supply,
+          protocol: 'Aave',
+          tags: ['Borrow', 'borrow:aave:supply'],
+        },
+      });
+    });
+
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSupplyTransaction,
+    ).toHaveBeenCalledWith({
+      accountId: 'hd-1--m/44',
+      amount: '1',
+      marketAddress: '0xmarket',
+      networkId: 'evm--1',
+      provider: 'aave',
+      reserveAddress: '0xreserve',
+    });
+
+    const confirmArgs =
+      signatureConfirmMock.navigationToTxConfirm.mock.calls[0][0];
+    expect(confirmArgs.encodedTx).toEqual(encodedTx);
+    expect(confirmArgs.stakingInfo).toEqual({
+      label: 'Supply',
+      protocol: 'Aave',
+      tags: ['Borrow', 'borrow:aave:supply'],
+      orderId: 'supply-order-id',
+    });
+    expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledWith({
+      orderId: 'supply-order-id',
+      networkId: 'evm--1',
+      txId: '0xsupply-tx-id',
+      status: 'confirmed',
+    });
+  });
+});
+
 describe('useUniversalBorrowRepayWithCollateral', () => {
   beforeEach(() => {
     signatureConfirmMock.navigationToTxConfirm.mockReset();
     backgroundMock.serviceStaking.addEarnOrder.mockReset();
+    backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockReset();
     backgroundMock.serviceStaking.getBorrowRepayWithCollateralQuote.mockReset();
     backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockReset();
     backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockReset();
@@ -286,7 +389,7 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
         collateralReserveAddress: 'collateral-reserve-address',
         needsSetupLut: true,
         stakingInfo: {
-          label: 'Repay' as any,
+          label: EEarnLabels.Repay,
           protocol: 'Kamino',
           tags: [],
           send: {
@@ -391,7 +494,7 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
         collateralReserveAddress: 'collateral-reserve-address',
         needsSetupLut: true,
         stakingInfo: {
-          label: 'Repay' as any,
+          label: EEarnLabels.Repay,
           protocol: 'Kamino',
           tags: ['Borrow', 'borrow:kamino:repay'],
           send: {

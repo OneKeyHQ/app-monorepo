@@ -1653,6 +1653,11 @@ export enum EBorrowActionsEnum {
   Repay = 'repay',
 }
 
+export enum EBorrowProviderEnum {
+  Kamino = 'kamino',
+  Aave = 'aave',
+}
+
 export type IStakeProtocolListItem = {
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;

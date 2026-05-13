@@ -216,7 +216,7 @@ export function useUniversalBorrowSupply({
       });
 
       await navigationToTxConfirm({
-        encodedTx: resp.tx,
+        encodedTx: parseBorrowEncodedTx(resp.tx),
         stakingInfo: stakingInfoWithOrderId,
         onSuccess: async (data) => {
           await handleBorrowSuccess({

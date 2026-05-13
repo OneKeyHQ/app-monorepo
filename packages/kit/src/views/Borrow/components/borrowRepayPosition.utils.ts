@@ -1,6 +1,11 @@
 import BigNumber from 'bignumber.js';
 
 import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
+
+const collateralRepayProviderAllowlist = new Set<string>([
+  EBorrowProviderEnum.Kamino,
+]);
 
 export function hasPositiveDebtBalance(debtBalance?: string) {
   const debtBalanceBN = new BigNumber(debtBalance || '0');
@@ -77,14 +82,20 @@ export function getBorrowRepayProgressStep({
 }
 
 export function isCollateralRepayEnabled({
+  providerName,
   collateralAssetCount,
   collateralLoading,
   debtBalance,
 }: {
+  providerName: string;
   collateralAssetCount: number;
   collateralLoading?: boolean;
   debtBalance?: string;
 }) {
+  if (!collateralRepayProviderAllowlist.has(providerName.toLowerCase())) {
+    return false;
+  }
+
   return (
     hasPositiveDebtBalance(debtBalance) &&
     (!!collateralLoading || collateralAssetCount > 0)
