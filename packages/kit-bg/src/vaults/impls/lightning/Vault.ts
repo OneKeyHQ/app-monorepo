@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -55,7 +56,6 @@ import type {
   ILnurlAuthParams,
 } from '@onekeyhq/shared/types/lightning';
 import { ELnPaymentStatusEnum } from '@onekeyhq/shared/types/lightning/payments';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
