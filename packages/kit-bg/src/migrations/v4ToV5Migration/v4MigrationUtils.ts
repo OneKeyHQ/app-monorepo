@@ -10,27 +10,8 @@ import type { IV4EIP1559Fee, IV4FeeInfo, IV4FeeInfoUnit } from './v4types';
 
 const notSupportedCoinType = new Set([COINTYPE_XMR, COINTYPE_STC]);
 
-const notSupportedNetworksInfo: Partial<{
-  [networkId: string]: {
-    logo: string;
-  };
-}> = {
-  'stc--1': {
-    logo: 'https://uni.onekey-asset.com/static/chain/stc.png',
-  },
-  'stc--251': {
-    logo: 'https://uni.onekey-asset.com/static/chain/tstc.png',
-  },
-  'xmr--0': {
-    logo: 'https://common.onekey-asset.com/chain/monero.png',
-  },
-};
-
 function isCoinTypeSupport({ coinType }: { coinType: string }) {
   return !notSupportedCoinType.has(coinType) && coinType;
-}
-function getNotSupportNetworkInfo({ networkId }: { networkId: string }) {
-  return notSupportedNetworksInfo[networkId];
 }
 
 function nanToZeroString(value: string | number | unknown) {
@@ -132,7 +113,6 @@ function calculateTotalFeeRange(feeValue: IV4FeeInfoUnit, displayDecimals = 8) {
 
 export default {
   isCoinTypeSupport,
-  getNotSupportNetworkInfo,
   calculateTotalFeeRange,
   calculateTotalFeeNative,
 };

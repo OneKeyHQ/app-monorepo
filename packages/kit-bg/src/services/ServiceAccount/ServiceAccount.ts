@@ -50,6 +50,7 @@ import {
 import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { v4CoinTypeToNetworkId } from '@onekeyhq/shared/src/consts/v4CoinTypeToNetworkId';
 import {
   COINTYPE_ALLNETWORKS,
   COINTYPE_STC,
@@ -157,8 +158,6 @@ import {
   type IKeylessWalletDetailsInfo,
 } from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
 import {
   devSettingsPersistAtom,
   hardwareWalletXfpStatusAtom,
