@@ -1,11 +1,15 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   formatBalance,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import type { IMarketAccountTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketAccountTokenTransaction,
+  IMarketTokenKLineResponse,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { MESSAGE_TYPES } from '../../TradingViewPerpsV2/constants/messageTypes';
 import { fetchTradingViewV2DataWithSlicing } from '../hooks';
@@ -13,6 +17,69 @@ import { fetchTradingViewV2DataWithSlicing } from '../hooks';
 import type { IMessageHandlerContext, IMessageHandlerParams } from './types';
 
 const MAX_MARKS_COUNT = 60;
+
+function normalizeTradingViewKLineInterval(
+  interval: string,
+): ITradingViewKLineMockEmptyInterval | string {
+  switch (interval) {
+    case '1':
+    case '1m':
+      return '1m';
+    case '5':
+    case '5m':
+      return '5m';
+    case '15':
+    case '15m':
+      return '15m';
+    case '30':
+    case '30m':
+      return '30m';
+    case '60':
+    case '1h':
+    case '1H':
+      return '1H';
+    case '240':
+    case '4h':
+    case '4H':
+      return '4H';
+    case '1d':
+    case '1D':
+      return '1D';
+    case '1w':
+    case '1W':
+      return '1W';
+    default:
+      return interval;
+  }
+}
+
+async function shouldMockEmptyKLineData(resolution: string) {
+  const devSettings =
+    await backgroundApiProxy.serviceDevSetting.getDevSetting();
+
+  if (
+    !devSettings.enabled ||
+    !devSettings.settings?.mockTradingViewKLineEmptyEnabled
+  ) {
+    return false;
+  }
+
+  const selectedInterval =
+    devSettings.settings.mockTradingViewKLineEmptyIntervals ?? [];
+
+  return selectedInterval.some(
+    (interval) =>
+      normalizeTradingViewKLineInterval(resolution) ===
+      normalizeTradingViewKLineInterval(interval),
+  );
+}
+
+function buildEmptyKLineData(): IMarketTokenKLineResponse {
+  return {
+    points: [],
+    total: 0,
+  };
+}
 
 function formatAmount(amount: string) {
   const result = formatDisplayNumber(formatBalance(amount));
@@ -177,13 +244,16 @@ export async function handleKLineDataRequest({
 
     // Use combined function to get sliced data
     try {
-      const kLineData = await fetchTradingViewV2DataWithSlicing({
-        tokenAddress,
-        networkId,
-        interval: resolution,
-        timeFrom: from,
-        timeTo: to,
-      });
+      const shouldMockEmpty = await shouldMockEmptyKLineData(resolution);
+      const kLineData = shouldMockEmpty
+        ? buildEmptyKLineData()
+        : await fetchTradingViewV2DataWithSlicing({
+            tokenAddress,
+            networkId,
+            interval: resolution,
+            timeFrom: from,
+            timeTo: to,
+          });
 
       if (webRef.current && kLineData) {
         webRef.current.sendMessageViaInjectedScript({
@@ -196,7 +266,7 @@ export async function handleKLineDataRequest({
         });
       }
 
-      if (accountAddress && tokenAddress && networkId) {
+      if (!shouldMockEmpty && accountAddress && tokenAddress && networkId) {
         void fetchAndSendAccountMarks({
           accountAddress,
           tokenAddress,

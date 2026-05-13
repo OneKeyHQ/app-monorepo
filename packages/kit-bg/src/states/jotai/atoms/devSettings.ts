@@ -13,6 +13,16 @@ export interface IApiEndpointConfig {
   enabled: boolean;
 }
 
+export type ITradingViewKLineMockEmptyInterval =
+  | '1m'
+  | '5m'
+  | '15m'
+  | '30m'
+  | '1H'
+  | '4H'
+  | '1D'
+  | '1W';
+
 // Test account for dev login testing
 export interface ITestAccount {
   id: string;
@@ -67,6 +77,8 @@ export interface IDevSettings {
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
   showPerpsRenderStats?: boolean;
+  mockTradingViewKLineEmptyEnabled?: boolean;
+  mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
 
   usbCommunicationMode?: 'webusb' | 'bridge';
 
@@ -127,6 +139,8 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      mockTradingViewKLineEmptyEnabled: false,
+      mockTradingViewKLineEmptyIntervals: ['1m'],
       allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop use Bridge，avoiding WebUSB permission problem
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
