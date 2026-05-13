@@ -6,6 +6,7 @@ import type { ColorTokens, IScrollViewRef, Icon } from '@onekeyhq/components';
 import { Input, Popover, ScrollView, Stack } from '@onekeyhq/components';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';
+import { usePrimeAvailable } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAvailable';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -59,6 +60,7 @@ function HeaderLeftToolBarInput({
   onTestAITranslateError,
 }: IHeaderLeftToolBarInputProps) {
   const intl = useIntl();
+  const { isPrimeAvailable } = usePrimeAvailable();
   const [translateIsOpen, setTranslateIsOpen] = useState(false);
   const [translateShowSettings, setTranslateShowSettings] = useState(false);
   const handleTranslateOpenChange = useCallback((isOpen: boolean) => {
@@ -184,16 +186,22 @@ function HeaderLeftToolBarInput({
         // @ts-expect-error
         onKeyPress={handleKeyDown}
         addOns={[
-          {
-            iconName: isTranslated ? 'TranslateSolid' : 'TranslateOutline',
-            onPress: () => setTranslateIsOpen(true),
-            tooltipProps: {
-              renderContent: intl.formatMessage({
-                id: ETranslations.browser_translate_settings_title,
-              }),
-            },
-            testID: 'browser-bar-translate',
-          },
+          ...(isPrimeAvailable
+            ? [
+                {
+                  iconName: isTranslated
+                    ? ('TranslateSolid' as const)
+                    : ('TranslateOutline' as const),
+                  onPress: () => setTranslateIsOpen(true),
+                  tooltipProps: {
+                    renderContent: intl.formatMessage({
+                      id: ETranslations.browser_translate_settings_title,
+                    }),
+                  },
+                  testID: 'browser-bar-translate',
+                },
+              ]
+            : []),
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress?.(!isBookmark),

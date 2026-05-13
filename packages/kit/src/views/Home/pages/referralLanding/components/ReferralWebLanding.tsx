@@ -21,7 +21,6 @@ import type {
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { LayoutHeaderLanguageSelector } from '@onekeyhq/kit/src/views/Onboardingv2/components/Layout';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const LOTTIE_SOURCE = {
@@ -32,25 +31,17 @@ const LOTTIE_ASPECT_RATIO = 786 / 446;
 
 const VARIANT_COPY = {
   perps: {
-    heroTitleId: 'referral.web_landing_title_perps' as ETranslations,
-    heroTitleDefault:
-      "You're invited! Enjoy <accent>{discount}</accent> Perps rebate",
-    step3TitleId: 'referral.web_landing_step3_perps_title' as ETranslations,
-    step3TitleDefault:
-      'Trade and get <accent>{discount}</accent> back automatically',
-    step3CtaId: 'referral.web_landing_step3_perps_cta' as ETranslations,
-    step3CtaDefault: 'Trade now',
+    heroTitleId: ETranslations.referral_web_landing_title_perps,
+    heroSubtitleId: ETranslations.referral_web_landing_subtitle_perps,
+    step3TitleId: ETranslations.referral_web_landing_step3_perps_title,
+    step3CtaId: ETranslations.referral_web_landing_step3_perps_cta,
     step3Illustration: 'BlockPercentage' satisfies IIllustrationName,
   },
   defi: {
-    heroTitleId: 'referral.web_landing_title_defi' as ETranslations,
-    heroTitleDefault:
-      "You're invited! Enjoy <accent>{discount}</accent> DeFi rebates",
-    step3TitleId: 'referral.web_landing_step3_defi_title' as ETranslations,
-    step3TitleDefault:
-      'Earn and get <accent>{discount}</accent> more — automatically',
-    step3CtaId: 'referral.web_landing_step3_defi_cta' as ETranslations,
-    step3CtaDefault: 'Earn now',
+    heroTitleId: ETranslations.referral_web_landing_title_defi,
+    heroSubtitleId: ETranslations.referral_web_landing_subtitle_defi,
+    step3TitleId: ETranslations.referral_web_landing_step3_defi_title,
+    step3CtaId: ETranslations.referral_web_landing_step3_defi_cta,
     step3Illustration: 'BlockCoins' satisfies IIllustrationName,
   },
 } as const;
@@ -178,16 +169,28 @@ function ReferralHero({
       $gtMd={{
         flexBasis: 0,
         flexGrow: 45,
-        gap: '$5',
+        gap: '$4',
         justifyContent: 'center',
       }}
     >
       <ReferralLottieAnimation />
-      <SizableText size="$heading4xl" $gtMd={{ size: '$heading5xl' }}>
+      <SizableText
+        size="$bodyMdMedium"
+        $gtMd={{ size: '$bodyLgMedium', textAlign: 'left' }}
+        color="$textSubdued"
+        fontWeight={400}
+        textAlign="center"
+      >
+        {intl.formatMessage({ id: copy.heroTitleId })}
+      </SizableText>
+      <SizableText
+        size="$heading4xl"
+        $gtMd={{ size: '$heading5xl', textAlign: 'left' }}
+        textAlign="center"
+      >
         {intl.formatMessage(
           {
-            id: copy.heroTitleId,
-            defaultMessage: copy.heroTitleDefault,
+            id: copy.heroSubtitleId,
           },
           {
             ...buildAccentChunks({
@@ -198,13 +201,6 @@ function ReferralHero({
           },
         )}
       </SizableText>
-      <SizableText size="$bodyLg" color="$textSubdued">
-        {intl.formatMessage({
-          id: 'referral.web_landing_subtitle' as ETranslations,
-          defaultMessage:
-            'A friend invited you. Complete these steps to claim your rebate.',
-        })}
-      </SizableText>
     </YStack>
   );
 }
@@ -212,26 +208,22 @@ function ReferralHero({
 const DOWNLOAD_COPY: {
   icon: IKeyOfIcons;
   labelId: ETranslations;
-  labelDefault: string;
 } = (() => {
   if (platformEnv.isWebMobileIOS) {
     return {
       icon: 'AppleBrand',
-      labelId: 'referral.web_landing_step1_appstore' as ETranslations,
-      labelDefault: 'Download from App Store',
+      labelId: ETranslations.referral_web_landing_step1_appstore,
     };
   }
   if (platformEnv.isWebMobileAndroid) {
     return {
       icon: 'GooglePlayBrand',
-      labelId: 'referral.web_landing_step1_googleplay' as ETranslations,
-      labelDefault: 'Download from Google Play',
+      labelId: ETranslations.referral_web_landing_step1_googleplay,
     };
   }
   return {
     icon: 'DownloadOutline',
-    labelId: 'referral.web_landing_step1_download_desktop' as ETranslations,
-    labelDefault: 'Download OneKey',
+    labelId: ETranslations.referral_web_landing_step1_download_desktop,
   };
 })();
 
@@ -248,8 +240,7 @@ function Step1Download({
       stepNumber={1}
       illustration="WalletAdd"
       title={intl.formatMessage({
-        id: 'referral.web_landing_step1_title' as ETranslations,
-        defaultMessage: 'Download OneKey App',
+        id: ETranslations.referral_web_landing_step1_title,
       })}
     >
       <YStack gap="$3">
@@ -261,7 +252,6 @@ function Step1Download({
         >
           {intl.formatMessage({
             id: DOWNLOAD_COPY.labelId,
-            defaultMessage: DOWNLOAD_COPY.labelDefault,
           })}
         </Button>
         <Stack
@@ -275,8 +265,7 @@ function Step1Download({
         >
           <SizableText size="$bodyLgMedium" color="$textSubdued">
             {intl.formatMessage({
-              id: 'referral.web_landing_step1_already_have_wallet' as ETranslations,
-              defaultMessage: 'I already have a wallet',
+              id: ETranslations.referral_web_landing_step1_already_have_wallet,
             })}
           </SizableText>
         </Stack>
@@ -287,9 +276,11 @@ function Step1Download({
 
 function Step2BindCode({
   code,
+  onCopyCode,
   onBind,
 }: {
   code?: string;
+  onCopyCode: () => void;
   onBind: () => void;
 }) {
   const intl = useIntl();
@@ -297,15 +288,14 @@ function Step2BindCode({
   const handleCopy = useCallback(() => {
     if (!code) return;
     copyText(code);
-    defaultLogger.referral.page.copyReferralCode();
-  }, [code, copyText]);
+    onCopyCode();
+  }, [code, copyText, onCopyCode]);
   return (
     <StepCard
       stepNumber={2}
       illustration="ShakeHands"
       title={intl.formatMessage({
-        id: 'referral.web_landing_step2_title' as ETranslations,
-        defaultMessage: 'Apply your referral reward',
+        id: ETranslations.referral_web_landing_step2_title,
       })}
     >
       <XStack
@@ -352,11 +342,37 @@ function Step2BindCode({
         disabled={!code}
       >
         {intl.formatMessage({
-          id: 'referral.web_landing_step2_bind' as ETranslations,
-          defaultMessage: 'Apply',
+          id: ETranslations.referral_web_landing_step2_bind,
         })}
       </Button>
     </StepCard>
+  );
+}
+
+function Step2DownloadHint({ onDownload }: { onDownload: () => void }) {
+  const intl = useIntl();
+  return (
+    <XStack
+      bg="$bgSubdued"
+      borderRadius="$3"
+      px="$4"
+      py="$3"
+      gap="$2"
+      alignItems="center"
+      justifyContent="center"
+      flexWrap="wrap"
+    >
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.referral_web_landing_app_open_hint,
+        })}
+      </SizableText>
+      <Button size="small" variant="tertiary" onPress={onDownload}>
+        {intl.formatMessage({
+          id: ETranslations.referral_web_landing_step1_title,
+        })}
+      </Button>
+    </XStack>
   );
 }
 
@@ -378,7 +394,6 @@ function Step3Trade({
       title={intl.formatMessage(
         {
           id: copy.step3TitleId,
-          defaultMessage: copy.step3TitleDefault,
         },
         {
           ...buildAccentChunks({ size: '$headingXl' }),
@@ -389,7 +404,6 @@ function Step3Trade({
       <Button variant="secondary" {...STEP_BUTTON_SIZE} onPress={onTrade}>
         {intl.formatMessage({
           id: copy.step3CtaId,
-          defaultMessage: copy.step3CtaDefault,
         })}
       </Button>
     </StepCard>
@@ -404,9 +418,11 @@ export interface IReferralWebLandingProps {
   inviteeDiscount: string;
   onDownload: () => void;
   onScrollToBind: () => void;
+  onCopyCode: () => void;
   onBind: () => void;
   onTrade: () => void;
   isStep2Highlighted?: boolean;
+  isDownloadHintVisible?: boolean;
 }
 
 export function ReferralWebLanding({
@@ -415,9 +431,11 @@ export function ReferralWebLanding({
   inviteeDiscount,
   onDownload,
   onScrollToBind,
+  onCopyCode,
   onBind,
   onTrade,
   isStep2Highlighted = false,
+  isDownloadHintVisible = false,
 }: IReferralWebLandingProps) {
   return (
     <YStack flex={1}>
@@ -467,8 +485,15 @@ export function ReferralWebLanding({
                 : '0 0 0 0 rgba(73, 223, 88, 0)',
             }}
           >
-            <Step2BindCode code={code} onBind={onBind} />
+            <Step2BindCode
+              code={code}
+              onCopyCode={onCopyCode}
+              onBind={onBind}
+            />
           </Stack>
+          {isDownloadHintVisible ? (
+            <Step2DownloadHint onDownload={onDownload} />
+          ) : null}
           <Step3Trade
             variant={variant}
             discount={inviteeDiscount}

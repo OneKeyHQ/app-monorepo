@@ -3,10 +3,12 @@ import {
   type ISwapReviewStepTexts,
   buildSwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchQuoteResult,
   ISwapApproveTransaction,
+  ISwapPreSwapData,
   ISwapStep,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -34,6 +36,7 @@ export function buildMarketReviewState({
   quoteResult,
   shouldFallback,
   slippage,
+  rateDifference,
   texts,
 }: {
   accountId?: string;
@@ -45,6 +48,7 @@ export function buildMarketReviewState({
   quoteResult?: IFetchQuoteResult;
   shouldFallback?: boolean;
   slippage?: number;
+  rateDifference?: ISwapPreSwapData['rateDifference'];
   texts: ISwapReviewStepTexts;
 }) {
   const reviewState = buildSwapReviewState({
@@ -64,6 +68,7 @@ export function buildMarketReviewState({
     // so preview prebuild should stay enabled for every path.
     supportPreBuild: true,
     slippage,
+    rateDifference,
     texts,
   });
 
@@ -75,6 +80,23 @@ export function buildMarketReviewState({
   }
 
   return reviewState;
+}
+
+export function buildMarketReviewRateDifference({
+  quoteResult,
+  swapInfo,
+}: {
+  quoteResult?: Pick<IFetchQuoteResult, 'instantRate'>;
+  swapInfo?: {
+    sender?: { token?: Pick<ISwapToken, 'price'> };
+    receiver?: { token?: Pick<ISwapToken, 'price'> };
+  };
+}): ISwapPreSwapData['rateDifference'] {
+  return buildSwapRateDifference({
+    fromTokenPrice: swapInfo?.sender?.token?.price,
+    toTokenPrice: swapInfo?.receiver?.token?.price,
+    instantRate: quoteResult?.instantRate,
+  });
 }
 
 export function findMarketTxConfirmFeeInfo({

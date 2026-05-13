@@ -8,6 +8,7 @@ import {
   makeFullScreenOptions,
   makeModalScreenOptions,
   makeOnboardingScreenOptions,
+  makeWebviewScreenOptions,
 } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -20,7 +21,8 @@ type IRootStackType =
   | 'fullScreen'
   | 'iOSFullScreen'
   | 'fullScreenPush'
-  | 'onboarding';
+  | 'onboarding'
+  | 'webView';
 
 export interface IRootStackNavigatorConfig<
   RouteName extends string,
@@ -83,6 +85,8 @@ export function RootStackNavigator<
         case 'fullScreenPush':
         case 'onboarding':
           return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
+        case 'webView':
+          return makeWebviewScreenOptions({ isVerticalLayout, optionsInfo });
         default:
           return {};
       }

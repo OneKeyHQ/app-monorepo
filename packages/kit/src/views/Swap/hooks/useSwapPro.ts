@@ -538,6 +538,7 @@ export function useSwapProTokenInit() {
     defaultLimitTokens,
     isLoading,
     speedConfig,
+    speedConfigReady,
     swapMevNetConfig,
     speedDefaultSelectToken,
     supportSpeedSwap,
@@ -834,7 +835,9 @@ export function useSwapProTokenInit() {
   }, [swapProSelectToken, syncSelectTokenNative]);
 
   const isMEV = useMemo(() => {
-    return swapMevNetConfig?.includes(swapProSelectToken?.networkId ?? '');
+    return Array.isArray(swapMevNetConfig)
+      ? swapMevNetConfig.includes(swapProSelectToken?.networkId ?? '')
+      : undefined;
   }, [swapMevNetConfig, swapProSelectToken?.networkId]);
 
   const hasEnoughBalance = useMemo(() => {
@@ -865,6 +868,7 @@ export function useSwapProTokenInit() {
     isLoading,
     balanceLoading,
     speedConfig,
+    speedConfigReady,
     swapMevNetConfig,
     swapProSelectToken,
     isMEV,

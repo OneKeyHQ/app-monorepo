@@ -7,6 +7,10 @@ import { isEmpty, isNil } from 'lodash';
 
 import { getInputsToSignFromPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
+  parseHexContext,
+  validateAppName,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/deriveContextHash';
+import {
   decodedPsbt as decodedPsbtFN,
   formatPsbtHex,
   toPsbtNetwork,
@@ -34,6 +38,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   BtcDappUniSetChainTypes,
   EBtcDappUniSetChainTypeEnum,
+  type IDeriveContextHashParams,
   type IPushPsbtParams,
   type ISendBitcoinParams,
   type ISignMessageParams,
@@ -499,6 +504,81 @@ class ProviderApiBtc extends ProviderApiBase {
       },
     });
     return Buffer.from(result as string, 'hex').toString('base64');
+  }
+
+  @providerApiMethod()
+  public async deriveContextHash(
+    request: IJsBridgeMessagePayload,
+    params: IDeriveContextHashParams,
+  ): Promise<string> {
+    // request.data is logged and folded into the modal route's $sourceInfo —
+    // strip the inline params before any logging/openModal call.
+    const sanitizedData = ((): unknown => {
+      const data = request.data as
+        | { method?: unknown; id?: unknown }
+        | undefined;
+      if (!data || typeof data !== 'object') return undefined;
+      return {
+        method: data.method,
+        ...(data.id !== undefined ? { id: data.id } : {}),
+        params: '[redacted]',
+      };
+    })();
+    const sanitizedRequest: IJsBridgeMessagePayload = {
+      ...request,
+      data: sanitizedData,
+    };
+
+    defaultLogger.discovery.dapp.dappRequest({ request: sanitizedRequest });
+    await this.checkIfEnableConnect();
+
+    if (
+      !params ||
+      typeof params.appName !== 'string' ||
+      typeof params.context !== 'string'
+    ) {
+      throw web3Errors.rpc.invalidParams(
+        'deriveContextHash requires { appName: string, context: string }',
+      );
+    }
+    try {
+      validateAppName(params.appName);
+      parseHexContext(params.context);
+    } catch (e) {
+      throw web3Errors.rpc.invalidParams(
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, walletId, address } = {} } =
+      accountsInfo[0] ?? {};
+    if (!accountId || !networkId || !walletId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: 'Can not get account',
+      });
+    }
+
+    // Only HD wallets have a recoverable master seed; everything else fails fast.
+    if (!accountUtils.isHdWallet({ walletId })) {
+      throw web3Errors.rpc.methodNotSupported();
+    }
+
+    const nonce =
+      await this.backgroundApi.serviceDApp.stageDeriveContextHashRequest({
+        accountId,
+        networkId,
+        walletId,
+        address: address ?? '',
+        appName: params.appName,
+        context: params.context,
+      });
+
+    return this.backgroundApi.serviceDApp.openDeriveContextHashModal({
+      request: sanitizedRequest,
+      nonce,
+    });
   }
 
   @providerApiMethod()

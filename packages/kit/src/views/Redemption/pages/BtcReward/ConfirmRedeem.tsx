@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { CommonActions, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -45,8 +45,14 @@ function ConfirmRedeemPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
 
   const handleSubmit = useCallback(async () => {
+    if (isSubmittingRef.current) {
+      return;
+    }
+
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -78,9 +84,7 @@ function ConfirmRedeemPage() {
               params: {
                 rewardUsd,
                 walletAddress,
-                btcAmount: result.data.btcAmount,
-                btcPriceUsd: result.data.btcPriceUsd,
-                payoutEligibleAt: result.data.payoutEligibleAt,
+                expectedPayoutAt: result.data.expectedPayoutAt,
               },
             },
           ],
@@ -93,6 +97,7 @@ function ConfirmRedeemPage() {
         }),
       );
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   }, [navigation, codeId, rewardUsd, voucherCode, walletAddress, intl]);

@@ -18,7 +18,7 @@ export const ERROR_MESSAGES: Record<EErrorType, () => string> = {
 
 export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   [EActionType.PLACE_ORDER]: {
-    loading: t(ETranslations.perp_toast_opening_order),
+    loading: t(ETranslations.perp_toast_placing_order),
     successTitle: t(ETranslations.perp_toast_order_submitted),
   },
 

@@ -116,9 +116,11 @@ class NetInfo {
       } catch {
         headers = undefined;
       }
+      const method: 'GET' | 'POST' =
+        reachabilityMethod === 'POST' ? 'POST' : 'GET';
       const response = await healthCheckRequest({
         url: reachabilityUrl,
-        method: reachabilityMethod as 'GET' | 'POST',
+        method,
         timeout: reachabilityRequestTimeout,
         headers,
       });

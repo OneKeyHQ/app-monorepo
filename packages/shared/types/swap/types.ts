@@ -701,7 +701,8 @@ export interface ISwapApproveAllowanceResponse {
   isApproved: boolean;
   allowanceTarget: string;
   shouldApproveAmount: string;
-  approvedAmount: string;
+  // sic — backend spelling. Value is already decimal-parsed, not raw wei.
+  approveAmounted: string;
   shouldResetApprove?: boolean;
 }
 
@@ -1065,12 +1066,20 @@ export interface IFetchLimitOrderRes {
   };
 }
 
+export type ISwapProPresetConfig = {
+  isEnabled?: boolean;
+  priorityFee?: boolean;
+  min?: string | number;
+  max?: string | number;
+};
+
 export interface ISwapProSpeedConfig {
   slippage: number;
   spenderAddress: string;
   defaultTokens: ISwapTokenBase[];
   defaultLimitTokens: ISwapTokenBase[];
   swapMevNetConfig: string[];
+  preset?: ISwapProPresetConfig;
 }
 export interface ISpeedSwapConfig {
   provider: string;

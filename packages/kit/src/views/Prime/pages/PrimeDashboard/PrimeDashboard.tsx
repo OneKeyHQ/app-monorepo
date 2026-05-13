@@ -126,6 +126,10 @@ export default function PrimeDashboard({
     IPrimeServerUserInfo | undefined
   >(undefined);
 
+  const handleLogoutSuccess = useCallback(async () => {
+    setServerUserInfo(undefined);
+  }, []);
+
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
@@ -145,6 +149,16 @@ export default function PrimeDashboard({
   } | null>(null);
 
   const prevIsLoggedInRef = useRef(isLoggedIn);
+
+  const dashboardShownRef = useRef(false);
+  useEffect(() => {
+    if (dashboardShownRef.current) return;
+    dashboardShownRef.current = true;
+    defaultLogger.prime.subscription.primeDashboardShow({
+      featureName: fromFeature,
+      isPrimeActive: !!isPrimeSubscriptionActive,
+    });
+  }, [fromFeature, isPrimeSubscriptionActive]);
 
   useEffect(() => {
     const fn = async () => {
@@ -371,6 +385,12 @@ export default function PrimeDashboard({
       return;
     }
 
+    defaultLogger.prime.subscription.primeSubscribeButtonClick({
+      subscriptionPeriod: selectedSubscriptionPeriod,
+      featureName: fromFeature,
+      isLoggedIn,
+    });
+
     // If not logged in, store intent so we can resume after login
     if (!isLoggedIn) {
       pendingSubscribeRef.current = {
@@ -525,7 +545,9 @@ export default function PrimeDashboard({
             >
               <PrimeLottieAnimation />
               <PrimeBanner isPrimeActive={isPrimeSubscriptionActive} />
-              {isLoggedInMaybe ? <PrimeUserInfo /> : null}
+              {isLoggedInMaybe ? (
+                <PrimeUserInfo onLogoutSuccess={handleLogoutSuccess} />
+              ) : null}
             </Stack>
 
             {shouldShowSubscriptionPlans ? (

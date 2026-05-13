@@ -22,10 +22,12 @@ import {
   crossWebviewLoadUrl,
   injectToPauseWebsocket,
   injectToResumeWebsocket,
-  processWebSiteUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
-import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  devSettingsPersistAtom,
+  settingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -93,6 +95,14 @@ function isNewTabPositionTop() {
     platformEnv.isDesktop &&
     jotaiDefaultStore.get(settingsPersistAtom.atom()).newBrowserTabPosition ===
       'top'
+  );
+}
+
+function isLocalhostUrlAllowedInDAppBrowser() {
+  const devSettings = jotaiDefaultStore.get(devSettingsPersistAtom.atom());
+  return Boolean(
+    devSettings?.enabled &&
+    devSettings.settings?.allowLocalhostUrlInDAppBrowser,
   );
 }
 
@@ -799,7 +809,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       const tab = this.getWebTabById.call(set, id ?? '');
       if (url) {
-        const validatedUrl = uriUtils.validateUrl(url);
+        const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
+        const shouldBlockLocalhostUrl =
+          !allowLocalhostUrl && uriUtils.isLocalhostUrl(url);
+        const validatedUrl = shouldBlockLocalhostUrl
+          ? uriUtils.ensureHttpPrefix(url)
+          : uriUtils.validateUrl(url, {
+              allowLocalhostUrl,
+            });
         if (!validatedUrl) {
           return;
         }
@@ -910,10 +927,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         dApp?: IMatchDAppItemType['dApp'];
       },
     ) => {
-      if (webSite?.url) {
-        webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
-      }
-
       // Auto-detect if already on Discovery/MultiTabBrowser tab
       let needsSwitchTab = true;
       try {
@@ -1034,6 +1047,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const { action } = uriUtils.parseDappRedirect(
           url,
           Array.from(cache.keys()),
+          {
+            allowLocalhostUrl: isLocalhostUrlAllowedInDAppBrowser(),
+          },
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           defaultLogger.discovery.browser.logRejectUrl(url);
@@ -1173,7 +1189,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const { action } = uriUtils.parseDappRedirect(
         url,
         Array.from(cache.keys()),
-        { isTopFrame },
+        {
+          isTopFrame,
+          allowLocalhostUrl: isLocalhostUrlAllowedInDAppBrowser(),
+        },
       );
       if (action === uriUtils.EDAppOpenActionEnum.DENY) {
         defaultLogger.discovery.browser.logRejectUrl(url);

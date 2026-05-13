@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSystemLocale } from '../../../hooks/useSystemLocale';
@@ -31,9 +32,12 @@ export function useLanguageSelector() {
 
   const onChange = useCallback(async (text: string) => {
     await changeLanguage(text);
-    setTimeout(() => {
-      void backgroundApiProxy.serviceApp.restartApp();
-    }, 0);
+    // mode=All restarts main + bg in lockstep so no half-quiesced state
+    // can leak across the reload boundary.
+    await backgroundApiProxy.serviceApp.restartApp({
+      mode: EAppRestartMode.All,
+      reason: `setting.language.${text}`,
+    });
   }, []);
 
   return {

@@ -19,6 +19,7 @@ import {
   EPerpUserType,
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid';
+import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
@@ -392,7 +393,7 @@ export const {
   initialValue: {
     field: 'volume24h',
     direction: 'desc',
-    activeTab: 'all',
+    activeTab: DEFAULT_PERP_TOKEN_ACTIVE_TAB,
   },
 });
 

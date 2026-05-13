@@ -398,6 +398,7 @@ describe('executeAuthLoginCommand', () => {
       exit,
     });
 
+    expect(authManager.getStatus).not.toHaveBeenCalled();
     expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
     expect(authManager.getStatus).not.toHaveBeenCalled();
     expect(waitForHeadlessAppTransferCompletion).not.toHaveBeenCalled();

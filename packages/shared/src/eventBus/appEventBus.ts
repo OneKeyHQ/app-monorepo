@@ -12,6 +12,7 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import type { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -30,6 +31,7 @@ import type {
   IFetchAccountDeFiPositionsResp,
   IProtocolSummary,
 } from '../../types/defi';
+import type { EHardwareVendor } from '../../types/device';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type {
@@ -51,7 +53,7 @@ import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { EDecodedTxStatus } from '../../types/tx';
 import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
-import type { EModalRoutes, ETabRoutes } from '../routes';
+import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
 
@@ -367,6 +369,10 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.RequestHardwareUIDialog]: {
     uiRequestType: EHardwareUiStateAction;
   };
+  [EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog]: {
+    vendor: EHardwareVendor;
+    reason: EThirdPartyDevicePermissionDeniedReason;
+  };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
   [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
   [EAppEventBusNames.EnabledNetworksChanged]: undefined;
@@ -460,6 +466,7 @@ export interface IAppEventBusPayload {
     };
   };
   [EAppEventBusNames.ShowNotificationInDappPage]: string;
+  [EAppEventBusNames.ShowNotificationInWebViewOverlay]: IWebViewPageParams;
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;

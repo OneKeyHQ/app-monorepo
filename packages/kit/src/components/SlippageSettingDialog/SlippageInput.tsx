@@ -9,21 +9,82 @@ import { swapSlippageDecimal } from '@onekeyhq/shared/types/swap/SwapProvider.co
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
+type ISlippageInputSegmentItem = Omit<ISwapSlippageSegmentItem, 'value'> & {
+  value?: number;
+};
+
+export function formatSlippageInputDisplayValue(value?: number) {
+  if (value === undefined) {
+    return '';
+  }
+
+  const valueBN = new BigNumber(value);
+  if (!valueBN.isFinite()) {
+    return '';
+  }
+
+  return valueBN
+    .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
+    .toFixed();
+}
+
+export function shouldSyncSlippageInputDisplayValue({
+  inputValue,
+  displaySlippage,
+  isEditingTrailingDot,
+  previousDisplayValue,
+  hasSyncedDisplayValue,
+  localInputDisplayValue,
+}: {
+  inputValue: string;
+  displaySlippage: string;
+  isEditingTrailingDot: boolean;
+  previousDisplayValue: string;
+  hasSyncedDisplayValue: boolean;
+  localInputDisplayValue?: string;
+}) {
+  if (!hasSyncedDisplayValue) {
+    return true;
+  }
+
+  if (localInputDisplayValue !== undefined) {
+    return displaySlippage !== localInputDisplayValue;
+  }
+
+  if (isEditingTrailingDot) {
+    return (
+      formatSlippageInputDisplayValue(Number(inputValue)) !== displaySlippage
+    );
+  }
+
+  return inputValue === previousDisplayValue;
+}
+
+function formatLocalInputDisplayValue(text: string) {
+  if (!text) {
+    return '';
+  }
+
+  return formatSlippageInputDisplayValue(Number(text));
+}
+
 const BaseSlippageInput = ({
   swapSlippage,
   onChangeText,
   props,
 }: {
-  swapSlippage: ISwapSlippageSegmentItem;
+  swapSlippage: ISlippageInputSegmentItem;
   onChangeText: (text: string) => void;
   props?: IInputProps;
 }) => {
   const [inputValue, setInputValue] = useState('');
-  const isOriginalNumberDot = useRef(false);
+  const isEditingTrailingDotRef = useRef(false);
+  const localInputDisplayValueRef = useRef<string | undefined>(undefined);
   const handleTextChange = useCallback(
     (text: string) => {
       if (validateAmountInput(text, swapSlippageDecimal)) {
-        isOriginalNumberDot.current = /^\d+\.$/.test(text);
+        isEditingTrailingDotRef.current = /^\d+\.$/.test(text);
+        localInputDisplayValueRef.current = formatLocalInputDisplayValue(text);
         setInputValue(text);
         onChangeText(text);
       }
@@ -32,17 +93,36 @@ const BaseSlippageInput = ({
   );
 
   const displaySlippage = useMemo(
-    () =>
-      new BigNumber(swapSlippage.value)
-        .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
-        .toFixed(),
+    () => formatSlippageInputDisplayValue(swapSlippage.value),
     [swapSlippage.value],
   );
+  const inputValueRef = useRef(inputValue);
+  const previousDisplayValueRef = useRef(displaySlippage);
+  const hasSyncedDisplayValueRef = useRef(false);
+  inputValueRef.current = inputValue;
 
   useEffect(() => {
-    if (!isOriginalNumberDot.current) {
+    const currentInputValue = inputValueRef.current;
+    const previousDisplayValue = previousDisplayValueRef.current;
+
+    if (
+      currentInputValue !== displaySlippage &&
+      shouldSyncSlippageInputDisplayValue({
+        inputValue: currentInputValue,
+        displaySlippage,
+        hasSyncedDisplayValue: hasSyncedDisplayValueRef.current,
+        isEditingTrailingDot: isEditingTrailingDotRef.current,
+        previousDisplayValue,
+        localInputDisplayValue: localInputDisplayValueRef.current,
+      })
+    ) {
       setInputValue(displaySlippage);
+      inputValueRef.current = displaySlippage;
+      isEditingTrailingDotRef.current = false;
+      localInputDisplayValueRef.current = undefined;
     }
+    previousDisplayValueRef.current = displaySlippage;
+    hasSyncedDisplayValueRef.current = true;
   }, [displaySlippage]);
 
   return (

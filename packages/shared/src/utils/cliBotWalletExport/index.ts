@@ -1,4 +1,10 @@
 export {
+  BOT_WALLET_HASH_INTERNALS,
+  buildBotWalletHash,
+  isBotWalletHash,
+} from './botWalletHash';
+
+export {
   ENCRYPT_LAYOUT,
   decryptCredential,
   encryptCredential,
@@ -20,5 +26,6 @@ export {
 export type {
   ICliBotWalletKeyClientLogger,
   ICliBotWalletKeyClientOptions,
+  IRegisterKeyInput,
   IRegisterKeyResponse,
 } from './register';

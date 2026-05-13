@@ -1,11 +1,16 @@
 import {
+  buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
+  buildPrimaryTabs,
   comparePerpTokenSelectorSortValues,
   getPerpTokenSelectorFallbackTabId,
+  getPerpTokenSelectorPrimaryTabId,
   isPerpTokenSelectorAllTab,
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
+  isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSpotTab,
+  shouldRefreshPerpTokenSelectorSortSnapshot,
   sortPerpTokenSelectorItemsBySortValue,
 } from './tokenSelectorTabs';
 
@@ -17,7 +22,31 @@ const fixedTabNames = {
 };
 
 describe('tokenSelectorTabs', () => {
-  it('keeps fixed tabs before server-configured category tabs', () => {
+  it('builds the fixed primary tabs without an all tab', () => {
+    expect(buildPrimaryTabs(fixedTabNames)).toEqual([
+      { tabId: 'favorites', name: 'Favorites', tokens: [] },
+      { tabId: 'perps', name: 'PERPS', tokens: [] },
+      { tabId: 'spot', name: 'Spot', tokens: [] },
+    ]);
+  });
+
+  it('keeps the perps all category before server-configured category tabs', () => {
+    const tabs = buildPerpTokenSelectorCategoryTabs({
+      serverTabs: [
+        { tabId: 'crypto', name: 'Crypto', tokens: ['BTC'] },
+        { tabId: 'stocks', name: 'Stocks', tokens: ['AAPL'] },
+      ],
+      fixedTabNames,
+    });
+
+    expect(tabs).toEqual([
+      { tabId: 'perps', name: 'All', tokens: [] },
+      { tabId: 'crypto', name: 'Crypto', tokens: ['BTC'] },
+      { tabId: 'stocks', name: 'Stocks', tokens: ['AAPL'] },
+    ]);
+  });
+
+  it('keeps primary tabs before perps category tabs for validation', () => {
     const tabs = buildPerpTokenSelectorTabs({
       serverTabs: [
         { tabId: 'crypto', name: 'Crypto', tokens: ['BTC'] },
@@ -28,15 +57,15 @@ describe('tokenSelectorTabs', () => {
 
     expect(tabs).toEqual([
       { tabId: 'favorites', name: 'Favorites', tokens: [] },
-      { tabId: 'all', name: 'All', tokens: [] },
       { tabId: 'perps', name: 'PERPS', tokens: [] },
       { tabId: 'spot', name: 'Spot', tokens: [] },
+      { tabId: 'perps', name: 'All', tokens: [] },
       { tabId: 'crypto', name: 'Crypto', tokens: ['BTC'] },
       { tabId: 'stocks', name: 'Stocks', tokens: ['AAPL'] },
     ]);
   });
 
-  it('uses fixed tabs when server config is missing', () => {
+  it('uses primary and perps all tabs when server config is missing', () => {
     expect(
       buildPerpTokenSelectorTabs({
         serverTabs: [],
@@ -44,9 +73,9 @@ describe('tokenSelectorTabs', () => {
       }),
     ).toEqual([
       { tabId: 'favorites', name: 'Favorites', tokens: [] },
-      { tabId: 'all', name: 'All', tokens: [] },
       { tabId: 'perps', name: 'PERPS', tokens: [] },
       { tabId: 'spot', name: 'Spot', tokens: [] },
+      { tabId: 'perps', name: 'All', tokens: [] },
     ]);
   });
 
@@ -54,7 +83,11 @@ describe('tokenSelectorTabs', () => {
     expect(
       buildPerpTokenSelectorTabs({
         serverTabs: [
-          { tabId: ' perps ', name: ' Perps ', tokens: undefined as never },
+          {
+            tabId: ' perps ',
+            name: ' Perps ',
+            tokens: undefined as unknown as string[],
+          },
           { tabId: 'PERPS', name: 'Duplicate', tokens: [] },
           { tabId: '', name: 'Missing id', tokens: [] },
           { tabId: 'empty-name', name: ' ', tokens: [] },
@@ -63,9 +96,9 @@ describe('tokenSelectorTabs', () => {
       }),
     ).toEqual([
       { tabId: 'favorites', name: 'Favorites', tokens: [] },
-      { tabId: 'all', name: 'All', tokens: [] },
       { tabId: 'perps', name: 'PERPS', tokens: [] },
       { tabId: 'spot', name: 'Spot', tokens: [] },
+      { tabId: 'perps', name: 'All', tokens: [] },
     ]);
   });
 
@@ -82,9 +115,9 @@ describe('tokenSelectorTabs', () => {
       }),
     ).toEqual([
       { tabId: 'favorites', name: 'Favorites', tokens: [] },
-      { tabId: 'all', name: 'All', tokens: [] },
       { tabId: 'perps', name: 'PERPS', tokens: [] },
       { tabId: 'spot', name: 'Spot', tokens: [] },
+      { tabId: 'perps', name: 'All', tokens: [] },
       { tabId: 'Metals', name: 'Metals', tokens: ['GOLD'] },
     ]);
   });
@@ -94,15 +127,25 @@ describe('tokenSelectorTabs', () => {
     expect(isPerpTokenSelectorPerpsTab('perps')).toBe(true);
     expect(isPerpTokenSelectorFavoritesTab('favorites')).toBe(true);
     expect(isPerpTokenSelectorSpotTab('spot')).toBe(true);
+    expect(isPerpTokenSelectorPrimaryTab('favorites')).toBe(true);
+    expect(isPerpTokenSelectorPrimaryTab('all')).toBe(false);
   });
 
-  it('prefers the configured all/perps tab as invalid-tab fallback', () => {
+  it('maps legacy and category tab ids back to a primary tab', () => {
+    expect(getPerpTokenSelectorPrimaryTabId('favorites')).toBe('favorites');
+    expect(getPerpTokenSelectorPrimaryTabId('spot')).toBe('spot');
+    expect(getPerpTokenSelectorPrimaryTabId('all')).toBe('perps');
+    expect(getPerpTokenSelectorPrimaryTabId('perps')).toBe('perps');
+    expect(getPerpTokenSelectorPrimaryTabId('AI')).toBe('perps');
+  });
+
+  it('prefers the configured perps tab as invalid-tab fallback', () => {
     expect(
       getPerpTokenSelectorFallbackTabId([
         { tabId: 'favorites', name: 'Favs', tokens: [] },
-        { tabId: 'all', name: 'All', tokens: [] },
+        { tabId: 'perps', name: 'Perps', tokens: [] },
       ]),
-    ).toBe('all');
+    ).toBe('perps');
     expect(
       getPerpTokenSelectorFallbackTabId([
         { tabId: 'stocks', name: 'Stocks', tokens: ['AAPL'] },
@@ -164,5 +207,59 @@ describe('tokenSelectorTabs', () => {
       }).map((item) => item.id),
     ).toEqual(['spot-btc', 'spot-eth', 'perp-btc']);
     expect(getValue).toHaveBeenCalledTimes(items.length);
+  });
+  it('only refreshes sort snapshots on sort changes or first data arrival', () => {
+    expect(
+      shouldRefreshPerpTokenSelectorSortSnapshot({
+        lastSort: { field: 'change24hPercent', direction: 'desc' },
+        field: 'change24hPercent',
+        direction: 'desc',
+        snapshotEmpty: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldRefreshPerpTokenSelectorSortSnapshot({
+        lastSort: { field: 'change24hPercent', direction: 'desc' },
+        field: 'change24hPercent',
+        direction: 'asc',
+        snapshotEmpty: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldRefreshPerpTokenSelectorSortSnapshot({
+        lastSort: { field: 'change24hPercent', direction: 'desc' },
+        field: 'change24hPercent',
+        direction: 'desc',
+        snapshotEmpty: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps all-tab instruments visible when sorting unsupported mixed columns', () => {
+    const items = [
+      { id: 'perp-btc', type: 'perp', fundingRate: 0.01 },
+      { id: 'spot-eth', type: 'spot', marketCap: 300 },
+      { id: 'spot-sol', type: 'spot', marketCap: 100 },
+      { id: 'perp-doge', type: 'perp', fundingRate: 0.02 },
+    ];
+
+    expect(
+      sortPerpTokenSelectorItemsBySortValue({
+        items,
+        getValue: (item) =>
+          item.type === 'spot' ? undefined : item.fundingRate,
+        direction: 'desc',
+      }).map((item) => item.id),
+    ).toEqual(['perp-doge', 'perp-btc', 'spot-eth', 'spot-sol']);
+
+    expect(
+      sortPerpTokenSelectorItemsBySortValue({
+        items,
+        getValue: (item) => (item.type === 'perp' ? undefined : item.marketCap),
+        direction: 'desc',
+      }).map((item) => item.id),
+    ).toEqual(['spot-eth', 'spot-sol', 'perp-btc', 'perp-doge']);
   });
 });

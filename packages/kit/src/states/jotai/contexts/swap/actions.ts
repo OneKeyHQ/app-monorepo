@@ -719,14 +719,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 count: totalQuoteCount,
               });
               if (totalQuoteCount === 0) {
-                set(swapQuoteListAtom(), [
-                  {
-                    info: { provider: '', providerName: '' },
-                    fromTokenInfo: event.tokenPairs.fromToken,
-                    toTokenInfo: event.tokenPairs.toToken,
-                    eventId: (dataJson as ISwapQuoteEventInfo).eventId,
-                  },
-                ]);
+                set(swapQuoteListAtom(), []);
               }
             } else {
               const quoteResultData = dataJson as ISwapQuoteEventQuoteResult;
@@ -2434,13 +2427,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           });
         const hasKLinePrice = isSameToken && currentTokenDetail?.lastUpdated;
 
-        const finalTokenData = hasKLinePrice
-          ? {
-              ...tokenData,
-              price: currentTokenDetail.price, // Always use K-line price
-              lastUpdated: currentTokenDetail.lastUpdated,
-            }
-          : tokenData;
+        const finalTokenData = {
+          ...(hasKLinePrice
+            ? {
+                ...tokenData,
+                price: currentTokenDetail.price, // Always use K-line price
+                lastUpdated: currentTokenDetail.lastUpdated,
+              }
+            : tokenData),
+          networkId,
+        };
         set(swapProTokenMarketDetailInfoAtom(), finalTokenData);
         set(swapProTokenDetailWebsocketAtom(), websocketConfig);
         if (

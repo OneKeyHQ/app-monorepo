@@ -1,38 +1,54 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Button,
   Dialog,
+  Divider,
+  Heading,
   Icon,
   Input,
+  ScrollView,
   SegmentControl,
   SizableText,
   XStack,
   YStack,
+  useKeyboardHeight,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IIconProps } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
-import { swapSlippageCustomDefaultList } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  swapSlippageCustomDefaultList,
+  swapSlippageWillAheadMinValue,
+  swapSlippageWillFailMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  ESwapSlippageCustomStatus,
+  ESwapSlippageSegmentKey,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   EMarketPresetKey,
   EMarketPresetPriorityFeeType,
+  EMarketPresetSlippageWarningType,
   EMarketPresetTradeSide,
   type IMarketPresetDirectionSettings,
   getMarketPresetDefaultDirectionSettings,
   getMarketPresetDefaultEditableDirectionSettingsForPreset,
+  getMarketPresetSlippageCustomStatus,
   isInvalidMarketPresetDirectionSettings,
   isInvalidMarketPresetPriorityFeeSettings,
   isInvalidMarketPresetSlippageSettings,
+  isMarketPresetConfirmDisabled,
   normalizeMarketPresetDirectionSettings,
 } from '../../hooks/marketPresetSettings';
 
@@ -45,6 +61,8 @@ import {
 import type { IMarketPresetSettingsState } from '../../hooks/useMarketPresetSettings';
 
 type IMarketPresetSelectorProps = {
+  // Only `true` is surfaced because anti-MEV is read-only when supported.
+  antiMEV?: boolean;
   presetSettings: IMarketPresetSettingsState;
   slippageIconName?: IIconProps['name'];
   showAutoSlippageLabel?: boolean;
@@ -57,6 +75,15 @@ type IDraftPresetSettings = Partial<
     Partial<Record<EMarketPresetTradeSide, IMarketPresetDirectionSettings>>
   >
 >;
+
+const MARKET_PRESET_DIALOG_TOP_SAFE_GAP = 16;
+const MARKET_PRESET_DIALOG_CHROME_HEIGHT = 176;
+const MARKET_PRESET_DIALOG_MIN_CONTENT_HEIGHT = 120;
+const MARKET_PRESET_SLIPPAGE_INPUT_PROPS = { autoFocus: false } as const;
+const READONLY_PRIORITY_FEE_DISPLAY_TYPES = [
+  EMarketPresetPriorityFeeType.AUTO,
+  EMarketPresetPriorityFeeType.CUSTOM,
+];
 
 function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   if (type === EMarketPresetPriorityFeeType.AUTO) {
@@ -71,7 +98,7 @@ function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
     return ETranslations.content__custom;
   }
 
-  return ETranslations.global_market;
+  return ETranslations.transaction_normal;
 }
 
 function getMarketPresetLabel({
@@ -129,6 +156,7 @@ function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
         }) ??
         getMarketPresetDefaultEditableDirectionSettingsForPreset({
           config: presetSettings.config,
+          defaultSlippage: presetSettings.defaultSlippageValue,
           presetKey: preset.key,
         }),
       [EMarketPresetTradeSide.SELL]:
@@ -138,6 +166,7 @@ function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
         }) ??
         getMarketPresetDefaultEditableDirectionSettingsForPreset({
           config: presetSettings.config,
+          defaultSlippage: presetSettings.defaultSlippageValue,
           presetKey: preset.key,
         }),
     };
@@ -213,11 +242,11 @@ function MarketPresetDialogHeader({ networkId }: { networkId?: string }) {
     <Dialog.Header>
       <XStack alignItems="center" gap="$2" py="$px">
         <NetworkAvatar networkId={networkId} size="$6" />
-        <SizableText size="$headingSm">
+        <Heading size="$headingXl" py="$px">
           {intl.formatMessage({
             id: ETranslations.marketdex_edit_presets_title,
           })}
-        </SizableText>
+        </Heading>
       </XStack>
     </Dialog.Header>
   );
@@ -236,6 +265,139 @@ function MarketPresetReadonlyRow({
       <SizableText size="$bodyMdMedium" color="$textSubdued">
         {value}
       </SizableText>
+    </XStack>
+  );
+}
+
+function MarketPresetReadonlySwitch({ value }: { value: boolean }) {
+  return (
+    <XStack
+      w="$10"
+      h="$5"
+      p="$0.5"
+      alignItems="center"
+      justifyContent={value ? 'flex-end' : 'flex-start'}
+      borderRadius="$full"
+      bg={value ? '$success7' : '$neutral5'}
+      overflow="hidden"
+      pointerEvents="none"
+    >
+      <XStack w="$4" h="$4" borderRadius="$full" bg="$bg" />
+    </XStack>
+  );
+}
+
+function MarketPresetAntiMEVReadonlyRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: boolean;
+}) {
+  return (
+    <XStack alignItems="center" justifyContent="space-between" gap="$3">
+      <XStack alignItems="center" gap="$1.5" flex={1} minWidth={0}>
+        <Icon name="ShieldCheckDoneSolid" size="$3.5" color="$iconSuccess" />
+        <SizableText size="$bodyLgMedium" numberOfLines={1}>
+          {label}
+        </SizableText>
+      </XStack>
+      <MarketPresetReadonlySwitch value={value} />
+    </XStack>
+  );
+}
+
+function MarketPresetDialogContentFrame({
+  children,
+  footer,
+}: {
+  children: ReactNode;
+  footer?: ReactNode;
+}) {
+  const keyboardHeight = useKeyboardHeight();
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const dialogContentMaxHeight = useMemo(() => {
+    if (!platformEnv.isNative) {
+      return undefined;
+    }
+
+    const availableHeight =
+      windowHeight -
+      Math.max(keyboardHeight, 0) -
+      safeAreaTop -
+      MARKET_PRESET_DIALOG_TOP_SAFE_GAP -
+      MARKET_PRESET_DIALOG_CHROME_HEIGHT;
+
+    return Math.max(availableHeight, MARKET_PRESET_DIALOG_MIN_CONTENT_HEIGHT);
+  }, [keyboardHeight, safeAreaTop, windowHeight]);
+
+  return (
+    <>
+      <ScrollView
+        mx="$-5"
+        px="$5"
+        pb="$5"
+        maxHeight={dialogContentMaxHeight}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <YStack gap="$4">{children}</YStack>
+      </ScrollView>
+      {footer}
+    </>
+  );
+}
+
+function MarketPresetDialogActions({
+  activePresetKey,
+  confirmDisabled,
+  intl,
+  isReadonlyPreset,
+  onConfirm,
+  onReset,
+}: {
+  activePresetKey: EMarketPresetKey;
+  confirmDisabled: boolean;
+  intl: ReturnType<typeof useIntl>;
+  isReadonlyPreset: boolean;
+  onConfirm: () => void;
+  onReset: () => void;
+}) {
+  if (activePresetKey === EMarketPresetKey.AUTO || isReadonlyPreset) {
+    return (
+      <XStack p="$5" pt="$0">
+        <Button
+          flex={1}
+          variant="primary"
+          size="medium"
+          disabled={confirmDisabled}
+          onPress={onConfirm}
+        >
+          {intl.formatMessage({
+            id: isReadonlyPreset
+              ? ETranslations.global_ok
+              : ETranslations.global_confirm,
+          })}
+        </Button>
+      </XStack>
+    );
+  }
+
+  return (
+    <XStack p="$5" pt="$0" gap="$3">
+      <Button flex={1} variant="secondary" size="medium" onPress={onReset}>
+        {intl.formatMessage({ id: ETranslations.global_reset })}
+      </Button>
+      <Button
+        flex={1}
+        variant="primary"
+        size="medium"
+        disabled={confirmDisabled}
+        onPress={onConfirm}
+      >
+        {intl.formatMessage({ id: ETranslations.global_confirm })}
+      </Button>
     </XStack>
   );
 }
@@ -297,9 +459,11 @@ function MarketPresetTabBar({
 }
 
 function MarketPresetSettingsDialog({
+  antiMEV,
   close,
   presetSettings,
 }: {
+  antiMEV?: boolean;
   close: () => void;
   presetSettings: IMarketPresetSettingsState;
 }) {
@@ -344,21 +508,30 @@ function MarketPresetSettingsDialog({
     [intl],
   );
 
-  const priorityFeeOptions = useMemo(
-    () =>
-      (
-        presetSettings.config?.priorityFee.supportedTypes ?? [
-          EMarketPresetPriorityFeeType.MARKET,
-        ]
-      ).map((type) => ({
-        label: intl.formatMessage({ id: getPriorityFeeTranslationId(type) }),
-        value: type,
-      })),
-    [intl, presetSettings.config?.priorityFee.supportedTypes],
-  );
+  const priorityFeeOptions = useMemo(() => {
+    const supportedTypes = presetSettings.config?.priorityFee
+      .supportedTypes ?? [EMarketPresetPriorityFeeType.MARKET];
+    const displayTypes =
+      presetSettings.config?.priorityFee.editable === false &&
+      supportedTypes.length === 1 &&
+      supportedTypes[0] === EMarketPresetPriorityFeeType.AUTO
+        ? READONLY_PRIORITY_FEE_DISPLAY_TYPES
+        : supportedTypes;
+
+    return displayTypes.map((type) => ({
+      label: intl.formatMessage({ id: getPriorityFeeTranslationId(type) }),
+      value: type,
+    }));
+  }, [
+    intl,
+    presetSettings.config?.priorityFee.editable,
+    presetSettings.config?.priorityFee.supportedTypes,
+  ]);
   const isReadonlyPreset =
     !presetSettings.config?.slippage.editable &&
     !presetSettings.config?.priorityFee.editable;
+  const isPriorityFeeEditable = !!presetSettings.config?.priorityFee.editable;
+  const shouldShowAntiMEV = antiMEV === true;
 
   const currentSettings = useMemo(() => {
     if (activePresetKey === EMarketPresetKey.AUTO) {
@@ -392,6 +565,7 @@ function MarketPresetSettingsDialog({
       const defaultSettings =
         getMarketPresetDefaultEditableDirectionSettingsForPreset({
           config: presetSettings.config,
+          defaultSlippage: presetSettings.defaultSlippageValue,
           presetKey: activePresetKey,
         });
       const matchesDefault = areMarketPresetDirectionSettingsEqual(
@@ -434,18 +608,42 @@ function MarketPresetSettingsDialog({
   });
   const currentDirectionPendingReset =
     resetDirectionSetRef.current.has(currentDirectionKey);
+  const currentSlippageCustomStatus =
+    getMarketPresetSlippageCustomStatus(currentSettings);
   const currentSlippageInvalid =
-    isInvalidMarketPresetSlippageSettings(currentSettings);
+    currentSlippageCustomStatus.status === ESwapSlippageCustomStatus.ERROR;
   const currentPriorityFeeInvalid =
     !!presetSettings.config?.priorityFee.editable &&
-    isInvalidMarketPresetPriorityFeeSettings(currentSettings);
+    isInvalidMarketPresetPriorityFeeSettings(
+      currentSettings,
+      presetSettings.config,
+    );
+  const currentPriorityFeeCustomValue =
+    currentSettings.priorityFee.customValue ?? '';
   const currentSettingsInvalid =
     !currentDirectionPendingReset &&
     (currentSlippageInvalid || currentPriorityFeeInvalid);
   const showCurrentSlippageError =
     !currentDirectionPendingReset && currentSlippageInvalid;
+  const showCurrentSlippageWarning =
+    !currentDirectionPendingReset &&
+    currentSlippageCustomStatus.status === ESwapSlippageCustomStatus.WRONG;
   const showCurrentPriorityFeeError =
-    !currentDirectionPendingReset && currentPriorityFeeInvalid;
+    !currentDirectionPendingReset &&
+    currentPriorityFeeInvalid &&
+    currentPriorityFeeCustomValue.length > 0;
+  const isDirectionSettingsInvalid = useCallback(
+    (directionSettings?: IMarketPresetDirectionSettings) => {
+      if (!presetSettings.config?.priorityFee.editable) {
+        return isInvalidMarketPresetSlippageSettings(directionSettings);
+      }
+      return isInvalidMarketPresetDirectionSettings(
+        directionSettings,
+        presetSettings.config,
+      );
+    },
+    [presetSettings.config],
+  );
   const hasInvalidDirtySettings = Array.from(dirtyDirectionSetRef.current).some(
     (directionKey) => {
       if (resetDirectionSetRef.current.has(directionKey)) {
@@ -461,14 +659,15 @@ function MarketPresetSettingsDialog({
         presetKey: parsed.presetKey,
         tradeSide: parsed.tradeSide,
       });
-      if (!presetSettings.config?.priorityFee.editable) {
-        return isInvalidMarketPresetSlippageSettings(directionSettings);
-      }
-      return isInvalidMarketPresetDirectionSettings(directionSettings);
+      return isDirectionSettingsInvalid(directionSettings);
     },
   );
 
-  const confirmDisabled = currentSettingsInvalid || hasInvalidDirtySettings;
+  const confirmDisabled = isMarketPresetConfirmDisabled({
+    activePresetKey,
+    currentSettingsInvalid,
+    hasInvalidDirtySettings,
+  });
 
   const slippageOptions = useMemo(() => {
     const autoSelected =
@@ -501,71 +700,94 @@ function MarketPresetSettingsDialog({
     ];
   }, [currentSettings.slippage.key, intl]);
 
+  const flushPendingSettings = useCallback(
+    async ({
+      shouldChangePreset,
+      skipInvalidDirtySettings,
+    }: {
+      shouldChangePreset: boolean;
+      skipInvalidDirtySettings: boolean;
+    }) => {
+      const saveTasks: Array<() => Promise<void>> = [];
+
+      Array.from(resetDirectionSetRef.current).forEach((directionKey) => {
+        const parsed = parseDirectionKey(directionKey);
+        if (parsed && parsed.presetKey !== EMarketPresetKey.AUTO) {
+          saveTasks.push(() =>
+            presetSettings.onResetPresetDirectionSettings({
+              presetKey: parsed.presetKey,
+              tradeSide: parsed.tradeSide,
+            }),
+          );
+        }
+      });
+
+      Array.from(dirtyDirectionSetRef.current).forEach((directionKey) => {
+        const parsed = parseDirectionKey(directionKey);
+        if (
+          parsed &&
+          parsed.presetKey !== EMarketPresetKey.AUTO &&
+          !resetDirectionSetRef.current.has(directionKey)
+        ) {
+          const directionSettings = getDraftDirectionSettings({
+            draftSettings,
+            presetKey: parsed.presetKey,
+            tradeSide: parsed.tradeSide,
+          });
+          if (
+            directionSettings &&
+            (!skipInvalidDirtySettings ||
+              !isDirectionSettingsInvalid(directionSettings))
+          ) {
+            saveTasks.push(() =>
+              presetSettings.onSavePresetDirectionSettings({
+                presetKey: parsed.presetKey,
+                tradeSide: parsed.tradeSide,
+                settings: directionSettings,
+              }),
+            );
+          }
+        }
+      });
+
+      await saveTasks.reduce<Promise<void>>(async (promise, task) => {
+        await promise;
+        await task();
+      }, Promise.resolve());
+
+      if (
+        shouldChangePreset &&
+        activePresetKey !== presetSettings.selectedPresetKey
+      ) {
+        presetSettings.onPresetChange(activePresetKey);
+      }
+    },
+    [
+      activePresetKey,
+      draftSettings,
+      isDirectionSettingsInvalid,
+      presetSettings,
+    ],
+  );
+
   const handleConfirm = useCallback(async () => {
     if (confirmDisabled) {
       return;
     }
 
-    const saveTasks: Array<() => Promise<void>> = [];
-
-    Array.from(resetDirectionSetRef.current).forEach((directionKey) => {
-      const parsed = parseDirectionKey(directionKey);
-      if (parsed && parsed.presetKey !== EMarketPresetKey.AUTO) {
-        saveTasks.push(() =>
-          presetSettings.onResetPresetDirectionSettings({
-            presetKey: parsed.presetKey,
-            tradeSide: parsed.tradeSide,
-          }),
-        );
-      }
+    await flushPendingSettings({
+      shouldChangePreset: true,
+      skipInvalidDirtySettings: activePresetKey === EMarketPresetKey.AUTO,
     });
-
-    Array.from(dirtyDirectionSetRef.current).forEach((directionKey) => {
-      const parsed = parseDirectionKey(directionKey);
-      if (
-        parsed &&
-        parsed.presetKey !== EMarketPresetKey.AUTO &&
-        !resetDirectionSetRef.current.has(directionKey)
-      ) {
-        const directionSettings = getDraftDirectionSettings({
-          draftSettings,
-          presetKey: parsed.presetKey,
-          tradeSide: parsed.tradeSide,
-        });
-        if (directionSettings) {
-          saveTasks.push(() =>
-            presetSettings.onSavePresetDirectionSettings({
-              presetKey: parsed.presetKey,
-              tradeSide: parsed.tradeSide,
-              settings: directionSettings,
-            }),
-          );
-        }
-      }
-    });
-
-    await saveTasks.reduce<Promise<void>>(async (promise, task) => {
-      await promise;
-      await task();
-    }, Promise.resolve());
-
-    if (activePresetKey !== presetSettings.selectedPresetKey) {
-      presetSettings.onPresetChange(activePresetKey);
-    }
     close();
-  }, [activePresetKey, close, confirmDisabled, draftSettings, presetSettings]);
+  }, [activePresetKey, close, confirmDisabled, flushPendingSettings]);
 
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback(async () => {
     if (activePresetKey === EMarketPresetKey.AUTO) {
       close();
       return;
     }
 
-    const defaultSettings =
-      getMarketPresetDefaultEditableDirectionSettingsForPreset({
-        config: presetSettings.config,
-        presetKey: activePresetKey,
-      });
     const directionKey = getDirectionKey({
       presetKey: activePresetKey,
       tradeSide: activeTradeSide,
@@ -582,17 +804,41 @@ function MarketPresetSettingsDialog({
       resetDirectionSetRef.current.delete(directionKey);
     }
 
-    setDraftSettings((prev) => ({
-      ...prev,
-      [activePresetKey]: {
-        ...prev[activePresetKey],
-        [activeTradeSide]: defaultSettings,
-      },
-    }));
-  }, [activePresetKey, activeTradeSide, close, presetSettings]);
+    await flushPendingSettings({
+      shouldChangePreset: false,
+      skipInvalidDirtySettings: true,
+    });
+    close();
+  }, [
+    activePresetKey,
+    activeTradeSide,
+    close,
+    flushPendingSettings,
+    presetSettings,
+  ]);
 
   return (
-    <YStack gap="$4">
+    <MarketPresetDialogContentFrame
+      footer={
+        <Dialog.Footer
+          showFooter={false}
+          extraContent={
+            <MarketPresetDialogActions
+              activePresetKey={activePresetKey}
+              confirmDisabled={confirmDisabled}
+              intl={intl}
+              isReadonlyPreset={isReadonlyPreset}
+              onConfirm={() => {
+                void handleConfirm();
+              }}
+              onReset={() => {
+                void handleReset();
+              }}
+            />
+          }
+        />
+      }
+    >
       <MarketPresetDialogHeader networkId={presetSettings.config?.networkId} />
 
       <MarketPresetTabBar
@@ -618,34 +864,30 @@ function MarketPresetSettingsDialog({
               </SizableText>
             </YStack>
           </XStack>
-          <XStack gap="$3" py="$2">
-            <Icon name="ShieldCheckDoneSolid" size="$6" color="$iconSubdued" />
-            <YStack flex={1} minWidth={0}>
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.marketdex_anti_mev_title,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.marketdex_anti_mev_description,
-                })}
-              </SizableText>
-            </YStack>
-          </XStack>
-          <Button
-            variant="primary"
-            size="medium"
-            disabled={confirmDisabled}
-            onPress={() => {
-              void handleConfirm();
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_confirm })}
-          </Button>
+          {shouldShowAntiMEV ? (
+            <XStack gap="$3" py="$2">
+              <Icon
+                name="ShieldCheckDoneSolid"
+                size="$6"
+                color="$iconSubdued"
+              />
+              <YStack flex={1} minWidth={0}>
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.marketdex_anti_mev_title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.marketdex_anti_mev_description,
+                  })}
+                </SizableText>
+              </YStack>
+            </XStack>
+          ) : null}
         </YStack>
       ) : (
-        <YStack gap="$4">
+        <YStack gap="$3">
           <SegmentControl
             fullWidth
             value={activeTradeSide}
@@ -717,9 +959,7 @@ function MarketPresetSettingsDialog({
                       <SlippageInput
                         swapSlippage={{
                           key: ESwapSlippageSegmentKey.CUSTOM,
-                          value:
-                            currentSettings.slippage.value ??
-                            presetSettings.defaultSlippageValue,
+                          value: currentSettings.slippage.value,
                         }}
                         onChangeText={(text) => {
                           const valueBN = new BigNumber(text);
@@ -734,6 +974,7 @@ function MarketPresetSettingsDialog({
                             },
                           }));
                         }}
+                        props={MARKET_PRESET_SLIPPAGE_INPUT_PROPS}
                       />
                       <XStack>
                         {swapSlippageCustomDefaultList.map((item, index) => (
@@ -758,11 +999,35 @@ function MarketPresetSettingsDialog({
                         ))}
                       </XStack>
                     </XStack>
-                    {showCurrentSlippageError ? (
-                      <SizableText size="$bodySmMedium" color="$textCritical">
-                        {intl.formatMessage({
-                          id: ETranslations.slippage_tolerance_error_message,
-                        })}
+                    {showCurrentSlippageError || showCurrentSlippageWarning ? (
+                      <SizableText
+                        size="$bodySmMedium"
+                        color={
+                          showCurrentSlippageError
+                            ? '$textCritical'
+                            : '$textCaution'
+                        }
+                      >
+                        {showCurrentSlippageError
+                          ? intl.formatMessage({
+                              id: ETranslations.slippage_tolerance_error_message,
+                            })
+                          : intl.formatMessage(
+                              {
+                                id:
+                                  currentSlippageCustomStatus.warningType ===
+                                  EMarketPresetSlippageWarningType.WILL_AHEAD
+                                    ? ETranslations.slippage_tolerance_warning_message_1
+                                    : ETranslations.slippage_tolerance_warning_message_2,
+                              },
+                              {
+                                number:
+                                  currentSlippageCustomStatus.warningType ===
+                                  EMarketPresetSlippageWarningType.WILL_AHEAD
+                                    ? swapSlippageWillAheadMinValue
+                                    : swapSlippageWillFailMinValue,
+                              },
+                            )}
                       </SizableText>
                     ) : null}
                   </>
@@ -778,48 +1043,57 @@ function MarketPresetSettingsDialog({
             )}
           </YStack>
 
-          <YStack gap="$2">
-            {presetSettings.config?.priorityFee.editable ? (
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.marketdex_priority_fee,
-                })}
-              </SizableText>
-            ) : null}
-            {presetSettings.config?.priorityFee.editable ? (
-              <>
-                <SegmentControl
-                  fullWidth
-                  value={currentSettings.priorityFee.type}
-                  options={priorityFeeOptions}
-                  borderRadius="$2.5"
-                  gap="$0.5"
-                  p="$0.5"
-                  slotBackgroundColor="$neutral5"
-                  activeBackgroundColor="$bg"
-                  activeTextColor="$text"
-                  inactiveTextColor="$textSubdued"
-                  segmentControlItemStyleProps={{
-                    borderRadius: '$2',
-                    px: '$2',
-                    py: '$1',
-                  }}
-                  onChange={(value) => {
-                    const type = value as EMarketPresetPriorityFeeType;
-                    updateCurrentSettings((settings) => ({
-                      ...settings,
-                      priorityFee: {
-                        type,
-                        customValue:
-                          type === EMarketPresetPriorityFeeType.CUSTOM
-                            ? (settings.priorityFee.customValue ?? '')
-                            : undefined,
-                      },
-                    }));
-                  }}
-                />
-                {currentSettings.priorityFee.type ===
-                EMarketPresetPriorityFeeType.CUSTOM ? (
+          {presetSettings.config?.priorityFee ? (
+            <>
+              <Divider />
+
+              <YStack gap="$2">
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.marketdex_priority_fee,
+                  })}
+                </SizableText>
+                <XStack
+                  pointerEvents={isPriorityFeeEditable ? undefined : 'none'}
+                  opacity={isPriorityFeeEditable ? undefined : 0.5}
+                >
+                  <SegmentControl
+                    fullWidth
+                    value={currentSettings.priorityFee.type}
+                    options={priorityFeeOptions}
+                    borderRadius="$2.5"
+                    gap="$0.5"
+                    p="$0.5"
+                    slotBackgroundColor="$neutral5"
+                    activeBackgroundColor="$bg"
+                    activeTextColor="$text"
+                    inactiveTextColor="$textSubdued"
+                    segmentControlItemStyleProps={{
+                      borderRadius: '$2',
+                      px: '$2',
+                      py: '$1',
+                    }}
+                    onChange={(value) => {
+                      if (!isPriorityFeeEditable) {
+                        return;
+                      }
+                      const type = value as EMarketPresetPriorityFeeType;
+                      updateCurrentSettings((settings) => ({
+                        ...settings,
+                        priorityFee: {
+                          type,
+                          customValue:
+                            type === EMarketPresetPriorityFeeType.CUSTOM
+                              ? (settings.priorityFee.customValue ?? '')
+                              : undefined,
+                        },
+                      }));
+                    }}
+                  />
+                </XStack>
+                {isPriorityFeeEditable &&
+                currentSettings.priorityFee.type ===
+                  EMarketPresetPriorityFeeType.CUSTOM ? (
                   <>
                     <Input
                       size="medium"
@@ -830,7 +1104,7 @@ function MarketPresetSettingsDialog({
                           label: presetSettings.priorityFeeUnit,
                         },
                       ]}
-                      placeholder="0"
+                      placeholder={presetSettings.priorityFeeCustomPlaceholder}
                       onChangeText={(text) => {
                         if (!validateAmountInput(text, 9)) {
                           return;
@@ -851,66 +1125,38 @@ function MarketPresetSettingsDialog({
                             id: ETranslations.form_fee_rate_error_out_of_range,
                           },
                           {
-                            min: 0,
-                            max: MARKET_PRESET_CUSTOM_PRIORITY_FEE_MAX_VALUE,
+                            min: presetSettings.priorityFeeCustomRange.min,
+                            max: presetSettings.priorityFeeCustomRange.max,
                           },
                         )}
                       </SizableText>
                     ) : null}
                   </>
                 ) : null}
-              </>
-            ) : (
-              <MarketPresetReadonlyRow
-                label={intl.formatMessage({
-                  id: ETranslations.marketdex_priority_fee,
-                })}
-                value={intl.formatMessage({ id: ETranslations.global_auto })}
-              />
-            )}
-          </YStack>
+              </YStack>
+            </>
+          ) : null}
 
-          {isReadonlyPreset ? (
-            <Button
-              variant="primary"
-              size="medium"
-              disabled={confirmDisabled}
-              onPress={() => {
-                void handleConfirm();
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_ok })}
-            </Button>
-          ) : (
-            <XStack gap="$3">
-              <Button
-                flex={1}
-                variant="secondary"
-                size="medium"
-                onPress={handleReset}
-              >
-                {intl.formatMessage({ id: ETranslations.global_reset })}
-              </Button>
-              <Button
-                flex={1}
-                variant="primary"
-                size="medium"
-                disabled={confirmDisabled}
-                onPress={() => {
-                  void handleConfirm();
-                }}
-              >
-                {intl.formatMessage({ id: ETranslations.global_confirm })}
-              </Button>
-            </XStack>
-          )}
+          {shouldShowAntiMEV ? (
+            <>
+              <Divider />
+
+              <MarketPresetAntiMEVReadonlyRow
+                label={intl.formatMessage({
+                  id: ETranslations.marketdex_anti_mev_title,
+                })}
+                value
+              />
+            </>
+          ) : null}
         </YStack>
       )}
-    </YStack>
+    </MarketPresetDialogContentFrame>
   );
 }
 
 export function MarketPresetSelector({
+  antiMEV,
   presetSettings,
   slippageIconName = 'SliderVerOutline',
   showAutoSlippageLabel = false,
@@ -921,7 +1167,6 @@ export function MarketPresetSelector({
   const {
     enabled,
     presets,
-    presetCustomizedMap,
     selectedPreset,
     selectedDirectionSettings,
     selectedPresetKey,
@@ -933,15 +1178,15 @@ export function MarketPresetSelector({
   const presetOptions = useMemo(
     () =>
       presets.map((preset) => ({
-        label: `${getMarketPresetLabel({
+        label: getMarketPresetLabel({
           intl,
           label: preset.label,
           presetKey: preset.key,
-        })}${presetCustomizedMap[preset.key] ? '*' : ''}`,
+        }),
         value: preset.key,
         testID: `market-preset-${preset.key}`,
       })),
-    [intl, presetCustomizedMap, presets],
+    [intl, presets],
   );
 
   const openPresetDialog = useCallback(() => {
@@ -954,12 +1199,13 @@ export function MarketPresetSelector({
           close={() => {
             void dialog.close();
           }}
+          antiMEV={antiMEV}
           presetSettings={presetSettings}
         />
       ),
       showFooter: false,
     });
-  }, [intl, presetSettings]);
+  }, [antiMEV, intl, presetSettings]);
 
   const handleQuickPresetSwitch = useCallback(
     (event?: ITradingWidgetMainButtonPressEvent) => {
@@ -994,6 +1240,7 @@ export function MarketPresetSelector({
     settings: selectedDirectionSettings,
     unit: presetSettings.priorityFeeUnit,
   });
+  const showAntiMEV = antiMEV === true;
   const selectedPresetItem =
     selectedPreset ??
     presets.find((preset) => preset.key === selectedPresetKey);
@@ -1014,6 +1261,7 @@ export function MarketPresetSelector({
       slippageIconName={slippageIconName}
       slippageLabel={slippageLabel}
       priorityFeeLabel={priorityFeeLabel}
+      showAntiMEV={showAntiMEV}
       onPresetChange={onPresetChange}
       onOpenSettings={openPresetDialog}
       onQuickPresetPress={handleQuickPresetSwitch}

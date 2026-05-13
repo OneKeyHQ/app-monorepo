@@ -85,6 +85,7 @@ import {
   getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/shared/src/utils/feeUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
@@ -126,7 +127,7 @@ const SPONSORED_COUPON_SEPARATOR_STROKE = 2;
 const SPONSORED_COUPON_CUTOUT_SIZE = 18;
 const SPONSORED_COUPON_CUTOUT_OFFSET = SPONSORED_COUPON_CUTOUT_SIZE / 2;
 const SPONSORED_FEES_HELP_CENTER_URL =
-  'https://help.onekey.so/collections/15988402';
+  'https://help.onekey.so/articles/14994693';
 
 function buildGasAccountIdempotencyKey(quoteId?: string) {
   return quoteId ? `gas-account:${quoteId}` : '';
@@ -295,10 +296,13 @@ function TxFeeInfo(props: IProps) {
           return staleResult;
         }
 
+        // Don't reset discountPercent: polling re-enters every tick and a
+        // transient 0 would flicker the TRON rental "减免 X%" label and the
+        // "优惠发送" button text. A downstream effect refreshes it from
+        // originalTotalFiat / totalFiat once the new estimate lands.
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
           errMessage: '',
-          discountPercent: 0,
         });
 
         const presetMultiTxsFee =
@@ -791,6 +795,11 @@ function TxFeeInfo(props: IProps) {
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
+          // Clear discount here because the loading reset above intentionally
+          // preserves it for no-flicker polling; the downstream recompute effect
+          // only depends on fee/rental inputs, so an error path would otherwise
+          // strand the TRON rental "减免 X%" / "优惠发送" badge over an Error UI.
+          discountPercent: 0,
           // Inner JSON-RPC error first so `execution reverted: ...` from the
           // upstream node survives the OneKey API response wrapper — the outer
           // `translatedMessage/message` is generic server-side packaging text
@@ -1899,15 +1908,44 @@ function TxFeeInfo(props: IProps) {
   const sponsoredInfoDescription = intl.formatMessage({
     id: ETranslations.wallet_sponsorship_availability_rules__desc,
   });
+  const sponsoredConfirmationDelayDescription = intl.formatMessage({
+    id: ETranslations.wallet_sponsored_tx_confirmation_may_take_longer__desc,
+  });
   const sponsoredLearnMoreText = intl.formatMessage({
     id: ETranslations.wallet_learn_about_sponsored_fees__action,
   });
   const sponsoredSummaryTitle = intl.formatMessage({
     id: ETranslations.wallet_onekey_sponsored__title,
   });
-  const sponsoredSummaryDescription = intl.formatMessage({
-    id: ETranslations.wallet_you_pay_zero_network_fee__desc,
-  });
+  const sponsoredSavedFeeFiatValue = useMemo(() => {
+    const savedFeeFiat =
+      selectedFee?.originalTotalFiat ?? selectedFee?.totalFiatMinForDisplay;
+
+    if (!savedFeeFiat || new BigNumber(savedFeeFiat).lt(0.01)) {
+      return '';
+    }
+
+    return numberFormat(savedFeeFiat, {
+      formatter: 'value',
+      formatterOptions: {
+        currency: settings.currencyInfo.symbol,
+      },
+    });
+  }, [
+    selectedFee?.originalTotalFiat,
+    selectedFee?.totalFiatMinForDisplay,
+    settings.currencyInfo.symbol,
+  ]);
+  const sponsoredSummaryDescription = intl.formatMessage(
+    {
+      id: sponsoredSavedFeeFiatValue
+        ? ETranslations.wallet_saved_network_fee_you_pay_zero__desc
+        : ETranslations.wallet_you_pay_zero_network_fee__desc,
+    },
+    {
+      amount: sponsoredSavedFeeFiatValue,
+    },
+  );
   const handleOpenSponsoredFeesHelpCenter = useCallback(() => {
     openUrlExternal(SPONSORED_FEES_HELP_CENTER_URL);
   }, []);
@@ -2029,6 +2067,9 @@ function TxFeeInfo(props: IProps) {
             <SizableText size="$bodySm" color="$textSubdued">
               {sponsoredInfoDescription}
             </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {sponsoredConfirmationDelayDescription}
+            </SizableText>
             <SizableText
               size="$bodySmMedium"
               color="$text"
@@ -2058,6 +2099,7 @@ function TxFeeInfo(props: IProps) {
     handleOpenSponsoredFeesHelpCenter,
     intl,
     renderSponsoredCoupon,
+    sponsoredConfirmationDelayDescription,
     sponsoredInfoDescription,
     sponsoredInfoTitle,
     sponsoredLearnMoreText,

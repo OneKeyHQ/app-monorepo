@@ -14,22 +14,80 @@ import {
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
+import type { Verify } from '@walletconnect/types';
+
+function overrideSecurityLevel(
+  base: IHostSecurity | undefined,
+  level: EHostSecurityLevel,
+  host: string,
+): IHostSecurity {
+  if (base) return { ...base, level };
+  return {
+    host,
+    level,
+    attackTypes: [],
+    phishingSite: false,
+    checkSources: [],
+    alert: '',
+    projectName: '',
+    createdAt: '',
+  };
+}
+
 function useRiskDetection({
   origin,
   unsignedMessage,
+  walletConnectVerifyContext,
 }: {
   origin: string;
   unsignedMessage?: IUnsignedMessage;
+  // WalletConnect identity attestation from the SDK (proposal/request).
+  // When present, its validation/isScam fields override OneKey's reputation
+  // score in the negative direction — a peer that can't prove its origin
+  // must not be rendered as "Security" regardless of how the claimed URL
+  // scores against our backend.
+  walletConnectVerifyContext?: Verify.Context;
 }) {
   const [continueOperate, setContinueOperate] = useState(false);
 
-  const { result: urlSecurityInfo } = usePromiseResult(async () => {
+  const { result: backendSecurityInfo } = usePromiseResult(async () => {
     if (!origin) return {} as IHostSecurity;
     return backgroundApiProxy.serviceDiscovery.checkUrlSecurity({
       url: origin,
       from: 'app',
     });
   }, [origin]);
+
+  const urlSecurityInfo = useMemo<IHostSecurity | undefined>(() => {
+    if (!walletConnectVerifyContext) return backendSecurityInfo;
+    const { validation, isScam } = walletConnectVerifyContext.verified;
+    // isScam takes precedence per Reown's Verify API UX guidance.
+    if (isScam || validation === 'INVALID') {
+      return overrideSecurityLevel(
+        backendSecurityInfo,
+        EHostSecurityLevel.High,
+        origin,
+      );
+    }
+    if (validation === 'UNKNOWN') {
+      // Only strip the verified-site affordance when the backend has nothing
+      // worse to say. A backend-flagged High/Medium origin must keep its
+      // severity — UNKNOWN means "can't attest identity", not "safe".
+      const backendLevel = backendSecurityInfo?.level;
+      if (
+        backendLevel === EHostSecurityLevel.High ||
+        backendLevel === EHostSecurityLevel.Medium
+      ) {
+        return backendSecurityInfo;
+      }
+      return overrideSecurityLevel(
+        backendSecurityInfo,
+        EHostSecurityLevel.Unknown,
+        origin,
+      );
+    }
+    return backendSecurityInfo;
+  }, [backendSecurityInfo, walletConnectVerifyContext, origin]);
 
   const riskLevel = useMemo(
     () => urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown,

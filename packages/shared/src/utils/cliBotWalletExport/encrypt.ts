@@ -12,7 +12,7 @@ const TAG_BYTES = 16;
 
 /**
  * Result of `encryptCredential`. The caller is responsible for `secureWipe`-ing
- * `randomKey` immediately after registering it with the local key service.
+ * `randomKey` immediately after registering it with the Bot Wallet key API.
  */
 export type IEncryptCredentialResult = {
   ciphertextBase64: string;
@@ -25,9 +25,9 @@ export type IEncryptCredentialResult = {
  *
  *     | nonce (12B) | ciphertext (N B) | auth tag (16B) |
  *
- * The same scheme is used by every CLI client and the local key service spec
- * (project-context.md §2). The returned `randomKey` is the only copy of the
- * AES key in memory — register it with the key service and then call
+ * The same scheme is used by every CLI client and the Bot Wallet key API
+ * contract. The returned `randomKey` is the only copy of the AES key in
+ * memory — register it with the key API and then call
  * `secureWipe(randomKey)`.
  */
 export function encryptCredential(
