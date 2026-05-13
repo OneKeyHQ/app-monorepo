@@ -143,7 +143,9 @@ export function ActionFooter({
         <Page.Footer>
           {footerContent}
           <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
+            onSelectPercentageStage={
+              approving ? undefined : onSelectPercentageStage
+            }
           />
         </Page.Footer>
       ) : (

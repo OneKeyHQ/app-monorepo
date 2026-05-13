@@ -134,6 +134,18 @@ export function ManagePosition(props: IManagePositionProps) {
     onApprovedSubmit: onSubmit,
   });
 
+  const effectiveTokenSelectorTriggerProps = useMemo(() => {
+    if (!approval.approving) {
+      return tokenSelectorTriggerProps;
+    }
+    return {
+      ...tokenSelectorTriggerProps,
+      disabled: true,
+      onPress: undefined,
+      popover: undefined,
+    };
+  }, [approval.approving, tokenSelectorTriggerProps]);
+
   // Build complete state
   const state: IManagePositionState = useMemo(
     () => ({
@@ -141,14 +153,14 @@ export function ManagePosition(props: IManagePositionProps) {
       amountValue,
       submitting,
       tokenSelectorMode: selectorMode,
-      tokenSelectorTriggerProps,
+      tokenSelectorTriggerProps: effectiveTokenSelectorTriggerProps,
     }),
     [
       baseState,
       amountValue,
       submitting,
       selectorMode,
-      tokenSelectorTriggerProps,
+      effectiveTokenSelectorTriggerProps,
     ],
   );
 

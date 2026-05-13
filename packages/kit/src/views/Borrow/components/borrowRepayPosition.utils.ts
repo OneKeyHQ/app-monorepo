@@ -208,12 +208,15 @@ export function isCollateralRepayEnabled({
   collateralLoading,
   debtBalance,
 }: {
-  providerName: string;
+  providerName?: string;
   collateralAssetCount: number;
   collateralLoading?: boolean;
   debtBalance?: string;
 }) {
-  if (!collateralRepayProviderAllowlist.has(providerName.toLowerCase())) {
+  if (
+    !providerName ||
+    !collateralRepayProviderAllowlist.has(providerName.toLowerCase())
+  ) {
     return false;
   }
 
