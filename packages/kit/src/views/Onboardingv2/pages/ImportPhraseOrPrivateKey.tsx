@@ -19,6 +19,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
@@ -248,6 +249,7 @@ export default function ImportPhraseOrPrivateKey() {
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState('');
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
 
   const sidebarFaqs =
     selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase
@@ -443,6 +445,7 @@ export default function ImportPhraseOrPrivateKey() {
       {!gtMd ? (
         <Page.Footer>
           <Page.FooterActions
+            pb={safeAreaBottom ? safeAreaBottom + 8 : 20}
             onConfirmText={intl.formatMessage({
               id: ETranslations.global_confirm,
             })}
