@@ -1955,6 +1955,12 @@ const CPU_WATCHDOG_HISTORY_SIZE = CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES;
 const CPU_WATCHDOG_COOLDOWN_MS = 30 * 60_000;
 
 const cpuHistoryByPid = new Map<number, number[]>();
+// Cumulative CPU seconds per pid at the previous tick. Delta of these
+// divided by wall-clock delta gives the true "fraction of one core" used,
+// independent of how many cores the machine has — matching the DevTools
+// Performance Monitor reading.
+const prevCumCpuByPid = new Map<number, number>();
+let lastSampleAt: number | null = null;
 let lastWatchdogFiredAt = 0;
 let watchdogDialogOpen = false;
 let cpuWatchdogInterval: ReturnType<typeof setInterval> | null = null;
@@ -1971,55 +1977,66 @@ function startCpuWatchdog() {
   cpuWatchdogInterval = setInterval(() => {
     try {
       const metrics = app.getAppMetrics();
+      const now = Date.now();
+      const wallDeltaSec =
+        lastSampleAt === null
+          ? CPU_WATCHDOG_SAMPLE_INTERVAL_MS / 1000
+          : (now - lastSampleAt) / 1000;
+      lastSampleAt = now;
 
-      // TEMP DIAGNOSTIC: dump every process's CPU snapshot every tick so
-      // we can calibrate the threshold semantics on this platform.
+      // Step 1: compute effective % (= fraction of one core, 100 = one core
+      // fully busy) for every process using the cumulativeCPUUsage delta.
+      // This matches what Chrome DevTools Performance Monitor shows and is
+      // independent of total core count — Electron's percentCPUUsage divides
+      // by cores and is therefore unusable for "main thread saturated".
+      const annotated = metrics.map((m) => {
+        const cum =
+          (m.cpu as { cumulativeCPUUsage?: number }).cumulativeCPUUsage ?? 0;
+        const prev = prevCumCpuByPid.get(m.pid);
+        let effectivePercent = 0;
+        if (prev !== undefined && wallDeltaSec > 0) {
+          effectivePercent = ((cum - prev) / wallDeltaSec) * 100;
+          if (effectivePercent < 0) effectivePercent = 0;
+        }
+        prevCumCpuByPid.set(m.pid, cum);
+        return {
+          pid: m.pid,
+          type: m.type,
+          name: m.name,
+          electronPct: Number(m.cpu.percentCPUUsage.toFixed(2)),
+          effectivePct: Number(effectivePercent.toFixed(1)),
+          cum: Number(cum.toFixed(2)),
+        };
+      });
+
+      // Step 2: log every process sorted by effective CPU descending so
+      // when "who's burning" is the question, the top line answers it.
+      const sortedForLog = [...annotated].toSorted(
+        (a, b) => b.effectivePct - a.effectivePct,
+      );
       logger.info(
-        `[CPU Watchdog] DUMP cores=${os.cpus().length} processes=${JSON.stringify(
-          metrics.map((m) => ({
-            pid: m.pid,
-            type: m.type,
-            name: m.name,
-            pct: Number(m.cpu.percentCPUUsage.toFixed(2)),
-            cum: Number(
-              (
-                (m.cpu as { cumulativeCPUUsage?: number })
-                  .cumulativeCPUUsage ?? 0
-              ).toFixed(2),
-            ),
-          })),
-        )}`,
+        `[CPU Watchdog] tick cores=${os.cpus().length} wallΔ=${wallDeltaSec.toFixed(
+          1,
+        )}s processes=${JSON.stringify(sortedForLog)}`,
       );
 
+      // Step 3: only Tab processes feed the sliding window for severe/mild
+      // detection. effectivePct is the right metric: 100 = one core fully
+      // busy = JS main thread saturated.
       const seenPids = new Set<number>();
-      for (const m of metrics) {
-        if (m.type === 'Tab') {
-          seenPids.add(m.pid);
-          const history = cpuHistoryByPid.get(m.pid) ?? [];
-          const cpuPercent = m.cpu.percentCPUUsage;
-          history.push(cpuPercent);
+      for (const a of annotated) {
+        if (a.type === 'Tab') {
+          seenPids.add(a.pid);
+          // Skip the very first sample for a new pid — no delta available
+          // (prev was undefined → effectivePct defaulted to 0).
+          if (prevCumCpuByPid.has(a.pid) && a.effectivePct === 0) {
+            // proceed with 0 — actually idle
+          }
+          const history = cpuHistoryByPid.get(a.pid) ?? [];
+          history.push(a.effectivePct);
           if (history.length > CPU_WATCHDOG_HISTORY_SIZE) history.shift();
-          cpuHistoryByPid.set(m.pid, history);
+          cpuHistoryByPid.set(a.pid, history);
 
-          // TEMP DIAGNOSTIC: log every sample so we can see what
-          // app.getAppMetrics() actually reports during a burn on this
-          // platform. Will be tightened again once thresholds are
-          // calibrated.
-          const cumCpu = (m.cpu as { cumulativeCPUUsage?: number })
-            .cumulativeCPUUsage;
-          logger.info(
-            `[CPU Watchdog] sample pid=${m.pid} cpu=${cpuPercent.toFixed(
-              1,
-            )}% cumCpuSec=${
-              typeof cumCpu === 'number' ? cumCpu.toFixed(2) : 'n/a'
-            } cores=${os.cpus().length} last5=[${history
-              .slice(-5)
-              .map((v) => v.toFixed(1))
-              .join(',')}]`,
-          );
-
-          // Severe first (precedence) — same cooldown gate, so a single
-          // tick at most fires one reason.
           const severeWindow = history.slice(
             -CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
           );
@@ -2031,7 +2048,7 @@ function startCpuWatchdog() {
           if (severe) {
             triggerCpuWatchdog({
               reason: 'sustained-high-cpu-severe',
-              pid: m.pid,
+              pid: a.pid,
               cpuTrend: severeWindow,
             });
           } else {
@@ -2041,16 +2058,20 @@ function startCpuWatchdog() {
             if (mild) {
               triggerCpuWatchdog({
                 reason: 'sustained-high-cpu-mild',
-                pid: m.pid,
+                pid: a.pid,
                 cpuTrend: [...history],
               });
             }
           }
         }
       }
-      // Forget pids that no longer exist (renderer restarted / process gone)
+      // Forget pids that no longer exist (renderer restarted / process gone).
       for (const pid of cpuHistoryByPid.keys()) {
         if (!seenPids.has(pid)) cpuHistoryByPid.delete(pid);
+      }
+      // Also prune prev cum cache for vanished pids to avoid unbounded growth.
+      for (const pid of prevCumCpuByPid.keys()) {
+        if (!annotated.some((a) => a.pid === pid)) prevCumCpuByPid.delete(pid);
       }
     } catch (error) {
       logger.warn('[CPU Watchdog] sample failed', error);
@@ -2207,6 +2228,8 @@ function resetCpuWatchdogStateForTesting() {
   lastWatchdogFiredAt = 0;
   watchdogDialogOpen = false;
   cpuHistoryByPid.clear();
+  prevCumCpuByPid.clear();
+  lastSampleAt = null;
 }
 
 app.on('before-quit', () => {
