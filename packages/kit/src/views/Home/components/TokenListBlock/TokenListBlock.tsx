@@ -409,6 +409,9 @@ function TokenListBlock({
       const requestTokenSelectorFilterMode =
         latestTokenSelectorFilterModeRef.current;
       try {
+        if (requestTokenSelectorFilterMode !== 'wallet-token') {
+          return;
+        }
         if (!network) return;
 
         if (!mergeDeriveAddressData) {
@@ -682,7 +685,7 @@ function TokenListBlock({
     },
   );
 
-  usePromiseResult(
+  const { run: runLpTokenList } = usePromiseResult(
     async () => {
       if (!showLpTokensOnly || !account?.id || !network?.id) {
         return;
@@ -846,6 +849,7 @@ function TokenListBlock({
             isRefreshing: false,
           });
         }
+        setIsHeaderRefreshing(false);
       }
     },
     [
@@ -859,6 +863,7 @@ function TokenListBlock({
       showLpTokensOnly,
       tokenSelectorFilterMode,
       tokenSelectorFilterParams,
+      setIsHeaderRefreshing,
       updateActiveAccountTokenListState,
     ],
     {
@@ -918,6 +923,11 @@ function TokenListBlock({
       allNetworkDataInit?: boolean;
       isSingleRequest?: boolean;
     }) => {
+      if (latestTokenSelectorFilterModeRef.current !== 'wallet-token') {
+        isAllNetworkManualRefresh.current = false;
+        return undefined;
+      }
+
       const response = await backgroundApiProxy.serviceToken.fetchAccountTokens(
         {
           dbAccount,
@@ -1297,6 +1307,9 @@ function TokenListBlock({
       networkId?: string;
       hasCache: boolean;
     }) => {
+      if (latestTokenSelectorFilterModeRef.current !== 'wallet-token') {
+        return;
+      }
       if (!syncTokenFilterToOverview) {
         return;
       }
@@ -1341,6 +1354,10 @@ function TokenListBlock({
       localTokensRawData.current = l ?? undefined;
       aggregateTokenRawData.current = a ?? undefined;
 
+      if (latestTokenSelectorFilterModeRef.current !== 'wallet-token') {
+        return;
+      }
+
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.TOKENS,
@@ -1375,6 +1392,10 @@ function TokenListBlock({
       xpub?: string;
       accountAddress: string;
     }) => {
+      if (latestTokenSelectorFilterModeRef.current !== 'wallet-token') {
+        return null;
+      }
+
       const perf = perfUtils.createPerf({
         name: EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
       });
@@ -1696,9 +1717,14 @@ function TokenListBlock({
     onCacheChecked: handleAllNetworkCacheChecked,
     interval: 200,
     shouldAlwaysFetch,
+    disabled: showLpTokensOnly,
   });
 
   const updateAllNetworksTokenList = useCallback(async () => {
+    if (tokenSelectorFilterMode !== 'wallet-token') {
+      return;
+    }
+
     const tokenList: {
       tokens: IAccountToken[];
       keys: string;
@@ -2034,6 +2060,10 @@ function TokenListBlock({
   // The async `initTokenListData` below still fetches the latest local cache
   // and overwrites these atoms with fresh data once it returns.
   useLayoutEffect(() => {
+    if (showLpTokensOnly) {
+      return;
+    }
+
     const currentAccountId = getTokenListOwnerCacheAccountId({
       accountId: account?.id,
       indexedAccountId: indexedAccount?.id,
@@ -2123,9 +2153,14 @@ function TokenListBlock({
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
     handleClearAllNetworkData,
+    showLpTokensOnly,
   ]);
 
   useEffect(() => {
+    if (showLpTokensOnly) {
+      return;
+    }
+
     // Flips to true on cleanup (next owner change or unmount). Any write
     // back to the singleton token-list atoms after the first `await` must
     // be gated on this — otherwise a slow response from a previous owner
@@ -2476,9 +2511,13 @@ function TokenListBlock({
 
   useEffect(() => {
     if (isHeaderRefreshing) {
+      if (showLpTokensOnly) {
+        void runLpTokenList({ alwaysSetState: true });
+        return;
+      }
       void run();
     }
-  }, [isHeaderRefreshing, run]);
+  }, [isHeaderRefreshing, run, runLpTokenList, showLpTokensOnly]);
 
   const handleOnPressToken = useCallback(
     (token: IAccountToken) => {
@@ -2514,12 +2553,17 @@ function TokenListBlock({
   );
 
   const handleRefreshAllNetworkData = useCallback(() => {
+    if (showLpTokensOnly) {
+      void runLpTokenList({ alwaysSetState: true });
+      return;
+    }
+
     isAllNetworkManualRefresh.current = true;
     void runAllNetworksRequests({
       alwaysSetState: true,
       skipAccountsCache: true,
     });
-  }, [runAllNetworksRequests]);
+  }, [runAllNetworksRequests, runLpTokenList, showLpTokensOnly]);
 
   refreshWalletTokenListRef.current = () => {
     if (network?.isAllNetworks) {
@@ -2537,12 +2581,23 @@ function TokenListBlock({
     }
     lastVisibilityRefreshAtRef.current = now;
 
+    if (showLpTokensOnly) {
+      void runLpTokenList({ alwaysSetState: true });
+      return;
+    }
+
     if (network?.isAllNetworks) {
       handleRefreshAllNetworkData();
       return;
     }
     void run({ alwaysSetState: true });
-  }, [handleRefreshAllNetworkData, network?.isAllNetworks, run]);
+  }, [
+    handleRefreshAllNetworkData,
+    network?.isAllNetworks,
+    run,
+    runLpTokenList,
+    showLpTokensOnly,
+  ]);
 
   useEffect(() => {
     const removeSubscription = onVisibilityStateChange((visible) => {
@@ -2556,6 +2611,10 @@ function TokenListBlock({
   useEffect(() => {
     const fn = () => {
       if (network?.isAllNetworks) {
+        if (showLpTokensOnly) {
+          void runLpTokenList({ alwaysSetState: true });
+          return;
+        }
         void runAllNetworksRequests({ alwaysSetState: true });
       }
     };
@@ -2563,10 +2622,20 @@ function TokenListBlock({
     return () => {
       appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, fn);
     };
-  }, [network?.isAllNetworks, runAllNetworksRequests]);
+  }, [
+    network?.isAllNetworks,
+    runAllNetworksRequests,
+    runLpTokenList,
+    showLpTokensOnly,
+  ]);
 
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
+      if (showLpTokensOnly) {
+        await runLpTokenList({ alwaysSetState: true });
+        return;
+      }
+
       for (const { accountId, networkId } of accounts) {
         await handleAllNetworkRequests({
           accountId,
@@ -2576,7 +2645,7 @@ function TokenListBlock({
         });
       }
     },
-    [handleAllNetworkRequests],
+    [handleAllNetworkRequests, runLpTokenList, showLpTokensOnly],
   );
 
   usePromiseResult(
@@ -2621,6 +2690,11 @@ function TokenListBlock({
           }
         | undefined,
     ) => {
+      if (showLpTokensOnly) {
+        void runLpTokenList({ alwaysSetState: true });
+        return;
+      }
+
       if (network?.isAllNetworks) {
         if (params?.accounts) {
           void handleRefreshAllNetworkDataByAccounts(params.accounts);
@@ -2652,6 +2726,8 @@ function TokenListBlock({
     network?.isAllNetworks,
     run,
     runAllNetworksRequests,
+    runLpTokenList,
+    showLpTokensOnly,
   ]);
 
   useEffect(() => {

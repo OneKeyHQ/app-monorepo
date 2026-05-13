@@ -88,6 +88,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
               isAllNetworks={isAllNetworks}
               networkId={token.networkId}
               withNetwork={withNetwork}
+              showDeFiMarkedBadge={token.defiMarked}
               textProps={{
                 size: '$bodyLgMedium',
                 flexShrink: 0,
@@ -135,6 +136,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             isAllNetworks={isAllNetworks}
             networkId={token.networkId}
             withNetwork={withNetwork}
+            showDeFiMarkedBadge={token.defiMarked}
             textProps={{
               size: '$bodyLgMedium',
               flexShrink: 0,

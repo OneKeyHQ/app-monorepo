@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -45,6 +45,35 @@ import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
 
 const num = 0;
+
+type ISelectorTokenListRequestContext = {
+  accountId: string;
+  networkId: string;
+  indexedAccountId: string;
+  activeAccountId: string;
+  activeNetworkId: string;
+  isSelectorAllNetworks: boolean;
+  showLpTokensOnly: boolean;
+  useSelectorFilteredTokenList: boolean;
+  showActiveAccountTokenList: boolean;
+};
+
+function isSameSelectorTokenListRequestContext(
+  a: ISelectorTokenListRequestContext,
+  b: ISelectorTokenListRequestContext,
+) {
+  return (
+    a.accountId === b.accountId &&
+    a.networkId === b.networkId &&
+    a.indexedAccountId === b.indexedAccountId &&
+    a.activeAccountId === b.activeAccountId &&
+    a.activeNetworkId === b.activeNetworkId &&
+    a.isSelectorAllNetworks === b.isSelectorAllNetworks &&
+    a.showLpTokensOnly === b.showLpTokensOnly &&
+    a.useSelectorFilteredTokenList === b.useSelectorFilteredTokenList &&
+    a.showActiveAccountTokenList === b.showActiveAccountTokenList
+  );
+}
 
 function TokenSelector() {
   const intl = useIntl();
@@ -468,6 +497,29 @@ function TokenSelector() {
     showActiveAccountTokenList || useSelectorFilteredTokenList;
   const effectiveHideZeroBalanceTokens =
     showDeFiTokenSwitch && showLpTokensOnly ? false : hideZeroBalanceTokens;
+  const latestSelectorTokenListRequestContextRef =
+    useRef<ISelectorTokenListRequestContext>({
+      accountId: accountId ?? '',
+      networkId: networkId ?? '',
+      indexedAccountId: indexedAccountId ?? '',
+      activeAccountId: activeAccountId ?? '',
+      activeNetworkId: activeNetworkId ?? '',
+      isSelectorAllNetworks: !!isSelectorAllNetworks,
+      showLpTokensOnly,
+      useSelectorFilteredTokenList,
+      showActiveAccountTokenList,
+    });
+  latestSelectorTokenListRequestContextRef.current = {
+    accountId: accountId ?? '',
+    networkId: networkId ?? '',
+    indexedAccountId: indexedAccountId ?? '',
+    activeAccountId: activeAccountId ?? '',
+    activeNetworkId: activeNetworkId ?? '',
+    isSelectorAllNetworks: !!isSelectorAllNetworks,
+    showLpTokensOnly,
+    useSelectorFilteredTokenList,
+    showActiveAccountTokenList,
+  };
 
   usePromiseResult(async () => {
     if (!useSelectorFilteredTokenList || showActiveAccountTokenList) {
@@ -475,6 +527,27 @@ function TokenSelector() {
     }
 
     if (!accountId || !networkId) {
+      return;
+    }
+
+    const requestContext: ISelectorTokenListRequestContext = {
+      accountId,
+      networkId,
+      indexedAccountId: indexedAccountId ?? '',
+      activeAccountId: activeAccountId ?? '',
+      activeNetworkId: activeNetworkId ?? '',
+      isSelectorAllNetworks: !!isSelectorAllNetworks,
+      showLpTokensOnly,
+      useSelectorFilteredTokenList,
+      showActiveAccountTokenList,
+    };
+    const isLatestRequest = () =>
+      isSameSelectorTokenListRequestContext(
+        latestSelectorTokenListRequestContextRef.current,
+        requestContext,
+      );
+
+    if (!isLatestRequest()) {
       return;
     }
 
@@ -499,6 +572,10 @@ function TokenSelector() {
             excludeTestNetwork: true,
             networksEnabledOnly: !accountUtils.isOthersAccount({ accountId }),
           });
+
+        if (!isLatestRequest()) {
+          return;
+        }
 
         const requestFactories = accountsInfo.map(
           ({ accountId: itemAccountId, networkId: itemNetworkId, dbAccount }) =>
@@ -533,6 +610,10 @@ function TokenSelector() {
           ...tokenSelectorFilterParams,
         });
         responses = [r];
+      }
+
+      if (!isLatestRequest()) {
+        return;
       }
 
       const selectorTokenList: IAccountToken[] = [];
@@ -573,12 +654,16 @@ function TokenSelector() {
     } catch (e) {
       console.error(e);
     } finally {
-      updateActiveAccountTokenListState({
-        initialized: true,
-        isRefreshing: false,
-      });
+      if (isLatestRequest()) {
+        updateActiveAccountTokenListState({
+          initialized: true,
+          isRefreshing: false,
+        });
+      }
     }
   }, [
+    activeAccountId,
+    activeNetworkId,
     accountId,
     indexedAccountId,
     isSelectorAllNetworks,
@@ -594,6 +679,27 @@ function TokenSelector() {
 
   usePromiseResult(async () => {
     if (activeAccountId && activeNetworkId && showActiveAccountTokenList) {
+      const requestContext: ISelectorTokenListRequestContext = {
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+        indexedAccountId: indexedAccountId ?? '',
+        activeAccountId,
+        activeNetworkId,
+        isSelectorAllNetworks: !!isSelectorAllNetworks,
+        showLpTokensOnly,
+        useSelectorFilteredTokenList,
+        showActiveAccountTokenList,
+      };
+      const isLatestRequest = () =>
+        isSameSelectorTokenListRequestContext(
+          latestSelectorTokenListRequestContextRef.current,
+          requestContext,
+        );
+
+      if (!isLatestRequest()) {
+        return;
+      }
+
       updateActiveAccountTokenListState({
         initialized: false,
         isRefreshing: true,
@@ -609,6 +715,10 @@ function TokenSelector() {
         flag: 'token-selector',
         ...tokenSelectorFilterParams,
       });
+
+      if (!isLatestRequest()) {
+        return;
+      }
 
       refreshActiveAccountTokenList({
         tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
@@ -653,13 +763,18 @@ function TokenSelector() {
   }, [
     activeAccountId,
     activeNetworkId,
+    accountId,
     indexedAccountId,
+    isSelectorAllNetworks,
+    networkId,
     refreshActiveAccountTokenList,
     refreshTokenListMap,
     showActiveAccountTokenList,
+    showLpTokensOnly,
     tokenSelectorFilterParams,
     updateActiveAccountTokenListState,
     currencyInfo.id,
+    useSelectorFilteredTokenList,
   ]);
 
   useEffect(() => {

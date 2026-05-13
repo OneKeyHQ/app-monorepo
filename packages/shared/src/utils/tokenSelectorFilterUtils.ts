@@ -3,6 +3,8 @@ export function buildTokenSelectorDappTokenFilterParams({
 }: {
   lpToken: boolean;
 }) {
+  // Keep aligned with server-service-swap `/v1/tokens`: lpToken=true keeps
+  // dApp/DeFi tokens by excluding wallet tokens from the wallet token API.
   return lpToken
     ? {
         withoutDappToken: false,
