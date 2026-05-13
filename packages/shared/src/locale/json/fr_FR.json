@@ -3040,7 +3040,7 @@
   "perp_market_info_rank_tooltip__desc": "Market ranking by market cap.",
   "perp_market_info_raw_source__title": "Source material",
   "perp_market_info_raw_source_tooltip__desc": "Third-party source material is shown as provided and is not translated yet.",
-  "perp_market_info_reference_note__desc": "Market data is provided by third parties as global market data for reference only. It may differ from Hyperliquid trading prices, volume, and other data. This information is provided as is and does not constitute any representation or warranty.",
+  "perp_market_info_reference_note__desc": "Les données de marché sont fournies par des tiers en tant que données de marché mondiales à titre indicatif uniquement. Elles peuvent différer des prix de trading, volumes et autres données de Hyperliquid. Ces informations sont fournies en l’état et ne constituent aucune déclaration ni garantie.",
   "perp_market_info_social_media__title": "Social media",
   "perp_market_info_total_supply_tooltip__desc": "Total number of tokens currently issued.",
   "perp_market_liquidation__title": "Liquidation au marche",
