@@ -113,8 +113,9 @@ async function resolvePerpMarketDetail({
 
   const localizedMessage =
     resolvedAssetMeta.meta.localizedMessage || resolvedAssetMeta.meta.message;
+  // Legacy cached configs only have assetId, so only explicit non-CoinGecko skips fetching.
   const shouldFetchMarketDetail =
-    resolvedAssetMeta.meta.assetType === 'coingecko';
+    resolvedAssetMeta.meta.assetType !== 'non_coingecko';
   let detail: IMarketTokenDetail | undefined;
 
   if (shouldFetchMarketDetail) {
