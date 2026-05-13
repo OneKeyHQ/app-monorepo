@@ -308,6 +308,10 @@ export function convertNetworkToSignatureConfirmNetwork({
   };
 }
 
+function getUniqueAddresses(addresses: string[]) {
+  return Array.from(new Set(addresses.filter(Boolean)));
+}
+
 function convertAssetTransferActionToSignatureConfirmComponent({
   action,
   unsignedTx,
@@ -389,15 +393,23 @@ function convertAssetTransferActionToSignatureConfirmComponent({
     components.push(receiveAddressComponent);
   }
 
-  if (action.to) {
-    let showInteractWithContract = false;
+  let showInteractWithContract = false;
 
-    if (isInternalSwap) {
-      showInteractWithContract = true;
-    } else if (isInternalStake) {
-      showInteractWithContract = !isUTXO;
-    }
+  if (isInternalSwap) {
+    showInteractWithContract = true;
+  } else if (isInternalStake) {
+    showInteractWithContract = !isUTXO;
+  }
 
+  const toAddresses = showInteractWithContract
+    ? getUniqueAddresses(action.to ? [action.to] : [])
+    : getUniqueAddresses(action.sends.map((send) => send.to));
+
+  const addressComponents = toAddresses.length
+    ? toAddresses
+    : getUniqueAddresses(action.to ? [action.to] : []);
+
+  addressComponents.forEach((address) => {
     const toAddressComponent: IDisplayComponentAddress = {
       type: EParseTxComponentType.Address,
       label: showInteractWithContract
@@ -407,14 +419,14 @@ function convertAssetTransferActionToSignatureConfirmComponent({
         : appLocale.intl.formatMessage({
             id: ETranslations.global_to,
           }),
-      address: action.to,
+      address,
       tags: [],
       isNavigable: showInteractWithContract,
       highlight: !showInteractWithContract,
     };
 
     components.push(toAddressComponent);
-  }
+  });
 
   return components;
 }
