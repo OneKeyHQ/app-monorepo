@@ -55,8 +55,35 @@ function SignAndVerifyMessage() {
         EModalSignAndVerifyRoutes.SignAndVerifyMessage
       >
     >();
-  const { networkId, accountId, walletId, indexedAccountId, isOthersWallet } =
-    route.params;
+  const {
+    networkId,
+    accountId,
+    walletId,
+    indexedAccountId,
+    deriveInfoItems,
+    deriveType,
+    isOthersWallet,
+  } = route.params;
+
+  useEffect(() => {
+    console.log('route.params: ', {
+      networkId,
+      accountId,
+      walletId,
+      indexedAccountId,
+      deriveInfoItems,
+      deriveType,
+      isOthersWallet,
+    });
+  }, [
+    accountId,
+    deriveInfoItems,
+    deriveType,
+    indexedAccountId,
+    isOthersWallet,
+    networkId,
+    walletId,
+  ]);
 
   const [isSigning, setIsSigning] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
