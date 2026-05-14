@@ -32,9 +32,9 @@ export const CoreSDKLoader = async (): Promise<
 // where two concurrent ensureSDKReady() calls could both enter the init block
 // before sdkInitialized is set.
 let sdkReadyPromise: Promise<CoreApi> | null = null;
-let sdkTaskQueue: Promise<void> = Promise.resolve();
+let hardwareSDKQueueTail: Promise<void> = Promise.resolve();
 
-const SDK_CONTROL_METHODS = new Set<PropertyKey>([
+const SDK_QUEUE_BYPASS_METHODS = new Set<PropertyKey>([
   'addListener',
   'cancel',
   'dispose',
@@ -58,25 +58,29 @@ const SDK_CONTROL_METHODS = new Set<PropertyKey>([
 
 type HardwareMethod = (...args: unknown[]) => unknown;
 
-function enqueueSDKTask<T>(task: () => T | Promise<T>): Promise<T> {
-  const run = sdkTaskQueue.then(task, task);
-  sdkTaskQueue = run.then(
+function enqueueHardwareSDKCall<T>(call: () => T | Promise<T>): Promise<T> {
+  const run = hardwareSDKQueueTail.then(call, call);
+  hardwareSDKQueueTail = run.then(
     () => undefined,
     () => undefined,
   );
   return run;
 }
 
+function resetHardwareSDKQueue() {
+  hardwareSDKQueueTail = Promise.resolve();
+}
+
 /**
  * CLI analogue of app-monorepo's hardware processing boundary.
  *
  * The Node USB transport and SDK UI/passphrase state are process-wide serial
- * resources. Returning a serialized facade makes accidental concurrent SDK
+ * resources. Returning a queued facade makes accidental concurrent SDK
  * calls (for example Promise.all inside a signer) execute FIFO instead of
- * interrupting the device with code 107. Control methods must bypass the
- * queue so PIN/passphrase responses and cancel can reach the SDK immediately.
+ * interrupting the device with code 107. Queue-bypass methods must stay
+ * immediate so PIN/passphrase responses and cancel can reach the SDK.
  */
-export function createSerializedHardwareSDK<T extends object>(sdk: T): T {
+export function createQueuedHardwareSDK<T extends object>(sdk: T): T {
   const methodCache = new Map<PropertyKey, unknown>();
 
   return new Proxy(sdk, {
@@ -94,10 +98,10 @@ export function createSerializedHardwareSDK<T extends object>(sdk: T): T {
       const method = (...args: unknown[]) => {
         const hardwareMethod = value as HardwareMethod;
         const call = (): unknown => Reflect.apply(hardwareMethod, target, args);
-        if (SDK_CONTROL_METHODS.has(prop)) {
+        if (SDK_QUEUE_BYPASS_METHODS.has(prop)) {
           return call();
         }
-        return enqueueSDKTask(call);
+        return enqueueHardwareSDKCall(call);
       };
       methodCache.set(prop, method);
       return method;
@@ -120,7 +124,7 @@ export async function disposeSDK(): Promise<void> {
     // ignore errors during cleanup
   } finally {
     sdkReadyPromise = null;
-    sdkTaskQueue = Promise.resolve();
+    resetHardwareSDKQueue();
   }
 }
 
@@ -259,7 +263,7 @@ async function initSDK(): Promise<CoreApi> {
     },
   );
 
-  return createSerializedHardwareSDK(sdk);
+  return createQueuedHardwareSDK(sdk);
 }
 
 export async function ensureSDKReady(): Promise<CoreApi> {

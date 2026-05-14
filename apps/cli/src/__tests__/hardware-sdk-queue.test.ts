@@ -1,6 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { createSerializedHardwareSDK } from '../commands/device/hardware-sdk';
+import { createQueuedHardwareSDK } from '../commands/device/hardware-sdk';
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -12,11 +12,11 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
-describe('createSerializedHardwareSDK', () => {
+describe('createQueuedHardwareSDK', () => {
   it('serializes SDK method calls in FIFO order', async () => {
     const firstCall = createDeferred<void>();
     const order: string[] = [];
-    const sdk = createSerializedHardwareSDK({
+    const sdk = createQueuedHardwareSDK({
       searchDevices: jest.fn(async () => {
         order.push('search-start');
         await firstCall.promise;
@@ -41,10 +41,10 @@ describe('createSerializedHardwareSDK', () => {
     expect(order).toEqual(['search-start', 'search-end', 'features-start']);
   });
 
-  it('does not queue SDK control methods', async () => {
+  it('does not queue SDK queue-bypass methods', async () => {
     const firstCall = createDeferred<void>();
     const order: string[] = [];
-    const sdk = createSerializedHardwareSDK({
+    const sdk = createQueuedHardwareSDK({
       searchDevices: jest.fn(async () => {
         order.push('search-start');
         await firstCall.promise;
@@ -71,7 +71,7 @@ describe('createSerializedHardwareSDK', () => {
 
   it('keeps processing queued calls after a SDK method rejects', async () => {
     const order: string[] = [];
-    const sdk = createSerializedHardwareSDK({
+    const sdk = createQueuedHardwareSDK({
       getFeatures: jest.fn(async () => {
         order.push('features-start');
         throw new OneKeyLocalError('device busy');
@@ -94,7 +94,7 @@ describe('createSerializedHardwareSDK', () => {
   it('uses the same queue for SOL hardware methods', async () => {
     const btcCall = createDeferred<void>();
     const order: string[] = [];
-    const sdk = createSerializedHardwareSDK({
+    const sdk = createQueuedHardwareSDK({
       btcGetAddress: jest.fn(async () => {
         order.push('btc-address-start');
         await btcCall.promise;
