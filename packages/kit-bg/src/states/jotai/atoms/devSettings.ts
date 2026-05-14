@@ -148,8 +148,8 @@ export const {
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
       allowLocalhostUrlInDAppBrowser: false,
-      // Linux Desktop use Bridge，avoiding WebUSB permission problem
-      usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
+      // Linux Desktop uses WebUSB; host udev rules are requested when needed.
+      usbCommunicationMode: 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
       useFastPbkdf2NativeBackend: false,

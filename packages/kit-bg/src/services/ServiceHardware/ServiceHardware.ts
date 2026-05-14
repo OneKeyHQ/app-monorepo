@@ -155,6 +155,8 @@ const NEW_DIALOG_EVENTS = new Set([
 class ServiceHardware extends ServiceBase {
   private bridgeAvailabilityChecked = false;
 
+  private linuxUdevRulesInstallPromise: Promise<boolean> | undefined;
+
   // Third-party (Trezor / Ledger) hardware adapter lifecycle + methods now live
   // in ServiceThirdPartyHardware. ServiceHardware delegates via
   // `this.backgroundApi.serviceThirdPartyHardware.*`.
@@ -778,8 +780,91 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
-    const response = await hardwareSDK?.searchDevices();
+    let response: Awaited<Response<Array<SearchDevice>>> | undefined;
+    try {
+      response = await hardwareSDK?.searchDevices();
+    } catch (error) {
+      if (
+        this.isUsbAccessError(error) &&
+        (await this.ensureLinuxWebUsbPermissionsForSearch())
+      ) {
+        const retryResponse = await hardwareSDK?.searchDevices();
+        console.log('searchDevices response after udev rules: ', retryResponse);
+        return retryResponse;
+      }
+      throw error;
+    }
+    console.log('searchDevices response: ', response);
+    if (
+      (this.isEmptySearchDevicesResponse(response) ||
+        this.isUsbAccessErrorSearchDevicesResponse(response)) &&
+      (await this.ensureLinuxWebUsbPermissionsForSearch())
+    ) {
+      const retryResponse = await hardwareSDK?.searchDevices();
+      console.log('searchDevices response after udev rules: ', retryResponse);
+      return retryResponse;
+    }
     return response;
+  }
+
+  private isEmptySearchDevicesResponse(
+    response: Awaited<Response<Array<SearchDevice>>> | undefined,
+  ) {
+    return response?.success === true && response.payload.length === 0;
+  }
+
+  private isUsbAccessError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('LIBUSB_ERROR_ACCESS');
+  }
+
+  private isUsbAccessErrorSearchDevicesResponse(
+    response: Awaited<Response<Array<SearchDevice>>> | undefined,
+  ) {
+    return (
+      response?.success === false &&
+      this.isUsbAccessError(response.payload.error)
+    );
+  }
+
+  private async ensureLinuxWebUsbPermissionsForSearch() {
+    if (!platformEnv.isDesktopLinux || platformEnv.isDesktopLinuxSnap) {
+      return false;
+    }
+
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    if (hardwareTransportType !== EHardwareTransportType.WEBUSB) {
+      return false;
+    }
+
+    this.linuxUdevRulesInstallPromise ??= (async () => {
+      try {
+        const result =
+          await globalThis.desktopApiProxy?.system?.installOneKeyUdevRules?.();
+        if (result?.installed) {
+          defaultLogger.hardware.sdkLog.log(
+            '[LinuxWebUSB] OneKey udev rules ready',
+            JSON.stringify(result),
+          );
+          return true;
+        }
+        if (result) {
+          defaultLogger.hardware.sdkLog.log(
+            '[LinuxWebUSB] OneKey udev rules not installed',
+            JSON.stringify(result),
+          );
+        }
+      } catch (error) {
+        defaultLogger.hardware.sdkLog.log(
+          '[LinuxWebUSB] Failed to install OneKey udev rules',
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      return false;
+    })();
+
+    return this.linuxUdevRulesInstallPromise;
   }
 
   @backgroundMethod()

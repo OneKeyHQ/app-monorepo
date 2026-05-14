@@ -14,7 +14,14 @@ export type IDependencies = {
 
 let bridgeInstance: BridgeProcess;
 
+const shouldLaunchBridge = () => process.env.ONEKEY_ENABLE_BRIDGE === '1';
+
 export const restartBridge = async () => {
+  if (!shouldLaunchBridge()) {
+    logger.info('bridge: Skip restart because bridge is disabled by default');
+    return;
+  }
+
   if (!bridgeInstance?.isCurrentSystemSupported()) {
     logger.info('bridge: Skip restart on unsupported system');
     return;
@@ -25,6 +32,11 @@ export const restartBridge = async () => {
 };
 
 export const launchBridge = async () => {
+  if (!shouldLaunchBridge()) {
+    logger.info('bridge: Skip launch because bridge is disabled by default');
+    return;
+  }
+
   const bridge = new BridgeProcess();
   if (!bridge.isCurrentSystemSupported()) {
     logger.info('bridge: Skip launch on unsupported system');

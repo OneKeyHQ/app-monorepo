@@ -55,6 +55,10 @@ export class HardwareConnectionManager {
   private async getDesktopUsbSetting(): Promise<
     'webusb' | 'bridge' | undefined
   > {
+    if (platformEnv.isDesktopLinux) {
+      return 'webusb';
+    }
+
     try {
       const dev = await this.backgroundApi.serviceDevSetting.getDevSetting();
       return dev?.settings?.usbCommunicationMode;
