@@ -52,6 +52,7 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -459,21 +460,9 @@ function WebSocketSubscriptionUpdate() {
     noop(activeOrderBookOptions?.mantissa);
     noop(activeOrderBookOptions?.nSigFigs);
 
-    if (isWebSocketConnected === true && !isLoading) {
-      if (
-        activeAsset?.coin &&
-        activeOrderBookOptions?.coin === activeAsset?.coin
-      ) {
-        console.log('updateSubscriptions______PerpsGlobalEffects');
-        void actions.current.updateSubscriptions();
-      } else {
-        // update orderbook options to match the active asset
-        // Toast.error({
-        //   title: 'Error',
-        //   message:
-        //     'Orderbook options do not match the active asset coin, please change the asset',
-        // });
-      }
+    if (!isLoading && activeAsset?.coin) {
+      console.log('updateSubscriptions______PerpsGlobalEffects');
+      void actions.current.updateSubscriptions();
     }
   }, [
     checkDeps,
@@ -541,6 +530,43 @@ function useHyperliquidScreenLockHandler() {
       prevUnLockRef.current = unLock;
     }
   }, [unLock, checkPerpsAccountStatus]);
+}
+
+function useHyperliquidLocaleChangeRecovery() {
+  const localeVariant = useLocaleVariant();
+  const actions = useHyperliquidActions();
+  const isFocusedRef = useRef(false);
+  const pendingRecoveryRef = useRef(false);
+
+  const recoverSubscriptions = useCallback(async () => {
+    await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
+    await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions(
+      {
+        forceRebuild: true,
+      },
+    );
+    await actions.current.updateSubscriptions();
+    await backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
+  }, [actions]);
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    (isFocus: boolean, isHiddenByModal: boolean) => {
+      isFocusedRef.current = isFocus && !isHiddenByModal;
+      if (isFocusedRef.current && pendingRecoveryRef.current) {
+        pendingRecoveryRef.current = false;
+        void recoverSubscriptions();
+      }
+    },
+  );
+
+  useUpdateEffect(() => {
+    if (!isFocusedRef.current) {
+      pendingRecoveryRef.current = true;
+      return;
+    }
+    void recoverSubscriptions();
+  }, [localeVariant, recoverSubscriptions]);
 }
 
 function AutoPauseSubscriptions() {
@@ -689,6 +715,7 @@ function PerpsGlobalEffectsView() {
   usePerpTokenUrlSync();
   useHyperliquidSymbolSelect();
   useHyperliquidScreenLockHandler();
+  useHyperliquidLocaleChangeRecovery();
   useSyncContextOrderBookOptionsToGlobal();
   usePerpsSharePrompt();
 
