@@ -786,7 +786,10 @@ class ServiceHardware extends ServiceBase {
   // startDeviceScan
   // TODO use convertDeviceResponse()
   @backgroundMethod()
-  async searchDevices(params?: { vendor?: EHardwareVendor }) {
+  async searchDevices(params?: {
+    vendor?: EHardwareVendor;
+    resetSession?: boolean;
+  }) {
     const vendorProfile = params?.vendor
       ? getVendorProfile(params.vendor)
       : undefined;
@@ -801,7 +804,9 @@ class ServiceHardware extends ServiceBase {
             `No adapter registered for vendor "${params.vendor}"`,
           );
         }
-        const devices = await adapter.searchDevices();
+        const devices = await adapter.searchDevices(
+          params.resetSession ? { resetSession: true } : undefined,
+        );
         defaultLogger.hardware.sdkLog.thirdPartySearchDevicesResponse({
           vendor: params.vendor,
           success: true,

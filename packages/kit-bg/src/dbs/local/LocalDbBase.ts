@@ -3411,6 +3411,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
+    // Third-party SDKs (e.g. Ledger) attach raw model id / display name to
+    // SearchDevice so we can persist it for per-model avatar resolution later.
+    const vendorDevice = device as {
+      vendorModel?: string;
+      vendorModelName?: string;
+    };
+    const initialSettings: IDBDeviceSettings = {
+      inputPinOnSoftware: profile.supportsSoftwarePin,
+      vendor: resolvedVendor,
+    };
+    if (vendorDevice.vendorModel) {
+      initialSettings.vendorModel = vendorDevice.vendorModel;
+    }
+    if (vendorDevice.vendorModelName) {
+      initialSettings.vendorModelName = vendorDevice.vendorModelName;
+    }
+
     const deviceToAdd: IDBDevice = {
       id: dbDeviceId,
       name: deviceName,
@@ -3419,10 +3436,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       deviceId: rawDeviceId,
       deviceType,
       features: featuresStr,
-      settingsRaw: JSON.stringify({
-        inputPinOnSoftware: profile.supportsSoftwarePin,
-        vendor: resolvedVendor,
-      } as IDBDeviceSettings),
+      settingsRaw: JSON.stringify(initialSettings),
       createdAt: now,
       updatedAt: now,
       usbConnectId,
@@ -3544,6 +3558,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 existingSettings.inputPinOnSoftware ??
                 profile.supportsSoftwarePin;
               existingSettings.vendor = resolvedVendor;
+              if (vendorDevice.vendorModel) {
+                existingSettings.vendorModel = vendorDevice.vendorModel;
+              }
+              if (vendorDevice.vendorModelName) {
+                existingSettings.vendorModelName = vendorDevice.vendorModelName;
+              }
               item.settingsRaw = JSON.stringify(existingSettings);
 
               if (isFirmwareVerified) {

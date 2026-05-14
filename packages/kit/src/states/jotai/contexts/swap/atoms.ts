@@ -185,7 +185,7 @@ export const {
 export const {
   atom: swapAllNetworkActionLockAtom,
   use: useSwapAllNetworkActionLockAtom,
-} = contextAtom<boolean>(false);
+} = contextAtom<Record<string, boolean>>({});
 
 // swap quote
 export const {
