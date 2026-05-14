@@ -32,6 +32,78 @@ export const CoreSDKLoader = async (): Promise<
 // where two concurrent ensureSDKReady() calls could both enter the init block
 // before sdkInitialized is set.
 let sdkReadyPromise: Promise<CoreApi> | null = null;
+let sdkTaskQueue: Promise<void> = Promise.resolve();
+
+const SDK_CONTROL_METHODS = new Set<PropertyKey>([
+  'addListener',
+  'cancel',
+  'dispose',
+  'emit',
+  'eventNames',
+  'getMaxListeners',
+  'init',
+  'listenerCount',
+  'listeners',
+  'off',
+  'on',
+  'once',
+  'prependListener',
+  'prependOnceListener',
+  'rawListeners',
+  'removeListener',
+  'removeAllListeners',
+  'setMaxListeners',
+  'uiResponse',
+]);
+
+type HardwareMethod = (...args: unknown[]) => unknown;
+
+function enqueueSDKTask<T>(task: () => T | Promise<T>): Promise<T> {
+  const run = sdkTaskQueue.then(task, task);
+  sdkTaskQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+/**
+ * CLI analogue of app-monorepo's hardware processing boundary.
+ *
+ * The Node USB transport and SDK UI/passphrase state are process-wide serial
+ * resources. Returning a serialized facade makes accidental concurrent SDK
+ * calls (for example Promise.all inside a signer) execute FIFO instead of
+ * interrupting the device with code 107. Control methods must bypass the
+ * queue so PIN/passphrase responses and cancel can reach the SDK immediately.
+ */
+export function createSerializedHardwareSDK<T extends object>(sdk: T): T {
+  const methodCache = new Map<PropertyKey, unknown>();
+
+  return new Proxy(sdk, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (typeof value !== 'function') {
+        return value;
+      }
+
+      const cached = methodCache.get(prop);
+      if (cached) {
+        return cached;
+      }
+
+      const method = (...args: unknown[]) => {
+        const hardwareMethod = value as HardwareMethod;
+        const call = (): unknown => Reflect.apply(hardwareMethod, target, args);
+        if (SDK_CONTROL_METHODS.has(prop)) {
+          return call();
+        }
+        return enqueueSDKTask(call);
+      };
+      methodCache.set(prop, method);
+      return method;
+    },
+  });
+}
 
 /**
  * Release the USB transport and dispose the SDK instance.
@@ -48,6 +120,7 @@ export async function disposeSDK(): Promise<void> {
     // ignore errors during cleanup
   } finally {
     sdkReadyPromise = null;
+    sdkTaskQueue = Promise.resolve();
   }
 }
 
@@ -186,7 +259,7 @@ async function initSDK(): Promise<CoreApi> {
     },
   );
 
-  return sdk;
+  return createSerializedHardwareSDK(sdk);
 }
 
 export async function ensureSDKReady(): Promise<CoreApi> {
