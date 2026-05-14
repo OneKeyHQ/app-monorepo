@@ -15,6 +15,7 @@ import type {
   DeviceInfo,
   IHardwareWallet,
   IThirdPartyHardwareAdapter,
+  IThirdPartyHardwareSearchOptions,
   Response,
 } from './types';
 
@@ -129,9 +130,17 @@ export class LedgerAdapter
     });
   }
 
-  async searchDevices(): Promise<DeviceInfo[]> {
+  async searchDevices(
+    options?: IThirdPartyHardwareSearchOptions,
+  ): Promise<DeviceInfo[]> {
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] searchDevices()');
-    const devices = await this.hw.searchDevices();
+    const devices = await (
+      this.hw as IHardwareWallet & {
+        searchDevices(
+          options?: IThirdPartyHardwareSearchOptions,
+        ): Promise<DeviceInfo[]>;
+      }
+    ).searchDevices(options);
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Ledger] searchDevices -> count=${devices.length}`,
     );

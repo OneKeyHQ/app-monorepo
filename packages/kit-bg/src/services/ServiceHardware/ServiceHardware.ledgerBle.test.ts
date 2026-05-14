@@ -1,7 +1,7 @@
 import { mapThirdPartyDeviceToSearchDevice } from './thirdPartyDeviceMapping';
 
 describe('ServiceHardware Ledger BLE device mapping', () => {
-  it('preserves the BLE four-character connectId and actual name when connectionType is missing', () => {
+  it('preserves the BLE connectId and actual name when connectionType is missing', () => {
     const ledgerDevice = {
       vendor: 'ledger',
       model: 'nanoX',
@@ -82,7 +82,7 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
     });
   });
 
-  it('rejects explicit BLE devices without a valid four-character connectId', () => {
+  it('rejects explicit BLE devices when connectId is empty', () => {
     expect(() =>
       mapThirdPartyDeviceToSearchDevice({
         device: {
@@ -97,5 +97,45 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
         defaultDeviceName: 'Ledger',
       }),
     ).toThrow('Third-party BLE connectId is required');
+  });
+
+  it('accepts Android-style BLE MAC connectId', () => {
+    const result = mapThirdPartyDeviceToSearchDevice({
+      device: {
+        vendor: 'ledger',
+        model: 'nanoX',
+        firmwareVersion: '',
+        deviceId: 'D5:75:7D:4B:51:E8',
+        connectId: 'D5:75:7D:4B:51:E8',
+        label: 'Nano X 1456',
+        connectionType: 'ble',
+      } as never,
+      defaultDeviceName: 'Ledger',
+    });
+
+    expect(result).toMatchObject({
+      connectId: 'D5:75:7D:4B:51:E8',
+      name: 'Nano X 1456',
+    });
+  });
+
+  it('accepts iOS-style BLE CoreBluetooth UUID connectId', () => {
+    const result = mapThirdPartyDeviceToSearchDevice({
+      device: {
+        vendor: 'ledger',
+        model: 'nanoX',
+        firmwareVersion: '',
+        deviceId: 'ACE4CF88-3DC0-E39F-1E5C-CC707B1E3F64',
+        connectId: 'ACE4CF88-3DC0-E39F-1E5C-CC707B1E3F64',
+        label: 'Nano X 1456',
+        connectionType: 'ble',
+      } as never,
+      defaultDeviceName: 'Ledger',
+    });
+
+    expect(result).toMatchObject({
+      connectId: 'ACE4CF88-3DC0-E39F-1E5C-CC707B1E3F64',
+      name: 'Nano X 1456',
+    });
   });
 });

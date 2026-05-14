@@ -18,6 +18,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
+  getValidPriceDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -25,6 +26,7 @@ import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { isHyperLiquidUnifiedAccountMode } from '../../../utils';
 import { BalanceRow } from '../Components/BalanceRow';
 import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
+import { calculateSpotHoldingPnl, isSpotHoldingStableCoin } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -37,6 +39,8 @@ export interface IBalanceDisplayItem {
   usdcValue: string;
   pnl?: string;
   pnlPercent?: number;
+  entryPrice?: string;
+  markPrice?: string;
   contract?: string;
   logoURI?: string;
   usdcValueNum: number;
@@ -128,7 +132,7 @@ function SpotBalanceList({
       const availableBN = BigNumber.max(totalBN.minus(holdBN), 0);
       const entryNtlBN = new BigNumber(b.entryNtl || '0');
 
-      const isStable = b.coin === 'USDT' || b.coin === 'USDB';
+      const isStable = isSpotHoldingStableCoin(b.coin);
 
       const midPrice = tokenPriceLookup[b.coin];
       let usdcValueBN: BigNumber;
@@ -140,13 +144,26 @@ function SpotBalanceList({
         usdcValueBN = entryNtlBN;
       }
 
-      let pnl: string | undefined;
-      let pnlPercent: number | undefined;
-      if (!isStable && !entryNtlBN.isZero() && midPrice) {
-        const pnlBN = usdcValueBN.minus(entryNtlBN);
-        pnl = pnlBN.toFixed(2);
-        pnlPercent = pnlBN.dividedBy(entryNtlBN).multipliedBy(100).toNumber();
-      }
+      const { pnl, pnlPercent } = calculateSpotHoldingPnl({
+        total: b.total,
+        entryNtl: b.entryNtl,
+        midPrice,
+        isStable,
+      });
+      const entryPriceBN =
+        !isStable && totalBN.isFinite() && totalBN.gt(0) && entryNtlBN.gt(0)
+          ? entryNtlBN.dividedBy(totalBN)
+          : undefined;
+      const markPriceBN =
+        !isStable && midPrice ? new BigNumber(midPrice) : undefined;
+      const entryPrice =
+        entryPriceBN?.isFinite() && entryPriceBN.gt(0)
+          ? entryPriceBN.toFixed(getValidPriceDecimals(entryPriceBN.toFixed()))
+          : undefined;
+      const markPrice =
+        markPriceBN?.isFinite() && markPriceBN.gt(0)
+          ? markPriceBN.toFixed(getValidPriceDecimals(markPriceBN.toFixed()))
+          : undefined;
 
       const displayCoin = getSpotTokenDisplayName(b.coin);
       const spotUniverse = universeByBaseName[b.coin];
@@ -161,6 +178,8 @@ function SpotBalanceList({
         usdcValue: usdcValueBN.toFixed(2),
         pnl,
         pnlPercent,
+        entryPrice,
+        markPrice,
         contract: tokenContractMap[b.coin],
         logoURI: getHyperliquidTokenImageUrl(b.coin),
         spotUniverse,

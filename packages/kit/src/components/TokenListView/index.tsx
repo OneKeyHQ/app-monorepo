@@ -251,7 +251,7 @@ function TokenListViewCmp(props: IProps) {
       : '';
 
   const tokens = useMemo(() => {
-    if (ownerMismatch) {
+    if (ownerMismatch && !showActiveAccountTokenList) {
       const cached =
         ownerCacheKey &&
         renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
@@ -348,7 +348,11 @@ function TokenListViewCmp(props: IProps) {
     // Cold-start fallback: when atoms haven't loaded yet for the current
     // owner, reuse the per-owner cache so the user sees their last known list
     // immediately. Read from ref to avoid useMemo→useEffect→setState cycle.
-    if (resultTokens.length === 0 && !tokenListState.initialized) {
+    if (
+      !showActiveAccountTokenList &&
+      resultTokens.length === 0 &&
+      !tokenListState.initialized
+    ) {
       const cached =
         ownerCacheKey &&
         renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
@@ -384,6 +388,7 @@ function TokenListViewCmp(props: IProps) {
   // stale tokens.
   useEffect(() => {
     if (
+      !showActiveAccountTokenList &&
       !ownerMismatch &&
       ownerCacheKey &&
       tokens.length > 0 &&
@@ -472,6 +477,7 @@ function TokenListViewCmp(props: IProps) {
   }, [
     ownerMismatch,
     ownerCacheKey,
+    showActiveAccountTokenList,
     tokens,
     tokenListMap,
     rawAggregateTokensMap,
@@ -572,6 +578,14 @@ function TokenListViewCmp(props: IProps) {
   }, []);
 
   const showSkeleton = useMemo(() => {
+    if (
+      showActiveAccountTokenList &&
+      !activeAccountTokenListState.initialized &&
+      activeAccountTokenListState.isRefreshing
+    ) {
+      return true;
+    }
+
     // Per-owner cache hit → instant display, never skeleton. This covers
     // both cold-start (atom hydrating from disk) and in-session switches
     // back to a previously-rendered network/account. Require a paired
@@ -580,23 +594,25 @@ function TokenListViewCmp(props: IProps) {
     const cached =
       ownerCacheKey &&
       renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
-    if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
+    if (
+      !showActiveAccountTokenList &&
+      cached &&
+      cached.tokens.length > 0 &&
+      cached.tokenListMap
+    ) {
       return false;
     }
     // Loaded atoms belong to a previous owner and we have no cache for the
     // current owner — show skeleton until `initTokenListData` refreshes the
     // atoms. Without this `tokenListState.initialized` is still true from
     // the prior network so the existing checks below would not fire.
-    if (ownerMismatch) {
+    if (ownerMismatch && !showActiveAccountTokenList) {
       return true;
     }
     return (
       (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
       (!isTokenSelector && searchTokenState.isSearching) ||
-      (!tokenListState.initialized && tokenListState.isRefreshing) ||
-      (!activeAccountTokenListState.initialized &&
-        showActiveAccountTokenList &&
-        activeAccountTokenListState.isRefreshing)
+      (!tokenListState.initialized && tokenListState.isRefreshing)
     );
   }, [
     ownerMismatch,

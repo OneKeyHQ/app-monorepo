@@ -11,7 +11,11 @@ import {
   describeEncodedTxSpend,
 } from '../../core/btc/spend-validation';
 import { buildBtcTransferTx } from '../../core/btc/tx-builder';
-import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
+import {
+  assertChainCapability,
+  isSolChain,
+  resolveChain,
+} from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
@@ -40,6 +44,7 @@ import {
 import { fetchSwapNetworks } from './swap-networks';
 import { getProtocolConfig } from './swap-protocol-config';
 import { fetchQuotesViaSSE } from './swap-quote';
+import { tokenAddressMatchesForNetwork } from './swap-token-address';
 
 import type { IEndpointEnv } from '../../config';
 import type { BtcAddressType } from '../../core/btc/address-types';
@@ -73,6 +78,16 @@ interface IBuildTxResponse {
     [key: string]: unknown;
   };
   btcLocalTx?: Record<string, unknown>;
+  // SOL aggregator response: `data` is the bs58-encoded VersionedTransaction.
+  OKXTxObject?: {
+    data?: string;
+    [key: string]: unknown;
+  };
+  // Locally extracted SOL swap tx, populated in build to keep the order
+  // self-contained (mirrors BTC's btcLocalTx).
+  solSwapTx?: {
+    encodedTx: string;
+  };
   orderId?: string;
   [key: string]: unknown;
 }
@@ -89,6 +104,13 @@ function hasValidBtcData(response: IBuildTxResponse): boolean {
     typeof btcData.hexStr === 'string' &&
     btcData.hexStr.length > 0 &&
     Array.isArray(btcData.addressType),
+  );
+}
+
+function hasValidSolSwapTx(response: IBuildTxResponse): boolean {
+  return (
+    typeof response.solSwapTx?.encodedTx === 'string' &&
+    response.solSwapTx.encodedTx.length > 0
   );
 }
 
@@ -284,6 +306,7 @@ export function registerSwapBuildCommand(parent: Command): void {
             : chainConfig;
           assertChainCapability(chainConfig, 'swap', 'swap-build');
           assertChainCapability(toChainConfig, 'swap', 'swap-build');
+
           const fromNetworkId = chainConfig.networkId;
           const toNetworkId = toChainConfig.networkId;
           const protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
@@ -448,9 +471,17 @@ export function registerSwapBuildCommand(parent: Command): void {
           const walletAddress = btcAddressing.from
             ? btcAddressing.from.address
             : await getWalletAddress(chainConfig.impl, chainConfig.networkId);
+          // Receiving address must belong to the destination chain's address
+          // system. Reusing the source walletAddress is only safe when source
+          // and destination share the same impl (e.g. both EVM). For any
+          // cross-impl route (BTC<->X, EVM<->SOL, etc.) derive from
+          // toChainConfig so we never hand the aggregator an EVM address for
+          // SOL (or vice versa) and end up with funds routed to a
+          // never-controlled key.
+          const isCrossImplRoute = chainConfig.impl !== toChainConfig.impl;
           const receivingAddress =
             btcAddressing.to?.address ??
-            (btcAddressing.from
+            (isCrossImplRoute
               ? await getWalletAddress(
                   toChainConfig.impl,
                   toChainConfig.networkId,
@@ -609,8 +640,11 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
           if (
             fromTokenInfo?.contractAddress !== undefined &&
-            fromTokenInfo.contractAddress.toLowerCase() !==
-              fromResolved.contractAddress.toLowerCase()
+            !tokenAddressMatchesForNetwork(
+              fromResolved.networkId,
+              fromTokenInfo.contractAddress,
+              fromResolved.contractAddress,
+            )
           ) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
@@ -620,8 +654,11 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
           if (
             toTokenInfo?.contractAddress !== undefined &&
-            toTokenInfo.contractAddress.toLowerCase() !==
-              toResolved.contractAddress.toLowerCase()
+            !tokenAddressMatchesForNetwork(
+              toResolved.networkId,
+              toTokenInfo.contractAddress,
+              toResolved.contractAddress,
+            )
           ) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
@@ -708,24 +745,45 @@ export function registerSwapBuildCommand(parent: Command): void {
             }
           }
 
+          // SOL swap = passthrough of OKXTxObject.data; persist it on the order
+          // so execute does not need to know about OKXTxObject.
+          const isSolSource = isSolChain(chainConfig);
+          if (isSolSource && !hasValidSolSwapTx(buildTxResponse)) {
+            const okxData = buildTxResponse.OKXTxObject?.data;
+            if (typeof okxData === 'string' && okxData.length > 0) {
+              buildTxResponse.solSwapTx = { encodedTx: okxData };
+            }
+          }
+
           // BTC source routes MUST sign a BTC PSBT — an EVM-style `tx` payload
           // cannot be signed on this code path, so we reject it at build time
           // instead of saving a pending order that execute will fail to sign.
-          const hasTxData = isBtcSource
-            ? hasValidBtcData(buildTxResponse) ||
-              hasValidBtcLocalTx(buildTxResponse)
-            : hasValidEvmTx(buildTxResponse);
+          let hasTxData: boolean;
+          if (isBtcSource) {
+            hasTxData =
+              hasValidBtcData(buildTxResponse) ||
+              hasValidBtcLocalTx(buildTxResponse);
+          } else if (isSolSource) {
+            hasTxData = hasValidSolSwapTx(buildTxResponse);
+          } else {
+            hasTxData = hasValidEvmTx(buildTxResponse);
+          }
 
           if (!hasTxData) {
             let message: string;
-            if (!isBtcSource) {
-              message = 'Build-tx API returned success but tx data is missing';
-            } else if (hasValidEvmTx(buildTxResponse)) {
+            if (isBtcSource) {
+              if (hasValidEvmTx(buildTxResponse)) {
+                message =
+                  'Build-tx API returned an EVM-style tx for a BTC source route; this provider/route is not supported';
+              } else {
+                message =
+                  'Build-tx API returned success but no BTC PSBT or provider deposit data is available';
+              }
+            } else if (isSolSource) {
               message =
-                'Build-tx API returned an EVM-style tx for a BTC source route; this provider/route is not supported';
+                'Build-tx API returned success but no SOL swap tx data is available';
             } else {
-              message =
-                'Build-tx API returned success but no BTC PSBT or provider deposit data is available';
+              message = 'Build-tx API returned success but tx data is missing';
             }
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,

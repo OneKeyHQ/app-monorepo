@@ -105,9 +105,22 @@ jobs:
   # matrix arms below produce identical bundleVersion / Sentry release / QA
   # metadata. Without this, each matrix arm's `Setup ENV` step falls back to
   # `date -u +%s` independently, drifting the two platforms apart whenever
-  # the matrix arms boot at different seconds. workflow_call still wins via
-  # `inputs.build_bundle_version` (the prepare-params output passed by
-  # release-app-bundles.yml).
+  # the matrix arms boot at different seconds.
+  #
+  # Priority (highest first):
+  #   1. inputs.build_bundle_version       — workflow_call from release-app-bundles
+  #   2. upstream daily-build's params.env — workflow_run from daily-build/-dev
+  #   3. fresh `NOW - EPOCH_2026`          — workflow_dispatch fallback
+  #
+  # Priority 2 exists because workflow_run does NOT carry workflow_dispatch
+  # `inputs`, so without explicit download of the upstream artifact this job
+  # would silently recompute and produce a value seconds later than the one
+  # daily-build (and the sibling release-desktop-bundle / release-web /
+  # release-ext workflows that consume daily-build's params.env via
+  # shared-env) already committed to. Result: native bundles ship a
+  # `bundleVersion` that disagrees with desktop on the same commit — the CDN
+  # ends up grouping them under whichever value the server sees last, and the
+  # JS bundle's internal constant disagrees with the URL it was fetched from.
   prepare-bundle-version:
     if: ${{ !github.event.workflow_run || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
@@ -122,17 +135,72 @@ jobs:
             exit 1
           fi
 
+      - name: Download upstream workflow parameters
+        # No continue-on-error: under workflow_run we MUST align with
+        # daily-build's WORKFLOW_BUNDLE_VERSION; a silent download failure
+        # would let Priority 3 recompute a fresh timestamp and re-introduce
+        # the cross-platform drift this workflow was changed to fix.
+        if: ${{ github.event.workflow_run }}
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: workflow-params
+          run_id: ${{ github.event.workflow_run.id }}
+          path: ${{ runner.temp }}/workflow-params
+
       - name: Compute BUILD_BUNDLE_VERSION
         id: compute
+        env:
+          # Bridge expression values through env to avoid direct shell
+          # interpolation (no shell-quoting / newline surprises) and to make
+          # numeric validation possible.
+          INPUT_BUILD_BUNDLE_VERSION: ${{ inputs.build_bundle_version }}
+          UPSTREAM_PARAMS_FILE: ${{ runner.temp }}/workflow-params/params.env
+          IS_WORKFLOW_RUN: ${{ github.event_name == 'workflow_run' }}
         run: |
-          if [ -n "${{ inputs.build_bundle_version }}" ]; then
-            echo "value=${{ inputs.build_bundle_version }}" >> "$GITHUB_OUTPUT"
-          else
-            EPOCH_2026=$(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null \
-              || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s)
-            NOW=$(date -u +%s)
-            echo "value=$(( NOW - EPOCH_2026 ))" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+
+          # Priority 1: workflow_call input from release-app-bundles' prepare-params.
+          if [ -n "$INPUT_BUILD_BUNDLE_VERSION" ]; then
+            if [[ ! "$INPUT_BUILD_BUNDLE_VERSION" =~ ^[0-9]+$ ]]; then
+              echo "::error::inputs.build_bundle_version must be numeric, got '$INPUT_BUILD_BUNDLE_VERSION'"
+              exit 1
+            fi
+            echo "value=$INPUT_BUILD_BUNDLE_VERSION" >> "$GITHUB_OUTPUT"
+            echo "Using inputs.build_bundle_version: $INPUT_BUILD_BUNDLE_VERSION"
+            exit 0
           fi
+
+          # Priority 2: upstream daily-build's WORKFLOW_BUNDLE_VERSION. Keeps
+          # native bundles aligned with desktop / web / ext siblings that
+          # already consume this same params.env via shared-env.
+          UPSTREAM=""
+          if [ -f "$UPSTREAM_PARAMS_FILE" ]; then
+            UPSTREAM=$(grep -m1 -E '^WORKFLOW_BUNDLE_VERSION=' "$UPSTREAM_PARAMS_FILE" | sed 's/^WORKFLOW_BUNDLE_VERSION=//' || true)
+          fi
+          if [ -n "$UPSTREAM" ] && [[ "$UPSTREAM" =~ ^[0-9]+$ ]]; then
+            echo "value=$UPSTREAM" >> "$GITHUB_OUTPUT"
+            echo "Using upstream WORKFLOW_BUNDLE_VERSION: $UPSTREAM"
+            exit 0
+          fi
+
+          # Hard fail under workflow_run: a silent fallback here would re-
+          # introduce the cross-platform drift this workflow was changed to
+          # fix (native bundles would recompute seconds later than the value
+          # desktop / web / ext sibling workflows already pinned via
+          # shared-env's WORKFLOW_BUNDLE_VERSION handoff).
+          if [ "$IS_WORKFLOW_RUN" = "true" ]; then
+            echo "::error::workflow_run path requires a numeric upstream WORKFLOW_BUNDLE_VERSION, but params.env was missing or invalid (UPSTREAM='$UPSTREAM')"
+            exit 1
+          fi
+
+          # Priority 3: no upstream context (direct workflow_dispatch only).
+          # Compute once here so iOS / Android matrix arms still agree.
+          EPOCH_2026=$(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null \
+            || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s)
+          NOW=$(date -u +%s)
+          FRESH=$(( NOW - EPOCH_2026 ))
+          echo "value=$FRESH" >> "$GITHUB_OUTPUT"
+          echo "Using fresh NOW - EPOCH_2026: $FRESH"
 
   # web-embed prebuild lives in the orchestrator (release-app-bundles.yml) so
   # iOS and Android — which here are sibling workflow_call invocations of this

@@ -8,6 +8,8 @@ import { handleAnalyticsEvent } from './analyticsHandler';
 import {
   fetchAccountTransactionMarks,
   handleKLineDataRequest,
+  sendClearAccountMarks,
+  shouldMockEmptyKLineData,
 } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
 
@@ -25,6 +27,7 @@ interface IUseTradingViewMessageHandlerParams {
   accountAddress?: string;
   tokenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
+  currentKLineResolution?: React.MutableRefObject<string>;
   onTouchScroll?: (deltaY: number) => void;
 }
 
@@ -123,21 +126,41 @@ async function handleGetMarks({
   accountAddress,
   tokenAddress,
   networkId,
+  resolution,
   webRef,
 }: {
   request: {
     requestId?: string;
     from?: number;
     to?: number;
+    symbol?: string;
+    resolution?: string;
   };
   accountAddress?: string;
   tokenAddress: string;
   networkId: string;
+  resolution?: string;
   webRef: React.RefObject<IWebViewRef | null>;
 }) {
   const requestId = request.requestId;
 
   if (!requestId) {
+    return;
+  }
+
+  if (await shouldMockEmptyKLineData(resolution)) {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: 'MARKS_RESPONSE',
+      payload: {
+        marks: [],
+        requestId,
+      },
+    });
+    sendClearAccountMarks({
+      tokenAddress,
+      symbol: request.symbol,
+      webRef,
+    });
     return;
   }
 
@@ -188,6 +211,7 @@ export function useTradingViewMessageHandler({
   accountAddress,
   tokenSymbol,
   marksTimeRange,
+  currentKLineResolution,
   onTouchScroll,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
@@ -209,6 +233,7 @@ export function useTradingViewMessageHandler({
         accountAddress,
         tokenSymbol,
         marksTimeRange,
+        currentKLineResolution,
       };
 
       // Handle TradingView private API requests
@@ -248,15 +273,22 @@ export function useTradingViewMessageHandler({
       }
 
       if (data.scope === '$private' && data.method === 'tradingview_getMarks') {
+        const marksRequest = data.data as {
+          requestId?: string;
+          from?: number;
+          to?: number;
+          symbol?: string;
+          resolution?: string;
+        };
+        const resolution =
+          marksRequest.resolution || currentKLineResolution?.current;
+
         await handleGetMarks({
-          request: data.data as {
-            requestId?: string;
-            from?: number;
-            to?: number;
-          },
+          request: marksRequest,
           accountAddress,
           tokenAddress,
           networkId,
+          resolution,
           webRef,
         });
       }
@@ -280,6 +312,7 @@ export function useTradingViewMessageHandler({
       accountAddress,
       tokenSymbol,
       marksTimeRange,
+      currentKLineResolution,
       onTouchScroll,
     ],
   );

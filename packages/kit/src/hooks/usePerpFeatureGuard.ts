@@ -12,7 +12,7 @@ import { usePerpTabConfig } from './usePerpTabConfig';
 export function usePerpFeatureGuard() {
   useFocusEffect(
     useCallback(() => {
-      void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+      void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerSilently();
     }, []),
   );
 

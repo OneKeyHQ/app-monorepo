@@ -2,6 +2,7 @@ import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   IMPL_BTC,
   IMPL_EVM,
+  IMPL_SOL,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -15,6 +16,8 @@ export type CliChainCapability =
   | 'evmTransfer'
   | 'evmTokenMarket'
   | 'evmSecurity'
+  | 'solTransfer'
+  | 'signMessage'
   | 'swap';
 
 export interface IChainConfig {
@@ -33,7 +36,7 @@ const CHAIN_ALIASES: Record<string, string> = {
   avax: 'avalanche',
 };
 
-const CLI_SUPPORTED_IMPLS = new Set([IMPL_EVM, IMPL_BTC, IMPL_TBTC]);
+const CLI_SUPPORTED_IMPLS = new Set([IMPL_EVM, IMPL_BTC, IMPL_TBTC, IMPL_SOL]);
 
 const EVM_CAPABILITIES = new Set<CliChainCapability>([
   'accountRead',
@@ -41,6 +44,7 @@ const EVM_CAPABILITIES = new Set<CliChainCapability>([
   'evmTransfer',
   'evmTokenMarket',
   'evmSecurity',
+  'signMessage',
   'swap',
 ]);
 
@@ -57,12 +61,21 @@ const TBTC_CAPABILITIES = new Set<CliChainCapability>([
   'btcTransfer',
 ]);
 
+const SOL_CAPABILITIES = new Set<CliChainCapability>([
+  'accountRead',
+  'historyRead',
+  'solTransfer',
+  'signMessage',
+  'swap',
+]);
+
 let chainCache: Map<string, IChainConfig> | null = null;
 
 function getCapabilitiesForImpl(impl: string): ReadonlySet<CliChainCapability> {
   if (impl === IMPL_EVM) return EVM_CAPABILITIES;
   if (impl === IMPL_BTC) return BTC_CAPABILITIES;
   if (impl === IMPL_TBTC) return TBTC_CAPABILITIES;
+  if (impl === IMPL_SOL) return SOL_CAPABILITIES;
   return new Set<CliChainCapability>();
 }
 
@@ -184,6 +197,14 @@ export function isEvmChain(chainConfig: IChainConfig): boolean {
   return chainConfig.impl === IMPL_EVM;
 }
 
+export function isSolChain(chainConfig: IChainConfig): boolean {
+  return chainConfig.impl === IMPL_SOL;
+}
+
 export function listEvmChains(): IChainConfig[] {
   return [...getChainMap().values()].filter((c) => c.impl === IMPL_EVM);
+}
+
+export function listSolChains(): IChainConfig[] {
+  return [...getChainMap().values()].filter((c) => c.impl === IMPL_SOL);
 }
