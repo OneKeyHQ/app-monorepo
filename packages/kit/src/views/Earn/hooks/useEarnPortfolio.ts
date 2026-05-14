@@ -33,6 +33,11 @@ import {
   matchEarnPortfolioBatchRequest,
   shouldUseEarnPortfolioBatchFetch,
 } from './earnPortfolioBatch';
+import {
+  type IEarnPortfolioInvestmentFetchResult,
+  applyEarnPortfolioFetchResult,
+  mergeEarnPortfolioInvestments,
+} from './earnPortfolioInvestmentMerge';
 import { useEarnAccountKey } from './useEarnAccountKey';
 
 import type { IPortfolioFetchRequest } from './earnPortfolioBatch';
@@ -46,12 +51,6 @@ export interface IRefreshOptions {
   networkId?: string;
   symbol?: string;
   rewardSymbol?: string;
-}
-
-interface IFetchInvestmentResult {
-  key: string;
-  investment?: IEarnPortfolioInvestment;
-  remove?: boolean;
 }
 
 interface IAccountAssetPair {
@@ -170,24 +169,6 @@ const calculateTotalEarnings24hValue = (
     return sum.plus(new BigNumber(inv.earnings24hFiatValue || '0'));
   }, new BigNumber(0));
 
-const mergeInvestments = (
-  existing: IEarnPortfolioInvestment,
-  incoming: IEarnPortfolioInvestment,
-): IEarnPortfolioInvestment => {
-  const existingTotal = new BigNumber(existing.totalFiatValue || '0');
-  const incomingTotal = new BigNumber(incoming.totalFiatValue || '0');
-  const existingTotalUsd = new BigNumber(existing.totalFiatValueUsd || '0');
-  const incomingTotalUsd = new BigNumber(incoming.totalFiatValueUsd || '0');
-
-  return {
-    ...existing,
-    assets: [...existing.assets, ...incoming.assets],
-    airdropAssets: [...existing.airdropAssets, ...incoming.airdropAssets],
-    totalFiatValue: existingTotal.plus(incomingTotal).toFixed(),
-    totalFiatValueUsd: existingTotalUsd.plus(incomingTotalUsd).toFixed(),
-  };
-};
-
 const aggregateByProtocol = (
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] => {
@@ -196,7 +177,7 @@ const aggregateByProtocol = (
     const existing = map.get(protocolKey);
 
     if (existing) {
-      map.set(protocolKey, mergeInvestments(existing, investment));
+      map.set(protocolKey, mergeEarnPortfolioInvestments(existing, investment));
     } else {
       map.set(protocolKey, { ...investment });
     }
@@ -214,7 +195,7 @@ const aggregateByProtocol = (
 function normalizeAirdropInvestmentResult(
   params: Pick<IPortfolioFetchRequest, 'symbol' | 'vault'>,
   result: IEarnAirdropInvestmentItemV2,
-): IFetchInvestmentResult {
+): IEarnPortfolioInvestmentFetchResult {
   const resolvedVault = result.protocol.vault || params.vault;
   const normalizedProtocol = {
     ...result.protocol,
@@ -239,6 +220,7 @@ function normalizeAirdropInvestmentResult(
 
   return {
     key,
+    source: 'airdrop',
     investment: {
       totalFiatValue: '0',
       totalFiatValueUsd: '0',
@@ -254,7 +236,7 @@ function normalizeAirdropInvestmentResult(
 function normalizeInvestmentResult(
   params: Pick<IPortfolioFetchRequest, 'symbol' | 'vault'>,
   result: IEarnInvestmentItemV2,
-): IFetchInvestmentResult {
+): IEarnPortfolioInvestmentFetchResult {
   const resolvedProtocolVault = resolveVault({
     protocolVault: result.protocol.vault,
     // Use request vault as fallback (Pendle PT market address).
@@ -278,7 +260,7 @@ function normalizeInvestmentResult(
     : !hasPositiveFiatValue(result.totalFiatValue);
 
   if (shouldRemove) {
-    return { key, remove: true };
+    return { key, source: 'normal', remove: true };
   }
 
   const enrichedAssets = result.assets.map((asset) => {
@@ -303,6 +285,7 @@ function normalizeInvestmentResult(
 
   return {
     key,
+    source: 'normal',
     investment: {
       totalFiatValue: result.totalFiatValue,
       totalFiatValueUsd: result.totalFiatValueUsd,
@@ -320,7 +303,7 @@ function normalizeInvestmentResult(
 async function fetchSingleInvestment(
   params: IPortfolioFetchRequest,
   isAirdrop: boolean,
-): Promise<IFetchInvestmentResult | null> {
+): Promise<IEarnPortfolioInvestmentFetchResult | null> {
   if (isAirdrop) {
     const result =
       await backgroundApiProxy.serviceStaking.fetchAirdropInvestmentDetail(
@@ -668,39 +651,10 @@ export const useEarnPortfolio = ({
           : accountAssetPairs;
 
         const keysUpdatedInThisSession = new Set<string>();
+        const normalKeysUpdatedInThisSession = new Set<string>();
+        const airdropKeysUpdatedInThisSession = new Set<string>();
         const failedKeysInThisSession = new Set<string>();
         const limit = pLimit(6);
-        const applyResult = (result: IFetchInvestmentResult) => {
-          const { key: resultKey, investment: newInv, remove } = result;
-
-          if (remove) {
-            requestMap.delete(resultKey);
-            keysUpdatedInThisSession.add(resultKey);
-            if (isMountedRef.current) {
-              throttledUIUpdate(new Map(requestMap));
-            }
-            return;
-          }
-
-          if (!newInv) {
-            return;
-          }
-
-          const existingInMap = requestMap.get(resultKey);
-          const hasUpdatedInSession = keysUpdatedInThisSession.has(resultKey);
-
-          let finalInv = newInv;
-          if (hasUpdatedInSession && existingInMap) {
-            finalInv = mergeInvestments(existingInMap, newInv);
-          }
-
-          keysUpdatedInThisSession.add(resultKey);
-          requestMap.set(resultKey, finalInv);
-
-          if (isMountedRef.current) {
-            throttledUIUpdate(new Map(requestMap));
-          }
-        };
 
         const singlePairs: IAccountAssetPair[] = [];
         const batchCandidateRequests: IPortfolioFetchRequest[] = [];
@@ -735,12 +689,44 @@ export const useEarnPortfolio = ({
           });
         });
 
+        const airdropKeysToFetch = new Set(
+          singlePairs
+            .filter((pair) => pair.isAirdrop)
+            .map((pair) => createEarnPortfolioRequestKey(pair.params)),
+        );
+        const applyResult = (result: IEarnPortfolioInvestmentFetchResult) => {
+          const shouldPreserveAirdrop =
+            result.source === 'normal' &&
+            (isPartialRefresh ||
+              airdropKeysToFetch.has(result.key) ||
+              airdropKeysUpdatedInThisSession.has(result.key));
+
+          const didUpdate = applyEarnPortfolioFetchResult({
+            requestMap,
+            result,
+            normalKeysUpdatedInSession: normalKeysUpdatedInThisSession,
+            airdropKeysUpdatedInSession: airdropKeysUpdatedInThisSession,
+            preserveExistingAirdropOnNormalUpdate: shouldPreserveAirdrop,
+            preserveAirdropOnNormalRemove: shouldPreserveAirdrop,
+          });
+
+          if (!didUpdate) {
+            return;
+          }
+
+          keysUpdatedInThisSession.add(result.key);
+
+          if (isMountedRef.current) {
+            throttledUIUpdate(new Map(requestMap));
+          }
+        };
+
         const tasks = [
           ...singlePairs.map(({ params, isAirdrop }) =>
             limit(async () => {
               if (isRequestStale(requestId) || !isMountedRef.current) return;
 
-              let result: IFetchInvestmentResult | null = null;
+              let result: IEarnPortfolioInvestmentFetchResult | null = null;
               try {
                 result = await fetchSingleInvestment(params, isAirdrop);
               } catch (error) {
