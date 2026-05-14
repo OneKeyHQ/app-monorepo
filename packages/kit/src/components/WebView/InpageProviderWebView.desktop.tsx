@@ -150,7 +150,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
             // we can resize desktop to vertical only in DEV env currently
             undefined
           }
-          onDidStartLoading={() => innerOnDidStartLoading}
+          onDidStartLoading={innerOnDidStartLoading}
           onDidStartNavigation={onDidStartNavigation}
           onDidFinishLoad={onDidFinishLoad}
           onLoadEnd={onLoadEnd}

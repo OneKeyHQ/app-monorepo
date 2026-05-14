@@ -26,21 +26,83 @@ const URL_WITHOUT_PROTOCOL_REGEXP =
 const LOCALHOST_URL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
 const URL_SCHEME_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:/u;
 const URL_PROTOCOL_PREFIX_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u;
+const URL_HOSTNAME_DOT_SEPARATOR_REGEXP = /[\u3002\uFF0E\uFF61]/gu;
 
 type ILocalhostUrlOptions = {
   allowLocalhostUrl?: boolean;
 };
 
 function isLocalhostParsedUrl(parsedUrl: URL | null) {
-  const hostname = parsedUrl?.hostname.replace(/^\[|\]$/gu, '').toLowerCase();
-  return Boolean(hostname && LOCALHOST_URL_HOSTNAMES.has(hostname));
+  const hostname = getNormalizedParsedHostname(parsedUrl);
+  const result = Boolean(hostname && LOCALHOST_URL_HOSTNAMES.has(hostname));
+  return result;
+}
+
+function isIpAddressParsedUrl(parsedUrl: URL | null) {
+  const hostname = getNormalizedParsedHostname(parsedUrl);
+  const result = Boolean(hostname && validator.isIP(hostname));
+  return result;
+}
+
+function getNormalizedParsedHostname(parsedUrl: URL | null) {
+  const result = parsedUrl?.hostname
+    .replace(/^\[|\]$/gu, '')
+    .replace(URL_HOSTNAME_DOT_SEPARATOR_REGEXP, '.')
+    .toLowerCase();
+  return result;
+}
+
+function normalizeUrlHostnameSeparators(url: string) {
+  const protocolMatch = url.match(URL_PROTOCOL_PREFIX_REGEXP);
+  const hostStartIndex = protocolMatch ? protocolMatch[0].length : 0;
+  const urlPrefix = url.slice(0, hostStartIndex);
+  const hostAndPath = url.slice(hostStartIndex);
+  const hostEndIndex = hostAndPath.search(/[/?#]/u);
+  const hostWithPortAndAuth =
+    hostEndIndex >= 0 ? hostAndPath.slice(0, hostEndIndex) : hostAndPath;
+  const rest = hostEndIndex >= 0 ? hostAndPath.slice(hostEndIndex) : '';
+  const authEndIndex = hostWithPortAndAuth.lastIndexOf('@');
+  const authPrefix =
+    authEndIndex >= 0 ? hostWithPortAndAuth.slice(0, authEndIndex + 1) : '';
+  const hostWithPort =
+    authEndIndex >= 0
+      ? hostWithPortAndAuth.slice(authEndIndex + 1)
+      : hostWithPortAndAuth;
+
+  if (hostWithPort.startsWith('[')) {
+    const closingBracketIndex = hostWithPort.indexOf(']');
+    if (closingBracketIndex > 0) {
+      const hostname = hostWithPort
+        .slice(1, closingBracketIndex)
+        .replace(URL_HOSTNAME_DOT_SEPARATOR_REGEXP, '.');
+      const suffix = hostWithPort.slice(closingBracketIndex + 1);
+      return `${urlPrefix}${authPrefix}[${hostname}]${suffix}${rest}`;
+    }
+  }
+
+  const portStartIndex = hostWithPort.indexOf(':');
+  const hostname =
+    portStartIndex >= 0 ? hostWithPort.slice(0, portStartIndex) : hostWithPort;
+  const suffix = portStartIndex >= 0 ? hostWithPort.slice(portStartIndex) : '';
+  return `${urlPrefix}${authPrefix}${hostname.replace(
+    URL_HOSTNAME_DOT_SEPARATOR_REGEXP,
+    '.',
+  )}${suffix}${rest}`;
+}
+
+function normalizeLocalhostUrlSeparators(url: string) {
+  const result = isLocalhostUrl(url)
+    ? normalizeUrlHostnameSeparators(url)
+    : url;
+  return result;
 }
 
 function getHostnameFromUrlLikeText(text: string): string {
-  const protocolMatch = text.match(URL_PROTOCOL_PREFIX_REGEXP);
+  const normalizedText = text.replace(URL_HOSTNAME_DOT_SEPARATOR_REGEXP, '.');
+  const protocolMatch = normalizedText.match(URL_PROTOCOL_PREFIX_REGEXP);
   const hostAndPath = protocolMatch
-    ? text.slice(protocolMatch[0].length)
-    : text;
+    ? normalizedText.slice(protocolMatch[0].length)
+    : normalizedText;
   const hostWithPortAndAuth = hostAndPath.split(/[/?#]/u)[0] ?? '';
   const hostWithPort = hostWithPortAndAuth.split('@').pop() ?? '';
 
@@ -58,12 +120,25 @@ export function isLocalhostUrl(url: string): boolean {
   const text = url.trim();
   if (!text) return false;
 
-  return LOCALHOST_URL_HOSTNAMES.has(getHostnameFromUrlLikeText(text));
+  const hostname = getHostnameFromUrlLikeText(text);
+  const result = LOCALHOST_URL_HOSTNAMES.has(hostname);
+  return result;
+}
+
+export function isIpAddressUrl(url: string): boolean {
+  const text = url.trim();
+  if (!text) return false;
+
+  const hostname = getHostnameFromUrlLikeText(text);
+  const result = Boolean(hostname && validator.isIP(hostname));
+  return result;
 }
 
 function normalizeHttpLocalhostUrl(url: string): string | null {
   const text = url.trim();
-  if (!isLocalhostUrl(text)) return null;
+  if (!isLocalhostUrl(text)) {
+    return null;
+  }
 
   const normalizedUrl = ensureHttpPrefix(text);
   const parsedUrl = safeParseURL(normalizedUrl);
@@ -92,13 +167,20 @@ export function ensureHttpsPrefix(url: string): string {
 
 export function ensureHttpPrefix(url: string): string {
   if (!url) return url;
-  if (isLocalhostUrl(url) && !URL_PROTOCOL_PREFIX_REGEXP.test(url)) {
-    return `http://${url}`;
+  const normalizedLocalhostUrl = normalizeLocalhostUrlSeparators(url);
+  if (
+    (isLocalhostUrl(normalizedLocalhostUrl) ||
+      isIpAddressUrl(normalizedLocalhostUrl)) &&
+    !URL_PROTOCOL_PREFIX_REGEXP.test(normalizedLocalhostUrl)
+  ) {
+    const result = `http://${normalizedLocalhostUrl}`;
+    return result;
   }
-  if (URL_SCHEME_REGEXP.test(url)) {
-    return url;
+  if (URL_SCHEME_REGEXP.test(normalizedLocalhostUrl)) {
+    return normalizedLocalhostUrl;
   }
-  return `http://${url}`;
+  const result = `http://${url}`;
+  return result;
 }
 
 export function buildGoogleSearchUrl(keyword: string): string {
@@ -179,16 +261,26 @@ function parseDappRedirect(
 
   // eslint-disable-next-line no-script-url
   if (protocol === 'javascript:') {
-    console.log('====>>>>>>>reject javascript: navigate: ', url);
     return { action: EDAppOpenActionEnum.DENY };
   }
 
   const parsedUrl = safeParseURL(url);
-  if (
-    options?.allowLocalhostUrl &&
+  const isHttpLocalhostUrl = Boolean(
+    parsedUrl &&
+    ['http:', 'https:'].includes(parsedUrl.protocol) &&
+    isLocalhostParsedUrl(parsedUrl),
+  );
+  if (isHttpLocalhostUrl && !options?.allowLocalhostUrl) {
+    return { action: EDAppOpenActionEnum.DENY };
+  }
+  if (isHttpLocalhostUrl && options?.allowLocalhostUrl && parsedUrl) {
+    return { action: EDAppOpenActionEnum.ALLOW };
+  }
+  const isHttpPublicIpUrl =
     parsedUrl?.protocol === 'http:' &&
-    isLocalhostParsedUrl(parsedUrl)
-  ) {
+    isIpAddressParsedUrl(parsedUrl) &&
+    !isLocalhostParsedUrl(parsedUrl);
+  if (isHttpPublicIpUrl) {
     return { action: EDAppOpenActionEnum.ALLOW };
   }
   if (
@@ -196,10 +288,8 @@ function parseDappRedirect(
     (!isProtocolSupportedOpenInApp(parsedUrl.toString()) &&
       !allowedUrls.includes(parsedUrl.origin))
   ) {
-    console.log('====>>>>>>>reject navigate: ', url);
     return { action: EDAppOpenActionEnum.DENY };
   }
-
   return { action: EDAppOpenActionEnum.ALLOW };
 }
 
@@ -337,6 +427,16 @@ export const validateUrl = (
     }
   }
 
+  const originalParsedUrl = safeParseURL(url);
+  const isPublicIpAddress =
+    isIpAddressUrl(urlWithoutProtocol) && !isLocalhostUrl(urlWithoutProtocol);
+  if (isPublicIpAddress && originalParsedUrl?.protocol !== 'https:') {
+    const httpUrl = `http://${urlWithoutProtocol}`;
+    if (validator.isURL(httpUrl, { protocols: ['http'] })) {
+      return httpUrl;
+    }
+  }
+
   // Try to validate with HTTPS protocol
   const httpsUrl = `https://${urlWithoutProtocol}`;
   if (validator.isURL(httpsUrl, { protocols: ['https'] })) {
@@ -344,7 +444,8 @@ export const validateUrl = (
   }
 
   // If still not valid, return Google search URL
-  return buildGoogleSearchUrl(url);
+  const searchUrl = buildGoogleSearchUrl(url);
+  return searchUrl;
 };
 
 export const containsPunycode = (url: string) => {
@@ -459,6 +560,7 @@ export default {
   safeGetWalletConnectOrigin,
   parseUrl,
   isLocalhostUrl,
+  isIpAddressUrl,
   safeParseURL,
   appendUtmSourceToUrl,
   isUrlWithoutProtocol,
