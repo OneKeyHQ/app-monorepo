@@ -1,7 +1,11 @@
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 
-const { AES256_IV_LENGTH, PBKDF2_KEY_LENGTH, PBKDF2_SALT_LENGTH } =
-  appCrypto.consts;
+const {
+  AES256_IV_LENGTH,
+  PBKDF2_CURRENT_NUM_OF_ITERATIONS,
+  PBKDF2_KEY_LENGTH,
+  PBKDF2_SALT_LENGTH,
+} = appCrypto.consts;
 
 const {
   aesCbcDecrypt: aesCbcDecryptAsync,
@@ -13,12 +17,33 @@ const {
 const { keyFromPasswordAndSaltSync } = appCrypto.keyGen.$legacyFunctions;
 const { keyFromPasswordAndSalt: keyFromPasswordAndSaltAsync } =
   appCrypto.keyGen;
+const { clearPbkdf2InvocationByProbeId, getPbkdf2InvocationByProbeId, pbkdf2 } =
+  appCrypto.pbkdf2;
 
 /*
 yarn jest packages/core/src/secret/__tests__/crypto-functions.test.ts
 */
 
 describe('Crypto Functions', () => {
+  describe('pbkdf2', () => {
+    it('should use current iterations by default', async () => {
+      const debugCryptoProbeId = 'pbkdf2-default-iterations-test';
+      clearPbkdf2InvocationByProbeId(debugCryptoProbeId);
+
+      const result = await pbkdf2({
+        password: Buffer.from('test-password', 'utf8'),
+        salt: Buffer.alloc(PBKDF2_SALT_LENGTH, 'a'),
+        debugCryptoProbeId,
+      });
+
+      expect(result).toBeInstanceOf(Buffer);
+      expect(result.length).toBe(PBKDF2_KEY_LENGTH);
+      expect(getPbkdf2InvocationByProbeId(debugCryptoProbeId)?.iterations).toBe(
+        PBKDF2_CURRENT_NUM_OF_ITERATIONS,
+      );
+    });
+  });
+
   describe('keyFromPasswordAndSalt', () => {
     it('should match snapshot with normal password and salt', async () => {
       const password = 'test-password';

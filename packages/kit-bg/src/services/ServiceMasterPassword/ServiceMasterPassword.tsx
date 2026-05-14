@@ -40,6 +40,10 @@ import type {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { primeMasterPasswordPersistAtom } from '../../states/jotai/atoms/prime';
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptStringAsyncWithFormat,
+} from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 
@@ -152,7 +156,7 @@ class ServiceMasterPassword extends ServiceBase {
     accountSalt: string;
     primeUserId: string;
   }): Promise<string> {
-    const r = await encryptStringAsync({
+    const r = await encryptStringAsyncWithFormat({
       password: await this.buildSecurityPasswordForServerEncryptKey({
         masterPassword,
         masterPasswordUUID,
@@ -163,6 +167,8 @@ class ServiceMasterPassword extends ServiceBase {
       data: securityPassword,
       dataEncoding: 'utf-8',
       allowRawPassword: true,
+      sharedScene:
+        EAppCryptoSharedEncryptScene.primeMasterPasswordServerPayload,
     });
     return `${ENCRYPTED_SECURITY_PASSWORD_R1_FOR_SERVER_PREFIX}${r}`;
   }
