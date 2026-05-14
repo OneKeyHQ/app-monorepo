@@ -26,6 +26,7 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
         'buy',
         'explorer',
         'copy',
+        'addressList',
         'approvals',
         'bulkSend',
         'sign',
@@ -36,6 +37,7 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
         'swap',
         'explorer',
         'copy',
+        'addressList',
         'approvals',
         'bulkSend',
         'sign',
@@ -50,7 +52,15 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
     },
     {
       type: 'tools',
-      actions: ['explorer', 'copy', 'approvals', 'bulkSend', 'sign', 'reward'],
+      actions: [
+        'explorer',
+        'copy',
+        'addressList',
+        'approvals',
+        'bulkSend',
+        'sign',
+        'reward',
+      ],
       order: 2,
     },
     {

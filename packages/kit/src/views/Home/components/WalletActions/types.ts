@@ -11,6 +11,7 @@ export type IWalletActionType =
   | 'earn'
   | 'explorer'
   | 'copy'
+  | 'addressList'
   | 'bulkSend'
   | 'sign'
   | 'reward'

@@ -13,7 +13,10 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -24,6 +27,7 @@ import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
+import { WalletActionAddressList } from './WalletActionAddressList';
 import { WalletActionApprovals } from './WalletActionApprovals';
 import { WalletActionBulkSend } from './WalletActionBulkSend';
 import { WalletActionBuy } from './WalletActionBuy';
@@ -45,6 +49,25 @@ export function WalletActionMore() {
   const show = useReviewControl();
   const { config, getMoreActionGroups, getActionCustomization } =
     useWalletActionConfig();
+
+  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
+  const isAddressListEnabled = useMemo(
+    () =>
+      Boolean(account?.id) &&
+      Boolean(network?.id) &&
+      Boolean(activeAccount?.wallet?.id) &&
+      accountUtils.isEnabledBtcFreshAddress({
+        enableBTCFreshAddress,
+        networkId: network?.id,
+        walletId: activeAccount?.wallet?.id,
+      }),
+    [
+      account?.id,
+      network?.id,
+      activeAccount?.wallet?.id,
+      enableBTCFreshAddress,
+    ],
+  );
 
   const rewardCenterConfig = getRewardCenterConfig({
     accountId: account?.id ?? '',
@@ -154,6 +177,8 @@ export function WalletActionMore() {
               return !!rewardCenterConfig;
             case 'approvals':
               return isApprovalEnabled;
+            case 'addressList':
+              return isAddressListEnabled;
             default:
               return config.moreActions.includes(action);
           }
@@ -173,6 +198,13 @@ export function WalletActionMore() {
             case 'copy':
               return (
                 <WalletActionCopy key="copy" onClose={handleActionListClose} />
+              );
+            case 'addressList':
+              return (
+                <WalletActionAddressList
+                  key="addressList"
+                  onClose={handleActionListClose}
+                />
               );
             case 'bulkSend':
               return (
@@ -302,6 +334,7 @@ export function WalletActionMore() {
       displaySignAndVerify.result,
       rewardCenterConfig,
       isApprovalEnabled,
+      isAddressListEnabled,
       getActionCustomization,
       devSettings?.settings?.showDevExportPrivateKey,
       isBotWallet,

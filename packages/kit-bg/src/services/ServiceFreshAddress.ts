@@ -4,7 +4,10 @@ import {
   getLocalUsedAddressFromLocalPendingTxs,
   transformAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/fresh-address';
-import type { IBtcFreshAddress } from '@onekeyhq/core/src/chains/btc/types';
+import type {
+  IBtcFreshAddress,
+  IBtcFreshAddressStructure,
+} from '@onekeyhq/core/src/chains/btc/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
@@ -318,6 +321,109 @@ class ServiceFreshAddress extends ServiceBase {
     );
   }
 
+  private async resolveBtcAddressContext({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<
+    | {
+        dbAccount: IDBUtxoAccount;
+        xpubSegwit: string;
+        freshAddresses: IBtcFreshAddressStructure | undefined;
+      }
+    | undefined
+  > {
+    if (!accountId || !networkId) return undefined;
+    if (!networkUtils.isBTCNetwork(networkId)) return undefined;
+
+    const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
+      accountId,
+    })) as IDBUtxoAccount | undefined;
+    if (!dbAccount) return undefined;
+
+    const xpubSegwit = dbAccount.xpubSegwit ?? dbAccount.xpub;
+    if (!xpubSegwit) return undefined;
+
+    const freshAddresses =
+      await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddresses({
+        networkId,
+        xpubSegwit,
+      });
+
+    return { dbAccount, xpubSegwit, freshAddresses };
+  }
+
+  private async deriveAndPersistFreshAddresses({
+    accountId,
+    networkId,
+    xpubSegwit,
+    dbAccount,
+    freshAddresses,
+    paged,
+    rewriteStructure,
+  }: {
+    accountId: string;
+    networkId: string;
+    xpubSegwit: string;
+    dbAccount: IDBUtxoAccount;
+    freshAddresses: IBtcFreshAddressStructure | undefined;
+    paged: IBtcFreshAddress[];
+    rewriteStructure: (params: {
+      structure: IBtcFreshAddressStructure;
+      derivedMap: Record<string, string>;
+      updatedPaths: Set<string>;
+    }) => IBtcFreshAddressStructure;
+  }): Promise<IBtcFreshAddress[]> {
+    if (!paged.length) return paged;
+
+    const deriveCandidates = paged.filter(
+      (item) => item.path && (!item.isDerivedByApp || !item.address),
+    );
+    if (deriveCandidates.length === 0) return paged;
+
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as VaultBtc;
+
+    const derivedMap = await vault.deriveAddressesByPaths({
+      dbAccount,
+      paths: deriveCandidates
+        .map((item) => item.path)
+        .filter((path): path is string => Boolean(path)),
+    });
+
+    const updatedPaths = new Set<string>();
+    const next = paged.map((item) => {
+      const path = item.path;
+      if (!path) return item;
+      const derived = derivedMap[path];
+      if (!derived) return item;
+      if (!item.isDerivedByApp || item.address !== derived) {
+        updatedPaths.add(path);
+      }
+      return { ...item, address: derived, isDerivedByApp: true };
+    });
+
+    if (freshAddresses && updatedPaths.size > 0) {
+      await this.backgroundApi.simpleDb.btcFreshAddress.updateBTCFreshAddresses(
+        {
+          networkId,
+          xpubSegwit,
+          value: rewriteStructure({
+            structure: freshAddresses,
+            derivedMap,
+            updatedPaths,
+          }),
+        },
+      );
+    }
+
+    return next;
+  }
+
   @backgroundMethod()
   async getBtcUsedAddressesByPage({
     accountId,
@@ -336,124 +442,214 @@ class ServiceFreshAddress extends ServiceBase {
       return emptyResult;
     }
 
-    if (!networkUtils.isBTCNetwork(networkId)) {
-      return emptyResult;
-    }
-
-    const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
-      accountId,
-    })) as IDBUtxoAccount | undefined;
-
-    if (!dbAccount) {
-      return emptyResult;
-    }
-
-    const xpubSegwit = dbAccount.xpubSegwit ?? dbAccount.xpub;
-    if (!xpubSegwit) {
-      return emptyResult;
-    }
-
-    const freshAddresses =
-      await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddresses({
-        networkId,
-        xpubSegwit,
-      });
+    const ctx = await this.resolveBtcAddressContext({ accountId, networkId });
+    if (!ctx) return emptyResult;
+    const { dbAccount, xpubSegwit, freshAddresses } = ctx;
 
     const usedAddresses = freshAddresses?.fresh?.used ?? [];
-
     const total = usedAddresses.length;
-    if (!total) {
-      return emptyResult;
-    }
+    if (!total) return emptyResult;
 
     const start = (Math.max(1, page) - 1) * pageSize;
     const paged = usedAddresses.slice(start, start + pageSize).map((item) => ({
       ...item,
       address: item.address ?? item.name,
     }));
+    if (!paged.length) return { total, items: [] };
 
-    if (!paged.length) {
-      return { total, items: [] };
-    }
-
-    const deriveCandidates = paged.filter(
-      (item) => item.path && (!item.isDerivedByApp || !item.address),
-    );
-
-    const updatedPaths = new Set<string>();
-
-    if (deriveCandidates.length > 0) {
-      const vault = (await vaultFactory.getVault({
-        networkId,
-        accountId,
-      })) as VaultBtc;
-
-      const derivedMap = await vault.deriveAddressesByPaths({
-        dbAccount,
-        paths: deriveCandidates
-          .map((item) => item.path)
-          .filter((path): path is string => Boolean(path)),
-      });
-
-      paged.forEach((item, index) => {
-        const path = item.path;
-        if (!path) {
-          return;
-        }
-        const derived = derivedMap[path];
-        if (!derived) {
-          return;
-        }
-
-        if (!item.isDerivedByApp || item.address !== derived) {
-          updatedPaths.add(path);
-        }
-
-        paged[index] = {
-          ...item,
-          address: derived,
-          isDerivedByApp: true,
-        };
-      });
-
-      if (freshAddresses && updatedPaths.size > 0) {
-        const freshGroup = freshAddresses.fresh ?? { used: [], unused: [] };
-        const originUsed = freshGroup.used ?? [];
-        const updatedFreshUsed = originUsed.map((item) => {
-          if (!item.path || !updatedPaths.has(item.path)) {
-            return item;
-          }
-          const derived = derivedMap[item.path];
-          if (!derived) {
-            return item;
-          }
-          return {
-            ...item,
-            address: derived,
-            isDerivedByApp: true,
-          };
-        });
-
-        await this.backgroundApi.simpleDb.btcFreshAddress.updateBTCFreshAddresses(
-          {
-            networkId,
-            xpubSegwit,
-            value: {
-              ...freshAddresses,
-              fresh: {
-                ...freshGroup,
-                used: updatedFreshUsed,
-              },
-            },
+    const items = await this.deriveAndPersistFreshAddresses({
+      accountId,
+      networkId,
+      xpubSegwit,
+      dbAccount,
+      freshAddresses,
+      paged,
+      rewriteStructure: ({ structure, derivedMap, updatedPaths }) => {
+        const freshGroup = structure.fresh ?? { used: [], unused: [] };
+        return {
+          ...structure,
+          fresh: {
+            ...freshGroup,
+            used: (freshGroup.used ?? []).map((item) => {
+              if (!item.path || !updatedPaths.has(item.path)) return item;
+              const derived = derivedMap[item.path];
+              return derived
+                ? { ...item, address: derived, isDerivedByApp: true }
+                : item;
+            }),
           },
-        );
-      }
+        };
+      },
+    });
+
+    return { total, items };
+  }
+
+  @backgroundMethod()
+  async getBtcNextFreshAddress({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<{ next: IBtcFreshAddress | undefined; totalFresh: number }> {
+    const empty = { next: undefined, totalFresh: 0 };
+    if (!accountId || !networkId) return empty;
+
+    const ctx = await this.resolveBtcAddressContext({ accountId, networkId });
+    if (!ctx) return empty;
+    const { dbAccount, xpubSegwit, freshAddresses } = ctx;
+
+    const unused = freshAddresses?.fresh?.unused ?? [];
+    const totalFresh = unused.length;
+    if (!totalFresh) return empty;
+
+    const first = unused[0];
+    const seed: IBtcFreshAddress = {
+      ...first,
+      address: first.address ?? first.name,
+    };
+
+    const items = await this.deriveAndPersistFreshAddresses({
+      accountId,
+      networkId,
+      xpubSegwit,
+      dbAccount,
+      freshAddresses,
+      paged: [seed],
+      rewriteStructure: ({ structure, derivedMap, updatedPaths }) => {
+        const freshGroup = structure.fresh ?? { used: [], unused: [] };
+        return {
+          ...structure,
+          fresh: {
+            ...freshGroup,
+            unused: (freshGroup.unused ?? []).map((item) => {
+              if (!item.path || !updatedPaths.has(item.path)) return item;
+              const derived = derivedMap[item.path];
+              return derived
+                ? { ...item, address: derived, isDerivedByApp: true }
+                : item;
+            }),
+          },
+        };
+      },
+    });
+
+    return { next: items[0], totalFresh };
+  }
+
+  @backgroundMethod()
+  async getBtcNextChangeAddress({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<{ next: IBtcFreshAddress | undefined }> {
+    const empty = { next: undefined };
+    if (!accountId || !networkId) return empty;
+
+    const ctx = await this.resolveBtcAddressContext({ accountId, networkId });
+    if (!ctx) return empty;
+    const { dbAccount, xpubSegwit, freshAddresses } = ctx;
+
+    const unused = freshAddresses?.change?.unused ?? [];
+    if (!unused.length) return empty;
+
+    const first = unused[0];
+    const seed: IBtcFreshAddress = {
+      ...first,
+      address: first.address ?? first.name,
+    };
+
+    const items = await this.deriveAndPersistFreshAddresses({
+      accountId,
+      networkId,
+      xpubSegwit,
+      dbAccount,
+      freshAddresses,
+      paged: [seed],
+      rewriteStructure: ({ structure, derivedMap, updatedPaths }) => {
+        const changeGroup = structure.change ?? { used: [], unused: [] };
+        return {
+          ...structure,
+          change: {
+            ...changeGroup,
+            unused: (changeGroup.unused ?? []).map((item) => {
+              if (!item.path || !updatedPaths.has(item.path)) return item;
+              const derived = derivedMap[item.path];
+              return derived
+                ? { ...item, address: derived, isDerivedByApp: true }
+                : item;
+            }),
+          },
+        };
+      },
+    });
+
+    return { next: items[0] };
+  }
+
+  @backgroundMethod()
+  async getBtcChangeAddressesByPage({
+    accountId,
+    networkId,
+    page,
+    pageSize,
+  }: {
+    accountId: string;
+    networkId: string;
+    page: number;
+    pageSize: number;
+  }): Promise<{ total: number; items: IBtcFreshAddress[] }> {
+    const emptyResult = { total: 0, items: [] as IBtcFreshAddress[] };
+
+    if (!accountId || !networkId || pageSize <= 0 || page <= 0) {
+      return emptyResult;
     }
 
-    return {
-      total,
-      items: paged,
-    };
+    const ctx = await this.resolveBtcAddressContext({ accountId, networkId });
+    if (!ctx) return emptyResult;
+    const { dbAccount, xpubSegwit, freshAddresses } = ctx;
+
+    const source = freshAddresses?.change?.used ?? [];
+
+    const total = source.length;
+    if (!total) return emptyResult;
+
+    const start = (Math.max(1, page) - 1) * pageSize;
+    const paged = source.slice(start, start + pageSize).map((item) => ({
+      ...item,
+      address: item.address ?? item.name,
+    }));
+    if (!paged.length) return { total, items: [] };
+
+    const items = await this.deriveAndPersistFreshAddresses({
+      accountId,
+      networkId,
+      xpubSegwit,
+      dbAccount,
+      freshAddresses,
+      paged,
+      rewriteStructure: ({ structure, derivedMap, updatedPaths }) => {
+        const changeGroup = structure.change ?? { used: [], unused: [] };
+        return {
+          ...structure,
+          change: {
+            ...changeGroup,
+            used: (changeGroup.used ?? []).map((item) => {
+              if (!item.path || !updatedPaths.has(item.path)) return item;
+              const derived = derivedMap[item.path];
+              return derived
+                ? { ...item, address: derived, isDerivedByApp: true }
+                : item;
+            }),
+          },
+        };
+      },
+    });
+
+    return { total, items };
   }
 
   async getAccountNameFromFreshAddress({
