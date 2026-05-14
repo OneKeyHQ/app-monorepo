@@ -537,14 +537,15 @@ export default class ServiceNotification extends ServiceBase {
     const notificationSettingsRawData =
       await this.backgroundApi.simpleDb.notificationSettings.getRawData();
 
-    for (const account of dbAccounts) {
+    // Bot wallets must not occupy notification quota.
+    const filteredDbAccounts = dbAccounts.filter(
+      (account) => !accountUtils.isBotAccount({ accountId: account.id }),
+    );
+
+    for (const account of filteredDbAccounts) {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
       });
-      // Bot wallets must not occupy notification quota.
-      if (accountUtils.isBotWallet({ walletId })) {
-        continue;
-      }
       const isEnabled =
         await this.backgroundApi.simpleDb.notificationSettings.isAccountActivityEnabled(
           {
