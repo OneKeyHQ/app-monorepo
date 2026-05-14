@@ -1,42 +1,22 @@
 diff --git a/node_modules/fast-deep-equal/index.js b/node_modules/fast-deep-equal/index.js
 --- a/node_modules/fast-deep-equal/index.js
 +++ b/node_modules/fast-deep-equal/index.js
-@@ -23,7 +23,39 @@
+@@ -23,7 +23,19 @@
  
      if (a.constructor === RegExp) return a.source === b.source && a.flags === b.flags;
      if (a.valueOf !== Object.prototype.valueOf) return a.valueOf() === b.valueOf();
 -    if (a.toString !== Object.prototype.toString) return a.toString() === b.toString();
 +    if (a.toString !== Object.prototype.toString) {
-+      if (typeof a.toString !== 'function' || typeof b.toString !== 'function') {
-+        try {
-+          // Reach defaultLogger via globalThis (cross-bundle require is
-+          // forbidden by the split-bundle DAG). The full path is preserved
-+          // on the invocation so the @LogToServer decorator's wrapped
-+          // function keeps its `this` binding to the error scene — capturing
-+          // the bare method ref and calling it bare would break `this` and
-+          // the decorator's internal try/catch would silently swallow it.
-+          var __errScene =
-+            globalThis &&
-+            globalThis.$$appGlobals &&
-+            globalThis.$$appGlobals.$defaultLogger &&
-+            globalThis.$$appGlobals.$defaultLogger.app &&
-+            globalThis.$$appGlobals.$defaultLogger.app.error;
-+          if (__errScene && typeof __errScene.log === 'function') {
-+            __errScene.log(
-+              '[fast-deep-equal][BUG] non-callable toString — ' +
-+                'typeof a.toString=' + typeof a.toString +
-+                ', typeof b.toString=' + typeof b.toString +
-+                ', typeof a=' + typeof a +
-+                ', typeof b=' + typeof b +
-+                ', a.constructor=' + (a && a.constructor && a.constructor.name) +
-+                ', b.constructor=' + (b && b.constructor && b.constructor.name) +
-+                ', keys(a)=[' + ((typeof Object !== 'undefined' && Object.keys) ? Object.keys(a).slice(0, 8).join(',') : '?') + ']' +
-+                ', keys(b)=[' + ((typeof Object !== 'undefined' && Object.keys) ? Object.keys(b).slice(0, 8).join(',') : '?') + ']'
-+            );
-+          }
-+        } catch (_e) { /* never let logging break the guard */ }
-+        return false;
-+      }
++      // An object that overrode `toString` but whose override is no longer
++      // a callable function (e.g. `Object.create(null)` records produced
++      // by some i18n/serializer paths) would make the original
++      // `a.toString()` throw `TypeError: undefined is not a function` and
++      // crash the JS runtime via ExceptionsManagerModule on Android Hermes
++      // (RN 0.81.5 lacks native Array.prototype.toSorted, so the
++      // array.prototype.tosorted polyfill chain reaches here through
++      // React Navigation's useLinking deep-equals on every nav tick).
++      // Short-circuit to `not equal` when either side is non-callable.
++      if (typeof a.toString !== 'function' || typeof b.toString !== 'function') return false;
 +      return a.toString() === b.toString();
 +    }
  

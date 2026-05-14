@@ -73,10 +73,8 @@ const appGlobals: IAppGlobals = {
   extJsBridgeOffscreenToBg: undefined!,
 };
 
-// Expose on globalThis in production too so cross-bundle diagnostics
-// (e.g. patches/fast-deep-equal+3.1.3.patch from common.bundle) can
-// reach the defaultLogger without a cross-bundle require that the
-// split-bundle DAG would forbid.
-globalThis.$$appGlobals = appGlobals;
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.$$appGlobals = appGlobals;
+}
 
 export default appGlobals;
