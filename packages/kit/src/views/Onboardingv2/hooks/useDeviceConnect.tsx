@@ -63,28 +63,6 @@ import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 // useDeviceConnect hook stays focused on the OneKey path.
 // ---------------------------------------------------------------------------
 
-const LEDGER_BLE_NAME_SUFFIX_RE = /\b([0-9A-Fa-f]{4})$/;
-
-function isLedgerBleTransport(
-  transport: EHardwareTransportType | undefined,
-): boolean {
-  return (
-    transport === EHardwareTransportType.BLE ||
-    transport === EHardwareTransportType.DesktopWebBle
-  );
-}
-
-function getLedgerBleName(
-  device: SearchDevice,
-  transport: EHardwareTransportType | undefined,
-): string | undefined {
-  // Only BLE-advertised names carry the trailing 4-hex (e.g. "Nano X 1456" -> "1456").
-  if (!isLedgerBleTransport(transport)) return undefined;
-  const name = device.name ?? '';
-  const match = name.match(LEDGER_BLE_NAME_SUFFIX_RE);
-  return match ? match[1].toUpperCase() : undefined;
-}
-
 async function verifyLedgerDevice(
   device: SearchDevice,
 ): Promise<IFirmwareVerifyResult> {
@@ -120,7 +98,6 @@ async function createLedgerHwWallet({
   hardwareTransportType: EHardwareTransportType | undefined;
   isSoftwareWalletOnlyUser: boolean;
 }): Promise<void> {
-  const ledgerBleName = getLedgerBleName(device, hardwareTransportType);
   try {
     navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
@@ -131,7 +108,6 @@ async function createLedgerHwWallet({
       hideCheckingDeviceLoading: true,
       features: {
         device_id: device.deviceId || '',
-        ...(ledgerBleName ? { ble_name: ledgerBleName } : {}),
         vendor,
       } as IOneKeyDeviceFeatures,
       isFirmwareVerified: true,
