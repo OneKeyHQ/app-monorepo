@@ -44,6 +44,7 @@ const {
 } = require('./lib/regression');
 const {
   ensureSessionsDirWritable,
+  getFileSize,
   listSessionIds,
   waitForNewSessionId,
   waitForMark,
@@ -174,6 +175,7 @@ async function runOne({
       process.env.PERF_WEB_REFRESH_SELECTOR ||
       '[data-testid="wallet-refresh-manually"]';
     log(`run#${runIndex}: trigger home refresh (${refreshSelector})...`);
+    const refreshMarkLogOffset = getFileSize(markLogPath);
     await page.locator(refreshSelector).click({ timeout: markTimeoutMs });
 
     // Require a real refresh cycle so metrics are meaningful.
@@ -182,6 +184,7 @@ async function runOne({
       markLogPath,
       markName: startMarkName,
       timeoutMs: markTimeoutMs,
+      startOffset: refreshMarkLogOffset,
     });
     log(`run#${runIndex}: start mark received`);
 
@@ -190,6 +193,7 @@ async function runOne({
       markLogPath,
       markName,
       timeoutMs: markTimeoutMs,
+      startOffset: refreshMarkLogOffset,
     });
     log(`run#${runIndex}: done mark received`);
 
@@ -199,6 +203,7 @@ async function runOne({
       runIndex,
       sessionId,
       markName,
+      markLogOffset: refreshMarkLogOffset,
       durations: { totalMs: Date.now() - t0 },
     };
   } finally {
@@ -469,7 +474,11 @@ async function main() {
       return {
         ...r,
         metrics: {
-          ...readSessionMetrics({ sessionsDir, sessionId: r.sessionId }),
+          ...readSessionMetrics({
+            sessionsDir,
+            sessionId: r.sessionId,
+            startOffset: r.markLogOffset,
+          }),
           ...extractDerivedDebugMetrics(dj),
         },
       };

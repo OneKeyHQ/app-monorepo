@@ -153,12 +153,12 @@ process_belongs_to_root() {
   kill -0 "$pid" 2>/dev/null || return 1
 
   pattern="$(command_pattern "$name")" || return 1
+  command="$(ps -p "$pid" -o command= 2>/dev/null || true)"
   cwd="$(process_cwd "$pid")"
-  if [[ "$cwd" == "$ROOT_DIR" ]]; then
+  if [[ "$cwd" == "$ROOT_DIR" && "$command" == *"$pattern"* ]]; then
     return 0
   fi
 
-  command="$(ps -p "$pid" -o command= 2>/dev/null || true)"
   if [[ "$command" == *"$ROOT_DIR/$pattern"* ]]; then
     return 0
   fi
