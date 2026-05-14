@@ -223,16 +223,18 @@ export function TradingViewPerpsV2(
     };
   }, [setMounted]);
 
-  // Freeze initial symbol to prevent URL regeneration on symbol changes
-  const initialSymbolRef = useRef(symbol);
-
   const { handleNavigation } = useNavigationHandler();
 
   // Optimization: Static URL with only initialization params to avoid WebView reload
   // Memoize additionalParams to prevent useTradingViewUrl from regenerating URL
-  const urlSymbol = reloadOnSymbolChange
-    ? symbol
-    : initialSymbolRef.current;
+  const staticUrlSymbol = useMemo(
+    () => symbol,
+    // Symbol-only changes are sent through SYMBOL_CHANGE. Recompute only when
+    // the WebView is intentionally re-keyed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [_webviewKey],
+  );
+  const urlSymbol = reloadOnSymbolChange ? symbol : staticUrlSymbol;
   const additionalParams = useMemo(
     () => ({
       symbol: urlSymbol,
@@ -240,12 +242,8 @@ export function TradingViewPerpsV2(
       storageNamespace: 'perps' as const,
       enablePerpsTradingUi: enablePerpsTradingUi ? '1' : '0',
     }),
-    [_webviewKey, enablePerpsTradingUi, urlSymbol],
+    [enablePerpsTradingUi, urlSymbol],
   );
-
-  useEffect(() => {
-    initialSymbolRef.current = symbol;
-  }, [symbol]);
 
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams,
