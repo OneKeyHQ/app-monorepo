@@ -1,6 +1,6 @@
 {
   "name": "@onekeyfe/cli",
-  "version": "0.1.0-alpha.6",
+  "version": "0.1.0-alpha.7",
   "description": "OneKey wallet CLI for developers and AI agents",
   "bin": {
     "onekey": "./bin/onekey"
@@ -50,7 +50,7 @@
     "proper-lockfile": "^4.1.2"
   },
   "optionalDependencies": {
-    "@onekeyfe/cli-darwin-arm64": "0.1.0-alpha.6",
-    "@onekeyfe/cli-darwin-x64": "0.1.0-alpha.6"
+    "@onekeyfe/cli-darwin-arm64": "0.1.0-alpha.7",
+    "@onekeyfe/cli-darwin-x64": "0.1.0-alpha.7"
   }
 }
