@@ -298,12 +298,12 @@ export const useDownloadPackage = () => {
           headers,
         };
         defaultLogger.app.appUpdate.startDownload(downloadParams);
-        // Retry transient failures up to 3x with backoff. Each retry reuses
-        // the on-disk resume artifact (iOS .resume / Android & Desktop
-        // .partial), so the second attempt onward is a real range-resume —
-        // not a from-byte-zero re-fetch. Bails immediately on
-        // SHA256_MISMATCH / HTTP 4xx-permanent so we don't spin on a known-
-        // dead state.
+        // Retry transient failures up to 5x with reachability-aware backoff.
+        // While NetInfo reports offline we camp on its listener (capped at
+        // 5 min); when online we use exp backoff capped at 60s. Each retry
+        // reuses the on-disk resume artifact (iOS .resume / Android & Desktop
+        // .partial), so attempts after the first are real range-resumes.
+        // Bails immediately on SHA256_MISMATCH / HTTP 4xx-permanent.
         const result = await runDownloadWithRetry(
           () =>
             fileType === EUpdateFileType.jsBundle
