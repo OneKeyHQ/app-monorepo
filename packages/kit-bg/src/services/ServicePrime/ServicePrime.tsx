@@ -325,6 +325,11 @@ class ServicePrime extends ServiceBase {
   }: {
     serverUserInfo: IPrimeServerUserInfo;
   }) {
+    const beforeValue = await primePersistAtom.get();
+    defaultLogger.prime.subscription.onekeyIdLogout({
+      reason: `updatePrimeAtomByServerUserInfo: before update, atom isPrime=${beforeValue.primeSubscription?.isActive}, atom userId=${beforeValue.onekeyUserId}, server isPrime=${serverUserInfo?.isPrime}, server userId=${serverUserInfo?.userId}`,
+    });
+
     let primeSubscription: IPrimeSubscriptionInfo | undefined;
     if (serverUserInfo.isPrime) {
       primeSubscription = {
@@ -361,6 +366,11 @@ class ServicePrime extends ServiceBase {
         // salt: serverUserInfo.salt,
         // pwdHash: serverUserInfo.pwdHash,
       };
+    });
+
+    const afterValue = await primePersistAtom.get();
+    defaultLogger.prime.subscription.onekeyIdLogout({
+      reason: `updatePrimeAtomByServerUserInfo: after update, atom isPrime=${afterValue.primeSubscription?.isActive}, atom userId=${afterValue.onekeyUserId}`,
     });
 
     if (serverUserInfo?.inviteCode) {
