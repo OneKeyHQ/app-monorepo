@@ -1,7 +1,7 @@
 diff --git a/node_modules/fast-deep-equal/index.js b/node_modules/fast-deep-equal/index.js
 --- a/node_modules/fast-deep-equal/index.js
 +++ b/node_modules/fast-deep-equal/index.js
-@@ -23,7 +23,27 @@
+@@ -23,7 +23,37 @@
  
      if (a.constructor === RegExp) return a.source === b.source && a.flags === b.flags;
      if (a.valueOf !== Object.prototype.valueOf) return a.valueOf() === b.valueOf();
@@ -9,19 +9,29 @@ diff --git a/node_modules/fast-deep-equal/index.js b/node_modules/fast-deep-equa
 +    if (a.toString !== Object.prototype.toString) {
 +      if (typeof a.toString !== 'function' || typeof b.toString !== 'function') {
 +        try {
-+          var __nfl = require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-+          __nfl.NativeLogger.write(
-+            __nfl.LogLevel.Error,
-+            '[fast-deep-equal][BUG] non-callable toString — ' +
-+              'typeof a.toString=' + typeof a.toString +
-+              ', typeof b.toString=' + typeof b.toString +
-+              ', typeof a=' + typeof a +
-+              ', typeof b=' + typeof b +
-+              ', a.constructor=' + (a && a.constructor && a.constructor.name) +
-+              ', b.constructor=' + (b && b.constructor && b.constructor.name) +
-+              ', keys(a)=[' + ((typeof Object !== 'undefined' && Object.keys) ? Object.keys(a).slice(0, 8).join(',') : '?') + ']' +
-+              ', keys(b)=[' + ((typeof Object !== 'undefined' && Object.keys) ? Object.keys(b).slice(0, 8).join(',') : '?') + ']'
-+          );
++          // Avoid cross-bundle require (this module lives in common.bundle,
++          // but @onekeyhq/* lives in main.bundle — split-bundle DAG forbids
++          // the reverse edge). Reach the defaultLogger via globalThis,
++          // which appGlobals.ts attaches at module load.
++          var __log = globalThis &&
++            globalThis.$$appGlobals &&
++            globalThis.$$appGlobals.$defaultLogger &&
++            globalThis.$$appGlobals.$defaultLogger.app &&
++            globalThis.$$appGlobals.$defaultLogger.app.error &&
++            globalThis.$$appGlobals.$defaultLogger.app.error.log;
++          if (__log) {
++            __log(
++              '[fast-deep-equal][BUG] non-callable toString — ' +
++                'typeof a.toString=' + typeof a.toString +
++                ', typeof b.toString=' + typeof b.toString +
++                ', typeof a=' + typeof a +
++                ', typeof b=' + typeof b +
++                ', a.constructor=' + (a && a.constructor && a.constructor.name) +
++                ', b.constructor=' + (b && b.constructor && b.constructor.name) +
++                ', keys(a)=[' + ((typeof Object !== 'undefined' && Object.keys) ? Object.keys(a).slice(0, 8).join(',') : '?') + ']' +
++                ', keys(b)=[' + ((typeof Object !== 'undefined' && Object.keys) ? Object.keys(b).slice(0, 8).join(',') : '?') + ']'
++            );
++          }
 +        } catch (_e) { /* never let logging break the guard */ }
 +        return false;
 +      }
