@@ -97,6 +97,29 @@ jobs:
       - name: Verify build
         run: node apps/cli/dist/cli.js --version
 
+      - name: Inject optionalDependencies into package.json
+        # Source apps/cli/package.json never carries optionalDependencies —
+        # yarn 4 hard-fails on optional deps that 404 on the registry, which
+        # creates a chicken-and-egg with the standalone job that publishes
+        # those subpackages. We inject them into the package.json right before
+        # `npm pack` so the published tarball routes installs to the signed
+        # platform binaries while the source repo stays installable.
+        env:
+          VERSION: ${{ needs.get-version.outputs.version }}
+        run: |
+          node -e '
+          const fs = require("fs");
+          const p = "apps/cli/package.json";
+          const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
+          pkg.optionalDependencies = {
+            "@onekeyfe/cli-darwin-arm64": process.env.VERSION,
+            "@onekeyfe/cli-darwin-x64": process.env.VERSION,
+          };
+          fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
+          '
+          echo "Injected optionalDependencies at v$VERSION:"
+          node -p "JSON.stringify(require('./apps/cli/package.json').optionalDependencies, null, 2)"
+
       - name: Pack and verify tarball
         run: |
           cd apps/cli
