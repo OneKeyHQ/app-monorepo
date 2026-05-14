@@ -311,6 +311,7 @@ function WalletActionSend({
       params: {
         hideZeroBalanceTokens: true,
         keepDefaultZeroBalanceTokens: false,
+        showDeFiTokenSwitch: true,
         aggregateTokenSelectorScreen:
           EModalSignatureConfirmRoutes.TxSelectAggregateToken,
         title: intl.formatMessage({ id: ETranslations.global_select_crypto }),

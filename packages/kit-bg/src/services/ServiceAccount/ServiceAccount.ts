@@ -3013,6 +3013,9 @@ class ServiceAccount extends ServiceBase {
             payload: {
               connectId: compatibleConnectId,
               deviceId: dbDevice.deviceId ?? undefined,
+              params: {
+                walletId,
+              },
             },
           });
           throw deviceNotOpenedPassphraseError;

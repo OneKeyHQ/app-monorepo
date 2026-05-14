@@ -20,11 +20,8 @@ export interface IHardwareVendorProfile {
   hasPersistentDeviceId(transport: 'usb' | 'ble'): boolean;
   /** Whether this vendor's wallets support cloud sync */
   supportsCloudSync: boolean;
-  /**
-   * Whether a given connectId can be used to identify an existing device.
-   * BLE connectId (e.g. "A58F") is persistent — can match.
-   * USB connectId (e.g. UUID) is ephemeral — cannot match.
-   */
+  /** Whether a connectId can be used to identify an existing device.
+   *  BLE: persistent (MAC/UUID). USB: ephemeral, won't match anything anyway. */
   canMatchDeviceByConnectId(connectId: string): boolean;
 }
 
@@ -52,9 +49,8 @@ const ledgerProfile: IHardwareVendorProfile = {
   hasPersistentConnectId: (transport) => transport === 'ble',
   hasPersistentDeviceId: () => false,
   supportsCloudSync: false,
-  // Ledger BLE connectId is a 4-digit HEX (e.g. "A58F") — persistent, can match.
-  // USB connectId is a DMK UUID — ephemeral, cannot match.
-  canMatchDeviceByConnectId: (connectId) => /^[0-9A-Fa-f]{4}$/.test(connectId),
+  // BLE: DMK transport path (MAC/UUID), persistent. USB: ephemeral UUID, never matches.
+  canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
 };
 
 // Trezor stub — isThirdParty=true so it won't be treated as OneKey device.
