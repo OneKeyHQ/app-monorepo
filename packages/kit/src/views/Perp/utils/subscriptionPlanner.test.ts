@@ -86,7 +86,7 @@ describe('planTradeSubscriptions', () => {
     expect(plan.shouldSyncSubscriptions).toBe(true);
   });
 
-  it('does not sync subscriptions for a hidden perps-only selector tab', () => {
+  it('syncs market ctxs for a hidden perps-only selector tab', () => {
     const plan = planTradeSubscriptions({
       activeInstrument: baseInstrument,
       hasAccount: true,
@@ -99,6 +99,34 @@ describe('planTradeSubscriptions', () => {
     });
 
     expect(plan.spotAssetCtxsEnabled).toBe(false);
-    expect(plan.shouldSyncSubscriptions).toBe(false);
+    expect(plan.shouldSyncSubscriptions).toBe(true);
+  });
+
+  it('syncs focused perp market subscriptions before order book options are ready', () => {
+    const plan = planTradeSubscriptions({
+      activeInstrument: baseInstrument,
+      hasAccount: true,
+      orderBookOptions: undefined,
+      viewState: {
+        ...baseViewState,
+        routeFocused: true,
+      },
+    });
+
+    expect(plan.shouldSyncSubscriptions).toBe(true);
+  });
+
+  it('keeps focused perp market subscriptions alive when order book options lag behind', () => {
+    const plan = planTradeSubscriptions({
+      activeInstrument: baseInstrument,
+      hasAccount: true,
+      orderBookOptions: { coin: 'ETH', assetId: 1 },
+      viewState: {
+        ...baseViewState,
+        routeFocused: true,
+      },
+    });
+
+    expect(plan.shouldSyncSubscriptions).toBe(true);
   });
 });

@@ -570,11 +570,7 @@ function WebSocketSubscriptionUpdate() {
       },
     );
 
-    if (
-      isWebSocketConnected === true &&
-      !isLoading &&
-      plan.shouldSyncSubscriptions
-    ) {
+    if (!isLoading && plan.shouldSyncSubscriptions) {
       void actions.current.updateSubscriptions();
     }
   }, [
@@ -677,7 +673,11 @@ function useHyperliquidLocaleChangeRecovery() {
 
   const recoverSubscriptions = useCallback(async () => {
     await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
-    await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
+    await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions(
+      {
+        forceRebuild: true,
+      },
+    );
     await actions.current.updateSubscriptions();
     await backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
   }, [actions]);

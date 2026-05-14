@@ -6,6 +6,7 @@ import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/stat
 
 import {
   isPerpTokenSelectorAllTab,
+  isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorSpotTab,
 } from './tokenSelectorTabs';
 
@@ -22,7 +23,7 @@ export function planTradeSubscriptions(params: {
   orderBookOptions?: IPerpsActiveOrderBookOptionsAtom;
   viewState: ITradeRouteViewState;
 }): ITradeSubscriptionPlan {
-  const { activeInstrument, hasAccount, orderBookOptions, viewState } = params;
+  const { activeInstrument, hasAccount, viewState } = params;
   const instrumentCoin = activeInstrument?.coin ?? '';
   const isSpot = activeInstrument?.mode === 'spot';
   const isSpotSelectorOpen =
@@ -31,8 +32,11 @@ export function planTradeSubscriptions(params: {
   const isAllSelectorOpen =
     viewState.tokenSelectorOpen &&
     isPerpTokenSelectorAllTab(viewState.tokenSelectorTab);
+  const isPerpsSelectorOpen =
+    viewState.tokenSelectorOpen &&
+    isPerpTokenSelectorPerpsTab(viewState.tokenSelectorTab);
   const shouldSyncSelectorSubscriptions =
-    isSpotSelectorOpen || isAllSelectorOpen;
+    isSpotSelectorOpen || isAllSelectorOpen || isPerpsSelectorOpen;
 
   // Always subscribe to SPOT_STATE when account exists — total account value
   // (perps + spot) depends on spotTotalUsd from this subscription.
@@ -52,8 +56,7 @@ export function planTradeSubscriptions(params: {
         shouldSyncSelectorSubscriptions || Boolean(instrumentCoin);
     } else {
       shouldSyncSubscriptions =
-        shouldSyncSelectorSubscriptions ||
-        (Boolean(instrumentCoin) && orderBookOptions?.coin === instrumentCoin);
+        shouldSyncSelectorSubscriptions || Boolean(instrumentCoin);
     }
   }
 
