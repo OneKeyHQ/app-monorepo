@@ -494,6 +494,63 @@ function ensureColdStartAppStateListener() {
   }
 }
 
+// Drop cold-start cache entries (both the in-memory map and the MMKV snapshot)
+// for a specific set of atom keys, across every scope. Use this when the
+// underlying data becomes invalid for reasons orthogonal to the atom's normal
+// invalidation path — e.g. the user switches default fiat currency, so cached
+// balance strings baked under the previous currency must not hydrate the next
+// cold start.
+export function clearContextAtomColdStartCacheByAtomKeys(
+  atomKeys: IContextAtomColdStartCacheKey[],
+) {
+  if (atomKeys.length === 0) return;
+  const targets = new Set<string>(atomKeys);
+
+  // 1. In-memory map: drop matching entries and any pending dirty markers so
+  //    the next debounced flush doesn't rewrite stale data back to MMKV.
+  for (const fullKey of Array.from(coldStartValuesMap.keys())) {
+    const atomKey = fullKey.split(COLD_START_SCOPED_KEY_SEPARATOR)[1];
+    if (atomKey && targets.has(atomKey)) {
+      coldStartValuesMap.delete(fullKey);
+      coldStartDirtyKeys.delete(fullKey);
+    }
+  }
+
+  // 2. MMKV snapshot: rewrite without the matching keys.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { coldStartCacheStorage } =
+      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EAppSyncStorageKeys } =
+      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    const raw = coldStartCacheStorage.getString(
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+    );
+    if (!raw) return;
+    const snapshot = JSON.parse(raw) as Record<string, unknown>;
+    let changed = false;
+    for (const key of Object.keys(snapshot)) {
+      const atomKey = key.split(COLD_START_SCOPED_KEY_SEPARATOR)[1];
+      if (atomKey && targets.has(atomKey)) {
+        delete snapshot[key];
+        changed = true;
+      }
+    }
+    if (changed) {
+      coldStartCacheStorage.set(
+        EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+        JSON.stringify(snapshot),
+      );
+      coldStartLog(
+        `clearByAtomKeys: removed entries for [${atomKeys.join(', ')}]`,
+      );
+    }
+  } catch {
+    /* best-effort */
+  }
+}
+
 export function hydrateContextColdStartCacheForProvider({
   store,
   coldStartScopeKey,

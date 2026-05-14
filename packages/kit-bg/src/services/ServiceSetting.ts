@@ -15,6 +15,7 @@ import {
   getListedNetworkMap,
   getNetworkIdsMap,
 } from '@onekeyhq/shared/src/config/networkIds';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import {
   IMPL_BTC,
   IMPL_EVM,
@@ -61,6 +62,9 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import {
+  accountSelectorDeFiMapAtom,
+  accountSelectorValuesMapAtom,
+  activeAccountValueAtom,
   currencyPersistAtom,
   desktopBluetoothAtom,
 } from '../states/jotai/atoms';
@@ -69,6 +73,7 @@ import {
   settingsLastActivityAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms/settings';
+import { clearContextAtomColdStartCacheByAtomKeys } from '../states/jotai/utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -262,6 +267,30 @@ class ServiceSetting extends ServiceBase {
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
     await this.backgroundApi.serviceStaking.resetEarnCache();
+    await this.clearCurrencyDependentCaches();
+  }
+
+  // Wipe every cache that holds fiat values baked in the previous currency, so
+  // the post-restart UI shows a placeholder until fresh data arrives instead of
+  // displaying stale numbers under the new currency symbol.
+  private async clearCurrencyDependentCaches() {
+    await this.backgroundApi.simpleDb.accountValue.clearRawData();
+    await this.backgroundApi.simpleDb.localTokens.clearFiatData();
+    await activeAccountValueAtom.set(undefined);
+    await accountSelectorValuesMapAtom.set({});
+    await accountSelectorDeFiMapAtom.set({});
+
+    // Cold-start atoms persist their last value into MMKV and hydrate it
+    // before the first paint on the next launch. Without this, the home page
+    // would flash the previous currency's balance string until the new fetch
+    // returns.
+    clearContextAtomColdStartCacheByAtomKeys([
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.lastConfirmedOverviewBalanceAtom,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountWorthAtom,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.renderedTokenListCacheAtom,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.overviewTokenCacheStateAtom,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.overviewDeFiDataStateAtom,
+    ]);
   }
 
   @backgroundMethod()

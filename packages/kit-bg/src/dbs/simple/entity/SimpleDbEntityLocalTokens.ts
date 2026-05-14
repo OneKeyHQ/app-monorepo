@@ -289,4 +289,18 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListValue: {},
     });
   }
+
+  // Wipe only currency-dependent fiat fields, preserve token metadata and
+  // per-account token lists so we don't refetch metadata after a currency switch.
+  @backgroundMethod()
+  async clearFiatData() {
+    await this.setRawData((rawData) => ({
+      data: rawData?.data ?? {},
+      tokenList: rawData?.tokenList ?? {},
+      smallBalanceTokenList: rawData?.smallBalanceTokenList ?? {},
+      riskyTokenList: rawData?.riskyTokenList ?? {},
+      tokenListMap: {},
+      tokenListValue: {},
+    }));
+  }
 }
