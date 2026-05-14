@@ -309,13 +309,13 @@ class ServicePrimeTransfer extends ServiceBase {
       );
 
       const RECONNECTION_ATTEMPTS = 5;
-      const RECONNECTION_DELAY = 1_000;
-      const RECONNECTION_DELAY_MAX = 5_000;
+      const RECONNECTION_DELAY = 1000;
+      const RECONNECTION_DELAY_MAX = 5000;
       // First-connect grace period: while connecting for the first time, do
       // not flip UI to "failed" on transient connect_error — socket.io will
       // auto-retry and usually succeed. Only show failed after retries are
       // truly exhausted or grace period passes without success.
-      const FIRST_CONNECT_GRACE_PERIOD_MS = 8_000;
+      const FIRST_CONNECT_GRACE_PERIOD_MS = 8000;
       const connectStartedAt = Date.now();
       let connectErrorCount = 0;
 
@@ -1761,7 +1761,9 @@ class ServicePrimeTransfer extends ServiceBase {
         // Keep websocketReconnecting as-is: if socket.io is mid-reconnect, a
         // disconnect event will fire between attempts and we don't want to
         // flip the UI to "failed" during that window.
-        websocketError: v.websocketReconnecting ? undefined : 'WebSocket disconnected',
+        websocketError: v.websocketReconnecting
+          ? undefined
+          : 'WebSocket disconnected',
         status: EPrimeTransferStatus.init,
         myCreatedRoomId: undefined,
         pairedRoomId: undefined,
