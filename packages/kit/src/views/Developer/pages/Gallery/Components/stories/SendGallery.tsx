@@ -429,10 +429,10 @@ const SendGallery = () => (
                           },
                         );
                       console.log('ExportSecretKeys >>>> ', {
-                        privateKey: r.exportedPrivateKey,
+                        accountId,
                         address: r.account.address,
+                        ok: !!r.exportedPrivateKey,
                       });
-                      console.log(r);
                     } catch (_error) {
                       //
                     }
