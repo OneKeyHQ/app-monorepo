@@ -52,6 +52,7 @@ export function useL2Book(_options?: IL2BookOptions): {
 
   const l2Book = useMemo((): IL2BookData | null => {
     if (!l2BookData || !currentToken.coin) return null;
+    if (l2BookData.coin !== currentToken.coin) return null;
 
     const [bids, asks] = l2BookData.levels || [[], []];
 
