@@ -832,8 +832,12 @@ export function Bootstrap() {
     // Sampler runs unconditionally in production: 1Hz mach syscall +
     // rAF counter is negligible overhead, and the data feeds the
     // memory-pressure observability path (anomaly logs, future
-    // telemetry) for all users. Overlay stays dev-only.
+    // telemetry) for all users. Process-global on the native side, so
+    // start once on mount — don't re-start when dev settings toggle.
     performance.start(1000);
+  }, []);
+
+  useEffect(() => {
     if (devSettings.enabled && devSettings.settings?.showPerformanceMonitor) {
       performance.showOverlay();
     } else {
@@ -852,12 +856,18 @@ export function Bootstrap() {
   useEffect(() => {
     const id = performance.addMemoryWarningListener((event) => {
       appEventBus.emit(EAppEventBusNames.MemoryPressureWarning, event);
-      // Run GC after subscribers have had a chance to drop references.
-      // setTimeout(0) yields to the current microtask queue so any
-      // synchronous `clear()` calls in subscriber handlers finish
-      // first; otherwise GC would walk live references and reclaim
-      // nothing. Critical-only: a `low` event isn't worth the
-      // stop-the-world cost.
+      // Run GC after Main-runtime subscribers (listener closures + any
+      // FG caches that subscribe directly) have had a chance to drop
+      // references. setTimeout(0) yields the current macrotask so any
+      // synchronous `clear()` on this runtime finishes first.
+      //
+      // Cross-runtime note (iOS/Android with split Hermes): this GC
+      // call only reclaims Main's heap. Background-side caches
+      // (@backgroundClass services, memoize buffers, socket queues)
+      // live in a separate Hermes instance and are GC'd by a symmetric
+      // listener in BackgroundApiBase.constructor after the IPC-
+      // delivered event fires there. Critical-only: a `low` event
+      // isn't worth the stop-the-world cost.
       if (event.level === 'critical') {
         setTimeout(() => {
           performance.forceGarbageCollection();
