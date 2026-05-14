@@ -1,8 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IBatchCheckWalletV2Item } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -183,10 +187,23 @@ export function useFetchWalletsWithBoundStatus() {
     return walletsWithBoundStatus;
   }, [getReferralCodeWalletInfo]);
 
-  const { result: walletsWithStatus, isLoading } = usePromiseResult(
+  const {
+    result: walletsWithStatus,
+    isLoading,
+    run: refreshWalletsWithStatus,
+  } = usePromiseResult(fetchWalletsWithBoundStatus, [
     fetchWalletsWithBoundStatus,
-    [fetchWalletsWithBoundStatus],
-  );
+  ]);
+
+  // Bot wallet activate/deactivate emits WalletUpdate; refresh so the
+  // referral binding picker excludes/includes the wallet without requiring
+  // a navigation reload.
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshWalletsWithStatus);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshWalletsWithStatus);
+    };
+  }, [refreshWalletsWithStatus]);
 
   return {
     walletsWithStatus,

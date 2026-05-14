@@ -3,8 +3,10 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
   useFiatCrypto,
   useSupportNetworkId,
@@ -35,6 +37,13 @@ function WalletActionBuyMain({
   });
   const { result: isSellSupported } = useSupportNetworkId('sell', network?.id);
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isAddMoneyBlockedByBotWallet = isBotWallet && isBotWalletDeactivated;
+
   const isBuyDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
       return true;
@@ -44,12 +53,25 @@ function WalletActionBuyMain({
       return true;
     }
 
+    if (isAddMoneyBlockedByBotWallet) {
+      return true;
+    }
+
     return false;
-  }, [isBuySupported, isSellSupported, wallet?.type]);
+  }, [
+    isBuySupported,
+    isSellSupported,
+    wallet?.type,
+    isAddMoneyBlockedByBotWallet,
+  ]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const handleBuyToken = useCallback(async () => {
+    if (isAddMoneyBlockedByBotWallet) {
+      showBotWalletDisabledToast('addMoney');
+      return;
+    }
     if (isBuyDisabled) return;
 
     if (
@@ -73,6 +95,7 @@ function WalletActionBuyMain({
       handleFiatCrypto({});
     }
   }, [
+    isAddMoneyBlockedByBotWallet,
     isBuyDisabled,
     handleFiatCrypto,
     network,
@@ -91,6 +114,9 @@ function WalletActionBuyMain({
       }
       icon={customization?.icon}
       disabled={customization?.disabled ?? isBuyDisabled}
+      // Keep the deactivated-bot-wallet branch tappable so users get a
+      // toast instead of a silent dead-click.
+      allowPressWhenDisabled={isAddMoneyBlockedByBotWallet}
       trackID="wallet-buy"
       testID={HomeTestIDs.buyButton}
     />

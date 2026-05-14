@@ -18,6 +18,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -418,7 +420,20 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             intl={intl}
             networkId={networkId}
             formatRelativeTime={formatCompactTime}
-            onPress={() => {
+            onPress={async () => {
+              // Recents may include addresses that belong to a bot wallet
+              // which has since been deactivated. Block selection so we
+              // don't paste a dead address into the recipient input — show
+              // a toast so the user understands why the row is rejected.
+              if (
+                await isAddressOwnedByDeactivatedBotWallet({
+                  networkId,
+                  address: canonicalAddress,
+                })
+              ) {
+                showBotWalletDisabledToast('beReceiver');
+                return;
+              }
               onSelect?.({
                 address: canonicalAddress,
                 memo: recipient.recipientMemo,

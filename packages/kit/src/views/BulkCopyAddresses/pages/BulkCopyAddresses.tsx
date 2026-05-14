@@ -140,7 +140,8 @@ function BulkCopyAddresses({
 
   const isHwWallet = accountUtils.isHwWallet({ walletId: selectedWalletId });
 
-  const { result: availableWallets } = usePromiseResult(async () => {
+  const { result: availableWallets, run: refreshAvailableWallets } =
+    usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
       ignoreEmptySingletonWalletAccounts: true,
       ignoreNonBackedUpWallets: true,
@@ -204,6 +205,16 @@ function BulkCopyAddresses({
 
     return availableWalletsTemp;
   }, []);
+
+  // Keep the available-wallet list reactive: bot wallet activate /
+  // deactivate emits WalletUpdate (debounced) — without this the picker
+  // would still show the wallet until the user navigates away and back.
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshAvailableWallets);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshAvailableWallets);
+    };
+  }, [refreshAvailableWallets]);
 
   // If the wallet that was passed in via route params (or previously selected)
   // is no longer available — e.g. it became a deactivated Bot Wallet and was

@@ -3,13 +3,14 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { ActionList, Toast } from '@onekeyhq/components';
+import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useCopyAddressWithDeriveType } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldBlockBotWalletCopyAddress } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -49,10 +50,6 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
       walletId: wallet?.id,
     },
   );
-  const isCopyDisabled = shouldBlockBotWalletCopyAddress({
-    isBotWallet,
-    isBotWalletDeactivated,
-  });
 
   const handleCopyAddress = useCallback(async () => {
     if (
@@ -61,9 +58,7 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
         isBotWalletDeactivated,
       })
     ) {
-      Toast.error({
-        title: '该钱包已停用，无法复制地址',
-      });
+      showBotWalletDisabledToast('copyAddress');
       return;
     }
     if (
@@ -165,7 +160,6 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
       label={intl.formatMessage({ id: ETranslations.global_copy_address })}
       onClose={() => {}}
       onPress={handleCopyAddress}
-      disabled={isCopyDisabled}
     />
   );
 }
