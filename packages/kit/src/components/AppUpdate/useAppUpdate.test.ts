@@ -581,6 +581,34 @@ describe('runDownloadWithRetry', () => {
     // Restore default for sibling tests.
     netInfo.currentState = () => ({ isInternetReachable: null });
   });
+
+  test('falls back to grace + retry when the offline cap expires', async () => {
+    const netInfo = (globalThis as any).__mockGlobalNetInfo;
+    netInfo.__reset();
+    // Stay offline the whole time — the listener never fires, so the only
+    // way the retry loop can make progress is by the 5-min offline-wait cap
+    // tripping and bubbling out as exitReason='timeout'.
+    netInfo.currentState = () => ({ isInternetReachable: false });
+    const op = jest
+      .fn<Promise<string>, []>()
+      .mockRejectedValueOnce(new Error('NSURLErrorDomain -1009'))
+      .mockResolvedValueOnce('ok');
+    const promise = runDownloadWithRetry(op, 'test').catch((e) => e);
+    // Let the rejection settle and waitForOnlineOrTimeout register its timer.
+    for (let i = 0; i < 8; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+    }
+    expect(op).toHaveBeenCalledTimes(1);
+    // Trip the offline cap → exitReason='timeout' → falls through to grace.
+    jest.advanceTimersByTime(5 * 60 * 1000);
+    await flush();
+    const result = await promise;
+    expect(result).toBe('ok');
+    expect(op).toHaveBeenCalledTimes(2);
+    // Restore default for sibling tests.
+    netInfo.currentState = () => ({ isInternetReachable: null });
+  });
 });
 
 // =========================================================================

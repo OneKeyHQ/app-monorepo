@@ -44,6 +44,7 @@ async function waitForOnlineOrTimeout(
   defaultLogger.app.appUpdate.log(
     `${context}: offline-wait start, cap=${timeoutMs}ms`,
   );
+  // Default to 'timeout'; only the listener path overrides to 'online'.
   let exitReason: 'online' | 'timeout' = 'timeout';
   await new Promise<void>((resolve) => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -56,10 +57,7 @@ async function waitForOnlineOrTimeout(
       unsubscribe?.();
       resolve();
     };
-    timeoutId = setTimeout(() => {
-      exitReason = 'timeout';
-      finish();
-    }, timeoutMs);
+    timeoutId = setTimeout(finish, timeoutMs);
     unsubscribe = globalNetInfo.addEventListener((state) => {
       if (state.isInternetReachable !== false) {
         exitReason = 'online';
@@ -116,12 +114,10 @@ export async function runDownloadWithRetry<T>(
   operation: () => Promise<T>,
   context: string,
 ): Promise<T> {
-  let lastError: unknown;
   for (let attempt = 0; attempt <= DOWNLOAD_RETRY_MAX_ATTEMPTS; attempt += 1) {
     try {
       return await operation();
     } catch (e) {
-      lastError = e;
       if (
         isUnrecoverableDownloadError(e) ||
         attempt === DOWNLOAD_RETRY_MAX_ATTEMPTS
@@ -141,7 +137,7 @@ export async function runDownloadWithRetry<T>(
       await waitBeforeRetry(attempt, context);
     }
   }
-  throw new OneKeyLocalError(
-    lastError instanceof Error ? lastError.message : String(lastError),
-  );
+  // Unreachable: the loop either returns on success or throws on the
+  // attempt === MAX iteration. Keep the throw to satisfy TS control flow.
+  throw new OneKeyLocalError('runDownloadWithRetry: unreachable');
 }
