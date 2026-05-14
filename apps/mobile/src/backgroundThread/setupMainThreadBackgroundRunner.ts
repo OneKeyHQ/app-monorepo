@@ -423,6 +423,7 @@ function handleBackgroundThreadResponse(sharedRPC: ISharedRPC, key: string) {
     requestId?: string;
     httpStatusCode?: number;
     constructorName?: string;
+    payload?: unknown;
   };
   if (errorInfo?.name) {
     error.name = errorInfo.name;
@@ -455,6 +456,9 @@ function handleBackgroundThreadResponse(sharedRPC: ISharedRPC, key: string) {
   }
   if (typeof errorInfo?.constructorName === 'string') {
     error.constructorName = errorInfo.constructorName;
+  }
+  if (errorInfo?.payload !== undefined) {
+    error.payload = errorInfo.payload;
   }
   pendingCall.reject(error);
 }

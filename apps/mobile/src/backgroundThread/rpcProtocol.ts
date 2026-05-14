@@ -83,6 +83,7 @@ export type IBackgroundThreadResponseErrorPayload = {
   requestId?: string;
   httpStatusCode?: number;
   constructorName?: string;
+  payload?: unknown;
 };
 
 export type IBackgroundThreadResponsePayload = {
