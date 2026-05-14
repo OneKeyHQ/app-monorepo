@@ -60,10 +60,35 @@ export function useOneKeyAuthMethods() {
   }, []);
 
   const logout: () => Promise<void> = useCallback(async () => {
+    let apiLogoutFailed = false;
     try {
       await apiLogout();
-    } catch {
-      // do nothing
+    } catch (e) {
+      apiLogoutFailed = true;
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: `useOneKeyAuth.logout: apiLogout threw, will force-clear local state: ${String(
+          e,
+        )}`,
+      });
+    }
+    // Defensive fallback: if apiLogout threw before its finally block ran
+    // (e.g., getAuthToken / getPrimeClient threw), force-clear local state here
+    // so the UI cannot keep rendering the previously-logged-in account.
+    if (apiLogoutFailed) {
+      try {
+        await backgroundApiProxy.simpleDb.prime.saveAuthToken('');
+        await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason:
+            'useOneKeyAuth.logout: force-cleared local state after apiLogout failure',
+        });
+      } catch (e) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: `useOneKeyAuth.logout: force-clear local state also failed: ${String(
+            e,
+          )}`,
+        });
+      }
     }
     try {
       await supabaseSignOut();
