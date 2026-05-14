@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildHomeDefaultTokenMapKey,
   getFilteredTokenBySearchKey,
@@ -340,7 +341,9 @@ function TokenListViewCmp(props: IProps) {
     }
 
     if (hideDeFiMarkedTokens) {
-      resultTokens = resultTokens.filter((item) => !item.defiMarked);
+      resultTokens = resultTokens.filter(
+        (item) => !isTokenSelectorDappToken(item),
+      );
     }
 
     if (exchangeFilter?.supportedAssets) {

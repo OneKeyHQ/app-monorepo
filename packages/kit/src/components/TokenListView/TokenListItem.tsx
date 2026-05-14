@@ -3,10 +3,8 @@ import { memo, useCallback } from 'react';
 import { Spinner, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import {
-  ETokenDappType,
-  type IAccountToken,
-} from '@onekeyhq/shared/types/token';
+import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useProcessingTokenStateAtom } from '../../states/jotai/contexts/tokenList';
 
@@ -78,9 +76,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     processingTokenState.isProcessing &&
     processingTokenState.token?.$key !== token.$key;
 
-  const showDeFiReceiptTokenBadge = Boolean(
-    token.dappType && token.dappType !== ETokenDappType.WalletToken,
-  );
+  const showDeFiReceiptTokenBadge = isTokenSelectorDappToken(token);
 
   const renderFirstColumn = useCallback(() => {
     if (!tableLayout && !isTokenSelector) {

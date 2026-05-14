@@ -309,6 +309,9 @@ class ServiceSetting extends ServiceBase {
     if (values.customRpc) {
       await this.backgroundApi.simpleDb.customRpc.clearRawData();
     }
+    if (values.customNetworkFee) {
+      await this.backgroundApi.simpleDb.feeInfo.clearCustomFeeInfo();
+    }
     if (values.serverNetworks) {
       await this.backgroundApi.simpleDb.serverNetwork.clearRawData();
       await this.backgroundApi.simpleDb.recentNetworks.clearRawData();

@@ -396,28 +396,6 @@ function TokenListBlock({
     [account?.id, network?.id, setTokenSelectorFilter, showLpTokensOnly],
   );
 
-  useLayoutEffect(() => {
-    if (!showLpTokensOnly || !account?.id || !network?.id) {
-      return;
-    }
-
-    setScopedLpTokenListState({
-      initialized: false,
-      isRefreshing: true,
-    });
-    setScopedLpTokenList({
-      tokens: [],
-      keys: '',
-    });
-    setScopedLpTokenListMap({});
-  }, [
-    account?.id,
-    indexedAccount?.id,
-    mergeDeriveAddressData,
-    network?.id,
-    showLpTokensOnly,
-  ]);
-
   const { result: homeDefaultTokenMap } = usePromiseResult(async () => {
     const r = await backgroundApiProxy.serviceToken.getHomeDefaultTokenMap();
     return r;
@@ -737,15 +715,13 @@ function TokenListBlock({
         return;
       }
 
-      setScopedLpTokenListState({
-        initialized: false,
+      // Keep the rendered DeFi-token list during focus revalidation. Owner or
+      // mode changes already clear the scoped list above; clearing it here makes
+      // Tabs remeasure the page height when returning from token details.
+      setScopedLpTokenListState((prev) => ({
+        ...prev,
         isRefreshing: true,
-      });
-      setScopedLpTokenList({
-        tokens: [],
-        keys: '',
-      });
-      setScopedLpTokenListMap({});
+      }));
 
       try {
         const responses = await fetchFilteredTokenSelectorTokens({
@@ -798,6 +774,32 @@ function TokenListBlock({
       revalidateOnFocus: true,
     },
   );
+
+  useLayoutEffect(() => {
+    if (!showLpTokensOnly || !account?.id || !network?.id) {
+      return;
+    }
+
+    setScopedLpTokenListState({
+      initialized: false,
+      isRefreshing: true,
+    });
+    setScopedLpTokenList({
+      tokens: [],
+      keys: '',
+    });
+    setScopedLpTokenListMap({});
+    // Persisted DeFi-token mode can mount before tab focus settles; make the
+    // initial clear and initial fetch atomic so loading always resolves.
+    void runLpTokenList({ alwaysSetState: true });
+  }, [
+    account?.id,
+    indexedAccount?.id,
+    mergeDeriveAddressData,
+    network?.id,
+    runLpTokenList,
+    showLpTokensOnly,
+  ]);
 
   const { result: allAggregateTokenInfo } = usePromiseResult(
     async () => backgroundApiProxy.serviceToken.getAllAggregateTokenInfo(),
@@ -2758,7 +2760,7 @@ function TokenListBlock({
         limit={6}
         plainMode
         withHeader
-        withFooter={!showLpTokensOnly}
+        withFooter
         withPrice
         inTabList
         hideValue
