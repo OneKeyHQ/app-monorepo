@@ -268,7 +268,7 @@ describe('useBrowserTabActions', () => {
     ]);
   });
 
-  it('allows localhost webview URLs only when the developer setting is enabled', () => {
+  it('allows local webview URLs only when the developer setting is enabled', () => {
     const { result } = renderHook(() => useBrowserAction().current, {
       wrapper: createWrapper(),
     });
@@ -279,6 +279,9 @@ describe('useBrowserTabActions', () => {
       'http://127。0。0。1:8888',
       'https://127.0.0.1:3000/',
       'https://127。0。0。1:3000/',
+      'http://10.0.0.1:3000',
+      'http://192.168.0.1',
+      'http://169.254.169.254/latest/meta-data',
     ].forEach((url) => {
       expect(
         result.current.validateWebviewSrc({
@@ -301,6 +304,9 @@ describe('useBrowserTabActions', () => {
       'http://127。0。0。1:8888',
       'https://127.0.0.1:3000/',
       'https://127。0。0。1:3000/',
+      'http://10.0.0.1:3000',
+      'http://192.168.0.1',
+      'http://169.254.169.254/latest/meta-data',
     ].forEach((url) => {
       expect(
         result.current.validateWebviewSrc({

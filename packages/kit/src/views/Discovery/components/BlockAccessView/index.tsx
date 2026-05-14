@@ -18,14 +18,14 @@ function BlockAccessView({
   onCloseTab: () => void;
 }) {
   const intl = useIntl();
-  const isLocalhostBlocked = useMemo(
+  const isLocalUrlBlocked = useMemo(
     () =>
       urlValidateState === EValidateUrlEnum.NotSupportProtocol &&
-      Boolean(url && uriUtils.isLocalhostUrl(url)),
+      Boolean(url && uriUtils.isLocalhostOrPrivateIpUrl(url)),
     [url, urlValidateState],
   );
   const title = useMemo(() => {
-    if (isLocalhostBlocked) {
+    if (isLocalUrlBlocked) {
       return 'Local URLs are blocked by default';
     }
     if (urlValidateState === EValidateUrlEnum.InvalidPunycode) {
@@ -36,9 +36,9 @@ function BlockAccessView({
     return intl.formatMessage({
       id: ETranslations.explore_connection_is_not_private,
     });
-  }, [isLocalhostBlocked, urlValidateState, intl]);
+  }, [isLocalUrlBlocked, urlValidateState, intl]);
   const description = useMemo(() => {
-    if (isLocalhostBlocked) {
+    if (isLocalUrlBlocked) {
       return 'Enable "Allow local URLs in DApp Browser" in Developer settings';
     }
     if (urlValidateState === EValidateUrlEnum.InvalidPunycode) {
@@ -49,7 +49,7 @@ function BlockAccessView({
     return intl.formatMessage({
       id: ETranslations.explore_connection_is_not_private_warning,
     });
-  }, [isLocalhostBlocked, urlValidateState, intl]);
+  }, [isLocalUrlBlocked, urlValidateState, intl]);
   const content = useMemo(
     () => (
       <YStack

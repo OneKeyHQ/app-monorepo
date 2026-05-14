@@ -174,7 +174,7 @@ export function SearchResultContent({
   const showLocalhostDevSettingHint =
     devSettings.enabled &&
     !devSettings.settings?.allowLocalhostUrlInDAppBrowser &&
-    uriUtils.isLocalhostUrl(searchValue);
+    uriUtils.isLocalhostOrPrivateIpUrl(searchValue);
 
   const handleOpenLocalhostDevSetting = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {

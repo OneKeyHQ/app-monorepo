@@ -32,15 +32,196 @@ type ILocalhostUrlOptions = {
   allowLocalhostUrl?: boolean;
 };
 
-function isLocalhostParsedUrl(parsedUrl: URL | null) {
+function parseIpv4Address(ipAddress: string): number[] | null {
+  if (!validator.isIP(ipAddress, 4)) {
+    return null;
+  }
+
+  return ipAddress.split('.').map((part) => Number(part));
+}
+
+function ipv4PartsToAddress(parts: number[]) {
+  return parts.join('.');
+}
+
+function isPublicIpv4Address(ipAddress: string): boolean {
+  const parts = parseIpv4Address(ipAddress);
+  if (!parts) {
+    return false;
+  }
+
+  const [first, second, third, fourth] = parts;
+  if (
+    first === undefined ||
+    second === undefined ||
+    third === undefined ||
+    fourth === undefined
+  ) {
+    return false;
+  }
+
+  return !(
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 0 && third === 0) ||
+    (first === 192 && second === 0 && third === 2) ||
+    (first === 192 && second === 88 && third === 99) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    (first === 198 && second === 51 && third === 100) ||
+    (first === 203 && second === 0 && third === 113) ||
+    first >= 224
+  );
+}
+
+function parseIpv6Address(ipAddress: string): number[] | null {
+  if (!validator.isIP(ipAddress, 6)) {
+    return null;
+  }
+
+  const lowerIpAddress = ipAddress.toLowerCase();
+  const lastColonIndex = lowerIpAddress.lastIndexOf(':');
+  const tail = lowerIpAddress.slice(lastColonIndex + 1);
+  let normalizedIpAddress = lowerIpAddress;
+
+  if (tail.includes('.')) {
+    const ipv4Parts = parseIpv4Address(tail);
+    if (!ipv4Parts || lastColonIndex < 0) {
+      return null;
+    }
+    const [first, second, third, fourth] = ipv4Parts;
+    if (
+      first === undefined ||
+      second === undefined ||
+      third === undefined ||
+      fourth === undefined
+    ) {
+      return null;
+    }
+    const high = (first << 8) + second;
+    const low = (third << 8) + fourth;
+    normalizedIpAddress = `${lowerIpAddress.slice(
+      0,
+      lastColonIndex,
+    )}:${high.toString(16)}:${low.toString(16)}`;
+  }
+
+  const compressedParts = normalizedIpAddress.split('::');
+  if (compressedParts.length > 2) {
+    return null;
+  }
+
+  const headParts = compressedParts[0]
+    ? compressedParts[0].split(':').filter(Boolean)
+    : [];
+  const tailParts = compressedParts[1]
+    ? compressedParts[1].split(':').filter(Boolean)
+    : [];
+  const missingPartsCount = 8 - headParts.length - tailParts.length;
+  if (
+    missingPartsCount < 0 ||
+    (compressedParts.length === 1 && missingPartsCount !== 0)
+  ) {
+    return null;
+  }
+
+  const parts = [
+    ...headParts,
+    ...Array.from({ length: missingPartsCount }, () => '0'),
+    ...tailParts,
+  ].map((part) => Number.parseInt(part, 16));
+
+  if (
+    parts.length !== 8 ||
+    parts.some((part) => Number.isNaN(part) || part < 0 || part > 0xff_ff)
+  ) {
+    return null;
+  }
+
+  return parts;
+}
+
+function isPublicIpv6Address(ipAddress: string): boolean {
+  const parts = parseIpv6Address(ipAddress);
+  if (!parts) {
+    return false;
+  }
+
+  const [first, second, third, fourth, fifth, sixth, seventh, eighth] = parts;
+  const isAllZero = parts.every((part) => part === 0);
+  const isLoopback =
+    parts.slice(0, 7).every((part) => part === 0) && eighth === 1;
+
+  if (
+    isAllZero ||
+    isLoopback ||
+    first === undefined ||
+    second === undefined ||
+    third === undefined ||
+    fourth === undefined ||
+    fifth === undefined ||
+    sixth === undefined ||
+    seventh === undefined ||
+    eighth === undefined
+  ) {
+    return false;
+  }
+
+  if (
+    first === 0 &&
+    second === 0 &&
+    third === 0 &&
+    fourth === 0 &&
+    fifth === 0
+  ) {
+    if (sixth === 0xff_ff) {
+      return isPublicIpv4Address(
+        ipv4PartsToAddress([
+          seventh >> 8,
+          seventh & 0xff,
+          eighth >> 8,
+          eighth & 0xff,
+        ]),
+      );
+    }
+    return false;
+  }
+
+  return !(
+    (first & 0xfe_00) === 0xfc_00 ||
+    (first & 0xff_c0) === 0xfe_80 ||
+    (first & 0xff_00) === 0xff_00 ||
+    first === 0x01_00 ||
+    (first === 0x00_64 && (second === 0xff_9b || second === 0xff_9b + 1)) ||
+    (first === 0x20_01 && second === 0x00_00) ||
+    (first === 0x20_01 && second === 0x00_02) ||
+    (first === 0x20_01 && second >= 0x00_10 && second <= 0x00_1f) ||
+    (first === 0x20_01 && second === 0x0d_b8) ||
+    first === 0x20_02
+  );
+}
+
+function isPublicIpAddress(ipAddress: string): boolean {
+  return isPublicIpv4Address(ipAddress) || isPublicIpv6Address(ipAddress);
+}
+
+function isPublicIpAddressParsedUrl(parsedUrl: URL | null) {
   const hostname = getNormalizedParsedHostname(parsedUrl);
-  const result = Boolean(hostname && LOCALHOST_URL_HOSTNAMES.has(hostname));
+  const result = Boolean(hostname && isPublicIpAddress(hostname));
   return result;
 }
 
-function isIpAddressParsedUrl(parsedUrl: URL | null) {
+function isLocalhostOrPrivateIpParsedUrl(parsedUrl: URL | null) {
   const hostname = getNormalizedParsedHostname(parsedUrl);
-  const result = Boolean(hostname && validator.isIP(hostname));
+  const result = Boolean(
+    hostname &&
+    (LOCALHOST_URL_HOSTNAMES.has(hostname) ||
+      (validator.isIP(hostname) && !isPublicIpAddress(hostname))),
+  );
   return result;
 }
 
@@ -134,15 +315,40 @@ export function isIpAddressUrl(url: string): boolean {
   return result;
 }
 
-function normalizeHttpLocalhostUrl(url: string): string | null {
+export function isPublicIpAddressUrl(url: string): boolean {
   const text = url.trim();
-  if (!isLocalhostUrl(text)) {
+  if (!text) return false;
+
+  const hostname = getHostnameFromUrlLikeText(text);
+  const result = Boolean(hostname && isPublicIpAddress(hostname));
+  return result;
+}
+
+export function isLocalhostOrPrivateIpUrl(url: string): boolean {
+  const text = url.trim();
+  if (!text) return false;
+
+  const hostname = getHostnameFromUrlLikeText(text);
+  const result = Boolean(
+    hostname &&
+    (LOCALHOST_URL_HOSTNAMES.has(hostname) ||
+      (validator.isIP(hostname) && !isPublicIpAddress(hostname))),
+  );
+  return result;
+}
+
+function normalizeHttpLocalUrl(url: string): string | null {
+  const text = url.trim();
+  if (!isLocalhostOrPrivateIpUrl(text)) {
     return null;
   }
 
   const normalizedUrl = ensureHttpPrefix(text);
   const parsedUrl = safeParseURL(normalizedUrl);
-  if (parsedUrl?.protocol === 'http:' && isLocalhostParsedUrl(parsedUrl)) {
+  if (
+    parsedUrl?.protocol === 'http:' &&
+    isLocalhostOrPrivateIpParsedUrl(parsedUrl)
+  ) {
     return normalizedUrl;
   }
   return null;
@@ -265,21 +471,19 @@ function parseDappRedirect(
   }
 
   const parsedUrl = safeParseURL(url);
-  const isHttpLocalhostUrl = Boolean(
+  const isHttpLocalUrl = Boolean(
     parsedUrl &&
     ['http:', 'https:'].includes(parsedUrl.protocol) &&
-    isLocalhostParsedUrl(parsedUrl),
+    isLocalhostOrPrivateIpParsedUrl(parsedUrl),
   );
-  if (isHttpLocalhostUrl && !options?.allowLocalhostUrl) {
+  if (isHttpLocalUrl && !options?.allowLocalhostUrl) {
     return { action: EDAppOpenActionEnum.DENY };
   }
-  if (isHttpLocalhostUrl && options?.allowLocalhostUrl && parsedUrl) {
+  if (isHttpLocalUrl && options?.allowLocalhostUrl && parsedUrl) {
     return { action: EDAppOpenActionEnum.ALLOW };
   }
   const isHttpPublicIpUrl =
-    parsedUrl?.protocol === 'http:' &&
-    isIpAddressParsedUrl(parsedUrl) &&
-    !isLocalhostParsedUrl(parsedUrl);
+    parsedUrl?.protocol === 'http:' && isPublicIpAddressParsedUrl(parsedUrl);
   if (isHttpPublicIpUrl) {
     return { action: EDAppOpenActionEnum.ALLOW };
   }
@@ -396,9 +600,9 @@ export const validateUrl = (
   options?: ILocalhostUrlOptions,
 ): string => {
   if (options?.allowLocalhostUrl) {
-    const localhostUrl = normalizeHttpLocalhostUrl(url);
-    if (localhostUrl) {
-      return localhostUrl;
+    const localUrl = normalizeHttpLocalUrl(url);
+    if (localUrl) {
+      return localUrl;
     }
   }
 
@@ -428,9 +632,8 @@ export const validateUrl = (
   }
 
   const originalParsedUrl = safeParseURL(url);
-  const isPublicIpAddress =
-    isIpAddressUrl(urlWithoutProtocol) && !isLocalhostUrl(urlWithoutProtocol);
-  if (isPublicIpAddress && originalParsedUrl?.protocol !== 'https:') {
+  const isPublicIpAddressUrlInput = isPublicIpAddressUrl(urlWithoutProtocol);
+  if (isPublicIpAddressUrlInput && originalParsedUrl?.protocol !== 'https:') {
     const httpUrl = `http://${urlWithoutProtocol}`;
     if (validator.isURL(httpUrl, { protocols: ['http'] })) {
       return httpUrl;
@@ -561,6 +764,8 @@ export default {
   parseUrl,
   isLocalhostUrl,
   isIpAddressUrl,
+  isPublicIpAddressUrl,
+  isLocalhostOrPrivateIpUrl,
   safeParseURL,
   appendUtmSourceToUrl,
   isUrlWithoutProtocol,
