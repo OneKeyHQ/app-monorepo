@@ -22,6 +22,7 @@ import {
   useTokenListActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -132,7 +133,9 @@ function TokenSelector() {
   });
 
   const [searchKey, setSearchKey] = useState('');
-  const [showLpTokensOnly, setShowLpTokensOnly] = useState(false);
+  const [tokenSelectorFilter, setTokenSelectorFilter] =
+    useTokenSelectorFilterPersistAtom();
+  const showLpTokensOnly = tokenSelectorFilter.sendTokenShowLpTokensOnly;
   const [hasTokenFilterChanged, setHasTokenFilterChanged] = useState(false);
   const [scopedActiveTokenList, setScopedActiveTokenList] =
     useState<IScopedActiveTokenList>({
@@ -171,9 +174,12 @@ function TokenSelector() {
         return;
       }
       setHasTokenFilterChanged(true);
-      setShowLpTokensOnly(value);
+      setTokenSelectorFilter((prev) => ({
+        ...prev,
+        sendTokenShowLpTokensOnly: value,
+      }));
     },
-    [showLpTokensOnly],
+    [setTokenSelectorFilter, showLpTokensOnly],
   );
 
   const executeOnSelect = useCallback(

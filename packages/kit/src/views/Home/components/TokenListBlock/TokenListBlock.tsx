@@ -62,7 +62,10 @@ import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useTokenSelectorFilterPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -180,7 +183,9 @@ function TokenListBlock({
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
-  const [showLpTokensOnly, setShowLpTokensOnly] = useState(false);
+  const [tokenSelectorFilter, setTokenSelectorFilter] =
+    useTokenSelectorFilterPersistAtom();
+  const showLpTokensOnly = tokenSelectorFilter.homeShowLpTokensOnly;
   const [scopedLpTokenList, setScopedLpTokenList] =
     useState<IScopedActiveTokenList>({
       tokens: [],
@@ -383,9 +388,12 @@ function TokenListBlock({
         });
         refreshWalletTokenListRef.current?.({ forceWalletTokenMode: true });
       }
-      setShowLpTokensOnly(value);
+      setTokenSelectorFilter((prev) => ({
+        ...prev,
+        homeShowLpTokensOnly: value,
+      }));
     },
-    [account?.id, network?.id, showLpTokensOnly],
+    [account?.id, network?.id, setTokenSelectorFilter, showLpTokensOnly],
   );
 
   useLayoutEffect(() => {
