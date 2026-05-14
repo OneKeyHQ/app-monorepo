@@ -63,13 +63,6 @@ import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 // useDeviceConnect hook stays focused on the OneKey path.
 // ---------------------------------------------------------------------------
 
-const LEDGER_BLE_CONNECT_ID_RE = /^[0-9A-Fa-f]{4}$/;
-
-function getLedgerBleName(device: SearchDevice): string | undefined {
-  const connectId = device.connectId ?? '';
-  return LEDGER_BLE_CONNECT_ID_RE.test(connectId) ? connectId : undefined;
-}
-
 async function verifyLedgerDevice(
   device: SearchDevice,
 ): Promise<IFirmwareVerifyResult> {
@@ -105,7 +98,6 @@ async function createLedgerHwWallet({
   hardwareTransportType: EHardwareTransportType | undefined;
   isSoftwareWalletOnlyUser: boolean;
 }): Promise<void> {
-  const ledgerBleName = getLedgerBleName(device);
   try {
     navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
@@ -116,7 +108,6 @@ async function createLedgerHwWallet({
       hideCheckingDeviceLoading: true,
       features: {
         device_id: device.deviceId || '',
-        ...(ledgerBleName ? { ble_name: ledgerBleName } : {}),
         vendor,
       } as IOneKeyDeviceFeatures,
       isFirmwareVerified: true,
