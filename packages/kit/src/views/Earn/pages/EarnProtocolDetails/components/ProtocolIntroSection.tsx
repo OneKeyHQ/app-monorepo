@@ -857,7 +857,11 @@ function getAuditTitle(audit?: IEarnProtocolIntroAudit) {
 }
 
 function getAuditScope(audit?: IEarnProtocolIntroAudit) {
-  return audit?.scope || audit?.description;
+  return audit?.data?.scope || audit?.scope || audit?.description;
+}
+
+function getAuditDate(audit?: IEarnProtocolIntroAudit) {
+  return audit?.data?.date || audit?.date;
 }
 
 function FallbackAvatar({ size = 24 }: { size?: number }) {
@@ -1313,13 +1317,15 @@ function AuditAccordionItem({
 }) {
   const intl = useIntl();
   const url = getLinkUrl(audit.button) || getSafeExternalUrl(audit.url);
+  const isButtonDisabled = Boolean(audit.button?.disabled) || !url;
+  const shouldShowButton = Boolean(audit.button || url);
   const scope = getAuditScope(audit);
-  const hasContent = hasText(scope) || Boolean(url);
+  const hasContent = hasText(scope) || shouldShowButton;
   const handleOpen = useCallback(() => {
-    if (url) {
+    if (url && !isButtonDisabled) {
       openUrlExternal(url);
     }
-  }, [url]);
+  }, [isButtonDisabled, url]);
 
   return (
     <Accordion.Item value={String(index)}>
@@ -1361,7 +1367,7 @@ function AuditAccordionItem({
               />
             </XStack>
             <EarnText
-              text={toEarnText(audit.date)}
+              text={toEarnText(getAuditDate(audit))}
               size="$bodyMd"
               color="$textSubdued"
               flex={1}
@@ -1407,7 +1413,7 @@ function AuditAccordionItem({
               ) : (
                 <YStack flex={1} />
               )}
-              {url ? (
+              {shouldShowButton ? (
                 <Button
                   testID={EarnTestIDs.protocolIntroAuditButton(
                     getText(audit.button?.title) || '',
@@ -1415,6 +1421,7 @@ function AuditAccordionItem({
                   size="small"
                   variant="secondary"
                   borderRadius="$full"
+                  disabled={isButtonDisabled}
                   onPress={handleOpen}
                 >
                   {getText(audit.button?.title) ||
