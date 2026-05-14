@@ -154,9 +154,11 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       console.log('restorePurchases >>>>>>');
       const customerInfo = await PurchasesReactNative.restorePurchases();
       console.log('restorePurchases >>>>>> customerInfo', customerInfo);
-      const localIsActive = customerInfo?.entitlements?.active?.Prime?.isActive;
-      if (localIsActive) {
+      // Always fetch from server API as the source of truth, ignore SDK result
+      const { primeSubscription } =
         await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+      const serverIsActive = primeSubscription?.isActive;
+      if (serverIsActive) {
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.prime_restore_successful,
@@ -295,12 +297,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         const makePurchaseResult =
           await PurchasesReactNative.purchasePackage(offering);
 
-        if (
-          makePurchaseResult?.customerInfo?.entitlements?.active?.Prime
-            ?.isActive
-        ) {
-          // Set subscriptionManageUrl immediately from purchase result,
-          // because the server may not yet have it (RevenueCat webhook delay).
+        // Always use server API as source of truth, ignore SDK result for subscription status
+        // Set subscriptionManageUrl from SDK since server may not have it yet (RevenueCat webhook delay)
+        if (makePurchaseResult?.customerInfo?.managementURL) {
           setPrimePersistAtom(
             (prev): IPrimeUserInfo =>
               perfUtils.buildNewValueIfChanged(prev, {
@@ -311,8 +310,14 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
                   '',
               }),
           );
-          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        }
 
+        // Fetch from server API as the source of truth for subscription status
+        const { primeSubscription } =
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        const serverIsActive = primeSubscription?.isActive;
+
+        if (serverIsActive) {
           const rawPrice =
             subscriptionPeriod === 'P1Y'
               ? offering.product.pricePerYear
