@@ -90,6 +90,8 @@ export type IFetchAccountTokensParams = {
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
   excludeDeFiMarkedTokens?: boolean;
+  withoutDappToken?: boolean;
+  withoutWalletToken?: boolean;
 };
 
 export type ITokenData = {
