@@ -60,6 +60,19 @@ export function getBorrowAssetByReserveAddress({
   );
 }
 
+export function shouldUseAaveNativeGateway({
+  providerName,
+  reserveAddress,
+}: {
+  providerName?: string;
+  reserveAddress?: string;
+}) {
+  return (
+    providerName?.toLowerCase() === EBorrowProviderEnum.Aave &&
+    reserveAddress === ''
+  );
+}
+
 export function getBorrowRepayDebtBalance({
   selectedAsset,
   fallbackDebtBalance,

@@ -48,6 +48,8 @@ jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => {
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     addEarnOrder: jest.fn(),
+    borrowBuildBorrowTransaction: jest.fn(),
+    borrowBuildWithdrawTransaction: jest.fn(),
     getBorrowRepayWithCollateralQuote: jest.fn(),
     borrowBuildRepayWithCollateralTransaction: jest.fn(),
     borrowBuildSetupLutTransaction: jest.fn(),
@@ -79,7 +81,11 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
 
-import { useUniversalBorrowRepayWithCollateral } from './useUniversalBorrowHooks';
+import {
+  useUniversalBorrowBorrow,
+  useUniversalBorrowRepayWithCollateral,
+  useUniversalBorrowWithdraw,
+} from './useUniversalBorrowHooks';
 
 // In the harness, Metro's export * creates non-configurable getters so
 // jest.mock('@onekeyhq/components') can't replace the Toast export.
@@ -94,6 +100,8 @@ const signatureConfirmMock = (globalThis as any)
 const backgroundMock = (globalThis as any).__borrowBackgroundMock as {
   serviceStaking: {
     addEarnOrder: jest.Mock;
+    borrowBuildBorrowTransaction: jest.Mock;
+    borrowBuildWithdrawTransaction: jest.Mock;
     getBorrowRepayWithCollateralQuote: jest.Mock;
     borrowBuildRepayWithCollateralTransaction: jest.Mock;
     borrowBuildSetupLutTransaction: jest.Mock;
@@ -107,6 +115,8 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
   beforeEach(() => {
     signatureConfirmMock.navigationToTxConfirm.mockReset();
     backgroundMock.serviceStaking.addEarnOrder.mockReset();
+    backgroundMock.serviceStaking.borrowBuildBorrowTransaction.mockReset();
+    backgroundMock.serviceStaking.borrowBuildWithdrawTransaction.mockReset();
     backgroundMock.serviceStaking.getBorrowRepayWithCollateralQuote.mockReset();
     backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockReset();
     backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockReset();
@@ -511,5 +521,94 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       slippageBps: undefined,
     });
     expect(toastErrorSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('useUniversalBorrowBorrow and useUniversalBorrowWithdraw', () => {
+  beforeEach(() => {
+    signatureConfirmMock.navigationToTxConfirm.mockReset();
+    backgroundMock.serviceStaking.addEarnOrder.mockReset();
+    backgroundMock.serviceStaking.borrowBuildBorrowTransaction.mockReset();
+    backgroundMock.serviceStaking.borrowBuildWithdrawTransaction.mockReset();
+  });
+
+  it('passes native Aave unwrap intent to borrow transaction build', async () => {
+    backgroundMock.serviceStaking.borrowBuildBorrowTransaction.mockResolvedValue(
+      {
+        tx: JSON.stringify({}),
+        orderId: 'borrow-order-id',
+      },
+    );
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() =>
+      useUniversalBorrowBorrow({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+
+    await act(async () => {
+      await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: '0xMarket',
+        reserveAddress: '',
+        unwrap: true,
+      });
+    });
+
+    expect(
+      backgroundMock.serviceStaking.borrowBuildBorrowTransaction,
+    ).toHaveBeenCalledWith({
+      accountId: 'hd-1--m/44',
+      amount: '1',
+      marketAddress: '0xMarket',
+      networkId: 'evm--1',
+      provider: 'aave',
+      reserveAddress: '',
+      unwrap: true,
+    });
+  });
+
+  it('passes native Aave unwrap intent to withdraw transaction build', async () => {
+    backgroundMock.serviceStaking.borrowBuildWithdrawTransaction.mockResolvedValue(
+      {
+        tx: JSON.stringify({}),
+        orderId: 'withdraw-order-id',
+      },
+    );
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() =>
+      useUniversalBorrowWithdraw({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+
+    await act(async () => {
+      await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: '0xMarket',
+        reserveAddress: '',
+        withdrawAll: true,
+        unwrap: true,
+      });
+    });
+
+    expect(
+      backgroundMock.serviceStaking.borrowBuildWithdrawTransaction,
+    ).toHaveBeenCalledWith({
+      accountId: 'hd-1--m/44',
+      amount: '1',
+      marketAddress: '0xMarket',
+      networkId: 'evm--1',
+      provider: 'aave',
+      reserveAddress: '',
+      unwrap: true,
+      withdrawAll: true,
+    });
   });
 });

@@ -2439,8 +2439,9 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     amount: string;
     withdrawAll?: boolean;
+    unwrap?: boolean;
   }) {
-    const { accountId, withdrawAll, ...rest } = params;
+    const { accountId, withdrawAll, unwrap, ...rest } = params;
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2455,6 +2456,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
       accountAddress,
       ...(withdrawAll !== undefined ? { withdrawAll } : {}),
+      ...(unwrap !== undefined ? { unwrap } : {}),
     });
     return response.data.data;
   }
@@ -2467,8 +2469,9 @@ class ServiceStaking extends ServiceBase {
     reserveAddress: string;
     accountId: string;
     amount: string;
+    unwrap?: boolean;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, unwrap, ...rest } = params;
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2482,6 +2485,7 @@ class ServiceStaking extends ServiceBase {
     }>('/earn/v1/borrow/build-borrow-transaction', {
       ...rest,
       accountAddress,
+      ...(unwrap !== undefined ? { unwrap } : {}),
     });
     return response.data.data;
   }

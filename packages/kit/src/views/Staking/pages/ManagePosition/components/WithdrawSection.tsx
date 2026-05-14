@@ -15,6 +15,7 @@ import {
   getBorrowRepayDebtBalance,
   getBorrowRepayMaxInputBalance,
   getBorrowRepayWalletBalance,
+  shouldUseAaveNativeGateway,
 } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 import {
@@ -679,6 +680,12 @@ export const WithdrawSection = ({
       const { provider, marketAddress, action } = borrowApiCtx.borrowApiParams;
       // Use effective reserve address (from selected asset or default)
       const reserveAddress = effectiveReserveAddress ?? '';
+      const shouldUnwrapNativeAaveReserve =
+        action === 'withdraw' &&
+        shouldUseAaveNativeGateway({
+          providerName: provider,
+          reserveAddress,
+        });
 
       // Build tags array with both new borrow tag and legacy stakeTag for backward compatibility
       const buildTags = (actionType: 'withdraw' | 'repay'): string[] => {
@@ -724,6 +731,7 @@ export const WithdrawSection = ({
         marketAddress,
         reserveAddress,
         withdrawAll,
+        ...(shouldUnwrapNativeAaveReserve ? { unwrap: true } : {}),
         stakingInfo: effectiveToken
           ? {
               label: EEarnLabels.Withdraw,

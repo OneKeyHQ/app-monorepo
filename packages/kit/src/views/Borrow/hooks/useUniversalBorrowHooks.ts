@@ -167,6 +167,7 @@ type IBorrowBuildTxParams = {
   collateralReserveAddress?: string;
   withdrawAll?: boolean;
   repayAll?: boolean;
+  unwrap?: boolean;
   needsSetupLut?: boolean;
   slippageBps?: number;
   routeKey?: string;
@@ -250,6 +251,7 @@ export function useUniversalBorrowWithdraw({
       marketAddress,
       reserveAddress,
       withdrawAll,
+      unwrap,
       stakingInfo,
       onSuccess,
       onFail,
@@ -263,6 +265,7 @@ export function useUniversalBorrowWithdraw({
           reserveAddress,
           amount,
           withdrawAll,
+          ...(unwrap !== undefined ? { unwrap } : {}),
         });
 
       const stakingInfoWithOrderId = attachBorrowOrderId({
@@ -306,6 +309,7 @@ export function useUniversalBorrowBorrow({
       provider,
       marketAddress,
       reserveAddress,
+      unwrap,
       stakingInfo,
       onSuccess,
       onFail,
@@ -318,6 +322,7 @@ export function useUniversalBorrowBorrow({
           marketAddress,
           reserveAddress,
           amount,
+          ...(unwrap !== undefined ? { unwrap } : {}),
         });
 
       const stakingInfoWithOrderId = attachBorrowOrderId({

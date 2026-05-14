@@ -8,6 +8,7 @@ import {
   hasPositiveDebtBalance,
   isBorrowRepayAllAmount,
   isCollateralRepayEnabled,
+  shouldUseAaveNativeGateway,
 } from './borrowRepayPosition.utils';
 
 describe('borrowRepayPosition utils', () => {
@@ -80,6 +81,33 @@ describe('borrowRepayPosition utils', () => {
         debtBalance: '1',
         collateralLoading: false,
         collateralAssetCount: 1,
+      }),
+    ).toBe(false);
+  });
+
+  it('uses the Aave native gateway only for the native reserve sentinel', () => {
+    expect(
+      shouldUseAaveNativeGateway({
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseAaveNativeGateway({
+        providerName: 'Aave',
+        reserveAddress: '',
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseAaveNativeGateway({
+        providerName: 'aave',
+        reserveAddress: '0xWETH',
+      }),
+    ).toBe(false);
+    expect(
+      shouldUseAaveNativeGateway({
+        providerName: 'kamino',
+        reserveAddress: '',
       }),
     ).toBe(false);
   });

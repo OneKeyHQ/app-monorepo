@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import { shouldUseAaveNativeGateway } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import {
   type IManagePositionConfirmParams,
   ManagePosition,
@@ -546,6 +547,12 @@ export const StakeSection = ({
       const token = tokenInfo?.token as IToken;
       const { provider, marketAddress, reserveAddress, action } =
         borrowApiCtx.borrowApiParams;
+      const shouldUnwrapNativeAaveReserve =
+        action === 'borrow' &&
+        shouldUseAaveNativeGateway({
+          providerName: provider,
+          reserveAddress,
+        });
 
       // Build tags array with both new borrow tag and legacy stakeTag for backward compatibility
       const tags: string[] = [EEarnLabels.Borrow];
@@ -562,6 +569,7 @@ export const StakeSection = ({
         provider,
         marketAddress,
         reserveAddress,
+        ...(shouldUnwrapNativeAaveReserve ? { unwrap: true } : {}),
         stakingInfo: token
           ? {
               label:
