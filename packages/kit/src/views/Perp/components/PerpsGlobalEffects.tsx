@@ -702,7 +702,12 @@ function useHyperliquidLocaleChangeRecovery() {
 
   const recoverSubscriptions = useCallback(async () => {
     await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
-    await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
+    await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions(
+      {
+        forceRebuild: true,
+        forceReconnect: platformEnv.isNativeIOS,
+      },
+    );
     await actions.current.updateSubscriptions();
     await backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
   }, [actions]);
