@@ -116,13 +116,15 @@ interface ISubscriptionUpdateParams {
 export default class ServiceHyperliquidSubscription extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     super({ backgroundApi });
-    // Tear down the Hyperliquid WS + all per-route subscriptions when
-    // the OS is about to start killing apps. Reconnect happens lazily
-    // the next time a perps route is mounted (setRouteSubscriptionState
-    // is the entry point).
+    // Drop the heaviest per-account fills memo on critical memory
+    // pressure. We deliberately keep the live WebSocket + per-route
+    // subscriptions intact: a full disconnect() leaves the foreground
+    // Perp page stuck on stale price/orderbook/userFlow data — nothing
+    // re-arms updateSubscriptions() while connected=false, so the page
+    // appears frozen until the user navigates away and back.
     appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
       if (event.level !== 'critical') return;
-      void this.disconnect();
+      this.backgroundApi.serviceHyperliquid._getUserFillsByTimeMemo.clear();
     });
   }
 
