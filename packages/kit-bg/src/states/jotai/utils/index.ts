@@ -504,50 +504,56 @@ export function clearContextAtomColdStartCacheByAtomKeys(
   atomKeys: IContextAtomColdStartCacheKey[],
 ) {
   if (atomKeys.length === 0) return;
-  const targets = new Set<string>(atomKeys);
+  const suffixes = atomKeys.map(
+    (k) => `${COLD_START_SCOPED_KEY_SEPARATOR}${k}`,
+  );
+  const matchesTarget = (fullKey: string) =>
+    suffixes.some((s) => fullKey.endsWith(s));
 
   // 1. In-memory map: drop matching entries and any pending dirty markers so
   //    the next debounced flush doesn't rewrite stale data back to MMKV.
   for (const fullKey of Array.from(coldStartValuesMap.keys())) {
-    const atomKey = fullKey.split(COLD_START_SCOPED_KEY_SEPARATOR)[1];
-    if (atomKey && targets.has(atomKey)) {
+    if (matchesTarget(fullKey)) {
       coldStartValuesMap.delete(fullKey);
       coldStartDirtyKeys.delete(fullKey);
     }
   }
 
-  // 2. MMKV snapshot: rewrite without the matching keys.
+  // 2. MMKV snapshot: rewrite without the matching keys. If anything in this
+  //    branch throws (corrupted JSON, storage error), fall back to dropping
+  //    the whole snapshot so a stale entry can't hydrate the next launch and
+  //    silently revive the previous-currency balances we just invalidated.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { coldStartCacheStorage } =
+    require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { EAppSyncStorageKeys } =
+    require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+  const snapshotKey = EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { coldStartCacheStorage } =
-      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { EAppSyncStorageKeys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-    const raw = coldStartCacheStorage.getString(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-    );
+    const raw = coldStartCacheStorage.getString(snapshotKey);
     if (!raw) return;
     const snapshot = JSON.parse(raw) as Record<string, unknown>;
     let changed = false;
     for (const key of Object.keys(snapshot)) {
-      const atomKey = key.split(COLD_START_SCOPED_KEY_SEPARATOR)[1];
-      if (atomKey && targets.has(atomKey)) {
+      if (matchesTarget(key)) {
         delete snapshot[key];
         changed = true;
       }
     }
     if (changed) {
-      coldStartCacheStorage.set(
-        EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-        JSON.stringify(snapshot),
-      );
+      coldStartCacheStorage.set(snapshotKey, JSON.stringify(snapshot));
       coldStartLog(
         `clearByAtomKeys: removed entries for [${atomKeys.join(', ')}]`,
       );
     }
   } catch (e) {
-    coldStartLog(`clearByAtomKeys failed: ${String(e)}`);
+    coldStartLog(`clearByAtomKeys failed: ${String(e)} — dropping snapshot`);
+    try {
+      coldStartCacheStorage.delete(snapshotKey);
+    } catch {
+      /* truly best-effort */
+    }
   }
 }
 
