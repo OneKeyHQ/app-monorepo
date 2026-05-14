@@ -271,8 +271,8 @@ describe('VaultClient lost-update protection', () => {
     const median = sortedWaits[Math.floor(sortedWaits.length / 2)] ?? 0;
     const p95 = sortedWaits[Math.floor((sortedWaits.length - 1) * 0.95)] ?? 0;
     // Floor median at 1ms before dividing: a near-zero median (possible if
-    // file syscalls happen to coalesce) would otherwise turn any nonzero
-    // p95 into an infinity-flavored ratio.
+    // file system calls happen to coalesce) would otherwise turn any
+    // nonzero p95 into an infinity-flavored ratio.
     const ratio = p95 / Math.max(median, 1);
     expect(ratio).toBeLessThan(LOCK_WAIT_P95_TO_MEDIAN_RATIO);
   });
