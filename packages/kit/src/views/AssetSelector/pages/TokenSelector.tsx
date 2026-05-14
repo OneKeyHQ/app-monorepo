@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -33,6 +33,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { buildTokenSelectorDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -61,6 +62,69 @@ type ISelectorTokenListRequestContext = {
   useSelectorFilteredTokenList: boolean;
   showActiveAccountTokenList: boolean;
 };
+
+type ITokenSelectorHeaderRightProps = {
+  showDeFiTokenSwitch?: boolean;
+  onLpTokenFilterChange: (value: boolean) => void;
+  onSwitchNetwork?: () => void;
+  networkLogoURI?: string;
+  networkName?: string;
+  networkShortName?: string;
+  isCustomNetwork?: IServerNetwork['isCustomNetwork'];
+};
+
+const TokenSelectorHeaderRight = memo(function TokenSelectorHeaderRight({
+  showDeFiTokenSwitch,
+  onLpTokenFilterChange,
+  onSwitchNetwork,
+  networkLogoURI,
+  networkName,
+  networkShortName,
+  isCustomNetwork,
+}: ITokenSelectorHeaderRightProps) {
+  const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
+  const showLpTokensOnly = tokenSelectorFilter.sendTokenShowLpTokensOnly;
+  const shouldShowNetworkSwitch = !!onSwitchNetwork && !!networkName;
+
+  if (!showDeFiTokenSwitch && !shouldShowNetworkSwitch) {
+    return null;
+  }
+
+  return (
+    <XStack alignItems="center" gap="$2" mr="$-2">
+      {showDeFiTokenSwitch ? (
+        <TokenSelectorLpTokenSwitch
+          value={showLpTokensOnly}
+          onChange={onLpTokenFilterChange}
+        />
+      ) : null}
+      {shouldShowNetworkSwitch ? (
+        <XStack
+          alignItems="center"
+          gap="$1.5"
+          px="$2"
+          py="$1"
+          borderRadius="$full"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          onPress={onSwitchNetwork}
+          userSelect="none"
+        >
+          <NetworkAvatarBase
+            logoURI={networkLogoURI ?? ''}
+            size="$5"
+            isCustomNetwork={isCustomNetwork}
+            networkName={networkName}
+          />
+          <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth="$16">
+            {networkShortName}
+          </SizableText>
+          <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />
+        </XStack>
+      ) : null}
+    </XStack>
+  );
+});
 
 function isSameSelectorTokenListRequestContext(
   a: ISelectorTokenListRequestContext,
@@ -170,16 +234,13 @@ function TokenSelector() {
 
   const handleLpTokenFilterChange = useCallback(
     (value: boolean) => {
-      if (value === showLpTokensOnly) {
-        return;
-      }
       setHasTokenFilterChanged(true);
       setTokenSelectorFilter((prev) => ({
         ...prev,
         sendTokenShowLpTokensOnly: value,
       }));
     },
-    [setTokenSelectorFilter, showLpTokensOnly],
+    [setTokenSelectorFilter],
   );
 
   const executeOnSelect = useCallback(
@@ -427,51 +488,23 @@ function TokenSelector() {
     const shouldShowNetworkSwitch = !!onSwitchNetwork && !!network?.name;
     if (!showDeFiTokenSwitch && !shouldShowNetworkSwitch) return undefined;
 
-    return function TokenSelectorHeaderRight() {
+    return function RenderTokenSelectorHeaderRight() {
       return (
-        <XStack alignItems="center" gap="$2" mr="$-2">
-          {showDeFiTokenSwitch ? (
-            <TokenSelectorLpTokenSwitch
-              value={showLpTokensOnly}
-              onChange={handleLpTokenFilterChange}
-            />
-          ) : null}
-          {shouldShowNetworkSwitch ? (
-            <XStack
-              alignItems="center"
-              gap="$1.5"
-              px="$2"
-              py="$1"
-              borderRadius="$full"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              onPress={onSwitchNetwork}
-              userSelect="none"
-            >
-              <NetworkAvatarBase
-                logoURI={network?.logoURI}
-                size="$5"
-                isCustomNetwork={network?.isCustomNetwork}
-                networkName={network?.name}
-              />
-              <SizableText
-                size="$bodyMdMedium"
-                numberOfLines={1}
-                maxWidth="$16"
-              >
-                {network?.shortname}
-              </SizableText>
-              <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />
-            </XStack>
-          ) : null}
-        </XStack>
+        <TokenSelectorHeaderRight
+          showDeFiTokenSwitch={showDeFiTokenSwitch}
+          onLpTokenFilterChange={handleLpTokenFilterChange}
+          onSwitchNetwork={onSwitchNetwork}
+          networkLogoURI={network?.logoURI}
+          networkName={network?.name}
+          networkShortName={network?.shortname}
+          isCustomNetwork={network?.isCustomNetwork}
+        />
       );
     };
   }, [
     handleLpTokenFilterChange,
     onSwitchNetwork,
     showDeFiTokenSwitch,
-    showLpTokensOnly,
     network?.name,
     network?.shortname,
     network?.logoURI,
