@@ -422,7 +422,7 @@ class ServicePrime extends ServiceBase {
     // logged out while this request was in flight, the simpleDb token will
     // have been cleared. Discarding the response prevents an in-flight
     // request from writing the previous account's data back into the atom
-    // after logout, which would cause "登出后仍显示之前账号" residue.
+    // after logout.
     const authTokenAfterFetch =
       await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authTokenAfterFetch) {
