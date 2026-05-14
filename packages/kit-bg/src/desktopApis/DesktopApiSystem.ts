@@ -27,6 +27,13 @@ const execFileAsync = promisify(execFile);
 
 const ONEKEY_LINUX_UDEV_RULES_PATH = '/etc/udev/rules.d/99-onekey.rules';
 
+const isFlatpakRuntime = () =>
+  Boolean(
+    process.env.FLATPAK ||
+    process.env.FLATPAK_ID ||
+    process.env.container === 'flatpak',
+  );
+
 // cspell:ignore hidraw plugdev uaccess mktemp udevadm pkexec
 const ONEKEY_LINUX_UDEV_RULES = `# OneKey: The Original Hardware Wallet
 # https://onekey.so/
@@ -344,7 +351,7 @@ class DesktopApiSystem {
       };
     }
 
-    const isFlatpak = Boolean(process.env.FLATPAK);
+    const isFlatpak = isFlatpakRuntime();
 
     try {
       const currentRules = isFlatpak

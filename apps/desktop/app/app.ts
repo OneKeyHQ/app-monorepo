@@ -98,6 +98,26 @@ function makeIpcSafeError(error: unknown, fallbackMessage: string): Error {
   return new Error(fallbackMessage);
 }
 
+// cspell:ignore pkexec
+// Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
+// errors/results so Electron's structured clone never throws "An object could
+// not be cloned" (notably for execFile/pkexec errors on Linux/flatpak). The
+// `.message` is preserved verbatim so the renderer-side counterpart,
+// `unwrapElectronIpcError` (packages/shared/src/errors/utils/electronIpcError.ts),
+// can still recover any `{ message, code, data }` payload encoded in it.
+function makeIpcSafeResult(result: unknown): unknown {
+  try {
+    structuredClone(result);
+    return result;
+  } catch (error) {
+    try {
+      return JSON.parse(JSON.stringify(result)) as unknown;
+    } catch {
+      throw makeIpcSafeError(error, 'DESKTOP_API_CALL returned unsafe result');
+    }
+  }
+}
+
 // Perf: defer Sentry init off the synchronous module-init path. `@sentry/electron`
 // is external (~5MB); requiring + initializing it on the next tick keeps the
 // require()/parse out of the cold-start eval window.
@@ -1162,7 +1182,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           method,
           params,
         });
-        return result;
+        return makeIpcSafeResult(result);
       } catch (error) {
         logger.error('[DESKTOP_API_CALL] handler failed', {
           module,
