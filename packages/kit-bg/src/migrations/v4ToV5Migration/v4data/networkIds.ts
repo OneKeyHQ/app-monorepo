@@ -9,6 +9,7 @@ export const v4PresetNetworkIds = [
   'cfx--1029',
   'cfx--1',
   'cosmos--akashnet-2',
+  'cosmos--columbus-5',
   'cosmos--cosmoshub-4',
   'cosmos--crypto-org-chain-mainnet-1',
   'cosmos--fetchhub-4',
