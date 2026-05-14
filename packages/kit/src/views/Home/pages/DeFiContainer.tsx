@@ -796,6 +796,7 @@ function DeFiContainer() {
             <ProtocolChipStrip
               protocols={filteredProtocols}
               protocolMap={protocolMap}
+              isAllNetworks={isAllNetworks}
               activeKey={pinnedKey}
               onPressChip={handleChipPress}
               onHeightChange={handleChipStripHeight}
