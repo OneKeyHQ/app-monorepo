@@ -65,7 +65,7 @@ class ServiceToken extends ServiceBase {
       this.fetchTokenInfoOnlyMemo.clear();
       this.getUnblockedTokensMemo.clear();
       this.getBlockedTokensMemo.clear();
-      this._getBinanceSupportedAssetsMemo.clear();
+      void this._getBinanceSupportedAssetsMemo.clear();
     });
   }
 

@@ -76,9 +76,9 @@ class ServiceMarketV2 extends ServiceBase {
     appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
       if (event.level !== 'critical') return;
       this._marketTokenBatchCache.clear();
-      this.memoizedFetchMarketTokenList.clear();
-      this.memoizedFetchMarketChains.clear();
-      this.memoizedFetchMarketBasicConfig.clear();
+      void this.memoizedFetchMarketTokenList.clear();
+      void this.memoizedFetchMarketChains.clear();
+      void this.memoizedFetchMarketBasicConfig.clear();
     });
   }
 
