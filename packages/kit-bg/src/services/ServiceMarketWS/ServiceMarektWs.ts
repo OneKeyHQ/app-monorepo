@@ -38,6 +38,14 @@ type IMarketMessage = {
 class ServiceMarketWS extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    // Drop the WS connection + cached tx buffers on critical memory
+    // pressure. The next subscribeTokenTxs() call will reconnect on
+    // demand; until then we free the per-token data accumulated by
+    // MarketSubscriptionTracker.
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      void this.disconnect();
+    });
   }
 
   private socket: Socket | null = null;

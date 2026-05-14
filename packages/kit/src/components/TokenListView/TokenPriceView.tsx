@@ -9,6 +9,8 @@ import {
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
 
+import { useTokenListViewContext } from './TokenListViewContext';
+
 type IProps = {
   $key: string;
 } & ISizableTextProps;
@@ -16,8 +18,10 @@ type IProps = {
 function TokenPriceView(props: IProps) {
   const { $key, ...rest } = props;
   const [settings] = useSettingsPersistAtom();
-  const [tokenListMap] = useTokenListMapAtom();
+  const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
+  const [globalTokenListMap] = useTokenListMapAtom();
   const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
+  const tokenListMap = contextTokenListMap ?? globalTokenListMap;
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
 
   return (
