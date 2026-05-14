@@ -23,6 +23,8 @@ import {
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
 
+import { useTokenListViewContext } from './TokenListViewContext';
+
 import type { XStackProps } from 'tamagui';
 
 type IProps = {
@@ -33,7 +35,9 @@ function TokenActionsView(props: IProps) {
   const { token, ...rest } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [tokenListMap] = useTokenListMapAtom();
+  const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
+  const [globalTokenListMap] = useTokenListMapAtom();
+  const tokenListMap = contextTokenListMap ?? globalTokenListMap;
   const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
 
   const [activeToken, setActiveToken] = useState<IAccountToken>(token);
