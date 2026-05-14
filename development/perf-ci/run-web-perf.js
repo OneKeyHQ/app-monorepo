@@ -87,6 +87,7 @@ async function buildWeb({ repoRoot, outputDir }) {
         }),
         timeoutMs:
           Number(process.env.PERF_WEB_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
+        killProcessGroup: true,
         stdout: (d) => process.stdout.write(d),
         stderr: (d) => process.stderr.write(d),
       }),

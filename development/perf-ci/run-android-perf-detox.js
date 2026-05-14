@@ -93,6 +93,7 @@ function androidInstallTimeoutMs() {
 async function execAdb(args, options = {}) {
   return execCmd('adb', args, {
     timeoutMs: adbTimeoutMs(),
+    killProcessGroup: true,
     ...options,
   });
 }
@@ -763,6 +764,7 @@ async function main() {
       {
         cwd: repoRoot,
         timeoutMs: Number(process.env.DETOX_BUILD_TIMEOUT_MS) || 60 * 60 * 1000,
+        killProcessGroup: true,
         stdout: (d) => process.stdout.write(d),
         stderr: (d) => process.stderr.write(d),
       },
@@ -823,6 +825,7 @@ async function main() {
       cwd: repoRoot,
       env: detoxEnv,
       timeoutMs: Number(process.env.DETOX_TIMEOUT_MS) || 30 * 60 * 1000,
+      killProcessGroup: true,
       stdout: (d) => process.stdout.write(d),
       stderr: (d) => process.stderr.write(d),
     });

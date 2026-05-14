@@ -102,6 +102,7 @@ async function buildDesktop({ repoRoot, outputDir }) {
         env: withRepoNodeBin(repoRoot, env),
         timeoutMs:
           Number(process.env.PERF_DESKTOP_BUILD_TIMEOUT_MS) || 45 * 60 * 1000,
+        killProcessGroup: true,
         stdout: (d) => process.stdout.write(d),
         stderr: (d) => process.stderr.write(d),
       }),
@@ -121,6 +122,7 @@ async function buildDesktop({ repoRoot, outputDir }) {
       env: withRepoNodeBin(repoRoot, env),
       timeoutMs:
         Number(process.env.PERF_DESKTOP_BUILD_TIMEOUT_MS) || 45 * 60 * 1000,
+      killProcessGroup: true,
       stdout: (d) => process.stdout.write(d),
       stderr: (d) => process.stderr.write(d),
     },

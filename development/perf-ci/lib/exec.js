@@ -1,6 +1,8 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
+const { stopChild } = require('./processTree');
+
 function appendTail(buffer, chunk, maxChars) {
   const next = `${buffer}${chunk}`;
   return next.length > maxChars ? next.slice(next.length - maxChars) : next;
@@ -9,19 +11,73 @@ function appendTail(buffer, chunk, maxChars) {
 function execCmd(
   cmd,
   args,
-  { cwd, env, timeoutMs, stdout, stderr, maxBufferChars = 200_000 } = {},
+  {
+    cwd,
+    env,
+    timeoutMs,
+    stdout,
+    stderr,
+    maxBufferChars = 200_000,
+    killProcessGroup = false,
+    stopTimeoutMs = 5000,
+  } = {},
 ) {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let stoppingForSignal = false;
+    let t = null;
+
     const child = spawn(cmd, args, {
       cwd,
       env: env ? { ...process.env, ...env } : process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: true,
+      detached: killProcessGroup,
     });
 
     let out = '';
     let err = '';
-    let settled = false;
+    let onSigint = null;
+    let onSigterm = null;
+
+    const cleanupSignalHandlers = () => {
+      if (!killProcessGroup) return;
+      if (onSigint) process.off('SIGINT', onSigint);
+      if (onSigterm) process.off('SIGTERM', onSigterm);
+    };
+
+    const stopForSignal = async (signal, exitCode) => {
+      if (stoppingForSignal) return;
+      stoppingForSignal = true;
+      if (t) clearTimeout(t);
+      if (!settled) {
+        settled = true;
+        await stopChild(child, {
+          signal,
+          killSignal: 'SIGKILL',
+          timeoutMs: stopTimeoutMs,
+          killProcessGroup,
+        });
+        reject(
+          new Error(
+            `Command interrupted by ${signal}: ${cmd} ${args.join(' ')}`,
+          ),
+        );
+      }
+      cleanupSignalHandlers();
+      process.exit(exitCode);
+    };
+
+    onSigint = () => {
+      void stopForSignal('SIGINT', 130);
+    };
+    onSigterm = () => {
+      void stopForSignal('SIGTERM', 143);
+    };
+
+    if (killProcessGroup) {
+      process.once('SIGINT', onSigint);
+      process.once('SIGTERM', onSigterm);
+    }
 
     const onStdout = (d) => {
       out = appendTail(out, d.toString(), maxBufferChars);
@@ -35,9 +91,8 @@ function execCmd(
     child.stdout.on('data', onStdout);
     child.stderr.on('data', onStderr);
 
-    let t = null;
     if (timeoutMs && timeoutMs > 0) {
-      t = setTimeout(() => {
+      t = setTimeout(async () => {
         const message = [
           `Command timed out after ${timeoutMs}ms: ${cmd} ${args.join(' ')}`,
           formatExecResultError('timed out command', {
@@ -46,18 +101,15 @@ function execCmd(
             stderr: err,
           }),
         ].join('\n');
-        try {
-          const childPid = child.pid;
-          if (typeof childPid === 'number') {
-            process.kill(0 - childPid, 'SIGKILL');
-          } else {
-            child.kill('SIGKILL');
-          }
-        } catch {
-          child.kill('SIGKILL');
-        }
         if (!settled) {
           settled = true;
+          await stopChild(child, {
+            signal: 'SIGTERM',
+            killSignal: 'SIGKILL',
+            timeoutMs: stopTimeoutMs,
+            killProcessGroup,
+          });
+          cleanupSignalHandlers();
           reject(new Error(message));
         }
       }, timeoutMs);
@@ -67,6 +119,7 @@ function execCmd(
       if (t) clearTimeout(t);
       if (settled) return;
       settled = true;
+      cleanupSignalHandlers();
       reject(e);
     });
 
@@ -74,6 +127,7 @@ function execCmd(
       if (t) clearTimeout(t);
       if (settled) return;
       settled = true;
+      cleanupSignalHandlers();
       resolve({ code, signal, stdout: out, stderr: err });
     });
   });

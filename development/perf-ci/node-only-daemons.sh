@@ -10,6 +10,13 @@ INTERVAL_MINUTES="${PERF_INTERVAL_MINUTES:-240}"
 WEB_MODE="${PERF_WEB_MODE:-headed}"
 ANDROID_MODE="${PERF_ANDROID_MODE:-headless}"
 PID_NAMESPACE="$(printf '%s' "$ROOT_DIR" | cksum | awk '{print $1}')"
+if [[ -n "${PERF_DAEMON_STOP_TIMEOUT_SECONDS:-}" ]]; then
+  STOP_TIMEOUT_SECONDS="$PERF_DAEMON_STOP_TIMEOUT_SECONDS"
+elif [[ "${PERF_DAEMON_STOP_TIMEOUT_MS:-}" =~ ^[0-9]+$ ]]; then
+  STOP_TIMEOUT_SECONDS=$(((PERF_DAEMON_STOP_TIMEOUT_MS + 999) / 1000 + 5))
+else
+  STOP_TIMEOUT_SECONDS=35
+fi
 
 detect_node_bin() {
   local yarn_bin yarn_dir node_candidate
@@ -65,6 +72,8 @@ Environment overrides:
   PERF_PID_DIR           default: $HOME/perf-pids
   PERF_SESSIONS_DIR      default: $HOME/perf-sessions
   PERF_NODE_BIN          default: inferred from `yarn` sibling `node`, then fallback to `command -v node`
+  PERF_DAEMON_STOP_TIMEOUT_SECONDS
+                         default: 35, or PERF_DAEMON_STOP_TIMEOUT_MS + 5s when set
 EOF
 }
 
@@ -281,7 +290,7 @@ stop_one() {
   wait_count=0
   while kill -0 "$pid" 2>/dev/null; do
     wait_count=$((wait_count + 1))
-    if [[ "$wait_count" -ge 10 ]]; then
+    if [[ "$wait_count" -ge "$STOP_TIMEOUT_SECONDS" ]]; then
       kill -9 "$pid" 2>/dev/null || true
       break
     fi

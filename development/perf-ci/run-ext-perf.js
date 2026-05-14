@@ -74,6 +74,7 @@ async function buildExt({ repoRoot, outputDir }) {
         }),
         timeoutMs:
           Number(process.env.PERF_EXT_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
+        killProcessGroup: true,
         stdout: (d) => process.stdout.write(d),
         stderr: (d) => process.stderr.write(d),
       }),
