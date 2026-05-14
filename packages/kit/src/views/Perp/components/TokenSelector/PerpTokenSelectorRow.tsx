@@ -1259,6 +1259,7 @@ const PerpTokenSelectorRowPerps = memo(
 
     const { assetCtx, isLoading } = usePerpsAssetCtx({
       assetId: tokenAssetId,
+      dexIndex: mockedToken.dexIndex,
       skipMarkRequired,
     });
 
@@ -1308,7 +1309,7 @@ const PerpTokenSelectorRowPerps = memo(
       ],
     );
 
-    if (!tokenName || !assetCtx) {
+    if (!tokenName) {
       return null;
     }
 
