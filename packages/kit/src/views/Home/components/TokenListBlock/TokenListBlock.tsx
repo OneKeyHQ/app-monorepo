@@ -2816,7 +2816,7 @@ function TokenListBlock({
         limit={6}
         plainMode
         withHeader
-        withFooter
+        withFooter={!showLpTokensOnly}
         withPrice
         inTabList
         hideValue
