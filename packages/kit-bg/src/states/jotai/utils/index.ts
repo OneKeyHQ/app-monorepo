@@ -546,8 +546,8 @@ export function clearContextAtomColdStartCacheByAtomKeys(
         `clearByAtomKeys: removed entries for [${atomKeys.join(', ')}]`,
       );
     }
-  } catch {
-    /* best-effort */
+  } catch (e) {
+    coldStartLog(`clearByAtomKeys failed: ${String(e)}`);
   }
 }
 

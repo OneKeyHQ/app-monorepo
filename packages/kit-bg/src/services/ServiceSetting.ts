@@ -274,11 +274,13 @@ class ServiceSetting extends ServiceBase {
   // the post-restart UI shows a placeholder until fresh data arrives instead of
   // displaying stale numbers under the new currency symbol.
   private async clearCurrencyDependentCaches() {
-    await this.backgroundApi.simpleDb.accountValue.clearRawData();
-    await this.backgroundApi.simpleDb.localTokens.clearFiatData();
-    await activeAccountValueAtom.set(undefined);
-    await accountSelectorValuesMapAtom.set({});
-    await accountSelectorDeFiMapAtom.set({});
+    await Promise.all([
+      this.backgroundApi.simpleDb.accountValue.clearRawData(),
+      this.backgroundApi.simpleDb.localTokens.clearFiatData(),
+      activeAccountValueAtom.set(undefined),
+      accountSelectorValuesMapAtom.set({}),
+      accountSelectorDeFiMapAtom.set({}),
+    ]);
 
     // Cold-start atoms persist their last value into MMKV and hydrate it
     // before the first paint on the next launch. Without this, the home page
