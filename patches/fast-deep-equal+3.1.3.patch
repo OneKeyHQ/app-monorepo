@@ -1,13 +1,30 @@
 diff --git a/node_modules/fast-deep-equal/index.js b/node_modules/fast-deep-equal/index.js
 --- a/node_modules/fast-deep-equal/index.js
 +++ b/node_modules/fast-deep-equal/index.js
-@@ -23,7 +23,10 @@
+@@ -23,7 +23,27 @@
  
      if (a.constructor === RegExp) return a.source === b.source && a.flags === b.flags;
      if (a.valueOf !== Object.prototype.valueOf) return a.valueOf() === b.valueOf();
 -    if (a.toString !== Object.prototype.toString) return a.toString() === b.toString();
 +    if (a.toString !== Object.prototype.toString) {
-+      if (typeof a.toString !== 'function' || typeof b.toString !== 'function') return false;
++      if (typeof a.toString !== 'function' || typeof b.toString !== 'function') {
++        try {
++          var __nfl = require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
++          __nfl.NativeLogger.write(
++            __nfl.LogLevel.Error,
++            '[fast-deep-equal][BUG] non-callable toString — ' +
++              'typeof a.toString=' + typeof a.toString +
++              ', typeof b.toString=' + typeof b.toString +
++              ', typeof a=' + typeof a +
++              ', typeof b=' + typeof b +
++              ', a.constructor=' + (a && a.constructor && a.constructor.name) +
++              ', b.constructor=' + (b && b.constructor && b.constructor.name) +
++              ', keys(a)=[' + ((typeof Object !== 'undefined' && Object.keys) ? Object.keys(a).slice(0, 8).join(',') : '?') + ']' +
++              ', keys(b)=[' + ((typeof Object !== 'undefined' && Object.keys) ? Object.keys(b).slice(0, 8).join(',') : '?') + ']'
++          );
++        } catch (_e) { /* never let logging break the guard */ }
++        return false;
++      }
 +      return a.toString() === b.toString();
 +    }
  
