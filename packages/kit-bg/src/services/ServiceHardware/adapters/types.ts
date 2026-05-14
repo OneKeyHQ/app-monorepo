@@ -11,6 +11,10 @@ import type {
 
 export type { DeviceInfo, IHardwareWallet, Response, IConnector };
 
+export type IThirdPartyHardwareSearchOptions = {
+  resetSession?: boolean;
+};
+
 // =====================================================================
 // UI Event types (OneKey-specific adapter UI layer)
 // =====================================================================
@@ -56,7 +60,9 @@ export interface IThirdPartyHardwareAdapter {
   uiResponse(response: IAdapterUiResponse): void;
   cancel(connectId?: string): void;
 
-  searchDevices(): Promise<DeviceInfo[]>;
+  searchDevices(
+    options?: IThirdPartyHardwareSearchOptions,
+  ): Promise<DeviceInfo[]>;
   connectDevice(
     connectId: string,
   ): Promise<Response<{ connectId: string; deviceId: string }>>;
