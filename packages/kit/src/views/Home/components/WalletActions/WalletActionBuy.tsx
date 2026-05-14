@@ -212,7 +212,7 @@ export function WalletActionBuy({
       // Stay tappable for the deactivated-bot-wallet path so handleBuyToken
       // can surface the disabled-bot-wallet toast (ActionList.Item suppresses
       // onPress when `disabled` is true).
-      disabled={isBuyDisabled && !isAddMoneyBlockedByBotWallet}
+      disabled={Boolean(isBuyDisabled && !isAddMoneyBlockedByBotWallet)}
     />
   );
 }

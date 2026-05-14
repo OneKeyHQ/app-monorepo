@@ -318,64 +318,64 @@ function AccountRecipients({
     isLoading: isLoadingAccounts,
     run: refreshWalletGroups,
   } = usePromiseResult<IWalletGroup[]>(
-      async () => {
-        if (!networkId) {
-          return [];
-        }
+    async () => {
+      if (!networkId) {
+        return [];
+      }
 
-        const { groups, mergeDeriveAssetsEnabled } =
-          await backgroundApiProxy.serviceAccount.getWalletAccountGroupsForNetwork(
-            { networkId, keylessWalletsOnly },
-          );
-
-        // Drop deactivated bot wallets from the recipient picker — sending
-        // to them is blocked elsewhere, so don't even surface them as a
-        // selectable target.
-        const botGroups = groups.filter((g) =>
-          accountUtils.isBotWallet({ walletId: g.walletId }),
-        );
-        const deactivatedBotWalletIds = new Set<string>();
-        if (botGroups.length > 0) {
-          const flags = await Promise.all(
-            botGroups.map(async (g) => {
-              try {
-                return await backgroundApiProxy.serviceAccount.isBotWalletDeactivated(
-                  { walletId: g.walletId },
-                );
-              } catch {
-                return false;
-              }
-            }),
-          );
-          botGroups.forEach((g, idx) => {
-            if (flags[idx]) deactivatedBotWalletIds.add(g.walletId);
-          });
-        }
-        const filteredGroups = groups.filter(
-          (g) => !deactivatedBotWalletIds.has(g.walletId),
+      const { groups, mergeDeriveAssetsEnabled } =
+        await backgroundApiProxy.serviceAccount.getWalletAccountGroupsForNetwork(
+          { networkId, keylessWalletsOnly },
         );
 
-        // senderDeriveType filtering stays on UI side (cheap, no IPC)
-        if (!mergeDeriveAssetsEnabled) {
-          return filteredGroups
-            .map((group) => {
-              const targetDeriveType =
-                senderDeriveType ?? group.accounts[0]?.deriveType;
-              if (!targetDeriveType) return group;
-              const filtered = group.accounts.filter(
-                (a) => !a.deriveType || a.deriveType === targetDeriveType,
+      // Drop deactivated bot wallets from the recipient picker — sending
+      // to them is blocked elsewhere, so don't even surface them as a
+      // selectable target.
+      const botGroups = groups.filter((g) =>
+        accountUtils.isBotWallet({ walletId: g.walletId }),
+      );
+      const deactivatedBotWalletIds = new Set<string>();
+      if (botGroups.length > 0) {
+        const flags = await Promise.all(
+          botGroups.map(async (g) => {
+            try {
+              return await backgroundApiProxy.serviceAccount.isBotWalletDeactivated(
+                { walletId: g.walletId },
               );
-              return filtered.length > 0
-                ? { ...group, accounts: filtered }
-                : group;
-            })
-            .filter((g) => g.accounts.length > 0);
-        }
-        return filteredGroups;
-      },
-      [networkId, senderDeriveType, keylessWalletsOnly],
-      { initResult: [], watchLoading: true, undefinedResultIfError: true },
-    );
+            } catch {
+              return false;
+            }
+          }),
+        );
+        botGroups.forEach((g, idx) => {
+          if (flags[idx]) deactivatedBotWalletIds.add(g.walletId);
+        });
+      }
+      const filteredGroups = groups.filter(
+        (g) => !deactivatedBotWalletIds.has(g.walletId),
+      );
+
+      // senderDeriveType filtering stays on UI side (cheap, no IPC)
+      if (!mergeDeriveAssetsEnabled) {
+        return filteredGroups
+          .map((group) => {
+            const targetDeriveType =
+              senderDeriveType ?? group.accounts[0]?.deriveType;
+            if (!targetDeriveType) return group;
+            const filtered = group.accounts.filter(
+              (a) => !a.deriveType || a.deriveType === targetDeriveType,
+            );
+            return filtered.length > 0
+              ? { ...group, accounts: filtered }
+              : group;
+          })
+          .filter((g) => g.accounts.length > 0);
+      }
+      return filteredGroups;
+    },
+    [networkId, senderDeriveType, keylessWalletsOnly],
+    { initResult: [], watchLoading: true, undefinedResultIfError: true },
+  );
   const walletGroups = useDeferredValue(walletGroupsRaw);
 
   // Bot wallet activate/deactivate emits WalletUpdate via

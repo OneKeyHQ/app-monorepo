@@ -214,7 +214,7 @@ function WalletBoundReferralCodeButtonView({
       // For deactivated bot wallets we keep the item interactive so
       // handlePress can surface the disabled-bot-wallet toast (ActionList.Item
       // suppresses onPress when `disabled` is true).
-      disabled={Boolean(!shouldBoundReferralCode) && !isReferralBlocked}
+      disabled={Boolean(!shouldBoundReferralCode && !isReferralBlocked)}
       extraInteractiveWhenDisabled={Boolean(isNotBindable)}
     />
   );
