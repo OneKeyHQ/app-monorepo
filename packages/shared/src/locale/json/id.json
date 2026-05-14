@@ -5126,6 +5126,7 @@
   "wallet.pay_with_usdt": "Bayar dengan USDT",
   "wallet.positions_empty_desc": "Posisi Anda akan muncul di sini",
   "wallet.price_unavailable": "Harga tidak tersedia",
+  "wallet.partial_price_unavailable": "Some prices are unavailable",
   "wallet.receive_note_fresh_address": "Kirim hanya aset jaringan Bitcoin ke alamat ini. Alamat baru dibuat untuk tiap transaksi, <url>https://app.onekey.so/receive/btcaddresses<underline><bold>alamat sebelumnya</bold></underline></url> tetap berlaku.",
   "wallet.receive_token_instruction": "Deposit dari dompet lain",
   "wallet.recent_transaction_history_title": "Aktivitas terbaru",

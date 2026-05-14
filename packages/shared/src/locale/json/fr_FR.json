@@ -5126,6 +5126,7 @@
   "wallet.pay_with_usdt": "Payer avec USDT",
   "wallet.positions_empty_desc": "Vos positions apparaîtront ici",
   "wallet.price_unavailable": "Aucun prix disponible",
+  "wallet.partial_price_unavailable": "Some prices are unavailable",
   "wallet.receive_note_fresh_address": "Envoyez uniquement des actifs du réseau Bitcoin à cette adresse. Une nouvelle adresse est générée pour chaque transaction, <url>https://app.onekey.so/receive/btcaddresses<underline><bold>les adresses précédentes</bold></underline></url> restent valides.",
   "wallet.receive_token_instruction": "Dépôt depuis d'autres portefeuilles",
   "wallet.recent_transaction_history_title": "Activité récente",

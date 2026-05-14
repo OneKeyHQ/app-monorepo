@@ -5130,6 +5130,7 @@ export enum ETranslations {
   wallet_onekey_wallet_without_refresh = 'wallet.onekey_wallet_without_refresh',
   wallet_pay_with_usdt = 'wallet.pay_with_usdt',
   wallet_positions_empty_desc = 'wallet.positions_empty_desc',
+  wallet_partial_price_unavailable = 'wallet.partial_price_unavailable',
   wallet_price_unavailable = 'wallet.price_unavailable',
   wallet_receive_note_fresh_address = 'wallet.receive_note_fresh_address',
   wallet_receive_token_instruction = 'wallet.receive_token_instruction',

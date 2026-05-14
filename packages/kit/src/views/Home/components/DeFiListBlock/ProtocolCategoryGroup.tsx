@@ -17,6 +17,7 @@ type IProtocolCategoryGroupProps = {
   group: ILocalizedProtocolCategoryGroup;
   currencySymbol: string;
   priceUnavailableLabel: string;
+  partialPriceUnavailableLabel: string;
 };
 
 const ProtocolCategoryGroup = memo(
@@ -24,6 +25,7 @@ const ProtocolCategoryGroup = memo(
     group,
     currencySymbol,
     priceUnavailableLabel,
+    partialPriceUnavailableLabel,
   }: IProtocolCategoryGroupProps) => {
     if (group.kind === 'sectioned') {
       return (
@@ -84,6 +86,7 @@ const ProtocolCategoryGroup = memo(
           rows={group.rows}
           currencySymbol={currencySymbol}
           priceUnavailableLabel={priceUnavailableLabel}
+          partialPriceUnavailableLabel={partialPriceUnavailableLabel}
         />
       </YStack>
     );

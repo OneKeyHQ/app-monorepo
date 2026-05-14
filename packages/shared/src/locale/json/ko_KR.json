@@ -5126,6 +5126,7 @@
   "wallet.pay_with_usdt": "USDT로 결제하기",
   "wallet.positions_empty_desc": "포지션이 여기에 표시됩니다",
   "wallet.price_unavailable": "가격 정보 없음",
+  "wallet.partial_price_unavailable": "Some prices are unavailable",
   "wallet.receive_note_fresh_address": "이 주소로는 비트코인 네트워크 자산만 보내세요. 각 거래마다 새 주소가 생성되며, <url>https://app.onekey.so/receive/btcaddresses<underline><bold>이전 주소들</bold></underline></url>은 계속 유효합니다.",
   "wallet.receive_token_instruction": "다른 지갑에서 입금",
   "wallet.recent_transaction_history_title": "최근 활동",
