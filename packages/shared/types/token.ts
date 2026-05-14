@@ -40,6 +40,7 @@ export type IToken = {
 
   // for defi
   defiMarked?: boolean;
+  dappName?: string | null;
   dappType?: ITokenDappType;
 };
 

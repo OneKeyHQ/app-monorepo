@@ -25,6 +25,7 @@ export interface IServerTokenInfo {
   uniqueKey?: string;
   adaName?: string;
   networkId?: string;
+  dappName?: string | null;
 }
 
 export interface IServerTokenItemWithInfo extends IServerPriceItem {
