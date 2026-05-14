@@ -417,6 +417,27 @@ class ServicePrime extends ServiceBase {
       };
     }
     const serverUserInfo = await this.callApiFetchPrimeUserInfo();
+
+    // Re-check auth token after the network request returns. If the user
+    // logged out while this request was in flight, the simpleDb token will
+    // have been cleared. Discarding the response prevents an in-flight
+    // request from writing the previous account's data back into the atom
+    // after logout, which would cause "登出后仍显示之前账号" residue.
+    const authTokenAfterFetch =
+      await this.backgroundApi.simpleDb.prime.getAuthToken();
+    if (!authTokenAfterFetch) {
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason:
+          'ServicePrime.apiFetchPrimeUserInfo: auth token cleared during request, discarding response',
+      });
+      const localUserInfo = await primePersistAtom.get();
+      return {
+        userInfo: localUserInfo,
+        serverUserInfo: undefined,
+        primeSubscription: undefined,
+      };
+    }
+
     void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfServerPasswordNotSet(
       {
         serverUserInfo,
