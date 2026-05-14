@@ -737,15 +737,13 @@ function TokenListBlock({
         return;
       }
 
-      setScopedLpTokenListState({
-        initialized: false,
+      // Keep the rendered DeFi-token list during focus revalidation. Owner or
+      // mode changes already clear the scoped list above; clearing it here makes
+      // Tabs remeasure the page height when returning from token details.
+      setScopedLpTokenListState((prev) => ({
+        ...prev,
         isRefreshing: true,
-      });
-      setScopedLpTokenList({
-        tokens: [],
-        keys: '',
-      });
-      setScopedLpTokenListMap({});
+      }));
 
       try {
         const responses = await fetchFilteredTokenSelectorTokens({
