@@ -141,7 +141,7 @@ jobs:
         # would let Priority 3 recompute a fresh timestamp and re-introduce
         # the cross-platform drift this workflow was changed to fix.
         if: ${{ github.event.workflow_run }}
-        uses: dawidd6/action-download-artifact@v2
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: workflow-params
           run_id: ${{ github.event.workflow_run.id }}
