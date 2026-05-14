@@ -177,6 +177,15 @@ export default function PrimeDashboard({
     void fn();
   }, [isFocused, isAuthReady]);
 
+  // Clear local serverUserInfo state when user logs out (auto-logout, token
+  // expiry, device kicked, etc.) so the previous account's info cannot persist
+  // in this component's local state after the atom is cleared.
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setServerUserInfo(undefined);
+    }
+  }, [isLoggedIn]);
+
   const shouldShowConfirmButton = useMemo(() => {
     if (!isLoggedIn || !isPrimeSubscriptionActive) {
       return true;
