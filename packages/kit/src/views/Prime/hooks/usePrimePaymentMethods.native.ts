@@ -154,11 +154,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       console.log('restorePurchases >>>>>>');
       const customerInfo = await PurchasesReactNative.restorePurchases();
       console.log('restorePurchases >>>>>> customerInfo', customerInfo);
-      // Always fetch from server API as the source of truth, ignore SDK result
-      const { primeSubscription } =
+      const localIsActive = customerInfo?.entitlements?.active?.Prime?.isActive;
+      if (localIsActive) {
         await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-      const serverIsActive = primeSubscription?.isActive;
-      if (serverIsActive) {
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.prime_restore_successful,
