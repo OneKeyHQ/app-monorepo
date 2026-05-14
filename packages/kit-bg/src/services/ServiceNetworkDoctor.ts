@@ -2,8 +2,13 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IDiagnosticProgress } from '@onekeyhq/shared/src/modules/NetworkDoctor/types';
 import { isSupportIpTablePlatform } from '@onekeyhq/shared/src/utils/ipTableUtils';
+import {
+  clearTrackedInterval,
+  trackedSetInterval,
+} from '@onekeyhq/shared/src/utils/timerRegistry';
 
 import { networkDoctorStateAtom } from '../states/jotai/atoms';
 
@@ -20,11 +25,16 @@ class ServiceNetworkDoctor extends ServiceBase {
     targetProgress: number;
     currentProgress: number;
     intervalId?: ReturnType<typeof setInterval>;
+    safetyTimeoutId?: ReturnType<typeof setTimeout>;
     latestProgressData?: IDiagnosticProgress;
   } = {
     targetProgress: 0,
     currentProgress: 0,
   };
+
+  // Defense: a leaked smoother (e.g. diagnostics promise never settles)
+  // would burn 20 atom writes / sec forever. Cap total runtime.
+  private static readonly SMOOTHER_MAX_RUNTIME_MS = 90_000;
 
   /**
    * Smoothly interpolate progress from current to target
@@ -32,35 +42,55 @@ class ServiceNetworkDoctor extends ServiceBase {
   private startProgressSmoother(): void {
     // Clear existing interval
     if (this.progressSmoother.intervalId) {
-      clearInterval(this.progressSmoother.intervalId);
+      clearTrackedInterval(this.progressSmoother.intervalId);
+    }
+    if (this.progressSmoother.safetyTimeoutId) {
+      clearTimeout(this.progressSmoother.safetyTimeoutId);
     }
 
     // Update progress every 50ms for smooth animation
-    this.progressSmoother.intervalId = setInterval(() => {
-      const { currentProgress, targetProgress, latestProgressData } =
-        this.progressSmoother;
+    this.progressSmoother.intervalId = trackedSetInterval(
+      'networkDoctor:progressSmoother',
+      () => {
+        const { currentProgress, targetProgress, latestProgressData } =
+          this.progressSmoother;
 
-      if (!latestProgressData) return;
+        if (!latestProgressData) return;
 
-      // Linear interpolation step (increment by 2% each tick for smooth transition)
-      const step = 2;
+        // Linear interpolation step (increment by 2% each tick for smooth transition)
+        const step = 2;
 
-      if (currentProgress < targetProgress) {
-        const nextProgress = Math.min(currentProgress + step, targetProgress);
-        this.progressSmoother.currentProgress = nextProgress;
+        if (currentProgress < targetProgress) {
+          const nextProgress = Math.min(currentProgress + step, targetProgress);
+          this.progressSmoother.currentProgress = nextProgress;
 
-        // Update atom with interpolated progress
-        void networkDoctorStateAtom.set({
-          status: 'running',
-          progress: {
-            ...latestProgressData,
-            percentage: nextProgress,
-          },
-          result: null,
-          error: null,
-        });
-      }
-    }, 50); // 50ms = 20fps, smooth enough for progress bar
+          // Update atom with interpolated progress
+          void networkDoctorStateAtom.set({
+            status: 'running',
+            progress: {
+              ...latestProgressData,
+              percentage: nextProgress,
+            },
+            result: null,
+            error: null,
+          });
+        }
+      },
+      50,
+    ); // 50ms = 20fps, smooth enough for progress bar
+
+    this.progressSmoother.safetyTimeoutId = setTimeout(() => {
+      defaultLogger.app.perf.defensiveTriggered({
+        source: 'networkDoctor:progressSmoother',
+        reason: 'safety-timeout-hit',
+        details: {
+          maxRuntimeMs: ServiceNetworkDoctor.SMOOTHER_MAX_RUNTIME_MS,
+          lastTargetProgress: this.progressSmoother.targetProgress,
+          lastCurrentProgress: this.progressSmoother.currentProgress,
+        },
+      });
+      this.stopProgressSmoother();
+    }, ServiceNetworkDoctor.SMOOTHER_MAX_RUNTIME_MS);
   }
 
   /**
@@ -68,8 +98,12 @@ class ServiceNetworkDoctor extends ServiceBase {
    */
   private stopProgressSmoother(): void {
     if (this.progressSmoother.intervalId) {
-      clearInterval(this.progressSmoother.intervalId);
+      clearTrackedInterval(this.progressSmoother.intervalId);
       this.progressSmoother.intervalId = undefined;
+    }
+    if (this.progressSmoother.safetyTimeoutId) {
+      clearTimeout(this.progressSmoother.safetyTimeoutId);
+      this.progressSmoother.safetyTimeoutId = undefined;
     }
     this.progressSmoother.currentProgress = 0;
     this.progressSmoother.targetProgress = 0;

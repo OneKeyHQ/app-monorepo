@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -21,6 +23,7 @@ import {
   useTradingViewV2WebSocket,
 } from './hooks';
 import {
+  DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   fetchAndSendAccountMarks,
   useTradingViewMessageHandler,
 } from './messageHandlers';
@@ -30,6 +33,22 @@ import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+
+const MOCK_EMPTY_KLINE_BADGE_POSITION_STYLES = [
+  { right: '$2', bottom: '$2' },
+  { left: '$2', bottom: '$2' },
+  { left: '$2', top: '$2' },
+  { right: '$2', top: '$2' },
+] as const;
+
+function formatMockEmptyKLineIntervals(
+  intervals: ITradingViewKLineMockEmptyInterval[] | undefined,
+) {
+  if (!intervals?.length) {
+    return '未选择周期';
+  }
+  return intervals.join('/');
+}
 
 interface IBaseTradingViewV2Props {
   symbol: string;
@@ -47,8 +66,14 @@ export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
+  const currentKLineResolution = useRef(DEFAULT_TRADING_VIEW_KLINE_RESOLUTION);
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const [
+    mockEmptyKLineBadgePositionIndex,
+    setMockEmptyKLineBadgePositionIndex,
+  ] = useState(0);
 
   const {
     tokenAddress = '',
@@ -71,6 +96,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     accountAddress,
     tokenSymbol: symbol,
     marksTimeRange,
+    currentKLineResolution,
     onTouchScroll,
   });
 
@@ -80,6 +106,16 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
   const effectiveDataSource =
     dataSource === 'websocket' && !tokenAddress ? 'polling' : dataSource;
+  const mockEmptyKLineEnabled =
+    devSettings.enabled &&
+    devSettings.settings?.mockTradingViewKLineEmptyEnabled;
+  const mockEmptyKLineIntervals =
+    devSettings.settings?.mockTradingViewKLineEmptyIntervals;
+  const mockEmptyKLineBadgeText = useMemo(
+    () =>
+      `Mock 空K线 ${formatMockEmptyKLineIntervals(mockEmptyKLineIntervals)}`,
+    [mockEmptyKLineIntervals],
+  );
 
   const additionalParams = useMemo(() => {
     return {
@@ -97,13 +133,16 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     additionalParams,
   });
 
-  // Disable OneKey data hooks when using HyperLiquid source
+  // OneKey realtime hooks only apply to app-served market candles.
   useAutoKLineUpdate({
     tokenAddress,
     networkId,
     webRef,
     enabled:
-      isVisible && effectiveDataSource !== 'websocket' && !isHyperLiquidSource,
+      isVisible &&
+      effectiveDataSource !== 'websocket' &&
+      !isHyperLiquidSource &&
+      !mockEmptyKLineEnabled,
   });
 
   useAutoTokenDetailUpdate({
@@ -118,7 +157,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     networkId,
     webRef,
     enabled:
-      isVisible && effectiveDataSource === 'websocket' && !isHyperLiquidSource,
+      isVisible &&
+      effectiveDataSource === 'websocket' &&
+      !isHyperLiquidSource &&
+      !mockEmptyKLineEnabled,
     chartType: '1m',
   });
 
@@ -142,6 +184,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         from: timeRange.min,
         to: timeRange.max,
         symbol: chartSymbol,
+        resolution: currentKLineResolution.current,
         webRef,
       });
     };
@@ -195,12 +238,28 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         handleSwapSuccess,
       );
     };
-  }, [isVisible, accountAddress, tokenAddress, networkId, chartSymbol, webRef]);
+  }, [
+    isVisible,
+    accountAddress,
+    tokenAddress,
+    networkId,
+    chartSymbol,
+    mockEmptyKLineEnabled,
+    mockEmptyKLineIntervals,
+    webRef,
+  ]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
+
+  const handleMockEmptyKLineBadgePress = useCallback(() => {
+    setMockEmptyKLineBadgePositionIndex(
+      (positionIndex) =>
+        (positionIndex + 1) % MOCK_EMPTY_KLINE_BADGE_POSITION_STYLES.length,
+    );
+  }, []);
 
   const webView = useMemo(
     () => (
@@ -237,6 +296,27 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
       {webView}
+
+      {mockEmptyKLineEnabled ? (
+        <Stack
+          position="absolute"
+          zIndex={2}
+          px="$2"
+          py="$1"
+          borderRadius="$1"
+          bg="#D92D20"
+          cursor="pointer"
+          maxWidth={220}
+          onPress={handleMockEmptyKLineBadgePress}
+          {...MOCK_EMPTY_KLINE_BADGE_POSITION_STYLES[
+            mockEmptyKLineBadgePositionIndex
+          ]}
+        >
+          <SizableText size="$bodyXsMedium" color="white" numberOfLines={2}>
+            {mockEmptyKLineBadgeText}
+          </SizableText>
+        </Stack>
+      ) : null}
 
       {platformEnv.isNativeIOS ? (
         <Stack

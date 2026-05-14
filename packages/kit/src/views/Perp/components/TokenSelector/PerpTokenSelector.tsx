@@ -45,6 +45,7 @@ import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   usePerpsActiveAssetCtxAtom,
+  usePerpsFavoritesOrderPersistAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
@@ -77,12 +78,12 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import {
-  type IFavoriteItem,
   usePerpActiveTabValidation,
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
+import { getTokenSelectorFavoriteItems } from '../../utils/tokenSelectorFavorites';
 import {
   markTokenSelectorPerfMeasure,
   startTokenSelectorPerfMeasure,
@@ -507,7 +508,16 @@ function BasePerpTokenSelectorContent({
     [closePopover, actions, onLoadingChange, spotUniverses],
   );
 
-  const { favoriteItems, isReady: isFavoritesReady } = usePerpsFavorites();
+  const { favoriteItems: perpFavoriteItems, isReady: isPerpFavoritesReady } =
+    usePerpsFavorites({ mode: 'perp' });
+  const { favoriteItems: spotFavoriteItems, isReady: isSpotFavoritesReady } =
+    usePerpsFavorites({ mode: 'spot' });
+  const favoriteItems = useMemo(
+    () => [...perpFavoriteItems, ...spotFavoriteItems],
+    [perpFavoriteItems, spotFavoriteItems],
+  );
+  const isFavoritesReady = isPerpFavoritesReady && isSpotFavoritesReady;
+  const [favoritesOrder] = usePerpsFavoritesOrderPersistAtom();
 
   // Freeze sort order while popover is open; refreshed on sort change or first data arrival.
   const ctxSnapshotRef = useRef(assetCtxsByDex);
@@ -750,7 +760,10 @@ function BasePerpTokenSelectorContent({
   // an O(n log n) resort on every frame for a 100+ item spot list. Per-row
   // hooks still read live values from spotPriceMap at render time; only the
   // row order is frozen.
-  const spotSortedList = useMemo((): ITokenSelectorListItem[] => {
+  const { spotSortedList, spotFavoriteSortedList } = useMemo((): {
+    spotSortedList: ITokenSelectorListItem[];
+    spotFavoriteSortedList: ITokenSelectorListItem[];
+  } => {
     const perfStartTime = startTokenSelectorPerfMeasure();
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
@@ -783,13 +796,12 @@ function BasePerpTokenSelectorContent({
         marketCap,
       };
     });
-    const hasVolumeData = mappedEntries.some((e) => e.volume24h > 0);
-    const entries = mappedEntries.filter(
-      (e) => !hasVolumeData || e.volume24h >= SPOT_SELECTOR_MIN_VOLUME,
-    );
 
-    if (sortField) {
-      entries.sort((a, b) => {
+    const sortEntries = (items: typeof mappedEntries) => {
+      if (!sortField) {
+        return items;
+      }
+      return [...items].toSorted((a, b) => {
         let cmp = 0;
         switch (sortField) {
           case 'name':
@@ -818,9 +830,17 @@ function BasePerpTokenSelectorContent({
         }
         return sortDirection === 'asc' ? cmp : -cmp;
       });
-    }
+    };
 
-    const result = entries.map((e) => e.item);
+    const hasVolumeData = mappedEntries.some((e) => e.volume24h > 0);
+    const entries = mappedEntries.filter(
+      (e) => !hasVolumeData || e.volume24h >= SPOT_SELECTOR_MIN_VOLUME,
+    );
+    const sortedEntries = sortEntries(entries);
+    const sortedFavoriteEntries = sortEntries(mappedEntries);
+
+    const result = sortedEntries.map((e) => e.item);
+    const favoriteResult = sortedFavoriteEntries.map((e) => e.item);
     if (perfStartTime !== undefined) {
       markTokenSelectorPerfMeasure(perfStartTime, {
         layout: 'desktop',
@@ -833,7 +853,10 @@ function BasePerpTokenSelectorContent({
       });
     }
 
-    return result;
+    return {
+      spotSortedList: result,
+      spotFavoriteSortedList: favoriteResult,
+    };
   }, [
     spotUniverses,
     selectorConfig?.field,
@@ -872,12 +895,12 @@ function BasePerpTokenSelectorContent({
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
       result = getSpotListBySearch();
     } else if (isPerpTokenSelectorFavoritesTab(displayPrimaryTab)) {
-      const favoriteAssetIds = new Set(
-        favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
-      );
-      result = perpSortedList.filter((item) =>
-        favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
-      );
+      result = getTokenSelectorFavoriteItems({
+        favoriteItems,
+        favoritesOrder: favoritesOrder.sequence,
+        perpItems: perpSortedList,
+        spotItems: spotFavoriteSortedList,
+      });
     } else if (isPerpTokenSelectorPerpsTab(displayActiveTab)) {
       result = perpSortedList;
     } else {
@@ -922,8 +945,10 @@ function BasePerpTokenSelectorContent({
     displayPrimaryTab,
     assetsByDex,
     categoryTabs,
+    favoritesOrder.sequence,
     favoriteItems,
     perpSortedList,
+    spotFavoriteSortedList,
     spotSortedList,
     searchQuery,
     selectorConfig?.direction,
@@ -949,8 +974,18 @@ function BasePerpTokenSelectorContent({
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
       return 'spot';
     }
+    if (isPerpTokenSelectorFavoritesTab(displayPrimaryTab)) {
+      const hasSpot = activeTabData.some((item) => item.spotUniverse);
+      const hasPerp = activeTabData.some((item) => !item.spotUniverse);
+      if (hasSpot && hasPerp) {
+        return 'mixed';
+      }
+      if (hasSpot) {
+        return 'spot';
+      }
+    }
     return 'perp';
-  }, [displayPrimaryTab]);
+  }, [activeTabData, displayPrimaryTab]);
   const desktopTableMinWidth =
     DESKTOP_TOKEN_SELECTOR_TABLE_MIN_WIDTH[desktopListLayout];
   const getRowDesktopLayout = useCallback(

@@ -364,8 +364,10 @@ function CreateOrImportWallet() {
             {intl.formatMessage({ id: ETranslations.more_options })}
           </SizableText>
           <YStack
+            pb="$5"
             $gtMd={{
               mx: '$-5',
+              pb: '$5',
             }}
           >
             {secondaryOptions.map(renderSecondaryItem)}

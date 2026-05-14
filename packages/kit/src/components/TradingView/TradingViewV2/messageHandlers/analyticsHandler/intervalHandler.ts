@@ -4,6 +4,7 @@ import type { IMessageHandlerParams } from '../types';
 
 export async function handleAnalyticsInterval({
   data,
+  context,
 }: IMessageHandlerParams): Promise<void> {
   // Safely extract analytics interval data with proper type checking
   const messageData = data.data;
@@ -16,6 +17,9 @@ export async function handleAnalyticsInterval({
     // Extract interval property safely
     const safeData = messageData as unknown as Record<string, unknown>;
     const interval = safeData.TVIntervalSelect as string;
+    if (context.currentKLineResolution) {
+      context.currentKLineResolution.current = interval;
+    }
 
     try {
       // Log to DEX analytics system

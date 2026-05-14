@@ -211,6 +211,7 @@ export interface IFetchTokensParams {
   accountId?: string;
   onlyAccountTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
+  lpToken?: boolean;
 }
 
 export interface IFetchTokenListParams {
@@ -224,6 +225,7 @@ export interface IFetchTokenListParams {
   keywords?: string;
   skipReservationValue?: boolean;
   onlyAccountTokens?: boolean;
+  lpToken?: boolean;
 }
 
 export interface IFetchTokenDetailParams {
